@@ -1,9 +1,12 @@
-import const
+import multihome.const as const
 import vxlan_utils
 
 from multihome.const import spytest_data
 from spytest import st, tgapi
 from multihome.host import get_cli_out
+import evpn_mh_utils as evpn_mh_obj
+from multihome.status_report import log, report_fail, report_pass, banner
+from multihome.dut import wait
 
 
 def create_a_raw_traffic_stream(stream_info):
@@ -61,7 +64,7 @@ def send_unicast_burst(stream_handle):
     :return: Result of the traffic test (bool).
     """
     st.log("Sending unicast burst")
-    return vxlan_utils.traffic_test_burst("unicast", stream_handle)
+    return vxlan_utils.traffic_test_burst("unicast", stream_handle, timeout=10)
 
 
 def start_lag_group_protocol(lag_handle, port):
@@ -71,7 +74,7 @@ def start_lag_group_protocol(lag_handle, port):
     :param port: The port to start the protocol on.
     """
     st.log("Starting LAG group")
-    tg_handle = lag_handle.values()[0]["tg_handle"]
+    tg_handle = list(lag_handle.values())[0]["tg_handle"]
     tmp_handle = lag_handle[port]["int_handle"]
     device_group = "/" + "/".join(tmp_handle.split("/", 3)[1:3])
     tg_handle.tg_test_control(action="start_protocol", handle=device_group)
@@ -85,7 +88,7 @@ def stop_lag_group_protocol(lag_handle, port):
     :param port: The port to stop the protocol on.
     """
     st.log("Stopping LAG group")
-    tg_handle = lag_handle.values()[0]["tg_handle"]
+    tg_handle = list(lag_handle.values())[0]["tg_handle"]
     tmp_handle = lag_handle[port]["int_handle"]
     tp_group = "/" + "/".join(tmp_handle.split("/", 3)[1:2])  # /topology:2
     tg_handle.tg_test_control(action="stop_protocol", handle=tp_group)
@@ -105,7 +108,7 @@ def create_lag_group_and_start_protocol(lag_handle, port, host_dict, device_grou
     tg = lag_handle[port]["tg_handle"]
     topology_name = "/" + lag_handle[port]["int_handle"].split("/")[1]  # /topology:2
     tg.tg_test_control(action="stop_protocol", handle=topology_name)
-    st.wait(10)  # give time to stop protocol
+    st.wait(15)  # give time to stop protocol
     _result_ = tg.tg_topology_config(
         topology_handle=topology_name,
         device_group_name=device_group_name,
@@ -140,7 +143,7 @@ def reset_topology_after_mac_move(lag_handle, port, new_port):
     :param port: from port
     :param new_port: to port
     """
-    tg_handle = lag_handle.values()[0]["tg_handle"]
+    tg_handle = list(lag_handle.values())[0]["tg_handle"]
     tmp_handle = lag_handle[port]["int_handle1"]
     stop_lag_group_protocol(lag_handle, port)
     device_group = "/" + "/".join(
@@ -220,3 +223,160 @@ def verify_bum_traffic(
             st.banner("{} traffic test failed".format(traffic_type))
             flag = False
     return flag
+
+def create_continous_traffic(
+    lag_handle,
+    stream,
+    src_port,
+    traffic_type,
+    dst_port="T1D4P1",
+):
+    transmit_mode = spytest_data.transmit_mode
+    rate_percent = spytest_data.rate_percent
+    spytest_data.transmit_mode = "continuous"
+    spytest_data.rate_percent = 0.01
+    stream_id = vxlan_utils.create_raw_traffic_stream(
+        lag_handle[src_port],
+        lag_handle[dst_port],
+        stream,
+        "raw",
+        spytest_data,
+        traffic_type,
+    )
+    spytest_data.transmit_mode = transmit_mode
+    spytest_data.rate_percent = rate_percent
+    wait(10)
+
+    return stream_id
+
+def continuous_traffic_control(
+    stream_list,
+    action,
+    tg_handle,
+    stop_start_protocols=False,
+    regenerate_traffic_items=False,
+):
+    flag = True
+    line = '-'*80
+
+    if action == 'start' or action == 'default':
+        ###stop/start all protocols###
+        if stop_start_protocols:
+            tg_handle.tg_test_control("stop_all_protocols")
+            wait(15)
+            tg_handle.tg_test_control("start_all_protocols")
+            wait(15)
+
+        ###Regenerate Traffic###
+        if regenerate_traffic_items and action != 'check':
+            tg_handle.tg_traffic_control(action='regenerate', stream_handle=stream_list)
+            tg_handle.tg_traffic_control(action='apply', stream_handle=stream_list)
+            wait(10)
+
+        ###Start Traffic###
+        tg_handle.tg_traffic_control(action='run', stream_handle=stream_list)
+        wait(30)
+
+    if action == 'start':
+        return flag
+
+    ###Stop Traffic###
+    tg_handle.tg_traffic_control(action='stop', stream_handle=stream_list)
+    st.wait(30)
+
+    if action == 'stop':
+        return flag
+
+    traffic_stat = tg_handle.tg_traffic_stats(mode='traffic_item', streams=stream_list)
+
+    min_perc = 92
+    max_perc = 108
+    row_format = '|{:20}|{:20}|{:20}|{:15}|'
+    msg = ""
+    for stream_id in traffic_stat['traffic_item'].keys():
+        if not stream_id.startswith('TI'): continue
+
+        banner("TRAFFIC ITEM {}".format(stream_id))
+        msg += line + "\n"
+        msg += row_format.format('Expected Rx', 'Actual Rx', '%', 'Result') + "\n"
+        msg += row_format.format('', '',
+                                  '({}%-{}%)'.format(str(min_perc),str(max_perc)), '') + "\n"
+        msg += line + "\n"
+        exp_rx = int(traffic_stat['traffic_item'][stream_id]['tx']['total_pkts'])
+        rx = int(traffic_stat['traffic_item'][stream_id]['rx']['total_pkts'])
+        perc = rx / float(exp_rx) * 100
+        if perc > min_perc and perc < max_perc:
+            msg += row_format.format(str(exp_rx), str(rx),
+                                     '{:.2f}'.format(perc), 'PASS') + "\n"
+            msg += line + "\n"
+            msg += "TRAFFIC ITEM {} PASSED".format(stream_id) + "\n"
+        else:
+            msg += row_format.format(str(exp_rx), str(rx),
+                                     '{:.2f}'.format(perc), 'FAIL') + "\n"
+            msg += line + "\n"
+            msg += "TRAFFIC ITEM {} FAILED".format(stream_id) + "\n"
+            flag = False
+        log(msg)
+    return flag
+
+
+def verify_df_ndf_traffic(
+    nodes,
+    lag_handle,
+    traffic_setup,
+):
+    msg = ""
+    result = True
+    # check es and ndf status
+    if not evpn_mh_obj.isDF(nodes["leaf0"], const.ESI1):
+        result = False
+        msg += "DF status is not set on leaf0 after resetting portchannel\n"
+
+    if evpn_mh_obj.isDF(nodes["leaf1"], const.ESI1):
+        result = False
+        msg += "DF status is set on leaf1 after resetting portchannel\n"
+
+    # check traffic : send L2 BUM traffic from H3
+    cmd_intf = "show interface counters"
+
+    stream = {
+        "src_endpoint": {
+            "port": "T1D4P1",
+            "host_ip": const.spytest_data.t1d4p1_ip_addr,
+            "gateway": const.spytest_data.d4t1_ip_addr,
+            "mac": const.spytest_data.t1d4p1_mac_addr,
+        },
+        "dst_endpoint": {
+            "port": "T1D2P1",
+            "host_ip": const.spytest_data.t1d2p1_ip_addr,
+            "gateway": const.spytest_data.d2t1_ip_addr,
+            "mac": const.spytest_data.t1d2p1_mac_addr,
+        },
+    }
+    verify_bum_traffic(lag_handle, stream, "T1D4P1", "broadcast", "T1D2P1")
+
+    df_downlink_curr = vxlan_utils.get_counters(
+        node=nodes["leaf0"],
+        cmd=cmd_intf,
+        target_iface=traffic_setup["D2T1P2"],
+        r_t_key="tx_ok",
+    )
+    log("df_downlink_curr is {}".format(df_downlink_curr))
+
+    ndf_downlink_curr = vxlan_utils.get_counters(
+        node=nodes["leaf1"],
+        cmd=cmd_intf,
+        target_iface=traffic_setup["D3T1P1"],
+        r_t_key="tx_ok",
+    )
+    log("ndf_downlink_curr is {}".format(ndf_downlink_curr))
+
+    if not (
+        df_downlink_curr >= 0.98 * int(const.spytest_data.pkts_per_burst)
+        and df_downlink_curr <= 1.1 * int(const.spytest_data.pkts_per_burst)
+        and ndf_downlink_curr <= 0.1 * int(const.spytest_data.pkts_per_burst)
+    ):
+        result = False
+        msg += "BUM traffic is not dropping in NDF\n"
+
+    return result, msg

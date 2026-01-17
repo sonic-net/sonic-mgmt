@@ -1,4 +1,5 @@
 from multihome.const import SEQ_IDS, LEAF0_VXLAN_IP, LEAF1_VXLAN_IP, spytest_data
+from multihome.status_report import report_fail
 from spytest import st
 
 
@@ -95,7 +96,7 @@ def verify_sonic_app_db_for_pfx(nodes, prefix_ip, vtep_node_name, match_string):
     for path in parsed:
         if path["ip_address"] == prefix_ip:
             return
-    st.report_fail(
+    report_fail(
         nodes[vtep_node_name],
         "verify_sonic_app_db_for_pfx testcase failed for {} on node {}".format(
             prefix_ip, vtep_node_name
@@ -118,7 +119,7 @@ def verify_sonic_asic_db_for_neighbor_pfx(nodes, prefix_ip, src_vtep, dst_vtep=N
     )
     if len(parsed) == 0:
         st.log("ERROR empty output")
-        st.report_fail(
+        report_fail(
             nodes[src_vtep],
             "{} neighbor entry missing in ASIC DB on {}".format(prefix_ip, src_vtep),
         )
@@ -126,7 +127,7 @@ def verify_sonic_asic_db_for_neighbor_pfx(nodes, prefix_ip, src_vtep, dst_vtep=N
     for path in parsed:
         if path["ip_address"].split("/")[0] == prefix_ip:
             return
-    st.report_fail(
+    report_fail(
         nodes[src_vtep],
         "{} neighbor entry missing in ASIC DB on {}".format(prefix_ip, src_vtep),
     )
@@ -146,12 +147,19 @@ def is_nhg_installed(nodes):
         spytest_data.lag_mac
     )
 
-    output = st.show(nodes["leaf2"], cmd, skip_tmpl=True, skip_error_check=True)
-    parsed = st.parse_show(
-        nodes["leaf2"], cmd, output, "sonic_db_dump_app_db_VXLAN_FDB_TABLE.tmpl"
-    )
+    retries = 5
+    while retries > 0:
+        output = st.show(nodes["leaf2"], cmd, skip_tmpl=True, skip_error_check=True)
+        parsed = st.parse_show(
+            nodes["leaf2"], cmd, output, "sonic_db_dump_app_db_VXLAN_FDB_TABLE.tmpl"
+        )
+        retries -= 1
+        if parsed:
+            st.log("VXLAN_FDB_TABLE retries left {}: {}".format(retries, parsed))
+            break
+        st.wait(5)
     if not parsed:
-        st.report_fail(nodes["leaf2"], "No nexthop group is found on leaf2")
+        report_fail(nodes["leaf2"], "No nexthop group is found on leaf2")
     nexthop_group = parsed[0]["nexthop_group"]
 
     # Dump NEXTHOP_GROUP_TABLE
@@ -164,7 +172,7 @@ def is_nhg_installed(nodes):
     )
     nexthops = parsed[0]["nexthop_group"].split(",")
     if len(nexthops) != len(vtep_list):
-        st.report_fail(nodes["leaf2"], "Incorrect number of nexthop group members")
+        report_fail(nodes["leaf2"], "Incorrect number of nexthop group members")
 
     # Dump NEXTHOP_GROUP_TABLE of each nexthop group member
     vtep0_seen = False
@@ -187,11 +195,11 @@ def is_nhg_installed(nodes):
             vtep1_seen = True
 
     if (not vtep0_seen) and (not vtep1_seen):
-        st.report_fail(nodes["leaf2"], "Both leaf0 and leaf1 are missing as nexthops")
+        report_fail(nodes["leaf2"], "Both leaf0 and leaf1 are missing as nexthops")
     elif not vtep0_seen:
-        st.report_fail(nodes["leaf2"], "Leaf0 is missing as nexthop")
+        report_fail(nodes["leaf2"], "Leaf0 is missing as nexthop")
     elif not vtep1_seen:
-        st.report_fail(nodes["leaf2"], "Leaf1 is missing as nexthop")
+        report_fail(nodes["leaf2"], "Leaf1 is missing as nexthop")
 
 
 def verify_sonic_asic_db_for_pfx(nodes, prefix_ip, src_vtep, dst_vtep=None):
@@ -209,7 +217,7 @@ def verify_sonic_asic_db_for_pfx(nodes, prefix_ip, src_vtep, dst_vtep=None):
     )
     if len(parsed) == 0:
         st.log("ERROR empty output")
-        st.report_fail(
+        report_fail(
             nodes[src_vtep],
             "verify_sonic_asic_db_for_pfx {} not found in asic db on {}".format(
                 prefix_ip, src_vtep
@@ -243,7 +251,7 @@ def verify_sonic_asic_db_for_pfx(nodes, prefix_ip, src_vtep, dst_vtep=None):
                     ):
                         st.log("Testcase passed")
                         return
-    st.report_fail(
+    report_fail(
         nodes[src_vtep],
         "verify_sonic_asic_db_for_pfx incorrect details found in asic_db for {} on {}".format(
             prefix_ip, src_vtep

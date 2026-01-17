@@ -76,6 +76,7 @@ leaf0:
         debug bgp zebra
         debug zebra evpn mh neigh
         debug zebra dplane detailed
+        evpn mh startup-delay 15
         log stdout
         log syslog
         router bgp 10
@@ -218,6 +219,7 @@ leaf1:
         debug bgp zebra
         debug zebra evpn mh neigh
         debug zebra dplane detailed
+        evpn mh startup-delay 15
         log stdout
         log syslog
         router bgp 20
@@ -360,6 +362,7 @@ leaf2:
         debug bgp zebra
         debug zebra evpn mh neigh
         debug zebra dplane detailed
+        evpn mh startup-delay 15
         log stdout
         log syslog
         router bgp 30
@@ -462,6 +465,7 @@ spine0:
         debug bgp zebra
         debug zebra evpn mh neigh
         debug zebra dplane detailed
+        evpn mh startup-delay 15
         log stdout
         log syslog
         router bgp 80

@@ -52,7 +52,7 @@ def configure_cmd(node, cmd):
     st.wait(10)
 
 
-def is_mac_exists(nodes, dut_name, mac, interface=None):
+def is_mac_exists(nodes, dut_name, mac, interface=None, is_dynamic=False):
     """
     Check if MAC exists in the source VTEP
     :param nodes: List of nodes
@@ -74,6 +74,8 @@ def is_mac_exists(nodes, dut_name, mac, interface=None):
     ):  # parsed would contain minimum of 1 entry because of total entries field in show mac o/p
         return False
     if interface and parsed[0]["port"] != interface:
+        return False
+    if is_dynamic and parsed[0]["type"] != "Dynamic":
         return False
     return True
 
@@ -223,6 +225,32 @@ def verify_vrf_route_l3vni(nodes, prefix_ip, vtep_host, vrf):
         ):
             return True
     return False
+
+
+def get_mac_static_dynamic(nodes, dut, mac):
+    """
+    get_mac_static_dynamic
+    Args:
+        nodes (WA)      : WorkArea objects (DUTs)
+        dut (str)       : dut of interest
+        mac (str)       : MAC address to check
+    Returns:
+        tuple: (static, dynamic) - True if static or dynamic MAC exists, False otherwise
+    """
+    static = False
+    dynamic = False
+    #Verify MH mac is static on 1 leaf and dynamic on another
+    output = st.show(nodes[dut], 'show mac -a {}'.format(mac), skip_tmpl=True, skip_error_check=True)
+    parsed = st.parse_show(nodes[dut], 'show mac', output, 'show_mac.tmpl')
+    st.log(parsed)
+    if len(parsed) == 1:
+        st.log("empty mac output")
+    for path in parsed:
+        if path['type'] == 'Dynamic':
+            dynamic = True
+        elif path['type'] == 'Static':
+            static = True
+    return static, dynamic
 
 
 def reload_config(node):

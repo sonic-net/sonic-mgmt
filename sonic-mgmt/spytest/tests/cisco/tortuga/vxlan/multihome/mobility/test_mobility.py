@@ -1,11 +1,9 @@
-import evpn_mh_utils
 import vxlan_utils
-
 
 from multihome import const
 from multihome import db, host, traffic_generator, vtysh
 from multihome.mobility import helpers
-from multihome.status_report import report_pass, report_fail, start_banner, log
+from multihome.status_report import report_pass, report_fail, banner, log
 
 # Please update the FRR db seq if any MAC move testcases are updated/added.
 
@@ -14,7 +12,7 @@ def test_mac_ip_move_sh(traffic_setup):
     """
     SH mac move test when H1 is moved from L0 to L2 and moved back, H1->H3
     """
-    start_banner(
+    banner(
         "SH mac move test when H1 is moved from L0 to L2 and moved back, H1->H3"
     )
     nodes = traffic_setup["duts"]
@@ -67,7 +65,7 @@ def test_mac_ip_move_sh(traffic_setup):
         )
 
     h2_counter = vxlan_utils.get_counters(
-        node=nodes["leaf1"],
+        node=nodes["leaf0"],
         cmd="show interface counters",
         target_iface=traffic_setup["D2T1P2"],
         r_t_key="rx_ok",
@@ -222,13 +220,13 @@ def test_mac_ip_move_sh(traffic_setup):
     )
 
     # move H1 back behind leaf0
-    start_banner("Moving H1 back behind Leaf0")
+    banner("Moving H1 back behind Leaf0")
 
     traffic_generator.reset_topology_after_mac_move(
         lag_handle, const.port_name_map["H3"], const.port_name_map["H1"]
     )
     h5_h1_hdl = helpers.create_h5_h1_traffic_stream_handle()
-    result = vxlan_utils.traffic_test_burst("unicast", h5_h1_hdl)
+    result = traffic_generator.send_unicast_burst(h5_h1_hdl)
     if not result:
         report_fail(
             nodes["leaf1"],
@@ -326,13 +324,13 @@ def test_mac_ip_move_sh_to_mh(traffic_setup):
     """
     MH mac move test when H1 is moved to H2 and moved back
     """
-    start_banner("MH mac move test when H1 is moved to H2 and moved back")
+    banner("MH mac move test when H1 is moved to H2 and moved back")
     nodes = traffic_setup["duts"]
     lag_handle = traffic_setup["lag_handle"]
 
     # create raw traffic stream from H5 to H1
     h5_h1_hdl = helpers.create_h5_h1_traffic_stream_handle()
-    result = vxlan_utils.traffic_test_burst("unicast", h5_h1_hdl)
+    result = traffic_generator.send_unicast_burst(h5_h1_hdl)
     if not result:
         report_fail(
             nodes["leaf0"],
@@ -407,7 +405,7 @@ def test_mac_ip_move_sh_to_mh(traffic_setup):
     log(helpers.PING_AND_UNICAST_TRAFFIC_SUCCESS.format("h5", "h1"))
 
     # old traffic stream should fail now
-    result = vxlan_utils.traffic_test_burst("unicast", h5_h1_hdl)
+    result = traffic_generator.send_unicast_burst(h5_h1_hdl)
     if result:
         traffic_generator.reset_topology_after_mac_move(
             lag_handle, const.port_name_map["H2"], const.port_name_map["H1"]
@@ -581,12 +579,12 @@ def test_mac_ip_move_sh_to_mh(traffic_setup):
     )
 
     # move H1 back behind leaf0
-    start_banner("Moving H1 back behind Leaf0")
+    banner("Moving H1 back behind Leaf0")
     traffic_generator.reset_topology_after_mac_move(
         lag_handle, const.port_name_map["H2"], const.port_name_map["H1"]
     )
     h5_h1_hdl = helpers.create_h5_h1_traffic_stream_handle()
-    result = vxlan_utils.traffic_test_burst("unicast", h5_h1_hdl)
+    result = traffic_generator.send_unicast_burst(h5_h1_hdl)
     if not result:
         report_fail(
             nodes["leaf1"],
@@ -681,7 +679,7 @@ def test_mac_ip_move_remote_sh_to_mh(traffic_setup):
     """
     SH mac move test when H3  is moved to H2 and moved back
     """
-    start_banner("SH mac move test when H3  is moved to H2 and moved back")
+    banner("SH mac move test when H3  is moved to H2 and moved back")
     nodes = traffic_setup["duts"]
     lag_handle = traffic_setup["lag_handle"]
     # create raw traffic stream from H5 to H3
@@ -701,7 +699,7 @@ def test_mac_ip_move_remote_sh_to_mh(traffic_setup):
             },
         }
     )
-    result = vxlan_utils.traffic_test_burst("unicast", h5_h3_hdl)
+    result = traffic_generator.send_unicast_burst(h5_h3_hdl)
     if not result:
         report_fail(
             nodes["leaf0"],
@@ -771,7 +769,7 @@ def test_mac_ip_move_remote_sh_to_mh(traffic_setup):
         report_fail(nodes["leaf0"], helpers.ERR_TRAFFIC_FLOOD("h5", "h2"))
     log(helpers.PING_AND_UNICAST_TRAFFIC_SUCCESS.format("h5", "h3"))
     # old traffic stream should fail now
-    result = vxlan_utils.traffic_test_burst("unicast", h5_h3_hdl)
+    result = traffic_generator.send_unicast_burst(h5_h3_hdl)
     if result:
         traffic_generator.reset_topology_after_mac_move(
             lag_handle, const.port_name_map["H2"], const.port_name_map["H3"]
@@ -918,11 +916,11 @@ def test_mac_ip_move_remote_sh_to_mh(traffic_setup):
     )
 
     # move H3 back behind leaf2
-    start_banner("Moving H3 back behind Leaf2")
+    banner("Moving H3 back behind Leaf2")
     traffic_generator.reset_topology_after_mac_move(
         lag_handle, const.port_name_map["H2"], const.port_name_map["H3"]
     )
-    result = vxlan_utils.traffic_test_burst("unicast", h5_h3_hdl)
+    result = traffic_generator.send_unicast_burst(h5_h3_hdl)
     if not result:
         report_fail(
             nodes["leaf1"],
@@ -1033,7 +1031,7 @@ def test_mac_ip_move_mh_to_remote_sh(traffic_setup):
     """
     MH mac move test when H2 is moved to H3 and moved back
     """
-    start_banner("MH mac move test when H2 is moved to H3 and moved back")
+    banner("MH mac move test when H2 is moved to H3 and moved back")
     nodes = traffic_setup["duts"]
     lag_handle = traffic_setup["lag_handle"]
 
@@ -1069,7 +1067,7 @@ def test_mac_ip_move_mh_to_remote_sh(traffic_setup):
         )
 
     # stop H2 for mac move
-    start_banner("Moving H2")
+    banner("Moving H2")
     traffic_generator.stop_lag_group_protocol(lag_handle, const.port_name_map["H2"])
     # create same device as stopped device behind different leaf, H2 moved behind leaf0
     host_info_map = {
@@ -1096,7 +1094,7 @@ def test_mac_ip_move_mh_to_remote_sh(traffic_setup):
             ),
         )
 
-    start_banner("Traffic tests for the moved H2")
+    banner("Traffic tests for the moved H2")
     # verifications
     stream = {
         "src_endpoint": {
@@ -1319,7 +1317,7 @@ def test_mac_ip_move_mh_to_remote_sh(traffic_setup):
     )
 
     # move H2 back behind leaf0-leaf1
-    start_banner("Moving H2 back behind Leaf0-Leaf1")
+    banner("Moving H2 back behind Leaf0-Leaf1")
     traffic_generator.reset_topology_after_mac_move(
         lag_handle, const.port_name_map["H3"], const.port_name_map["H2"]
     )
@@ -1453,7 +1451,7 @@ def test_sh_mac_ip_move_h1_h5(traffic_setup):
     nodes = traffic_setup["duts"]
     lag_handle = traffic_setup["lag_handle"]
 
-    start_banner("SH mac move test when H1 -> H5")
+    banner("SH mac move test when H1 -> H5")
     # create raw traffic stream from H3 to H1
     h3_h1_hdl = traffic_generator.create_a_raw_traffic_stream(
         {
@@ -1471,7 +1469,7 @@ def test_sh_mac_ip_move_h1_h5(traffic_setup):
             },
         }
     )
-    result = vxlan_utils.traffic_test_burst("unicast", h3_h1_hdl)
+    result = traffic_generator.send_unicast_burst(h3_h1_hdl)
     if not result:
         report_fail(
             nodes["leaf0"],
@@ -1506,7 +1504,7 @@ def test_sh_mac_ip_move_h1_h5(traffic_setup):
             },
         }
     )
-    result = vxlan_utils.traffic_test_burst("unicast", h3_moved_h1_handle)
+    result = traffic_generator.send_unicast_burst(h3_moved_h1_handle)
     if not result:
         traffic_generator.reset_topology_after_mac_move(
             lag_handle, const.port_name_map["H5"], const.port_name_map["H1"]
@@ -1521,7 +1519,7 @@ def test_sh_mac_ip_move_h1_h5(traffic_setup):
     h2_counter = vxlan_utils.get_counters(
         node=nodes["leaf1"],
         cmd="show interface counters",
-        target_iface=traffic_setup["D2T1P2"],
+        target_iface=traffic_setup["D3T1P1"],
         r_t_key="rx_ok",
     )
     if not (h2_counter <= 0.1 * int(const.spytest_data.pkts_per_burst)):
@@ -1532,7 +1530,7 @@ def test_sh_mac_ip_move_h1_h5(traffic_setup):
     log("ping and traffic from h3 to h1 passed after mac move with unicast traffic")
 
     # old traffic stream should fail now
-    result = vxlan_utils.traffic_test_burst("unicast", h3_h1_hdl)
+    result = traffic_generator.send_unicast_burst(h3_h1_hdl)
     if result:
         traffic_generator.reset_topology_after_mac_move(
             lag_handle, const.port_name_map["H5"], const.port_name_map["H1"]
@@ -1663,7 +1661,7 @@ def test_sh_mac_ip_move_h1_h5(traffic_setup):
             },
         }
     )
-    result = vxlan_utils.traffic_test_burst("unicast", h3_h1_hdl)
+    result = traffic_generator.send_unicast_burst(h3_h1_hdl)
     if not result:
         report_fail(
             nodes["leaf1"],
@@ -1739,7 +1737,7 @@ def test_sh_mac_ip_move_h3_h4(traffic_setup):
     """
     SH mac move test when H3 -> H4
     """
-    start_banner("SH mac move test when H3 -> H4")
+    banner("SH mac move test when H3 -> H4")
     nodes = traffic_setup["duts"]
     lag_handle = traffic_setup["lag_handle"]
 
@@ -1760,7 +1758,7 @@ def test_sh_mac_ip_move_h3_h4(traffic_setup):
             },
         }
     )
-    result = vxlan_utils.traffic_test_burst("unicast", h5_h3_hdl)
+    result = traffic_generator.send_unicast_burst(h5_h3_hdl)
     if not result:
         report_fail(
             nodes["leaf0"], helpers.ERR_PING_AND_UNICAST_TRAFFIC_FAILED.format("h5", "h3", "")
@@ -1802,7 +1800,7 @@ def test_sh_mac_ip_move_h3_h4(traffic_setup):
             },
         }
     )
-    result = vxlan_utils.traffic_test_burst("unicast", h5_moved_h3_handle)
+    result = traffic_generator.send_unicast_burst(h5_moved_h3_handle)
     if not result:
         traffic_generator.reset_topology_after_mac_move(
             lag_handle, const.port_name_map["H4"], const.port_name_map["H3"]
@@ -1819,7 +1817,7 @@ def test_sh_mac_ip_move_h3_h4(traffic_setup):
     h2_counter = vxlan_utils.get_counters(
         node=nodes["leaf1"],
         cmd="show interface counters",
-        target_iface=traffic_setup["D2T1P2"],
+        target_iface=traffic_setup["D3T1P1"],
         r_t_key="rx_ok",
     )
     if not (h2_counter <= 0.1 * int(const.spytest_data.pkts_per_burst)):
@@ -1834,7 +1832,7 @@ def test_sh_mac_ip_move_h3_h4(traffic_setup):
     log("ping and traffic from h5 to h3 passed after mac move with unicast traffic")
 
     # old traffic stream should fail now
-    result = vxlan_utils.traffic_test_burst("unicast", h5_h3_hdl)
+    result = traffic_generator.send_unicast_burst(h5_h3_hdl)
     if result:
         traffic_generator.reset_topology_after_mac_move(
             lag_handle, const.port_name_map["H4"], const.port_name_map["H3"]
@@ -1942,7 +1940,7 @@ def test_sh_mac_ip_move_h3_h4(traffic_setup):
     host.configure_cmd(nodes["leaf2"], cmd)
     cmd = "sudo config vlan member add -u 20 {}".format(traffic_setup["D4T1P2"])
     host.configure_cmd(nodes["leaf2"], cmd)
-    result = vxlan_utils.traffic_test_burst("unicast", h5_h3_hdl)
+    result = traffic_generator.send_unicast_burst(h5_h3_hdl)
     if not result:
         report_fail(
             nodes["leaf2"],

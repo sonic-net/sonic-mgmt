@@ -71,7 +71,9 @@ def configure():
         "D3T1P2": vars.D3T1P2,
         "D4T1P1": vars.D4T1P1,
         "D4T1P2": vars.D4T1P2,
+        "D2D1P1": vars.D2D1P1,
     }
+    dut.wait(15)
     yield test_data
 
     # Destroy LAG interface

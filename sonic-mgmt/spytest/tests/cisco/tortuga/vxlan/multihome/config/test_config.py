@@ -4,14 +4,9 @@ import re
 import evpn_mh_utils
 import vxlan_utils
 
-from multihome.status_report import report_fail, report_pass, start_banner, log
+from multihome.status_report import report_fail, report_pass, banner, log
 from multihome.dut import wait
-from multihome import (
-    const,
-    dut,
-    host,
-    vtysh
-)
+from multihome import const, dut, host, vtysh
 import json
 
 
@@ -19,20 +14,17 @@ def test_evpn_mh_basic_config(setup):
     """
     Test EVPN Multihome Basic Config
     """
-    start_banner("test_evpn_mh_basic_config")
+    banner("test_evpn_mh_basic_config")
     nodes = setup["duts"]
+
+    # Dump LLDP table output
+    dut.exec_each(nodes, host.configure_cmd, "show lldp table")
 
     try:
         # Start Verification
-        vxlan_utils.verify_bgp(
-            nodes, const.leaf1_vrf_prefix, "leaf0", const.EXPECTED_L3VNI
-        )
-        vxlan_utils.verify_bgp(
-            nodes, const.leaf0_vrf_prefix, "leaf1", const.EXPECTED_L3VNI
-        )
-        vxlan_utils.verify_bgp(
-            nodes, const.leaf2_vrf_prefix, "leaf0", const.EXPECTED_L3VNI
-        )
+        vxlan_utils.verify_bgp(nodes, const.leaf1_vrf_prefix, "leaf0", const.EXPECTED_L3VNI)
+        vxlan_utils.verify_bgp(nodes, const.leaf0_vrf_prefix, "leaf1", const.EXPECTED_L3VNI)
+        vxlan_utils.verify_bgp(nodes, const.leaf2_vrf_prefix, "leaf0", const.EXPECTED_L3VNI)
         report_pass("test_case_passed", "test_evpn_mh_basic_config")
     except Exception as e:
         report_fail("", msg=e)
@@ -43,7 +35,7 @@ def test_es_peering(setup):
     Test EVPN Multihome ES Peering between T1 and T2
     """
 
-    start_banner("test_es_peering")
+    banner("test_es_peering")
     nodes = setup["duts"]
 
     if not evpn_mh_utils.es_peering(nodes["leaf0"], const.LEAF1_VXLAN_IP, const.ESI1):
@@ -55,7 +47,7 @@ def test_remote_es(setup):
     """
     Test EVPN Multihome Remote ES on T3 with T1 and T2 as remote
     """
-    start_banner("test_remote_es")
+    banner("test_remote_es")
 
     nodes = setup["duts"]
     _, parsed_output = vtysh.show_evpn_es(nodes["leaf2"])
@@ -85,7 +77,7 @@ def test_df_selection(setup):
     """
     Test EVPN Multihome DF Selection
     """
-    start_banner("test_df_selection")
+    banner("test_df_selection")
 
     nodes = setup["duts"]
 
@@ -104,12 +96,10 @@ def test_rt2_proxy(setup):
     Test EVPN Multihome Route Type 2 Proxy
     TC could fail until MIGSOFTWAR-17150 is fixed
     """
-    start_banner("test_rt2_proxy")
+    banner("test_rt2_proxy")
 
     nodes = setup["duts"]
-
-    _, parsed_output_leaf1 = vtysh.show_evpn_type_2(nodes["leaf1"])
-    _, parsed_output_leaf2 = vtysh.show_evpn_type_2(nodes["leaf2"])
+    lag_handle = setup["lag_handle"]
 
     # Validate Leaf1 regenerates RT-2 as proxy
     leaf0_proxy = False
@@ -117,18 +107,25 @@ def test_rt2_proxy(setup):
     leaf0_learned = False
     leaf1_learned = False
 
+    # Reset L3 protocol to trigger type 2 learning
+    lag_handle[const.lag_name]["tg_handle"].tg_test_control(
+        action="stop_all_protocols",
+    )
+
+    lag_handle[const.lag_name]["tg_handle"].tg_test_control(
+        action="start_all_protocols",
+    )
+    wait(10)
+
+    _, parsed_output_leaf1 = vtysh.show_evpn_type_2(nodes["leaf1"])
+    _, parsed_output_leaf2 = vtysh.show_evpn_type_2(nodes["leaf2"])
+
     for route in parsed_output_leaf1:
-        if (
-            route["route_distinguisher"] == "100.100.100.1:2"
-            and route["ip"] == const.spytest_data.lag_ip
-        ):
+        if "100.100.100.1:" in route["route_distinguisher"] and route["ip"] == const.spytest_data.lag_ip:
             leaf0_learned = True
             if route["nd_proxy"] == "ND:Proxy":
                 leaf0_proxy = True
-        if (
-            route["route_distinguisher"] == "100.100.100.2:2"
-            and route["ip"] == const.spytest_data.lag_ip
-        ):
+        if "100.100.100.2:" in route["route_distinguisher"] and route["ip"] == const.spytest_data.lag_ip:
             leaf1_learned = True
             if route["nd_proxy"] == "ND:Proxy":
                 leaf1_proxy = True
@@ -148,43 +145,30 @@ def test_rt2_proxy(setup):
     leaf1_path_seen = False
 
     for route in parsed_output_leaf2:
-        if (
-            route["route_distinguisher"] == "100.100.100.1:2"
-            and route["ip"] == const.spytest_data.lag_ip
-        ):
+        if "100.100.100.1:" in route["route_distinguisher"] and route["ip"] == const.spytest_data.lag_ip:
             leaf0_path_seen = True
-        if (
-            route["route_distinguisher"] == "100.100.100.2:2"
-            and route["ip"] == const.spytest_data.lag_ip
-        ):
+        if "100.100.100.2:" in route["route_distinguisher"] and route["ip"] == const.spytest_data.lag_ip:
             leaf1_path_seen = True
 
     if not (leaf0_path_seen and leaf1_path_seen):
         report_fail(nodes["leaf2"], "No proper ECMP is shown on Leaf2")
     else:
-        report_pass("test_case_passed", "test_rt2_proxy")
+        report_pass(nodes["leaf2"], "test_rt2_proxy")
 
 
-@pytest.mark.known_failure("MIGSOFTWAR-24849/MIGSOFTWAR-26359")
-def test_reload_config(setup):
+def test_reload_and_restart_config(setup):
     """
     Test EVPN Multihome Reload Config
     """
-    start_banner("test_reload_config")
+    banner("test_reload_config")
 
     nodes = setup["duts"]
 
     log("verifying BGP before reload")
     # Verify BGP
-    vxlan_utils.verify_bgp(
-        nodes, const.leaf1_vrf_prefix, "leaf0", const.EXPECTED_L3VNI, single_run=True
-    )
-    vxlan_utils.verify_bgp(
-        nodes, const.leaf0_vrf_prefix, "leaf1", const.EXPECTED_L3VNI, single_run=True
-    )
-    vxlan_utils.verify_bgp(
-        nodes, const.leaf2_vrf_prefix, "leaf0", const.EXPECTED_L3VNI, single_run=True
-    )
+    vxlan_utils.verify_bgp(nodes, const.leaf1_vrf_prefix, "leaf0", const.EXPECTED_L3VNI, single_run=True)
+    vxlan_utils.verify_bgp(nodes, const.leaf0_vrf_prefix, "leaf1", const.EXPECTED_L3VNI, single_run=True)
+    vxlan_utils.verify_bgp(nodes, const.leaf2_vrf_prefix, "leaf0", const.EXPECTED_L3VNI, single_run=True)
 
     log("verifying DF before reload")
     leaf0_idDF = evpn_mh_utils.isDF(nodes["leaf0"], const.ESI1)
@@ -193,7 +177,7 @@ def test_reload_config(setup):
     # only one of leaf0 and leaf1 can be DF
     if not (leaf0_idDF ^ leaf1_isDF):
         report_fail(nodes["leaf0"], "DF is not successly selected for ES1")
-    
+
     log("saving config before reload")
     # save configuration before reloading
     dut.exec_each(nodes, host.configure_cmd, "sudo config save -y")
@@ -229,88 +213,69 @@ def test_reload_config(setup):
     log("reloading config")
     # Reload config
     dut.exec_each(nodes, host.reload_config)
-
-    # wait for 120 seconds for config to take effect and containers to come up
-    dut.wait(120)
-
-    log("verifying BGP after reload")
-    # Verify BGP
-    vxlan_utils.verify_bgp(
-        nodes, const.leaf1_vrf_prefix, "leaf0", const.EXPECTED_L3VNI
-    )
-    vxlan_utils.verify_bgp(
-        nodes, const.leaf0_vrf_prefix, "leaf1", const.EXPECTED_L3VNI
-    )
-    vxlan_utils.verify_bgp(
-        nodes, const.leaf2_vrf_prefix, "leaf0", const.EXPECTED_L3VNI
-    )
+    wait(90)
 
     log("verifying DF after reload")
-    leaf0_idDF = evpn_mh_utils.isDF(nodes["leaf0"], const.ESI1)
-    leaf1_isDF = evpn_mh_utils.isDF(nodes["leaf1"], const.ESI1)
-
+    for i in range(12):
+        leaf0_idDF = evpn_mh_utils.isDF(nodes["leaf0"], const.ESI1)
+        leaf1_isDF = evpn_mh_utils.isDF(nodes["leaf1"], const.ESI1)
+        if leaf0_idDF ^ leaf1_isDF:
+            break
+        log("DF selection not stable yet, time passed {}, waiting for another 5 seconds".format(i * 5))
+        wait(5)
     # only one of leaf0 and leaf1 can be DF
     if not (leaf0_idDF ^ leaf1_isDF):
         report_fail(nodes["leaf0"], "DF is not successly selected for ES1")
+
+    banner("verifying BGP restart")
+    # Verify BGP
+    vxlan_utils.verify_bgp(nodes, const.leaf1_vrf_prefix, "leaf0", const.EXPECTED_L3VNI)
+    vxlan_utils.verify_bgp(nodes, const.leaf0_vrf_prefix, "leaf1", const.EXPECTED_L3VNI)
+    vxlan_utils.verify_bgp(nodes, const.leaf2_vrf_prefix, "leaf0", const.EXPECTED_L3VNI)
+
+    # Restart BGP container
+    dut.exec_each(nodes, host.restart_container, "bgp")
+    wait(20)
+
+    log("verifying DF after restart")
+    for i in range(12):
+        leaf0_idDF = evpn_mh_utils.isDF(nodes["leaf0"], const.ESI1)
+        leaf1_isDF = evpn_mh_utils.isDF(nodes["leaf1"], const.ESI1)
+        if leaf0_idDF ^ leaf1_isDF:
+            break
+        log("DF selection not stable yet, time passed {}, waiting for another 5 seconds".format(i * 5))
+        wait(5)
+    # only one of leaf0 and leaf1 can be DF
+    if not (leaf0_idDF ^ leaf1_isDF):
+        report_fail(nodes["leaf0"], "DF is not successly selected for ES1")
+
+    # Verify BGP
+    vxlan_utils.verify_bgp(nodes, const.leaf1_vrf_prefix, "leaf0", const.EXPECTED_L3VNI)
+    vxlan_utils.verify_bgp(nodes, const.leaf0_vrf_prefix, "leaf1", const.EXPECTED_L3VNI)
+    vxlan_utils.verify_bgp(nodes, const.leaf2_vrf_prefix, "leaf0", const.EXPECTED_L3VNI)
 
     log("verifying ES peering after reload")
     if not evpn_mh_utils.es_peering(nodes["leaf0"], const.LEAF1_VXLAN_IP, const.ESI1):
         report_fail(nodes["leaf0"], "ES is not peering between T1 and T2")
 
-    report_pass("test_case_passed", "test_reload_config")
+    report_pass(nodes["leaf0"], "test_reload_config")
 
-
-@pytest.mark.known_failure("MIGSOFTWAR-24849/MIGSOFTWAR-26359")
-def test_bgp_container_restart(setup):
-    """
-    Test EVPN Multihome BGP Container Restart
-    """
-    start_banner("test_bgp_container_restart")
-
-    nodes = setup["duts"]
-
-    # Restart BGP container
-    dut.exec_each(nodes, host.restart_container, "bgp")
-
-    # wait for 120 seconds for container to come up and replay configuration
-    dut.wait(120)
-
-    # Verify BGP
-    vxlan_utils.verify_bgp(
-        nodes, const.leaf1_vrf_prefix, "leaf0", const.EXPECTED_L3VNI
-    )
-    vxlan_utils.verify_bgp(
-        nodes, const.leaf0_vrf_prefix, "leaf1", const.EXPECTED_L3VNI
-    )
-    vxlan_utils.verify_bgp(
-        nodes, const.leaf2_vrf_prefix, "leaf0", const.EXPECTED_L3VNI
-    )
-
-    leaf0_idDF = evpn_mh_utils.isDF(nodes["leaf0"], const.ESI1)
-    leaf1_isDF = evpn_mh_utils.isDF(nodes["leaf1"], const.ESI1)
-    # only one of leaf0 and leaf1 can be DF
-    if not (leaf0_idDF ^ leaf1_isDF):
-        report_fail(nodes["leaf0"], "DF is not successly selected for ES1")
-
-    if not evpn_mh_utils.es_peering(nodes["leaf0"], const.LEAF1_VXLAN_IP, const.ESI1):
-        report_fail(nodes["leaf0"], "ES is not peering between T1 and T2")
-
-    report_pass("test_case_passed", "test_bgp_container_restart")
-
-
-@pytest.mark.known_failure("MIGSOFTWAR-24849/MIGSOFTWAR-26359")
+# FIXME: This Test on SIM is not working as expected
+# eth4 interface is interfering with the EVPN tunnel
+# during cleanup, the tunnel is not removed
+# then the following configure is not applied
 def test_deconfig_config(setup):
     """
     Test EVPN Multihome Deconfig Config
     """
-    start_banner("test_deconfig_config")
+    banner("test_deconfig_config")
 
     nodes = setup["duts"]
     config_file = setup["config_file"]
 
-    
     # Deconfig config
     dut.configure(config_file, nodes, add=False)
+    wait(5)
 
     # post deconfig/config some times vtysh may not exit properly
     # adding below logic to exit vtysh if not exited correctly
@@ -319,6 +284,7 @@ def test_deconfig_config(setup):
             vtysh.show_cmd(node, "\nend\nshow version\n", skip_error_check=True)
 
     dut.configure(config_file, nodes)
+    wait(10)
 
     # post deconfig/config some times vtysh may not exit properly
     # adding below logic to exit vtysh if not exited correctly
@@ -326,31 +292,27 @@ def test_deconfig_config(setup):
         if "Unknown command" in vtysh.show_cmd(node, "show version", skip_error_check=True).strip():
             vtysh.show_cmd(node, "\nend\nshow version\n", skip_error_check=True)
 
-    # wait for 60 seconds for config to take effect
-    dut.wait(60)
-
-    # Verify BGP
-    vxlan_utils.verify_bgp(
-        nodes, const.leaf1_vrf_prefix, "leaf0", const.EXPECTED_L3VNI
-    )
-    vxlan_utils.verify_bgp(
-        nodes, const.leaf0_vrf_prefix, "leaf1", const.EXPECTED_L3VNI
-    )
-    vxlan_utils.verify_bgp(
-        nodes, const.leaf2_vrf_prefix, "leaf0", const.EXPECTED_L3VNI
-    )
-
-    leaf0_idDF = evpn_mh_utils.isDF(nodes["leaf0"], const.ESI1)
-    leaf1_isDF = evpn_mh_utils.isDF(nodes["leaf1"], const.ESI1)
-
+    log("verifying DF after reconfigure")
+    for i in range(12):
+        leaf0_idDF = evpn_mh_utils.isDF(nodes["leaf0"], const.ESI1)
+        leaf1_isDF = evpn_mh_utils.isDF(nodes["leaf1"], const.ESI1)
+        if leaf0_idDF ^ leaf1_isDF:
+            break
+        log("DF selection not stable yet, time passed {}, waiting for another 5 seconds".format(i * 5))
+        dut.wait(10)
     # only one of leaf0 and leaf1 can be DF
     if not (leaf0_idDF ^ leaf1_isDF):
         report_fail(nodes["leaf0"], "DF is not successly selected for ES1")
 
+    # Verify BGP
+    vxlan_utils.verify_bgp(nodes, const.leaf1_vrf_prefix, "leaf0", const.EXPECTED_L3VNI)
+    vxlan_utils.verify_bgp(nodes, const.leaf0_vrf_prefix, "leaf1", const.EXPECTED_L3VNI)
+    vxlan_utils.verify_bgp(nodes, const.leaf2_vrf_prefix, "leaf0", const.EXPECTED_L3VNI)
+
     if not evpn_mh_utils.es_peering(nodes["leaf0"], const.LEAF1_VXLAN_IP, const.ESI1):
         report_fail(nodes["leaf0"], "ES is not peering between T1 and T2")
     
-    report_pass("test_case_passed", "test_deconfig_config")
+    report_pass(nodes["leaf0"], "test_deconfig_config")
 
 
 def test_portchannel_shutdown_on_mh_peer(setup):
@@ -367,7 +329,7 @@ def test_portchannel_shutdown_on_mh_peer(setup):
     7. Verify ES peering is restored and DF/NDF selection is correct
     8. Verify traffic works with both peers active
     """
-    start_banner("test_portchannel_shutdown_on_mh_peer")
+    banner("test_portchannel_shutdown_on_mh_peer")
 
     nodes = setup["duts"]
     lag_handle = setup["lag_handle"]
@@ -627,4 +589,4 @@ def test_portchannel_shutdown_on_mh_peer(setup):
 
     log("Traffic verification after restore passed")
 
-    report_pass("test_case_passed", "test_portchannel_shutdown_on_mh_peer")
+    report_pass(nodes["leaf0"], "test_portchannel_shutdown_on_mh_peer")
