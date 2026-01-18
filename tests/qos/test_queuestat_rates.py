@@ -19,7 +19,7 @@ def _get_one_front_panel_port(duthost):
     """
     res = duthost.shell("show interface status 2>/dev/null | awk 'NR>2 {print $1}'", module_ignore_errors=True)
     ports = [p.strip() for p in (res.get("stdout_lines") or []) if p.strip() and not p.startswith("-")]
-    
+
     eth = [p for p in ports if p.startswith("Ethernet")]
     return (eth[0] if eth else (ports[0] if ports else None))
 
