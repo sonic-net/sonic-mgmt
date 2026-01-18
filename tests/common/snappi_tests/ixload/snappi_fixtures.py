@@ -86,7 +86,11 @@ def setup_config_snappi_l47(request, duthosts, tbinfo, ha_test_case=None):
         ports_list = tbinfo['ports_list']
         ports_list = {k: [tuple(x) for x in v] for k, v in ports_list.items()}
 
-        test_filename = "dash_cps"
+        if service_type == "vnet2vnet":
+            test_filename = "dash_vnet2vnet"
+        else:
+            test_filename = "dash_pl"
+
         initial_cps_obj = (len(ports_list['Traffic1@Network1']) * 4000000) // 2
 
         test_type_dict = {
