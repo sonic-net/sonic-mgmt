@@ -33,7 +33,7 @@ def snmpwalk(duthost, community, oid):
     Also assert on return code so we don't silently convert failures into empty output.
     """
     dut_ip = _get_dut_mgmt_ip(duthost)
-    cmd = f"snmpwalk -v2c -c {community} {dut_ip} {oid}"
+    cmd = f"docker exec snmp snmpwalk -v2c -c {community} {dut_ip} {oid}"
     res = duthost.shell(cmd, module_ignore_errors=True)
 
     assert res["rc"] == 0, (
