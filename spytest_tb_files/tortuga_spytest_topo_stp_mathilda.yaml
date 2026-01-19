@@ -113,7 +113,7 @@ topology:
             Ethernet16: {EndDevice: SD6, EndPort: Ethernet16, params: def_link}
             Ethernet20: {EndDevice: SD6, EndPort: Ethernet20, params: def_link}
             Ethernet24: {EndDevice: SD6, EndPort: Ethernet24, params: def_link}
-            Ethernet28: {EndDevice: SD6, EndPort: Ethernet24, params: def_link}
+            Ethernet28: {EndDevice: SD6, EndPort: Ethernet28, params: def_link}
             Ethernet32: {EndDevice: T1, EndPort: 1/9, params: def_tg_link}
             Ethernet36: {EndDevice: T1, EndPort: 1/10, params: def_tg_link}
 
