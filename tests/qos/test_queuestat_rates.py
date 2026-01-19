@@ -83,6 +83,7 @@ def _run_queuestat_json(duthost, port):
     except Exception as e:
         pytest.fail(f"queuestat -j did not return valid JSON: {e}. Output was: {raw[:500]}")
 
+
 def test_queuestat_rates_columns_present(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Validate queuestat prints the new rate columns:
@@ -116,6 +117,7 @@ def test_queuestat_rates_columns_present(duthosts, enum_rand_one_per_hwsku_front
     assert "Pkts/s" in out, f"Missing Pkts/s column in queuestat output:\n{out}"
     assert "Bytes/s" in out, f"Missing Bytes/s column in queuestat output:\n{out}"
     assert "Bits/s" in out, f"Missing Bits/s column in queuestat output:\n{out}"
+
 
 def test_rates_db_entries_parseable(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
