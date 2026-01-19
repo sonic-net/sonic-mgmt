@@ -97,6 +97,9 @@ all:
         bjw3-8-4:
           ansible_host: 10.150.239.28
           ansible_hostv6: 2404:f801:10:16::a96:ef1b
+        bjw3-1-4:
+          ansible_host: 10.150.239.29
+          ansible_hostv6: 2404:f801:10:16::a96:ef1c
     pdu:
       vars:
         pdu_ro_snmp_version: v3
@@ -262,6 +265,10 @@ fanout:
       ansible_host: 10.150.238.119
       ansible_hostv6: 2404:f801:10:16::a96:ee77
       os: sonic
+    bjw3-can-720dt-leaf-28:
+      ansible_host: 10.150.238.123
+      ansible_hostv6: 2404:f801:10:16::a96:ee7b
+      os: sonic
 
 sonic:
   vars:
@@ -275,8 +282,9 @@ sonic:
     sonic_nokia_7215a1d:
     sonic_arista_7060cx:
     sonic_cisco_8102:
-    sonic_arista_720dt:
     sonic_cisco_8300:
+    sonic_arista_720dt:
+    sonic_arista_720dtm:
 
 
 server:
@@ -863,6 +871,20 @@ sonic_arista_720dt:
       ansible_host: 10.150.238.116
       ansible_hostv6: 2404:f801:10:16::a96:ee74
       model: CCS-720DT-48S-2F
+      serial:
+      base_mac:
+      syseeprom_info:
+
+
+sonic_arista_720dtm:
+  vars:
+    hwsku: Arista-720DT-MGX-G48S4
+    iface_speed: 1000
+  hosts:
+    bjw2-can-720dtm-1:
+      ansible_host: 10.150.238.122
+      ansible_hostv6: 2404:f801:10:2200::a96:ee7a
+      model: CCS-720DT-MGX-48S-2F
       serial:
       base_mac:
       syseeprom_info:

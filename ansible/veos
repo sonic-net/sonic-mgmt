@@ -24306,6 +24306,10 @@ vms_99:
       ansible_host: 172.16.148.10
 vms_bjw3_1:
   hosts:
+    VM19000:
+      ansible_host: 172.16.213.145
+    VM19001:
+      ansible_host: 172.16.213.146
     VM19011:
       ansible_host: 172.16.213.11
     VM19012:
