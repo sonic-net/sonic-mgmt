@@ -634,6 +634,15 @@ cacl/test_ebtables_application.py:
       - "asic_type in ['vs']"
 
 #######################################
+#####             clock           #####
+#######################################
+clock/test_clock.py::test_config_clock_timezone:
+  xfail:
+    reason: "xfail due to github issue https://github.com/sonic-net/sonic-buildimage/issues/24562"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24562 and asic_type in ['mellanox', 'nvidia', 'vs']"
+
+#######################################
 #####           configlet         #####
 #######################################
 configlet:
