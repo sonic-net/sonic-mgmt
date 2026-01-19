@@ -41,8 +41,13 @@
   vm_base: VM02040
   dut:
   - str-msn2700-22
-  inv_name: str
-  auto_recover: 'True'
+  inv_name: ixia
+  test_tags: []
+  l1s:
+  - str-ocs-dlx64-acs-07
+  tgs:
+  - msr-ixia-4
+  auto_recover: 'False'
   comment: stumkurv
 
 - conf-name: vms6-t0-7060

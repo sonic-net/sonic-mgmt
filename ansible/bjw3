@@ -612,34 +612,83 @@ sonic_nokia_7215a1d:
     bjw3-can-7215a1d-1:
       ansible_host: 10.150.238.78
       ansible_hostv6: 2404:f801:10:16::a96:ee4e
-      model:
-      serial:
-      base_mac:
+      model: 3HE20994AARA01
+      serial: LL2440K6431
+      base_mac: A0:67:D6:81:4D:AE
       syseeprom_info:
+        '0x21': '7215 IXS-A1'
+        '0x22': '3HE20994AARA01'
+        '0x23': 'LL2440K6431'
+        '0x24': 'A0:67:D6:81:4D:AE'
+        '0x25': '10/18/2024 00:59:28'
+        '0x27': 'DEMO UNIT'
+        '0x28': 'arm64-nokia_ixs7215_52xb-r0'
+        '0x29': '2023.02-42-g56361a00-V01'
+        '0x2a': '256'
+        '0x2d': 'NOKIA'
+        '0x2f': 'CSMA310ERA'
+        '0xfd': '0x00 0x00 0x19 0x7F 0x01 0x01 0xC4'
+        '0xfe': '0x92C2EC75'
     bjw3-can-7215a1d-2:
       ansible_host: 10.150.238.80
       ansible_hostv6: 2404:f801:10:16::a96:ee50
-      model:
-      serial:
-      base_mac:
+      model: 3HE20994AARA01
+      serial: LL2429K1125
+      base_mac: 58:30:6E:6E:BD:A4
       syseeprom_info:
-        "0x21": "7215 IXS-A1"
+        '0x21': '7215 IXS-A1'
+        '0x22': '3HE20994AARA01'
+        '0x23': 'LL2429K1125'
+        '0x24': '58:30:6E:6E:BD:A4'
+        '0x25': '07/22/2024 11:29:23'
+        '0x27': 'DEMO UNIT'
+        '0x28': 'arm64-nokia_ixs7215_52xb-r0'
+        '0x29': '2023.02-42-g56361a00-V01'
+        '0x2a': '256'
+        '0x2d': 'NOKIA'
+        '0x2f': 'CSMA310ERA'
+        '0xfd': '0x00 0x00 0x19 0x7F 0x01 0x01 0xC4'
+        '0xfe': '0x93DDBBD5'
     bjw3-can-7215a1d-3:
       ansible_host: 10.150.238.108
       ansible_hostv6: 2404:f801:10:16::a96:ee6c
-      model:
-      serial:
-      base_mac:
+      model: 3HE20994AARA01
+      serial: LL2440K6439
+      base_mac: A0:67:D6:81:2B:AE
       syseeprom_info:
+        '0x21': '7215 IXS-A1'
+        '0x22': '3HE20994AARA01'
+        '0x23': 'LL2440K6439'
+        '0x24': 'A0:67:D6:81:2B:AE'
+        '0x25': '10/12/2024 12:21:04'
+        '0x27': 'DEMO UNIT'
+        '0x28': 'arm64-nokia_ixs7215_52xb-r0'
+        '0x29': '2023.02-42-g56361a00-V01'
+        '0x2a': '256'
+        '0x2d': 'NOKIA'
+        '0x2f': 'CSMA310ERA'
+        '0xfd': '0x00 0x00 0x19 0x7F 0x01 0x01 0xC4'
+        '0xfe': '0xE4309BCD'
     bjw3-can-7215a1d-4:
       ansible_host: 10.150.238.110
       ansible_hostv6: 2404:f801:10:16::a96:ee6e
-      model:
-      serial:
-      base_mac:
+      model: 3HE20994AARA01
+      serial: LL2440K6432
+      base_mac: A0:67:D6:81:54:AE
       syseeprom_info:
-
-
+        '0x21': '7215 IXS-A1'
+        '0x22': '3HE20994AARA01'
+        '0x23': 'LL2440K6432'
+        '0x24': 'A0:67:D6:81:54:AE'
+        '0x25': '10/12/2024 02:00:07'
+        '0x27': 'DEMO UNIT'
+        '0x28': 'arm64-nokia_ixs7215_52xb-r0'
+        '0x29': '2023.02-42-g56361a00-V01'
+        '0x2a': '256'
+        '0x2d': 'NOKIA'
+        '0x2f': 'CSMA310ERA'
+        '0xfd': '0x00 0x00 0x19 0x7F 0x01 0x01 0xC4'
+        '0xfe': '0x5584F5BB'
 sonic_arista_7060cx:
   hosts:
     bjw3-can-7060-1:

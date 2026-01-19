@@ -1533,22 +1533,22 @@ sonic_cisco_lc_400G:
       ansible_host: 10.212.70.21
       ansible_hostv6: 2603:10e2:140:3000::1d1
       mgmt_subnet_mask_length: 27
-      serial: FOC2543P5DH
-      base_mac: C4:4D:84:E0:BC:B0
+      serial: FOC2713N3G7
+      base_mac: 90:EB:50:66:33:B8
       model: '88-LC0-36FH-M'
       console_baudrate: 115200
       syseeprom_info:
         "0x21": "88-LC0-36FH-M"
-        "0x22": "1B0150"
-        "0x23": "FOC2543P5DH"
-        "0x24": "C4:4D:84:E0:BC:B0"
-        "0x26": "4"
+        "0x22": "1B6647"
+        "0x23": "FOC2713N3G7"
+        "0x24": "90:EB:50:66:33:B8"
+        "0x26": "7"
         "0x28": "x86_64-88_lc0_36fh_m-r0"
         "0x2A": "296"
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0x75714D2A"
+        "0xFE": "0x56597E80"
       plt_reboot_dict:
         cold:
           timeout: 420
