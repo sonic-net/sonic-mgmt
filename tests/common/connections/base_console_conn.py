@@ -77,7 +77,7 @@ class BaseConsoleConn(CiscoBaseConnection):
         pass
 
     def find_prompt(self, delay_factor=1, **kwargs):
-        return super(BaseConsoleConn, self).find_prompt(**kwargs)
+        return super(BaseConsoleConn, self).find_prompt(delay_factor, **kwargs)
 
     def clear_buffer(self):
         # todo
