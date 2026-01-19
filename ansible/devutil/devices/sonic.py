@@ -183,6 +183,10 @@ def post_upgrade_actions(sonichosts, localhost, disk_used_percent):
             )
         localhost.pause(seconds=60, prompt="Wait for SONiC initialization")
 
+        # NOTE: Clear Ansible cached facts to avoid using stale data
+        # from old SONiC image before upgrade
+        sonichosts.meta("clear_facts")
+
         # PR https://github.com/sonic-net/sonic-buildimage/pull/12109 decreased the sshd timeout
         # This change may cause timeout when executing `generate_dump -s yesterday`.
         # Increase this time after image upgrade
