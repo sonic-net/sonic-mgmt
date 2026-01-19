@@ -267,3 +267,11 @@ STR-8102-C19-U24,Ethernet192,str-ocs-dlx64-acs-06,49|50|51|52
 STR-7050CX3-C19-U37,Ethernet100,str-ocs-dlx64-acs-06,29|30|31|32
 STR-7050CX3-C19-U37,Ethernet104,str-ocs-dlx64-acs-06,33|34|35|36
 STR-7050CX3-C19-U37,Ethernet108,str-ocs-dlx64-acs-06,37|38|39|40
+msr-ixia-4,Card2/Port4,str-ocs-dlx64-acs-07,1|2|3|4
+msr-ixia-4,Card2/Port5,str-ocs-dlx64-acs-07,5|6|7|8
+msr-ixia-4,Card2/Port6,str-ocs-dlx64-acs-07,9|10|11|12
+msr-ixia-4,Card2/Port7,str-ocs-dlx64-acs-07,13|14|15|16
+msr-ixia-4,Card2/Port8,str-ocs-dlx64-acs-07,17|18|19|20
+str-msn2700-22,Ethernet100,str-ocs-dlx64-acs-07,29|30|31|32
+str-msn2700-22,Ethernet104,str-ocs-dlx64-acs-07,33|34|35|36
+str-msn2700-22,Ethernet108,str-ocs-dlx64-acs-07,37|38|39|40
