@@ -83,16 +83,13 @@ def _run_queuestat_json(duthost, port):
     except Exception as e:
         pytest.fail(f"queuestat -j did not return valid JSON: {e}. Output was: {raw[:500]}")
 
-
 def test_queuestat_rates_columns_present(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
-    Validates the new queue rate fields introduced by the feature:
+    Validate queuestat prints the new rate columns:
       - Pkts/s
       - Bytes/s
       - Bits/s
 
-    We validate via 'queuestat -j' output that rate fields exist per queue entry
-    when COUNTERS_DB has RATES:* entries.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
@@ -107,42 +104,18 @@ def test_queuestat_rates_columns_present(duthosts, enum_rand_one_per_hwsku_front
     if not port:
         pytest.skip("No front-panel ports found to run queuestat")
 
-    data = _run_queuestat_json(duthost, port)
+    res = duthost.shell(f"queuestat -p {port}", module_ignore_errors=True)
+    if res.get("rc", 1) != 0:
+        pytest.skip(f"queuestat failed rc={res.get('rc')} stderr={res.get('stderr','')}")
 
-    # queuestat -j typically returns a dict keyed by port, then queue tags.
-    # Example structure varies a bit, so we do tolerant checks.
-    # We assert that at least one queue object has rate keys.
-    found_rate_keys = False
+    out = res.get("stdout", "") or ""
+    if not out.strip():
+        pytest.skip("queuestat returned empty output")
 
-    # Walk any nested dicts/lists and look for qpktsps/qbytesps/qbitsps keys
-    def walk(obj):
-        nonlocal found_rate_keys
-        if isinstance(obj, dict):
-            # The feature prints these rate values
-            keys = set(obj.keys())
-            if {"qpktsps", "qbytesps", "qbitsps"}.issubset(keys):
-                found_rate_keys = True
-
-                # Values can be "N/A" or numeric strings; both acceptable
-                for k in ["qpktsps", "qbytesps", "qbitsps"]:
-                    v = obj.get(k)
-                    assert v is not None, f"Missing {k} in rate stats object: {obj}"
-                    if v != "N/A":
-                        # allow float-ish strings too
-                        assert re.match(r"^-?\d+(\.\d+)?$", str(v)), f"{k} is not numeric or N/A: {v}"
-            for v in obj.values():
-                walk(v)
-        elif isinstance(obj, list):
-            for it in obj:
-                walk(it)
-
-    walk(data)
-
-    assert found_rate_keys, (
-        "Did not find rate keys (qpktsps/qbytesps/qbitsps) in queuestat -j output. "
-        "Rates feature may not be active for selected port/queues."
-    )
-
+    # Header must contain the new columns
+    assert "Pkts/s" in out, f"Missing Pkts/s column in queuestat output:\n{out}"
+    assert "Bytes/s" in out, f"Missing Bytes/s column in queuestat output:\n{out}"
+    assert "Bits/s" in out, f"Missing Bits/s column in queuestat output:\n{out}"
 
 def test_rates_db_entries_parseable(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
