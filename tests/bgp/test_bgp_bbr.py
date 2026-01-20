@@ -370,6 +370,8 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
             else:
                 vm_route['failed'] = True
                 logging.error('Unknown host type {} for {}'.format(type(nbrhosts[node]['host']), node))
+                if results is not None:
+                    results[node] = vm_route
                 return
 
             # Route path from other VMs: -> DUT(T1) -> TOR1 -> aspath(other T1 -> DUMMY_ASN1)
@@ -390,7 +392,11 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
             else:
                 vm_route['failed'] = True
                 logging.error('Unknown host type {} for {}'.format(type(nbrhosts[node]['host']), node))
+                if results is not None:
+                    results[node] = vm_route
                 return
+        if results is not None:
+            results[node] = vm_route
         return vm_route
 
     other_vms = setup['other_vms']
