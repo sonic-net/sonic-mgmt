@@ -1306,3 +1306,53 @@ def analyze_counter_trend(output):
         return 'decreasing'
     else:  # Within 5% change
         return 'stable'
+
+
+def start_countersyncd_otel(duthost, stats_interval=60):
+    """
+    Start countersyncd with otel export enabled in background (swss container).
+    """
+    cmd = (
+        "nohup docker exec swss countersyncd --enable-otel -e "
+        f"--max-stats-per-report 0 --stats-interval {stats_interval} "
+        "> /tmp/countersyncd_otel.log 2>&1 &"
+    )
+    duthost.shell(cmd, module_ignore_errors=False)
+
+
+def render_otel_collector_yaml_with_ptf_ip(tbinfo, yaml_text):
+    """
+    Replace <PTF_IP> placeholder in otel collector yaml using tbinfo['ptf_ip'].
+
+    Args:
+        tbinfo: testbed info dict
+        yaml_text: raw yaml string that contains '<PTF_IP>'
+
+    Returns:
+        str: rendered yaml text
+    """
+    ptf_ip = tbinfo.get('ptf_ip')
+    if not ptf_ip:
+        pytest_assert(False, "tbinfo['ptf_ip'] is missing")
+    return yaml_text.replace("<PTF_IP>", ptf_ip)
+
+
+def install_otel_collector_config(duthost, tbinfo, yaml_text,
+                                  otel_container="otel",
+                                  dest_path="/etc/sonic/otel_config.yml",
+                                  restart=True):
+    """
+    Render otel collector yaml and install into DUT.
+    """
+    rendered = render_otel_collector_yaml_with_ptf_ip(tbinfo, yaml_text)
+
+    # Write rendered yaml to DUT path
+    duthost.copy(content=rendered, dest=dest_path)
+
+    if restart:
+        duthost.shell(f"docker restart {otel_container}")
+
+    logger.info(
+        f"Installed otel collector config to {dest_path} "
+        f"(ptf_ip={tbinfo.get('ptf_ip')})"
+    )
