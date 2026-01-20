@@ -3236,6 +3236,11 @@ high_frequency_telemetry:
     conditions:
       - "platform not in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0', 'x86_64-arista_7060x6_64pe_b']"
 
+high_frequency_telemetry/test_high_frequency_telemetry.py::test_hft_full_counters:
+  skip:
+    reason: "HFT for full counters isn't supported in this platform"
+
+#######################################
 #####          http              #####
 #######################################
 http:

@@ -252,6 +252,7 @@ def test_hft_full_buffer_pool_counters(duthosts, enum_rand_one_per_hwsku_hostnam
         cleanup_hft_config(duthost, profile_name)
 
 
+@pytest.mark.skip(reason="Full counters HFT isn't supported")
 def test_hft_full_counters(duthosts, enum_rand_one_per_hwsku_hostname,
                            disable_flex_counters, tbinfo):
     """Test high frequency telemetry for all supported object types in one profile."""
@@ -444,7 +445,15 @@ def test_hft_disabled_stream(duthosts, enum_rand_one_per_hwsku_hostname,
     logger.info(f"Using ports for testing: {test_ports}")
 
     try:
-        # Initial setup: Configure the telemetry group (starts disabled, will be enabled in first phase)
+        # Initial setup: Create profile first (default disabled), then configure group
+        logger.info("Setting up high frequency telemetry profile configuration")
+        setup_hft_profile(
+            duthost=duthost,
+            profile_name=profile_name,
+            poll_interval=10000,
+            stream_state="disabled"
+        )
+
         logger.info("Setting up high frequency telemetry group configuration")
         setup_hft_group(
             duthost=duthost,
