@@ -451,12 +451,11 @@ def get_route_programming_metrics_from_sairedis_replay(duthost, start_time, sair
         try:
             return duthost.shell(f"sudo grep -e '{nhg_pattern}' -e '{route_pattern}' {path}")['stdout'].splitlines()
         except Exception as e:
-            logger.warning("Failed to read %s: %s", path, e)
+            logger.info("Failed to read %s: %s", path, e)
             return []
     lines = read_lines(sairedislog)
-    if not lines:
-        logger.warning("No RP events in %s, trying fallback", sairedislog)
-        lines = read_lines(sairedislog + ".1")
+    log_rotated_lines = read_lines(sairedislog + ".1")
+    lines = log_rotated_lines + lines
     if not lines:
         return {
             "RP Start Time": start_time,
