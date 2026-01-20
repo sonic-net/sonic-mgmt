@@ -14,7 +14,7 @@ def clear_queue_counters(asichost):
     asichost.command("sonic-clear queuecounters")
 
 
-def get_all_ports_queue_counters(asichost, queue_type_prefix="UC", queue_start=0, queue_end=6):
+def get_all_ports_queue_counters(asichost, queue_type_prefix="UC"):
     """
     Fetch queue counters for ALL ports in a single command.
     Returns a dict: {port_name: {queue_num: count, ...}, ...}
@@ -31,22 +31,18 @@ def get_all_ports_queue_counters(asichost, queue_type_prefix="UC", queue_start=0
         queue_type = fields[1]
         if port_name not in counters:
             counters[port_name] = {}
-
-        # Only processing UC0-UC6 queues
         if queue_type.startswith(queue_type_prefix):
             try:
                 queue_num = int(queue_type[len(queue_type_prefix):])
-                if queue_start <= queue_num <= queue_end:
-                    counters[port_name][queue_num] = int(fields[2].replace(',', ''))
+                counters[port_name][queue_num] = int(fields[2].replace(',', ''))
             except (ValueError, IndexError):
                 continue
-
     return counters
 
 
-def assert_queue_counter_zero(port_counters, port_name, queue_start=0, queue_end=6):
+def assert_queue_counter_zero(queue_counters, port_name, queue_start=0, queue_end=6):
     for q in range(queue_start, queue_end + 1):
-        counter_value = port_counters.get(q, 0)
+        counter_value = queue_counters.get(q, -1)
         assert counter_value == 0, (
             "Queue counter for port '{}' queue {} is not zero. Value: {}"
         ).format(port_name, q, counter_value)
@@ -60,9 +56,8 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
     mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
-    # Fetch ALL queue counters in ONE command
-    all_queue_counters = get_all_ports_queue_counters(asichost, queue_type_prefix="UC", queue_start=0, queue_end=6)
-    if not all_queue_counters:
+    all_ports_queue_counters = get_all_ports_queue_counters(asichost, queue_type_prefix="UC")
+    if not all_ports_queue_counters:
         pytest.skip("No queue counters found on the device.")
 
     arp_dict = {}
@@ -111,17 +106,16 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
             if ifname.startswith("PortChannel"):
                 for port in mg_facts['minigraph_portchannels'][ifname]['members']:
                     logger.info("PortChannel '{}' : port {}".format(ifname, port))
-                    port_counters = all_queue_counters.get(port, {})
-                    if not port_counters:
+                    per_port_queue_counters = all_ports_queue_counters.get(port, {})
+                    if not per_port_queue_counters:
                         logger.warning("No queue counters found for port '{}'".format(port))
                     else:
-                        assert_queue_counter_zero(port_counters, port, 0, 6)
+                        assert_queue_counter_zero(per_port_queue_counters, port, 0, 6)
             else:
                 logger.info(ifname)
-                port_counters = all_queue_counters.get(ifname, {})
-                if not port_counters:
+                per_iface_queue_counters = all_ports_queue_counters.get(ifname, {})
+                if not per_iface_queue_counters:
                     logger.warning("No queue counters found for interface '{}'".format(ifname))
                 else:
-                    assert_queue_counter_zero(port_counters, ifname, 0, 6)
-
+                    assert_queue_counter_zero(per_iface_queue_counters, ifname, 0, 6)
             processed_intfs.add(ifname)
