@@ -485,9 +485,10 @@ def _select_targets_to_flap(bgp_peers_info, all_flap, flapping_count):
     bgp_neighbors = list(bgp_peers_info.keys())
     pytest_assert(len(bgp_neighbors) >= 2, "At least two BGP neighbors required for flap test")
     if all_flap:
-        flapping_neighbors = bgp_neighbors
+        flapping_neighbors = list(bgp_neighbors)
         injection_neighbor = random.choice(bgp_neighbors)
-        logger.info(f"[FLAP TEST] All neighbors are flapping: {len(flapping_neighbors)}")
+        flapping_neighbors.remove(injection_neighbor)
+        logger.info(f"[FLAP TEST] All - 1 neighbors are flapping: {len(flapping_neighbors)}")
     else:
         flapping_neighbors = random.sample(bgp_neighbors, flapping_count)
         injection_candidates = [n for n in bgp_neighbors if n not in flapping_neighbors]
