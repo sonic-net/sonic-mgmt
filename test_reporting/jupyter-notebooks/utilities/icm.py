@@ -2,13 +2,14 @@ from typing import List
 
 from utilities.kusto import execute_kusto_query
 
+
 def get_all_icms_since_time_ago(devices: List[str], time_ago: str):
-    
+
     formatted_devices = ', '.join([f'"{device}"' for device in devices])
     query = f'''
 
 let devices = dynamic([{formatted_devices}]);
-cluster('icmcluster.kusto.windows.net').database("IcMDataWarehouse").Incidents 
+cluster('azphynet').database("IcMDataWarehouse").Incidents
 | where SourceCreateDate > ago({time_ago})
 | where OccurringDeviceName in~ (devices)
 | summarize arg_max(SourceModifiedDate, *) by IncidentId
