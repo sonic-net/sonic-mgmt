@@ -1,0 +1,5 @@
+StartDevice,StartPort,EndDevice,EndPort,BaudRate,FlowControl
+str-msn2700-01,1,str-7260-10,1,9600,0
+str-msn2700-01,2,str-7260-10,2,9600,0
+str-msn2700-01,3,str-7260-10,3,9600,0
+str-msn2700-01,4,str-7260-10,4,9600,0
