@@ -3,7 +3,7 @@ import yaml
 import pytest
 
 from spytest import st, tgapi, SpyTestDict
-from dhcpv4_relay_utils import check_dhcp4relay_support
+from dhcpv4_relay_utils import dhcpv4_relay_flag_config_unconfig, check_dhcp4relay_support
 import apis.system.basic as basic_obj
 import apis.routing.ip as ip_obj
 import apis.switching.vlan as vlan_obj
@@ -88,21 +88,17 @@ def config_dhcp_relay_ipv4_sag(node, loopback1=loopback_a, loopback2=None, cvlan
     if add:
         st.config(node, "config static-anycast-gateway mac_address add {}".format(sag_mac_addr))
         st.config(node, "config vlan static-anycast-gateway enable {}".format(cvlan1))
-        st.config(node, "config dhcpv4_relay add Vlan{} --dhcpv4-servers {} --source-interface {} --link-selection enable"
-                  .format(cvlan1, dhcpserver_ipv4_a, loopback1))
+        st.config(node, "config vlan dhcp-relay-src add {} {}".format(cvlan1, loopback1))
 
         if loopback2:
             st.config(node, "config vlan static-anycast-gateway enable {}".format(cvlan2))
-            st.config(node, "config dhcpv4_relay add Vlan{} --dhcpv4-servers {} --source-interface {} --link-selection enable"
-                      .format(cvlan2, dhcpserver_ipv4_b, loopback2))
+            st.config(node, "config vlan dhcp-relay-src add {} {}".format(cvlan2, loopback2))
     else: 
         if loopback2:
-            st.config(node, "config dhcpv4_relay del Vlan{} --dhcpv4-servers {} --source-interface --link-selection"
-                      .format(cvlan2, dhcpserver_ipv4_b))
+            st.config(node, "config vlan dhcp-relay-src del {}".format(cvlan2))
             st.config(node, "config vlan static-anycast-gateway disable {}".format(cvlan2))
 
-        st.config(node, "config dhcpv4_relay del Vlan{} --dhcpv4-servers {} --source-interface --link-selection"
-                  .format(cvlan1, dhcpserver_ipv4_a))
+        st.config(node, "config vlan dhcp-relay-src del {}".format(cvlan1))
         st.config(node, "config vlan static-anycast-gateway disable {}".format(cvlan1))
         st.config(node, "config static-anycast-gateway mac_address del")
 
@@ -132,15 +128,15 @@ def config_dhcp_relay_ipv4_vlans(node, cvlan1=dhcp_vlan1, cvlan2=None, svlan1=dh
             st.config(node, "config interface ip remove Vlan{} {}".format(svlan2, dhcp_ipv4_prefix4))
 
 
-#def config_dhcp_relay_ipv4_trigs(node, cvlan1=dhcp_vlan1, cvlan2=None, add=True):
-#    if add:
-#        if cvlan2:
-#            st.config(node, "config dhcpv4_relay add Vlan{} {}".format(cvlan2, dhcpserver_ipv4_b))
-#        st.config(node, "config dhcpv4_relay add Vlan{} {}".format(cvlan1, dhcpserver_ipv4_a))
-#    else:
-#        if cvlan2:
-#            st.config(node, "config dhcpv4_relay del Vlan{} {}".format(cvlan2, dhcpserver_ipv4_b))
-#        st.config(node, "config dhcpv4_relay del Vlan{} {}".format(cvlan1, dhcpserver_ipv4_a))
+def config_dhcp_relay_ipv4_trigs(node, cvlan1=dhcp_vlan1, cvlan2=None, add=True):
+    if add:
+        if cvlan2:
+            st.config(node, "config vlan dhcp_relay add {} {}".format(cvlan2, dhcpserver_ipv4_b))
+        st.config(node, "config vlan dhcp_relay add {} {}".format(cvlan1, dhcpserver_ipv4_a))
+    else:
+        if cvlan2:
+            st.config(node, "config vlan dhcp_relay del {} {}".format(cvlan2, dhcpserver_ipv4_b))
+        st.config(node, "config vlan dhcp_relay del {} {}".format(cvlan1, dhcpserver_ipv4_a))
 
 
 def report_fail(dut, msg=''):
@@ -354,7 +350,7 @@ def dhcp_setup_ipv4_clients_verify(mhost=False, mclients=2):
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_default_vrf_srclb_vrfs_tc1_new_design():
+def test_dhcp_relay_ipv4_default_vrf_srclb_vrfs_tc1_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -374,11 +370,11 @@ def test_dhcp_relay_ipv4_default_vrf_srclb_vrfs_tc1_new_design():
     
     config_dhcp_relay_ipv4_vlans(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, svlan1=dhcp_vlan2, svlan2=None, add=True)
     config_dhcp_relay_ipv4_sag(vars.D3, loopback1=loopback_a, loopback2=None, cvlan1=dhcp_vlan1, cvlan2=None, add=True)
-    #config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, add=True)
+    config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, add=True)
     
     result = dhcp_setup_ipv4_clients_verify(mhost=False, mclients=2)
     
-    #config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, add=False)
+    config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, add=False)
     config_dhcp_relay_ipv4_sag(vars.D3, loopback1=loopback_a, loopback2=None, cvlan1=dhcp_vlan1, cvlan2=None, add=False)
     config_dhcp_relay_ipv4_vlans(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, svlan1=dhcp_vlan2, svlan2=None, add=False)
 
@@ -413,7 +409,7 @@ def test_dhcp_relay_ipv4_default_vrf_srclb_vrfs_tc1_new_design():
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc2_new_design():
+def test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc2_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -435,11 +431,11 @@ def test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc2_new_design():
     
     config_dhcp_relay_ipv4_vlans(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, svlan1=dhcp_vlan2, svlan2=None, add=True)
     config_dhcp_relay_ipv4_sag(vars.D3, loopback1=loopback_a, loopback2=None, cvlan1=dhcp_vlan1, cvlan2=None, add=True)
-    #config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, add=True)
+    config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, add=True)
     
     result = dhcp_setup_ipv4_clients_verify(mhost=False, mclients=2)
     
-    #config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, add=False)
+    config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, add=False)
     config_dhcp_relay_ipv4_sag(vars.D3, loopback1=loopback_a, loopback2=None, cvlan1=dhcp_vlan1, cvlan2=None, add=False)
     config_dhcp_relay_ipv4_vlans(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, svlan1=dhcp_vlan2, svlan2=None, add=False)
 
@@ -485,7 +481,7 @@ def test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc2_new_design():
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc3_new_design():
+def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc3_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -514,11 +510,11 @@ def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc3_new_design():
     
     config_dhcp_relay_ipv4_vlans(vars.D3, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, svlan1=dhcp_vlan2, svlan2=dhcp_vlan4, add=True)
     config_dhcp_relay_ipv4_sag(vars.D3, loopback1=loopback_a, loopback2=loopback_b, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, add=True)
-    #config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, add=True)
+    config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, add=True)
     
     result = dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2)
     
-    #config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, add=False)
+    config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, add=False)
     config_dhcp_relay_ipv4_sag(vars.D3, loopback1=loopback_a, loopback2=loopback_b, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, add=False)
     config_dhcp_relay_ipv4_vlans(vars.D3, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, svlan1=dhcp_vlan2, svlan2=dhcp_vlan4, add=False)
 
@@ -567,7 +563,7 @@ def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc3_new_design():
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc4_new_design():
+def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc4_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -596,11 +592,11 @@ def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc4_new_design():
     
     config_dhcp_relay_ipv4_vlans(vars.D3, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, svlan1=dhcp_vlan2, svlan2=dhcp_vlan4, add=True)
     config_dhcp_relay_ipv4_sag(vars.D3, loopback1=loopback_a, loopback2=loopback_b, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, add=True)
-    #config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, add=True)
+    config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, add=True)
     
     result = dhcp_setup_ipv4_clients_verify(mhost=True, mclients=8)
     
-    #config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, add=False)
+    config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, add=False)
     config_dhcp_relay_ipv4_sag(vars.D3, loopback1=loopback_a, loopback2=loopback_b, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, add=False)
     config_dhcp_relay_ipv4_vlans(vars.D3, cvlan1=dhcp_vlan1, cvlan2=dhcp_vlan3, svlan1=dhcp_vlan2, svlan2=dhcp_vlan4, add=False)
 

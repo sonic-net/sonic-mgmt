@@ -3,7 +3,7 @@ import yaml
 import pytest
 
 from spytest import st, tgapi, SpyTestDict
-from dhcpv4_relay_utils import check_dhcp4relay_support
+from dhcpv4_relay_utils import dhcpv4_relay_flag_config_unconfig, check_dhcp4relay_support
 import apis.routing.ip as ip_obj
 import apis.switching.vlan as vlan_obj
 import vxlan_utils as vxlan_obj
@@ -172,7 +172,7 @@ def dhcp_l2vni_ipv4_setup_and_verification():
 ##
 #############################################################################
  
-def test_dhcp_l2vni_ipv4_basic_new_design():
+def test_dhcp_l2vni_ipv4_basic_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}

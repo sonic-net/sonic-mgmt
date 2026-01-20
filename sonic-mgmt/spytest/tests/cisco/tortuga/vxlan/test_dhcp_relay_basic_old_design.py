@@ -3,7 +3,7 @@ import yaml
 import pytest
 
 from spytest import st, tgapi, SpyTestDict
-from dhcpv4_relay_utils import check_dhcp4relay_support
+from dhcpv4_relay_utils import dhcpv4_relay_flag_config_unconfig, check_dhcp4relay_support
 import apis.system.basic as basic_obj
 import apis.routing.ip as ip_obj
 import apis.switching.vlan as vlan_obj
@@ -14,6 +14,7 @@ import tortuga_common_utils as common_obj
 ##  Topology : 2 Leafs(D3 & D4)
 ##
 ##  IPv4: HOST0/dhcp_client - SD3/Leaf0 - HOST1/dhcp_server
+##  IPv6: HOST0/dhcp_client - SD4/Leaf1 - HOST1/dhcp_server
 ##
 
 CONFIGS_FILE = 'test_dhcp_relay_basic_template.yaml'
@@ -35,6 +36,15 @@ dhcprelay_ipv4_prefix2_vrf = "192.160.20.0/24"
 dhcpclient_vlan_ipv4_addr = "192.160.10.1"
 dhcpserver_vlan_ipv4_addr = "192.160.20.1"
 
+dhcpserver_ipv6 = "2002::1"
+dhcp_ipv6_assigned_start = "2001::66"
+dhcp_ipv6_assigned1 = "2001:0:0:0:0:0:0:66"
+dhcp_ipv6_assigned2 = "2001:0:0:0:0:0:0:67"
+dhcprelay_ipv6_prefix1 = "2001::254/64"
+dhcprelay_ipv6_prefix2 = "2002::254/64"
+dhcpclient_vlan_ipv6_addr = "2001::254"
+dhcpserver_vlan_ipv6_addr = "2002::254"
+
 
 def config_dhcp_relay_ipv4_vrf(node, add=True):
 
@@ -50,11 +60,21 @@ def config_dhcp_relay_ipv4(node, add=True):
     if add:
         st.config(node, "config interface ip add Vlan{} {}".format(dhcprelay_vlan1, dhcprelay_ipv4_prefix1))
         st.config(node, "config interface ip add Vlan{} {}".format(dhcprelay_vlan2, dhcprelay_ipv4_prefix2))
-        st.config(node, "config dhcpv4_relay add Vlan{} --dhcpv4-servers {}".format(dhcprelay_vlan1, dhcpserver_ipv4))
+        st.config(node, "config vlan dhcp_relay add {} {}".format(dhcprelay_vlan1, dhcpserver_ipv4))
     else:
-        st.config(node, "config dhcpv4_relay del Vlan{} --dhcpv4-servers {}".format(dhcprelay_vlan1, dhcpserver_ipv4))
+        st.config(node, "config vlan dhcp_relay del {} {}".format(dhcprelay_vlan1, dhcpserver_ipv4))
         st.config(node, "config interface ip remove Vlan{} {}".format(dhcprelay_vlan2, dhcprelay_ipv4_prefix2))
         st.config(node, "config interface ip remove Vlan{} {}".format(dhcprelay_vlan1, dhcprelay_ipv4_prefix1))
+
+def config_dhcp_relay_ipv6(node, add=True):
+    if add:
+        st.config(node, "config interface ip add Vlan{} {}".format(dhcprelay_vlan1, dhcprelay_ipv6_prefix1))
+        st.config(node, "config interface ip add Vlan{} {}".format(dhcprelay_vlan2, dhcprelay_ipv6_prefix2))
+        st.config(node, "config dhcp_relay ipv6 destination add {} {}".format(dhcprelay_vlan1, dhcpserver_ipv6))
+    else:
+        st.config(node, "config dhcp_relay ipv6 destination del {} {}".format(dhcprelay_vlan1, dhcpserver_ipv6))
+        st.config(node, "config interface ip remove Vlan{} {}".format(dhcprelay_vlan2, dhcprelay_ipv6_prefix2))
+        st.config(node, "config interface ip remove Vlan{} {}".format(dhcprelay_vlan1, dhcprelay_ipv6_prefix1))
 
 
 def report_fail(dut, msg=''):
@@ -165,6 +185,58 @@ def dhcp_setup_verify_ipv4(linksel=False):
     return True 
 
 
+def dhcp_setup_verify_ipv6():
+    vars = st.get_testbed_vars()
+
+    # DHCP Server Config with switch
+    tg4, tg_ph_4 = tgapi.get_handle_byname("T1D4P2")
+    h4 = tg4.tg_interface_config(port_handle=tg_ph_4, ipv6_prefix_length='64', arp_send_req='1', ipv6_intf_addr=dhcpserver_ipv6,
+                                src_mac_addr=dhcpserverv6_mac_addr, ipv6_resolve_gateway_mac='false',
+                                vlan='1', mode='config', ipv6_gateway=dhcpserver_vlan_ipv6_addr, vlan_id=dhcprelay_vlan2)
+
+    s_conf4 = tg4.tg_emulation_dhcp_server_config(count='1', mac_addr='00:10:94:00:00:04', server_emulation_mode='DHCPV6',
+                                                handle=h4['handle'], prefix_pool_per_server='20', addr_pool_addresses_per_server='20',
+                                                addr_pool_start_addr=dhcp_ipv6_assigned_start, prefix_pool_prefix_length='64', mode='create',
+                                                prefix_pool_step='1', ip_version='6', encapsulation='ethernet_ii_vlan', vlan_id=dhcprelay_vlan2,
+                                                addr_pool_step_per_server='1', prefix_pool_start_addr='2001::', addr_pool_prefix_length='64')
+
+    s_con4 = tg4.tg_emulation_dhcp_server_control(action='connect', dhcp_handle=s_conf4['dhcp_handle'], ip_version='6')
+    st.log("dhcp relay ipv6 basic server control {}".format(s_con4))
+
+
+    # DHCP Client Config(Port Based)
+    tg3, tg_ph_3 = tgapi.get_handle_byname("T1D4P1")
+    conf3 = tg3.tg_emulation_dhcp_config(mode='create', port_handle=tg_ph_3, ip_version='6')
+    st.log("dhcp relay ipv6 basic client config {}".format(conf3))
+
+    group3 = tg3.tg_emulation_dhcp_group_config(num_sessions='2', dhcp_range_ip_type='6', handle=conf3['handles'],
+                                              vlan_id_step=0, vlan_cfi=0, client_mac_addr='00:10:01:00:00:01', mode='create',
+                                              encap='ethernet_ii_vlan', dhcp6_client_mode='DHCPV6', vlan_id=dhcprelay_vlan1, protocol_name='dhcpv6client', 
+                                              mac_addr=dhcpclientv6_mac_addr)
+    st.log("dhcp relay ipv6 basic client gconfig {}".format(group3))
+
+    tg3.tg_emulation_dhcp_stats(action='clear', port_handle=tg_ph_3)
+    cont3 = tg3.tg_emulation_dhcp_control(port_handle=tg_ph_3, action="bind", handle=group3['handle'], ip_version='6')
+    st.log("dhcp relay ipv6 basic client bind {}".format(cont3))
+
+    st.wait(30)
+
+    rst3 = tg3.tg_emulation_dhcp_stats(port_handle=tg_ph_3, handle=conf3['handles'], mode='session', ip_version='6')
+    st.log("dhcp relay ipv6 basic client result {}".format(rst3))
+
+    for key, val in rst3.items():
+        if key == 'session':
+            for _, val2 in val.items():
+                st.log("dhcp relay ipv6 basic client ipaddr {}".format(val2['Address']))
+                if val2['Address'] not in [dhcp_ipv6_assigned1, dhcp_ipv6_assigned2]:
+                    st.log("dhcp relay ipv6 basic fail on assigning the ip")
+                    return False
+
+    st.log("dhcp relay ipv6 basic pass on assigning the ip")
+    
+    return True 
+
+
 ######################################################################
 ##  IPv4 2VLANS:
 ######################################################################
@@ -178,7 +250,7 @@ def dhcp_setup_verify_ipv4(linksel=False):
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_2vlans_new_design():
+def test_dhcp_relay_ipv4_2vlans_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -229,7 +301,7 @@ def test_dhcp_relay_ipv4_2vlans_new_design():
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_single_vrf_new_design():
+def test_dhcp_relay_ipv4_single_vrf_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -272,7 +344,7 @@ def test_dhcp_relay_ipv4_single_vrf_new_design():
 
 """
 @pytest.mark.skip(reason="not required for tortuga beta")
-def test_dhcp_relay_ipv4_diff_vrf_new_design():
+def test_dhcp_relay_ipv4_diff_vrf_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -311,3 +383,97 @@ def test_dhcp_relay_ipv4_diff_vrf_new_design():
     else:
         st.report_fail("test_case_failed", "test_dhcp_relay_ipv4_diff_vrf failed")
 """
+
+######################################################################
+##  IPv6 2VLANS:
+######################################################################
+##
+##  HOST0/dhcp_client ------ SD4/Leaf1 ------ HOST1/dhcp_server
+##                    VLAN10           VLAN20       2002::1
+##                   2001::254        2002::254
+##                   RELAY_AGENT
+##
+##  config dhcp_relay ipv6 destination add 10 2002::1
+##
+######################################################################
+
+def test_dhcp_relay_ipv6_basic_old_design(dhcpv4_relay_flag_config_unconfig):
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+
+    if not check_dhcp4relay_support(vars.D3):
+        st.log("Skipping: dhcp4relay new design not supported - gracefully passing.")
+        return st.report_pass("test_case_passed", "dhcp4relay new design is not there. so gracefully passing")
+
+    vxlan_obj.config_vlan(nodes['leaf1'], dhcprelay_vlan1, members=[vars.D4T1P1], vrf=None, add=True, tagged=True)
+    vxlan_obj.config_vlan(nodes['leaf1'], dhcprelay_vlan2, members=[vars.D4T1P2], vrf=None, add=True, tagged=True)
+
+    config_dhcp_relay_ipv6(vars.D4)
+
+    result = dhcp_setup_verify_ipv6()
+
+    config_dhcp_relay_ipv6(vars.D4, add=False)
+
+    vxlan_obj.config_vlan(nodes['leaf1'], dhcprelay_vlan2, members=[vars.D4T1P2], vrf=None, add=False, tagged=True)
+    vxlan_obj.config_vlan(nodes['leaf1'], dhcprelay_vlan1, members=[vars.D4T1P1], vrf=None, add=False, tagged=True)
+
+    if result:
+        st.report_pass("test_case_passed", "test_dhcp_relay_ipv6_basic passed")
+    else:
+        st.report_fail("test_case_failed", "test_dhcp_relay_ipv6_basic failed")
+
+
+######################################################################
+##  IPv6 2VLAN on new SINGLE VRF:
+######################################################################
+##
+##  HOST0/dhcp_client ------ SD4/Leaf1 ------ HOST1/dhcp_server
+##                    VLAN10           VLAN20       2002::1
+##                   2001::254        2002::254
+##                   RELAY_AGENT
+##
+##  config interface vrf bind Vlan10 Vrf01
+##  config interface vrf bind Vlan20 Vrf01
+##  config dhcp_relay ipv6 destination add 10 2002::1
+##
+######################################################################
+
+def test_dhcp_relay_ipv6_single_vrf_old_design(dhcpv4_relay_flag_config_unconfig):
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+
+    if not check_dhcp4relay_support(vars.D3):
+        st.log("Skipping: dhcp4relay new design not supported - gracefully passing.")
+        return st.report_pass("test_case_passed", "dhcp4relay new design is not there. so gracefully passing")
+
+    vrf = 'Vrf01'
+
+    vxlan_obj.config_vrf(nodes['leaf1'], vrf)
+    vxlan_obj.config_vlan(nodes['leaf1'], dhcprelay_vlan1, members=[vars.D4T1P1], vrf=vrf, add=True, tagged=True)
+    vxlan_obj.config_vlan(nodes['leaf1'], dhcprelay_vlan2, members=[vars.D4T1P2], vrf=vrf, add=True, tagged=True)
+
+    config_dhcp_relay_ipv6(vars.D4)
+
+    result = dhcp_setup_verify_ipv6()
+
+    config_dhcp_relay_ipv6(vars.D4, add=False)
+
+    vxlan_obj.config_vlan(nodes['leaf1'], dhcprelay_vlan2, members=[vars.D4T1P2], vrf=vrf, add=False, tagged=True)
+    vxlan_obj.config_vlan(nodes['leaf1'], dhcprelay_vlan1, members=[vars.D4T1P1], vrf=vrf, add=False, tagged=True)
+    vxlan_obj.config_vrf(nodes['leaf1'], vrf, add=False)
+
+    if result:
+        st.report_pass("test_case_passed", "test_dhcp_relay_ipv6_single_vrf passed")
+    else:
+        st.report_fail("test_case_failed", "test_dhcp_relay_ipv6_single_vrf failed")
+

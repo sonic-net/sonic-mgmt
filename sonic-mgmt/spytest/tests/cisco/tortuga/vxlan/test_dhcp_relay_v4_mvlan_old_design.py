@@ -3,7 +3,7 @@ import yaml
 import pytest
 
 from spytest import st, tgapi, SpyTestDict
-from dhcpv4_relay_utils import check_dhcp4relay_support
+from dhcpv4_relay_utils import dhcpv4_relay_flag_config_unconfig, check_dhcp4relay_support
 import apis.system.basic as basic_obj
 import apis.routing.ip as ip_obj
 import apis.switching.vlan as vlan_obj
@@ -71,9 +71,9 @@ def config_dhcp_relay_ipv4_vlan(node, vlan=None, prefix=None, add=True):
 
 def config_dhcp_relay_ipv4_trig(node, vlan=None, dhcpserver_ipv4=None, add=True):
     if add:
-        st.config(node, "config dhcpv4_relay add Vlan{} --dhcpv4-servers {}".format(vlan, dhcpserver_ipv4))
+        st.config(node, "config dhcp_relay ipv4 helper add {} {}".format(vlan, dhcpserver_ipv4))
     else:
-        st.config(node, "config dhcpv4_relay del Vlan{} --dhcpv4-servers {}".format(vlan, dhcpserver_ipv4))
+        st.config(node, "config dhcp_relay ipv4 helper del {} {}".format(vlan, dhcpserver_ipv4))
 
 
 def report_fail(dut, msg=''):
@@ -301,7 +301,7 @@ def dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2, mserver=True):
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_mvlan_default_vrf_tc1_new_design():
+def test_dhcp_relay_ipv4_mvlan_default_vrf_tc1_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -309,7 +309,7 @@ def test_dhcp_relay_ipv4_mvlan_default_vrf_tc1_new_design():
     nodes['spine1'] = vars.D2
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
-
+    
     if not check_dhcp4relay_support(vars.D3):
         st.log("Skipping: dhcp4relay new design not supported - gracefully passing.")
         return st.report_pass("test_case_passed", "dhcp4relay new design is not there. so gracefully passing")
@@ -318,24 +318,24 @@ def test_dhcp_relay_ipv4_mvlan_default_vrf_tc1_new_design():
     vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=None, add=True, tagged=True)    
     vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan3, members=[vars.D3T1P3], vrf=None, add=True, tagged=True)    
     vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan4, members=[vars.D3T1P4], vrf=None, add=True, tagged=True)    
-
+    
     config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=True)
     config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=True)
     config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=True)
     config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan4, prefix=dhcp_ipv4_prefix4, add=True)
-
+    
     config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=True)
     config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=True)
-
+    
     result = dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2)
-
+    
     if not result:
         st.show(vars.D3, 'sudo ping {} -c 5'.format(dhcpserver_ipv4_a), skip_tmpl=True, skip_error_check=True)
         st.show(vars.D3, 'sudo ping {} -c 5'.format(dhcpserver_ipv4_b), skip_tmpl=True, skip_error_check=True)
-
+    
     config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan1, dhcpserver_ipv4=dhcpserver_ipv4_a, add=False)
     config_dhcp_relay_ipv4_trig(vars.D3, vlan=dhcp_vlan3, dhcpserver_ipv4=dhcpserver_ipv4_b, add=False)
-
+    
     config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan1, prefix=dhcp_ipv4_prefix0, add=False)
     config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan3, prefix=dhcp_ipv4_prefix3, add=False)
     config_dhcp_relay_ipv4_vlan(vars.D3, vlan=dhcp_vlan2, prefix=dhcp_ipv4_prefix2, add=False)
@@ -346,7 +346,7 @@ def test_dhcp_relay_ipv4_mvlan_default_vrf_tc1_new_design():
     vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=None, add=False, tagged=True)    
     vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=None, add=False, tagged=True)    
 
-
+    
     if result:
         st.report_pass("test_case_passed", "test_dhcp_relay_ipv4_mvlan_default_vrf_tc1 passed")
     else:
@@ -371,7 +371,7 @@ def test_dhcp_relay_ipv4_mvlan_default_vrf_tc1_new_design():
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_mvlan_new_vrf_tc2_new_design():
+def test_dhcp_relay_ipv4_mvlan_new_vrf_tc2_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -446,7 +446,7 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc2_new_design():
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_mvlan_new_vrf_tc3_new_design():
+def test_dhcp_relay_ipv4_mvlan_new_vrf_tc3_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -522,7 +522,7 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc3_new_design():
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_mvlan_new_vrf_tc4_new_design():
+def test_dhcp_relay_ipv4_mvlan_new_vrf_tc4_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -595,7 +595,7 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc4_new_design():
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_mvlan_default_vrf_tc5_new_design():
+def test_dhcp_relay_ipv4_mvlan_default_vrf_tc5_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -664,7 +664,7 @@ def test_dhcp_relay_ipv4_mvlan_default_vrf_tc5_new_design():
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_mvlan_new_vrf_tc6_new_design():
+def test_dhcp_relay_ipv4_mvlan_new_vrf_tc6_old_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -717,3 +717,4 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc6_new_design():
         st.report_pass("test_case_passed", "test_dhcp_relay_ipv4_mvlan_new_vrf_tc6 passed")
     else:
         st.report_fail("test_case_failed", "test_dhcp_relay_ipv4_mvlan_new_vrf_tc6 failed")
+

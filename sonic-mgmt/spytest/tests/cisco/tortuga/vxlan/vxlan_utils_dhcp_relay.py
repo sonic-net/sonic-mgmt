@@ -250,16 +250,23 @@ def config_l3vni_int_vrf(node, vrf=None, dummy_vlan=None, loopback=None, prefix=
             st.config(node, "config interface vrf unbind Vlan{}".format(dummy_vlan, vrf))
             st.config(node, "config vlan del {}".format(dummy_vlan))
 
-def config_l3vni_int_vlan(node, vlan=None, member=None, vrf=None, prefix=None, loopback=None, breakout=False, add=True):
+def config_l3vni_int_vlan(node, vlan=None, member=None, vrf=None, prefix=None, loopback=None, breakout=False, speed=None, add=True):
     if add:
         if vlan:
             st.config(node, "config vlan add {}".format(vlan))
         if member:
             if breakout:
                 st.config(node, "show int breakout")
-                st.config(node, "config interface breakout {} \"2x200G\" -yfl".format(member))
-                st.config(node, "config interface startup {}_1".format(member))
-                st.config(node, "config vlan member add -u {} {}_1".format(vlan, member))
+                if speed in ["800G", "400G"]:
+                    st.config(node, "config interface breakout {} \"2x200G\" -yfl".format(member))
+                else:
+                    st.config(node, "config interface breakout {} \"4x25G\" -yfl".format(member))
+                if '_' in member:
+                    st.config(node, "config interface startup {}_1".format(member))
+                    st.config(node, "config vlan member add -u {} {}_1".format(vlan, member))
+                else:
+                    st.config(node, "config interface startup {}".format(member))
+                    st.config(node, "config vlan member add -u {} {}".format(vlan, member))
             else: 
                 st.config(node, "config vlan member add -u {} {}".format(vlan, member))
         if vlan:
@@ -285,8 +292,16 @@ def config_l3vni_int_vlan(node, vlan=None, member=None, vrf=None, prefix=None, l
             st.config(node, "config vxlan map del VXLAN {} 500{}".format(vlan, vlan))
         if member:
             if breakout:
-                st.config(node, "config vlan member del {} {}_1".format(vlan, member))
-                st.config(node, "config interface breakout {} \"1x400G\" -yfl".format(member))
+                if '_' in member:
+                    st.config(node, "config vlan member del {} {}_1".format(vlan, member))
+                else:
+                    st.config(node, "config vlan member del {} {}".format(vlan, member))
+                if speed == "800G":
+                    st.config(node, "config interface breakout {} \"1x800G\" -yfl".format(member))
+                elif speed == "400G":
+                    st.config(node, "config interface breakout {} \"1x400G\" -yfl".format(member))
+                else:
+                    st.config(node, "config interface breakout {} \"1x100G\" -yfl".format(member))
                 st.config(node, "config interface startup {}".format(member))
             else: 
                 st.config(node, "config vlan member del {} {}".format(vlan, member))

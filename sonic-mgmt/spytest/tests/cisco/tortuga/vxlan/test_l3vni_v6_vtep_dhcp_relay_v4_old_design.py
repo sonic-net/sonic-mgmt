@@ -1,5 +1,5 @@
 from spytest import st, tgapi, SpyTestDict
-from dhcpv4_relay_utils import check_dhcp4relay_support
+from dhcpv4_relay_utils import dhcpv4_relay_flag_config_unconfig, check_dhcp4relay_support
 import os
 import yaml
 import pytest
@@ -179,21 +179,13 @@ def config_dhcp_relay_ipv4_scaling(node, vlan, server, add=True):
         for i in range(dhcp_scaling_factor):
             st.config(node, "config vlan add {}".format(int(vlan) + i))
             st.config(node, "config interface ip add Vlan{} 8.8.{}.254/24".format(int(vlan) + i, int(vlan) + i))
-            st.config(node, "config dhcpv4_relay add Vlan{} --dhcpv4-servers {}".format(int(vlan) + i, server))
+            st.config(node, "config vlan dhcp_relay add {} {}".format(int(vlan) + i, server))
     else:
         for i in range(dhcp_scaling_factor):
-            st.config(node, "config dhcpv4_relay del Vlan{} --dhcpv4-servers {}".format(int(vlan) + i, server))
+            st.config(node, "config vlan dhcp_relay del {} {}".format(int(vlan) + i, server))
             st.config(node, "config interface ip rem Vlan{} 8.8.{}.254/24".format(int(vlan) + i, int(vlan) + i))
             st.config(node, "config vlan del {}".format(int(vlan) + i))
 
-
-def config_dhcp_relay_ipv4(node, vlan, server, loopback=None, add=True):
-    if add:
-        st.config(node, "config dhcpv4_relay add Vlan{} --dhcpv4-servers {} --source-interface {} --link-selection enable"
-                  .format(vlan, server, loopback))
-    else:
-        st.config(node, "config dhcpv4_relay del Vlan{} --dhcpv4-servers {} --source-interface --link-selection"
-                  .format(vlan, server))
 
 
 ######################################################################################
@@ -213,13 +205,13 @@ def config_dhcp_relay_ipv4(node, vlan, server, loopback=None, add=True):
 ##                  50.50.50.99(EMPTY) <------ 40.40.40.1/24
 ##
 ##
-##  <Leaf0>   config dhcpv4_relay add Vlan2 --dhcpv4-servers 30.30.30.99 
-##  <Leaf1>   config dhcpv4_relay add Vlan4 --dhcpv4-servers 50.50.50.99 
+##  <Leaf0>   config dhcp_relay ipv4 helper add 2 30.30.30.99 
+##  <Leaf1>   config dhcp_relay ipv4 helper add 4 50.50.50.99 
 ##
 ######################################################################################
 
 
-def test_l3vni_vtep6_sag_dhcp_relay_tc1_new_design():
+def test_l3vni_vtep6_sag_dhcp_relay_tc1_old_design(dhcpv4_relay_flag_config_unconfig):
 
     st.banner("Start on test_l3vni_vtep6_sag_dhcp_relay_tc1")
     vars = st.get_testbed_vars()
@@ -234,36 +226,36 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc1_new_design():
         st.log("Skipping: dhcp4relay new design not supported - gracefully passing.")
         return st.report_pass("test_case_passed", "dhcp4relay new design is not there. so gracefully passing")
 
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=leaf0_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf0_loopback, add=True)  
    
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=None, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=leaf1_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf1_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=leaf1_loopback, add=True)  
    
     st.wait(30)
     vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VXLAN_IP, LEAF1_VXLAN_IP)
     
-    config_dhcp_relay_ipv4(vars.D3, vlan2, dhcpserverv4_b2, loopback=leaf0_loopback)
-    config_dhcp_relay_ipv4(vars.D4, vlan4, dhcpserverv4_a4, loopback=leaf1_loopback)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D3, vlan2, dhcpserverv4_b2)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D4, vlan4, dhcpserverv4_a4)
    
     result = dhcp_relay_obj.dhcp_l3vni_ipv4_setup_server_client(dual_servers=False, linksel=True, leaf0_clients=1)
     
-    config_dhcp_relay_ipv4(vars.D4, vlan4, dhcpserverv4_a4, loopback=leaf1_loopback, add=False)
-    config_dhcp_relay_ipv4(vars.D3, vlan2, dhcpserverv4_b2, loopback=leaf0_loopback, add=False)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D4, vlan4, dhcpserverv4_a4, add=False)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D3, vlan2, dhcpserverv4_b2, add=False)
     
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=leaf1_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf1_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=leaf1_loopback, add=False)  
    
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf0_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=leaf0_loopback, add=False)  
 
     
     if result:
-	st.report_pass('test_case_passed', 'test_l3vni_vtep6_sag_dhcp_relay_tc1')
+        st.report_pass('test_case_passed', 'test_l3vni_vtep6_sag_dhcp_relay_tc1')
     else:
-	st.report_fail('test_case_failed', 'test_l3vni_vtep6_sag_dhcp_relay_tc1')
+        st.report_fail('test_case_failed', 'test_l3vni_vtep6_sag_dhcp_relay_tc1')
 
 
 ######################################################################################
@@ -295,7 +287,7 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc1_new_design():
 ##
 ######################################################################################
 
-def test_l3vni_vtep6_sag_dhcp_relay_tc2_new_design():
+def test_l3vni_vtep6_sag_dhcp_relay_tc2_old_design(dhcpv4_relay_flag_config_unconfig):
 
     st.banner("Start on test_l3vni_vtep6_sag_dhcp_relay_tc2")
     vars = st.get_testbed_vars()
@@ -310,45 +302,45 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc2_new_design():
         st.log("Skipping: dhcp4relay new design not supported - gracefully passing.")
         return st.report_pass("test_case_passed", "dhcp4relay new design is not there. so gracefully passing")
 
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=leaf0_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf0_loopback, add=True)  
 
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan4, member=vars.D3T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan5, member=vars.D3T1P4, vrf=VRF_NAME1, prefix=vlan5_prefix, loopback=None, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan4, member=vars.D3T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=leaf0_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan5, member=vars.D3T1P4, vrf=VRF_NAME1, prefix=vlan5_prefix, loopback=leaf0_loopback, add=True)  
    
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=None, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=leaf1_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf1_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=leaf1_loopback, add=True)  
    
     st.wait(30)
     vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VXLAN_IP, LEAF1_VXLAN_IP)
    
-    config_dhcp_relay_ipv4(vars.D3, vlan2, dhcpserverv4_b2, loopback=leaf0_loopback)
-    config_dhcp_relay_ipv4(vars.D3, vlan4, dhcpserverv4_b2, loopback=leaf0_loopback)
-    config_dhcp_relay_ipv4(vars.D3, vlan5, dhcpserverv4_b2, loopback=leaf0_loopback)
-    config_dhcp_relay_ipv4(vars.D4, vlan4, dhcpserverv4_a4, loopback=leaf1_loopback)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D3, vlan2, dhcpserverv4_b2)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D3, vlan4, dhcpserverv4_b2)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D3, vlan5, dhcpserverv4_b2)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D4, vlan4, dhcpserverv4_a4)
 
     result = dhcp_relay_obj.dhcp_l3vni_ipv4_setup_server_client(dual_servers=False, linksel=True, leaf0_clients=3)
 
-    config_dhcp_relay_ipv4(vars.D4, vlan4, dhcpserverv4_a4, loopback=leaf1_loopback, add=False)
-    config_dhcp_relay_ipv4(vars.D3, vlan5, dhcpserverv4_b2, loopback=leaf0_loopback, add=False)
-    config_dhcp_relay_ipv4(vars.D3, vlan4, dhcpserverv4_b2, loopback=leaf0_loopback, add=False)
-    config_dhcp_relay_ipv4(vars.D3, vlan2, dhcpserverv4_b2, loopback=leaf0_loopback, add=False)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D4, vlan4, dhcpserverv4_a4, add=False)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D3, vlan5, dhcpserverv4_b2, add=False)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D3, vlan4, dhcpserverv4_b2, add=False)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D3, vlan2, dhcpserverv4_b2, add=False)
 
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan5, member=vars.D3T1P4, vrf=VRF_NAME1, prefix=vlan5_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan4, member=vars.D3T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan5, member=vars.D3T1P4, vrf=VRF_NAME1, prefix=vlan5_prefix, loopback=leaf0_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan4, member=vars.D3T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=leaf0_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf0_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=leaf0_loopback, add=False)  
 
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=leaf1_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf1_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=leaf1_loopback, add=False)  
    
     
     if result:
-	st.report_pass('test_case_passed', 'test_l3vni_vtep6_sag_dhcp_relay_tc2')
+        st.report_pass('test_case_passed', 'test_l3vni_vtep6_sag_dhcp_relay_tc2')
     else:
-	st.report_fail('test_case_failed', 'test_l3vni_vtep6_sag_dhcp_relay_tc2')
+        st.report_fail('test_case_failed', 'test_l3vni_vtep6_sag_dhcp_relay_tc2')
 
 
 
@@ -384,7 +376,7 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc2_new_design():
 ##
 ######################################################################################
 
-def test_l3vni_vtep6_sag_dhcp_relay_tc3_new_design():
+def test_l3vni_vtep6_sag_dhcp_relay_tc3_old_design(dhcpv4_relay_flag_config_unconfig):
 
     st.banner("Start on test_l3vni_vtep6_sag_dhcp_relay_tc3")
     vars = st.get_testbed_vars()
@@ -399,18 +391,18 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc3_new_design():
         st.log("Skipping: dhcp4relay new design not supported - gracefully passing.")
         return st.report_pass("test_case_passed", "dhcp4relay new design is not there. so gracefully passing")
 
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=leaf0_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf0_loopback, add=True)  
    
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=None, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=leaf1_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf1_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=leaf1_loopback, add=True)  
 
     st.wait(30)
     vxlan_obj.verify_vtep_state_v6(nodes, LEAF0_VXLAN_IP, LEAF1_VXLAN_IP)
 
-    config_dhcp_relay_ipv4(vars.D3, vlan2, dhcpserverv4_b2, loopback=leaf0_loopback)
-    config_dhcp_relay_ipv4(vars.D4, vlan4, dhcpserverv4_a4, loopback=leaf1_loopback)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D3, vlan2, dhcpserverv4_b2)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D4, vlan4, dhcpserverv4_a4)
 
     ######### DHCP RELAY SCALING CONFIG ##############
 
@@ -424,15 +416,15 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc3_new_design():
 
     ######### DHCP RELAY SCALING CONFIG ##############
 
-    config_dhcp_relay_ipv4(vars.D4, vlan4, dhcpserverv4_a4, loopback=leaf1_loopback, add=False)
-    config_dhcp_relay_ipv4(vars.D3, vlan2, dhcpserverv4_b2, loopback=leaf0_loopback, add=False)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D4, vlan4, dhcpserverv4_a4, add=False)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D3, vlan2, dhcpserverv4_b2, add=False)
 
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=leaf1_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf1_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=leaf1_loopback, add=False)  
    
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf0_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=leaf0_loopback, add=False)  
 
 
     if result:
@@ -469,7 +461,7 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc3_new_design():
 ##
 ######################################################################################
 
-def test_l3vni_vtep6_sag_dhcp_relay_tc4_new_design():
+def test_l3vni_vtep6_sag_dhcp_relay_tc4_old_design(dhcpv4_relay_flag_config_unconfig):
 
     st.banner("Start on test_l3vni_vtep6_sag_dhcp_relay_tc4")
     vars = st.get_testbed_vars()
@@ -479,6 +471,7 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc4_new_design():
     nodes['spine1'] = vars.D2
     nodes['leaf0'] = vars.D3
     nodes['leaf1'] = vars.D4
+
     if not check_dhcp4relay_support(vars.D3):
         st.log("Skipping: dhcp4relay new design not supported - gracefully passing.")
         return st.report_pass("test_case_passed", "dhcp4relay new design is not there. so gracefully passing")
@@ -488,15 +481,15 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc4_new_design():
     dhcp_relay_obj.config_l3vni_int_vrf(vars.D3, vrf=VRF_NAME2, dummy_vlan=DUMMY_VLAN2, loopback=None,           prefix=None,         add=True)
     dhcp_relay_obj.config_l3vni_int_vrf(vars.D4, vrf=VRF_NAME2, dummy_vlan=DUMMY_VLAN2, loopback=leaf1_loopback, prefix=leaf1_prefix, add=True)
    
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan4, member=vars.D3T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=None, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf0_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan4, member=vars.D3T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=leaf0_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf1_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=leaf1_loopback, add=True)  
 
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME2, prefix=vlan2_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan5, member=vars.D3T1P4, vrf=VRF_NAME2, prefix=vlan5_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME2, prefix=vlan2_prefix, loopback=None, add=True)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan5, member=vars.D4T1P4, vrf=VRF_NAME2, prefix=vlan5_prefix, loopback=None, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME2, prefix=vlan2_prefix, loopback=leaf0_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan5, member=vars.D3T1P4, vrf=VRF_NAME2, prefix=vlan5_prefix, loopback=leaf0_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME2, prefix=vlan2_prefix, loopback=leaf1_loopback, add=True)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan5, member=vars.D4T1P4, vrf=VRF_NAME2, prefix=vlan5_prefix, loopback=leaf1_loopback, add=True)  
    
 
     st.wait(30)
@@ -505,8 +498,8 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc4_new_design():
    
     ######### DHCP RELAY CONFIG ADDED ##############
    
-    config_dhcp_relay_ipv4(vars.D3, vlan4, dhcpserverv4_b2, loopback=leaf0_loopback)
-    config_dhcp_relay_ipv4(vars.D4, vlan2, dhcpserverv4_a4, loopback=leaf1_loopback)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D3, vlan4, dhcpserverv4_b2)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D4, vlan2, dhcpserverv4_a4)
 
 
     ###### CaseTC3-A ######
@@ -581,22 +574,22 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc4_new_design():
 
     ######### DHCP RELAY CONFIG REMOVAL ##############
 
-    config_dhcp_relay_ipv4(vars.D3, vlan4, dhcpserverv4_b2, loopback=leaf0_loopback, add=False)
-    config_dhcp_relay_ipv4(vars.D4, vlan2, dhcpserverv4_a4, loopback=leaf1_loopback, add=False)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D3, vlan4, dhcpserverv4_b2, add=False)
+    dhcp_relay_obj.config_dhcp_relay_ipv4(vars.D4, vlan2, dhcpserverv4_a4, add=False)
 
 
     ######### TOPO CONFIG REMOVAL ##############
 
 
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan4, member=vars.D3T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=None, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf0_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan4, member=vars.D3T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=leaf0_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan3, member=vars.D4T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=leaf1_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan4, member=vars.D4T1P3, vrf=VRF_NAME1, prefix=vlan4_prefix, loopback=leaf1_loopback, add=False)  
 
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME2, prefix=vlan2_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan5, member=vars.D3T1P4, vrf=VRF_NAME2, prefix=vlan5_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME2, prefix=vlan2_prefix, loopback=None, add=False)  
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan5, member=vars.D4T1P4, vrf=VRF_NAME2, prefix=vlan5_prefix, loopback=None, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME2, prefix=vlan2_prefix, loopback=leaf0_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan5, member=vars.D3T1P4, vrf=VRF_NAME2, prefix=vlan5_prefix, loopback=leaf0_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME2, prefix=vlan2_prefix, loopback=leaf1_loopback, add=False)  
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan5, member=vars.D4T1P4, vrf=VRF_NAME2, prefix=vlan5_prefix, loopback=leaf1_loopback, add=False)  
    
     dhcp_relay_obj.config_l3vni_int_vrf(vars.D3, vrf=VRF_NAME2, dummy_vlan=DUMMY_VLAN2, loopback=None,           prefix=None,         add=False)
     dhcp_relay_obj.config_l3vni_int_vrf(vars.D4, vrf=VRF_NAME2, dummy_vlan=DUMMY_VLAN2, loopback=leaf1_loopback, prefix=leaf1_prefix, add=False)
