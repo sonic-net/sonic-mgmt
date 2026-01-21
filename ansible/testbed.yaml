@@ -3876,14 +3876,14 @@
   servers:
     server_94:
       ptf: vms94-1-a
-      ptf_ip: 10.64.247.148/25
-      ptf_ipv6: 2a01:111:e210:b000::a40:f794/121
+      ptf_ip: 10.64.247.189/25
+      ptf_ipv6: 2a01:111:e210:b000::a40:f7bd/121
       vm_base: VM94000
       dut_interfaces: 0-256
     server_96:
       ptf: vms94-1-b
-      ptf_ip: 10.64.247.153/25
-      ptf_ipv6: 2a01:111:e210:b000::a40:f799/121
+      ptf_ip: 10.64.247.173/25
+      ptf_ipv6: 2a01:111:e210:b000::a40:f7ad/121
       vm_base: VM96000
       dut_interfaces: 257-513
   dut:
@@ -3898,14 +3898,14 @@
   servers:
     server_94:
       ptf: vms94-2-a
-      ptf_ip: 10.64.247.149/25
-      ptf_ipv6: 2a01:111:e210:b000::a40:f795/121
+      ptf_ip: 10.64.247.174/25
+      ptf_ipv6: 2a01:111:e210:b000::a40:f7ae/121
       vm_base: VM94255
       dut_interfaces: 0-256
     server_96:
       ptf: vms94-2-b
-      ptf_ip: 10.64.247.167/25
-      ptf_ipv6: 2a01:111:e210:b000::a40:f7a7/121
+      ptf_ip: 10.64.247.175/25
+      ptf_ipv6: 2a01:111:e210:b000::a40:f7af/121
       vm_base: VM96257
       dut_interfaces: 257-513
   dut:
