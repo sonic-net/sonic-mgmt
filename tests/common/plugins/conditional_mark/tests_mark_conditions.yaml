@@ -4641,6 +4641,36 @@ snappi_tests/reboot:
     conditions:
       - "'2025' in release"
 
+snappi_tests/pfc/test_pfc_pause_lossy_with_snappi.py::test_pfc_pause_single_lossy_prio_reboot[fast]:
+  skip:
+    reason: "Cisco-8000 supports only cold reboot."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+snappi_tests/pfc/test_pfc_pause_lossy_with_snappi.py::test_pfc_pause_single_lossy_prio_reboot[warm]:
+  skip:
+    reason: "Cisco-8000 supports only cold reboot."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+snappi_tests/reboot/test_fast_reboot.py:
+  skip:
+    reason: "Cisco-8000 supports only cold reboot."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+snappi_tests/reboot/test_soft_reboot.py:
+  skip:
+    reason: "Cisco-8000 supports only cold reboot."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
+snappi_tests/reboot/test_warm_reboot.py:
+  skip:
+    reason: "Cisco-8000 supports only cold reboot."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 #######################################
 #####            snmp             #####
 #######################################
