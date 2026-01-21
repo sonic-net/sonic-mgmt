@@ -424,15 +424,15 @@ def clean_ptf_dataplane(ptfadapter):
     Takes in the function scope so that each parametrized test case also gets a clean dataplane.
     """
     dp = ptfadapter.dataplane
-    if hasattr(dp, "drain"):
+
+    def _perform_cleanup_on_dp():
         dp.drain()
-    if hasattr(dp, "clear_masks"):
         dp.clear_masks()
+    # Before test run DP cleanup
+    _perform_cleanup_on_dp()
     yield
-    if hasattr(dp, "drain"):
-        dp.drain()
-    if hasattr(dp, "clear_masks"):
-        dp.clear_masks()
+    # After test run DP cleanup
+    _perform_cleanup_on_dp()
 
 
 def compress_expected_routes(expected_routes):
@@ -546,8 +546,7 @@ def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count
     current_test = f"flapper_{action}_{connection_type}_count_{flapping_count}"
     global_icmp_type += 1
     pdp = ptfadapter.dataplane
-    if hasattr(pdp, "clear_masks"):
-        pdp.clear_masks()
+    pdp.clear_masks()
     pdp.set_qlen(PACKET_QUEUE_LENGTH)
     exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
     all_flap = (flapping_count == 'all')
