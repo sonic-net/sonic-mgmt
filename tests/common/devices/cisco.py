@@ -91,7 +91,13 @@ class CiscoHost(AnsibleHostBase):
         self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
 
     def __getattr__(self, module_name):
+        # List of standard Ansible modules allowed for Cisco devices
+        allowed_modules = ['copy', 'shell', 'command', 'file', 'fetch', 'stat', 'template']
+        # Network modules that work with network_cli connection
+        network_modules = ['net_put', 'net_get']
+        
         if module_name.startswith('iosxr_'):
+            # IOS XR specific modules - use network_cli connection
             evars = {
                 'ansible_connection': 'network_cli',
                 'ansible_network_os': module_name.split('_', 1)[0],
@@ -100,10 +106,32 @@ class CiscoHost(AnsibleHostBase):
                 'ansible_ssh_user': self.ansible_user,
                 'ansible_ssh_pass': self.ansible_passwd,
             }
+            self.host.options['variable_manager'].extra_vars.update(evars)
+            return super(CiscoHost, self).__getattr__(module_name)
+        elif module_name in network_modules:
+            # Network file transfer modules - use network_cli connection
+            evars = {
+                'ansible_connection': 'network_cli',
+                'ansible_network_os': 'iosxr',
+                'ansible_user': self.ansible_user,
+                'ansible_password': self.ansible_passwd,
+                'ansible_ssh_user': self.ansible_user,
+                'ansible_ssh_pass': self.ansible_passwd,
+            }
+            self.host.options['variable_manager'].extra_vars.update(evars)
+            return super(CiscoHost, self).__getattr__(module_name)
+        elif module_name in allowed_modules:
+            # Standard Ansible modules - use default SSH connection
+            evars = {
+                'ansible_user': self.ansible_user,
+                'ansible_password': self.ansible_passwd,
+                'ansible_ssh_user': self.ansible_user,
+                'ansible_ssh_pass': self.ansible_passwd,
+            }
+            self.host.options['variable_manager'].extra_vars.update(evars)
+            return super(CiscoHost, self).__getattr__(module_name)
         else:
             raise Exception("Does not have module: {}".format(module_name))
-        self.host.options['variable_manager'].extra_vars.update(evars)
-        return super(CiscoHost, self).__getattr__(module_name)
 
     def __str__(self):
         return '<CiscoHost {}>'.format(self.hostname)
@@ -1365,3 +1393,326 @@ class CiscoHost(AnsibleHostBase):
             return False, output
         except Exception as e:
             return False, "Failed to reboot the device {}. due to {}".format(self.hostname, str(e))
+
+    def copy(self, src=None, dest=None, content=None, **kwargs):
+        """
+        Copy file to Cisco IOS XR device using SFTP (Paramiko).
+        
+        IOS XR devices don't support standard Ansible copy/net_put properly,
+        so we use Paramiko's SFTP to transfer files directly to the device.
+        
+        Args:
+            src (str): Local file path to copy to device
+            dest (str): Destination path on the device (e.g., 'disk0:/filename' or 'harddisk:/filename')
+            content (str): Content to write to file (will create temp file first)
+            **kwargs: Additional arguments
+            
+        Returns:
+            dict: Result dictionary with 'changed', 'failed', etc.
+            
+        Examples:
+            # Copy file from local to device
+            result = ciscohost.copy(src='/tmp/config.txt', dest='disk0:/config.txt')
+            
+            # Write content to file
+            result = ciscohost.copy(content='test data', dest='harddisk:/test.txt')
+        """
+        import tempfile
+        import os
+        
+        # Prepare source file
+        temp_file_created = False
+        if content is not None:
+            # Create a temporary file with the content
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as temp_file:
+                temp_file.write(content)
+                src_file = temp_file.name
+            temp_file_created = True
+        elif src is not None:
+            src_file = src
+        else:
+            raise ValueError("Either 'src' or 'content' must be specified")
+        
+        if dest is None:
+            raise ValueError("'dest' must be specified")
+        
+        ssh_client = None
+        try:
+            # Use Paramiko SFTP to transfer the file
+            ssh_client = SSHClient()
+            ssh_client.set_missing_host_key_policy(AutoAddPolicy())
+            ssh_client.connect(
+                self.mgmt_ip,
+                username=self.ansible_user,
+                password=self.ansible_passwd,
+                look_for_keys=False,
+                allow_agent=False
+            )
+            
+            sftp = ssh_client.open_sftp()
+            sftp.put(src_file, dest)
+            sftp.close()
+            
+            return {
+                'failed': False,
+                'changed': True,
+                'dest': dest,
+                'src': src_file,
+                'rc': 0,
+                'stdout': '',
+                'stderr': ''
+            }
+            
+        except Exception as e:
+            error_msg = f'SFTP transfer failed: {str(e)}'
+            logger.error(f"Failed to copy file to {self.hostname}: {error_msg}")
+            return {
+                'failed': True,
+                'changed': False,
+                'dest': dest,
+                'src': src_file,
+                'rc': 1,
+                'stdout': '',
+                'stderr': error_msg
+            }
+        finally:
+            # Close SSH connection
+            if ssh_client:
+                try:
+                    ssh_client.close()
+                except:
+                    pass
+            
+            # Clean up temp file if we created one
+            if temp_file_created:
+                try:
+                    os.unlink(src_file)
+                except:
+                    pass
+
+    def exec_interactive(self, command, expect_pattern=None, response="", timeout=30, read_delay=1):
+        """
+        Execute an interactive command on Cisco IOS XR device using Paramiko shell.
+        
+        This method handles interactive commands that require user confirmation or input.
+        It can wait for a specific pattern (regex) and send an automated response.
+        
+        Args:
+            command (str): Command to execute (e.g., 'delete /harddisk:/file.txt')
+            expect_pattern (str, optional): Regex pattern to wait for before sending response.
+                                           If None, just executes command without waiting.
+                                           Common patterns:
+                                           - r'\[confirm\]' - for delete/reload commands
+                                           - r'\(yes/no\)' - for confirmation prompts
+                                           - r'Password:' - for password prompts
+            response (str): Response to send when pattern is matched (default: "" = Enter key)
+            timeout (int): Maximum seconds to wait for pattern (default: 30)
+            read_delay (float): Delay in seconds between command/response and reading output (default: 1)
+            
+        Returns:
+            dict: Result dictionary with 'failed', 'rc', 'stdout', 'stderr'
+            
+        Examples:
+            # Delete a file (wait for [confirm] and press Enter)
+            result = ciscohost.exec_interactive(
+                'delete /harddisk:/test.txt',
+                expect_pattern=r'\[confirm\]',
+                response=''
+            )
+            
+            # Reload device (wait for confirmation and respond 'yes')
+            result = ciscohost.exec_interactive(
+                'reload',
+                expect_pattern=r'Proceed with reload\? \[confirm\]',
+                response='yes\n'
+            )
+            
+            # Copy file with prompts
+            result = ciscohost.exec_interactive(
+                'copy tftp://1.2.3.4/file.bin /harddisk:/',
+                expect_pattern=r'Destination filename',
+                response='file.bin\n'
+            )
+            
+            # Just execute command without waiting for pattern
+            result = ciscohost.exec_interactive('show version')
+        """
+        import time
+        import re
+        import socket
+        
+        ssh_client = None
+        try:
+            # Create SSH connection
+            ssh_client = SSHClient()
+            ssh_client.set_missing_host_key_policy(AutoAddPolicy())
+            ssh_client.connect(
+                self.mgmt_ip,
+                username=self.ansible_user,
+                password=self.ansible_passwd,
+                look_for_keys=False,
+                allow_agent=False
+            )
+            
+            # Get interactive shell
+            shell = ssh_client.invoke_shell()
+            time.sleep(read_delay)  # Wait for shell to be ready
+            
+            # Clear initial output (banner, prompt, etc.)
+            if shell.recv_ready():
+                shell.recv(65535)
+            
+            # Send command
+            if not command.endswith('\n'):
+                command += '\n'
+            shell.send(command)
+            logger.debug(f"Sent command: {command.strip()}")
+            
+            output = ""
+            start_time = time.time()
+            
+            pattern_found = None  # None = no pattern expected, True/False = pattern found/not found
+            
+            if expect_pattern:
+                # Wait for expected pattern
+                pattern_found = False
+                compiled_pattern = re.compile(expect_pattern)
+                
+                while time.time() - start_time < timeout:
+                    time.sleep(0.5)  # Poll every 500ms
+                    
+                    if shell.recv_ready():
+                        chunk = shell.recv(4096).decode('utf-8', errors='ignore')
+                        output += chunk
+                        logger.debug(f"Received chunk: {chunk[:100]}")
+                        
+                        # Check if pattern is found in output
+                        if compiled_pattern.search(output):
+                            pattern_found = True
+                            logger.debug(f"Pattern '{expect_pattern}' found in output")
+                            
+                            # Send response
+                            if not response.endswith('\n'):
+                                response += '\n'
+                            shell.send(response)
+                            logger.debug(f"Sent response: {response.strip()}")
+                            time.sleep(read_delay)
+                            
+                            # Read remaining output after response
+                            time.sleep(read_delay)
+                            while shell.recv_ready():
+                                output += shell.recv(4096).decode('utf-8', errors='ignore')
+                                time.sleep(0.2)
+                            
+                            break
+                
+                if not pattern_found:
+                    logger.warning(f"Pattern '{expect_pattern}' not found within {timeout}s timeout")
+                    # Read any remaining output
+                    while shell.recv_ready():
+                        output += shell.recv(4096).decode('utf-8', errors='ignore')
+                        time.sleep(0.2)
+            else:
+                # No pattern expected - poll until timeout or no new data
+                # Wait for command to complete by monitoring for idle periods
+                last_data_time = time.time()
+                # Use 20% of timeout as idle timeout, min 30s, max 120s
+                # This allows longer gaps in output for slow operations while still detecting completion
+                idle_timeout = min(max(timeout * 0.2, 30), 120)
+                
+                logger.debug(f"No pattern expected - will wait up to {idle_timeout}s of idle time or {timeout}s total")
+                
+                # Set channel to non-blocking with a timeout
+                shell.settimeout(0.5)
+                
+                while time.time() - start_time < timeout:
+                    try:
+                        # Try to receive data - this will wait up to 0.5s
+                        chunk = shell.recv(4096)
+                        if chunk:
+                            output += chunk.decode('utf-8', errors='ignore')
+                            last_data_time = time.time()
+                            logger.debug(f"Received chunk: {chunk[:100]}")
+                        else:
+                            # Empty read might indicate EOF
+                            if shell.exit_status_ready():
+                                logger.debug("Channel EOF - command completed")
+                                break
+                    except socket.timeout:
+                        # No data available - check if we've been idle too long
+                        idle_time = time.time() - last_data_time
+                        if idle_time > idle_timeout:
+                            logger.debug(f"No data received for {idle_time:.1f}s (>{idle_timeout}s idle timeout) - command appears complete")
+                            break
+                        # Check if channel is still alive
+                        if shell.closed:
+                            logger.debug("Channel closed - command completed")
+                            break
+                    except Exception as e:
+                        logger.warning(f"Exception while reading: {e}")
+                        break
+                
+                # Read any remaining buffered output
+                shell.settimeout(0.2)
+                for _ in range(5):
+                    try:
+                        chunk = shell.recv(4096)
+                        if chunk:
+                            output += chunk.decode('utf-8', errors='ignore')
+                            logger.debug(f"Final read: received {len(chunk)} bytes")
+                    except (socket.timeout, Exception):
+                        pass
+            
+            shell.close()
+            
+            logger.info(f"Interactive command completed. Output length: {len(output)} chars")
+            if pattern_found is not None:
+                logger.info(f"Expected pattern found: {pattern_found}")
+            
+            return {
+                'failed': False,
+                'rc': 0,
+                'stdout': output,
+                'stderr': '',
+                'pattern_found': pattern_found  # None if no pattern expected, True/False otherwise
+            }
+            
+        except Exception as e:
+            error_msg = f'Interactive command failed: {str(e)}'
+            logger.error(f"exec_interactive error on {self.hostname}: {error_msg}")
+            return {
+                'failed': True,
+                'rc': 1,
+                'stdout': output if 'output' in locals() else '',
+                'stderr': error_msg
+            }
+        finally:
+            if ssh_client:
+                try:
+                    ssh_client.close()
+                except:
+                    pass
+
+    def delete_file(self, filepath):
+        """
+        Delete a file on Cisco IOS XR device using interactive shell.
+        
+        IOS XR 'delete' command requires confirmation even with 'noprompt',
+        so we use exec_interactive to handle the interactive prompt.
+        
+        Args:
+            filepath (str): Full path to file on device (e.g., '/harddisk:/filename')
+            
+        Returns:
+            dict: Result dictionary with 'failed', 'rc', 'stdout', 'stderr'
+            
+        Example:
+            result = ciscohost.delete_file('/harddisk:/test.txt')
+        """
+        logger.info(f"Deleting file: {filepath}")
+        return self.exec_interactive(
+            command=f"delete {filepath}",
+            expect_pattern=r'\[confirm\]',
+            response='',  # Just press Enter to confirm
+            timeout=10
+        )
