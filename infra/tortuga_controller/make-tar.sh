@@ -3,7 +3,7 @@
 # PROPRIETARY AND CONFIDENTIAL. Cisco Systems, Inc. considers the contents of this
 # file to be highly confidential trade secret information.
 #
-# COPYRIGHT 2023-2025 Cisco Systems, Inc., All rights reserved.
+# COPYRIGHT 2023-2026 Cisco Systems, Inc., All rights reserved.
 
 if [[ -z "${WS_ROOT}" ]]; then
     echo "Must execute from Tortuga source workspace"
@@ -37,8 +37,6 @@ cp "${WS_ROOT}/cloud/tests/pyvxr/sl2x2-ref-sim.yaml" "${DIR}/sl2x2-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/sl2x3-ref-sim.yaml" "${DIR}/sl2x3-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/sl2x9-ref-sim.yaml" "${DIR}/sl2x9-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/g200-1x3-ref-sim.yaml" "${DIR}/g200-1x3-ref-sim.yaml"
-cp "${WS_ROOT}/cloud/tests/pyvxr/g200-16-1x3-ref-sim.yaml" "${DIR}/g200-16-1x3-ref-sim.yaml"
-cp "${WS_ROOT}/cloud/tests/pyvxr/g200-mesh2-ref-sim.yaml" "${DIR}/g200-mesh2-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/switch-ref-sim.yaml" "${DIR}/switch-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/dci1x2-2-bgp-sim.yaml" "${DIR}/dci1x2-2-bgp-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/dci1x2-3-static-sim.yaml" "${DIR}/dci1x2-3-static-sim.yaml"

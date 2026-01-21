@@ -80,11 +80,15 @@ devices:
       - Ethernet1_21
     xr_port_redir:
       - 22
-    cli_commands: |
+    pre_cli: |
       sleep 60
+      curl -O http://ttg-fs1.cisco.com/ttg-images/misc/pyvxr_gen_sw_sudi_cert.tar.gz
+      curl -O http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb
+      tar -xzf pyvxr_gen_sw_sudi_cert.tar.gz
+      sudo ./pyvxr_gen_sw_sudi_cert.sh
+    cli_commands: |
       sudo config hostname tortuga-2x2-leaf0
       sudo config save -y
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
@@ -95,28 +99,22 @@ devices:
   L1:
     <<: *switch
     cli_commands: |
-      sleep 60
       sudo config hostname tortuga-2x2-leaf1
       sudo config save -y
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
 
   S0:
     <<: *switch
     cli_commands: |
-      sleep 60
       sudo config hostname tortuga-2x2-spine0
       sudo config save -y
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
 
   S1:
     <<: *switch
     cli_commands: |
-      sleep 60
       sudo config hostname tortuga-2x2-spine1
       sudo config save -y
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
 
 connections:
