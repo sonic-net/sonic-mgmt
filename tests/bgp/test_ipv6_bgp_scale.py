@@ -748,7 +748,14 @@ def test_nexthop_group_member_scale(
         terminated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
-        validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, _get_max_time('dataplane_downtime', 1))
+        acceptable_downtime = validate_rx_tx_counters(pdp, end_time, start_time, exp_mask,
+                                                      _get_max_time('dataplane_downtime', 1))
+        if not acceptable_downtime:
+            for ptfhost in ptfhosts:
+                ptf_ip = ptfhost.mgmt_ip
+                announce_routes(localhost, tbinfo, ptf_ip, servers_dut_interfaces.get(ptf_ip, ''))
+            pytest.fail(f"Dataplane downtime is too high, threshold is "
+                        f"{_get_max_time('dataplane_downtime', 1)} seconds")
         if not result.get("converged"):
             pytest.fail("BGP routes are not stable in long time")
     finally:
@@ -787,7 +794,10 @@ def test_nexthop_group_member_scale(
     terminated.set()
     traffic_thread.join()
     end_time = datetime.datetime.now()
-    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, _get_max_time('dataplane_downtime', 1))
+    acceptable_downtime = validate_rx_tx_counters(pdp, end_time, start_time, exp_mask,
+                                                  _get_max_time('dataplane_downtime', 1))
+    if not acceptable_downtime:
+        pytest.fail(f"Dataplane downtime is too high, threshold is {_get_max_time('dataplane_downtime', 1)} seconds")
     if not result.get("converged"):
         pytest.fail("BGP routes are not stable in long time")
 
