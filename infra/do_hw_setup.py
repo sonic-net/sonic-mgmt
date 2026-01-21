@@ -608,6 +608,8 @@ def add_topo(args):
     # install python-saithrift_1.13.0_amd64.deb inside docker ptf container
     SAITHRIFT_DEB_FILENAME = "python-saithrift_1.13.0_amd64.deb"
     SAITHRIFT_DEB_URL = f"http://172.26.235.76/MISC/{SAITHRIFT_DEB_FILENAME}"
+    SAITHRIFT_WHEEL_FILENAME = f"switch_sai_thrift-1.13.0-py3-none-any.whl"
+    SAITHRIFT_WHEEL_URL = f"http://172.26.235.76/MISC/{SAITHRIFT_WHEEL_FILENAME}"
 
     with paramiko.SSHClient() as client:
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
@@ -626,25 +628,50 @@ def add_topo(args):
         group_name = group_name.strip()
         docker_ptf_container_name = f"ptf_{group_name}"
 
+        #
+        # install using .deb file -- this is the go-to method before 202511
+        #
         log.info(f"Installing {SAITHRIFT_DEB_FILENAME} inside {docker_ptf_container_name} container")
         stdout, stderr, status_code = _run_cmd_in_ssh(client, f'{UNSET_HTTP_PROXY}; wget -nc {SAITHRIFT_DEB_URL}', timeout=60 * 5)
         if status_code:
             raise Exception(f"Download {SAITHRIFT_DEB_FILENAME} failed: \n{stderr}")
-
         stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker cp {SAITHRIFT_DEB_FILENAME} {docker_ptf_container_name}:/root")
         if status_code != 0:
             raise Exception(f"Copy {SAITHRIFT_DEB_FILENAME} to {docker_ptf_container_name} failed: \n{stderr}")
-
         stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker exec {docker_ptf_container_name} bash -c 'dpkg -i {SAITHRIFT_DEB_FILENAME}'")
         if status_code != 0:
             raise Exception(f"Install {SAITHRIFT_DEB_FILENAME} in {docker_ptf_container_name} failed: \n{stderr}")
-
         _, _, _ = _run_cmd_in_ssh(client, f"rm {SAITHRIFT_DEB_FILENAME}")
-
         stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker exec {docker_ptf_container_name} bash -c 'dpkg --list | grep saithrift'")
         log.debug(f"Verify {SAITHRIFT_DEB_FILENAME} installation output:\n{stdout}")
-
         log.info(f"{SAITHRIFT_DEB_FILENAME} installed successfully inside {docker_ptf_container_name} container")
+
+        #
+        # install using python wheel -- needed for 202511 (and onward?) MIGSOFTWAR-33560
+        #
+        log.info(f"Installing {SAITHRIFT_WHEEL_FILENAME} using pip")
+        # download the file
+        _, _, status_code = _run_cmd_in_ssh(client,
+                                            f'{UNSET_HTTP_PROXY}; wget -nc {SAITHRIFT_WHEEL_URL}',
+                                            timeout=60 * 5)
+        if status_code:
+            log.warning(f"Unable to download {SAITHRIFT_WHEEL_FILENAME}")
+        # copy into docker-ptf
+        _, _, status_code = _run_cmd_in_ssh(client,
+                                            f"docker cp {SAITHRIFT_WHEEL_FILENAME} {docker_ptf_container_name}:/root")
+        if status_code:
+            log.warning(f"Error trying to copy {SAITHRIFT_WHEEL_FILENAME} into {docker_ptf_container_name}")
+        # install the package
+        _, _, status_code = _run_cmd_in_ssh(client,
+                                            f"docker exec {docker_ptf_container_name} bash -c 'pip install {SAITHRIFT_WHEEL_FILENAME}'")
+        if status_code:
+            log.warning(f"Error attempting to pip install {SAITHRIFT_WHEEL_FILENAME}")
+        # verify through import
+        verify_saithrift_package_oneliner = f"""docker exec {docker_ptf_container_name} bash -c 'source env-python3/bin/activate; python3 -c "import switch_sai_thrift; print(switch_sai_thrift)"'"""
+        _, _, status_code = _run_cmd_in_ssh(client,
+                                  verify_saithrift_package_oneliner)
+        if status_code:
+            log.warning(f"venv-python3 switch_sai_thrift check failed. It might be intended depending on sonic version. Continue.")
 
     return 0
 
