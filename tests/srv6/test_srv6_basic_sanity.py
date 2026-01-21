@@ -82,6 +82,9 @@ bgp_neighbor_down_wait_time = 30
 #
 def setup_config(duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, ptfadapter):
 
+    logger.info("step 0 - install trex on PTF")
+    trex_install(ptfhost)
+
     logger.info("reinit ptfadapter")
     ptfadapter.reinit({'need_backplane': True})
 
@@ -208,14 +211,35 @@ def test_check_routes(duthosts, rand_one_dut_hostname, nbrhosts):
         ["fc08::2", "fc06::2"], global_route, is_v6
     )
 
-
 #
-# Test Case : Traffic check in Normal Case
+# Test Case : Traffic check in Normal Case via Trex
 #
-def test_traffic_check_normal(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, ptfadapter):
+def test_traffic_check_via_trex(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, ptfadapter):
     #
     # Create a packet sending to 192.100.0.1
     #
+
+    #add trex tream check
+    test_ipv4_dip = "192.100.0.1"
+    reset_topo_pkt_counter(ptfadapter) #reset counters before each run
+    result = trex_run(test_ipv4_dip, duration = 5) #run sync mode
+    #result example {'ptf_tot_tx': 10000, 'ptf_tot_rx': 10000, 'P3_tx_to_PE2': 2500, 'P2_tx_to_PE1': 2500, 'P1_tx_to_PE2': 2500, 'P1_tx_to_PE2': 2500}
+    expect_list = {"ptf_tot_rx": 5000, "ptf_tot_tx": 5000, "PE3_tx_to_P4": 2500, "PE3_tx_to_P2": 2500} #check pkt count on any link
+    logger.info("test_traffic_check vrf ip:{} test result:{}, expect_list:{}".format(test_ipv4_dip, result, expect_list))
+    pytest_assert(thresh_check(result, expect_list))
+    #check raw CE packet on your link
+    check_topo_recv_pkt_raw(ptfadapter, port=ptf_port_for_backplane, dst_ip=test_ipv4_dip)
+    check_topo_recv_pkt_vpn(ptfadapter, port=ptf_port_for_pe3_to_p2, dst_ip=test_ipv4_dip, vpnsid = "fd00:202:202:fff2:2::", no_vlan=True)
+    check_topo_recv_pkt_vpn(ptfadapter, port=ptf_port_for_pe3_to_p2, dst_ip=test_ipv4_dip, vpnsid = "fd00:201:201:fff1:1::", no_vlan=True)
+    check_topo_recv_pkt_vpn(ptfadapter, port=ptf_port_for_pe3_to_p4, dst_ip=test_ipv4_dip, vpnsid = "fd00:202:202:fff2:2::", no_vlan=True)
+    check_topo_recv_pkt_vpn(ptfadapter, port=ptf_port_for_pe3_to_p4, dst_ip=test_ipv4_dip, vpnsid = "fd00:201:201:fff1:1::", no_vlan=True)
+    reset_topo_pkt_counter(ptfadapter)
+    logger.info("Done with Trex traffic")
+
+#
+# Test Case : Traffic check in Normal Case  via ptf
+#
+def test_traffic_check_via_ptf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, ptfadapter):
     # establish_and_configure_bfd(nbrhosts)
     tcp_pkt0 = simple_tcp_packet(
         ip_src="192.200.0.1",
