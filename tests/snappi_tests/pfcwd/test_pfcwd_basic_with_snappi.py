@@ -33,7 +33,8 @@ def number_of_tx_rx_ports():
 
 
 @pytest.fixture(autouse=False)
-def save_restore_config(setup_ports_and_dut):          # noqa: F811
+def save_restore_config(setup_ports_and_dut
+                        ):          # noqa: F811
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
     timestamp = time.time()
     dest = f'~/{timestamp}'
@@ -51,7 +52,12 @@ def save_restore_config(setup_ports_and_dut):          # noqa: F811
         config_reload(duthost)
 
 
-@pytest.mark.parametrize("trigger_pfcwd", [True, False])
+
+@pytest.mark.parametrize("trigger_pfcwd, have_data_flow", [
+    (True, True),
+    (True, False),  # Inject PFC Storm with no traffic
+    (False, True),
+])
 def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: F811
                                           conn_graph_facts,             # noqa: F811
                                           fanout_graph_facts_multidut,           # noqa: F811
@@ -61,6 +67,7 @@ def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: 
                                           prio_dscp_map,         # noqa: F811
                                           setup_ports_and_dut,   # noqa: F811
                                           trigger_pfcwd,         # noqa: F811
+                                          have_data_flow         # noqa: F811
                                           ):
     """
     Run PFC watchdog basic test on a single lossless priority
@@ -93,6 +100,7 @@ def test_pfcwd_basic_single_lossless_prio(snappi_api,                   # noqa: 
                          prio_list=[lossless_prio],
                          prio_dscp_map=prio_dscp_map,
                          trigger_pfcwd=trigger_pfcwd,
+                         have_data_flow=have_data_flow,
                          snappi_extra_params=snappi_extra_params)
 
 
