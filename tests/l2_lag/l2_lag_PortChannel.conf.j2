@@ -1,0 +1,16 @@
+{
+    "device": "PortChannel{{ lag_id }}",
+	"hwaddr": "00:0c:29:e6:b4:{{ '%02X' % lag_id }}",
+    "runner": {
+        "name": "lacp",
+        "active": true,
+        "fast_rate": true,
+        "tx_hash": ["eth", "ipv4", "ipv6"]
+    },
+    "link_watch": {"name": "ethtool"},
+    "ports": {
+{%      for port in members %}
+        "eth{{ port }}": {}{% if not loop.last %},{% endif %}
+{%      endfor %}
+    }
+}
