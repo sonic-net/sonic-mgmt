@@ -1,0 +1,98 @@
+frr defaults traditional
+no log monitor
+!
+password zebra
+enable password zebra
+!
+log syslog informational
+!
+log facility local4
+!
+{% set vms=vm_topo_config['vm'].keys() | sort %}
+{% set vms_number = vms | length %}
+router bgp {{ vm_topo_config['dut_asn'] }}
+  bgp router-id 10.1.0.32
+  bgp log-neighbor-changes
+  no bgp default ipv4-unicast
+  bgp bestpath as-path multipath-relax
+{% if 'tor' in vm_topo_config['dut_type'] | lower %}
+  neighbor DYNAMIC-V4 peer-group
+  neighbor DYNAMIC-V4 remote-as 65432
+  neighbor DYNAMIC-V4 timers 3 9
+{% endif %}
+  neighbor NEIGHBOR-V4 peer-group
+  neighbor NEIGHBOR-V4 timers 3 9
+  neighbor NEIGHBOR-V6 peer-group
+  neighbor NEIGHBOR-V6 timers 3 9
+{% for index in range(vms_number) %}
+{% set vm=vms[index] %}
+{% if vm_topo_config['vm'][vm]['peer_ipv4'] %}
+  !
+  neighbor {{ vm_topo_config['vm'][vm]['peer_ipv4'] }} remote-as {{ vm_topo_config['vm'][vms[index]]['bgp_asn'] }}
+  neighbor {{ vm_topo_config['vm'][vm]['peer_ipv4'] }} peer-group NEIGHBOR-V4
+  neighbor {{ vm_topo_config['vm'][vm]['peer_ipv4'] }} description {{ vm }}
+{% endif %}
+{% endfor %}
+{% for index in range(vms_number) %}
+{% set vm=vms[index] %}
+{% if vm_topo_config['vm'][vm]['peer_ipv6'] %}
+  !
+  neighbor {{ vm_topo_config['vm'][vm]['peer_ipv6'] }} remote-as {{ vm_topo_config['vm'][vms[index]]['bgp_asn'] }}
+  neighbor {{ vm_topo_config['vm'][vm]['peer_ipv6'] }} peer-group NEIGHBOR-V6
+  neighbor {{ vm_topo_config['vm'][vm]['peer_ipv6'] }} description {{ vm }}
+{% endif %}
+{% endfor %}
+  !
+{% if 'tor' in vm_topo_config['dut_type'] | lower %}
+  bgp listen limit 20
+  bgp listen range 192.168.0.0/24 peer-group DYNAMIC-V4
+  bgp listen range 10.255.0.0/25 peer-group DYNAMIC-V4
+{% endif %}
+!
+address-family ipv4 unicast
+{% for index in range(vms_number) %}
+{% set vm=vms[index] %}
+{% if vm_topo_config['vm'][vm]['peer_ipv4'] %}
+  network {{ vm_topo_config['vm'][vm]['peer_ipv4'] }}/31
+{% endif %}
+{% endfor %}
+  !
+{% if 'tor' in vm_topo_config['dut_type'] | lower %}
+  neighbor DYNAMIC-V4 activate
+{% endif %}
+  neighbor NEIGHBOR-V4 activate
+  neighbor NEIGHBOR-V4 route-map NEIGHBOR-V4-IN in
+  neighbor NEIGHBOR-V4 route-map NEIGHBOR-V4-OUT out
+  !
+  maximum-paths 64
+  maximum-paths ibgp 64
+exit-address-family
+!
+address-family ipv6 unicast
+{% for index in range(vms_number) %}
+{% set vm=vms[index] %}
+{% if vm_topo_config['vm'][vm]['peer_ipv6'] %}
+  network {{ vm_topo_config['vm'][vm]['peer_ipv6'] }}/126
+{% endif %}
+{% endfor %}
+  !
+  neighbor NEIGHBOR-V6 activate
+  neighbor NEIGHBOR-V6 route-map NEIGHBOR-V6-IN in
+  neighbor NEIGHBOR-V6 route-map NEIGHBOR-V6-OUT out
+  !
+  maximum-paths 64
+  maximum-paths ibgp 64
+exit-address-family
+!
+route-map NEIGHBOR-V4-IN permit 10
+!
+route-map NEIGHBOR-V4-OUT permit 30
+!
+route-map NEIGHBOR-V6-IN permit 10
+set ipv6 next-hop prefer-global
+!
+route-map NEIGHBOR-V6-OUT permit 30
+set ipv6 next-hop prefer-global
+!
+line vty
+!

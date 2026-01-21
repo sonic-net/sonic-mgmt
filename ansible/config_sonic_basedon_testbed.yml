@@ -352,6 +352,12 @@
     delegate_to: localhost
     when: local_minigraph is defined and local_minigraph|bool == true
 
+  - name: create frr.conf file in ansible minigraph folder
+    template: src=templates/frr.j2
+              dest=minigraph/frr.conf
+    delegate_to: localhost
+    when: frr_split_mode is defined and frr_split_mode|bool == true
+
   - block:
     - name: Init telemetry keys
       set_fact:
@@ -549,6 +555,18 @@
           shell: cat /tmp/config_db.json > /etc/sonic/config_db.json
           become: yes
         when: init_cfg_profile is defined
+
+      - block:
+          - name: saved original frr.conf file in SONiC DUT(ignore errors when file doesnot exist)
+            shell: mv /etc/sonic/frr/frr.conf /etc/sonic/frr/frr.conf.orig
+            become: true
+            ignore_errors: true
+
+          - name: create frr.conf file for SONiC device
+            template: src=templates/frr.j2
+                      dest=/etc/sonic/frr/frr.conf
+            become: true
+        when: frr_split_mode is defined and frr_split_mode|bool == true
 
       - name: Test if configlet script exist
         stat:
