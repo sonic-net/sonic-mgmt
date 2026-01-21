@@ -151,7 +151,7 @@ def trigger_pipeline(
     """
     Trigger a build/test pipeline using dataclass for parameters
     """
-    payload = build_queue_payload(branch, commit, stage, pipeline_id, parameters)
+    payload = build_queue_payload(branch, commit, stage, parameters)
     response = client.queue_build(pipeline_id, payload)
 
     return PipelineRunParameters(
