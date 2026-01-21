@@ -279,6 +279,18 @@ bfd/test_bfd_traffic.py:
 #######################################
 #####            bgp              #####
 #######################################
+bgp/reliable_tsa/test_reliable_tsa_flaky.py:
+  skip:
+    reason: "reliable TSA is not supported on non-chassis"
+    conditions:
+      - "is_chassis==False"
+
+bgp/reliable_tsa/test_reliable_tsa_stable.py:
+  skip:
+    reason: "reliable TSA is not supported on non-chassis"
+    conditions:
+      - "is_chassis==False"
+
 bgp/test_bgp_aggregate_address.py:
   skip:
     reason: "Skip for multi-ASIC testbed"
