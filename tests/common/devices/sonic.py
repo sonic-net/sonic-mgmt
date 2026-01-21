@@ -222,6 +222,7 @@ class SonicHost(AnsibleHostBase):
                 lambda: self._get_modular_chassis(facts["asic_type"]),
                 self._get_mgmt_interface,
                 self._get_switch_type,
+                self._get_subtype,
                 self._get_router_type,
                 self.get_asics_present_from_inventory,
                 lambda: self._get_platform_asic(facts["platform"])
@@ -235,12 +236,13 @@ class SonicHost(AnsibleHostBase):
         facts["modular_chassis"] = str2bool(results[2])
         facts["mgmt_interface"] = results[3]
         facts["switch_type"] = results[4]
-        facts["router_type"] = results[5]
+        facts["subtype"] = results[5]
+        facts["router_type"] = results[6]
 
-        facts["asics_present"] = results[6] if len(results[6]) != 0 else list(range(facts["num_asic"]))
+        facts["asics_present"] = results[7] if len(results[7]) != 0 else list(range(facts["num_asic"]))
 
-        if results[7]:
-            facts["platform_asic"] = results[7]
+        if results[8]:
+            facts["platform_asic"] = results[8]
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
@@ -317,6 +319,13 @@ class SonicHost(AnsibleHostBase):
     def _get_switch_type(self):
         try:
             return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.switch_type'")["stdout_lines"][0]\
+                .encode().decode("utf-8").lower()
+        except Exception:
+            return ''
+
+    def _get_subtype(self):
+        try:
+            return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.subtype'")["stdout_lines"][0]\
                 .encode().decode("utf-8").lower()
         except Exception:
             return ''
