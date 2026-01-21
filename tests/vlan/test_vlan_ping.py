@@ -2,6 +2,7 @@ import random
 import pytest
 import ipaddress
 import logging
+import pprint
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from ptf.mask import Mask
@@ -180,7 +181,7 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
     duthost.shell("sudo ip neigh flush nud permanent")
 
 
-def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo,
+def verify_icmp_packet(duthost, dut_mac, src_port, dst_port, ptfadapter, tbinfo,
                        vlan_mac=None, dtor_ul=False, dtor_dl=False):
     if dtor_ul is True:
         # use vlan int mac in case of dualtor UL test pkt
@@ -218,6 +219,12 @@ def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo,
             break
         except Exception as e:
             if i >= 4:
+                # When the packet is not forwarded as expected check if received by DUT in the first place
+                res = duthost.command('sonic-clear counters')
+                for i in range(100):
+                    testutils.send_packet(ptfadapter, src_port['port_index_list'][0], pkt)
+                res = duthost.command('show interface counters')
+                logger.info('"show interface counters" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'], width=150)))
                 raise e  # If it fails on the last attempt, raise the exception
 
 
@@ -245,17 +252,22 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter,
     # initial setup and checking connectivity, try to break in more chunks
     logger.info("initializing setup for ipv4 and ipv6")
     static_neighbor_entry(duthost, ptfhost_info, "add")
+    res = duthost.command('show mac')
+    logger.info('"show mac" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+    res = duthost.command('show arp')
+    logger.info('"show arp" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
+
     logger.info("Checking connectivity to ptf ports")
 
     for member in ptfhost_info:
         if 'dualtor' in tbinfo["topo"]["name"]:
-            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
+            verify_icmp_packet(duthost, duthost.facts['router_mac'], ptfhost_info[member],
                                vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True)
-            verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
+            verify_icmp_packet(duthost, duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
                                ptfadapter, tbinfo, vlan_mac, dtor_dl=True)
         else:
-            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter, tbinfo)
-            verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter, tbinfo)
+            verify_icmp_packet(duthost, duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter, tbinfo)
+            verify_icmp_packet(duthost, duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter, tbinfo)
 
     # flushing and re-adding ipv6 static arp entry
     static_neighbor_entry(duthost, ptfhost_info, "del", "6")
@@ -273,10 +285,10 @@ def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter,
     logger.info("Check connectivity to both ptfhost")
     for member in ptfhost_info:
         if 'dualtor' in tbinfo["topo"]["name"]:
-            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member],
+            verify_icmp_packet(duthost, duthost.facts['router_mac'], ptfhost_info[member],
                                vmhost_info, ptfadapter, tbinfo, vlan_mac, dtor_ul=True)
-            verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
+            verify_icmp_packet(duthost, duthost.facts['router_mac'], vmhost_info, ptfhost_info[member],
                                ptfadapter, tbinfo, vlan_mac, dtor_dl=True)
         else:
-            verify_icmp_packet(duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter, tbinfo)
-            verify_icmp_packet(duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter, tbinfo)
+            verify_icmp_packet(duthost, duthost.facts['router_mac'], ptfhost_info[member], vmhost_info, ptfadapter, tbinfo)
+            verify_icmp_packet(duthost, duthost.facts['router_mac'], vmhost_info, ptfhost_info[member], ptfadapter, tbinfo)
