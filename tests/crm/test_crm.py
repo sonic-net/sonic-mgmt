@@ -12,7 +12,7 @@ from jinja2 import Template
 from tests.common.cisco_data import is_cisco_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
+from tests.common.helpers.crm import get_used_percent, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
      EXPECT_CLEAR, THR_VERIFY_CMDS
 from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa: F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa: F401
@@ -27,6 +27,7 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+CRM_UPDATE_TIME = 5
 SONIC_RES_UPDATE_TIME = 50
 ACL_TABLE_NAME = "DATAACL"
 
@@ -1217,6 +1218,11 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
 
+    if is_cisco_device(duthost):
+        topo_name_lower = tbinfo["topo"]["name"].lower()
+        if "t0" not in topo_name_lower and "m0" not in topo_name_lower:
+            pytest.skip("Unsupported topology, expected to run only on 'T0*' or 'M0' topology")
+
     get_fdb_stats = "redis-cli --raw -n 2 HMGET CRM:STATS crm_stats_fdb_entry_used crm_stats_fdb_entry_available"
     topology = tbinfo["topo"]["properties"]["topology"]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
@@ -1252,8 +1258,8 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     cmd = "fdbclear"
     duthost.command(cmd)
     time.sleep(5)
-    if is_cel_e1031_device(duthost):
-        # Sleep more time for E1031 device after fdbclear
+    if is_cel_e1031_device(duthost) or is_cisco_device(duthost):
+        # Sleep more time for E1031 and cisco device after fdbclear
         time.sleep(10)
 
     # Get "crm_stats_fdb_entry" used and available counter value
@@ -1328,8 +1334,14 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
                   Used == {}".format(new_crm_stats_fdb_entry_used))
 
     # Verify "crm_stats_fdb_entry_available" counter was incremented
-    # For E1031, refer CS00012270660, SDK for Helix4 chip does not support retrieving max l2 entry, HW and
-    # SW CRM available counter would be out of sync, so this is not applicable for e1031 device
-    if not is_cel_e1031_device(duthost):
-        pytest_assert(new_crm_stats_fdb_entry_available - crm_stats_fdb_entry_available >= 0,
+    if is_cisco_device(duthost):
+        # For Cisco-8000 devices, hardware FDB counter is statistical-based with +/- 1 entry tolerance.
+        # Hence, the available counter may not increase as per initial value.
+        pytest_assert(new_crm_stats_fdb_entry_available - crm_stats_fdb_entry_available >= -5,
                       "Counter 'crm_stats_fdb_entry_available' was not incremented")
+    else:
+        # For E1031, refer CS00012270660, SDK for Helix4 chip does not support retrieving max l2 entry, HW and
+        # SW CRM available counter would be out of sync, so this is not applicable for e1031 device
+        if not is_cel_e1031_device(duthost):
+            pytest_assert(new_crm_stats_fdb_entry_available - crm_stats_fdb_entry_available >= 0,
+                          "Counter 'crm_stats_fdb_entry_available' was not incremented")
