@@ -1,0 +1,25 @@
+Test Case ID: 1
+Test Case: FDB Entry Creation
+Purpose: To verify that FDB entry creation can be done via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where FDB resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the FDB config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+FDB entry as mentioned in the "sonic.json" role should be created successfully on the SONiC switch.
+Observed Result:
+Observed that FDB entry as mentioned in the "sonic.json" role is created successfully on the SONiC switch.
+Result: PASS
+
+Test Case ID: 2
+Test Case: FDB Entry Deletion
+Purpose: To verify that FDB entry deletion can be done via chef on SONiC based switch.
+Steps/Procedure:
+1. Upload the "sonic" cookbook (where FDB resource is defined and the respective recipe and provider code is implemented) to the Chef server.
+2. Also upload the "sonic.json" role where the FDB config is mentioned.
+3. Run the chef-client on the SONiC switch.
+Expected Result:
+FDB entry as mentioned in the "sonic.json" role should be deleted successfully on the SONiC switch.
+Observed Result:
+Observed that FDB entry as mentioned in the "sonic.json" role is deleted successfully on the SONiC switch.
+Result: PASS
