@@ -57,12 +57,22 @@ def _gather_passwords(ptfhost, duthost):
 def test_scp_copy(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, setup_teardown, creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    ptf_ip = ptfhost.mgmt_ip
+    # Check if DUT management is IPv6-only
+    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
+    is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
+
+    if is_mgmt_ipv6_only:
+        logger.info("DUT management is IPv6-only, using PTF IPv6 address")
+        if not ptfhost.mgmt_ipv6:
+            pytest.skip("No IPv6 address on PTF host")
+        ptf_ip = "[" + ptfhost.mgmt_ipv6 + "]"
+    else:
+        ptf_ip = ptfhost.mgmt_ip
 
     # After PTF default password rotation is supported, need to figure out which password is currently working
     _passwords = _gather_passwords(ptfhost, duthost)
     logger.warning("_password: " + str(_passwords))
-    current_password = get_dut_current_passwd(ptf_ip, "", creds["ptf_host_user"], _passwords)
+    current_password = get_dut_current_passwd(ptfhost.mgmt_ip, ptfhost.mgmt_ipv6, creds["ptf_host_user"], _passwords)
 
     # Generate the file from /dev/urandom
     ptfhost.command(("dd if=/dev/urandom of=./{} count=1 bs={} iflag=fullblock"

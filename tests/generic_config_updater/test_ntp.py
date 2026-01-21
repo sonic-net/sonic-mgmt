@@ -1,4 +1,3 @@
-import datetime
 import logging
 import pytest
 import re
@@ -86,7 +85,19 @@ def server_exist_in_conf(duthost, server_pattern):
     return False
 
 
-def ntp_service_restarted(duthost, start_time):
+def get_ntp_service_name(duthost):
+    """ Get the systemd service name for the NTP daemon in use
+    """
+    ntp_daemon = get_ntp_daemon_in_use(duthost)
+    if ntp_daemon == NtpDaemon.CHRONY:
+        return "chrony.service"
+    elif ntp_daemon == NtpDaemon.NTPSEC:
+        return "ntpsec.service"
+    else:
+        return "ntp.service"
+
+
+def ntp_service_restarted(duthost, systemd_service, start_time):
     """ Check if ntp.service is just restarted after start_time
     """
     def check_ntp_activestate(duthost, systemd_service):
@@ -95,22 +106,14 @@ def ntp_service_restarted(duthost, start_time):
             return False
         return True
 
-    ntp_daemon = get_ntp_daemon_in_use(duthost)
-    if ntp_daemon == NtpDaemon.CHRONY:
-        systemd_service = "chrony.service"
-    elif ntp_daemon == NtpDaemon.NTPSEC:
-        systemd_service = "ntpsec.service"
-    else:
-        systemd_service = "ntp.service"
-
     if not wait_until(60, 10, 0, check_ntp_activestate, duthost, systemd_service):
         return False
 
     output = duthost.command(f"systemctl show {systemd_service} --timestamp unix -P ExecMainStartTimestamp")
-    return int(output['stdout'][1:]) > start_time.timestamp()
+    return int(output['stdout'][1:]) > start_time
 
 
-def ntp_server_tc1_add_config(duthost):
+def ntp_server_tc1_add_config(duthost, ntp_service):
     """ Test to add NTP_SERVER config
     """
     json_patch = [
@@ -143,15 +146,15 @@ def ntp_server_tc1_add_config(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        start_time = datetime.datetime.now()
+        start_time = int(duthost.command("date +%s")['stdout'].strip())
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if output['rc'] != 0:
             output = apply_patch(duthost, json_data=json_patch_bc, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         pytest_assert(
-            ntp_service_restarted(duthost, start_time),
-            "ntp.service is not restarted after change"
+            ntp_service_restarted(duthost, ntp_service, start_time),
+            f"{ntp_service} is not restarted after change"
         )
         pytest_assert(
             server_exist_in_conf(duthost, NTP_SERVER_RE.format(NTP_SERVER_INIT)),
@@ -195,7 +198,7 @@ def ntp_server_tc1_xfail(duthost):
             delete_tmpfile(duthost, tmpfile)
 
 
-def ntp_server_tc1_replace(duthost):
+def ntp_server_tc1_replace(duthost, ntp_service):
     """ Test to replace ntp server
     """
     json_patch = [
@@ -232,15 +235,15 @@ def ntp_server_tc1_replace(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        start_time = datetime.datetime.now()
+        start_time = int(duthost.command("date +%s")['stdout'].strip())
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if output['rc'] != 0:
             output = apply_patch(duthost, json_data=json_patch_bc, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         pytest_assert(
-            ntp_service_restarted(duthost, start_time),
-            "ntp.service is not restarted after change"
+            ntp_service_restarted(duthost, ntp_service, start_time),
+            f"{ntp_service} is not restarted after change"
         )
         pytest_assert(
             not server_exist_in_conf(duthost, NTP_SERVER_RE.format(NTP_SERVER_INIT)) and
@@ -252,7 +255,7 @@ def ntp_server_tc1_replace(duthost):
         delete_tmpfile(duthost, tmpfile)
 
 
-def ntp_server_tc1_remove(duthost):
+def ntp_server_tc1_remove(duthost, ntp_service):
     """ Test to remove ntp server
     """
     json_patch = [
@@ -267,13 +270,13 @@ def ntp_server_tc1_remove(duthost):
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        start_time = datetime.datetime.now()
+        start_time = int(duthost.command("date +%s")['stdout'].strip())
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         pytest_assert(
-            ntp_service_restarted(duthost, start_time),
-            "ntp.service is not restarted after change"
+            ntp_service_restarted(duthost, ntp_service, start_time),
+            f"{ntp_service} is not restarted after change"
         )
         pytest_assert(
             not server_exist_in_conf(duthost, NTP_SERVER_RE.format(NTP_SERVER_DUMMY)),
@@ -287,9 +290,10 @@ def ntp_server_tc1_remove(duthost):
 def test_ntp_server_tc1_suite(rand_selected_dut):
     """ Test suite for ntp server
     """
+    ntp_service = get_ntp_service_name(rand_selected_dut)
 
     ntp_server_test_setup(rand_selected_dut)
-    ntp_server_tc1_add_config(rand_selected_dut)
+    ntp_server_tc1_add_config(rand_selected_dut, ntp_service)
     ntp_server_tc1_xfail(rand_selected_dut)
-    ntp_server_tc1_replace(rand_selected_dut)
-    ntp_server_tc1_remove(rand_selected_dut)
+    ntp_server_tc1_replace(rand_selected_dut, ntp_service)
+    ntp_server_tc1_remove(rand_selected_dut, ntp_service)

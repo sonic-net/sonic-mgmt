@@ -331,6 +331,12 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
             cmd="rm -f /host/old_config/config_db.json",
             msg="Remove config_db.json in preference of minigraph.xml"
         )
+        log("Remove /host/old_config/golden_config_db.json when /etc/old_config/minigraph.xml exists")
+        exec_command(
+            module,
+            cmd="rm -f /host/old_config/golden_config_db.json",
+            msg="Remove golden_config_db.json in preference of minigraph.xml"
+        )
 
     try:
         get_sonic_image_size(module)
@@ -367,6 +373,7 @@ def free_up_disk_space(module, disk_used_pcent):
         exec_command(module, "rm -f /var/core/*", ignore_error=True)
         exec_command(module, "rm -rf /var/dump/*", ignore_error=True)
         exec_command(module, "rm -rf /home/admin/*", ignore_error=True)
+        exec_command(module, "rm -rf /host/logs_before_reboot/*", ignore_error=True)
         latest_used_percent = get_disk_used_percent(module)
         log("Done free up, latest used percent: {}".format(latest_used_percent))
     else:

@@ -4,10 +4,12 @@ import re
 import logging
 import sys
 import os
+import pytest
 from multiprocessing.pool import ThreadPool
 from collections import deque
 
 from .helpers.assertions import pytest_assert
+from .helpers.parallel_utils import synchronized_reboot
 from .platform.interface_utils import check_interface_status_of_up_ports
 from .platform.processes_utils import wait_critical_processes
 from .plugins.loganalyzer.utils import support_ignore_loganalyzer
@@ -246,8 +248,14 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
     return [reboot_res, dut_datetime]
 
 
+def execute_reboot_smartswitch_command(duthost, reboot_type, hostname):
+    reboot_command = reboot_ss_ctrl_dict[reboot_type]["command"]
+    logger.info(f'rebooting {hostname} with command "{reboot_command}"')
+    return duthost.command(reboot_command)
+
+
 @support_ignore_loganalyzer
-def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
+def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD):
     """
     reboots SmartSwitch or a DPU
     :param duthost: DUT host object
@@ -255,7 +263,8 @@ def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
     """
 
     if reboot_type not in reboot_ss_ctrl_dict:
-        logger.info("Skipping the reboot test as the reboot type {} is not supported".format(reboot_type))
+        pytest.skip(
+            "Skipping the reboot test as the reboot type {} is not supported on smartswitch".format(reboot_type))
         return
 
     hostname = duthost.hostname
@@ -263,7 +272,8 @@ def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
 
     logging.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
 
-    reboot_res = duthost.command(reboot_ss_ctrl_dict[reboot_type]["command"])
+    reboot_res = pool.apply_async(execute_reboot_smartswitch_command,
+                                  (duthost, reboot_type, hostname))
 
     return [reboot_res, dut_datetime]
 
@@ -278,6 +288,7 @@ def check_dshell_ready(duthost):
 
 
 @support_ignore_loganalyzer
+@synchronized_reboot
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
            reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
@@ -343,8 +354,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         collect_console_log, args=(duthost, localhost, timeout + wait_conlsole_connection))
     time.sleep(wait_conlsole_connection)
     # Perform reboot
-    if duthost.is_smartswitch():
-        reboot_res, dut_datetime = reboot_smartswitch(duthost, reboot_type)
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+        reboot_res, dut_datetime = reboot_smartswitch(duthost, pool, reboot_type)
     else:
         reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
                                                   reboot_kwargs, reboot_type)
@@ -356,10 +367,21 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
     # if wait_for_ssh flag is False, do not wait for dut to boot up
     if not wait_for_ssh:
+        pool.terminate()
         return
+    dut_console = None
     try:
         wait_for_startup(duthost, localhost, delay, timeout)
+        try:
+            dut_console = console_thread_res.get()
+        except Exception as console_err:
+            logger.warning(f'Failed to get console thread result: {console_err}')
+            dut_console = None
+
     except Exception as err:
+        if dut_console:
+            dut_console.disconnect()
+            logger.info('end: collect console log')
         logger.error('collecting console log thread result: {} on {}'.format(console_thread_res.get(), hostname))
         pool.terminate()
         raise Exception(f"dut not start: {err}")
@@ -377,6 +399,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         # Update critical service list after rebooting in case critical services changed after rebooting
         pytest_assert(wait_until(200, 10, 0, duthost.is_critical_processes_running_per_asic_or_host, "database"),
                       "Database not start.")
+        pytest_assert(wait_until(20, 5, 0, duthost.is_service_running, "redis", "database"), "Redis DB not start")
+
         duthost.critical_services_tracking_list()
         pytest_assert(wait_until(wait + 400, 20, 0, duthost.critical_services_fully_started),
                       "{}: All critical services should be fully started!".format(hostname))
@@ -408,6 +432,9 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
 
     DUT_ACTIVE.set()
     logger.info('{} reboot finished on {}'.format(reboot_type, hostname))
+    if dut_console:
+        dut_console.disconnect()
+        logger.info('end: collect console log')
     pool.terminate()
     dut_uptime = duthost.get_up_time(utc_timezone=True)
     logger.info('DUT {} up since {}'.format(hostname, dut_uptime))
@@ -625,7 +652,7 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
                              reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]):
                 logger.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(
                     index, reboot_ctrl_dict[reboot_type]["cause"],
-                    reboot_cause_history_got[reboot_type_history_len - index]["cause"]))
+                    reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]))
                 return False
         return True
     logger.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(
@@ -664,17 +691,16 @@ def try_create_dut_console(duthost, localhost, conn_graph_facts, creds):
 
 
 def collect_console_log(duthost, localhost, timeout):
-    logger.info("start: collect console log")
     creds = creds_on_dut(duthost)
     conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
     dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds)
     if dut_console:
-        logger.info(f"sleep {timeout} to collect console log....")
-        time.sleep(timeout)
-        dut_console.disconnect()
-        logger.info('end: collect console log')
+        if dut_console:
+            logger.info("start: collect console log")
+            return dut_console
     else:
         logger.warning("dut console is not ready, we cannot get log by console")
+        return None
 
 
 def check_ssh_connection(localhost, host_ip, port, delay, timeout, search_regex):
@@ -710,7 +736,8 @@ def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
         'search_regex': SONIC_SSH_REGEX
     }
     short_timeout = 40
-    params_to_update_list = [{}, {'search_regex': None, 'timeout': short_timeout}]
+    short_delay = 10
+    params_to_update_list = [{}, {'search_regex': None, 'timeout': short_timeout, 'delay': short_delay}]
     for num_try, params_to_update in enumerate(params_to_update_list):
         iter_connection_params = default_connection_params.copy()
         iter_connection_params.update(params_to_update)

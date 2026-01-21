@@ -15,7 +15,10 @@ CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd
 DEFAULT_CHECKPOINT_NAME = "test"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
-GCUTIMEOUT_MAP = {'armhf-nokia_ixs7215_52x-r0': 1200}
+GCUTIMEOUT_MAP = {
+    'armhf-nokia_ixs7215_52x-r0': 1200,
+    'x86_64-nvidia_sn5640-r0': 3600  # Increase timeout due to issue #22370
+}
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
@@ -363,7 +366,10 @@ def check_show_ip_intf(duthost, intf_name, expected_content_list, unexpected_con
                                       fe80::5054:ff:feda:c6af%Vlan1000/64                       N/A             N/A
     """
     address_family = "ip" if is_ipv4 else "ipv6"
-    output = duthost.shell("show {} interfaces | grep -w {} || true".format(address_family, intf_name))
+    # Use -d all flag for multi-ASIC systems to show interfaces from all namespaces
+    display_option = "-d all" if duthost.is_multi_asic else ""
+    output = duthost.shell("show {} interfaces {} | grep -w {} || true".format(
+        address_family, display_option, intf_name))
 
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
@@ -454,8 +460,8 @@ def is_valid_platform_and_version(duthost, table, scenario, operation, field_val
             "validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic]     # noqa: E501
         if version_required == "":
             return False
-        # os_version is in format "20220531.04", version_required is in format "20220500"
-        return os_version[0:8] >= version_required[0:8]
+        # os_version can be in any of 202411.1, 20241100.1 formats and version_required is in format "20220500"
+        return os_version.split('.')[0].ljust(8, '0') >= version_required[0:8]
     except KeyError:
         return False
     except IndexError:

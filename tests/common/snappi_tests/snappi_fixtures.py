@@ -7,21 +7,30 @@ import logging
 import snappi
 import sys
 import random
+import subprocess
+import csv
+import json
+import os
 from copy import copy
-from tests.common.helpers.assertions import pytest_require
 from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, \
     get_ipv6_addrs_in_subnet, parse_override
-from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
+from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location, \
+    get_macs, get_ip_addresses, subnet_mask_from_hosts   # noqa: F401
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require   # noqa: F811
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
-    prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length
-
-
+    prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, dut_ip_for_non_macsec_port
+from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_macsec_port, disable_macsec_port, \
+    delete_macsec_profile
+from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings, create_front_panel_ports, \
+    create_connections, create_uhdIp_list, create_arp_bypass, create_profiles
 logger = logging.getLogger(__name__)
+
+macsec_enabled_port = {}
+macsec_profile_name = ""
 
 
 @pytest.fixture(scope="module")
@@ -39,7 +48,7 @@ def snappi_api_serv_ip(tbinfo):
 
 
 @pytest.fixture(scope="module")
-def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
+def snappi_api_serv_port(tbinfo, duthosts, rand_one_dut_hostname):
     """
     This fixture returns the TCP Port of the Snappi API server.
     Args:
@@ -47,6 +56,9 @@ def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
     Returns:
         snappi API server port.
     """
+    if "tg_api_server" in tbinfo:
+        return tbinfo['tg_api_server'].split(':')[1]
+
     duthost = duthosts[rand_one_dut_hostname]
     return (duthost.host.options['variable_manager'].
             _hostvars[duthost.hostname]['snappi_api_server']['rest_port'])
@@ -84,7 +96,7 @@ def __gen_mac(id):
     Returns:
         MAC address (string)
     """
-    return '00:11:22:33:44:{:02d}'.format(id)
+    return '00:{:02d}:22:33:44:01'.format(id)
 
 
 def __gen_pc_mac(id):
@@ -113,254 +125,327 @@ def __valid_ipv4_addr(ip):
         return False
 
 
+def __valid_ipv6_addr(ip):
+    """
+    Determine if an input string is a valid IPv6 address
+    Args:
+        ip (unicode str): input IP address
+    Returns:
+        True if the input is a valid IPv6 address or False otherwise
+    """
+    try:
+        return True if type(ip_address(ip)) is IPv6Address else False
+    except ValueError:
+        return False
+
+
 def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True):
     """
-    Generate Snappi configuration of layer 3 interfaces
-    Args:
-        config (obj): Snappi API config of the testbed
-        port_config_list (list): list of Snappi port configuration information
-        duthost (object): device under test
-        snappi_ports (list): list of Snappi port information
-        setup (bool): Setting up or teardown? True or False
-    Returns:
-        True if we successfully generate configuration or False
+    Generate Snappi configuration of layer 3 interfaces (IPv4 + IPv6).
     """
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    if 'minigraph_interfaces' in mg_facts:
-        l3_intf_facts = mg_facts['minigraph_interfaces']
-    else:
+    if 'minigraph_interfaces' not in mg_facts:
+        return True
+    l3_intf_facts = mg_facts['minigraph_interfaces']
+    if not l3_intf_facts:
         return True
 
-    if len(l3_intf_facts) == 0:
-        return True
+    # Group all (v4/v6) entries per physical interface
+    grouped = {}
+    for entry in l3_intf_facts:
+        grouped.setdefault(entry['attachto'], []).append(entry)
 
-    l3_intf = {}
-    for v in l3_intf_facts:
-        if __valid_ipv4_addr(v['addr']):
-            l3_intf[v['attachto']] = v
-
-    for k, v in list(l3_intf.items()):
-        intf = str(k)
-        gw_addr = str(v['addr'])
-        prefix = str(v['prefixlen'])
-        ip = str(v['peer_addr'])
-
-        port_ids = [id for id, snappi_port in enumerate(snappi_ports)
-                    if snappi_port['peer_port'] == intf]
+    for intf, entries in grouped.items():
+        port_ids = [i for i, sp in enumerate(snappi_ports) if sp['peer_port'] == intf]
         if len(port_ids) != 1:
             continue
-
-        namespace = duthost.get_namespace_from_asic_id(duthost.get_port_asic_instance(intf).asic_index)
-        gen_data_flow_dest_ip(ip, duthost, intf, namespace=namespace, setup=setup)
-
         port_id = port_ids[0]
         mac = __gen_mac(port_id)
-
-        device = config.devices.device(
-            name='Device Port {}'.format(port_id))[-1]
-
+        device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
         ethernet = device.ethernets.add()
         ethernet.name = 'Ethernet Port {}'.format(port_id)
         ethernet.connection.port_name = config.ports[port_id].name
         ethernet.mac = mac
 
-        ip_stack = ethernet.ipv4_addresses.add()
-        ip_stack.name = 'Ipv4 Port {}'.format(port_id)
-        ip_stack.address = ip
-        ip_stack.prefix = int(prefix)
-        ip_stack.gateway = gw_addr
+        v4_addr = v4_gw = v4_prefix = None
+        v6_addr = v6_gw = v6_prefix = None
 
-        port_config = SnappiPortConfig(id=port_id,
-                                       ip=ip,
-                                       mac=mac,
-                                       gw=gw_addr,
-                                       gw_mac=duthost.get_dut_iface_mac(intf),
-                                       prefix_len=prefix,
-                                       port_type=SnappiPortType.IPInterface,
-                                       peer_port=intf)
+        for e in entries:
+            addr = e['addr']
+            peer = e.get('peer_addr')
+            if not peer:
+                continue
+            prefix = int(e['prefixlen'])
+            try:
+                ip_obj = ip_address(addr)
+            except ValueError:
+                continue
 
-        port_config_list.append(port_config)
+            asic_inst = duthost.get_port_asic_instance(intf)
+            namespace = duthost.get_namespace_from_asic_id(asic_inst.asic_index) if asic_inst else None
+            gen_data_flow_dest_ip(peer, duthost, intf, namespace=namespace, setup=setup)
 
-    if len(port_config_list) != len(snappi_ports):
-        return False
+            if ip_obj.version == 4:
+                ip_stack = ethernet.ipv4_addresses.add()
+                ip_stack.name = 'Ipv4 Port {}'.format(port_id)
+                ip_stack.address = peer
+                ip_stack.prefix = prefix
+                ip_stack.gateway = addr
+                v4_addr, v4_gw, v4_prefix = peer, addr, prefix
+            else:
+                ip6_stack = ethernet.ipv6_addresses.add()
+                ip6_stack.name = 'Ipv6 Port {}'.format(port_id)
+                ip6_stack.address = peer
+                ip6_stack.prefix = prefix
+                ip6_stack.gateway = addr
+                v6_addr, v6_gw, v6_prefix = peer, addr, prefix
+
+        if any([v4_addr, v6_addr]):
+            port_config = SnappiPortConfig(
+                id=port_id,
+                ip=v4_addr,
+                mac=mac,
+                gw=v4_gw,
+                gw_mac=duthost.get_dut_iface_mac(intf),
+                prefix_len=str(v4_prefix) if v4_prefix is not None else None,
+                ipv6=v6_addr,
+                gw_ipv6=v6_gw,
+                prefix_len_v6=str(v6_prefix) if v6_prefix is not None else None,
+                port_type=SnappiPortType.IPInterface,
+                peer_port=intf
+            )
+            port_config_list.append(port_config)
 
     return True
 
 
 def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
     """
-    Generate Snappi configuration of Vlan interfaces
-    Args:
-        config (obj): Snappi API config of the testbed
-        port_config_list (list): list of Snappi port configuration information
-        duthost (object): device under test
-        snappi_ports (list): list of Snappi port information
-    Returns:
-        True if we successfully generate configuration or False
+    Generate Snappi configuration of VLAN member interfaces (IPv4 + IPv6).
     """
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    if 'minigraph_vlans' in mg_facts:
-        vlan_facts = mg_facts['minigraph_vlans']
-    else:
+    if 'minigraph_vlans' not in mg_facts:
+        return True
+    vlan_facts = mg_facts['minigraph_vlans']
+    if not vlan_facts:
         return True
 
-    if len(vlan_facts) == 0:
-        return True
-
-    vlan_member = {}
-    for k, v in list(vlan_facts.items()):
-        vlan_member[k] = v['members']
-
-    vlan_intf_facts = mg_facts['minigraph_vlan_interfaces']
-    vlan_intf = {}
+    vlan_members = {k: v['members'] for k, v in vlan_facts.items()}
+    vlan_intf_facts = mg_facts.get('minigraph_vlan_interfaces', [])
+    vlan_entries = {}
     for v in vlan_intf_facts:
-        if __valid_ipv4_addr(v['addr']):
-            vlan_intf[v['attachto']] = v
+        vlan_entries.setdefault(v['attachto'], []).append(v)
 
-    """ For each Vlan """
-    for vlan in vlan_member:
-        phy_intfs = vlan_member[vlan]
-        gw_addr = str(vlan_intf[vlan]['addr'])
-        prefix = str(vlan_intf[vlan]['prefixlen'])
-        vlan_subnet = '{}/{}'.format(gw_addr, prefix)
-        vlan_ip_addrs = get_addrs_in_subnet(vlan_subnet, len(phy_intfs))
+    for vlan, members in vlan_members.items():
+        if vlan not in vlan_entries:
+            continue
+        entries = vlan_entries[vlan]
+        v4_entry = next((e for e in entries if __valid_ipv4_addr(e['addr'])), None)
+        v6_entry = next((e for e in entries if __valid_ipv6_addr(e['addr'])), None)
 
-        """ For each physical interface attached to this Vlan """
-        for i in range(len(phy_intfs)):
-            phy_intf = phy_intfs[i]
-            vlan_ip_addr = vlan_ip_addrs[i]
+        if v4_entry:
+            gw4 = v4_entry['addr']
+            pfx4 = v4_entry['prefixlen']
+            subnet4 = f"{gw4}/{pfx4}"
+            member_ipv4s = get_addrs_in_subnet(subnet4, len(members))
+        else:
+            gw4 = pfx4 = None
+            member_ipv4s = [None] * len(members)
 
-            port_ids = [id for id, snappi_port in enumerate(snappi_ports)
-                        if snappi_port['peer_port'] == phy_intf]
+        if v6_entry:
+            gw6 = v6_entry['addr']
+            pfx6 = v6_entry['prefixlen']
+            subnet6 = f"{gw6}/{pfx6}"
+            member_ipv6s = get_ipv6_addrs_in_subnet(subnet6, len(members))
+        else:
+            gw6 = pfx6 = None
+            member_ipv6s = [None] * len(members)
+
+        for idx, phy in enumerate(members):
+            port_ids = [i for i, sp in enumerate(snappi_ports) if sp['peer_port'] == phy]
             if len(port_ids) != 1:
                 continue
-
             port_id = port_ids[0]
             mac = __gen_mac(port_id)
-            device = config.devices.device(
-                name='Device Port {}'.format(port_id))[-1]
-
+            device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
             ethernet = device.ethernets.add()
             ethernet.name = 'Ethernet Port {}'.format(port_id)
             ethernet.connection.port_name = config.ports[port_id].name
             ethernet.mac = mac
 
-            ip_stack = ethernet.ipv4_addresses.add()
-            ip_stack.name = 'Ipv4 Port {}'.format(port_id)
-            ip_stack.address = vlan_ip_addr
-            ip_stack.prefix = int(prefix)
-            ip_stack.gateway = gw_addr
+            v4_addr = v4_prefix = None
+            v6_addr = v6_prefix = None
 
-            port_config = SnappiPortConfig(id=port_id,
-                                           ip=vlan_ip_addr,
-                                           mac=mac,
-                                           gw=gw_addr,
-                                           gw_mac=duthost.get_dut_iface_mac(phy_intf),
-                                           prefix_len=prefix,
-                                           port_type=SnappiPortType.VlanMember,
-                                           peer_port=phy_intf)
+            if member_ipv4s[idx]:
+                ip4 = member_ipv4s[idx]
+                ip4_stack = ethernet.ipv4_addresses.add()
+                ip4_stack.name = 'Ipv4 Port {}'.format(port_id)
+                ip4_stack.address = ip4
+                ip4_stack.prefix = int(pfx4)
+                ip4_stack.gateway = gw4
+                v4_addr, v4_prefix = ip4, pfx4
 
-            port_config_list.append(port_config)
+            if member_ipv6s[idx]:
+                ip6 = member_ipv6s[idx]
+                ip6_stack = ethernet.ipv6_addresses.add()
+                ip6_stack.name = 'Ipv6 Port {}'.format(port_id)
+                ip6_stack.address = ip6
+                ip6_stack.prefix = int(pfx6)
+                ip6_stack.gateway = gw6
+                v6_addr, v6_prefix = ip6, pfx6
 
-        if duthost.get_facts().get("modular_chassis") and len(port_config_list) != len(snappi_ports):
-            return False
+            if v4_addr or v6_addr:
+                port_config = SnappiPortConfig(
+                    id=port_id,
+                    ip=v4_addr if v4_addr is not None else None,
+                    mac=mac,
+                    gw=gw4 if v4_addr is not None else None,
+                    gw_mac=duthost.get_dut_iface_mac(phy),
+                    prefix_len=str(v4_prefix) if v4_addr is not None else None,
+                    ipv6=v6_addr,
+                    gw_ipv6=gw6,
+                    prefix_len_v6=str(v6_prefix) if v6_prefix is not None else None,
+                    port_type=SnappiPortType.VlanMember,
+                    peer_port=phy)
+                port_config_list.append(port_config)
 
     return True
 
 
 def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
     """
-    Generate Snappi configuration of portchannel interfaces
-    Args:
-        config (obj): Snappi API config of the testbed
-        port_config_list (list): list of Snappi port configuration information
-        duthost (object): device under test
-        snappi_ports (list): list of Snappi port information
-    Returns:
-        True if we successfully generate configuration or False
+    Generate Snappi configuration of PortChannel (LAG) member and LAG interfaces (IPv4 + IPv6).
     """
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-    if 'minigraph_portchannels' in mg_facts:
-        pc_facts = mg_facts['minigraph_portchannels']
-    else:
+    if 'minigraph_portchannels' not in mg_facts:
+        return True
+    pc_facts = mg_facts['minigraph_portchannels']
+    if not pc_facts:
         return True
 
-    if len(pc_facts) == 0:
-        return True
-
-    pc_member = {}
-    for k, v in list(pc_facts.items()):
-        pc_member[k] = v['members']
-
-    pc_intf_facts = mg_facts['minigraph_portchannel_interfaces']
-    pc_intf = {}
+    pc_members = {k: v['members'] for k, v in pc_facts.items()}
+    pc_intf_facts = mg_facts.get('minigraph_portchannel_interfaces', [])
+    pc_entries = {}
     for v in pc_intf_facts:
-        if __valid_ipv4_addr(v['addr']):
-            pc_intf[v['attachto']] = v
+        pc_entries.setdefault(v['attachto'], []).append(v)
 
-    """ For each port channel """
     pc_id = 0
-    for pc in pc_member:
-        phy_intfs = pc_member[pc]
-        gw_addr = str(pc_intf[pc]['addr'])
-        prefix = str(pc_intf[pc]['prefixlen'])
-        pc_ip_addr = str(pc_intf[pc]['peer_addr'])
+    for pc, members in pc_members.items():
+        if pc not in pc_entries:
+            continue
+        entries = pc_entries[pc]
+        v4_entry = next((e for e in entries if __valid_ipv4_addr(e['addr'])), None)
+        v6_entry = next((e for e in entries if not __valid_ipv4_addr(e['addr'])), None)
+
+        member_port_ids = [i for i, sp in enumerate(snappi_ports) for m in members if sp['peer_port'] == m]
+        if not member_port_ids:
+            continue
 
         lag = config.lags.lag(name='Lag {}'.format(pc))[-1]
         lag.protocol.lacp.actor_system_id = '00:00:00:00:00:01'
         lag.protocol.lacp.actor_system_priority = 1
         lag.protocol.lacp.actor_key = 1
 
-        for i in range(len(phy_intfs)):
-            phy_intf = phy_intfs[i]
-
-            port_ids = [id for id, snappi_port in enumerate(snappi_ports)
-                        if snappi_port['peer_port'] == phy_intf]
+        for phy in members:
+            port_ids = [i for i, sp in enumerate(snappi_ports) if sp['peer_port'] == phy]
             if len(port_ids) != 1:
-                return False
-
+                continue
             port_id = port_ids[0]
             mac = __gen_mac(port_id)
-
             lp = lag.ports.port(port_name=config.ports[port_id].name)[-1]
             lp.lacp.actor_port_number = 1
             lp.lacp.actor_port_priority = 1
-
             lp.ethernet.name = 'Ethernet Port {}'.format(port_id)
             lp.ethernet.mac = mac
 
-            port_config = SnappiPortConfig(id=port_id,
-                                           ip=pc_ip_addr,
-                                           mac=mac,
-                                           gw=gw_addr,
-                                           gw_mac=duthost.get_dut_iface_mac(phy_intf),
-                                           prefix_len=prefix,
-                                           port_type=SnappiPortType.PortChannelMember,
-                                           peer_port=phy_intf)
+            # IPv4 base attributes
+            base_ip = base_gw = base_prefix = None
+            if v4_entry:
+                base_ip = v4_entry['peer_addr']
+                base_gw = v4_entry['addr']
+                base_prefix = v4_entry['prefixlen']
 
-            port_config_list.append(port_config)
+            v6_ip = v6_gw = v6_prefix = None
+            if v6_entry:
+                v6_ip = v6_entry['peer_addr']
+                v6_gw = v6_entry['addr']
+                v6_prefix = v6_entry['prefixlen']
+
+            if base_ip is not None or v6_ip is not None:
+                port_config = SnappiPortConfig(
+                    id=port_id,
+                    ip=base_ip,
+                    mac=mac,
+                    gw=base_gw,
+                    gw_mac=duthost.get_dut_iface_mac(phy),
+                    prefix_len=str(base_prefix) if base_prefix is not None else None,
+                    ipv6=v6_ip,
+                    gw_ipv6=v6_gw,
+                    prefix_len_v6=str(v6_prefix) if v6_prefix is not None else None,
+                    port_type=SnappiPortType.PortChannelMember,
+                    peer_port=phy)
+                port_config_list.append(port_config)
 
         device = config.devices.device(name='Device {}'.format(pc))[-1]
-
         ethernet = device.ethernets.add()
         ethernet.connection.port_name = lag.name
         ethernet.name = 'Ethernet {}'.format(pc)
         ethernet.mac = __gen_pc_mac(pc_id)
 
-        ip_stack = ethernet.ipv4_addresses.add()
-        ip_stack.name = 'Ipv4 {}'.format(pc)
-        ip_stack.address = pc_ip_addr
-        ip_stack.prefix = int(prefix)
-        ip_stack.gateway = gw_addr
+        if v4_entry:
+            ip_stack = ethernet.ipv4_addresses.add()
+            ip_stack.name = 'Ipv4 {}'.format(pc)
+            ip_stack.address = v4_entry['peer_addr']
+            ip_stack.prefix = int(v4_entry['prefixlen'])
+            ip_stack.gateway = v4_entry['addr']
+        if v6_entry:
+            ip6_stack = ethernet.ipv6_addresses.add()
+            ip6_stack.name = 'Ipv6 {}'.format(pc)
+            ip6_stack.address = v6_entry['peer_addr']
+            ip6_stack.prefix = int(v6_entry['prefixlen'])
+            ip6_stack.gateway = v6_entry['addr']
 
-        pc_id = pc_id + 1
+        pc_id += 1
 
     return True
 
 
+@pytest.fixture(scope="module")
+def is_pfc_enabled(duthosts, rand_one_dut_front_end_hostname):
+    """
+    This fixture checks if Priority Flow Control (PFC) is enabled on the SONiC DUT.
+
+    Args:
+        duthosts (pytest fixture): List of DUT hosts.
+        rand_one_dut_front_end_hostname (pytest fixture): Hostname of a randomly selected front-end DUT.
+
+    Returns:
+        bool: True if PFC is enabled on at least one port, False otherwise.
+    """
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
+                                        source="running")['ansible_facts']
+
+    if "PORT_QOS_MAP" not in list(config_facts.keys()):
+        return False
+
+    port_qos_map = config_facts["PORT_QOS_MAP"]
+    if len(list(port_qos_map.keys())) == 0:
+        return False
+
+    # Here we assume all the ports have the same lossless priorities
+    intf = list(port_qos_map.keys())[0]
+    pfc_enable = port_qos_map[intf].get('pfc_enable')
+    if pfc_enable:
+        return True
+
+    return False
+
+
 @pytest.fixture(scope="function")
 def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
-                          duthosts, rand_one_dut_hostname, snappi_api):
+                          duthosts, rand_one_dut_hostname, is_pfc_enabled,
+                          snappi_api):
     """
     Geenrate snappi API config and port config information for the testbed
     Args:
@@ -387,7 +472,7 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
                                             dut_hostname=duthost.hostname)
 
     pytest_assert(snappi_fanout is not None, 'Fail to get snappi_fanout')
-
+    snappi_fanout = snappi_fanout[0]
     snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
     snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
@@ -417,31 +502,63 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
     l1_config.speed = 'speed_{}_gbps'.format(speed_gbps)
     l1_config.ieee_media_defaults = False
     l1_config.auto_negotiate = False
-    l1_config.auto_negotiation.link_training = True
-    l1_config.auto_negotiation.rs_fec = True
 
-    pfc = l1_config.flow_control.ieee_802_1qbb
-    pfc.pfc_delay = 0
-    if pfcQueueGroupSize == 8:
-        pfc.pfc_class_0 = 0
-        pfc.pfc_class_1 = 1
-        pfc.pfc_class_2 = 2
-        pfc.pfc_class_3 = 3
-        pfc.pfc_class_4 = 4
-        pfc.pfc_class_5 = 5
-        pfc.pfc_class_6 = 6
-        pfc.pfc_class_7 = 7
-    elif pfcQueueGroupSize == 4:
-        pfc.pfc_class_0 = pfcQueueValueDict[0]
-        pfc.pfc_class_1 = pfcQueueValueDict[1]
-        pfc.pfc_class_2 = pfcQueueValueDict[2]
-        pfc.pfc_class_3 = pfcQueueValueDict[3]
-        pfc.pfc_class_4 = pfcQueueValueDict[4]
-        pfc.pfc_class_5 = pfcQueueValueDict[5]
-        pfc.pfc_class_6 = pfcQueueValueDict[6]
-        pfc.pfc_class_7 = pfcQueueValueDict[7]
+    # Determine link training and RS-FEC settings from DUT before applying to TGEN
+    try:
+        run_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        port_table = run_facts.get('PORT', {})
+    except Exception as e:
+        logger.warning(f"Failed to read DUT PORT table for link training/FEC detection: {e}")
+        port_table = {}
+
+    def _is_enabled(val):
+        return str(val).lower() in ['on', 'true', 'yes', '1']
+
+    lt_values = []
+    rs_fec_values = []
+    for sp in snappi_ports:
+        p = sp.get('peer_port')
+        attrs = port_table.get(p, {})
+        if 'link_training' in attrs:
+            lt_values.append(_is_enabled(attrs.get('link_training')))
+        if 'fec' in attrs:
+            fec_val = str(attrs.get('fec', '')).lower()
+            rs_fec_values.append(fec_val.startswith('rs'))
+
+    # Enable only if ALL ports have it enabled
+    lt_enable = all(lt_values) if lt_values else False
+    rs_fec_enable = all(rs_fec_values) if rs_fec_values else False
+
+    logger.info(f"Configuring TGEN L1: link_training={lt_enable}, rs_fec={rs_fec_enable} (DUT derived)")
+
+    l1_config.auto_negotiation.link_training = lt_enable
+    l1_config.auto_negotiation.rs_fec = rs_fec_enable
+
+    if is_pfc_enabled:
+        pfc = l1_config.flow_control.ieee_802_1qbb
+        pfc.pfc_delay = 0
+        if pfcQueueGroupSize == 8:
+            pfc.pfc_class_0 = 0
+            pfc.pfc_class_1 = 1
+            pfc.pfc_class_2 = 2
+            pfc.pfc_class_3 = 3
+            pfc.pfc_class_4 = 4
+            pfc.pfc_class_5 = 5
+            pfc.pfc_class_6 = 6
+            pfc.pfc_class_7 = 7
+        elif pfcQueueGroupSize == 4:
+            pfc.pfc_class_0 = pfcQueueValueDict[0]
+            pfc.pfc_class_1 = pfcQueueValueDict[1]
+            pfc.pfc_class_2 = pfcQueueValueDict[2]
+            pfc.pfc_class_3 = pfcQueueValueDict[3]
+            pfc.pfc_class_4 = pfcQueueValueDict[4]
+            pfc.pfc_class_5 = pfcQueueValueDict[5]
+            pfc.pfc_class_6 = pfcQueueValueDict[6]
+            pfc.pfc_class_7 = pfcQueueValueDict[7]
+        else:
+            pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
     else:
-        pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
+        logger.info('PFC is not enabled on the DUT, skipping PFC configuration on TGEN')
 
     port_config_list = []
 
@@ -468,7 +585,6 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
 
 @pytest.fixture(scope="module")
 def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
-
     """
     Populate tgen ports info of T0 testbed and returns as a list
     Args:
@@ -501,55 +617,68 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
         'prefix': u'24',
         'speed': 'speed_400_gbps'}]
     """
-
-    speed_type = {'50000': 'speed_50_gbps',
+    speed_type = {
+                  '10000': 'speed_10_gbps',
+                  '25000': 'speed_25_gbps',
+                  '40000': 'speed_40_gbps',
+                  '50000': 'speed_50_gbps',
                   '100000': 'speed_100_gbps',
                   '200000': 'speed_200_gbps',
-                  '400000': 'speed_400_gbps'}
-
-    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                            dut_hostname=duthost.hostname)
-    snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
-    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
-    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
-    snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
-    port_speed = None
-
-    for i in range(len(snappi_ports)):
-        if port_speed is None:
-            port_speed = int(snappi_ports[i]['speed'])
-
-        elif port_speed != int(snappi_ports[i]['speed']):
-            """ All the ports should have the same bandwidth """
-            return None
-
+                  '400000': 'speed_400_gbps',
+                  '800000': 'speed_800_gbps'}
     config_facts = duthost.config_facts(host=duthost.hostname,
                                         source="running")['ansible_facts']
-    for port in snappi_ports:
-        port['location'] = get_snappi_port_location(port)
-        port['speed'] = speed_type[port['speed']]
-    try:
-        for port in snappi_ports:
+    snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                             dut_hostname=duthost.hostname)
+    pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
+    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+    for snappi_fanout in snappi_fanouts:
+        snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+        port_speeds = {int(p['speed']) for p in snappi_ports}
+        if len(port_speeds) != 1:
+            """ All the ports should have the same bandwidth """
+            return None
+        port_speed = port_speeds.pop()
+        dutIps = create_ip_list(dut_ip_start, len(snappi_ports), mask=prefix_length)
+        tgenIps = create_ip_list(snappi_ip_start, len(snappi_ports), mask=prefix_length)
+        dutv6Ips = create_ip_list(dut_ipv6_start, len(snappi_ports), mask=v6_prefix_length)
+        tgenv6Ips = create_ip_list(snappi_ipv6_start, len(snappi_ports), mask=v6_prefix_length)
+        for port_id, port in enumerate(snappi_ports):
+            port['speed'] = speed_type.get(str(port_speed), port['speed'])
             peer_port = port['peer_port']
-            asic_instance = duthost.get_port_asic_instance(peer_port)
-            config_facts = asic_instance.config_facts(
-                host=duthost.hostname,
-                source="running")['ansible_facts']
             int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
-            ipv4_subnet = [ele for ele in int_addrs if "." in ele][0]
-            if not ipv4_subnet:
-                raise Exception("IPv4 is not configured on the interface {}".format(peer_port))
-            port['peer_ip'], port['prefix'] = ipv4_subnet.split("/")
-            port['ip'] = get_addrs_in_subnet(ipv4_subnet, 1)[0]
-            ipv6_subnet = [ele for ele in int_addrs if ":" in ele][0]
-            if not ipv6_subnet:
-                raise Exception("IPv6 is not configured on the interface {}".format(peer_port))
-            port['peer_ipv6'], port['ipv6_prefix'] = ipv6_subnet.split("/")
-            port['ipv6'] = get_ipv6_addrs_in_subnet(ipv6_subnet, 1)[0]
-    except Exception:
-        snappi_ports = pre_configure_dut_interface(duthost, snappi_ports)
-        logger.info(snappi_ports)
-
+            for ipver, addr_type in (("ipv4", "IPv4"), ("ipv6", "IPv6")):
+                entry = next((a for a in int_addrs if (":" in a) == (ipver == "ipv6")), None)
+                if ipver == "ipv4":
+                    dut_list, tgen_list, mask = dutIps, tgenIps, prefix_length
+                    peer_ip_key, prefix_key, ip_key = "peer_ip", "prefix", "ip"
+                else:
+                    dut_list, tgen_list, mask = dutv6Ips, tgenv6Ips, v6_prefix_length
+                    peer_ip_key, prefix_key, ip_key = "peer_ipv6", "ipv6_prefix", "ipv6"
+                if entry:
+                    # Already configured on DUT
+                    port[peer_ip_key], port[prefix_key] = entry.split("/")
+                    port[ip_key] = get_addrs_in_subnet(entry, 1, exclude_ips=[entry.split("/")[0]])[0]
+                else:
+                    # Assign and configure new IPs
+                    port[peer_ip_key] = dut_list[port_id]
+                    port[prefix_key] = mask
+                    port[ip_key] = tgen_list[port_id]
+                    try:
+                        logger.info(
+                            f"Pre-configuring {addr_type}: {duthost.hostname} "
+                            f"port {peer_port} -> {dut_list[port_id]}/{mask}"
+                        )
+                        duthost.command(
+                            f"sudo config interface ip add {peer_port} {dut_list[port_id]}/{mask}"
+                        )
+                    except Exception as e:
+                        pytest.fail(
+                            f"Unable to configure {addr_type} on {peer_port}: {e}",
+                            pytrace=False,
+                        )
     return snappi_ports
 
 
@@ -710,38 +839,47 @@ def setup_dut_ports(
         port_config_list,
         snappi_ports):
 
-    for index, duthost in enumerate(duthost_list):
-        config_result = __vlan_intf_config(config=config,
-                                           port_config_list=port_config_list,
-                                           duthost=duthost,
-                                           snappi_ports=snappi_ports)
-        pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
-
-    for index, duthost in enumerate(duthost_list):
-        config_result = __portchannel_intf_config(config=config,
-                                                  port_config_list=port_config_list,
-                                                  duthost=duthost,
-                                                  snappi_ports=snappi_ports)
-        pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
-
-    if is_snappi_multidut(duthost_list):
+    ptype = "--snappi_macsec" in sys.argv
+    if not ptype:
         for index, duthost in enumerate(duthost_list):
-            config_result = __intf_config_multidut(
-                                                    config=config,
-                                                    port_config_list=port_config_list,
-                                                    duthost=duthost,
-                                                    snappi_ports=snappi_ports,
-                                                    setup=setup)
-            pytest_assert(config_result is True, 'Fail to configure multidut L3 interfaces')
+            config_result = __vlan_intf_config(config=config,
+                                               port_config_list=port_config_list,
+                                               duthost=duthost,
+                                               snappi_ports=snappi_ports)
+            pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
+
+        for index, duthost in enumerate(duthost_list):
+            config_result = __portchannel_intf_config(config=config,
+                                                      port_config_list=port_config_list,
+                                                      duthost=duthost,
+                                                      snappi_ports=snappi_ports)
+            pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
+
+        if is_snappi_multidut(duthost_list):
+            for index, duthost in enumerate(duthost_list):
+                config_result = __intf_config_multidut(
+                                                        config=config,
+                                                        port_config_list=port_config_list,
+                                                        duthost=duthost,
+                                                        snappi_ports=snappi_ports,
+                                                        setup=setup)
+                pytest_assert(config_result is True, 'Fail to configure multidut L3 interfaces')
+        else:
+            for index, duthost in enumerate(duthost_list):
+                config_result = __l3_intf_config(config=config,
+                                                 port_config_list=port_config_list,
+                                                 duthost=duthost,
+                                                 snappi_ports=snappi_ports,
+                                                 setup=setup)
+                pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
     else:
         for index, duthost in enumerate(duthost_list):
-            config_result = __l3_intf_config(config=config,
-                                             port_config_list=port_config_list,
-                                             duthost=duthost,
-                                             snappi_ports=snappi_ports,
-                                             setup=setup)
-            pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
-
+            config_result = __intf_config_macsec(config=config,
+                                                 port_config_list=port_config_list,
+                                                 duthost=duthost,
+                                                 snappi_ports=snappi_ports,
+                                                 setup=setup)
+            pytest_assert(config_result is True, 'Fail to configure macsec on snappi ports')
     return config, port_config_list, snappi_ports
 
 
@@ -904,6 +1042,265 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
     return True
 
 
+reconfigure_port = {}
+
+
+def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=True):
+    """
+    Configures macsec on snappi interfaces
+    Args:
+        config (obj): Snappi API config of the testbed
+        port_config_list (list): list of Snappi port configuration information
+        duthost (object): device under test
+        snappi_ports (list): list of Snappi port information
+        setup: Setting up or teardown? True or False
+    Returns:
+        True if we successfully configure the interfaces or False
+    """
+    global macsec_enabled_port, macsec_profile_name, reconfigure_port
+    ptype = "--snappi_macsec" in sys.argv
+    num_of_non_macsec_snappi_devices = 7
+    static_prefix_length = str(subnet_mask_from_hosts(num_of_non_macsec_snappi_devices))
+    for index, port in enumerate(snappi_ports):
+        if port['duthost'] == duthost:
+            peer_port = port['peer_port']
+            asic_inst = duthost.get_port_asic_instance(peer_port)
+            namespace = duthost.get_namespace_from_asic_id(asic_inst.asic_index) if asic_inst else None
+            facts = duthost.config_facts(host=duthost.hostname,
+                                         source="running", namespace=namespace)
+            config_facts = facts['ansible_facts']
+            int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
+            subnet = [ele for ele in int_addrs if "." in ele]
+            if port['port_id'] == 0 and int(subnet[0].split("/")[1]) > int(static_prefix_length):
+                logger.info('Removing existing IP {} from interface {}'.format(subnet[0], port['peer_port']))
+                reconfigure_port = port
+                reconfigure_port['original_subnet'] = subnet[0]
+                if port['asic_value'] is None:
+                    duthost.command('sudo config interface ip remove {} {}/{} \n'.
+                                    format(port['peer_port'], subnet[0].split("/")[0], subnet[0].split("/")[1]))
+                else:
+                    duthost.command('sudo config interface -n {} ip remove {} {}/{} \n' .
+                                    format(port['asic_value'], port['peer_port'],
+                                           subnet[0].split("/")[0], subnet[0].split("/")[1]))
+                logger.info('Adding IP {}/28 to interface {}'.format(dut_ip_for_non_macsec_port, port['peer_port']))
+                if port['asic_value'] is None:
+                    duthost.command('sudo config interface ip add {} {}/{} \n'.
+                                    format(port['peer_port'], dut_ip_for_non_macsec_port, static_prefix_length))
+                else:
+                    duthost.command('sudo config interface -n {} ip add {} {}/{} \n' .
+                                    format(port['asic_value'], port['peer_port'],
+                                           dut_ip_for_non_macsec_port, static_prefix_length))
+                subnet = [dut_ip_for_non_macsec_port + '/' + str(static_prefix_length)]
+            port['ipAddress'] = get_addrs_in_subnet(subnet[0], 1, exclude_ips=[subnet[0].split("/")[0]])[0]
+            if not subnet:
+                pytest_assert(False, "No IP address found for peer port {}".format(peer_port))
+            port['ipGateway'], port['prefix'] = subnet[0].split("/")
+            port['subnet'] = subnet[0]
+    ports = []
+    for port in snappi_ports:
+        if port['peer_device'] == duthost.hostname:
+            ports.append(port)
+    if ptype:
+        macsec_var_file = os.path.expanduser("../tests/snappi_tests/macsec_profile.json")
+        with open(macsec_var_file, "r") as f:
+            all_values = json.load(f)
+    for port in ports:
+        port_id = port['port_id']
+        dutIp = port['ipGateway']
+        tgenIp = port['ipAddress']
+        prefix_length = int(port['prefix'])
+        mac = __gen_mac(port_id+num_of_non_macsec_snappi_devices)
+        if not setup:
+            gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
+        if setup:
+            gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
+        if setup is False:
+            continue
+        port['intf_config_changed'] = True
+        if ptype and port_id == 1:
+            device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
+            ethernet = device.ethernets.add()
+            ethernet.name = 'Ethernet Port {}'.format(port_id)
+            ethernet.connection.port_name = config.ports[port_id].name
+            ethernet.mac = mac
+            # Configure MACsec on DUT
+            rawout = port['duthost'].command('show macsec {}'.format(port['peer_port']))['stdout']
+            for line in rawout.split('\n'):
+                if 'profile' in line:
+                    profile_name = line.split()[1]
+                    logger.info('Removing already configured Macsec profile {}'.format(profile_name))
+                    delete_macsec_profile(port['duthost'], port['peer_port'], profile_name)
+            macsec_enabled_port = port
+            macsec_profile_name = '256_XPN_SCI'
+            cipher = all_values[macsec_profile_name]['cipher_suite']
+            primary_cak = all_values[macsec_profile_name]['primary_cak']
+            primary_ckn = all_values[macsec_profile_name]['primary_ckn']
+            priority = all_values[macsec_profile_name]['priority']
+            policy = all_values[macsec_profile_name]['policy']
+            rekey_period = all_values[macsec_profile_name]['rekey_period']
+            send_sci = all_values[macsec_profile_name]['send_sci']
+            logger.info('Configuring DUTHOST:{}'.format(port['duthost'].hostname))
+            logger.info('Configuring MACSEC on DUT Interfaces: {}'.format(port['peer_port']))
+            set_macsec_profile(port['duthost'], port['peer_port'], macsec_profile_name, priority,
+                               cipher, primary_cak, primary_ckn, policy, send_sci, rekey_period)
+            enable_macsec_port(port['duthost'], port['peer_port'], macsec_profile_name)
+            if port['asic_value'] is None:
+                duthost.command("sudo arp -i {} -s {} {} \n".
+                                format(port['peer_port'], tgenIp, mac))
+                logger.info("sudo arp -i {} -s {} {}".
+                            format(port['peer_port'], tgenIp, mac))
+            else:
+                duthost.command("sudo ip netns exec {} arp -i {} -s {} {} \n".
+                                format(port['asic_value'], port['peer_port'], tgenIp, mac))
+                logger.info("sudo ip netns exec {} arp -i {} -s {} {}".
+                            format(port['asic_value'], port['peer_port'], tgenIp, mac))
+            # Tx Port
+            ip1 = ethernet.ipv4_addresses.add()
+            ip1.name = "ip2"
+            ip1.address = tgenIp
+            ip1.prefix = int(prefix_length)
+            ip1.gateway = dutIp
+            ip1.gateway_mac.choice = "value"
+            ip1.gateway_mac.value = duthost.get_dut_iface_mac(port['peer_port'])
+            ####################
+            # MACsec
+            ####################
+            macsec1 = device.macsec
+            macsec1_int = macsec1.ethernet_interfaces.add()
+            macsec1_int.eth_name = ethernet.name
+            secy1 = macsec1_int.secure_entity
+            secy1.name = "macsec1"
+
+            # Data plane and crypto engine
+            secy1.data_plane.choice = "encapsulation"
+            secy1.data_plane.encapsulation.crypto_engine.choice = "encrypt_only"
+
+            # Data plane and crypto engine
+            secy1.data_plane.choice = "encapsulation"
+            secy1.data_plane.encapsulation.tx.include_sci = True
+            secy1.data_plane.encapsulation.crypto_engine.choice = "encrypt_only"
+            secy1_crypto_engine_enc_only = secy1.data_plane.encapsulation.crypto_engine.encrypt_only
+
+            # Data plane Tx SC PN
+            secy1_dataplane_txsc1 = secy1_crypto_engine_enc_only.secure_channels.add()
+            secy1_dataplane_txsc1.tx_pn.choice = all_values['snappi']['tx_pn_choice']
+
+            ####################
+            # MKA
+            ####################
+            secy1_key_gen_proto = secy1.key_generation_protocol
+            secy1_key_gen_proto.choice = "mka"
+            kay1 = secy1_key_gen_proto.mka
+            kay1.name = "mka1"
+            # Basic properties
+            kay1.basic.key_derivation_function = all_values['snappi']['key_derivation_function']
+            kay1.basic.actor_priority = all_values['snappi']['actor_priority']
+            # Key source: PSK
+            kay1_key_src = kay1.basic.key_source
+            kay1_key_src.choice = "psk"
+            kay1_psk_chain = kay1_key_src.psks
+
+            # PSK 1
+            kay1_psk1 = kay1_psk_chain.add()
+            kay1_psk1.cak_name = all_values['snappi']['cak_name']
+            kay1_psk1.cak_value = all_values['snappi']['cak_value']
+
+            kay1_psk1.start_offset_time.hh = 0
+            kay1_psk1.start_offset_time.mm = 22
+
+            kay1_psk1.end_offset_time.hh = 0
+            kay1_psk1.end_offset_time.hh = 0
+
+            # Rekey mode
+            kay_rekey_mode = kay1.basic.rekey_mode
+            kay_rekey_mode.choice = all_values['snappi']['mka_rekey_mode_choice']
+            kay_rekey_timer_based = kay_rekey_mode.timer_based
+            kay_rekey_timer_based.choice = all_values['snappi']['mka_rekey_timer_choice']
+            kay_rekey_timer_based.interval = all_values['snappi']['mka_rekey_timer_interval']
+
+            # Remaining basic properties autofilled
+            # Key server
+            kay1_key_server = kay1.key_server
+            kay1_key_server.cipher_suite = all_values['snappi']['cipher_suite']
+            kay1_key_server.confidentialty_offset = all_values['snappi']['confidentiality_offset']
+
+            # Tx SC
+            kay1_tx = kay1.tx
+            kay1_txsc1 = kay1_tx.secure_channels.add()
+            kay1_txsc1.name = "txsc1"
+            kay1_txsc1.system_id = mac
+            # Remaining Tx SC settings autofilled
+            eotr = config.egress_only_tracking
+            eotr1 = eotr.add()
+            eotr1.port_name = config.ports[port_id].name
+
+            # eotr filter
+            eotr1_filter1 = eotr1.filters.add()
+            eotr1_filter1.choice = "auto_macsec"
+
+            # eotr metric tag for destination MAC 3rd byte from MSB: LS 4 bits
+            eotr1_mt1 = eotr1.metric_tags.add()
+            eotr1_mt1.name = "pause traffic"
+            eotr1_mt1.rx_offset = 0
+            eotr1_mt1.length = 8
+            eotr1_mt1.tx_offset.choice = "custom"
+            eotr1_mt1.tx_offset.custom.value = 0
+            port_config = SnappiPortConfig(
+                                id=port_id,
+                                ip=tgenIp,
+                                mac=mac,
+                                gw=dutIp,
+                                gw_mac=duthost.get_dut_iface_mac(port['peer_port']),
+                                prefix_len=prefix_length,
+                                port_type=SnappiPortType.IPInterface,
+                                peer_port=port['peer_port']
+                            )
+            port_config_list.append(port_config)
+        elif ptype and port_id == 0:
+            ip_values = get_ip_addresses(tgenIp, num_of_non_macsec_snappi_devices)
+            for nd in range(0, num_of_non_macsec_snappi_devices):
+                device = config.devices.device(name='Device Port {}_{}'.format(port_id, nd))[-1]
+                ethernet = device.ethernets.add()
+                ethernet.name = 'Ethernet Port {}_{}'.format(port_id, nd)
+                ethernet.connection.port_name = config.ports[port_id].name
+                ethernet.mac = __gen_mac(nd)
+                ip_stack = ethernet.ipv4_addresses.add()
+                ip_stack.name = 'Ipv4 Port {}_{}'.format(port_id, nd)
+                ip_stack.address = ip_values[nd]
+                ip_stack.prefix = int(prefix_length)
+                ip_stack.gateway = dutIp
+                port_config = SnappiPortConfig(
+                    id=port_id,
+                    ip=ip_values[nd],
+                    mac=__gen_mac(nd),
+                    gw=dutIp,
+                    gw_mac=duthost.get_dut_iface_mac(port['peer_port']),
+                    prefix_len=prefix_length,
+                    port_type=SnappiPortType.IPInterface,
+                    peer_port=port['peer_port']
+                )
+                port_config_list.append(port_config)
+            # ip_stack.gateway_mac.choice = "value"
+            # ip_stack.gateway_mac.value = "4c:71:0d:26:61:27"    # get this mac address from the dut.
+            # Rx Port
+            # egress only tracking(eotr)
+            eotr = config.egress_only_tracking
+            eotr1 = eotr.add()
+            eotr1.port_name = config.ports[port_id].name
+
+            # eotr filter
+            eotr1_filter1 = eotr1.filters.add()
+            eotr1_filter1.choice = "auto_macsec"
+            # eotr metric tag for destination MAC 3rd byte from MSB: LS 4 bits
+            eotr1_mt1 = eotr1.metric_tags.add()
+            eotr1_mt1.name = "ipv4_dscp"
+            eotr1_mt1.rx_offset = 0
+            eotr1_mt1.length = 8
+            eotr1_mt1.tx_offset.choice = "custom"
+            eotr1_mt1.tx_offset.custom.value = 0
+    return True
+
+
 def create_ip_list(value, count, mask=32, incr=0):
     '''
         Create a list of ips based on the count provided
@@ -914,7 +1311,7 @@ def create_ip_list(value, count, mask=32, incr=0):
             incr: increment value of the ip
     '''
     if sys.version_info.major == 2:
-        value = unicode(value)          # noqa: F821
+        value = unicode(value)          # noqa: F405, F821
 
     ip_list = [value]
     for i in range(1, count):
@@ -932,102 +1329,82 @@ def create_ip_list(value, count, mask=32, incr=0):
 
 
 def cleanup_config(duthost_list, snappi_ports):
+    ptype = "--snappi_macsec" in sys.argv
+    if not ptype:
+        if (duthost_list[0].facts['asic_type'] == "cisco-8000" and
+                duthost_list[0].get_facts().get("modular_chassis", None)):
+            global DEST_TO_GATEWAY_MAP  # noqa: F824
+            copy_DEST_TO_GATEWAY_MAP = copy(DEST_TO_GATEWAY_MAP)
+            for addr in copy_DEST_TO_GATEWAY_MAP:
+                gen_data_flow_dest_ip(
+                    addr,
+                    dut=DEST_TO_GATEWAY_MAP[addr]['dut'],
+                    intf=None,
+                    namespace=DEST_TO_GATEWAY_MAP[addr]['asic'],
+                    setup=False)
 
-    if (duthost_list[0].facts['asic_type'] == "cisco-8000" and
-            duthost_list[0].get_facts().get("modular_chassis", None)):
-        global DEST_TO_GATEWAY_MAP
-        copy_DEST_TO_GATEWAY_MAP = copy(DEST_TO_GATEWAY_MAP)
-        for addr in copy_DEST_TO_GATEWAY_MAP:
-            gen_data_flow_dest_ip(
-                addr,
-                dut=DEST_TO_GATEWAY_MAP[addr]['dut'],
-                intf=None,
-                namespace=DEST_TO_GATEWAY_MAP[addr]['asic'],
-                setup=False)
+            time.sleep(4)
 
-        time.sleep(4)
-
-    for index, duthost in enumerate(duthost_list):
-        port_count = len(snappi_ports)
-        dutIps = create_ip_list(dut_ip_start, port_count, mask=prefix_length)
-        for port in snappi_ports:
-            if port['peer_device'] == duthost.hostname and port['intf_config_changed']:
-                port_id = port['port_id']
-                dutIp = dutIps[port_id]
-                logger.info('Removing Configuration on Dut: {} with port {} with ip :{}/{}'.format(
-                                                                                                   duthost.hostname,
-                                                                                                   port['peer_port'],
-                                                                                                   dutIp,
-                                                                                                   prefix_length))
-                if port['asic_value'] is None:
-                    duthost.command('sudo config interface ip remove {} {}/{} \n' .format(
-                                                                                          port['peer_port'],
-                                                                                          dutIp,
-                                                                                          prefix_length))
-                else:
-                    duthost.command('sudo config interface -n {} ip remove {} {}/{} \n' .format(
-                                                                                                port['asic_value'],
-                                                                                                port['peer_port'],
-                                                                                                dutIp,
-                                                                                                prefix_length))
-                port['intf_config_changed'] = False
-
-
-def pre_configure_dut_interface(duthost, snappi_ports):
-    """
-    Populate tgen ports info of T0 testbed and returns as a list
-    Args:
-        duthost (pytest fixture): duthost fixture
-        snappi_ports: list of snappi ports
-    """
-
-    dutIps = create_ip_list(dut_ip_start, len(snappi_ports), mask=prefix_length)
-    tgenIps = create_ip_list(snappi_ip_start, len(snappi_ports), mask=prefix_length)
-    dutv6Ips = create_ip_list(dut_ipv6_start, len(snappi_ports), mask=v6_prefix_length)
-    tgenv6Ips = create_ip_list(snappi_ipv6_start, len(snappi_ports), mask=v6_prefix_length)
-    snappi_ports_dut = []
-    for port in snappi_ports:
-        if port['peer_device'] == duthost.hostname:
-            snappi_ports_dut.append(port)
-
-    for port in snappi_ports_dut:
-        port_id = int(port['port_id'])-1
-        port['peer_ip'] = dutIps[port_id]
-        port['prefix'] = prefix_length
-        port['ip'] = tgenIps[port_id]
-        port['peer_ipv6'] = dutv6Ips[port_id]
-        port['ipv6_prefix'] = v6_prefix_length
-        port['ipv6'] = tgenv6Ips[port_id]
-        port['asic_value'] = duthost.get_port_asic_instance(port['peer_port'])
-        asic_cmd = ""
-        if port['asic_value'] is not None:
-            asic_cmd = " -n {} ".format(port['asic_value'])
-        try:
-            logger.info('Pre-Configuring Dut: {} with port {} with IP {}/{}'.format(
-                                                                                duthost.hostname,
-                                                                                port['peer_port'],
-                                                                                dutIps[port_id],
-                                                                                prefix_length))
-            duthost.command('sudo config interface {} ip add {} {}/{} \n' .format(
-                                                                                asic_cmd,
-                                                                                port['peer_port'],
-                                                                                dutIps[port_id],
-                                                                                prefix_length))
-            logger.info('Pre-Configuring Dut: {} with port {} with IPv6 {}/{}'.format(
-                                                                                duthost.hostname,
-                                                                                port['peer_port'],
-                                                                                dutv6Ips[port_id],
-                                                                                v6_prefix_length))
-            duthost.command('sudo config interface {} ip add {} {}/{} \n' .format(
-                                                                                asic_cmd,
-                                                                                port['peer_port'],
-                                                                                dutv6Ips[port_id],
-                                                                                v6_prefix_length))
-            gen_data_flow_dest_ip(tgenIps[port_id], duthost, port['peer_port'], port['asic_value'], setup=True)
-            gen_data_flow_dest_ip(tgenv6Ips[port_id], duthost, port['peer_port'], port['asic_value'], setup=True)
-        except Exception:
-            pytest_assert(False, "Unable to configure ip on the interface {}".format(port['peer_port']))
-    return snappi_ports_dut
+        for index, duthost in enumerate(duthost_list):
+            port_count = len(snappi_ports)
+            dutIps = create_ip_list(dut_ip_start, port_count, mask=prefix_length)
+            for port in snappi_ports:
+                if port['peer_device'] == duthost.hostname and port['intf_config_changed']:
+                    port_id = port['port_id']
+                    dutIp = dutIps[port_id]
+                    logger.info('Removing Configuration on Dut: {} with port {} with ip :{}/{}'.
+                                format(duthost.hostname,
+                                       port['peer_port'],
+                                       dutIp,
+                                       prefix_length))
+                    if port['asic_value'] is None:
+                        duthost.command('sudo config interface ip remove {} {}/{} \n'.
+                                        format(port['peer_port'],
+                                               dutIp,
+                                               prefix_length))
+                    else:
+                        duthost.command('sudo config interface -n {} ip remove {} {}/{} \n'.
+                                        format(port['asic_value'],
+                                               port['peer_port'],
+                                               dutIp,
+                                               prefix_length))
+                    port['intf_config_changed'] = False
+    else:
+        if reconfigure_port:
+            dut_obj = reconfigure_port['duthost']
+            logger.info('Removing modified IP {} from interface {}'.
+                        format(reconfigure_port['subnet'], reconfigure_port['peer_port']))
+            if reconfigure_port['asic_value'] is None:
+                dut_obj.command('sudo config interface ip remove {} {}/{} \n'.
+                                format(reconfigure_port['peer_port'],
+                                       dut_ip_for_non_macsec_port, 28))
+            else:
+                dut_obj.command('sudo config interface -n {} ip remove {} {}/{} \n' .
+                                format(reconfigure_port['asic_value'],
+                                       reconfigure_port['peer_port'], dut_ip_for_non_macsec_port, 28))
+            logger.info('Adding back the original IP {} to interface {}'.
+                        format(reconfigure_port['original_subnet'], reconfigure_port['peer_port']))
+            if reconfigure_port['asic_value'] is None:
+                dut_obj.command('sudo config interface ip add {} {}/{} \n'.
+                                format(reconfigure_port['peer_port'],
+                                       reconfigure_port['original_subnet'].split('/')[0],
+                                       reconfigure_port['original_subnet'].split('/')[1]))
+            else:
+                dut_obj.command('sudo config interface -n {} ip add {} {}/{} \n'.
+                                format(reconfigure_port['asic_value'], reconfigure_port['peer_port'],
+                                       reconfigure_port['original_subnet'].split('/')[0],
+                                       reconfigure_port['original_subnet'].split('/')[1]))
+            logger.info('Disabling MACsec on {} port {}'.
+                        format(macsec_enabled_port['duthost'].hostname,
+                               macsec_enabled_port['peer_port']))
+        logger.info('Disabling MACsec on {} port {}'.
+                    format(macsec_enabled_port['duthost'].hostname,
+                           macsec_enabled_port['peer_port']))
+        disable_macsec_port(macsec_enabled_port['duthost'],  macsec_enabled_port['peer_port'])
+        logger.info('Deleting macsec profile {} on {} port {}'.format(macsec_profile_name,
+                                                                      macsec_enabled_port['duthost'].hostname,
+                                                                      macsec_enabled_port['peer_port']))
+        delete_macsec_profile(macsec_enabled_port['duthost'], macsec_enabled_port['peer_port'], macsec_profile_name)
 
 
 @pytest.fixture(scope="module")
@@ -1056,6 +1433,7 @@ def multidut_snappi_ports_for_bgp(duthosts,                                # noq
                                                 dut_hostname=duthost.hostname)
         if snappi_fanout is None:
             continue
+        snappi_fanout = snappi_fanout[0]
         snappi_fanout_id = list(fanout_graph_facts_multidut.keys()).index(snappi_fanout)
         snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
         snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
@@ -1101,42 +1479,34 @@ def get_snappi_ports_single_dut(duthosts,  # noqa: F811
 
     duthost = duthosts[rand_one_dut_hostname]
 
-    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
-    pytest_require(rand_one_dut_hostname == dut_hostname,
-                   "{} Port is not mapped to the expected DUT".format(rand_one_dut_portname_oper_up))
-
     """ Generate L1 config """
-    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                            dut_hostname=duthost.hostname)
+    snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                             dut_hostname=duthost.hostname)
 
-    pytest_assert(snappi_fanout is not None, 'Fail to get snappi_fanout')
-
-    snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+    pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
-    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+    snappi_ports_all = []
+    for snappi_fanout in snappi_fanouts:
+        snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+        # Add snappi ports for each chassis connetion
+        for sp in snappi_ports:
+            snappi_ports_all.append(sp)
 
-    snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
-
-    rx_ports = []
-    tx_ports = []
-    for port in snappi_ports:
-        port['intf_config_changed'] = False
-        port['location'] = get_snappi_port_location(port)
-        port['speed'] = port['speed']
-        port['api_server_ip'] = tbinfo['ptf_ip']
-        port['asic_type'] = duthost.facts["asic_type"]
-        port['duthost'] = duthost
-        port['snappi_speed_type'] = speed_type[port['speed']]
-        if duthost.facts["num_asic"] > 1:
-            port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
-        else:
-            port['asic_value'] = None
-        # convert to RX ports first, tx ports later to be consistent with multi-dut
-        if port['peer_port'] == dut_port:
-            rx_ports.append(port)
-        else:
-            tx_ports.append(port)
-    return rx_ports + tx_ports
+        for port in snappi_ports_all:
+            port['intf_config_changed'] = False
+            port['api_server_ip'] = tbinfo['ptf_ip']
+            port['asic_type'] = duthost.facts["asic_type"]
+            port['duthost'] = duthost
+            port['snappi_speed_type'] = speed_type[port['speed']]
+            if duthost.facts["num_asic"] > 1:
+                port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
+            else:
+                port['asic_value'] = None
+    for index, port in enumerate(snappi_ports_all):
+        port['port_id'] = str(index + 1)
+    return snappi_ports_all
 
 
 @pytest.fixture(scope="module")
@@ -1195,35 +1565,39 @@ def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
         return []
 
     for duthost in duthosts:
-        snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                                dut_hostname=duthost.hostname)
-        if snappi_fanout is None:
+        snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                                 dut_hostname=duthost.hostname)
+        if snappi_fanouts is None:
             continue
-        snappi_fanout_id = list(fanout_graph_facts_multidut.keys()).index(snappi_fanout)
         snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
-        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
-        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+        for snappi_fanout in snappi_fanouts:
+            snappi_fanout_id = list(fanout_graph_facts_multidut.keys()).index(snappi_fanout)
+            snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+            snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
 
-        for port in snappi_ports:
-            port['intf_config_changed'] = False
-            port['location'] = get_snappi_port_location(port)
-            port['speed'] = port['speed']
-            port['api_server_ip'] = tbinfo['ptf_ip']
-            port['asic_type'] = duthost.facts["asic_type"]
-            port['duthost'] = duthost
-            port['snappi_speed_type'] = speed_type[port['speed']]
-            if duthost.facts["num_asic"] > 1:
-                port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
-            else:
-                port['asic_value'] = None
-        multidut_snappi_ports = multidut_snappi_ports + snappi_ports
+            for port in snappi_ports:
+                port['intf_config_changed'] = False
+                port['api_server_ip'] = tbinfo['ptf_ip']
+                port['asic_type'] = duthost.facts["asic_type"]
+                port['duthost'] = duthost
+                port['snappi_speed_type'] = speed_type[port['speed']]
+                if duthost.facts["num_asic"] > 1:
+                    port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
+                else:
+                    port['asic_value'] = None
+            multidut_snappi_ports = multidut_snappi_ports + snappi_ports
+    for index, port in enumerate(multidut_snappi_ports):
+        port['port_id'] = str(index + 1)
     return multidut_snappi_ports
 
 
 def is_snappi_multidut(duthosts):
     if duthosts is None or len(duthosts) == 0:
         return False
-
+    if len(duthosts) == 1:
+        return False
+    if len(duthosts) > 1:
+        return True
     return duthosts[0].get_facts().get("modular_chassis")
 
 
@@ -1267,10 +1641,16 @@ def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_po
             if port['peer_port'] == var_tx_port['port_name'] and port['peer_device'] == var_tx_port['hostname']:
                 tx_snappi_ports.append(port)
 
-    pytest_assert(len(rx_snappi_ports) == rx_port_count,
-                  'Rx Ports for {} in MULTIDUT_PORT_INFO doesn\'t match with ansible/files/*links.csv'.format(testbed))
-    pytest_assert(len(tx_snappi_ports) == tx_port_count,
-                  'Tx Ports for {} in MULTIDUT_PORT_INFO doesn\'t match with ansible/files/*links.csv'.format(testbed))
+    pytest_require(
+        len(rx_snappi_ports) == rx_port_count,
+        f"Rx Ports for {testbed} in MULTIDUT_PORT_INFO doesn't match with "
+        f"ansible/files/*links.csv: rx_snappi_ports: {rx_snappi_ports}, and "
+        f"wanted: {rx_port_count}")
+    pytest_require(
+        len(tx_snappi_ports) == tx_port_count,
+        f"Tx Ports for {testbed} in MULTIDUT_PORT_INFO doesn\'t match with "
+        f"ansible/files/*links.csv: tx_snappi_ports: {tx_snappi_ports}, and "
+        f"wanted: {tx_port_count}")
 
     multidut_snappi_ports = rx_snappi_ports + tx_snappi_ports
     return multidut_snappi_ports
@@ -1315,7 +1695,100 @@ def check_fabric_counters(duthost):
                               format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
 
 
-DEST_TO_GATEWAY_MAP = {}
+def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
+    """
+    Standalone function for UHD connect configuration that can be called in threads
+    """
+    def read_links_from_csv(file_path):
+        with open(file_path, 'r') as f:
+            return list(csv.DictReader(f))
+
+    uhd_enabled = request.config.getoption("--uhd_config")
+    save_uhd_config = request.config.getoption("--save_uhd_config")
+
+    if uhd_enabled:
+        # Load UHD-specific config file
+        logger.info(f"Loading UHD-specific config file for test case: {ha_test_case}")
+
+        logger.info("Configuring UHD connect")
+        csv_data = read_links_from_csv(uhd_enabled)
+        dpu_ports = [row for row in csv_data if row['OutPort'] == 'True']
+        l47_ports = [row for row in csv_data if row['OutPort'] == 'False']
+        ethpass_ports = [row for row in csv_data if row['EthernetPass'] == 'True']
+        has_switchover = any(dpu.get('SwitchOverPort') == 'True' for dpu in dpu_ports)
+
+        uhdConnect_ip = tbinfo['uhd_ip']
+        num_cps_cards = tbinfo['num_cps_cards']
+        num_tcpbg_cards = tbinfo['num_tcpbg_cards']
+        num_udpbg_cards = tbinfo['num_udpbg_cards']
+        num_dpu_ports = len(dpu_ports)
+
+        cards_dict = {
+            'num_cps_cards': num_cps_cards,
+            'num_tcpbg_cards': num_tcpbg_cards,
+            'num_udpbg_cards': num_udpbg_cards,
+            'num_dpus_ports': num_dpu_ports,
+            'l47_ports': l47_ports,
+            'dpu_ports': dpu_ports,
+            'ethpass_ports': ethpass_ports,
+            'switchover_port': has_switchover
+        }
+
+        uhdSettings = NetworkConfigSettings()  # noqa: F405
+        uhdSettings.set_mac_addresses(tbinfo['l47_tg_clientmac'], tbinfo['l47_tg_servermac'], tbinfo['dut_mac'])
+        total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
+        subnet_mask = uhdSettings.subnet_mask
+
+        logger.info(f"Configuring UHD connect for {uhdSettings.ENI_COUNT} ENIs")
+        ip_list = create_uhdIp_list(subnet_mask, uhdSettings, cards_dict)  # noqa: F405
+        fp_ports_list = create_front_panel_ports(int(total_cards * 2), uhdSettings, cards_dict)  # noqa: F405
+        arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)  # noqa: F405
+        connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, uhdSettings,  # noqa: F405
+                                              cards_dict, arp_bypass_list)
+
+        config = {
+            "profiles": create_profiles(uhdSettings),  # noqa: F405
+            "front_panel_ports": fp_ports_list,
+            "connections": connections_list
+        }
+
+        headers = {  # noqa: F841
+            'Content-Type': 'application/json'
+        }
+
+        file_name = "tempUhdConfig.json"
+        file_location = os.getcwd()
+        uhd_post_url = uhdSettings.uhd_post_url
+        url = "https://{}/{}".format(uhdConnect_ip, uhd_post_url)  # noqa: F841
+        json.dump(config, open("{}/{}".format(file_location, file_name), "w"), indent=1)
+
+        logger.info(f"Pushing created UHD configuration file {file_name} to UHD Connect")
+        uhdConf_cmd = ('curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   '
+                       '{}').format(file_location, file_name, url)
+        subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
+
+        if not save_uhd_config:
+            logger.info("Removing UHD config file")
+            rm_cmd_uhdconf = 'rm {}/{}'.format(file_location, file_name)
+            subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)  # noqa: F841
+        else:
+            logger.info(f"Saving UHD config to {file_location}")
+        logger.info("UHD configuration completed")
+    else:
+        logger.info("UHD config not enabled, skipping config")
+
+    return
+
+
+@pytest.fixture(scope="module")
+def config_uhd_connect(request, tbinfo):
+    """
+    Fixture configures UHD connect
+    """
+    return setup_config_uhd_connect(request, tbinfo)
+
+
+DEST_TO_GATEWAY_MAP = {}  # noqa: F824
 
 
 # Add static routes using CLI WAY.
@@ -1344,6 +1817,10 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
         So the dest for 200.0.0.1 will be 203.0.0.1/32
     '''
     ip_addr = ip_address(addr)
+    if (ip_addr.version == 6):
+        logger.info("Skip arp setting up for ipv6 since ipv6 does not support arp")
+        return
+
     DEST_TO_GATEWAY_MAP[addr] = {}
     DEST_TO_GATEWAY_MAP[addr]['dest'] = str(ip_addr + 3*256*256*256)
     DEST_TO_GATEWAY_MAP[addr]['intf'] = intf
@@ -1355,9 +1832,16 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
     asic_arg = ""
     if namespace is not None:
         asic_arg = f"ip netns exec {namespace}"
+    int_arg = ""
+    if intf:
+        int_arg = f"-i {intf}"
+    if setup:
+        arp_opt = f"-s {addr} aa:bb:cc:dd:ee:ff"  # noqa: E231
+    else:
+        arp_opt = f"-d {addr}"
+
     try:
-        dut.shell("{} arp -i {} -s {} aa:bb:cc:dd:ee:ff".format(
-            asic_arg, intf, addr))
+        dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
         dut.shell(
             "{} config route {} prefix {}/32 nexthop {} {}".format(
                 asic_arg, cmd, DEST_TO_GATEWAY_MAP[addr]['dest'], addr,

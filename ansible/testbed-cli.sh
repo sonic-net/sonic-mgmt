@@ -25,7 +25,7 @@ function usage
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.yaml')"
   echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
-  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic|vcisco) (default: 'ceos')"
+  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic|vcisco|csonic) (default: 'ceos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
   echo "    -s <msetnumber> : master set identifier on specified <k8s-server-name> (default: 1)"
   echo "    -d <dir>        : sonic vm directory (default: $HOME/sonic-vm)"
@@ -188,7 +188,13 @@ function read_file
 function read_nut_file
 {
   echo "Reading NUT testbed file '$tbfile' for testbed '$1'"
-  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['name']))")
+  keyName="conf-name"
+
+  if [[ $tbfile == *nut.yaml ]]; then
+    keyName="name"
+  fi
+
+  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['$keyName']))")
   echo ""
 
   IFS=$'+' read -r -a tb_lines <<< $content
@@ -208,7 +214,15 @@ function read_nut_file
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in inv_name test_tags duts;
+
+  attributes="inv_name test_tags dut l1s";
+
+  if [[ $tbfile == *nut.yaml ]]
+  then
+    attributes="inv_name test_tags duts l1s"
+  fi
+
+  for attr in $attributes
   do
     value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
@@ -223,6 +237,12 @@ function read_nut_file
 
   duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"${line_arr[3]}\")))")
   echo "- DUTs: $duts"
+
+  l1s=${line_arr[4]}
+  if [ ! -z "$l1s" ]; then
+    l1s=$(python -c "from __future__ import print_function; print(','.join(eval(\"${line_arr[4]}\")))")
+  fi
+  echo "- L1s: $l1s"
 
   echo ""
 }
@@ -647,7 +667,40 @@ function deploy_config
 
   read_nut_file $testbed_name
 
-  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true $@
+  devices=$duts
+  if [ ! -z "$l1s" ]; then
+    devices="$devices,$l1s"
+  fi
+  echo "Devices to generate config for: $devices"
+  echo ""
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true $@
+
+  echo Done
+}
+
+
+function deploy_l1
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Deploying L1 config to testbed '$testbed_name'"
+
+  read_nut_file $testbed_name
+
+  devices=$duts
+  if [ ! -z "$l1s" ]; then
+    devices="$devices,$l1s"
+  fi
+  echo "Devices to generate config for: $devices"
+  echo ""
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true -e config_duts=false -e reset_previous_connection=false$@
 
   echo Done
 }
@@ -665,7 +718,14 @@ function generate_config
 
   read_nut_file $testbed_name
 
-  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile $@
+  devices=$duts
+  if [ ! -z "$l1s" ]; then
+    devices="$devices,$l1s"
+  fi
+  echo "Devices to generate config for: $devices"
+  echo ""
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile $@
 
   echo Done
 }
@@ -710,10 +770,11 @@ function set_l2_mode
 function config_vm
 {
   echo "Configure VM $2"
+  testbed_name=$1
 
-  read_file $1
+  read_file ${testned_name}
 
-  ansible-playbook -i $vmfile eos.yml --vault-password-file="$3" -l "$2" -e topo="$topo" -e VM_base="$vm_base"
+  ansible-playbook -i $vmfile eos.yml --vault-password-file="$3" -l "$2" -e vm_type="$vm_type" -e vm_set_name="$vm_set_name" -e topo="$topo" -e VM_base="$vm_base"
 
   echo Done
 }
@@ -994,6 +1055,8 @@ case "${subcmd}" in
   test-mg)     test_minigraph $@
                ;;
   deploy-cfg)  deploy_config $@
+               ;;
+  deploy-l1)   deploy_l1 $@
                ;;
   gen-cfg)     generate_config $@
                ;;

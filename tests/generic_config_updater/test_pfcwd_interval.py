@@ -11,7 +11,7 @@ from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 from tests.common.gu_utils import is_valid_platform_and_version
 
 pytestmark = [
-    pytest.mark.asic('mellanox', 'marvell-teralynx'),
+    pytest.mark.asic('cisco-8000', 'mellanox', 'marvell-teralynx'),
     pytest.mark.topology('any'),
 ]
 
@@ -119,7 +119,7 @@ def get_detection_restoration_times(duthost, ip_netns_namespace_prefix, cli_name
     cmd = '{} config pfcwd start --action drop all 400 --restoration-time 400'.format(
         ip_netns_namespace_prefix)
     duthost.shell(cmd, module_ignore_errors=True)
-    pfcwd_config = duthost.shell("show pfcwd config")
+    pfcwd_config = duthost.shell(f"show pfcwd config {cli_namespace_prefix}")
     pytest_assert(not pfcwd_config['rc'], "Unable to read pfcwd config")
 
     for line in pfcwd_config['stdout_lines']:

@@ -10,7 +10,9 @@ all:
       vars:
         topologies:
           - t1
+          - t1-vpp
           - t1-lag
+          - t1-lag-vpp
           - t1-28-lag
           - t1-48-lag
           - t1-56-lag
@@ -33,6 +35,7 @@ all:
           - t0-116
           - t0-118
           - t0-backend
+          - t0-88-o8c80
           - dualtor
           - dualtor-56
           - dualtor-120
@@ -43,6 +46,8 @@ all:
           - m1-44
           - m1-108
           - m1-128
+          - c0
+          - c0-lo
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
@@ -117,6 +122,8 @@ all:
         mgmt_subnet_v6_mask_length: 64
         ansible_connection: multi_passwd_ssh
         ansible_altpassword: YourPaSsWoRd
+      children:
+        vms_1:
       hosts:
         vlab-01:
           ansible_host: 10.250.0.101

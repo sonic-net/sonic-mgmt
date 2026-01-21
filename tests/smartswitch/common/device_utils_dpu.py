@@ -23,7 +23,8 @@ SWITCH_MAX_DELAY = 100
 SWITCH_MAX_TIMEOUT = 400
 INTF_MAX_TIMEOUT = 300
 INTF_TIME_INT = 5
-DPU_MAX_TIMEOUT = 360
+DPU_MAX_ONLINE_TIMEOUT = 360
+DPU_MAX_PROCESS_UP_TIMEOUT = 400
 DPU_MAX_TIME_INT = 30
 REBOOT_CAUSE_TIMEOUT = 30
 REBOOT_CAUSE_INT = 10
@@ -43,9 +44,43 @@ def num_dpu_modules(platform_api_conn):   # noqa F811
     return num_modules
 
 
+@pytest.fixture(scope='session', autouse=True)
+def skip_for_non_smartswitch(duthost):
+    """
+    Skip test if not running on a smartswitch testbed
+    """
+    if not duthost.facts.get('is_smartswitch'):
+        pytest.skip("Test is supported only on smartswitch testbeds. "
+                    "is_smartswitch: {}".format(duthost.facts.get('is_smartswitch')))
+
+
+@pytest.fixture(scope='function')
+def dpu_setup(duthosts, enum_rand_one_per_hwsku_hostname,
+              platform_api_conn, num_dpu_modules):  # noqa F811
+    """
+    Performs pre_test_check() before the test and
+    guarantees that any DPUs that were UP prior to the test
+    are set back to UP afterward, even if the test fails.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    logging.info("Executing pre-test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+        duthost, platform_api_conn, num_dpu_modules
+    )
+
+    yield duthost, ip_address_list, dpu_on_list, dpu_off_list
+
+    for dpu in dpu_on_list:
+        iface = dpu.lower()
+        logging.info(f"Forcing UP {dpu} ({iface})")
+        duthost.shell(f"sudo ip link set {iface} up")
+
+
 @pytest.fixture(scope='function', autouse=True)
 def check_smartswitch_and_dark_mode(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    platform_api_conn, num_dpu_modules):  # noqa F811
+                                    platform_api_conn, num_dpu_modules,  # noqa F811
+                                    skip_for_non_smartswitch):
     """
     Checks whether given testbed is running
     202405 image or below versions
@@ -56,9 +91,6 @@ def check_smartswitch_and_dark_mode(duthosts, enum_rand_one_per_hwsku_hostname,
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    if "DPUS" not in duthost.facts:
-        pytest.skip("Test is not supported for this testbed")
 
     darkmode = is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules) # noqa F811
 
@@ -207,8 +239,8 @@ def check_dpu_reboot_cause(duthost, dpu_name, reason):
     output_reboot_cause = duthost.shell(
             'show reboot-cause all | grep %s' % (dpu_name))
 
-    output_str = output_reboot_cause["stdout"]
-    if reason in output_str.strip():
+    output_str = output_reboot_cause["stdout"].strip()
+    if (isinstance(reason, re.Pattern) and reason.search(output_str)) or reason in output_str:
         logging.info("'{}' - reboot cause is {} as expected".format(dpu_name,
                                                                     reason))
         return True
@@ -352,7 +384,7 @@ def check_dpu_health_status(duthost, dpu_name,
        expected_oper_status: (Online/Offline)
        expected_oper_value: (up/down)
     Returns:
-       Returns Nothing
+       Returns: None
     """
     logging.info(f"Checking system-health status of {dpu_name}")
     output_dpu_health_status = duthost.show_and_parse(f"show system-health dpu {dpu_name}")
@@ -444,14 +476,14 @@ def post_test_switch_check(duthost, localhost,
     logging.info("Waiting for ssh connection to switch")
     wait_for_startup(duthost, localhost, SWITCH_MAX_DELAY, SWITCH_MAX_TIMEOUT)
 
+    logging.info("Wait until all critical services are fully started")
+    wait_critical_processes(duthost)
+
     logging.info("Checking for Interface status")
     pytest_assert(wait_until(INTF_MAX_TIMEOUT, INTF_TIME_INT, 0,
                   check_interface_status_of_up_ports, duthost),
                   "Not all ports that are admin up, are operationally UP")
     logging.info("Interfaces are UP")
-
-    logging.info("Wait until all critical services are fully started")
-    wait_critical_processes(duthost)
 
     logging.info("Checking DPU link status and connectivity")
     pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_MAX_TIME_INT, 0,
@@ -476,7 +508,7 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause):
 
     logging.info(f"Checking {dpu_name} is UP post test")
     pytest_assert(
-        wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
+        wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_MAX_TIME_INT, 0,
                    check_dpu_module_status, duthost, "on", dpu_name),
         f"DPU {dpu_name} is not operationally UP post the operation"
     )
@@ -485,17 +517,19 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause):
     logging.info(f"Checking critical processes on {dpu_name}")
     pytest_assert(
         wait_until(
-            DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
+            DPU_MAX_PROCESS_UP_TIMEOUT, DPU_MAX_TIME_INT, 0,
             check_dpu_critical_processes, dpuhosts, dpu_id),
-        f"Crictical process check for {dpu_name} has been failed"
+        f"Critical process check for {dpu_name} has been failed"
     )
 
-    logging.info(f"Checking reboot cause of {dpu_name}")
-    pytest_assert(
-        wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
-                   check_dpu_reboot_cause, duthost, dpu_name, reboot_cause),
-        f"Reboot cause for DPU {dpu_name} is incorrect"
-    )
+    if reboot_cause:
+        logging.info(f"Checking reboot cause of {dpu_name}")
+        pytest_assert(
+            wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
+                       check_dpu_reboot_cause, duthost,
+                       dpu_name, reboot_cause),
+            f"Reboot cause for DPU {dpu_name} is incorrect"
+        )
 
 
 def post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
@@ -545,7 +579,7 @@ def dpus_shutdown_and_check(duthost, dpu_list, num_dpu_modules):
                 f"sudo config chassis modules shutdown {dpu_name}"
             )
             executor.submit(
-                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
                 check_dpu_module_status, duthost, "off", dpu_name
             )
 
@@ -569,6 +603,59 @@ def dpus_startup_and_check(duthost, dpu_list, num_dpu_modules):
                 f"sudo config chassis modules startup {dpu_name}"
             )
             executor.submit(
-                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
                 check_dpu_module_status, duthost, "on", dpu_name
             )
+
+
+def check_midplane_status(duthost, dpu_ip, expected_status):
+    """
+    Check midplane reachability for a given DPU IP
+    Args:
+        duthost: DUT host handle
+        dpu_ip: IP address of the DPU to check
+        expected_status: "True" or "False" (string)
+    Returns:
+        True if the reachability matches expected_status, else False
+    """
+    output = duthost.show_and_parse("show chassis modules midplane-status")
+    for entry in output:
+        if entry.get('ip-address') == dpu_ip:
+            reachability = entry.get('reachability')
+            if reachability is not None:
+                return str(reachability).strip().lower() == expected_status.lower()
+    return False
+
+
+def check_dpus_reboot_cause(duthost, dpu_list, num_dpu_modules, reason):
+    """
+    Waits and checks in parallel the reboot cause of DPUs.
+    Args:
+       duthost: Host handle
+       dpu_list: List of DPUs
+       num_dpu_modules: Number of DPU modules
+       reason: Expected reboot cause to check for
+
+    Returns:
+       Returns Nothing
+    """
+    results = []
+
+    def collect_result(dpu_name):
+        result = wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
+                            check_dpu_reboot_cause, duthost, dpu_name, reason)
+        results.append((dpu_name, result))
+
+    with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
+        for dpu_name in dpu_list:
+            executor.submit(collect_result, dpu_name)
+
+    # Wait for all threads to finish
+    executor.shutdown(wait=True)
+
+    # Assert all DPUs passed
+    failed = [dpu for dpu, res in results if not res]
+    if failed:
+        pytest.fail(f"DPUs {failed} did not reboot due to '{reason}'")
+    else:
+        logging.info(f"All DPUs rebooted due to '{reason}' as expected")

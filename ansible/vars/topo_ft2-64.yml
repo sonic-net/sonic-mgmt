@@ -1,4 +1,6 @@
 topology:
+  disabled_host_interfaces:
+    - 63
   VMs:
     ARISTA01LT2:
       vlans:
@@ -252,10 +254,6 @@ topology:
       vlans:
         - 62
       vm_offset: 62
-    ARISTA64LT2:
-      vlans:
-        - 63
-      vm_offset: 63
 
 configuration_properties:
   common:
@@ -268,7 +266,9 @@ configuration_properties:
     tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 128
-    swrole: leaf
+    leaf_asn_start: 4200300000
+    tor_asn_start: 4200400000
+    swrole: lowerspine
 
 configuration:
   ARISTA01LT2:
@@ -1468,22 +1468,3 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.64/24
       ipv6: fc0a::40/64
-  ARISTA64LT2:
-    properties:
-    - common
-    bgp:
-      asn: 4200100000
-      peers:
-        4200100000:
-          - 10.0.0.126
-          - fc01::1
-    interfaces:
-      Loopback0:
-        ipv4: 100.1.0.64/32
-        ipv6: 2064:100:0:40::/128
-      Ethernet1:
-        ipv4: 10.0.0.127/31
-        ipv6: fc01::2/126
-    bp_interface:
-      ipv4: 10.10.246.65/24
-      ipv6: fc0a::41/64

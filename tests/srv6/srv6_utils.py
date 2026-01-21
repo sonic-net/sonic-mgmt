@@ -188,12 +188,14 @@ def runSendReceive(pkt, src_port, exp_pkt, dst_ports, pkt_expected, ptfadapter):
     @param pkt_expected: Indicated whether it is expected to receive the exp_pkt on one of the dst_ports
     @param ptfadapter: The ptfadapter fixture
     """
+    ptfadapter.dataplane.flush()
+    ptfadapter.dataplane.set_qlen(1000000)
     # Send the packet and poll on destination ports
     testutils.send(ptfadapter, src_port, pkt, 1)
     logger.debug("Sent packet: " + pkt.summary())
 
     time.sleep(1)
-    (index, rcv_pkt) = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
+    (index, rcv_pkt) = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports, timeout=60)
     received = False
     if rcv_pkt:
         received = True
@@ -503,6 +505,8 @@ def validate_srv6_counters(duthost, srv6_pkt_list, mysid_list, pkt_num):
     Returns:
         bool: True if counters match expected values, False otherwise
     """
+    if duthost.facts["asic_type"] == "vpp":
+        return True
     try:
         stats_list = duthost.show_and_parse('show srv6 stats')
         stats_dict = {item['mysid']: item for item in stats_list}

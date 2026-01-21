@@ -27,7 +27,7 @@ router bgp {{ minigraph_bgp_asn }}
 {% for lo in minigraph_lo_interfaces %}
 {% if lo['addr'] | ipv4 %}
   network {{ lo['addr'] }}/32
-{% elif lo['addr'] | ipv6 %}
+{% elif lo['addr'] | ansible.utils.ipv6 %}
   address-family ipv6
     network {{ lo['addr'] }}/128
   exit-address-family
@@ -44,7 +44,7 @@ router bgp {{ minigraph_bgp_asn }}
 {% if bgp_session['asn'] != 0 %}
   neighbor {{ bgp_session['addr'] }} remote-as {{ bgp_session['asn'] }}
   neighbor {{ bgp_session['addr'] }} description {{ bgp_session['name'] }}
-{% if bgp_session['addr'] | ipv6 %}
+{% if bgp_session['addr'] | ansible.utils.ipv6 %}
   address-family ipv6
     neighbor {{ bgp_session['addr'] }} activate
     maximum-paths 64

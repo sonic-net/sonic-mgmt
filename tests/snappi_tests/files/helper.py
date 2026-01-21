@@ -264,9 +264,10 @@ def get_fabric_mapping(duthost, asic=""):
         dict: Dictionary mapping backplane interfaces to fabric interfaces.
     """
 
-    asic_namespace = ""
-    if asic:
+    if asic and asic.namespace:
         asic_namespace = " --namespace {}".format(asic.namespace)
+    else:
+        pytest.skip("This test is only for multiAsic Platforms.")
 
     cmd = "show platform npu bp-interface-map" + asic_namespace
     result = duthost.shell(cmd)['stdout']
@@ -433,12 +434,12 @@ def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
 
 
 @pytest.fixture(params=['warm', 'cold', 'fast'])
-def reboot_duts_and_disable_wd(setup_ports_and_dut, localhost, request):
+def reboot_duts_and_disable_wd(tgen_port_info, localhost, request):
     '''
     Purpose of the function is to have reboot_duts and disable watchdogs.
     '''
     reboot_type = request.param
-    _, _, snappi_ports = setup_ports_and_dut
+    _, _, snappi_ports = tgen_port_info
     skip_warm_reboot(snappi_ports[0]['duthost'], reboot_type)
     skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
 

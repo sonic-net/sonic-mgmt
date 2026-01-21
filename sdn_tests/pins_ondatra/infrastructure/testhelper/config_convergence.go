@@ -199,7 +199,10 @@ func poll(ctx context.Context, t *testing.T, interval time.Duration, pf pollFunc
 // returns error if the difference still exists.
 func WaitForConfigConvergence(ctx context.Context, t *testing.T, dut *ondatra.DUTDevice, config []byte) error {
 	if dut == nil {
-		return errors.New("nil DUT passed to VerifyConfigConvergence()")
+		return errors.New("nil DUT passed to WaitForConfigConvergence()")
+	}
+	if config == nil {
+		return errors.New("nil config passed to WaitForConfigConvergence()")
 	}
 	ctx, cancel := context.WithTimeout(ctx, configConvergenceTimeout)
 	defer cancel()
@@ -277,18 +280,25 @@ func WaitForAllPortsUp(ctx context.Context, t *testing.T, dut *ondatra.DUTDevice
 
 	allInterfaces, err := ygnmi.GetAll(ctx, yc, gnmi.OC().InterfaceAny().Name().Config())
 	if err != nil {
-		return fmt.Errorf("ygnmi.GetAll for /interfaces/interface/config/name failed, err: %v", err)
+		return fmt.Errorf("ygnmi.GetAll for /interfaces/interface/config failed, err: %v", err)
 	}
 
 	numPorts := 0
 	b := ygnmi.NewWildcardBatch(gnmi.OC().InterfaceAny().OperStatus().State())
 	// Create a batch query of all the interfaces of the format: EthernetX/Y/Z
 	// to check if they are up.
-	for _, i := range allInterfaces {
-		if !inEthernetPortChannelLaneFormat(i) {
+	for _, intf := range allInterfaces {
+		if !inEthernetPortChannelLaneFormat(intf) {
 			continue
 		}
-		b.AddPaths(gnmi.OC().Interface(i).OperStatus().State())
+		enabled, err := ygnmi.Get(ctx, yc, gnmi.OC().Interface(intf).Enabled().Config())
+		if err != nil {
+			return fmt.Errorf("ygnmi.Get for /interfaces/interface(name=%v)/enabled/config failed, err: %v", intf, err)
+		}
+		if !enabled {
+			continue
+		}
+		b.AddPaths(gnmi.OC().Interface(intf).OperStatus().State())
 		numPorts++
 	}
 
@@ -363,19 +373,19 @@ func WaitForSwitchState(ctx context.Context, t *testing.T, dut *ondatra.DUTDevic
 		switch s := switchState; s {
 		case down:
 			if err := GNOIAble(t, dut); err != nil {
-				log.InfoContextf(ctx, "GNOIAble(dut=%v) failed", dutName)
+				log.InfoContextf(ctx, "GNOIAble(dut=%v) failed, err: %v", dutName, err)
 				return false
 			}
 			switchState++
 		case gnoiAble:
 			if err := GNMIAble(t, dut); err != nil {
-				log.InfoContextf(ctx, "GNMIAble(dut=%v) failed", dutName)
+				log.InfoContextf(ctx, "GNMIAble(dut=%v) failed, err: %v", dutName, err)
 				return false
 			}
 			switchState++
 		case gnmiAble:
 			if err := WaitForAllPortsUp(ctx, t, dut); err != nil {
-				log.InfoContextf(ctx, "WaitForAllPortsUp(dut=%v) failed", dutName)
+				log.InfoContextf(ctx, "WaitForAllPortsUp(dut=%v) failed, err: %v", dutName, err)
 				return false
 			}
 			switchState++

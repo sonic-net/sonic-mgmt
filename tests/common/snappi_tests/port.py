@@ -14,21 +14,36 @@ class SnappiPortConfig:
     """
     Snappi port configuration information
     """
-    def __init__(self, id, ip, mac, gw, gw_mac, prefix_len, port_type, peer_port):
+    def __init__(self,
+                 id,
+                 ip,
+                 mac,
+                 gw,
+                 gw_mac,
+                 prefix_len,
+                 port_type,
+                 peer_port,
+                 ipv6=None,
+                 gw_ipv6=None,
+                 prefix_len_v6=None
+                 ):
         self.id = id
         self.ip = ip
+        self.ipv6 = ipv6
         self.mac = mac
         self.gateway = gw
+        self.gateway_ipv6 = gw_ipv6
         self.gateway_mac = gw_mac
         self.prefix_len = prefix_len
+        self.prefix_len_v6 = prefix_len_v6
         self.type = port_type
         self.peer_port = peer_port
 
     def __str__(self):
-        return "<SnappiPortConfig id: {}, ip: {}, mac: {}, gw: {}, gw_mac: {}, \
-                prefix_len: {}, type: {}, peer_port: {}>".format(
-                self.id, self.ip, self.mac, self.gateway, self.gateway_mac,
-                self.prefix_len, self.type, self.peer_port)
+        return "<SnappiPortConfig id: {}, ip: {}, ipv6: {}, mac: {}, gw: {}, gw_ipv6: {}, gw_mac: {}, \
+                prefix_len: {}, prefix_len_v6: {}, type: {}, peer_port: {}>".format(
+                self.id, self.ip, self.ipv6, self.mac, self.gateway, self.gateway_ipv6,
+                self.gateway_mac, self.prefix_len, self.prefix_len_v6, self.type, self.peer_port)
 
     def __repr__(self):
         return self.__str__()
@@ -83,22 +98,48 @@ def select_ports(port_config_list, pattern, rx_port_id):
     return tx_port_id_list, rx_port_id_list
 
 
-def select_tx_port(tx_port_id_list, rx_port_id):
+def select_tx_port(tx_port_id_list, rx_port_id, num_tx_ports=1):
     """
-    Select an Snappi port to send traffic
+    Select one or more Snappi ports to send traffic.
 
     Args:
         tx_port_id_list (list): IDs of ports that can send traffic
         rx_port_id (int): ID of the port that should receive traffic
+        num_tx_ports (int): Number of TX ports to select (default: 1)
 
     Returns:
-        ID of the port to send traffic (int) or None (if we fail to find it)
+        int or list: ID of the port to send traffic (int) if num_tx_ports==1,
+                     or list of port IDs if num_tx_ports > 1.
+                     Returns None if no TX ports are available.
+
+    Raises:
+        ValueError: If num_tx_ports > number of available TX ports.
     """
-    if len(tx_port_id_list) == 0:
+    if not tx_port_id_list or len(tx_port_id_list) == 0:
         return None
 
-    max_tx_port_id = max(tx_port_id_list)
-    if max_tx_port_id < rx_port_id:
-        return max_tx_port_id
+    if num_tx_ports < 1:
+        raise ValueError("num_tx_ports must be at least 1")
+
+    if num_tx_ports > len(tx_port_id_list):
+        raise ValueError(
+            f"Requested {num_tx_ports} TX ports, but only {len(tx_port_id_list)} available"
+        )
+
+    sorted_tx_ports = sorted(tx_port_id_list)
+    # Find all TX ports with ID greater than RX port ID
+    tx_ports_gt_rx = [x for x in sorted_tx_ports if x > rx_port_id]
+    tx_ports_lt_rx = [x for x in sorted_tx_ports if x < rx_port_id]
+
+    selected_ports = []
+
+    # Prefer ports with ID greater than RX port ID, then wrap around if needed
+    if len(tx_ports_gt_rx) >= num_tx_ports:
+        selected_ports = tx_ports_gt_rx[:num_tx_ports]
     else:
-        return min(x for x in tx_port_id_list if x > rx_port_id)
+        selected_ports = tx_ports_gt_rx + tx_ports_lt_rx[:num_tx_ports - len(tx_ports_gt_rx)]
+
+    if num_tx_ports == 1:
+        return selected_ports[0]
+    else:
+        return selected_ports
