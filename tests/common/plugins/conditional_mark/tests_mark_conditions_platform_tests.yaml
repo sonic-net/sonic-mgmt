@@ -946,6 +946,15 @@ platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
       - https://github.com/sonic-net/sonic-mgmt/issues/6518
 
 ###############################################
+## counterpoll/test_counterpoll_phy_attr.py ##
+###############################################
+platform_tests/counterpoll/test_counterpoll_phy_attr.py:
+  skip:
+    reason: "PORT_PHY_ATTR flex counter is only supported on Broadcom TH5 platforms"
+    conditions:
+      - "'Arista-7060X6' not in hwsku"
+
+###############################################
 ## counterpoll/test_counterpoll_watermark.py ##
 ###############################################
 platform_tests/counterpoll/test_counterpoll_watermark.py::test_counterpoll_queue_watermark_pg_drop:
