@@ -3641,6 +3641,16 @@ packet_trimming:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
+#####      passw_hardening        #####
+#######################################
+passw_hardening/test_passw_hardening.py:
+  xfail:
+    reason: "Skip the script due to Issue #13582. Command currently not supported multi-asic platforms"
+    conditions:
+      - "is_multi_asic==True"
+      - https://github.com/sonic-net/sonic-buildimage/issues/13582
+
+#######################################
 #####           pc               #####
 #######################################
 pc/test_lag_2.py::test_lag_db_status_with_po_update:
