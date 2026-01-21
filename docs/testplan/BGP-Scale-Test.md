@@ -91,7 +91,7 @@ All bgp sessions are up and established and all routes are stable with expected 
 ### Objective
 Verify route convergence and dataplane downtime after ports are flapping.
 
-Parameters: Number of ports N ∈ {1, 10, 20, all}.
+Parameters: Number of ports N ∈ {1, 10, 20, all - 1}.
 
 ### Steps
 1. Randomly select N Ports to shut down and startup.
@@ -111,6 +111,7 @@ Parameters: Number of ports N ∈ {1, 10, 20, all}.
 5. Measure control/data-plane convergence times.
 6. Verify route programming time meets the convergence threshold.
 
+Note: For the "All - 1" case, one port is intentionally left up so dataplane downtime can be measured mathematically (avoids the “everything down” measurement ambiguity).
 
 ## BGP Administrative Flap Test
 ### Objective
