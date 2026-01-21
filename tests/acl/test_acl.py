@@ -81,6 +81,7 @@ DEFAULT_SRC_IP = {
     "ipv6": "60c0:a800::5"
 }
 
+myduthosts = []
 
 # TODO: These routes don't match the VLAN interface from the T0 topology.
 # This needs to be addressed before we can enable the v6 tests for T0
@@ -165,6 +166,28 @@ LOG_EXPECT_ACL_RULE_REMOVE_RE = ".*Successfully deleted ACL rule.*"
 
 PACKETS_COUNT = "packets_count"
 BYTES_COUNT = "bytes_count"
+
+# proc to dump interface status and route specific to this traffic
+# Show interface status across duthosts, including bp interface, all dut
+# show ip route <dst_ip>
+def debug_acl_failure(pkt, ip_version):
+    #acl_debug_file = "/var/logs/acl_debug.log"
+    global myduthosts
+    duthosts = myduthosts
+
+    logger.info("START OF ACL FAILURE DUMPING DEBUG LOGS")
+    for duthost in duthosts:
+        logger.info("DUMPING DEBUG LOGS for {}".format(duthost.hostname))
+        # Print show interfae status -d all
+        if_logs = duthost.shell('show interface status -d all')['stdout']
+
+        # print show ip route <dst_ip>
+        if ip_version == "ipv4":
+            route_logs = duthost.shell("show ip route {}".format(pkt.payload.dst))['stdout']
+        else:
+            route_logs = duthost.shell("show ipv6 route {}".format(pkt.payload.dst))['stdout']
+
+    logger.info("END OF ACL FAILURE DUMPING DEBUG LOGS")
 
 
 @pytest.fixture(scope="class")
@@ -306,6 +329,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         A Dictionary with required test information.
 
     """
+    global myduthosts
+    myduthosts = duthosts
 
     pytest_assert(vlan_name in ["Vlan1000", "Vlan2000", "no_vlan"], "Invalid vlan name.")
     topo = tbinfo["topo"]["type"]
@@ -1455,15 +1480,27 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
         testutils.send(ptfadapter, self.src_port, pkt)
         if direction == "uplink->downlink" and downstream_dst_port:
             if dropped:
-                testutils.verify_no_packet(ptfadapter, exp_pkt, downstream_dst_port)
+                try:
+                    testutils.verify_no_packet(ptfadapter, exp_pkt, downstream_dst_port)
+                except:
+                    debug_acl_failure(pkt, ip_version)
             else:
-                testutils.verify_packet(ptfadapter, exp_pkt, downstream_dst_port)
+                try:
+                    testutils.verify_packet(ptfadapter, exp_pkt, downstream_dst_port)
+                except:
+                    debug_acl_failure(pkt, ip_version)
         else:
             if dropped:
-                testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
+                try:
+                    testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction))
+                except:
+                    debug_acl_failure(pkt, ip_version)
             else:
-                testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction),
-                                                 timeout=20)
+                try:
+                    testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=self.get_dst_ports(setup, direction),
+                                                     timeout=20)
+                except:
+                    debug_acl_failure(pkt, ip_version)
 
 
 class TestBasicAcl(BaseAclTest):
