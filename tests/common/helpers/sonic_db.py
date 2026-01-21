@@ -115,7 +115,7 @@ class SonicDbCli(object):
                 v = result['stdout'].decode('unicode-escape')
             else:
                 v = result['stdout']
-            v_sanitized = v.replace('\n', '\\n')
+            v_sanitized = v.replace('\r', '\\r').replace('\n', '\\n')
             v_dict = ast.literal_eval(v_sanitized)
             return v_dict
 
