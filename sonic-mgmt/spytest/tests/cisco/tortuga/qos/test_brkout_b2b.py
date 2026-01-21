@@ -35,11 +35,10 @@ def dut_to_tgen_str(dut):
     return ''
 
 def check_dut_tgen_ports():
-    if st.get_args('skip_tgen'):
-        st.log("TGEN is skipped; bypassing DUT tgen port check.")
-        return True
+    for entry in vars.tgen_str:
+        stream_api.traffic_api_init(entry,
+                                    ['0', '0', '1', '2', '3', '0', '0', '0'])
 
-    stream_api.tgen_handle, _ = tgapi.get_handle_byname('T1D3P1')
     for dut in vars.b2b_dut:
         port_list = []
         port_key = dut_to_tgen_str(dut)
@@ -76,22 +75,9 @@ def setup_topo():
     global brkout_result
 
     # This is standard 2 spine 2 leaf topology with 4 tgen ports on each leaf
-    tb_dict = st.ensure_min_topology("D1D3:2", "D1D4:2", "D2D3:2", "D2D4:2",
+    tb_dict = st.ensure_min_topology("D1D3:2", "D1D4:2", "D2D3:1", "D2D4:1",
                                      "D3T1:4", "D4T1:4")
     vars = st.get_testbed_vars()
-    if 'D3D4P1' in tb_dict:
-        # Either we have leaf to leaf link which is non-standard
-        vars.b2b_link = [vars.D3D4P1, vars.D4D3P1]
-        vars.b2b_dut = [vars.D3, vars.D4]
-        vars.tgen_str = ['T1D3P', 'T1D4P']
-    elif 'D3D1P1' in tb_dict:
-        # the standard leaf to spine link
-        vars.b2b_link = [vars.D3D1P1, vars.D1D3P1]
-        vars.b2b_dut = [vars.D3, vars.D1]
-        vars.tgen_str = ['T1D3P', 'T1D1P']
-    else:
-        st.report_fail('msg', 'No valid b2b link found in the topology')
-        return
 
     vars.plat_str = []
     vars.if_dict = []
@@ -102,15 +88,34 @@ def setup_topo():
         st.report_fail('msg', 'Failed to get input json dictionary')
         return
 
-    # Make sure router ports connected to tgen exist. Sometimes the parent
-    # has to be broken for the child ports to be instantiated
-    if check_dut_tgen_ports() == False:
-        st.report_fail('msg', 
-                       'Ports specified in yaml file do not exist on DUT')
-        return
+    if vars.test_info['Traffic_test'] == 'True' and 'D3D4P1' in tb_dict:
+        # This is a non standard connection between the 2 leaves
+        vars.b2b_link = [vars.D3D4P1, vars.D4D3P1]
+        vars.b2b_dut = [vars.D3, vars.D4]
+        vars.tgen_str = ['T1D3', 'T1D4']
+        # Make sure router ports connected to tgen exist. Sometimes the parent
+        # has to be broken for the child ports to be instantiated
+        if check_dut_tgen_ports() == False:
+            st.report_fail('msg', 
+                           'Ports specified in yaml file do not exist on DUT')
+            return
+    else:
+        # Conn between first spine and first leaf will be used for breakouts
+        vars.b2b_link = [vars.D1D3P1, vars.D3D1P1]
+        vars.b2b_dut = [vars.D1, vars.D3]
+        vars.test_info['Traffic_test'] = 'False'
 
+    for dut in vars.b2b_dut:
+        common_util.cleanup_ip_interfaces(dut)
+
+    # Note down the current breakout mode and restore it at the end
+    vars.org_mode = st.show(vars.b2b_dut[0],
+                      f"show interface breakout current-mode {vars.b2b_link[0]} | grep Ethernet | awk '{{print $4}}'",
+                            skip_tmpl=True)
+    vars.org_mode = vars.org_mode.splitlines()[0]
     for dut, if_name in zip(vars.b2b_dut, vars.b2b_link):
         vars.plat_str.append(common_util.find_platform_str(dut))
+
         # get the interface specific list from show interface breakout
         full_brk_dict = common_util.show_cmd_to_dict(dut, 'interface breakout',
                                                      False)
@@ -185,12 +190,15 @@ def collect_lldp_neighor_info(intf_cnt):
     ctr = 0
     vars.if_map = []
     vars.addr_uncfg = ['', '']
+    link = vars.b2b_link[0]
     st.wait(32)
-    result = st.show(vars.b2b_dut[0], "show lldp table", skip_tmpl=True)
+    result = st.show(vars.b2b_dut[0],
+                     f"show lldp table | egrep '{link} |{link}_'",
+                     skip_tmpl=True)
     lines = result.splitlines()
     list1 = list2 = []
     for line in lines:
-        if vars.b2b_link[0] not in line:
+        if 'Ethernet' not in line:
             continue
         tokens = line.split()
         ctr += 1
@@ -230,41 +238,87 @@ def perform_ping_test():
         loss = ping_neighbor(pair[1])
         if loss > 10:
             return 'Patchy ping to {}'.format(pair[1])
+    return 'OK'
 
-def perform_traffic_test():
+def get_if_speed(tgen_src_if):
+    if_str = tgen_src_if[2:4] + tgen_src_if[0:2] + tgen_src_if[4:]
+    temp = st.show(vars.b2b_dut[0],
+                   "show int status {} | tail -1 | awk '{{print $3}}'".format(
+                   tb_dict[if_str]), skip_tmpl=True)
+    temp = temp.splitlines()[0]
+    if temp[-1].upper() == 'G':
+        temp = temp[:-1]
+    return int(temp) if temp.isdigit() else 10
+
+def get_timestamp(tstamp_str):
+    idx = tstamp_str.rfind(':')
+    return int(tstamp_str[idx + 1 : idx + 3]), int(tstamp_str[idx + 4:])
+
+def calc_tx_time(rx_stats):
+    # Timestamps are of the form 00:00:35.688.
+    # We only care about secs and millisecs
+    sec1, msec1 = get_timestamp(rx_stats['last_tstamp'])
+    sec2, msec2 = get_timestamp(rx_stats['first_tstamp'])
+    if msec2 > msec1:
+        msec1 += 1000
+        sec1 -= 1
+    return (sec1 - sec2) * 1000 + (msec1 - msec2)
+
+def perform_traffic_test(frame_sz):
     stream_api.config_b2b_with_ixia_setup(tb_dict, vars)
-    # For each interface create full rate stream so there will be
-    # backpressure and drops. FIXME: 1 GBPs per stream for now
+
+    # For each interface create almost full rate stream so there will be
+    # backpressure and we should not see drops or packet loss
     TGEN_PORT_CNT = 4
-    streams = []
-    pps = stream_api.gbps_to_pps(1, 8192)
-    i = 1
+    tgen_src_if = vars.tgen_str[0] + 'P1'
+    tgen_dst_if = vars.tgen_str[1] + 'P1'
+    pps = stream_api.gbps_to_pps(get_if_speed(tgen_src_if) * 0.98, frame_sz)
     for pair in vars.if_map:
-        st.log('Creating stream for link {} using tgen port# {}'.
-               format(pair, i))
-        str_hndl = stream_api.create_traffic_stream(tb_dict,
-                                vars.tgen_str[0] + str(i),
-                                vars.tgen_str[1] + str(i),
-                                8192, pps, 3)
-        if str_hndl != None:
-            streams.append(str_hndl)
-        i = (i + 1) if (i + 1) <= TGEN_PORT_CNT else 1
+        st.log('Creating stream for link {}'.format(pair))
+        s1 = stream_api.create_traffic_stream(tb_dict,
+                                tgen_src_if, tgen_dst_if, frame_sz, pps, 3)
+        if s1 == None:
+            continue
 
-    stream_api.start_traffic_stream()
-    st.wait(45)
-    stream_api.stop_traffic_stream()
-    stats = stream_api.collect_traffic_stream_stats()
-    if 'traffic_item' not in stats:
-        st.report_fail('msg', 'Failed to find traffic_item in stats')
-        return
-    for s in streams:
-        stream_api.delete_traffic_stream(s)
-    # All config should now be removed to prepare for next breakout
-    for i in range(2):
-        st.config(vars.b2b_dut[i], vars.route_uncfg[i] + vars.addr_uncfg[i],
+        dst_net = stream_api.ip_to_net(s1['dst_ip'])
+        st.config(vars.b2b_dut[0],
+                  'ip route add {}/24 via {}\n'.format(dst_net, pair[1]),
                   skip_tmpl=True)
+        src_net = stream_api.ip_to_net(s1['src_ip'])
+        st.config(vars.b2b_dut[1],
+                  'ip route add {}/24 via {}\n'.format(src_net, pair[0]),
+                  skip_tmpl=True)
+        st.wait(1)
 
-def perform_one_breakout(mode, test_type):
+        cntr1 = common_util.get_pfc_tx_count(vars.b2b_dut[0], vars.D3T1P1, 3)
+        stream_api.start_traffic_stream(s1)
+        st.wait(30)
+        stream_api.stop_traffic_stream(s1)
+        stats = stream_api.collect_traffic_stream_stats()
+        stream_api.delete_traffic_stream(s1)
+        cntr2 = common_util.get_pfc_tx_count(vars.b2b_dut[0], vars.D3T1P1, 3)
+        if 'traffic_item' not in stats:
+            return 'Frame size={}: Failed to find traffic_item in stats'\
+                    .format(frame_sz)
+        else:
+            tx_stats = stats['traffic_item'][s1['stream_id']]['tx']
+            rx_stats = stats['traffic_item'][s1['stream_id']]['rx']
+            loss = float(rx_stats['loss_percent'])
+            tx_time = calc_tx_time(rx_stats)
+            st.banner(f"Tx={tx_stats['total_pkts']} "
+                      f"Rx={rx_stats['total_pkts']} "
+                      f"Loss%={loss} "
+                      f"PFC Rate={(1000 * (cntr2 - cntr1)) / tx_time}/sec")
+            if loss > 1:
+                return 'Frame size={}: Stream loss% {}'.format(frame_sz, loss)
+        # All config should now be removed to prepare for next breakout
+        st.config(vars.b2b_dut[0],
+                  'ip route del {}/24 via {}\n'.format(dst_net, pair[1]))
+        st.config(vars.b2b_dut[1],
+                  'ip route del {}/24 via {}\n'.format(src_net, pair[0]))
+    return 'OK'
+
+def perform_one_breakout(mode):
     brkout_result[mode] = []
     # Collect existing interfaces before breakout and perform qos clear
     for dut, if_name in zip(vars.b2b_dut, vars.b2b_link):
@@ -278,7 +332,7 @@ def perform_one_breakout(mode, test_type):
         vars.exp_if_list.append(vars.if_dict[i]['breakout_modes'][mode])
     if len(vars.exp_if_list[0]) != len(vars.exp_if_list[1]):
         brkout_result[mode] = 'Mismatch in breakout count'
-        return
+        return -1
     intf_cnt = len(vars.exp_if_list[0])
 
     # Determine the breakout flags
@@ -300,14 +354,14 @@ def perform_one_breakout(mode, test_type):
         result = st.config(dut, brkout_cmd, skip_tmpl=True)
         if 'ERROR' in result:
             brkout_result[mode] = result.splitlines()[0]
-            return
+            return -1
 
     # Now get actual interface list after breakout and verify count
     for dut, org_if_name in zip(vars.b2b_dut, vars.b2b_link):
         port_list = collect_if_list(dut, org_if_name)
         if len(port_list) != intf_cnt:
             brkout_result[mode] = 'Mismatch in breakout count after cli'
-            return
+            return -1
         # Perform qos reload on the new interfaces
         perform_qos_cli(dut, port_list, 'reload')
 
@@ -345,28 +399,37 @@ def perform_one_breakout(mode, test_type):
         # One or more interfaces continue to remain down even after
         # waiting for 2 to 3 minutes
         brkout_result[mode] = 'One or more interfaces down after breakout'
-        return
+        return -1
 
     brkout_result[mode] = collect_lldp_neighor_info(intf_cnt)
     if brkout_result[mode] != 'OK':
-        return
+        return -1
 
     # Run show config on both DUTs before running ping and traffic tests
     # for dut in vars.dut_list:
         # st.show(dut, 'show runningconfiguration all', skip_tmpl=True)
-    perform_ping_test()
+    brkout_result[mode] = perform_ping_test()
+    if brkout_result[mode] != 'OK':
+        vars.fail_ctr += 1
+        return -1
+
+    vars.pass_ctr += 1
     if vars.test_info['Traffic_test'] == 'True':
         # traffic test is only possible with leaf to leaf connection
         # otherwise it becomes more complicated
-        perform_traffic_test()
+        if 'frame_sizes' not in vars.test_info:
+            vars.test_info['frame_sizes'] = ['1350', '8192']
+        for n in vars.test_info['frame_sizes']:
+            brkout_result[mode] = perform_traffic_test(int(n))
+            if brkout_result[mode] != 'OK':
+                vars.fail_ctr += 1
+            else:
+                vars.pass_ctr += 1
+    return intf_cnt
 
 def process_brkout_result():
     for key, value in brkout_result.items():
         print('{:^10} : {}'.format(key, value))
-        if value == 'OK':
-            vars.pass_ctr += 1
-        else:
-            vars.fail_ctr += 1
 
 def test_all_breakout():
     st.banner('Test STARTED')
@@ -378,11 +441,15 @@ def test_all_breakout():
         # Randomize the order of operations
         random.shuffle(vars.supported_modes)
         brkout_result.clear()
-        # Now run all breakouts on a single port connecting 2 DUTs 
+        # Now run all breakouts on both sides of a b2b link
         for mode in vars.supported_modes:
-            perform_one_breakout(mode, 'stream')
+            cnt = perform_one_breakout(mode)
+            for i in range(2):
+                st.config(vars.b2b_dut[i], vars.addr_uncfg[i], skip_tmpl=True)
         process_brkout_result()
 
+    # Restore to original breakout mode
+    perform_one_breakout(vars.org_mode)
     result = 'Test Cases: Passed={} Failed={}'.format(vars.pass_ctr,
                 vars.fail_ctr)
     if vars.fail_ctr > 0:

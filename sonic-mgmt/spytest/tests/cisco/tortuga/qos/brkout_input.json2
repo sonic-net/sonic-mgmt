@@ -6,7 +6,8 @@
     "DPB_TEST" : {
            "G200_modes" : ["1x800G", "2x400G", "4x200G"],
            "Q200_modes" : ["1x400G", "4x100G"],
-	   "Traffic_test" : "False",
+           "Traffic_test" : "False",
+           "frame_sizes" : ["8192"],
            # Max number of seconds to wait for interfaces to come up
            "post_breakout_wait" : "180"
     }

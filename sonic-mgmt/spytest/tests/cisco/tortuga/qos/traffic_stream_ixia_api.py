@@ -8,8 +8,8 @@ import tortuga_common_utils as common_util
 module_dir = os.path.join(os.path.dirname(__file__), '../../', 'common')
 sys.path.insert(0, os.path.abspath(module_dir))
 from traffic_stream_api import (get_tc_to_dscp_map)
+from spytest.tgen.tg import get_ixiangpf as ixia_handle
 
-global tgen_handle
 ONE_GBPS = 1000000000
 
 # Note on reading link information in the dictionaries below.
@@ -157,6 +157,27 @@ tgen_port_usage_cnt = {
     'T1D4P3' : 0,
     'T1D4P4' : 0
 }
+
+def traffic_api_init(tgen_str, pg_map):
+    global tgen_handle
+
+    tgen_handle, _ = tgapi.get_handle_byname(tgen_str + 'P1')
+    handle = ixia_handle()
+    ixnet = handle.ixnet
+    root = ixnet.getRoot()
+    for j in range(1, 5):
+        _, port_h = tgapi.get_handle_byname(tgen_str + 'P' + str(j))
+        vport = ixnet.getFilteredList(root, 'vport', '-name', port_h)[0]
+        l1config = ixnet.getList(vport, 'l1Config')[0]
+        ixnet.setMultiAttribute(l1config,'-currentType', 'aresOneMFcoe')
+        ixnet.setMultiAttribute(vport + '/l1Config/aresOneM/fcoe',
+            '-supportDataCenterMode', 'true',
+            '-flowControlType', 'ieee802.1Qbb',
+            '-enablePFCPauseDelay', 'false',
+            '-pfcPauseDelay', '1',
+            '-pfcQueueGroups', pg_map,
+            '-pfcQueueGroupSize', 'pfcQueueGroupSize-4')
+    ixnet.commit()
 
 def ip_to_net(value):
     return value[:-1] + '0'
@@ -361,20 +382,23 @@ def config_b2b_routes(vars, dut_str):
 def config_b2b_with_ixia_setup(tb_dict, vars):
     vars.route_uncfg = ['', '']
     config_ixia_links(tb_dict, vars)
+    '''
+    We don't need this code since we exercise breakout links one at a time
     config_b2b_routes(vars, 'D3')
     config_b2b_routes(vars, 'D4')
 
     # Just for debug display the ip route tables on both DUTs
     st.show(tb_dict.D3, 'ip route', skip_tmpl=True)
     st.show(tb_dict.D4, 'ip route', skip_tmpl=True)
+    '''
 
 def config_one_leaf(tb_dict, t_info):
     global net_map
 
     net_map = one_device_map
     cfg_dut = ''
-    for i in range(t_info['tgen_port_cnt']):
-        key = t_info['leaf'] + t_info['tgen'] + 'P' + str(i + 1)
+    for i in range(4):
+        key = t_info['leaf'] + 'T1' + 'P' + str(i + 1)
         cfg_dut += 'config interface ip add {} {}/24\n'\
             .format(tb_dict[key], one_device_map[key])
     st.config(t_info['dut'], cfg_dut, skip_tmpl=True)
@@ -416,8 +440,21 @@ def dealloc_tgen_ip(ip_str):
         return
     ip_alloc_dict[ip_str] = False
 
+
+tc_to_queue_map = {
+    0 : 0,
+    1 : 0,
+    2 : 1,
+    3 : 2,
+    4 : 3,
+    5 : 0,
+    6 : 0,
+    7 : 0
+}
+
 def create_traffic_stream(tb_dict, tgen_src_port, tgen_dst_port, frame_size, pps, tc=None):
 
+    st.log('create_traffic_stream: src {} dst {}'.format(tgen_src_port, tgen_dst_port))
     # stream creation assumes a 4 device setup with 1 spine node, 3 leaf nodes 
     # and 1 TGEN 4 tgen ports doing to each leaf
 
@@ -487,16 +524,8 @@ def create_traffic_stream(tb_dict, tgen_src_port, tgen_dst_port, frame_size, pps
     }
 
     if tc != None:
-        map = get_tc_to_dscp_map(dst_dut)
-        if tc in map:
-            if tc in [3, 4]:
-                ecn = 1
-            else:
-                ecn = 0
-            # TODO: Figure out how to incorporate ecn in traffic_config
-            traffic_config['ip_dscp'] = map[tc]
-        else:
-            st.error('tc {} not present on DUT {}'.format(tc, dst_dut))
+        traffic_config['ip_dscp'] = common_util.convert_tc_to_dscp(dst_dut, tc)
+        st.log(f"tc {tc} dscp {traffic_config['ip_dscp']}")
     # Configure traffic stream
     traffic_config['emulation_src_handle'] = src_handle
     traffic_config['emulation_dst_handle'] = dst_handle
@@ -504,11 +533,26 @@ def create_traffic_stream(tb_dict, tgen_src_port, tgen_dst_port, frame_size, pps
     traffic_config['ip_dst_addr'] = dst_interface_config['intf_ip_addr']
     traffic_config['mac_dst'] = common_util.get_if_mac(src_dut, src_leaf_port)
     traffic_config['port_handle'] = src_port_h
+
     st.banner(traffic_config)
     result = tgen_handle.tg_traffic_config(**traffic_config)
     if result['status'] != '1':
         st.error('traffic cfg failed {}'.format(result))
         return None
+
+    ethernet_stack = result[result['traffic_item']]['headers'].split()[0]
+    result = tgen_handle.tg_traffic_config(
+        mode='set_field_values',
+        header_handle=ethernet_stack,
+        pt_handle='ethernet',
+        field_handle="ethernet.header.pfcQueue-4",
+        field_activeFieldChoice='0',
+        field_auto='0',
+        field_optionalEnabled='1',
+        field_fullMesh='0',
+        field_trackingEnabled='0',
+        field_valueType='singleValue',
+        field_singleValue=tc_to_queue_map[tc])
 
     output_dict = {
         'src_handle' : src_handle,
@@ -545,8 +589,6 @@ def collect_traffic_stream_stats():
     if 'waiting_for_stats' in stats and stats['waiting_for_stats']:
         st.wait(30)
         stats = tgen_handle.tg_traffic_stats(mode='traffic_item')
-    st.banner('DEBUG STATS')
-    pprint.pprint(stats)
     return stats
 
 def clear_all_stats():
