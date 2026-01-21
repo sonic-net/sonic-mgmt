@@ -686,9 +686,9 @@ def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_stat
             # For storm state verification, check if detect_count increased since baseline
             # OR if port is currently in storm status with detect_count >= baseline
             baseline_detect = baseline_counters.get(test_port, 0)
-            if current_detect_count > baseline_detect or \
-               ("storm" in current_status and current_detect_count >= baseline_detect and
-                current_detect_count > current_restored_count):
+            if (current_detect_count > baseline_detect or
+                    ("storm" in current_status and current_detect_count >= baseline_detect and
+                     current_detect_count > current_restored_count)):
                 logger.debug(f"Port {test_port} queue {queue_idx} has new storm detection "
                              f"(baseline={baseline_detect}, current={current_detect_count}, "
                              f"status={current_status})")
