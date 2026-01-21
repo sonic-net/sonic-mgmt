@@ -21,6 +21,18 @@
   until: async_remove_ceos_poll_results.finished
   retries: 30
   delay: 10
+  ignore_errors: yes
+
+- name: Cleanup remaining cEOS containers when removal fails
+  become: yes
+  docker_container_cleanup:
+    name: ceos_{{ vm_set_name }}_{{ vm_name }}
+  loop: "{{ VM_targets|flatten(levels=1) }}"
+  loop_control:
+    loop_var: vm_name
+    label: "{{ vm_name }}"
+  register: force_remove_ceos_results
+  ignore_errors: yes
 
 - name: Remove net base containers
   become: yes
@@ -45,3 +57,15 @@
   until: async_remove_net_poll_results.finished
   retries: 30
   delay: 10
+  ignore_errors: yes
+
+- name: Cleanup remaining net base containers when removal fails
+  become: yes
+  docker_container_cleanup:
+    name: net_{{ vm_set_name }}_{{ vm_name }}
+  loop: "{{ VM_targets|flatten(levels=1) }}"
+  loop_control:
+    loop_var: vm_name
+    label: "{{ vm_name }}"
+  register: force_remove_net_results
+  ignore_errors: yes
