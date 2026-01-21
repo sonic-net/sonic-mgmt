@@ -46,24 +46,41 @@ def test_telemetry_show_get(duthosts, localhost, enum_rand_one_per_hwsku_hostnam
     with open(SHOW_PATHS_FILE, 'r') as show_paths_file:
         show_paths_data = json.load(show_paths_file)
 
-    for path, test_config in show_paths_data.items():
-        # Do any setup that is required before executing query
-        if test_config["setup"]:
-            setup_fixtures = [request.getfixturevalue(fixture) for fixture in test_config["setup_fixtures"]]
-            setup_args = test_config["setup_args"]
-            getattr(helper, test_config["setup"])(*setup_fixtures, *setup_args)
+    for path, test_configs in show_paths_data.items():
+        for test_config in test_configs:
+            safeguard_only = test_config.get("safeguard_only", True)
+            pytest_assert(test_config.get("path_func"), "No path defined for test")
 
-        # Execute gnmi get command
-        cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET,
-                                  xpath=path, target="SHOW")
-        ptf_result = ptfhost.shell(cmd)
-        pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
-        show_gnmi_out = ptf_result['stdout']
-        logger.info("GNMI Server output: {}".format(show_gnmi_out))
+            path_func_fixtures = [request.getfixturevalue(fixture) for fixture in test_config["path_func_fixtures"]]
+            path_func_args = test_config["path_func_args"]
+            result_path = getattr(helper, test_config["path_func"])(*path_func_fixtures, *path_func_args)
 
-        # Verify gnmi get with show command
-        if test_config["verify"]:
-            output = helper.get_json_from_gnmi_output(show_gnmi_out)
-            verify_fixtures = [request.getfixturevalue(fixture) for fixture in test_config["verify_fixtures"]]
-            verify_args = test_config["verify_args"]
-            getattr(helper, test_config["verify"])(*verify_fixtures, *verify_args, output)
+            cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_GET,
+                                      xpath=result_path, target="SHOW")
+
+            # Do any setup that is required before executing query
+            if test_config["setup"]:
+                setup_fixtures = [request.getfixturevalue(fixture) for fixture in test_config["setup_fixtures"]]
+                setup_args = test_config["setup_args"]
+                getattr(helper, test_config["setup"])(*setup_fixtures, *setup_args)
+
+            before_service_status = duthost.all_critical_process_status()
+
+            # Execute gnmi get command
+            ptf_result = ptfhost.shell(cmd, module_ignore_errors=safeguard_only)
+            pytest_assert(before_service_status == duthost.all_critical_process_status(),
+                          "Critical process status changed after SHOW get")
+
+            if safeguard_only:
+                continue
+
+            pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
+            show_gnmi_out = ptf_result['stdout']
+            logger.info("GNMI Server output: {}".format(show_gnmi_out))
+
+            # Verify gnmi get with show command
+            if test_config["verify"]:
+                output = helper.get_json_from_gnmi_output(show_gnmi_out)
+                verify_fixtures = [request.getfixturevalue(fixture) for fixture in test_config["verify_fixtures"]]
+                verify_args = test_config["verify_args"]
+                getattr(helper, test_config["verify"])(*verify_fixtures, *verify_args, output)
