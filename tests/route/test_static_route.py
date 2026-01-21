@@ -9,12 +9,14 @@ import six
 from collections import defaultdict
 from contextlib import contextmanager
 
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_responder_py # noqa F811
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses # noqa F811
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_responder_py  # noqa: F811, F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa: F811, F401
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.mux_simulator_control import mux_server_url # noqa F811
+from tests.common.dualtor.mux_simulator_control import mux_server_url  # noqa: F811, F401
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m # noqa F811
+from tests.common.dualtor.mux_simulator_control import (  # noqa: F811, F401
+    toggle_all_simulator_ports_to_rand_selected_tor_m
+)
 from tests.common.utilities import wait_until, get_intf_by_sub_intf
 from tests.common.utilities import get_neighbor_ptf_port_list
 from tests.common.helpers.assertions import pytest_assert
@@ -24,9 +26,12 @@ from tests.common import config_reload
 from tests.common.reboot import reboot
 import ptf.testutils as testutils
 import ptf.mask as mask
-import ptf.packet as packet
+import ptf.packet as packet  # noqa: F401
 from tests.common import constants
-from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported # noqa F811
+from tests.common.flow_counter.flow_counter_utils import (  # noqa: F811, F401
+    RouteFlowCounterTestContext,
+    is_route_flow_counter_supported
+)
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
 
@@ -352,7 +357,7 @@ def static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinf
 
 def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
                           prefix, nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces,
-                          is_route_flow_counter_supported, ipv6=False, config_reload_test=False): # noqa F811
+                          is_route_flow_counter_supported, ipv6=False, config_reload_test=False):  # noqa: F811
     is_dual_tor = False
     if 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None:
         is_dual_tor = True
@@ -507,8 +512,10 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
 
 
 def test_static_route(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
-                      setup_standby_ports_on_rand_unselected_tor, # noqa F811
-                      toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
+                      setup_standby_ports_on_rand_unselected_tor,  # noqa: F811
+                      toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa: F401, F811
+                      is_route_flow_counter_supported  # noqa: F811
+                      ):
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo)
@@ -518,8 +525,9 @@ def test_static_route(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhos
 
 @pytest.mark.disable_loganalyzer
 def test_static_route_ecmp(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
-                           setup_standby_ports_on_rand_unselected_tor, # noqa F811
-                           toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
+                           setup_standby_ports_on_rand_unselected_tor,  # noqa: F811
+                           toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa: F811
+                           is_route_flow_counter_supported):    # noqa: F811
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, count=3)
@@ -529,8 +537,9 @@ def test_static_route_ecmp(rand_selected_dut, rand_unselected_dut, ptfadapter, p
 
 
 def test_static_route_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
-                           setup_standby_ports_on_rand_unselected_tor, # noqa F811
-                           toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
+                           setup_standby_ports_on_rand_unselected_tor,  # noqa: F811
+                           toggle_all_simulator_ports_to_rand_selected_tor_m,   # noqa: F811
+                           is_route_flow_counter_supported):  # noqa: F811
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=True)
@@ -541,8 +550,9 @@ def test_static_route_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, p
 
 @pytest.mark.disable_loganalyzer
 def test_static_route_ecmp_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
-                                setup_standby_ports_on_rand_unselected_tor, # noqa F811
-                                toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
+                                setup_standby_ports_on_rand_unselected_tor,  # noqa: F811
+                                toggle_all_simulator_ports_to_rand_selected_tor_m,  # noqa: F811
+                                is_route_flow_counter_supported):  # noqa: F811
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=True, count=3)

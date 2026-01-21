@@ -75,7 +75,7 @@ def check_route(duthost, route, operation):
 
 
 def test_route_bgp_ecmp(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname,
-                        loganalyzer, setup_and_teardown):    # noqa F811
+                        loganalyzer, setup_and_teardown):    # noqa: F811
     ptf_ip = tbinfo['ptf_ip']
     common_config = tbinfo['topo']['properties']['configuration_properties'].get(
         'common', {})

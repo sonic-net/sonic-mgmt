@@ -5,7 +5,7 @@ import psutil
 import threading
 import time
 
-from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.utilities import find_duthost_on_role
