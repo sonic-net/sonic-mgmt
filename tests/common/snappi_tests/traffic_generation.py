@@ -913,7 +913,7 @@ def tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names):
         stats[metric_name+'_txrate_Gbps'] = tx_rate_gbps
         stats[metric_name+'_rxrate_fps'] = float(metric['Rx Frame Rate'])
         stats[metric_name+'_rxrate_Gbps'] = rx_rate_gbps
-        stats[metric_name+'_LI_rxrate_Gbps'] = float(metric['Rx L1 Rate (Gbps)'])
+        stats[metric_name+'_Rx_L1_Rate_bps'] = float(metric['Rx L1 Rate (bps)'])
 
     for metric in flow_metrics:
         if metric.name not in data_flow_names:
