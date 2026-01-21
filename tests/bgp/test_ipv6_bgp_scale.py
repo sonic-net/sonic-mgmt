@@ -676,8 +676,7 @@ def test_nexthop_group_member_scale(
     global global_icmp_type
     global_icmp_type += 1
     pdp = ptfadapter.dataplane
-    if hasattr(pdp, "clear_masks"):
-        pdp.clear_masks()
+    pdp.clear_masks()
     pdp.set_qlen(PACKET_QUEUE_LENGTH)
     exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
     injection_bgp_neighbor = random.choice(list(bgp_peers_info.keys()))
@@ -757,8 +756,7 @@ def test_nexthop_group_member_scale(
     # ------------announce routes and test ------------ #
     current_test = request.node.name + "_announce"
     global_icmp_type += 1
-    if hasattr(pdp, "clear_masks"):
-        pdp.clear_masks()
+    pdp.clear_masks()
     exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
     pkts = generate_packets(
         neighbor_ecmp_routes[injection_bgp_neighbor],
