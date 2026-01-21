@@ -321,7 +321,7 @@ class SonicAsic(object):
                 return False
         return True
 
-    def get_active_ip_interfaces(self, tbinfo, intf_num="all"):
+    def get_active_ip_interfaces(self, tbinfo, intf_num="all", ip_type="ipv4"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -329,9 +329,15 @@ class SonicAsic(object):
         Returns:
             Dict of Interfaces and their IPv4 address
         """
-        ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
+        if ip_type == "ipv4":
+            ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
+        elif ip_type == "ipv6":
+            ip_ifs = self.show_ipv6_interface()["ansible_facts"]["ipv6_interfaces"]
+        else:
+            raise ValueError("Invalid IP type: {}".format(ip_type))
+
         return self.sonichost.active_ip_interfaces(
-            ip_ifs, tbinfo, self.namespace, intf_num=intf_num
+            ip_ifs, tbinfo, self.namespace, intf_num=intf_num, ip_type=ip_type
         )
 
     def bgp_drop_rule(self, ip_version, state="present"):
