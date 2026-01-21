@@ -128,6 +128,32 @@ A class named `PhysicalOIR` is defined under `tests.common.physical_oir` module.
     - Parameters: None
     - Returns: None
 
+The `PhysicalOIR` class should look like below:
+
+```python
+# File tests/common/physical_oir.py
+class PhysicalOir:
+    def __init__(self, duthost, ansible_adhoc):
+        # Initiate the class with required attributes
+        pass
+
+    def is_available(self) -> bool:
+        # Check if physical OIR is supported in the testbed
+        pass
+
+    def insert_sfps(self) -> bool:
+        # Insert SFPs on the ports specified by port_under_test attribute
+        pass
+
+    def remove_sfps(self) -> bool:
+        # Remove SFPs from the ports specified by port_under_test attribute
+        pass
+
+    def cleanup(self):
+        # Cleanup resources used by the PhysicalOIR class
+        pass  
+```
+
 #### CLI commands
 
 Refer to [CLI commands](./transceiver_onboarding_test_plan.md#cli-commands) section for the CLI commands used in the above test cases.
