@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 	"net"
-
+	"log"
 	"os"
 
 	"github.com/pkg/sftp"
@@ -13,7 +13,7 @@ import (
 
 const (
 	sshPort        = 22
-	sshUser        = "root"
+	sshUser        = "admin"
 	defaultTimeout = 30 * time.Second
 )
 
@@ -22,7 +22,7 @@ const (
 var (
 	switchstackPrivateSSHRsaKey = func() (string, error) {
 
-		b, err := os.ReadFile("/home/user/.ssh/key")
+		b, err := os.ReadFile("/home/sunil/.ssh/id_rsa")
 		return string(b), err
 	}
 
@@ -86,11 +86,15 @@ func NewSSHManager(addr string) (*SSHManager, error) {
 		return nil, WrapError(err, "failure to parse ssh key")
 	}
 	authMethod := ssh.PublicKeys(signer)
+	log.Print(authMethod)
 	config := &ssh.ClientConfig{
-		User:            sshUser,
-		Auth:            []ssh.AuthMethod{authMethod},
-		HostKeyCallback: customInsecureIgnoreHostKey,
-		Timeout:         defaultTimeout,
+		User: sshUser,
+		Auth: []ssh.AuthMethod{ssh.Password("password")},
+		HostKeyAlgorithms: []string{
+			"rsa-sha2-256",
+			"rsa-sha2-512",
+		},
+		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 	if manager.sshClient, err = testhelperSSHDial(addr, config); err != nil {
 		return nil, err
