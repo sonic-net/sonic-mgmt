@@ -1518,10 +1518,19 @@ def add_nexthop_routes(standby_tor, route_dst, nexthops=None):
     """
     logging.info("Applying route on {} to dst {}".format(standby_tor.hostname, route_dst))
     bgp_neighbors = list(standby_tor.bgp_facts()['ansible_facts']['bgp_neighbors'].keys())
+    portchannel_neighbors = []
+    ip_intf_facts = standby_tor.show_ip_interface()['ansible_facts']['ip_interfaces']
+    for intf in ip_intf_facts:
+        if 'PortChannel' in intf:
+            portchannel_neighbors.append(ip_intf_facts[intf]['peer_ipv4'])
+            if 'peer_ipv6' in ip_intf_facts[intf]:
+                portchannel_neighbors.append(ip_intf_facts[intf]['peer_ipv6'])
 
     route_dst = ipaddress.ip_address(six.text_type(route_dst))
     ip_neighbors = []
     for neighbor in bgp_neighbors:
+        if neighbor not in portchannel_neighbors:
+            continue
         if ipaddress.ip_address(neighbor).version == route_dst.version:
             ip_neighbors.append(neighbor)
 
