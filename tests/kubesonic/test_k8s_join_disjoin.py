@@ -407,6 +407,10 @@ def trigger_join_and_check(duthost, vmhost):
     logger.info("Start to join duthost to k8s cluster and check the status")
     duthost.shell(f"sudo config kube server ip {vmhost.mgmt_ip}")
     duthost.shell("sudo config kube server disable off")
+    # kubelet is started as part of the join process. Log kubelet health for debugging
+    time.sleep(20)
+    kubelet_status = duthost.shell("systemctl status kubelet", module_ignore_errors=True)["stdout"]
+    logger.info(f"Kubelet status: {kubelet_status}")
     for _ in range(12):
         time.sleep(10)
         nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname}", module_ignore_errors=True)
