@@ -150,6 +150,8 @@ def pytest_addoption(parser):
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
 
+    # FEC test options
+    parser.addoption("--toggles_num", action="store", default=1, type=int, help="Number of toggles for FEC test")
     #####################################
     # dash, vxlan, route shared options #
     #####################################
