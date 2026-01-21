@@ -163,7 +163,7 @@ def test_verify_fec_stats_counters(duthosts, toggles_num, enum_rand_one_per_hwsk
         speed_gbps = f"{int(speed) // 1000}G"
         if speed_gbps not in SUPPORTED_SPEEDS:
             continue
-        
+
         # Removes commas from "show interfaces counters fec-stats" (i.e. 12,354 --> 12354) to allow int conversion
         fec_corr = intf.get('fec_corr', '').replace(',', '').lower()
         fec_uncorr = intf.get('fec_uncorr', '').replace(',', '').lower()
