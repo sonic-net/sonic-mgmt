@@ -1,3 +1,7 @@
+- name: If init is set, run init tasks
+  import_tasks: init.yml
+  when: init is defined
+
 - name: Move json config to console server
   template:
     src: incremental_mcx_config.j2
