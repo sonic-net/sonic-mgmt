@@ -274,6 +274,8 @@ def toggles_num(request):
     Retrieve the value of the --toggles_num command line option for the test session.
     """
     return request.config.getoption("--toggles_num")
+
+
 @pytest.fixture(scope='module')
 def fw_pkg(fw_pkg_name):
     if fw_pkg_name is None:
