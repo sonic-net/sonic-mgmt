@@ -6124,6 +6124,8 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
               (self.test_params['buf_pool_roid']), file=sys.stderr)
         buf_pool_roid = int(self.test_params['buf_pool_roid'], 0)
         print("buf_pool_roid: 0x%lx" % (buf_pool_roid), file=sys.stderr)
+        other_buf_pool_roid = int(self.test_params['other_buf_pool_roid'], 0)
+        print("other_buf_pool_roid: 0x%lx" % (other_buf_pool_roid), file=sys.stderr)
 
         buffer_pool_wm_base = 0
         if 'cisco-8000' in asic_type:
@@ -6132,9 +6134,12 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             client_to_use = self.dst_client
             buffer_pool_wm_base = sai_thrift_read_buffer_pool_watermark(
                 client_to_use, buf_pool_roid)
+            other_buffer_pool_wm_base = sai_thrift_read_buffer_pool_watermark(
+                client_to_use, other_buf_pool_roid)
         else:
             client_to_use = self.src_client
         print("Initial watermark: {}".format(buffer_pool_wm_base))
+        print("Initial non-used pool's watermark: {}".format(other_buffer_pool_wm_base))
 
         # Prepare TCP packet data
         tos = dscp << 2
@@ -6306,6 +6311,15 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                     * cell_size <= buffer_pool_wm)
             assert (buffer_pool_wm <= (
                 expected_wm + extra_cap_margin) * cell_size)
+
+            # Check that the other buffer pool (lossy vs lossless) did not increase above an acceptable margin
+            if asic_type == "cisco-8000":
+                other_buffer_pool_wm = sai_thrift_read_buffer_pool_watermark(
+                    client_to_use, other_buf_pool_roid) - other_buffer_pool_wm_base
+                margin_buffers = 10
+                assert other_buffer_pool_wm < margin_buffers * cell_size, \
+                    "The wrong buffer pool watermark also increased, by {} bytes which exceeds margin {}".format(
+                        other_buffer_pool_wm, margin_buffers * cell_size)
 
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
