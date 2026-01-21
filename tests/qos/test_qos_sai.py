@@ -2531,6 +2531,46 @@ class TestQosSai(QosSaiBase):
             testParams=testParams
         )
 
+    def testQosSaiTrafficSanity(
+            self, ptfhost, dutTestParams, dutConfig, dutQosConfig, get_src_dst_asic_and_duts
+    ):
+        """
+            Test QoS SAI traffic sanity
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        if dutTestParams["basicParams"]["sonic_asic_type"] != "cisco-8000":
+            pytest.skip("Traffic sanity size test is not supported")
+
+        dst_dut_idx = get_src_dst_asic_and_duts['dst_dut_index']
+        dst_asic_idx = get_src_dst_asic_and_duts['dst_asic_index']
+        testPortIps = dutConfig["testPortIps"][dst_dut_idx][dst_asic_idx]
+
+        # Fetch all port IDs and IPs
+        all_port_id_to_ip = {port_id: testPortIps[port_id]['peer_addr'] for port_id in testPortIps.keys()}
+        all_port_id_to_name = {port_id: dutConfig["dutInterfaces"][port_id] for port_id in testPortIps.keys()}
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "testbed_type": dutTestParams["topo"],
+            "all_port_id_to_ip": all_port_id_to_ip,
+            "all_port_id_to_name": all_port_id_to_name,
+            "hwsku": dutTestParams['hwsku']
+        })
+
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.TrafficSanity",
+            testParams=testParams
+        )
+
     def testQosSaiFullMeshTrafficSanity(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             get_src_dst_asic_and_duts, dut_qos_maps,  # noqa: F811
