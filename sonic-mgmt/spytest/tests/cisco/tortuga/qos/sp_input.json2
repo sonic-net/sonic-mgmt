@@ -5,13 +5,13 @@
     "STRICT_PRIORITY_TEST" : {
 	    "tgen" : "T1",
 	    "tgen_port_cnt" : "3",
-	    "leaf" : "D3",
+	    "leaf" : "D1",
 	    "tc" : ["6", "7"],
 	    # PIR is percent of line rate
 	    "pirs" : ["60", "70"],
 	    # Stream speeds are percent of line rate
 	    "stream_rates" : [["40", "40"], ["60", "70"], ["70", "60"],
 	                      ["20", "80"], ["80", "20"], ["80", "80"]],
-	    "frame_sizes" : ["1350", "8192"]
+	    "frame_sizes" : ["1350", "4096", "8192"]
     }
 }

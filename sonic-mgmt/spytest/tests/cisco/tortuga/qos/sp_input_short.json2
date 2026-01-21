@@ -3,13 +3,14 @@
 # We assume there are atleast 3 connections from tgen to router
 {
     "STRICT_PRIORITY_TEST" : {
-	    "leaf" : "D3",
+	    "tgen" : "T1",
+	    "tgen_port_cnt" : "3",
+	    "leaf" : "D4",
 	    "tc" : ["6", "7"],
 	    # PIR is percent of line rate
 	    "pirs" : ["60"],
 	    # Stream speeds are percent of line rate
-	    "stream_rates" : [["40", "40"], ["80", "20"], ["80", "80"]],
-	    "frame_sizes" : ["1350", "8192"],
-	    "test_tgen" : "False"
+	    "stream_rates" : [["40", "40"], ["20", "80"], ["80", "80"]],
+	    "frame_sizes" : ["8192"]
     }
 }
