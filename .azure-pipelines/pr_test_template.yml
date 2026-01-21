@@ -1,4 +1,9 @@
 parameters:
+- name: AGENT_POOL
+  type: object
+  default:
+    name: sonic-ubuntu-1c
+
 - name: TIMEOUT_IN_MINUTES_PR_TEST
   type: number
   default: 480
@@ -38,7 +43,7 @@ jobs:
     displayName: "Get impacted area"
     timeoutInMinutes: 20
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -58,7 +63,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -92,7 +97,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -127,7 +132,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -161,7 +166,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -195,7 +200,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -234,7 +239,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -272,7 +277,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -307,7 +312,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -332,3 +337,21 @@ jobs:
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
+
+  - job: t1_lag_vpp_elastictest
+    displayName: "kvmtest-t1-lag-vpp by Elastictest"
+    timeoutInMinutes: 480
+    continueOnError: true
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: run-test-elastictest-template.yml
+        parameters:
+          TOPOLOGY: t1-lag-vpp
+          MIN_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
+          MAX_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: $(BUILD_BRANCH)
+          ASIC_TYPE: "vpp"
+          KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
+          COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer"
+          STOP_ON_FAILURE: "False"
