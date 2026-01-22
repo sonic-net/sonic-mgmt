@@ -15,15 +15,15 @@ configs:
 devices:
     SD1:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.217, port: 22}
+        access: {protocol: ssh, ip: 192.168.122.67, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     SD2:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.217, port: 22}
+        access: {protocol: ssh, ip: 192.168.122.210, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
 
 
@@ -31,13 +31,13 @@ topology:
     SD1:
         interfaces:
             Ethernet0: {EndDevice: SD2, EndPort: Ethernet0, params: def_link}
-            Ethernet1: {EndDevice: SD2, EndPort: Ethernet1, params: def_link}
-            Ethernet2: {EndDevice: SD2, EndPort: Ethernet2, params: def_link}
-            Ethernet3: {EndDevice: SD2, EndPort: Ethernet3, params: def_link}
+            Ethernet8: {EndDevice: SD2, EndPort: Ethernet8, params: def_link}
+            Ethernet16: {EndDevice: SD2, EndPort: Ethernet16, params: def_link}
+            Ethernet24: {EndDevice: SD2, EndPort: Ethernet24, params: def_link}
     SD2:
         interfaces:
             Ethernet0: {EndDevice: SD1, EndPort: Ethernet0, params: def_link}
-            Ethernet1: {EndDevice: SD1, EndPort: Ethernet1, params: def_link}
-            Ethernet2: {EndDevice: SD1, EndPort: Ethernet2, params: def_link}
-            Ethernet3: {EndDevice: SD1, EndPort: Ethernet3, params: def_link}
+            Ethernet8: {EndDevice: SD1, EndPort: Ethernet8, params: def_link}
+            Ethernet16: {EndDevice: SD1, EndPort: Ethernet16, params: def_link}
+            Ethernet24: {EndDevice: SD1, EndPort: Ethernet24, params: def_link}
 
