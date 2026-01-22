@@ -452,3 +452,8 @@ def get_sdk_version(self, duthost):
         except Exception as e:
             logger.warning(f"Error getting SDK version: {e}")
             return None
+def get_platform_type(self, duthost):
+    for line in duthost.command("show platform summary")["stdout_lines"]:
+        if "Platform" == line.split(":")[0]:
+            return line.split(":")[1].strip()
+    pytest.fail("No platform was found.")
