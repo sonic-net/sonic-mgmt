@@ -976,22 +976,27 @@ class BaseEverflowTest(object):
 
         return new_packet
 
-    def check_rule_counters(self, duthost):
+    def check_rule_active(self, duthost, table_name):
         """
-        Check if Acl rule counters initialized
+        Check if Acl rule initialized
 
         Args:
             duthost: DUT host object
         Returns:
             Bool value
         """
-        res = duthost.shell("aclshow -a")['stdout_lines']
-        if len(res) <= 2 or [line for line in res if 'N/A' in line]:
+        res = duthost.shell(f"show acl rule {table_name}")['stdout_lines']
+        if "Status" not in res[0]:
             return False
-        else:
-            return True
+        status_index = res[0].index("Status")
+        for line in res[2:]:
+            if len(line) < status_index:
+                continue
+            if line[status_index:] != 'Active':
+                return False
+        return True
 
-    def apply_non_openconfig_acl_rle(self, duthost, extra_vars, rule_file):
+    def apply_non_openconfig_acl_rule(self, duthost, extra_vars, rule_file, table_name):
         """
         Not all ACL match groups are valid in openconfig-acl format used in rest of these
         tests. Instead we must load these uing SONiC-style acl jsons.
@@ -1008,7 +1013,8 @@ class BaseEverflowTest(object):
         duthost.shell("config load -y {}".format(dest_path))
 
         if duthost.facts['asic_type'] != 'vs':
-            pytest_assert(wait_until(60, 2, 0, self.check_rule_counters, duthost), "Acl rule counters are not ready")
+            pytest_assert(wait_until(60, 2, 0, self.check_rule_active, duthost, table_name),
+                          "Acl rule counters are not ready")
 
     def apply_ip_type_rule(self, duthost, ip_version):
         """
@@ -1031,7 +1037,7 @@ class BaseEverflowTest(object):
             'table_name': table_name,
             'action': action
         }
-        self.apply_non_openconfig_acl_rle(duthost, extra_vars, rule_file)
+        self.apply_non_openconfig_acl_rule(duthost, extra_vars, rule_file, table_name)
 
     def send_and_check_mirror_packets(self,
                                       setup,
