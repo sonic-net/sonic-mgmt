@@ -237,6 +237,8 @@ def pytest_addoption(parser):
     ############################
     #   macsec options         #
     ############################
+    parser.addoption("--snappi_macsec", action="store_true", default=False,
+                     help="Enable macsec on tgen links of testbed")
     parser.addoption("--enable_macsec", action="store_true", default=False,
                      help="Enable macsec on some links of testbed")
     parser.addoption("--macsec_profile", action="store", default="all",
@@ -293,6 +295,8 @@ def pytest_addoption(parser):
                      help="File that containers parameters for each container")
     parser.addoption("--testcase_file", action="store", default=None, type=str,
                      help="File that contains testcases to execute per iteration")
+    parser.addoption("--optional_parameters", action="store", default="", type=str,
+                     help="Extra args appended to docker run, e.g. '-e IS_V1_ENABLED=true'")
 
     #################################
     #   Stress test options         #
@@ -485,35 +489,6 @@ def pytest_sessionstart(session):
     for key in keys:
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
-
-    # Invoke the build-gnmi-stubs.sh script
-    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
-    base_dir = os.getcwd()  # Use the current working directory as the base directory
-    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
-
-    try:
-        result = subprocess.run(
-            [script_path, base_dir],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=False  # Do not raise an exception automatically on non-zero exit
-        )
-        logger.info(f"Output of {script_path}:\n{result.stdout}")
-        # logger.error(f"Error output of {script_path}:\n{result.stderr}")
-
-        if result.returncode != 0:
-            logger.error(f"{script_path} failed with exit code {result.returncode}")
-            session.exitstatus = 1  # Fail the pytest session
-        else:
-            # Add the generated directory to sys.path for module imports
-            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
-            if generated_path not in sys.path:
-                sys.path.insert(0, generated_path)
-                logger.info(f"Added {generated_path} to sys.path")
-    except Exception as e:
-        logger.error(f"Exception occurred while invoking {script_path}: {e}")
-        session.exitstatus = 1  # Fail the pytest session
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -945,11 +920,12 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     For Ethernet connections: Uses device_conn from conn_graph_facts
     For Serial connections: Uses device_serial_link from conn_graph_facts
     """
+
     # Internal helper functions
     def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> FanoutHost | None:
         """
         Create FanoutHost if not exists, or return existing one.
-        This centralizes fanout creation logic for both Ethernet and Serial connections.
+        Fanout creation logic for both Ethernet and Serial connections.
 
         Args:
             fanout_hosts (dict): Dictionary of existing fanout hosts
@@ -993,11 +969,9 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             fanout_password = creds.get('fanout_mlnx_password', None)
         elif os_type == 'ixia':
             # Skip for ixia device which has no fanout
-            logging.info(f"Skipping ixia device {fanout_name}")
             return None
         else:
-            logging.warning(f"Unsupported fanout OS type: {os_type}")
-            return None
+            pytest.fail(f"Unsupported fanout OS type {os_type} for fanout {fanout_name}")
 
         # EOS specific shell credentials
         eos_shell_user = None
@@ -1032,25 +1006,28 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
         return fanout
 
     # Main fixture logic
+
     fanout_hosts = {}
 
-    # Skip NUT topologies that have no fanout
+    # Skip special topologies that have no fanout
     if tbinfo['topo']['name'].startswith('nut-'):
         logging.info("Nut topology has no fanout")
         return fanout_hosts
 
     # Process Ethernet connections
+
     dev_conn = conn_graph_facts.get('device_conn', {})
 
-    for dut_host, ethernet_ports in dev_conn.items():
+    for dut_name, ethernet_ports in dev_conn.items():
 
-        duthost = duthosts[dut_host]
+        duthost = duthosts[dut_name]
 
         # Skip virtual testbed which has no fanout
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
-            logging.info(f"Skipping kvm platform {dut_host}")
+            logging.info(f"Skipping kvm platform {dut_name}")
             continue
 
+        # Get minigraph facts for port alias mapping
         mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
         # Process each Ethernet port connection
@@ -1059,12 +1036,12 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             fanout_port = str(fanout_rec['peerport'])
 
             # Create or get fanout object
-            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_host)
+            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name)
             if fanout is None:
                 continue
 
             # Add Ethernet port mapping: DUT port -> Fanout port
-            fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
+            fanout.add_port_map(encode_dut_port_name(dut_name, dut_port), fanout_port)
 
             # Handle port alias mapping if available
             if dut_port in mg_facts.get('minigraph_port_alias_to_name_map', {}):
@@ -1076,37 +1053,40 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
                 # Ethernet108   Ethernet32
                 # Ethernet32    Ethernet13/1
                 if mapped_port not in list(ethernet_ports.keys()):
-                    fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
+                    fanout.add_port_map(encode_dut_port_name(dut_name, mapped_port), fanout_port)
 
     # Process Serial connections
 
     dev_serial_link = conn_graph_facts.get('device_serial_link', {})
 
-    for dut_host, serial_ports in dev_serial_link.items():
+    for dut_name, serial_ports_map in dev_serial_link.items():
 
-        duthost = duthosts[dut_host]
+        duthost = duthosts[dut_name]
 
         # Skip virtual testbed which has no fanout
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
-            logging.info(f"Skipping kvm platform {dut_host} for serial links")
+            logging.info(f"Skipping kvm platform {dut_name} for serial links")
             continue
 
         # Process each Serial port connection
-        for serial_port_num, link_info in serial_ports.items():
+        for host_port, link_info in serial_ports_map.items():
             fanout_host = str(link_info['peerdevice'])
             fanout_port = str(link_info['peerport'])
+            baud_rate = link_info.get('baud_rate', "9600")
+            flow_control = link_info.get('flow_control', "0") == "1"
 
-            # Create or get fanout object (reuses same function as Ethernet)
-            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_host)
+            # Create or get fanout object
+            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name)
             if fanout is None:
                 continue
 
-            # Add Serial port mapping with Console prefix
-            serial_port_key = f"C0_{serial_port_num}"
-            fanout.add_port_map(encode_dut_port_name(dut_host, serial_port_key), fanout_port)
+            # Add Serial port mapping
+            fanout.add_serial_port_map(dut_name, host_port, fanout_port, baud_rate, flow_control)
 
-            logging.debug(f"Added serial port mapping: {dut_host} Console{serial_port_num} -> "
-                          f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})")
+            logging.debug(
+                f"Added serial port mapping: {dut_name} Console{host_port} -> "
+                f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})"
+            )
 
     logging.info(f"fanouthosts fixture initialized with {len(fanout_hosts)} fanout devices")
 
@@ -1176,6 +1156,10 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
     if 'servers' in tbinfo:
         servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
                                   for value in tbinfo['servers'].values()}
+
+    # Check if logs directory exists, otherwise use /tmp
+    log_path = "logs" if os.path.isdir("logs") else "/tmp"
+
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
         res = localhost.announce_routes(
@@ -1183,7 +1167,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             ptf_ip=ptf_ip,
             action='generate',
             path="../ansible/",
-            log_path="logs",
+            log_path=log_path,
             dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
         )
         if 'topo_routes' not in res:
@@ -3459,10 +3443,54 @@ def setup_pfc_test(
 
 
 @pytest.fixture(scope="session")
-def setup_gnmi_server(request, localhost, duthost):
+def build_gnmi_stubs(request):
+    """
+    Generate gRPC stub client code for gNMI server interaction.
+    This fixture only runs when SAI validation is enabled.
+    """
+    disable_sai_validation = request.config.getoption("--disable_sai_validation")
+    if disable_sai_validation:
+        logger.info("SAI validation is disabled, skipping gNMI stub generation")
+        yield
+        return
+
+    # Invoke the build-gnmi-stubs.sh script
+    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
+    base_dir = os.getcwd()  # Use the current working directory as the base directory
+    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
+
+    try:
+        result = subprocess.run(
+            [script_path, base_dir],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False  # Do not raise an exception automatically on non-zero exit
+        )
+        logger.info(f"Output of {script_path}:\n{result.stdout}")
+
+        if result.returncode != 0:
+            logger.error(f"{script_path} failed with exit code {result.returncode}")
+            pytest.fail(f"gNMI stub generation failed with exit code {result.returncode}")
+        else:
+            # Add the generated directory to sys.path for module imports
+            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
+            if generated_path not in sys.path:
+                sys.path.insert(0, generated_path)
+                logger.info(f"Added {generated_path} to sys.path")
+    except Exception as e:
+        logger.error(f"Exception occurred while invoking {script_path}: {e}")
+        pytest.fail(f"gNMI stub generation failed: {e}")
+
+    yield
+
+
+@pytest.fixture(scope="session")
+def setup_gnmi_server(request, localhost, duthost, build_gnmi_stubs):
     """
     SAI validation library uses gNMI to access sonic-db data
-    objects. This fixture is used by tests to set up gNMI server
+    objects. This fixture is used by tests to set up gNMI server.
+    Depends on build_gnmi_stubs to ensure gRPC stubs are generated first.
     """
     disable_sai_validation = request.config.getoption("--disable_sai_validation")
     if disable_sai_validation:
