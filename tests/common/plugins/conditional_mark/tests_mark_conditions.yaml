@@ -3680,9 +3680,10 @@ pc/test_lag_member.py:
 pc/test_lag_member_forwarding.py:
   xfail:
     reason: "Not supported on BRCM before SDK 13.x"
-    conditions_logical_operator: and
+    conditions_logical_operator: or
     conditions:
         - "asic_type in ['broadcom'] and https://github.com/sonic-net/sonic-buildimage/issues/21938"
+        - "asic_type in ['mellanox', 'nvidia'] and https://github.com/sonic-net/sonic-mgmt/issues/17095"
 
 pc/test_po_cleanup.py:
   skip:
