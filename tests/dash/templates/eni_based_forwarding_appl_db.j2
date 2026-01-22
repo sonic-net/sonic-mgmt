@@ -1,0 +1,26 @@
+[
+    {
+        "DASH_ENI_FORWARD_TABLE:{{ vnet_name }}:{{ active_eni_mac }}":
+        {
+            "vdpu_ids": "{{ vdpus[0] }},{{ vdpus[1] }}",
+            "primary_vdpu": "{{ vdpus[0] }}"
+        },
+        "OP": "{{ op }}"
+    },
+    {
+        "DASH_ENI_FORWARD_TABLE:{{ vnet_name }}:{{ standby_eni_mac }}":
+        {
+            "vdpu_ids": "{{ vdpus[0] }},{{ vdpus[1] }}",
+            "primary_vdpu": "{{ vdpus[1] }}"
+        },
+        "OP": "{{ op }}"
+    },
+    {
+        "DASH_ENI_FORWARD_TABLE:{{ vnet_name }}:{{ non_existing_eni_mac }}":
+        {
+            "vdpu_ids": "{{ vdpus_all_remote[0] }},{{ vdpus_all_remote[1] }}",
+            "primary_vdpu": "{{ vdpus_all_remote[0] }}"
+        },
+        "OP": "{{ op }}"
+    }
+]
