@@ -80,6 +80,12 @@ acl/test_acl.py:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+acl/test_acl.py::TestMultiBindingAcl:
+  skip:
+    reason: "MultiBinding only supports dualtor topo"
+    conditions:
+      - "'dualtor' not in topo_name"
+
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
