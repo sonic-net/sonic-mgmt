@@ -130,6 +130,9 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
     global vlan_tagging_mode
 
     num_routes = request.config.option.num_routes
+    if num_routes == None:
+        num_routes = 16000
+
     vxlan_enabled = False
     if request.param == "Disabled":
         vxlan_enabled = False
