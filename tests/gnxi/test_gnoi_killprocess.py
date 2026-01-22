@@ -10,9 +10,7 @@ pytestmark = [
     pytest.mark.usefixtures("setup_gnoi_tls"),
 ]
 
-#
-# Helpers mapping to gNOI System.KillProcess
-#
+
 def _kill_process(ptf_gnoi, name: str, restart: bool = False, signal: int = 1):
     """
     Invoke gNOI System.KillProcess via the ptf_gnoi client.
