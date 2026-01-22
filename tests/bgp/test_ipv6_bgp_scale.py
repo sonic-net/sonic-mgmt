@@ -116,7 +116,7 @@ def bgp_peers_info(tbinfo, duthost):
         if topo_is_multi_vrf:
             topo = tbinfo['topo']['properties']['topology']
             primary = multi_vrf_map[hostname]
-            intf_offset = multi_vrf_data['converged_peers'][primary]['intf_mapping'][hostname]
+            intf_offset = multi_vrf_data['converged_peers'][primary]['intf_mapping'][hostname]['offset']
             ptf_port = topo['VMs'][primary]['vlans'][intf_offset]
         else:
             ptf_port = tbinfo['topo']['properties']['topology']['VMs'][hostname]['vlans'][0]
