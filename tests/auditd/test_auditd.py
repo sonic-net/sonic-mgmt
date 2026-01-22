@@ -30,8 +30,6 @@ def manage_auditd(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    duthost.command("docker start auditd")
-    duthost.command("docker start auditd_watchdog")
     duthost.command("sudo systemctl stop auditd")
     output = duthost.command("sudo systemctl is-active auditd", module_ignore_errors=True)["stdout"]
     pytest_assert(output != "active", "auditd service is still running when it should be inactive")
@@ -244,7 +242,7 @@ def test_all_rules(localhost,
                 assert is_log_valid("type=PATH", logs), \
                     f"Auditd {key} rule does not contain the PATH logs"
 
-    # Search test file-based auditd rules using 'sudo chown root:root <file>' #
+    # Search test file-based auditd rules using 'sudo chown root:root <file>'
     for key, paths in file_key_file_mapping.items():
         for path in paths:
             cmd = f"sudo zgrep '{path}' /var/log/syslog*"
@@ -273,11 +271,6 @@ def test_all_rules(localhost,
     # Search docker_config logs
     for key, paths in docker_key_file_mapping.items():
         for path in paths:
-            ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                           f"sudo touch {path}")
-            ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                           f"sudo rm -f {path}")
-
             # Search SYSCALL & PATH logs
             cmd = f"sudo zgrep '{path}' /var/log/syslog*"
             logs = duthost.shell(cmd)["stdout_lines"]
