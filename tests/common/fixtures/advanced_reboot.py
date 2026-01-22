@@ -54,6 +54,7 @@ class AdvancedReboot:
         """
         assert 'rebootType' in kwargs and ('warm-reboot' in kwargs['rebootType'] or
                                            'fast-reboot' in kwargs['rebootType'] or
+                                           'express-reboot' in kwargs['rebootType'] or
                                            'service-warm-restart' in kwargs['rebootType']), \
             "Please set rebootType var."
 
@@ -144,6 +145,8 @@ class AdvancedReboot:
                 self.rebootLimit = 215  # Default reboot limit for kvm
             elif 'warm-reboot' in self.rebootType:
                 self.rebootLimit = 0
+            elif 'express-reboot' in self.rebootType:
+                self.rebootLimit = 1   # 1 sec reboot limit for express boot
             else:
                 self.rebootLimit = 30  # Default reboot limit for physical devices
 
