@@ -5,6 +5,7 @@ import pytest
 import yaml
 import re
 import ptf.testutils as testutils
+import random
 
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
@@ -473,3 +474,54 @@ def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports,     
         do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
     finally:
         L2_COL_KEY = RX_DRP
+
+
+def get_target_port(duthost):
+    """
+    @summary: This function returns the list of ports which are up.
+    """
+    logging.info("Get the target ports")
+
+    # determine target test port
+    target_port = []
+    up_interfaces = []
+    ifs_status = duthost.get_interfaces_status()
+    logging.info("ifs_status {} ".format(ifs_status))
+
+    for _, interface_info in ifs_status.items():
+        if (r'N\/A' != interface_info['alias']) and (r'N\/A' != interface_info['type']) \
+                and ('up' == interface_info['oper']) and interface_info['interface'].startswith("Eth"):
+            up_interfaces.append(interface_info['interface'])
+
+    target_port = random.sample(up_interfaces, 3)
+    logging.info("target interfaces {} ".format(target_port))
+
+    return target_port
+
+
+def test_tx_drop_on_down_port(duthosts, rand_one_dut_hostname):
+    """
+    @summary: Verify that tx_drop counter does not increase with interface in down state .
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if duthost.facts['platform_asic'] != "cisco-8000":
+        pytest.skip("This test is only supported on cisco-8000")
+
+    target_port = get_target_port(duthost)
+
+    for port in target_port:
+        # clear counters
+        duthost.command('sonic-clear counters')
+        time.sleep(5)
+        # shut one port at a time
+        duthost.shell('sudo config interface shutdown {}'.format(port))
+        # waiting for interface to shutdown
+        time.sleep(30)
+        facts = duthost.show_interface(command="counter", interfaces=port)
+        time.sleep(5)
+        # get the tx_drop counter value
+        port_tx_drop = int(facts["ansible_facts"]["int_counter"][port]['TX_DRP'])
+        try:
+            assert port_tx_drop <= 2
+        finally:
+            duthost.shell('sudo config interface startup {}'.format(port))
