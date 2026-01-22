@@ -374,25 +374,25 @@ bgp/test_bgp_router_id.py:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name"
 
-bgp/test_bgp_router_id.py::test_bgp_router_id_default:
-  xfail:
-    reason: "xfail for IPv6-only topologies, issue with trying to parse with IPv4 style"
+bgp/test_bgp_router_id.py::test_bgp_router_id_set[:
+  skip:
+    reason: "Skip for IPv6-only topologies"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
-
-bgp/test_bgp_router_id.py::test_bgp_router_id_set:
+      - "'-v6-' in topo_name"
   xfail:
-    reason: "xfail for IPv6-only topologies, issue with trying to parse with IPv4 style. Or test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions_logical_operator: or
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
 
-bgp/test_bgp_router_id.py::test_bgp_router_id_set_without_loopback:
-  xfail:
-    reason: "xfail for IPv6-only topologies, issue with trying to parse with IPv4 style"
+bgp/test_bgp_router_id.py::test_bgp_router_id_set_ipv6:
+  skip:
+    reason: "Skip for topologies that are not IPv6-only"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
+      - "'-v6-' not in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv4:
   skip:
