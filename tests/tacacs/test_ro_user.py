@@ -194,7 +194,9 @@ def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hos
     commands = [
             'sudo shutdown',
             # all commands under the config tree
-            'sudo config'
+            'sudo config',
+            'sudo vtysh -c "show xxxx"',
+            'sudo vtysh -n 0 -c "show xxxx"'
     ]
 
     # Wait until hostcfgd started and configured tacas authorization
