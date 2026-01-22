@@ -135,34 +135,6 @@ def get_dscp_to_queue_mapping(duthost):
         return None
 
 
-def find_dscp_for_queue(duthost, target_queue):
-    """
-    Find a DSCP value that maps to the target queue
-
-    Args:
-        duthost: DUT host object
-        target_queue: Target queue number
-
-    Returns:
-        int or None: DSCP value that maps to target queue, or None if not found
-    """
-    # Get DSCP to queue mapping from DUT
-    dscp_to_queue_map = get_dscp_to_queue_mapping(duthost)
-    if dscp_to_queue_map is None:
-        logger.error("Could not get DSCP to queue mapping from DUT")
-        return None
-
-    for dscp, queue in dscp_to_queue_map.items():
-        if queue == target_queue:
-            logger.info(f"Found DSCP {dscp} maps to target queue {target_queue}")
-            return dscp
-
-    # If no exact match found, log available mappings and return None
-    available_mappings = {f"DSCP {dscp}": f"Queue {queue}" for dscp, queue in dscp_to_queue_map.items()}
-    logger.error(f"No DSCP found that maps to queue {target_queue}. Available mappings: {available_mappings}")
-    return None
-
-
 def get_phy_intfs(host_ans):
     """
     @Summary: Get the physical interfaces (e.g., EthernetX) of a DUT

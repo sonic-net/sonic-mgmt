@@ -23,13 +23,17 @@ import ipaddress
 import json
 import logging
 import pytest
-import random
 import time
 
 from tests.common.helpers.assertions import pytest_assert
 import ptf.testutils as testutils
 from tests.qos.qos_helpers import find_dscp_for_queue
-from tests.common.helpers.ptf_tests_helper import get_dut_to_ptf_port_mapping
+from tests.common.helpers.ptf_tests_helper import (
+    select_test_interface_and_ptf_port,
+    get_interface_ip_address,
+    detect_portchannel_egress_member
+)
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -61,87 +65,53 @@ class StrictPriorityRateLimitingDriver:
         self.testbed_info = testbed_info
         self.target_queue = TEST_CONFIG['queue']
 
-        # Step 1: Choose interface and get PTF port mapping
-        self.test_interface, self.ptf_port_index = self._select_test_interface_and_ptf_port()
+        # Determine which drop counter to use based on ASIC (set once)
+        asic_name = self.duthost.get_asic_name().lower()
+        self.drop_counter = 'RX_DRP' if "q3d" in asic_name else 'TX_DRP'
+
+        # Step 1: Choose interface/PortChannel and get PTF port mapping
+        self.test_interface, self.ptf_port_index = select_test_interface_and_ptf_port(duthost, testbed_info)
+        if not self.test_interface or self.ptf_port_index is None:
+            raise Exception("Could not find interface with PTF port mapping")
 
         # Step 2: Find correct DSCP for target queue
         self.dscp_value = find_dscp_for_queue(duthost, self.target_queue)
 
-        # Step 3: Get interface IP configuration for packet creation
-        self.source_ip, self.destination_ip = self._get_test_packet_ips()
+        # Step 3: Get interface IP and calculate source/destination IPs
+        mg_facts = duthost.get_extended_minigraph_facts(testbed_info)
+        self.interface_ip = get_interface_ip_address(self.test_interface, mg_facts)
+        if not self.interface_ip:
+            raise Exception(f"Could not find IP address for interface {self.test_interface}")
 
-        # Step 4: Create the packet template
+        interface_network = ipaddress.ip_interface(self.interface_ip)
+        self.source_ip = str(interface_network.ip - 1)
+        self.destination_ip = str(interface_network.ip + 1)
+
         self.test_packet_template = self._create_test_packet_template()
+
+        # Step 4: If PortChannel, detect actual egress member
+        portchannels = mg_facts.get('minigraph_portchannels', {})
+        if self.test_interface in portchannels:
+            logger.info(f"{self.test_interface} is a PortChannel, detecting egress member")
+
+            # Detect actual egress member
+            detected_interface, detected_ptf_port = detect_portchannel_egress_member(
+                duthost, testbed_info, ptf_adapter, self.test_interface, self.test_packet_template
+            )
+            if detected_interface and detected_ptf_port is not None:
+                logger.info(f"Detected egress member: {detected_interface} (PTF port {detected_ptf_port})")
+                self.test_interface = detected_interface
+                self.ptf_port_index = detected_ptf_port
+            else:
+                raise Exception(f"Could not detect egress member for PortChannel {self.test_interface}")
 
         logger.info(f"Initialized Strict Priority Rate Limiting Test Driver for DUT: {duthost.hostname}")
         logger.info(f"Test interface: {self.test_interface}, Target queue: {self.target_queue}")
         logger.info(f"PTF port index: {self.ptf_port_index}")
         logger.info(f"DSCP: {self.dscp_value} (maps to Queue {self.target_queue})")
         logger.info(f"Packet IPs: {self.source_ip} -> {self.destination_ip}")
+        logger.info(f"Drop counter: {self.drop_counter} (ASIC: {asic_name})")
         logger.info(f"Test config: {TEST_CONFIG}")
-
-    def _select_test_interface_and_ptf_port(self):
-        """
-        Select test interface and find corresponding PTF port
-
-        Returns:
-            tuple: (interface_name, ptf_port_index)
-        """
-        try:
-            # Get DUT to PTF port mapping
-            dut_to_ptf_mapping = get_dut_to_ptf_port_mapping(self.duthost, self.testbed_info)
-
-            if not dut_to_ptf_mapping:
-                raise Exception("No DUT to PTF port mapping available")
-
-            # Use a random available interface/port pair
-            interface_name = random.choice(list(dut_to_ptf_mapping.keys()))
-            ptf_port_index = dut_to_ptf_mapping[interface_name]
-
-            logger.info(f"Chosen interface: {interface_name} (PTF port: {ptf_port_index})")
-            return interface_name, ptf_port_index
-
-        except Exception as e:
-            logger.error(f"Error choosing interface and PTF port: {e}")
-            raise
-
-    def _get_test_packet_ips(self):
-        """
-        Step 3: Get IP configuration for packet creation that will go through chosen interface TX
-
-        Returns:
-            tuple: (src_ip, dst_ip) for packet creation
-        """
-        try:
-            # Get interface IP configuration from minigraph
-            mg_facts = self.duthost.get_extended_minigraph_facts(self.testbed_info)
-
-            # Look for interface IP in minigraph
-            interface_ip = None
-            for intf_info in mg_facts.get('minigraph_interfaces', []):
-                if intf_info['attachto'] == self.test_interface:
-                    interface_ip = intf_info['addr']
-                    break
-
-            if not interface_ip:
-                raise Exception(f"Could not find IP address for interface {self.test_interface}")
-
-            # Create IPs in same subnet to ensure routing through this interface
-            interface_network = ipaddress.ip_interface(interface_ip)
-
-            # Source IP: Use an IP from the interface subnet (PTF side)
-            source_ip = str(interface_network.ip - 1)
-
-            # Destination IP: Use next IP in subnet to force routing back out same interface
-            destination_ip = str(interface_network.ip + 1)
-
-            logger.info(f"Interface {self.test_interface} IP: {interface_ip}")
-            logger.info(f"Packet IPs: {source_ip} -> {destination_ip} (will route through {self.test_interface})")
-            return source_ip, destination_ip
-
-        except Exception as e:
-            logger.error(f"Error getting packet IPs for interface {self.test_interface}: {e}")
-            raise Exception(f"Cannot proceed without valid IP configuration for interface {self.test_interface}: {e}")
 
     def _create_test_packet_template(self):
         """
@@ -152,13 +122,11 @@ class StrictPriorityRateLimitingDriver:
         """
         try:
             router_mac = self.duthost.facts["router_mac"]
-            ptf_mac = self.ptf_adapter.dataplane.get_mac(0, self.ptf_port_index)
 
             # Create packet with correct DSCP for target queue
             test_packet = testutils.simple_tcp_packet(
                 pktlen=TEST_CONFIG['packet_size'],
                 eth_dst=router_mac,  # Send to DUT's router MAC for L3 routing
-                eth_src=ptf_mac,     # PTF port MAC
                 ip_src=self.source_ip,  # Source IP in interface subnet
                 ip_dst=self.destination_ip,  # Destination IP that will route through target interface
                 ip_tos=self.dscp_value << 2,  # DSCP is upper 6 bits of ToS field
@@ -204,7 +172,7 @@ class StrictPriorityRateLimitingDriver:
             rate_mbps = (traffic_rate_bytes_per_sec * 8) / 1000000
 
             logger.info(f"Sending PTF traffic: {traffic_rate_bytes_per_sec} bytes/s "
-                        f"({rate_mbps:.1f} Mbps, {packets_per_second} pps) for {test_duration_seconds}s")
+                        f"({rate_mbps: .1f} Mbps, {packets_per_second} pps) for {test_duration_seconds}s")
             logger.info(f"Interface: {self.test_interface} (PTF port {self.ptf_port_index}), "
                         f"DSCP: {self.dscp_value} -> Queue {self.target_queue}")
 
@@ -235,13 +203,13 @@ class StrictPriorityRateLimitingDriver:
                 if (i + 1) % 5000 == 0:
                     elapsed = time.time() - start_time
                     current_rate_pps = (i + 1) / elapsed if elapsed > 0 else 0
-                    logger.info(f"Progress: {i + 1}/{total_packets} packets ({current_rate_pps:.0f} pps)")
+                    logger.info(f"Progress: {i + 1}/{total_packets} packets ({current_rate_pps: .0f} pps)")
 
                 # Early exit if we've exceeded the target duration significantly
                 elapsed = time.time() - start_time
                 if elapsed > test_duration_seconds * 1.5:  # 50% tolerance
                     logger.warning(f"Stopping early due to timing: sent {packets_sent}/{total_packets} "
-                                   f"packets in {elapsed:.2f}s")
+                                   f"packets in {elapsed: .2f}s")
                     break
 
             end_time = time.time()
@@ -249,21 +217,21 @@ class StrictPriorityRateLimitingDriver:
             actual_rate_pps = packets_sent / actual_duration if actual_duration > 0 else 0
             actual_rate_bytes_per_sec = actual_rate_pps * packet_size_bytes  # Convert to bytes per second
             actual_rate_mbps = (actual_rate_bytes_per_sec * 8) / 1000000     # Convert to Mbps for display
-            logger.info(f"Traffic completed: {packets_sent} packets in {actual_duration:.2f}s")
-            logger.info(f"Actual rate: {actual_rate_bytes_per_sec:.0f} bytes/s "
-                        f"({actual_rate_mbps:.1f} Mbps, {actual_rate_pps:.1f} pps)")
+            logger.info(f"Traffic completed: {packets_sent} packets in {actual_duration: .2f}s")
+            logger.info(f"Actual rate: {actual_rate_bytes_per_sec: .0f} bytes/s "
+                        f"({actual_rate_mbps: .1f} Mbps, {actual_rate_pps: .1f} pps)")
 
             # Calculate accuracy and validate bandwidth achievement
             if traffic_rate_bytes_per_sec > 0:
                 accuracy_percent = (actual_rate_bytes_per_sec / traffic_rate_bytes_per_sec) * 100
-                logger.info(f"Rate accuracy: {accuracy_percent:.1f}% of target")
+                logger.info(f"Rate accuracy: {accuracy_percent: .1f}% of target")
 
                 # Check if we achieved acceptable bandwidth
                 if accuracy_percent < TEST_CONFIG['bandwidth_tolerance_min']:
                     target_mbps = (traffic_rate_bytes_per_sec * 8) / 1000000
-                    logger.error(f"Failed to achieve target bandwidth: {actual_rate_mbps:.1f} Mbps "
-                                 f"vs target {target_mbps:.1f} Mbps ({accuracy_percent:.1f}%)")
-                    pytest.skip(f"Cannot achieve desired bandwidth: got {accuracy_percent:.1f}% of target rate")
+                    logger.error(f"Failed to achieve target bandwidth: {actual_rate_mbps: .1f} Mbps "
+                                 f"vs target {target_mbps: .1f} Mbps ({accuracy_percent: .1f}%)")
+                    pytest.skip(f"Cannot achieve desired bandwidth: got {accuracy_percent: .1f}% of target rate")
 
             time.sleep(2)
 
@@ -296,11 +264,11 @@ class StrictPriorityRateLimitingDriver:
             final_counters = self._retrieve_interface_counters()
 
             # Validate no drops without rate limiting
-            pytest_assert('TX_DRP' in initial_counters, "Failed to get initial TX_DRP counter")
-            pytest_assert('TX_DRP' in final_counters, "Failed to get final TX_DRP counter")
+            pytest_assert(self.drop_counter in initial_counters, f"Failed to get initial {self.drop_counter} counter")
+            pytest_assert(self.drop_counter in final_counters, f"Failed to get final {self.drop_counter} counter")
 
-            initial_drops = initial_counters['TX_DRP']
-            final_drops = final_counters['TX_DRP']
+            initial_drops = initial_counters[self.drop_counter]
+            final_drops = final_counters[self.drop_counter]
             actual_drops = final_drops - initial_drops
 
             logger.info(f"Baseline drops: {actual_drops} (threshold: {TEST_CONFIG['drop_threshold_low']})")
@@ -327,11 +295,11 @@ class StrictPriorityRateLimitingDriver:
             final_counters = self._retrieve_interface_counters()
 
             # Validate no drops for low traffic
-            pytest_assert('TX_DRP' in initial_counters, "Failed to get initial TX_DRP counter")
-            pytest_assert('TX_DRP' in final_counters, "Failed to get final TX_DRP counter")
+            pytest_assert(self.drop_counter in initial_counters, f"Failed to get initial {self.drop_counter} counter")
+            pytest_assert(self.drop_counter in final_counters, f"Failed to get final {self.drop_counter} counter")
 
-            initial_drops = initial_counters['TX_DRP']
-            final_drops = final_counters['TX_DRP']
+            initial_drops = initial_counters[self.drop_counter]
+            final_drops = final_counters[self.drop_counter]
             actual_drops = final_drops - initial_drops
 
             logger.info(f"Low traffic drops: {actual_drops} (threshold: {TEST_CONFIG['drop_threshold_low']})")
@@ -354,11 +322,11 @@ class StrictPriorityRateLimitingDriver:
             final_counters = self._retrieve_interface_counters()
 
             # Validate drops for high traffic
-            pytest_assert('TX_DRP' in initial_counters, "Failed to get initial TX_DRP counter")
-            pytest_assert('TX_DRP' in final_counters, "Failed to get final TX_DRP counter")
+            pytest_assert(self.drop_counter in initial_counters, f"Failed to get initial {self.drop_counter} counter")
+            pytest_assert(self.drop_counter in final_counters, f"Failed to get final {self.drop_counter} counter")
 
-            initial_drops = initial_counters['TX_DRP']
-            final_drops = final_counters['TX_DRP']
+            initial_drops = initial_counters[self.drop_counter]
+            final_drops = final_counters[self.drop_counter]
             actual_drops = final_drops - initial_drops
 
             logger.info(f"High traffic drops: {actual_drops} (threshold: {TEST_CONFIG['drop_threshold_high']})")
@@ -369,7 +337,7 @@ class StrictPriorityRateLimitingDriver:
 
             # Cleanup configuration
             logger.info("Cleaning up...")
-            self._reload_qos_configuration()
+            self._reload_configuration()
 
             logger.info("Strict priority rate limiting test flow completed successfully")
             return True
@@ -378,7 +346,7 @@ class StrictPriorityRateLimitingDriver:
             logger.error(f"Strict priority rate limiting test flow failed: {e}")
             # Attempt cleanup even if test failed
             try:
-                self._reload_qos_configuration()
+                self._reload_configuration()
             except Exception as cleanup_error:
                 logger.error(f"Cleanup also failed: {cleanup_error}")
             return False
@@ -386,7 +354,56 @@ class StrictPriorityRateLimitingDriver:
     def cleanup_configuration(self):
         """Clean up strict priority rate limiting test configuration."""
         logger.info("Cleaning up configuration...")
-        self._reload_qos_configuration()
+
+        self._reload_configuration()
+
+    def _get_queue_key(self, interface, queue):
+        """
+        Get the correct queue key format for the platform.
+
+        First tries to discover the key from Redis by querying existing keys.
+        If not found, falls back to platform-based detection.
+
+        Args:
+            interface: Interface name (e.g., 'Ethernet0')
+            queue: Queue number (e.g., 3)
+
+        Returns:
+            str: Queue key in the correct format for the platform
+        """
+        try:
+            # Method 1: Try to discover existing queue key from Redis
+            logger.info(f"Attempting to discover queue key for {interface} queue {queue} from Redis...")
+            search_cmd = f"redis-cli -n 4 KEYS 'QUEUE|*{interface}|{queue}'"
+            result = self.duthost.shell(search_cmd, module_ignore_errors=True)
+
+            if result['rc'] == 0 and result['stdout'].strip():
+                keys = result['stdout'].strip().split('\n')
+                discovered_key = keys[0].strip()
+                if discovered_key:
+                    logger.info(f"✓ Discovered queue key from Redis: {discovered_key}")
+                    return discovered_key
+
+            logger.info("Queue key not found in Redis, using ASIC-based detection...")
+
+            # Method 2: Fall back to ASIC-based detection
+            # Q3D ASIC uses format: QUEUE|<hostname>|Asic0|<interface>|<queue>
+            asic_name = self.duthost.get_asic_name().lower()
+            if "q3d" in asic_name:
+                hostname = self.duthost.hostname
+                queue_key = f"QUEUE|{hostname}|Asic0|{interface}|{queue}"
+                logger.info(f"✓ Using Q3D format queue key: {queue_key}")
+            else:
+                # Standard format: QUEUE|<interface>|<queue>
+                queue_key = f"QUEUE|{interface}|{queue}"
+                logger.info(f"✓ Using standard format queue key: {queue_key}")
+
+            return queue_key
+
+        except Exception as e:
+            logger.warning(f"Error discovering queue key: {e}, using standard format")
+            # Final fallback to standard format
+            return f"QUEUE|{interface}|{queue}"
 
     def _apply_strict_priority_rate_limiting_config(self):
         """Configure CIR and PIR rate limiting with STRICT priority scheduler on the specified queue."""
@@ -395,10 +412,27 @@ class StrictPriorityRateLimitingDriver:
         # Log the rates for clarity
         cir_mbps = (TEST_CONFIG['cir_bytes_per_sec'] * 8) / 1000000  # Convert to Mbps for display
         pir_mbps = (TEST_CONFIG['pir_bytes_per_sec'] * 8) / 1000000  # Convert to Mbps for display
-        logger.info(f"Setting rate limits: CIR={cir_mbps:.1f} Mbps ({TEST_CONFIG['cir_bytes_per_sec']} bytes/s), "
-                    f"PIR={pir_mbps:.1f} Mbps ({TEST_CONFIG['pir_bytes_per_sec']} bytes/s)")
+        logger.info(f"Setting rate limits: CIR={cir_mbps: .1f} Mbps ({TEST_CONFIG['cir_bytes_per_sec']} bytes/s), "
+                    f"PIR={pir_mbps: .1f} Mbps ({TEST_CONFIG['pir_bytes_per_sec']} bytes/s)")
 
         try:
+            # For Q3D ASIC, configure finer control over quanta for rate setting
+            asic_name = self.duthost.get_asic_name().lower()
+            if "q3d" in asic_name:
+                logger.info("Configuring Q3D ASIC credit worth for finer rate control...")
+
+                # Set credit worth value from configuration
+                credit_worth = TEST_CONFIG['dnx_credit_worth']
+                bcm_cmd = (
+                    f'bcmcmd "dbal Entry commit table=SCH_PORT_CREDIT_CONFIGURATION '
+                    f'CREDIT_WORTH={credit_worth}"'
+                )
+                result = self.duthost.shell(bcm_cmd, module_ignore_errors=True)
+                if result['rc'] == 0:
+                    logger.info(f"✓ Q3D credit configuration applied successfully (CREDIT_WORTH={credit_worth})")
+                else:
+                    logger.warning(f"Q3D credit configuration failed: {result.get('stderr', 'Unknown error')}")
+
             # Create scheduler policy
             policy_name = TEST_CONFIG['scheduler_policy']
             scheduler_key = f"SCHEDULER|{policy_name}"
@@ -408,8 +442,10 @@ class StrictPriorityRateLimitingDriver:
             self.duthost.shell(f"redis-cli -n 4 HSET '{scheduler_key}' 'cir' '{TEST_CONFIG['cir_bytes_per_sec']}'")
             self.duthost.shell(f"redis-cli -n 4 HSET '{scheduler_key}' 'pir' '{TEST_CONFIG['pir_bytes_per_sec']}'")
 
+            # Get the correct queue key format for this platform
+            queue_key = self._get_queue_key(self.test_interface, self.target_queue)
+
             # Apply scheduler policy to queue
-            queue_key = f"QUEUE|{self.test_interface}|{self.target_queue}"
             self.duthost.shell(f"redis-cli -n 4 HSET '{queue_key}' 'scheduler' '{policy_name}'")
 
             # Show the queue configuration after setting scheduler
@@ -446,22 +482,26 @@ class StrictPriorityRateLimitingDriver:
                 if interface_counters:
                     # Extract counter values for the interface
                     tx_drp = 0
+                    rx_drp = 0
                     rx_ok = 0
 
                     # Convert string values to integers, handling commas
                     if 'TX_DRP' in interface_counters:
                         tx_drp = int(str(interface_counters['TX_DRP']).replace(',', ''))
+                    if 'RX_DRP' in interface_counters:
+                        rx_drp = int(str(interface_counters['RX_DRP']).replace(',', ''))
                     if 'RX_OK' in interface_counters:
                         rx_ok = int(str(interface_counters['RX_OK']).replace(',', ''))
 
                     return {
                         'TX_DRP': tx_drp,
+                        'RX_DRP': rx_drp,
                         'RX_OK': rx_ok,
                         'timestamp': time.time(),
                         'raw_data': interface_counters
                     }
                 else:
-                    logger.warning(f"Interface {self.test_interface} not found in counters output")
+                    logger.warning(f"Interface {self.test_interface} not in counters output")
                     return {}
             else:
                 logger.warning("Failed to get interface counters from Ansible module")
@@ -471,23 +511,21 @@ class StrictPriorityRateLimitingDriver:
             logger.error(f"Error getting interface counters: {e}")
             return {}
 
-    def _reload_qos_configuration(self):
-        """Reload QoS configuration to restore original state."""
-        logger.info("Reloading QoS configuration to restore original state...")
+    def _reload_configuration(self):
+        """
+        Reload configuration to restore original state.
+        """
+        logger.info("Reloading configuration to restore original state...")
 
         try:
-            cmd = "config qos reload"
-            result = self.duthost.shell(cmd, module_ignore_errors=True)
-
-            if result['rc'] == 0:
-                logger.info("✓ QoS configuration reloaded successfully")
-                logger.info("All QoS tables restored to original state")
-            else:
-                logger.warning(f"QoS reload had issues: {result.get('stderr', 'Unknown error')}")
-                logger.info(f"QoS reload output: {result.get('stdout', 'No output')}")
+            # Run full config reload to restore state
+            logger.info("Running config reload...")
+            config_reload(self.duthost, config_source='config_db', safe_reload=True)
+            logger.info("✓ Configuration reloaded successfully")
+            logger.info("All configuration restored to original state")
 
         except Exception as e:
-            logger.error(f"Error during QoS reload: {e}")
+            logger.error(f"Error during configuration reload: {e}")
             raise
 
 
@@ -524,14 +562,18 @@ def test_rate_limiting_flow(duthosts, rand_one_dut_hostname, ptfadapter, tbinfo)
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Check if DUT is running supported Broadcom TH5 ASIC
+    # Skip test for multi-ASIC platforms
+    if duthost.is_multi_asic:
+        pytest.skip("Test does not support multi-ASIC platforms")
+
+    # Check if DUT is running supported Broadcom ASIC
     if duthost.facts["asic_type"].lower() != "broadcom":
         pytest.skip(f"Test only supports Broadcom ASICs. Current ASIC: {duthost.facts['asic_type']}")
 
-    # Check if DUT is running TH5 platform
+    # Check if DUT is running TH5 or Q3D platform
     asic_name = duthost.get_asic_name().lower()
-    if "th5" not in asic_name:
-        pytest.skip(f"Test only supports Broadcom TH5 platform. Current ASIC: {asic_name}")
+    if asic_name not in ["th5", "q3d"]:
+        pytest.skip(f"Test only supports Broadcom TH5 and Q3D platform. Current ASIC: {asic_name}")
 
     logger.info("=" * 80)
     logger.info("RATE LIMITING TEST - TRAFFIC GENERATION AND DROP VALIDATION")
