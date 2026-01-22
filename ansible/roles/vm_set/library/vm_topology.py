@@ -583,8 +583,11 @@ class VMTopology(object):
             if vlan_id:
                 peer = rev_vrf_map[vrf]
                 vlan_intf_name = "%s.%d" % (BP_PORT_NAME, vlan_id)
-                VMTopology.cmd("nsenter -t %s -n ip link add link %s name %s type vlan id %d" %
-                               (self.pid, BP_PORT_NAME, vlan_intf_name, vlan_id))
+                if VMTopology.intf_exists(vlan_intf_name,  pid=self.pid):
+                    VMTopology.cmd("nsenter -t %s -n ip addr flush dev %s" % (self.pid, vlan_intf_name))
+                else:
+                    VMTopology.cmd("nsenter -t %s -n ip link add link %s name %s type vlan id %d" %
+                                   (self.pid, BP_PORT_NAME, vlan_intf_name, vlan_id))
                 if addr:
                     VMTopology.cmd(
                         "nsenter -t %s -n ip address add %s dev %s" % (self.pid, addr, vlan_intf_name))
@@ -595,6 +598,13 @@ class VMTopology(object):
                 VMTopology.iface_up(vlan_intf_name, pid=self.pid)
 
         VMTopology.iface_disable_txoff(BP_PORT_NAME, self.pid)
+
+	def remove_bp_vlans_from_docker(self, vlan_data):
+		for _, data in vlan_data.items():
+            vlan_id = data.get("vlan")
+			if vlan_id:
+				vlan_intf_name = "%s.%d" % (BP_PORT_NAME, vlan_id)
+                VMTopology.cmd("nsenter -t %s -n ip link del %s" % (self.pid, vlan_intf_name))
 
     def add_br_if_to_docker(self, bridge, ext_if, int_if):
         # add unique suffix to int_if to support multiple tasks run concurrently
@@ -2396,7 +2406,10 @@ def main():
         elif cmd == 'unbind':
             check_params(module, ['vm_set_name',
                                   'topo',
-                                  'duts_fp_ports'], cmd)
+                                  'duts_fp_ports',
+                                  'multi_vrf',
+                                  'multi_vrf_data'
+                                  ], cmd)
 
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
@@ -2405,6 +2418,8 @@ def main():
             duts_inband_ports = module.params['duts_inband_ports']
             duts_name = module.params['duts_name']
             is_multi_duts = True if len(duts_name) > 1 else False
+            is_multi_vrf = module.params['multi_vrf']
+            multi_vrf_data = module.params['multi_vrf_data']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (
@@ -2434,6 +2449,10 @@ def main():
                 net.remove_injected_fp_ports_from_docker()
                 if is_vs_chassis:
                     net.unbind_vs_chassis_ports(duts_midplane_ports, duts_inband_ports)
+
+                if is_multi_vrf:
+                    vlan_data = multi_vrf_data.get("ptf_backplane_addrs", {})
+                    net.remove_bp_vlans_from_docker(vlan_data)
 
             if hostif_exists:
                 net.remove_host_ports()
