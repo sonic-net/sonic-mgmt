@@ -58,6 +58,11 @@ def clear_static_route(tbinfo, duthost, ip, nhipv4='10.10.246.254'):
         ip_address = re.search(r'via (\d+\.\d+\.\d+\.\d+)', output)
         if ip_address:
             ip_address = ip_address.group(1)
+            # Check if this is a direct BGP neighbor (not a recursive route)
+            if ip_address not in config_facts_localhost['BGP_NEIGHBOR']:
+                logger.warning(f"Next-hop {ip_address} is not a direct BGP neighbor (may be recursive route). "
+                             f"Skipping route withdrawal for {ip}")
+                continue
             bgp_neigh_name = config_facts_localhost['BGP_NEIGHBOR'][ip_address]['name']
             exabgp_port = get_exabgp_port_for_neighbor(tbinfo, bgp_neigh_name)
             remove_static_route(tbinfo, ip_address, exabgp_port, ip=ip, nhipv4=nhipv4)
@@ -246,18 +251,55 @@ def get_cfg_info_from_dut(duthost, path, enum_rand_one_asic_namespace):
     return dict_info
 
 
-def get_active_interfaces(config_facts):
+def get_active_interfaces(config_facts, duthost=None):
     """
     Finds all the active interfaces based on running configuration.
+    For chassis-packet switches: Skips BP (backplane) interfaces and PortChannels with BP member interfaces.
+    For other switches: Returns all active interfaces without BP filtering.
+
+    Args:
+        config_facts: Configuration facts dictionary
+        duthost: DUT host object (optional, used to check switch_type)
     """
     active_interfaces = []
+
+    # Check if this is a chassis-packet switch
+    is_chassis_packet = (duthost and
+                        duthost.facts.get('switch_type') == 'chassis-packet')
+
+    # Add interfaces from INTERFACE table, skip BP interfaces only for chassis-packet
     for key, _value in config_facts.get("INTERFACE", {}).items():
         if re.compile(r'^Ethernet\d{1,3}$').match(key):
+            # Skip BP interfaces only for chassis-packet switches
+            if is_chassis_packet and key.startswith("Ethernet-BP"):
+                continue
             active_interfaces.append(key)
+
+    # Identify PortChannels with BP members (internal PortChannels) - only for chassis-packet
+    internal_portchannels = set()
+    if is_chassis_packet:
+        for portchannel, members in config_facts.get("PORTCHANNEL_MEMBER", {}).items():
+            for member_port in members.keys():
+                if member_port.startswith("Ethernet-BP"):
+                    internal_portchannels.add(portchannel)
+                    break
+
+    # Add interfaces from PORTCHANNEL_MEMBER, skip BP interfaces and members of internal PortChannels
     for portchannel in config_facts.get("PORTCHANNEL_MEMBER", {}):
+        # Skip internal PortChannels (those with BP members) - only for chassis-packet
+        if portchannel in internal_portchannels:
+            logger.info(f"Skipping internal PortChannel {portchannel} (has BP members)")
+            continue
+
         for key, _value in config_facts.get("PORTCHANNEL_MEMBER", {}).get(portchannel, {}).items():
+            # Skip BP interfaces only for chassis-packet switches
+            if is_chassis_packet and key.startswith("Ethernet-BP"):
+                continue
             active_interfaces.append(key)
-    logger.info("Active interfaces for this namespace:{}".format(active_interfaces))
+
+    logger.info("Active interfaces for this namespace: {}".format(active_interfaces))
+    if internal_portchannels:
+        logger.info("Skipped internal PortChannels (chassis-packet only): {}".format(internal_portchannels))
     return active_interfaces
 
 
