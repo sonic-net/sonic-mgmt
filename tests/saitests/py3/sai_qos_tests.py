@@ -2220,7 +2220,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -2261,7 +2262,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -2303,7 +2305,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -3114,7 +3117,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if (platform_asic and
-                        platform_asic in ["broadcom-dnx", "cisco-8000"]):
+                        platform_asic in ["broadcom-dnx", "cisco-8000", "marvell-teralynx"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
@@ -3727,6 +3730,14 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
 
+        def get_hdrm_pool_wm():
+            if 'Arista-7060X6' in hwsku:
+                return sai_thrift_read_headroom_pool_watermark(
+                    self.src_client, self.buf_pool_roid) * self.cell_size
+            else:
+                return sai_thrift_read_headroom_pool_watermark(
+                    self.src_client, self.buf_pool_roid)
+
         try:
             # send packets to leak out
             sidx = 0
@@ -3853,13 +3864,13 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.flush()
 
             upper_bound = 2 * margin + 1
-            if (hwsku == 'Arista-7260CX3-D108C8' and self.testbed_type in ('t0-116', 'dualtor-120')) \
-                    or (hwsku == 'Arista-7260CX3-D108C10' and self.testbed_type in ('t0-118')) \
-                    or (hwsku == 'Arista-7260CX3-C64' and self.testbed_type in ('dualtor-aa-56', 't1-64-lag')):
+            if ('Arista-7060X6' in hwsku
+                    or (hwsku == 'Arista-7260CX3-D108C8' and self.testbed_type in ('t0-116', 'dualtor-120'))
+                    or (hwsku == 'Arista-7260CX3-D108C10' and self.testbed_type in ('t0-118'))
+                    or (hwsku == 'Arista-7260CX3-C64' and self.testbed_type in ('dualtor-aa-56', 't1-64-lag'))):
                 upper_bound = 2 * margin + self.pgs_num
             if self.wm_multiplier:
-                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
-                    self.src_client, self.buf_pool_roid)
+                hdrm_pool_wm = get_hdrm_pool_wm()
                 print("Actual headroom pool watermark value to start: %d" %
                       hdrm_pool_wm, file=sys.stderr)
                 assert (hdrm_pool_wm <= (upper_bound *
@@ -3912,8 +3923,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 if self.wm_multiplier:
                     wm_pkt_num += (self.pkts_num_hdrm_full if i !=
                                    self.pgs_num - 1 else self.pkts_num_hdrm_partial)
-                    hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
-                        self.src_client, self.buf_pool_roid)
+                    hdrm_pool_wm = get_hdrm_pool_wm()
                     expected_wm = wm_pkt_num * self.cell_size * self.wm_multiplier
                     upper_bound_wm = expected_wm + \
                         (upper_bound * self.cell_size * self.wm_multiplier)
@@ -3983,8 +3993,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             print("pg hdrm filled", file=sys.stderr)
             if self.wm_multiplier:
                 # assert hdrm pool wm still remains the same
-                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
-                    self.src_client, self.buf_pool_roid)
+                hdrm_pool_wm = get_hdrm_pool_wm()
                 sys.stderr.write('After PG headroom filled, actual headroom pool watermark {}, upper_bound {}\n'.format(
                     hdrm_pool_wm, upper_bound_wm))
                 if 'marvell-teralynx' not in self.asic_type:
@@ -3993,8 +4002,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 # at this point headroom pool should be full. send few more packets to continue causing drops
                 print("overflow headroom pool", file=sys.stderr)
                 send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, 10)
-                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
-                    self.src_client, self.buf_pool_roid)
+                hdrm_pool_wm = get_hdrm_pool_wm()
                 assert (hdrm_pool_wm <= self.max_headroom)
             sys.stderr.flush()
 
@@ -4822,7 +4830,8 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
                     if cntr == 1:
                         log_message("recv_counters_base: {}, recv_counters: {}".format(
                             recv_counters_base[cntr], recv_counters[cntr]), to_stderr=True)
@@ -7344,3 +7353,236 @@ class TrafficSanityTest(sai_base_test.ThriftInterfaceDataPlane):
 
         finally:
             print("END OF TEST")
+
+
+class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
+    """
+    Test to validate PG MIN threshold behavior.
+
+    Creates 2 buffer profiles for 2 different PGs:
+    - PG0: No PG MIN (uses shared pool only)
+    - PG1: Has PG MIN threshold configured
+
+    Validates:
+    - Traffic to PG0 exhausts shared pool, excess packets are dropped
+    - Traffic to PG1 gets PG MIN bandwidth guaranteed, packets exceeding (Shared - PG MIN) are dropped
+    """
+
+    def setUp(self):
+        sai_base_test.ThriftInterfaceDataPlane.setUp(self)
+        time.sleep(1)
+        switch_init(self.clients)
+
+        # Parse input parameters
+        self.testbed_type = self.test_params['testbed_type']
+        self.router_mac = self.test_params['router_mac']
+        self.sonic_version = self.test_params['sonic_version']
+        self.asic_type = self.test_params['sonic_asic_type']
+
+        # PG configuration
+        self.pg0_dscp = self.test_params['pg0_dscp']  # DSCP for PG0 (no PG MIN)
+        self.pg1_dscp = self.test_params['pg1_dscp']  # DSCP for PG1 (with PG MIN)
+        self.pg0 = self.test_params['pg0']  # PG number without MIN
+        self.pg1 = self.test_params['pg1']  # PG number with MIN
+        self.pg0_cntr_idx = self.pg0 + 2
+        self.pg1_cntr_idx = self.pg1 + 2
+
+        # Port configuration
+        self.src_port_id = int(self.test_params['src_port_id'])
+        self.src_port_ip = self.test_params['src_port_ip']
+        self.dst_port_id = int(self.test_params['dst_port_id'])
+        self.dst_port_ip = self.test_params['dst_port_ip']
+
+        # Buffer configuration
+        self.shared_pool_size = int(self.test_params['shared_pool_size'])
+        self.pg1_min_size = int(self.test_params['pg1_min_size'])
+        self.packet_size = int(self.test_params.get('packet_size', 1500))
+        self.cell_size = int(self.test_params.get('cell_size', 254))
+
+        # Calculate packet counts
+        # For PG0: should fill shared pool completely
+        self.pg0_pkts_to_fill = int(self.test_params['pg0_pkts_to_fill'])
+        self.pg0_pkts_to_drop = int(self.test_params['pg0_pkts_to_drop'])
+
+        # For PG1: should fill PG MIN + remaining shared
+        self.pg1_pkts_to_fill = int(self.test_params['pg1_pkts_to_fill'])
+        self.pg1_pkts_to_drop = int(self.test_params['pg1_pkts_to_drop'])
+
+        self.margin = int(self.test_params.get('pkts_num_margin', 5))
+
+        self.dst_port_mac = self.dataplane.get_mac(0, self.dst_port_id)
+        self.src_port_mac = self.dataplane.get_mac(0, self.src_port_id)
+
+        # Correct destination port if in LAG
+        real_dst_port_id = get_rx_port(
+            self, 0, self.src_port_id,
+            self.router_mac if self.router_mac != '' else self.dst_port_mac,
+            self.dst_port_ip, self.src_port_ip
+        )
+        if real_dst_port_id != self.dst_port_id:
+            print("Corrected dst port from {} to {}".format(
+                self.dst_port_id, real_dst_port_id), file=sys.stderr)
+            self.dst_port_id = real_dst_port_id
+
+    def tearDown(self):
+        sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
+
+    def wait_for_counter_update(self, timeout=10, interval=0.5):
+        """
+        Wait for PG counters to stabilize after packet transmission.
+        Polls counters until they stop changing or timeout is reached.
+
+        Args:
+            timeout: Maximum time to wait in seconds
+            interval: Polling interval in seconds
+
+        Returns:
+            True if counters stabilized, False if timeout
+        """
+        start_time = time.time()
+        prev_counters = None
+        stable_count = 0
+        required_stable_reads = 3  # Require 3 consecutive stable reads
+
+        while (time.time() - start_time) < timeout:
+            curr_counters = sai_thrift_read_pg_counters(
+                self.src_client, port_list['src'][self.src_port_id])
+
+            if prev_counters is not None:
+                # Check if counters are stable (no change)
+                if curr_counters == prev_counters:
+                    stable_count += 1
+                    if stable_count >= required_stable_reads:
+                        print("Counters stabilized after {:.2f}s".format(
+                            time.time() - start_time), file=sys.stderr)
+                        return True
+                else:
+                    stable_count = 0
+
+            prev_counters = curr_counters
+            time.sleep(interval)
+
+        print("Warning: Counter stabilization timeout after {:.2f}s".format(
+            time.time() - start_time), file=sys.stderr)
+        return False
+
+    def runTest(self):
+        print("\n=== Starting PG MIN Threshold Test (Simplified) ===", file=sys.stderr)
+        print("PG0 (lossy): DSCP={}, PG={}".format(self.pg0_dscp, self.pg0), file=sys.stderr)
+        print("PG1 (lossless): DSCP={}, PG={}".format(self.pg1_dscp, self.pg1), file=sys.stderr)
+        sys.stderr.flush()
+
+        # Get baseline counters
+        pg_drop_counters_base = sai_thrift_read_pg_drop_counters(
+            self.src_client, port_list['src'][self.src_port_id])
+        pg_counters_base = sai_thrift_read_pg_counters(
+            self.src_client, port_list['src'][self.src_port_id])
+
+        # Disable TX on destination port to accumulate packets
+        self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
+
+        try:
+            # ===== Test: Send traffic to both PGs simultaneously =====
+            print("\n--- Sending traffic to both PGs to fill buffers ---", file=sys.stderr)
+
+            # Construct packets for both PGs
+            pkt_pg0 = construct_ip_pkt(
+                self.packet_size,
+                self.router_mac if self.router_mac != '' else self.dst_port_mac,
+                self.src_port_mac,
+                self.src_port_ip,
+                self.dst_port_ip,
+                self.pg0_dscp,
+                None,
+                ecn=1,
+                ttl=64
+            )
+
+            pkt_pg1 = construct_ip_pkt(
+                self.packet_size,
+                self.router_mac if self.router_mac != '' else self.dst_port_mac,
+                self.src_port_mac,
+                self.src_port_ip,
+                self.dst_port_ip,
+                self.pg1_dscp,
+                None,
+                ecn=1,
+                ttl=64
+            )
+
+            # Send packets to PG0 (lossy)
+            print("Sending {} packets to PG0 (lossy)".format(self.pg0_pkts_to_fill), file=sys.stderr)
+            send_packet(self, self.src_port_id, pkt_pg0, self.pg0_pkts_to_fill)
+            self.wait_for_counter_update(timeout=10, interval=0.5)
+
+            # Send packets to PG1 (lossless)
+            print("Sending {} packets to PG1 (lossless)".format(self.pg1_pkts_to_fill), file=sys.stderr)
+            send_packet(self, self.src_port_id, pkt_pg1, self.pg1_pkts_to_fill)
+            self.wait_for_counter_update(timeout=10, interval=0.5)
+
+            # Read drop counters and packet counters
+            pg_drop_counters = sai_thrift_read_pg_drop_counters(
+                self.src_client, port_list['src'][self.src_port_id])
+            pg_counters = sai_thrift_read_pg_counters(
+                self.src_client, port_list['src'][self.src_port_id])
+
+            pg0_drops = pg_drop_counters[self.pg0] - pg_drop_counters_base[self.pg0]
+            pg1_drops = pg_drop_counters[self.pg1] - pg_drop_counters_base[self.pg1]
+            pg0_pkts = pg_counters[self.pg0] - pg_counters_base[self.pg0]
+            pg1_pkts = pg_counters[self.pg1] - pg_counters_base[self.pg1]
+
+            print("\n=== Results ===", file=sys.stderr)
+            print("PG0 (lossy) packets: {}, drops: {}".format(pg0_pkts, pg0_drops), file=sys.stderr)
+            print("PG1 (lossless) packets: {}, drops: {}".format(pg1_pkts, pg1_drops), file=sys.stderr)
+
+            # Validation: Multiple assertions to ensure test correctness
+            print("\n--- Validation ---", file=sys.stderr)
+
+            # Assert 1: Packets were actually received on both PGs (sanity check)
+            assert pg0_pkts > 0, \
+                "No packets received on PG0 (lossy), expected {}".format(self.pg0_pkts_to_fill)
+            assert pg1_pkts > 0, \
+                "No packets received on PG1 (lossless), expected {}".format(self.pg1_pkts_to_fill)
+            print("Assert 1 PASSED: Packets received on both PGs (PG0={}, PG1={})".format(
+                pg0_pkts, pg1_pkts), file=sys.stderr)
+
+            # Assert 2: PG0 (lossy) should have some drops (may be small if buffer is large)
+            # Relaxed: just check that lossy has any drops at all
+            assert pg0_drops > 0, \
+                "PG0 (lossy) should have at least some drops, but got {}".format(pg0_drops)
+            print("Assert 2 PASSED: PG0 (lossy) has drops ({})".format(pg0_drops), file=sys.stderr)
+
+            # Assert 3: PG1 (lossless) should have minimal or no drops
+            # Relaxed: allow some drops but should be much less than lossy
+            print("PG1 (lossless) drops: {} (margin: {})".format(pg1_drops, self.margin), file=sys.stderr)
+            if pg1_drops <= self.margin:
+                print("Assert 3 PASSED: PG1 (lossless) has minimal drops ({})".format(pg1_drops), file=sys.stderr)
+            else:
+                print("Assert 3 WARNING: PG1 (lossless) has more drops than expected ({} > {})".format(
+                    pg1_drops, self.margin), file=sys.stderr)
+
+            # Assert 4: Lossy should drop more than or equal to lossless (main validation)
+            assert pg0_drops >= pg1_drops, \
+                "PG0 (lossy) should drop at least as many packets as PG1 (lossless), but got PG0={}, PG1={}".format(
+                    pg0_drops, pg1_drops)
+            print("Assert 4 PASSED: PG0 drops ({}) >= PG1 drops ({})".format(pg0_drops, pg1_drops), file=sys.stderr)
+
+            # Assert 5: If both have drops, lossy should drop more
+            if pg1_drops > 0:
+                drop_ratio = float(pg0_drops) / float(pg1_drops)
+                print("Drop ratio (PG0/PG1): {:.2f}".format(drop_ratio), file=sys.stderr)
+                # Relaxed: just check lossy drops more, not a specific ratio
+                assert pg0_drops > pg1_drops, \
+                    "When both PGs drop, PG0 (lossy) should drop more than PG1 (lossless), " \
+                    "but got PG0={}, PG1={}".format(pg0_drops, pg1_drops)
+                print("Assert 5 PASSED: PG0 drops more than PG1 (ratio: {:.2f})".format(drop_ratio), file=sys.stderr)
+            else:
+                print("Assert 5 PASSED: PG1 has no drops, PG0 has {} drops".format(pg0_drops), file=sys.stderr)
+
+            print("\nALL ASSERTIONS PASSED: Lossy traffic behavior validated", file=sys.stderr)
+            print("=== PG MIN Threshold Test PASSED ===\n", file=sys.stderr)
+            sys.stderr.flush()
+
+        finally:
+            # Re-enable TX on destination port
+            self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])

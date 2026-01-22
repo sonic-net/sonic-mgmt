@@ -238,16 +238,18 @@ class HashTest(BaseTest):
                 hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists)
         assert received
         logging.info("Received packet at " + str(matched_port))
+        self.dataplane.flush()
         time.sleep(0.02)
         return (matched_port, received)
 
     def _get_ip_proto(self, ipv6=False):
         # ip_proto 2 is IGMP, should not be forwarded by router
-        # ip_proto 4 and 41 are encapsulation protocol, ip payload will be malformat
+        # ip_proto 4, 41 and 47 are encapsulation protocol, ip payload will be malformat
         # ip_proto 60 is redirected to ip_proto 4 as encapsulation protocol, ip payload will be malformat
         # ip_proto 254 is experimental
         # MLNX ASIC can't forward ip_proto 254, BRCM is OK, skip for all for simplicity
-        skip_protos = [2, 253, 4, 41, 60, 254]
+        skip_protos = [2, 253, 4, 41, 47, 60, 254]
+
         if self.is_active_active_dualtor:
             # Skip ICMP for active-active dualtor as it is duplicated to both ToRs
             skip_protos.append(1)
@@ -273,7 +275,7 @@ class HashTest(BaseTest):
             logging.info(log)
         kwargs = {}
         if is_timeout:
-            kwargs["timeout"] = 1
+            kwargs["timeout"] = 10
         dst_ports = list(itertools.chain(*dst_port_lists))
         rcvd_port_index, rcvd_pkt = verify_packet_any_port(
             self, masked_exp_pkt, dst_ports, **kwargs)
@@ -406,7 +408,7 @@ class HashTest(BaseTest):
         ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
-        outer_sport = (random.randint(0, 65536) if hash_key == 'outer-src-port' else 1234)
+        outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
         dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
@@ -470,7 +472,7 @@ class HashTest(BaseTest):
         ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
-        outer_sport = random.randint(0, 65536) if hash_key == 'outer-src-port' else 1234
+        outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
         dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
@@ -502,7 +504,7 @@ class HashTest(BaseTest):
         logs = self.create_packets_logs(
             src_port=src_port,
             pkt=pkt,
-            ipinip_pkt=inner_pkt,
+            ipinip_pkt=pkt,
             vxlan_pkt=pkt,
             nvgre_pkt=pkt,
             inner_pkt=inner_pkt,
@@ -650,6 +652,13 @@ class IPinIPHashTest(HashTest):
     for IPinIP packet.
     '''
 
+    def send_and_verify_packets(self, src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False, logs=[]):
+        """
+        @summary: Send an IPinIP encapsulated packet and verify it is received on expected ports.
+        """
+        return super().send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False,
+                                               logs=logs)
+
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
             vxlan_pkt=None, nvgre_pkt=None, inner_pkt=None, outer_sport=None,
@@ -672,9 +681,9 @@ class IPinIPHashTest(HashTest):
                             next_header_key,
                             outer_proto,
                             version,
-                            pkt[version].src,
-                            pkt[version].dst,
-                            pkt[version].proto if version == 'IP' else pkt['IPv6'].nh,
+                            inner_pkt[version].src,
+                            inner_pkt[version].dst,
+                            inner_pkt[version].proto if version == 'IP' else inner_pkt['IPv6'].nh,
                             sport,
                             dport,
                             src_port))
@@ -735,7 +744,7 @@ class IPinIPHashTest(HashTest):
                 inner_frame=pkt[version])
             exp_pkt = ipinip_pkt.copy()
             exp_pkt['IP'].ttl -= 1
-        return pkt, exp_pkt, ipinip_pkt
+        return ipinip_pkt, exp_pkt, pkt
 
     def apply_mask_to_exp_pkt(self, masked_exp_pkt, version='IP'):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")

@@ -337,6 +337,15 @@
 
     when: switch_type is defined and switch_type == 'voq' and slot_num is defined and asic_topo_config|length > 0
 
+  - name: set default voq_chassis
+    set_fact:
+      voq_chassis: false
+
+  - name: set voq_chassis
+    set_fact:
+      voq_chassis: true
+    when: switch_type is defined and switch_type == 'voq' and voq_inband_ip is defined
+
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
               dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
@@ -649,6 +658,14 @@
       - name: Preload minigraph to flush config_db for Virtual Chassis and Multi-ASIC platforms
         shell: config load_minigraph -y && config save -y
         become: true
+        when: "('t2' in topo or num_asics > 1) and type == 'kvm'"
+
+      - name: Wait for essential services to start
+        shell: systemctl is-active --quiet pmon
+        register: pmon_status
+        retries: 30
+        delay: 10
+        until: pmon_status.rc == 0
         when: "('t2' in topo or num_asics > 1) and type == 'kvm'"
 
       - name: Copy dhcp_server config hwsku {{ hwsku }}

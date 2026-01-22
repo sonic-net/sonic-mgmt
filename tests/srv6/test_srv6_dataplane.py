@@ -3,7 +3,7 @@ import time
 import random
 import logging
 import string
-import json
+
 from scapy.all import Raw
 from scapy.layers.inet6 import IPv6, UDP
 from scapy.layers.l2 import Ether
@@ -21,7 +21,7 @@ from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.helpers.srv6_helper import create_srv6_packet, send_verify_srv6_packet, \
-    validate_srv6_in_appl_db, validate_srv6_in_asic_db, validate_srv6_route
+    validate_srv6_in_appl_db, validate_srv6_in_asic_db, validate_srv6_route, is_bgp_route_synced
 
 logger = logging.getLogger(__name__)
 
@@ -29,33 +29,6 @@ pytestmark = [
     pytest.mark.asic("mellanox", "broadcom", "vpp"),
     pytest.mark.topology("t0", "t1")
 ]
-
-
-def is_bgp_route_synced(duthost):
-    cmd = 'vtysh -c "show ip bgp neighbors json"'
-    output = duthost.command(cmd)['stdout']
-    bgp_info = json.loads(output)
-    for neighbor, info in bgp_info.items():
-        if 'gracefulRestartInfo' in info:
-            if "ipv4Unicast" in info['gracefulRestartInfo']:
-                if not info['gracefulRestartInfo']["ipv4Unicast"]['endOfRibStatus']['endOfRibSend']:
-                    logger.info(f"BGP neighbor {neighbor} is sending updates")
-                    return False
-                if not info['gracefulRestartInfo']["ipv4Unicast"]['endOfRibStatus']['endOfRibRecv']:
-                    logger.info(
-                        f"BGP neighbor {neighbor} is receiving updates")
-                    return False
-
-            if "ipv6Unicast" in info['gracefulRestartInfo']:
-                if not info['gracefulRestartInfo']["ipv6Unicast"]['endOfRibStatus']['endOfRibSend']:
-                    logger.info(f"BGP neighbor {neighbor} is sending updates")
-                    return False
-                if not info['gracefulRestartInfo']["ipv6Unicast"]['endOfRibStatus']['endOfRibRecv']:
-                    logger.info(
-                        f"BGP neighbor {neighbor} is receiving updates")
-                    return False
-    logger.info("BGP routes are synced")
-    return True
 
 
 def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
