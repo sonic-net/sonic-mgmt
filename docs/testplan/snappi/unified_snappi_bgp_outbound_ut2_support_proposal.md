@@ -1,14 +1,16 @@
-# BGP Outbound Tests - UT2 Pizzabox Support
+# BGP Outbound Route Convergence Tests - Unified T2 Topology Support
 
 ## Overview
 
-This proposal extends the existing BGP outbound convergence tests to support **Pizzabox UT2** topology in addition to the current **T2 Chassis** topology. The same test files will work on both topologies through a topology abstraction layer.
+This document describes the unified T2 topology abstraction layer implemented for BGP outbound route convergence tests. The implementation supports both **T2 Chassis** (multi-DUT) and **T2 Pizzabox** (single-DUT multi-ASIC) topologies using a single, unified configuration model in `variables.py`.
 
 **Original Test Plan:** [Convergence measurement in data center networks](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testplan/Convergence%20measurement%20in%20data%20center%20networks.md)
 
-## Topology Comparison
+---
 
-### T2 Chassis (Multi-DUT) - Current
+## Supported Topologies
+
+### T2 Chassis (Multi-DUT)
 
 ```
                          ┌─────────────────┐
@@ -24,8 +26,8 @@ This proposal extends the existing BGP outbound convergence tests to support **P
      └────────┬────────┘                     └────────┬────────┘
               │                                       │
      ┌────────▼────────┐                     ┌────────▼────────┐
-     │     Fanout      │                     │       T1        │
-     └────────┬────────┘                     │     Router      │
+     │     Fanout      │                     │   Lower Tier    │
+     └────────┬────────┘                     │     (T1)        │
               │                              └────────┬────────┘
      ┌────────▼────────┐                     ┌────────▼────────┐
      │   Snappi/Ixia   │                     │   Snappi/Ixia   │
@@ -33,125 +35,187 @@ This proposal extends the existing BGP outbound convergence tests to support **P
      └─────────────────┘                     └─────────────────┘
 ```
 
-### UT2 Pizzabox (Single DUT) - New
+### T2 Pizzabox (Single-DUT Multi-ASIC)
 
 ```
                     ┌─────────────────────────────────┐
-                    │         UT2 Pizzabox            │
-                    │        (Single DUT)             │
+                    │         T2 Pizzabox             │
+                    │     (Single DUT Multi-ASIC)     │
                     │                                 │
                     │  ┌──────────┐   ┌──────────┐   │
                     │  │  Uplink  │   │ Downlink │   │
                     │  │  Ports   │   │  Ports   │   │
+                    │  │ (asic0)  │   │ (asic1)  │   │
                     └──┴─────┬────┴───┴─────┬────┴───┘
                              │              │
                       ┌──────▼──────┐  ┌────▼────────┐
-                      │   Fanout    │  │     Lt2     │
-                      └──────┬──────┘  └─────┬───────┘
-                             │               │
+                      │   Fanout    │  │ Lower Tier  │
+                      └──────┬──────┘  │    (Lt2)    │
+                             │         └─────┬───────┘
                       ┌──────▼──────┐  ┌─────▼───────┐
-                      │    Ixia     │  │    Ixia     │
+                      │  Snappi/Ixia│  │ Snappi/Ixia │
                       │  (Uplink)   │  │ (Downlink)  │
                       └─────────────┘  └─────────────┘
 ```
 
 ### Key Differences
 
-| Aspect | T2 Chassis | UT2 Pizzabox |
-|--------|------------|--------------|
-| DUT Count | 3 (Uplink LC, Downlink LC, Supervisor) | 1 |
-| Uplink Path | Uplink LC → Fanout → Ixia | UT2 uplink ports → Fanout → Ixia |
-| Downlink Path | Downlink LC → T1 → Ixia | UT2 downlink ports → Lt2 → Ixia |
+| Aspect | T2 Chassis | T2 Pizzabox |
+|--------|------------|-------------|
+| DUT Count | 3 (Uplink LC, Downlink LC, Supervisor) | 1 (multi-ASIC) |
+| Uplink Path | Uplink LC → Fanout → Ixia | Pizzabox uplink ports → Fanout → Ixia |
+| Downlink Path | Downlink LC → Lower Tier → Ixia | Pizzabox downlink ports → Lower Tier → Ixia |
+| Lower Tier Device | T1 Router | Lt2 Router |
 | Supervisor | Present | Not applicable |
+| Device Hostnames | [lower_tier, uplink_lc, downlink_lc, supervisor] | [lower_tier, dut] |
 
 ---
 
-## Proposed Solution
+## Implementation
 
-### Topology Abstraction Layer
+### Unified Configuration Model
 
-Add functions to `bgp_outbound_helper.py` that abstract topology differences:
+All topology configurations are stored in a single `TOPOLOGY_CONFIG` dictionary in `variables.py`, organized by topology type and vendor:
 
-```python
-def get_topology_type(duthosts):
-    """
-    Detect topology type based on number of DUTs.
-    
-    Returns:
-        str: 'chassis' for T2 multi-DUT, 'pizzabox' for single DUT
-    """
-    if len(duthosts) == 1:
-        return 'pizzabox'
-    return 'chassis'
-
-
-def get_target_dut(duthosts, target_type, hw_platform=None):
-    """
-    Get the appropriate DUT for the target type.
-    
-    Args:
-        duthosts: List of DUT hosts
-        target_type: 'uplink', 'downlink', or 'supervisor'
-        hw_platform: Hardware platform identifier
-    
-    Returns:
-        duthost object or pytest.skip() if not applicable
-    """
-    topology = get_topology_type(duthosts)
-    
-    if topology == 'pizzabox':
-        if target_type == 'supervisor':
-            pytest.skip("Supervisor tests not applicable for pizzabox topology")
-        return duthosts[0]  # Same DUT for uplink/downlink
-    else:
-        # T2 Chassis - existing logic
-        from tests.snappi_tests.variables import t1_t2_device_hostnames
-        
-        if target_type == 'uplink':
-            target_hostname = t1_t2_device_hostnames[hw_platform][1]
-        elif target_type == 'downlink':
-            target_hostname = t1_t2_device_hostnames[hw_platform][2]
-        elif target_type == 'supervisor':
-            target_hostname = t1_t2_device_hostnames[hw_platform][3]
-        
-        for duthost in duthosts:
-            if target_hostname in duthost.hostname:
-                return duthost
-        
-        pytest.fail(f"Could not find DUT for {target_type}")
-
-
-def get_uplink_ports(duthosts, snappi_extra_params):
-    """Get uplink ports based on topology."""
-    topology = get_topology_type(duthosts)
-    duthost = get_target_dut(duthosts, 'uplink')
-    
-    if topology == 'pizzabox':
-        return snappi_extra_params.uplink_interface or 'PortChannel0'
-    else:
-        return snappi_extra_params.multi_dut_params.flap_details
-
-
-def get_downlink_ports(duthosts, snappi_extra_params):
-    """Get downlink ports based on topology."""
-    topology = get_topology_type(duthosts)
-    duthost = get_target_dut(duthosts, 'downlink')
-    
-    if topology == 'pizzabox':
-        return snappi_extra_params.downlink_interface or 'PortChannel100'
-    else:
-        return snappi_extra_params.multi_dut_params.flap_details
+```
+TOPOLOGY_CONFIG
+├── TOPOLOGY_T2_CHASSIS
+│   ├── VENDOR_1
+│   ├── VENDOR_2
+│   └── VENDOR_3
+└── TOPOLOGY_T2_PIZZABOX
+    ├── VENDOR_1
+    ├── VENDOR_2
+    └── VENDOR_3
 ```
 
-### DUT Resolution Mapping
+### Topology Type Constants
 
-| Concept | T2 Chassis | Pizzabox UT2 |
-|---------|------------|--------------|
-| Uplink DUT | duthost1 (Uplink LC) | duthost (UT2) |
-| Downlink DUT | duthost2 (Downlink LC) | duthost (UT2) |
-| Supervisor DUT | duthost3 (Supervisor) | N/A (skip test) |
-| Uplink Ports | Ports on Uplink LC | Uplink-facing ports on UT2 |
-| Downlink Ports | Ports on Downlink LC | Downlink-facing ports on UT2 |
+```python
+TOPOLOGY_T2_CHASSIS = 'T2_CHASSIS'    # Multi-DUT chassis topology
+TOPOLOGY_T2_PIZZABOX = 'T2_PIZZABOX'  # Single-DUT pizzabox topology
+```
+
+### AS Number Configuration
+
+Unified AS numbers used across all topologies:
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `T2_DUT_AS_NUM` | 65100 | T2 DUT under test |
+| `UPPER_TIER_SNAPPI_AS_NUM` | 65400 | T3/Spine devices emulated via Snappi (uplink) |
+| `BACKUP_T2_SNAPPI_AS_NUM` | 65300 | Backup T2 DUTs emulated via Snappi |
+| `LOWER_TIER_DUT_AS_NUM` | 65200 | Lower tier DUT (T1/Lt2) |
+
+### Vendor Configuration Structure
+
+Each vendor configuration under a topology type contains:
+
+```python
+'VENDOR_NAME': {
+    # Device hostnames list
+    'device_hostnames': [...],  # Order differs by topology type
+    
+    # Lower tier device info
+    'lower_tier_info': {
+        'dut_ip': '...',           # Management IP
+        'ports': [...],            # Snappi-connected ports
+        'interconnect_port': '...', # Port connecting to DUT
+    },
+    
+    # Snappi ports connected to lower tier
+    'lower_tier_snappi_ports': [...],
+    
+    # Fanout configuration for uplink
+    'uplink_fanout': {
+        'fanout_ip': '...',
+        'port_mapping': [...]
+    },
+    
+    # Portchannel members by ASIC
+    'uplink_portchannel_members': {
+        'asic0': {...},
+        'asic1': {...},  # or None for single-ASIC
+    },
+    
+    # DUT-side interconnect port
+    'dut_interconnect_port': {'port_name': '...', 'asic_value': '...'},
+}
+```
+
+---
+
+## Accessor Functions
+
+The following functions provide a clean API for accessing topology configuration:
+
+### Core Functions
+
+| Function | Description |
+|----------|-------------|
+| `detect_topology_and_vendor(hostnames)` | Auto-detect topology type and vendor from DUT hostnames |
+| `get_topology_config(topology_type, vendor, key, default)` | Get configuration value for topology/vendor |
+| `get_device_hostnames(topology_type, vendor)` | Get device hostname list |
+
+### Data Access Functions
+
+| Function | Description |
+|----------|-------------|
+| `get_lower_tier_info(topology_type, vendor)` | Get lower tier device info (IP, ports, interconnect) |
+| `get_lower_tier_snappi_ports(topology_type, vendor)` | Get Snappi ports connected to lower tier |
+| `get_uplink_fanout_info(topology_type, vendor)` | Get fanout configuration for uplinks |
+| `get_uplink_portchannel_members(topology_type, vendor)` | Get portchannel members by ASIC |
+| `get_dut_interconnect_port(topology_type, vendor)` | Get DUT-side interconnect port info |
+| `get_as_numbers()` | Get AS number mappings dictionary |
+
+### IP Generation Functions
+
+| Function | Description |
+|----------|-------------|
+| `get_routed_port_count(topology_type, vendor)` | Calculate routed port count |
+| `get_portchannel_count(topology_type, vendor)` | Calculate portchannel count |
+| `generate_ips_for_bgp(ipv4_subnet, ipv6_subnet, total_count)` | Generate IP address lists for BGP |
+| `get_bgp_ips_for_topology(topology_type, vendor)` | Get complete BGP IP configuration |
+
+---
+
+## Test File Integration
+
+### Topology Detection Pattern
+
+Test files use automatic topology detection:
+
+```python
+from tests.snappi_tests.variables import (
+    detect_topology_and_vendor,
+    get_device_hostnames,
+    get_lower_tier_info,
+    get_lower_tier_snappi_ports,
+    get_uplink_fanout_info,
+    TOPOLOGY_T2_CHASSIS,
+    TOPOLOGY_T2_PIZZABOX,
+)
+
+# In test or fixture
+hostnames = [dut.hostname for dut in duthosts]
+topo_type, vendor = detect_topology_and_vendor(hostnames)
+
+if topo_type == TOPOLOGY_T2_PIZZABOX:
+    # Single DUT - same device handles uplink and downlink
+    ...
+elif topo_type == TOPOLOGY_T2_CHASSIS:
+    # Multi-DUT - separate linecards for uplink/downlink
+    ...
+```
+
+### DUT Resolution
+
+| Concept | T2 Chassis | T2 Pizzabox |
+|---------|------------|-------------|
+| Uplink DUT | `device_hostnames[1]` (Uplink LC) | `device_hostnames[1]` (same DUT) |
+| Downlink DUT | `device_hostnames[2]` (Downlink LC) | `device_hostnames[1]` (same DUT) |
+| Supervisor DUT | `device_hostnames[3]` | N/A (skip test) |
+| Lower Tier | `device_hostnames[0]` (T1) | `device_hostnames[0]` (Lt2) |
 
 ---
 
@@ -159,190 +223,90 @@ def get_downlink_ports(duthosts, snappi_extra_params):
 
 ### Tests That Run on Both Topologies
 
-| Test | T2 Chassis Behavior | Pizzabox UT2 Behavior |
+| Test | T2 Chassis Behavior | T2 Pizzabox Behavior |
 |------|---------------------|----------------------|
-| `test_bgp_outbound_uplink_po_flap` | Flap PO on Uplink LC | Flap uplink PO on UT2 |
-| `test_bgp_outbound_uplink_multi_po_flap` | Flap multiple POs on Uplink LC | Flap multiple uplink POs on UT2 |
-| `test_bgp_outbound_uplink_po_member_flap` | Flap PO member on Uplink LC | Flap uplink PO member on UT2 |
-| `test_bgp_outbound_uplink_complete_blackout` | 100% PO flap on Uplink LC | 100% uplink PO flap on UT2 |
-| `test_bgp_outbound_uplink_partial_blackout` | 50% PO flap on Uplink LC | 50% uplink PO flap on UT2 |
-| `test_bgp_outbound_downlink_port_flap` | Flap port on Downlink LC | Flap downlink port on UT2 |
-| `test_bgp_outbound_uplink_process_crash` | Kill process on Uplink LC | Kill process on UT2 |
-| `test_bgp_outbound_downlink_process_crash` | Kill process on Downlink LC | Kill process on UT2 |
-| `test_bgp_outbound_uplink_tsa` | TSA/TSB on Uplink LC | TSA/TSB on UT2 |
-| `test_bgp_outbound_uplink_ungraceful_restart` | Restart Uplink LC | Restart UT2 |
+| `test_bgp_outbound_uplink_po_flap` | Flap PO on Uplink LC | Flap uplink PO on Pizzabox |
+| `test_bgp_outbound_uplink_multi_po_flap` | Flap multiple POs on Uplink LC | Flap multiple uplink POs on Pizzabox |
+| `test_bgp_outbound_uplink_po_member_flap` | Flap PO member on Uplink LC | Flap uplink PO member on Pizzabox |
+| `test_bgp_outbound_downlink_port_flap` | Flap port on Downlink LC | Flap downlink port on Pizzabox |
+| `test_bgp_outbound_uplink_process_crash` | Kill process on Uplink LC | Kill process on Pizzabox |
+| `test_bgp_outbound_downlink_process_crash` | Kill process on Downlink LC | Kill process on Pizzabox |
+| `test_bgp_outbound_tsa` | TSA/TSB on LC | TSA/TSB on Pizzabox |
+| `test_bgp_outbound_ungraceful_restart` | Restart LC | Restart Pizzabox |
 
-### Tests Skipped on Pizzabox UT2
+### Tests Skipped on T2 Pizzabox
 
 | Test | Skip Reason |
 |------|-------------|
-| `test_bgp_outbound_supervisor_tsa` | No supervisor in pizzabox |
-| `test_bgp_outbound_supervisor_ungraceful_restart` | No supervisor in pizzabox |
-| `test_bgp_outbound_downlink_tsa` | Covered by `uplink_tsa` (same DUT) |
-| `test_bgp_outbound_downlink_ungraceful_restart` | Covered by `uplink_ungraceful_restart` (same DUT) |
+| Supervisor TSA | No supervisor in pizzabox topology |
+| Supervisor ungraceful restart | No supervisor in pizzabox topology |
 
 ---
 
-## Configuration Model
+## Configuration Files
 
-The configuration follows the same pattern as T2 Chassis:
+### Topology Files
 
-| Component | T2 Chassis | UT2 Pizzabox |
-|-----------|------------|--------------|
-| **DUT Topology** | `topo_tgen_t2_2lc_route_conv.yml` | `topo_tgen_ut2_route_conv.yml` |
-| **Neighbor Config** | `conftest.py` → T1 + Fanout | `conftest.py` → Lt2 + Fanout |
-| **Device Variables** | `variables.py` | `variables.py` (extended) |
-| **Config Files** | `config_db.json.t1.*`, `config_db.json.fanout.*` | `config_db.json.lt2.*`, `config_db.json.fanout.*` |
+| Topology | Topology File |
+|----------|---------------|
+| T2 Chassis (multi-ASIC) | `topo_tgen_t2_2lc_masic_route_conv.yml` |
+| T2 Chassis (single-ASIC) | `topo_tgen_t2_2lc_route_conv.yml` |
+| T2 Pizzabox (multi-ASIC) | `topo_tgen_t2_pizzabox_masic_route_conv.yml` |
 
-### Topology-Aware Initial Setup
+### Device Configuration Files
 
-The `initial_setup` fixture in `conftest.py` will detect topology and configure accordingly:
+Located in `tests/snappi_tests/bgp/configs/`:
+
+| Device | Topology | File Pattern |
+|--------|----------|--------------|
+| Lower Tier (T1) | T2 Chassis | `config_db.json.lower_tier.chassis.<VENDOR>` |
+| Lower Tier (Lt2) | T2 Pizzabox | `config_db.json.lower_tier.pizzabox.<VENDOR>` |
+| Fanout | T2 Chassis | `config_db.json.fanout.chassis.<VENDOR>` |
+| Fanout | T2 Pizzabox | `config_db.json.fanout.pizzabox.<VENDOR>` |
+
+---
+
+## Adding New Vendor/Topology Support
+
+### Step 1: Add Configuration to `TOPOLOGY_CONFIG`
 
 ```python
-@pytest.fixture(scope="session", autouse=True)
-def initial_setup(duthosts, creds, tbinfo):
-    """Perform initial DUT configurations for convergence tests."""
-    if 'route_conv' not in tbinfo['topo']['name']:
-        yield
-        return
-
-    topology = get_topology_type(duthosts)
-    
-    if topology == 'pizzabox':
-        # Configure Lt2 and Fanout for UT2
-        configure_ut2_dut(hw_platform, creds, "lt2", context=context)
-        if fanout_presence:
-            configure_ut2_dut(hw_platform, creds, "fanout")
-    else:
-        # Configure T1 and Fanout for T2 Chassis (existing logic)
-        configure_dut(hw_platform, creds, "t1", context=context)
-        if fanout_presence:
-            configure_dut(hw_platform, creds, "fanout")
-
-    for duthost in duthosts:
-        apply_tsb(duthost)
-
-    yield
-    # Cleanup...
+TOPOLOGY_CONFIG = {
+    TOPOLOGY_T2_PIZZABOX: {
+        'VENDOR_X': {
+            'device_hostnames': ["lower-tier-hostname", "dut-hostname"],
+            'lower_tier_info': {
+                'dut_ip': '10.x.x.x',
+                'ports': ['EthernetX', 'EthernetY'],
+                'interconnect_port': 'EthernetZ',
+            },
+            'lower_tier_snappi_ports': [...],
+            'uplink_fanout': {...},
+            'uplink_portchannel_members': {...},
+            'dut_interconnect_port': {...},
+        },
+    },
+}
 ```
+
+### Step 2: Add Device Configuration Files
+
+Create appropriate `config_db.json.*` files for the new vendor's lower tier and fanout devices.
+
+### Step 3: Verify Topology Detection
+
+The `detect_topology_and_vendor()` function automatically detects the topology based on DUT hostnames in the configuration.
 
 ---
 
-## Required Changes
-
-### New Files
-
-| File | Description |
-|------|-------------|
-| `ansible/vars/topo_tgen_ut2_route_conv.yml` | UT2 topology definition |
-| `tests/snappi_tests/bgp/configs/config_db.json.lt2.<PLATFORM>` | Lt2 device configuration |
-| `tests/snappi_tests/bgp/configs/config_db.json.fanout.<PLATFORM>` | Fanout configuration for UT2 |
-
-### Files to Modify
+## Files Modified
 
 | File | Changes |
 |------|---------|
-| `tests/snappi_tests/bgp/files/bgp_outbound_helper.py` | Add `get_topology_type()`, `get_target_dut()`, `get_uplink_ports()`, `get_downlink_ports()` |
-| `tests/snappi_tests/bgp/conftest.py` | Add `apply_lt2_config_on_dut()`, `configure_ut2_dut()`, update `initial_setup()` |
-| `tests/snappi_tests/variables.py` | Add `ut2_device_hostnames`, `lt2_dut_info`, `ut2_uplink_fanout_info`, `lt2_snappi_ports`, `ut2_uplink_portchannel_members`, `ut2_downlink_portchannel_members` |
-
-### Test Files to Modify
-
-All test files need minimal changes:
-
-1. **Update topology marker** to support both:
-   ```python
-   pytestmark = [pytest.mark.topology('tgen', 'multidut-tgen')]
-   ```
-
-2. **Add topology detection** in test functions:
-   ```python
-   topology = get_topology_type(duthosts)
-   if topology == 'pizzabox':
-       # Pizzabox-specific setup
-   else:
-       # Existing T2 Chassis logic
-   ```
-
-3. **Add skip logic** for redundant/non-applicable tests:
-   ```python
-   if topology == 'pizzabox':
-       pytest.skip("Covered by uplink test on pizzabox")
-   ```
-
-| Test File | Modification |
-|-----------|-------------|
-| `test_bgp_outbound_uplink_po_flap.py` | Add topology detection |
-| `test_bgp_outbound_uplink_multi_po_flap.py` | Add topology detection |
-| `test_bgp_outbound_uplink_po_member_flap.py` | Add topology detection |
-| `test_bgp_outbound_downlink_port_flap.py` | Add topology detection |
-| `test_bgp_outbound_uplink_process_crash.py` | Add topology detection |
-| `test_bgp_outbound_downlink_process_crash.py` | Add topology detection |
-| `test_bgp_outbound_tsa.py` | Add topology detection + skip downlink/supervisor on pizzabox |
-| `test_bgp_outbound_ungraceful_restart.py` | Add topology detection + skip downlink/supervisor on pizzabox |
-
----
-
-## Variables Configuration
-
-### New Variables for UT2
-
-```python
-# UT2 device hostnames [Lt2, UT2]
-ut2_device_hostnames = {
-    'HW_PLATFORM_UT2': ["sonic-lt2", "sonic-ut2"],
-}
-
-# Lt2 device info
-lt2_dut_info = {
-    'HW_PLATFORM_UT2': {
-        'dut_ip': '10.64.246.20',
-    },
-}
-
-# Fanout info for UT2
-ut2_uplink_fanout_info = {
-    'HW_PLATFORM_UT2': {
-        'fanout_ip': '10.3.146.15',
-        'port_mapping': [
-            {'fanout_port': 'Ethernet0', 'uplink_port': 'Ethernet0'},
-            {'fanout_port': 'Ethernet4', 'uplink_port': 'Ethernet4'},
-        ]
-    },
-}
-
-# Uplink portchannel members on UT2
-ut2_uplink_portchannel_members = {
-    'HW_PLATFORM_UT2': {
-        'sonic-ut2': {
-            None: {
-                'PortChannel0': ['Ethernet0', 'Ethernet4'],
-                'PortChannel1': ['Ethernet8', 'Ethernet12'],
-            }
-        }
-    },
-}
-
-# Downlink portchannel members on UT2
-ut2_downlink_portchannel_members = {
-    'HW_PLATFORM_UT2': {
-        'sonic-ut2': {
-            None: {
-                'PortChannel100': ['Ethernet120', 'Ethernet124'],
-                'PortChannel101': ['Ethernet128', 'Ethernet132'],
-            }
-        }
-    },
-}
-
-# Lt2 Snappi ports
-lt2_snappi_ports = {
-    'HW_PLATFORM_UT2': [
-        {'ip': '10.1.1.1', 'port_id': '12.1', 'peer_port': 'Ethernet0', 
-         'peer_device': 'sonic-lt2', 'speed': 'speed_100_gbps'},
-    ],
-}
-```
+| `tests/snappi_tests/variables.py` | Unified `TOPOLOGY_CONFIG`, accessor functions, AS number constants |
+| `tests/snappi_tests/bgp/conftest.py` | Updated to use new accessor functions and topology detection |
+| `tests/snappi_tests/bgp/files/bgp_outbound_helper.py` | Updated imports and function calls |
+| `tests/snappi_tests/bgp/test_bgp_outbound_*.py` | Updated to use new accessor functions |
 
 ---
 
@@ -350,8 +314,10 @@ lt2_snappi_ports = {
 
 | Benefit | Description |
 |---------|-------------|
-| **Code Reuse** | Same test files for both topologies |
-| **Maintainability** | Bug fixes apply to both topologies |
-| **Consistent Reporting** | Same test names in reports |
-| **CI/CD Simplicity** | Same test collection, different testbed |
-| **Clear Abstraction** | Topology differences isolated in helper layer |
+| **Single Source of Truth** | All topology configurations in one `TOPOLOGY_CONFIG` dictionary |
+| **Easy Extensibility** | Add new vendors/topologies by extending the config dictionary |
+| **Automatic Detection** | Topology and vendor auto-detected from DUT hostnames |
+| **Code Reuse** | Same test files work for all supported topologies |
+| **Type Safety** | Topology type constants prevent typos |
+| **Maintainability** | Centralized configuration reduces duplication |
+| **Clear API** | Well-named accessor functions abstract configuration details |
