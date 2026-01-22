@@ -5,16 +5,25 @@ import time
 import concurrent.futures
 from datetime import timedelta
 
-from tests.common.sai_validation import gnmi_client as gnmi_client
-
-
 logger = logging.getLogger(__name__)
+
+# Lazy import for gnmi_client module to avoid import errors when SAI validation is disabled
+_gnmi_client = None
+
+
+def _ensure_imports():
+    """Lazy import of gnmi_client module."""
+    global _gnmi_client
+    if _gnmi_client is None:
+        from tests.common.sai_validation import gnmi_client as gnmi_client
+        _gnmi_client = gnmi_client
 
 
 def run_subscription(call, stop_event: threading.Event, event_queue: queue.Queue):
-    gnmi_client.subscribe_gnmi(call=call,
-                               stop_event=stop_event,
-                               event_queue=event_queue)
+    _ensure_imports()
+    _gnmi_client.subscribe_gnmi(call=call,
+                                stop_event=stop_event,
+                                event_queue=event_queue)
 
 
 def cancel_on_event(call, stop_event: threading.Event):
