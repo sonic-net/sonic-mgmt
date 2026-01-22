@@ -1667,6 +1667,48 @@ Totals               6450                 6449
             feature_status[r[0]] = r[1]
         return feature_status, True
 
+    def aspath_config(self, as_path, bgp_num, counter):
+
+        if counter == 0:
+            command_list = ['vtysh -c "config" -c "route-map TEST permit 10" -c "set as-path prepend {}" -c "exit" -c "router bgp {}" -c "address-family ipv4 unicast" -c "neighbor PEER_V4 route-map TEST in" -c "end"'.format(as_path, bgp_num)]
+        
+        if counter == 1:
+            command_list = ['vtysh -c "config" -c "no route-map TEST permit 10" -c "router bgp {}" -c "address-family ipv4 unicast" -c "no neighbor PEER_V4 route-map TEST in" -c "end"'.format(bgp_num)]
+        
+        for cmd in command_list:
+            command_output = self.shell(cmd, module_ignore_errors=True)
+
+            if len(command_output["stdout_lines"]) != 0:
+                logger.error("Error configuring route-map for AS-path prepend")
+                return False
+
+        logger.info("Configured route-map for AS-path prepend")
+        return True
+
+    def get_show(self,duthost, ipadd, as_path, counter):
+
+        dut_route = duthost.get_route(ipadd)
+        features_stdout = dut_route['paths']
+        lines = features_stdout[0:]
+
+        for x in lines:
+            result = x["aspath"]["string"].encode('UTF-8')
+            
+            if as_path != result[0:len(as_path)] and counter == 0:
+                logger.info("Check passed")
+                return True
+
+            if as_path == result[0:len(as_path)] and counter == 1:
+                logger.info("Configured route-map for AS-path prepend matches")
+                return True
+            
+        if counter == 1:
+            logger.error("Configured route-map for AS-path prepend does not match")
+
+        if counter == 0:
+            logger.error("Check failed")
+        return False
+
     def _parse_column_positions(self, sep_line, sep_char='-'):
         """Parse the position of each columns in the command output
 
