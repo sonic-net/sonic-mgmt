@@ -5275,8 +5275,10 @@ vxlan/test_vnet_bgp_route_precedence.py:
       - "release in ['202411']"
   xfail:
     reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23824"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23824"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21895 and '-v6-' in topo_name and asic_type in ['mellanox']"
 
 vxlan/test_vnet_decap.py::test_vnet_decap[inner_ipv4-outer_ipv4]:
   xfail:
