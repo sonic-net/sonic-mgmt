@@ -322,10 +322,13 @@ class EosHost(AnsibleHostBase):
         if res["localhost"]["rc"] != 0:
             raise Exception("Unable to execute template\n{}".format(res["localhost"]["stdout"]))
 
-    def get_route(self, prefix):
+    def get_route(self, prefix, vrf='default'):
         cmd = 'show ip bgp' if ipaddress.ip_network(prefix.encode().decode()).version == 4 else 'show ipv6 bgp'
+        cmd = '{} {}'.format(cmd, prefix)
+        if vrf:
+            cmd = '{} vrf {}'.format(cmd, vrf)
         return self.eos_command(commands=[{
-            'command': '{} {}'.format(cmd, prefix),
+            'command': cmd,
             'output': 'json'
         }])['stdout'][0]
 

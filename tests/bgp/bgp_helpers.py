@@ -398,8 +398,9 @@ def check_routes_on_from_neighbor(setup_info, nbrhosts):
     downstream = setup_info['downstream']
     for prefixes in list(PREFIX_LISTS.values()):
         for prefix in prefixes:
-            downstream_route = nbrhosts[downstream]['host'].get_route(prefix)
-            route_entries = downstream_route['vrfs']['default']['bgpRouteEntries']
+			vrf = downstream if nbrhosts[downstream].get('is_multi_vrf_peer', False) else 'default'
+			downstream_route = nbrhosts[downstream]['host'].get_route(prefix, vrf=vrf)
+			route_entries = downstream_route['vrfs'][vrf]['bgpRouteEntries']
             pytest_assert(prefix in route_entries, 'Announced route {} not found on {}'.format(prefix, downstream))
 
 
@@ -427,7 +428,8 @@ def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
         for list_name, prefixes in list(PREFIX_LISTS.items()):
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
-                neigh_route = nbrhosts[node]['host'].get_route(prefix)['vrfs']['default']['bgpRouteEntries']
+				vrf = node if nbrhosts[node].get('is_multi_vrf_peer', False) else 'default'
+				neigh_route = nbrhosts[node]['host'].get_route(prefix, vrf=vrf)['vrfs'][vrf]['bgpRouteEntries']
 
                 if permit:
                     # All routes should be forwarded
@@ -480,7 +482,8 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
         for list_name, prefixes in list(PREFIX_LISTS.items()):
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
-                neigh_route = nbrhosts[node]['host'].get_route(prefix)['vrfs']['default']['bgpRouteEntries']
+				vrf = node if nbrhosts[node].get('is_multi_vrf_peer', False) else 'default'
+				neigh_route = nbrhosts[node]['host'].get_route(prefix, vrf=vrf)['vrfs'][vrf]['bgpRouteEntries']
 
                 if permit:
                     # All routes should be forwarded
