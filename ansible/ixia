@@ -55,6 +55,7 @@ sonic:
     sonic_nvidia_sn5640_stress:
     sonic_arista_7060x6_512_stress:
     sonic_arista_7280dr3_400G:
+    sonic_mlnx_100:
 
 sonic_str_cisco_8111_O32:
   hosts:
@@ -613,7 +614,7 @@ sonic_arista_7060x6_512_stress:
       hwsku: Arista-7060X6-64PE-B-C512S2
       mgmt_subnet_mask_length: 26
     str-7060x6-512-stress-t0-1:
-      ansible_host: 10.64.246.187
+      ansible_host: 10.64.247.187
       hwsku: Arista-7060X6-64PE-B-C512S2
   vars:
     iface_speed: 100000
@@ -630,6 +631,14 @@ sonic_str2_arista_7808:
   vars:
     hwsku: Arista-7800R3A-36DM2-C36
     iface_speed: 100000
+
+sonic_mlnx_100:
+  hosts:
+    str-msn2700-22:
+      ansible_host: 10.64.247.236
+    vars:
+      iface_speed: 100000
+      msft_an_enabled: True
 
 ixia_chassis:
   hosts:
@@ -688,6 +697,9 @@ l1_switch:
       ansible_host: 10.64.246.183
     str-ocs-dlx64-acs-06:
       ansible_host: 10.64.247.51
+      mgmt_subnet_mask_length: 26
+    str-ocs-dlx64-acs-07:
+      ansible_host: 10.64.247.54
       mgmt_subnet_mask_length: 26
     str-ocs-dlx64-acs-10:
       ansible_host: 10.64.247.52

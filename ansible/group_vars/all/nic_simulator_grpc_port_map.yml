@@ -9,7 +9,7 @@ nic_simulator_grpc_port:
   vms20-dual-t0-4700-7: 50075
   vms26-dual-t0-8101c1-02: 50075
   vms66-dual-t0-8101c1-03: 50075
-  vms68-dual-t0-4700-8: 50075
+  vms12-dual-t0-4700-8: 50075
   vms68-dual-t0-8101c1-04: 50075
   bjw-can-dual-t0-7260-1: 50075
   bjw2-can-dual-t0-7260-2: 50075

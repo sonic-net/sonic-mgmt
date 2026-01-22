@@ -41,8 +41,13 @@
   vm_base: VM02040
   dut:
   - str-msn2700-22
-  inv_name: str
-  auto_recover: 'True'
+  inv_name: ixia
+  test_tags: []
+  l1s:
+  - str-ocs-dlx64-acs-07
+  tgs:
+  - msr-ixia-4
+  auto_recover: 'False'
   comment: stumkurv
 
 - conf-name: vms6-t0-7060
@@ -1580,7 +1585,7 @@
   ptf: vms64-2
   ptf_ip: 10.64.247.9/26
   ptf_ipv6: 2a01:111:e210:b000::a40:f709/122
-  netns_mgmt_ip: 10.64.246.102/25
+  netns_mgmt_ip: 10.64.247.49/26
   server: server_64
   vm_base: VM64156
   dut:
@@ -1768,7 +1773,7 @@
   ptf: vms20-10
   ptf_ip: 10.64.246.39/25
   ptf_ipv6: 2a01:111:e210:b000::a40:f627/121
-  netns_mgmt_ip: 10.64.246.251/25
+  netns_mgmt_ip: 10.64.246.121/25
   server: server_20
   vm_base: VM20096
   dut:
@@ -1778,16 +1783,16 @@
   auto_recover: 'True'
   comment: yanmo
 
-- conf-name: vms68-dual-t0-4700-8
-  group-name: vms68-5
+- conf-name: vms12-dual-t0-4700-8
+  group-name: vms12-5
   topo: dualtor-aa-64-breakout
   ptf_image_name: docker-ptf
-  ptf: vms68-5
-  ptf_ip: 10.64.247.103/26
-  ptf_ipv6: 2a01:111:e210:b000::a40:f767/122
-  netns_mgmt_ip: 10.64.246.221/25
-  server: server_68
-  vm_base: VM68145
+  ptf: vms12-5
+  ptf_ip: 10.64.247.154/26
+  ptf_ipv6: 2a01:111:e210:b000::a40:f79a/122
+  netns_mgmt_ip: 10.64.247.155/26
+  server: server_12
+  vm_base: VM12000
   dut:
   - str3-msn4700-11
   - str3-msn4700-12
@@ -1949,8 +1954,8 @@
   topo: t1-isolated-d128
   ptf_image_name: docker-ptf
   ptf: vms92-2
-  ptf_ip: 10.64.247.187/25
-  ptf_ipv6: 2a01:111:e210:b000::a40:f7bb/121
+  ptf_ip: 10.64.247.158/25
+  ptf_ipv6: 2a01:111:e210:b000::a40:f79e/121
   server: server_92
   vm_base: VM92060
   dut:
@@ -3871,14 +3876,14 @@
   servers:
     server_94:
       ptf: vms94-1-a
-      ptf_ip: 10.64.247.148/25
-      ptf_ipv6: 2a01:111:e210:b000::a40:f794/121
+      ptf_ip: 10.64.247.189/25
+      ptf_ipv6: 2a01:111:e210:b000::a40:f7bd/121
       vm_base: VM94000
       dut_interfaces: 0-256
     server_96:
       ptf: vms94-1-b
-      ptf_ip: 10.64.247.153/25
-      ptf_ipv6: 2a01:111:e210:b000::a40:f799/121
+      ptf_ip: 10.64.247.173/25
+      ptf_ipv6: 2a01:111:e210:b000::a40:f7ad/121
       vm_base: VM96000
       dut_interfaces: 257-513
   dut:
@@ -3893,14 +3898,14 @@
   servers:
     server_94:
       ptf: vms94-2-a
-      ptf_ip: 10.64.247.149/25
-      ptf_ipv6: 2a01:111:e210:b000::a40:f795/121
+      ptf_ip: 10.64.247.174/25
+      ptf_ipv6: 2a01:111:e210:b000::a40:f7ae/121
       vm_base: VM94255
       dut_interfaces: 0-256
     server_96:
       ptf: vms94-2-b
-      ptf_ip: 10.64.247.167/25
-      ptf_ipv6: 2a01:111:e210:b000::a40:f7a7/121
+      ptf_ip: 10.64.247.175/25
+      ptf_ipv6: 2a01:111:e210:b000::a40:f7af/121
       vm_base: VM96257
       dut_interfaces: 257-513
   dut:
