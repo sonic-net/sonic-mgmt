@@ -543,6 +543,34 @@ bgp/test_traffic_shift_sup.py:
     conditions:
       - "'t2_single_node' in topo_name"
 
+
+#######################################
+#####           bmp              #####
+#######################################
+bmp/test_bmp_configdb.py:
+  skip:
+    reason: "https://github.com/sonic-net/sonic-buildimage/issues/23777"
+    conditions:
+      - "release in ['202511']"
+
+bmp/test_bmp_redis_instance.py:
+  skip:
+    reason: "https://github.com/sonic-net/sonic-buildimage/issues/23777"
+    conditions:
+      - "release in ['202511']"
+
+bmp/test_bmp_statedb.py:
+  skip:
+    reason: "https://github.com/sonic-net/sonic-buildimage/issues/23777"
+    conditions:
+      - "release in ['202511']"
+
+bmp/test_docker_restart.py:
+  skip:
+    reason: "https://github.com/sonic-net/sonic-buildimage/issues/23777"
+    conditions:
+      - "release in ['202511']"
+
 #######################################
 #####            cacl             #####
 #######################################
