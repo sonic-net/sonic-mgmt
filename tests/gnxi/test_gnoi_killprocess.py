@@ -4,10 +4,13 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.platform.processes_utils import wait_critical_processes
 
+# Import fixtures module to ensure pytest discovers them
+import tests.common.fixtures.grpc_fixtures  # noqa: F401
+
 # GNXI/GNOI: enable TLS for all tests in this module
 pytestmark = [
-    pytest.mark.topology('any'),
-    pytest.mark.usefixtures("setup_gnoi_tls"),
+    pytest.mark.topology('t0'),
+    pytest.mark.usefixtures("setup_gnoi_tls_server"),
 ]
 
 
