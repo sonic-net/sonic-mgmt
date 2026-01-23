@@ -13,7 +13,8 @@ from tests.packet_trimming.packet_trimming_helper import (
     configure_trimming_action, configure_trimming_acl, verify_srv6_packet_with_trimming, cleanup_trimming_acl,
     verify_trimmed_packet, reboot_dut, check_connected_route_ready, get_switch_trim_counters_json,
     get_port_trim_counters_json, disable_egress_data_plane, enable_egress_data_plane,
-    verify_queue_and_port_trim_counter_consistency, get_queue_trim_counters_json, compare_counters)
+    verify_queue_and_port_trim_counter_consistency, get_queue_trim_counters_json, compare_counters,
+    configure_port_mirror_session, remove_port_mirror_session)
 
 logger = logging.getLogger(__name__)
 
@@ -451,3 +452,30 @@ class BasePacketTrimming:
             compare_counters(queue_trim_counter_trim_enable, queue_trim_counter_after_toggle, ['trimpacket'])
             compare_counters(port_trim_counters_trim_enable, port_trim_counters_after_toggle,
                              ['TRIM_PKTS', 'TRIM_TX_PKTS', 'TRIM_DRP_PKTS'])
+
+    def test_port_mirror_with_trimming(self, duthost, ptfadapter, test_params):
+        """
+        Test Case: Verify port mirror interaction with Trimming
+        """
+        with allure.step(f"Configure packet trimming in global level for {self.trimming_mode} mode"):
+            self.configure_trimming_global_by_mode(duthost)
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
+
+        with allure.step("Verify trimming packet"):
+            kwargs = self.get_verify_trimmed_packet_kwargs(duthost, ptfadapter, {**test_params})
+            verify_trimmed_packet(**kwargs)
+
+        with allure.step("Config port mirror"):
+            configure_port_mirror_session(duthost)
+
+        with allure.step("Verify packet trimming work with port mirror config"):
+            kwargs = self.get_verify_trimmed_packet_kwargs(duthost, ptfadapter, {**test_params})
+            verify_trimmed_packet(**kwargs)
+
+        with allure.step("Remove port mirror"):
+            remove_port_mirror_session(duthost)
+
+        with allure.step("Verify packet trimming work after port mirror is removed"):
+            kwargs = self.get_verify_trimmed_packet_kwargs(duthost, ptfadapter, {**test_params})
+            verify_trimmed_packet(**kwargs)

@@ -1,6 +1,7 @@
 import jinja2
 import logging
 import requests
+import ipaddress
 
 from tests.common.utilities import wait_tcp_connection
 
@@ -134,11 +135,19 @@ class BGPNeighbor(object):
                 peer_name=self.name
             )
 
+        if ipaddress.ip_address(self.ip).version == 4:
+            router_id = self.ip
+        else:
+            # Generate router ID by combining 20.0.0.0 base with last 3 bytes of IPv6 addr
+            router_id_base = ipaddress.IPv4Address("20.0.0.0")
+            ipv6_addr = ipaddress.IPv6Address(self.ip)
+            router_id = str(ipaddress.IPv4Address(int(router_id_base) | int(ipv6_addr) & 0xFFFFFF))
+
         self.ptfhost.exabgp(
             name=self.name,
             state="started",
             local_ip=self.ip,
-            router_id=self.ip,
+            router_id=router_id,
             peer_ip=self.peer_ip,
             local_asn=self.asn,
             peer_asn=self.peer_asn,

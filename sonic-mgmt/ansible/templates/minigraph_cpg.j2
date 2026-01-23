@@ -92,7 +92,7 @@
 {% endfor %}
 {% endfor %}
 {% endif %}
-{% if switch_type is defined and (switch_type == 'voq' or switch_type == 'chassis-packet') %}
+{% if (switch_type is defined and switch_type == 'chassis-packet') or voq_chassis %}
 {% set chassis_ibgp_peers = dict() %}
 {% for asic_id in range(num_asics) %}
 {% if num_asics == 1 %}
@@ -112,7 +112,7 @@
 {% set end_rtr = a_linecard + "-ASIC" + idx|string %}
 {% endif %}
 {% endif %}
-{% if switch_type == 'voq' %}
+{% if voq_chassis %}
 {% set _ = chassis_ibgp_peers.update({ all_inbands[a_linecard][idx].split('/')[0] : end_rtr }) %}
 {% else %}
 {% set _ = chassis_ibgp_peers.update({ all_loopback4096[a_linecard][idx].split('/')[0] : end_rtr }) %}
@@ -120,7 +120,7 @@
       <BGPSession>
         <StartRouter>{{ start_rtr }}</StartRouter>
         <EndRouter>{{ end_rtr }}</EndRouter>
-{% if switch_type == 'voq' %}
+{% if voq_chassis %}
         <StartPeer>{{ voq_inband_ip[asic_id].split('/')[0] }}</StartPeer>
         <EndPeer>{{ all_inbands[a_linecard][idx].split('/')[0] }}</EndPeer>
 {% else %}
@@ -135,7 +135,7 @@
       <BGPSession>
         <StartRouter>{{ start_rtr }}</StartRouter>
         <EndRouter>{{ end_rtr }}</EndRouter>
-{% if switch_type == 'voq' %}
+{% if voq_chassis %}
         <StartPeer>{{ voq_inband_ipv6[asic_id].split('/')[0] }}</StartPeer>
         <EndPeer>{{ all_inbands_ipv6[a_linecard][idx].split('/')[0] }}</EndPeer>
 {% else %}
@@ -171,7 +171,7 @@
 {% endfor %}
 {% endif %}
 {% endfor %}
-{% if num_asics == 1 and switch_type is defined and (switch_type == 'voq' or switch_type == 'chassis-packet') %}
+{% if num_asics == 1 and ((switch_type is defined and switch_type == 'chassis-packet') or voq_chassis) %}
 {% for a_chassis_ibgp_peer in chassis_ibgp_peers %}
           <BGPPeer>
             <Address>{{ a_chassis_ibgp_peer }}</Address>
@@ -230,7 +230,7 @@
           </BGPPeer>
 {% endif %}
 {% endfor %}
-{% if switch_type is defined and switch_type == 'voq' %}
+{% if voq_chassis %}
 {% set asic_id = asic.split('ASIC')[1]|int %}
 {% for a_linecard in all_loopback4096 %}
 {% for idx in range(all_loopback4096[a_linecard]|length) %}
@@ -263,13 +263,13 @@
       </a:BGPRouterDeclaration>
 {% endfor %}
 {% endif %}
-{% if switch_type is defined and (switch_type == 'voq' or switch_type == 'chassis-packet') %}
+{% if (switch_type is defined and switch_type == 'chassis-packet') or voq_chassis %}
 {% for a_linecard in all_loopback4096 %}
 {% if a_linecard != inventory_hostname %}
 {% for idx in range(all_loopback4096[a_linecard]|length) %}
       <a:BGPRouterDeclaration>
         <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
-{% if switch_type == 'voq' %}
+{% if voq_chassis %}
         <a:Hostname>{{ chassis_ibgp_peers[all_inbands[a_linecard][idx].split('/')[0]] }}</a:Hostname>
 {% else %}
         <a:Hostname>{{ chassis_ibgp_peers[all_loopback4096[a_linecard][idx].split('/')[0]] }}</a:Hostname>

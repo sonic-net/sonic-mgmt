@@ -5,7 +5,7 @@ Gauge metrics represent a value that can go up or down over time,
 such as temperature, utilization percentages, or current measurements.
 """
 
-from typing import Dict, Optional
+from typing import Dict, Optional, Callable
 from ..base import Metric, Reporter, MetricDataEntry
 from ..constants import METRIC_TYPE_GAUGE
 
@@ -19,6 +19,7 @@ class GaugeMetric(Metric):
     """
 
     def __init__(self, name: str, description: str, unit: str, reporter: Reporter,
+                 value_convertor: Callable[[str], float] = None,
                  common_labels: Optional[Dict[str, str]] = None):
         """
         Initialize gauge metric.
@@ -30,7 +31,7 @@ class GaugeMetric(Metric):
             reporter: Reporter instance to send measurements to
             common_labels: Common labels to apply to all measurements of this metric
         """
-        super().__init__(METRIC_TYPE_GAUGE, name, description, unit, reporter, common_labels)
+        super().__init__(METRIC_TYPE_GAUGE, name, description, unit, reporter, value_convertor, common_labels)
 
     def record(self, value: float, additional_labels: Optional[Dict[str, str]] = None):
         """
@@ -44,4 +45,5 @@ class GaugeMetric(Metric):
         labels_key = self._labels_to_key(additional_labels)
 
         # Store the value with labels (gauge always overwrites previous value for same labels)
-        self._data[labels_key] = MetricDataEntry(data=value, labels=additional_labels or {})
+        normalized_value = self._value_convertor(value) if self._value_convertor else value
+        self._data[labels_key] = MetricDataEntry(data=normalized_value, labels=additional_labels or {})

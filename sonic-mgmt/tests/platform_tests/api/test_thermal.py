@@ -2,6 +2,7 @@ import logging
 import pytest
 
 from tests.common.helpers.platform_api import chassis, thermal
+from tests.common.mellanox_data import is_mellanox_device
 from tests.common.utilities import skip_release_for_platform
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
 
@@ -20,7 +21,6 @@ else:
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
     pytest.mark.topology('any')
 ]
 
@@ -262,10 +262,15 @@ class TestThermalApi(PlatformApiTestBase):
 
             high_threshold = thermal.get_high_threshold(platform_api_conn, i)
 
-            # Ensure the thermal high threshold temperature is sane
-            if self.expect(high_threshold is not None, "Unable to retrieve Thermal {} high threshold".format(i)):
-                self.expect(isinstance(high_threshold, float),
-                            "Thermal {} high threshold appears incorrect".format(i))
+            # Form mellanox platform, we don't check the value, because the value might be None or int or float
+            # So we just care if calling the API raises exception or not.
+            # When it raises exception, it will print error log as below:
+            # "ERR pmon#platform_api_server.py: Error executing API ..."
+            if not is_mellanox_device(duthost):
+                # Ensure the thermal high threshold temperature is sane
+                if self.expect(high_threshold is not None, "Unable to retrieve Thermal {} high threshold".format(i)):
+                    self.expect(isinstance(high_threshold, float),
+                                "Thermal {} high threshold appears incorrect".format(i))
 
         if thermals_skipped == self.num_thermals:
             pytest.skip("skipped as all chassis thermals' high-threshold is not supported")
@@ -311,16 +316,22 @@ class TestThermalApi(PlatformApiTestBase):
 
             high_critical_threshold = thermal.get_high_critical_threshold(platform_api_conn, i)
 
-            # Ensure the thermal high threshold temperature is sane
-            if self.expect(high_critical_threshold is not None,
-                           "Unable to retrieve Thermal {} high critical threshold".format(i)):
-                self.expect(isinstance(high_critical_threshold, float),
-                            "Thermal {} high threshold appears incorrect".format(i))
+            # Form mellanox platform, we don't check the value, because the value might be None or int or float
+            # So we just care if calling the API raises exception or not.
+            # When it raises exception, it will print error log as below:
+            # "ERR pmon#platform_api_server.py: Error executing API ..."
+            if not is_mellanox_device(duthost):
+                # Ensure the thermal high threshold temperature is sane
+                if self.expect(high_critical_threshold is not None,
+                               "Unable to retrieve Thermal {} high critical threshold".format(i)):
+                    self.expect(isinstance(high_critical_threshold, float),
+                                "Thermal {} high threshold appears incorrect".format(i))
         if thermals_skipped == self.num_thermals:
             pytest.skip("skipped as all chassis thermals' high-critical-threshold is not supported")
 
         self.assert_expectations()
 
+    @pytest.mark.disable_loganalyzer
     def test_set_low_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
                                platform_api_conn):      # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -355,6 +366,7 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
+    @pytest.mark.disable_loganalyzer
     def test_set_high_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
                                 platform_api_conn):     # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]

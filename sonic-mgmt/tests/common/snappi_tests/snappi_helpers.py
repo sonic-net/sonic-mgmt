@@ -7,7 +7,10 @@ chassis instead of reading it from fanout_graph_facts fixture.
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import ansible_stdout_to_str, get_peer_snappi_chassis
+from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
 import time
+import ipaddr
+import math
 from enum import Enum
 
 
@@ -361,3 +364,76 @@ def fetch_snappi_flow_metrics(api, flow_names):
     flow_metrics = api.get_metrics(request).flow_metrics
 
     return flow_metrics
+
+
+def fetch_flow_metrics_for_macsec(api):
+    """
+    Fetches the flow metrics from the corresponding snappi session using the api
+
+    Args:
+    api: snappi api
+    flow_names: list of flow names
+
+    Returns:
+    flow_metrics (obj): list of metrics
+    """
+    ixnet = api._ixnetwork
+    flow_metrics = StatViewAssistant(ixnet, 'Flow Statistics')
+
+    return flow_metrics
+
+
+def get_macs(mac: str, count: int, offset: int = 1):
+    """
+    Take a starting MAC address string and return `count` MACs in a list.
+    Only the 2nd octet will be incremented by offset.
+    """
+    mac_bytes = bytearray.fromhex(mac.replace(":", ""))
+    mac_list = []
+
+    for i in range(count):
+        new_mac = mac_bytes[:]  # copy original
+        # update the 2nd octet (index 1 since it's zero-based)
+        new_mac[1] = (mac_bytes[1] + offset * i) % 256
+        mac_list.append(":".join(f"{b:02x}" for b in new_mac))
+
+    return mac_list
+
+
+def get_ip_addresses(ip, count, type='ipv4'):
+    """
+    Take ip as start ip returns the count of ips in a list
+    """
+    ip_list = list()
+    for i in range(count):
+        if type == 'ipv6':
+            ipaddress = ipaddr.IPv6Address(ip)
+        else:
+            ipaddress = ipaddr.IPv4Address(ip)
+        ipaddress = ipaddress + i
+        value = ipaddress._string_from_ip_int(ipaddress._ip)
+        ip_list.append(value)
+    return ip_list
+
+
+def subnet_mask_from_hosts(host_count: int) -> int:
+    """
+    Returns the smallest CIDR subnet mask that can support the given number of hosts.
+
+    Args:
+        host_count (int): The number of required host addresses.
+
+    Returns:
+        int: CIDR subnet mask (e.g., 24 for /24)
+    """
+    if host_count < 1:
+        raise ValueError("Host count must be at least 1")
+
+    # Add 2 to account for network and broadcast addresses
+    total_needed = host_count + 2
+    host_bits = math.ceil(math.log2(total_needed))
+
+    if host_bits > 32:
+        raise ValueError("Too many hosts for IPv4 addressing")
+
+    return 32 - host_bits

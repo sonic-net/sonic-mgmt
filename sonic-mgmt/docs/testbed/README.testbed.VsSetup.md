@@ -74,15 +74,20 @@ mkdir -p ~/veos-vm/images
    #### Option 2.1: Manually download cEOS image
 
    1. Obtain the cEOS image from [Arista's software download page](https://www.arista.com/en/support/software-download). You can choose later cEOS versions, they do not guarantee to work (the latest 4.35.0F do not).
+      
+      **Note:** You may need to register an Arista guest account to access the download resources.
+
+      Ensure that the cEOS version you download matches the version specified in `ansible/group_vars/vm_host/ceos.yml`. For example, the following steps use `cEOS64-lab-4.29.3M` as a reference.
+ 
    2. Unxz it with `unxz cEOS64-lab-4.29.3M.tar.xz`.
-   2. Place the image file in the `images` subfolder located within the directory specified by the `root_path` variable in the `ansible/group_vars/vm_host/main.yml` file.
+   3. Place the image file in the `images` subfolder located within the directory specified by the `root_path` variable in the `ansible/group_vars/vm_host/main.yml` file.
 
       Assuming you set `root_path` to `veos-vm`, you should run the following command:
       ```bash
       cp cEOS64-lab-4.29.3M.tar ~/veos-vm/images/
       ```
       The Ansible playbook for deploying testbed topology will automatically use the manually prepared image file from this location.
-   3. Update `ansible/group_vars/vm_host/ceos.yml` if you decided to use different ceos image files from above.
+   4. Update `ansible/group_vars/vm_host/ceos.yml` if you decided to use different ceos image files from above.
 
    #### Option 2.2: Host the cEOS image file on a HTTP server
    If you need to deploy VS setup on multiple testbed hosts, this option is more recommended.
@@ -277,6 +282,12 @@ foo ALL=(ALL) NOPASSWD:ALL
 5. (Required for IPv6 test cases) Verify that you can login into the **host** via IPv6 (e.g. `ssh foo@fd00:1::1` if the default docker bridge is `fd00:1::1/64`) from the `sonic-mgmt` **container** without any password prompt.
 
 6. Verify that you can use `sudo` without a password prompt inside the **host** (e.g. `sudo bash`).
+
+7. On the host, verify that your home directory has the correct permissions (755) by running:
+   ```
+   sudo chmod 755 /home/<username>
+   ```
+   Also verify that images files and the folder containing them also have the correct permissions. 
 
 ## Setup VMs on the server
 **(Skip this step if you are using cEOS - the containers will be automatically setup in a later step.)**

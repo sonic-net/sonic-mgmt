@@ -18,7 +18,7 @@ SUPPORTED_PLATFORMS = [
     "arista",
     "x86_64-nvidia",
     "x86_64-88_lc0_36fh_m-r0",
-    "x86_64-nexthop_4010-r0",
+    "nexthop",
     "marvell"
 ]
 

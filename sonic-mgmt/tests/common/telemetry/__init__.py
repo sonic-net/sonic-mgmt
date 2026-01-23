@@ -4,7 +4,7 @@ SONiC Mgmt Test Telemetry Framework
 """
 
 # Base classes
-from .base import Reporter, Metric, MetricCollection, MetricDefinition
+from .base import Reporter, Metric, MetricCollection, MetricDefinition, default_value_convertor
 
 # Metric types
 from .metrics import GaugeMetric, HistogramMetric
@@ -46,7 +46,7 @@ __version__ = "1.0.0"
 # Public API - define what gets imported with "from common.telemetry import *"
 __all__ = [
     # Base classes
-    'Reporter', 'Metric', 'MetricCollection', 'MetricDefinition',
+    'Reporter', 'Metric', 'MetricCollection', 'MetricDefinition', 'default_value_convertor',
 
     # Metric types
     'GaugeMetric', 'HistogramMetric',

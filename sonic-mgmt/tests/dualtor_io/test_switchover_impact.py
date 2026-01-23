@@ -22,6 +22,7 @@ pytestmark = [
 ]
 
 
+@pytest.mark.enable_active_active
 @pytest.mark.parametrize("switchover", ["planned"])
 def test_tor_switchover_impact(request,                                                    # noqa: F811
                                upper_tor_host, lower_tor_host,                             # noqa: F811
