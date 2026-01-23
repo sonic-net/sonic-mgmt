@@ -944,3 +944,21 @@ class MultiAsicSonicHost(object):
     @lru_cache
     def containers(self):
         return SonicDockerManager(self)
+
+    def get_bgp_confed_asn(self):
+        """
+        Get BGP confederation ASN from running config
+        Return None if not configured
+        """
+        if self.sonichost.is_multi_asic:
+            asic = self.frontend_asics[0]
+            config_facts = asic.config_facts(
+                host=self.hostname, source="running", namespace=asic.namespace
+            )['ansible_facts']
+        else:
+            config_facts = self.sonichost.config_facts(
+                host=self.hostname, source="running"
+            )['ansible_facts']
+
+        bgp_confed_asn = config_facts.get('BGP_DEVICE_GLOBAL', {}).get('CONFED', {}).get('asn', None)
+        return bgp_confed_asn

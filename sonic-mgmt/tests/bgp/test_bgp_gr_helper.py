@@ -7,6 +7,7 @@ import json
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv4_address
+from tests.common.utilities import is_ipv6_only_topology
 
 
 pytestmark = [
@@ -108,22 +109,33 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
     portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
     configurations = tbinfo['topo']['properties']['configuration_properties']
-    exabgp_ips = [configurations['common']['nhipv4'], configurations['common']['nhipv6']]
-    exabgp_sessions = ['exabgp_v4', 'exabgp_v6']
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
+    if is_v6_topo:
+        exabgp_ips = [configurations['common']['nhipv6']]
+        exabgp_sessions = ['exabgp_v6']
+    else:
+        exabgp_ips = [configurations['common']['nhipv4'], configurations['common']['nhipv6']]
+        exabgp_sessions = ['exabgp_v4', 'exabgp_v6']
 
     # select neighbor to test
-    if duthost.check_bgp_default_route():
+    if duthost.check_bgp_default_route(ipv4=not is_v6_topo):
         # if default route is present, select from default route nexthops
-        rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
-        rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_network("::/0"))
+        if is_v6_topo:
+            rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_network("::/0"))
+            ifnames_v6 = [nh[1] for nh in rtinfo_v6['nexthops']]
 
-        ifnames_v4 = [nh[1] for nh in rtinfo_v4['nexthops']]
-        ifnames_v6 = [nh[1] for nh in rtinfo_v6['nexthops']]
+            test_interface = ifnames_v6[0]
+        else:
+            rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
+            rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_network("::/0"))
 
-        ifnames_common = [ifname for ifname in ifnames_v4 if ifname in ifnames_v6]
-        if len(ifnames_common) == 0:
-            pytest.skip("No common ifnames between ifnames_v4 and ifname_v6: %s and %s" % (ifnames_v4, ifnames_v6))
-        test_interface = ifnames_common[0]
+            ifnames_v4 = [nh[1] for nh in rtinfo_v4['nexthops']]
+            ifnames_v6 = [nh[1] for nh in rtinfo_v6['nexthops']]
+
+            ifnames_common = [ifname for ifname in ifnames_v4 if ifname in ifnames_v6]
+            if len(ifnames_common) == 0:
+                pytest.skip("No common ifnames between ifnames_v4 and ifname_v6: %s and %s" % (ifnames_v4, ifnames_v6))
+            test_interface = ifnames_common[0]
     else:
         # if default route is not present, randomly select a neighbor to test
         test_interface = random.sample(

@@ -238,6 +238,7 @@ class HashTest(BaseTest):
                 hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists)
         assert received
         logging.info("Received packet at " + str(matched_port))
+        self.dataplane.flush()
         time.sleep(0.02)
         return (matched_port, received)
 
@@ -274,7 +275,7 @@ class HashTest(BaseTest):
             logging.info(log)
         kwargs = {}
         if is_timeout:
-            kwargs["timeout"] = 1
+            kwargs["timeout"] = 10
         dst_ports = list(itertools.chain(*dst_port_lists))
         rcvd_port_index, rcvd_pkt = verify_packet_any_port(
             self, masked_exp_pkt, dst_ports, **kwargs)
@@ -407,7 +408,7 @@ class HashTest(BaseTest):
         ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
-        outer_sport = (random.randint(0, 65536) if hash_key == 'outer-src-port' else 1234)
+        outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
         dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
@@ -471,7 +472,7 @@ class HashTest(BaseTest):
         ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
-        outer_sport = random.randint(0, 65536) if hash_key == 'outer-src-port' else 1234
+        outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
         dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \

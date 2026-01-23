@@ -181,7 +181,7 @@
     shell: "sysctl -p"
     become: yes
 
-  when: "fanout_sonic_version.asic_type in ['marvell-teralynx', 'mellanox']"
+  when: "fanout_sonic_version.asic_type in ['marvell-teralynx', 'mellanox', 'broadcom']"
 
 - name: Stop lldp container
   block:

@@ -49,3 +49,4 @@
     l1_links: "{{ device_from_l1_links[inventory_hostname] }}"
     l1_cross_connects: "{{ device_l1_cross_connects[inventory_hostname] }}"
     l1_existing_cross_connects: "{{ device_l1_existing_cross_connects }}"
+    reset_previous_connection: "{{ reset_previous_connection | default(true) | bool }}"

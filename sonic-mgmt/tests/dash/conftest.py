@@ -427,7 +427,7 @@ def vxlan_udp_dport(request, duthost):
                 break
         vxlan_udp_dport = random.choice(port_candidate_list)
     if vxlan_udp_dport != "default":
-        logger.info(f"Configure the VXLAN UDP dst port {vxlan_udp_dport} to DPU")
+        logger.info(f"Configure the VXLAN UDP dst port {vxlan_udp_dport} to dut")
         vxlan_udp_dport = int(vxlan_udp_dport)
         config_vxlan_udp_dport(duthost, vxlan_udp_dport)
     else:

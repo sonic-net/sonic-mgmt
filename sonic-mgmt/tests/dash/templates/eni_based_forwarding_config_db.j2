@@ -1,0 +1,70 @@
+{
+    "DEVICE_METADATA": {
+        "localhost": {
+            "cluster": "t1-smartswitch-01"
+        }
+    },
+    "VIP_TABLE" : {
+        "{{ vip }}" : {}
+    },
+    "DPU": {
+    {%- for dpu_index in range(0, dpu_num) %}
+        "dpu{{ dpu_index }}": {
+            "dpu_id": "{{ dpu_index }}",
+            "gnmi_port": "50052",
+            "local_port": "8080",
+            "midplane_ipv4": "169.254.200.{{ dpu_index + 1 }}",
+            "orchagent_zmq_port": "8100",
+        {%- if dpu_index == dpu_under_test_index %}
+            "pa_ipv4": "{{ mock_pa_ipv4 }}",
+            "local_nexthop_ip": "{{ mock_pa_ipv4 }}",
+        {%- else %}
+            "pa_ipv4": "18.{{ dpu_index }}.202.1",
+            "local_nexthop_ip": "18.{{ dpu_index }}.202.1",
+        {%- endif %}
+            "state": "up",
+            "vdpu_id": "vdpu0_{{ dpu_index }}",
+            "vip_ipv4": "10.1.0.5"
+        }{% if not loop.last %},{% endif %}
+    {%- endfor %}
+    },
+    "REMOTE_DPU": {
+    {%- for dpu_index in range(0, dpu_num) %}
+        "dpu{{ dpu_index + dpu_num }}": {
+            "dpu_id": "{{ dpu_index + dpu_num }}",
+            "npu_ipv4": "{{ peer_loopback0_ip }}",
+            "pa_ipv4": "18.{{ dpu_index }}.202.1",
+            "type": "cluster"
+        }{% if not loop.last %},{% endif %}
+    {%- endfor %}
+    },
+    "VDPU": {
+    {%- for dpu_index in range(0, dpu_num) %}
+        "vdpu0_{{ dpu_index }}": {
+            "main_dpu_ids": "dpu{{ dpu_index }}"
+        },
+    {%- endfor %}
+    {%- for dpu_index in range(0, dpu_num) %}
+        "vdpu1_{{ dpu_index }}": {
+            "main_dpu_ids": "dpu{{ dpu_index + dpu_num }}"
+        }{% if not loop.last %},{% endif %}
+    {%- endfor %}
+    },
+    "VXLAN_TUNNEL": {
+        "tunnel_v4": {
+            "src_ip": "{{ loopback0_ip }}"
+        }
+    },
+    "VNET": {
+        "{{ vnet_name }}": {
+            "vxlan_tunnel": "tunnel_v4",
+            "vni": "{{ vni }}",
+            "peer_list": ""
+        }
+    },
+    "PORTCHANNEL_INTERFACE" : {
+        "{{ vnet_interface }}" : {
+            "vnet_name" : "{{ vnet_name }}"
+        }
+    }
+}

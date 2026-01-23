@@ -159,15 +159,9 @@ def main():
     interfaces = options.interface.split(',')
 
     # Configure logging
-    res = os.system('grep Nexus /etc/os-release')
-    if res == 0:
-        # For cisco-nexus, we need to use the "management" namespace
-        with Namespace(nsname="management"):
-            handler = logging.handlers.SysLogHandler(address = (options.rsyslog_server,514))
-            logger.addHandler(handler)
-    else:
-        handler = logging.handlers.SysLogHandler(address = (options.rsyslog_server,514))
-        logger.addHandler(handler)
+    handler = logging.handlers.SysLogHandler(address=(options.rsyslog_server, 514))
+    handler.ident = 'pfc_gen: '
+    logger.addHandler(handler)
 
     """
     Set PFC defined fields and generate the packet
