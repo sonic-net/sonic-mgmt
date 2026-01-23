@@ -382,6 +382,30 @@ def tgen_preconfig(**kwargs):
     for node, interfaces in v6_node_device_handles.items():
         for interface,values in interfaces.items():
             v6_device_handles[interface] =values
+    ###Tgen fix
+    ixNet = tg.get_ixnet()
+    try:
+        for node, nodeValues in topo_handles.items():
+            for topo, topoValues in nodeValues.items():
+                if re.search('/log:', topoValues['port_handle']):
+                    vport_list = topoValues['vport_handles']
+                    for vport in vport_list:
+                        #NS Retransmit Interval
+                        ixNet.setAttribute(vport+ '/protocolStack/options', '-retransTime', 3000)
+                        #NS Transmit Count
+                        ixNet.setAttribute(vport+'/protocolStack/options', '-mcast_solicit', 10)
+                        #ARP Retransmit Interval
+                        ixNet.setAttribute(vport+'/protocolStack/options', '-ipv4RetransTime', 3000)
+                        #ARP Transmit Count
+                        ixNet.setAttribute(vport+'/protocolStack/options', '-ipv4McastSolicit', 10)
+
+                    ixNet.commit()
+               
+    except:
+        print(" ")
+  
+
+
     ### start all protocols ###
     tg_handle = topo_handles[leaf_nodes[0]][l2vni_intf_dict[leaf_nodes[0]][0]]['tg_handle']
 
@@ -1208,9 +1232,10 @@ class TestVxlanBumTriggers():
             return False
         
         st.log('Verify that interface {} on {} is forwarding traffic'.format(vars[ndf_int_id], ndf_dut))
-        # calculating expected packet expected
+        
         df_exp_tx_pkts = 0
         ndf_exp_tx_pkts = 0
+        
         for stream_cntr, stream_info in tgen_handles[traffic_type].items():
             for dst_port, handle in stream_info['dst_ports']:
                 if interface in dst_port:
@@ -4812,7 +4837,6 @@ class TestVxlanDfNdfFailure():
         docker_cnt = basic_obj.get_and_match_docker_count(df_dut)
         reboot_obj.dut_reboot(df_dut)
         restore_helper_file(df_dut)
-        #todo -->Check whether this wait is needed
         st.wait(60)
         #check docker status
         st.log('Checking if dockers are up after reload on DF node : {}'.format(df_dut))
@@ -4916,7 +4940,10 @@ class TestVxlanDfNdfFailure():
         else:
             report_result(False, tc_id, 'Not all vteps are found after reboot.')
 
+        
+
         st.log('Checking status of continuous traffic after reboot')
+     
         if vxlan_obj.check_traffic(tc_cfg['stream_handles']['DF_NDF'], action='check', min_perc=99.6):
             st.banner('Continuous Traffic check passed')
         else:
@@ -5351,7 +5378,7 @@ class TestVxlanDfNdfFailure():
             report_result(False, tc_id, str(err))
 
         st.wait(30)
-        vxlan_obj.start_stop_protocols(tgen_handles['tg_handle'], 'stop')
+        #vxlan_obj.start_stop_protocols(tgen_handles['tg_handle'], 'stop')
         if tc_cfg.get('stream_handles'):
             st.log('Delete traffic items')
             try:
@@ -5359,7 +5386,7 @@ class TestVxlanDfNdfFailure():
                     vxlan_obj.delete_traffic_item(tc_cfg['tg_handle'], traffic_items)
             except Exception as err:
                 st.error('traffic item cleanup failed')
-        vxlan_obj.start_stop_protocols(tgen_handles['tg_handle'], 'start')
+        #vxlan_obj.start_stop_protocols(tgen_handles['tg_handle'], 'start')
 
 @pytest.mark.usefixtures('tgen_health_check_class')
 class TestVxlanTriggers():
@@ -5525,7 +5552,8 @@ def enable_or_disable_existing_streams(mode='disable'):
     if mode.lower() not in ('disable', 'enable'):
         raise ValueError("Unexpected mode: {}! Available ony 'disable' or 'enable' options!".format(mode))
     streams = []
-    tg_handle = tgen_handles['topo_handles']['leaf0'][tgen_handles['topo_handles']['leaf0'].keys()[0]]['tg_handle']
+    tg_handle = tgen_handles['topo_handles']['leaf0'][list(tgen_handles['topo_handles']['leaf0'].keys())[0]]['tg_handle']
+    #tg_handle = tgen_handles['topo_handles']['leaf0']tgen_handles['topo_handles']['leaf0'].keys())[0]]['tg_handle']
     for traffic_type, item in tgen_handles.items():
         if traffic_type not in ['v6_device_handles', 'v4_device_handles', 'topo_handles', 'tg_handle']:
             for key, value in item.items():
@@ -6091,17 +6119,20 @@ class TestVxlanSBStaticRoute():
     def get_sb_port_list(self):
         self.sb_port_list = {}
         dut_int_data = vxlan_obj.get_dut_interfaces(vars)
-
         for node in sb_static_leaf_nodes:
-            self.sb_port_list[node] = dut_int_data[node]['dut_port_dict'].values()
+            self.sb_port_list[node] = list(dut_int_data[node]['dut_port_dict'].values())
+        # ...existing code...
+        dut_int_data = vxlan_obj.get_dut_interfaces(vars)
+        for node in sb_static_leaf_nodes:
+            self.sb_port_list[node] = list(dut_int_data[node]['dut_port_dict'].values())
 
         for gw in sb_static_gw_port_map.keys():
             node = sb_static_gw_port_map[gw]['node']
             port = sb_static_gw_port_map[gw]['port']
             if 'PortChannel' in port:
                 intf_name  = port.split('_')[0]
-                self.sb_port_list[node].append(intf_name)       
-
+                self.sb_port_list[node].append(intf_name)
+        
     def shut_no_shut_all_sb_ports(self):
         self.get_sb_port_list()
         for node in sb_static_leaf_nodes:
@@ -6897,6 +6928,7 @@ class TestVxlanES():
             st.log('Delete tgen LAG topology ')
             try:
                 vxlan_obj.start_stop_protocols(tgen_handles['tg_handle'], 'stop')
+                st.wait(10)
                 st.log('Destroying LAG topology on the ports')
                 tc_cfg['tg_handle'].tg_topology_config(mode='destroy', 
                         topology_handle=tgen_handles['topo_handles'][dut][lag_name]['topology_handle'])
@@ -6995,6 +7027,8 @@ class TestVxlanES():
                                                 'vlan': tc_cfg['vlan_id'], 'gateway': '8000:{}::1'.format(tc_cfg['vlan_id']),
                                                 'host_ip': '8000:{}::205'.format(tc_cfg['vlan_id'])}}}}
         try:
+            #add 10sec wait time
+            st.wait(10)
             tc_cfg['tg_handle'] = tgen_handles['tg_handle']
             out_v4 = vxlan_obj.create_device_groups(tgen_handles['topo_handles'],v4_host_info_dict)
             v4_node_device_handles = out_v4[0]
@@ -7235,7 +7269,6 @@ class TestVxlanReloadTriggers():
             if not poll_wait(basic_obj.get_and_match_docker_count, 180, selected_dut, count):
                 st.error("Post 'config reload', ALL dockers are not UP.")
                 st.report_fail("test_case_failed")
-        #Todo --> check if this timeout needed
         st.wait(60)
         st.log("Verifying base setup")
         base_res = verify_base_setup(retry=10)
@@ -7592,7 +7625,7 @@ def verify_traffic(traffic_handles, regenerate=False, traffic_types=[], traffic_
             stop_start_protocols=False
             st.log("Traffic type {} verify result: {}".format(traffic_type, traffic_result[traffic_type]))
             if not traffic_result[traffic_type]:
-                #import pdb; pdb.set_trace()
+                
                 pass
         except Exception as err:
             st.error('Exception when checking traffic: {}'.format(str(err)))
@@ -7743,7 +7776,6 @@ def verify_vxlan_neigh_groups(dut, retry=1):
 
     # find esi for dut:
     if test_cfg[dut] and test_cfg[dut].get('port_channels'):
-        # todo. assuming only one esi per node
         dut_esi = test_cfg[dut]['port_channels'][0]['evpn_esi']
     else:
         return
@@ -8478,7 +8510,7 @@ class TestVxlanExternalConnectivity():
             if not poll_wait(basic_obj.get_and_match_docker_count, 180, selected_dut, count):
                 st.error("Post 'config reload', ALL dockers are not UP.")
                 st.report_fail("test_case_failed")
-        #Todo --> check if this timeout needed
+        
         st.wait(180)
         st.log("Verifying base setup")
         base_res = verify_base_setup(retry=test_cfg['global']['config_reload'])
@@ -9287,7 +9319,7 @@ class TestMoveExistingVlanToDiffVrf():
             st.banner(log)
             result_str += '{}\n'.format(log)
 
-        # TODO : restore should run if verify_traffic above aborts
+    
         st.log('Restore vlan: {} to vrf {}'.format([v['id'] for v in tc_cfg['vlans']], tc_cfg['src_vrf']))
         for dut in duts:
             cmd = ""
@@ -9324,7 +9356,7 @@ class TestVxlanBasicAddDelTriggers():
         if mode.lower() not in ('disable', 'enable'):
             raise ValueError("Unexpected mode: {}! Available ony 'disable' or 'enable' options!".format(mode))
         streams = []
-        tg_handle = tgen_handles['topo_handles']['leaf0'][tgen_handles['topo_handles']['leaf0'].keys()[0]]['tg_handle']
+        tg_handle = tgen_handles['topo_handles']['leaf0'][list(tgen_handles['topo_handles']['leaf0'].keys())[0]]['tg_handle']
         for traffic_type, item in tgen_handles.items():
             if traffic_type not in ['v6_device_handles', 'v4_device_handles', 'topo_handles', 'tg_handle']:
                 for key, value in item.items():

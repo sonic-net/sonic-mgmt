@@ -19,12 +19,12 @@ def portchannel_fallback_module_hooks(request):
     data.portchannel_name = "PortChannel01"
 
     # Ensure 2-node topology with 4 links between them and IXIA connections
-    vars = st.ensure_min_topology("D5D7:4")
+    vars = st.ensure_min_topology("D5D6:4")
 
     data.dut1 = vars.D5
-    data.dut2 = vars.D7
-    data.members_dut1 = [vars.D5D7P1, vars.D5D7P2, vars.D5D7P3 ]
-    data.members_dut2 = [vars.D5D7P1, vars.D5D7P2, vars.D5D7P3 ]
+    data.dut2 = vars.D6
+    data.members_dut1 = [vars.D5D6P1, vars.D5D6P2, vars.D5D6P3 ]
+    data.members_dut2 = [vars.D5D6P1, vars.D5D6P2, vars.D5D6P3 ]
 
     yield
     module_unconfig()
@@ -45,7 +45,7 @@ def portchannel_fallback_func_hooks(request):
 
 def function_config():
     """Function level setup - Create portchannels and bring up all interfaces before each test"""
-
+    
     # Create portchannel on both DUTs
     portchannel_obj.create_portchannel(data.dut1, portchannel_list=[data.portchannel_name], fallback=True)
     portchannel_obj.create_portchannel(data.dut2, portchannel_list=[data.portchannel_name])
@@ -85,6 +85,7 @@ def test_portchannel_fallback_no_operational_ports():
     Verify the Portchannel status with no operational ports
     """
     intf_obj.interface_shutdown(data.dut1, data.members_dut1[:2], skip_verify=False)
+
     portchannel_obj.add_portchannel_member(data.dut1, portchannel=data.portchannel_name, members=data.members_dut1[:2])
 
     member_state_dict = {

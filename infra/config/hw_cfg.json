@@ -1559,6 +1559,134 @@
                 "ls -l"
             ]
         },
+        "b2b-m5-14-lightning" : {
+            "ucs_host_name":"sonic-ucs-m5-14",
+            "ucs_host": "172.26.235.44",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "telnet_host": ["172.26.235.13","172.26.235.41"],
+            "telnet_port": ["2009", "2037"],
+            "telnet_details": ["172.26.235.13 2009", "172.26.235.41 2037"],
+            "dut_ssh": ["1.3.103.35", "1.3.103.37"],
+            "need_ucs_mount": "True",
+            "topology": "b2b",
+            "installer_mode": "sonic",
+            "onie_ip": "1.3.103.20",
+            "scp_ip": "1.3.103.20",
+            "max_timeout": 30,
+            "extra_timeout": 600,
+            "allure_flag": "false",
+            "docker_prompt":"@sonic-ucs-m5-14:",
+            "sonic_mgmt_container_202305": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_202405": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_202311": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_202411": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_202505": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_202501": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_master": "cicd_prod_master_ixia_v10_0",
+            "skip_tests": "",
+            "skip_folder":"",
+            "custom_result_url":"http://172.26.235.44/ixia_v10_cicd_logs",
+            "lldp_count": 13,
+            "external_ucs": "none",
+            "run_type_check": "/data/sonic-mgmt/spytest/tests/optics/test_optics.py",
+            "optional_run_params": {
+                "testbed_yaml": {
+                    "default": "/data/spytest_tb_files/lightning-b2b.yaml"
+                }
+            },
+            "extra_onie_check": [
+                "show lldp table"
+            ],
+            "extra_onie_commands": [
+                [
+                    "sudo bash",
+                    "cd /usr/share/sonic/device/x86_64-8122_64eh_o-r0/Cisco-8122-O128S2",
+                    "sudo scp sonic@1.3.103.20:~/tools/lightning-b2b-1-platform_cisco_cfg.yaml platform_cisco_cfg.yaml",
+                    "sudo rm /etc/sonic/config_db.json",
+                    "sudo reboot" 
+                ],
+                [
+                    "sudo bash",
+                    "cd /usr/share/sonic/device/x86_64-8122_64eh_o-r0/Cisco-8122-O128S2",
+                    "sudo scp sonic@1.3.103.20:~/tools/lightning-b2b-2-platform_cisco_cfg.yaml platform_cisco_cfg.yaml",
+                    "sudo rm /etc/sonic/config_db.json",
+                    "sudo reboot"
+                ]
+            ],
+            "special_run_commands": [
+                "unset http_proxy https_proxy",
+                "cd /data/sonic-mgmt/spytest",                
+                "mkdir /run_logs/$image_folder",             
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master /data/sonic-mgmt/spytest/tests/optics/test_optics.py --logs-path /run_logs/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=36000 --module-init-max-timeout=36000",                
+                "ls -l"
+            ]
+        },
+         "b2b-m5-16-tornado" : {
+            "ucs_host_name":"sonic-ucs-m5-16",
+            "ucs_host": "172.26.235.12",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "telnet_host": ["172.26.235.15"],
+            "telnet_port": ["2032", "2033"],
+            "telnet_details": ["172.26.235.15 2032", "172.26.235.15 2033"],
+            "dut_ssh": ["4.164.1.252", "4.164.1.253"],
+            "need_ucs_mount": "True",
+            "topology": "b2b",
+            "installer_mode": "sonic",
+            "onie_ip": "4.164.1.220",
+            "scp_ip": "4.164.1.220",
+            "max_timeout": 30,
+            "extra_timeout": 600,
+            "allure_flag": "false",
+            "docker_prompt":"@sonic-ucs-m5-16:",
+            "sonic_mgmt_container_202305": "spytest-tornado-b2b",
+            "sonic_mgmt_container_202405": "spytest-tornado-b2b",
+            "sonic_mgmt_container_202311": "spytest-tornado-b2b",
+            "sonic_mgmt_container_202411": "spytest-tornado-b2b",
+            "sonic_mgmt_container_202505": "spytest-tornado-b2b",
+            "sonic_mgmt_container_202501": "spytest-tornado-b2b",
+            "sonic_mgmt_container_master": "spytest-tornado-b2b",
+            "skip_tests": "",
+            "skip_folder":"",
+            "custom_result_url":"http://172.26.235.12/test_logs/spytest-b2b/cicd_runs/",
+            "lldp_count": 12,
+            "external_ucs": "none",
+            "run_type_check": "/data/sonic-mgmt/spytest/tests/optics/test_optics.py",
+            "optional_run_params": {
+                "testbed_yaml": {
+                    "default": "/data/spytest_tb_files/tornado-b2b.yaml"
+                }
+            },
+            "extra_onie_check": [
+                "show lldp table"
+            ],
+            "extra_onie_commands": [
+                [
+                    "sudo bash",
+                    "cd /usr/share/sonic/device/x86_64-8101_32fh_o_c01-r0/Cisco-8101C01-C32",
+                    "sudo scp sonic@4.164.1.220:/var/www/html/tornado-b2b-cfg/tornado_b2b_dut1_platform_cisco_cfg.yaml platform_cisco_cfg.yaml", 
+                    "sudo rm /etc/sonic/config_db.json",
+                    "sudo reboot" 
+                ],
+                [
+                    "sudo bash",
+                    "cd /usr/share/sonic/device/x86_64-8101_32fh_o_c01-r0/Cisco-8101C01-C32",
+                    "sudo scp sonic@4.164.1.220:/var/www/html/tornado-b2b-cfg/tornado_b2b_dut2_platform_cisco_cfg.yaml platform_cisco_cfg.yaml",
+                    "sudo rm /etc/sonic/config_db.json",
+                    "sudo reboot"
+                ]
+            ],
+            "special_run_commands": [
+                "unset http_proxy https_proxy",
+                "export SCID_TGEN_PATH=/data/projects/scid/tgen",
+                "export SCID_TCL85_BIN=/data/projects/scid/tcl/bin/tclsh8.5",
+                "cd /data/sonic-mgmt/spytest",                
+                "mkdir /run_logs/$image_folder",             
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master /data/sonic-mgmt/spytest/tests/optics/test_optics.py --logs-path /run_logs/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=36000 --module-init-max-timeout=36000",                
+                "ls -l"
+            ]
+        },
         "t0-m6-20-lightning" : {
             "ucs_host_name": "sonic-ucs-m6-20",
             "ucs_host": "172.26.235.20",
@@ -1935,6 +2063,70 @@
                         "python3 ./do_hw_setup.py onie -i $BUILD_ID -t $TEST_BED"
                 ]
             }
+        },
+        "t2-m6-30-titan": {
+            "ucs_host_name": "sonic-TTAN-ucs-m6-30",
+            "ucs_host": "172.23.107.5",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "titan-t2-1-dut",
+            "scp_ip":"8.8.2.10",
+            "installer_mode":"sonic",
+            "ucs_tb": "ttn-t2",
+            "telnet_host": ["172.23.107.3"],
+            "telnet_port": ["2004"],
+            "telnet_details": ["172.23.107.3 2004"],
+            "dut_ssh": ["8.8.2.10"],
+            "topology": "t2",
+            "telnet_flag": "False",
+            "docker_prompt": "@sonic-ttan-ucs-m6-30",
+            "run_type_check": "run_tests",
+            "sonic_mgmt_container_202505": "cicd-prod-2025",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url --skip-package-migration",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "skip_tests": "",
+            "skip_folder": "",
+            "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo ttn-t2 ./lab",
+            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo ttn-t2 ./lab",
+            "mtu_hack": {
+                "vms_count": 72
+            }
+        },
+        "t0-m6-41-titan": {
+            "ucs_host_name": "sonic-TTAN-ucs-m6-41",
+            "ucs_host": "172.23.107.7",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "titan-t0-dut",
+            "scp_ip":"8.8.2.162",
+            "installer_mode":"sonic",
+            "ucs_tb": "ttan-t0",
+            "telnet_host": ["172.23.107.3"],
+            "telnet_port": ["2009"],
+            "telnet_details": ["172.23.107.3 2009"],
+            "dut_ssh": ["8.8.2.162"],
+            "topology": "t0",
+            "telnet_flag": "False",
+            "docker_prompt": "@sonic-ttan-ucs-m6-41",
+            "run_type_check": "run_tests",
+            "sonic_mgmt_container_202505": "cicd-202505-sonic-mgmt",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url --skip-package-migration",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "skip_tests": "",
+            "skip_folder": "",
+            "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo ttan-t0 ./lab",
+            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo ttan-t0 ./lab",
+            "mtu_hack": {
+                "vms_count": 4
+            }
         }
     },
     "testbed-streams" : {
@@ -2097,7 +2289,7 @@
         ],
         "t1-m6-27-m64": "None",
         "t1-m6-26-cmono": "None",
-        "t1-m3-4-cmono": ["cisco.202511.signed"],
+        "t1-m3-4-cmono": "None",
         "t0-m6-28-superbolt": "None",
         "t0-m6-24-lightning": "None",
         "t0-m6-20-lightning": "None",
@@ -2134,6 +2326,8 @@
         ],
         "t1-m6-23-superbolt": "None",
         "b2b-m5-14-superbolt": "None",
+        "b2b-m5-14-lightning": "None",
+        "b2b-m5-16-tornado": "None",
         "t0-m6-1-m64": "None",
         "t0-m6-33-laguna": [
             "cisco.202405c.2.tortuga.laguna.no-agents",
@@ -2148,12 +2342,18 @@
         ],
         "lightning-spytest-plat": [
             "cisco.202505.1.signed"
+        ],
+        "t2-m6-30-titan": [
+            "cisco.202505.signed"
+        ],
+        "t0-m6-41-titan": [
+            "cisco.202505.signed"
         ]
     },
     "testbeds": {
-        "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64", "t0-m6-33-laguna", "cmono-t0-2"],
+        "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64", "t0-m6-33-laguna", "cmono-t0-2", "t0-m6-41-titan"],
         "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m6-27-m64", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning", "t1-m5-11-hbm", "t1-m6-26-cmono"],
-        "t2" : ["aaa14-t2"],
+        "t2" : ["aaa14-t2", "t2-m6-30-titan"],
         "dualtor" : ["dualtor-m6-30-tornado", "dualtor-m6-31-tornado", "mathilda-dualtor-t0-1", "mathilda-dualtor-m5-6"],
         "dev-cicd-b2b": ["mtfuji-spytest-plat", "lightning-spytest-plat"]
     },
@@ -2191,6 +2391,8 @@
         "t0-m6-20-lightning": "ucs_m5_16",
         "t1-m5-16-lightning": "ucs_m5_16",
         "b2b-m5-14-superbolt": "ucs_m5_14",
+        "b2b-m5-14-lightning": "ucs_m5_14",
+        "b2b-m5-16-tornado": "ucs_m5_14",
         "t0-m6-33-laguna": "ucs_m6_33",
         "t0-m6-1-m64": "ucs_m4_3",
         "aaa14-t2": "ucs_m5_10",
@@ -2202,7 +2404,9 @@
         "t0-m6-29-tornado": "ucs_m6_25",
         "t0-m6-24-lightning": "ucs_m5_16",
         "mtfuji-spytest-plat": "m6_platform",
-        "lightning-spytest-plat": "m6_platform"
+        "lightning-spytest-plat": "m6_platform",
+        "t2-m6-30-titan": "ucs_ttan_m6_30",
+        "t0-m6-41-titan": "ucs_ttan_m6_41"
     },
     "file_server_dict" : {
         "ucs_m3_1" : {
@@ -2436,6 +2640,24 @@
             "username": "sonic",
             "password": "roZes@123",
             "scp_prompt" : "sonic@172.25.168.41:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "http_proxy= https_proxy= wget"
+        },
+        "ucs_ttan_m6_30": {
+            "host": "sonic-TTAN-ucs-m6-30",
+            "ip": "172.23.107.5",
+            "username": "sonic",
+            "password": "roZes@123",
+            "scp_prompt" : "sonic@172.23.107.5:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "http_proxy= https_proxy= wget"
+        },
+        "ucs_ttan_m6_41": {
+            "host": "sonic-TTAN-ucs-m6-41",
+            "ip": "172.23.107.7",
+            "username": "sonic",
+            "password": "roZes@123",
+            "scp_prompt" : "sonic@172.23.107.7:/var/www/html/IMAGES",
             "images_folder" : "/var/www/html/IMAGES",
             "wget" : "http_proxy= https_proxy= wget"
         }

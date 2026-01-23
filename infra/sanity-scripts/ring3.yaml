@@ -573,10 +573,15 @@ L2:
         - arp/test_arp_extended.py
         - arp/test_neighbor_mac_noptf.py
         #- arp/test_stress_arp.py
+        - arp/test_arp_update.py
+        - arp/test_neighbor_mac.py
+        - dhcp_relay/test_dhcp_counter_stress.py
         - dhcp_relay/test_dhcp_pkt_recv.py
         - dhcp_relay/test_dhcp_relay.py
         #- dhcp_relay/test_dhcp_relay_stress.py
         - dhcp_relay/test_dhcpv6_relay.py
+        - dhcp_server/test_dhcp_server.py
+        - dhcp_server/test_dhcp_server_multi_vlans.py
         - fdb/test_fdb.py
         - fdb/test_fdb_flush.py
         #- fdb/test_fdb_mac_expire.py
@@ -585,16 +590,19 @@ L2:
         - generic_config_updater/test_dhcp_relay.py
         - generic_config_updater/test_portchannel_interface.py
         - generic_config_updater/test_vlan_interface.py
+        - l2/test_l2_configure.py
         #- lldp/test_lldp.py
         - lldp/test_lldp_syncd.py
         - pc/test_lag_2.py
+        - pc/test_lag_member_forwarding.py
         #- pc/test_lag_member.py
         - pc/test_po_cleanup.py
         - pc/test_po_update.py
         #- snmp/test_snmp_fdb.py
         - vlan/test_autostate_disabled.py
+        - vlan/test_secondary_subnet.py
         - vlan/test_host_vlan.py
-        #- vlan/test_vlan.py
+        - vlan/test_vlan.py
       hw:
         - arp/test_arp_extended.py
         - arp/test_neighbor_mac_noptf.py

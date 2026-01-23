@@ -1,0 +1,17 @@
+# Modules
++file:cisco/tortuga/vxlan/test_static_route_apm.py
++file:cisco/tortuga/vxlan/test_static_route_apm_basic.py
+
+#Runtime Arguments
++args:--skip-init-config
++args:--skip-init-checks
++args:--skip-load-config=module
++args:--skip-load-config=base
++args:--device-feature-group master
++args:--load-config-method=none
++args:--module-init-max-timeout 15000
++args:--tc-max-timeout 15000
++args:--max-time module 15000
++args:--max-time function 15000
++args:--logs-level=debug
++args:--random-order=0

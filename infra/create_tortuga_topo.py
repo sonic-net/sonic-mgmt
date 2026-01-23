@@ -521,7 +521,7 @@ def start_controller(device_type):
     os.chdir('./tortuga_controller')
 
     if device_type == 'laguna':
-        os.system("bash -c './test.sh -no-stp |& tee test_op.log'".format(test_path))
+        os.system("bash -c './test.sh -no-stp -dup-ok |& tee test_op.log'".format(test_path))
     else:
         os.system("bash -c './test.sh |& tee test_op.log'".format(test_path))
 

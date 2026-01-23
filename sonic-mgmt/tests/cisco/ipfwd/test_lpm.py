@@ -19,7 +19,7 @@ from tests.cisco.common.utils import Arp
 from tests.cisco.common.utils import IPRoutes
 from tests.cisco.common.utils import get_crm_info
 from tests.cisco.common.utils import combinations
-from tests.cisco.common.utils import get_asic_type
+from tests.cisco.common.utils import get_asic_type, get_platform_type
 
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 
@@ -64,6 +64,7 @@ class LPM:
 
     def get_lpm_resource_usage_stats(self):
         asic_type = get_asic_type(self,self.duthost)
+        platform_type = get_platform_type(self,self.duthost)
         if asic_type=='Gr2':
             keys = ['Entries', 'IPv4 Entries', 'IPv6 Entries', 'IPv4 SRAM Entries', 'IPv6 SRAM Entries', 'TCAM Occupied Rows', 'TCAM Free Rows',
                     'IPv4 TCAM Entries', 'IPv6 single TCAM Entries', 'IPv6 double TCAM Entries', 'IPv6 quad TCAM Entries', 'L1 Rows',
@@ -73,11 +74,19 @@ class LPM:
                     'Total Entries Utilization (% used out of max potential)']
         else:
             keys = ['Entries', 'IPv4 Entries', 'IPv6 Entries', 'IPv4 SRAM Entries', 'IPv6 SRAM Entries', 'TCAM Occupied Rows', 'TCAM Free Rows',
-                    'IPv4 TCAM Entries', 'IPv6 single TCAM Entries', 'IPv6 double TCAM Entries', 'IPv6 quad TCAM Entries', 'L1 Rows',
-                    'L1 Entries', 'L2 SRAM Rows', 'L2 SRAM Single Entries', 'L2 SRAM Wide Entries', 'L2 SRAM pinned entries', 'TCAM Occupancy',
+                    'IPv4 single TCAM Entries','IPv4 double TCAM Entries', 'IPv6 single TCAM Entries', 'IPv6 double TCAM Entries', 'IPv6 quad TCAM Entries', 'L1 Rows',
+                    'L1 Entries', 'L2 SRAM Rows', 'L2 SRAM Single Entries', 'L2 SRAM Wide Entries', 'TCAM Occupancy',
                     'L1 Occupancy (% Rows used)', 'L2 SRAM Occupancy (% Rows used)', 'TCAM Entries Utilization (of occupied single entries)',
                     'L1 Utilization (of occupied buckets)', 'L2 SRAM Entries Utilization (of occupied buckets)',
                     'L2 SRAM Space Utilization (of occupied buckets)', 'Total Entries Utilization (% used out of max potential)']
+            # Update keys for hbm platforms 
+            if platform_type in ['x86_64-8201_32fh_o-r0']:
+                keys.extend(['IPv4 HBM Entries', 'IPv6 HBM Entries', 'L2 HBM Rows','Number of L2 SRAM pinned entries',
+                             'L2 HBM Single Entries','L2 HBM Wide Entries','L2 HBM Occupancy (% Rows used)','L2 HBM Entries Utilization (of occupied buckets)',
+                             'L2 Total Entries Utilization (include SRAM and HBM)','L2 HBM Space Utilization (of occupied buckets)','L2 Total Space Utilization (include SRAM and HBM)'])
+            #Update keys for non-hbm platforms 
+            else:
+                keys.extend(['L2 SRAM pinned entries'])
 
         self.get_lpm_report()
         result = {}

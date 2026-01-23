@@ -6,30 +6,35 @@ from spytest import st
 from utilities.parallel import exec_foreach
 import tortuga_common_utils as common_obj
 
+
 @pytest.fixture
 def dhcpv4_relay_flag_config_unconfig():
     vars = st.get_testbed_vars()
     leaf0 = vars.D3
     leaf1 = vars.D4
-    st.log("configuring flag for device {}".format(leaf0))
-    st.config(leaf0, "redis-cli -n 4 hset 'DEVICE_METADATA|localhost' 'has_sonic_dhcpv4_relay' 'True'")
-    basic_obj.service_operations_by_systemctl(leaf0,"dhcp_relay",'reset-failed')
-    basic_obj.service_operations_by_systemctl(leaf0,"dhcp_relay",'restart')
-    st.log("configuring flag for device {}".format(leaf1))
-    st.config(leaf1, "redis-cli -n 4 hset 'DEVICE_METADATA|localhost' 'has_sonic_dhcpv4_relay' 'True'")
-    basic_obj.service_operations_by_systemctl(leaf1,"dhcp_relay",'reset-failed')
-    basic_obj.service_operations_by_systemctl(leaf1,"dhcp_relay",'restart')
+    dhcp4_flag = st.config(leaf0, "redis-cli -n 4 hget 'DEVICE_METADATA|localhost' 'has_sonic_dhcpv4_relay'")
+    if dhcp4_flag and 'True' in dhcp4_flag:
+        st.log("unconfiguring flag for device {}".format(leaf0))
+        st.config(leaf0, "redis-cli -n 4 hset 'DEVICE_METADATA|localhost' 'has_sonic_dhcpv4_relay' 'False'")
+        basic_obj.service_operations_by_systemctl(leaf0,"dhcp_relay",'reset-failed')
+        basic_obj.service_operations_by_systemctl(leaf0,"dhcp_relay",'restart')
+        st.log("unconfiguring flag for device {}".format(leaf1))
+        st.config(leaf1, "redis-cli -n 4 hset 'DEVICE_METADATA|localhost' 'has_sonic_dhcpv4_relay' 'False'")
+        basic_obj.service_operations_by_systemctl(leaf1,"dhcp_relay",'reset-failed')
+        basic_obj.service_operations_by_systemctl(leaf1,"dhcp_relay",'restart')
 
     yield
 
-    st.log("unconfiguring flag for device {}".format(leaf0))
-    st.config(leaf0, "redis-cli -n 4 hdel 'DEVICE_METADATA|localhost' 'has_sonic_dhcpv4_relay'")
-    basic_obj.service_operations_by_systemctl(leaf0,"dhcp_relay",'reset-failed')
-    basic_obj.service_operations_by_systemctl(leaf0,"dhcp_relay",'restart')
-    st.log("unconfiguring flag for device {}".format(leaf1))
-    st.config(leaf1, "redis-cli -n 4 hdel 'DEVICE_METADATA|localhost' 'has_sonic_dhcpv4_relay'")
-    basic_obj.service_operations_by_systemctl(leaf1,"dhcp_relay",'reset-failed')
-    basic_obj.service_operations_by_systemctl(leaf1,"dhcp_relay",'restart')
+    dhcp4_flag = st.config(leaf0, "redis-cli -n 4 hget 'DEVICE_METADATA|localhost' 'has_sonic_dhcpv4_relay'")
+    if dhcp4_flag and 'False' in dhcp4_flag:
+        st.log("configuring flag for device {}".format(leaf0))
+        st.config(leaf0, "redis-cli -n 4 hset 'DEVICE_METADATA|localhost' 'has_sonic_dhcpv4_relay' 'True'")
+        basic_obj.service_operations_by_systemctl(leaf0,"dhcp_relay",'reset-failed')
+        basic_obj.service_operations_by_systemctl(leaf0,"dhcp_relay",'restart')
+        st.log("configuring flag for device {}".format(leaf1))
+        st.config(leaf1, "redis-cli -n 4 hset 'DEVICE_METADATA|localhost' 'has_sonic_dhcpv4_relay' 'True'")
+        basic_obj.service_operations_by_systemctl(leaf1,"dhcp_relay",'reset-failed')
+        basic_obj.service_operations_by_systemctl(leaf1,"dhcp_relay",'restart')
 
 
 def check_dhcp4relay_support(node):

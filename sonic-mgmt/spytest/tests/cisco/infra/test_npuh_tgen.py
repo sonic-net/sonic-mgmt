@@ -45,31 +45,44 @@ def verify_traffic(tgen_data):
 # Create
 def create_traffic_gen(tgen_data):
     # Create
+    if(tgen_data.pkt_type == "IPV4"):
+       pkt_type = "IP"
+       hop_count = "ttl"
+    else:
+       pkt_type = "IPv6"
+       hop_count = "hlim"
+
     if (tgen_data.type ==  "packet_data_complete"):
        tgen_cmd = 'config platform cisco tgen create -i {} \
-                   -p \'Ether(src="{}",dst="{}")/IP(src="{}",dst="{}",ttl={})/Raw(load="f"*{})\'' \
+                   -p \'Ether(src="{}",dst="{}")/{}(src="{}",dst="{}",{}={})/Raw(load="f"*{})\'' \
                    ' -m {} -d {}'.format(tgen_data.interface, \
                                          tgen_data.smac,  \
                                          tgen_data.dmac,  \
+                                         pkt_type,        \
                                          tgen_data.src_ip, \
                                          tgen_data.dst_ip, \
+                                         hop_count,        \
                                          tgen_data.ttl, \
                                          tgen_data.size, tgen_data.mode, tgen_data.duration)
     elif (tgen_data.type ==  "packet_data_no_dmac"):
         tgen_cmd = 'config platform cisco tgen create -i {} \
-                   -p \'Ether(src="{}")/IP(src="{}",dst="{}",ttl={})/Raw(load="f"*{})\'' \
+                   -p \'Ether(src="{}")/{}(src="{}",dst="{}",{}={})/Raw(load="f"*{})\'' \
                    ' -m {} -d {}'.format(tgen_data.interface, \
                                          tgen_data.smac, \
+                                         pkt_type,        \
                                          tgen_data.src_ip, \
                                          tgen_data.dst_ip, \
+                                         hop_count,        \
                                          tgen_data.ttl, \
                                          tgen_data.size, tgen_data.mode, tgen_data.duration)
     elif (tgen_data.type ==  "packet_data_no_ether"):
         tgen_cmd = 'config platform cisco tgen create -i {} \
-                   -p \'IP(src="{}",dst="{}",ttl={})/Raw(load="f"*{})\'' \
+                   -p \'{}(src="{}",dst="{}",{}={})/Raw(load="f"*{})\'' \
                    ' -m {} -d {}'.format(tgen_data.interface, \
+                                         pkt_type,        \
                                          tgen_data.src_ip, \
                                          tgen_data.dst_ip, \
+                                         hop_count,        \
                                          tgen_data.ttl, \
                                          tgen_data.size,\
                                          tgen_data.mode, \
@@ -125,7 +138,7 @@ def configure_and_verify(vars, tgen_data):
     output = st.show(vars.D1, 'sudo show platform npu tgen list',skip_tmpl=True, skip_error_check=True)
     print(output)
 
-# Test injectdown with packet in scapy format as input
+# Test injectdown with IPV4 packet in scapy format as input
 def test_injectdown_with_scapy_packet():
     tgen_data = SpyTestDict()
     tgen_data.smac = "0:0:C:D:E:F"
@@ -133,6 +146,7 @@ def test_injectdown_with_scapy_packet():
     tgen_data.src_ip = "1.1.1.1"
     tgen_data.dst_ip = "1.1.1.2"
     tgen_data.ttl = "64"
+    tgen_data.pkt_type = "IPV4"
     tgen_data.size = "512"
     tgen_data.mode =  "injectdown"
     tgen_data.duration = "10"
@@ -155,6 +169,7 @@ def test_injectup_with_nodmac_v4_scapy_packet():
     tgen_data.size = "512"
     tgen_data.mode =  "injectup"
     tgen_data.duration = "10"
+    tgen_data.pkt_type = "IPV4"
     tgen_data.type =  "packet_data_no_dmac"
     tgen_data.interface = vars.D1D2P1
     tgen_data.port_list = [vars.D1D2P1]
@@ -179,6 +194,7 @@ def test_injectup_with_nodmac_v6_scapy_packet():
     tgen_data.mode =  "injectup"
     tgen_data.duration = "10"
     tgen_data.type =  "packet_data_no_dmac"
+    tgen_data.pkt_type = "IPV6"
     tgen_data.interface = vars.D1D2P1
     tgen_data.port_list = [vars.D1D2P1]
     tgen_data.tc = "3"
@@ -198,6 +214,7 @@ def test_injectup_with_noether_scapy_packet():
     tgen_data.ttl = "64"
     tgen_data.size = "512"
     tgen_data.mode =  "injectup"
+    tgen_data.pkt_type = "IPV4"
     tgen_data.duration = "10"
     tgen_data.type =  "packet_data_no_ether"
     tgen_data.interface = vars.D1D2P1

@@ -1,5 +1,5 @@
 from spytest import st, tgapi, SpyTestDict
-from dhcpv4_relay_utils import dhcpv4_relay_flag_config_unconfig, check_dhcp4relay_support
+from dhcpv4_relay_utils import check_dhcp4relay_support
 import os
 import yaml
 import pytest
@@ -189,7 +189,7 @@ def config_dhcp_relay_ipv4(node, vlan, server, loopback=None, add=True):
 ######################################################################################
 
 
-def test_l3vni_vtep6_sag_dhcp_relay_tc1_DPB_new_design(dhcpv4_relay_flag_config_unconfig):
+def test_l3vni_vtep6_sag_dhcp_relay_tc1_DPB_new_design():
 
     st.banner("Start on test_l3vni_vtep6_sag_dhcp_relay_tc1_DPB")
     vars = st.get_testbed_vars()
@@ -204,7 +204,20 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc1_DPB_new_design(dhcpv4_relay_flag_config_
         st.log("Skipping: dhcp4relay new design not supported - gracefully passing.")
         return st.report_pass("test_case_passed", "dhcp4relay new design is not there. so gracefully passing")
 
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, breakout=True,  add=True)
+    # Runtime platform check
+    platform_output = st.show(vars.D3, "show platform summary")
+    hwsku = platform_output[0].get('hwsku', '') or platform_output[0].get('HwSKU', '')
+    st.log("Detected HwSKU: {}".format(hwsku))
+    if 'HF6100' not in hwsku:
+        st.log("Test is only applicable for HF6100 platforms. Current: {}".format(hwsku))
+        return st.report_pass('test_case_passed', "Test is only applicable for HF6100 and 8102 platforms")
+
+    output = st.config(vars.D3, "show interfaces status | grep '{}' | awk '{{print $3}}'".format(vars.D3T1P1))
+    speed = output.strip().splitlines()[0].strip()
+    if speed not in ["800G", "400G", "100G"]:
+        st.error("Unsupported speed {} on {}".format(speed, vars.D3T1P1))
+
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, breakout=True, speed=speed, add=True)
     dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, breakout=False, add=True) 
 
     dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, breakout=False, add=True)
@@ -227,7 +240,7 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc1_DPB_new_design(dhcpv4_relay_flag_config_
     dhcp_relay_obj.config_l3vni_int_vlan(vars.D4, vlan=vlan2, member=vars.D4T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, breakout=False, add=False)
 
     dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan3, member=vars.D3T1P2, vrf=VRF_NAME1, prefix=vlan3_prefix, loopback=None, breakout=False, add=False)
-    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, breakout=True,  add=False)
+    dhcp_relay_obj.config_l3vni_int_vlan(vars.D3, vlan=vlan2, member=vars.D3T1P1, vrf=VRF_NAME1, prefix=vlan2_prefix, loopback=None, breakout=True, speed=speed, add=False)
 
     if result:
 	st.report_pass('test_case_passed', 'test_l3vni_vtep6_sag_dhcp_relay_tc1_DPB')

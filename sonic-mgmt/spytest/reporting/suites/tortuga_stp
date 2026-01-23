@@ -1,7 +1,10 @@
 # Modules
-+file:cisco/tortuga/l2_switching/test_stp_scenarios.py
 +file:cisco/tortuga/portchannel/test_portchannel_fallback.py
 +file:cisco/tortuga/vxlan/test_lacp_fallback_over_evpn_mh.py
++file:cisco/tortuga/l2_switching/test_stp_scenarios.py
++file:cisco/tortuga/vxlan/test_static_route_apm_basic.py
++file:cisco/tortuga/vxlan/test_static_route_apm.py
+
 
 #Runtime Arguments
 +args:--skip-init-config

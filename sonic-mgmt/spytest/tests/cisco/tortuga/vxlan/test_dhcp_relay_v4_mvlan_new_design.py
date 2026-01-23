@@ -3,7 +3,7 @@ import yaml
 import pytest
 
 from spytest import st, tgapi, SpyTestDict
-from dhcpv4_relay_utils import dhcpv4_relay_flag_config_unconfig, check_dhcp4relay_support
+from dhcpv4_relay_utils import check_dhcp4relay_support
 import apis.system.basic as basic_obj
 import apis.routing.ip as ip_obj
 import apis.switching.vlan as vlan_obj
@@ -301,7 +301,7 @@ def dhcp_setup_ipv4_clients_verify(mhost=True, mclients=2, mserver=True):
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_mvlan_default_vrf_tc1_new_design(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_mvlan_default_vrf_tc1_new_design():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -371,7 +371,7 @@ def test_dhcp_relay_ipv4_mvlan_default_vrf_tc1_new_design(dhcpv4_relay_flag_conf
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_mvlan_new_vrf_tc2_new_design(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_mvlan_new_vrf_tc2_new_design():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -446,7 +446,7 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc2_new_design(dhcpv4_relay_flag_config_u
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_mvlan_new_vrf_tc3_new_design(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_mvlan_new_vrf_tc3_new_design():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -522,7 +522,7 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc3_new_design(dhcpv4_relay_flag_config_u
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_mvlan_new_vrf_tc4_new_design(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_mvlan_new_vrf_tc4_new_design():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -595,7 +595,7 @@ def test_dhcp_relay_ipv4_mvlan_new_vrf_tc4_new_design(dhcpv4_relay_flag_config_u
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_mvlan_default_vrf_tc5_new_design(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_mvlan_default_vrf_tc5_new_design():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -664,7 +664,7 @@ def test_dhcp_relay_ipv4_mvlan_default_vrf_tc5_new_design(dhcpv4_relay_flag_conf
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_mvlan_new_vrf_tc6_new_design(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_mvlan_new_vrf_tc6_new_design():
     vars = st.get_testbed_vars()
 
     nodes = {}

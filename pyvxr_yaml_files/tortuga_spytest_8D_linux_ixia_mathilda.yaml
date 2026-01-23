@@ -45,6 +45,9 @@ devices:
       - eth1
       - eth2
       - eth3
+      - eth4
+      - eth5
+      - eth6
     data_port_attributes:
       transport: e1000
     disks:
@@ -59,6 +62,57 @@ devices:
     vcpu: 2
     xr_port_redir:
       - 22
+    cli_commands: |
+      rm -f /home/vxr/tcpserver.py
+      echo 'import socket' > /home/vxr/tcpserver.py
+      echo 'import threading' >> /home/vxr/tcpserver.py
+      echo 'import sys' >> /home/vxr/tcpserver.py
+      echo '' >> /home/vxr/tcpserver.py
+      echo 'def handle_client(conn, addr):' >> /home/vxr/tcpserver.py
+      echo '    print(f"Connected by {addr}")' >> /home/vxr/tcpserver.py
+      echo '    with conn:' >> /home/vxr/tcpserver.py
+      echo '        while True:' >> /home/vxr/tcpserver.py
+      echo '            data = conn.recv(1024)' >> /home/vxr/tcpserver.py
+      echo '            if not data:' >> /home/vxr/tcpserver.py
+      echo '                break' >> /home/vxr/tcpserver.py
+      echo '            conn.sendall(data)  # Echo back' >> /home/vxr/tcpserver.py
+      echo '' >> /home/vxr/tcpserver.py
+      echo 'def start_server(host, port):' >> /home/vxr/tcpserver.py
+      echo '    # Determine address family (IPv4 or IPv6)' >> /home/vxr/tcpserver.py
+      echo '    family = socket.AF_INET6 if ":" in host else socket.AF_INET' >> /home/vxr/tcpserver.py
+      echo '' >> /home/vxr/tcpserver.py
+      echo '    with socket.socket(family, socket.SOCK_STREAM) as s:' >> /home/vxr/tcpserver.py
+      echo '        # Allow immediate reuse of the address after restart' >> /home/vxr/tcpserver.py
+      echo '        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)' >> /home/vxr/tcpserver.py
+      echo '' >> /home/vxr/tcpserver.py
+      echo '        # Bind and listen' >> /home/vxr/tcpserver.py
+      echo '        s.bind((host, port))' >> /home/vxr/tcpserver.py
+      echo '        s.listen()' >> /home/vxr/tcpserver.py
+      echo '        print(f"Server listening on {host}:{port}")' >> /home/vxr/tcpserver.py
+      echo '' >> /home/vxr/tcpserver.py
+      echo '        while True:' >> /home/vxr/tcpserver.py
+      echo '            conn, addr = s.accept()' >> /home/vxr/tcpserver.py
+      echo '            print(f"Accepted connection from {addr}")' >> /home/vxr/tcpserver.py
+      echo '            client_thread = threading.Thread(target=handle_client, args=(conn, addr))' >> /home/vxr/tcpserver.py
+      echo '            client_thread.daemon = True' >> /home/vxr/tcpserver.py
+      echo '            client_thread.start()' >> /home/vxr/tcpserver.py
+      echo '' >> /home/vxr/tcpserver.py
+      echo 'if __name__ == "__main__":' >> /home/vxr/tcpserver.py
+      echo '    if len(sys.argv) != 3:' >> /home/vxr/tcpserver.py
+      echo '        print(f"Usage: python3 {sys.argv[0]} <port> <ip>")' >> /home/vxr/tcpserver.py
+      echo '        sys.exit(1)' >> /home/vxr/tcpserver.py
+      echo '' >> /home/vxr/tcpserver.py
+      echo '    try:' >> /home/vxr/tcpserver.py
+      echo '        PORT = int(sys.argv[1])' >> /home/vxr/tcpserver.py
+      echo '    except ValueError:' >> /home/vxr/tcpserver.py
+      echo '        print("Port must be an integer")' >> /home/vxr/tcpserver.py
+      echo '        sys.exit(1)' >> /home/vxr/tcpserver.py
+      echo '' >> /home/vxr/tcpserver.py
+      echo '    HOST = sys.argv[2]' >> /home/vxr/tcpserver.py
+      echo '' >> /home/vxr/tcpserver.py
+      echo '    start_server(HOST, PORT)' >> /home/vxr/tcpserver.py
+      chmod +x /home/vxr/tcpserver.py
+      echo "TCP server file created successfully"
 
   SD8:
       <<: *linux_host
@@ -170,3 +224,18 @@ connections:
     hub8_0:
       - SD3.Ethernet12
       - SD3.Ethernet13
+    hub8_1:
+      - SD1.Ethernet7
+      - SD2.Ethernet7
+    hub8_2:
+      - SD2.Ethernet8
+      - SD7.eth4
+    hub8_3:
+      - SD2.Ethernet9
+      - SD7.eth5
+    hub8_4:
+      - SD3.Ethernet14
+      - SD7.eth6
+    hub8_5:
+      - SD4.Ethernet13
+      - SD8.eth3

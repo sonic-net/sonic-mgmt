@@ -3,7 +3,7 @@ import yaml
 import pytest
 
 from spytest import st, tgapi, SpyTestDict
-from dhcpv4_relay_utils import dhcpv4_relay_flag_config_unconfig, check_dhcp4relay_support
+from dhcpv4_relay_utils import check_dhcp4relay_support
 import apis.system.basic as basic_obj
 import apis.routing.ip as ip_obj
 import apis.switching.vlan as vlan_obj
@@ -354,7 +354,7 @@ def dhcp_setup_ipv4_clients_verify(mhost=False, mclients=2):
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_default_vrf_srclb_vrfs_tc1_new_design(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_default_vrf_srclb_vrfs_tc1_new_design():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -413,7 +413,7 @@ def test_dhcp_relay_ipv4_default_vrf_srclb_vrfs_tc1_new_design(dhcpv4_relay_flag
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc2_new_design(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc2_new_design():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -485,7 +485,7 @@ def test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc2_new_design(dhcpv4_re
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc3_new_design(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc3_new_design():
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -567,7 +567,7 @@ def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc3_new_design(dhcpv4_re
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc4_new_design(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc4_new_design():
     vars = st.get_testbed_vars()
 
     nodes = {}

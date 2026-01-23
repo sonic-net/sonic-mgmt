@@ -1,5 +1,29 @@
 # Modules
-+file:cisco/tortuga/vxlan/test_evpn_mh_v4_over_v6.py
+# Test Suites sequence with DECREASING order of execution time.
+# This ensures the appropriate queuing of the test suites in the parallel SIMs.
+# DO NOT alter the sequence until the test execution time has been validated
+# accordingly.
+
+# Run/validate the test case once manually, calcualte the time taken for the
+# completion of the test case. Based on the time taken for the test case(s)
+# execution:
+# 1. Enter the test suite time execution and the test suite name in 1st block
+# 2. Enter the test suite name in the appropriate location as per the above
+# mentioned requirement in 2nd block
+
+# Block-1: Test Suite Name along with execution time
+# ==================================================
+# test_mobility : 0:53:11
+# test_traffic  : 0:45:49
+# test_config   : 0:24:43
+# test_ageout   : 0:15:41
+
+# Block-2: Test Suite Name
+# ========================
++file:cisco/tortuga/vxlan/multihome/mobility/test_mobility.py
++file:cisco/tortuga/vxlan/multihome/traffic/test_traffic.py
++file:cisco/tortuga/vxlan/multihome/config/test_config.py
++file:cisco/tortuga/vxlan/multihome/ageout/test_ageout.py
 
 #Runtime Arguments
 +args:--skip-init-config
@@ -11,5 +35,6 @@
 +args:--tc-max-timeout 5400
 +args:--max-time module 2400
 +args:--max-time function 2400
++args:--env 'SPYTEST_EXCLUDE_PARAMETERIZED=2'
 +args:--logs-level=debug
 +args:--random-order=0

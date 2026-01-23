@@ -116,16 +116,16 @@ def portchannel_fallback_ping_base_config():
     nodes = {}
     nodes['leaf0'] = vars.D1
     nodes['leaf1'] = vars.D2
-    nodes['client'] = vars.D6
+    nodes['client'] = vars.D9
     portchannel_name = "PortChannel1"
 
     # Create portchannel on leaf0(fallback enabled) and leaf1
     portchannel_obj.create_portchannel(nodes['leaf0'], [portchannel_name], fallback=True)
-    st.config(nodes['leaf0'], "sudo config portchannel member add {} {}".format(portchannel_name, vars.D1D6P1))
+    st.config(nodes['leaf0'], "sudo config portchannel member add {} {}".format(portchannel_name, vars.D1D9P1))
     st.config(nodes['leaf0'], "sudo config vlan member add 10 {} -u".format(portchannel_name))
 
     portchannel_obj.create_portchannel(nodes['leaf1'], [portchannel_name])
-    st.config(nodes['leaf1'], "sudo config portchannel member add {} {}".format(portchannel_name, vars.D2D6P1))
+    st.config(nodes['leaf1'], "sudo config portchannel member add {} {}".format(portchannel_name, vars.D2D9P1))
     st.config(nodes['leaf1'], "sudo config vlan member add 10 {} -u".format(portchannel_name))
 
     #Configure ip address on eth1 connected to leaf0
@@ -134,10 +134,10 @@ def portchannel_fallback_ping_base_config():
 
     yield
     st.config(nodes['leaf0'], "sudo config vlan member del 10 {}".format(portchannel_name))
-    st.config(nodes['leaf0'], "sudo config portchannel member del {} {}".format(portchannel_name, vars.D1D6P1))
+    st.config(nodes['leaf0'], "sudo config portchannel member del {} {}".format(portchannel_name, vars.D1D9P1))
     st.config(nodes['leaf0'], "sudo config portchannel del {}".format(portchannel_name))
     st.config(nodes['leaf1'], "sudo config vlan member del 10 {}".format(portchannel_name))
-    st.config(nodes['leaf1'], "sudo config portchannel member del {} {}".format(portchannel_name, vars.D2D6P1))
+    st.config(nodes['leaf1'], "sudo config portchannel member del {} {}".format(portchannel_name, vars.D2D9P1))
     st.config(nodes['leaf1'], "sudo config portchannel del {}".format(portchannel_name))
     st.config(nodes['client'], "sudo ip addr del 10.212.10.6/24 dev eth1", type="click", skip_error_check=True)
 
@@ -148,32 +148,32 @@ def dhcp_server_base_config():
     nodes['leaf0'] = vars.D1
     nodes['leaf1'] = vars.D2
     nodes['leaf2'] = vars.D5
-    nodes['leaf3'] = vars.D7
+    nodes['leaf3'] = vars.D6
     portchannel_name = "PortChannel1"
 
     # Configure Vlan 10 on leaf3 and add the ports connected to 'client' node to portchannel
     portchannel_obj.create_portchannel(nodes['leaf0'], [portchannel_name], fallback=True)
-    st.config(nodes['leaf0'], "sudo config portchannel member add {} {}".format(portchannel_name, vars.D1D6P1))
+    st.config(nodes['leaf0'], "sudo config portchannel member add {} {}".format(portchannel_name, vars.D1D9P1))
     st.config(nodes['leaf0'], "sudo config vlan member add 10 {} -u".format(portchannel_name))
     portchannel_obj.create_portchannel(nodes['leaf1'], [portchannel_name])
-    st.config(nodes['leaf1'], "sudo config portchannel member add {} {}".format(portchannel_name, vars.D2D6P1))
+    st.config(nodes['leaf1'], "sudo config portchannel member add {} {}".format(portchannel_name, vars.D2D9P1))
     st.config(nodes['leaf1'], "sudo config vlan member add 10 {} -u".format(portchannel_name))
-    st.config(nodes['leaf2'], 'sudo config vlan member add 10 {} -u'.format(vars.D5D7P1))
+    st.config(nodes['leaf2'], 'sudo config vlan member add 10 {} -u'.format(vars.D5D6P1))
     st.config(nodes['leaf3'], 'sudo config vlan add 10')
-    st.config(nodes['leaf3'], 'sudo config vlan member add 10 {} -u'.format(vars.D7D5P1))
+    st.config(nodes['leaf3'], 'sudo config vlan member add 10 {} -u'.format(vars.D6D5P1))
     st.config(nodes['leaf3'], 'sudo config interface ip add Vlan10 10.212.10.30/24')
     yield
 
     st.config(nodes['leaf0'], "sudo config vlan member del 10 {}".format(portchannel_name))
-    st.config(nodes['leaf0'], "sudo config portchannel member del {} {}".format(portchannel_name, vars.D1D6P1))
+    st.config(nodes['leaf0'], "sudo config portchannel member del {} {}".format(portchannel_name, vars.D1D9P1))
     st.config(nodes['leaf0'], "sudo config portchannel del {}".format(portchannel_name))
     st.config(nodes['leaf1'], "sudo config vlan member del 10 {}".format(portchannel_name))
-    st.config(nodes['leaf1'], "sudo config portchannel member del {} {}".format(portchannel_name, vars.D2D6P1))
+    st.config(nodes['leaf1'], "sudo config portchannel member del {} {}".format(portchannel_name, vars.D2D9P1))
     st.config(nodes['leaf1'], "sudo config portchannel del {}".format(portchannel_name))
-    st.config(nodes['leaf2'], 'sudo config vlan member del 10 {}'.format(vars.D5D7P1))
+    st.config(nodes['leaf2'], 'sudo config vlan member del 10 {}'.format(vars.D5D6P1))
     st.config(nodes['leaf3'], 'sudo systemctl stop isc-dhcp-server')
     st.config(nodes['leaf3'], 'sudo config interface ip rem Vlan10 10.212.10.30/24')
-    st.config(nodes['leaf3'], 'sudo config vlan member del 10 {}'.format(vars.D7D5P1))
+    st.config(nodes['leaf3'], 'sudo config vlan member del 10 {}'.format(vars.D6D5P1))
     st.config(nodes['leaf3'], 'sudo config vlan del 10')
     st.config(nodes['leaf3'], 'sudo apt purge isc-dhcp-server -y')
     st.config(nodes['leaf3'], 'sudo apt purge policykit-1 -y')
@@ -196,7 +196,7 @@ def dhcp_server_base_config():
 #                      |    |                             |   |                    |         |           #
 #                      |    |                             |   |              P5-P8 |         |           #
 #                      |    |      +----------------+     |   |         +--------------+     |           #
-#                      |    +------|     PXE client |-----+   |         |   Leaf3 SD6  |     |           #
+#                      |    +------| PXE_client(SD9)|-----+   |         |   Leaf3(SD6) |     |           #
 #                      |      eth1 +----------------+ eth2    |         | DHCP Server  |     |           #
 #                      |                                      |         +--------------+     |           #
 #                      |                                      |                              |           #
@@ -207,8 +207,8 @@ def dhcp_server_base_config():
 #                                          | Ports 1/1 to 1/10 connected |                               #
 #                                          +-----------------------------+                               #
 #                                                                                                        #
-# NOTE: These tests require the underlying EVPN + BGP infrastructure to be configured via the yaml    #
-# configuration file. The vxlan_config_hooks fixture sets up this infrastructure.                     #
+# NOTE: These tests require the underlying EVPN + BGP infrastructure to be configured via the yaml       #
+# configuration file. The vxlan_config_hooks fixture sets up this infrastructure.                        #
 ##########################################################################################################
 def test_portchannel_fallback_ping(portchannel_fallback_ping_base_config):
     '''
@@ -219,7 +219,7 @@ def test_portchannel_fallback_ping(portchannel_fallback_ping_base_config):
     nodes = {}
     nodes['leaf0'] = vars.D1
     nodes['leaf1'] = vars.D2
-    nodes['client'] = vars.D6
+    nodes['client'] = vars.D9
 
     client_eth1_mac = None
     portchannel_name = "PortChannel1"
@@ -233,9 +233,9 @@ def test_portchannel_fallback_ping(portchannel_fallback_ping_base_config):
             report_fail("ip_assignment_failed", "Failed to assign IP {} to client eth1".format(data.client_eth1_ip))
 
         # Verify Portchannel state is up on 'leaf0' and 'down' on leaf1
-        if not portchannel_obj.verify_portchannel_member_state(nodes['leaf0'], portchannel_name, vars.D1D6P1, "up"):
+        if not portchannel_obj.verify_portchannel_member_state(nodes['leaf0'], portchannel_name, vars.D1D9P1, "up"):
             st.report_fail("Portchannel state verification failed on nodes['leaf0']")
-        if not portchannel_obj.verify_portchannel_member_state(nodes['leaf1'], portchannel_name, vars.D2D6P1, "down"):
+        if not portchannel_obj.verify_portchannel_member_state(nodes['leaf1'], portchannel_name, vars.D2D9P1, "down"):
             st.report_fail("Portchannel state verification failed on nodes['leaf1']")
 
         # Get MAC address of eth1 interface
@@ -289,7 +289,7 @@ def test_portchannel_fallback_ping(portchannel_fallback_ping_base_config):
 
 def test_portchannel_fallback_pxe_client(dhcp_server_base_config):
     """
-    DHCP server is created on node SD6 connected to SD5(leaf2)
+    DHCP server is created on node SD9 connected to SD5(leaf2)
     'client' node acts as the PXE_client sending BOOTP/DHCP packet
     """
     vars = st.get_testbed_vars()
@@ -298,8 +298,8 @@ def test_portchannel_fallback_pxe_client(dhcp_server_base_config):
     nodes['leaf0'] = vars.D1
     nodes['leaf1'] = vars.D2
     nodes['leaf2'] = vars.D5
-    nodes['leaf3'] = vars.D7
-    nodes['client'] = vars.D6
+    nodes['leaf3'] = vars.D6
+    nodes['client'] = vars.D9
     portchannel_name = "PortChannel1"
 
     try:
@@ -329,9 +329,9 @@ def test_portchannel_fallback_pxe_client(dhcp_server_base_config):
         st.log("DHCP service status: {}".format(status_output))
 
         # Verify Portchannel state is up on 'leaf0' and 'down' on leaf1
-        if not portchannel_obj.verify_portchannel_member_state(nodes['leaf0'], portchannel_name, vars.D1D6P1, "up"):
+        if not portchannel_obj.verify_portchannel_member_state(nodes['leaf0'], portchannel_name, vars.D1D9P1, "up"):
             st.report_fail("Portchannel state verification failed on nodes['leaf0']")
-        if not portchannel_obj.verify_portchannel_member_state(nodes['leaf1'], portchannel_name, vars.D2D6P1, "down"):
+        if not portchannel_obj.verify_portchannel_member_state(nodes['leaf1'], portchannel_name, vars.D2D9P1, "down"):
             st.report_fail("Portchannel state verification failed on nodes['leaf1']")
 
         # Reboot client and check IP address on client's eth1 interface

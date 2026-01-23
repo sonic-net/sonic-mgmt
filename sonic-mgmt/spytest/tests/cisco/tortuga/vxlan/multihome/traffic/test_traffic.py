@@ -17,10 +17,17 @@ from multihome.host import (
     get_cli_out,
 )
 from multihome.traffic import *
-from multihome.status_report import log, report_fail, report_pass, start_banner
-from multihome.traffic_generator import verify_bum_traffic, verify_l3_traffic
+from multihome.status_report import log, report_fail, report_pass, banner
+from multihome.traffic_generator import (
+    verify_bum_traffic,
+    verify_l3_traffic,
+    verify_df_ndf_traffic,
+    create_continous_traffic,
+    continuous_traffic_control
+)
 from multihome.vtysh import show_evpn_es
 from multihome.vtysh import configure_cmd as vtysh_configure_cmd
+import apis.system.interface as intf_obj
 
 
 def test_local_bias(traffic_setup):
@@ -79,7 +86,7 @@ def test_local_bias(traffic_setup):
         and ndf_downlink_curr <= 0.1 * int(const.spytest_data.pkts_per_burst)
     ):
         report_fail(df_node, "Local bias is not effective on {}".format(df_node))
-    start_banner(
+    banner(
         "Local bias testcase passed for unknown unicast traffic before changing DF/NDF roles"
     )
     # 2 Swith DF/NDF, check traffic forwarding path with current DF/NDF status
@@ -468,22 +475,22 @@ def test_inter_subnet_ping(traffic_setup):
             )
 
         # Check traffic is going over vxlan
-        leaf1_evpn_int_counters = vxlan_utils.get_counters(
-            nodes["leaf1"],
+        leaf0_evpn_int_counters = vxlan_utils.get_counters(
+            nodes["leaf0"],
             cmd="show vxlan counters",
             target_iface="EVPN_{}".format(const.LEAF2_VXLAN_IP),
             r_t_key="tx_pkts",
         )
         log(
-            "\nTX counters on leaf1 EVPN connected interface to H2 is {}".format(
-                leaf1_evpn_int_counters
+            "\nTX counters on leaf0 EVPN connected interface to H2 is {}".format(
+                leaf0_evpn_int_counters
             )
         )
 
         leaf2_evpn_int_counters = vxlan_utils.get_counters(
             nodes["leaf2"],
             cmd="show vxlan counters",
-            target_iface="EVPN_{}".format(const.LEAF1_VXLAN_IP),
+            target_iface="EVPN_{}".format(const.LEAF0_VXLAN_IP),
         )
         log(
             "\nRX counters on leaf2 EVPN connected interface to H4 is {}".format(
@@ -492,13 +499,13 @@ def test_inter_subnet_ping(traffic_setup):
         )
 
         if not (
-            leaf1_evpn_int_counters >= 0.98 * int(const.spytest_data.pkts_per_burst)
-            and leaf1_evpn_int_counters <= 1.2 * int(const.spytest_data.pkts_per_burst)
+            leaf0_evpn_int_counters >= 0.98 * int(const.spytest_data.pkts_per_burst)
+            and leaf0_evpn_int_counters <= 1.2 * int(const.spytest_data.pkts_per_burst)
             and leaf2_evpn_int_counters >= 0.98 * int(const.spytest_data.pkts_per_burst)
             and leaf2_evpn_int_counters <= 1.2 * int(const.spytest_data.pkts_per_burst)
         ):
             report_fail(
-                nodes["leaf1"],
+                nodes["leaf0"],
                 "Unicast traffic going from H2 to H4 not taking evpn interface",
             )
 
@@ -600,7 +607,7 @@ def test_inter_subnet_ping(traffic_setup):
         report_pass("test_case_passed", "test_inter_subnet_ping")
 
     except Exception as e:
-        report_fail("", msg=e)
+        report_fail("test_case_failed", msg=e)
 
 
 def test_intra_subnet_ping(traffic_setup):
@@ -667,7 +674,7 @@ def test_intra_subnet_ping(traffic_setup):
             },
         }
 
-        wait(10)
+        wait(15)
         result = verify_bum_traffic(
             lag_handle, stream, const.lag_name, "unknownunicast", "T1D4P1"
         )
@@ -831,7 +838,7 @@ def test_remote_unicast_for_ecmp(traffic_setup):
     if leaf0_counters <= 0.1 * int(
         const.spytest_data.pkts_per_burst
     ) or leaf1_counters <= 0.1 * int(const.spytest_data.pkts_per_burst):
-        start_banner(
+        banner(
             "Unicast traffic from leaf2 is not getting load balanced between leaf0 and leaf1"
         )
         report_fail(
@@ -960,3 +967,234 @@ def test_portchannel_deconf(traffic_setup):
 
     else:
         report_pass("test_case_passed", "test_portchannel_deconf")
+
+
+def test_portchannel_flap(traffic_setup):
+    """
+    Portchannel shutdown and startup to See everything is working fine
+    """
+    nodes = traffic_setup["duts"]
+    lag_handle = traffic_setup["lag_handle"]
+    test_case_id = "test_portchannel_flap"
+
+    result_str = ""
+
+    # Shutdown portchannel on leaf0
+    dut = nodes["leaf0"]
+    intf = "PortChannel2"
+
+    intf_obj.interface_shutdown("leaf0", intf)
+    if not intf_obj.verify_interface_status(dut, intf, "admin", "down"):
+        log = "Shutdown {} {} ports failed".format(dut, intf)
+        banner(log)
+        result_str += "{}\n".format(log)
+
+    # Shutdown portchannel on leaf1
+    dut = nodes["leaf1"]
+    intf = "PortChannel2"
+    intf_obj.interface_shutdown("leaf1", intf)
+    if not intf_obj.verify_interface_status(dut, intf, "admin", "down"):
+        log = "Shutdown {} {} ports failed".format(dut, intf)
+        banner(log)
+        result_str += "{}\n".format(log)
+
+    # Start portchannel on leaf0
+    dut = nodes["leaf0"]
+    intf = "PortChannel2"
+    intf_obj.interface_noshutdown("leaf0", intf)
+    if not intf_obj.verify_interface_status(dut, intf, "admin", "up"):
+        log = "Start {} {} ports failed".format(dut, intf)
+        banner(log)
+        result_str += "{}\n".format(log)
+
+    # Start portchannel on leaf1
+    dut = nodes["leaf1"]
+    intf = "PortChannel2"
+    intf_obj.interface_noshutdown("leaf1", intf)
+    if not intf_obj.verify_interface_status(dut, intf, "admin", "up"):
+        log = "Start {} {} ports failed".format(dut, intf)
+        banner(log)
+        result_str += "{}\n".format(log)
+
+    result, msg = verify_df_ndf_traffic(nodes, lag_handle, traffic_setup)
+    if not result:
+        banner(msg)
+        result_str += "{}\n".format(msg)
+
+    if result_str:
+        report_fail(nodes["leaf0"], result_str)
+    else:
+        report_pass(nodes["leaf0"], test_case_id)
+
+
+def test_interface_to_spine_flap(traffic_setup):
+    """
+    Spine facing interface shutdown and startup to See everything is working fine
+    """
+    nodes = traffic_setup["duts"]
+    lag_handle = traffic_setup["lag_handle"]
+    test_case_id = "test_interface_to_spine_flap"
+
+    result_str = ""
+
+    # Shutdown interface on leaf0
+    dut = nodes["leaf0"]
+    intf = traffic_setup["D2D1P1"]
+
+    intf_obj.interface_shutdown("leaf0", intf)
+    if not intf_obj.verify_interface_status(dut, intf, "admin", "down"):
+        log = "Shutdown {} {} ports failed".format(dut, intf)
+        banner(log)
+        result_str += "{}\n".format(log)
+
+    # Start interface on leaf0
+    intf_obj.interface_noshutdown("leaf0", intf)
+    if not intf_obj.verify_interface_status(dut, intf, "admin", "up"):
+        log = "Start {} {} ports failed".format(dut, intf)
+        banner(log)
+        result_str += "{}\n".format(log)
+
+    wait(10)
+
+    result, msg = verify_df_ndf_traffic(nodes, lag_handle, traffic_setup)
+    if not result:
+        banner(msg)
+        result_str += "{}\n".format(msg)
+
+    if result_str:
+        report_fail(nodes["leaf0"], result_str)
+    else:
+        report_pass(nodes["leaf0"], test_case_id)
+
+
+def test_vlan_member_flap(traffic_setup):
+    """
+    Vlan member shutdown and startup to See everything is working fine
+    """
+    nodes = traffic_setup["duts"]
+    lag_handle = traffic_setup["lag_handle"]
+    intf = traffic_setup["D2T1P1"]
+    test_case_id = "test_vlan_member_flap"
+
+    result_str = ""
+
+    # Shutdown vlan member on leaf0
+    dut = nodes["leaf0"]
+
+    intf_obj.interface_shutdown("leaf0", intf)
+    if not intf_obj.verify_interface_status(dut, intf, "admin", "down"):
+        log = "Shutdown {} {} ports failed".format(dut, intf)
+        banner(log)
+        result_str += "{}\n".format(log)
+
+    # Start vlan member on leaf0
+    intf_obj.interface_noshutdown("leaf0", intf)
+    if not intf_obj.verify_interface_status(dut, intf, "admin", "up"):
+        log = "Start {} {} ports failed".format(dut, intf)
+        banner(log)
+        result_str += "{}\n".format(log)
+
+    result, msg = verify_df_ndf_traffic(nodes, lag_handle, traffic_setup)
+    if not result:
+        banner(msg)
+        result_str += "{}\n".format(msg)
+
+    if result_str:
+        report_fail(nodes["leaf0"], result_str)
+    else:
+        report_pass(nodes["leaf0"], test_case_id)
+
+
+def test_portchannel_member_flap(traffic_setup):
+    """
+    Portchannel member shutdown and startup to See everything is working fine
+    """
+    nodes = traffic_setup["duts"]
+    lag_handle = traffic_setup["lag_handle"]
+    test_case_id = "test_portchannel_member_flap"
+
+    result_str = ""
+
+    dut = nodes["leaf0"]
+    intf = "PortChannel2"
+
+    tg_handle = lag_handle[const.lag_name]["tg_handle"]
+    stream = {
+        "src_endpoint": {
+            "port": "T1D4P1",
+            "host_ip": const.spytest_data.t1d4p1_ip_addr,
+            "gateway": const.spytest_data.d4t1_ip_addr,
+            "mac": const.spytest_data.t1d4p1_mac_addr,
+        },
+        "dst_endpoint": {
+            "port": intf,
+            "host_ip": const.spytest_data.lag_ip,
+            "gateway": const.spytest_data.lag_gateway_ip,
+            "mac": const.spytest_data.lag_mac,
+        },
+    }
+
+    stream_id = create_continous_traffic(
+        lag_handle, stream, "T1D4P1", "unknownunicast", const.lag_name
+    )
+
+    # Start traffic
+    result = continuous_traffic_control([stream_id], "start", tg_handle)
+    if not result:
+        msg = "Failed to start traffic"
+        result_str += "{}\n".format(msg)
+
+    dut = nodes["leaf0"]
+    intf = "PortChannel2"
+    # Shutdown portchannel on leaf0
+    intf_obj.interface_shutdown("leaf0", intf)
+    if not intf_obj.verify_interface_status(dut, intf, "admin", "down"):
+        log = "Shutdown {} {} ports failed".format(dut, intf)
+        banner(log)
+        result_str += "{}\n".format(log)
+
+    # Start portchannel on leaf0
+    intf_obj.interface_noshutdown("leaf0", intf)
+    if not intf_obj.verify_interface_status(dut, intf, "admin", "up"):
+        log = "Start {} {} ports failed".format(dut, intf)
+        banner(log)
+        result_str += "{}\n".format(log)
+
+    wait(15)
+
+    # Check traffic
+    result = continuous_traffic_control([stream_id], "check", tg_handle)
+    if not result:
+        msg = "Check traffic Failed"
+        result_str += "{}\n".format(msg)
+
+    if result_str:
+        report_fail(nodes["leaf0"], result_str)
+    else:
+        report_pass(nodes["leaf0"], test_case_id)
+
+    # Shutdown portchannel on leaf1
+    dut = nodes["leaf1"]
+    intf = "PortChannel2"
+    intf_obj.interface_shutdown("leaf1", intf)
+    if not intf_obj.verify_interface_status(dut, intf, "admin", "down"):
+        log = "Shutdown {} {} ports failed".format(dut, intf)
+        banner(log)
+        result_str += "{}\n".format(log)
+    # Start portchannel on leaf1
+    intf_obj.interface_noshutdown("leaf1", intf)
+    if not intf_obj.verify_interface_status(dut, intf, "admin", "up"):
+        log = "Start {} {} ports failed".format(dut, intf)
+        banner(log)
+        result_str += "{}\n".format(log)
+
+    # Check traffic
+    result = continuous_traffic_control([stream_id], "check", tg_handle)
+    if not result:
+        msg = "Check traffic Failed"
+        result_str += "{}\n".format(msg)
+
+    if result_str:
+        report_fail(nodes["leaf0"], result_str)
+    else:
+        report_pass(nodes["leaf0"], test_case_id)

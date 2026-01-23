@@ -514,6 +514,7 @@ def test_dpb_scale():
     if 'HF6100-32D' not in hwsku:
         st.log("Test is only applicable for HF6100-32D platform. Current: {}".format(hwsku))
         st.report_pass('test_case_passed')
+        return
     result = True
 
     st.banner("Get interface list on leaf1")
