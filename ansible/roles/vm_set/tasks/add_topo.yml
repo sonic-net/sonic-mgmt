@@ -416,8 +416,9 @@
 - name: Save PTF image
   block:
   - shell: docker tag "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}" docker-ptf
-  - shell: docker save -o docker-ptf.tar docker-ptf
-  - fetch: src=docker-ptf.tar dest=docker-ptf.tar flat=yes
-  - shell: rm -f docker-ptf.tar
+  - shell: docker save -o {{ root_path }}/images/docker-ptf.tar docker-ptf
+  - fetch: src={{ root_path }}/images/docker-ptf.tar dest=docker-ptf.tar flat=yes
+  - shell: rm -f {{ root_path }}/images/docker-ptf.tar
   run_once: yes
+  become: yes
   when: vm_type is defined and vm_type == "vsonic" and ptf_on_neighbor is defined and ptf_on_neighbor|bool == true

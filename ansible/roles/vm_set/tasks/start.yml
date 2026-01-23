@@ -18,11 +18,28 @@
   set_fact: VM_hosts={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
   when: topology['VMs'] is defined and VM_base is defined
 
-- name: Create directory for vm images and vm disks
+- name: Check if images folder exists
+  stat: path={{ root_path }}/images
+  register: images_folder_stat
+
+- name: Check if discs folder exists
+  stat: path={{ root_path }}/disks
+  register: discs_folder_stat
+
+- name: Create directory for vm images
   file: path={{ item }} state=directory mode=0755
   with_items:
     - "{{ root_path }}/images"
     - "{{ root_path }}/disks"
+  become: yes
+  when: not images_folder_stat.stat.exists
+
+- name: Create directory for vm disks
+  file: path={{ item }} state=directory mode=0755
+  with_items:
+    - "{{ root_path }}/disks"
+  become: yes
+  when: not discs_folder_stat.stat.exists
 
 - block:
 
