@@ -8,10 +8,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 import tests.common.fixtures.grpc_fixtures  # noqa: F401
 
 # GNXI/GNOI: enable TLS for all tests in this module
-pytestmark = [
-    pytest.mark.topology('t0'),
-    pytest.mark.usefixtures("setup_gnoi_tls_server"),
-]
+pytestmark = pytest.mark.usefixtures("setup_gnoi_tls_server")
 
 
 def _kill_process(ptf_gnoi, name: str, restart: bool = False, signal: int = 1):
