@@ -1,14 +1,20 @@
+Value VTEP (\S+)
 Value Required VLAN (\S+)
 Value Required VNI (\d+)
  
 Start
-  ^\+\-+\+\-+\+ -> Begin
+  ^\+\-+ -> Begin
  
 Begin
-  ^\| VLAN\s*\|\s*VNI \|\s*$$ -> Capture
+  ^\| VTEP\s*\|\s*VLAN\s*\|\s*VNI \|\s*$$ -> Capture3Col
+  ^\| VLAN\s*\|\s*VNI \|\s*$$ -> Capture2Col
   
-Capture
-  ^\| ${VLAN}\s*\|\s*${VNI}\s*\|\s*$$ -> Record
+Capture3Col
+  ^\| ${VTEP}\s*\|\s*${VLAN}\s*\|\s*${VNI}\s*\|\s*$$ -> Record
   ^Total count -> End
   
+Capture2Col
+  ^\| ${VLAN}\s*\|\s*${VNI}\s*\|\s*$$ -> Record
+  ^Total count -> End
+
 End
