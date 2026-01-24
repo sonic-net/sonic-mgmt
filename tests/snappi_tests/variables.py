@@ -1,110 +1,50 @@
 import sys
 import ipaddress
 from ipaddress import ip_address, IPv4Address, IPv6Address
-from tests.common.snappi_tests.common_helpers import get_testbed_from_args
 
 # NOTE: Ensure the ports are mapped correctly to the respective duts in ansible/files/*links.csv
 # NOTE: The MULTIDUT_TESTBED must match with the conf-name defined in testbed.yml/testbed.csv file
-MULTIDUT_TESTBED = get_testbed_from_args()
-
-MULTIDUT_PORT_INFO = {
-    'vmsvc5-t2-8800-ixia': (
-        ({
-            'multi-dut-multi-asic-to-short-link': {
-                'rx_ports': [
-                    {'port_name': 'Ethernet280', 'hostname': "svcstr2-8800-lc2-1"}
-                ],
-                'tx_ports': [
-                    {'port_name': 'Ethernet272', 'hostname': "svcstr2-8800-lc2-1"},
-                    {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc1-1"},
-                    {'port_name': 'Ethernet264', 'hostname': "svcstr2-8800-lc1-1"}
-                ]
-            }
-        }),
-        ({
-            'multi-dut-multi-asic-to-longlink': {
-                'rx_ports': [
-                    {'port_name': 'Ethernet256', 'hostname': "svcstr2-8800-lc1-1"}
-                ],
-                'tx_ports': [
-                    {'port_name': 'Ethernet272', 'hostname': "svcstr2-8800-lc2-1"},
-                    {'port_name': 'Ethernet280', 'hostname': "svcstr2-8800-lc2-1"}
-                ]
-            }
-        })
-    ),
-    "vms69-t2-8800-2-ixia": [
-        {
-            'multi-dut-multi-asic-to-short-link': {
-                'rx_ports': [
-                    {'port_name': 'Ethernet200', 'hostname': "str3-8800-lc3-1"},
-                ],
-                'tx_ports': [
-                    {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"},
-                    {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"}
-                ]
-            }
-        },
-        {
-            'multi-dut-single-asic-to-short-link': {
-                'rx_ports': [
-                    {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"}
-                ],
-                'tx_ports': [
-                    {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"},
-                ]
-            }
+MULTIDUT_TESTBED = 'vms-snappi-sonic-multidut'
+MULTIDUT_PORT_INFO = {MULTIDUT_TESTBED: (
+    ({
+        'multi-dut-single-asic': {
+            'rx_ports': [
+                {'port_name': 'Ethernet72', 'hostname': "sonic-s6100-dut1"},
+                {'port_name': 'Ethernet76', 'hostname': "sonic-s6100-dut1"}
+            ],
+            'tx_ports': [
+                {'port_name': 'Ethernet64', 'hostname': "sonic-s6100-dut2"},
+                {'port_name': 'Ethernet68', 'hostname': "sonic-s6100-dut2"}
+            ]
         }
-    ]
-}
-
+    }),
+    ({
+        'single-dut-single-asic': {
+            'rx_ports': [
+                {'port_name': 'Ethernet72', 'hostname': "sonic-s6100-dut1"},
+                {'port_name': 'Ethernet76', 'hostname': "sonic-s6100-dut1"}
+            ],
+            'tx_ports': [
+                {'port_name': 'Ethernet64', 'hostname': "sonic-s6100-dut1"},
+                {'port_name': 'Ethernet68', 'hostname': "sonic-s6100-dut1"}
+            ]
+        }
+    })
+)}
 # rx port is 400Gbps port receiving traffic in mixed-speed mode.
 # tx port is 100Gbps port sending traffic to IXIA.
-MIXED_SPEED_PORT_INFO = {
-    'vms69-t2-8800-2-ixia': [
-        {
-            'multi-dut-multi-asic-to-short-link': {
-                'rx_ports': [
-                    {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"},
-                    {'port_name': 'Ethernet200', 'hostname': "str3-8800-lc3-1"}
-                ],
-                'tx_ports': [
-                    {'port_name': 'Ethernet280', 'hostname': "str3-8800-lc4-1"}
-                ]
-            }
-        }],
-    'vmsvc5-t2-8800-ixia': []
-}
-
-
-MULTIDUT_PORT_INFO2 = {
-    'vms69-t2-8800-2-ixia': [
-        {
-            'multi-dut-multi-asic-to-short-link': {
-                'rx_ports': [
-                    {'port_name': 'Ethernet128', 'hostname': "str3-8800-lc3-1"},
-                    {'port_name': 'Ethernet200', 'hostname': "str3-8800-lc3-1"}
-                ],
-                'tx_ports': [
-                    {'port_name': 'Ethernet192', 'hostname': "str3-8800-lc3-1"},
-                    {'port_name': 'Ethernet136', 'hostname': "str3-8800-lc3-1"}
-                ]
-            }
+MIXED_SPEED_PORT_INFO = {MULTIDUT_TESTBED: (
+    ({
+        'multiple-dut-any-asic': {
+            'rx_ports': [
+                {'port_name': 'Ethernet0', 'hostname': "sonic-s6100-dut1"}
+            ],
+            'tx_ports': [
+                {'port_name': 'Ethernet0', 'hostname': "sonic-s6100-dut2"}
+            ]
         }
-    ],
-    'vmsvc5-t2-8800-ixia': []
-}
-
-for multidut_port in [MULTIDUT_PORT_INFO, MULTIDUT_PORT_INFO2]:
-    if MULTIDUT_TESTBED not in multidut_port:
-        if "rdma" in MULTIDUT_TESTBED:
-            multidut_port[MULTIDUT_TESTBED] = multidut_port[next(iter(MULTIDUT_PORT_INFO))]
-        else:
-            multidut_port[MULTIDUT_TESTBED] = {}
-
-if MULTIDUT_TESTBED not in MIXED_SPEED_PORT_INFO:
-    MIXED_SPEED_PORT_INFO[MULTIDUT_TESTBED] = {}
-
+    })
+)}
 '''
 In this file user can modify the line_card_choice and it chooses the corresponding hostname
 and asic values from the config_set hostnames can be modified according to the dut hostname mentioned
@@ -136,8 +76,8 @@ config_set = {
                     'asic': ["asic1"]
                 },
                 "chassis_multi_line_card_multi_asic": {
-                    'hostname': ["svcstr2-8800-lc2-1", "svcstr2-8800-lc4-1"],
-                    'asic': ["asic0", "asic1", "asic2"]
+                    'hostname': ["sonic-s6100-dut1", "sonic-s6100-dut2"],
+                    'asic': ["asic0", "asic1"]
                 },
                 "non_chassis_multi_line_card": {
                     'hostname': ["sonic-s6100-dut1", "sonic-s6100-dut2"],
@@ -148,6 +88,7 @@ config_set = {
                     'asic': [None]
                 }
             }
+
 
 
 def create_ip_list(value, count, mask=32, incr=0):
@@ -175,7 +116,6 @@ def create_ip_list(value, count, mask=32, incr=0):
         ip_list.append(value)
 
     return ip_list
-
 
 def get_host_addresses(subnet, count):
     try:
