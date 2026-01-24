@@ -10,6 +10,7 @@ from tests.conftest import add_custom_msg
 from tests.snappi_tests.variables import (
     COMMUNITY_LOWER_TIER_DROP,
     TOPOLOGY_T2_PIZZABOX,
+    FANOUT_PRESENCE,
     detect_topology_and_vendor,
     get_lower_tier_info,
     get_uplink_fanout_info
@@ -331,9 +332,9 @@ def initial_setup(duthosts, creds, tbinfo):
     logger.info(f"Topology Type: {topology_type}")
 
     # Configure lower tier and fanout using unified function
-    # configure_lower_tier_or_fanout(topology_type, vendor, creds, "lower_tier", context=context)
-    # if FANOUT_PRESENCE:
-    #     configure_lower_tier_or_fanout(topology_type, vendor, creds, "fanout")
+    configure_lower_tier_or_fanout(topology_type, vendor, creds, "lower_tier", context=context)
+    if FANOUT_PRESENCE:
+        configure_lower_tier_or_fanout(topology_type, vendor, creds, "fanout")
 
     # Execute TSB on all DUTs
     for duthost in duthosts:
