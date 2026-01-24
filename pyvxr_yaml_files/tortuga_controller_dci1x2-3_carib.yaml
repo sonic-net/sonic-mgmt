@@ -2,9 +2,12 @@ simulation:
   no_image_copy: true
   pyvxr_flags:
     port_file_timeout: 1200
-  sim_dir: /nobackup/sim
-  sim_host: localhost
   skip_auto_bringup: false
+  slurm_flags:
+    pending_timeout: 60
+    hours: 24
+    partition: regression
+    cluster: rch-slurm-m1
 
 devices:
   trex1: &host

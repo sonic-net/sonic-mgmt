@@ -70,7 +70,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=False,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=False,default='sol-tb-l2vni', choices=['sol-tb-l2vni', 'sol-tb-l3vni', 'tortuga-controller-2x2', 'tortuga-controller-2x3', 'tortuga-controller-1x3', 'tortuga_controller_dci1x2-2', 'tortuga_controller_dci2x2-2', 'tortuga_controller_dci1x2-3'])
+                      required=False,default='sol-tb-l2vni', choices=['sol-tb-l2vni', 'sol-tb-l3vni', 'tortuga-controller-2x2', 'tortuga-controller-2x3', 'tortuga-controller-1x3', 'tortuga-controller-dci1x2-2', 'tortuga-controller-dci2x2-2', 'tortuga-controller-dci1x2-3'])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
@@ -438,7 +438,7 @@ def print_env_info(data, device_type):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
         return leaf_ports, host_ports, spine_ports
-    elif 'tortuga_controller_dci1x2-2' in data['topo_type']:
+    elif 'tortuga-controller-dci1x2-2' in data['topo_type']:
         leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22'],data['L3']['xr_redir22']]
         spine_ports = [data['S0']['xr_redir22'],data['S1']['xr_redir22']]
         host_ports = list()
@@ -452,7 +452,7 @@ def print_env_info(data, device_type):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
         return leaf_ports, host_ports, spine_ports
-    elif 'tortuga_controller_dci2x2-2' in data['topo_type']:
+    elif 'tortuga-controller-dci2x2-2' in data['topo_type']:
         leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22'],data['L3']['xr_redir22']]
         spine_ports = [data['S0']['xr_redir22'],data['S1']['xr_redir22'],data['S2']['xr_redir22'],data['S3']['xr_redir22']]
         host_ports = list()
@@ -468,7 +468,7 @@ def print_env_info(data, device_type):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
         return leaf_ports, host_ports, spine_ports
-    elif 'tortuga_controller_dci1x2-3' in data['topo_type']:
+    elif 'tortuga-controller-dci1x2-3' in data['topo_type']:
         leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22'],data['L3']['xr_redir22'],data['L4']['xr_redir22'],data['L5']['xr_redir22']]
         spine_ports = [data['S0']['xr_redir22'],data['S1']['xr_redir22'],data['S2']['xr_redir22']]
         host_ports = list()
@@ -578,13 +578,13 @@ def replace_fabric_name(topo_type, topo_yaml,fabric_name):
     elif 'tortuga-controller-2x3' in topo_type:
         num_leaf = 3
         num_spine = 2
-    elif 'tortuga_controller_dci1x2-2' in topo_type:
+    elif 'tortuga-controller-dci1x2-2' in topo_type:
         num_leaf = 4
         num_spine = 2
-    elif 'tortuga_controller_dci2x2-2' in topo_type:
+    elif 'tortuga-controller-dci2x2-2' in topo_type:
         num_leaf = 4
         num_spine = 4
-    elif 'tortuga_controller_dci1x2-3' in topo_type:
+    elif 'tortuga-controller-dci1x2-3' in topo_type:
         num_leaf = 6
         num_spine = 3
     else:
@@ -595,7 +595,7 @@ def replace_fabric_name(topo_type, topo_yaml,fabric_name):
         vxr_data = yaml.load(f, Loader=yaml.FullLoader)
 
         # Special handling for DCI topologies with multiple data centers
-        if 'tortuga_controller_dci1x2-2' in topo_type or 'tortuga_controller_dci2x2-2' in topo_type or 'tortuga_controller_dci1x2-3' in topo_type:
+        if 'tortuga-controller-dci1x2-2' in topo_type or 'tortuga-controller-dci2x2-2' in topo_type or 'tortuga-controller-dci1x2-3' in topo_type:
             # For dci1x2-2 and dci2x2-2: L0, L1 belong to fabric1; L2, L3 belong to fabric2
             # For dci1x2-3: L0, L1 belong to fabric1; L2, L3 belong to fabric2; L4, L5 belong to fabric3
             for i in range(0, num_leaf):
@@ -606,11 +606,11 @@ def replace_fabric_name(topo_type, topo_yaml,fabric_name):
                         newline = "sudo config hostname {}{}-leaf{}".format(fabric_name, dc_num, leaf_num)
                         os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
             for i in range(0, num_spine):
-                if 'tortuga_controller_dci1x2-3' in topo_type:
+                if 'tortuga-controller-dci1x2-3' in topo_type:
                     # For dci1x2-3: one spine per DC
                     dc_num = i + 1
                     spine_num = 0
-                elif 'tortuga_controller_dci2x2-2' in topo_type:
+                elif 'tortuga-controller-dci2x2-2' in topo_type:
                     # For dci2x2-2: two spines per DC
                     dc_num = (i // 2) + 1
                     spine_num = i % 2

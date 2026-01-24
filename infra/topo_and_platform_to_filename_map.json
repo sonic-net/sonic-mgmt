@@ -221,17 +221,17 @@
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_1x3_laguna.yaml"
         }
     },
-    "tortuga_controller_dci1x2-2": {
+    "tortuga-controller-dci1x2-2": {
         "carib": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_dci1x2-2_carib.yaml"
         }
     },
-    "tortuga_controller_dci2x2-2": {
+    "tortuga-controller-dci2x2-2": {
         "carib": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_dci2x2-2_carib.yaml"
         }
     },
-    "tortuga_controller_dci1x2-3": {
+    "tortuga-controller-dci1x2-3": {
         "carib": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_dci1x2-3_carib.yaml"
         }
