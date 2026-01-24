@@ -24,7 +24,7 @@
 #include "github.com/openconfig/ondatra/proto/testbed.pb.h"
 #include "github.com/openconfig/ondatra/proxy/proto/reservation.pb.h"
 #include "google/protobuf/message.h"
-#include "gutil/status.h"
+#include "gutil/gutil/status.h"
 #include "infrastructure/thinkit/thinkit_cgo.h"
 
 namespace pins_test {
