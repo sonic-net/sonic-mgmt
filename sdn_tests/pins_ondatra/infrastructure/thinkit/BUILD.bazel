@@ -54,7 +54,7 @@ cc_library(
     hdrs = ["thinkit.h"],
     deps = [
         ":thinkit_cgo.cc",
-        "@com_github_sonic_net_sonic_pins//gutil:status",
+        "@com_github_sonic_net_sonic_pins//gutil/gutil:status",
         "@com_github_openconfig_ondatra//proto:ondatra_cc_proto",
         "@com_github_openconfig_ondatra//proxy/proto:reservation_cc_proto",
         "@com_google_absl//absl/status",
@@ -88,7 +88,7 @@ cc_library(
     deps = [
         ":cthinkit",
         ":ondatra_generic_testbed",
-        "@com_github_sonic_net_sonic_pins//gutil:status_matchers",
+        "@com_github_sonic_net_sonic_pins//gutil/gutil:status_matchers",
         "@com_github_sonic_net_sonic_pins//lib:basic_switch",
         "@com_github_sonic_net_sonic_pins//lib:pins_control_device",
         "@com_github_sonic_net_sonic_pins//lib/gnmi:gnmi_helper",
@@ -117,10 +117,10 @@ cc_test(
     deps = [
         ":cthinkit",
         ":ondatra_generic_testbed_fixture",
-        "@com_github_sonic_net_sonic_pins//gutil:proto_matchers",
-        "@com_github_sonic_net_sonic_pins//gutil:status",
-        "@com_github_sonic_net_sonic_pins//gutil:status_matchers",
-        "@com_github_sonic_net_sonic_pins//gutil:testing",
+        "@com_github_sonic_net_sonic_pins//gutil/gutil:proto_matchers",
+        "@com_github_sonic_net_sonic_pins//gutil/gutil:status",
+        "@com_github_sonic_net_sonic_pins//gutil/gutil:status_matchers",
+        "@com_github_sonic_net_sonic_pins//gutil/gutil:testing",
         "@com_github_sonic_net_sonic_pins//thinkit:generic_testbed",
         "@com_github_sonic_net_sonic_pins//thinkit/proto:generic_testbed_cc_proto",
         "@com_github_gnmi//proto/gnmi:gnmi_cc_grpc_proto",
@@ -160,7 +160,7 @@ cc_library(
     deps = [
         ":cthinkit",
         ":ondatra_mirror_testbed",
-        "@com_github_sonic_net_sonic_pins//gutil:status_matchers",
+        "@com_github_sonic_net_sonic_pins//gutil/gutil:status_matchers",
         "@com_github_sonic_net_sonic_pins//lib:basic_switch",
         "@com_github_sonic_net_sonic_pins//lib/gnmi:gnmi_helper",
         "@com_github_sonic_net_sonic_pins//thinkit:mirror_testbed",
