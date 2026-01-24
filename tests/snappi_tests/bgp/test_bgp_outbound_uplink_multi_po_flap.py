@@ -6,7 +6,7 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
      snappi_api, multidut_snappi_ports_for_bgp                                                       # noqa: F401
 from tests.snappi_tests.variables import (
-    TOPOLOGY_T2_CHASSIS, TOPOLOGY_T2_PIZZABOX,
+    TOPOLOGY_T2_PIZZABOX,
     detect_topology_and_vendor, get_device_hostnames,
     get_lower_tier_snappi_ports
 )                                                                                                    # noqa: F401

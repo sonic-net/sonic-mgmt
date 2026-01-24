@@ -14,18 +14,15 @@ from tests.common.helpers.assertions import pytest_assert  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import create_ip_list  # noqa: F401
 # Unified topology imports
 from tests.snappi_tests.variables import (
-    TOPOLOGY_T2_CHASSIS, TOPOLOGY_T2_PIZZABOX,
-    T2_DUT_AS_NUM, UPPER_TIER_SNAPPI_AS_NUM, BACKUP_T2_SNAPPI_AS_NUM, LOWER_TIER_DUT_AS_NUM,
     AS_PATHS, BGP_TYPE, SNAPPI_TRIGGER, DUT_TRIGGER, DUT_TRIGGER_SHORT, FANOUT_PRESENCE,
     NUM_REGIONAL_HUBS,
     COMMUNITY_LOWER_TIER_LEAK, COMMUNITY_LOWER_TIER_DROP, COMMUNITY_UPPER_TIER,
     V4_PREFIX_LENGTH, V6_PREFIX_LENGTH,
     detect_topology_and_vendor,
-    get_topology_config, get_device_hostnames, get_lower_tier_info,
-    get_lower_tier_snappi_ports, get_uplink_fanout_info, get_uplink_portchannel_members,
-    get_dut_interconnect_port, get_as_numbers, get_bgp_ips_for_topology,
-)  # noqa: F401
-from tests.common.snappi_tests.variables import v6_prefix_length
+    get_lower_tier_info,
+    get_uplink_fanout_info, get_uplink_portchannel_members,
+    get_as_numbers, get_bgp_ips_for_topology,
+)
 
 logger = logging.getLogger(__name__)
 total_routes = 0
@@ -825,7 +822,8 @@ def get_convergence_for_link_flap(duthosts,
     for index, topology in enumerate(ixnetwork.Topology.find()):
         try:
             topology.DeviceGroup.find()[0].RouterData.find().RouterId.Single(ip_lists['router_ids'][index])
-            logger.info('Setting Router id {} for {}'.format(ip_lists['router_ids'][index], topology.DeviceGroup.find()[0].Name))
+            device_name = topology.DeviceGroup.find()[0].Name
+            logger.info('Setting Router id {} for {}'.format(ip_lists['router_ids'][index], device_name))
         except Exception:
             logger.info('Skipping Router id for {}, Since bgp is not configured'.
                         format(topology.DeviceGroup.find()[0].Name))
@@ -1133,7 +1131,8 @@ def get_convergence_for_process_crash(duthosts,
     for index, topology in enumerate(ixnetwork.Topology.find()):
         try:
             topology.DeviceGroup.find()[0].RouterData.find().RouterId.Single(ip_lists['router_ids'][index])
-            logger.info('Setting Router id {} for {}'.format(ip_lists['router_ids'][index], topology.DeviceGroup.find()[0].Name))
+            device_name = topology.DeviceGroup.find()[0].Name
+            logger.info('Setting Router id {} for {}'.format(ip_lists['router_ids'][index], device_name))
         except Exception:
             logger.info('Skipping Router id for {}, Since bgp is not configured'.
                         format(topology.DeviceGroup.find()[0].Name))
@@ -1224,7 +1223,7 @@ def get_convergence_for_process_crash(duthosts,
                 check_container_status_down(target_duthost, container, timeout=60)
                 check_container_status_up(target_duthost, container, timeout=DUT_TRIGGER)
                 wait(DUT_TRIGGER, "For Flows to be evenly distributed")
-                wait(DUT_TRIGGER, "For Flows to be evenly distributed") #Syncd restart seems to take longer
+                wait(DUT_TRIGGER, "For Flows to be evenly distributed")  # Syncd restart seems to take longer
                 # Execute TSB command to bring the traffic back
                 target_duthost.command("sudo TSB")
                 wait(DUT_TRIGGER_SHORT, "For TSB")
@@ -1316,7 +1315,8 @@ def get_convergence_for_tsa_tsb(duthosts,
     for index, topology in enumerate(ixnetwork.Topology.find()):
         try:
             topology.DeviceGroup.find()[0].RouterData.find().RouterId.Single(ip_lists['router_ids'][index])
-            logger.info('Setting Router id {} for {}'.format(ip_lists['router_ids'][index], topology.DeviceGroup.find()[0].Name))
+            device_name = topology.DeviceGroup.find()[0].Name
+            logger.info('Setting Router id {} for {}'.format(ip_lists['router_ids'][index], device_name))
         except Exception:
             logger.info('Skipping Router id for {}, Since bgp is not configured'.
                         format(topology.DeviceGroup.find()[0].Name))

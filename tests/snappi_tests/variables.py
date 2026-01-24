@@ -90,7 +90,6 @@ config_set = {
             }
 
 
-
 def create_ip_list(value, count, mask=32, incr=0):
     '''
         Create a list of ips based on the count provided
@@ -116,6 +115,7 @@ def create_ip_list(value, count, mask=32, incr=0):
         ip_list.append(value)
 
     return ip_list
+
 
 def get_host_addresses(subnet, count):
     try:

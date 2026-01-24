@@ -9,8 +9,6 @@ import paramiko
 from tests.conftest import add_custom_msg
 from tests.snappi_tests.variables import (
     COMMUNITY_LOWER_TIER_DROP,
-    FANOUT_PRESENCE,
-    TOPOLOGY_T2_CHASSIS,
     TOPOLOGY_T2_PIZZABOX,
     detect_topology_and_vendor,
     get_lower_tier_info,
@@ -352,7 +350,7 @@ def initial_setup(duthosts, creds, tbinfo):
         route_map_prefix = "FROM_TIER2"
 
         ssh = ssh_connect(device_ip, creds.get('sonicadmin_user'),
-                         creds.get('sonicadmin_password'))
+                          creds.get('sonicadmin_password'))
         logger.info(f"Remove filter for community {COMMUNITY_LOWER_TIER_DROP[0]}")
         execute_command(ssh, "vtysh -c " + " -c ".join([
             "'config t'",
