@@ -5241,14 +5241,6 @@ vrf/test_vrf.py:
       - "topo_type not in ['t0']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/21700"
 
-vrf/test_vrf.py::TestVrfAclRedirect:
-  skip:
-    reason: "Switch does not support ACL REDIRECT_ACTION."
-    conditions_logical_operator: or
-    conditions:
-      - "'switch' in vars() and len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
-      - "asic_type in ['vs']"
-
 vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_swss_warm_reboot:
   skip:
     reason: "Dualtor topology doesn't support advanced-reboot"
@@ -5260,7 +5252,7 @@ vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_system_warm_reboot:
     reason: "Dualtor topology doesn't support advanced-reboot"
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
-
+      
 vrf/test_vrf_attr.py:
   skip:
     reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later, not support for non t0 topology currently and skipped due to github issue #21700"
