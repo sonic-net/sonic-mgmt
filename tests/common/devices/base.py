@@ -3,6 +3,7 @@ import json
 import logging
 import collections
 from multiprocessing.pool import ThreadPool
+from pytest_ansible.results import AdHocResult, ModuleResult
 
 from tests.common.errors import RunAnsibleModuleFail
 
@@ -104,8 +105,16 @@ class AnsibleHostBase(object):
 
         module_args = json.loads(json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder))
         complex_args = json.loads(json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder))
-        res = self.module(*module_args, **complex_args)[self.hostname]
-        res.encoder = AnsibleHostBase.CustomEncoder
+
+        adhoc_res: AdHocResult = self.module(*module_args, **complex_args)
+
+        if self.module_name == "meta":
+            # The meta module is special in Ansible - it doesn't execute on remote hosts, it controls Ansible's behavior
+            # There are no per-host ModuleResults contained within it
+            return
+
+        hostname_res: ModuleResult = adhoc_res[self.hostname]
+        hostname_res.encoder = AnsibleHostBase.CustomEncoder
 
         if verbose:
             logger.debug(
@@ -114,7 +123,7 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    self.module_name, json.dumps(res, cls=AnsibleHostBase.CustomEncoder)
+                    self.module_name, json.dumps(hostname_res, cls=AnsibleHostBase.CustomEncoder)
                 )
             )
         else:
@@ -125,15 +134,15 @@ class AnsibleHostBase(object):
                     line_number,
                     self.hostname,
                     self.module_name,
-                    res.is_failed,
-                    res.get('rc', None)
+                    hostname_res.is_failed,
+                    hostname_res.get('rc', None)
                 )
             )
 
-        if (res.is_failed or 'exception' in res) and not module_ignore_errors:
-            raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), res)
+        if (hostname_res.is_failed or 'exception' in hostname_res) and not module_ignore_errors:
+            raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), hostname_res)
 
-        return res
+        return hostname_res
 
 
 class NeighborDevice(dict):
