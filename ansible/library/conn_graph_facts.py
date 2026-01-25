@@ -160,8 +160,7 @@ def main():
             filepath=dict(required=False),
             group=dict(required=False),
             anchor=dict(required=False, type='list'),
-            ignore_errors=dict(required=False, type='bool', default=False),
-        ),
+            ignore_errors=dict(required=False, type='bool', default=False)),
         mutually_exclusive=[['host', 'hosts', 'anchor']],
         supports_check_mode=True
     )
