@@ -3791,9 +3791,6 @@ def yang_validation_check(request, duthosts):
     """
     skip_yang = request.config.getoption("--skip_yang")
 
-    if skip_yang:
-        logger.info("Skipping YANG validation check due to --skip_yang flag")
-        return
 
     def run_yang_validation(stage):
         """Run YANG validation and return results"""
@@ -3827,28 +3824,33 @@ def yang_validation_check(request, duthosts):
 
         return validation_results
 
-    # pre-test YANG validation
-    pre_results = run_yang_validation("pre-test")
+    if skip_yang:
+        logger.info("Skipping pre-test YANG validation check due to --skip_yang flag")
+    else:
+        # pre-test YANG validation
+        pre_results = run_yang_validation("pre-test")
 
-    # Check if any pre-test validation failed
-    pre_failures = {host: result for host, result in pre_results.items() if result['failed']}
-    if pre_failures:
-        error_summary = []
-        for host, result in pre_failures.items():
-            error_summary.append(f"{host}: {result['error']}")
+        # Check if any pre-test validation failed
+        pre_failures = {host: result for host, result in pre_results.items() if result['failed']}
+        if pre_failures:
+            error_summary = []
+            for host, result in pre_failures.items():
+                error_summary.append(f"{host}: {result['error']}")
 
-        pt_assert(False, "pre-test YANG validation failed:\n" + "\n".join(error_summary))
+            pt_assert(False, "pre-test YANG validation failed:\n" + "\n".join(error_summary))
 
     yield
 
-    # post-test YANG validation
-    post_results = run_yang_validation("post-test")
+    if skip_yang:
+        logger.info("Skipping post-test YANG validation check due to --skip_yang flag")
+    else:
+        # post-test YANG validation
+        post_results = run_yang_validation("post-test")
+        # Check if any post-test validation failed
+        post_failures = {host: result for host, result in post_results.items() if result['failed']}
+        if post_failures:
+            error_summary = []
+            for host, result in post_failures.items():
+                error_summary.append(f"{host}: {result['error']}")
 
-    # Check if any post-test validation failed
-    post_failures = {host: result for host, result in post_results.items() if result['failed']}
-    if post_failures:
-        error_summary = []
-        for host, result in post_failures.items():
-            error_summary.append(f"{host}: {result['error']}")
-
-        pt_assert(False, "post-test YANG validation failed:\n" + "\n".join(error_summary))
+            pt_assert(False, "post-test YANG validation failed:\n" + "\n".join(error_summary))
