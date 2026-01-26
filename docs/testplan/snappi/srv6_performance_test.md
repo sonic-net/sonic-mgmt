@@ -19,6 +19,10 @@ The recommded topology to use includes:
 1. nut-2tiers as defined in [nut-2tiers.yml](../../../ansible/vars/nut_topos/nut-2tiers.yml). The example topology figure is shown in [NUT doc](../../testbed/README.testbed.NUT.md).
 2. Snake topo as shown in ![Snake Topology](./assets/snake_topo.png)
 
+Note: If we are using breakout ports, when we connect the links between traffic generators and switches in the topology, we should pay attention to the port distribution of the switch ASIC. Ideally, we should run the test on two instances of every type of the topology. These two instances should respectively follow the two port distributions below:
+1. Gather all the ports under test in the same breakout groups of front-panel physical ports. For example, when using 8-to-1 breakout with 8 ports under test, we should connect ports etp1a~etp1h
+2. Spread the ports under test to different breakout port groups that span across multiple front-panel physical ports. For example, when using 8-to-1 breakout with 8 ports under test, we should connect ports etp[1-8]a.
+
 ### Network Configuration
 
 Generally, the DUT should have SRv6 and route configurations as follows:
