@@ -15,7 +15,7 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams       
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('tgen', 'multidut-tgen')]
+pytestmark = [pytest.mark.topology('multidut-tgen')]
 
 ITERATION = 1
 # Blackout percentages to test: 100% (complete) and 50% (partial)
