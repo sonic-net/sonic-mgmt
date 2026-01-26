@@ -10,6 +10,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type, get_all_upstream_neigh_type
+from tests.common.utilities import is_ipv6_only_topology
 from tests.common.helpers.syslog_helpers import is_mgmt_vrf_enabled
 
 
@@ -164,6 +165,9 @@ def test_default_route_set_src(duthosts, tbinfo):
     config_facts = asichost.config_facts(
         host=duthost.hostname, source="running")['ansible_facts']
 
+    ipv6_only = is_ipv6_only_topology(tbinfo)
+    logger.info("IPv6-only topology: {}".format(ipv6_only))
+
     lo_ipv4 = None
     lo_ipv6 = None
     los = config_facts.get("LOOPBACK_INTERFACE", {})
@@ -177,14 +181,16 @@ def test_default_route_set_src(duthosts, tbinfo):
                 elif ip.version == 6:
                     lo_ipv6 = ip
 
-    pytest_assert(lo_ipv4, "cannot find ipv4 Loopback0 address")
+    if not ipv6_only:
+        pytest_assert(lo_ipv4, "cannot find ipv4 Loopback0 address")
     pytest_assert(lo_ipv6, "cannot find ipv6 Loopback0 address")
 
-    rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
-    pytest_assert(rtinfo['set_src'],
-                  "default route do not have set src. {}".format(rtinfo))
-    pytest_assert(rtinfo['set_src'] == lo_ipv4.ip,
-                  "default route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv4.ip))
+    if not ipv6_only:
+        rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
+        pytest_assert(rtinfo['set_src'],
+                      "default route do not have set src. {}".format(rtinfo))
+        pytest_assert(rtinfo['set_src'] == lo_ipv4.ip,
+                      "default route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv4.ip))
 
     rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("::/0"))
     pytest_assert(
@@ -274,7 +280,9 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
         uplink_ns = get_uplink_ns(
             tbinfo, bgp_name_to_ns_mapping, config_facts['DEVICE_NEIGHBOR_METADATA'])
 
-    af_list = ['ipv4', 'ipv6']
+    ipv6_only = is_ipv6_only_topology(tbinfo)
+    af_list = ['ipv6'] if ipv6_only else ['ipv4', 'ipv6']
+    logger.info("IPv6-only topology: {}, testing address families: {}".format(ipv6_only, af_list))
 
     try:
         # verify the default route is correct in the app db
