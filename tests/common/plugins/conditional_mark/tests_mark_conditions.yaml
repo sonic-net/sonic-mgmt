@@ -5121,6 +5121,18 @@ vxlan/test_vnet_bgp_route_precedence.py:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23824"
 
+vxlan/test_vnet_decap.py::test_vnet_decap[inner_ipv4-outer_ipv4]:
+  xfail:
+    reason: "Test xfail due to issue #21780"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21780 and '-v6-' in topo_name and asic_type in ['mellanox']"
+
+vxlan/test_vnet_decap.py::test_vnet_decap[inner_ipv6-outer_ipv4]:
+  xfail:
+    reason: "Test xfail due to issue #21780"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21780 and '-v6-' in topo_name and asic_type in ['mellanox']"
+
 vxlan/test_vnet_route_leak.py:
   skip:
     reason: "Test skipped due to issue #8374"
