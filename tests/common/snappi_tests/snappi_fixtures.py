@@ -1723,8 +1723,8 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
         num_cps_cards = tbinfo['num_cps_cards']
         num_tcpbg_cards = tbinfo['num_tcpbg_cards']
         num_udpbg_cards = tbinfo['num_udpbg_cards']
-        vxlan_port = tbinfo['vxlan_port']
-        vxlan_src_port = tbinfo['vxlan_src_port']
+        vxlan_port = tbinfo.get('vxlan_port', 0)
+        vxlan_src_port = tbinfo.get('vxlan_src_port', 0)
         num_dpu_ports = len(dpu_ports)
 
         cards_dict = {
@@ -1758,7 +1758,7 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
             file_name = "tempUhdConfig_pl.json"
             arp_bypass_list = create_arp_bypass_pl(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)
             connections_list = create_connections_pl(fp_ports_list, ip_list, subnet_mask, uhdSettings, cards_dict,
-                                                     arp_bypass_list)
+                                                     arp_bypass_list, vxlan_port, vxlan_src_port)
 
         config = {
             "profiles": create_profiles(uhdSettings),  # noqa: F405
@@ -1778,7 +1778,10 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
         logger.info(f"Pushing created UHD configuration file {file_name} to UHD Connect")
         uhdConf_cmd = ('curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   '
                        '{}').format(file_location, file_name, url)
-        subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
+        try:
+            res = subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)  # noqa: F841
+        except Exception as e:
+            logger.error(f"UHD config upload failed: {e}")
 
         if not save_uhd_config:
             logger.info("Removing UHD config file")

@@ -16,6 +16,7 @@ class NetworkConfigSettings:
         self.ENI_MAC_STEP = '00:00:00:18:00:00'
         self.ENI_STEP = 1
         self.ENI_L2R_STEP = 1000
+        self.ENI_PER_PORT = 64
 
         self.VTEP_IP = self.ipp("221.0.0.1")
         self.PAL = self.ipp("221.1.0.1")
@@ -339,6 +340,7 @@ def create_front_panel_ports(count, config, cards_dict):
 def create_arp_bypass_pl(fp_ports_list, ip_list, config, cards_dict, subnet_mask):
 
     connections_list = []
+    ethpass_ports = cards_dict['ethpass_ports']
     num_cps_cards = cards_dict['num_cps_cards']
     first_cps_card, first_tcpbg_card = set_first_stateful_cards(cards_dict)
     vrange_count = config.ENI_COUNT//num_cps_cards
@@ -352,6 +354,8 @@ def create_arp_bypass_pl(fp_ports_list, ip_list, config, cards_dict, subnet_mask
         else:
             first_tcpbg_card = 0
     """
+    # eth_bypass set here
+    connections_list.append(_get_eth_bypass_dict(config, ethpass_ports))
 
     vlan_start_tmp = vlan_start
     for port in range(num_cps_cards):
@@ -364,14 +368,15 @@ def create_arp_bypass_pl(fp_ports_list, ip_list, config, cards_dict, subnet_mask
         }
 
         # Test role will all use client instead of one client and one server
-        client_role = 'c'
-
+        server_role = 's'
         arp_bypass_dict['endpoints'].append(
-            {'choice': 'front_panel', 'front_panel': {'port_name': 'l47_port_{}{}'.format(9, client_role),
+            {'choice': 'front_panel', 'front_panel': {'port_name': 'l47_port_{}{}'.format(port+1, server_role),
                                                       'vlan': {'choice': 'vlan_range', 'vlan_range':
                                                           {'start': vlan_start_tmp, 'count': vrange_count,  # noqa: E128
                                                            'step': 1}}}}
         )
+
+        client_role = 'c'
         arp_bypass_dict['endpoints'].append(
             {'choice': 'front_panel', 'front_panel': {'port_name': 'l47_port_{}{}'.format(port+1, client_role),
                                                       'vlan': {'choice': 'vlan_range', 'vlan_range':
@@ -442,7 +447,6 @@ def create_connections_pl(fp_ports_list, ip_list, subnet_mask, config, cards_dic
 
         # TODO needed when there are multiple DPU Ports
         # dpu_port = 1 if server_vlan <= 128 else 2
-        dpu_port = 1
 
         # Server side
         """
@@ -500,16 +504,15 @@ def create_connections_pl(fp_ports_list, ip_list, subnet_mask, config, cards_dic
                 "vlan": {"choice": "vlan_range", "vlan_range": {"start": nvgre_eni_temp, "count": 32, "step": 1}}},
              "tags": ["vlan"]},
         )
-        dpu_port = 2
         server_dict_temp['endpoints'].append(
-            {"choice": "front_panel", "front_panel": {"port_name": "dpu_port_{}".format(dpu_port)},
+            {"choice": "front_panel", "front_panel": {"port_name": "l47_dpuPort_{}".format(1)},
              "tags": ["nvgre"]}
         )
 
         # Client Side
         # TODO vni_index
-        # client_start = config.IP_L_START
-        # ip_tmp = client_start + (int(ipaddress.ip_address('8.0.0.0')) * port)
+        client_start = config.IP_L_START
+        ip_tmp = client_start + (int(ipaddress.ip_address('8.0.0.0')) * port)
         vlanEP_ip_tmp = vlan_endpoint_ip + (nvgre_count * port)
         vxlan_vni_tmp = vxlan_vni_start + (nvgre_count * port)
 
@@ -527,7 +530,7 @@ def create_connections_pl(fp_ports_list, ip_list, subnet_mask, config, cards_dic
                                         'count': nvgre_count, 'step': 1}}, "protocols": {"accept": ["tcp"]},
                                         "routing_method": "ip_routing", "ip_routing": {"destination_ips":
                                         {"choice": "ipv4_range", "ipv4_range": {  # noqa: E128
-                                        # "start": "{}".format(ip_tmp),  # noqa: E122
+                                        "start": "{}".format(ip_tmp),  # noqa: E122
                                         "count": config.NVGRE_COUNT, "step": "0.64.0.0"}}},  # noqa: E122
                                         "udp_src_port": vxlan_port, "udp_dst_port": vxlan_src_port}
         }}
@@ -541,9 +544,8 @@ def create_connections_pl(fp_ports_list, ip_list, subnet_mask, config, cards_dic
                                                                 'step': 1}}}, "tags": ["vlan"]},
         )
 
-        dpu_port = 1
         client_dict_temp['endpoints'].append(
-            {"choice": "front_panel", "front_panel": {"port_name": "dpu_port_{}".format(dpu_port)},
+            {"choice": "front_panel", "front_panel": {"port_name": "l47_dpuPort_{}".format(1)},
              "tags": ["vxlan"]}
         )
 
@@ -552,6 +554,21 @@ def create_connections_pl(fp_ports_list, ip_list, subnet_mask, config, cards_dic
         connections_list.append(client_dict_temp)
 
     return connections_list
+
+
+def _get_eth_bypass_dict(config, ethpass_ports):
+    eth_bypass_dict = {
+        'name': "Eth Bypass",
+        'functions': [{"choice": "connect_ethernet", "connect_ethernet": {}}],
+        'endpoints': []
+    }
+    for port in ethpass_ports:
+        eth_bypass_dict['endpoints'].append(
+            {'choice': 'front_panel', 'front_panel': {'port_name': 'l47_port_11{}'.format(port['FrontPanel']),
+                                                      'vlan': {'choice': 'non_vlan'}}}
+        )
+
+    return eth_bypass_dict
 
 
 def create_arp_bypass(fp_ports_list, ip_list, config, cards_dict, subnet_mask):
@@ -569,6 +586,8 @@ def create_arp_bypass(fp_ports_list, ip_list, config, cards_dict, subnet_mask):
         else:
             first_tcpbg_card = 0
     """
+
+    """
     eth_bypass_dict = {
         'name': "Eth Bypass",
         'functions': [{"choice": "connect_ethernet", "connect_ethernet": {}}],
@@ -582,6 +601,9 @@ def create_arp_bypass(fp_ports_list, ip_list, config, cards_dict, subnet_mask):
                     {'port_name': 'l47_port_11{}'.format(port['FrontPanel']), 'vlan': {'choice': 'non_vlan'}}}
             )
         connections_list.append(eth_bypass_dict)
+    """
+    # eth_bypass set here
+    connections_list.append(_get_eth_bypass_dict(config, ethpass_ports))
 
     for eni, ip in enumerate(ip_list):
 

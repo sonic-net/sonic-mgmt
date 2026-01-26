@@ -14,8 +14,12 @@
   l47_tg_servermac: 140776176680961
   l47_tg_clientmac: 140776176680962
   dut_mac: 40501075136016
-  l47_version: 11.00.0.292
+  ixos_version: 26.0.2600.14
+  l47_version: 26.0.0.94
   chassis_ip: 10.1.1.4
+  chassis_user_login: root
+  chassis_user_passwd: peanutbutter123
+  clean_l47trafficgen_staticarps: True
   uhd_ip: 10.1.1.5
   dpu_active_ip: 172.35.1.1
   dpu_standby_ip: 172.35.1.2
