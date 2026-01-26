@@ -20,4 +20,5 @@
 - name: get connection graph if defined for dut
   conn_graph_facts:
     hosts: "{{ testbed_facts['duts'] + testbed_facts['tgs'] + testbed_facts['l1s'] }}"
+    forced_mgmt_routes: "{{ forced_mgmt_routes | default([]) }}"
   delegate_to: localhost

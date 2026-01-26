@@ -25,10 +25,15 @@ class LabGraph(object):
         "serial_links": "sonic_{}_serial_links.csv",
     }
 
-    def __init__(self, path, group):
+    def __init__(self, path, group, forced_mgmt_routes=None):
         self.path = path
         self.group = group
         self.csv_files = {k: os.path.join(self.path, v.format(group)) for k, v in self.SUPPORTED_CSV_FILES.items()}
+
+        self.forced_mgmt_routes = forced_mgmt_routes or []
+        self.forced_mgmt_routes_v4, self.forced_mgmt_routes_v6 = self._parse_forced_mgmt_routes(
+            self.forced_mgmt_routes
+        )
 
         self._cache_port_alias_to_name = {}
         self._cache_port_name_to_alias = {}
@@ -51,6 +56,50 @@ class LabGraph(object):
         with open(v) as csvfile:
             reader = csv.DictReader(csvfile)
             return [row for row in reader]
+
+    def _parse_forced_mgmt_routes(self, forced_mgmt_routes):
+        routes_v4 = []
+        routes_v6 = []
+        if not forced_mgmt_routes:
+            return routes_v4, routes_v6
+
+        if isinstance(forced_mgmt_routes, six.string_types):
+            route_items = [
+                route.strip()
+                for route in forced_mgmt_routes.replace(";", ",").split(",")
+                if route.strip()
+            ]
+        elif isinstance(forced_mgmt_routes, (list, tuple, set)):
+            route_items = []
+            for route in forced_mgmt_routes:
+                if route is None:
+                    continue
+                if isinstance(route, six.string_types):
+                    route = route.strip()
+                route_items.append(str(route).strip())
+            route_items = [route for route in route_items if route]
+        else:
+            route_items = [str(forced_mgmt_routes).strip()]
+
+        for route in route_items:
+            if not route:
+                continue
+            try:
+                network = ipaddress.ip_network(six.text_type(route), strict=False)
+            except ValueError:
+                try:
+                    interface = ipaddress.ip_interface(six.text_type(route))
+                    network = interface.network
+                except ValueError:
+                    logging.warning("Skipping invalid forced mgmt route: %s", route)
+                    continue
+
+            if network.version == 4:
+                routes_v4.append(route)
+            else:
+                routes_v6.append(route)
+
+        return routes_v4, routes_v6
 
     def _port_vlanlist(self, vlanrange):
         """Convert vlan range string to list of vlan ids
@@ -146,6 +195,8 @@ class LabGraph(object):
                     entry["CardType"] = "Linecard"
                 if "HwSkuType" not in entry:
                     entry["HwSkuType"] = "predefined"
+            entry["ManagementRoutes"] = list(self.forced_mgmt_routes_v4)
+            entry["ManagementRoutesV6"] = list(self.forced_mgmt_routes_v6)
             devices[entry["Hostname"]] = entry
         self.graph_facts["devices"] = devices
 
