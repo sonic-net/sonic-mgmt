@@ -231,19 +231,21 @@ The test will be supported on t0 and t1 topology.
 3. Use curl command with the token to get session information by Redfish API
    'curl -k -H "X-Auth-Token: <Token>" -X GET https://<BMC_IP>/redfish/v1/SessionService/Sessions'
 4. Validate the curl command returns valid response with session information
-5. Use curl command with the token to submit a test event by Redfish API
-   'curl -k -H "X-Auth-Token: <Token>" -H "Content-Type: application/json" -X POST https://<BMC_IP>/redfish/v1/EventService/Actions/EventService.SubmitTestEvent -d '{"EventType": "Alert", "Message": "Test event from valid token"}'
-6. Validate the curl command executes successfully
-7. Close the BMC session by command 'config bmc close-session --session-id <session-id>'
-8. Try to use the same token with GET request as in step 3 and validate the response is empty or returns error code
-9. Try to use the same token with POST request to submit a new test event with different message
-   'curl -k -H "X-Auth-Token: <Token>" -H "Content-Type: application/json" -X POST https://<BMC_IP>/redfish/v1/EventService/Actions/EventService.SubmitTestEvent -d '{"EventType": "Alert", "Message": "Test event from invalid token"}'
-10. Validate the response is empty or returns error code
+5. Use curl command with the token to create an event subscription by Redfish API
+   'curl -k -i -H "X-Auth-Token: <Token>" -H "Content-Type: application/json" -X POST https://<BMC_IP>/redfish/v1/EventService/Subscriptions -d '{"Destination": "https://example.com/events", "Protocol": "Redfish"}'
+6. Validate the subscription is created successfully and extract the subscription ID from the Location header in response
+7. Use curl command to query and verify the subscription exists
+   'curl -k -H "X-Auth-Token: <Token>" -X GET https://<BMC_IP>/redfish/v1/EventService/Subscriptions/<subscription-id>'
+8. Close the BMC session by command 'config bmc close-session --session-id <session-id>'
+9. Try to use the same token with GET request as in step 3 and validate the returned response
+10. Try to use the same token with POST request as in step 5 and validate the returned response
 11. Open a new BMC session and validate new session ID and token are generated
-12. Use the new token to check EventLog entries by Redfish API
-    'curl -k -H "X-Auth-Token: <NewToken>" -X GET https://<BMC_IP>/redfish/v1/Systems/system/LogServices/EventLog/Entries'
-13. Validate only the event from step 5 (with message "Test event from valid token") exists in the log, and the event from step 9 (with message "Test event from invalid token") does not exist
-14. Close the new session and validate it closes successfully
+12. Use the new token to query subscriptions and verify only the subscription from step 5 exists
+    'curl -k -H "X-Auth-Token: <NewToken>" -X GET https://<BMC_IP>/redfish/v1/EventService/Subscriptions'
+13. Use the new token to delete the subscription created in step 5
+    'curl -k -H "X-Auth-Token: <NewToken>" -X DELETE https://<BMC_IP>/redfish/v1/EventService/Subscriptions/<subscription-id>'
+14. Validate the subscription is deleted successfully
+15. Close the new session and validate it closes successfully
 
 ### Test Case # 15 - Test CLIs commands for open and close BMC session on a Non-BMC switch
 1. Run command 'config bmc open-session' on a Non-BMC switch
