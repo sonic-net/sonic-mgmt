@@ -11,26 +11,26 @@
   debug:
     var: device_info[inventory_hostname]
 
-- name: output device meta
-  debug:
-    var: device_meta[inventory_hostname]
-
-- name: output device conn
-  debug:
-    var: device_linked_ports[inventory_hostname]
-
-- name: output device port vlan
-  debug:
-    var: device_vlan_map_list[inventory_hostname]
-
-- name: output device bgp neighbor devices
-  debug:
-    var: device_bgp_neighbor_devices[inventory_hostname]
-
-- name: output device bgp neighbor ports
-  debug:
-    var: device_bgp_neighbor_ports[inventory_hostname]
-    #var: device_bgp_neighbors
+#- name: output device meta
+#  debug:
+#    var: device_meta[inventory_hostname]
+#
+#- name: output device conn
+#  debug:
+#    var: device_linked_ports[inventory_hostname]
+#
+#- name: output device port vlan
+#  debug:
+#    var: device_vlan_map_list[inventory_hostname]
+#
+#- name: output device bgp neighbor devices
+#  debug:
+#    var: device_bgp_neighbor_devices[inventory_hostname]
+#
+#- name: output device bgp neighbor ports
+#  debug:
+#    var: device_bgp_neighbor_ports[inventory_hostname]
+#    #var: device_bgp_neighbors
 
 - name: define features settings
   set_fact:

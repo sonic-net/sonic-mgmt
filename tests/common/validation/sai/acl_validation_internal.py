@@ -1,8 +1,18 @@
 import logging
 import re
-import tests.common.sai_validation.gnmi_client as gnmi_client
 
 logger = logging.getLogger(__name__)
+
+# Lazy import for gnmi_client to avoid import errors when SAI validation is disabled
+_gnmi_client = None
+
+
+def _ensure_imports():
+    """Lazy import of gnmi_client module."""
+    global _gnmi_client
+    if _gnmi_client is None:
+        import tests.common.sai_validation.gnmi_client as gnmi_client
+        _gnmi_client = gnmi_client
 
 
 def cidr_to_netmask(cidr):
@@ -142,6 +152,7 @@ def find_object_value_by_type(gnmi_events: list, object_type: str) -> dict:
 
 
 def rule_in_events(sequence_id, rule, events, gnmi_connection):
+    _ensure_imports()
     fetch_range = False
     if 'SAI_ACL_ENTRY_ATTR_FIELD_ACL_RANGE_TYPE' in rule:
         fetch_range = True
@@ -154,8 +165,8 @@ def rule_in_events(sequence_id, rule, events, gnmi_connection):
             if isinstance(range_oid, str):
                 oid = range_oid[range_oid.find('oid:'):]
                 path_str = f'ASIC_DB/localhost/ASIC_STATE/SAI_OBJECT_TYPE_ACL_RANGE:{oid}'
-                gnmi_path = gnmi_client.get_gnmi_path(path_str)
-                range_oid_values = gnmi_client.get_request(gnmi_connection, gnmi_path)
+                gnmi_path = _gnmi_client.get_gnmi_path(path_str)
+                range_oid_values = _gnmi_client.get_request(gnmi_connection, gnmi_path)
                 logger.debug(f'found range oid values {range_oid_values} for range oid {oid}')
                 # rewrite evt for comparison to match the rule format for comparison
                 range_oid_value = range_oid_values[0]
