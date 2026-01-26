@@ -153,12 +153,11 @@ hw_port_cfg = {
                          "panel_port_step": 1},
     'p32v128f2':        {"ds_breakout": 4, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(*list(range(0, 32))),
-                         'lag_list': LinkList(LagLink(0, 1), LagLink(2, 3), LagLink(4, 5), LagLink(6, 7),
+                         'lag_list': LinkList(LagLink(8, 9), LagLink(10, 11), LagLink(12, 13), LagLink(14, 15),
                                               LagLink(16, 17), LagLink(18, 19), LagLink(20, 21), LagLink(22, 23)),
-                         'skip_ports': PortList(*list(range(8, 16)), *list(range(24, 32)),
-                                                34, 35, 36, 37, 38, 57, 58, 59, 62, 63),
-                         'skip_links': ([33, 34, 35, 37, 38, 39, 145, 146, 147, 149, 150, 151] +
-                                        [link for port in range(39, 57)
+                         'skip_ports': PortList(*list(range(0, 8)), *list(range(24, 32))),
+                         'skip_links': (
+                                        [link for port in range(32, 64)
                                          for link in [32 + (port - 32) * 4 + 2, 32 + (port - 32) * 4 + 3]]),
                          'peer_ports': [],
                          'continuous_vms': True,
@@ -183,6 +182,9 @@ overwrite_file_name = {
     'lt2': {
         'p32o64': "lt2-p32o64",
         'o128': "lt2-o128",
+    },
+    't0': {
+        'f2': "t0-f2-d40u8"
     }
 }
 
