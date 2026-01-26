@@ -3,12 +3,8 @@ from tests.common.helpers.assertions import pytest_assert  # noqa F401
 from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings  # noqa: F403, F401
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from netmiko import ConnectHandler
-from scp import SCPClient
 from pathlib import Path
-import paramiko
-import io
 import snappi
-import stat
 import time
 import os
 import glob
@@ -25,7 +21,7 @@ def patch_dutnetwork_range(api, base_url, session_id, test_id, dut_id, network_r
     Sends a PATCH request to update the first IP in the network range.
 
     Args:
-        base_url (str): The base URL of the API (e.g., "https://10.3.8.23:8443").
+        base_url (str): The base URL of the API (e.g., "https://10.36.78.203:8443").
         session_id (int): The session ID (e.g., 0).
         test_id (str): The test ID (e.g., "activeTest").
         dut_id (int): The DUT ID (e.g., 0).
@@ -46,13 +42,13 @@ def patch_dutnetwork_range(api, base_url, session_id, test_id, dut_id, network_r
     try:
         res = api.ixload_configure("patch", url, payload)  # noqa: F841
         if res.status_code == 204:
-            logger.info("PATCH request successful: 204 No Content")
+            print("PATCH request successful: 204 No Content")
         else:
-            logger.info(f"PATCH request failed: {res.status_code} {res.reason}")
-            logger.info(res.text)
+            print(f"PATCH request failed: {res.status_code} {res.reason}")
+            print(res.text)
         return res
     except res.RequestException as e:
-        logger.info(f"An error occurred: {e}")
+        print(f"An error occurred: {e}")
         return None
 
 
@@ -1241,7 +1237,7 @@ def set_trafficMapProfile(api, service_type):
     if service_type == 'vnet2vnet':
         destination_url = "ixload/test/activeTest/communityList/0/activityList/0/destinations/0"
     else:
-        destination_url = "ixload/test/activeTest/communityList/0/activityList/0/destinations/1"
+        destination_url = "ixload/test/activeTest/communityList/0/activityList/0/destinations/0"
 
     try:
         # Code that may raise an exception
@@ -1303,11 +1299,8 @@ def set_timelineCustom(api, initial_cps_value):
 
     try:
         # Code that may raise an exception
+        res = api.ixload_configure("patch", activityList_url, activityList_json)
         res = api.ixload_configure("patch", timelineObjectives_url, timeline_json)  # noqa: F841
-        res = api.ixload_configure("patch", activityList_url, activityList_json)  # noqa: F841
-    except Exception as e:
-        # Handle any exception
-        logger.info(f"An error occurred: {e}")
     except Exception as e:
         # Handle any exception
         logger.info(f"An error occurred: {e}")
@@ -1491,56 +1484,6 @@ def test_saveAs(api, test_filename):
 """
 
 
-def delete_staticarp_files(chassis_ip, chassis_user_login, chassis_user_passwd, ixos_version):
-    def delete_files(ssh_client, remote_path, logger=None):
-        """
-        Delete a remote file using SFTP. If it doesn't exist, do nothing.
-        """
-        sftp = None
-        try:
-            sftp = ssh_client.open_sftp()
-            try:
-                attrs = sftp.stat(remote_path)
-                if stat.S_ISDIR(attrs.st_mode):
-                    msg = f"Refusing to delete directory: {remote_path}"
-
-                    logger.warning(msg)
-                    return
-            except FileNotFoundError:
-                msg = f"File not found (nothing to delete): {remote_path}"
-                logger.info(msg)
-                return
-
-            sftp.remove(remote_path)
-            msg = f"Deleted: {remote_path}"
-            logger.info(msg)
-        except Exception as e:
-            msg = f"Failed to delete {remote_path}: {e}"
-            logger.exception(msg)
-        finally:
-            if sftp:
-                sftp.close()
-
-    # setting up ssh connection
-    ssh_client = paramiko.SSHClient()
-    ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-    # Connect to remote host
-    logger.info(f"Connecting to {chassis_ip}...")
-    ssh_client.connect(hostname=f'{chassis_ip}', username=f'{chassis_user_login}', password=f'{chassis_user_passwd}')
-
-    card = 1  # Update this to use card number as an index
-    # client
-    delete_files(ssh_client,
-                 f'/home/ixia_apps/ixos/{ixos_version}/nfs/rw/ports/{card}/1/ixtcp.arp', logger)
-
-    # server
-    delete_files(ssh_client,
-                 f'/home/ixia_apps/ixos/{ixos_version}/nfs/rw/ports/{card}/2/ixtcp.arp', logger)
-
-    return
-
-
 def set_userIPMappings(api):
 
     url = "ixload/test/activeTest/communityList/0/activityList/0"
@@ -1560,90 +1503,6 @@ def set_userIPMappings(api):
     return
 
 
-def set_test_preferences(api):
-
-    url = "ixload/preferences"
-
-    param_allowRouteConflicts = {
-        'allowRouteConflicts': True
-    }
-
-    try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", url, param_allowRouteConflicts)  # noqa: F841
-    except Exception as e:
-        # Handle any exception
-        logger.info(f"An error occurred: {e}")
-        return None
-
-    return
-
-
-def set_trafficgen_staticarps(api, ip_list, chassis_ip, chassis_user_login, chassis_user_passwd,
-                              ixos_version, nw_config):
-    def build_arp_payload(ssh_client, ip_list, ENI_TOTAL, filename, is_server, remote_path):
-        lines = []
-        for i in range(ENI_TOTAL):
-            if not is_server:
-                mac_addr = ip_list[i]['mac_server']
-                ip_addr = ip_list[i]['dut_ip_client']
-                vlan_id = ip_list[i]['vlan_client']
-                count = 640
-            else:
-                mac_addr = ip_list[i]['mac_client']
-                ip_addr = ip_list[i]['ip_client']
-                vlan_id = ip_list[i]['vlan_server']
-                count = 1
-
-            lines.append(
-                f"RemoteMAC={mac_addr}, RemoteMACIncr=00:00:00:00:00:02, "  # noqa: E231
-                f"RemoteIPv4={ip_addr}, RemoteIPv4Incr=0.0.0.2, "
-                f"Count={count}, VlanID={vlan_id}\n")
-
-        with io.open(filename, 'w+') as f:
-            f.writelines(lines)
-
-        with SCPClient(ssh_client.get_transport()) as scp_client:
-            try:
-                scp_client.put(filename, remote_path)
-            except Exception as e:
-                logger.error(f"SCP failed arp payload upload to trafficgen server: {e}")
-
-        os.remove(filename)
-        return
-
-    ENI_TOTAL = nw_config.ENI_COUNT
-    card = 1  # Make this an index
-
-    ssh_client = paramiko.SSHClient()
-    ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-
-    # Connect to remote host
-    logger.info(f"Connecting to {chassis_ip}...")
-    ssh_client.connect(hostname=f'{chassis_ip}', username=f'{chassis_user_login}', password=f'{chassis_user_passwd}')
-
-    # Create client files
-    build_arp_payload(
-        ssh_client, ip_list, ENI_TOTAL, f"ixtcp_{card}.arp", False,
-        f'/home/ixia_apps/ixos/{ixos_version}/nfs/rw/ports/{card}/1/ixtcp.arp'
-    )
-
-    # Create server files
-    '''
-    build_arp_payload(
-        ssh_client, ip_list, ENI_TOTAL, f"ixtcp_{card}_1.arp", True,
-        f'/home/ixia_apps/ixos/{ixos_version}/nfs/rw/ports/{card}/2/ixtcp.arp'
-    )
-    '''
-
-    # Close the SSH connection
-    ssh_client.close()
-
-    logger.info("ARP files created successfully!")
-
-    return
-
-
 def l47_trafficgen_main(ports_list, connection_dict, nw_config, service_type,
                         test_type, test_filename, initial_cps_value):
 
@@ -1652,10 +1511,7 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, service_type,
     gw_ip = connection_dict['gw_ip']
     port = connection_dict['port']
     chassis_ip = connection_dict['chassis_ip']
-    chassis_user_login = connection_dict['chassis_user_login']
-    chassis_user_passwd = connection_dict['chassis_user_passwd']
     ixl_version = connection_dict['version']
-    ixos_version = connection_dict['ixos_version']
 
     api = snappi.api(location="{}:{}".format(gw_ip, port), ext="ixload", verify=False, version=ixl_version)
     config = api.config()
@@ -1665,10 +1521,6 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, service_type,
 
     # client/server IP ranges created here
     ip_list = create_ip_list(nw_config, service_type)
-
-    if service_type == 'privatelink':
-        set_trafficgen_staticarps(api, ip_list, chassis_ip, chassis_user_login, chassis_user_passwd,
-                                  ixos_version, nw_config)
 
     logger.info("Setting devices")
     time_device_time = time.time()
@@ -1909,7 +1761,7 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, service_type,
 
     # Create DUTLIST
     if service_type == 'privatelink':
-        logger.info("Configuring DUT list settings")
+        print("Configuring DUT list settings")
         create_dut_config(api)
         add_dut_ranges(api, nw_config)
         patch_dut_config(api, nw_config)
@@ -1958,10 +1810,6 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, service_type,
     set_timelineCustom(api, initial_cps_value)
     test_timeline_finish = time.time()
     logger.info("Finished timeline configurations {}".format(test_timeline_finish - test_timeline_time))
-
-    # allow route conflicts
-    logger.info("Setting test preferences to allow route conflicts to enabled")
-    set_test_preferences(api)
 
     # save file
     # logger.info("Saving Test File")
