@@ -48,6 +48,7 @@
                     "sudo show boot",
                     "sudo reboot"
                 ],
+                "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
                 "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
                 "skip_folder": "ixia pfc_asym",
                 "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo m64-t1-lag ./lab",
@@ -95,6 +96,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo chu-t1-56-lag password.txt",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo chu-t1-56-lag password.txt",
             "mtu_hack": {
@@ -133,6 +135,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo chu-t1-56-lag password.txt",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo chu-t1-56-lag password.txt",
             "mtu_hack": {
@@ -207,6 +210,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo 400g-t1 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo 400g-t1 ./lab",
             "mtu_hack": {
@@ -262,6 +266,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "testbed-setup": {
                 "cmd": [
                     "set -e",
@@ -433,6 +438,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo trndo-t0 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo trndo-t0 ./lab",
             "mtu_hack": {
@@ -476,6 +482,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo t0-64-2 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo t0-64-2 ./lab",
             "mtu_hack": {
@@ -511,6 +518,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo t0-64-3 password.txt",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo t0-64-3 password.txt",
             "mtu_hack": {
@@ -879,6 +887,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo tor40 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo tor40 ./lab",
             "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
@@ -910,6 +919,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo tornado-dualtor ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo tornado-dualtor ./lab",
             "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
@@ -942,6 +952,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo tornado-dualtor ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo tornado-dualtor ./lab",
             "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
@@ -978,6 +989,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo cmono_t0 ./lab",
@@ -1018,6 +1030,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo chbm-t1 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo chbm-t1 ./lab"
         },
@@ -1363,6 +1376,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo ucs-m5-2 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo ucs-m5-2 ./lab",
             "mtu_hack": {
@@ -1403,6 +1417,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo t1-64-4 password.txt",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo t1-64-4 password.txt"
         },
@@ -1440,6 +1455,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo super-t0 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo super-t0 ./lab",
             "mtu_hack": {
@@ -1472,6 +1488,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo light-t0 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo light-t0 ./lab",
             "mtu_hack": {
@@ -1508,6 +1525,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo super-t1 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo super-t1 ./lab",
             "mtu_hack": {
@@ -1717,6 +1735,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo light-t0 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo light-t0 ./lab"
         },
@@ -1848,6 +1867,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo light-tb ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo light-tb ./lab",
             "mtu_hack": {
@@ -1885,6 +1905,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo m64-dtor-yy41 ./lab",
@@ -1918,6 +1939,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "cisco ixia mvrf pfc_asym vrf",
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo m64-dtor ./lab",
@@ -1952,6 +1974,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo cmono_t0 ./lab",
@@ -2088,6 +2111,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "skip_tests": "",
             "skip_folder": "",
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo ttn-t2 ./lab",
@@ -2120,6 +2144,7 @@
                 "sudo show boot",
                 "sudo reboot"
             ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "skip_tests": "",
             "skip_folder": "",
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo ttan-t0 ./lab",

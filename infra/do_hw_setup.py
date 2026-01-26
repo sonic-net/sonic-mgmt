@@ -904,8 +904,13 @@ def sonic_install(args, index):
             scp_cmd = scp_cmd.strip().replace("$topology", topology)
         if "$sonic-mgmt-folder" in scp_cmd:
             scp_cmd = scp_cmd.strip().replace("$sonic-mgmt-folder", getSonicMgmtFolder(stream, testbed))
-        scpUtil(p2, scp_cmd, DUT_PASSWORD)
-        time.sleep(30)
+
+        if "scp " in scp_cmd:  # crutch to enable non-scp cmds to be specified in `extra_sonic_commands`
+            scpUtil(p2, scp_cmd, DUT_PASSWORD)
+            time.sleep(30)
+        else:
+            log.debug(f"`Command will NOT BE EXECUTED: \n{scp_cmd}`\nReason: it doesn't contain `scp `")
+
         p2.close()
         for ssh in testbed_info_dict['dut_ssh']:
             if len(testbed_info_dict['extra_sonic_commands']) > 1:
