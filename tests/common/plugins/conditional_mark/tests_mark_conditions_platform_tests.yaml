@@ -1211,6 +1211,15 @@ platform_tests/test_cont_warm_reboot.py:
       - "topo_type not in ['t0']"
       - "is_smartswitch==True"
 
+####################################################
+#####   test_dpu_show_platform_temperature.py  #####
+####################################################
+platform_tests/test_dpu_show_platform_temperature.py:
+  skip:
+    reason: "Skip on the platforms not explicitly supported in the code"
+    conditions:
+      - "platform not in ['arm64-nvda_bf-bf3comdpu', 'arm64-nvda_bf-9009d3b600cvaa']"
+
 #######################################
 #####       test_intf_fec.py      #####
 #######################################
