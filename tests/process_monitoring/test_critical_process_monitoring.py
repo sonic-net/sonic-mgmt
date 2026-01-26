@@ -631,7 +631,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
         # Wait for interfaces to come up
         logger.info("Checking interface status...")
-        check_interface_status_of_up_ports(duthost, timeout=300)
+        check_interface_status_of_up_ports(duthost)
         logger.info("All interfaces are up")
 
         logger.info("DUT recovered successfully after power cycle!")

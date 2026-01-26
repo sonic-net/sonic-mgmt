@@ -253,6 +253,7 @@ def main():
     logger.setLevel(logging.DEBUG)
     # Configure logging with hostname
     handler = logging.handlers.SysLogHandler(address=(args.rsyslog_server, 514))
+    handler.ident = 'pfc_gen: '
     formatter = logging.Formatter('{} %(message)s'.format(socket.gethostname()))
     handler.setFormatter(formatter)
     logger.addHandler(handler)

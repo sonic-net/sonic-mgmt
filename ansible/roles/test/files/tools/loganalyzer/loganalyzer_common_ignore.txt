@@ -469,3 +469,6 @@ r, ".*ERR sfputil: Failed to read from file /sys/module/sx_core/asic\d+/module\d
 
 # This is a deprecation warning not a functional error, which matches the regex "kernel:.*allocation", not an err.
 r, ".*kernel.*gpio.*Static allocation of GPIO base is deprecated.*"
+
+# Ignore SCD kernel warning about I2C communication ack errors on Arista platforms
+r, ".*WARNING kernel:.*scd.*rsp.*ack_error=1.*"

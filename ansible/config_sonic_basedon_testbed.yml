@@ -146,6 +146,7 @@
       host: "{{ inventory_hostname }}"
       group: "{{ conn_graph_group if conn_graph_group is defined else omit }}"
       ignore_errors: true
+      forced_mgmt_routes: "{{ forced_mgmt_routes | default([]) }}"
     delegate_to: localhost
     ignore_errors: true
 
