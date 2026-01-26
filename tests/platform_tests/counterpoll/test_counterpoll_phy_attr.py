@@ -5,6 +5,8 @@ import random
 import time
 import pytest
 
+from tests.common.broadcom_data import is_broadcom_device
+from tests.common.helpers.assertions import pytest_require
 from tests.common.config_reload import config_reload
 from tests.common.constants import CounterpollConstants
 from tests.common.helpers.assertions import pytest_assert
@@ -40,6 +42,24 @@ PORT_PHY_ATTRIBUTES = [
 # Global cache for port configuration and OID mapping
 _port_config_cache = None
 _port_oid_map_cache = None
+
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_non_th5_asics(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """
+    Skip the test on non-th5 asics
+
+    Args:
+        duthosts (pytest fixture): list of Duts
+        enum_rand_one_per_hwsku_frontend_hostname (str): hostname of DUT
+
+    Returns:
+        None
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic_type = duthost.get_asic_name()
+    supported_asics = ["th5"]
+    pytest_require((is_broadcom_device(duthost) and asic_type in supported_asics), "This test is not supported on {} asic".format(asic_type))
 
 
 def get_port_config_from_config_db(duthost):
@@ -710,7 +730,7 @@ def test_phy_latch_status_transition(duthosts, enum_rand_one_per_hwsku_frontend_
             prev_signal_data=initial_signal, prev_fec_data=initial_fec)
 
     with allure.step("Polling for F (marker cleared)"):
-        after_down_stable_signal, after_down_stable_fec = poll_for_latch_status(
+        stable_signal, stable_fec = poll_for_latch_status(
             port_info['asic'], port_info['oid'], 'F',
             prev_signal_data=after_down_signal, prev_fec_data=after_down_fec)
 
@@ -720,9 +740,10 @@ def test_phy_latch_status_transition(duthosts, enum_rand_one_per_hwsku_frontend_
     with allure.step("Polling for T* after link up"):
         after_up_signal, after_up_fec = poll_for_latch_status(
             port_info['asic'], port_info['oid'], 'T*',
-            prev_signal_data=after_down_stable_signal, prev_fec_data=after_down_stable_fec)
+            prev_signal_data=stable_signal, prev_fec_data=stable_fec)
 
     with allure.step("Polling for T (marker cleared)"):
         final_signal, final_fec = poll_for_latch_status(
             port_info['asic'], port_info['oid'], 'T',
             prev_signal_data=after_up_signal, prev_fec_data=after_up_fec)
+
