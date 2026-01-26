@@ -656,8 +656,6 @@ class AdvancedReboot:
                 # path to the old python interpreter) to avoid using stale facts that were collected
                 # before the reboot.
                 self.duthost.meta("clear_facts")
-                basic_facts_after_upgrade = self.duthost.dut_basic_facts()
-                logger.info("Basic facts after upgrade: {}".format(basic_facts_after_upgrade))
 
                 self.__verifyRebootOper(rebootOper)
                 if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
