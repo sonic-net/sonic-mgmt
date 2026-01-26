@@ -6,7 +6,7 @@ import pytest
 from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, copy_arp_responder_py
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, copy_arp_responder_py         # noqa: F401
 from tests.ptf_runner import ptf_runner
 from .vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY,\
     VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY, DUT_VNET_NBR_JSON
@@ -109,7 +109,9 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config
     return minigraph_facts, vnet_json_data
 
 
-@pytest.fixture(params=["Disabled", "Enabled", "WR_ARP", "Cleanup"])
+# skip warm reboot "WR_ARP", this test case is using static tunnel, warm reboot will need no static tunnel present,
+# so it will fail at that point
+@pytest.fixture(params=["Disabled", "Enabled", "Cleanup"])
 def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
                  ptfhost, vnet_test_params, vnet_config, creds, tbinfo):
     """
@@ -130,7 +132,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
     global vlan_tagging_mode
 
     num_routes = request.config.option.num_routes
-    if num_routes == None:
+    if num_routes is None:
         num_routes = 16000
 
     vxlan_enabled = False

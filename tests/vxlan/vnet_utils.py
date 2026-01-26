@@ -248,13 +248,16 @@ def count_hosts_from_conf(duthost):
     num_hosts = int(duthost.shell("cat {} | grep Vlan | wc -l".format(DUT_VNET_INTF_JSON))['stdout_lines'][0])
     return num_hosts
 
+
 def count_routes_from_conf(duthost):
     num_routes = int(duthost.shell("cat {} | grep VNET_ROUTE | wc -l".format(DUT_VNET_ROUTE_JSON))['stdout_lines'][0])
     return num_routes
 
+
 def count_routes_from_asic_db(duthost):
     num_routes = int(duthost.shell("redis-cli -n 1 keys *ROUTE_ENTRY* | wc -l")['stdout_lines'][0])
     return num_routes
+
 
 def verify_routes_configured(duthost, routes_num_before_change, action):
     expected_routes_num = 0
