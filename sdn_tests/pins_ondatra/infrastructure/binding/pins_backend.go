@@ -10,6 +10,7 @@ import (
 	"time"
 	"flag"
 
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	log "github.com/golang/glog"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ondatra/binding"
@@ -21,6 +22,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+var insecureMode = flag.Bool("use_binding_insecure_mode", false, "set the flag if the server doesn't support gRPC mTLS.")
 var (
 	supportedSecurityModes = []string{"insecure", "mtls"}
 	securityMode = flag.String("security_mode", "insecure", fmt.Sprintf("define the security mode of the conntections to gnmi server, choose from : %v. Uses insecure as default.", supportedSecurityModes))
@@ -28,12 +30,13 @@ var (
 
 // Backend can reserve Ondatra DUTs and provide clients to interact with the DUTs.
 type Backend struct {
-	configs map[string]*tls.Config
+	configs  map[string]*tls.Config
+	insecure bool // use insecure mode to dial to the gRPC server
 }
 
 // New creates a backend object.
 func New() *Backend {
-	return &Backend{configs: map[string]*tls.Config{}}
+	return &Backend{configs: map[string]*tls.Config{}, insecure: *insecureMode}
 }
 
 // registerGRPCTLS caches grpc TLS certificates for the given serverName.
@@ -43,7 +46,11 @@ func (b *Backend) registerGRPCTLS(grpc *bindingbackend.GRPCServices, serverName 
 	}
 
 	// Load certificate of the CA who signed server's certificate.
-	pemServerCA, err := os.ReadFile("ondatra/certs/ca_crt.pem")
+	file, err := bazel.Runfile("ondatra/certs/ca_crt.pem")
+	if err != nil {
+		return err
+	}
+	pemServerCA, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
@@ -160,6 +167,11 @@ func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime,
 				}},
 		}}
 
+        if b.insecure {
+		log.WarningContextf(ctx, "Using insecure mode to dial gRPC.")
+		return r, nil
+	}
+
 	for _, dut := range r.DUTs {
 		if err := b.registerGRPCTLS(&dut.GRPC, dut.Name); err != nil {
 			return nil, err
@@ -174,21 +186,27 @@ func (b *Backend) Release(ctx context.Context) error {
 	return nil
 }
 
+func (b *Backend) authDialOpts(addr string) ([]grpc.DialOption, error) {
+	if b.insecure {
+		return []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}, nil
+	}
+	tlsConfig, ok := b.configs[addr]
+	if !ok {
+		return nil, fmt.Errorf("failed to find TLS config for %s", addr)
+	}
+	return []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))}, nil
+}
+
 // DialGRPC connects to grpc service and returns the opened grpc client for use.
 func (b *Backend) DialGRPC(ctx context.Context, addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	if *securityMode  == "mtls" {
-	    tlsConfig, ok := b.configs[addr]
-	    if !ok {
-	   	return nil, fmt.Errorf("failed to find TLS config for %s", addr)
-	    }
-
-	    opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
-        } else  {
-	   opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
- 	}
+	authOpts, err := b.authDialOpts(addr)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, authOpts...)
 	conn, err := grpc.DialContext(ctx, addr, opts...)
- 	if err != nil {
- 		return nil, fmt.Errorf("DialContext(%s, %v) : %v", addr, opts, err)
+	if err != nil {
+		return nil, fmt.Errorf("DialContext(%s, %v) : %v", addr, opts, err)
 	}
 	return conn, nil
 }
