@@ -215,12 +215,14 @@ def _install_nano_bookworm(dut, creds, syncd_docker_name):
         https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
         # Change the permission of /tmp to 1777 to workaround issue sonic-net/sonic-buildimage#16034
         cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
-                chmod 1777 /tmp \
+                mkdir -p /var/tmp_build \
                 && rm -rf /var/lib/apt/lists/* \
                 && apt-get update \
                 && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
                 python3-dev python3-setuptools wget libnanomsg-dev python-is-python3 \
-                && pip3 install cffi==1.16.0 && pip3 install nnpy \
+                && TMPDIR=/var/tmp_build pip3 install --no-cache-dir cffi==1.16.0 \
+                && TMPDIR=/var/tmp_build pip3 install --no-cache-dir nnpy \
+                && rm -rf /var/tmp_build \
                 && mkdir -p /opt && cd /opt && wget \
                 https://raw.githubusercontent.com/p4lang/ptf/master/ptf_nn/ptf_nn_agent.py \
                 && mkdir ptf && cd ptf && wget \
