@@ -4,11 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
-	"strconv"
-	"strings"
-	"testing"
-	"time"
 
 	log "github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"
@@ -20,22 +15,25 @@ import (
 	"github.com/openconfig/ygot/ygot"
 	"github.com/openconfig/ygot/ytypes"
 	"google.golang.org/grpc"
+	"reflect"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
 )
 
 const (
-	configConvergenceTimeout      = 2 * time.Minute
 	configConvergencePollInterval = 30 * time.Second
-	switchStateTimeout            = 2 * time.Minute
 	switchStatePollInterval       = 10 * time.Second
-	portsUpTimeout                = 2 * time.Minute
 )
 
 // configStateDiffReporter is a custom diff reporter for comparing
 // config and state. It ignores the diffs that are not relevant
 // for comparing config and state.
 type configStateDiffReporter struct {
-	path  cmp.Path
-	diffs []string
+	path                  cmp.Path
+	diffs                 []string
+	ignorePathsWithPrefix []string
 }
 
 func (r *configStateDiffReporter) PushStep(ps cmp.PathStep) {
@@ -68,16 +66,12 @@ func (r *configStateDiffReporter) isOCEnum(v *reflect.Value) bool {
 	return ok
 }
 
-func (r *configStateDiffReporter) ignoreUnsupportedFields(confLeaf, stateLeaf *reflect.Value) bool {
+func (r *configStateDiffReporter) isIgnoredPath(confLeaf, stateLeaf *reflect.Value) bool {
 	s := r.path.String()
-	if strings.HasPrefix(s, "Sampling") {
-		return true
-	}
-	if strings.HasPrefix(s, "Qos") {
-		return true
-	}
-	if strings.HasPrefix(s, "System") {
-		return true
+	for _, p := range r.ignorePathsWithPrefix {
+		if strings.HasPrefix(s, p) {
+			return true
+		}
 	}
 	return false
 }
@@ -101,7 +95,7 @@ func (r *configStateDiffReporter) Report(rs cmp.Result) {
 		return
 	}
 
-	if r.ignoreUnsupportedFields(&configLeaf, &stateLeaf) {
+	if r.isIgnoredPath(&configLeaf, &stateLeaf) {
 		return
 	}
 
@@ -150,7 +144,7 @@ func switchStateAsOCRoot(ctx context.Context, dut *ondatra.DUTDevice) (*oc.Root,
 // CompareConfigAndStateValues compares the config and state values
 // and returns the diff if any.
 // If provided, the config should be in JSON RFC7951 format.
-func CompareConfigAndStateValues(ctx context.Context, t *testing.T, dut *ondatra.DUTDevice, config []byte) (string, error) {
+func CompareConfigAndStateValues(ctx context.Context, t *testing.T, dut *ondatra.DUTDevice, config []byte, ignorePathsWithPrefix []string) (string, error) {
 	if dut == nil {
 		return "", errors.New("nil DUT passed to CompareConfigAndStateValues()")
 	}
@@ -169,64 +163,56 @@ func CompareConfigAndStateValues(ctx context.Context, t *testing.T, dut *ondatra
 		return "", fmt.Errorf("fetching switchStateAsOCRoot(dut=%v) failed with err: %v", dutName, err)
 	}
 
-	var r configStateDiffReporter
+	log.InfoContextf(ctx, "DUT: %v, ignoring convergence paths with prefix: %v", dutName, ignorePathsWithPrefix)
+	r := configStateDiffReporter{ignorePathsWithPrefix: ignorePathsWithPrefix}
 	cmp.Diff(configRoot, stateRoot, cmp.Reporter(&r))
 	return r.String(), nil
-}
-
-// pollFunc returns true if the condition is met.
-type pollFunc func() bool
-
-// poll polls the condition until it is met or the context is done.
-func poll(ctx context.Context, t *testing.T, interval time.Duration, pf pollFunc) error {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("polling for condition failed, err: %v", ctx.Err())
-		case <-ticker.C:
-			if pf() {
-				log.InfoContextf(ctx, "polling done")
-				return nil
-			}
-		}
-	}
 }
 
 // WaitForConfigConvergence checks for differences between config and state.
 // Polls till configConvergenceTimeout,
 // returns error if the difference still exists.
-func WaitForConfigConvergence(ctx context.Context, t *testing.T, dut *ondatra.DUTDevice, config []byte) error {
+func WaitForConfigConvergence(ctx context.Context, t *testing.T, dut *ondatra.DUTDevice,
+	config []byte, ignorePathsWithPrefix []string) error {
 	if dut == nil {
 		return errors.New("nil DUT passed to WaitForConfigConvergence()")
 	}
 	if config == nil {
 		return errors.New("nil config passed to WaitForConfigConvergence()")
 	}
-	ctx, cancel := context.WithTimeout(ctx, configConvergenceTimeout)
-	defer cancel()
+
 	dutName := dut.Name()
+	diff := ""
+	var err error
 	// Poll until the config and state are similar.
-	return poll(ctx, t, configConvergencePollInterval, func() bool {
-		diff, err := CompareConfigAndStateValues(ctx, t, dut, config)
+	pollErr := poll(ctx, configConvergencePollInterval, func() pollStatus {
+		diff, err = CompareConfigAndStateValues(ctx, t, dut, config, ignorePathsWithPrefix)
 		if err != nil {
 			log.InfoContextf(ctx, "Comparing config and state failed for dut: %v, err: %v", dutName, err)
-			return false
+			return continuePoll
 		}
 		if diff == "" {
 			log.InfoContextf(ctx, "Config and state converged for dut: %v", dutName)
-			return true
+			return exitPoll
 		}
-		log.InfoContextf(ctx, "diff in config and state found for dut: %v\ndiff_begin:\n%v\ndiff_end\n", dutName, diff)
-		return false
+		log.InfoContextf(ctx, "diff in config and state found for dut: %v\n", dutName)
+		return continuePoll
 	})
+	if diff != "" {
+		SaveToArtifact(diff, fmt.Sprintf("%v_config_and_state_diff.txt", dutName))
+	}
+	if pollErr != nil {
+		return fmt.Errorf("WaitForConfigConvergence(dut=%v) failed, err: %v", dutName, pollErr)
+	}
+	log.InfoContextf(ctx, "WaitForConfigConvergence(dut=%v) succeeded", dutName)
+	return nil
 }
 
 // ConfigPushAndWaitForConvergence pushes the config to the dut
 // and waits for the config to converge.
 // If config is nil, the config is fetched.
-func ConfigPushAndWaitForConvergence(ctx context.Context, t *testing.T, dut *ondatra.DUTDevice, config []byte) error {
+func ConfigPushAndWaitForConvergence(ctx context.Context, t *testing.T, dut *ondatra.DUTDevice,
+	config []byte, ignorePathsWithPrefix []string) error {
 	if dut == nil {
 		return errors.New("nil DUT passed to ConfigPushAndVerifyConvergence()")
 	}
@@ -242,7 +228,7 @@ func ConfigPushAndWaitForConvergence(ctx context.Context, t *testing.T, dut *ond
 	if err := ConfigPush(t, dut, config); err != nil {
 		return fmt.Errorf("ConfigPush(dut=%v) failed, err: %v", dutName, err)
 	}
-	return WaitForConfigConvergence(ctx, t, dut, config)
+	return WaitForConfigConvergence(ctx, t, dut, config, ignorePathsWithPrefix)
 }
 
 // inEthernetPortChannelLaneFormat checks if the interface name is in the format
@@ -274,9 +260,6 @@ func WaitForAllPortsUp(ctx context.Context, t *testing.T, dut *ondatra.DUTDevice
 	if err != nil {
 		return fmt.Errorf("unable to get ygNMI client, err: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, portsUpTimeout)
-	defer cancel()
 
 	allInterfaces, err := ygnmi.GetAll(ctx, yc, gnmi.OC().InterfaceAny().Name().Config())
 	if err != nil {
@@ -365,34 +348,32 @@ func WaitForSwitchState(ctx context.Context, t *testing.T, dut *ondatra.DUTDevic
 	dutName := dut.Name()
 	log.InfoContextf(ctx, "Polling for switch state to be ready for dut: %v", dutName)
 	switchState := down
-	ctx, cancel := context.WithTimeout(ctx, switchStateTimeout)
-	defer cancel()
 
 	// Poll until the switch is ready or the context is done.
-	err := poll(ctx, t, switchStatePollInterval, func() bool {
+	err := poll(ctx, switchStatePollInterval, func() pollStatus {
 		switch s := switchState; s {
 		case down:
 			if err := GNOIAble(t, dut); err != nil {
 				log.InfoContextf(ctx, "GNOIAble(dut=%v) failed, err: %v", dutName, err)
-				return false
+				return continuePoll
 			}
 			switchState++
 		case gnoiAble:
 			if err := GNMIAble(t, dut); err != nil {
 				log.InfoContextf(ctx, "GNMIAble(dut=%v) failed, err: %v", dutName, err)
-				return false
+				return continuePoll
 			}
 			switchState++
 		case gnmiAble:
 			if err := WaitForAllPortsUp(ctx, t, dut); err != nil {
 				log.InfoContextf(ctx, "WaitForAllPortsUp(dut=%v) failed, err: %v", dutName, err)
-				return false
+				return continuePoll
 			}
 			switchState++
 		case portsUp:
-			return true
+			return exitPoll
 		}
-		return false
+		return continuePoll
 	})
 
 	if err == nil {
