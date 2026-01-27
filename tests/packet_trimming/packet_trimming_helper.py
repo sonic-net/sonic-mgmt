@@ -24,7 +24,7 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              SRV6_INNER_SRC_IP, SRV6_INNER_DST_IP, DEFAULT_QUEUE_SCHEDULER_CONFIG,
                                              SRV6_UNIFORM_MODE, SRV6_OUTER_SRC_IPV6, SRV6_INNER_SRC_IPV6, ECN,
                                              SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP,
-                                             SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR)
+                                             SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR, SCHEDULER_METER_TYPE)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
 logger = logging.getLogger(__name__)
@@ -394,6 +394,10 @@ def create_blocking_scheduler(duthost):
             f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" '
             f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR}'
         )
+        # meter_type is platform specific
+        if duthost.get_asic_name() == 'th5':
+            cmd_create += f' "meter_type" {SCHEDULER_METER_TYPE}'
+
         duthost.shell(cmd_create)
         logger.info(f"Successfully created blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
 
