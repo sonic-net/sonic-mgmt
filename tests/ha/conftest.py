@@ -2,6 +2,7 @@ import pytest
 import time
 import json
 
+from tests.common.config_reload import config_reload
 from pathlib import Path
 from collections import defaultdict
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
@@ -394,6 +395,7 @@ def setup_ha_config(duthosts):
         # Load and persist
         dut.shell(f"sudo config load -y {tmpfile}")
         dut.shell("sudo config save -y")
+        config_reload(dut, safe_reload=True)
 
         # Allow processes to settle
         time.sleep(10)
