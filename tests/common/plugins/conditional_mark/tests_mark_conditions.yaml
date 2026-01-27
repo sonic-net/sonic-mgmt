@@ -333,12 +333,6 @@ bgp/test_bgp_bounce.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20753 and '-v6-' in topo_name"
 
-bgp/test_bgp_command.py:
-  skip:
-    reason: 'BGP command test is skipped due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17927 on t1-isolated-d28u1 topology on Mellanox platform'
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17927 and topo_name in ['t1-isolated-d28u1'] and asic_type in ['mellanox']"
-
 bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
   skip:
     reason: "Skip for IPv6-only topologies"
