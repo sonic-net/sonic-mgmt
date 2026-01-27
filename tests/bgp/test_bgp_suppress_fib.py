@@ -16,7 +16,7 @@ from retry.api import retry_call
 from ptf.mask import Mask
 from natsort import natsorted
 from tests.common.reboot import reboot
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, is_ipv6_only_topology
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.tcpdump_sniff_helper import TcpdumpSniffHelper
@@ -55,6 +55,7 @@ DEFAULT = "default"
 VRF_TYPES = [DEFAULT, USER_DEFINED_VRF]
 BGP_FILTER = 'tcp port 179'
 STATIC_ROUTE_PREFIX = "1.1.1.0/24"
+STATIC_ROUTE_PREFIX_V6 = "2001:db8:1::/64"
 BASE_IP_ROUTE = '91.0.1.0/24'
 BASE_IPV6_ROUTE = '1000:1001::/64'
 BULK_ROUTE_COUNT = 512  # 512 ipv4 route and 512 ipv6 route
@@ -79,16 +80,22 @@ def topo_has_spine_layer(tbinfo):
 
 
 @pytest.fixture(scope="module")
-def generate_route_and_traffic_data():
+def generate_route_and_traffic_data(tbinfo):
     """
-    Generate route and traffic data
+    Generate route and traffic data.
+    For IPv6-only topology, IPv4 routes and traffic data are empty lists.
     """
-    ip_routes_ipv4 = generate_routes(BASE_IP_ROUTE)
-    ip_routes_ipv6 = generate_routes(BASE_IPV6_ROUTE)
+    ipv6_only = is_ipv6_only_topology(tbinfo)
+    if ipv6_only:
+        logger.info("IPv6-only topology detected, skipping IPv4 route generation")
 
-    ipv4_routes_stress_and_perf = generate_routes(BASE_IP_ROUTE, BULK_ROUTE_COUNT)
+    # Generate routes (IPv4 empty for IPv6-only topology)
+    ip_routes_ipv4 = [] if ipv6_only else generate_routes(BASE_IP_ROUTE)
+    ip_routes_ipv6 = generate_routes(BASE_IPV6_ROUTE)
+    ipv4_routes_stress_and_perf = [] if ipv6_only else generate_routes(BASE_IP_ROUTE, BULK_ROUTE_COUNT)
     ipv6_routes_stress_and_perf = generate_routes(BASE_IPV6_ROUTE, BULK_ROUTE_COUNT)
 
+    # Build traffic data (generate_traffic_data returns [] for empty route list)
     route_and_traffic_data = {
         FUNCTION: [
             ip_routes_ipv4,
@@ -169,11 +176,23 @@ def completeness_level(pytestconfig):
 def get_exabgp_ptf_ports(duthost, nbrhosts, tbinfo, completeness_level, request):
     """
     Get ipv4 and ipv6 Exabgp port and ptf receive port
+    For IPv6-only topology, return None for IPv4 exabgp ports
     """
     is_random = True
     if completeness_level == "thorough":
         logger.info("Completeness Level is 'thorough', and script would do full verification over all VMs!")
         is_random = False
+
+    ipv6_only = is_ipv6_only_topology(tbinfo)
+    if ipv6_only:
+        logger.info("IPv6-only topology detected, skipping IPv4 ExaBGP ports")
+        # For IPv6-only, we still need the ptf_recv_port from v6 side
+        exabgp_port_list_v6, ptf_recv_port_list_v6 = get_exabgp_port(duthost, nbrhosts, tbinfo, EXABGP_BASE_PORT_V6,
+                                                                     is_random)
+        # Return None for IPv4 ports, use IPv6 recv ports for both
+        return [(None, ptf_recv_port_v6, exabgp_port_v6, ptf_recv_port_v6)
+                for exabgp_port_v6, ptf_recv_port_v6 in zip(exabgp_port_list_v6, ptf_recv_port_list_v6)]
+
     exabgp_port_list, ptf_recv_port_list = get_exabgp_port(duthost, nbrhosts, tbinfo, EXABGP_BASE_PORT, is_random)
     exabgp_port_list_v6, ptf_recv_port_list_v6 = get_exabgp_port(duthost, nbrhosts, tbinfo, EXABGP_BASE_PORT_V6,
                                                                  is_random)
@@ -188,6 +207,7 @@ def get_exabgp_ptf_ports(duthost, nbrhosts, tbinfo, completeness_level, request)
 def prepare_param(duthost, tbinfo, get_exabgp_ptf_ports):
     """
     Prepare parameters
+    For IPv6-only topology, IPv4 exabgp port will be None
     """
 
     # Skip test if t1 topo does not have a spine layer
@@ -199,8 +219,14 @@ def prepare_param(duthost, tbinfo, get_exabgp_ptf_ports):
     ptf_ip = tbinfo['ptf_ip']
     total_port_list = get_exabgp_ptf_ports
     exabgp_port_list, ptf_recv_port_list, exabgp_port_list_v6, ptf_recv_port_list_v6 = zip(*total_port_list)
-    recv_port_list = [{4: ptf_recv_port, 6: ptf_recv_port_v6} for ptf_recv_port, ptf_recv_port_v6 in
-                      zip(ptf_recv_port_list, ptf_recv_port_list_v6)]
+
+    # For IPv6-only topology, use IPv6 recv port for both IP versions
+    ipv6_only = is_ipv6_only_topology(tbinfo)
+    if ipv6_only:
+        recv_port_list = [{4: ptf_recv_port_v6, 6: ptf_recv_port_v6} for ptf_recv_port_v6 in ptf_recv_port_list_v6]
+    else:
+        recv_port_list = [{4: ptf_recv_port, 6: ptf_recv_port_v6} for ptf_recv_port, ptf_recv_port_v6 in
+                          zip(ptf_recv_port_list, ptf_recv_port_list_v6)]
     return router_mac, mg_facts, ptf_ip, exabgp_port_list, exabgp_port_list_v6, recv_port_list
 
 
@@ -321,14 +347,18 @@ def check_interface_status(duthost, expected_oper='up'):
     return True
 
 
-def get_port_connected_with_vm(duthost, nbrhosts, vm_type='T0'):
+def get_port_connected_with_vm(duthost, nbrhosts, vm_type='T0', ipv6=False):
     """
     Get ports that connects with T0 VM
+    Supports both IPv4 and IPv6 topologies
     """
     port_list = []
     vm_list = [vm_name for vm_name in nbrhosts.keys() if vm_name.endswith(vm_type)]
     for vm in vm_list:
-        port = duthost.shell("show ip interface | grep -w {} | awk '{{print $1}}'".format(vm))['stdout']
+        if ipv6:
+            port = duthost.shell("show ipv6 interface | grep -w {} | awk '{{print $1}}'".format(vm))['stdout']
+        else:
+            port = duthost.shell("show ip interface | grep -w {} | awk '{{print $1}}'".format(vm))['stdout']
         port_list.append(port)
     logger.info("Ports connected with {} VMs: {}".format(vm_type, port_list))
     return port_list
@@ -536,6 +566,7 @@ def parse_time_stamp(bgp_packets, ipv4_route_list, ipv6_route_list):
                             update_time_stamp(withdraw_prefix_time_stamp, route.prefix, bgp_packets[i].time)
                 layer_index += 1
 
+        # Parse IPv6 announce (reachable NLRI)
         if bgp.BGPNLRI_IPv6 in bgp_updates[i]:
             layer_index = 1
             while bgp_updates[i].getlayer(bgp.BGPPAMPReachNLRI, nb=layer_index):
@@ -546,21 +577,42 @@ def parse_time_stamp(bgp_packets, ipv4_route_list, ipv6_route_list):
                             update_time_stamp(announce_prefix_time_stamp, route.prefix, bgp_packets[i].time)
                 layer_index += 1
 
-            layer_index = 1
-            while bgp_updates[i].getlayer(bgp.BGPPAMPUnreachNLRI_IPv6, nb=layer_index):
-                layer = bgp_updates[i].getlayer(bgp.BGPPAMPUnreachNLRI_IPv6, nb=layer_index)
-                if layer.withdrawn_routes:
-                    for route in layer.withdrawn_routes:
-                        if route.prefix in ipv6_route_list:
-                            update_time_stamp(withdraw_prefix_time_stamp, route.prefix, bgp_packets[i].time)
-                layer_index += 1
+        # Parse IPv6 withdraw (unreachable NLRI) - separate check since withdraw-only packets
+        # don't have BGPNLRI_IPv6, only BGPPAMPUnreachNLRI_IPv6
+        layer_index = 1
+        while bgp_updates[i].getlayer(bgp.BGPPAMPUnreachNLRI_IPv6, nb=layer_index):
+            layer = bgp_updates[i].getlayer(bgp.BGPPAMPUnreachNLRI_IPv6, nb=layer_index)
+            if layer.withdrawn_routes:
+                for route in layer.withdrawn_routes:
+                    if route.prefix in ipv6_route_list:
+                        update_time_stamp(withdraw_prefix_time_stamp, route.prefix, bgp_packets[i].time)
+            layer_index += 1
 
     return announce_prefix_time_stamp, withdraw_prefix_time_stamp
 
 
 def compute_middle_average_time(time_stamp_dict):
     time_delta_list = []
-    for _, timestamp_list in time_stamp_dict.items():
+    incomplete_routes = {prefix: ts for prefix, ts in time_stamp_dict.items() if len(ts) < 2}
+    complete_routes = {prefix: ts for prefix, ts in time_stamp_dict.items() if len(ts) >= 2}
+
+    if incomplete_routes:
+        incomplete_pct = len(incomplete_routes) / len(time_stamp_dict) * 100
+        logger.warning("Found {} routes ({:.1f}%) with incomplete timestamps:".format(
+            len(incomplete_routes), incomplete_pct))
+
+    if not complete_routes:
+        raise AssertionError(
+            "No routes with complete timestamps found. Total routes: {}, all have incomplete timestamps. "
+            "This may indicate BGP UPDATE packets were not captured properly.".format(len(time_stamp_dict))
+        )
+
+    # Log completion rate for visibility
+    complete_pct = len(complete_routes) / len(time_stamp_dict) * 100
+    logger.info("Using {} routes ({:.1f}%) with complete timestamps for performance calculation".format(
+        len(complete_routes), complete_pct))
+
+    for _, timestamp_list in complete_routes.items():
         time_delta_list.append(abs(timestamp_list[1] - timestamp_list[0]))
     time_delta_list.sort()
 
@@ -646,8 +698,11 @@ def prepare_traffic(traffic_data, router_mac, ptf_interfaces, recv_port):
 def validate_traffic(ptfadapter, traffic_data_list, router_mac, ptf_interfaces, recv_port, loop_back=False):
     """
     Verify traffic is forwarded/forwarded back/drop as expected
+    Skip empty traffic data (IPv6-only topology may have empty IPv4 traffic data)
     """
     for traffic_data in traffic_data_list:
+        if not traffic_data:
+            continue
         tx_port, ip_ver_list, pkt_list, exp_pkt_list, exp_res_list = prepare_traffic(traffic_data, router_mac,
                                                                                      ptf_interfaces, recv_port)
         if ptf_interfaces is recv_port:
@@ -661,6 +716,13 @@ def validate_traffic(ptfadapter, traffic_data_list, router_mac, ptf_interfaces, 
 
 
 def validate_bulk_traffic(tcpdump_helper, ptfadapter, traffic_data_list, router_mac, ptf_interfaces, recv_port):
+    """
+    Verify bulk traffic is forwarded as expected
+    Skip if traffic_data_list is empty (IPv6-only topology may have empty IPv4 traffic data)
+    """
+    if not traffic_data_list:
+        logger.info("No traffic data to validate, skipping bulk traffic validation")
+        return
     tx_port, ip_ver_list, pkt_list, exp_pkt_list, exp_res_list = prepare_traffic(traffic_data_list, router_mac,
                                                                                  ptf_interfaces, recv_port)
     send_and_verify_bulk_traffic(tcpdump_helper, ptfadapter, ip_ver_list, pkt_list, tx_port, recv_port, exp_res_list)
@@ -669,9 +731,12 @@ def validate_bulk_traffic(tcpdump_helper, ptfadapter, traffic_data_list, router_
 def announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6, action=ANNOUNCE):
     """
     Announce or withdraw ipv4 and ipv6 routes by exabgp
+    Skip IPv4 routes if ipv4_route_list is empty or exabgp_port is None (IPv6-only topology)
     """
-    announce_route(ptf_ip, ipv4_route_list, exabgp_port, action)
-    announce_route(ptf_ip, ipv6_route_list, exabgp_port_v6, action)
+    if ipv4_route_list and exabgp_port is not None:
+        announce_route(ptf_ip, ipv4_route_list, exabgp_port, action)
+    if ipv6_route_list and exabgp_port_v6 is not None:
+        announce_route(ptf_ip, ipv6_route_list, exabgp_port_v6, action)
 
 
 def config_bgp_suppress_fib(duthost, enable=True, validate_result=False):
@@ -741,57 +806,90 @@ def param_reboot(request, duthost, localhost, loganalyzer):
 def validate_route_states(duthost, ipv4_route_list, ipv6_route_list, vrf=DEFAULT, check_point=QUEUED, action=ACTION_IN):
     """
     Verify ipv4 and ipv6 routes install status
+    Skip IPv4 routes if ipv4_route_list is empty (IPv6-only topology)
     """
-    for route in ipv4_route_list:
-        check_route_install_status(duthost, route, vrf, IP_VER, check_point, action)
-    for route in ipv6_route_list:
-        check_route_install_status(duthost, route, vrf, IPV6_VER, check_point, action)
+    if ipv4_route_list:
+        for route in ipv4_route_list:
+            check_route_install_status(duthost, route, vrf, IP_VER, check_point, action)
+    if ipv6_route_list:
+        for route in ipv6_route_list:
+            check_route_install_status(duthost, route, vrf, IPV6_VER, check_point, action)
 
 
 def validate_fib_route(duthost, ipv4_route_list, ipv6_route_list):
     """
     Verify ipv4 and ipv6 route were installed into fib
+    Skip IPv4 routes if ipv4_route_list is empty (IPv6-only topology)
     """
-    retry_call(check_fib_route, fargs=[duthost, ipv4_route_list], tries=5, delay=2)
-    retry_call(check_fib_route, fargs=[duthost, ipv6_route_list, IPV6_VER], tries=5, delay=2)
+    if ipv4_route_list:
+        retry_call(check_fib_route, fargs=[duthost, ipv4_route_list], tries=5, delay=2)
+    if ipv6_route_list:
+        retry_call(check_fib_route, fargs=[duthost, ipv6_route_list, IPV6_VER], tries=5, delay=2)
 
 
 def validate_route_propagate(duthost, nbrhosts, tbinfo, ipv4_route_list, ipv6_route_list, vrf=DEFAULT, exist=True):
     """
     Verify ipv4 and ipv6 route propagate status at t2 vm side
+    Skip IPv4 routes if ipv4_route_list is empty (IPv6-only topology)
     """
     t2_vm_list = get_vm_name_list(tbinfo)
     for t2_vm in t2_vm_list:
         bgp_neighbor_v4, bgp_neighbor_v6 = get_bgp_neighbor_ip(duthost, t2_vm, vrf)
-        validate_route_propagate_status(nbrhosts[t2_vm], ipv4_route_list, bgp_neighbor_v4, vrf, exist=exist)
-        validate_route_propagate_status(nbrhosts[t2_vm], ipv6_route_list, bgp_neighbor_v6, vrf, ip_ver=IPV6_VER,
-                                        exist=exist)
+        if ipv4_route_list and bgp_neighbor_v4:
+            validate_route_propagate_status(nbrhosts[t2_vm], ipv4_route_list, bgp_neighbor_v4, vrf, exist=exist)
+        if ipv6_route_list and bgp_neighbor_v6:
+            validate_route_propagate_status(nbrhosts[t2_vm], ipv6_route_list, bgp_neighbor_v6, vrf, ip_ver=IPV6_VER,
+                                            exist=exist)
 
 
-def redistribute_static_route_to_bgp(duthost, redistribute=True):
+def redistribute_static_route_to_bgp(duthost, redistribute=True, ipv6=False):
     """
     Enable or disable redistribute static route to BGP
+    Supports both IPv4 and IPv6 address families
     """
     vtysh_cmd = "sudo vtysh"
     config_terminal = " -c 'config'"
     enter_bgp_mode = " -c 'router bgp'"
-    enter_address_family_ipv4 = " -c 'address-family ipv4'"
+    if ipv6:
+        enter_address_family = " -c 'address-family ipv6'"
+    else:
+        enter_address_family = " -c 'address-family ipv4'"
     redistribute_static = " -c 'redistribute static'"
     no_redistribute_static = " -c 'no redistribute static'"
     if redistribute:
-        duthost.shell(vtysh_cmd + config_terminal + enter_bgp_mode + enter_address_family_ipv4 + redistribute_static)
+        duthost.shell(vtysh_cmd + config_terminal + enter_bgp_mode + enter_address_family + redistribute_static)
     else:
-        duthost.shell(vtysh_cmd + config_terminal + enter_bgp_mode + enter_address_family_ipv4 + no_redistribute_static)
+        duthost.shell(vtysh_cmd + config_terminal + enter_bgp_mode + enter_address_family + no_redistribute_static)
 
 
-def remove_static_route_and_redistribute(duthost):
+def remove_static_route_and_redistribute(duthost, ipv6=False):
     """
     Remove static route and stop redistribute it to BGP
+    Supports both IPv4 and IPv6
     """
-    out = duthost.shell("show ip route {}".format(STATIC_ROUTE_PREFIX), verbose=False)['stdout']
-    if STATIC_ROUTE_PREFIX in out:
-        duthost.shell("sudo config route del prefix {}".format(STATIC_ROUTE_PREFIX))
-        redistribute_static_route_to_bgp(duthost, redistribute=False)
+    if ipv6:
+        route_prefix = STATIC_ROUTE_PREFIX_V6
+        out = duthost.shell("show ipv6 route {}".format(route_prefix), verbose=False)['stdout']
+    else:
+        route_prefix = STATIC_ROUTE_PREFIX
+        out = duthost.shell("show ip route {}".format(route_prefix), verbose=False)['stdout']
+    if route_prefix in out:
+        duthost.shell("sudo config route del prefix {}".format(route_prefix))
+        redistribute_static_route_to_bgp(duthost, redistribute=False, ipv6=ipv6)
+
+
+def get_eth_port_for_static_route(duthost, tbinfo, ipv6=False):
+    """
+    Get ethernet port that connects to T0 VM for static route configuration
+    Works with both IPv4 and IPv6 topologies
+    """
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    t0_vm = [vm_name for vm_name in mg_facts['minigraph_devices'].keys() if vm_name.endswith('T0')][0]
+    if ipv6:
+        port = duthost.shell("show ipv6 interface | grep -w {} | awk '{{print $1}}'".format(t0_vm))['stdout']
+    else:
+        port = duthost.shell("show ip interface | grep -w {} | awk '{{print $1}}'".format(t0_vm))['stdout']
+    return port
 
 
 def bgp_route_flap_with_stress(duthost, tbinfo, nbrhosts, ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list,
@@ -814,10 +912,12 @@ def bgp_route_flap_with_stress(duthost, tbinfo, nbrhosts, ptf_ip, ipv4_route_lis
             check_bgp_neighbor(duthost)
 
 
-def perf_sniffer_prepare(tcpdump_sniffer, duthost, nbrhosts, mg_facts, recv_port):
-    eths_to_t2_vm = get_port_connected_with_vm(duthost, nbrhosts, vm_type='T2')
+def perf_sniffer_prepare(tcpdump_sniffer, duthost, nbrhosts, mg_facts, recv_port, tbinfo=None):
+    ipv6_only = is_ipv6_only_topology(tbinfo) if tbinfo else False
+    eths_to_t2_vm = get_port_connected_with_vm(duthost, nbrhosts, vm_type='T2', ipv6=ipv6_only)
     eths_to_t0_vm = get_eth_name_from_ptf_port(mg_facts, [port for port in recv_port.values()])
-    tcpdump_sniffer.out_direct_ifaces = [random.choice(eths_to_t2_vm)]
+    # Use all T2 interfaces to capture BGP updates to all T2 neighbors
+    tcpdump_sniffer.out_direct_ifaces = eths_to_t2_vm
     tcpdump_sniffer.in_direct_ifaces = eths_to_t0_vm
     tcpdump_sniffer.tcpdump_filter = BGP_FILTER
 
@@ -960,6 +1060,10 @@ def test_bgp_route_without_suppress(duthost, tbinfo, nbrhosts, ptfadapter, prepa
 
 def test_bgp_route_with_suppress_negative_operation(duthost, tbinfo, nbrhosts, ptfadapter, localhost, prepare_param,
                                                     restore_bgp_suppress_fib, generate_route_and_traffic_data):
+    # Determine if this is an IPv6-only topology
+    ipv6_only = is_ipv6_only_topology(tbinfo)
+    static_route_prefix = STATIC_ROUTE_PREFIX_V6 if ipv6_only else STATIC_ROUTE_PREFIX
+
     try:
         with allure.step("Prepare needed parameters"):
             router_mac, mg_facts, ptf_ip, exabgp_port_list, exabgp_port_list_v6, recv_port_list = prepare_param
@@ -993,14 +1097,17 @@ def test_bgp_route_with_suppress_negative_operation(duthost, tbinfo, nbrhosts, p
                     validate_route_propagate(duthost, nbrhosts, tbinfo, ipv4_route_list, ipv6_route_list, exist=False)
 
                 with allure.step("Config static route and redistribute to BGP"):
-                    port = get_eth_port(duthost, tbinfo)
+                    port = get_eth_port_for_static_route(duthost, tbinfo, ipv6=ipv6_only)
                     logger.info("Config static route - sudo config route add prefix {} nexthop dev {}".
-                                format(STATIC_ROUTE_PREFIX, port))
-                    duthost.shell("sudo config route add prefix {} nexthop dev {}".format(STATIC_ROUTE_PREFIX, port))
-                    redistribute_static_route_to_bgp(duthost)
+                                format(static_route_prefix, port))
+                    duthost.shell("sudo config route add prefix {} nexthop dev {}".format(static_route_prefix, port))
+                    redistribute_static_route_to_bgp(duthost, ipv6=ipv6_only)
 
                 with allure.step("Validate redistributed static route is propagate to T2 VM peer"):
-                    validate_route_propagate(duthost, nbrhosts, tbinfo, [STATIC_ROUTE_PREFIX], [])
+                    if ipv6_only:
+                        validate_route_propagate(duthost, nbrhosts, tbinfo, [], [static_route_prefix])
+                    else:
+                        validate_route_propagate(duthost, nbrhosts, tbinfo, [static_route_prefix], [])
 
                 with allure.step("Validate traffic could not be forwarded to T0 VM"):
                     ptf_interfaces = get_t2_ptf_intfs(mg_facts)
@@ -1030,7 +1137,7 @@ def test_bgp_route_with_suppress_negative_operation(duthost, tbinfo, nbrhosts, p
                                               action=WITHDRAW)
     finally:
         with allure.step("Delete static route and remove redistribute to BGP"):
-            remove_static_route_and_redistribute(duthost)
+            remove_static_route_and_redistribute(duthost, ipv6=ipv6_only)
 
 
 def test_credit_loop(duthost, tbinfo, nbrhosts, ptfadapter, prepare_param, generate_route_and_traffic_data,
@@ -1180,7 +1287,7 @@ def test_suppress_fib_performance(tcpdump_helper, duthost, tbinfo, nbrhosts, ptf
 
             with allure.step("Start sniffer"):
                 tcpdump_sniffer = tcpdump_helper
-                perf_sniffer_prepare(tcpdump_sniffer, duthost, nbrhosts, mg_facts, recv_port)
+                perf_sniffer_prepare(tcpdump_sniffer, duthost, nbrhosts, mg_facts, recv_port, tbinfo)
                 tcpdump_sniffer.start_sniffer(host='dut')
 
             with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from T0 VM by ExaBGP - "
@@ -1196,6 +1303,9 @@ def test_suppress_fib_performance(tcpdump_helper, duthost, tbinfo, nbrhosts, ptf
                                           action=WITHDRAW)
             with allure.step("Validate the BGP routes are withdrawn from T2 VM"):
                 validate_route_propagate(duthost, nbrhosts, tbinfo, ipv4_route_list, ipv6_route_list, exist=False)
+
+            with allure.step("Wait for BGP UPDATE packets to be fully captured"):
+                time.sleep(10)  # Allow time for all BGP UPDATE packets to be captured by tcpdump
 
             with allure.step("Stop sniffer"):
                 tcpdump_sniffer.stop_sniffer(host='dut')
