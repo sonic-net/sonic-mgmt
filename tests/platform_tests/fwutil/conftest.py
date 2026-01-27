@@ -5,7 +5,6 @@ from tests.common.helpers.firmware_helper import show_firmware
 
 logger = logging.getLogger(__name__)
 
-DUT_HOME = "/home/admin"
 DEVICES_PATH = "/usr/share/sonic/device"
 FS_PATH_TEMPLATE = "/host/image-{}/fs.squashfs"
 FS_RW_TEMPLATE = "/host/image-{}/rw"
@@ -83,11 +82,11 @@ def next_image(duthost, fw_pkg):
     logger.info("Installing new image {}".format(target))
 
     if fw_pkg["images"][target].startswith("http"):
-        duthost.get_url(url=fw_pkg["images"][target], dest=DUT_HOME)
+        duthost.get_url(url=fw_pkg["images"][target], dest='/var/tmp/')
     else:
-        duthost.copy(src=os.path.join("firmware", fw_pkg["images"][target]), dest=DUT_HOME)
+        duthost.copy(src=os.path.join("firmware", fw_pkg["images"][target]), dest='/var/tmp/')
 
-    remote_path = os.path.join(DUT_HOME, os.path.basename(fw_pkg["images"][target]))
+    remote_path = os.path.join('/var/tmp/', os.path.basename(fw_pkg["images"][target]))
     duthost.command("sonic-installer install -y {}".format(remote_path), module_ignore_errors=True)
 
     # Mount newly installed image
