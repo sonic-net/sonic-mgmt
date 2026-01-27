@@ -59,80 +59,24 @@ def verify_bgp_peers_removed_from_asic(duthost, namespace):
 # -----------------------------
 # Helper functions that modify configuration via apply-patch
 # -----------------------------
-def apply_patch_and_save(duthost, json_data, operation_name):
-    """
-    Apply a JSON patch and save the patch file to a timestamped directory.
-
-    Args:
-        duthost: DUT host object
-        json_data: JSON patch data to apply
-        operation_name: Descriptive name for the operation (e.g., 'remove_cluster', 'add_cluster')
-
-    Returns:
-        output: Command output from apply_patch
-        patch_file: Path to saved patch file on DUT
-    """
-    import json
-    timestamp = duthost.shell("date +%Y%m%d_%H%M%S")['stdout'].strip()
-    patch_dir = f"/tmp/patch_{operation_name}_{timestamp}"
-
-    # Create patch directory
-    duthost.shell(f"mkdir -p {patch_dir}")
-    logger.info(f"Created patch directory: {patch_dir}")
-
-    # Generate temp file for apply-patch command
-    tmpfile = generate_tmpfile(duthost)
-
-    # Save a copy of the patch in the patch directory
-    patch_file = f"{patch_dir}/patch.json"
-    patch_content = json.dumps(json_data, indent=4)
-    duthost.copy(content=patch_content, dest=patch_file)
-    logger.info(f"Saved patch file: {patch_file}")
-    logger.info(f"Patch content ({len(json_data)} operations):\n{patch_content[:500]}...")
-
-    # Apply the patch
-    output = apply_patch(duthost, json_data=json_data, dest_file=tmpfile)
-
-    # Save the output
-    output_file = f"{patch_dir}/apply_output.txt"
-    output_content = f"""Return Code: {output['rc']}
-STDOUT:
-{output.get('stdout', '')}
-
-STDERR:
-{output.get('stderr', '')}
-"""
-    # Use copy instead of echo to avoid shell interpretation and length limits
-    duthost.copy(content=output_content, dest=output_file)
-    logger.info(f"Saved apply output: {output_file}")
-
-    # Clean up temp file
-    delete_tmpfile(duthost, tmpfile)
-
-    # List files in patch directory
-    list_result = duthost.shell(f"ls -lh {patch_dir}")
-    logger.info(f"Patch directory contents:\n{list_result['stdout']}")
-
-    return output, patch_file
 
 
 def remove_external_portchannels_for_chassis_packet(config_facts,
-                                                     duthost,
-                                                     json_namespace,
-                                                     cli_namespace_prefix,
-                                                     run_and_check):
+                                                    duthost,
+                                                    json_namespace,
+                                                    cli_namespace_prefix,
+                                                    run_and_check):
     """
     Remove external PortChannels (non-BP) for chassis-packet switches.
     For chassis-packet switches, we need to preserve internal PortChannels with BP members.
     """
     # Identify external PortChannels (those without internal ports as members)
-    # Internal ports: "Ethernet-IB*" (inband), "Ethernet-Rec*" (recycle), "Ethernet-BP*" (backplane for chassis-packet)
+    # Internal ports: "Ethernet-BP*" (backplane)
     external_portchannels = set()
     for pc_name, members in config_facts.get("PORTCHANNEL_MEMBER", {}).items():
         has_internal_port = False
         for member_port in members.keys():
-            # Check if member is an internal/fabric port
-            # Only consider BP as internal for chassis-packet switches
+            # BP ports are internal
             if member_port.startswith("Ethernet-BP"):
                 has_internal_port = True
                 break
@@ -141,7 +85,8 @@ def remove_external_portchannels_for_chassis_packet(config_facts,
             external_portchannels.add(pc_name)
 
     logger.info(f"External PortChannels to remove: {external_portchannels}")
-    logger.info(f"Internal PortChannels to preserve: {set(config_facts.get('PORTCHANNEL', {}).keys()) - external_portchannels}")
+    internal_pcs = set(config_facts.get('PORTCHANNEL', {}).keys()) - external_portchannels
+    logger.info(f"Internal PortChannels to preserve: {internal_pcs}")
 
     # PORTCHANNEL_INTERFACE - Remove only external PortChannel interfaces
     # Handle both base entry (PortChannel150) and IP prefix entries (PortChannel150|10.0.0.128/31)
@@ -187,11 +132,11 @@ def remove_external_portchannels_for_chassis_packet(config_facts,
 
 
 def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
-                                    config_facts_localhost,
-                                    mg_facts,
-                                    duthost,
-                                    enum_rand_one_asic_namespace,
-                                    cli_namespace_prefix):
+                                                   config_facts_localhost,
+                                                   mg_facts,
+                                                   duthost,
+                                                   enum_rand_one_asic_namespace,
+                                                   cli_namespace_prefix):
     """
     Remove cluster information directly from CONFIG_DB using sonic-db-cli commands,
     bypassing YANG validation but safely and persistently.
@@ -212,12 +157,9 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
     """
 
     json_namespace = '' if enum_rand_one_asic_namespace is None else enum_rand_one_asic_namespace
-    logger.info(f"Starting cluster removal for ASIC namespace: {json_namespace}")
-
-    logger.info(f"Switch type: {duthost.facts.get('switch_type')} - BP interface filtering enabled")
+    logger.info(f"Starting cluster removal for ASIC namespace: {json_namespace} (chassis-packet mode)")
 
     active_interfaces = get_active_interfaces(config_facts, duthost)
-    success = True
 
     def run_and_check(ns, cmd, desc):
         """Run a shell command on DUT and check for success."""
@@ -244,27 +186,24 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
         asic_interface_keys = []
         if "INTERFACE" in config_facts:
             for interface_key in config_facts["INTERFACE"].keys():
-                # Skip Rec interfaces for all switch types
-                # Skip BP interfaces only for chassis-packet switches
-                if (interface_key.startswith("Ethernet-Rec")
-                    or interface_key.startswith("Ethernet-BP")):
+                # Skip Rec and BP interfaces
+                if (interface_key.startswith("Ethernet-Rec") or
+                        interface_key.startswith("Ethernet-BP")):
                     continue
                 for key, _value in config_facts["INTERFACE"][interface_key].items():
                     asic_interface_keys.append(interface_key + '|' + key)
                 asic_interface_keys.append(interface_key)
             for iface in asic_interface_keys:
                 run_and_check(json_namespace,
-                            f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'INTERFACE|{iface}'",
-                            f"Deleting INTERFACE {iface}")
-
+                              f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'INTERFACE|{iface}'",
+                              f"Deleting INTERFACE {iface}")
 
         # ACL
         for acl_table in ["DATAACL", "EVERFLOW", "EVERFLOWV6"]:
             cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@"
             run_and_check(json_namespace, cmd, f"Removing ACL_TABLE {acl_table} ports")
 
-        # PortChannel handling: Different approach for chassis-packet vs other switches
-        logger.info("Chassis-packet switch: Using selective PortChannel removal (preserving internal BP PortChannels)")
+        # PortChannel handling: Selective removal (preserving internal BP PortChannels)
         external_portchannels = remove_external_portchannels_for_chassis_packet(
             config_facts, duthost, json_namespace, cli_namespace_prefix, run_and_check
         )
@@ -292,9 +231,7 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
                           f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB hset 'PORT|{iface}' admin_status down",
                           f"Set {iface} admin down")
 
-        # BUFFER_PG handling: Different approach for chassis-packet vs other switches
-
-        logger.info("Chassis-packet switch: Using selective BUFFER_PG removal (preserving BP interfaces)")
+        # BUFFER_PG handling: Selective removal (preserving BP interfaces)
         buffer_pg_keys = config_facts.get("BUFFER_PG", {}).keys()
         for bp_key in buffer_pg_keys:
             interface = bp_key.split('|')[0]
@@ -303,7 +240,6 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
                 run_and_check(json_namespace,
                               f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'BUFFER_PG|{bp_key}'",
                               f"Deleting BUFFER_PG {bp_key}")
-
 
         # PORT_QOS_MAP - only for external interfaces (BP check only for chassis-packet)
         for iface in active_interfaces:
@@ -397,11 +333,11 @@ def remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
 
 
 def apply_patch_remove_cluster_chassis_packet(config_facts,
-                                                config_facts_localhost,
-                                                mg_facts,
-                                                duthost,
-                                                enum_rand_one_asic_namespace,
-                                                cli_namespace_prefix):
+                                              config_facts_localhost,
+                                              mg_facts,
+                                              duthost,
+                                              enum_rand_one_asic_namespace,
+                                              cli_namespace_prefix):
     """
     Apply patch to remove cluster information for chassis-packet switches.
 
@@ -414,32 +350,30 @@ def apply_patch_remove_cluster_chassis_packet(config_facts,
     INTERFACE, BUFFER_PG, CABLE_LENGTH, PORT, PORT_QOS_MAP
     """
 
-    logger.info("Removing cluster for namespace {} via apply-patch (chassis-packet mode).".format(enum_rand_one_asic_namespace))
+    logger.info("Removing cluster for namespace {} via apply-patch (chassis-packet mode)."
+                .format(enum_rand_one_asic_namespace))
 
     json_patch_asic = []
-    logger.info("{}: Removing cluster info for namespace {} (chassis-packet)".format(duthost.hostname, enum_rand_one_asic_namespace))
     json_namespace = '' if enum_rand_one_asic_namespace is None else '/' + enum_rand_one_asic_namespace
-
-    asic_paths_list = []
 
     # find active ports
     active_interfaces = get_active_interfaces(config_facts, duthost)
 
     # Identify external PortChannels (those without BP members)
-    # For chassis-packet: BP ports are internal, IB and Rec ports are also internal
     external_portchannels = set()
     for pc_name, members in config_facts.get("PORTCHANNEL_MEMBER", {}).items():
         has_internal_port = False
         for member_port in members.keys():
             if (member_port.startswith("Ethernet-IB") or
-                member_port.startswith("Ethernet-Rec") or
-                member_port.startswith("Ethernet-BP")):
+                    member_port.startswith("Ethernet-Rec") or
+                    member_port.startswith("Ethernet-BP")):
                 has_internal_port = True
                 break
         if not has_internal_port:
             external_portchannels.add(pc_name)
     logger.info(f"External PortChannels to remove: {external_portchannels}")
-    logger.info(f"Internal PortChannels to preserve: {set(config_facts.get('PORTCHANNEL', {}).keys()) - external_portchannels}")
+    internal_pcs = set(config_facts.get('PORTCHANNEL', {}).keys()) - external_portchannels
+    logger.info(f"Internal PortChannels to preserve: {internal_pcs}")
 
     # W/A: TABLE:ACL_TABLE removing whole table instead of detaching ports
     json_patch_asic = [
@@ -513,12 +447,9 @@ def apply_patch_remove_cluster_chassis_packet(config_facts,
             asic_interface_keys.append(interface_key)
 
         for key in asic_interface_ip_prefix_keys:
-            asic_paths_list.append(f"{json_namespace}/INTERFACE/" + key)
-
-        for path in asic_paths_list:
             json_patch_asic.append({
                 "op": "remove",
-                "path": path
+                "path": f"{json_namespace}/INTERFACE/{key}"
             })
 
     # table PORT_QOS_MAP changes - skip BP interfaces
@@ -552,10 +483,15 @@ def apply_patch_remove_cluster_chassis_packet(config_facts,
 
     # Apply ASIC namespace patch
     json_patch = json_patch_asic
-    logger.info("Applying patch (1/2) to remove cluster info (all except PORTCHANNEL, INTERFACE name) - chassis-packet mode.")
-    output, _ = apply_patch_and_save(duthost, json_patch, "remove_cluster_part1_chassis_packet")
-    expect_op_success(duthost, output)
-    verify_bgp_peers_removed_from_asic(duthost, enum_rand_one_asic_namespace)
+    tmpfile = generate_tmpfile(duthost)
+    try:
+        logger.info("Applying patch (1/2) to remove cluster info (all except PORTCHANNEL, INTERFACE name) - "
+                    "chassis-packet mode.")
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+        verify_bgp_peers_removed_from_asic(duthost, enum_rand_one_asic_namespace)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
 
     # W/A TABLE:PORTCHANNEL, INTERFACE names needs to be removed in separate gcu apply operation
     json_patch_extra = []
@@ -578,9 +514,13 @@ def apply_patch_remove_cluster_chassis_packet(config_facts,
                 "path": path + k
             })
 
-    logger.info("Applying patch (2/2) to remove cluster info (PORTCHANNEL, INTERFACE name) - chassis-packet mode.")
-    output, _ = apply_patch_and_save(duthost, json_patch_extra, "remove_cluster_part2_chassis_packet")
-    expect_op_success(duthost, output)
+    tmpfile_pc = generate_tmpfile(duthost)
+    try:
+        logger.info("Applying patch (2/2) to remove cluster info (PORTCHANNEL, INTERFACE name) - chassis-packet mode.")
+        output = apply_patch(duthost, json_data=json_patch_extra, dest_file=tmpfile_pc)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile_pc)
 
 
 def remove_cluster_via_sonic_db_cli(config_facts,
@@ -1072,6 +1012,7 @@ def apply_patch_add_cluster(config_facts,
     PORT
     PORT_QOS_MAP
     """
+
     logger.info("Adding cluster for namespace {} via apply-patch.".format(enum_rand_one_asic_namespace))
 
     ######################
@@ -1079,20 +1020,271 @@ def apply_patch_add_cluster(config_facts,
     ######################
     json_patch_asic = []
     json_namespace = '' if enum_rand_one_asic_namespace is None else '/' + enum_rand_one_asic_namespace
+    pc_dict = {}
+    interface_dict = format_sonic_interface_dict(config_facts.get("INTERFACE", {}))
+    portchannel_interface_dict = format_sonic_interface_dict(config_facts.get("PORTCHANNEL_INTERFACE", {}))
+    portchannel_member_dict = format_sonic_interface_dict(config_facts.get("PORTCHANNEL_MEMBER", {}),
+                                                          single_entry=False)
+    buffer_pg_dict = format_sonic_buffer_pg_dict(config_facts.get("BUFFER_PG", {}))
+    pc_dict = {
+        k: {ik: iv for ik, iv in v.items() if ik != "members"}
+        for k, v in config_facts.get("PORTCHANNEL", {}).items()
+    }
 
-    # Check if this is a chassis-packet switch
-    is_chassis_packet = duthost.facts.get('switch_type') == 'chassis-packet'
-    logger.info(f"Switch type: {duthost.facts.get('switch_type')} - BP filtering enabled: {is_chassis_packet}")
+    # find active ports
+    active_interfaces = get_active_interfaces(config_facts)
 
-    # Identify external PortChannels (those without BP members) - only add these back
-    # For chassis-packet: exclude PortChannels with BP members
-    # For other switches: include all PortChannels
+    # PORTCHANNEL info needs to be added in separate gcu apply operation
+    # https://github.com/sonic-net/sonic-buildimage/issues/24338
+    if pc_dict:
+        json_patch_pc = [
+            {
+                "op": "add",
+                "path": f"{json_namespace}/PORTCHANNEL",
+                "value": pc_dict
+            }
+        ]
+        for pc_key, pc_value in pc_dict.items():
+            json_patch_pc.append({
+                "op": "add",
+                "path": "/localhost/PORTCHANNEL/{}".format(pc_key),
+                "value": pc_value
+            })
+        tmpfile_pc = generate_tmpfile(duthost)
+        try:
+            logger.info("Applying patch (1/2) to add cluster info (PORTCHANNEL).")
+            output = apply_patch(duthost, json_data=json_patch_pc, dest_file=tmpfile_pc)
+            expect_op_success(duthost, output)
+        finally:
+            delete_tmpfile(duthost, tmpfile_pc)
+
+    # op: add
+    json_patch_asic = [
+        {
+            "op": "add",
+            "path": f"{json_namespace}/BGP_NEIGHBOR",
+            "value": config_facts["BGP_NEIGHBOR"]
+        },
+        {
+            "op": "add",
+            "path": f"{json_namespace}/DEVICE_NEIGHBOR",
+            "value": config_facts["DEVICE_NEIGHBOR"]
+        },
+        {
+            "op": "add",
+            "path": f"{json_namespace}/DEVICE_NEIGHBOR_METADATA",
+            "value": config_facts["DEVICE_NEIGHBOR_METADATA"]
+        },
+        {
+            "op": "add",
+            "path": f"{json_namespace}/INTERFACE",
+            "value": interface_dict
+        },
+        {
+            "op": "add",
+            "path": f"{json_namespace}/BUFFER_PG",
+            "value": buffer_pg_dict
+        },
+        {
+            "op": "add",
+            "path": f"{json_namespace}/PORT_QOS_MAP",
+            "value": config_facts["PORT_QOS_MAP"]
+        }
+    ]
+
+    if 'PORTCHANNEL' in config_facts:
+        json_patch_asic.append({
+            "op": "add",
+            "path": f"{json_namespace}/PORTCHANNEL_MEMBER",
+            "value": portchannel_member_dict
+        })
+        json_patch_asic.append({
+            "op": "add",
+            "path": f"{json_namespace}/PORTCHANNEL_INTERFACE",
+            "value": portchannel_interface_dict
+        })
+
+    # table PORT changes
+    for interface in active_interfaces:
+        json_patch_asic.append({
+            "op": "add",
+            "path": "{}/PORT/{}/admin_status".format(json_namespace, interface),
+            "value": "up"
+        })
+
+    # table CABLE_LENGTH changes
+    initial_cable_length_table = config_facts["CABLE_LENGTH"]["AZURE"]
+    cable_length_values = [int(v.rstrip("m")) for v in initial_cable_length_table.values()]
+    highest = max(cable_length_values)
+    for interface in active_interfaces:
+        json_patch_asic.append({
+            "op": "add",
+            "path": "{}/CABLE_LENGTH/AZURE/{}".format(json_namespace, interface),
+            "value": f"{highest}m"
+        })
+
+    # table ACL_TABLE changes
+    json_patch_asic.append({
+        "op": "add",
+        "path": f"{json_namespace}/ACL_TABLE/DATAACL",
+        "value": config_facts["ACL_TABLE"]["DATAACL"]
+    })
+    json_patch_asic.append({
+        "op": "add",
+        "path": f"{json_namespace}/ACL_TABLE/EVERFLOW",
+        "value": config_facts["ACL_TABLE"]["EVERFLOW"]
+    })
+    json_patch_asic.append({
+        "op": "add",
+        "path": f"{json_namespace}/ACL_TABLE/EVERFLOWV6",
+        "value": config_facts["ACL_TABLE"]["EVERFLOWV6"]
+    })
+
+    ######################
+    # LOCALHOST NAMESPACE
+    ######################
+
+    json_patch_localhost = []
+
+    # INTERFACE keys: in localhost replace the interface name with the interface alias
+    localhost_interface_dict = {}
+    for key, value in interface_dict.items():
+        if key.startswith('Ethernet-Rec'):
+            continue
+        parts = key.split('|')
+        updated_key = key
+        if len(parts) == 2:
+            port = parts[0]
+            alias = mg_facts['minigraph_port_name_to_alias_map'].get(port, port)
+            updated_key = "{}|{}".format(alias, parts[1])
+        else:
+            updated_key = mg_facts['minigraph_port_name_to_alias_map'].get(key, key)
+        updated_key = updated_key.replace("/", "~1")
+        localhost_interface_dict[updated_key] = value
+
+    # identify the keys to add
+    localhost_add_paths_list = []
+    localhost_add_values_list = []
+    for k, v in list(config_facts["BGP_NEIGHBOR"].items()):
+        localhost_add_paths_list.append('/localhost/BGP_NEIGHBOR/{}'.format(k))
+        localhost_add_values_list.append(v)
+    for k, v in list(config_facts["DEVICE_NEIGHBOR"].items()):
+        localhost_add_paths_list.append('/localhost/DEVICE_NEIGHBOR/{}'.format(k))
+        localhost_add_values_list.append(v)
+    for k, v in list(config_facts["DEVICE_NEIGHBOR_METADATA"].items()):
+        localhost_add_paths_list.append('/localhost/DEVICE_NEIGHBOR_METADATA/{}'.format(k))
+        localhost_add_values_list.append(v)
+    for k, v in list(localhost_interface_dict.items()):
+        localhost_add_paths_list.append("/localhost/INTERFACE/{}".format(k))
+        localhost_add_values_list.append(v)
+
+    if 'PORTCHANNEL' in config_facts:
+        # PORTCHANNEL INTERFACE
+        localhost_pc_interface_dict = {}
+        for key, value in portchannel_interface_dict.items():
+            updated_key = key.replace('/', '~1')
+            localhost_pc_interface_dict[updated_key] = value
+        # PORTCHANNEL_MEMBER keys
+        localhost_pc_member_dict = {}
+        for key, value in portchannel_member_dict.items():
+            parts = key.split('|')
+            updated_key = key
+            if len(parts) == 2:
+                port = parts[1]
+                alias = mg_facts['minigraph_port_name_to_alias_map'].get(port, port)
+                updated_key = "{}|{}".format(parts[0], alias)
+            updated_key = updated_key.replace("/", "~1")
+            localhost_pc_member_dict[updated_key] = value
+        # for k, v in list(pc_dict.items()):
+        #     localhost_add_paths_list.append("/localhost/PORTCHANNEL/{}".format(k))
+        #     localhost_add_values_list.append(v)
+        for k, v in list(localhost_pc_interface_dict.items()):
+            localhost_add_paths_list.append("/localhost/PORTCHANNEL_INTERFACE/{}".format(k))
+            localhost_add_values_list.append(v)
+        for k, v in list(localhost_pc_member_dict.items()):
+            localhost_add_paths_list.append("/localhost/PORTCHANNEL_MEMBER/{}".format(k))
+            localhost_add_values_list.append(v)
+
+    for path, value in zip(localhost_add_paths_list, localhost_add_values_list):
+        json_patch_localhost.append({
+            "op": "add",
+            "path": path,
+            "value": value
+        })
+
+    json_patch_localhost.append({
+        "op": "add",
+        "path": "/localhost/ACL_TABLE/DATAACL/ports",
+        "value": config_facts_localhost["ACL_TABLE"]["DATAACL"]["ports"]
+    })
+    json_patch_localhost.append({
+        "op": "add",
+        "path": "/localhost/ACL_TABLE/EVERFLOW/ports",
+        "value": config_facts_localhost["ACL_TABLE"]["EVERFLOW"]["ports"]
+    })
+    json_patch_localhost.append({
+        "op": "add",
+        "path": "/localhost/ACL_TABLE/EVERFLOWV6/ports",
+        "value": config_facts_localhost["ACL_TABLE"]["EVERFLOWV6"]["ports"]
+    })
+
+    #####################################
+    # combine localhost and ASIC patch data
+    #####################################
+    json_patch = json_patch_localhost + json_patch_asic
+    tmpfile = generate_tmpfile(duthost)
+    try:
+        logger.info("Applying patch (2/2) to add cluster info (all except PORTCHANNEL).")
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def apply_patch_add_cluster_chassis_packet(config_facts,
+                                           config_facts_localhost,
+                                           mg_facts,
+                                           duthost,
+                                           enum_rand_one_asic_namespace):
+    """
+    Apply patch to add cluster information for chassis-packet switches.
+
+    For chassis-packet switches:
+    - Excludes BP (backplane) interfaces
+    - Only adds external PortChannels (those without BP members)
+    - Skips localhost namespace patches
+
+    Changes are perfomed to below tables:
+
+    ACL_TABLE
+    BGP_NEIGHBOR
+    DEVICE_NEIGHBOR
+    DEVICE_NEIGHBOR_METADATA
+    PORTCHANNEL
+    PORTCHANNEL_INTERFACE
+    PORTCHANNEL_MEMBER
+    INTERFACE
+    BUFFER_PG
+    CABLE_LENGTH
+    PORT
+    PORT_QOS_MAP
+    """
+    logger.info("Adding cluster for namespace {} via apply-patch (chassis-packet mode).".format(
+        enum_rand_one_asic_namespace))
+
+    ######################
+    # ASIC NAMESPACE
+    ######################
+    json_namespace = '' if enum_rand_one_asic_namespace is None else '/' + enum_rand_one_asic_namespace
+
+    # Identify external PortChannels (those without BP members)
+    # Exclude PortChannels with BP (backplane) members - these are internal
     external_portchannels = set()
     for pc_name, members in config_facts.get("PORTCHANNEL_MEMBER", {}).items():
         has_internal_port = False
         for member_port in members.keys():
-            # Check if member is an internal/fabric port (BP) - only for chassis-packet
-            if is_chassis_packet and member_port.startswith("Ethernet-BP"):
+            # BP ports are internal for chassis-packet
+            if member_port.startswith("Ethernet-BP"):
                 has_internal_port = True
                 break
         # If no internal ports, it's an external PortChannel
@@ -1100,15 +1292,13 @@ def apply_patch_add_cluster(config_facts,
             external_portchannels.add(pc_name)
 
     logger.info(f"External PortChannels to add back: {external_portchannels}")
-    logger.info(f"Internal PortChannels to skip: {set(config_facts.get('PORTCHANNEL', {}).keys()) - external_portchannels}")
+    internal_pcs = set(config_facts.get('PORTCHANNEL', {}).keys()) - external_portchannels
+    logger.info(f"Internal PortChannels to skip: {internal_pcs}")
 
     # Filter config_facts to only include external interfaces and PortChannels
-    # Filter INTERFACE - exclude BP interfaces only for chassis-packet
-    if is_chassis_packet:
-        filtered_interface = {k: v for k, v in config_facts.get("INTERFACE", {}).items() 
-                              if not k.split('|')[0].startswith("Ethernet-BP")}
-    else:
-        filtered_interface = dict(config_facts.get("INTERFACE", {}))
+    # Filter INTERFACE - exclude BP interfaces
+    filtered_interface = {k: v for k, v in config_facts.get("INTERFACE", {}).items()
+                          if not k.split('|')[0].startswith("Ethernet-BP")}
 
     # Filter PORTCHANNEL_INTERFACE - only external PortChannels
     filtered_pc_interface = {k: v for k, v in config_facts.get("PORTCHANNEL_INTERFACE", {}).items()
@@ -1118,12 +1308,9 @@ def apply_patch_add_cluster(config_facts,
     filtered_pc_member = {k: v for k, v in config_facts.get("PORTCHANNEL_MEMBER", {}).items()
                           if k in external_portchannels}
 
-    # Filter BUFFER_PG - exclude BP interfaces only for chassis-packet
-    if is_chassis_packet:
-        filtered_buffer_pg = {k: v for k, v in config_facts.get("BUFFER_PG", {}).items()
-                              if not k.split('|')[0].startswith("Ethernet-BP")}
-    else:
-        filtered_buffer_pg = dict(config_facts.get("BUFFER_PG", {}))
+    # Filter BUFFER_PG - exclude BP interfaces
+    filtered_buffer_pg = {k: v for k, v in config_facts.get("BUFFER_PG", {}).items()
+                          if not k.split('|')[0].startswith("Ethernet-BP")}
 
     # Filter PORTCHANNEL - only external PortChannels
     filtered_portchannel = {k: v for k, v in config_facts.get("PORTCHANNEL", {}).items()
@@ -1241,9 +1428,9 @@ def apply_patch_add_cluster(config_facts,
             "value": bp_value
         })
 
-    # STEP 9: Add PORT_QOS_MAP entries (skip BP interfaces only for chassis-packet)
+    # STEP 9: Add PORT_QOS_MAP entries (skip BP interfaces)
     for port_qos_key, port_qos_value in config_facts.get("PORT_QOS_MAP", {}).items():
-        if is_chassis_packet and port_qos_key.startswith("Ethernet-BP"):
+        if port_qos_key.startswith("Ethernet-BP"):
             continue
         json_patch_asic_rest.append({
             "op": "add",
@@ -1251,10 +1438,9 @@ def apply_patch_add_cluster(config_facts,
             "value": port_qos_value
         })
 
-    # STEP 10: Set PORT admin status to up (skip BP interfaces only for chassis-packet)
+    # STEP 10: Set PORT admin status to up (skip BP interfaces)
     for interface in active_interfaces:
-        # Extra safety check: Never modify BP interfaces for chassis-packet switches
-        if is_chassis_packet and interface.startswith("Ethernet-BP"):
+        if interface.startswith("Ethernet-BP"):
             continue
         json_patch_asic_rest.append({
             "op": "add",
@@ -1262,13 +1448,12 @@ def apply_patch_add_cluster(config_facts,
             "value": "up"
         })
 
-    # STEP 11: Set CABLE_LENGTH (skip BP interfaces only for chassis-packet)
+    # STEP 11: Set CABLE_LENGTH (skip BP interfaces)
     initial_cable_length_table = config_facts["CABLE_LENGTH"]["AZURE"]
     cable_length_values = [int(v.rstrip("m")) for v in initial_cable_length_table.values()]
     highest = max(cable_length_values)
     for interface in active_interfaces:
-        # Extra safety check: Never modify BP interfaces for chassis-packet switches
-        if is_chassis_packet and interface.startswith("Ethernet-BP"):
+        if interface.startswith("Ethernet-BP"):
             continue
         json_patch_asic_rest.append({
             "op": "add",
@@ -1285,123 +1470,25 @@ def apply_patch_add_cluster(config_facts,
                 "value": config_facts["ACL_TABLE"][acl_table_name]["ports"]
             })
 
-    ######################
-    # LOCALHOST NAMESPACE
-    ######################
-    json_patch_localhost = []
-
-    if not is_chassis_packet:
-        # For non-chassis-packet: Build localhost namespace patches
-        logger.info("{}: Adding cluster info for namespace localhost".format(duthost.hostname))
-
-        # INTERFACE keys: in localhost replace the interface name with the interface alias
-        localhost_interface_dict = {}
-        for key, value in interface_dict.items():
-            if key.startswith('Ethernet-Rec'):
-                continue
-            parts = key.split('|')
-            updated_key = key
-            if len(parts) == 2:
-                port = parts[0]
-                alias = mg_facts['minigraph_port_name_to_alias_map'].get(port, port)
-                updated_key = "{}|{}".format(alias, parts[1])
-            else:
-                updated_key = mg_facts['minigraph_port_name_to_alias_map'].get(key, key)
-            updated_key = updated_key.replace("/", "~1")
-            localhost_interface_dict[updated_key] = value
-
-        # identify the keys to add
-        localhost_add_paths_list = []
-        localhost_add_values_list = []
-        for k, v in list(config_facts["BGP_NEIGHBOR"].items()):
-            localhost_add_paths_list.append('/localhost/BGP_NEIGHBOR/{}'.format(k))
-            localhost_add_values_list.append(v)
-        for k, v in list(config_facts["DEVICE_NEIGHBOR"].items()):
-            localhost_add_paths_list.append('/localhost/DEVICE_NEIGHBOR/{}'.format(k))
-            localhost_add_values_list.append(v)
-        for k, v in list(config_facts["DEVICE_NEIGHBOR_METADATA"].items()):
-            localhost_add_paths_list.append('/localhost/DEVICE_NEIGHBOR_METADATA/{}'.format(k))
-            localhost_add_values_list.append(v)
-        for k, v in list(localhost_interface_dict.items()):
-            localhost_add_paths_list.append("/localhost/INTERFACE/{}".format(k))
-            localhost_add_values_list.append(v)
-
-        if 'PORTCHANNEL' in config_facts:
-            # PORTCHANNEL INTERFACE
-            localhost_pc_interface_dict = {}
-            for key, value in portchannel_interface_dict.items():
-                updated_key = key.replace('/', '~1')
-                localhost_pc_interface_dict[updated_key] = value
-            # PORTCHANNEL_MEMBER keys
-            localhost_pc_member_dict = {}
-            for key, value in portchannel_member_dict.items():
-                parts = key.split('|')
-                updated_key = key
-                if len(parts) == 2:
-                    port = parts[1]
-                    alias = mg_facts['minigraph_port_name_to_alias_map'].get(port, port)
-                    updated_key = "{}|{}".format(parts[0], alias)
-                updated_key = updated_key.replace("/", "~1")
-                localhost_pc_member_dict[updated_key] = value
-            # for k, v in list(pc_dict.items()):
-            #     localhost_add_paths_list.append("/localhost/PORTCHANNEL/{}".format(k))
-            #     localhost_add_values_list.append(v)
-            for k, v in list(localhost_pc_interface_dict.items()):
-                localhost_add_paths_list.append("/localhost/PORTCHANNEL_INTERFACE/{}".format(k))
-                localhost_add_values_list.append(v)
-            for k, v in list(localhost_pc_member_dict.items()):
-                localhost_add_paths_list.append("/localhost/PORTCHANNEL_MEMBER/{}".format(k))
-                localhost_add_values_list.append(v)
-
-        for path, value in zip(localhost_add_paths_list, localhost_add_values_list):
-            json_patch_localhost.append({
-                "op": "add",
-                "path": path,
-                "value": value
-            })
-
-        json_patch_localhost.append({
-            "op": "add",
-            "path": "/localhost/ACL_TABLE/DATAACL/ports",
-            "value": config_facts_localhost["ACL_TABLE"]["DATAACL"]["ports"]
-        })
-        json_patch_localhost.append({
-            "op": "add",
-            "path": "/localhost/ACL_TABLE/EVERFLOW/ports",
-            "value": config_facts_localhost["ACL_TABLE"]["EVERFLOW"]["ports"]
-        })
-        json_patch_localhost.append({
-            "op": "add",
-            "path": "/localhost/ACL_TABLE/EVERFLOWV6/ports",
-            "value": config_facts_localhost["ACL_TABLE"]["EVERFLOWV6"]["ports"]
-        })
-    else:
-        # For chassis-packet: Skip localhost namespace patches
-        logger.info("Chassis-packet switch: Skipping localhost namespace patch generation")
 
     #####################################
     # Apply patches in correct order
     #####################################
-    if json_patch_localhost:
-        logger.info("Applying patch (1/3) to add cluster info (localhost namespace).")
-        output, _ = apply_patch_and_save(duthost, json_patch_localhost, "add_cluster_part0_localhost")
+    tmpfile_pc = generate_tmpfile(duthost)
+    try:
+        logger.info("Applying patch (1/2) to add cluster info (PortChannel configuration - ASIC namespace).")
+        output = apply_patch(duthost, json_data=json_patch_asic_pc, dest_file=tmpfile_pc)
         expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile_pc)
 
-        logger.info("Applying patch (2/3) to add cluster info (PortChannel configuration - ASIC namespace).")
-        output, _ = apply_patch_and_save(duthost, json_patch_asic_pc, "add_cluster_part1_portchannels")
+    tmpfile_rest = generate_tmpfile(duthost)
+    try:
+        logger.info("Applying patch (2/2) to add cluster info (BGP_NEIGHBOR and remaining config - ASIC namespace).")
+        output = apply_patch(duthost, json_data=json_patch_asic_rest, dest_file=tmpfile_rest)
         expect_op_success(duthost, output)
-
-        logger.info("Applying patch (3/3) to add cluster info (BGP_NEIGHBOR and remaining config - ASIC namespace).")
-        output, _ = apply_patch_and_save(duthost, json_patch_asic_rest, "add_cluster_part2_rest")
-        expect_op_success(duthost, output)
-    else:
-        logger.info("Applying patch (1/2) to add cluster info (PortChannel configuration - ASIC namespace only).")
-        output, _ = apply_patch_and_save(duthost, json_patch_asic_pc, "add_cluster_part1_portchannels")
-        expect_op_success(duthost, output)
-
-        logger.info("Applying patch (2/2) to add cluster info (BGP_NEIGHBOR and remaining config - ASIC namespace only).")
-        output, _ = apply_patch_and_save(duthost, json_patch_asic_rest, "add_cluster_part2_rest")
-        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile_rest)
 
 
 def format_sonic_interface_dict(interface_dict, single_entry=True):
@@ -1568,10 +1655,9 @@ def setup_add_cluster(tbinfo,
     duthost = duthosts[enum_downstream_dut_hostname]
     # Check if the device is a modular chassis and the topology is T2
     is_chassis = duthost.get_facts().get("modular_chassis")
-    if not (is_chassis and tbinfo['topo']['type'] == 't2' and 
-                (duthost.facts['switch_type'] == "voq" or 
-                duthost.facts['switch_type'] == "chassis-packet")):
-        # Skip the test if the setup is not T2 Chassis
+    if not (is_chassis and tbinfo['topo']['type'] == 't2' and
+            (duthost.facts['switch_type'] == "voq" or
+             duthost.facts['switch_type'] == "chassis-packet")):
         pytest.skip("Test is Applicable for T2 VOQ or Chassis-Packet Chassis Setup")
     duthost_src = duthosts[enum_upstream_dut_hostname]
     asic_id = enum_rand_one_frontend_asic_index
@@ -1615,7 +1701,8 @@ def setup_add_cluster(tbinfo,
 
         # Check switch type to determine which removal functions to use
         is_chassis_packet = duthost.facts.get('switch_type') == 'chassis-packet'
-        logger.info(f"Switch type: {duthost.facts.get('switch_type')} - Using chassis-packet functions: {is_chassis_packet}")
+        logger.info(f"Switch type: {duthost.facts.get('switch_type')} - "
+                    f"Using chassis-packet functions: {is_chassis_packet}")
 
         if len(config_facts["BUFFER_PG"]) <= 6:  # num of active interfaces = num of pg lossless profiles
             if is_chassis_packet:
@@ -1638,11 +1725,11 @@ def setup_add_cluster(tbinfo,
             if is_chassis_packet:
                 logger.info("Removal method sonic-db-cli - mid-max setup (chassis-packet).")
                 remove_cluster_via_sonic_db_cli_chassis_packet(config_facts,
-                                                                config_facts_localhost,
-                                                                mg_facts,
-                                                                duthost,
-                                                                enum_rand_one_asic_namespace,
-                                                                cli_namespace_prefix)
+                                                               config_facts_localhost,
+                                                               mg_facts,
+                                                               duthost,
+                                                               enum_rand_one_asic_namespace,
+                                                               cli_namespace_prefix)
             else:
                 logger.info("Removal method sonic-db-cli - mid-max setup (non-chassis-packet).")
                 remove_cluster_via_sonic_db_cli(config_facts,
@@ -1676,11 +1763,20 @@ def setup_add_cluster(tbinfo,
         expect_op_success(duthost, output)
 
     with allure.step("Adding cluster info for namespace"):
-        apply_patch_add_cluster(config_facts,
-                                config_facts_localhost,
-                                mg_facts,
-                                duthost,
-                                enum_rand_one_asic_namespace)
+        # Check switch type to determine which add function to use
+        is_chassis_packet = duthost.facts.get('switch_type') == 'chassis-packet'
+        if is_chassis_packet:
+            apply_patch_add_cluster_chassis_packet(config_facts,
+                                                   config_facts_localhost,
+                                                   mg_facts,
+                                                   duthost,
+                                                   enum_rand_one_asic_namespace)
+        else:
+            apply_patch_add_cluster(config_facts,
+                                    config_facts_localhost,
+                                    mg_facts,
+                                    duthost,
+                                    enum_rand_one_asic_namespace)
         # Verify routes added
         wait_until(5, 1, 0, verify_routev4_existence,
                    duthost, enum_rand_one_frontend_asic_index, bgp_neigh_ip, should_exist=True)

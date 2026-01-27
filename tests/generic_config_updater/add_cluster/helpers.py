@@ -61,7 +61,7 @@ def clear_static_route(tbinfo, duthost, ip, nhipv4='10.10.246.254'):
             # Check if this is a direct BGP neighbor (not a recursive route)
             if ip_address not in config_facts_localhost['BGP_NEIGHBOR']:
                 logger.warning(f"Next-hop {ip_address} is not a direct BGP neighbor (may be recursive route). "
-                             f"Skipping route withdrawal for {ip}")
+                               f"Skipping route withdrawal for {ip}")
                 continue
             bgp_neigh_name = config_facts_localhost['BGP_NEIGHBOR'][ip_address]['name']
             exabgp_port = get_exabgp_port_for_neighbor(tbinfo, bgp_neigh_name)
@@ -265,7 +265,7 @@ def get_active_interfaces(config_facts, duthost=None):
 
     # Check if this is a chassis-packet switch
     is_chassis_packet = (duthost and
-                        duthost.facts.get('switch_type') == 'chassis-packet')
+                         duthost.facts.get('switch_type') == 'chassis-packet')
 
     # Add interfaces from INTERFACE table, skip BP interfaces only for chassis-packet
     for key, _value in config_facts.get("INTERFACE", {}).items():
