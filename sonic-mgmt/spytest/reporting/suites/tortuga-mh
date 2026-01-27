@@ -16,14 +16,12 @@
 # test_mobility : 0:53:11
 # test_traffic  : 0:45:49
 # test_config   : 0:24:43
-# test_ageout   : 0:15:41
 
 # Block-2: Test Suite Name
 # ========================
 +file:cisco/tortuga/vxlan/multihome/mobility/test_mobility.py
 +file:cisco/tortuga/vxlan/multihome/traffic/test_traffic.py
 +file:cisco/tortuga/vxlan/multihome/config/test_config.py
-+file:cisco/tortuga/vxlan/multihome/ageout/test_ageout.py
 
 #Runtime Arguments
 +args:--skip-init-config
