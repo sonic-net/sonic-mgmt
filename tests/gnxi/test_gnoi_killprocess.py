@@ -5,9 +5,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 
 
 # Import fixtures to ensure pytest discovers them
-from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
-    setup_gnoi_tls_server, ptf_gnoi, ptf_grpc
-)
+pytest_plugins = ["tests.common.fixtures.grpc_fixtures"]  # noqa: F401
 
 
 pytestmark = [
