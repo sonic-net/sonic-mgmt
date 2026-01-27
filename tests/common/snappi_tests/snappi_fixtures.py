@@ -25,8 +25,9 @@ from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValue
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, dut_ip_for_non_macsec_port
 from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_macsec_port, disable_macsec_port, \
     delete_macsec_profile
-from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings, create_front_panel_ports, \
-    create_connections, create_uhdIp_list, create_arp_bypass, create_profiles
+from tests.common.snappi_tests.uhd.uhd_helpers import (NetworkConfigSettings, create_front_panel_ports,
+                                                       create_connections, create_connections_pl, create_uhdIp_list,
+                                                       create_arp_bypass, create_arp_bypass_pl, create_profiles)
 logger = logging.getLogger(__name__)
 
 macsec_enabled_port = {}
@@ -1717,10 +1718,13 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
         ethpass_ports = [row for row in csv_data if row['EthernetPass'] == 'True']
         has_switchover = any(dpu.get('SwitchOverPort') == 'True' for dpu in dpu_ports)
 
+        service_type = tbinfo['service_type']
         uhdConnect_ip = tbinfo['uhd_ip']
         num_cps_cards = tbinfo['num_cps_cards']
         num_tcpbg_cards = tbinfo['num_tcpbg_cards']
         num_udpbg_cards = tbinfo['num_udpbg_cards']
+        vxlan_port = tbinfo.get('vxlan_port', 0)
+        vxlan_src_port = tbinfo.get('vxlan_src_port', 0)
         num_dpu_ports = len(dpu_ports)
 
         cards_dict = {
@@ -1742,9 +1746,19 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
         logger.info(f"Configuring UHD connect for {uhdSettings.ENI_COUNT} ENIs")
         ip_list = create_uhdIp_list(subnet_mask, uhdSettings, cards_dict)  # noqa: F405
         fp_ports_list = create_front_panel_ports(int(total_cards * 2), uhdSettings, cards_dict)  # noqa: F405
-        arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)  # noqa: F405
-        connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, uhdSettings,  # noqa: F405
-                                              cards_dict, arp_bypass_list)
+
+        if service_type == 'vnet2vnet':
+            file_name = "tempUhdConfig_vnet2vnet.json"
+            arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict,
+                                                subnet_mask)
+            connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, uhdSettings,  # noqa: F405
+                                                  cards_dict, arp_bypass_list, vxlan_port, vxlan_src_port)
+        else:
+            # privatelink
+            file_name = "tempUhdConfig_pl.json"
+            arp_bypass_list = create_arp_bypass_pl(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)
+            connections_list = create_connections_pl(fp_ports_list, ip_list, subnet_mask, uhdSettings, cards_dict,
+                                                     arp_bypass_list, vxlan_port, vxlan_src_port)
 
         config = {
             "profiles": create_profiles(uhdSettings),  # noqa: F405
@@ -1756,7 +1770,6 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
             'Content-Type': 'application/json'
         }
 
-        file_name = "tempUhdConfig.json"
         file_location = os.getcwd()
         uhd_post_url = uhdSettings.uhd_post_url
         url = "https://{}/{}".format(uhdConnect_ip, uhd_post_url)  # noqa: F841
@@ -1765,7 +1778,10 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
         logger.info(f"Pushing created UHD configuration file {file_name} to UHD Connect")
         uhdConf_cmd = ('curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   '
                        '{}').format(file_location, file_name, url)
-        subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
+        try:
+            res = subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)  # noqa: F841
+        except Exception as e:
+            logger.error(f"UHD config upload failed: {e}")
 
         if not save_uhd_config:
             logger.info("Removing UHD config file")

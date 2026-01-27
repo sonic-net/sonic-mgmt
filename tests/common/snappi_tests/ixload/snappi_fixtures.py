@@ -3,7 +3,8 @@ This module contains the snappi fixture in the snappi_tests directory.
 """
 from tests.common.snappi_tests.ixload.snappi_helper import (l47_trafficgen_main, duthost_ha_config,
                                                             npu_startup, dpu_startup, set_static_routes, set_ha_roles,
-                                                            set_ha_admin_up, set_ha_activate_role, duthost_port_config)
+                                                            set_ha_admin_up, set_ha_activate_role, duthost_port_config,
+                                                            delete_staticarp_files)
 from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings  # noqa: F403, F401
 import pytest
 import threading
@@ -78,15 +79,23 @@ def setup_config_snappi_l47(request, duthosts, tbinfo, ha_test_case=None):
     if l47_trafficgen_enabled:
         logger.info(f"Configuring L47 parameters for test case: {ha_test_case}")
 
+        ixos_version = tbinfo['ixos_version']
         l47_version = tbinfo['l47_version']
         service_type = tbinfo['service_type']
         chassis_ip = tbinfo['chassis_ip']
+        chassis_user_login = tbinfo['chassis_user_login']
+        chassis_user_passwd = tbinfo['chassis_user_passwd']
+        clean_l47trafficgen_staticarps = tbinfo['clean_l47trafficgen_staticarps']
         gw_ip = tbinfo['l47_gateway']
 
         ports_list = tbinfo['ports_list']
         ports_list = {k: [tuple(x) for x in v] for k, v in ports_list.items()}
 
-        test_filename = "dash_cps"
+        if service_type == "vnet2vnet":
+            test_filename = "dash_vnet2vnet"
+        else:
+            test_filename = "dash_pl"
+
         initial_cps_obj = (len(ports_list['Traffic1@Network1']) * 4000000) // 2
 
         test_type_dict = {
@@ -96,16 +105,24 @@ def setup_config_snappi_l47(request, duthosts, tbinfo, ha_test_case=None):
 
         connection_dict = {
             'chassis_ip': chassis_ip,
+            'chassis_user_login': chassis_user_login,
+            'chassis_user_passwd': chassis_user_passwd,
             'gw_ip': gw_ip,
             'port': '8080',
+            'ixos_version': ixos_version,
             'version': l47_version,
         }
+
+        logger.info("Cleaning old static ARP files from the l47traifficgen server")
+        if clean_l47trafficgen_staticarps:
+            delete_staticarp_files(chassis_ip, chassis_user_login, chassis_user_passwd, ixos_version)
 
         nw_config = NetworkConfigSettings()
         if ha_test_case != "cps":
             nw_config.ENI_COUNT = 32  # Set to 32 ENIs for HA test cases to test 1 Active/Standby DPU
         api, config, initial_cps_value = l47_trafficgen_main(ports_list, connection_dict, nw_config, service_type,
-                                                             test_type_dict['all'], test_type_dict['initial_cps_obj'])
+                                                             test_type_dict['all'], test_filename,
+                                                             test_type_dict['initial_cps_obj'])
 
         if l47_trafficgen_save:
             snappi_l47_params['save'] = True
