@@ -1,4 +1,3 @@
-
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
@@ -13,18 +12,19 @@ pytestmark = pytest.mark.usefixtures("setup_gnoi_tls_server")
 
 def _kill_process(ptf_gnoi, name: str, restart: bool = False, signal: int = 1):
     """
-    Invoke gNOI System.KillProcess via the ptf_gnoi client.
+    Invoke gNOI System.KillProcess via the underlying grpc client.
     Returns (ret, msg) to mirror the old gnoi_request helper behavior:
       ret == 0 => success, non-zero => failure
       msg      => stringified service message / error
     """
+    request = {"name": name, "restart": restart, "signal": signal}
     try:
-        # The GNXI client returns a protobuf or raises on error depending on implementation.
-        # We normalize to (ret, msg).
-        resp = ptf_gnoi.system.kill_process(name=name, restart=restart, signal=signal)
+        # Use the low-level PtfGrpc client to call the gNOI RPC directly.
+        resp = ptf_gnoi.grpc_client.call_unary("gnoi.system.System", "KillProcess", request)
         # Best-effort stringify for diagnostics
         return 0, (str(resp) if resp is not None else "")
     except Exception as e:
+        # Normalize exception to (non-zero, message) like previous helper
         return 1, str(e)
 
 
