@@ -100,22 +100,35 @@ def define_config(duthost, template_src_path, template_dst_path):
     duthost.copy(src=template_src_path, dest=template_dst_path)
 
 
-def get_no_export_output(vm_host):
+def get_no_export_output(vm_host, ipv6=False):
     """
     Get no export routes on the VM
 
     Args:
         vm_host: VM host object
+        ipv6: If True, check IPv6 routes; otherwise check IPv4 routes
     """
-    if isinstance(vm_host, EosHost):
-        out = vm_host.eos_command(commands=['show ip bgp community no-export'])["stdout"]
-        return re.findall(r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*', out[0])
-    elif isinstance(vm_host, SonicHost):
-        out = vm_host.command("vtysh -c 'show ip bgp community no-export'")["stdout"]
-        # For SonicHost, output is already a string, no need to index
-        return re.findall(r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*', out)
+    if ipv6:
+        if isinstance(vm_host, EosHost):
+            # Use 'show bgp ipv6 unicast community no-export' for EOS IPv6
+            out = vm_host.eos_command(commands=['show bgp ipv6 unicast community no-export'])["stdout"]
+            # Match IPv6 prefixes (e.g., fc00:1::/64)
+            return re.findall(r'[0-9a-fA-F:]+\/\d+\s+[0-9a-fA-F:]+.*', out[0])
+        elif isinstance(vm_host, SonicHost):
+            out = vm_host.command("vtysh -c 'show bgp ipv6 unicast community no-export'")["stdout"]
+            return re.findall(r'[0-9a-fA-F:]+\/\d+\s+[0-9a-fA-F:]+.*', out)
+        else:
+            raise TypeError(f"Unsupported host type: {type(vm_host)}. Expected EosHost or SonicHost.")
     else:
-        raise TypeError(f"Unsupported host type: {type(vm_host)}. Expected EosHost or SonicHost.")
+        if isinstance(vm_host, EosHost):
+            out = vm_host.eos_command(commands=['show ip bgp community no-export'])["stdout"]
+            return re.findall(r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*', out[0])
+        elif isinstance(vm_host, SonicHost):
+            out = vm_host.command("vtysh -c 'show ip bgp community no-export'")["stdout"]
+            # For SonicHost, output is already a string, no need to index
+            return re.findall(r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*', out)
+        else:
+            raise TypeError(f"Unsupported host type: {type(vm_host)}. Expected EosHost or SonicHost.")
 
 
 def apply_default_bgp_config(duthost, copy=False):
