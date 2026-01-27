@@ -260,8 +260,8 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     if not interfaces:
         pytest.skip("Skipping this test as there is no fec eligible interface")
 
-    for intf_name in interfaces:
-        for _ in range(3):
+    for _ in range(3):
+        for intf_name in interfaces:
             if not validate_fec_histogram(duthost, intf_name):
                 pytest.fail("FEC histogram validation failed for interface {}".format(intf_name))
-            time.sleep(10)
+        time.sleep(10)
