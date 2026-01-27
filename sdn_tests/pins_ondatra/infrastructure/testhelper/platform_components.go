@@ -14,7 +14,7 @@ import (
 
 // SwitchNameRegex returns the regex for switch name.
 func SwitchNameRegex() string {
-	return ""
+	return "^(ju|df|mn|ocs)(\\d+).*\\.([a-z]{3})(\\d{2})([a-z]?)\\.(net|prod).google.com$"
 }
 
 // ImageVersionRegex returns the regular expressions for the image version of the switch.
@@ -453,6 +453,7 @@ func (p PCIeInfo) GetName() string {
 
 // PcieInfoForDevice returns information about all PCIe devices.
 func PcieInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]PCIeInfo, error) {
+
 	info, err := platformInfoForDevice(t, d)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
