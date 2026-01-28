@@ -339,7 +339,7 @@ jobs:
             ${{ param.key }}: ${{ param.value }}
 
   - job: t1_lag_vpp_elastictest
-    displayName: "kvmtest-t1-lag-vpp by Elastictest"
+    displayName: "kvmtest-t1-lag-vpp by Elastictest [OPTIONAL]"
     timeoutInMinutes: 480
     continueOnError: true
     pool: sonic-ubuntu-1c
