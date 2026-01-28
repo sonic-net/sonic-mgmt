@@ -73,17 +73,29 @@ def fdb_cleanup(duthost):
         pytest_assert(wait_until(200, 2, 0, lambda: fdb_table_has_no_dynamic_macs(duthost) is True),
                       "FDB Table Cleanup failed")
 
+
 def get_dut_mac(duthost, config_facts, tbinfo):
+    """
+    Get DUT MAC address
+    """
     if 'dualtor' in tbinfo['topo']['name']:
         for vlan_details in list(config_facts['VLAN'].values()):
             return vlan_details['mac'].lower()
     return duthost.shell("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0]
 
+
 def fdb_has_mac(duthost, mac):
+    """
+    Check if FDB has specific MAC address
+    """
     mac = mac.lower()
     return any(mac in line.lower() for line in duthost.command("show mac")["stdout_lines"])
 
+
 def get_first_vlan_ipv4(config_facts):
+    """
+    Get first VLAN interface and its IPv4 address
+    """
     vlan_intfs = config_facts.get("VLAN_INTERFACE", {})
     for intf, addrs in vlan_intfs.items():
         for addr in addrs:
