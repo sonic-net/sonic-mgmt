@@ -49,7 +49,8 @@ def get_t2_fib_info(duthosts, duts_cfg_facts, duts_mg_facts, testname=None):
         cfg_facts = duts_cfg_facts[duthost.hostname]
         for asic_cfg_facts in cfg_facts:
             if duthost.facts['switch_type'] == "voq":
-                is_chassis = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_voq_chassis")
+                is_chassis = \
+                    not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_chassis_config_absent")
                 switch_type = "voq"
                 if 'VOQ_INBAND_INTERFACE' in asic_cfg_facts[1]:
                     dut_inband_intfs.setdefault(duthost.hostname, []).extend(asic_cfg_facts[1]['VOQ_INBAND_INTERFACE'])
