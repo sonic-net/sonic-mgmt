@@ -4239,8 +4239,11 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         num_of_pkts = self.test_params['num_of_pkts']
+        cell_size = self.test_params['cell_size']
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         src_port_vlan = self.test_params['src_port_vlan']
+        limit = self.test_params['limit']
+        min_limit = self.test_params['min_limit']
         exp_ip_id = 100
         platform_asic = self.test_params['platform_asic']
         ecn_queue_status = self.test_params['ecn_queue_status']
