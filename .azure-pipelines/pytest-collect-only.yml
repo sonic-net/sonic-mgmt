@@ -1,4 +1,8 @@
 steps:
+- script: |
+    username=$(id -un)
+    sudo chown -R ${username}.${username} .
+  displayName: 'Cleanup'
 
 - script: |
     sudo apt-get -o DPkg::Lock::Timeout=180 update
