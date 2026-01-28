@@ -40,7 +40,6 @@ from tests.common.utilities import get_all_upstream_neigh_type, get_all_downstre
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface  # noqa: F401
 from tests.common.dualtor.dual_tor_mock import set_mux_state  # noqa: F401
 
-
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
 ]
