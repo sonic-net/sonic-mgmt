@@ -198,7 +198,7 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
             for member in v['members']:
                 upstream_port_ids.append(mg_facts['minigraph_ptf_indices'][member])
                 upstream_ports.append(member)
- 
+
     for port in downstream_ports:
         if port in mg_facts['minigraph_port_name_to_alias_map']:
             break
