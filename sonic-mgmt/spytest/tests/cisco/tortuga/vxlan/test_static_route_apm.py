@@ -837,14 +837,143 @@ def test_apm_override_route_config():
         st.wait(2)
         st.config(nodes['SD8'], "sudo ip addr add 10.212.20.6/24 dev {}".format(vars.D8D4P2))
         
-        # Step 3: Start TCP servers on both IPs on SD8
-        st.banner("Step 3: Starting TCP servers on both IPs on SD8")
-    
+        # Step 3: Configure APM TCP probes (WITHOUT starting TCP servers first)
+        st.banner("Step 3: Configuring APM TCP probes on SD4 (leaf2) - TCP servers NOT running yet")
         
-        # Start TCP servers in background on both IPs on SD8
-        # Using full path to avoid issues with cd in sudo -s context
+        # Configure APM TCP probe1 targeting SD8 Ethernet1_1
+        apm_cmd1 = "sudo config apm add tcpprobe1 --type tcp-connect --dst-ip 10.212.10.6 --dst-port 65432 --frequency 1000 --timeout 500 --multiplier 3 --vrf Vrf01 --enable true"
+        st.config(nodes['SD4'], apm_cmd1)
+        st.wait(2)
+        
+        # Configure APM TCP probe2 targeting SD8 Ethernet1_2
+        apm_cmd2 = "sudo config apm add tcpprobe2 --type tcp-connect --dst-ip 10.212.20.6 --dst-port 65433 --frequency 1000 --timeout 500 --multiplier 3 --vrf Vrf01 --enable true"
+        st.config(nodes['SD4'], apm_cmd2)
+        st.wait(5)  # Wait for APM probes to initialize and fail (no servers running)
+        
+        # Verify APM probes are configured
+        apm_config_output = st.show(nodes['SD4'], "show apm", skip_tmpl=True, skip_error_check=True)
+        st.log("APM configuration on SD4: {}".format(apm_config_output))
+        
+        if "tcpprobe1" not in str(apm_config_output) or "tcpprobe2" not in str(apm_config_output):
+            st.report_fail('test_case_failed', "APM probes tcpprobe1 or tcpprobe2 not configured properly on SD4")
+        
+        # Verify APM probes are DOWN (no TCP servers running)
+        apm_status_output = st.show(nodes['SD4'], "show apm-status", skip_tmpl=True, skip_error_check=True)
+        st.log("APM status on SD4 (should be DOWN): {}".format(apm_status_output))
+        
+        # Step 4: Add static route WITHOUT APM
+        st.banner("Step 4: Adding static route without APM (both APM probes are DOWN)")
+        
+        route_cmd_no_apm = "config route add prefix vrf Vrf01 172.16.255.1/32 nexthop 10.212.10.6,10.212.20.6"
+        st.config(nodes['SD4'], route_cmd_no_apm)
+        st.wait(3)  # Wait for route to be installed
+        
+        # Step 5: Verify route is present in routing table
+        st.banner("Step 5: Verifying route is present in 'show ip route vrf Vrf01' (no APM)")
+        
+        route_output_no_apm = st.show(nodes['SD4'], "show ip route vrf Vrf01", skip_tmpl=True)
+        st.log("VRF Route table output on SD4 (no APM): {}".format(route_output_no_apm))
+        
+        if "172.16.255.1/32" in str(route_output_no_apm) and "via 10.212.10.6" in str(route_output_no_apm) and "via 10.212.20.6" in str(route_output_no_apm):
+            st.log("SUCCESS: Route is present with both nexthops (no APM)")
+        else:
+            st.report_fail('test_case_failed', "Route not present or missing nexthops when configured without APM")
+        
+        # Step 6: Add APM to the route
+        st.banner("Step 6: Adding APM to the route (APM probes still DOWN)")
+        
+        route_cmd_add_apm = "config route add prefix vrf Vrf01 172.16.255.1/32 apm tcpprobe1,tcpprobe2"
+        st.config(nodes['SD4'], route_cmd_add_apm)
+        st.wait(3)  # Wait for route to be updated
+        
+        # Step 7: Verify route should NOT show in routing table (APM is DOWN)
+        st.banner("Step 7: Verifying route should NOT be in 'show ip route vrf Vrf01' (APM DOWN)")
+        
+        route_output_apm_down = st.show(nodes['SD4'], "show ip route vrf Vrf01", skip_tmpl=True)
+        st.log("VRF Route table output on SD4 (APM DOWN): {}".format(route_output_apm_down))
+        
+        if "172.16.255.1/32" not in str(route_output_apm_down):
+            st.log("SUCCESS: Route is NOT present in routing table (APM is DOWN)")
+        else:
+            st.log("WARNING: Route is still present in routing table even though APM is DOWN")
+        
+        # Step 8: Delete the route
+        st.banner("Step 8: Deleting the route")
+        
+        st.config(nodes['SD4'], "config route del prefix vrf Vrf01 172.16.255.1/32", skip_error_check=True)
+        st.wait(2)
+        
+        # Step 9: Start TCP server for tcpprobe1 only
+        st.banner("Step 9: Starting TCP server for tcpprobe1 only (10.212.10.6)")
+        
         tcp_server_cmd1 = "sudo nohup python3 /home/vxr/tcpserver.py 65432 10.212.10.6 > /tmp/tcpserver1.log 2>&1 &"
         st.config(nodes['SD8'], tcp_server_cmd1)
+        st.wait(5)  # Wait for server to start and APM to detect
+        
+        # Verify TCP server 1 is running
+        verify_cmd = "ps aux | grep '[t]cpserver.py 65432'"
+        server_status = st.show(nodes['SD8'], verify_cmd, skip_tmpl=True, skip_error_check=True)
+        st.log("TCP server 1 status on host1: {}".format(server_status))
+        
+        # Verify tcpprobe1 is UP now
+        apm_status_one_up = st.show(nodes['SD4'], "show apm-status", skip_tmpl=True, skip_error_check=True)
+        st.log("APM status on SD4 (tcpprobe1 should be UP): {}".format(apm_status_one_up))
+        
+        # Step 10: Add route without APM
+        st.banner("Step 10: Adding route without APM (one TCP server running)")
+        
+        route_cmd_no_apm2 = "config route add prefix vrf Vrf01 172.16.255.1/32 nexthop 10.212.10.6,10.212.20.6"
+        st.config(nodes['SD4'], route_cmd_no_apm2)
+        st.wait(3)
+        
+        # Step 11: Verify route shows with both nexthops
+        st.banner("Step 11: Verifying route shows with both nexthops (no APM)")
+        
+        route_output_both_nh = st.show(nodes['SD4'], "show ip route vrf Vrf01", skip_tmpl=True)
+        st.log("VRF Route table output on SD4 (both nexthops): {}".format(route_output_both_nh))
+        
+        if "172.16.255.1/32" in str(route_output_both_nh) and "via 10.212.10.6" in str(route_output_both_nh) and "via 10.212.20.6" in str(route_output_both_nh):
+            st.log("SUCCESS: Route shows with both nexthops")
+        else:
+            st.report_fail('test_case_failed', "Route not showing with both nexthops")
+        
+        # Step 12: Associate route with APM
+        st.banner("Step 12: Associating route with APM (only tcpprobe1 UP)")
+        
+        route_cmd_add_apm2 = "config route add prefix vrf Vrf01 172.16.255.1/32 apm tcpprobe1,tcpprobe2"
+        st.config(nodes['SD4'], route_cmd_add_apm2)
+        st.wait(3)
+        
+        # Step 13: Verify only nexthop with APM status UP shows in routing table
+        st.banner("Step 13: Verifying only nexthop with APM UP (10.212.10.6) shows in routing table")
+        
+        route_output_one_apm_up = st.show(nodes['SD4'], "show ip route vrf Vrf01", skip_tmpl=True)
+        st.log("VRF Route table output on SD4 (one APM UP): {}".format(route_output_one_apm_up))
+        
+        if "172.16.255.1/32" in str(route_output_one_apm_up) and "via 10.212.10.6" in str(route_output_one_apm_up):
+            st.log("SUCCESS: Route shows with nexthop 10.212.10.6 (tcpprobe1 UP)")
+            if "via 10.212.20.6" not in str(route_output_one_apm_up):
+                st.log("SUCCESS: Nexthop 10.212.20.6 NOT present (tcpprobe2 DOWN)")
+            else:
+                st.log("WARNING: Nexthop 10.212.20.6 still present even though tcpprobe2 is DOWN")
+        else:
+            st.log("WARNING: Route with nexthop 10.212.10.6 not found")
+        
+        # Step 14: Delete the route again
+        st.banner("Step 14: Deleting the route again")
+        
+        st.config(nodes['SD4'], "config route del prefix vrf Vrf01 172.16.255.1/32", skip_error_check=True)
+        st.wait(2)
+        
+        # Step 15: Delete APM probes
+        st.banner("Step 15: Deleting APM probes")
+        
+        st.config(nodes['SD4'], "config apm del tcpprobe1", skip_error_check=True)
+        st.config(nodes['SD4'], "config apm del tcpprobe2", skip_error_check=True)
+        st.wait(2)
+        
+        # Step 16: Start second TCP server (now both servers running)
+        st.banner("Step 16: Starting second TCP server for tcpprobe2 (10.212.20.6)")
         
         tcp_server_cmd2 = "sudo nohup python3 /home/vxr/tcpserver.py 65433 10.212.20.6 > /tmp/tcpserver2.log 2>&1 &"
         st.config(nodes['SD8'], tcp_server_cmd2)
@@ -855,16 +984,20 @@ def test_apm_override_route_config():
         server_status = st.show(nodes['SD8'], verify_cmd, skip_tmpl=True, skip_error_check=True)
         st.log("TCP server status on host1: {}".format(server_status))
         
-        # Step 4: Add initial static route with multiple nexthops (no APM)
-        st.banner("Step 4: Adding initial static route with multiple nexthops (no APM)")
+        
+        # Step 17: Add initial static route with multiple nexthops (no APM)
+        st.banner("Step 17: Adding initial static route with multiple nexthops (no APM)")
         
         # Configure static route with multiple nexthops - no APM initially
         initial_route_cmd = "config route add prefix vrf Vrf01 172.16.255.1/32 nexthop 10.212.10.6,10.212.20.6"
         st.config(nodes['SD4'], initial_route_cmd)
         st.wait(3)  # Wait for route to be installed
         
-        # Step 5: Verify initial route is installed with both nexthops
-        st.banner("Step 5: Verifying initial route installation")
+        # Step 18: Verify initial route is installed with both nexthops
+        st.banner("Step 18: Verifying initial route installation")
+        
+        # Step 18: Verify initial route is installed with both nexthops
+        st.banner("Step 18: Verifying initial route installation")
         
         initial_route_output = st.show(nodes['SD4'], "show ip route vrf Vrf01", skip_tmpl=True)
         st.log("Initial VRF Route table output on SD4: {}".format(initial_route_output))
@@ -877,17 +1010,17 @@ def test_apm_override_route_config():
         else:
             st.log("WARNING: Initial route may not have both nexthops - Nexthop1: {}, Nexthop2: {}".format(initial_nexthop1, initial_nexthop2))
         
-        # Step 6: Configure APM TCP probes
-        st.banner("Step 6: Configuring APM TCP probes on SD4 (leaf2)")
+        # Step 19: Configure APM TCP probes
+        st.banner("Step 19: Configuring APM TCP probes on SD4 (leaf2)")
         
         # Configure APM TCP probe1 targeting SD8 Ethernet1_1
-        apm_cmd1 = "sudo config apm add tcpprobe1 --type tcp-connect --dst-ip 10.212.10.6 --dst-port 65432 --frequency 1000 --timeout 500 --multiplier 3 --vrf Vrf01 --enable true"
-        st.config(nodes['SD4'], apm_cmd1)
+        apm_cmd1_final = "sudo config apm add tcpprobe1 --type tcp-connect --dst-ip 10.212.10.6 --dst-port 65432 --frequency 1000 --timeout 500 --multiplier 3 --vrf Vrf01 --enable true"
+        st.config(nodes['SD4'], apm_cmd1_final)
         st.wait(2)
         
         # Configure APM TCP probe2 targeting SD8 Ethernet1_2
-        apm_cmd2 = "sudo config apm add tcpprobe2 --type tcp-connect --dst-ip 10.212.20.6 --dst-port 65433 --frequency 1000 --timeout 500 --multiplier 3 --vrf Vrf01 --enable true"
-        st.config(nodes['SD4'], apm_cmd2)
+        apm_cmd2_final = "sudo config apm add tcpprobe2 --type tcp-connect --dst-ip 10.212.20.6 --dst-port 65433 --frequency 1000 --timeout 500 --multiplier 3 --vrf Vrf01 --enable true"
+        st.config(nodes['SD4'], apm_cmd2_final)
         st.wait(2)  # Wait longer for APM probes to initialize
         
         # Verify APM probes are configured
@@ -897,16 +1030,19 @@ def test_apm_override_route_config():
         if "tcpprobe1" not in str(apm_config_output) or "tcpprobe2" not in str(apm_config_output):
             st.report_fail('test_case_failed', "APM probes tcpprobe1 or tcpprobe2 not configured properly on SD4")
 
-        # Step 7: Update route to use APM dependencies (override existing route)
-        st.banner("Step 7: Updating route to use APM dependencies")
+        # Step 20: Update route to use APM dependencies (override existing route)
+        st.banner("Step 20: Updating route to use APM dependencies")
+        
+        # Step 20: Update route to use APM dependencies (override existing route)
+        st.banner("Step 20: Updating route to use APM dependencies")
         
         # Configure route with APM dependencies - this should override the existing route
         apm_route_cmd = "config route add prefix vrf Vrf01 172.16.255.1/32 apm tcpprobe1,tcpprobe2"
         st.config(nodes['SD4'], apm_route_cmd)
         st.wait(3)  # Wait for route to be updated
         
-        # Step 8: Verify both APM probes are UP and route shows both nexthops
-        st.banner("Step 8: Verifying APM probes are UP and route behavior")
+        # Step 21: Verify both APM probes are UP and route shows both nexthops
+        st.banner("Step 21: Verifying APM probes are UP and route behavior")
         
         # Check APM status
         apm_status_output = st.show(nodes['SD4'], "show apm-status", skip_tmpl=True, skip_error_check=True)
