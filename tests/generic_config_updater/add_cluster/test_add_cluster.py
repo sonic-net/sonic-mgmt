@@ -1470,7 +1470,6 @@ def apply_patch_add_cluster_chassis_packet(config_facts,
                 "value": config_facts["ACL_TABLE"][acl_table_name]["ports"]
             })
 
-
     #####################################
     # Apply patches in correct order
     #####################################
