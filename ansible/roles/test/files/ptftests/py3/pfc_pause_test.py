@@ -69,6 +69,13 @@ class PfcPauseTest(BaseTest):
         self.queue_paused = self.test_params['queue_paused']
         """ if DUT has MAC information """
         self.dut_has_mac = self.test_params['dut_has_mac']
+        # Allow tests to explicitly request using DUT's router MAC on ingress
+        # Any missing/invalid values fallback to default behavior (use PTF dest MAC)
+        try:
+            self.dst_mac_is_router = int(self.test_params.get('dst_mac_is_router', 0)) != 0
+        except Exception:
+            self.dst_mac_is_router = False
+        self.router_mac = self.test_params.get('router_mac', None)
         self.debug = self.test_params.get('debug', False)
         self.vlan_id = self.test_params.get('vlan_id', None)
         self.testbed_type = self.test_params.get('testbed_type', None)
@@ -77,8 +84,12 @@ class PfcPauseTest(BaseTest):
         tos = self.dscp << 2
         tos_bg = self.dscp_bg << 2
 
+        # Choose L2 destination: DUT router MAC for L3 tests (any_topology),
+        # otherwise default to PTF destination port MAC for L2/VLAN tests
+        eth_dst = self.router_mac if (self.dst_mac_is_router and self.router_mac) else self.mac_dst
+
         pkt_args = {
-            'eth_dst': self.mac_dst,
+            'eth_dst': eth_dst,
             'eth_src': self.mac_src,
             'ip_src': self.ip_src,
             'ip_dst': self.ip_dst,
@@ -94,7 +105,7 @@ class PfcPauseTest(BaseTest):
         pkt = simple_udp_packet(**pkt_args)
 
         pkt_bg_args = {
-            'eth_dst': self.mac_dst,
+            'eth_dst': eth_dst,
             'eth_src': self.mac_src,
             'ip_src': self.ip_src,
             'ip_dst': self.ip_dst,
