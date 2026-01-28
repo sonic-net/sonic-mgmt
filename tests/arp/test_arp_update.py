@@ -4,7 +4,6 @@ import logging
 import ptf.testutils as testutils
 import pytest
 import random
-from ipaddress import ip_interface
 
 from tests.arp.arp_utils import clear_dut_arp_cache, fdb_cleanup, get_dut_mac, fdb_has_mac, get_first_vlan_ipv4
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
@@ -105,7 +104,7 @@ def test_ptf_arp_learns_mac(
 ):
     """
     After fdb_cleanup and clearing DUT ARP cache,
-    Simulate ARP request from PTF to DUT, 
+    Simulate ARP request from PTF to DUT,
     verify DUT replies and learns PTF MAC in FDB
     """
     # Setup PTF interface info
@@ -126,25 +125,27 @@ def test_ptf_arp_learns_mac(
     ptfadapter.dataplane.flush()
 
     # Simulate ARP request from PTF to DUT
-    arp_req = testutils.simple_arp_packet(pktlen=60,
-                                        eth_dst='ff:ff:ff:ff:ff:ff',
-                                        eth_src=ptf_intf_mac,
-                                        vlan_pcp=0,
-                                        arp_op=1,
-                                        ip_snd=str(ptf_intf_ipv4_addr),
-                                        ip_tgt=str(dut_ipv4),
-                                        hw_snd=ptf_intf_mac,
-                                        hw_tgt='ff:ff:ff:ff:ff:ff'
+    arp_req = testutils.simple_arp_packet(
+        pktlen=60,
+        eth_dst='ff:ff:ff:ff:ff:ff',
+        eth_src=ptf_intf_mac,
+        vlan_pcp=0,
+        arp_op=1,
+        ip_snd=str(ptf_intf_ipv4_addr),
+        ip_tgt=str(dut_ipv4),
+        hw_snd=ptf_intf_mac,
+        hw_tgt='ff:ff:ff:ff:ff:ff'
     )
-    
+
     # Expected ARP reply packet from DUT
-    arp_reply = testutils.simple_arp_packet(eth_dst=ptf_intf_mac,
-                                        eth_src=dut_mac,
-                                        arp_op=2,
-                                        ip_snd=str(dut_ipv4),
-                                        ip_tgt=str(ptf_intf_ipv4_addr),
-                                        hw_snd=dut_mac,
-                                        hw_tgt=ptf_intf_mac
+    arp_reply = testutils.simple_arp_packet(
+        eth_dst=ptf_intf_mac,
+        eth_src=dut_mac,
+        arp_op=2,
+        ip_snd=str(dut_ipv4),
+        ip_tgt=str(ptf_intf_ipv4_addr),
+        hw_snd=dut_mac,
+        hw_tgt=ptf_intf_mac
     )
 
     logger.info("Sending ARP request for target {} from PTF interface {}".format(dut_ipv4, ptf_intf_index))
@@ -158,6 +159,7 @@ def test_ptf_arp_learns_mac(
         "FDB did not learn PTF MAC after ARP request"
     )
 
+
 def test_dut_arping_learns_mac(
     rand_selected_dut,
     ptfadapter,
@@ -166,28 +168,37 @@ def test_dut_arping_learns_mac(
     tbinfo,
     setup_vlan_arp_responder  # noqa: F811
 ):
-
+    """
+    After fdb_cleanup and clearing DUT ARP cache,
+    Enable PTF to respond to arping,
+    Simulate arping from DUT to PTF,
+    verify DUT learns PTF MAC in FDB
+    """
+    # Setup PTF responder info
     vlan_name, ipv4_base, _, ip_offset = setup_vlan_arp_responder
     ptf_ip = str(ipv4_base.ip + ip_offset)
     logger.info("PTF responder IP (setup_vlan_arp_responder): {}".format(ptf_ip))
 
+    # Setup PTF interface info
     ptf_intf_ipv4_addr, _, _, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_mac = ptfadapter.dataplane.get_mac(0, ptf_intf_index)
     if isinstance(ptf_intf_mac, (bytes, bytearray)):
         ptf_intf_mac = ptf_intf_mac.decode()
-    
+
+    # Setup DUT info
     duthost = rand_selected_dut
     vlan_name, dut_ipv4 = get_first_vlan_ipv4(config_facts)
     logger.info("DUT VLAN IPv4: {}".format(dut_ipv4))
 
+    # Cleanup FDB and DUT ARP cache
     fdb_cleanup(duthost)
     clear_dut_arp_cache(duthost)
     ptfadapter.dataplane.flush()
 
-    # simulate arping from DUT to PTF interface
+    # Simulate arping from DUT to PTF interface
     duthost.shell(f"arping -c 1 -I {vlan_name} {ptf_ip}")
 
-    # confirm MAC is learned on DUT FDB
+    # Confirm MAC is learned on DUT FDB
     pt_assert(
         wait_until(10, 1, 0, fdb_has_mac, duthost, ptf_intf_mac),
         "FDB did not learn PTF MAC after DUT arping"
