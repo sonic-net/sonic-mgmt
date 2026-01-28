@@ -2567,6 +2567,13 @@ generic_config_updater/test_bgp_speaker.py::test_bgp_speaker_tc1_test_config:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20757 and '-v6-' in topo_name"
 
+generic_config_updater/test_cacl:
+  skip:
+    reason: "Skip on Cisco 8800 due to the known ACL_RULE path failed to be applied for multi-asic platform issue"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/20378"
+
 generic_config_updater/test_dhcp_relay.py:
   skip:
     reason: "Need to skip for Cisco backend platform/ generic_config_updater is not a supported feature for T2"
