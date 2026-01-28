@@ -31,7 +31,6 @@ l2_l3:
     - "x86_64-wistron_6512_32r-r0"
     - "x86_64-marvell_dbmvtx9180-r0"
     - "x86_64-nokia.*"
-    - "x86_64-micas_m2*"
     - "x86_64-nexthop*"
 
 acl_l2:
