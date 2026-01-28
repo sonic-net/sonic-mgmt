@@ -49,7 +49,7 @@
                     "sudo reboot"
                 ],
                 "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
-                "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+                "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
                 "skip_folder": "ixia pfc_asym",
                 "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo m64-t1-lag ./lab",
                 "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo m64-t1-lag ./lab",
@@ -80,7 +80,7 @@
             "telnet_flag": "False",
             "docker_prompt":"@sonic-ucs-m3-4",
             "run_type_check": "run_tests",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "sonic_mgmt_container_202405": "cicd_prod_202405",
             "sonic_mgmt_container_202505": "cicd_prod_202505",
@@ -121,7 +121,7 @@
             "docker_prompt":"@sonic-ucs-m6-26",
             "docker_count": "14",
             "run_type_check": "run_tests",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "sonic_mgmt_container_master": "cicd_prod_master",
             "sonic_mgmt_container_202511": "cicd_prod_202511",
@@ -200,7 +200,7 @@
             "sonic_mgmt_container_202012": "cicd_prod_202012",
             "sonic_mgmt_container_master": "cicd_prod_master_may_15",
             "sonic_mgmt_container_202511": "cicd_prod_202511",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "telnet_flag": "False",
             "run_type_check": "run_tests",
@@ -254,7 +254,7 @@
             "sonic_mgmt_container_202405":"cicd_prod_202405",
             "sonic_mgmt_container_202405c":"cicd_prod_202405c",
             "sonic_mgmt_container_202511": "cicd_prod_202511",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "added_folders": "",
             "run_type_check": "run_tests",
@@ -423,7 +423,7 @@
             "sonic_mgmt_container_202501": "cicd_prod_202411",
             "sonic_mgmt_container_202411": "cicd_prod_202411",
             "sonic_mgmt_container_202511": "cicd_prod_202511",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "admin_cmd_prompt": "admin@mth-t0-64:",
             "dut_ssh_prompt": "admin@9.9.2.110",
@@ -466,7 +466,7 @@
             "sonic_mgmt_container_202505": "cicd_prod_202505",
             "sonic_mgmt_container_master": "cicd_prod_master",
             "sonic_mgmt_container_202511": "cicd_prod_202511",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "admin_cmd_prompt": "admin@mth-t0-64:", 
             "pre_selection": "root@mth-t0-64:/home/cisco# ",
@@ -890,7 +890,7 @@
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo tor40 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo tor40 ./lab",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym"
         },
         "dualtor-m6-30-tornado" : {
@@ -922,7 +922,7 @@
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo tornado-dualtor ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo tornado-dualtor ./lab",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym"
         },
         "dualtor-m6-31-tornado" : {
@@ -955,7 +955,7 @@
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo tornado-dualtor ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo tornado-dualtor ./lab",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym"
         },
         "t0-m6-13-cmono" : {
@@ -990,7 +990,7 @@
                 "sudo reboot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo cmono_t0 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo cmono_t0 ./lab",
@@ -1017,7 +1017,7 @@
             "docker_count": "14",
             "docker_prompt":"@sonic-ucs-m5-11",
             "run_type_check": "run_tests",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "sonic_mgmt_container_master": "cicd_prod_master",
             "sonic_mgmt_container_202505": "cicd_prod_202505",
@@ -1368,7 +1368,7 @@
             "sonic_mgmt_container_202405c": "cicd_prod_202405c",
             "sonic_mgmt_container_202511": "cicd_prod_202511",
             "run_type_check": "run_tests",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "sonic_installer_commands":[
                 "sudo show boot",
@@ -1409,7 +1409,7 @@
             "sonic_mgmt_container_202405c": "cicd_prod_202405c",
             "sonic_mgmt_container_202511": "cicd_prod_202511",
             "run_type_check": "run_tests",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "sonic_installer_commands":[
                 "sudo show boot",
@@ -1447,7 +1447,7 @@
             "sonic_mgmt_container_202511": "cicd_prod_202511",
             "logs_path_202505": "/home/sonic/test_logs/202505/",
             "run_type_check": "run_tests",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "sonic_installer_commands":[
                 "sudo show boot",
@@ -1517,7 +1517,7 @@
             "sonic_mgmt_container_202505": "202505-sonic-mgmt",
             "sonic_mgmt_container_202511": "cicd_prod_202511",
             "run_type_check": "run_tests",
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "sonic_installer_commands":[
                 "sudo show boot",
@@ -1906,7 +1906,7 @@
                 "sudo reboot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo m64-dtor-yy41 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo m64-dtor-yy41 ./lab"
@@ -1975,7 +1975,7 @@
                 "sudo reboot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
-            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo cmono_t0 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo cmono_t0 ./lab",
