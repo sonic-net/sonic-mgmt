@@ -375,7 +375,7 @@ def test_lldp_entry_table_after_flap(
     db_instance,
     ignore_expected_loganalyzer_exceptions,
 ):
-    max_sample_size = 32
+    interfaces_count_check = 32
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Fetch interfaces from LLDP_ENTRY_TABLE
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
@@ -386,18 +386,16 @@ def test_lldp_entry_table_after_flap(
         lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
     )
     testable_interfaces = [iface for iface in lldp_entry_keys if iface != "eth0"]
-    use_bulk = len(testable_interfaces) > max_sample_size
+    use_bulk = len(testable_interfaces) > interfaces_count_check
     if use_bulk:
         logger.info("Using bulk interface flap for {} interfaces".format(len(testable_interfaces)))
-        testable_interfaces = random.sample(testable_interfaces, max_sample_size)
+        testable_interfaces = random.sample(testable_interfaces, interfaces_count_check)
         asic_interface_map = _get_interface_asic_mapping(duthost, testable_interfaces)
         for asic_str, asic_interfaces in asic_interface_map.items():
             interface_list = ",".join(asic_interfaces)
             logger.info("Flapping interfaces: {}".format(interface_list))
             _shutdown_startup_interface(duthost, interface_list, asic_str)
-
         time.sleep(10)
-
         for interface in testable_interfaces:
             _verify_interface_lldp_recovery(db_instance, interface, lldpctl_interfaces, delay=0)
     else:
