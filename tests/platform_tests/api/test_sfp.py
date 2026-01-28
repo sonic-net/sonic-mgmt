@@ -498,7 +498,7 @@ class TestSfpApi(PlatformApiTestBase):
                         UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_AMPH_BACKPLANE_KEYS
                     else:
 
-                        if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
+                        if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
                             active_apsel_hostlane_count = 8
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
                                 self.EXPECTED_XCVR_NEW_CMIS_INFO_KEYS + \
@@ -531,8 +531,8 @@ class TestSfpApi(PlatformApiTestBase):
                     unexpected_keys = set(actual_keys) - set(UPDATED_EXPECTED_XCVR_INFO_KEYS +
                                                              self.NEWLY_ADDED_XCVR_INFO_KEYS)
                     for key in unexpected_keys:
-                        # hardware_rev is applicable only for QSFP-DD or OSFP
-                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
+                        # hardware_rev is applicable only for QSFP-DD, OSFP or QSFP+C
+                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
                             continue
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
