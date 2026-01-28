@@ -322,8 +322,11 @@ def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
             pytest_assert(current_status_fec == fec,
                           "Failed to properly configure interface FEC to requested value {}".format(fec))
 
-            # The rollback after the test cannot revert the fec, when fec is not configured in config_db.json
-            if intf_init_status[port].get("fec", "N/A") == "N/A":
+            # The rollback after the test cannot revert the fec, when fec is not configured in config_db.json.
+            # For ports with PAM4 speeds, only "rs" fec is supported. Even when fec is not configured in
+            # config_db.json, operational fec can only be "rs" fec. Configuring "none" fec may fail.
+            if intf_init_status[port].get("fec", "N/A") == "N/A" and \
+                    is_valid_fec_state_db(duthost, "none", port, namespace=asic_namespace):
                 out = duthost.command("config interface {} fec {} none".format(namespace_prefix, port))
                 pytest_assert(out["rc"] == 0, "Failed to set {} fec to none. Error: {}".format(port, out["stderr"]))
         else:
