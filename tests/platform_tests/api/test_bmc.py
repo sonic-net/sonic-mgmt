@@ -3,6 +3,7 @@ import logging
 import json
 import pytest
 import random
+import re
 import secrets
 import time
 from urllib.parse import urlparse
@@ -11,6 +12,7 @@ from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import bmc
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
+from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from .platform_api_test_base import PlatformApiTestBase
 from tests.common.helpers.firmware_helper import show_firmware, FW_TYPE_UPDATE, PLATFORM_COMP_PATH_TEMPLATE
 
@@ -37,6 +39,21 @@ BMC_INSTALL_COMMAND = "sudo config platform firmware {} chassis component BMC fw
 BMC_GET_STATUS_COMMAND = "curl -k -u {}:{} -X GET https://{}/redfish/v1/Chassis/MGX_ERoT_BMC_0"
 BMC_COMPLETE_STATUS = "Completed"
 
+# BMC session test commands
+BMC_OPEN_SESSION_COMMAND = "sudo config bmc open-session"
+BMC_CLOSE_SESSION_COMMAND = "sudo config bmc close-session --session-id {}"
+
+# Redfish API endpoints (for session tests)
+REDFISH_SESSION_SERVICE_ENDPOINT = "/redfish/v1/SessionService/Sessions"
+REDFISH_EVENT_SUBSCRIPTIONS_ENDPOINT = "/redfish/v1/EventService/Subscriptions"
+
+# Curl command templates (for session tests)
+CURL_TOKEN_AUTH_GET = "curl -k -H \"X-Auth-Token: {}\" -X GET https://{}{}"
+CURL_TOKEN_AUTH_GET_WITH_HEADERS = "curl -k -i -H \"X-Auth-Token: {}\" -X GET https://{}{}"
+CURL_TOKEN_AUTH_POST = "curl -k -i -H \"X-Auth-Token: {}\" -H \"Content-Type: application/json\" -X POST https://{}{} -d '{}'"
+CURL_TOKEN_AUTH_DELETE = "curl -i -k -H \"X-Auth-Token: {}\" -X DELETE https://{}{}"
+CURL_BASIC_AUTH_GET = "curl -k -u {}:{} -X GET https://{}{}"
+CURL_BASIC_AUTH_DELETE = "curl -k -u {}:{} -X DELETE https://{}{}"
 
 def pytest_generate_tests(metafunc):
     """
@@ -57,26 +74,25 @@ def pytest_generate_tests(metafunc):
             logger.info(f"BMC firmware update test: {completeness_level} level, testing both install and update")
 
 
-@pytest.fixture(scope="module", autouse=True)
-def is_bmc_present(duthosts, enum_rand_one_per_hwsku_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    if not bmc.is_bmc_exists(duthost):
-        pytest.skip("BMC is not present, skipping BMC platform API tests")
-
-
-@pytest.fixture(scope="module")
-def bmc_ip(duthosts, enum_rand_one_per_hwsku_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    platform = duthost.shell("sudo show platform summary | grep Platform | awk '{print $2}'")["stdout"]
-    bmc_config_file = f"/usr/share/sonic/device/{platform}/bmc.json"
-    duthost.fetch(src=bmc_config_file, dest='/tmp')
-    with open(f'/tmp/{duthost.hostname}/{bmc_config_file}', "r") as f:
-        bmc_config = json.load(f)
-    yield bmc_config["bmc_addr"]
-
-
 class TestBMCApi(PlatformApiTestBase):
     """Platform and Host API test cases for the BMC class"""
+
+    @pytest.fixture(scope="class", autouse=True)
+    def skip_if_no_bmc(self, duthosts, enum_rand_one_per_hwsku_hostname):
+        """Skip tests if BMC is not present - these tests require BMC"""
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        if not bmc.is_bmc_exists(duthost):
+            pytest.skip("BMC is not present, skipping BMC platform API tests")
+
+    @pytest.fixture(scope="class")
+    def bmc_ip(self, duthosts, enum_rand_one_per_hwsku_hostname, skip_if_no_bmc):
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        platform = duthost.shell("sudo show platform summary | grep Platform | awk '{print $2}'")["stdout"]
+        bmc_config_file = f"/usr/share/sonic/device/{platform}/bmc.json"
+        duthost.fetch(src=bmc_config_file, dest='/tmp')
+        with open(f'/tmp/{duthost.hostname}/{bmc_config_file}', "r") as f:
+            bmc_config = json.load(f)
+        yield bmc_config["bmc_addr"]
 
     @pytest.fixture(autouse=True)
     def prepare_param(self, creds):
@@ -217,6 +233,48 @@ class TestBMCApi(PlatformApiTestBase):
             return True
         logger.info(f"Failed to retrieve BMC dump: {msg}")
         return False
+
+    @pytest.fixture
+    def cleanup_bmc_subscriptions(self, duthosts, enum_rand_one_per_hwsku_hostname, bmc_ip, prepare_param):
+        """Cleanup BMC subscriptions before and after test"""
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+        # Setup: cleanup before test
+        self._cleanup_existing_subscriptions(duthost, bmc_ip)
+
+        yield
+
+        # Teardown: cleanup after test
+        self._cleanup_existing_subscriptions(duthost, bmc_ip)
+
+    def _cleanup_existing_subscriptions(self, duthost, bmc_ip):
+        """
+        Cleanup all existing event subscriptions to ensure clean test environment
+
+        Args:
+            duthost: DUT host object
+            bmc_ip: BMC IP address
+        """
+        get_cmd = CURL_BASIC_AUTH_GET.format(
+            self.bmc_root_user, self.bmc_root_password, bmc_ip, REDFISH_EVENT_SUBSCRIPTIONS_ENDPOINT)
+        get_subs_result = duthost.command(get_cmd, module_ignore_errors=True)
+
+        if get_subs_result["rc"] == 0 and get_subs_result["stdout"]:
+            try:
+                subs_data = json.loads(get_subs_result["stdout"])
+                existing_subs = self._extract_ids_from_members(subs_data)
+                for sub_id in existing_subs:
+                    delete_cmd = CURL_BASIC_AUTH_DELETE.format(
+                        self.bmc_root_user, self.bmc_root_password, bmc_ip,
+                        f"{REDFISH_EVENT_SUBSCRIPTIONS_ENDPOINT}/{sub_id}")
+                    duthost.command(delete_cmd, module_ignore_errors=True)
+                if existing_subs:
+                    logger.info(f"Deleted {len(existing_subs)} existing subscriptions")
+                    return len(existing_subs)
+            except (json.JSONDecodeError, KeyError, TypeError) as e:
+                logger.warning(f"Failed to parse subscription list response: {e}, response: {get_subs_result['stdout']}")
+                return 0
+        return 0
 
     def _get_bmc_version(self, duthost, timeout=120):
         start_time = time.time()
@@ -449,3 +507,170 @@ class TestBMCApi(PlatformApiTestBase):
         bmc_version_current = self._get_bmc_version(duthost)
         logger.info(f"BMC version after recovery: {bmc_version_current}")
         pytest_assert(bmc_version_latest != bmc_version_current, "BMC firmware recovery failed")
+
+    def _parse_bmc_session(self, output):
+        """Parse BMC session output to extract session ID and token"""
+        session_id_match = re.search(r'Session ID:\s*(\S+)', output)
+        token_match = re.search(r'Token:\s*(\S+)', output)
+        return (
+            session_id_match.group(1) if session_id_match else None,
+            token_match.group(1) if token_match else None
+        )
+
+    def _extract_ids_from_members(self, data):
+        """Extract IDs from Redfish Members list (works for both sessions and subscriptions)
+
+        Extracts the last path segment from @odata.id field in each Member.
+        Example: "/redfish/v1/SessionService/Sessions/abc123" -> "abc123"
+        Filters out empty or invalid IDs.
+        """
+        ids = set()
+        for m in data.get("Members", []):
+            odata_id = m.get("@odata.id")
+            if odata_id:
+                id_segment = odata_id.rstrip("/").split("/")[-1]
+                if id_segment:
+                    ids.add(id_segment)
+        return ids
+
+    def test_bmc_session_open_close(self, duthosts, enum_rand_one_per_hwsku_hostname, bmc_ip, cleanup_bmc_subscriptions):
+        """
+        Test CLIs commands for open and close BMC session
+
+        Steps:
+        1. Open BMC session and cleanup existing subscriptions
+        2. Verify session exists via Redfish API
+        3. Create event subscription and verify
+        4. Close session and verify token becomes invalid
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        session_id = None
+        new_session_id = None
+
+        try:
+            with allure.step("Open BMC session"):
+                open_session_result = duthost.command(BMC_OPEN_SESSION_COMMAND)
+                pytest_assert(open_session_result["rc"] == 0, f"Failed to open session: {open_session_result['stderr']}")
+                session_id, token = self._parse_bmc_session(open_session_result["stdout"])
+                logger.info(f"Session opened: {session_id}")
+                pytest_assert(session_id and token, "Session ID or token not returned")
+
+            with allure.step("Verify session exists via Redfish API"):
+                get_sessions_cmd = CURL_TOKEN_AUTH_GET.format(token, bmc_ip, REDFISH_SESSION_SERVICE_ENDPOINT)
+                sessions_result = duthost.command(get_sessions_cmd)
+                try:
+                    sessions_data = json.loads(sessions_result["stdout"])
+                except json.JSONDecodeError as e:
+                    pytest_assert(False, f"Failed to parse sessions response as JSON: {e}, response: {sessions_result['stdout']}")
+                member_session_ids = self._extract_ids_from_members(sessions_data)
+                pytest_assert(session_id in member_session_ids,
+                              f"Session {session_id} not found in Members: {member_session_ids}")
+
+            with allure.step("Create event subscription"):
+                subscription_data = json.dumps({"Destination": "https://example.com/events", "Protocol": "Redfish"})
+                create_subscription_cmd = CURL_TOKEN_AUTH_POST.format(
+                    token, bmc_ip, REDFISH_EVENT_SUBSCRIPTIONS_ENDPOINT, subscription_data)
+                subscription_result = duthost.command(create_subscription_cmd)
+
+                # Extract subscription ID from Location header
+                location_match = re.search(r'Location:\s*.+/([^/\s]+)', subscription_result["stdout"], re.IGNORECASE)
+                subscription_id = location_match.group(1) if location_match else None
+                pytest_assert(subscription_id, f"Failed to extract subscription ID")
+                logger.info(f"Subscription created: {subscription_id}")
+
+            with allure.step("Close session and verify token becomes invalid"):
+                close_result = duthost.command(BMC_CLOSE_SESSION_COMMAND.format(session_id))
+                pytest_assert(close_result["rc"] == 0, f"Failed to close session: {close_result['stderr']}")
+                logger.info(f"Session {session_id} closed")
+                session_id = None  # Mark as closed
+
+                invalid_get_cmd = CURL_TOKEN_AUTH_GET_WITH_HEADERS.format(token, bmc_ip, REDFISH_SESSION_SERVICE_ENDPOINT)
+                invalid_get_result = duthost.command(invalid_get_cmd, module_ignore_errors=True)
+                pytest_assert(invalid_get_result["stdout"].startswith("HTTP/1.1 401 Unauthorized"),
+                             f"GET with invalid token should return HTTP 401 Unauthorized, got: {invalid_get_result['stdout']}")
+
+                invalid_post_result = duthost.command(create_subscription_cmd, module_ignore_errors=True)
+                pytest_assert(invalid_post_result["stdout"].startswith("HTTP/1.1 401 Unauthorized"),
+                              f"POST with invalid token should return HTTP 401 Unauthorized, got: {invalid_post_result['stdout']}")
+
+            with allure.step("Open new session and cleanup subscription"):
+                new_session_result = duthost.command(BMC_OPEN_SESSION_COMMAND)
+                pytest_assert(new_session_result["rc"] == 0, f"Failed to open new session: {new_session_result['stderr']}")
+                new_session_id, new_token = self._parse_bmc_session(new_session_result["stdout"])
+                pytest_assert(new_session_id and new_token, "New session ID or token not returned")
+                logger.info(f"New session opened: {new_session_id}")
+
+                # Delete subscription
+                delete_result = duthost.command(
+                    CURL_TOKEN_AUTH_DELETE.format(new_token, bmc_ip, f"{REDFISH_EVENT_SUBSCRIPTIONS_ENDPOINT}/{subscription_id}"),
+                    module_ignore_errors=True)
+                pytest_assert(delete_result["stdout"].startswith("HTTP/1.1 200 OK") or 
+                             delete_result["stdout"].startswith("HTTP/1.1 204 No Content"),
+                              f"DELETE should return HTTP 200 OK or 204 No Content, got: {delete_result['stdout']}")
+
+                # Verify subscription is deleted by checking the specific subscription returns 404
+                verify_deleted_cmd = CURL_TOKEN_AUTH_GET_WITH_HEADERS.format(
+                    new_token, bmc_ip, f"{REDFISH_EVENT_SUBSCRIPTIONS_ENDPOINT}/{subscription_id}")
+                verify_deleted_result = duthost.command(verify_deleted_cmd, module_ignore_errors=True)
+                pytest_assert(verify_deleted_result["stdout"].startswith("HTTP/1.1 404 Not Found"),
+                              f"GET deleted subscription should return HTTP 404 Not Found, got: {verify_deleted_result['stdout']}")
+                logger.info(f"Subscription {subscription_id} deleted and verified (404 status)")
+
+        finally:
+            # Cleanup: close any sessions that may still be open
+            if new_session_id:
+                duthost.command(BMC_CLOSE_SESSION_COMMAND.format(new_session_id), module_ignore_errors=True)
+                logger.info(f"Cleanup: closed session {new_session_id}")
+            if session_id:
+                duthost.command(BMC_CLOSE_SESSION_COMMAND.format(session_id), module_ignore_errors=True)
+                logger.info(f"Cleanup: closed session {session_id}")
+
+
+class TestBMCSessionNonBMC:
+    """Test BMC session commands on Non-BMC switches"""
+
+    @pytest.fixture(autouse=True)
+    def skip_if_bmc_present_or_unsupported(self, duthosts, enum_rand_one_per_hwsku_hostname):
+        """Skip these tests if BMC is present or BMC commands are not supported"""
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        if bmc.is_bmc_exists(duthost):
+            pytest.skip("BMC is present, skipping Non-BMC switch tests")
+        # Check if 'config bmc' command is supported
+        check_result = duthost.command("sudo config bmc --help", module_ignore_errors=True)
+        output = check_result["stderr"]
+        logger.info(f"BMC command check - stdout: {check_result['stdout']}, stderr: {check_result['stderr']}")
+        if "No such command" in output:
+            pytest.skip("BMC commands are not supported on this image version")
+
+    def test_bmc_commands_on_non_bmc_switch(self, duthosts, enum_rand_one_per_hwsku_hostname):
+        """
+        Test BMC session commands on a Non-BMC switch
+
+        Expected output: "BMC is not available on this platform"
+
+        Steps:
+        1. Run 'config bmc open-session' and verify error returned
+        2. Run 'config bmc close-session' and verify error returned
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        expected_error = "BMC is not available"
+
+        with allure.step("Test 'config bmc open-session' returns error"):
+            open_result = duthost.command(BMC_OPEN_SESSION_COMMAND, module_ignore_errors=True)
+            logger.info(f"open-session output: {open_result['stdout']}")
+            pytest_assert(
+                expected_error in open_result["stdout"],
+                f"Expected '{expected_error}' in stdout, got: {open_result['stdout']}"
+            )
+
+        with allure.step("Test 'config bmc close-session' returns error"):
+            invalid_session_id = "invalid-session"
+            close_result = duthost.command(
+                BMC_CLOSE_SESSION_COMMAND.format(invalid_session_id),
+                module_ignore_errors=True
+            )
+            logger.info(f"close-session output: {close_result['stdout']}")
+            pytest_assert(
+                expected_error in close_result["stdout"],
+                f"Expected '{expected_error}' in stdout, got: {close_result['stdout']}"
+            )
