@@ -383,13 +383,14 @@ def is_traffic_converged(snappi_api, flow_names=[], threshold_perentage=0.01):
     for fs in flow_stats:
         tx_rate = float(fs.frames_tx_rate)
         rx_rate = float(fs.frames_rx_rate)
-        logger.info('Loss Percentage: {}'.format(fs.loss))
+        logger.info('Loss Percentage for {} : {}'.format(fs.name, fs.loss))
         logger.info('Tx Rate: {}'.format(tx_rate))
         logger.info('Rx Rate: {}'.format(rx_rate))
         if tx_rate == 0:
             return False
-        loss_percentage = ((tx_rate - rx_rate) / tx_rate) * 100
-        if loss_percentage > threshold:
+        rate_difference = ((tx_rate - rx_rate) / tx_rate) * 100
+        logger.info('Rate Difference Percentage for {} : {}'.format(fs.name, rate_difference))
+        if rate_difference > threshold:
             return False
     return True
 
