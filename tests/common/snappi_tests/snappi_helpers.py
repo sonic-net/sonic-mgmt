@@ -12,7 +12,8 @@ import time
 import ipaddr
 import math
 from enum import Enum
-
+import logging
+logger = logging.getLogger(__name__)
 
 class StrEnum(str, Enum):
     """
@@ -381,6 +382,9 @@ def is_traffic_converged(snappi_api, flow_names=[], threshold_perentage=0.01):
     for fs in flow_stats:
         tx_rate = float(fs.frames_tx_rate)
         rx_rate = float(fs.frames_rx_rate)
+        logger.info('Loss Percentage: {}'.format(fs.loss))
+        logger.info('Tx Rate: {}'.format(tx_rate))
+        logger.info('Rx Rate: {}'.format(rx_rate))
         if tx_rate == 0:
             return False
         loss_percentage = ((tx_rate - rx_rate) / tx_rate) * 100
