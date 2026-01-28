@@ -2,6 +2,7 @@ import re
 import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from ipaddress import ip_interface
 
 
 logger = logging.getLogger(__name__)
@@ -71,3 +72,22 @@ def fdb_cleanup(duthost):
         duthost.command('fdbclear')
         pytest_assert(wait_until(200, 2, 0, lambda: fdb_table_has_no_dynamic_macs(duthost) is True),
                       "FDB Table Cleanup failed")
+
+def get_dut_mac(duthost, config_facts, tbinfo):
+    if 'dualtor' in tbinfo['topo']['name']:
+        for vlan_details in list(config_facts['VLAN'].values()):
+            return vlan_details['mac'].lower()
+    return duthost.shell("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0]
+
+def fdb_has_mac(duthost, mac):
+    mac = mac.lower()
+    return any(mac in line.lower() for line in duthost.command("show mac")["stdout_lines"])
+
+def get_first_vlan_ipv4(config_facts):
+    vlan_intfs = config_facts.get("VLAN_INTERFACE", {})
+    for intf, addrs in vlan_intfs.items():
+        for addr in addrs:
+            if ":" in addr:
+                continue
+            return intf, ip_interface(addr).ip
+    return None, None
