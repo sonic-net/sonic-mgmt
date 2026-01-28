@@ -141,6 +141,7 @@ FWD:
     sfd:
       sim:
         - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
+        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
   t2:
     sfd:
       hw:
