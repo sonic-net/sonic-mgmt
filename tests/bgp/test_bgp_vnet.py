@@ -218,10 +218,11 @@ def setup_vnet(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost,
     restore_config_db(localhost, duthost)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="module", autouse=True)
 def mg_facts(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    g_vars["mg_facts"] = mg_facts
     return mg_facts
 
 
@@ -348,7 +349,8 @@ def get_ptf_port_index(interface_name):
     """
     Convert Ethernet interface name to PTF port index (Ethernet112 → 28).
     """
-    return int(interface_name.replace("Ethernet", "")) // 4
+    mg_facts = g_vars["mg_facts"]
+    return int(mg_facts['minigraph_ptf_indices'][interface_name])
 
 
 def get_expected_unexpected_ptf_ports(cfg_facts, vnet_expected, vnet_unexpected):
@@ -400,7 +402,7 @@ def test_dynamic_peer_vnet(duthosts, rand_one_dut_hostname, cfg_facts):
         props = g_vars['props']
         route_count = props['podset_number'] * \
             props['tor_number'] * props['tor_subnet_number']
-
+        time.sleep(30)
         # Validate static and dynamic peers are established and have correct route counts inside VNET.
         for vnet in cfg_facts['VNET']:
             bgp_summary_string = duthost.shell(
