@@ -4232,7 +4232,6 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         router_mac = self.test_params['router_mac']
         sonic_version = self.test_params['sonic_version']
         asic_type = self.test_params['sonic_asic_type']
-        default_packet_length = 1000
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
@@ -4245,6 +4244,17 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         exp_ip_id = 100
         platform_asic = self.test_params['platform_asic']
         ecn_queue_status = self.test_params['ecn_queue_status']
+
+        if 'packet_size' in self.test_params:
+            packet_length = self.test_params['packet_size']
+        else:
+            packet_length = 1000
+        if 'cell_size' in self.test_params:
+            cell_size = self.test_params['cell_size']
+            cell_occupancy = (packet_length + cell_size - 1) // cell_size
+        else:
+            cell_occupancy = 1
+
         # get counter names to query
         ingress_counters, egress_counters = get_counter_names(sonic_version)
 
@@ -4276,7 +4286,7 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
             tos = dscp << 2
             tos |= ecn
 
-            pkt = construct_ip_pkt(default_packet_length,
+            pkt = construct_ip_pkt(packet_length,
                                    pkt_dst_mac,
                                    src_port_mac,
                                    src_port_ip,
@@ -4359,9 +4369,15 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                 assert (int(stdOut[0].split()[4]) == marked_cnt)
 
             assert (port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS] >= num_of_pkts)
-            if (ecn == 0):
+            if ecn == 0:
                 assert (marked_cnt == 0)
+                transmitted_data = port_counters[TRANSMITTED_PKTS] * cell_occupancy
+                assert (port_counters[TRANSMITTED_OCTETS] <= limit * 1.05)
+                assert (transmitted_data >= min_limit)
             else:
+                non_marked_data = not_marked_cnt * cell_occupancy
+                assert (limit * 0.95 <= non_marked_data <= limit * 1.05)
+                assert (limit * 0.45 <= marked_cnt <= limit * 0.55)
                 assert (marked_cnt >= (num_of_pkts - not_marked_cnt))
 
                 for cntr in ingress_counters:
