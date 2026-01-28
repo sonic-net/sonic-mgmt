@@ -9,6 +9,7 @@ from multiprocessing.pool import ThreadPool
 from collections import deque
 
 from .helpers.assertions import pytest_assert
+from .helpers.parallel_utils import synchronized_reboot
 from .platform.interface_utils import check_interface_status_of_up_ports
 from .platform.processes_utils import wait_critical_processes
 from .plugins.loganalyzer.utils import support_ignore_loganalyzer
@@ -280,6 +281,7 @@ def check_dshell_ready(duthost):
 
 
 @support_ignore_loganalyzer
+@synchronized_reboot
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
            reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
@@ -643,7 +645,7 @@ def check_reboot_cause_history(dut, reboot_type_history_queue):
                              reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]):
                 logger.error("The {} reboot-cause not match. expected_reboot type={}, actual_reboot_cause={}".format(
                     index, reboot_ctrl_dict[reboot_type]["cause"],
-                    reboot_cause_history_got[reboot_type_history_len - index]["cause"]))
+                    reboot_cause_history_got[reboot_type_history_len - index - 1]["cause"]))
                 return False
         return True
     logger.error("The number of expected reboot-cause:{} is more than that of actual reboot-cuase:{}".format(

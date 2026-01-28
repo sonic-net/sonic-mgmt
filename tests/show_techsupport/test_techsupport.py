@@ -10,7 +10,7 @@ from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.utilities import wait_until, check_msg_in_syslog
+from tests.common.utilities import is_ipv6_only_topology, wait_until, check_msg_in_syslog
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
 from pkg_resources import parse_version
 
@@ -51,9 +51,10 @@ SESSION_INFO = {
     'queue': "0"
 }
 
+IPV6_IPS = {'src_ip': "2001::1", 'dst_ip': "2001::2"}
+
 DPU_PLATFORM_DUMP_FILES = ["sysfs_tree", "sys_version", "dmesg",
                            "dmidecode", "lsmod", "lspci", "top", "bin/platform-dump.sh"]
-
 # ACL PART #
 
 
@@ -213,7 +214,8 @@ def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture(scope='function')
-def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, mirror_setup, gre_version, request):
+def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip,
+              mirror_setup, gre_version, request, tbinfo):
     """
     fixture gathers all configuration fixtures
     :param duthost: DUT host
@@ -228,13 +230,23 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, 
     }
     logger.info('Extra variables for MIRROR table:\n{}'.format(pprint.pformat(extra_vars)))
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    cmd = "config mirror_session add {} {} {} {} {} {} {}"
+    if is_ipv6_only_topology(tbinfo):
+        SESSION_INFO['src_ip'] = IPV6_IPS['src_ip']
+        SESSION_INFO['dst_ip'] = IPV6_IPS['dst_ip']
+        cmd = "redis-cli -n 4 hset \"MIRROR_SESSION|{}\" src_ip {} dst_ip {} dscp {} ttl {} type {} queue {}"
 
+    cmd = cmd.format(
+        SESSION_INFO['name'],
+        SESSION_INFO['src_ip'],
+        neighbor_ip,
+        SESSION_INFO['dscp'],
+        SESSION_INFO['ttl'],
+        SESSION_INFO['gre'],
+        SESSION_INFO['queue']
+    )
     duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_RULE_PERSISTENT_TEMPLATE), dest=acl_rule_file)
-    duthost.command('config mirror_session add {} {} {} {} {} {} {}'.format(SESSION_INFO['name'],
-                                                                            SESSION_INFO['src_ip'], neighbor_ip,
-                                                                            SESSION_INFO['dscp'], SESSION_INFO['ttl'],
-                                                                            SESSION_INFO['gre'], SESSION_INFO['queue'])
-                    )
+    duthost.command(cmd)
 
     logger.info('Loading acl mirror rules ...')
     load_rule_cmd = "acl-loader update full {} --session_name={}".format(acl_rule_file, SESSION_INFO['name'])
@@ -399,6 +411,11 @@ def validate_dump_file_content(duthost, dump_folder_path):
     if duthost.facts['asic_type'] in ["mellanox"]:
         sai_sdk_dump = duthost.command("ls {}/sai_sdk_dump/".format(dump_folder_path))["stdout_lines"]
         assert len(sai_sdk_dump), "Folder 'sai_sdk_dump' in dump archive is empty. Expected not empty folder"
+        if "dpu" not in duthost.hostname:
+            # sai XML dump is only support on the switch
+            sai_xml_regex = re.compile(r'sai_[\w-]+\.xml(?:\.gz)?')
+            assert any(sai_xml_regex.fullmatch(file_name) for file_name in sai_sdk_dump), \
+                   "No SAI XML file found in sai_sdk_dump folder"
     assert len(dump) > MIN_FILES_NUM, "Seems like not all expected files available in 'dump' folder in dump archive. " \
                                       "Test expects not less than 50 files. Available files: {}".format(dump)
     assert len(etc) > MIN_FILES_NUM, "Seems like not all expected files available in 'etc' folder in dump archive. " \
@@ -528,7 +545,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     return cmds_to_check
 
 
-def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
+def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist, tbinfo=None):
     """
     Check commands within a group against the command list
 
@@ -540,6 +557,9 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
     for cmd_name in cmd_group_to_check:
         found = False
         cmd_str = cmd_name if isinstance(cmd_name, str) else cmd_name.pattern
+        if tbinfo and is_ipv6_only_topology(tbinfo) and 'ipv4' in cmd_str:
+            logger.info("Skipping IPv4 command {} on IPv6-only topology".format(cmd_str))
+            continue
         logger.info("Checking for {}".format(cmd_str))
 
         for command in cmdlist:
@@ -566,7 +586,7 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
 
 
 def test_techsupport_commands(
-        duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check, skip_on_dpu):  # noqa F811
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check, skip_on_dpu, tbinfo):  # noqa F811
     """
     This test checks list of commands that will be run when executing
     'show techsupport' CLI against a standard expected list of commands
@@ -598,7 +618,7 @@ def test_techsupport_commands(
 
     for cmd_group_name, cmd_group_to_check in list(commands_to_check.items()):
         cmd_not_found.update(
-            check_cmds(cmd_group_name, cmd_group_to_check, cmd_list, strbash_in_cmdlist)
+            check_cmds(cmd_group_name, cmd_group_to_check, cmd_list, strbash_in_cmdlist, tbinfo)
         )
 
     error_message = ''
@@ -623,38 +643,69 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     if not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         pytest.skip("Skip the test, as it is supported only on DPU.")
 
-    since = str(randint(1, 5)) + " minute ago"
-    platform_dump_name = "platform-dump.tar.gz"
-    sai_sdk_dump_folder_name = "sai_sdk_dump"
-    platform_dump_folder_name = "platform-dump"
+    # amd elba dpu specific check; if not, default will be executed in else
+    if duthost.facts['platform'] in ('arm64-elba-asic-flash128-r0'):
+        cmd_output = duthost.shell('redis-dump -d 6 -k "EEPROM_INFO|0x24" -y | grep Value')['stdout_lines'][0]
+        router_mac = cmd_output.split('"')[3]
+        mac = '.'.join(re.findall('.{4}', router_mac.replace(':', '').lower()))
 
-    tar_file = gen_dump_file(duthost, since)
-    extracted_dump_folder_name, extracted_dump_folder_path = extract_file_from_tar_file(duthost, tar_file)
+        since = str(randint(1, 5)) + " minute ago"
+        platform_dump_name = f"DSC_TechSupport_{mac}_*.tar.gz"
+        platform_dump_folder_name = "polaris_techsupport"
 
-    try:
-        with allure.step('Validate that the dump file contains {} archive'.format(platform_dump_name)):
-            is_platform_dump_tar_gz_exist = duthost.shell("ls {}/{}/{}".format(
-                extracted_dump_folder_path, platform_dump_folder_name, platform_dump_name))["stdout_lines"]
-            assert is_platform_dump_tar_gz_exist, \
-                "{} doesn't exist in {}".format(platform_dump_name, extracted_dump_folder_name)
+        tar_file = gen_dump_file(duthost, since)
+        extracted_dump_folder_name, extracted_dump_folder_path = extract_file_from_tar_file(duthost, tar_file)
 
-        with allure.step('validate that {} includes the expected files'.format(platform_dump_name)):
-            validate_platform_dump_files(duthost, extracted_dump_folder_path, platform_dump_folder_name,
-                                         platform_dump_name)
+        try:
+            with allure.step('Validate that the dump file contains {} archive'.format(platform_dump_name)):
+                dsc_techsupport_tar_gz = duthost.shell("ls {}/{}/{}".format(
+                    extracted_dump_folder_path, platform_dump_folder_name, platform_dump_name))["stdout_lines"][0]
+                assert dsc_techsupport_tar_gz, \
+                    "{} doesn't exist in {}".format(platform_dump_name, extracted_dump_folder_name)
 
-        with allure.step('Validate that the dump file contains sai_sdk_dump folder'):
-            is_existing_sai_sdk_dump_folder = duthost.shell(
-                "find {} -maxdepth 1 -type d -name {}".format(
-                    extracted_dump_folder_path, sai_sdk_dump_folder_name))["stdout_lines"]
-            assert is_existing_sai_sdk_dump_folder, \
-                "Folder {} doesn't exist in dump archive".format(sai_sdk_dump_folder_name)
+            with allure.step('Validate DSC_TechSupport is not empty folder'):
+                cmd = f"tar -ztvf {dsc_techsupport_tar_gz} | awk -F'/' '{{if ($NF != \"\") print $NF}}'"
+                dsc_tech_support_files = duthost.shell(cmd)["stdout_lines"]
+                assert len(dsc_tech_support_files), \
+                    "Folder {} is empty. Expected not an empty folder".format(dsc_techsupport_tar_gz)
+        except AssertionError as err:
+            raise AssertionError(err)
+        finally:
+            duthost.command("rm -rf {}".format(tar_file))
+            duthost.command("rm -rf {}".format(extracted_dump_folder_path))
+    else:
+        since = str(randint(1, 5)) + " minute ago"
+        platform_dump_name = "platform-dump.tar.gz"
+        sai_sdk_dump_folder_name = "sai_sdk_dump"
+        platform_dump_folder_name = "platform-dump"
 
-        with allure.step('Validate sai_sdk_dump is not empty folder'):
-            sai_sdk_dump = duthost.shell("ls {}/sai_sdk_dump/".format(extracted_dump_folder_path))["stdout_lines"]
-            assert len(sai_sdk_dump), \
-                "Folder {} in dump archive is empty. Expected not an empty folder".format(sai_sdk_dump_folder_name)
-    except AssertionError as err:
-        raise AssertionError(err)
-    finally:
-        duthost.command("rm -rf {}".format(tar_file))
-        duthost.command("rm -rf {}".format(extracted_dump_folder_path))
+        tar_file = gen_dump_file(duthost, since)
+        extracted_dump_folder_name, extracted_dump_folder_path = extract_file_from_tar_file(duthost, tar_file)
+
+        try:
+            with allure.step('Validate that the dump file contains {} archive'.format(platform_dump_name)):
+                is_platform_dump_tar_gz_exist = duthost.shell("ls {}/{}/{}".format(
+                    extracted_dump_folder_path, platform_dump_folder_name, platform_dump_name))["stdout_lines"]
+                assert is_platform_dump_tar_gz_exist, \
+                    "{} doesn't exist in {}".format(platform_dump_name, extracted_dump_folder_name)
+
+            with allure.step('validate that {} includes the expected files'.format(platform_dump_name)):
+                validate_platform_dump_files(duthost, extracted_dump_folder_path, platform_dump_folder_name,
+                                             platform_dump_name)
+
+            with allure.step('Validate that the dump file contains sai_sdk_dump folder'):
+                is_existing_sai_sdk_dump_folder = duthost.shell(
+                    "find {} -maxdepth 1 -type d -name {}".format(
+                        extracted_dump_folder_path, sai_sdk_dump_folder_name))["stdout_lines"]
+                assert is_existing_sai_sdk_dump_folder, \
+                    "Folder {} doesn't exist in dump archive".format(sai_sdk_dump_folder_name)
+
+            with allure.step('Validate sai_sdk_dump is not empty folder'):
+                sai_sdk_dump = duthost.shell("ls {}/sai_sdk_dump/".format(extracted_dump_folder_path))["stdout_lines"]
+                assert len(sai_sdk_dump), \
+                    "Folder {} in dump archive is empty. Expected not an empty folder".format(sai_sdk_dump_folder_name)
+        except AssertionError as err:
+            raise AssertionError(err)
+        finally:
+            duthost.command("rm -rf {}".format(tar_file))
+            duthost.command("rm -rf {}".format(extracted_dump_folder_path))

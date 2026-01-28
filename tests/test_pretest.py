@@ -11,7 +11,6 @@ from tests.common.helpers.port_utils import get_common_supported_speeds
 
 from collections import defaultdict
 
-from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import verify_features_state
@@ -377,6 +376,90 @@ def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
 
+def get_asic_and_branch_name(duthost):
+    """
+    Extract asic and branch_name from duthost.
+    Returns (asic, branch_name), or fails if not found.
+
+    Supported image version patterns:
+    1. Master: SONiC Software Version: SONiC.master.921927-18199d73f
+    2. Internal: SONiC Software Version: SONiC.internal.135691748-dbb8d29985
+    3. Official feature branch: SONiC Software Version: SONiC.20250510.14
+    4. Private image: SONiC Software Version: SONiC.20250902_202505_counters.135706687-5bc1f6cba6
+
+    For the first 3 types, strict pattern matching is applied and URL reconstruction will proceed.
+    For private images (type 4) or any unmatched patterns, 'private' is returned and URL remains unchanged.
+    """
+    output = duthost.shell("show version", module_ignore_errors=True)['stdout']
+    version_reg = re.compile(r"sonic software version: +([^\s]+)\s", re.IGNORECASE)
+    asic_reg = re.compile(r"asic: +([^\s]+)\s", re.IGNORECASE)
+
+    version = version_reg.findall(output)[0] if version_reg.search(output) else ""
+    # only broadcom, cisco-8000, mellanox support qos sai tests
+    asic = asic_reg.findall(output)[0] if asic_reg.search(output) else ""
+
+    # Strict pattern matching for official images
+    # Pattern 1: Master - SONiC.master.XXXXXX-XXXXXXXX
+    master_pattern = re.compile(r'^SONiC\.master\.\d+-[a-f0-9]+$', re.IGNORECASE)
+    if master_pattern.match(version):
+        branch_name = "master"
+    # Pattern 2: Internal - SONiC.internal.XXXXXXXXX-XXXXXXXXXX
+    elif re.match(r'^SONiC\.internal\.\d+-[a-f0-9]+$', version, re.IGNORECASE):
+        branch_name = "internal"
+    # Pattern 3: Official feature branch - SONiC.YYYYMMDD.XX
+    elif re.match(r'^SONiC\.\d{8}\.\d+$', version, re.IGNORECASE):
+        # Extract year/month from version string to determine branch
+        date_match = re.search(r'^SONiC\.(\d{4})(\d{2})\d{2}\.\d+$', version, re.IGNORECASE)
+        if date_match:
+            year, month = date_match.groups()
+            branch_name = f"internal-{year}{month}"
+        else:
+            # This should not happen if regex above matched, but fallback to private
+            branch_name = "private"
+    else:
+        # Pattern 4: Private image or any unmatched pattern
+        # No strict matching - anything else is considered private
+        # This includes patterns like: SONiC.20250902_202505_counters.135706687-5bc1f6cba6
+        branch_name = "private"
+
+    return asic, branch_name
+
+
+def get_debian_codename_from_syncd(duthost):
+    # Get debian codename from syncd container (not host OS)
+    # This applies to: master branch and internal branches >= 202405 (except 202411)
+    try:
+        # Try to get codename from syncd container
+        codename_cmd = (
+            "grep VERSION_CODENAME /etc/os-release | "
+            "cut -d= -f2 | tr -d '\"'"
+        )
+
+        syncd_codename_result = duthost.containers().syncd().random().exec(codename_cmd,
+                                                                           shell=True,
+                                                                           module_ignore_errors=True)
+        if syncd_codename_result['rc'] == 0 and syncd_codename_result['stdout'].strip():
+            return syncd_codename_result['stdout'].strip()
+        else:
+            pytest.fail("Failed to get debian codename from syncd container. RC: {}, Output: '{}'".format(
+                syncd_codename_result['rc'], syncd_codename_result['stdout']))
+    except Exception as e:
+        pytest.fail("Exception while getting debian codename from syncd container: {}".format(str(e)))
+
+
+def is_msft_url(url):
+    """
+    Check if the URL is a MSFT URL that should be reconstructed.
+    MSFT URLs contain specific patterns that indicate they are from MSFT build system.
+    Vendor URLs (like Arista) have completely different structure and should not be modified.
+    """
+    msft_patterns = [
+        "/mssonic-public-pipelines/",
+        "/pipelines/Networking-acs-buildimage-Official/"
+    ]
+    return any(pattern in url for pattern in msft_patterns)
+
+
 def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     '''
     Install the correct python saithrift package on the ptf
@@ -385,73 +468,48 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     if not py_saithrift_url:
         pytest.skip("No URL specified for python saithrift package")
 
-    duthost = duthosts[enum_dut_hostname]
-    output = duthost.shell("show version", module_ignore_errors=True)['stdout']
-    version_reg = re.compile(r"sonic software version: +([^\s]+)\s", re.IGNORECASE)
-    asic_reg = re.compile(r"asic: +([^\s]+)\s", re.IGNORECASE)
-    # sample value: SONiC.20240510.33, SONiC.20250505.07, SONiC.internal.129741107-8524154c2d,
-    # SONiC.master.882522-695c23859
-    version = version_reg.findall(output)[0] if version_reg.search(output) else ""
-    # only broadcom, cisco-8000, mellanox support qos sai tests
-    asic = asic_reg.findall(output)[0] if asic_reg.search(output) else ""
-
-    if "master" in version:
-        branch_name = "master"
-    elif "internal" in version:
-        branch_name = "internal"
-    else:
-        # Extract year/month from version string to determine branch
-        date_match = re.search(r'(\d{4})(\d{2})', version)
-        if date_match:
-            year, month = date_match.groups()
-            branch_name = f"internal-{year}{month}"
-        else:
-            pytest.fail("Unable to parse or recognize version format: {}".format(version))
-
-    # Apply special codename overrides for specific internal branches
-    if branch_name == "internal-202411" and asic != "mellanox":
-        # internal-202411 has saithrift URL hardcoded to bullseye for non-mellanox platform
-        debian_codename = "bullseye"
-    elif (branch_name.startswith("internal-") and branch_name < "internal-202405"):
-        # For internal branches older than 202405, use the original URL without modification
-        # No need to get debian_codename as URL won't be modified
-        debian_codename = None
-    else:
-        # Get debian codename from syncd container (not host OS)
-        # This applies to: master branch and internal branches >= 202405 (except 202411)
-        try:
-            # Try to get codename from syncd container
-            if duthost.is_multi_asic:
-                syncd_codename_cmd = (f"docker exec syncd{duthost.asics[0].asic_index} "
-                                      f"grep VERSION_CODENAME /etc/os-release | "
-                                      f"cut -d= -f2 | tr -d '\"'")
-            else:
-                syncd_codename_cmd = ("docker exec syncd grep VERSION_CODENAME /etc/os-release | "
-                                      "cut -d= -f2 | tr -d '\"'")
-            syncd_codename_result = duthost.shell(syncd_codename_cmd, module_ignore_errors=True)
-            if syncd_codename_result['rc'] == 0 and syncd_codename_result['stdout'].strip():
-                debian_codename = syncd_codename_result['stdout'].strip()
-            else:
-                pytest.fail("Failed to get debian codename from syncd container. RC: {}, Output: '{}'".format(
-                    syncd_codename_result['rc'], syncd_codename_result['stdout']))
-        except Exception as e:
-            pytest.fail("Exception while getting debian codename from syncd container: {}".format(str(e)))
-
     pkg_name = py_saithrift_url.split("/")[-1]
-    ip_addr = py_saithrift_url.split("/")[2]
     ptfhost.shell("rm -f {}".format(pkg_name))
 
-    if branch_name.startswith("internal-") and branch_name < "internal-202405":
-        # For internal branches older than 202405, use the original URL without modification
-        pass
-    elif branch_name == "master":
-        py_saithrift_url = (f"http://{ip_addr}/mssonic-public-pipelines/"
-                            f"Azure.sonic-buildimage.official.{asic}/master/{asic}/"
-                            f"latest/target/debs/{debian_codename}/{pkg_name}")
-    else:
-        # For internal branches newer than 202405 and other branches
-        py_saithrift_url = (f"http://{ip_addr}/pipelines/Networking-acs-buildimage-Official/"
-                            f"{asic}/{branch_name}/latest/target/debs/{debian_codename}/{pkg_name}")
+    # Check if this is a MSFT URL that should be reconstructed
+    # Vendor URLs (like Arista) have different structure and should not be modified
+    if is_msft_url(py_saithrift_url):
+        duthost = duthosts[enum_dut_hostname]
+
+        # This is a MSFT URL - proceed with reconstruction logic
+        asic, branch_name = get_asic_and_branch_name(duthost)
+
+        # Only reconstruct URL for official images (master, internal, internal-YYYYMM)
+        # Type 4: Private images keep original URL unchanged to let user handle URL correctness
+        if branch_name != "private":
+            # Apply special codename overrides for specific internal branches
+            if branch_name == "internal-202411" and asic != "mellanox":
+                # internal-202411 has saithrift URL hardcoded to bullseye for non-mellanox platform
+                debian_codename = "bullseye"
+            elif (branch_name.startswith("internal-") and branch_name < "internal-202405"):
+                # For internal branches older than 202405, use the original URL without modification
+                # No need to get debian_codename as URL won't be modified
+                debian_codename = None
+            else:
+                debian_codename = get_debian_codename_from_syncd(duthost)
+
+            host_addr = py_saithrift_url.split("/")[2]  # can be IP or hostname
+
+            # Reconstruct MSFT URL based on branch
+            if branch_name == "master":
+                # Type 1: Master image - SONiC.master.XXXXXX-XXXXXXXX
+                base_url = "http://{}".format(host_addr)
+                py_saithrift_url = (f"{base_url}/mssonic-public-pipelines/"
+                                    f"Azure.sonic-buildimage.official.{asic}/master/{asic}/"
+                                    f"latest/target/debs/{debian_codename}/{pkg_name}")
+            elif not (branch_name.startswith("internal-") and branch_name < "internal-202405"):
+                # Type 2: Internal image - SONiC.internal.XXXXXXXXX-XXXXXXXXXX
+                # Type 3: Official feature branch image - SONiC.YYYYMMDD.XX (internal-YYYYMM)
+                base_url = "http://{}".format(host_addr)
+                py_saithrift_url = (f"{base_url}/pipelines/Networking-acs-buildimage-Official/"
+                                    f"{asic}/{branch_name}/latest/target/debs/{debian_codename}/{pkg_name}")
+            # For old internal branches (< internal-202405), use the original URL without modification
+    # If not MSFT URL (vendor URL), use it as-is without any reconstruction
 
     # Retry download of saithrift library
     retry_count = 5
@@ -585,27 +643,3 @@ def test_generate_running_golden_config(duthosts):
     with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
         for duthost in duthosts:
             executor.submit(generate_running_golden_config, duthost)
-
-
-def test_clean_dualtor_logs(request, vmhost, tbinfo, active_active_ports, active_standby_ports):
-    """
-    Clean mux/nic simulator logs from /tmp/ on the server before test run.
-    """
-    if 'dualtor' not in tbinfo['topo']['name']:
-        return
-
-    log_name = None
-    if active_standby_ports:
-        server = tbinfo['server']
-        tbname = tbinfo['conf-name']
-        inv_files = utilities.get_inventory_files(request)
-        http_port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_http_port')[tbname]
-        log_name = '/tmp/mux_simulator_{}.log*'.format(http_port)
-    elif active_active_ports:
-        vm_set = tbinfo['group-name']
-        log_name = "/tmp/nic_simulator_{}.log*".format(vm_set)
-
-    if log_name:
-        log_files = vmhost.shell('ls {}'.format(log_name))['stdout'].split()
-        for log_file in log_files:
-            vmhost.shell("rm -f {}".format(log_file))
