@@ -589,16 +589,6 @@ qos_params:
                     pkts_num_hdrm_full: 884
                     pkts_num_hdrm_partial: 340
                     pkts_num_trig_pfc: 134949
-                hdrm_pool_size:
-                    dscps:
-                    - 3
-                    - 4
-                    dst_port_id: 0
-                    ecn: 1
-                    margin: 2
-                    pkts_num_hdrm_full: 1549
-                    pkts_num_hdrm_partial: 1118
-                    pkts_num_trig_pfc: 134690
                 lossy_queue_1:
                     dscp: 8
                     ecn: 1
