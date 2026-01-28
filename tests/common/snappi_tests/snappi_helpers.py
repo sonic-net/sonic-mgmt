@@ -15,6 +15,7 @@ from enum import Enum
 import logging
 logger = logging.getLogger(__name__)
 
+
 class StrEnum(str, Enum):
     """
     Backport of Python 3.11's StrEnum
