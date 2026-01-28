@@ -1,9 +1,10 @@
 from tests.common.telemetry import UNIT_SECONDS  # noqa: F401, F403, F405, E402
 from tests.common.telemetry.constants import METRIC_LABEL_TG_TRAFFIC_RATE, METRIC_LABEL_TG_FRAME_BYTES
-from tests.snappi_tests.dataplane.imports import *   # noqa: F401, F403, F405
+from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
 from snappi_tests.dataplane.files.helper import set_primary_chassis, create_snappi_config, create_traffic_items, \
     get_duthost_bgp_details, configure_acl_for_route_withdrawl, start_stop, \
-    get_stats, check_bgp_state   # noqa: F401, F403, F405, E402
+    get_stats, check_bgp_state  # noqa: F401, F403, F405, E402
+
 METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: Final[str] = "test.params.event_type"
 METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: Final[str] = "test.params.route_scale"
 METRIC_LABEL_TEST_PARAMS_PREFIX_LENGTH: Final[str] = "test.params.prefix_length"
@@ -15,37 +16,37 @@ TIMEOUT = 20
 # Mention the details of the port that needs to be flapped and the corresponding BT0 device
 ROUTE_RANGES = {
     "IPv6": [
-                (
-                    ("777:777:777::1", 64, 5000),
-                    ("666:666:666::1", 64, 5000)
-                )
-            ],
+        (
+            ("777:777:777::1", 64, 5000),
+            ("666:666:666::1", 64, 5000)
+        )
+    ],
     "IPv4": [
-                (
-                    ('100.1.1.1', 24, 5000),
-                    ('200.1.1.1', 24, 5000)
-                )
+        (
+            ('100.1.1.1', 24, 5000),
+            ('200.1.1.1', 24, 5000)
+        )
     ],
 }
 
 
-@pytest.mark.parametrize("subnet_type", ["IPv6"])
+@pytest.mark.parametrize("ip_version", ["IPv6"])
 @pytest.mark.parametrize("frame_rate", [10])
-@pytest.mark.parametrize("frame_size", [64, 128, 256, 512, 1024, 1518])
-@pytest.mark.parametrize("event_type", ["Port Flap Down", "Route Withdraw"])
+@pytest.mark.parametrize("frame_size", [64, 128, 256, 512, 1024, 4096, 8192])
+@pytest.mark.parametrize("event_type", ["t0_port_shutdown", "route_withdrawal"])
 def test_bgp_sessions(
-    duthosts,
-    snappi_api,
-    get_snappi_ports,
-    fanout_graph_facts_multidut,
-    set_primary_chassis,   # noqa: F811, F401
-    create_snappi_config,  # noqa: F811, F401
-    subnet_type,
-    db_reporter,
-    tbinfo,
-    frame_rate,
-    frame_size,
-    event_type
+        duthosts,
+        snappi_api,
+        get_snappi_ports,
+        fanout_graph_facts_multidut,
+        set_primary_chassis,  # noqa: F811, F401
+        create_snappi_config,  # noqa: F811, F401
+        ip_version,
+        db_reporter,
+        tbinfo,
+        frame_rate,
+        frame_size,
+        event_type
 ):
     """
     Test to check if packets get dropped on injecting fec errors
@@ -55,12 +56,12 @@ def test_bgp_sessions(
     """
     snappi_extra_params = SnappiTestParams()
     pytest_assert(
-        subnet_type in ROUTE_RANGES, "Failing test as no route ranges are provided for {}".format(subnet_type)
+        ip_version in ROUTE_RANGES, "Failing test as no route ranges are provided for {}".format(ip_version)
     )
     snappi_extra_params.ROUTE_RANGES = ROUTE_RANGES
-    snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type)
-    tx_ports = snappi_ports[::2]
-    rx_ports = snappi_ports[1::2]
+    snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, ip_version)
+    port_distrbution = (slice(0, len(snappi_ports) // 2), slice(len(snappi_ports) // 2, None))
+    tx_ports, rx_ports = snappi_ports[port_distrbution[0]], snappi_ports[port_distrbution[1]]
     snappi_extra_params.FLAP_DETAILS = {
         "device_name": rx_ports[0]['peer_device'],
         "port_name": rx_ports[0]['peer_port'],
@@ -69,14 +70,14 @@ def test_bgp_sessions(
         "Tx": {
             "protocol_type": "bgp",
             "ports": tx_ports,
-            "subnet_type": subnet_type,
+            "subnet_type": ip_version,
             "is_rdma": False,
         },
         "Rx": {
-            "route_ranges": ROUTE_RANGES[subnet_type]*len(rx_ports),
+            "route_ranges": ROUTE_RANGES[ip_version] * len(rx_ports),
             "protocol_type": "bgp",
             "ports": rx_ports,
-            "subnet_type": subnet_type,
+            "subnet_type": ip_version,
             "is_rdma": False,
         },
     }
@@ -98,7 +99,7 @@ def test_bgp_sessions(
         snappi_config,
         tx_ports,
         rx_ports,
-        subnet_type,
+        ip_version,
         snappi_obj_handles,
         event_type,
         db_reporter,
@@ -107,16 +108,16 @@ def test_bgp_sessions(
 
 
 def get_convergence_for_single_session_flap(
-    duthosts,
-    snappi_api,
-    snappi_config,
-    tx_ports,
-    rx_ports,
-    subnet_type,
-    snappi_obj_handles,
-    event_type,
-    db_reporter,
-    snappi_extra_params
+        duthosts,
+        snappi_api,
+        snappi_config,
+        tx_ports,
+        rx_ports,
+        ip_version,
+        snappi_obj_handles,
+        event_type,
+        db_reporter,
+        snappi_extra_params
 ):
     """
     Get the packet loss duration
@@ -125,7 +126,7 @@ def get_convergence_for_single_session_flap(
                                              "convergence time for port down/Route withdrawl event",
                                              UNIT_SECONDS,
                                              db_reporter)
-    if event_type == "Port Flap Down":
+    if event_type == "t0_port_shutdown":
         logger.info("Starting Single Port Flap (Down) Test")
         snappi_api.set_config(snappi_config)
         flap_dut_obj = next(
@@ -134,7 +135,7 @@ def get_convergence_for_single_session_flap(
         )
         try:
             start_stop(snappi_api, operation="start", op_type="protocols")
-            check_bgp_state(snappi_api, subnet_type)
+            check_bgp_state(snappi_api, ip_version)
             start_stop(snappi_api, operation="start", op_type="traffic")
             flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
             pytest_assert(int(flow_stats[0].loss) == 0, f"Loss Observed in {flow_stats[0].name} before link Flap")
@@ -145,10 +146,12 @@ def get_convergence_for_single_session_flap(
                 return_type='df'
             )
             tmp['port_num'] = tmp['Port'].str.extract(r'(\d+)').astype(int)
-            even_ports = tmp.loc[tmp['port_num'] % 2 == 0, :]
+            tmp = tmp.sort_values('port_num')
+            mid = len(tmp) // 2
+            second_half_ports = tmp.iloc[mid:, :]
             # Check if 'Rx Frame Rate' values for Rx ports are greater than atleast 1000
             # to ensure all Rx ports are receiving traffic
-            all_close = (even_ports['Rx Frame Rate'] > 1000).all()
+            all_close = (second_half_ports['Rx Frame Rate'] > 1000).all()
             pytest_assert(all_close, "Not all Rx ports are having frame rate atleast 1000")
             logger.info("All ports Tx and Rx rates are within 0.05% of average rates")
             logger.info(
@@ -169,13 +172,7 @@ def get_convergence_for_single_session_flap(
             pkt_loss_duration = 1000 * (delta_frames / flow_stats[0].frames_tx_rate)
             logger.info("Delta Frames : {}".format(delta_frames))
             pytest_assert(int(delta_frames) != 0, "Delta Frames is 0 after flap, which means no packet drop occurred")
-            snappi_api._ixnetwork.ClearStats()
-            wait(20, "For statistics to be Cleared")
-            flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
-            pytest_assert(
-                int(flow_stats[0].loss) == 0,
-                "Total Tx Rx Rates are not equal after link flap",
-            )
+            pytest_assert(is_traffic_converged(snappi_api), "Traffic did not converge after link down")
             logger.info('Traffic has converged back after link flap Down')
             logger.info('--------------------------   Convergence Numbers   ----------------------------------')
             logger.info("Convergence Time for Single Port Flap      : {} (ms)".format(pkt_loss_duration))
@@ -183,10 +180,10 @@ def get_convergence_for_single_session_flap(
             start_stop(snappi_api, operation="stop", op_type="traffic")
             test_labels = {
                 METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: event_type,
-                METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: ROUTE_RANGES[subnet_type][0][0][-1],
+                METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: ROUTE_RANGES[ip_version][0][0][-1],
                 METRIC_LABEL_TG_TRAFFIC_RATE: snappi_extra_params.traffic_flow_config[0]['line_rate'],
                 METRIC_LABEL_TG_FRAME_BYTES: snappi_extra_params.traffic_flow_config[0]['frame_size'],
-                METRIC_LABEL_TG_IP_VERSION: subnet_type,
+                METRIC_LABEL_TG_IP_VERSION: ip_version,
             }
             convergence_dataplane_time.record(pkt_loss_duration, test_labels)
             db_reporter.report()
@@ -205,7 +202,7 @@ def get_convergence_for_single_session_flap(
             flap_dut_obj.command(
                 "sudo config interface startup {}\n".format(snappi_extra_params.FLAP_DETAILS["port_name"])
             )
-    elif event_type == "Route Withdraw":
+    elif event_type == "route_withdrawal":
         logger.info("Starting Single Port (Route Withdraw) Test")
         dut_obj = rx_ports[0]['duthost']
         table_name = "AI_ACL_TABLE"
@@ -214,9 +211,10 @@ def get_convergence_for_single_session_flap(
             start_stop(snappi_api, operation="start", op_type="protocols")
             start_stop(snappi_api, operation="start", op_type="traffic")
             logger.info('\n')
+            # Unless we configure acl on the DUT, the packets will not drop on route withdraw
             logger.info("Configuring ACL for packet drop on one of the BGP peer")
-            destination_ips = ROUTE_RANGES[subnet_type]
-            acl_dict = configure_acl_for_route_withdrawl(destination_ips, table_name)
+            destination_ip_list = [list(item) for item in ROUTE_RANGES[ip_version][0]]
+            acl_dict = configure_acl_for_route_withdrawl(destination_ip_list, table_name)
             dut_obj.command("sudo config acl add table {} l3v6".format(json.dumps(acl_dict)))
             logger.info("sudo config acl add table {} l3v6".format(table_name))
             cmd = "sudo config acl add table {} L3v6 -p {} -s egress".format(table_name, rx_ports[1]['peer_port'])
@@ -244,13 +242,7 @@ def get_convergence_for_single_session_flap(
             pytest_assert(int(delta_frames) != 0, "Delta Frames is 0 after applying acl and route withdraw,\
                         which means no packet drop occurred")
             logger.info("PACKET LOSS DURATION After Route Withdraw (ms): {}".format(pkt_loss_duration))
-            snappi_api._ixnetwork.ClearStats()
-            wait(20, "For clear stats")
-            flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
-            pytest_assert(
-                int(flow_stats[0].loss) == 0,
-                "Tx Rx Rates are not equal after route withdraw",
-            )
+            pytest_assert(is_traffic_converged(snappi_api), "Traffic did not converge after route withdraw")
             logger.info('Total Tx and Rx Rates are equal after route withdraw')
             dut_obj.command("sudo config acl remove table {}".format(table_name))
             logger.info('\n')
@@ -263,10 +255,10 @@ def get_convergence_for_single_session_flap(
             # Create metrics
             test_labels = {
                 METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: event_type,
-                METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: ROUTE_RANGES[subnet_type][0][0][-1],
+                METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: ROUTE_RANGES[ip_version][0][0][-1],
                 METRIC_LABEL_TG_TRAFFIC_RATE: snappi_extra_params.traffic_flow_config[0]['line_rate'],
                 METRIC_LABEL_TG_FRAME_BYTES: snappi_extra_params.traffic_flow_config[0]['frame_size'],
-                METRIC_LABEL_TG_IP_VERSION: subnet_type,
+                METRIC_LABEL_TG_IP_VERSION: ip_version,
             }
             convergence_dataplane_time.record(pkt_loss_duration, test_labels)
             db_reporter.report()
