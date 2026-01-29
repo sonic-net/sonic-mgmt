@@ -297,7 +297,7 @@ class ARPTest(PolicyTest):
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         src_ip = self.myip
-        dst_ip = "169.254.254.254"  # Non-existent IP to avoid triggering ARP response trap
+        dst_ip = self.myip  # GARP to avoid triggering ARP response trap
 
         packet = testutils.simple_arp_packet(
             eth_dst='ff:ff:ff:ff:ff:ff',
