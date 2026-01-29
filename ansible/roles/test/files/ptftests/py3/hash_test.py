@@ -631,6 +631,11 @@ class IPinIPHashTest(HashTest):
     for IPinIP packet.
     '''
 
+    def setUp(self):
+        HashTest.setUp(self)
+        self.ecmp_inner_header_hash_supported = self.test_params.get(
+            'ecmp_inner_header_hash_supported', False)
+
     def check_ipv4_route(self, hash_key, src_port, dst_port_lists, outer_src_ip, outer_dst_ip):
         '''
         @summary: Check IPv4 route works.
@@ -900,8 +905,9 @@ class IPinIPHashTest(HashTest):
             logging.info("hash_key={}, hit count map: {}".format(
                 hash_key, hit_count_map))
 
-            for next_hop in next_hops:
-                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
+            if self.ecmp_inner_header_hash_supported:
+                for next_hop in next_hops:
+                    self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
 
     def runTest(self):
         """
@@ -1208,6 +1214,11 @@ class NvgreHashTest(HashTest):
     for NvGRE packet.
     '''
 
+    def setUp(self):
+        HashTest.setUp(self)
+        self.ecmp_inner_header_hash_supported = self.test_params.get(
+            'ecmp_inner_header_hash_supported', False)
+
     def simple_nvgrev6_packet(self, pktlen=300,
                               eth_dst='00:01:02:03:04:05',
                               eth_src='00:06:07:08:09:0a',
@@ -1504,8 +1515,9 @@ class NvgreHashTest(HashTest):
         logging.info("hash_key={}, hit count map: {}".format(
             hash_key, hit_count_map))
 
-        for next_hop in next_hops:
-            self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
+        if self.ecmp_inner_header_hash_supported:
+            for next_hop in next_hops:
+                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
 
     def runTest(self):
         """
