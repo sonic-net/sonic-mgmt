@@ -6,11 +6,12 @@ in the topology
 
 from copy import deepcopy
 from ipaddress import ip_address
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 import yaml
 
-CEOSLAB_INTF_LIMIT = 127 # 128, minus one for backplane interface
+CEOSLAB_INTF_LIMIT = 127  # 128, minus one for backplane interface
 BASE_VLAN_ID = 2000
+
 
 class ListIndentDumper(yaml.Dumper):
     def increase_indent(self, flow: bool = False, indentless: bool = False) -> None:
@@ -18,7 +19,6 @@ class ListIndentDumper(yaml.Dumper):
 
 
 class SonicTopoConverger:
-
 
     def __init__(self, topology: Dict[str, Union[int, str]], file_out: str) -> None:
         self.topo = topology
@@ -29,7 +29,6 @@ class SonicTopoConverger:
         self.file_out = file_out
         self.prime_device_mapping = {}
         self.prime_devices = []
-
 
     def parse_properties(self) -> None:
         '''
@@ -66,7 +65,6 @@ class SonicTopoConverger:
         for device in config:
             create_new_prime = False
             device_properties = config[device]["properties"]
-            bgp_asn = config[device]["bgp"]["asn"]
 
             dev_count += 1
 
@@ -83,7 +81,6 @@ class SonicTopoConverger:
                     if prime not in self.prime_device_mapping:
                         self.prime_device_mapping[prime] = []
                     self.prime_device_mapping[prime].append(device)
-
 
     def converge_vms(self) -> Dict[str, Union[int, str]]:
         '''
@@ -107,14 +104,12 @@ class SonicTopoConverger:
 
         return vms
 
-
     def modify_l3_address(self, address: str, offset: int) -> str:
         delim = ":" if ":" in address else "."
         octets = address.split(delim)
         addr = octets[:-1] + ["0"]
         addr = ip_address(delim.join(addr))
         return str(addr + offset)
-
 
     def converge_peers(self,
                        if_index_mapping: Dict[str, List[int]],
@@ -132,9 +127,9 @@ class SonicTopoConverger:
             properties = deepcopy(peers[dev]["properties"])
             asn = peers[dev]["bgp"]["asn"]
             new_peers[dev] = {"properties": properties,
-                             "vrf": {},
-                             "bgp": {"asn": asn},
-                             "intf_mapping": {}}
+                              "vrf": {},
+                              "bgp": {"asn": asn},
+                              "intf_mapping": {}}
 
         # Backplane L3 addresses are laid out for clarity-- addresses with odd
         # least-signifcant octets or hextets are assigned to the interfaces of the
@@ -148,7 +143,6 @@ class SonicTopoConverger:
         base_v4_addr = "10.10.246.0"
         base_v6_addr = "fc0a::"
         for prime_dev, peer_list in self.prime_device_mapping.items():
-            num_peers = len(peer_list)
             intf_counter_base = 1
             eth_intf_index = 1
             offset = 0
@@ -161,7 +155,7 @@ class SonicTopoConverger:
                 orig_intf_map = {}
 
                 intf_index = i + intf_counter_base
-                vrf = { f"Vlan{vlan_id}": {}}
+                vrf = {f"Vlan{vlan_id}": {}}
 
                 for intf, config in peer_intfs.items():
                     if "Ethernet" not in intf:
@@ -212,7 +206,6 @@ class SonicTopoConverger:
             convergence_data["ptf_backplane_addrs"] = bp_addrs
         return convergence_data
 
-
     def converge_topo(self) -> None:
         '''
         Converge the read DUT/cEOSLab topology into the fewest cEOSLab docker
@@ -259,7 +252,6 @@ class SonicTopoConverger:
         key = "configuration"
         new_topo[key] = old_topo[key].copy()
         new_topo["convergence_data"] = self.converge_peers(interface_indexes, offsets)
-
 
     def run(self) -> None:
         self.parse_properties()

@@ -858,7 +858,6 @@ def fib_m0(topo, ptf_ip, action="announce", topo_routes={}):
     mx_subnet_prefix_len_v6 = common_config.get(
         "mx_subnet_prefix_len_v6", MX_SUBNET_PREFIX_LEN_V6)
 
-    vms = topo['topology']['VMs']
     vms_config = topo['configuration']
     mx_list = list(filter(lambda x: "MX" in x, vms_config.keys()))
     mx_number = len(mx_list)
@@ -1034,7 +1033,6 @@ def fib_mx(topo, ptf_ip, action="announce", topo_routes={}):
     mx_number = common_config.get("mx_number", MX_NUMBER)
     m1_asn_start = common_config.get("m1_asn_start", M1_ASN_START)
 
-    vms = topo['topology']['VMs']
     vms_config = topo['configuration']
 
     # In order to avoid overlapping the routes announced and the vlan of mx, get ip_start
@@ -1210,7 +1208,6 @@ def fib_m1(topo, ptf_ip, action="announce", topo_routes={}):
     mx_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("mx_loopback_v4_start")))
     mx_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("mx_loopback_v6_start")))
 
-    vms = topo['topology']['VMs']
     vms_config = topo['configuration']
 
     ipv4_base = ipaddress.IPv4Address(UNICODE_TYPE("192.168.0.0"))
@@ -1379,7 +1376,6 @@ def fib_ft2_routes(topo, ptf_ip, action="announce", topo_routes={}):
 
 def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce", topo_routes={}):
     common_config = topo['configuration_properties'].get('common', {})
-    vms = topo['topology']['VMs']
     vms_config = topo['configuration']
     r_set = []
 

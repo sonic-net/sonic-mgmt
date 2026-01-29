@@ -116,7 +116,7 @@ class TestbedVMFacts:
 
         if self.topo_is_multi_vrf:
             vrf_map = self.topoall["convergence_data"]["convergence_mapping"]
-            host_map = { vrf: host for host, vrfs in vrf_map.items() for vrf in vrfs }
+            host_map = {vrf: host for host, vrfs in vrf_map.items() for vrf in vrfs}
             for vrf, host in host_map.items():
                 vm = vm_topology["topology"]["VMs"][host]
                 vm_name = vm_name_fmt % (vm_start_index + vm["vm_offset"])

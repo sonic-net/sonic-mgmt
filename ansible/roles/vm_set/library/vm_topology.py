@@ -624,7 +624,6 @@ class VMTopology(object):
             if vlan_id:
                 peer = rev_vrf_map[vrf]
                 vlan_intf_name = "%s.%d" % (BP_PORT_NAME, vlan_id)
-                config = multi_vrf_config[peer]["vrf"][vrf]["Vlan{}".format(vlan_id)]
 
                 if VMTopology.intf_exists(vlan_intf_name,  pid=self.pid):
                     VMTopology.cmd("nsenter -t %s -n ip addr flush dev %s" % (self.pid, vlan_intf_name))
@@ -2461,7 +2460,6 @@ def main():
             is_multi_duts = True if len(duts_name) > 1 else False
             is_multi_vrf = module.params['multi_vrf']
             multi_vrf_data = module.params['multi_vrf_data']
-            config = module.params['topo_config']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (

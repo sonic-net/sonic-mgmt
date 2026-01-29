@@ -1107,7 +1107,7 @@ def main():
                 print("\tCONVERGING PEER INSTANCES: {}".format(topofile))
                 copyfile(topofile,
                          os.path.join("/tmp/", "topo_{}.yml.orig".format(topo)))
-                converge_testbed(topofile, topofile) # overwrites contents of topofile
+                converge_testbed(topofile, topofile)  # overwrites contents of topofile
             else:
                 print("Error: could not locate original topo file at " + topofile)
     print("\tCREATING VM_HOST/CREDS: " + args.basedir + vmHostCreds_file)

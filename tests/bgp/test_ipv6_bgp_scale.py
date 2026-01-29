@@ -93,8 +93,8 @@ def bgp_peers_info(tbinfo, duthost):
     if topo_is_multi_vrf:
         multi_vrf_data = tbinfo['topo']['properties']['convergence_data']
         for primary, vrfs in multi_vrf_data['convergence_mapping'].items():
-           for vrf in vrfs:
-              multi_vrf_map[vrf] = primary
+            for vrf in vrfs:
+                multi_vrf_map[vrf] = primary
     logger.info("Waiting for BGP sessions are established")
     while True:
         down_neighbors = get_down_bgp_sessions_neighbors(duthost)

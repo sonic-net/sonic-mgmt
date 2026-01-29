@@ -1,6 +1,5 @@
 import logging
 import pytest
-import re
 from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
 from tests.common.utilities import wait_until
 

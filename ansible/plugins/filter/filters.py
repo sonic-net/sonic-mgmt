@@ -281,14 +281,12 @@ class MultiVrfUtils:
     IPV4_BASE_PORT = 5000
     IPV6_BASE_PORT = 6000
 
-
     @staticmethod
     def get_first_loopback(intf_dict):
         for key, data in intf_dict.items():
             if "Loopback" in key:
                 return data
         return {}
-
 
     @staticmethod
     def get_vm_offset(vm_name, topo, offsets=None):
@@ -297,18 +295,15 @@ class MultiVrfUtils:
         else:
             return topo["VMs"][vm_name]["vm_offset"]
 
-
     @staticmethod
     def get_exabgp_v4_port(vm_name, topo, offsets=None):
         offset = MultiVrfUtils.get_vm_offset(vm_name, topo, offsets)
         return MultiVrfUtils.IPV4_BASE_PORT + offset
 
-
     @staticmethod
     def get_exabgp_v6_port(vm_name, topo, offsets=None):
         offset = MultiVrfUtils.get_vm_offset(vm_name, topo, offsets)
         return MultiVrfUtils.IPV6_BASE_PORT + offset
-
 
     @staticmethod
     def get_exabgp_peer_ip(vm_name, multi_vrf_data, v6=False):
@@ -326,11 +321,9 @@ class MultiVrfUtils:
             return addr.split("/")[0]
         return None
 
-
     @staticmethod
     def get_exabgp_peer_v4(vm_name, multi_vrf_data):
         return MultiVrfUtils.get_exabgp_peer_ip(vm_name, multi_vrf_data)
- 
 
     @staticmethod
     def get_exabgp_peer_v6(vm_name, multi_vrf_data):
@@ -345,16 +338,13 @@ class MultiVrfUtils:
             return addr.split("/")[0]
         return None
 
-
     @staticmethod
     def get_exabgp_local_ip_v4(vm_name, multi_vrf_data):
         return MultiVrfUtils.get_exabgp_local_ip(vm_name, multi_vrf_data)
 
-
     @staticmethod
     def get_exabgp_local_ip_v6(vm_name, multi_vrf_data):
         return MultiVrfUtils.get_exabgp_local_ip(vm_name, multi_vrf_data, v6=True)
-
 
     @staticmethod
     def get_exabgp_router_id(vm_name, multi_vrf_data):
@@ -362,7 +352,6 @@ class MultiVrfUtils:
             bp_intf_mapping = multi_vrf_data["ptf_backplane_addrs"]
             return bp_intf_mapping[vm_name]["router-id"]
         return None
-
 
     @staticmethod
     def allowed_vlans_range_str(backplane_data, vrfs):
