@@ -102,10 +102,17 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     dut_nlri_route = dut_nlri_routes[2]
     logger.debug("DUT NLRI route: {}".format(dut_nlri_route))
 
+    def neigh_routes_available(cmd):
+        neigh_nlri_routes = neigh_host.shell(cmd, module_ignore_errors=True)['stdout'].split('\n')
+        # Test validation can fail when it queries little earlier than the routes have reached
+        # the neighbor. Below is confirming neighbor has received enough routes
+        return len(neigh_nlri_routes) > 1000
+
     neigh_host = nbrhosts[neigh_name]["host"]
     if is_sonic_neigh:
         logger.debug(neigh_host.shell('vtysh -n {} vtysh -c "clear bgp * soft"'.format(neigh_namespace)))
         cmd = "show ipv6 bgp neighbor {} received-routes".format(dut_ip_v6)
+        wait_until(180, 10, 0, neigh_routes_available, cmd)
         neigh_nlri_routes = neigh_host.shell(cmd, module_ignore_errors=True)['stdout'].split('\n')
         logger.debug("neighbor routes: {}".format(neigh_nlri_routes[len(neigh_nlri_routes) - 3]))
         neigh_nlri_route = neigh_nlri_routes[len(neigh_nlri_routes) - 3].split()[1]
@@ -173,18 +180,18 @@ def test_nlri(setup):
         logger.debug("Neighbor Route from DUT: {}".format(setup['neighhost'].eos_command(commands=[cmd])['stdout']))
 
     # remove current neighbor adjacency
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} peer-group {}" \
+    cmd = 'vtysh {} -c "config" -c "router bgp {}" -c "no neighbor {} peer-group {}" \
         -c "no neighbor {} peer-group {}"'\
-        .format(setup['asic_index'], setup['dut_asn'], setup['neigh_ip_v4'], setup['peer_group_v4'],
+        .format(setup['dut_namespace'], setup['dut_asn'], setup['neigh_ip_v4'], setup['peer_group_v4'],
                 setup['neigh_ip_v6'], setup['peer_group_v6'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
     logger.debug("DUT BGP Config After Neighbor Removal: {}".format(setup['duthost'].shell('show run bgp')['stdout']))
 
     if setup['is_sonic_neigh']:
         cmd = (
-            'vtysh -n {} -c "config" -c "router bgp {}" -c "no neighbor {} peer-group {}" '
+            'vtysh {} -c "config" -c "router bgp {}" -c "no neighbor {} peer-group {}" '
             '-c "no neighbor {} peer-group {}"'.format(
-                setup['asic_index'],
+                setup['dut_namespace'],
                 setup['neigh_asn'],
                 setup['dut_ip_v4'],
                 setup['peer_group_v4'],
@@ -222,7 +229,7 @@ def test_nlri(setup):
     )
 
     # clear BGP table
-    cmd = 'vtysh -n {} -c "clear ip bgp * soft"'.format(setup['asic_index'])
+    cmd = 'vtysh  {} -c "clear ip bgp * soft"'.format(setup['dut_namespace'])
     setup['duthost'].shell(cmd)
     if setup['is_sonic_neigh']:
         cmd = 'vtysh -c "clear ip bgp * soft"'
@@ -248,17 +255,17 @@ def test_nlri(setup):
     pytest_assert(setup['dut_ip_v6'] not in neigh_route_out, "No route to IPv6 DUT.")
 
     # configure IPv4 peer config on DUT
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor NLRI peer-group" -c "address-family ipv4 unicast" \
+    cmd = 'vtysh {} -c "config" -c "router bgp {}" -c "neighbor NLRI peer-group" -c "address-family ipv4 unicast" \
         -c "neighbor NLRI allowas-in" -c "neighbor NLRI send-community both" \
         -c "neighbor NLRI soft-reconfiguration inbound" -c "exit-address-family" -c "address-family ipv6 unicast" \
         -c "neighbor NLRI allowas-in" -c "neighbor NLRI send-community both" \
-            -c "neighbor NLRI soft-reconfiguration inbound"'.format(setup['asic_index'], setup['dut_asn'])
+            -c "neighbor NLRI soft-reconfiguration inbound"'.format(setup['dut_namespace'], setup['dut_asn'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
 
-    cmd = 'vtysh -n {} -c "config" -c "router bgp {}" -c "neighbor {} peer-group NLRI" -c "neighbor {} remote-as {}"\
+    cmd = 'vtysh {} -c "config" -c "router bgp {}" -c "neighbor {} peer-group NLRI" -c "neighbor {} remote-as {}"\
         -c "address-family ipv4 unicast" -c "neighbor NLRI activate" -c "exit-address-family" \
         -c "address-family ipv6 unicast" -c "neighbor NLRI activate"'\
-            .format(setup['asic_index'], setup['dut_asn'], setup['neigh_ip_v4'], setup['neigh_ip_v4'],
+            .format(setup['dut_namespace'], setup['dut_asn'], setup['neigh_ip_v4'], setup['neigh_ip_v4'],
                     setup['neigh_asn'])
     setup['duthost'].shell(cmd, module_ignore_errors=True)
     logger.debug("DUT BGP Config After Peer Config: {}".format(setup['duthost'].shell('show run bgp')['stdout']))
@@ -334,15 +341,18 @@ def test_nlri(setup):
         ),
         "Routing entry for DUT not established.",
     )
-
     cmd = "show ipv6 route {}".format(setup['neigh_nlri_route'])
-    if setup['is_sonic_neigh']:
-        neigh_route_out = setup['neighhost'].shell(cmd)['stdout']
-    else:
-        neigh_route_out = setup['neighhost'].eos_command(commands=[cmd])['stdout'][0]
 
-    pytest_assert("Routing entry for {}".format(setup['neigh_nlri_route']) in neigh_route_out,
-                  "Routing entry for neighbor not established.")
+    def verify_neigh_route():
+        if setup['is_sonic_neigh']:
+            neigh_route_out = setup['neighhost'].shell(cmd)['stdout']
+        else:
+            neigh_route_out = setup['neighhost'].eos_command(commands=[cmd])['stdout'][0]
+        return setup['neigh_nlri_route'] in neigh_route_out
+
+    pytest_assert(
+        wait_until(180, 15, 0, verify_neigh_route),
+        f"Routing entry for {setup['neigh_nlri_route']} not established.")
 
 
 def parse_dut_received_routes(command_output):
