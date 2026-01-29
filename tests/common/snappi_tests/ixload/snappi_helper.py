@@ -3,8 +3,12 @@ from tests.common.helpers.assertions import pytest_assert  # noqa F401
 from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings  # noqa: F403, F401
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from netmiko import ConnectHandler
+from scp import SCPClient
 from pathlib import Path
+import paramiko
+import io
 import snappi
+import stat
 import time
 import os
 import glob
@@ -14,6 +18,42 @@ import json
 import logging
 
 logger = logging.getLogger(__name__)
+
+
+def patch_dutnetwork_range(api, base_url, session_id, test_id, dut_id, network_range_id, first_ip, username, password):
+    """
+    Sends a PATCH request to update the first IP in the network range.
+
+    Args:
+        base_url (str): The base URL of the API (e.g., "https://10.3.8.23:8443").
+        session_id (int): The session ID (e.g., 0).
+        test_id (str): The test ID (e.g., "activeTest").
+        dut_id (int): The DUT ID (e.g., 0).
+        network_range_id (int): The network range ID (e.g., 0).
+        first_ip (str): The new first IP to set (e.g., "1.2.3.4").
+        username (str): The username for authentication.
+        password (str): The password for authentication.
+
+    Returns:
+        Response: The response object from the PATCH request.
+    """
+    url = (f"{base_url}/api/v1/sessions/{session_id}/ixload/test/{test_id}/dutList/{dut_id}/dutConfig/networkRangeList/"
+           f"{network_range_id}")
+    payload = {
+        "firstIp": first_ip
+    }
+
+    try:
+        res = api.ixload_configure("patch", url, payload)  # noqa: F841
+        if res.status_code == 204:
+            logger.info("PATCH request successful: 204 No Content")
+        else:
+            logger.info(f"PATCH request failed: {res.status_code} {res.reason}")
+            logger.info(res.text)
+        return res
+    except res.RequestException as e:
+        logger.info(f"An error occurred: {e}")
+        return None
 
 
 def set_static_routes(duthost, static_ipmacs_dict):
@@ -1005,23 +1045,45 @@ def assignPorts(api, ports_list):
     return
 
 
-def build_node_ips(count, vpc, nw_config, nodetype="client"):
-    if nodetype in "client":
-        ip = nw_config.ipp(int(nw_config.IP_R_START) + (nw_config.IP_STEP_NSG * count)
-                           + int(nw_config.IP_STEP_ENI) * (vpc - 1))
-    if nodetype in "server":
-        ip = nw_config.ipp(int(nw_config.IP_L_START) + int(nw_config.IP_STEP_ENI) * (vpc - 1))
+def build_node_ips(count, vpc, nw_config, service_type='vnet2vnet', nodetype="client"):
+
+    if service_type == 'vnet2vnet':
+        if nodetype in "client":
+            ip = nw_config.ipp(int(nw_config.IP_R_START) + (nw_config.IP_STEP_NSG * count)
+                               + int(nw_config.IP_STEP_ENI) * (vpc - 1))
+        if nodetype in "server":
+            ip = nw_config.ipp(int(nw_config.IP_L_START) + int(nw_config.IP_STEP_ENI) * (vpc - 1))
+    else:
+        # service_type == 'privatelink'
+        if nodetype in "dut_client":
+            ip = nw_config.ipp(int(nw_config.IP_R_START) + (nw_config.IP_STEP_NSG * count) +
+                               int(nw_config.IP_STEP_ENI) * (vpc - 1))
+        if nodetype in "client":
+            ip = nw_config.ipp(int(nw_config.IP_L_START) + int(nw_config.IP_STEP_ENI) * (vpc - 1))
+        if nodetype in "server":
+            ip = nw_config.ipp((int(nw_config.IPv6_R_START) + (int(nw_config.IPv6_Range_Increment) * (vpc - 1))))
 
     return str(ip)
 
 
-def build_node_macs(count, vpc, nw_config, nodetype="client"):
+def build_node_macs(count, vpc, nw_config, service_type='vnet2vnet', nodetype="client"):
 
-    if nodetype in "client":
-        m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1)
-                           + (int(nw_config.maca(nw_config.ACL_TABLE_MAC_STEP)) * count))
-    if nodetype in "server":
-        m = nw_config.maca(int(nw_config.MAC_L_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1))
+    if service_type == 'vnet2vnet':
+        if nodetype in "client":
+            m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1)
+                               + (int(nw_config.maca(nw_config.ACL_TABLE_MAC_STEP)) * count))
+        if nodetype in "server":
+            m = nw_config.maca(int(nw_config.MAC_L_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1))
+    else:
+        # service_type == private_link
+        if nodetype in "dut_client":
+            m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1) +
+                               (int(nw_config.maca(nw_config.ACL_TABLE_MAC_STEP)) * count))
+        if nodetype in "client":
+            m = nw_config.maca(int(nw_config.MAC_L_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1))
+        if nodetype in "server":
+            m = nw_config.maca(int(nw_config.MAC_R_START) + int(nw_config.maca(nw_config.ENI_MAC_STEP)) * (vpc - 1) +
+                               (int(nw_config.maca(nw_config.ACL_TABLE_MAC_STEP)) * count))
 
     return str(m).replace('-', ':')
 
@@ -1041,24 +1103,33 @@ def build_node_vlan(index, nw_config, nodetype="client"):
     return vlan
 
 
-def create_ip_list(nw_config):
+def create_ip_list(nw_config, service_type):
 
     ip_list = []
 
+    ENI_START = nw_config.ENI_START
     ENI_COUNT = nw_config.ENI_COUNT
     logger.info("Creating an ENI_COUNT = {} for l47 trafficgen".format(ENI_COUNT))
 
-    for eni in range(nw_config.ENI_START, ENI_COUNT + 1):
+    for eni in range(ENI_START, ENI_COUNT + 1):
         ip_dict_temp = {}
-        ip_client = build_node_ips(0, eni, nw_config, nodetype="client")
-        mac_client = build_node_macs(0, eni, nw_config, nodetype="client")
+
+        if service_type == 'privatelink':
+            dut_ip_client = build_node_ips(0, eni, nw_config, service_type, nodetype="dut_client")
+            dut_vlan_client = build_node_vlan(eni - 1, nw_config, nodetype="dut_client")
+
+        ip_client = build_node_ips(0, eni, nw_config, service_type, nodetype="client")
+        mac_client = build_node_macs(0, eni, nw_config, service_type, nodetype="client")
         vlan_client = build_node_vlan(eni - 1, nw_config, nodetype="client")
 
-        ip_server = build_node_ips(0, eni, nw_config, nodetype="server")
-        mac_server = build_node_macs(0, eni, nw_config, nodetype="server")
+        ip_server = build_node_ips(0, eni, nw_config, service_type, nodetype="server")
+        mac_server = build_node_macs(0, eni, nw_config, service_type, nodetype="server")
         vlan_server = build_node_vlan(eni - 1, nw_config, nodetype="server")
 
         ip_dict_temp['eni'] = eni
+        if service_type == 'privatelink':
+            ip_dict_temp['dut_ip_client'] = dut_ip_client
+            ip_dict_temp['dut_vlan_client'] = dut_vlan_client
         ip_dict_temp['ip_client'] = ip_client
         ip_dict_temp['mac_client'] = mac_client
         ip_dict_temp['vlan_client'] = vlan_client
@@ -1118,7 +1189,7 @@ def get_objectIDs(api, url):
     return objectIDs
 
 
-def set_rangeList(api):
+def set_rangeList(api, service_type):
     """
     Adjust both rangeList, macRange, and vlanRange as needed
     """
@@ -1143,8 +1214,9 @@ def set_rangeList(api):
     for i, cid in enumerate(client_objectIDs):
         try:
             # Code that may raise an exception
-            res1 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict1)  # noqa: F841
-            res2 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict2)  # noqa: F841
+            if service_type != 'privatelink':
+                res1 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict1)  # noqa: F841
+                res2 = api.ixload_configure("patch", "{}/{}".format(clientList_url, cid), dict2)  # noqa: F841
             res3 = api.ixload_configure("patch", "{}/{}/vlanRange".format(clientList_url, cid), vlan_dict)  # noqa: F841
         except Exception as e:
             # Handle any exception
@@ -1161,11 +1233,16 @@ def set_rangeList(api):
     return
 
 
-def set_trafficMapProfile(api):
+def set_trafficMapProfile(api, service_type):
 
     # Make Traffic Map Settings
     portMapPolicy_json = {'portMapPolicy': 'customMesh'}
-    destination_url = "ixload/test/activeTest/communityList/0/activityList/0/destinations/0"
+
+    if service_type == 'vnet2vnet':
+        destination_url = "ixload/test/activeTest/communityList/0/activityList/0/destinations/0"
+    else:
+        destination_url = "ixload/test/activeTest/communityList/0/activityList/0/destinations/1"
+
     try:
         # Code that may raise an exception
         res = api.ixload_configure("patch", destination_url, portMapPolicy_json)
@@ -1175,7 +1252,12 @@ def set_trafficMapProfile(api):
 
     # meshType
     meshType_json = {'meshType': 'vlanRangePairs'}
-    submapsIpv4_url = "ixload/test/activeTest/communityList/0/activityList/0/destinations/0/customPortMap/submapsIPv4/0"
+    if service_type == 'vnet2vnet':
+        submapsIpv4_url = ("ixload/test/activeTest/communityList/0/activityList/0/destinations/0/"
+                           "customPortMap/submapsIPv4/0")
+    else:
+        submapsIpv4_url = ("ixload/test/activeTest/communityList/0/activityList/0/destinations/1/customPortMap/"
+                           "submapsIPv4/0")
     try:
         # Code that may raise an exception
         res = api.ixload_configure("patch", submapsIpv4_url, meshType_json)  # noqa: F841
@@ -1222,9 +1304,239 @@ def set_timelineCustom(api, initial_cps_value):
     try:
         # Code that may raise an exception
         res = api.ixload_configure("patch", timelineObjectives_url, timeline_json)  # noqa: F841
+        res = api.ixload_configure("patch", activityList_url, activityList_json)  # noqa: F841
     except Exception as e:
         # Handle any exception
         logger.info(f"An error occurred: {e}")
+    except Exception as e:
+        # Handle any exception
+        logger.info(f"An error occurred: {e}")
+
+    return
+
+
+def create_dut_config(api):
+
+    param = {
+        "type": "VirtualDut"
+    }
+
+    url = 'ixload/test/activeTest/dutList'
+    try:
+        # Code that may raise an exception
+        res = api.ixload_configure("post", url, param)  # noqa: F841
+    except Exception as e:
+        # Handle any exception
+        print(f"An error occurred: {e}")
+
+    return
+
+
+def add_dut_ranges(api, nw_config):
+
+    data = {}
+
+    # Here Create Ranges
+    url_networkRangeList = 'ixload/test/activeTest/dutList/0/dutConfig/networkRangeList'
+    for i in range((nw_config.ENI_COUNT * 10) - 1):
+        try:
+            # Code that may raise an exception
+            res = api.ixload_configure("post", url_networkRangeList, data)  # noqa: F841
+        except Exception as e:
+            # Handle any exception
+            print(f"An error occurred: {e}")
+            return None
+
+    return
+
+
+def patch_dut_config(api, nw_config):
+
+    param_comment = {
+        "comment": "DASH Private Link"
+    }
+
+    url_attributes = 'ixload/test/activeTest/dutList/0'
+
+    try:
+        # Code that may raise an exception
+        res = api.ixload_configure("patch", url_attributes, param_comment)  # noqa: F841
+    except Exception as e:
+        # Handle any exception
+        print(f"An error occurred: {e}")
+        return None
+
+    # Here patch ranges
+    # TODO fix the multiplier
+
+    count = 0
+    NETWORK_RANGE_ID = 0
+    VLAN_ID = 1
+    BASE_IP = int(nw_config.ipp("1.4.0.1"))
+    INCREMENT_ENI = int(nw_config.ipp("0.64.0.0"))
+    INCREMENT_NSG = int(nw_config.ipp("0.2.0.0"))
+
+    for i in range(0, nw_config.ENI_COUNT):
+        for j in range(0, 10):
+            FIRST_IP = str(nw_config.ipp(BASE_IP + i * INCREMENT_ENI + j * INCREMENT_NSG))
+            payload = {
+                "firstIp": FIRST_IP,
+                "ipCount": 32,
+                "ipIncrStep": "0.0.0.2",
+                "networkMask": "255.192.0.0",
+                "vlanCount": 1,
+                'vlanEnable': True,
+                "vlanId": VLAN_ID,
+                "vlanUniqueCount": 1
+            }
+            url_networkRangeList_index = f'ixload/test/activeTest/dutList/0/dutConfig/networkRangeList/{count}'
+
+            try:
+                # Code that may raise an exception
+                res = api.ixload_configure("patch", url_networkRangeList_index, payload)  # noqa: F841
+            except Exception as e:
+                # Handle any exception
+                print(f"An error occurred: {e}")
+                return None
+
+            count += 1
+            NETWORK_RANGE_ID += 1
+        VLAN_ID += 1
+
+    return
+
+
+def patch_destination_actionList(api):
+
+    param_comment = {
+        "destination": "DUT1:80"
+    }
+
+    url_actionList2 = '/ixload/test/activeTest/communityList/0/activityList/0/agent/actionList/2'
+
+    try:
+        # Code that may raise an exception
+        res = api.ixload_configure("patch", url_actionList2, param_comment)  # noqa: F841
+    except Exception as e:
+        # Handle any exception
+        print(f"An error occurred: {e}")
+        return None
+
+    return
+
+
+def patch_communityList2(api, nw_config):
+
+    url = "ixload/test/activeTest/communityList/1/network/stack/childrenList/5/childrenList/6/rangeList"
+    objectIDs = get_objectIDs(api, url)
+
+    """
+    param_ipv6 = {
+        'ipType': 'IPv6',
+        'prefix': 128,
+    }
+    """
+
+    param_doubleIncrement = {
+        'doubleIncrement': True,
+    }
+
+    # secondCount is based on # VNET mapping per ENI 64K requirement.  Adjust scale to set.
+    scale = 0.01
+    first_count = nw_config.ACL_TABLE_COUNT * 2
+    second_count = int((64000 * scale)/first_count)
+    param_doubleIncrement2 = {
+        'firstIncrementBy': '::002:0',
+        'firstCount': first_count,
+        'gatewayAddress': '::0',
+        'gatewayIncrement': '::0',
+        'secondCount': second_count,
+        'secondIncrementBy': '::2'
+    }
+
+    for id in objectIDs:
+        url = f"ixload/test/activeTest/communityList/1/network/stack/childrenList/5/childrenList/6/rangeList/{id}"
+        try:
+            # Code that may raise an exception
+            # res1 = api.ixload_configure("patch", url, param_ipv6)  # noqa: F841
+            res2 = api.ixload_configure("patch", url, param_doubleIncrement)  # noqa: F841
+            res3 = api.ixload_configure("patch", url, param_doubleIncrement2)  # noqa: F841
+        except Exception as e:
+            # Handle any exception
+            print(f"An error occurred: {e}")
+            return None
+
+    return
+
+
+"""
+def test_saveAs(api, test_filename):
+
+    saveAs_operation = 'ixload/test/operations/saveAs'
+    #url = "{}/{}".format(base_url, saveAs_operation)
+    paramDict = {
+        'fullPath': "C:\\automation\\{}.rxf".format(test_filename),
+        'overWrite': True
+    }
+
+    #response = requests.post(url, data=json.dumps(paramDict), headers=headers)
+    try:
+        # Code that may raise an exception
+        res = api.ixload_configure("post", saveAs_operation, paramDict)
+    except Exception as e:
+        # Handle any exception
+        logger.info(f"An error occurred: {e}")
+
+    return
+"""
+
+
+def delete_staticarp_files(chassis_ip, chassis_user_login, chassis_user_passwd, ixos_version):
+    def delete_files(ssh_client, remote_path, logger=None):
+        """
+        Delete a remote file using SFTP. If it doesn't exist, do nothing.
+        """
+        sftp = None
+        try:
+            sftp = ssh_client.open_sftp()
+            try:
+                attrs = sftp.stat(remote_path)
+                if stat.S_ISDIR(attrs.st_mode):
+                    msg = f"Refusing to delete directory: {remote_path}"
+
+                    logger.warning(msg)
+                    return
+            except FileNotFoundError:
+                msg = f"File not found (nothing to delete): {remote_path}"
+                logger.info(msg)
+                return
+
+            sftp.remove(remote_path)
+            msg = f"Deleted: {remote_path}"
+            logger.info(msg)
+        except Exception as e:
+            msg = f"Failed to delete {remote_path}: {e}"
+            logger.exception(msg)
+        finally:
+            if sftp:
+                sftp.close()
+
+    # setting up ssh connection
+    ssh_client = paramiko.SSHClient()
+    ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    # Connect to remote host
+    logger.info(f"Connecting to {chassis_ip}...")
+    ssh_client.connect(hostname=f'{chassis_ip}', username=f'{chassis_user_login}', password=f'{chassis_user_passwd}')
+
+    card = 1  # Update this to use card number as an index
+    # client
+    delete_files(ssh_client,
+                 f'/home/ixia_apps/ixos/{ixos_version}/nfs/rw/ports/{card}/1/ixtcp.arp', logger)
+
+    # server
+    delete_files(ssh_client,
+                 f'/home/ixia_apps/ixos/{ixos_version}/nfs/rw/ports/{card}/2/ixtcp.arp', logger)
 
     return
 
@@ -1248,14 +1560,100 @@ def set_userIPMappings(api):
     return
 
 
-def l47_trafficgen_main(ports_list, connection_dict, nw_config, test_type, test_filename, initial_cps_value):
+def set_test_preferences(api):
+
+    url = "ixload/preferences"
+
+    param_allowRouteConflicts = {
+        'allowRouteConflicts': True
+    }
+
+    try:
+        # Code that may raise an exception
+        res = api.ixload_configure("patch", url, param_allowRouteConflicts)  # noqa: F841
+    except Exception as e:
+        # Handle any exception
+        logger.info(f"An error occurred: {e}")
+        return None
+
+    return
+
+
+def set_trafficgen_staticarps(api, ip_list, chassis_ip, chassis_user_login, chassis_user_passwd,
+                              ixos_version, nw_config):
+    def build_arp_payload(ssh_client, ip_list, ENI_TOTAL, filename, is_server, remote_path):
+        lines = []
+        for i in range(ENI_TOTAL):
+            if is_server:
+                mac_addr = ip_list[i]['mac_server']
+                ip_addr = ip_list[i]['dut_ip_client']
+                vlan_id = ip_list[i]['vlan_client']
+                count = 640
+            else:
+                mac_addr = ip_list[i]['mac_client']
+                ip_addr = ip_list[i]['ip_client']
+                vlan_id = ip_list[i]['vlan_server']
+                count = 1
+
+            lines.append(
+                f"RemoteMAC={mac_addr}, RemoteMACIncr=00:00:00:00:00:02, "  # noqa: E231
+                f"RemoteIPv4={ip_addr}, RemoteIPv4Incr=0.0.0.2, "
+                f"Count={count}, VlanID={vlan_id}\n")
+
+        with io.open(filename, 'w+') as f:
+            f.writelines(lines)
+
+        with SCPClient(ssh_client.get_transport()) as scp_client:
+            try:
+                scp_client.put(filename, remote_path)
+            except Exception as e:
+                logger.error(f"SCP failed arp payload upload to trafficgen server: {e}")
+
+        os.remove(filename)
+        return
+
+    ENI_TOTAL = nw_config.ENI_COUNT
+    card = 1  # Make this an index
+
+    ssh_client = paramiko.SSHClient()
+    ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    # Connect to remote host
+    logger.info(f"Connecting to {chassis_ip}...")
+    ssh_client.connect(hostname=f'{chassis_ip}', username=f'{chassis_user_login}', password=f'{chassis_user_passwd}')
+
+    # Create client files
+    build_arp_payload(
+        ssh_client, ip_list, ENI_TOTAL, f"ixtcp_{card}.arp", False,
+        f'/home/ixia_apps/ixos/{ixos_version}/nfs/rw/ports/{card}/2/ixtcp.arp'
+    )
+
+    # Create server files
+    build_arp_payload(
+        ssh_client, ip_list, ENI_TOTAL, f"ixtcp_{card}_1.arp", True,
+        f'/home/ixia_apps/ixos/{ixos_version}/nfs/rw/ports/{card}/1/ixtcp.arp'
+    )
+
+    # Close the SSH connection
+    ssh_client.close()
+
+    logger.info("ARP files created successfully!")
+
+    return
+
+
+def l47_trafficgen_main(ports_list, connection_dict, nw_config, service_type,
+                        test_type, test_filename, initial_cps_value):
 
     # Start Here ######
     main_start_time = time.time()
     gw_ip = connection_dict['gw_ip']
     port = connection_dict['port']
     chassis_ip = connection_dict['chassis_ip']
+    chassis_user_login = connection_dict['chassis_user_login']
+    chassis_user_passwd = connection_dict['chassis_user_passwd']
     ixl_version = connection_dict['version']
+    ixos_version = connection_dict['ixos_version']
 
     api = snappi.api(location="{}:{}".format(gw_ip, port), ext="ixload", verify=False, version=ixl_version)
     config = api.config()
@@ -1264,7 +1662,11 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, test_type, test_
     port_2 = config.ports.port(name="p2", location="{}/1/2".format(chassis_ip))[-1]  # noqa: F841
 
     # client/server IP ranges created here
-    ip_list = create_ip_list(nw_config)
+    ip_list = create_ip_list(nw_config, service_type)
+
+    if service_type == 'privatelink':
+        set_trafficgen_staticarps(api, ip_list, chassis_ip, chassis_user_login, chassis_user_passwd,
+                                  ixos_version, nw_config)
 
     logger.info("Setting devices")
     time_device_time = time.time()
@@ -1319,12 +1721,20 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, test_type, test_
             eth2.step = "00:00:00:00:00:02"
 
             # ip section
-            ip2 = eth2.ipv4_addresses.ipv4()[-1]
-            ip2.name = "{}.ipv4".format(eth2.name)
-            ip2.address = eni_info['ip_server']
-            ip2.prefix = 10
-            ip2.gateway = "0.0.0.0"
-            ip2.count = 1
+            if service_type == 'privatelink':
+                ip2 = eth2.ipv6_addresses.ipv6()[-1]
+                ip2.name = "{}.ipv6".format(eth2.name)
+                ip2.address = eni_info['ip_server']
+                ip2.prefix = 128
+                ip2.gateway = "::0"
+                # ip2.count = 1
+            else:
+                ip2 = eth2.ipv4_addresses.ipv4()[-1]
+                ip2.name = "{}.ipv4".format(eth2.name)
+                ip2.address = eni_info['ip_server']
+                ip2.prefix = 10
+                ip2.gateway = "0.0.0.0"
+                ip2.count = 1
 
             # vlan section
             vlan2 = eth2.vlans.vlan()[-1]
@@ -1495,6 +1905,19 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, test_type, test_
     set_userIPMappings(api)
     logger.info("userIpMapping completed")
 
+    # Create DUTLIST
+    if service_type == 'privatelink':
+        logger.info("Configuring DUT list settings")
+        create_dut_config(api)
+        add_dut_ranges(api, nw_config)
+        patch_dut_config(api, nw_config)
+
+        # Patch Traffic between Network1 and DUT
+        patch_destination_actionList(api)
+
+        # Patch Network 2 IPv6
+        patch_communityList2(api, nw_config)
+
     logger.info("Configuring custom port settings")
     time_assignPort_time = time.time()
     assignPorts(api, ports_list)
@@ -1510,14 +1933,14 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, test_type, test_
     # Here adjust Double Increment and vlanRange unique number
     logger.info("Configuring rangeList settings for client and server")
     test_rangeList_time = time.time()
-    set_rangeList(api)
+    set_rangeList(api, service_type)
     test_rangeList_finish_time = time.time()
     logger.info("rangeList settings completed {}".format(test_rangeList_finish_time-test_rangeList_time))
 
     # Adjust Traffic Profile
     logger.info("Custom trafficmaps")
     test_trafficmaps_time = time.time()
-    set_trafficMapProfile(api)
+    set_trafficMapProfile(api, service_type)
     test_trafficmaps_finish = time.time()
     logger.info("Finished traffic maps configuration {}".format(test_trafficmaps_finish - test_trafficmaps_time))
 
@@ -1533,6 +1956,10 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, test_type, test_
     set_timelineCustom(api, initial_cps_value)
     test_timeline_finish = time.time()
     logger.info("Finished timeline configurations {}".format(test_timeline_finish - test_timeline_time))
+
+    # allow route conflicts
+    logger.info("Setting test preferences to allow route conflicts to enabled")
+    set_test_preferences(api)
 
     # save file
     # logger.info("Saving Test File")
