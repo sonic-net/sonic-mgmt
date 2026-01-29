@@ -10,6 +10,7 @@ from tests.common.mellanox_data import LOSSY_ONLY_HWSKUS as MELLANOX_LOSSY_ONLY_
 from tests.common.broadcom_data import LOSSY_ONLY_HWSKUS as BROADCOM_LOSSY_ONLY_HWSKUS
 from tests.common.mellanox_data import NO_QOS_HWSKUS as MELLANOX_NO_QOS_HWSKUS
 from tests.common.broadcom_data import NO_QOS_HWSKUS as BROADCOM_NO_QOS_HWSKUS
+from tests.common.marvell_prestera_data import NO_QOS_HWSKUS as MARVELL_PRESTERA_NO_QOS_HWSKUS
 from tests.common.utilities import wait_until
 
 random.seed(10)
@@ -42,6 +43,8 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
         skip_pfc_hwskus = [*MELLANOX_LOSSY_ONLY_HWSKUS, *MELLANOX_NO_QOS_HWSKUS]
     elif asic_type == "broadcom":
         skip_pfc_hwskus = [*BROADCOM_LOSSY_ONLY_HWSKUS, *BROADCOM_NO_QOS_HWSKUS]
+    elif asic_type == "marvell-prestera":
+        skip_pfc_hwskus = MARVELL_PRESTERA_NO_QOS_HWSKUS
     else:
         skip_pfc_hwskus = []
 
