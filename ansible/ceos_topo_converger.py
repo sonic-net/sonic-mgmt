@@ -141,6 +141,8 @@ class SonicTopoConverger:
         # We use a similar range for IPv6 for simplicity.
         peer_bp_addr_offset = 100
         ptf_bp_addr_offset = 101
+        base_v4_addr = "10.10.246.0"
+        base_v6_addr = "fc0a::"
         for prime_dev, peer_list in self.prime_device_mapping.items():
             intf_counter_base = 1
             eth_intf_index = 1
@@ -178,14 +180,12 @@ class SonicTopoConverger:
                 bp_addr_data = {}
                 v4_addr = peer["bp_interface"].get("ipv4", "10.10.246.0")
                 if "ipv4" in peer["bp_interface"]:
-                    base_addr = v4_addr.split("/")[0]
-                    bp_addr_data["ipv4"] = f"{self.modify_l3_address(base_addr, ptf_bp_addr_offset)}/31"
-                    vrf[f"Vlan{vlan_id}"]["ipv4"] = f"{self.modify_l3_address(base_addr, peer_bp_addr_offset)}/31"
+                    bp_addr_data["ipv4"] = f"{self.modify_l3_address(base_v4_addr, ptf_bp_addr_offset)}/31"
+                    vrf[f"Vlan{vlan_id}"]["ipv4"] = f"{self.modify_l3_address(base_v4_addr, peer_bp_addr_offset)}/31"
                 if "ipv6" in peer["bp_interface"]:
-                    base_addr = peer["bp_interface"]["ipv6"].split("/")[0]
-                    bp_addr_data["ipv6"] = f"{self.modify_l3_address(base_addr, ptf_bp_addr_offset)}/127"
-                    bp_addr_data["router-id"] = f"{self.modify_l3_address(v4_addr, ptf_bp_addr_offset)}"
-                    vrf[f"Vlan{vlan_id}"]["ipv6"] = f"{self.modify_l3_address(base_addr, peer_bp_addr_offset)}/127"
+                    bp_addr_data["ipv6"] = f"{self.modify_l3_address(base_v6_addr, ptf_bp_addr_offset)}/127"
+                    bp_addr_data["router-id"] = f"{self.modify_l3_address(base_v4_addr, ptf_bp_addr_offset)}"
+                    vrf[f"Vlan{vlan_id}"]["ipv6"] = f"{self.modify_l3_address(base_v6_addr, peer_bp_addr_offset)}/127"
                 if bp_addr_data:
                     bp_addr_data["vlan"] = vlan_id
                     bp_addrs[peer_name] = bp_addr_data
