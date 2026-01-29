@@ -248,8 +248,14 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
     return [reboot_res, dut_datetime]
 
 
+def execute_reboot_smartswitch_command(duthost, reboot_type, hostname):
+    reboot_command = reboot_ss_ctrl_dict[reboot_type]["command"]
+    logger.info(f'rebooting {hostname} with command "{reboot_command}"')
+    return duthost.command(reboot_command)
+
+
 @support_ignore_loganalyzer
-def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
+def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD):
     """
     reboots SmartSwitch or a DPU
     :param duthost: DUT host object
@@ -266,7 +272,8 @@ def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
 
     logging.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
 
-    reboot_res = duthost.command(reboot_ss_ctrl_dict[reboot_type]["command"])
+    reboot_res = pool.apply_async(execute_reboot_smartswitch_command,
+                                  (duthost, reboot_type, hostname))
 
     return [reboot_res, dut_datetime]
 
@@ -348,7 +355,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     time.sleep(wait_conlsole_connection)
     # Perform reboot
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
-        reboot_res, dut_datetime = reboot_smartswitch(duthost, reboot_type)
+        reboot_res, dut_datetime = reboot_smartswitch(duthost, pool, reboot_type)
     else:
         reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
                                                   reboot_kwargs, reboot_type)
@@ -378,6 +385,13 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         logger.error('collecting console log thread result: {} on {}'.format(console_thread_res.get(), hostname))
         pool.terminate()
         raise Exception(f"dut not start: {err}")
+
+    # NOTE: That once our device is back up it may be running a different version of SONiC/Debian
+    # than before which may include a different version of python. Therefore, to prevent python
+    # interpreter not found issues in subsequent Ansible modules as a result of using the
+    # pre-reboot cached interpreter value, we need to clear the cached facts so that they are
+    # re-gathered on next use.
+    duthost.meta("clear_facts")
 
     if return_after_reconnect:
         return
@@ -729,7 +743,8 @@ def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
         'search_regex': SONIC_SSH_REGEX
     }
     short_timeout = 40
-    params_to_update_list = [{}, {'search_regex': None, 'timeout': short_timeout}]
+    short_delay = 10
+    params_to_update_list = [{}, {'search_regex': None, 'timeout': short_timeout, 'delay': short_delay}]
     for num_try, params_to_update in enumerate(params_to_update_list):
         iter_connection_params = default_connection_params.copy()
         iter_connection_params.update(params_to_update)

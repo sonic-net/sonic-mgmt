@@ -1,0 +1,1412 @@
+/:
+  sdszhang: 122778
+  wangxin: 95004
+  xwjiang-ms: 60961
+/.azure-pipelines/:
+  wangxin: 3328
+  xwjiang-ms: 3426
+  yutongzhang-microsoft: 5300
+/.azure-pipelines/baseline_test/:
+  opcoder0: 234
+  xwjiang-ms: 691
+  yutongzhang-microsoft: 334
+/.azure-pipelines/common2/:
+  opcoder0: 297
+/.azure-pipelines/dependency_check/:
+  opcoder0: 1
+  yutongzhang-microsoft: 331
+/.azure-pipelines/impacted_area_testing/:
+  BYGX-wcr: 21
+  xwjiang-ms: 201
+  yutongzhang-microsoft: 600
+/.azure-pipelines/markers_check/:
+  yutongzhang-microsoft: 70
+/.azure-pipelines/recover_testbed/:
+  lizhijianrd: 2
+  xwjiang-ms: 10
+  yutongzhang-microsoft: 1312
+/.azure-pipelines/sonic_vpp/:
+  wangxin: 3328
+  xwjiang-ms: 3426
+  yutongzhang-microsoft: 5300
+/.github/:
+  liushilongbuaa: 330
+  nikamirrr: 8942
+  opcoder0: 748
+/.github/.code-reviewers/:
+  nikamirrr: 5180
+/.github/ISSUE_TEMPLATE/:
+  Gfrom2016: 63
+  opcoder0: 588
+/.github/codeql/:
+  liushilongbuaa: 7
+/.github/workflows/:
+  liushilongbuaa: 323
+  nikamirrr: 22
+  opcoder0: 96
+/.hooks/:
+  xwjiang-ms: 76
+  yejianquan: 21
+  yutongzhang-microsoft: 42
+/.hooks/pre_commit_hooks/:
+  davidm-arista: 8
+  xwjiang-ms: 28
+  yejianquan: 21
+/ansible/:
+  r12f: 22896
+  sdszhang: 119344
+  wangxin: 56423
+/ansible/cliconf_plugins/:
+  xwjiang-ms: 24
+/ansible/devutil/:
+  bingwang-ms: 281
+  r12f: 1556
+  wangxin: 1666
+/ansible/devutil/devices/:
+  wangxin: 172
+  yejianquan: 82
+  yutongzhang-microsoft: 7
+/ansible/dualtor/:
+  lolyu: 4756
+  wangxin: 509
+  xwjiang-ms: 2289
+/ansible/dualtor/nic_simulator/:
+  lolyu: 4756
+  wsycqyz: 6
+  xwjiang-ms: 2289
+/ansible/files/:
+  Xichen96: 357
+  lizhijianrd: 307
+  wangxin: 787
+/ansible/golden_config_db/:
+  nikamirrr: 14
+/ansible/group_vars/:
+  Junchao-Mellanox: 1654
+  keboliu: 2578
+  yxieca: 1145
+/ansible/group_vars/all/:
+  wangxin: 60
+  xwjiang-ms: 10
+  yejianquan: 18
+/ansible/group_vars/eos/:
+  wangxin: 2
+/ansible/group_vars/example-ixia/:
+  yxieca: 2
+/ansible/group_vars/fanout/:
+  Xichen96: 3
+  wangxin: 12
+/ansible/group_vars/ixia/:
+  yejianquan: 5
+/ansible/group_vars/k8s_ubu/:
+  isabelmsft: 10
+/ansible/group_vars/k8s_vm_host/:
+  isabelmsft: 8
+/ansible/group_vars/l1_switch/:
+  r12f: 3
+/ansible/group_vars/lab/:
+  wangxin: 26
+  xwjiang-ms: 4
+  yutongzhang-microsoft: 11
+/ansible/group_vars/pdu/:
+  Junchao-Mellanox: 1654
+  keboliu: 2578
+  yxieca: 1145
+/ansible/group_vars/ptf/:
+  opcoder0: 1
+  wangxin: 7
+/ansible/group_vars/snappi-sonic/:
+  Junchao-Mellanox: 1654
+  keboliu: 2578
+  yxieca: 1145
+/ansible/group_vars/sonic/:
+  Junchao-Mellanox: 1654
+  keboliu: 2578
+  yxieca: 1138
+/ansible/group_vars/sonic_latest/:
+  qiluo-msft: 7
+/ansible/group_vars/veos_vtb/:
+  lizhijianrd: 5
+/ansible/group_vars/vm_host/:
+  hdwhdw: 10
+  wangxin: 46
+  xwjiang-ms: 10
+/ansible/host_vars/:
+  isabelmsft: 15
+  qiluo-msft: 432
+  xwjiang-ms: 1
+/ansible/library/:
+  r12f: 1433
+  wangxin: 3706
+  xwjiang-ms: 2805
+/ansible/linkstate/:
+  stepanblyschak: 114
+  wangxin: 42
+  xwjiang-ms: 114
+/ansible/minigraph/:
+  qiluo-msft: 352
+  wangxin: 31892
+  zjswhhh: 678
+/ansible/module_utils/:
+  abdosi: 459
+  guangyao6: 197
+  r12f: 709
+/ansible/module_utils/aos/:
+  wsycqyz: 8
+  xwjiang-ms: 18
+  yejianquan: 4
+/ansible/plugins/:
+  auspham: 160
+  lolyu: 317
+  xwjiang-ms: 263
+/ansible/plugins/action/:
+  auspham: 160
+  wangxin: 28
+  xwjiang-ms: 73
+/ansible/plugins/callback/:
+  wsycqyz: 5
+  xwjiang-ms: 39
+/ansible/plugins/connection/:
+  lolyu: 69
+  xwjiang-ms: 129
+  yejianquan: 151
+/ansible/plugins/filter/:
+  lolyu: 133
+  wangxin: 16
+  xwjiang-ms: 22
+/ansible/plugins/lookup/:
+  lolyu: 115
+  wangxin: 5
+/ansible/roles/:
+  lolyu: 5684
+  wangxin: 14749
+  xwjiang-ms: 8409
+/ansible/roles/cisco/:
+  guangyao6: 134
+/ansible/roles/connection_db/:
+  lolyu: 2021
+  wangxin: 2
+  xwjiang-ms: 43
+/ansible/roles/eos/:
+  sdszhang: 484
+  wangxin: 446
+  yxieca: 964
+/ansible/roles/eos/files/:
+  sdszhang: 484
+  wangxin: 446
+  yxieca: 964
+/ansible/roles/eos/handlers/:
+  bingwang-ms: 4
+  wangxin: 6
+/ansible/roles/eos/tasks/:
+  judyjoseph: 22
+  wangxin: 42
+  yejianquan: 67
+/ansible/roles/eos/templates/:
+  sdszhang: 484
+  wangxin: 398
+  yxieca: 964
+/ansible/roles/fanout/:
+  Xichen96: 1263
+  lizhijianrd: 2053
+  lolyu: 1050
+/ansible/roles/fanout/files/:
+  lolyu: 54
+/ansible/roles/fanout/handlers/:
+  xwjiang-ms: 1
+/ansible/roles/fanout/library/:
+  lizhijianrd: 97
+  lolyu: 270
+  xwjiang-ms: 61
+/ansible/roles/fanout/lookup_plugins/:
+  Xichen96: 152
+/ansible/roles/fanout/tasks/:
+  Xichen96: 245
+  lizhijianrd: 344
+  stepanblyschak: 267
+/ansible/roles/fanout/tasks/mlnx/:
+  stepanblyschak: 240
+  wangxin: 65
+  xwjiang-ms: 2
+/ansible/roles/fanout/tasks/sonic/:
+  Xichen96: 170
+  bingwang-ms: 183
+  lizhijianrd: 325
+/ansible/roles/fanout/templates/:
+  Xichen96: 859
+  lizhijianrd: 1612
+  lolyu: 516
+/ansible/roles/k8s_haproxy/:
+  isabelmsft: 201
+  xwjiang-ms: 14
+/ansible/roles/k8s_master/:
+  isabelmsft: 250
+  xwjiang-ms: 18
+/ansible/roles/mcx/:
+  Xichen96: 240
+  xwjiang-ms: 2
+/ansible/roles/sonic-common/:
+  qiluo-msft: 125
+  xwjiang-ms: 33
+  yxieca: 12
+/ansible/roles/sonic/:
+  Pterosaur: 278
+  judyjoseph: 272
+  saiarcot895: 574
+/ansible/roles/sonic/handlers/:
+  Pterosaur: 13
+  eddieruan-alibaba: 2
+/ansible/roles/sonic/tasks/:
+  Pterosaur: 116
+  eddieruan-alibaba: 121
+  saiarcot895: 21
+/ansible/roles/sonic/templates/:
+  Pterosaur: 149
+  judyjoseph: 272
+  saiarcot895: 553
+/ansible/roles/sonicv2/:
+  qiluo-msft: 398
+  wangxin: 6
+  xwjiang-ms: 18
+/ansible/roles/test/:
+  stepanblyschak: 3834
+  wangxin: 6440
+  xwjiang-ms: 6982
+/ansible/roles/test/files/:
+  stepanblyschak: 1970
+  wangxin: 2608
+  xwjiang-ms: 6805
+/ansible/roles/test/files/acstests/:
+  stepanblyschak: 122
+  wangxin: 673
+  xwjiang-ms: 735
+/ansible/roles/test/files/acstests/py3/:
+  judyjoseph: 2
+  opcoder0: 3
+  xwjiang-ms: 1
+/ansible/roles/test/files/brcm/:
+  stepanblyschak: 1970
+  wangxin: 2608
+  xwjiang-ms: 6805
+/ansible/roles/test/files/helpers/:
+  dgsudharsan: 54
+  rraghav-cisco: 37
+  xwjiang-ms: 73
+/ansible/roles/test/files/mlnx/:
+  nhe-NV: 38
+  stepanblyschak: 45
+  xwjiang-ms: 76
+/ansible/roles/test/files/ptftests/:
+  stepanblyschak: 1763
+  wangxin: 1764
+  xwjiang-ms: 5686
+/ansible/roles/test/files/ptftests/py3/:
+  mramezani95: 804
+  xwjiang-ms: 2431
+  zypgithub: 617
+/ansible/roles/test/files/tools/:
+  ZhaohuiS: 429
+  wangxin: 146
+  xwjiang-ms: 235
+/ansible/roles/test/handlers/:
+  yxieca: 7
+/ansible/roles/test/tasks/:
+  qiluo-msft: 719
+  stepanblyschak: 1808
+  wangxin: 2729
+/ansible/roles/test/tasks/acl/:
+  stepanblyschak: 433
+  wangxin: 496
+  xwjiang-ms: 5
+/ansible/roles/test/tasks/advanced_reboot/:
+  wangxin: 2
+  yxieca: 4
+/ansible/roles/test/tasks/bgp_gr_helper/:
+  XuChen-MSFT: 2
+  wangxin: 61
+  xwjiang-ms: 4
+/ansible/roles/test/tasks/common_tasks/:
+  stepanblyschak: 40
+  yxieca: 5
+/ansible/roles/test/tasks/continuous_link_flap/:
+  wangxin: 2
+/ansible/roles/test/tasks/copp/:
+  qiluo-msft: 719
+  stepanblyschak: 1808
+  wangxin: 2729
+/ansible/roles/test/tasks/ecmp/:
+  qiluo-msft: 719
+  stepanblyschak: 1808
+  wangxin: 2729
+/ansible/roles/test/tasks/everflow/:
+  xwjiang-ms: 8
+/ansible/roles/test/tasks/everflow_testbed/:
+  qiluo-msft: 13
+  stepanblyschak: 825
+  wangxin: 8
+/ansible/roles/test/tasks/everflow_testbed/apply_config/:
+  stepanblyschak: 2
+  vperumal: 2
+/ansible/roles/test/tasks/everflow_testbed/del_config/:
+  qiluo-msft: 13
+  stepanblyschak: 825
+  wangxin: 8
+/ansible/roles/test/tasks/fib/:
+  wangxin: 2
+/ansible/roles/test/tasks/lag/:
+  wangxin: 2
+/ansible/roles/test/tasks/link_flap/:
+  rajneeshaec: 4
+  wangxin: 2
+  yxieca: 53
+/ansible/roles/test/tasks/pfc_wd/:
+  abdosi: 41
+  cyw233: 40
+  wangxin: 70
+/ansible/roles/test/tasks/pfcwd/:
+  wangxin: 10
+  xwjiang-ms: 2
+/ansible/roles/test/tasks/qos/:
+  xwjiang-ms: 1
+/ansible/roles/test/tasks/snmp/:
+  keboliu: 55
+  qiluo-msft: 25
+  rajneeshaec: 22
+/ansible/roles/test/templates/:
+  stepanblyschak: 56
+  wangxin: 1100
+  wsycqyz: 76
+/ansible/roles/test/templates/etc/:
+  qiluo-msft: 19
+/ansible/roles/test/templates/exabgp/:
+  xwjiang-ms: 2
+/ansible/roles/test/vars/:
+  XuChen-MSFT: 62
+  qiluo-msft: 101
+  yxieca: 50
+/ansible/roles/testbed/:
+  r12f: 659
+/ansible/roles/vm_set/:
+  lolyu: 1562
+  wangxin: 7683
+  yutongzhang-microsoft: 1251
+/ansible/roles/vm_set/files/:
+  lolyu: 183
+  wangxin: 2835
+  xwjiang-ms: 180
+/ansible/roles/vm_set/library/:
+  lolyu: 862
+  wangxin: 2090
+  xwjiang-ms: 865
+/ansible/roles/vm_set/tasks/:
+  lolyu: 505
+  wangxin: 2727
+  yutongzhang-microsoft: 831
+/ansible/roles/vm_set/templates/:
+  Pterosaur: 63
+  guangyao6: 87
+  xwjiang-ms: 43
+/ansible/roles/vm_set/vars/:
+  xwjiang-ms: 1
+/ansible/scripts/:
+  r12f: 6136
+  wangxin: 58
+/ansible/templates/:
+  abdosi: 690
+  auspham: 184
+  sdszhang: 317
+/ansible/terminal_plugins/:
+  xwjiang-ms: 6
+/ansible/vars/:
+  lizhijianrd: 8652
+  r12f: 10658
+  sdszhang: 117221
+/ansible/vars/acl/:
+  xwjiang-ms: 1
+/ansible/vars/configdb_jsons/:
+  GaladrielZhao: 24
+  eddieruan-alibaba: 3088
+/ansible/vars/configlet/:
+  xwjiang-ms: 35
+/ansible/vars/nut_topos/:
+  r12f: 58
+/docs/:
+  r12f: 2110
+  wangxin: 3052
+  yxieca: 1755
+/docs/ansible/:
+  auspham: 3
+  wangxin: 7
+/docs/api_wiki/:
+  lizhijianrd: 150
+  mramezani95: 57
+  wangxin: 447
+/docs/image/:
+  r12f: 2110
+  wangxin: 3052
+  yxieca: 1755
+/docs/sai_validation/:
+  opcoder0: 275
+/docs/testbed/:
+  developfast: 399
+  r12f: 851
+  wangxin: 1621
+/docs/testbed/img/:
+  lolyu: 12
+  wangxin: 20
+  zjswhhh: 18
+/docs/testbed/sai_quality/:
+  ZhaohuiS: 4
+  auspham: 6
+  wangxin: 157
+/docs/testplan/:
+  mihirpat1: 904
+  r12f: 879
+  wangxin: 859
+/docs/testplan/ACL/:
+  bingwang-ms: 294
+/docs/testplan/Img/:
+  bingwang-ms: 6
+  zjswhhh: 6
+/docs/testplan/console/:
+  wangxin: 4
+/docs/testplan/dash/:
+  mihirpat1: 904
+  r12f: 879
+  wangxin: 859
+/docs/testplan/dhcp_relay/:
+  mihirpat1: 904
+  r12f: 879
+  wangxin: 859
+/docs/testplan/dns/:
+  nhe-NV: 139
+/docs/testplan/dual_tor/:
+  lolyu: 148
+  theasianpianist: 758
+  wangxin: 46
+/docs/testplan/ecn/:
+  wangxin: 44
+/docs/testplan/images/:
+  Pterosaur: 2
+  Xichen96: 2
+/docs/testplan/ip-interface/:
+  nhe-NV: 151
+  wangxin: 23
+/docs/testplan/pac/:
+  mihirpat1: 904
+  r12f: 879
+  wangxin: 859
+/docs/testplan/pfc/:
+  developfast: 54
+  wangxin: 81
+  xwjiang-ms: 12
+/docs/testplan/pfcwd/:
+  wangxin: 38
+/docs/testplan/smart-switch/:
+  mihirpat1: 904
+  r12f: 879
+  wangxin: 859
+/docs/testplan/snappi/:
+  r12f: 751
+/docs/testplan/srv6/:
+  BYGX-wcr: 113
+  eddieruan-alibaba: 295
+/docs/testplan/syslog/:
+  wangxin: 18
+/docs/testplan/transceiver/:
+  mihirpat1: 904
+  r12f: 879
+  wangxin: 859
+/docs/tests/:
+  cyw233: 105
+  r12f: 380
+  yutongzhang-microsoft: 122
+/sdn_tests/:
+  vamsipunati: 199
+/spytest/:
+  Praveen-Brcm: 354
+  lolyu: 12
+  wangxin: 98
+/test_reporting/:
+  ZhaohuiS: 280
+  wangxin: 916
+  xwjiang-ms: 235
+/test_reporting/kusto/:
+  ZhaohuiS: 73
+  vaibhavhd: 75
+  wangxin: 158
+/test_reporting/sai_coverage/:
+  ZhaohuiS: 280
+  wangxin: 916
+  xwjiang-ms: 235
+/test_reporting/telemetry/:
+  r12f: 130
+/test_reporting/tests/:
+  ZhaohuiS: 280
+  wangxin: 916
+  xwjiang-ms: 235
+/tests/:
+  rawal01: 27044
+  wangxin: 30603
+  xwjiang-ms: 41063
+/tests/acl/:
+  bingwang-ms: 1850
+  stepanblyschak: 1799
+  xwjiang-ms: 2423
+/tests/acl/custom_acl_table/:
+  bingwang-ms: 360
+  nhe-NV: 17
+  xwjiang-ms: 62
+/tests/acl/files/:
+  stepanblyschak: 9
+  xwjiang-ms: 1
+/tests/acl/null_route/:
+  bingwang-ms: 546
+  nhe-NV: 24
+  xwjiang-ms: 102
+/tests/acl/templates/:
+  abdosi: 42
+  stepanblyschak: 1026
+  xwjiang-ms: 1020
+/tests/arp/:
+  theasianpianist: 1239
+  xwjiang-ms: 666
+  yutongzhang-microsoft: 992
+/tests/arp/args/:
+  theasianpianist: 1239
+  xwjiang-ms: 666
+  yutongzhang-microsoft: 992
+/tests/arp/files/:
+  opcoder0: 45
+  wsycqyz: 91
+  xwjiang-ms: 140
+/tests/auditd/:
+  maipbui: 810
+  xincunli-sonic: 45
+  xwjiang-ms: 23
+/tests/autorestart/:
+  cyw233: 30
+  xwjiang-ms: 54
+  yxieca: 253
+/tests/bfd/:
+  bachalla: 186
+  cyw233: 8801
+  opcoder0: 90
+/tests/bgp/:
+  cyw233: 6621
+  lolyu: 1545
+  sanjair-git: 3796
+/tests/bgp/reliable_tsa/:
+  cyw233: 1076
+/tests/bgp/templates/:
+  bingwang-ms: 15
+  lolyu: 42
+  matthew-soulsby: 30
+/tests/bmp/:
+  FengPan-Frank: 516
+  bachalla: 43
+/tests/cacl/:
+  ZhaohuiS: 530
+  matthew-soulsby: 246
+  xwjiang-ms: 301
+/tests/clock/:
+  ZhaohuiS: 52
+  augusdn: 61
+  bingwang-ms: 4
+/tests/common/:
+  lolyu: 6492
+  wangxin: 14530
+  yutongzhang-microsoft: 7848
+/tests/common/cache/:
+  lolyu: 162
+  wangxin: 463
+  yejianquan: 60
+/tests/common/configlet/:
+  Ryangwaite: 20
+  yutongzhang-microsoft: 0
+/tests/common/connections/:
+  bingwang-ms: 499
+  matthew-soulsby: 77
+  xwjiang-ms: 39
+/tests/common/devices/:
+  guangyao6: 433
+  wangxin: 3036
+  xwjiang-ms: 502
+/tests/common/dualtor/:
+  lolyu: 4105
+  theasianpianist: 1479
+  vaibhavhd: 2705
+/tests/common/fixtures/:
+  Ryangwaite: 1316
+  wangxin: 726
+  yejianquan: 578
+/tests/common/flow_counter/:
+  lolyu: 6492
+  wangxin: 14530
+  yutongzhang-microsoft: 7848
+/tests/common/ha/:
+  opcoder0: 2
+/tests/common/helpers/:
+  Javier-Tan: 565
+  cyw233: 770
+  yutongzhang-microsoft: 838
+/tests/common/helpers/drop_counters/:
+  bingwang-ms: 20
+  vaibhavhd: 97
+  xwjiang-ms: 29
+/tests/common/helpers/files/:
+  Javier-Tan: 565
+  cyw233: 770
+  yutongzhang-microsoft: 838
+/tests/common/helpers/platform_api/:
+  Junchao-Mellanox: 73
+  rawal01: 73
+  stepanblyschak: 106
+/tests/common/helpers/platform_api/scripts/:
+  stepanblyschak: 74
+  wsycqyz: 12
+  xwjiang-ms: 9
+/tests/common/helpers/tacacs/:
+  liamkearney-msft: 9
+  maipbui: 32
+  yutongzhang-microsoft: 361
+/tests/common/ixia/:
+  ZhaohuiS: 185
+  wsycqyz: 68
+  xwjiang-ms: 376
+/tests/common/macsec/:
+  judyjoseph: 244
+  liamkearney-msft: 111
+  yutongzhang-microsoft: 266
+/tests/common/multibranch/:
+  ZhaohuiS: 6
+  lipxu: 2
+  xwjiang-ms: 18
+/tests/common/pkt_filter/:
+  ZhaohuiS: 17
+  wsycqyz: 14
+  xwjiang-ms: 39
+/tests/common/platform/:
+  judyjoseph: 148
+  yutongzhang-microsoft: 921
+  yxieca: 370
+/tests/common/platform/args/:
+  Ryangwaite: 6
+/tests/common/platform/files/:
+  ZhaohuiS: 4
+  judyjoseph: 42
+  xwjiang-ms: 8
+/tests/common/platform/templates/:
+  saiarcot895: 7
+  yutongzhang-microsoft: 0
+/tests/common/plugins/:
+  lipxu: 3753
+  wangxin: 4762
+  yutongzhang-microsoft: 4744
+/tests/common/plugins/allure_server/:
+  wangxin: 2
+  wsycqyz: 4
+  yejianquan: 2
+/tests/common/plugins/allure_wrapper/:
+  nhe-NV: 8
+/tests/common/plugins/conditional_mark/:
+  BYGX-wcr: 1734
+  xwjiang-ms: 1429
+  yutongzhang-microsoft: 4493
+/tests/common/plugins/custom_fixtures/:
+  ZhaohuiS: 10
+  bingwang-ms: 34
+  xwjiang-ms: 14
+/tests/common/plugins/custom_markers/:
+  ZhaohuiS: 54
+  vaibhavhd: 47
+  xwjiang-ms: 108
+/tests/common/plugins/dut_monitor/:
+  ZhaohuiS: 39
+  wsycqyz: 36
+  xwjiang-ms: 78
+/tests/common/plugins/log_section_start/:
+  lolyu: 142
+  wangxin: 64
+  xwjiang-ms: 12
+/tests/common/plugins/loganalyzer/:
+  nhe-NV: 150
+  xwjiang-ms: 80
+  yejianquan: 83
+/tests/common/plugins/memory_utilization/:
+  lipxu: 3307
+  sdszhang: 44
+  xwjiang-ms: 6
+/tests/common/plugins/pdu_controller/:
+  Xichen96: 536
+  wangxin: 660
+  yxieca: 569
+/tests/common/plugins/ptfadapter/:
+  lolyu: 80
+  wangxin: 175
+  xwjiang-ms: 94
+/tests/common/plugins/ptfadapter/templates/:
+  ZhaohuiS: 2
+  xwjiang-ms: 4
+/tests/common/plugins/random_seed/:
+  lipxu: 3753
+  wangxin: 4762
+  yutongzhang-microsoft: 4744
+/tests/common/plugins/sanity_check/:
+  cyw233: 578
+  theasianpianist: 815
+  wangxin: 2090
+/tests/common/plugins/test_completeness/:
+  ZhaohuiS: 65
+  vaibhavhd: 197
+  xwjiang-ms: 130
+/tests/common/pytest_argus/:
+  lolyu: 6492
+  wangxin: 14530
+  yutongzhang-microsoft: 7848
+/tests/common/sai_validation/:
+  opcoder0: 666
+/tests/common/snappi_tests/:
+  developfast: 2827
+  rraghav-cisco: 345
+  sdszhang: 209
+/tests/common/snapshot_comparison/:
+  Ryangwaite: 206
+/tests/common/storage_backend/:
+  lolyu: 9
+/tests/common/system_utils/:
+  ZhaohuiS: 7
+  abdosi: 37
+  xwjiang-ms: 17
+/tests/common/telemetry/:
+  r12f: 3633
+  xwjiang-ms: 8
+/tests/common/templates/:
+  bingwang-ms: 16
+  lipxu: 16
+  yutongzhang-microsoft: 38
+/tests/common/validation/:
+  opcoder0: 282
+/tests/common2/:
+  opcoder0: 2269
+/tests/configlet/:
+  wsycqyz: 74
+  xwjiang-ms: 450
+  yejianquan: 96
+/tests/console/:
+  Xichen96: 18
+  wsycqyz: 8
+  xwjiang-ms: 43
+/tests/container_checker/:
+  Javier-Tan: 16
+  bingwang-ms: 27
+  xwjiang-ms: 12
+/tests/container_hardening/:
+  hdwhdw: 1
+  maipbui: 97
+  qiluo-msft: 5
+/tests/container_upgrade/:
+  FengPan-Frank: 12
+  maipbui: 11
+  zbud-msft: 287
+/tests/copp/:
+  abdosi: 414
+  prabhataravind: 165
+  xwjiang-ms: 152
+/tests/copp/scripts/:
+  prabhataravind: 32
+  wsycqyz: 8
+  zhixzhu: 14
+/tests/counter/:
+  rawal01: 27044
+  wangxin: 30603
+  xwjiang-ms: 41063
+/tests/crm/:
+  arlakshm: 360
+  xwjiang-ms: 426
+  yutongzhang-microsoft: 192
+/tests/dash/:
+  Pterosaur: 1561
+  prabhataravind: 44
+  theasianpianist: 2870
+/tests/dash/configs/:
+  prabhataravind: 4
+  theasianpianist: 283
+  vivekrnv: 3
+/tests/dash/crm/:
+  Pterosaur: 2
+/tests/dash/templates/:
+  Pterosaur: 93
+  theasianpianist: 139
+  xwjiang-ms: 2
+/tests/database/:
+  saiarcot895: 50
+/tests/db_migrator/:
+  wangxin: 20
+/tests/decap/:
+  arlakshm: 135
+  wangxin: 928
+  xwjiang-ms: 368
+/tests/dhcp_relay/:
+  wangxin: 241
+  yejianquan: 168
+  zypgithub: 811
+/tests/dhcp_server/:
+  rawal01: 27044
+  wangxin: 30603
+  xwjiang-ms: 41063
+/tests/disk/:
+  developfast: 11
+  rajendrat: 11
+  wsycqyz: 4
+/tests/dns/:
+  nhe-NV: 556
+  saiarcot895: 39
+/tests/docs/:
+  bingwang-ms: 68
+  opcoder0: 74
+  wangxin: 104
+/tests/drop_packets/:
+  theasianpianist: 369
+  vaibhavhd: 204
+  xwjiang-ms: 580
+/tests/dualtor/:
+  lolyu: 3925
+  theasianpianist: 811
+  xwjiang-ms: 1165
+/tests/dualtor/files/:
+  lolyu: 1314
+/tests/dualtor/templates/:
+  Xichen96: 193
+/tests/dualtor_io/:
+  lolyu: 1364
+  xwjiang-ms: 1172
+  zjswhhh: 538
+/tests/dualtor_mgmt/:
+  lolyu: 548
+  opcoder0: 98
+  yyynini: 180
+/tests/dut_console/:
+  YatishSVC: 82
+  yanmo96: 87
+  yutongzhang-microsoft: 54
+/tests/ecmp/:
+  ZhaohuiS: 1472
+  wangxin: 452
+  xwjiang-ms: 568
+/tests/ecmp/inner_hashing/:
+  StormLiangMS: 58
+  wangxin: 452
+  xwjiang-ms: 445
+/tests/everflow/:
+  StormLiangMS: 1361
+  abdosi: 2297
+  xwjiang-ms: 1162
+/tests/everflow/files/:
+  bingwang-ms: 4
+  vperumal: 64
+/tests/everflow/templates/:
+  bingwang-ms: 8
+  xwjiang-ms: 2
+/tests/fdb/:
+  lipxu: 466
+  stepanblyschak: 217
+  yutongzhang-microsoft: 366
+/tests/fib/:
+  deepak-singhal0408: 462
+  lolyu: 268
+  wangxin: 966
+/tests/filterleaf/:
+  rawal01: 27044
+  wangxin: 30603
+  xwjiang-ms: 41063
+/tests/fips/:
+  rawal01: 27044
+  wangxin: 30603
+  xwjiang-ms: 41063
+/tests/generic_config_updater/:
+  isabelmsft: 1542
+  xincunli-sonic: 1095
+  yutongzhang-microsoft: 698
+/tests/gnmi/:
+  FengPan-Frank: 212
+  bachalla: 172
+  hdwhdw: 1250
+/tests/gnmi_e2e/:
+  hdwhdw: 11
+  opcoder0: 2
+/tests/gnxi/:
+  hdwhdw: 51
+/tests/golden_config_infra/:
+  yutongzhang-microsoft: 2
+/tests/ha/:
+  rawal01: 27044
+  wangxin: 30603
+  xwjiang-ms: 41063
+/tests/hash/:
+  rajendrat: 2
+  xwjiang-ms: 628
+  yutongzhang-microsoft: 4
+/tests/high_frequency_telemetry/:
+  Pterosaur: 2312
+/tests/http/:
+  wsycqyz: 20
+  xwjiang-ms: 18
+  yejianquan: 10
+/tests/iface_loopback_action/:
+  bingwang-ms: 34
+  nhe-NV: 943
+  wsycqyz: 52
+/tests/iface_namingmode/:
+  auspham: 187
+  bachalla: 621
+  xwjiang-ms: 207
+/tests/ip/:
+  cyw233: 294
+  xwjiang-ms: 740
+  yejianquan: 699
+/tests/ip/link_local/:
+  rraghav-cisco: 6
+/tests/ipfwd/:
+  abdosi: 487
+  arlakshm: 227
+  xwjiang-ms: 191
+/tests/ixia/:
+  rraghav-cisco: 988
+  wsycqyz: 60
+  xwjiang-ms: 693
+/tests/k8s/:
+  dgsudharsan: 12
+  isabelmsft: 361
+  xwjiang-ms: 119
+/tests/kubesonic/:
+  Javier-Tan: 10
+  lixiaoyuner: 562
+/tests/l2/:
+  hdwhdw: 202
+  lolyu: 18
+/tests/layer1/:
+  rawal01: 27044
+  wangxin: 30603
+  xwjiang-ms: 41063
+/tests/lldp/:
+  ZhaohuiS: 535
+  augusdn: 180
+  bachalla: 133
+/tests/log_fidelity/:
+  arlakshm: 4
+  vkjammala-arista: 17
+  xwjiang-ms: 11
+/tests/macsec/:
+  Pterosaur: 2583
+  judyjoseph: 356
+  yejianquan: 1400
+/tests/mclag/:
+  wsycqyz: 106
+  xwjiang-ms: 131
+  yejianquan: 48
+/tests/memory_checker/:
+  Staphylo: 761
+  wenyiz2021: 104
+  xwjiang-ms: 43
+/tests/metadata/:
+  xwjiang-ms: 620
+  yxieca: 368
+/tests/minigraph/:
+  saiarcot895: 22
+  yutongzhang-microsoft: 22
+  zbud-msft: 83
+/tests/monit/:
+  FengPan-Frank: 29
+  abdosi: 28
+  bingwang-ms: 12
+/tests/mpls/:
+  wsycqyz: 4
+  xwjiang-ms: 311
+  yejianquan: 2
+/tests/mvrf/:
+  saiarcot895: 60
+  wangxin: 121
+  xwjiang-ms: 45
+/tests/nat/:
+  saiarcot895: 4
+  wsycqyz: 328
+  yejianquan: 164
+/tests/nat/templates/:
+  xwjiang-ms: 2
+/tests/ntp/:
+  saiarcot895: 141
+  wangxin: 28
+  yutongzhang-microsoft: 71
+/tests/ospf/:
+  auspham: 304
+/tests/override_config_table/:
+  bingwang-ms: 155
+  wenyiz2021: 331
+  yutongzhang-microsoft: 59
+/tests/packet_trimming/:
+  developfast: 62
+/tests/passw_hardening/:
+  wsycqyz: 466
+  xwjiang-ms: 331
+  yejianquan: 228
+/tests/pc/:
+  ZhaohuiS: 758
+  saiarcot895: 579
+  yejianquan: 443
+/tests/performance_meter/:
+  Xichen96: 1086
+/tests/pfc_asym/:
+  wangxin: 10
+  xwjiang-ms: 49
+  yutongzhang-microsoft: 9
+/tests/pfcwd/:
+  lipxu: 850
+  rraghav-cisco: 559
+  xwjiang-ms: 801
+/tests/pfcwd/cisco/:
+  rraghav-cisco: 162
+/tests/pfcwd/files/:
+  bingwang-ms: 147
+  rraghav-cisco: 108
+  xwjiang-ms: 100
+/tests/pfcwd/templates/:
+  lipxu: 850
+  rraghav-cisco: 559
+  xwjiang-ms: 801
+/tests/pipelines/:
+  liushilongbuaa: 4
+  vaibhavhd: 157
+  wangxin: 28
+/tests/platform_tests/:
+  Junchao-Mellanox: 2828
+  vaibhavhd: 3519
+  xwjiang-ms: 3677
+/tests/platform_tests/api/:
+  rawal01: 989
+  xwjiang-ms: 1118
+  yutongzhang-microsoft: 561
+/tests/platform_tests/args/:
+  Junchao-Mellanox: 29
+  vaibhavhd: 86
+  xwjiang-ms: 35
+/tests/platform_tests/broadcom/:
+  wsycqyz: 1076
+  yejianquan: 538
+  yxieca: 1381
+/tests/platform_tests/cli/:
+  gechiang: 119
+  nhe-NV: 161
+  rawal01: 132
+/tests/platform_tests/counterpoll/:
+  liamkearney-msft: 175
+  wsycqyz: 35
+  yejianquan: 16
+/tests/platform_tests/daemon/:
+  judyjoseph: 206
+  liamkearney-msft: 99
+  xwjiang-ms: 494
+/tests/platform_tests/fwutil/:
+  nhe-NV: 286
+  wangxin: 146
+  wsycqyz: 68
+/tests/platform_tests/link_flap/:
+  xwjiang-ms: 86
+  yutongzhang-microsoft: 263
+  yxieca: 151
+/tests/platform_tests/mellanox/:
+  Junchao-Mellanox: 1753
+  wangxin: 162
+  xwjiang-ms: 572
+/tests/platform_tests/sensors_utils/:
+  AharonMalkin: 8
+/tests/platform_tests/sfp/:
+  AharonMalkin: 63
+  bachalla: 269
+  rawal01: 170
+/tests/platform_tests/test_first_time_boot_password_change/:
+  Junchao-Mellanox: 2828
+  vaibhavhd: 3519
+  xwjiang-ms: 3677
+/tests/portstat/:
+  bingwang-ms: 28
+  wangxin: 201
+  yejianquan: 78
+/tests/process_monitoring/:
+  BYGX-wcr: 30
+  xwjiang-ms: 36
+  yejianquan: 34
+/tests/qos/:
+  XuChen-MSFT: 19115
+  vmittal-msft: 3482
+  xwjiang-ms: 3761
+/tests/qos/args/:
+  nhe-NV: 6
+/tests/qos/files/:
+  XuChen-MSFT: 18274
+  abdosi: 2033
+  zhixzhu: 2016
+/tests/qos/files/brcm/:
+  XuChen-MSFT: 31
+  xwjiang-ms: 2
+/tests/qos/files/cisco/:
+  XuChen-MSFT: 6
+  rraghav-cisco: 14
+  zhixzhu: 639
+/tests/qos/files/mellanox/:
+  AharonMalkin: 45
+  vivekrnv: 16
+  vmittal-msft: 19
+/tests/qos/files/vs/:
+  XuChen-MSFT: 8633
+  xwjiang-ms: 92
+/tests/radv/:
+  lolyu: 80
+  prgeor: 179
+  wangxin: 109
+/tests/read_mac/:
+  bingwang-ms: 18
+  wsycqyz: 8
+  xwjiang-ms: 34
+/tests/reboot/:
+  saiarcot895: 47
+/tests/reset_factory/:
+  rawal01: 27044
+  wangxin: 30603
+  xwjiang-ms: 41063
+/tests/restapi/:
+  bingwang-ms: 51
+  sdszhang: 17
+  xwjiang-ms: 584
+/tests/route/:
+  prabhataravind: 448
+  wenyiz2021: 396
+  xwjiang-ms: 507
+/tests/sai_qualify/:
+  Gfrom2016: 157
+  wsycqyz: 256
+  yejianquan: 128
+/tests/saitests/:
+  XuChen-MSFT: 1942
+  ZhaohuiS: 2579
+  xwjiang-ms: 3338
+/tests/saitests/py3/:
+  XuChen-MSFT: 1915
+  vmittal-msft: 1574
+  xwjiang-ms: 2313
+/tests/scp/:
+  rajendrat: 17
+  wangxin: 30
+  xwjiang-ms: 64
+/tests/scripts/:
+  lolyu: 375
+  saiarcot895: 302
+  xwjiang-ms: 227
+/tests/sflow/:
+  bingwang-ms: 74
+  vivekrnv: 65
+  xwjiang-ms: 447
+/tests/show_techsupport/:
+  arlakshm: 234
+  xwjiang-ms: 92
+  yxieca: 99
+/tests/show_techsupport/files/:
+  arlakshm: 234
+  xwjiang-ms: 92
+  yxieca: 99
+/tests/show_techsupport/templates/:
+  xwjiang-ms: 2
+  yutongzhang-microsoft: 12
+/tests/smartswitch/:
+  nikamirrr: 53
+  vvolam: 184
+  yutongzhang-microsoft: 41
+/tests/snappi_tests/:
+  auspham: 9820
+  deepak-singhal0408: 2233
+  rraghav-cisco: 2704
+/tests/snappi_tests/bgp/:
+  auspham: 994
+  wangxin: 13
+  xwjiang-ms: 8
+/tests/snappi_tests/cisco/:
+  rraghav-cisco: 44
+/tests/snappi_tests/dash/:
+  auspham: 9820
+  deepak-singhal0408: 2233
+  rraghav-cisco: 2704
+/tests/snappi_tests/dataplane/:
+  auspham: 9820
+  deepak-singhal0408: 2233
+  rraghav-cisco: 2704
+/tests/snappi_tests/ecn/:
+  auspham: 1002
+  developfast: 555
+  rraghav-cisco: 135
+/tests/snappi_tests/files/:
+  developfast: 13
+  rraghav-cisco: 108
+  sdszhang: 21
+/tests/snappi_tests/lacp/:
+  wangxin: 6
+  xwjiang-ms: 6
+/tests/snappi_tests/packet_trimming/:
+  developfast: 732
+/tests/snappi_tests/pfc/:
+  auspham: 1046
+  developfast: 467
+  sdszhang: 477
+/tests/snappi_tests/pfc/files/:
+  YatishSVC: 65
+  auspham: 225
+  developfast: 308
+/tests/snappi_tests/pfc/warm_reboot/:
+  mramezani95: 166
+/tests/snappi_tests/pfcwd/:
+  auspham: 1515
+  rraghav-cisco: 695
+  sdszhang: 224
+/tests/snappi_tests/pfcwd/files/:
+  auspham: 462
+  developfast: 36
+  vkjammala-arista: 22
+/tests/snappi_tests/qos/:
+  rraghav-cisco: 3
+  vkjammala-arista: 14
+  wangxin: 2
+/tests/snappi_tests/reboot/:
+  auspham: 9820
+  deepak-singhal0408: 2233
+  rraghav-cisco: 2704
+/tests/snmp/:
+  Junchao-Mellanox: 681
+  bachalla: 1183
+  xwjiang-ms: 582
+/tests/sonic/:
+  Pterosaur: 2
+/tests/span/:
+  bingwang-ms: 8
+  nhe-NV: 9
+  xwjiang-ms: 92
+/tests/srv6/:
+  AharonMalkin: 33
+  BYGX-wcr: 1058
+  eddieruan-alibaba: 875
+/tests/ssh/:
+  saiarcot895: 41
+  xwjiang-ms: 175
+  yutongzhang-microsoft: 53
+/tests/stress/:
+  cyw233: 82
+  nhe-NV: 53
+  yutongzhang-microsoft: 156
+/tests/sub_port_interfaces/:
+  lolyu: 468
+  wsycqyz: 272
+  yejianquan: 172
+/tests/sub_port_interfaces/templates/:
+  xwjiang-ms: 2
+/tests/syslog/:
+  Junchao-Mellanox: 294
+  yutongzhang-microsoft: 199
+  yxieca: 248
+/tests/system_health/:
+  Junchao-Mellanox: 395
+  anamehra: 46
+  xwjiang-ms: 245
+/tests/system_health/files/:
+  Junchao-Mellanox: 12
+  xwjiang-ms: 2
+/tests/system_health/mellanox/:
+  Junchao-Mellanox: 46
+  xwjiang-ms: 3
+  yutongzhang-microsoft: 2
+/tests/tacacs/:
+  wangxin: 716
+  yutongzhang-microsoft: 654
+  yxieca: 437
+/tests/telemetry/:
+  wsycqyz: 982
+  yejianquan: 428
+  zbud-msft: 3070
+/tests/telemetry/events/:
+  lizhijianrd: 3
+  xwjiang-ms: 1
+  zbud-msft: 841
+/tests/templates/:
+  bingwang-ms: 122
+  lolyu: 70
+  theasianpianist: 148
+/tests/test_parallel_modes/:
+  cyw233: 56
+/tests/testbed_setup/:
+  lolyu: 175
+  yutongzhang-microsoft: 151
+  yxieca: 17
+/tests/testsuites/:
+  arista-nwolfe: 21
+/tests/transceiver/:
+  mihirpat1: 904
+/tests/upgrade_path/:
+  Ryangwaite: 443
+  saiarcot895: 237
+  vaibhavhd: 962
+/tests/vlan/:
+  wangxin: 589
+  xwjiang-ms: 357
+  yanmo96: 365
+/tests/voq/:
+  rawal01: 25048
+  wsycqyz: 360
+  xwjiang-ms: 232
+/tests/vrf/:
+  vaibhavhd: 105
+  wsycqyz: 174
+  xwjiang-ms: 599
+/tests/vs_voq_cfgs/:
+  xwjiang-ms: 4
+/tests/vxlan/:
+  mramezani95: 1473
+  rraghav-cisco: 1703
+  theasianpianist: 1184
+/tests/vxlan/templates/:
+  theasianpianist: 480
+  wsycqyz: 2
+  xwjiang-ms: 10
+/tests/wan/:
+  guangyao6: 1576
+  wsycqyz: 243
+  yejianquan: 116
+/tests/wan/docs/:
+  guangyao6: 1576
+  wsycqyz: 243
+  yejianquan: 116
+/tests/wan/figure/:
+  guangyao6: 1576
+  wsycqyz: 243
+  yejianquan: 116
+/tests/wan/isis/:
+  ZhaohuiS: 109
+  guangyao6: 1212
+  wsycqyz: 95
+/tests/wan/lacp/:
+  guangyao6: 364
+  wsycqyz: 120
+  yejianquan: 56
+/tests/wan/lldp/:
+  wsycqyz: 16
+  yejianquan: 8
+/tests/wan/traffic_test/:
+  guangyao6: 1576
+  wsycqyz: 243
+  yejianquan: 116
+/tests/wan/trex/:
+  wsycqyz: 12
+  xwjiang-ms: 7
+  yejianquan: 6
+/tests/wol/:
+  Xichen96: 1025
+  lizhijianrd: 2
+/tests/zmq/:
+  lipxu: 10
+  opcoder0: 2
+

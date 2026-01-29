@@ -162,7 +162,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         rand_selected_dut.command("sudo config bgp shutdown all")
 
     @pytest.fixture()
-    def restore_setup_info(self, setup_info, rand_unselected_dut):      # noqa F811
+    def restore_setup_info(self, setup_info, rand_unselected_dut):  # noqa: F811
         """
         In everflow test cases, the bgp session would be shutdown at active tor
         It would affects the basic function of dualtor muxcable
@@ -224,9 +224,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
     def test_everflow_multi_binding_acl(self, setup_info, setup_mirror_session,              # noqa F811
                                         dest_port_type, ptfadapter, tbinfo, mux_config,      # noqa F811
                                         toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
-                                        setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
-                                        erspan_ip_ver, upstream_links_for_unselected_dut,            # noqa F811
-                                        is_multi_binding_acl_enabled, restore_setup_info, restore_bgp, duthosts):  # noqa F811
+                                        erspan_ip_ver, upstream_links_for_unselected_dut,    # noqa F811
+                                        is_multi_binding_acl_enabled, restore_setup_info, duthosts, request):  # noqa F811
         """
         Verify multi-binding ACL scenarios for the Everflow feature.
         """
@@ -235,6 +234,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         if dest_port_type == UP_STREAM:
             pytest.skip("Multi-binding ACL is not supported for up stream direction")
+        request.getfixturevalue('restore_bgp')
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
@@ -251,6 +251,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         pytest_assert(wait_until(30, 10, 0, everflow_utils.validate_mirror_session_up,
                                  remote_dut, setup_mirror_session["session_name"]))
 
+        request.getfixturevalue('setup_standby_ports_on_rand_unselected_tor_unconditionally')
         # Verify that mirrored traffic is sent along the route we installed
         random_upstream_intf = random.choice(list(upstream_links_for_unselected_dut.keys()))
         rx_port_ptf_id = upstream_links_for_unselected_dut[random_upstream_intf]["ptf_port_id"]
@@ -988,7 +989,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
     def test_everflow_fwd_recircle_port_queue_check(self, setup_info, setup_mirror_session, # noqa F811
                                                     dest_port_type, ptfadapter, tbinfo,
-                                       toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
+                                       erspan_ip_ver, toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
                                        setup_standby_ports_on_rand_unselected_tor_unconditionally):    # noqa F811
         """
         Verify basic forwarding scenario with mirror session config having specific queue for the Everflow feature.
@@ -1001,7 +1002,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
             "vtysh -c \"configure terminal\" -c \"no ip nht resolve-via-default\"",
             setup_info[dest_port_type]["remote_namespace"]))
 
-        def update_acl_rule_config(table_name, session_name, config_method, rules=everflow_utils.EVERFLOW_V4_RULES):
+        def update_acl_rule_config(duthost, table_name, session_name, config_method,
+                                   rules=everflow_utils.EVERFLOW_V4_RULES):
             rules_config = everflow_utils.load_acl_rules_config(table_name,
                                                                 os.path.join(everflow_utils.FILE_DIR, rules))
             rules_config['rules'] = [
@@ -1038,34 +1040,30 @@ class EverflowIPv4Tests(BaseEverflowTest):
             BaseEverflowTest.remove_acl_rule_config(duthost, table_name, everflow_utils.CONFIG_MODE_CLI)
 
         for duthost in duthost_set:
-            update_acl_rule_config(table_name, setup_mirror_session["session_name"], everflow_utils.CONFIG_MODE_CLI)
+            update_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"],
+                                   everflow_utils.CONFIG_MODE_CLI)
 
-        def configure_mirror_session_with_queue(mirror_session, queue_num):
+        def configure_mirror_session_with_queue(mirror_session, queue_num, erspan_ip_ver):
             if mirror_session["session_name"]:
                 remove_command = "config mirror_session remove {}".format(mirror_session["session_name"])
                 for duthost in duthost_set:
                     duthost.command(remove_command)
-                add_command = "config mirror_session add {} {} {} {} {} {} {}" \
-                    .format(mirror_session["session_name"],
-                            mirror_session["session_src_ip"],
-                            mirror_session["session_dst_ip"],
-                            mirror_session["session_dscp"],
-                            mirror_session["session_ttl"],
-                            mirror_session["session_gre"],
-                            queue_num)
                 for duthost in duthost_set:
-                    duthost.command(add_command)
+                    BaseEverflowTest.apply_mirror_config(duthost, setup_mirror_session, erspan_ip_ver=erspan_ip_ver,
+                                                         queue_num=queue_num)
             else:
                 pytest.skip("Mirror session info is empty, can't proceed further!")
 
         queue = str(random.randint(1, 7))
         # Apply mirror session config with a different queue value other than default '0'
-        configure_mirror_session_with_queue(setup_mirror_session, queue)
+        configure_mirror_session_with_queue(setup_mirror_session, queue, erspan_ip_ver)
 
         # Add a route to the mirror session destination IP
         tx_port = setup_info[dest_port_type]["dest_port"][0]
-        peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo)
-        everflow_utils.add_route(remote_dut, setup_mirror_session["session_prefixes"][0], peer_ip,
+        peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, ip_version=erspan_ip_ver)
+        session_prefixes = setup_mirror_session["session_prefixes"] if erspan_ip_ver == 4 \
+            else setup_mirror_session["session_prefixes_ipv6"]
+        everflow_utils.add_route(remote_dut, session_prefixes[0], peer_ip,
                                  setup_info[dest_port_type]["remote_namespace"])
 
         time.sleep(15)
@@ -1095,7 +1093,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
                 dest_port_type,
                 queue,
                 asic_ns,
-                recircle_port
+                recircle_port,
+                erspan_ip_ver
             )
         finally:
             remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
