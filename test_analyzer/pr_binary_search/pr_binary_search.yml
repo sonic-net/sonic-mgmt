@@ -33,6 +33,7 @@ stages:
   - stage: PRFailureAnalyzer
     jobs:
       - job: PRFailureAnalyzer
+        pool: sonic-ubuntu-1c
         timeoutInMinutes: 1440
         variables:
           - group: KUSTO_SECRETS
@@ -43,6 +44,8 @@ stages:
             value: true
 
         steps:
+          - template: ../../.azure-pipelines/templates/install-azure-cli.yml
+
           - task: AzureCLI@2
             retryCountOnTaskFailure: 3
             displayName: Run PR failure analyzer script
