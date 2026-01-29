@@ -604,8 +604,6 @@ def load_dpu_configs_on_dut(
 def duthost_port_config(duthost):
 
     # copy HA config
-    # duthost.command("sudo cp {} {}".format(
-    #    "/etc/sonic/0HA_BACKUP/config_db.json", "/etc/sonic/config_db.json"))
     logger.info(f"{duthost.hostname} Loading custom HA config_db.json")
     duthost.shell("sudo sonic-cfggen -j /etc/sonic/0HA_BACKUP/config_db.json --write-to-db")
     duthost.shell("sudo cp /etc/sonic/0HA_BACKUP/config_db.json  /etc/sonic/config_db.json")
@@ -622,14 +620,6 @@ def duthost_port_config(duthost):
 def duthost_ha_config(duthost, nw_config):
 
     # Smartswitch configure
-    """
-    logger.info('Cleaning up config')
-    logger.info("Wait until all critical services are fully started")
-    pytest_assert(wait_until(360, 10, 1,
-                             duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
-
-    """
 
     static_ipsmacs_dict = {}
 
@@ -910,21 +900,6 @@ def npu_startup(duthosts, duthost, localhost):
 def dpu_startup(duthosts, duthost, tbinfo, static_ipmacs_dict, ha_test_case):
 
     logger.info(f"Pinging each DPU on {duthost.hostname}")
-    """
-    dpuIFKeys = [k for k in static_ipmacs_dict['static_ips'] if k.startswith("221.0")]
-    passing_dpus = []
-
-    for x, ipKey in enumerate(dpuIFKeys):
-        logger.info(f"On {duthost.hostname} pinging DPU{x}: {static_ipmacs_dict['static_ips'][ipKey]}")
-        output_ping = duthost.command(f"ping -c 3 {static_ipmacs_dict['static_ips'][ipKey]}", module_ignore_errors=True)
-        if output_ping.get("rc", 1) == 0 and "0% packet loss" in output_ping.get("stdout", ""):
-            logger.info(f"Ping success on {duthost.hostname}")
-            passing_dpus.append(x)
-            pass
-        else:
-            logger.info(f"Ping failure on {duthost.hostname}")
-            pass
-    """
     remote_dir = "/tmp/dpu_configs"
     initial_delay_sec = 20
     retry_delay_sec = 10
@@ -958,19 +933,6 @@ def dpu_startup(duthosts, duthost, tbinfo, static_ipmacs_dict, ha_test_case):
             pass
 
     errors = {}
-
-    """
-    if ha_test_case != "cps":
-        max_workers = 2
-        required_dpus = [0, 2]
-        if all(dpu in passing_dpus for dpu in required_dpus):
-            passing_dpus = required_dpus
-        else:
-            passing_dpus = []
-            return passing_dpus
-    else:
-        max_workers = min(8, max(1, len(passing_dpus)))
-    """
 
     # max_workers = min(8, max(1, len(passing_dpus)))
     max_workers = min(8, max(1, len(passing_dpus)))
