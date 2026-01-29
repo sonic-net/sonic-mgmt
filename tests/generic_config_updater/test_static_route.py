@@ -15,6 +15,29 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(scope='function')
+def ignore_expected_loganalyzer_exceptions(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+    """
+    Ignore expected failures logs during test execution.
+
+    Static route tests can trigger routeCheck failures during teardown/rollback convergence
+    on multi-ASIC devices, but these don't cause harm to DUT.
+
+    Args:
+        duthosts: list of DUTs
+        enum_rand_one_per_hwsku_frontend_hostname: Hostname of a random chosen frontend dut
+        loganalyzer: Loganalyzer utility fixture
+    """
+    ignoreRegex = [
+        r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
+        ".*ERR.*Data Loading Failed:Invalid value \"fcbb:bbbb:1::\" in \"prefix\" element.",
+    ]
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if loganalyzer and loganalyzer[duthost.hostname]:
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
+
 @pytest.fixture(autouse=True)
 def setup_and_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     """
@@ -42,7 +65,8 @@ def setup_and_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         delete_checkpoint(duthost)
 
 
-def test_static_route_add(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+def test_static_route_add(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                          ignore_expected_loganalyzer_exceptions):
     """
     Test adding static route configuration.
     """
@@ -82,7 +106,8 @@ def test_static_route_add(duthosts, enum_rand_one_per_hwsku_frontend_hostname, e
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_static_route_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+def test_static_route_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                             ignore_expected_loganalyzer_exceptions):
     """
     Test adding static route configuration.
     """
@@ -120,7 +145,8 @@ def test_static_route_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_static_route_remove(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+def test_static_route_remove(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                             ignore_expected_loganalyzer_exceptions):
     """
     Test removing SRv6 configuration.
     """
@@ -158,18 +184,11 @@ def test_static_route_remove(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
 
 def test_static_route_add_invalid(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-                                  loganalyzer):
+                                  loganalyzer, ignore_expected_loganalyzer_exceptions):
     """
     Test adding an invalid static route configuration.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
-    if loganalyzer and loganalyzer[duthost.hostname]:
-        ignore_regex_list = [
-            ".*ERR.*Data Loading Failed:Invalid value \"fcbb:bbbb:1::\" in \"prefix\" element."
-        ]
-        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
-
     asic_namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
     json_patch = [
         {
