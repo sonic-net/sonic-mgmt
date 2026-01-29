@@ -804,6 +804,80 @@ def set_timeout_for_bgpmon(duthost):
         MAX_TIME_FOR_BGPMON = plt_reboot_ctrl.get('timeout', 180)
 
 
+@pytest.fixture(scope='session')
+def gather_info(tbinfo, duthost, nbrhosts):
+    asic_index = random.choice(duthost.get_frontend_asic_ids())
+    logger.debug(f"ASIC index: {asic_index}")
+    if duthost.is_multi_asic:
+        cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
+    else:
+        cli_options = ''
+    dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+
+    neigh = duthost.shell("show lldp table")['stdout'].split("\n")[3].split()[1]
+    logger.debug("neigh: {}".format(neigh))
+    skip_hosts = duthost.get_asic_namespace_list()
+
+    # verify bgp neighbor relationship is established
+    bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+    for k, v in bgp_facts['bgp_neighbors'].items():
+        if v['description'].lower() not in skip_hosts:
+            if v['description'] == neigh:
+                if v['ip_version'] == 4:
+                    neigh_ip_v4 = k
+                    peer_group_v4 = v['peer group']
+                elif v['ip_version'] == 6:
+                    neigh_ip_v6 = k
+                    peer_group_v6 = v['peer group']
+            assert v['state'] == 'established'
+
+    dut_ip_v4 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][0]
+    dut_ip_v6 = tbinfo['topo']['properties']['configuration'][neigh]['bgp']['peers'][dut_asn][1].lower()
+
+    # capture route summary on neighbor
+    cmd = 'vtysh -c "show bgp ipv4 all neighbors {} advertised-routes" -c "show bgp ipv6 all neighbors {} \
+        advertised-routes" -c "show ip bgp summary" -c "show ip bgp neighbors {}" \
+        -c "show bgp ipv6 neighbors {}"'.format(dut_ip_v4, dut_ip_v6, dut_ip_v4, dut_ip_v6)
+    logger.debug(nbrhosts[neigh]["host"].shell(cmd, module_ignore_errors=True)['stdout'])
+
+    ipv4_sum = duthost.shell("show ip bgp summary", module_ignore_errors=True)['stdout']
+    ipv6_sum = duthost.shell("show ipv6 bgp summary", module_ignore_errors=True)['stdout']
+    ipv4_num_neigh = re.findall("Total number of neighbors (\\d+)", ipv4_sum)[0]
+    ipv6_num_neigh = re.findall("Total number of neighbors (\\d+)", ipv6_sum)[0]
+
+    setup_info = {
+        'duthost': duthost,
+        'neighhost': nbrhosts[neigh]["host"],
+        'neigh': neigh,
+        'dut_asn': dut_asn,
+        'dut_ip_v4': dut_ip_v4,
+        'dut_ip_v6': dut_ip_v6,
+        'neigh_ip_v4': neigh_ip_v4,
+        'neigh_ip_v6': neigh_ip_v6,
+        'peer_group_v4': peer_group_v4,
+        'peer_group_v6': peer_group_v6,
+        'cli_options': cli_options,
+        'asic_index': asic_index,
+        'base_v4_neigh': ipv4_num_neigh,
+        'base_v6_neigh': ipv6_num_neigh
+    }
+
+    logger.debug("DUT Config After Setup: {}".format(duthost.shell("show run bgp",
+                 module_ignore_errors=True)['stdout']))
+
+    yield setup_info
+
+    # restore config to original state
+    config_reload(duthost, wait=60)
+
+    # verify sessions are established
+    bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+    for k, v in bgp_facts['bgp_neighbors'].items():
+        if v['description'] == neigh:
+            logger.debug(v['description'])
+            assert v['state'] == 'established'
+
+
 @pytest.fixture(scope="module")
 def is_quagga(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Return True if current bgp is using Quagga."""
