@@ -657,7 +657,7 @@ Attributes are resolved using this hierarchy (highest to lowest priority):
 2. **Normalized Vendor Name + PN + Platform + HWSKU**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>.platform_hwsku_overrides.<PLATFORM>+<HWSKU>`
 3. **Normalized Vendor Name + PN**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>`
 4. **Normalized Vendor Name (defaults)**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults`
-5. **Deployment Configuration**: `transceivers.deployment_configurations.<DEPLOYMENT>` (resolved by extracting DEPLOYMENT from the `transceiver_configuration` field in `dut_info.json`)
+5. **Deployment Configuration**: `transceivers.deployment_configurations.<DEPLOYMENT>` (resolved by extracting DEPLOYMENT from the `transceiver_configuration` field in `dut_info/<dut_hostname>.json`)
 6. **HWSKU-specific**: `hwsku.<HWSKU>` (if present in the file)
 7. **Platform-specific**: `platform.<PLATFORM>` (if present in the file)
 8. **Global defaults**: `defaults`
@@ -715,12 +715,12 @@ The test framework loads and merges attributes from all relevant category files 
 4. **Validator**: Ensures mandatory fields are present
 
 **Data Structure:**
-The framework builds a `port_attributes_dict` keyed by logical port name, containing only ports from `dut_info.json`:
+The framework builds a `port_attributes_dict` keyed by logical port name, containing only ports from `dut_info/<dut_hostname>.json`:
 
 ```python
 {
     "PORT_NAME": {
-        # Base transceiver information from dut_info.json
+        # Base transceiver information from dut_info/<dut_hostname>.json
         "BASE_ATTRIBUTES": {
             "vendor_name": "vendor_name",
             "normalized_vendor_name": "NORMALIZED_VENDOR_NAME",
@@ -761,7 +761,7 @@ The framework builds a `port_attributes_dict` keyed by logical port name, contai
 
 The framework builds `port_attributes_dict` using this systematic process:
 
-1. **Initialize** port dictionary from `dut_info.json` base attributes
+1. **Initialize** port dictionary from `dut_info/<dut_hostname>.json` base attributes
 2. **For each category file**, perform priority-based merging using the 8-level hierarchy
 3. **Validate** mandatory fields for the current category
 4. **Store** merged attributes under category key (e.g., `EEPROM_ATTRIBUTES`, `SYSTEM_ATTRIBUTES`)
@@ -1127,7 +1127,7 @@ This section describes the automated process for copying firmware binaries to th
 To ensure only the necessary firmware binaries are present for each transceiver:
 
 1. **Parse `transceiver_firmware_info.csv`** to obtain the list of available firmware binaries, their versions, and associated vendor and part numbers.
-2. **Parse `dut_info.json`** to identify the transceivers present on each DUT.
+2. **Parse `dut_info/<dut_hostname>.json`** to identify the transceivers present on each DUT.
 3. **Parse the appropriate per-category attributes file** to get the gold firmware version for each transceiver type.
 4. **For each unique combination of normalized vendor name and normalized part number on the DUT**, perform version sorting and selection:
    - Parse firmware versions using semantic versioning (X.Y.Z format)
