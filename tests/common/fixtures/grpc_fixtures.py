@@ -343,9 +343,10 @@ def _restart_gnoi_server(duthost):
     logger.info("Restarting gNOI server process")
 
     # Check if the 'gnmi' container exists
-    container_check = duthost.shell("docker ps --format '{{.Names}}' | grep '^gnmi$'", module_ignore_errors=True)
+    container_check = duthost.shell(r"docker ps --format \{\{.Names\}\} | grep '^gnmi$'",
+                                    module_ignore_errors=True)
 
-    if container_check['rc'] != 0:
+    if container_check.get('rc', 1) != 0:
         raise Exception("The 'gnmi' container does not exist.")
 
     # Restart gnmi-native process to pick up new configuration
