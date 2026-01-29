@@ -367,6 +367,14 @@ def _restore(duthost, connection_type, shutdown_connections, shutdown_all_connec
     if connection_type == 'ports':
         logger.info(f"Recover interfaces {shutdown_connections} after failure")
         duthost.no_shutdown_multiple(shutdown_connections)
+    elif connection_type == 'bgp_sessions':
+        if shutdown_all_connections:
+            logger.info("Recover all BGP sessions after failure")
+            duthost.shell("sudo config bgp startup all")
+        else:
+            for session in shutdown_connections:
+                logger.info(f"Recover BGP session {session} after failure")
+                duthost.shell(f"sudo config bgp startup neighbor {session}")
 
 
 def check_bgp_routes_converged(duthost, expected_routes, shutdown_connections=None, connection_type='none',
@@ -405,6 +413,26 @@ def check_bgp_routes_converged(duthost, expected_routes, shutdown_connections=No
         if action == 'shutdown' and shutdown_connections:
             _restore(duthost, connection_type, shutdown_connections, shutdown_all_connections)
         pytest.fail(f"BGP routes aren't stable in {timeout} seconds")
+
+
+@pytest.fixture(scope="function")
+def clean_ptf_dataplane(ptfadapter):
+    """
+    Drain queued packets and clear mask counters before and after each test.
+    The idea is that each test should start with clean dataplane state without
+    having to restart ptfadapter fixture for each test.
+    Takes in the function scope so that each parametrized test case also gets a clean dataplane.
+    """
+    dp = ptfadapter.dataplane
+
+    def _perform_cleanup_on_dp():
+        dp.drain()
+        dp.clear_masks()
+    # Before test run DP cleanup
+    _perform_cleanup_on_dp()
+    yield
+    # After test run DP cleanup
+    _perform_cleanup_on_dp()
 
 
 def compress_expected_routes(expected_routes):
@@ -495,7 +523,7 @@ def _select_targets_to_flap(bgp_peers_info, all_flap, flapping_count):
     return flapping_neighbors, injection_neighbor, flapping_ports, injection_port
 
 
-def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, connection_type, action):
+def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count, connection_type, action):
     """
     Orchestrates interface/BGP session flapping and recovery on the DUT, generating test traffic to assess both
     control and data plane convergence behavior. This function is designed for use in test scenarios
@@ -517,10 +545,13 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
     global global_icmp_type, current_test, test_results
     current_test = f"flapper_{action}_{connection_type}_count_{flapping_count}"
     global_icmp_type += 1
+    pdp = ptfadapter.dataplane
+    pdp.clear_masks()
+    pdp.set_qlen(PACKET_QUEUE_LENGTH)
     exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
     all_flap = (flapping_count == 'all')
 
-    # We are currently treating the shutdown action as a setup mechanism for a startup action to follow.
+    # Currently treating the shutdown action as a setup mechanism for a startup action to follow.
     # So we only do the selection of flapping and injection neighbors when action is shutdown
     # And we reuse the same selection for startup action
     if action == 'shutdown':
@@ -532,7 +563,7 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
             bgp_peers_info, all_flap, flapping_count
         )
 
-        flapping_connections = {'ports': flapping_ports}.get(connection_type, [])
+        flapping_connections = {'ports': flapping_ports, 'bgp_sessions': flapping_neighbors}.get(connection_type, [])
         # Build expected routes after shutdown
         startup_routes = get_all_bgp_ipv6_routes(duthost, save_snapshot=False)
         neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
@@ -771,12 +802,41 @@ def test_nexthop_group_member_scale(
         pytest.fail("BGP routes are not stable in long time")
 
 
+@pytest.mark.parametrize("flapping_neighbor_count", [1, 10])
+def test_bgp_admin_flap(
+    request,
+    duthost,
+    ptfadapter,
+    bgp_peers_info,
+    clean_ptf_dataplane,
+    flapping_neighbor_count,
+    setup_routes_before_test
+):
+    """
+    Validates that both control plane and data plane remain functional with acceptable downtime when BGP sessions are
+    flapped (brought down and back up), simulating various failure or maintenance scenarios.
+
+    Uses the flapper function to orchestrate the flapping of BGP sessions and measure convergence times.
+
+    Parameters range from flapping a single session to all sessions.
+
+    Expected result:
+        Dataplane downtime is less than MAX_BGP_SESSION_DOWNTIME or MAX_DOWNTIME_UNISOLATION for all ports.
+    """
+    # Measure shutdown convergence
+    transient_setup = flapper(duthost, ptfadapter, bgp_peers_info, None, flapping_neighbor_count,
+                              'bgp_sessions', 'shutdown')
+    # Measure startup convergence
+    flapper(duthost, ptfadapter, None, transient_setup, flapping_neighbor_count, 'bgp_sessions', 'startup')
+
+
 @pytest.mark.parametrize("flapping_port_count", [1, 10, 20, 'all'])
 def test_sessions_flapping(
     request,
     duthost,
     ptfadapter,
     bgp_peers_info,
+    clean_ptf_dataplane,
     flapping_port_count,
     setup_routes_before_test
 ):
@@ -791,10 +851,7 @@ def test_sessions_flapping(
     Expected result:
         Dataplane downtime is less than MAX_DOWNTIME_PORT_FLAPPING or MAX_DOWNTIME_UNISOLATION for all ports.
     '''
-    pdp = ptfadapter.dataplane
-    pdp.set_qlen(PACKET_QUEUE_LENGTH)
-
     # Measure shutdown convergence
-    transient_setup = flapper(duthost, pdp, bgp_peers_info, None, flapping_port_count, 'ports', 'shutdown')
+    transient_setup = flapper(duthost, ptfadapter, bgp_peers_info, None, flapping_port_count, 'ports', 'shutdown')
     # Measure startup convergence
-    flapper(duthost, pdp, None, transient_setup, flapping_port_count, 'ports', 'startup')
+    flapper(duthost, ptfadapter, None, transient_setup, flapping_port_count, 'ports', 'startup')
