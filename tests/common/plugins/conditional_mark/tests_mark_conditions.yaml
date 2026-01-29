@@ -4306,10 +4306,6 @@ route/test_route_flow_counter.py:
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs']"
-  xfail:
-    reason: "xfail for IPv6-only topologies, didn't use IPv6 when should"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19926 and '-v6-' in topo_name"
 
 route/test_route_perf.py:
   skip:
