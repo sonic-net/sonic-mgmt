@@ -8,6 +8,15 @@ from ansible import errors
 class FilterModule(object):
     def filters(self):
         return {
+            'allowed_vlans_range_str': MultiVrfUtils.allowed_vlans_range_str,
+            'get_first_loopback': MultiVrfUtils.get_first_loopback,
+            'get_exabgp_v4_port': MultiVrfUtils.get_exabgp_v4_port,
+            'get_exabgp_v6_port': MultiVrfUtils.get_exabgp_v6_port,
+            'get_exabgp_peer_v4': MultiVrfUtils.get_exabgp_peer_v4,
+            'get_exabgp_peer_v6': MultiVrfUtils.get_exabgp_peer_v6,
+            'get_exabgp_local_ip_v4': MultiVrfUtils.get_exabgp_local_ip_v4,
+            'get_exabgp_local_ip_v6': MultiVrfUtils.get_exabgp_local_ip_v6,
+            'get_exabgp_router_id': MultiVrfUtils.get_exabgp_router_id,
             'filter_by_dut_interfaces': MultiServersUtils.filter_by_dut_interfaces,
             'get_vms_by_dut_interfaces': MultiServersUtils.get_vms_by_dut_interfaces,
             'extract_by_prefix': extract_by_prefix,
@@ -266,3 +275,96 @@ class MultiServersUtils:
             result[hostname]['vm_offset'] = offset
             offset += 1
         return result
+
+
+class MultiVrfUtils:
+    IPV4_BASE_PORT = 5000
+    IPV6_BASE_PORT = 6000
+
+
+    @staticmethod
+    def get_first_loopback(intf_dict):
+        for key, data in intf_dict.items():
+            if "Loopback" in key:
+                return data
+        return {}
+
+
+    @staticmethod
+    def get_vm_offset(vm_name, topo, offsets=None):
+        if offsets:
+            return offsets[vm_name]
+        else:
+            return topo["VMs"][vm_name]["vm_offset"]
+
+
+    @staticmethod
+    def get_exabgp_v4_port(vm_name, topo, offsets=None):
+        offset = MultiVrfUtils.get_vm_offset(vm_name, topo, offsets)
+        return MultiVrfUtils.IPV4_BASE_PORT + offset
+
+
+    @staticmethod
+    def get_exabgp_v6_port(vm_name, topo, offsets=None):
+        offset = MultiVrfUtils.get_vm_offset(vm_name, topo, offsets)
+        return MultiVrfUtils.IPV6_BASE_PORT + offset
+
+
+    @staticmethod
+    def get_exabgp_peer_ip(vm_name, multi_vrf_data, v6=False):
+        af = "ipv6" if v6 else "ipv4"
+        if multi_vrf_data:
+            rev_vrf_map = {}
+            for dev, vrfs in multi_vrf_data["convergence_mapping"].items():
+                for vrf in vrfs:
+                    rev_vrf_map[vrf] = dev
+
+            vlan = multi_vrf_data["ptf_backplane_addrs"][vm_name]["vlan"]
+
+            host = rev_vrf_map[vm_name]
+            addr = multi_vrf_data["converged_peers"][host]["vrf"][vm_name]["Vlan{}".format(vlan)][af]
+            return addr.split("/")[0]
+        return None
+
+
+    @staticmethod
+    def get_exabgp_peer_v4(vm_name, multi_vrf_data):
+        return MultiVrfUtils.get_exabgp_peer_ip(vm_name, multi_vrf_data)
+ 
+
+    @staticmethod
+    def get_exabgp_peer_v6(vm_name, multi_vrf_data):
+        return MultiVrfUtils.get_exabgp_peer_ip(vm_name, multi_vrf_data, v6=True)
+
+    @staticmethod
+    def get_exabgp_local_ip(vm_name, multi_vrf_data, v6=False):
+        af = "ipv6" if v6 else "ipv4"
+        if multi_vrf_data:
+            bp_intf_mapping = multi_vrf_data["ptf_backplane_addrs"]
+            addr = bp_intf_mapping[vm_name][af]
+            return addr.split("/")[0]
+        return None
+
+
+    @staticmethod
+    def get_exabgp_local_ip_v4(vm_name, multi_vrf_data):
+        return MultiVrfUtils.get_exabgp_local_ip(vm_name, multi_vrf_data)
+
+
+    @staticmethod
+    def get_exabgp_local_ip_v6(vm_name, multi_vrf_data):
+        return MultiVrfUtils.get_exabgp_local_ip(vm_name, multi_vrf_data, v6=True)
+
+
+    @staticmethod
+    def get_exabgp_router_id(vm_name, multi_vrf_data):
+        if multi_vrf_data:
+            bp_intf_mapping = multi_vrf_data["ptf_backplane_addrs"]
+            return bp_intf_mapping[vm_name]["router-id"]
+        return None
+
+
+    @staticmethod
+    def allowed_vlans_range_str(backplane_data, vrfs):
+        vlans = [backplane_data[vrf]["vlan"] for vrf in vrfs]
+        return "{}-{}".format(min(vlans), max(vlans))

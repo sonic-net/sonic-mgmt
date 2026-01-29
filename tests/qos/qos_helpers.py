@@ -331,7 +331,10 @@ def get_upstream_vm_offset(nbrhosts, tbinfo):
         vm_filter = 'T2'
     vm_name_list = [vm_name for vm_name in nbrhosts.keys() if vm_name.endswith(vm_filter)]
     for vm_name in vm_name_list:
-        port_offset = tbinfo['topo']['properties']['topology']['VMs'][vm_name]['vm_offset']
+        if nbrhosts[vm_name].get('is_multi_vrf_peer', False):
+            port_offset = nbrhosts[vm_name]['multi_vrf_data']['vm_offset_mapping']
+        else:
+            port_offset = tbinfo['topo']['properties']['topology']['VMs'][vm_name]['vm_offset']
         port_offset_list.append((port_offset))
     return port_offset_list
 

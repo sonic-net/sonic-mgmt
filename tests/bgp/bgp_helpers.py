@@ -421,8 +421,9 @@ def check_routes_on_from_neighbor(setup_info, nbrhosts):
         if setup_info['is_v6_topo'] and "v6" not in list_name.lower():
             continue
         for prefix in prefixes:
-            downstream_route = nbrhosts[downstream]['host'].get_route(prefix)
-            route_entries = downstream_route['vrfs']['default']['bgpRouteEntries']
+            vrf = downstream if nbrhosts[downstream].get('is_multi_vrf_peer', False) else 'default'
+            downstream_route = nbrhosts[downstream]['host'].get_route(prefix, vrf=vrf)
+            route_entries = downstream_route['vrfs'][vrf]['bgpRouteEntries']
             pytest_assert(prefix in route_entries, 'Announced route {} not found on {}'.format(prefix, downstream))
 
 
@@ -452,7 +453,8 @@ def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
                 continue
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
-                neigh_route = nbrhosts[node]['host'].get_route(prefix)['vrfs']['default']['bgpRouteEntries']
+                vrf = node if nbrhosts[node].get('is_multi_vrf_peer', False) else 'default'
+                neigh_route = nbrhosts[node]['host'].get_route(prefix, vrf=vrf)['vrfs'][vrf]['bgpRouteEntries']
 
                 if permit:
                     # All routes should be forwarded
@@ -507,7 +509,8 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
                 continue
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
-                neigh_route = nbrhosts[node]['host'].get_route(prefix)['vrfs']['default']['bgpRouteEntries']
+                vrf = node if nbrhosts[node].get('is_multi_vrf_peer', False) else 'default'
+                neigh_route = nbrhosts[node]['host'].get_route(prefix, vrf=vrf)['vrfs'][vrf]['bgpRouteEntries']
 
                 if permit:
                     # All routes should be forwarded
@@ -607,11 +610,26 @@ def restart_bgp_session(duthost, neighbor=None):
         duthost.shell('vtysh -c "clear bgp *"')
 
 
-def get_ptf_recv_port(duthost, vm_name, tbinfo):
+def get_ptf_recv_port(duthost, vm_name, tbinfo, multi_vrf_topo=False):
     """
     Get ptf receive port
     """
-    port = duthost.shell("show lldp table | grep -w {} | awk '{{print $1}}'".format(vm_name))['stdout']
+    if multi_vrf_topo:
+        # When using multi-vrf topologies, the vm_name alone is not unique enough to be used as an
+        # index into the lldp table.  In this scenario, only the host container is listed by name,
+        # with multiple interfaces. So, in order to get the right dut interface, we need to figure
+        # out which host and interface are being used for the passed peer.  The POSIX string for
+        # whitespace is used to avoid python escaping backslashes in the pattern.
+        vrf_data = tbinfo["topo"]["properties"]["convergence_data"]
+        host_map = { vrf: host for host, vrfs in vrf_data["convergence_mapping"].items() for vrf in vrfs }
+        host = host_map[vm_name]
+        peer_config = vrf_data["converged_peers"][host]["vrf"][vm_name]
+        host_if = [k for k in peer_config.keys() if "Ethernet" in k][0]
+        pattern = "{}[[:space:]]*{}".format(host, host_if)
+    else:
+        pattern = vm_name
+
+    port = duthost.shell("show lldp table | grep -w {} | awk '{{print $1}}'".format(pattern))['stdout']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     return mg_facts['minigraph_ptf_indices'][port]
 
@@ -633,14 +651,18 @@ def get_vm_offset(duthost, nbrhosts, tbinfo, is_random=True):
     """
     Get ports offset of exabgp and ptf receive port
     """
+    multi_vrf_topo = tbinfo["topo"]["properties"].get("topo_is_multi_vrf", False)
     port_offset_ptf_recv_port_list = []
     vm_name_list = [vm_name for vm_name in nbrhosts.keys() if vm_name.endswith('T0')]
     logging.info("get_vm_offset ---------")
     if is_random:
         vm_name_list = [random.choice(vm_name_list)]
     for vm_name in vm_name_list:
-        port_offset = tbinfo['topo']['properties']['topology']['VMs'][vm_name]['vm_offset']
-        ptf_recv_port = get_ptf_recv_port(duthost, vm_name, tbinfo)
+        if multi_vrf_topo:
+            port_offset = tbinfo['topo']['properties']['convergence_data']['vm_offset_mapping'][vm_name]
+        else:
+            port_offset = tbinfo['topo']['properties']['topology']['VMs'][vm_name]['vm_offset']
+        ptf_recv_port = get_ptf_recv_port(duthost, vm_name, tbinfo, multi_vrf_topo=multi_vrf_topo)
         logging.info("vm_offset of {} is: {}".format(vm_name, port_offset))
         port_offset_ptf_recv_port_list.append((port_offset, ptf_recv_port))
     return port_offset_ptf_recv_port_list
@@ -660,7 +682,11 @@ def get_vm_name_list(tbinfo, vm_level='T2'):
     Get vm name, default return value would be T2 VM name
     """
     vm_name_list = []
-    for vm in tbinfo['topo']['properties']['topology']['VMs'].keys():
+    if tbinfo.get('use_converged_peers', False):
+        vms = list(tbinfo['topo']['properties']['configuration'].keys())
+    else:
+        vms = list(tbinfo['topo']['properties']['topology']['VMs'].keys())
+    for vm in vms:
         if vm[-2:] == vm_level:
             vm_name_list.append(vm)
     return vm_name_list
@@ -767,16 +793,20 @@ def check_route_install_status(duthost, route, vrf=DEFAULT, ip_ver=IP_VER, check
                           "Vrf:{} - route:{} is installed into FIB".format(vrf, route))
 
 
-def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, action=ACTION_IN):
+def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, action=ACTION_IN, vrf=DEFAULT):
     """
     Check whether ipv4 or ipv6 route is advertised to T2 VM
     """
+    vrf = DEFAULT
+    if vmhost.get('is_multi_vrf_peer', False):
+        vrf = vmhost['multi_vrf_data']['vrf']
+
     if ip_ver == IP_VER:
-        logging.info('Execute EOS command - "show ip bgp neighbors {} routes"'.format(bgp_neighbor))
-        out = vmhost['host'].eos_command(commands=['show ip bgp neighbors {} routes'.format(bgp_neighbor)])['stdout'][0]
+        logging.info('Execute EOS command - "show ip bgp neighbors {} routes vrf {}"'.format(bgp_neighbor, vrf))
+        out = vmhost['host'].eos_command(commands=['show ip bgp neighbors {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
     else:
-        logging.info('Execute EOS command - "show ipv6 bgp peers {} routes"'.format(bgp_neighbor))
-        out = vmhost['host'].eos_command(commands=['show ipv6 bgp peers {} routes'.format(bgp_neighbor)])['stdout'][0]
+        logging.info('Execute EOS command - "show ipv6 bgp peers {} routes vrf {}"'.format(bgp_neighbor, vrf))
+        out = vmhost['host'].eos_command(commands=['show ipv6 bgp peers {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
     logging.debug('Command output:\n {}'.format(out))
 
     if action == ACTION_IN:

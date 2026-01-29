@@ -39,5 +39,9 @@
   - name: Load topo variables
     include_vars: "vars/topo_{{ topo }}.yml"
 
+  - name: Set default value for topo_is_multi_vrf
+    set_fact: topo_is_multi_vrf=False
+    when: topo_is_multi_vrf is not defined
+
   tasks:
   - include_tasks: roles/vm_set/tasks/announce_routes.yml

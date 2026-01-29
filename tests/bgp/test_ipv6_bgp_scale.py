@@ -87,6 +87,14 @@ def bgp_peers_info(tbinfo, duthost):
     bgp_info = {}
     topo_name = tbinfo['topo']['name']
 
+    topo_is_multi_vrf = tbinfo['topo']['properties'].get('topo_is_multi_vrf', False)
+    multi_vrf_data = {}
+    multi_vrf_map = {}
+    if topo_is_multi_vrf:
+        multi_vrf_data = tbinfo['topo']['properties']['convergence_data']
+        for primary, vrfs in multi_vrf_data['convergence_mapping'].items():
+           for vrf in vrfs:
+              multi_vrf_map[vrf] = primary
     logger.info("Waiting for BGP sessions are established")
     while True:
         down_neighbors = get_down_bgp_sessions_neighbors(duthost)
@@ -104,8 +112,16 @@ def bgp_peers_info(tbinfo, duthost):
             or ('t1' in topo_name and 'T0' not in hostname) \
                 or (hostname in down_neighbors):
             continue
+
+        if topo_is_multi_vrf:
+            topo = tbinfo['topo']['properties']['topology']
+            primary = multi_vrf_map[hostname]
+            intf_offset = multi_vrf_data['converged_peers'][primary]['intf_mapping'][hostname]['offset']
+            ptf_port = topo['VMs'][primary]['vlans'][intf_offset]
+        else:
+            ptf_port = tbinfo['topo']['properties']['topology']['VMs'][hostname]['vlans'][0]
+
         bgp_info[hostname] = {}
-        ptf_port = tbinfo['topo']['properties']['topology']['VMs'][hostname]['vlans'][0]
         bgp_info[hostname][PTF_PORT] = ptf_port
         bgp_info[hostname][DUT_PORT] = alias[ptf_port]['name']
 
