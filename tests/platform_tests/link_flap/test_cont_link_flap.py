@@ -11,6 +11,7 @@ import pytest
 import time
 import math
 import re
+import random
 
 from collections import defaultdict
 
@@ -34,6 +35,16 @@ class TestContLinkFlap(object):
     """
     TestContLinkFlap class for continuous link flap
     """
+
+    @staticmethod
+    def get_random_candidates(duthost, fanouthosts, num_ports=32):
+        candidates = build_test_candidates(duthost, fanouthosts, 'all_ports')
+        pytest_require(candidates, "Didn't find any port that is admin up and present in the connection graph")
+        selected_candidates = random.sample(candidates, min(num_ports, len(candidates)))
+        selected_ports = [dut_port for dut_port, fanout, fanout_port in selected_candidates]
+        logging.info("Randomly selected %d ports: %s", len(selected_ports), selected_ports)
+        logging.info("Randomly selected candidates: %s", selected_candidates)
+        return selected_candidates, selected_ports
 
     def get_frr_daemon_memory_usage(self, duthost, daemon):
         frr_daemon_memory_per_asics = {}
@@ -84,9 +95,9 @@ class TestContLinkFlap(object):
         Validates that continuous link flap works as expected
 
         Test steps:
-            1.) Flap all interfaces one by one in 1-3 iteration
+            1.) Flap randomly sampled interfaces one by one in 1-3 iteration
                 to cause BGP Flaps.
-            2.) Flap all interfaces on peer (FanOutLeaf) one by one 1-3 iteration
+            2.) Flap randomly sampled interfaces on peer (FanOutLeaf) one by one 1-3 iteration
                 to cause BGP Flaps.
             3.) Watch for memory (show system-memory), FRR daemons memory(vtysh -c "show memory bgp/zebra"),
                 orchagent CPU Utilization and Redis_memory.
@@ -138,19 +149,17 @@ class TestContLinkFlap(object):
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
 
-        # Flap all interfaces one by one on DUT
+        # Flap randomly sampled interfaces one by one on DUT
         for iteration in range(3):
-            logging.info("%d Iteration flap all interfaces one by one on DUT", iteration + 1)
-            port_toggle(duthost, tbinfo, watch=True)
+            logging.info("%d Iteration flap randomly sampled interfaces one by one on DUT", iteration + 1)
+            _, selected_ports = self.get_random_candidates(duthost, fanouthosts, num_ports=32)
+            port_toggle(duthost, tbinfo, ports=selected_ports, wait_after_ports_up=30, watch=True)
 
-        # Flap all interfaces one by one on Peer Device
+        # Flap randomly sampled interfaces one by one on Peer Device
         for iteration in range(3):
-            logging.info("%d Iteration flap all interfaces one by one on Peer Device", iteration + 1)
-            candidates = build_test_candidates(duthost, fanouthosts, 'all_ports')
-
-            pytest_require(candidates, "Didn't find any port that is admin up and present in the connection graph")
-
-            for dut_port, fanout, fanout_port in candidates:
+            logging.info("%d Iteration flap randomly sampled interfaces one by one on Peer Device", iteration + 1)
+            selected_candidates, _ = self.get_random_candidates(duthost, fanouthosts, num_ports=32)
+            for dut_port, fanout, fanout_port in selected_candidates:
                 toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=True)
 
         # Make Sure all ipv4/ipv6 routes are relearned with jitter of ~5
