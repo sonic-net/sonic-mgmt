@@ -46,10 +46,13 @@ def test_poll_mode_no_table_or_key(duthosts, enum_rand_one_per_hwsku_hostname, p
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info('Start telemetry poll mode testing')
+    namespace = ""
+    if duthost.is_multi_asic:
+        namespace = "asic0"
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=5,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=5, update_count=0, timeout=30)
+                              max_sync_count=5, update_count=0, timeout=30, namespace=namespace)
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
     show_gnmi_out = ptf_result['stdout']
@@ -69,10 +72,13 @@ def test_poll_mode_present_table_delayed_key(duthosts, enum_rand_one_per_hwsku_h
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info('Start telemetry poll mode testing')
+    namespace = ""
+    if duthost.is_multi_asic:
+        namespace = "asic0"
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=-1, update_count=5, timeout=30)
+                              max_sync_count=-1, update_count=5, timeout=30, namespace=namespace)
     modify_fake_appdb_table(duthost)  # Add first table data
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
@@ -86,7 +92,7 @@ def test_poll_mode_present_table_delayed_key(duthosts, enum_rand_one_per_hwsku_h
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=1,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=-1, update_count=10, timeout=30)
+                              max_sync_count=-1, update_count=10, timeout=30, namespace=namespace)
 
     def callback(show_gnmi_out):
         result = str(show_gnmi_out)
@@ -114,10 +120,13 @@ def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info('Start telemetry poll mode testing')
+    namespace = ""
+    if duthost.is_multi_asic:
+        namespace = "asic0"
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=1,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=-1, update_count=10, timeout=30)
+                              max_sync_count=-1, update_count=10, timeout=30, namespace=namespace)
     modify_fake_appdb_table(duthost, True, 2)  # Add both tables data
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
@@ -131,7 +140,7 @@ def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=6, update_count=0, timeout=30)
+                              max_sync_count=6, update_count=0, timeout=30, namespace=namespace)
 
     def callback(show_gnmi_out):
         result = str(show_gnmi_out)
@@ -149,15 +158,21 @@ def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
+def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, enum_upstream_dut_hostname,
                                  setup_streaming_telemetry, gnxi_path):
     """
     Test poll mode from APPL_DB and query an existing table and no default route, ensure no errors and present data
     Test query again and add default route and ensure data comes.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    upstream_lc = duthosts[enum_upstream_dut_hostname]
+
     if duthost.is_supervisor_node():
         pytest.skip("Skipping for supervisor node since there is no default route")
+
+    if upstream_lc != duthost:
+        pytest.skip("Skipping for {}. This is not valid for downstream node".format(duthost))
+
     namespace = ""
     if duthost.is_multi_asic:
         namespace = "asic0"
@@ -219,10 +234,13 @@ def test_poll_mode_default_route_supervisor(duthosts, enum_rand_one_per_hwsku_ho
     if not duthost.is_supervisor_node():
         pytest.skip("Testing only for supervisor node")
     logger.info('Start telemetry poll mode testing')
+    namespace = ""
+    if duthost.is_multi_asic:
+        namespace = "asic0"
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
                               xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"",  # noqa: W605
-                              target="APPL_DB", max_sync_count=-1, update_count=5, timeout=30)
+                              target="APPL_DB", max_sync_count=-1, update_count=5, timeout=30, namespace=namespace)
     modify_fake_appdb_table(duthost)  # Add first table data
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
