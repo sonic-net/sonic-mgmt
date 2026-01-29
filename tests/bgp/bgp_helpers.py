@@ -608,7 +608,10 @@ def get_eth_port(duthost, tbinfo):
     """
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     t0_vm = [vm_name for vm_name in mg_facts['minigraph_devices'].keys() if vm_name.endswith('T0')][0]
-    port = duthost.shell("show ip interface | grep -w {} | awk '{{print $1}}'".format(t0_vm))['stdout']
+    if is_ipv6_only_topology(tbinfo):
+        port = duthost.shell("show ipv6 interface | grep -w {} | awk '{{print $1}}'".format(t0_vm))['stdout']
+    else:
+        port = duthost.shell("show ip interface | grep -w {} | awk '{{print $1}}'".format(t0_vm))['stdout']
     return port
 
 
