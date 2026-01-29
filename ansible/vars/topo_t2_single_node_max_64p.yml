@@ -1751,4 +1751,3 @@ configuration:
     bp_interface:
       ipv4: 10.10.48.96/24
       ipv6: fc30::61/64
-
