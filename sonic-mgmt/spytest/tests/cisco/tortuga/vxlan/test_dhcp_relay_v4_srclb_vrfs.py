@@ -31,6 +31,7 @@ dhcp_vlan2 = "20"
 dhcp_vlan3 = "30"
 dhcp_vlan4 = "40"
 dhcp_vlan5 = "50"
+dhcp_vlan1_a = "Vlan10"
 
 dhcp_mac_addr1 = "00:0a:01:00:11:01"
 dhcp_mac_addr2 = "00:0a:01:00:12:01"
@@ -100,6 +101,15 @@ def config_dhcp_relay_ipv4_sag(node, loopback1=loopback_a, loopback2=None, cvlan
         st.config(node, "config vlan dhcp-relay-src del {}".format(cvlan1))
         st.config(node, "config vlan static-anycast-gateway disable {}".format(cvlan1))
         st.config(node, "config static-anycast-gateway mac_address del")
+
+
+def config_dhcp_relay_ipv4_src(node, cvlan1=dhcp_vlan1, add=True):
+
+    if add:
+        st.config(node, "config vlan dhcp-relay-src add {} {}".format(cvlan1, dhcp_vlan1_a))
+
+    else:
+        st.config(node, "config vlan dhcp-relay-src del {}".format(cvlan1))
 
 
 def config_dhcp_relay_ipv4_vlans(node, cvlan1=dhcp_vlan1, cvlan2=None, svlan1=dhcp_vlan2, svlan2=None, add=True):
@@ -599,3 +609,57 @@ def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc4():
     else:
         st.report_fail("test_case_failed", "test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc4 failed")
 
+
+
+######################################################################
+##  IPv4-TC5: one dhcp relay in non default vrf 
+######################################################################
+##
+##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
+##  <Vrf01>
+##                    VLAN10          VLAN20         192.160.20.100
+##                    192.160.10.254/24  192.160.20.1/24
+##
+##                    RELAY_AGENT as VLAN: 192.160.10.254/24
+##
+##  config interface vrf bind Loopback0 Vrf01/Vlan10/Vlan20
+##  config vlan dhcp_relay add 10 192.160.20.100
+##
+######################################################################
+
+def test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc5():
+    vars = st.get_testbed_vars()
+
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+    nodes['leaf0'] = vars.D3
+    nodes['leaf1'] = vars.D4
+
+    vrf_a = 'Vrf01'
+    vxlan_obj.config_vrf(nodes['leaf0'], vrf_a)
+    config_loopback_vrf(nodes['leaf0'], loopback=loopback_a, prefix=loopback_prefix1, vrf=vrf_a, add=True)
+
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=vrf_a, add=True, tagged=True)
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=vrf_a, add=True, tagged=True)
+
+    config_dhcp_relay_ipv4_vlans(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, svlan1=dhcp_vlan2, svlan2=None, add=True)
+    config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, add=True)
+    config_dhcp_relay_ipv4_src(vars.D3, cvlan1=dhcp_vlan1, add=True)
+
+    result = dhcp_setup_ipv4_clients_verify(mhost=False, mclients=2)
+
+    config_dhcp_relay_ipv4_trigs(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, add=False)
+    config_dhcp_relay_ipv4_vlans(vars.D3, cvlan1=dhcp_vlan1, cvlan2=None, svlan1=dhcp_vlan2, svlan2=None, add=False)
+    config_dhcp_relay_ipv4_src(vars.D3, cvlan1=dhcp_vlan1, add=False)
+
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan2, members=[vars.D3T1P2], vrf=vrf_a, add=False, tagged=True)
+    vxlan_obj.config_vlan(nodes['leaf0'], dhcp_vlan1, members=[vars.D3T1P1], vrf=vrf_a, add=False, tagged=True)
+
+    config_loopback_vrf(nodes['leaf0'], loopback=loopback_a, prefix=loopback_prefix1, vrf=vrf_a, add=False)
+    vxlan_obj.config_vrf(nodes['leaf0'], vrf_a, add=False)
+
+    if result:
+        st.report_pass("test_case_passed", "test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc5 passed")
+    else:
+        st.report_fail("test_case_failed", "test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc5 failed")
