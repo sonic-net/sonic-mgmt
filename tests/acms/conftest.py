@@ -1,7 +1,7 @@
 import pytest
 
 from tests.common.helpers.dut_utils import is_container_running
-from tests.acms.helper import container_name
+from tests.acms.helper import container_name, sidecar_container_name, watchdog_container_name
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -30,6 +30,6 @@ def setup_acms(duthosts, rand_one_dut_hostname):
 @pytest.fixture(scope="module")
 def verify_acms_containers_running(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    for container in ["acms", "acms_watchdog", "acms-sidecar"]:
+    for container in [container_name, watchdog_container_name, sidecar_container_name]:
         if not is_container_running(duthost, container):
             pytest.skip(f"Container {container} is not running")

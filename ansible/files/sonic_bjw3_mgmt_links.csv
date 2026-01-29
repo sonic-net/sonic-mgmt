@@ -48,10 +48,10 @@ bjw3-can-720dt-mc0-2,etp39,bjw3-can-7215a1d-4,eth0
 bjw3-can-720dt-mc0-2,etp40,bjw3-can-720dt-leaf-26,eth0
 bjw3-can-720dt-mc0-2,etp41,bjw3-can-720dt-9,eth0
 bjw3-can-720dt-mc0-2,etp42,bjw3-can-720dt-leaf-27,eth0
-bjw3-can-720dt-mc0-2,etp43,bjw3-can-8300-1,etp1
-bjw3-can-720dt-mc0-2,etp44,bjw3-can-8300-leaf-1,etp1
-bjw3-can-720dt-mc0-2,etp45,bjw3-can-8300-2,etp1
-bjw3-can-720dt-mc0-2,etp46,bjw3-can-8300-3,etp1
+bjw3-can-720dt-mc0-2,etp43,bjw3-can-8220-1,etp1
+bjw3-can-720dt-mc0-2,etp44,bjw3-can-8220-leaf-1,etp1
+bjw3-can-720dt-mc0-2,etp45,bjw3-can-8220-2,etp1
+bjw3-can-720dt-mc0-2,etp46,bjw3-can-8220-3,etp1
 bjw3-can-720dt-mc0-2,etp47,bjw3-can-720dtm-1,eth0
 bjw3-can-720dt-mc0-2,etp48,bjw3-can-720dt-leaf-28,eth0
 bjw3-can-720dt-mc0-2,etp50,bjw3-can-720dt-mc0-1,etp49

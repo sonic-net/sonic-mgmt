@@ -2,7 +2,7 @@ import json
 import logging
 import pytest
 
-from tests.acms.helper import container_name
+from tests.acms.helper import container_name, watchdog_container_name
 from tests.acms.helper import create_acms_conf
 from tests.common.helpers.assertions import pytest_assert
 from tests.acms.helper import TEST_DATA_CLOUD
@@ -17,9 +17,14 @@ pytestmark = [
 
 DOCKER_EXEC_CMD = "docker exec {} bash -c "
 NSENTER_CMD = "nsenter --target 1 --pid --mount --uts --ipc --net"
-ACMS_WATCHDOG_CMD = DOCKER_EXEC_CMD.format("acms_watchdog") + "'{} {}'"
+ACMS_WATCHDOG_CMD = DOCKER_EXEC_CMD.format(watchdog_container_name) + "'{} {}'"
 CURL_HTTP_CODE_CMD = "curl -s -o /dev/null -w \%\{http_code\} http://localhost:51001"   # noqa: W605
 CURL_CMD = "curl http://localhost:51001"   # ACMS watchdog http endpoint is 51001
+CA_PEM = "/etc/sonic/credentials/AME_ROOT_CERTIFICATE.pem"
+ALLOWED_ISSUERS = {
+    "issuer=C = US, O = Microsoft Corporation, CN = Commercial Cloud Root CA R1",
+    "issuer=DC = GBL, DC = AME, CN = ameroot",
+}
 
 
 @pytest.fixture(scope='function', autouse=True)
@@ -82,6 +87,32 @@ def setup_ca_pem_cert(request, duthosts, rand_one_dut_hostname, creds):
         dut_command = "docker exec %s supervisorctl stop CA_cert_downloader" % container_name
         duthost.shell(dut_command, module_ignore_errors=True)
     pytest.fail("Failed to download CA cert for %s" % cloudtype)
+
+
+def test_acms_multi_root_ca_pem(duthosts,
+                                enum_rand_one_per_hwsku_hostname,
+                                setup_ca_pem_cert):
+    """
+    Validates the Root CA PEM bundle:
+     1) Every issuer must be in the ALLOWED_ISSUERS set
+     2) At least one CCME cert present
+     3) At least one AME cert present
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    cmd = f"openssl crl2pkcs7 -nocrl -certfile {CA_PEM} | openssl pkcs7 -print_certs -noout"
+    output = duthost.shell(cmd)["stdout"]
+
+    # Check issuers
+    issuers = [line.strip() for line in output.splitlines() if line.startswith("issuer=")]
+    for issuer in issuers:
+        pytest_assert(issuer in ALLOWED_ISSUERS, f"Unexpected issuer found: {issuer}")
+
+    # Check CCME cert
+    pytest_assert("CN = CCME" in output, f"FAIL no CCME certificate found in {CA_PEM}")
+
+    # Check AME cert
+    pytest_assert("CN = AME" in output, f"FAIL no AME certificate found in {CA_PEM}")
 
 
 def test_acms_healthy(duthosts,

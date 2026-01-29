@@ -2,6 +2,8 @@ import pytest
 import re
 
 container_name = "acms"
+sidecar_container_name = "acms_sidecar"
+watchdog_container_name = "acms_watchdog"
 
 TEST_DATA_CLOUD = [
     {

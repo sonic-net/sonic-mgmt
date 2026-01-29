@@ -1,0 +1,54 @@
+# This job is for periodically polling testbed health and upload polling results to Kusto
+
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "30 * * * *"
+    displayName: TestbedDataCopy
+    branches:
+      include:
+        - internal
+    always: true
+
+stages:
+  - stage: TestbedDataCopy
+    jobs:
+      - job: TestbedDataCopy
+        timeoutInMinutes: 180
+        pool: sonic-ubuntu-1c
+        variables:
+          - group: SONiC-Elastictest-Prod
+          - group: KUSTO_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+          - template: ../.azure-pipelines/templates/install-azure-cli.yml
+
+          - task: AzureCLI@2
+            displayName: Copy testbed data from MongoDB to Kusto
+            inputs:
+              azureSubscription: 'SONiC-Automation'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                set -x
+
+                az login --identity --client-id bc5d2320-ffa3-403d-92c0-7b27a8ae415e
+
+                Elastictest_Token=$(az account get-access-token --resource 47cf0abe-9f19-497c-a0dd-cbf3704ff871 --query accessToken --output tsv)
+                export ELASTICTEST_TOKEN=$Elastictest_Token
+
+                Kusto_Token=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                export KUSTO_TOKEN=$Kusto_Token
+
+                cd test_analyzer
+                pip install -r requirements.txt
+
+                python testbed_data_copy.py
+            env:
+              ELASTICTEST_MONGO_DB_CONN_STRING: $(ELASTICTEST_MONGO_DB_CONN_STRING)
+              KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)

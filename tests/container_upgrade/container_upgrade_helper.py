@@ -26,8 +26,9 @@ container_name_mapping = {
     "docker-gnmi-watchdog": "gnmi_watchdog",
     "docker-auditd": "auditd",
     "docker-auditd-watchdog": "auditd_watchdog",
-    "docker-acms": "acms",
+    "docker-acms": "k8s_acms",
     "docker-acms-watchdog": "acms_watchdog",
+    "docker-acms-sidecar": "acms_sidecar",
     "docker-sonic-bmp": "bmp",
     "docker-bmp-watchdog": "bmp_watchdog",
     "kubesonic-cleanup": "k8s_cleanup",
@@ -137,6 +138,24 @@ def disable_features(duthost):
     duthost.shell("config save -y", module_ignore_errors=True)
 
 
+def validate_is_v1_enabled_false(duthost):
+    """
+    If sidecar container of existing service has IS_V1_ENABLED=false,
+    existing service container should not be running
+
+    Rename k8s_{container_name} to container_name to minimize changes in test cases
+    """
+    for container_name in existing_service_list:
+        sidecar_container_name = f"{container_name}_sidecar"
+        cmd = "docker exec %s env | grep IS_V1_ENABLED" % sidecar_container_name
+        output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
+        if "IS_V1_ENABLED=false" in output:
+            output = duthost.shell(f"docker ps | grep docker-{container_name}:latest", module_ignore_errors=True)
+            py_assert(container_name not in output["stdout"], f"{container_name} container should not be running")
+            duthost.command(f"docker rm {container_name}", module_ignore_errors=True)
+            duthost.command(f"docker rename 'k8s_{container_name}' {container_name}", module_ignore_errors=True)
+
+
 def pull_run_dockers(duthost, creds, env):
     logger.info("Pulling docker images")
 
@@ -154,6 +173,8 @@ def pull_run_dockers(duthost, creds, env):
         if duthost.shell(f"docker run -d {parameters} {optional_parameters} --name {name} {docker_image}",
                          module_ignore_errors=True)['rc'] != 0:
             pytest.fail("Not able to run container using pulled image")
+
+    validate_is_v1_enabled_false(duthost)
 
 
 def store_results(request, test_results, env):
