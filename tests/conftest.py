@@ -868,8 +868,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                                   'orig_intf_map': primary_data['intf_mapping'][neighbor_name]["orig_intf_map"],
                                   'primary_host': multi_vrf_primary_host,
                                   'primary_host_asn': primary_asn,
-                                  'intf_index_mapping': copy.deepcopy(
-                                  data['interface_index_mapping'][neighbor_name]),
+                                  'intf_index_mapping': copy.deepcopy(data['interface_index_mapping'][neighbor_name]),
                                   'vm_offset_mapping': data['vm_offset_mapping'][neighbor_name],
                                   'ptf_bp_config': copy.deepcopy(data['ptf_backplane_addrs'][neighbor_name])}
             device = NeighborDevice(

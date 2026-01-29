@@ -428,8 +428,8 @@ def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
         for list_name, prefixes in list(PREFIX_LISTS.items()):
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
-				vrf = node if nbrhosts[node].get('is_multi_vrf_peer', False) else 'default'
-				neigh_route = nbrhosts[node]['host'].get_route(prefix, vrf=vrf)['vrfs'][vrf]['bgpRouteEntries']
+                vrf = node if nbrhosts[node].get('is_multi_vrf_peer', False) else 'default'
+                neigh_route = nbrhosts[node]['host'].get_route(prefix, vrf=vrf)['vrfs'][vrf]['bgpRouteEntries']
 
                 if permit:
                     # All routes should be forwarded
