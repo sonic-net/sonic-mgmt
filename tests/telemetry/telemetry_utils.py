@@ -75,10 +75,10 @@ def fetch_json_ptf_output(regex, output, match_no):
 
 
 def listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file, timeout, update_count=1,
-                      match_number=0):
+                      match_number=0, tbinfo=None):
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               submode=SUBMODE_ONCHANGE, update_count=update_count, xpath="all[heartbeat=2]",
-                              target="EVENTS", filter_event_regex=filter_event_regex, timeout=timeout)
+                              target="EVENTS", filter_event_regex=filter_event_regex, timeout=timeout, tbinfo=tbinfo)
     result = ptfhost.shell(cmd)
     assert result["rc"] == 0, "PTF command failed with non zero return code"
     output = result["stdout"]
@@ -109,7 +109,7 @@ def trigger_logger(duthost, log, process, container="", priority="local0.notice"
 def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/Ethernet0", target="COUNTERS_DB",
                         subscribe_mode=SUBSCRIBE_MODE_STREAM, submode=SUBMODE_SAMPLE,
                         intervalms=0, update_count=3, create_connections=1, filter_event_regex="", namespace=None,
-                        timeout=-1, polling_interval=10, max_sync_count=-1):
+                        timeout=-1, polling_interval=10, max_sync_count=-1, tbinfo=None):
     """ Generate the py_gnmicli command line based on the given params.
     This version ensures the command runs from the correct directory and within the
     activated virtual environment to resolve dependency issues.

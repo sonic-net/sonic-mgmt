@@ -32,10 +32,10 @@ CRM_TEST_ACL_GROUP_HIGH = 0
 WAIT_TIME = 3
 
 
-def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
+def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang, tbinfo=None):
     logger.info("Beginning to test swss events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_interface,
-             "if_state.json", "sonic-events-swss:if-state", tag)
+             "if_state.json", "sonic-events-swss:if-state", tag, tbinfo=tbinfo)
 
     asic_type = duthost.facts["asic_type"]
     if asic_type == "mellanox":
@@ -47,10 +47,10 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
 
     if duthost.facts["hwsku"] not in skip_pfc_hwskus:
         run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, generate_pfc_storm,
-                 "pfc_storm.json", "sonic-events-swss:pfc-storm", tag)
+                 "pfc_storm.json", "sonic-events-swss:pfc-storm", tag, tbinfo=tbinfo)
 
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_crm_threshold_exceeded,
-             "chk_crm_threshold.json", "sonic-events-swss:chk_crm_threshold", tag)
+             "chk_crm_threshold.json", "sonic-events-swss:chk_crm_threshold", tag, tbinfo=tbinfo)
 
 
 def shutdown_interface(duthost):
