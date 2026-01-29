@@ -51,7 +51,7 @@ def is_in_neighbor(neigh_types, neigh_name):
 def get_default_route_upstream_neigh_type(tb):
     if tb["topo"]["name"] in ["t1-isolated-d128", "t1-isolated-d32"]:
         return "T0"
-    return get_upstream_neigh_type(tb["topo"]["type"])
+    return get_upstream_neigh_type(tb)
 
 
 def get_default_route_all_upstream_neigh_type(tb):

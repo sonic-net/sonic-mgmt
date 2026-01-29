@@ -22,12 +22,18 @@ class LabGraph(object):
         "console_links": "sonic_{}_console_links.csv",
         "bmc_links": "sonic_{}_bmc_links.csv",
         "l1_links": "sonic_{}_l1_links.csv",
+        "serial_links": "sonic_{}_serial_links.csv",
     }
 
-    def __init__(self, path, group):
+    def __init__(self, path, group, forced_mgmt_routes=None):
         self.path = path
         self.group = group
         self.csv_files = {k: os.path.join(self.path, v.format(group)) for k, v in self.SUPPORTED_CSV_FILES.items()}
+
+        self.forced_mgmt_routes = forced_mgmt_routes or []
+        self.forced_mgmt_routes_v4, self.forced_mgmt_routes_v6 = self._parse_forced_mgmt_routes(
+            self.forced_mgmt_routes
+        )
 
         self._cache_port_alias_to_name = {}
         self._cache_port_name_to_alias = {}
@@ -50,6 +56,50 @@ class LabGraph(object):
         with open(v) as csvfile:
             reader = csv.DictReader(csvfile)
             return [row for row in reader]
+
+    def _parse_forced_mgmt_routes(self, forced_mgmt_routes):
+        routes_v4 = []
+        routes_v6 = []
+        if not forced_mgmt_routes:
+            return routes_v4, routes_v6
+
+        if isinstance(forced_mgmt_routes, six.string_types):
+            route_items = [
+                route.strip()
+                for route in forced_mgmt_routes.replace(";", ",").split(",")
+                if route.strip()
+            ]
+        elif isinstance(forced_mgmt_routes, (list, tuple, set)):
+            route_items = []
+            for route in forced_mgmt_routes:
+                if route is None:
+                    continue
+                if isinstance(route, six.string_types):
+                    route = route.strip()
+                route_items.append(str(route).strip())
+            route_items = [route for route in route_items if route]
+        else:
+            route_items = [str(forced_mgmt_routes).strip()]
+
+        for route in route_items:
+            if not route:
+                continue
+            try:
+                network = ipaddress.ip_network(six.text_type(route), strict=False)
+            except ValueError:
+                try:
+                    interface = ipaddress.ip_interface(six.text_type(route))
+                    network = interface.network
+                except ValueError:
+                    logging.warning("Skipping invalid forced mgmt route: %s", route)
+                    continue
+
+            if network.version == 4:
+                routes_v4.append(route)
+            else:
+                routes_v6.append(route)
+
+        return routes_v4, routes_v6
 
     def _port_vlanlist(self, vlanrange):
         """Convert vlan range string to list of vlan ids
@@ -145,6 +195,8 @@ class LabGraph(object):
                     entry["CardType"] = "Linecard"
                 if "HwSkuType" not in entry:
                     entry["HwSkuType"] = "predefined"
+            entry["ManagementRoutes"] = list(self.forced_mgmt_routes_v4)
+            entry["ManagementRoutesV6"] = list(self.forced_mgmt_routes_v6)
             devices[entry["Hostname"]] = entry
         self.graph_facts["devices"] = devices
 
@@ -208,6 +260,8 @@ class LabGraph(object):
             end_vlan_id = link.get("EndVlanID", vlan_ID)
             end_vlan_mode = link.get("EndVlanMode", vlan_mode)
             end_vrf_name = link.get("EndVrf", None)
+            start_port_mac = link.get("StartPortMac", None)
+            end_port_mac = link.get("EndPortMac", None)
             autoneg_mode = link.get("AutoNeg")
             fec_disable = link.get("FECDisable", False)
 
@@ -238,6 +292,12 @@ class LabGraph(object):
             if autoneg_mode:
                 start_port_linked_port.update({"autoneg": autoneg_mode})
                 end_port_linked_port.update({"autoneg": autoneg_mode})
+
+            if start_port_mac:
+                start_port_linked_port.update({"mac": start_port_mac})
+
+            if end_port_mac:
+                end_port_linked_port.update({"mac": end_port_mac})
 
             links[start_device][start_port] = start_port_linked_port
             links[end_device][end_port] = end_port_linked_port
@@ -325,16 +385,27 @@ class LabGraph(object):
 
             if l1_name not in from_l1_links:
                 from_l1_links[l1_name] = {}
-            from_l1_links[l1_name][l1_port] = {
-                "peerdevice": device_name,
-                "peerport": device_port,
-            }
+
+            if "|" in l1_port:
+                lanes = l1_port.split("|")
+
+                for lane in lanes:
+                    from_l1_links[l1_name][lane] = {
+                        "peerdevice": device_name,
+                        "peerport": device_port
+                    }
+            else:
+                from_l1_links[l1_name][l1_port] = {
+                    "peerdevice": device_name,
+                    "peerport": device_port,
+                }
 
             if device_name not in to_l1_links:
                 to_l1_links[device_name] = {}
+
             to_l1_links[device_name][device_port] = {
                 "peerdevice": l1_name,
-                "peerport": l1_port,
+                "peerport": l1_port if "|" not in l1_port else l1_port.split("|"),
             }
 
         logging.debug("Found L1 links from L1 switches to devices: {}".format(from_l1_links))
@@ -343,9 +414,39 @@ class LabGraph(object):
         self.graph_facts["from_l1_links"] = from_l1_links
         self.graph_facts["to_l1_links"] = to_l1_links
 
+        # Process serial links
+        serial_links = {}
+        for entry in self.csv_facts["serial_links"]:
+            start_device = entry["StartDevice"]
+            start_port = entry["StartPort"]
+            end_device = entry["EndDevice"]
+            end_port = entry["EndPort"]
+
+            if start_device not in serial_links:
+                serial_links[start_device] = {}
+            if end_device not in serial_links:
+                serial_links[end_device] = {}
+
+            serial_links[start_device][start_port] = {
+                "peerdevice": end_device,
+                "peerport": end_port,
+                "baud_rate": entry.get("BaudRate", "9600"),
+                "flow_control": entry.get("FlowControl", "0"),
+            }
+            serial_links[end_device][end_port] = {
+                "peerdevice": start_device,
+                "peerport": start_port,
+                "baud_rate": entry.get("BaudRate", "9600"),
+                "flow_control": entry.get("FlowControl", "0"),
+            }
+
+        logging.debug("Found serial links: {}".format(serial_links))
+        self.graph_facts["serial_links"] = serial_links
+
     def build_results(self, hostnames, ignore_error=False):
         device_info = {}
         device_conn = {}
+        device_linked_ports = {}
         device_vrfs = {}
         device_port_vlans = {}
         device_port_vrfs = {}
@@ -361,6 +462,7 @@ class LabGraph(object):
         device_from_l1_links = {}
         device_to_l1_links = {}
         device_l1_cross_connects = {}
+        device_serial_link = {}
         msg = ""
 
         logging.debug("Building results for hostnames: {}".format(hostnames))
@@ -471,9 +573,13 @@ class LabGraph(object):
             device_from_l1_links[hostname] = self.graph_facts["from_l1_links"].get(hostname, {})
             device_to_l1_links[hostname] = self.graph_facts["to_l1_links"].get(hostname, {})
 
-        l1_cross_connects = self._create_l1_cross_connects(hostnames)
+            device_serial_link[hostname] = self.graph_facts["serial_links"].get(hostname, {})
+
+        filtered_linked_ports = self._filter_linked_ports(hostnames)
+        l1_cross_connects = self._create_l1_cross_connects(filtered_linked_ports)
 
         for hostname in hostnames:
+            device_linked_ports[hostname] = filtered_linked_ports.get(hostname, {})
             device_l1_cross_connects[hostname] = l1_cross_connects.get(hostname, {})
 
         results = {k: v for k, v in locals().items()
@@ -481,11 +587,10 @@ class LabGraph(object):
 
         return (True, results)
 
-    def _create_l1_cross_connects(self, hostnames):
+    def _filter_linked_ports(self, hostnames):
         # Create L1 cross connects for the requested hostnames
         # Filter linked ports to only include connections between devices
         # that are in the hostnames list, then craft cross connects
-        l1_cross_connects = {}
         hostnames_set = set(hostnames)
 
         # First, collect all relevant linked ports between requested hostnames
@@ -499,7 +604,6 @@ class LabGraph(object):
             for start_port, linked_ports in linked_ports_facts.items():
                 for linked_port in linked_ports:
                     end_device = linked_port["peerdevice"]
-                    end_port = linked_port["peerport"]
 
                     # Only include links where both devices are in hostnames
                     if end_device in hostnames_set:
@@ -509,7 +613,11 @@ class LabGraph(object):
 
         logging.debug("Filtered linked ports: {}".format(filtered_linked_ports))
 
+        return filtered_linked_ports
+
+    def _create_l1_cross_connects(self, filtered_linked_ports):
         # Now process the filtered linked ports to create cross connects
+        l1_cross_connects = {}
         to_l1_links = self.graph_facts["to_l1_links"]
         for start_device, start_ports in filtered_linked_ports.items():
             for start_port, linked_port in start_ports.items():
@@ -548,6 +656,11 @@ class LabGraph(object):
                     l1_cross_connects[l1_start_device] = {}
 
                 l1_port_pair = sorted([l1_start_port, l1_end_port])
-                l1_cross_connects[l1_start_device][l1_port_pair[0]] = l1_port_pair[1]
+
+                if isinstance(l1_port_pair[0], list) and isinstance(l1_port_pair[1], list):
+                    for l1_port_start, l1_port_end in zip(l1_port_pair[0], l1_port_pair[1]):
+                        l1_cross_connects[l1_start_device][l1_port_start] = l1_port_end
+                else:
+                    l1_cross_connects[l1_start_device][l1_port_pair[0]] = l1_port_pair[1]
 
         return l1_cross_connects

@@ -20,11 +20,6 @@ resources:
       ref: master
       endpoint: sonic-net
 
-parameters:
-  - name: TIMEOUT_IN_MINUTES_TEST_JOB
-    type: number
-    default: 480
-
 stages:
   - stage: Test
     variables:
@@ -37,42 +32,20 @@ stages:
         value: $(Build.SourceBranchName)
 
     jobs:
-      # Based on Impacted Area Test to get the full test scripts set run on t1 topo
-      - job: get_impacted_area
-        displayName: "Get impacted area"
-        timeoutInMinutes: 10
+      - job: t1_lag_vpp_elastictest
+        displayName: "kvmtest-t1-lag-vpp by Elastictest"
+        timeoutInMinutes: 480
         continueOnError: false
         pool: sonic-ubuntu-1c
         steps:
-          - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml@sonic-mgmt
-            parameters:
-              BUILD_BRANCH: $(BUILD_BRANCH)
-
-      - job: impacted_area_t1_lag_vpp_elastictest
-        displayName: "impacted-area-kvmtest-t1-lag-vpp by Elastictest"
-        dependsOn:
-          - get_impacted_area
-        condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
-        variables:
-          TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-        timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_TEST_JOB }}
-        continueOnError: false
-        pool: sonic-ubuntu-1c
-        steps:
-          - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml@sonic-mgmt
-            parameters:
-              TOPOLOGY: t1
-              BUILD_BRANCH: $(BUILD_BRANCH)
-
           - template: .azure-pipelines/run-test-elastictest-template.yml@sonic-mgmt
             parameters:
               TOPOLOGY: t1-lag-vpp
-              SCRIPTS: $(SCRIPTS)
               MIN_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
               MAX_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
               KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
               MGMT_BRANCH: $(BUILD_BRANCH)
               ASIC_TYPE: "vpp"
               KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
-              COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+              COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer"
               STOP_ON_FAILURE: "False"

@@ -32,7 +32,8 @@ def test_bgp_outbound_uplink_tsa(snappi_api,                                    
                                  conn_graph_facts,                             # noqa: F811
                                  fanout_graph_facts_multidut,                  # noqa: F811
                                  duthosts,
-                                 creds):                                # noqa: F811
+                                 creds,                               # noqa: F811
+                                 record_property):
     """
     Gets the packet loss duration on issuing TSA/TSB in uplink
 
@@ -79,7 +80,8 @@ def test_bgp_outbound_uplink_tsa(snappi_api,                                    
     run_bgp_outbound_tsa_tsb_test(api=snappi_api,
                                   snappi_extra_params=snappi_extra_params,
                                   creds=creds,
-                                  is_supervisor=False)
+                                  is_supervisor=False,
+                                  record_property=record_property)
 
 
 def test_bgp_outbound_downlink_tsa(snappi_api,                                     # noqa: F811
@@ -87,7 +89,8 @@ def test_bgp_outbound_downlink_tsa(snappi_api,                                  
                                    conn_graph_facts,                             # noqa: F811
                                    fanout_graph_facts_multidut,                  # noqa: F811
                                    duthosts,
-                                   creds):                             # noqa: F811
+                                   creds,
+                                   record_property):                             # noqa: F811
     """
     Gets the packet loss duration on issuing TSA/TSB in downlink
 
@@ -133,7 +136,8 @@ def test_bgp_outbound_downlink_tsa(snappi_api,                                  
     run_bgp_outbound_tsa_tsb_test(api=snappi_api,
                                   snappi_extra_params=snappi_extra_params,
                                   creds=creds,
-                                  is_supervisor=False)
+                                  is_supervisor=False,
+                                  record_property=record_property)
 
 
 def test_bgp_outbound_supervisor_tsa(snappi_api,                                     # noqa: F811
@@ -141,7 +145,8 @@ def test_bgp_outbound_supervisor_tsa(snappi_api,                                
                                      conn_graph_facts,                             # noqa: F811
                                      fanout_graph_facts_multidut,                  # noqa: F811
                                      duthosts,
-                                     creds):                                # noqa: F811
+                                     creds,                                          # noqa: F811
+                                     record_property):
     """
     Gets the packet loss duration on issuing TSA/TSB in supervisor
 
@@ -186,4 +191,5 @@ def test_bgp_outbound_supervisor_tsa(snappi_api,                                
     run_bgp_outbound_tsa_tsb_test(api=snappi_api,
                                   snappi_extra_params=snappi_extra_params,
                                   creds=creds,
-                                  is_supervisor=True)
+                                  is_supervisor=True,
+                                  record_property=record_property)

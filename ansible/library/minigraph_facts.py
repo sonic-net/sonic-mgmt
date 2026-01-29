@@ -370,15 +370,35 @@ def parse_dpg(dpg, hname):
             intfname = mgmtintf.find(str(QName(ns, "AttachTo"))).text
             ipprefix = mgmtintf.find(str(QName(ns1, "PrefixStr"))).text
             mgmtipn = ipaddress.IPNetwork(ipprefix)
-            # Ignore IPv6 management address
-            if mgmtipn.version == 6:
-                continue
-            ipaddr = mgmtipn.ip
-            prefix_len = str(mgmtipn.prefixlen)
-            ipmask = mgmtipn.netmask
             gwaddr = ipaddress.IPAddress(int(mgmtipn.network) + 1)
-            mgmt_intf = {'addr': ipaddr, 'alias': intfname,
-                         'prefixlen': prefix_len, 'mask': ipmask, 'gwaddr': gwaddr}
+            # Prefer IPv4 if present; otherwise fall back to IPv6 so that
+            # consumers (e.g., tests needing the alias) still have data.
+            if isinstance(mgmtipn, ipaddress.IPv4Network):
+                ipaddr = mgmtipn.ip
+                prefix_len = str(mgmtipn.prefixlen)
+                ipmask = mgmtipn.netmask
+                mgmt_intf = {
+                    'addr': ipaddr,
+                    'alias': intfname,
+                    'prefixlen': prefix_len,
+                    'mask': ipmask,
+                    'gwaddr': gwaddr
+                }
+                # Since IPv4 is preferred, we can break once found.
+                break
+            else:
+                # IPv6 management ip
+                if mgmt_intf is None:
+                    ipaddr = mgmtipn.ip
+                    prefix_len = str(mgmtipn.prefixlen)
+                    ipmask = str(mgmtipn.prefixlen)
+                    mgmt_intf = {
+                        'addr': ipaddr,
+                        'alias': intfname,
+                        'prefixlen': prefix_len,
+                        'mask': ipmask,
+                        'gwaddr': gwaddr
+                    }
 
         pcintfs = child.find(str(QName(ns, "PortChannelInterfaces")))
         pcs = {}
