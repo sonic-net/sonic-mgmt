@@ -2807,6 +2807,12 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         src_dst_asic_diff = self.test_params['src_dst_asic_diff']
         dut_asic = self.test_params['dut_asic']
 
+        # For q3d few extra ipv6 NS/RA pkt(6-9) received from VM, adding to counter value
+        # & may give inconsistent test results so changing margin to 10
+        if dut_asic == "q3d":
+            log_message("Overriding COUNTER_MARGIN to 10 for q3d", to_stderr=True)
+            COUNTER_MARGIN = 10
+
         self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
 
         # get a snapshot of counter values at recv and transmit ports
