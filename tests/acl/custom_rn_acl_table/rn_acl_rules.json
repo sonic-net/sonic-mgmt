@@ -1,0 +1,10 @@
+{
+    "ACL_RULE": {
+        "CUSTOM_TABLE|RULE_2": {
+            "L4_SRC_PORT": "8080",
+            "TCP_FLAGS": "TCP_SYN",
+            "PACKET_ACTION": "FORWARD",
+            "PRIORITY": "9998"
+        }
+    }
+}
