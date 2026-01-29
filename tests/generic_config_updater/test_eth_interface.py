@@ -16,6 +16,8 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+SHOW_FEC_OPER_CMD_TEMPLATE = "show interfaces fec status {}"
+
 
 @pytest.fixture(autouse=True)
 def ensure_dut_readiness(duthosts, rand_one_dut_hostname):
@@ -171,6 +173,23 @@ def get_port_speeds_for_test(duthost, port):
     return speeds_to_test
 
 
+def get_fec_oper(duthost, interface):
+    """
+    Get the operational FEC for a given interface
+
+    Args:
+        duthost: DUT host object
+        interface: The name of the interface to be checked
+
+    Returns:
+        The operational FEC of the interface
+    """
+    show_fec_oper_cmd = SHOW_FEC_OPER_CMD_TEMPLATE.format(interface)
+    logging.info("Get output of '{}'".format(show_fec_oper_cmd))
+    fec_status = duthost.show_and_parse(show_fec_oper_cmd)
+    return fec_status[0].get("fec oper", "N/A")
+
+
 def test_remove_lanes(duthosts, rand_one_dut_front_end_hostname,
                       ensure_dut_readiness, enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_front_end_hostname]
@@ -302,6 +321,7 @@ def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
     namespace_prefix = '' if asic_namespace is None else '-n ' + asic_namespace
     intf_init_status = duthost.get_interfaces_status()
     port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
+    intf_init_fec_oper = get_fec_oper(duthost, port)
     json_patch = [
         {
             "op": "add",
@@ -322,8 +342,13 @@ def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
             pytest_assert(current_status_fec == fec,
                           "Failed to properly configure interface FEC to requested value {}".format(fec))
 
-            # The rollback after the test cannot revert the fec, when fec is not configured in config_db.json
-            if intf_init_status[port].get("fec", "N/A") == "N/A":
+            # When FEC is not configured in CONFIG_DB and the default FEC is 'none',
+            # explicitly set FEC to 'none' to restore to initial state.
+            # Since the default FEC is vendor dependent, double check initial operational FEC
+            # to make sure it is not 'rs' or 'fc'.
+            if (intf_init_status[port].get("fec", "N/A") == "N/A" and
+                    intf_init_fec_oper in ["none", "N/A"] and
+                    is_valid_fec_state_db(duthost, "none", port, namespace=asic_namespace)):
                 out = duthost.command("config interface {} fec {} none".format(namespace_prefix, port))
                 pytest_assert(out["rc"] == 0, "Failed to set {} fec to none. Error: {}".format(port, out["stderr"]))
         else:
