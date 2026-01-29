@@ -398,9 +398,9 @@ def check_routes_on_from_neighbor(setup_info, nbrhosts):
     downstream = setup_info['downstream']
     for prefixes in list(PREFIX_LISTS.values()):
         for prefix in prefixes:
-			vrf = downstream if nbrhosts[downstream].get('is_multi_vrf_peer', False) else 'default'
-			downstream_route = nbrhosts[downstream]['host'].get_route(prefix, vrf=vrf)
-			route_entries = downstream_route['vrfs'][vrf]['bgpRouteEntries']
+            vrf = downstream if nbrhosts[downstream].get('is_multi_vrf_peer', False) else 'default'
+            downstream_route = nbrhosts[downstream]['host'].get_route(prefix, vrf=vrf)
+            route_entries = downstream_route['vrfs'][vrf]['bgpRouteEntries']
             pytest_assert(prefix in route_entries, 'Announced route {} not found on {}'.format(prefix, downstream))
 
 

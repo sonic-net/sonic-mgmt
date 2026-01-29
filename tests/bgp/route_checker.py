@@ -95,22 +95,22 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
                 peer_ip_v6 = ip
         # The json formatter on EOS consumes too much time (over 40 seconds).
         # So we have to parse the raw output instead json.
-        grepCmd = 'grep -E "{}|{}"'.format( BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING )
+        grepCmd = 'grep -E "{}|{}"'.format(BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
         if 4 == ip_ver:
             cmd = "show ip bgp neighbors {} received-routes detail".format(peer_ip_v4)
             if multi_vrf_peer:
-                cmd = "{} vrf {}".format( cmd, hostname )
+                cmd = "{} vrf {}".format(cmd, hostname)
             cmd = "{} | {}".format(cmd, grepCmd)
             cmd_backup = ""
         else:
             cmd = "show ipv6 bgp peers {} received-routes detail".format(peer_ip_v6)
             if multi_vrf_peer:
-                cmd = "{} vrf {}".format( cmd, hostname )
+                cmd = "{} vrf {}".format(cmd, hostname)
             cmd = "{} | {}".format(cmd, grepCmd)
             # For compatibility on EOS of old version
             cmd_backup = "show ipv6 bgp neighbors {} received-routes detail".format(peer_ip_v6)
             if multi_vrf_peer:
-                cmd_backup = "{} vrf {}".format( cmd_backup, hostname )
+                cmd_backup = "{} vrf {}".format(cmd_backup, hostname)
             cmd_backup = "{} | {}".format(cmd_backup, grepCmd)
         res = host.eos_command(commands=[cmd], module_ignore_errors=True)
         if res['failed'] and cmd_backup != "":

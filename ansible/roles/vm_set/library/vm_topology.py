@@ -599,11 +599,11 @@ class VMTopology(object):
 
         VMTopology.iface_disable_txoff(BP_PORT_NAME, self.pid)
 
-	def remove_bp_vlans_from_docker(self, vlan_data):
-		for _, data in vlan_data.items():
+    def remove_bp_vlans_from_docker(self, vlan_data):
+        for _, data in vlan_data.items():
             vlan_id = data.get("vlan")
-			if vlan_id:
-				vlan_intf_name = "%s.%d" % (BP_PORT_NAME, vlan_id)
+            if vlan_id:
+                vlan_intf_name = "%s.%d" % (BP_PORT_NAME, vlan_id)
                 VMTopology.cmd("nsenter -t %s -n ip link del %s" % (self.pid, vlan_intf_name))
 
     def add_br_if_to_docker(self, bridge, ext_if, int_if):

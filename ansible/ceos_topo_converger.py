@@ -178,7 +178,6 @@ class SonicTopoConverger:
                 new_peers[prime_dev]["vrf"][vrf_name] = vrf
 
                 bp_addr_data = {}
-                v4_addr = peer["bp_interface"].get("ipv4", "10.10.246.0")
                 if "ipv4" in peer["bp_interface"]:
                     bp_addr_data["ipv4"] = f"{self.modify_l3_address(base_v4_addr, ptf_bp_addr_offset)}/31"
                     vrf[f"Vlan{vlan_id}"]["ipv4"] = f"{self.modify_l3_address(base_v4_addr, peer_bp_addr_offset)}/31"
