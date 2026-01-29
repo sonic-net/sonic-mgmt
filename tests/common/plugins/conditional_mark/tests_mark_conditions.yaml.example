@@ -1,4 +1,92 @@
-# Examples
+#######################################
+#####  Skip Categories Configuration ##
+#######################################
+
+# Define skip categories to enforce proper skip management
+skip_categories:
+  # Permanent skips - for issues that won't be fixed
+  permanent:
+    description: "Permanent skips that don't require expiry date"
+    requires_expiry_date: false
+    allowed_reasons:
+      - "FEATURE_NOT_APPLICABLE"      # Feature doesn't apply to this platform/topology
+      - "ASIC_NOT_SUPPORTED"           # ASIC doesn't support this feature
+      - "PLATFORM_LIMITATION"          # Hardware/platform limitation
+
+  # Temporary skips - for issues that should be fixed
+  temporary:
+    description: "Temporary skips that require expiry date"
+    requires_expiry_date: true
+    max_expiry_days: 180  # Maximum 6 months for temporary skips
+    allowed_reasons:
+      - "BUG_FIX_IN_PROGRESS"          # Bug is being actively fixed
+      - "KNOWN_FLAKY_TEST"             # Test is flaky and needs investigation
+      - "INFRASTRUCTURE_ISSUE"         # Testbed/infrastructure problem
+      - "NEW_FEATURE_UNDER_DEVELOPMENT" # Feature is in development
+
+#######################################
+#####  Example Test Configurations ####
+#######################################
+
+# Example 1: Permanent skip (no expiry date needed)
+folder1/test_file1.py::test_not_supported_on_vs:
+  skip:
+    reason: "This feature is not supported on virtual switch"
+    category: "ASIC_NOT_SUPPORTED"
+    conditions:
+      - "asic_type == 'vs'"
+
+# Example 2: Temporary skip with expiry date and fail action (default)
+folder1/test_file2.py::test_flaky_case:
+  skip:
+    reason: "Test is flaky due to timing issues, fix in progress"
+    category: "KNOWN_FLAKY_TEST"
+    expiry_date: "2026-06-15"
+    expiry_action: "fail"  # Will fail test run if not fixed by this date (default)
+    conditions:
+      - "True"
+
+# Example 3: Temporary skip with warn action
+folder1/test_file3.py::test_with_bug:
+  skip:
+    reason: "Bug #12345 being fixed"
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2026-03-01"
+    expiry_action: "warn"  # Will run test with warning after expiry
+    conditions:
+      - "platform in ['specific-platform']"
+
+# Example 4: Temporary skip with run action
+folder1/test_file4.py::test_new_feature:
+  skip:
+    reason: "Waiting for new feature release"
+    category: "NEW_FEATURE_UNDER_DEVELOPMENT"
+    expiry_date: "2026-04-01"
+    expiry_action: "run"  # Will run test silently after expiry
+    conditions:
+      - "release not in ['master', '202405']"
+
+# Example 5: Multiple conditions with logical operators
+folder2/test_file5.py::test_complex_conditions:
+  skip:
+    reason: "Skip on T0 topology with VS ASIC"
+    category: "INFRASTRUCTURE_ISSUE"
+    expiry_date: "2026-05-01"
+    conditions_logical_operator: and
+    conditions:
+      - "topo_name in ['t0', 't0-64']"
+      - "asic_type == 'vs'"
+
+# Example 6: Skip with GitHub issue tracking
+folder2/test_file6.py::test_with_issue:
+  skip:
+    reason: "Tracked by GitHub issue"
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2026-07-01"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/1234
+
+# Examples from original file
 folder1/test_file1.py::test_case1:
   skip:
     reason: "skip file1/case1"
