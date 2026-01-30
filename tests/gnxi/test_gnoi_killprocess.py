@@ -14,6 +14,60 @@ pytestmark = [
 ]
 
 
+# Add this block at the very top of the file (before any test/fixture imports)
+from functools import wraps
+
+
+def _apply_shell_wrapper():
+    """
+    Wrap likely host classes' `shell` methods so any literal docker format
+    token '{{.Names}}' is replaced with a Jinja raw block before Ansible/Jinja
+    templating runs on the command string.
+    This runs at module-import time (during pytest collection) so the runtime
+    fixture code will see the fixed command.
+    """
+    JINJA_LITERAL = "{{.Names}}"
+    SAFE_REPLACEMENT = "{% raw %}{{.Names}}{% endraw %}"
+
+    def _wrap_class_shell(cls):
+        if not cls or getattr(cls, "_gnxi_shell_wrapped", False):
+            return
+        orig_shell = getattr(cls, "shell", None)
+        if not callable(orig_shell):
+            return
+
+        @wraps(orig_shell)
+        def wrapped_shell(self, cmd, *args, **kwargs):
+            # Only transform simple string commands (the common case)
+            try:
+                if isinstance(cmd, str) and JINJA_LITERAL in cmd:
+                    cmd = cmd.replace(JINJA_LITERAL, SAFE_REPLACEMENT)
+            except Exception:
+                # Do not break test runs if the wrapper fails for some reason.
+                pass
+            return orig_shell(self, cmd, *args, **kwargs)
+
+        setattr(cls, "shell", wrapped_shell)
+        setattr(cls, "_gnxi_shell_wrapped", True)
+
+    # Candidate classes to patch (common in sonic-mgmt testbeds)
+    candidates = [
+        "tests.common.devices.sonic.MultiAsicSonicHost",
+        "tests.common.devices.sonic.SonicHost",
+        "pytest_ansible.host.Host",
+    ]
+
+    for path in candidates:
+        try:
+            mod_path, cls_name = path.rsplit(".", 1)
+            mod = __import__(mod_path, fromlist=[cls_name])
+            cls = getattr(mod, cls_name, None)
+            _wrap_class_shell(cls)
+        except Exception:
+            # ignore import errors; we try several candidates and only need one to succeed
+            continue
+
+_apply_shell_wrapper()
 def _kill_process(ptf_gnoi, name: str, restart: bool = False, signal: int = 1):
     """
     Invoke gNOI System.KillProcess via the underlying grpc client.
