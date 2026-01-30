@@ -518,3 +518,18 @@
   inv_name: veos_vtb
   auto_recover: 'False'
   comment: Tests virtual vpp switch vm
+
+- conf-name: vms-kvm-vpp-t0
+  group-name: vms6-3
+  topo: t0-vpp
+  ptf_image_name: docker-ptf
+  ptf: ptf-03
+  ptf_ip: 10.250.0.108/24
+  ptf_ipv6: fec0::ffff:afa:8/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-vpp-02
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests virtual vpp switch vm
