@@ -6,6 +6,7 @@ import scapy.all as scapy
 import ptf.testutils as testutils
 from collections import Counter
 
+from tests.common.utilities import wait_until, ping_ip
 from tests.common.devices.eos import EosHost
 from tests.common.macsec.macsec_helper import create_pkt, create_exp_pkt, check_macsec_pkt,\
                            get_ipnetns_prefix, clear_macsec_counters, get_macsec_counters
@@ -76,9 +77,10 @@ class TestDataPlane():
 
     def test_dut_to_neighbor(self, duthost, ctrl_links, upstream_links, wait_mka_establish):
         for up_port, up_link in list(upstream_links.items()):
-            ret = duthost.command(
-                "{} ping -c {} {}".format(get_ipnetns_prefix(duthost, up_port), 4, up_link['local_ipv4_addr']))
-            assert not ret['failed']
+            dst_ip = up_link["local_ipv4_addr"]
+            assert wait_until(
+                60, 5, 0, ping_ip, duthost, dst_ip, 4, get_ipnetns_prefix(duthost, up_port)
+            ), "Ping from DUT to upstream neighbor {} on port {} failed after retries".format(dst_ip, up_port)
 
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, wait_mka_establish):
         portchannels = list(get_portchannel(duthost).values())
