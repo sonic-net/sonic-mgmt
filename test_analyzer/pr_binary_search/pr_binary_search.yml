@@ -76,7 +76,7 @@ stages:
               TEST_QUERY_DAYS_RANGE: $(TEST_QUERY_DAYS_RANGE)
 
           - task: AzureCLI@2
-            retryCountOnTaskFailure: 3
+            retryCountOnTaskFailure: 0
             displayName: Run PR binary search
             inputs:
               azureSubscription: "SONiC-Automation"
