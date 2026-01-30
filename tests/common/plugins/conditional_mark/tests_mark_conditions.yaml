@@ -1509,6 +1509,12 @@ ecmp/test_fgnhg.py:
 #######################################
 #####         everflow            #####
 #######################################
+everflow/test_everflow_ipv6.py:
+  xfail:
+    reason: "Known issue with everflow over ipv6"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21702"
+
 everflow/test_everflow_ipv6.py::Test(In|E)gressEverflowIPv6::test_[a-zA-Z0-9_]+\[erspan_ipv4-:
   regex: true
   xfail:
