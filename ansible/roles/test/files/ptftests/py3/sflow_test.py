@@ -99,7 +99,7 @@ class SflowTest(BaseTest):
         with open(outfile, 'w') as f:
             process = subprocess.Popen(['/usr/local/bin/sflowtool', '-j', '-p'] + sflow_port,
                                        stdout=f,
-                                       stderr=subprocess.STDOUT,
+                                       stderr=subprocess.DEVNULL,
                                        shell=False
                                        )
 
