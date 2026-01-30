@@ -202,7 +202,7 @@ def setup_bgp_peers(
             peer.start_session()
         yield bgp_peers
     finally:
-    # Always cleanup, even on setup failure
+        # Always cleanup, even on setup failure
         for peer in started_peers:
             peer.stop_session()
 
