@@ -47,7 +47,7 @@ def gnoi_upgrade_path_lists(request):
 
 
 @pytest.mark.device_type("vs")
-def test_upgrade_gnoi(
+def test_upgrade_via_gnoi(
     localhost, duthosts, ptfhost, rand_one_dut_hostname,
     nbrhosts, fanouthosts, tbinfo, request, restore_image,            # noqa: F811
     verify_dut_health, gnoi_upgrade_path_lists, ptf_grpc
