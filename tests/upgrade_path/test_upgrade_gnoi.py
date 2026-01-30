@@ -3,13 +3,18 @@ import logging
 import pytest
 
 # Ensure grpc fixtures are discovered (ptf_grpc / setup_gnoi_tls_server)
-import tests.common.fixtures.grpc_fixtures  # noqa: F401
+from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
+    setup_gnoi_tls_server, ptf_gnoi, ptf_grpc
+)
 
 from tests.common.helpers.upgrade_helpers import gnoi_upgrade_test_helper
 
 logger = logging.getLogger(__name__)
 
-pytestmark = pytest.mark.usefixtures("setup_gnoi_tls_server")
+pytestmark = [
+    pytest.mark.topology('any'),
+    pytest.mark.usefixtures("setup_gnoi_tls_server")
+]
 
 
 @pytest.fixture(scope="module")
@@ -20,7 +25,6 @@ def gnoi_upgrade_path_lists(request):
       --base_image_list
       --target_image_list
       --restore_to_image
-      --enable_cpa
 
     Interpretation:
       - target_image_list is treated as image URL for gNOI TransferToRemote
@@ -34,7 +38,6 @@ def gnoi_upgrade_path_lists(request):
     from_list = request.config.getoption("base_image_list")
     to_list = request.config.getoption("target_image_list")
     restore_to_image = request.config.getoption("restore_to_image")
-    enable_cpa = request.config.getoption("enable_cpa")
 
     image_url = to_list
 
@@ -83,8 +86,7 @@ def test_upgrade_via_gnoi(
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    (upgrade_type, from_image, to_image, _restore_to_image, _enable_cpa,
-     image_url, local_path, expected_to_version) = gnoi_upgrade_path_lists
+    (upgrade_type, from_image, to_image, _restore_to_image, image_url, local_path, expected_to_version) = gnoi_upgrade_path_lists
 
     logger.info("Test gNOI upgrade path from %s to %s", from_image, to_image)
 
