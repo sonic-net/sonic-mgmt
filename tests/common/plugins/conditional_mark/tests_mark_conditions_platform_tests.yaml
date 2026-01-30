@@ -1453,6 +1453,15 @@ platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
       - "platform in ['x86_64-cel_e1031-r0']"
       - https://github.com/sonic-net/sonic-buildimage/issues/18231
 
+####################################################
+#####   test_dpu_show_platform_temperature.py  #####
+####################################################
+smartswitch/platform_tests/test_dpu_show_platform_temperature.py:
+  skip:
+    reason: "Skip on the platforms not explicitly supported in the code"
+    conditions:
+      - "platform not in ['arm64-nvda_bf-bf3comdpu', 'arm64-nvda_bf-9009d3b600cvaa']"
+
 #######################################
 #####   test_platform_dpu.py   #####
 #######################################
