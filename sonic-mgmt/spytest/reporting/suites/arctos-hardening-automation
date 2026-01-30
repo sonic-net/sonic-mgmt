@@ -1,4 +1,8 @@
 # Modules
++file:cisco/arctos/async/test_async_fpga_terminalserver.py
++file:cisco/arctos/pmon_env/test_arctos_cli_smoke.py
++file:cisco/arctos/network/test_network_connectivity.py
++file:cisco/arctos/async/test_terminal_server_consoles.py
 +file:cisco/arctos/usb/Arctos_usb_mount_unmount_test.py
 
 #Runtime Arguments
