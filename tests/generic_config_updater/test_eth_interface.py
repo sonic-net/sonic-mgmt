@@ -185,7 +185,7 @@ def get_fec_oper(duthost, interface):
         The operational FEC of the interface
     """
     show_fec_oper_cmd = SHOW_FEC_OPER_CMD_TEMPLATE.format(interface)
-    logging.info("Get output of '{}'".format(show_fec_oper_cmd))
+    logger.info("Get output of '{}'".format(show_fec_oper_cmd))
     fec_status = duthost.show_and_parse(show_fec_oper_cmd)
     return fec_status[0].get("fec oper", "N/A")
 
