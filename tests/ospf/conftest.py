@@ -5,61 +5,104 @@ Conftest file for OSPF tests
 import pytest
 import re
 from tests.common.config_reload import config_reload
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 import time
 
 
 @pytest.fixture(scope="module")
-def ospf_Bfd_setup(duthosts, rand_one_dut_hostname, nbrhosts, request):
+def trap_copp_ospf(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    copp_trap_ospf_rule_json = "/tmp/copp_trap_ospf.json"
+
+    cmd_copp_trap_group = '''
+cat << EOF >  %s
+{
+    "COPP_TRAP": {
+        "ospf": {
+            "trap_ids": "ospf,ospfv6",
+            "trap_group": "queue4_group1",
+            "always_enabled": "true"
+        }
+    }
+}
+EOF
+''' % (copp_trap_ospf_rule_json)
+
+    duthost.shell(cmd_copp_trap_group)
+
+    copp_config_file = copp_trap_ospf_rule_json if not duthost.is_multi_asic else \
+        ",".join([copp_trap_ospf_rule_json for _ in range(duthost.num_asics() + 1)])
+
+    duthost.command("sudo config load {} -y".format(copp_config_file))
+
+    yield
+
+    duthost.command(f"sudo rm {copp_trap_ospf_rule_json}")
+
+    return duthost
+
+
+@pytest.fixture(scope="module")
+def ospf_Bfd_setup(duthosts, rand_one_dut_hostname, nbrhosts, trap_copp_ospf, request):
     if request.config.getoption("neighbor_type") != "sonic":
         pytest.skip("Neighbor type must be sonic")
 
     duthost = duthosts[rand_one_dut_hostname]
-    setup_info = {"nbr_addr": {}, "int_info": {}}
+    setup_info = {}
 
-    cmd = "show ip route bgp"
-    bgp_neighbors = duthost.shell(cmd)["stdout"]
-    for line in bgp_neighbors.splitlines():
-        match = re.search(r"(\d+\.\d+\.\d+\.\d+)", line)
-        if match:
-            nbr_ip = match.group(1)
-            setup_info["nbr_addr"][nbr_ip] = None
+    for asic in duthost.asics:
+        bgp_neighbors = asic.bgp_facts()['ansible_facts']['bgp_neighbors']
+
+        neighbor_ips = [
+            neigh_ip for neigh_ip in bgp_neighbors
+            if bgp_neighbors[neigh_ip]["ip_version"] == 4
+            and bgp_neighbors[neigh_ip]["description"] in nbrhosts
+        ]
+
+        for neigh_ip in neighbor_ips:
+            setup_info[neigh_ip] = {
+                "asic": asic
+            }
 
     for nbr_name, nbr_info in nbrhosts.items():
-        nbr_ip = setup_info["nbr_addr"].get(nbr_info["ip"])
+        ipv4, ipv6 = list(nbr_info['conf']['bgp']['peers'].values())[0]
+        nbr_ip = ipv4
         if nbr_ip:
-            configure_ospf_and_bfd(
+            configure_ospf_and_bfd_vsonic(
                 nbr_info["host"],
-                nbrhosts[nbr_name].hostname)
-            setup_info["nbr_addr"][nbr_ip] = {"hostname": nbr_info["hostname"]}
+                nbr_ip,
+                nbr_info['conf']['interfaces']['Loopback0']['ipv4'])
 
-    setup_info["int_info"] = get_ospf_neighbor_interface()
     yield setup_info
 
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, config_source='config_db', safe_reload=True)
     time.sleep(10)
-    for nbr_name in list(nbrhosts.keys()):
-        config_reload(nbrhosts[nbr_name]["host"], is_dut=False)
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for nbr_name in list(nbrhosts.keys()):
+            executor.submit(config_reload, nbrhosts[nbr_name]["host"], is_dut=False)
 
 
-def configure_ospf_and_bfd(host, nbr_ip):
+def configure_ospf_and_bfd_vsonic(host, nbr_ip, loopback):
     cmd_list = [
-        "docker exec -it bgp bash",
-        "cd /usr/lib/frr",
-        "./ospfd &",
-        "./bfdd &",
-        "exit",
-        "vtysh",
-        "config t",
-        "router ospf",
-        f"network {nbr_ip}/31 area 0",
-        "exit"
-        "bfd",
-        f"peer {nbr_ip}",
-        "do write",
-        "end",
-        "exit",
+        # Start required FRR daemons inside the bgp container without TTY
+        "docker exec bgp bash -lc 'cd /usr/lib/frr; ./ospfd & ./bfdd &'",
+        # Configure OSPF and BFD via non-interactive vtysh
+        (
+            "docker exec bgp vtysh "
+            "-c 'configure terminal' "
+            "-c 'router ospf' "
+            f"-c 'network {nbr_ip}/31 area 0' "
+            f"-c 'network {loopback} area 0' "
+            "-c 'exit' "
+            "-c 'bfd' "
+            f"-c 'peer {nbr_ip}' "
+            "-c 'do write' "
+            "-c 'end'"
+        ),
     ]
-    host.shell_cmds(cmd_list)
+    host.shell_cmds(cmds=cmd_list)
 
 
 def get_ospf_neighbor_interface(host):
@@ -71,10 +114,12 @@ def get_ospf_neighbor_interface(host):
     for line in ospf_neighbor_output.split('\n'):
         columns = line.split()
         # Check if the interface column contains 'PortChannel'
-        if 'PortChannel' in columns[6]:
-            nbr_int_info['interface'] = columns[6].split(':')[0]
-            nbr_int_info['ip'] = columns[6].split(
-                ':')[1]  # Return the interface name
+        if len(columns) >= 7 and 'PortChannel' in columns[6]:
+            int_col = columns[6]
+            parts = int_col.split(':', 1)
+            if len(parts) == 2:
+                nbr_int_info['interface'] = parts[0]
+                nbr_int_info['ip'] = parts[1]
     # Return None if interface name is not found or not PortChannels.
     return nbr_int_info
 

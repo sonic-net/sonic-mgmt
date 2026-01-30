@@ -31,8 +31,13 @@
 
   - name: Install Flask and Werkzeug
     block:
+    - name: Install blinker
+      pip: name=blinker executable={{ pip_executable }} extra_args="--ignore-installed"
+      become: yes
+      environment: "{{ proxy_env | default({}) }}"
+
     - name: Install flask
-      pip: name=flask version={{ flask_version }} state=forcereinstall executable={{ pip_executable }}
+      pip: name=flask version={{ flask_version }} executable={{ pip_executable }}
       become: yes
       environment: "{{ proxy_env | default({}) }}"
 

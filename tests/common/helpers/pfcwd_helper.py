@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 class TrafficPorts(object):
     """ Generate a list of ports needed for the PFC Watchdog test"""
-    def __init__(self, mg_facts, neighbors, vlan_nw, topo, config_facts):
+    def __init__(self, mg_facts, neighbors, vlan_nw, topo, config_facts, ip_version):
         """
         Args:
             mg_facts (dict): parsed minigraph info
@@ -53,6 +53,7 @@ class TrafficPorts(object):
         self.pfc_wd_rx_port_id = None
         self.topo = topo
         self.config_facts = config_facts
+        self.ip_version = ip_version
 
     def build_port_list(self):
         """
@@ -85,7 +86,7 @@ class TrafficPorts(object):
         pfc_wd_test_port = None
         first_pair = False
         for intf in self.mg_facts['minigraph_interfaces']:
-            if ipaddress.ip_address(str(intf['addr'])).version != 4:
+            if ipaddress.ip_address(str(intf['addr'])).version != self.ip_version:
                 continue
             # first port
             if not self.pfc_wd_rx_port:
@@ -104,11 +105,12 @@ class TrafficPorts(object):
                 pfc_wd_test_neighbor_addr = None
 
                 for item in self.bgp_info:
-                    if ipaddress.ip_address(str(item['addr'])).version != 4:
+                    if ipaddress.ip_address(str(item['addr'])).version != self.ip_version:
                         continue
-                    if not self.pfc_wd_rx_neighbor_addr and item['peer_addr'] == self.pfc_wd_rx_port_addr:
+                    if not self.pfc_wd_rx_neighbor_addr and\
+                            str(item['peer_addr']).lower() == str(self.pfc_wd_rx_port_addr).lower():
                         self.pfc_wd_rx_neighbor_addr = item['addr']
-                    if item['peer_addr'] == pfc_wd_test_port_addr:
+                    if str(item['peer_addr']).lower() == str(pfc_wd_test_port_addr).lower():
                         pfc_wd_test_neighbor_addr = item['addr']
 
                 self.test_ports[pfc_wd_test_port] = {
@@ -149,7 +151,7 @@ class TrafficPorts(object):
         pfc_wd_test_port = None
         first_pair = False
         for item in self.mg_facts['minigraph_portchannel_interfaces']:
-            if ipaddress.ip_address(str(item['addr'])).version != 4:
+            if ipaddress.ip_address(str(item['addr'])).version != self.ip_version:
                 continue
             pc = item['attachto']
             # first port
@@ -170,11 +172,12 @@ class TrafficPorts(object):
                 pfc_wd_test_neighbor_addr = None
 
                 for bgp_item in self.bgp_info:
-                    if ipaddress.ip_address(str(bgp_item['addr'])).version != 4:
+                    if ipaddress.ip_address(str(bgp_item['addr'])).version != self.ip_version:
                         continue
-                    if not self.pfc_wd_rx_neighbor_addr and bgp_item['peer_addr'] == self.pfc_wd_rx_port_addr:
+                    if not self.pfc_wd_rx_neighbor_addr and\
+                            str(bgp_item['peer_addr']).lower() == str(self.pfc_wd_rx_port_addr).lower():
                         self.pfc_wd_rx_neighbor_addr = bgp_item['addr']
-                    if bgp_item['peer_addr'] == pfc_wd_test_port_addr:
+                    if str(bgp_item['peer_addr']).lower() == str(pfc_wd_test_port_addr).lower():
                         pfc_wd_test_neighbor_addr = bgp_item['addr']
 
                 for port in pfc_wd_test_port:
@@ -228,7 +231,7 @@ class TrafficPorts(object):
         rx_port_id = self.pfc_wd_rx_port_id if isinstance(self.pfc_wd_rx_port_id, list) else [self.pfc_wd_rx_port_id]
         for item in vlan_members:
             ip_addr = self.vlan_nw if 'dualtor' not in self.topo else \
-                      self.config_facts['MUX_CABLE'][item]['server_ipv4'].split('/')[0]
+                      self.config_facts['MUX_CABLE'][item][f'server_ipv{self.ip_version}'].split('/')[0]
             temp_ports[item] = {'test_neighbor_addr': ip_addr,
                                 'rx_port': rx_port,
                                 'rx_neighbor_addr': self.pfc_wd_rx_neighbor_addr,
@@ -249,7 +252,7 @@ class TrafficPorts(object):
         pfc_wd_test_port = None
         first_pair = False
         for sub_intf in self.mg_facts['minigraph_vlan_sub_interfaces']:
-            if ipaddress.ip_address(str(sub_intf['addr'])).version != 4:
+            if ipaddress.ip_address(str(sub_intf['addr'])).version != self.ip_version:
                 continue
             intf_name, vlan_id = sub_intf['attachto'].split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
             # first port
@@ -270,11 +273,12 @@ class TrafficPorts(object):
                 pfc_wd_test_neighbor_addr = None
 
                 for item in self.bgp_info:
-                    if ipaddress.ip_address(str(item['addr'])).version != 4:
+                    if ipaddress.ip_address(str(item['addr'])).version != self.ip_version:
                         continue
-                    if not self.pfc_wd_rx_neighbor_addr and item['peer_addr'] == self.pfc_wd_rx_port_addr:
+                    if not self.pfc_wd_rx_neighbor_addr and\
+                            str(item['peer_addr']).lower() == str(self.pfc_wd_rx_port_addr).lower():
                         self.pfc_wd_rx_neighbor_addr = item['addr']
-                    if item['peer_addr'] == pfc_wd_test_port_addr:
+                    if str(item['peer_addr']).lower() == str(pfc_wd_test_port_addr).lower():
                         pfc_wd_test_neighbor_addr = item['addr']
 
                 self.test_ports[pfc_wd_test_port] = {
@@ -348,10 +352,8 @@ def select_test_ports(test_ports):
                 selected_ports[port] = port_info
         # filter out selected ports that also act as rx ports
         selected_ports = {p: pi for p, pi in list(selected_ports.items())
-                          if p not in rx_port}
-    elif len(test_ports) == 2:
-        selected_ports = test_ports
-
+                          if p not in rx_ports}
+    # if only 1 or 2 ports avail, take only one, as they are eachother's rx ports
     if not selected_ports:
         random_port = list(test_ports.keys())[0]
         selected_ports[random_port] = test_ports[random_port]
@@ -494,12 +496,13 @@ numprocs=1
 
 
 @contextlib.contextmanager
-def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, test_ports_info):
+def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, test_ports_info, pkt_count=100000):
     """Send background traffic, stop the background traffic when the context finish """
     if is_mellanox_device(duthost) or is_cisco_device(duthost):
         background_traffic_params = _prepare_background_traffic_params(duthost, storm_hndle,
                                                                        selected_test_ports,
-                                                                       test_ports_info)
+                                                                       test_ports_info,
+                                                                       pkt_count)
         background_traffic_log = _send_background_traffic(ptfhost, background_traffic_params)
         # Ensure the background traffic is running before moving on
         time.sleep(1)
@@ -508,7 +511,7 @@ def send_background_traffic(duthost, ptfhost, storm_hndle, selected_test_ports, 
         _stop_background_traffic(ptfhost, background_traffic_log)
 
 
-def _prepare_background_traffic_params(duthost, queues, selected_test_ports, test_ports_info):
+def _prepare_background_traffic_params(duthost, queues, selected_test_ports, test_ports_info, pkt_count):
     src_ports = []
     dst_ports = []
     src_ips = []
@@ -524,8 +527,6 @@ def _prepare_background_traffic_params(duthost, queues, selected_test_ports, tes
         src_ips.append(selected_test_port_info["rx_neighbor_addr"])
 
     router_mac = duthost.get_dut_iface_mac(selected_test_ports[0])
-    # Send enough packets to make sure the background traffic is running during the test
-    pkt_count = 100000
 
     ptf_params = {'router_mac': router_mac,
                   'src_ports': src_ports,

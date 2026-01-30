@@ -16,6 +16,7 @@ from tests.common.snappi_tests.traffic_generation import run_traffic, \
      setup_base_traffic_config                      # noqa: F401
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.common.portstat_utilities import parse_portstat                              # noqa: F401
+from tests.snappi_tests.files.helper import get_number_of_streams
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 logger = logging.getLogger(__name__)
@@ -101,9 +102,8 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
         stop_pfcwd(duthost, asic)
         disable_packet_aging(duthost)
 
-    no_of_lossy_streams = 1
-    if duthost.facts['asic_type'] == "cisco-8000":
-        no_of_lossy_streams = 10
+    no_of_lossy_streams = get_number_of_streams(egress_duthost, tx_port, rx_port)
+    no_of_lossless_streams = 2 if egress_duthost.facts.get('asic_type', '') == "cisco-8000" else 1
     port_id = 0
     # Generate base traffic config
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
@@ -124,7 +124,9 @@ def run_pfc_m2o_oversubscribe_lossless_lossy_test(api,
                   data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                   data_pkt_size=DATA_PKT_SIZE,
                   prio_dscp_map=prio_dscp_map,
-                  no_of_lossy_streams=no_of_lossy_streams)
+                  no_of_lossy_streams=no_of_lossy_streams,
+                  no_of_lossless_streams=no_of_lossless_streams
+                  )
 
     flows = testbed_config.flows
     all_flow_names = [flow.name for flow in flows]
@@ -184,7 +186,8 @@ def __gen_traffic(testbed_config,
                   data_flow_dur_sec,
                   data_pkt_size,
                   prio_dscp_map,
-                  no_of_lossy_streams):
+                  no_of_lossy_streams,
+                  no_of_lossless_streams=1):
     """
     Generate configurations of flows under all to all traffic pattern, including
     test flows, background flows and pause storm. Test flows and background flows
@@ -220,7 +223,7 @@ def __gen_traffic(testbed_config,
                      flow_dur_sec=data_flow_dur_sec,
                      data_pkt_size=data_pkt_size,
                      prio_dscp_map=prio_dscp_map,
-                     no_of_streams=1)
+                     no_of_streams=no_of_lossless_streams)
 
     __gen_data_flows(testbed_config=testbed_config,
                      port_config_list=port_config_list,
@@ -349,28 +352,22 @@ def __gen_data_flow(testbed_config,
         else:
             eth.pfc_queue.value = flow_prio[0]
     else:
-        if 'Background Flow' in flow.name:
-            eth.pfc_queue.value = pfcQueueValueDict[1]
-        else:
+        # Ingress#1 uses flow_prio[0] and ingress#2 uses flow_prio[1] queues.
+        if 'Flow 1 -> 0' in flow.name:
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
+        elif 'Flow 2 -> 0' in flow.name:
+            eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
 
     ipv4.src.value = tx_port_config.ip
     ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
     ipv4.priority.choice = ipv4.priority.DSCP
 
+    # Dynamically assigning lossy priorities to background flows
     if 'Background Flow 1 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.CS1,
-        ]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
     elif 'Background Flow 2 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.AF11,
-        ]
-        ipv4.priority.dscp.phb.values = [
-            60, 61, 62, 63, 24, 25, 27, 21, 23, 29,
-            0, 2, 6, 59, 11, 13, 15, 58, 17, 16, 19, 54, 57,
-            56, 51, 50, 53, 52, 59, 49, 47, 44, 45, 42, 43, 40, 41
-        ]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
+    # Dynamically assigning lossless priorities to test flows
     elif 'Test Flow 1 -> 0' in flow.name:
         ipv4.priority.dscp.phb.values = [
             ipv4.priority.dscp.phb.DEFAULT,

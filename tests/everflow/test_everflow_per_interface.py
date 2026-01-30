@@ -56,8 +56,9 @@ def build_candidate_ports(duthost, tbinfo, ns):
             continue
         ptf_idx = mg_facts["minigraph_ptf_indices"][dut_port]
 
-        if candidate_neigh_name in neigh['name'] and len(candidate_ports) < 4 and i % 2:
-            candidate_ports.update({dut_port: ptf_idx})
+        if candidate_neigh_name in neigh['name'] and len(candidate_ports) < 4:
+            if candidate_neigh_name == 'T0' or i % 2:
+                candidate_ports.update({dut_port: ptf_idx})
         if len(unselected_ports) < 4 and dut_port not in candidate_ports:
             unselected_ports.update({dut_port: ptf_idx})
 
@@ -67,7 +68,7 @@ def build_candidate_ports(duthost, tbinfo, ns):
     return candidate_ports, unselected_ports
 
 
-def build_acl_rule_vars(candidate_ports, ip_ver):
+def build_acl_rule_vars(candidate_ports, ip_ver, erspan_ip_ver):  # noqa F811
     """
     Build vars for generating ACL rule
     """
@@ -78,7 +79,7 @@ def build_acl_rule_vars(candidate_ports, ip_ver):
     # trying to resolve link-local IPv6 addresses. All of these packets were mirrored by the DUT. This overwhelmed
     # the PTF container, causing the kernel to drop some packets. As a result, the IPv6 tests sometimes failed.
     # To prevent this issue from happening, we restrict Everflow IPv6 mirroring to TCP packets.
-    if ip_ver == "ipv6":
+    if ip_ver == "ipv6" or erspan_ip_ver == 6:
         qualifiers["ip"] = {"protocol": 6}  # Only mirror TCP packets
     config_vars['rules'] = [{'qualifiers': qualifiers}]
     return config_vars
@@ -130,7 +131,7 @@ def ip_ver(request):
 
 
 @pytest.fixture(scope='module')
-def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ver):  # noqa F811
+def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ver, erspan_ip_ver):  # noqa F811
     """
     Apply ACL rule for matching input_ports
     """
@@ -147,7 +148,7 @@ def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ve
     pytest_require(len(unselected_ports) >= 1, "Not sufficient ports for testing")
 
     # Copy and apply ACL rule
-    config_vars = build_acl_rule_vars(candidate_ports, ip_ver)
+    config_vars = build_acl_rule_vars(candidate_ports, ip_ver, erspan_ip_ver)
     setup_info[UP_STREAM]['everflow_dut'].host.options["variable_manager"].extra_vars.update(config_vars)
     setup_info[UP_STREAM]['everflow_dut'].command("mkdir -p {}".format(DUT_RUN_DIR))
     setup_info[UP_STREAM]['everflow_dut'].template(src=os.path.join(TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE),
@@ -188,8 +189,8 @@ def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac
         )
 
     dec_ttl = 0
-
-    if 't2' in setup['topo']:
+    # Only need to decrement TTL for chassis T2
+    if setup['topo'].startswith('t2'):
         dec_ttl = 1
     elif duthost.is_multi_asic:
         dec_ttl = 2

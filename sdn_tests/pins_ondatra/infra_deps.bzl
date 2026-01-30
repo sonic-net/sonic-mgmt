@@ -52,8 +52,8 @@ def binding_deps():
         name = "com_github_golang_glog",
         importpath = "github.com/golang/glog",
         repo_mapping = repo_map,
-        sum = "h1:nfP3RFugxnNRyKgeWd4oI1nYvXpxrx8ck8ZrcizshdQ=",
-        version = "v1.0.0",
+        sum = "h1:uCdmnmatrKCgMBlM4rMuJZWOkPDqdbZPnrMXDY4gI68=",
+        version = "v1.2.0",
     )
 
     go_repository(

@@ -1,12 +1,18 @@
+import tarfile
 import json
 import pytest
 import os
 import logging
+import re
+import tempfile
 from tests.common.mellanox_data import is_mellanox_device
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
 from tests.common.platform.transceiver_utils import get_ports_with_flat_memory, \
     get_passive_cable_port_list, get_cmis_cable_ports_and_ver
+from tests.common.helpers.firmware_helper import PLATFORM_COMP_PATH_TEMPLATE
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -56,6 +62,12 @@ def xcvr_skip_list(duthosts, dpu_npu_port_list, tbinfo):
             sfp_list = ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
             logging.debug('Skipping sfp interfaces: {}'.format(sfp_list))
             intf_skip_list[dut.hostname].extend(sfp_list)
+        # For lt2-p32o64 topo, skip the admin down interfaces as transceiver may not be present
+        elif tbinfo['topo']['name'] == "lt2-p32o64":
+            intf_skip_list[dut.hostname].extend([
+                'Ethernet88', 'Ethernet96', 'Ethernet104', 'Ethernet112',
+                'Ethernet216', 'Ethernet224', 'Ethernet232', 'Ethernet240'
+                ])
 
     return intf_skip_list
 
@@ -147,7 +159,30 @@ def thermal_manager_enabled(duthosts, enum_rand_one_per_hwsku_hostname):
         pytest.skip("skipped as thermal manager is not available")
 
 
+def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
+    """
+    @summary: This function checks if pmon uptime is at least the minimal_runtime
+    @return: True pmon has been running at least the minimal_runtime, False for otherwise
+    """
+    result = duthost.command("docker ps | grep pmon", _uses_shell=True)
+    if result["stdout"]:
+        match = re.search(r'Up (\d+) (minutes|hours)', result["stdout"])
+        if match:
+            if match.group(2) == "hours":
+                return int(match.group(1))*60 >= minimal_runtime
+            else:
+                return int(match.group(1)) >= minimal_runtime
+        match = re.search(r'Up About an hour', result["stdout"])
+        if match:
+            return 60 >= minimal_runtime
+    return False
+
+
 def pytest_generate_tests(metafunc):
+    val = metafunc.config.getoption('--fw-pkg')
+    if 'fw_pkg_name' in metafunc.fixturenames and val:
+        metafunc.parametrize('fw_pkg_name', val.split(','), scope="module")
+
     if 'power_off_delay' in metafunc.fixturenames:
         delays = metafunc.config.getoption('power_off_delay')
         default_delay_list = [5, 15]
@@ -215,6 +250,8 @@ def port_list_with_flat_memory(duthosts):
 def passive_cable_ports(duthosts):
     passive_cable_ports = {}
     for dut in duthosts:
+        if dut.is_supervisor_node():
+            continue
         passive_cable_ports.update({dut.hostname: get_passive_cable_port_list(dut)})
     logging.info(f"passive_cable_ports: {passive_cable_ports}")
     return passive_cable_ports
@@ -224,6 +261,66 @@ def passive_cable_ports(duthosts):
 def cmis_cable_ports_and_ver(duthosts):
     cmis_cable_ports_and_ver = {}
     for dut in duthosts:
+        if dut.is_supervisor_node():
+            continue
         cmis_cable_ports_and_ver.update({dut.hostname: get_cmis_cable_ports_and_ver(dut)})
     logging.info(f"cmis_cable_ports_and_ver: {cmis_cable_ports_and_ver}")
     return cmis_cable_ports_and_ver
+
+
+@pytest.fixture(scope='module')
+def fw_pkg(fw_pkg_name):
+    if fw_pkg_name is None:
+        pytest.skip("No fw package specified.")
+
+    yield extract_fw_data(fw_pkg_name)
+
+
+@pytest.fixture(scope='function')
+def backup_platform_file(duthost):
+    """
+    Backup the original 'platform_components.json' file
+    """
+    hostname = duthost.hostname
+    platform_type = duthost.facts['platform']
+
+    platform_comp_path = PLATFORM_COMP_PATH_TEMPLATE.format(platform_type)
+    backup_path = tempfile.mkdtemp(prefix='json-')
+    current_backup_path = os.path.join(backup_path, 'current_platform_components.json')
+
+    msg = "Fetch 'platform_components.json' from {}: remote_path={}, local_path={}"
+    logger.info(msg.format(hostname, platform_comp_path, current_backup_path))
+    duthost.fetch(src=platform_comp_path, dest=current_backup_path, flat='yes')
+
+    yield
+
+    msg = "Copy 'platform_components.json' to {}: local_path={}, remote_path={}"
+    logger.info(msg.format(hostname, current_backup_path, platform_comp_path))
+    duthost.copy(src=current_backup_path, dest=platform_comp_path)
+
+    logger.info("Remove 'platform_components.json' backup from localhost: path={}".format(backup_path))
+    os.remove(current_backup_path)
+    os.rmdir(backup_path)
+
+
+def extract_fw_data(fw_pkg_path):
+    """
+    Extract fw data from updated-fw.tar.gz file or firmware.json file
+    :param fw_pkg_path: the path to tar.gz file or firmware.json file
+    :return: fw_data in dictionary
+    """
+    if tarfile.is_tarfile(fw_pkg_path):
+        path = "/tmp/firmware"
+        isExist = os.path.exists(path)
+        if not isExist:
+            os.mkdir(path)
+        with tarfile.open(fw_pkg_path, "r:gz") as f:
+            f.extractall(path)
+            json_file = os.path.join(path, "firmware.json")
+            with open(json_file, 'r') as fw:
+                fw_data = json.load(fw)
+    else:
+        with open(fw_pkg_path, 'r') as fw:
+            fw_data = json.load(fw)
+
+    return fw_data

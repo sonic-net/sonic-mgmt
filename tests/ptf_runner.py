@@ -54,6 +54,20 @@ def get_dut_type(host):
     return "Unknown"
 
 
+def get_asic_type(host):
+    asic_type_stat = host.stat(path="/sonic/asic_type.txt")
+    if asic_type_stat["stat"]["exists"]:
+        asic_type = host.shell("cat /sonic/asic_type.txt")["stdout"]
+        if asic_type:
+            logger.info("ASIC type is {}".format(asic_type))
+            return asic_type.lower()
+        else:
+            logger.warning("ASIC type file is empty.")
+    else:
+        logger.info("ASIC type file doesn't exist.")
+    return "Unknown"
+
+
 def get_ptf_image_type(host):
     """
     The function queries the PTF image to determine
@@ -110,8 +124,9 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
                device_sockets=[], timeout=0, custom_options="",
                module_ignore_errors=False, is_python3=None, async_mode=False, pdb=False):
     dut_type = get_dut_type(host)
+    asic_type = get_asic_type(host)
     kvm_support = params.get("kvm_support", False)
-    if dut_type == "kvm" and kvm_support is False:
+    if dut_type == "kvm" and asic_type != "vpp" and kvm_support is False:
         logger.info("Skip test case {} for not support on KVM DUT".format(testname))
         return True
 
@@ -208,7 +223,11 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
             if log_file:
                 ptf_collect(host, log_file, dst_dir=ptf_collect_dir)
             if result:
-                allure.attach(json.dumps(result, indent=4), 'ptf_console_result', allure.attachment_type.TEXT)
+                allure.attach(
+                    json.dumps(result, indent=4, cls=result.encoder),
+                    'ptf_console_result',
+                    allure.attachment_type.TEXT
+                )
         if module_ignore_errors:
             if result["rc"] != 0:
                 return result

@@ -21,7 +21,7 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 'm2', 'm3')
+    pytest.mark.topology('t0', 'm0', 'mx', 'm1')
 ]
 
 # Use original ports intead of sub interfaces for ptfadapter if it's t0-backend

@@ -356,7 +356,7 @@ topology:
 configuration_properties:
   common:
     dut_asn: 4200100000
-    dut_type: SpineRouter
+    dut_type: LowerSpineRouter
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
     podset_number: 200
@@ -375,7 +375,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.0
@@ -395,7 +395,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.2
@@ -415,7 +415,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.4
@@ -435,7 +435,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.6
@@ -455,7 +455,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.8
@@ -475,7 +475,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.10
@@ -495,7 +495,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.12
@@ -515,7 +515,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.14
@@ -535,7 +535,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.16
@@ -555,7 +555,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.18
@@ -575,7 +575,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.20
@@ -595,7 +595,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.30
@@ -615,7 +615,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.32
@@ -635,7 +635,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.34
@@ -655,7 +655,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.36
@@ -675,7 +675,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.38
@@ -695,7 +695,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.40
@@ -715,7 +715,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.42
@@ -735,7 +735,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.44
@@ -755,7 +755,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.46
@@ -775,7 +775,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.48
@@ -795,7 +795,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.50
@@ -815,7 +815,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.52
@@ -835,7 +835,7 @@ configuration:
     - common
     - leaf
     bgp:
-      asn: 4200300000
+      asn: 4200100000
       peers:
         4200100000:
           - 10.0.0.62

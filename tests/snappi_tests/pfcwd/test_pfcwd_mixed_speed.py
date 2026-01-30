@@ -12,6 +12,7 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_
 from tests.snappi_tests.variables import MIXED_SPEED_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.pfc.files.mixed_speed_multidut_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000
 
 import logging
 logger = logging.getLogger(__name__)
@@ -108,7 +109,7 @@ def test_mixed_speed_pfcwd_enable(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Single_400Gbps_Ingress_Single_100Gbps_Egress_pause_pfcwd_enable_',
+                'test_type': 'logs/snappi_tests/pfcwd/Single_400Gbps_Ingress_Single_100Gbps_Egress_pause_pfcwd_enable_',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': True,
@@ -236,22 +237,24 @@ def test_mixed_speed_pfcwd_disable(snappi_api,                   # noqa: F811
     # speed_tol is speed tolerance between egress link speed and actual speed.
     # loss_expected to check losses on DUT and TGEN.
     test_check = {'lossless': 0, 'lossy': 75, 'speed_tol': 3, 'loss_expected': True, 'pfc': True}
-    test_def = {'TEST_FLOW_AGGR_RATE_PERCENT': 40,
-                'BG_FLOW_AGGR_RATE_PERCENT': 60,
-                'data_flow_pkt_size': pkt_size,
-                'DATA_FLOW_DURATION_SEC': 300,
-                'data_flow_delay_sec': 0,
-                'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Single_400Gbps_Ingress_Single_100Gbps_Egress_pause_pfcwd_disable_',
-                'line_card_choice': testbed_subtype,
-                'port_map': port_map,
-                'enable_pfcwd': False,
-                'enable_credit_wd': False,
-                'stats_interval': 60,
-                'background_traffic': True,
-                'imix': False,
-                'test_check': test_check,
-                'verify_flows': False}
+    test_def = {
+        'TEST_FLOW_AGGR_RATE_PERCENT': 40,
+        'BG_FLOW_AGGR_RATE_PERCENT': 60,
+        'data_flow_pkt_size': pkt_size,
+        'DATA_FLOW_DURATION_SEC': 300,
+        'data_flow_delay_sec': 0,
+        'SNAPPI_POLL_DELAY_SEC': 60,
+        'test_type': 'logs/snappi_tests/pfcwd/Single_400Gbps_Ingress_Single_100Gbps_Egress_pause_pfcwd_disable_',
+        'line_card_choice': testbed_subtype,
+        'port_map': port_map,
+        'enable_pfcwd': False,
+        'enable_credit_wd': False,
+        'stats_interval': 60,
+        'background_traffic': True,
+        'imix': False,
+        'test_check': test_check,
+        'verify_flows': False
+    }
 
     test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
@@ -270,6 +273,8 @@ def test_mixed_speed_pfcwd_disable(snappi_api,                   # noqa: F811
 
     for dut in duthosts:
         clear_fabric_counters(dut)
+        if dut.facts['asic_type'] == "cisco-8000":
+            modify_voq_watchdog_cisco_8000(dut, False)
 
     try:
         run_pfc_test(api=snappi_api,
@@ -291,3 +296,6 @@ def test_mixed_speed_pfcwd_disable(snappi_api,                   # noqa: F811
 
     finally:
         cleanup_config(dut_list, snappi_ports)
+        for dut in duthosts:
+            if dut.facts['asic_type'] == "cisco-8000":
+                modify_voq_watchdog_cisco_8000(dut, True)

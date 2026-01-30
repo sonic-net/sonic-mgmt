@@ -84,12 +84,11 @@ def create_image_list(os_versions, image_url_template_string):
     return image_list
 
 
-def create_testcase_list(testcase_file):
+def create_testcase_mapping(testcase_file):
     with open(testcase_file, 'r') as file:
         data = json.load(file)
-    testcases = data.get('testcases', [])
 
-    return testcases
+    return data
 
 
 def create_parameters_mapping(containers, parameters_file):
@@ -144,10 +143,11 @@ def pull_run_dockers(duthost, creds, env):
         docker_image = f"{registry.host}/{container}:{version}"
         download_image(duthost, registry, container, version)
         parameters = env.parameters[container]
+        optional_parameters = env.optional_parameters
         # Stop and remove existing container
         duthost.shell(f"docker stop {name}", module_ignore_errors=True)
         duthost.shell(f"docker rm {name}", module_ignore_errors=True)
-        if duthost.shell(f"docker run -d {parameters} --name {name} {docker_image}",
+        if duthost.shell(f"docker run -d {parameters} {optional_parameters} --name {name} {docker_image}",
                          module_ignore_errors=True)['rc'] != 0:
             pytest.fail("Not able to run container using pulled image")
 

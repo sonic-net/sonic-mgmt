@@ -511,6 +511,10 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     iptables_rules.append("-A INPUT -s 127.0.0.1/32 -i lo -j ACCEPT")
     ip6tables_rules.append("-A INPUT -s ::1/128 -i lo -j ACCEPT")
 
+    # Allow smart switch chassis midplane IP (from https://github.com/sonic-net/sonic-host-services/pull/301)
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+        iptables_rules.append("-A INPUT -d 169.254.200.254/32 -j ACCEPT")
+
     if asic_index is None:
         # Allow Communication among docker containers
         for k, v in list(docker_network['container'].items()):
@@ -580,9 +584,11 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         rules_to_expect_for_dualtor = [
                                        "-A INPUT -p udp -m udp --dport 67 -j DHCP",
                                        "-A DHCP -j RETURN",
+                                       "-A INPUT -d 10.1.0.34/32 -p tcp -m tcp --dport 179 -j DROP",
                                        "-N DHCP"
                                       ]
         iptables_rules.extend(rules_to_expect_for_dualtor)
+        ip6tables_rules.append("-A INPUT -d fc00:1:0:34::/128 -p tcp -m tcp --dport 179 -j DROP")
 
     # On standby tor, it has expected dhcp mark iptables rules.
     if expected_dhcp_rules_for_standby:
@@ -592,8 +598,8 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         iptables_rules.extend(expected_dhcp_rules_for_standby)
 
     # Allow all incoming BGP traffic
-    iptables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
-    ip6tables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
+    iptables_rules.append("-A INPUT ! -i eth0 -p tcp -m tcp --dport 179 -j ACCEPT")
+    ip6tables_rules.append("-A INPUT ! -i eth0 -p tcp -m tcp --dport 179 -j ACCEPT")
 
     extra_rule_branches = ['201911', '202012', '202111']
     if any(branch in duthost.os_version for branch in extra_rule_branches):

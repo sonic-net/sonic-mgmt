@@ -3,15 +3,15 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts  # noqa F401
+    fanout_graph_facts  # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
     get_pfc_frame_count, packet_capture, config_capture_pkt,\
     start_pfcwd, enable_packet_aging, \
-    traffic_flow_mode, calc_pfc_pause_flow_rate      # noqa F401
-from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa F401
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp  # noqa F401
+    traffic_flow_mode, calc_pfc_pause_flow_rate      # noqa: F401
+from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp  # noqa: F401
 from tests.common.snappi_tests.traffic_generation import generate_pause_flows,  verify_pause_flow, \
     verify_basic_test_flow, verify_background_flow, verify_pause_frame_count_dut, verify_egress_queue_frame_count, \
     verify_in_flight_buffer_pkts, verify_unset_cev_pause_frame_count, run_traffic_and_collect_stats, \
@@ -305,8 +305,14 @@ def run_pfc_test(api,
         pytest_assert((lossy_drop*100) <= test_check['lossy'], 'Lossy packet drop outside tolerance limit')
 
     # Checking if the actual line rate on egress is within tolerable limit of egress line speed.
-    pytest_assert(((1 - test_stats['tgen_rx_rate'] / float(port_map[0]*port_map[1]))*100) <= test_check['speed_tol'],
-                  'Egress speed beyond tolerance range')
+    if not (((1 - test_stats['tgen_rx_rate'] / float(port_map[0]*port_map[1]))*100) <= test_check['speed_tol']):
+        # Calculate the egress rate based on the total packets received
+        # from IXIA for lossless and lossy streams.
+        total_pkts_received = test_stats['tgen_lossless_rx_pkts'] + test_stats['tgen_lossy_rx_pkts']
+        tgen_rx_rate = round((total_pkts_received * test_def['data_flow_pkt_size'] * 8) /
+                             (test_def['DATA_FLOW_DURATION_SEC']*(10**9)), 2)
+        pytest_assert(((1 - tgen_rx_rate / float(port_map[0]*port_map[1]))*100) <= test_check['speed_tol'],
+                      'Egress speed beyond tolerance range')
 
     # Checking for PFC counts on DUT
     if (not test_check['pfc']):

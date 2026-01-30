@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.asic('broadcom'),
-    pytest.mark.topology('t0', 't1', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t0', 't1', 'm1'),
     pytest.mark.disable_loganalyzer
 ]
 
@@ -54,12 +54,18 @@ def enable_container_autorestart(duthosts, enum_rand_one_per_hwsku_frontend_host
     container_autorestart_states = duthost.get_container_autorestart_states()
     for feature, status in list(feature_list.items()):
         # Enable container autorestart only if the feature is enabled and container autorestart is disabled.
+        if feature == "frr_bmp":
+            # Skip frr_bmp since it's not container just bmp option used by bgpd
+            continue
         if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
             duthost.shell("sudo config feature autorestart {} enabled".format(feature))
 
     yield
     for feature, status in list(feature_list.items()):
         # Disable container autorestart back if it was initially disabled.
+        if feature == "frr_bmp":
+            # Skip frr_bmp since it's not container just bmp option used by bgpd
+            continue
         if status == 'enabled' and container_autorestart_states[feature] == 'disabled':
             duthost.shell("sudo config feature autorestart {} disabled".format(feature))
 

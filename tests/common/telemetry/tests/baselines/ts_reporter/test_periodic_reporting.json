@@ -1,0 +1,251 @@
+[
+  {
+    "resource_metrics": [
+      {
+        "resource": {
+          "_attributes": {
+            "_dict": {
+              "service.name": "sonic-test-telemetry",
+              "service.version": "1.0.0",
+              "telemetry.sdk.language": "python",
+              "telemetry.sdk.name": "opentelemetry",
+              "telemetry.sdk.version": "1.33.1",
+              "test.file": "test_periodic_reporting.py",
+              "test.job.id": "unknown",
+              "test.os.version": "unknown",
+              "test.testbed": "physical-testbed-01",
+              "test.testcase": "test_ts_reporter"
+            },
+            "_extended_attributes": false,
+            "_immutable": true,
+            "dropped": 0
+          },
+          "_schema_url": ""
+        },
+        "schema_url": "",
+        "scope_metrics": [
+          {
+            "metrics": [
+              {
+                "data": {
+                  "data_points": [
+                    {
+                      "attributes": {
+                        "device.id": "monitoring-dut",
+                        "device.port.id": "Ethernet0"
+                      },
+                      "exemplars": [],
+                      "start_time_unix_nano": 1234567890000000000,
+                      "time_unix_nano": 1234567890000000000,
+                      "value": 38.7
+                    }
+                  ]
+                },
+                "description": "Port RX util (%)",
+                "name": "port.rx.util",
+                "unit": "percent"
+              },
+              {
+                "data": {
+                  "data_points": [
+                    {
+                      "attributes": {
+                        "device.id": "monitoring-dut",
+                        "device.port.id": "Ethernet0"
+                      },
+                      "exemplars": [],
+                      "start_time_unix_nano": 1234567890000000000,
+                      "time_unix_nano": 1234567890000000000,
+                      "value": 45.2
+                    }
+                  ]
+                },
+                "description": "Port TX util (%)",
+                "name": "port.tx.util",
+                "unit": "percent"
+              }
+            ],
+            "schema_url": "",
+            "scope": {
+              "_attributes": {
+                "_dict": {},
+                "_extended_attributes": false,
+                "_immutable": true,
+                "dropped": 0
+              },
+              "_name": "sonic-test-telemetry",
+              "_schema_url": "",
+              "_version": "1.0.0"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "resource_metrics": [
+      {
+        "resource": {
+          "_attributes": {
+            "_dict": {
+              "service.name": "sonic-test-telemetry",
+              "service.version": "1.0.0",
+              "telemetry.sdk.language": "python",
+              "telemetry.sdk.name": "opentelemetry",
+              "telemetry.sdk.version": "1.33.1",
+              "test.file": "test_periodic_reporting.py",
+              "test.job.id": "unknown",
+              "test.os.version": "unknown",
+              "test.testbed": "physical-testbed-01",
+              "test.testcase": "test_ts_reporter"
+            },
+            "_extended_attributes": false,
+            "_immutable": true,
+            "dropped": 0
+          },
+          "_schema_url": ""
+        },
+        "schema_url": "",
+        "scope_metrics": [
+          {
+            "metrics": [
+              {
+                "data": {
+                  "data_points": [
+                    {
+                      "attributes": {
+                        "device.id": "monitoring-dut",
+                        "device.port.id": "Ethernet0"
+                      },
+                      "exemplars": [],
+                      "start_time_unix_nano": 1234567950000000000,
+                      "time_unix_nano": 1234567950000000000,
+                      "value": 41.7
+                    }
+                  ]
+                },
+                "description": "Port RX util (%)",
+                "name": "port.rx.util",
+                "unit": "percent"
+              },
+              {
+                "data": {
+                  "data_points": [
+                    {
+                      "attributes": {
+                        "device.id": "monitoring-dut",
+                        "device.port.id": "Ethernet0"
+                      },
+                      "exemplars": [],
+                      "start_time_unix_nano": 1234567950000000000,
+                      "time_unix_nano": 1234567950000000000,
+                      "value": 50.2
+                    }
+                  ]
+                },
+                "description": "Port TX util (%)",
+                "name": "port.tx.util",
+                "unit": "percent"
+              }
+            ],
+            "schema_url": "",
+            "scope": {
+              "_attributes": {
+                "_dict": {},
+                "_extended_attributes": false,
+                "_immutable": true,
+                "dropped": 0
+              },
+              "_name": "sonic-test-telemetry",
+              "_schema_url": "",
+              "_version": "1.0.0"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "resource_metrics": [
+      {
+        "resource": {
+          "_attributes": {
+            "_dict": {
+              "service.name": "sonic-test-telemetry",
+              "service.version": "1.0.0",
+              "telemetry.sdk.language": "python",
+              "telemetry.sdk.name": "opentelemetry",
+              "telemetry.sdk.version": "1.33.1",
+              "test.file": "test_periodic_reporting.py",
+              "test.job.id": "unknown",
+              "test.os.version": "unknown",
+              "test.testbed": "physical-testbed-01",
+              "test.testcase": "test_ts_reporter"
+            },
+            "_extended_attributes": false,
+            "_immutable": true,
+            "dropped": 0
+          },
+          "_schema_url": ""
+        },
+        "schema_url": "",
+        "scope_metrics": [
+          {
+            "metrics": [
+              {
+                "data": {
+                  "data_points": [
+                    {
+                      "attributes": {
+                        "device.id": "monitoring-dut",
+                        "device.port.id": "Ethernet0"
+                      },
+                      "exemplars": [],
+                      "start_time_unix_nano": 1234568010000000000,
+                      "time_unix_nano": 1234568010000000000,
+                      "value": 44.7
+                    }
+                  ]
+                },
+                "description": "Port RX util (%)",
+                "name": "port.rx.util",
+                "unit": "percent"
+              },
+              {
+                "data": {
+                  "data_points": [
+                    {
+                      "attributes": {
+                        "device.id": "monitoring-dut",
+                        "device.port.id": "Ethernet0"
+                      },
+                      "exemplars": [],
+                      "start_time_unix_nano": 1234568010000000000,
+                      "time_unix_nano": 1234568010000000000,
+                      "value": 55.2
+                    }
+                  ]
+                },
+                "description": "Port TX util (%)",
+                "name": "port.tx.util",
+                "unit": "percent"
+              }
+            ],
+            "schema_url": "",
+            "scope": {
+              "_attributes": {
+                "_dict": {},
+                "_extended_attributes": false,
+                "_immutable": true,
+                "dropped": 0
+              },
+              "_name": "sonic-test-telemetry",
+              "_schema_url": "",
+              "_version": "1.0.0"
+            }
+          }
+        ]
+      }
+    ]
+  }
+]

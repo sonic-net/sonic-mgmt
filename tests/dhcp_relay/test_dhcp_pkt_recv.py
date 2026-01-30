@@ -11,7 +11,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import capture_and_check_packet_on_dut
 
 pytestmark = [
-    pytest.mark.topology("t0", "m0", 'mx', "m1", "m2", "m3")
+    pytest.mark.topology("t0", "m0", 'mx', "m1")
 ]
 
 ACL_TABLE_NAME_DHCPV6_PKT_RECV_TEST = "DHCPV6_PKT_RECV_TEST"
@@ -147,4 +147,5 @@ class TestDhcpv6WithMulticastAccpectAcl(Dhcpv6PktRecvBase):
 
         yield
 
+        duthost.shell("acl-loader delete {}".format(acl_table_name))
         duthost.remove_acl_table(acl_table_name)

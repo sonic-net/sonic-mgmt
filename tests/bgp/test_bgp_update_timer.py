@@ -8,7 +8,7 @@ import time
 import six
 
 from datetime import datetime
-from scapy.all import sniff, IP
+from scapy.all import sniff, IP, IPv6
 from scapy.contrib import bgp
 
 from tests.bgp.bgp_helpers import (
@@ -18,6 +18,7 @@ from tests.bgp.bgp_helpers import (
 )
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.utilities import wait_until, delete_running_config
+from tests.common.utilities import is_ipv6_only_topology
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_common import active_active_ports  # noqa:F401
@@ -41,6 +42,13 @@ ANNOUNCED_SUBNETS = [
     "10.10.100.64/27",
     "10.10.100.96/27",
     "10.10.100.128/27",
+]
+ANNOUNCED_SUBNETS_V6 = [
+    "fc00:10::/64",
+    "fc00:11::/64",
+    "fc00:12::/64",
+    "fc00:13::/64",
+    "fc00:14::/64",
 ]
 NEIGHBOR_ASN0 = 61000
 NEIGHBOR_ASN1 = 61001
@@ -92,16 +100,21 @@ def common_setup_teardown(
     )
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
+    confed_asn = duthost.get_bgp_confed_asn()
+    use_vtysh = False
 
     dut_type = ""
     for k, v in list(mg_facts["minigraph_devices"].items()):
         if k == duthost.hostname:
             dut_type = v["type"]
 
-    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter"]:
+    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
-    elif dut_type == "UpperSpineRouter":
-        neigh_type = "SpineRouter"
+    elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
+        neigh_type = "LowerSpineRouter"
+        if dut_type == "FabricSpineRouter" and confed_asn is not None:
+            # For FT2, we need to use vtysh to configure an external BGP neighbor
+            use_vtysh = True
     else:
         neigh_type = "ToRRouter"
 
@@ -137,6 +150,8 @@ def common_setup_teardown(
             conn0_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            confed_asn=confed_asn,
+            use_vtysh=use_vtysh
         ),
         BGPNeighbor(
             duthost,
@@ -151,10 +166,12 @@ def common_setup_teardown(
             conn1_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            confed_asn=confed_asn,
+            use_vtysh=use_vtysh
         ),
     )
 
-    yield bgp_neighbors
+    yield bgp_neighbors, use_vtysh
 
     # Cleanup suppress-fib-pending config
     delete_tacacs_json = [
@@ -164,7 +181,7 @@ def common_setup_teardown(
 
 
 @pytest.fixture
-def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig):
+def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig, tbinfo):
     class _C(object):
         """Dummy class to save test constants."""
 
@@ -183,10 +200,16 @@ def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig):
 
     conn0 = setup_interfaces[0]
     _constants.routes = []
-    for subnet in ANNOUNCED_SUBNETS:
-        _constants.routes.append(
-            {"prefix": subnet, "nexthop": conn0["neighbor_addr"].split("/")[0]}
-        )
+    if is_ipv6_only_topology(tbinfo):
+        for subnet in ANNOUNCED_SUBNETS_V6:
+            _constants.routes.append(
+                {"prefix": subnet, "nexthop": conn0["neighbor_addr"].split("/")[0]}
+            )
+    else:
+        for subnet in ANNOUNCED_SUBNETS:
+            _constants.routes.append(
+                {"prefix": subnet, "nexthop": conn0["neighbor_addr"].split("/")[0]}
+            )
 
     log_file = pytestconfig.getoption("log_file", None)
     if log_file:
@@ -197,55 +220,80 @@ def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig):
     return _constants
 
 
-def bgp_update_packets(pcap_file):
+def bgp_update_packets(pcap_file, is_v6_topo):
     """Get bgp update packets from pcap file."""
+    ip_ver = IPv6 if is_v6_topo else IP
     packets = sniff(
         offline=pcap_file,
-        lfilter=lambda p: IP in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2,
+        lfilter=lambda p: ip_ver in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2,
     )
     return packets
 
 
-def match_bgp_update(packet, src_ip, dst_ip, action, route):
+def match_bgp_update(packet, src_ip, dst_ip, action, route, is_v6_topo):
     """Check if the bgp update packet matches."""
-    if not (packet[IP].src == src_ip and packet[IP].dst == dst_ip):
+    ip_ver = IPv6 if is_v6_topo else IP
+    if not (packet[ip_ver].src == src_ip and packet[ip_ver].dst == dst_ip):
         return False
     subnet = ipaddress.ip_network(six.u(route["prefix"]))
 
     # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
     # address the compatibility issue of scapy versions.
-    if hasattr(bgp, "BGPNLRI_IPv4"):
+    if hasattr(bgp, "BGPNLRI_IPv4") and subnet.version == 4:
         _route = bgp.BGPNLRI_IPv4(prefix=str(subnet))
+    elif hasattr(bgp, "BGPNLRI_IPv6") and subnet.version == 6:
+        _route = bgp.BGPNLRI_IPv6(prefix=str(subnet))
     else:
         _route = (subnet.prefixlen, str(subnet.network_address))
     bgp_fields = packet[bgp.BGPUpdate].fields
     if action == "announce":
-        # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
-        # address the compatibility issue of scapy versions.
-        path_attr_valid = False
-        if "tp_len" in bgp_fields:
-            path_attr_valid = bgp_fields["tp_len"] > 0
-        elif "path_attr_len" in bgp_fields:
-            path_attr_valid = bgp_fields["path_attr_len"] > 0
-        return path_attr_valid and _route in bgp_fields["nlri"]
+        if is_v6_topo:
+            path_attr_valid = False
+            if "path_attr_len" in bgp_fields:
+                path_attr_valid = bgp_fields["path_attr_len"] > 0
+            if path_attr_valid:
+                for attr in bgp_fields.get("path_attr", []):
+                    if getattr(attr, 'type_code', None) == 14:  # MP_REACH_NLRI
+                        return _route in getattr(attr.attribute, 'nlri', [])
+            return False
+        else:
+            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+            # address the compatibility issue of scapy versions.
+            path_attr_valid = False
+            if "tp_len" in bgp_fields:
+                path_attr_valid = bgp_fields["tp_len"] > 0
+            elif "path_attr_len" in bgp_fields:
+                path_attr_valid = bgp_fields["path_attr_len"] > 0
+            return path_attr_valid and _route in bgp_fields["nlri"]
     elif action == "withdraw":
-        # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
-        # address the compatibility issue of scapy versions.
-        withdrawn_len_valid = False
-        if "withdrawn_len" in bgp_fields:
-            withdrawn_len_valid = bgp_fields["withdrawn_len"] > 0
-        elif "withdrawn_routes_len" in bgp_fields:
-            withdrawn_len_valid = bgp_fields["withdrawn_routes_len"] > 0
+        if is_v6_topo:
+            path_attr_valid = False
+            if "path_attr_len" in bgp_fields:
+                path_attr_valid = bgp_fields["path_attr_len"] > 0
+            if path_attr_valid:
+                for attr in bgp_fields.get("path_attr", []):
+                    if getattr(attr, 'type_code', None) == 15:  # MP_UNREACH_NLRI
+                        afi_safi_specific = getattr(attr.attribute, 'afi_safi_specific', None)
+                        return _route in getattr(afi_safi_specific, 'withdrawn_routes', [])
+            return False
+        else:
+            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+            # address the compatibility issue of scapy versions.
+            withdrawn_len_valid = False
+            if "withdrawn_len" in bgp_fields:
+                withdrawn_len_valid = bgp_fields["withdrawn_len"] > 0
+            elif "withdrawn_routes_len" in bgp_fields:
+                withdrawn_len_valid = bgp_fields["withdrawn_routes_len"] > 0
 
-        # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
-        # address the compatibility issue of scapy versions.
-        withdrawn_route_valid = False
-        if "withdrawn" in bgp_fields:
-            withdrawn_route_valid = _route in bgp_fields["withdrawn"]
-        elif "withdrawn_routes" in bgp_fields:
-            withdrawn_route_valid = _route in bgp_fields["withdrawn_routes"]
+            # New scapy (version 2.4.5) uses a different way to represent and dissect BGP messages. Below logic is to
+            # address the compatibility issue of scapy versions.
+            withdrawn_route_valid = False
+            if "withdrawn" in bgp_fields:
+                withdrawn_route_valid = _route in bgp_fields["withdrawn"]
+            elif "withdrawn_routes" in bgp_fields:
+                withdrawn_route_valid = _route in bgp_fields["withdrawn_routes"]
 
-        return withdrawn_len_valid and withdrawn_route_valid
+            return withdrawn_len_valid and withdrawn_route_valid
     else:
         return False
 
@@ -258,10 +306,12 @@ def test_bgp_update_timer_single_route(
     request,
     toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa:F811
     validate_active_active_dualtor_setup,  # noqa:F811
+    tbinfo
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
 
-    n0, n1 = common_setup_teardown
+    (n0, n1), _ = common_setup_teardown
     try:
         n0.start_session()
         n1.start_session()
@@ -283,50 +333,50 @@ def test_bgp_update_timer_single_route(
                 n0.announce_route(route)
                 time.sleep(constants.sleep_interval)
                 duthost.shell(
-                    "vtysh -c 'show ip bgp neighbors {} received-routes' | grep '{}'".format(
-                        n0.ip, route["prefix"]
+                    "vtysh -c 'show {} neighbors {} received-routes' | grep '{}'".format(
+                        "bgp ipv6" if is_v6_topo else "ip bgp", n0.ip, route["prefix"]
                     ),
                     module_ignore_errors=True,
                 )
                 duthost.shell(
-                    "vtysh -c 'show ip bgp neighbors {} advertised-routes' | grep '{}'".format(
-                        n1.ip, route["prefix"]
+                    "vtysh -c 'show {} neighbors {} advertised-routes' | grep '{}'".format(
+                        "bgp ipv6" if is_v6_topo else "ip bgp", n1.ip, route["prefix"]
                     ),
                     module_ignore_errors=True,
                 )
                 n0.withdraw_route(route)
                 duthost.shell(
-                    "vtysh -c 'show ip bgp neighbors {} received-routes' | grep '{}'".format(
-                        n0.ip, route["prefix"]
+                    "vtysh -c 'show {} neighbors {} received-routes' | grep '{}'".format(
+                        "bgp ipv6" if is_v6_topo else "ip bgp", n0.ip, route["prefix"]
                     ),
                     module_ignore_errors=True,
                 )
                 duthost.shell(
-                    "vtysh -c 'show ip bgp neighbors {} advertised-routes' | grep '{}'".format(
-                        n1.ip, route["prefix"]
+                    "vtysh -c 'show {} neighbors {} advertised-routes' | grep '{}'".format(
+                        "bgp ipv6" if is_v6_topo else "ip bgp", n1.ip, route["prefix"]
                     ),
                     module_ignore_errors=True,
                 )
                 time.sleep(constants.sleep_interval)
 
             local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)
-            bgp_updates = bgp_update_packets(local_pcap_filename)
+            bgp_updates = bgp_update_packets(local_pcap_filename, is_v6_topo)
 
             announce_from_n0_to_dut = []
             announce_from_dut_to_n1 = []
             withdraw_from_n0_to_dut = []
             withdraw_from_dut_to_n1 = []
             for bgp_update in bgp_updates:
-                if match_bgp_update(bgp_update, n0.ip, n0.peer_ip, "announce", route):
+                if match_bgp_update(bgp_update, n0.ip, n0.peer_ip, "announce", route, is_v6_topo):
                     announce_from_n0_to_dut.append(bgp_update)
                     continue
-                if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "announce", route):
+                if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "announce", route, is_v6_topo):
                     announce_from_dut_to_n1.append(bgp_update)
                     continue
-                if match_bgp_update(bgp_update, n0.ip, n0.peer_ip, "withdraw", route):
+                if match_bgp_update(bgp_update, n0.ip, n0.peer_ip, "withdraw", route, is_v6_topo):
                     withdraw_from_n0_to_dut.append(bgp_update)
                     continue
-                if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route):
+                if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route, is_v6_topo):
                     withdraw_from_dut_to_n1.append(bgp_update)
 
             err_msg = "no bgp update %s route %s from %s to %s"
@@ -380,10 +430,12 @@ def test_bgp_update_timer_session_down(
     request,
     toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa:F811
     validate_active_active_dualtor_setup,  # noqa:F811
+    tbinfo
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
 
-    n0, n1 = common_setup_teardown
+    (n0, n1), use_vtysh = common_setup_teardown
     try:
         n0.start_session()
         n1.start_session()
@@ -407,13 +459,29 @@ def test_bgp_update_timer_session_down(
                 pytest.fail("announce route %s from n0 to dut failed" % route["prefix"])
         # close bgp session n0, monitor withdraw info from dut to n1
         bgp_pcap = BGP_DOWN_LOG_TMPL
+
+        def _shutdown_bgp_session():
+            """Shutdown bgp session on dut."""
+            if use_vtysh:
+                dut_asn = n0.peer_asn
+                neigh_ip = n0.ip
+                cmd = (
+                    "vtysh "
+                    "-c 'configure terminal' "
+                    f"-c 'router bgp {dut_asn}' "
+                    f"-c 'neighbor {neigh_ip} shutdown' ")
+            else:
+                cmd = "config bgp shutdown neighbor {}".format(n0.name)
+
+            return duthost.shell(cmd)
+
         with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
-            result = duthost.shell("config bgp shutdown neighbor {}".format(n0.name))
+            result = _shutdown_bgp_session()
             bgp_shutdown_time = datetime.strptime(result['end'], "%Y-%m-%d %H:%M:%S.%f").timestamp()
             time.sleep(constants.sleep_interval)
 
         local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)
-        bgp_updates = bgp_update_packets(local_pcap_filename)
+        bgp_updates = bgp_update_packets(local_pcap_filename, is_v6_topo)
 
         for bgp_update in bgp_updates:
             logging.debug(
@@ -422,7 +490,7 @@ def test_bgp_update_timer_session_down(
                 bgp_update.show(dump=True),
             )
             for i, route in enumerate(constants.routes):
-                if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route):
+                if match_bgp_update(bgp_update, n1.peer_ip, n1.ip, "withdraw", route, is_v6_topo):
                     withdraw_intervals[i] = bgp_update.time - bgp_shutdown_time
 
         for i, route in enumerate(constants.routes):

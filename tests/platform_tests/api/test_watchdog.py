@@ -6,13 +6,16 @@ import yaml
 import pytest
 from tests.common.helpers.platform_api import watchdog
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa F401
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service, \
+      add_platform_api_server_port_nat_for_dpu, get_ansible_ssh_port    # noqa: F401
 from .platform_api_test_base import PlatformApiTestBase
+from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa: F401
 
 from collections import OrderedDict
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
+    pytest.mark.disable_memory_utilization,
     pytest.mark.topology('any'),
     pytest.mark.device_type('physical')
 ]
@@ -41,14 +44,15 @@ class TestWatchdogApi(PlatformApiTestBase):
     ''' Hardware watchdog platform API test cases '''
 
     @pytest.fixture(scope='function', autouse=True)
-    def watchdog_not_running(self, platform_api_conn, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa F811
+    def watchdog_not_running(self, platform_api_conn, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa: F811
         ''' Fixture that automatically runs on each test case and
         verifies that watchdog is not running before the test begins
         and disables it after the test ends'''
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0' or \
-                duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0':
+                duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0' or \
+                duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
             duthost.shell("watchdogutil disarm")
 
         assert not watchdog.is_armed(platform_api_conn)
@@ -57,12 +61,16 @@ class TestWatchdogApi(PlatformApiTestBase):
             yield
         finally:
             watchdog.disarm(platform_api_conn)
+
             if duthost.facts['platform'] == 'armhf-nokia_ixs7215_52x-r0' or \
                     duthost.facts['platform'] == 'arm64-nokia_ixs7215_52xb-r0':
                 duthost.shell("systemctl start cpu_wdt.service")
+            if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
+                duthost.shell("watchdogutil arm")
 
     @pytest.fixture(scope='module')
-    def conf(self, request, duthosts, enum_rand_one_per_hwsku_hostname):
+    def conf(self, request,
+             duthosts, enum_rand_one_per_hwsku_hostname, add_platform_api_server_port_nat_for_dpu):  # noqa: F811
         ''' Reads the watchdog test configuration file @TEST_CONFIG_FILE and
         results in a dictionary which holds parameters for test '''
 
@@ -94,7 +102,7 @@ class TestWatchdogApi(PlatformApiTestBase):
 
     @pytest.mark.dependency()
     def test_arm_disarm_states(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                               platform_api_conn, conf):  # noqa F811
+                               platform_api_conn, conf, ansible_adhoc):  # noqa: F811
         ''' arm watchdog with a valid timeout value, verify it is in armed state,
         disarm watchdog and verify it is in disarmed state
         '''
@@ -134,16 +142,18 @@ class TestWatchdogApi(PlatformApiTestBase):
             self.expect(remaining_time is -1,
                         "Watchdog remaining_time {} seconds is wrong for disarmed state".format(remaining_time))
 
-        res = localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=5,
+        is_dpu = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu")
+        ansible_ssh_port = get_ansible_ssh_port(duthost, ansible_adhoc) if is_dpu else 22
+        res = localhost.wait_for(host=duthost.mgmt_ip, port=ansible_ssh_port, state="stopped", delay=5,
                                  timeout=watchdog_timeout + TIMEOUT_DEVIATION, module_ignore_errors=True)
 
         self.expect('Timeout' in res.get('msg', ''), "unexpected disconnection from dut")
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
-    def test_remaining_time(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn, conf):    # noqa F811
+    def test_remaining_time(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn, conf):    # noqa: F811
         ''' arm watchdog with a valid timeout and verify that remaining time API works correctly '''
-
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         watchdog_timeout = conf['valid_timeout']
 
         # in the begginging of the test watchdog is not armed, so
@@ -164,14 +174,18 @@ class TestWatchdogApi(PlatformApiTestBase):
         remaining_time = watchdog.get_remaining_time(platform_api_conn)
         time.sleep(TEST_WAIT_TIME_SECONDS)
         remaining_time_new = watchdog.get_remaining_time(platform_api_conn)
-        self.expect(remaining_time_new < remaining_time,
-                    "Remaining_time {} seconds should be decreased from previous remaining_time {} seconds"
-                    .format(remaining_time_new, remaining_time))
+        self.expect(
+            remaining_time_new == remaining_time
+            if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu")
+            else remaining_time_new < remaining_time,
+            "Remaining_time {} seconds should be decreased from previous remaining_time {} seconds"
+            .format(remaining_time_new, remaining_time))
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
-    def test_periodic_arm(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn, conf):  # noqa F811
+    def test_periodic_arm(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn, conf):  # noqa: F811
         ''' arm watchdog several times as watchdog deamon would and verify API behaves correctly '''
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
         watchdog_timeout = conf['valid_timeout']
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
@@ -185,7 +199,9 @@ class TestWatchdogApi(PlatformApiTestBase):
                     "the previous actual watchdog timeout {} seconds"
                     .format(self.test_periodic_arm.__name__, actual_timeout_new, actual_timeout))
         self.expect(
-            remaining_time_new > remaining_time,
+            remaining_time_new == remaining_time
+            if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu")
+            else remaining_time_new > remaining_time,
             "{}: new remaining timeout {} seconds should be greater than "
             "the previous remaining timeout {} seconds by {} seconds"
             .format(self.test_periodic_arm.__name__, remaining_time_new, remaining_time, TEST_WAIT_TIME_SECONDS))
@@ -193,7 +209,7 @@ class TestWatchdogApi(PlatformApiTestBase):
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
     def test_arm_different_timeout_greater(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                           platform_api_conn, conf): # noqa F811
+                                           platform_api_conn, conf):  # noqa: F811
         ''' arm the watchdog with greater timeout value and verify new timeout was accepted;
         If platform accepts only single valid timeout value, @greater_timeout should be None.
         '''
@@ -216,7 +232,7 @@ class TestWatchdogApi(PlatformApiTestBase):
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
     def test_arm_different_timeout_smaller(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                           platform_api_conn, conf):   # noqa F811
+                                           platform_api_conn, conf):   # noqa: F811
         ''' arm the watchdog with smaller timeout value and verify new timeout was accepted;
         If platform accepts only single valid timeout value, @greater_timeout should be None.
         '''
@@ -240,7 +256,7 @@ class TestWatchdogApi(PlatformApiTestBase):
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
     def test_arm_too_big_timeout(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                 platform_api_conn, conf):   # noqa F811
+                                 platform_api_conn, conf):   # noqa: F811
         ''' try to arm the watchdog with timeout that is too big for hardware watchdog;
         If no such limitation exist, @too_big_timeout should be None for such platform.
         '''
@@ -249,16 +265,26 @@ class TestWatchdogApi(PlatformApiTestBase):
         if watchdog_timeout is None:
             pytest.skip('"too_big_timeout" parameter is required for this test case')
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
-        self.expect(actual_timeout == -1, "{}: Watchdog should be disarmed, but returned timeout of {} seconds"
-                    .format(self.test_arm_too_big_timeout.__name__, watchdog_timeout))
+        self.expect(
+            actual_timeout == -1,
+            "{}: Watchdog should be disarmed when configured with {} seconds, "
+            "but returned timeout of {} seconds".format(
+                self.test_arm_too_big_timeout.__name__, watchdog_timeout, actual_timeout
+            ),
+        )
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
-    def test_arm_negative_timeout(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):   # noqa F811
+    def test_arm_negative_timeout(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):   # noqa: F811
         ''' try to arm the watchdog with negative value '''
 
         watchdog_timeout = -1
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
-        self.expect(actual_timeout == -1, "{}: Watchdog should be disarmed, but returned timeout of {} seconds"
-                    .format(self.test_arm_negative_timeout.__name__, watchdog_timeout))
+        self.expect(
+            actual_timeout == -1,
+            "{}: Watchdog should be disarmed when configured with {} seconds, "
+            "but returned timeout of {} seconds".format(
+                self.test_arm_too_big_timeout.__name__, watchdog_timeout, actual_timeout
+            ),
+        )
         self.assert_expectations()

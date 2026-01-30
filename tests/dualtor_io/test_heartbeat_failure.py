@@ -2,15 +2,15 @@ import pytest
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
 from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, \
-                                                  send_server_to_t1_with_action                 # noqa F401
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                  # noqa F401
-from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                    # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa F401
-from tests.common.dualtor.tor_failure_utils import shutdown_tor_heartbeat                       # noqa F401
+                                                  send_server_to_t1_with_action                 # noqa: F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                  # noqa: F401
+from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                    # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor  # noqa: F401
+from tests.common.dualtor.tor_failure_utils import shutdown_tor_heartbeat                       # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
-                                                copy_ptftests_directory, change_mac_addresses   # noqa F401
+                                                change_mac_addresses                            # noqa: F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
-from tests.common.dualtor.dual_tor_common import cable_type                                     # noqa F401
+from tests.common.dualtor.dual_tor_common import cable_type                                     # noqa: F401
 from tests.common.dualtor.dual_tor_common import CableType
 
 
@@ -34,8 +34,8 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
 
 
 def test_active_tor_heartbeat_failure_upstream(
-    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa F811
-    send_server_to_t1_with_action, shutdown_tor_heartbeat, cable_type           # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa: F811
+    send_server_to_t1_with_action, shutdown_tor_heartbeat, cable_type           # noqa: F811
 ):
     """
     Send upstream traffic and stop the LinkProber module on the active ToR.
@@ -63,8 +63,8 @@ def test_active_tor_heartbeat_failure_upstream(
 
 @pytest.mark.enable_active_active
 def test_active_tor_heartbeat_failure_downstream_active(
-    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa F811
-    send_t1_to_server_with_action, shutdown_tor_heartbeat, cable_type           # noqa F811
+    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa: F811
+    send_t1_to_server_with_action, shutdown_tor_heartbeat, cable_type           # noqa: F811
 ):
     """
     Send downstream traffic from T1 to the active ToR and stop the LinkProber module on the active ToR.
@@ -91,8 +91,8 @@ def test_active_tor_heartbeat_failure_downstream_active(
 
 
 def test_active_tor_heartbeat_failure_downstream_standby(
-    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa F811
-    send_t1_to_server_with_action, shutdown_tor_heartbeat):                     # noqa F811
+        toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa: F811
+        send_t1_to_server_with_action, shutdown_tor_heartbeat):                     # noqa: F811
     """
     Send downstream traffic from T1 to the standby ToR and stop the LinkProber module on the active ToR.
     Confirm switchover and disruption lasts < 1 second.
@@ -108,8 +108,8 @@ def test_active_tor_heartbeat_failure_downstream_standby(
 
 
 def test_standby_tor_heartbeat_failure_upstream(
-    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa F811
-    send_server_to_t1_with_action, shutdown_tor_heartbeat):                     # noqa F811
+        toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa: F811
+        send_server_to_t1_with_action, shutdown_tor_heartbeat):                     # noqa: F811
     """
     Send upstream traffic and stop the LinkProber module on the standby ToR.
     Confirm no switchover and no disruption.
@@ -125,8 +125,8 @@ def test_standby_tor_heartbeat_failure_upstream(
 
 
 def test_standby_tor_heartbeat_failure_downstream_active(
-    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa F811
-    send_t1_to_server_with_action, shutdown_tor_heartbeat):                     # noqa F811
+        toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa: F811
+        send_t1_to_server_with_action, shutdown_tor_heartbeat):                     # noqa: F811
     """
     Send downstream traffic from T1 to the active ToR and stop the LinkProber module on the standby ToR.
     Confirm no switchover and no disruption.
@@ -142,8 +142,8 @@ def test_standby_tor_heartbeat_failure_downstream_active(
 
 
 def test_standby_tor_heartbeat_failure_downstream_standby(
-    toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa F811
-    send_t1_to_server_with_action, shutdown_tor_heartbeat):                     # noqa F811
+        toggle_all_simulator_ports_to_upper_tor, upper_tor_host, lower_tor_host,    # noqa: F811
+        send_t1_to_server_with_action, shutdown_tor_heartbeat):                     # noqa: F811
     """
     Send downstream traffic from T1 to the standby ToR and stop the LinkProber module on the standby ToR.
     Confirm no switchover and no disruption.

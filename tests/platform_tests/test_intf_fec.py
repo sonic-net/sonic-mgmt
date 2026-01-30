@@ -16,12 +16,14 @@ SUPPORTED_PLATFORMS = [
     "8101_32fh",
     "8111_32eh",
     "arista",
+    "x86_64-nvidia",
     "x86_64-88_lc0_36fh_m-r0",
-    "x86_64-nexthop_4010-r0"
+    "nexthop",
+    "marvell"
 ]
 
 SUPPORTED_SPEEDS = [
-    "100G", "200G", "400G", "800G", "1600G"
+    "50G", "100G", "200G", "400G", "800G", "1600G"
 ]
 
 
@@ -62,6 +64,9 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     # Get interfaces that are operationally up and have supported speeds.
     interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
 
+    if not interfaces:
+        pytest.skip("Skipping this test as there is no fec eligible interface")
+
     for intf in interfaces:
         # Verify the FEC operational mode is valid
         fec = get_fec_oper_mode(duthost, intf)
@@ -81,6 +86,9 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
     # Get interfaces that are operationally up and have supported speeds.
     interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
+
+    if not interfaces:
+        pytest.skip("Skipping this test as there is no fec eligible interface")
 
     for intf in interfaces:
         fec_mode = get_fec_oper_mode(duthost, intf)
@@ -122,6 +130,12 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
+    # Get operationally up and interfaces with supported speeds
+    interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
+
+    if not interfaces:
+        pytest.skip("Skipping this test as there is no fec eligible interface")
+
     logging.info("Get output of 'show interfaces counters fec-stats'")
     intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
 
@@ -139,7 +153,12 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     for intf in intf_status:
         intf_name = intf['iface']
         speed = duthost.get_speed(intf_name)
-        if speed not in SUPPORTED_SPEEDS:
+        # Speed is a empty string if the port isn't up
+        if speed == '':
+            continue
+        # Convert the speed to gbps format
+        speed_gbps = f"{int(speed) // 1000}G"
+        if speed_gbps not in SUPPORTED_SPEEDS:
             continue
 
         # Removes commas from "show interfaces counters fec-stats" (i.e. 12,354 --> 12354) to allow int conversion
@@ -200,10 +219,13 @@ def get_fec_histogram(duthost, intf_name):
     return fec_hist
 
 
-def validate_fec_histogram(duthost, intf_name):
+def validate_fec_histogram(duthost, intf_name, init, prev=None):
     """
     @Summary: Validate FEC histogram critical bins for any errors. Fail the test if bin value > 0
+    for a stable link over last two snapshots.
     """
+    if not init and not prev:
+        pytest.fail("FEC histogram from previous snapshot is not provided")
 
     fec_hist = get_fec_histogram(duthost, intf_name)
     if not fec_hist:
@@ -213,16 +235,25 @@ def validate_fec_histogram(duthost, intf_name):
     error_bins = []
     for bin_index in critical_bins:
         bin_value = int(fec_hist[bin_index].get('codewords', 0))
-        if bin_value > 0:
-            error_bins.append((bin_index, bin_value))
+        if init:
+            if bin_value > 0:
+                error_bins.append((bin_index, bin_value))
+        else:
+            prev_bin_value = int(prev[bin_index].get('codewords', 0))
+            if bin_value - prev_bin_value > 0:
+                error_bins.append((bin_index, bin_value))
 
     if error_bins:
-        error_messages = ["FEC histogram bin {} has errors for interface {}: {}".format(bin_index, intf_name, bin_value)
+        error_messages = ["FEC histogram bin {} has errors for interface {}: {} (init: {})".format(
+                              bin_index, intf_name, bin_value, init)
                           for bin_index, bin_value in error_bins]
-        logging.error("\n".join(error_messages))
-        return False
+        if init:
+            logging.info("\n".join(error_messages))
+        else:
+            logging.error("\n".join(error_messages))
+        return False, fec_hist
 
-    return True
+    return True, fec_hist
 
 
 def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -238,8 +269,29 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     # Get operationally up and interfaces with supported speeds
     interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
 
+    if not interfaces:
+        pytest.skip("Skipping this test as there is no fec eligible interface")
+
+    # It's possible there are some transient FEC symbol errors on interface
+    # state transition. Hence, this test uses the first check to read the current
+    # FEC histogram counters to see whether there are stale errors. If so,
+    # it will increase the waiting time for the next read and compare any
+    # changes in the critical bins between 2 snapshots. For a stable link, no
+    # increments in these critical bins are expected.
+    snapshots = {}
+    sleep_time = 10
     for intf_name in interfaces:
-        for _ in range(3):
-            if not validate_fec_histogram(duthost, intf_name):
+        valid, fec_hist = validate_fec_histogram(duthost, intf_name, True)
+        if not valid:
+            logging.info("Update test sleep time to 10 min due to bin errors in the initial snapshot")
+            sleep_time = 10 * 60
+        snapshots[intf_name] = fec_hist
+
+    for _ in range(2):
+        time.sleep(sleep_time)
+        for intf_name in interfaces:
+            prev_fec_hist = snapshots[intf_name]
+            valid, fec_hist = validate_fec_histogram(duthost, intf_name, False, prev_fec_hist)
+            if not valid:
                 pytest.fail("FEC histogram validation failed for interface {}".format(intf_name))
-            time.sleep(10)
+            snapshots[intf_name] = fec_hist

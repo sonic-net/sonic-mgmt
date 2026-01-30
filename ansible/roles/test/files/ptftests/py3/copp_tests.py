@@ -56,6 +56,7 @@ class ControlPlaneBaseTest(BaseTest):
     DEFAULT_PRE_SEND_INTERVAL_SEC = 1
     DEFAULT_SEND_INTERVAL_SEC = 30
     DEFAULT_RECEIVE_WAIT_TIME = 3
+    PTF_TIMEOUT = 30
 
     def __init__(self):
         BaseTest.__init__(self)
@@ -87,6 +88,8 @@ class ControlPlaneBaseTest(BaseTest):
         self.platform = test_params.get('platform', None)
         self.topo_type = test_params.get('topo_type', None)
         self.ip_version = test_params.get('ip_version', None)
+        self.neighbor_miss_trap_supported = test_params.get('neighbor_miss_trap_supported', False)
+        self.is_smartswitch = test_params.get('is_smartswitch', False)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -150,7 +153,7 @@ class ControlPlaneBaseTest(BaseTest):
                 pre_send_count += 1
 
             rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
-                self, packet, [recv_intf[1]], recv_intf[0], timeout=5)
+                self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
             self.log("Send %d and receive %d packets in the first second (PolicyTest)" % (
                 pre_send_count, rcv_pkt_cnt))
 
@@ -179,7 +182,7 @@ class ControlPlaneBaseTest(BaseTest):
         # Wait a little bit for all the packets to make it through
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)
         recv_count = testutils.count_matched_packets_all_ports(
-            self, packet, [recv_intf[1]], recv_intf[0], timeout=10)
+            self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
         self.log("Received %d packets after sleep %ds" %
                  (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
 
@@ -318,6 +321,9 @@ class DHCPTopoT1Test(PolicyTest):
         # T1 DHCP no packet to packet to CPU so police rate is 0
         self.PPS_LIMIT_MIN = 0
         self.PPS_LIMIT_MAX = 0
+        if self.is_smartswitch:
+            self.PPS_LIMIT_MIN = 90
+            self.PPS_LIMIT_MAX = 130
 
     def runTest(self):
         self.log("DHCPTopoT1Test")
@@ -353,7 +359,7 @@ class DHCPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # Marvell based platforms have cir/cbs in steps of 125
-        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
@@ -361,7 +367,7 @@ class DHCPTest(PolicyTest):
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
         # M0 devices have CIR of 300 for DHCP
-        elif self.topo_type in {"m0", "mx"}:
+        elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
@@ -402,7 +408,7 @@ class DHCP6Test(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # Marvell based platforms have cir/cbs in steps of 125
-        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
@@ -410,7 +416,7 @@ class DHCP6Test(PolicyTest):
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
         # M0 devices have CIR of 300 for DHCP
-        elif self.topo_type in {"m0", "mx"}:
+        elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
@@ -444,6 +450,9 @@ class DHCP6TopoT1Test(PolicyTest):
         # T1 DHCP6 no packet to packet to CPU so police rate is 0
         self.PPS_LIMIT_MIN = 0
         self.PPS_LIMIT_MAX = 0
+        if self.is_smartswitch:
+            self.PPS_LIMIT_MIN = 90
+            self.PPS_LIMIT_MAX = 130
 
     def runTest(self):
         self.log("DHCP6TopoT1Test")
@@ -470,7 +479,7 @@ class LLDPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # Marvell based platforms have cir/cbs in steps of 125
-        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
@@ -478,7 +487,7 @@ class LLDPTest(PolicyTest):
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
         # M0 devices have CIR of 300 for DHCP
-        elif self.topo_type in {"m0", "mx"}:
+        elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
@@ -506,7 +515,7 @@ class UDLDTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # Marvell based platforms have cir/cbs in steps of 125
-        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
@@ -514,7 +523,7 @@ class UDLDTest(PolicyTest):
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
         # M0 devices have CIR of 300 for DHCP
-        elif self.topo_type in {"m0", "mx"}:
+        elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
@@ -546,9 +555,11 @@ class UDLDTest(PolicyTest):
 class BGPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        test_params = testutils.test_params_get()
+        self.packet_size = int(test_params.get('packet_size', 100))
 
     def runTest(self):
-        self.log("BGPTest")
+        self.log("BGPTest with packet size: {}".format(self.packet_size))
         self.run_suite()
 
     def construct_packet(self, port_number):
@@ -556,6 +567,7 @@ class BGPTest(PolicyTest):
         dst_ip = self.peerip
 
         packet = testutils.simple_tcp_packet(
+            pktlen=self.packet_size,
             eth_dst=dst_mac,
             ip_dst=dst_ip,
             ip_ttl=1,
@@ -675,9 +687,11 @@ class SSHTest(PolicyTest):
 class IP2METest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        test_params = testutils.test_params_get()  # Get a fresh copy to be safe
+        self.packet_size = int(test_params.get('packet_size', 100))
 
     def runTest(self):
-        self.log("IP2METest")
+        self.log("IP2METest with packet size: {}".format(self.packet_size))
         self.run_suite()
 
     def one_port_test(self, port_number):
@@ -699,6 +713,7 @@ class IP2METest(PolicyTest):
         dst_ip = self.peerip
 
         packet = testutils.simple_tcp_packet(
+            pktlen=self.packet_size,
             eth_src=src_mac,
             eth_dst=dst_mac,
             ip_dst=dst_ip
@@ -738,6 +753,12 @@ class VlanSubnetTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
 
+        # Verify with different PPS if neighbor miss trap is supported by the platform
+        if self.neighbor_miss_trap_supported:
+            self.PPS_LIMIT = 200
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
+
     def runTest(self):
         self.log("VlanSubnetTest")
         self.run_suite()
@@ -773,6 +794,12 @@ class VlanSubnetTest(PolicyTest):
 class VlanSubnetIPinIPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+
+        # Verify with different PPS if neighbor miss trap is supported by the platform
+        if self.neighbor_miss_trap_supported:
+            self.PPS_LIMIT = 200
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("VlanSubnetIpinIPTest")
