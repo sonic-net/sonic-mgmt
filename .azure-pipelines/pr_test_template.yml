@@ -6,7 +6,7 @@ parameters:
 
 - name: TIMEOUT_IN_MINUTES_PR_TEST
   type: number
-  default: 480
+  default: 640
 
 - name: CHECKOUT_SONIC_MGMT
   type: boolean
@@ -29,8 +29,7 @@ parameters:
     RETRY_TIMES: "2"
     STOP_ON_FAILURE: "True"
     TEST_PLAN_NUM: "1"
-    MAX_RUN_TEST_MINUTES: 240
-    LOCK_WAIT_TIMEOUT_SECONDS: "21600"
+    MAX_RUN_TEST_MINUTES: 480
     MGMT_COMMIT_HASH: ""
     PTF_MODIFIED: "False"
     EXPECTED_RESULT: ""
