@@ -198,8 +198,8 @@ def extract_pending_operations(text):
         return []
 
     try:
-        ids = ast.literal_eval(ids_match.group(1))
-        types = ast.literal_eval(types_match.group(1))
+        ids = ast.literal_eval(f"{ids_match.group(1)}")
+        types = ast.literal_eval(f"{types_match.group(1)}")
     except Exception:
         return []
 
@@ -387,8 +387,11 @@ def setup_dash_ha_from_json(duthosts):
             args=build_dash_ha_scope_args(fields),
         )
 
+
+@pytest.fixture(scope="module")
+def activate_dash_ha_from_json(duthosts):
     # -------------------------------------------------
-    # Step 4: Activate Role (using pending_operation_ids)
+    # Step 3: Activate Role (using pending_operation_ids)
     # -------------------------------------------------
     activate_scope_per_dut = [
         (
@@ -441,5 +444,5 @@ def setup_dash_ha_from_json(duthosts):
             timeout=120,
             interval=5,
         ), f"HA did not reach ACTIVE state for {key}"
-    print("DASH HA Step-4 Activate Role completed")
+    logger.info("DASH HA Step-4 Activate Role completed")
     yield
