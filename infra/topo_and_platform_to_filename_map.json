@@ -290,6 +290,9 @@
         },
         "lightning": {
             "topo_file": "../spytest_tb_files/lightning_lightning_b2b_platform_hardening.yaml"
+        },
+	"arctos": {
+            "topo_file": "../spytest_tb_files/arctos_dut.yaml"
         }
     }
 }

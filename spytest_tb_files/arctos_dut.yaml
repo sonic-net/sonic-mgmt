@@ -1,0 +1,38 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+
+    D1:
+        device_type: DevSonic
+        platform_type: arctos
+        access: {protocol: ssh, ip:  172.26.235.238, port: 22}
+        credentials: {username: admin, password: password, altpassword: password1}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default, mgmt_ifname: etp1}
+        metadata:
+            platforms:
+                - arm64-c8220tg_48a_o-r0
+            hwskus:
+                - Cisco-C1200TG-48A-O
+            version_prefixes:
+                - SONiC.azure_cisco_202405.0
+        params:
+            onie_image_url: null
+            mgmt_ifname: etp1
+            mgmt_ifname_discovery: 0
+            ssh_disable: 0
+
+topology:
+    D1:
+        interfaces: {}

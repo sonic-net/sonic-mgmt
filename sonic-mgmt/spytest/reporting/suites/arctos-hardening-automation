@@ -1,0 +1,15 @@
+# Modules
++file:cisco/arctos/usb/Arctos_usb_mount_unmount_test.py
+
+#Runtime Arguments
++args:--env SPYTEST_ARCTOS_HOSTNAME_DEFAULT sonic --noop
++args:--env SPYTEST_IGNORE_SYSTEM_READY 1 --noop
+
+#Runtime Arguments
++args:--skip-init-config
++args:--skip-init-checks
++args:--load-config-method none
++args:--skip-load-config=module
++args:--skip-load-config=base
++args:--module-init-max-timeout 7200
++args:--tc-max-timeout 7200

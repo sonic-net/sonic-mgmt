@@ -2030,6 +2030,62 @@
                 ]
             }
         },
+        "arctos-spytest-plat": {
+            "ucs_host_name": "sj04-sonic-ucs",
+            "ucs_host": "172.26.235.248",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "platform-hardening-arctos-hw-dut",
+            "scp_ip":"172.26.235.248",
+            "installer_mode":"sonic",
+            "ucs_tb": "plat_hard",
+            "telnet_host": ["172.26.235.71"],
+            "telnet_port": ["2039"],
+            "telnet_details": ["172.26.235.71 2039"],
+            "dut_ssh": ["172.26.235.238"],
+            "topology": "dev-cicd-b2b",
+            "telnet_flag": "False",
+            "docker_prompt": "@sj04-sonic-ucs",
+            "run_type_check": "arctos-spytest-plat_dev-cicd-b2b",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "sonic_pre_install_commands": [[
+                "ifconfig eth0 172.26.235.238 netmask 255.255.255.0",
+                "route add default gw 172.26.235.1"
+            ]],
+            "sonic_post_install_commands": [[
+                "ifconfig eth0 172.26.235.238 netmask 255.255.255.0",
+                "route add default gw 172.26.235.1"
+            ]],
+            "onie_pre_install_commands": [[
+                "ifconfig eth0 172.26.235.238 netmask 255.255.255.0",
+                "route add default gw 172.26.235.1"
+            ]],
+            "extra_onie_commands": [[
+                "sudo config interface ip add eth0 172.26.235.238/24 172.26.235.1",
+                "sudo config save -y"
+            ]],
+
+            "skip_tests": "",
+            "skip_folder":"",
+            "allure_flag": "false",
+            "external_ucs": "none",
+            "collect_spytest_flag":"true",
+            "testbed_yaml": "/data/spytest_tb_files/arctos_dut.yaml",
+            "testbed-setup": {
+                "cmd": [
+                        "set -e",
+                        "git clone --progress --verbose --recursive $SANITY_SUITE_REPO -b $SANITY_SUITE_BRANCH ./",
+                        "cd ./infra",
+                        "python3 ./do_hw_setup.py fetch-pipeline -t $TEST_BED",
+                        "python3 ./do_hw_setup.py onie -i sonic -t $TEST_BED"
+                ]
+            }
+        },
         "lightning-spytest-plat": {
             "ucs_host_name": "sonic-m6-platform",
             "ucs_host": "172.25.168.41",
@@ -2371,6 +2427,9 @@
         "lightning-spytest-plat": [
             "cisco.202505.1.signed"
         ],
+        "arctos-spytest-plat": [
+            "cisco.202505.1.signed"
+        ],
         "t2-m6-30-titan": [
             "cisco.202505.signed"
         ],
@@ -2383,7 +2442,7 @@
         "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m6-27-m64", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning", "t1-m5-11-hbm", "t1-m6-26-cmono"],
         "t2" : ["aaa14-t2", "t2-m6-30-titan"],
         "dualtor" : ["dualtor-m6-30-tornado", "dualtor-m6-31-tornado", "mathilda-dualtor-t0-1", "mathilda-dualtor-m5-6"],
-        "dev-cicd-b2b": ["mtfuji-spytest-plat", "lightning-spytest-plat"]
+        "dev-cicd-b2b": ["mtfuji-spytest-plat", "lightning-spytest-plat", "arctos-spytest-plat"]
     },
     "testbed_image_ucs_map" : {
         "t1-m6-22-m64":"ucs_m6_22",
@@ -2433,6 +2492,7 @@
         "t0-m6-24-lightning": "ucs_m5_16",
         "mtfuji-spytest-plat": "m6_platform",
         "lightning-spytest-plat": "m6_platform",
+        "arctos-spytest-plat": "ucs_arctos",
         "t2-m6-30-titan": "ucs_ttan_m6_30",
         "t0-m6-41-titan": "ucs_ttan_m6_41"
     },
@@ -2686,6 +2746,15 @@
             "username": "sonic",
             "password": "roZes@123",
             "scp_prompt" : "sonic@172.23.107.7:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "http_proxy= https_proxy= wget"
+        },
+        "ucs_arctos": {
+            "host": "sj04-sonic-ucs",
+            "ip": "172.26.235.248",
+            "username": "sonic",
+            "password": "roZes@123",
+            "scp_prompt" : "sonic@172.26.235.248:/var/www/html/IMAGES",
             "images_folder" : "/var/www/html/IMAGES",
             "wget" : "http_proxy= https_proxy= wget"
         }

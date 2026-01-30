@@ -281,6 +281,52 @@ def image_install(args):
     log.debug("Image loaded and checked")
     return
 
+def run_sonic_post_install_commands(p, testbed_info_dict, index):
+    if 'sonic_post_install_commands' not in testbed_info_dict:
+        log.debug("No sonic_post_install_commands found in testbed config")
+        return
+
+    try:
+        post_install_cmds = testbed_info_dict['sonic_post_install_commands'][index]
+        log.info(f"Executing {len(post_install_cmds)} sonic_post_install_commands for DUT index {index}")
+
+        for cmd in post_install_cmds:
+            log.debug(f"Sending SONIC post command: {cmd}")
+            p.sendline(cmd)
+            time.sleep(5)  # Allow command to execute
+            p.expect(pre_admin_prompt)
+
+        time.sleep(5)
+        log.info("All sonic_post_install_commands executed successfully")
+    except IndexError:
+        log.warning(f"No sonic_post_install_commands found for DUT index {index}")
+    except Exception as e:
+        log.error(f"Error executing sonic_post_install_commands: {e}")
+        raise
+
+def run_sonic_pre_install_commands(p, testbed_info_dict, index):
+    if 'sonic_pre_install_commands' not in testbed_info_dict:
+        log.debug("No sonic_pre_install_commands found in testbed config")
+        return
+    
+    try:
+        pre_install_cmds = testbed_info_dict['sonic_pre_install_commands'][index]
+        log.info(f"Executing {len(pre_install_cmds)} sonic_pre_install_commands for DUT index {index}")
+        
+        for cmd in pre_install_cmds:
+            log.debug(f"Sending SONIC pre-install command: {cmd}")
+            p.sendline(cmd)
+            time.sleep(5)  # Allow command to execute
+            p.expect(pre_admin_prompt)
+        
+        time.sleep(5)
+        log.info("All sonic_pre_install_commands executed successfully")
+    except IndexError:
+        log.warning(f"No sonic_pre_install_commands found for DUT index {index}")
+    except Exception as e:
+        log.error(f"Error executing sonic_pre_install_commands: {e}")
+        raise
+
 def run_onie_pre_install_commands(p, testbed_info_dict, index):
     if 'onie_pre_install_commands' not in testbed_info_dict:
         log.debug("No onie_pre_install_commands found in testbed config")
@@ -860,7 +906,6 @@ def install_allure(args):
     ssh.close()
     return 0
 
-
 def sonic_install(args, index):
     log.debug("Entered sonic install function")
     global testbed_info_dict
@@ -889,9 +934,17 @@ def sonic_install(args, index):
         username = CISCO_USERNAME
         password = CISCO_PASSWORD
 
+    rc = telnet_run_sonic_pre_post_commands(args, index, True)
+    if rc!=0:
+        log.error("Execution failed in sonic_pre_install_commands")
+
     rc = nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], testbed_info_dict["dut_ssh"][index], username, password, cmd_list, False)
     time.sleep(120)
     log.debug("Image loaded, log into dut again and check for docker count")
+
+    rc = telnet_run_sonic_pre_post_commands(args, index, False)
+    if rc!=0:
+        log.error("Execution failed in sonic_post_install_commands")
 
     if 'extra_sonic_commands' in testbed_info_dict:
         log.debug("Executing extra_sonic_commands")
@@ -918,10 +971,94 @@ def sonic_install(args, index):
                 rc = nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], ssh, username, password, cmd_list, True)
                 if rc!=0:
                     log.error("Execution failed in extra_sonic_commands")
-    
+
     # sleep for 5 minutes and check for docker after reboot
     time.sleep(300)
     checkForDockersSonic(testbed, stream, index)
+
+def telnet_run_sonic_pre_post_commands(args, index, pre_sonic=True):
+    log.debug("Entered telnet_run_sonic_pre_post_commands function")
+    global testbed_info_dict
+    full_link = args.full_link.strip()
+    [image, image_id, stream] = extractFromImageName(full_link)
+    testbed = args.testbed.strip()
+    testbed_info_dict = getTestbedInfoDict(testbed)
+
+    username = DUT_USERNAME
+    password = DUT_PASSWORD
+    if checkTortugaImage(stream):
+        username = CISCO_USERNAME
+        password = CISCO_PASSWORD
+    
+    [host, port] = testbed_info_dict['telnet_details'][index].split(" ")
+    p = telnetConnection(host, port, None, sys.stdout, 'latin-1', False, testbed_info_dict)
+    expected_prompts = [
+        login_prompt, #0
+        passwd_prompt, #1
+        cisco_prompt, #2
+        pre_sonic_prompt, #3
+        sonic_login_prompt, #4
+        admin_prompt, #5
+        pre_admin_prompt, #6
+        first_login, #7
+        onie_prompt, #8
+        'Login incorrect' #9
+    ]
+
+    # login or sudo or onie install or run pre sonic config commands
+    prompt = admin_prompt
+    retry_count = 0
+    while True:
+        time.sleep(2)
+        log.info("Getting prompt")
+        i = p.expect(expected_prompts)
+        log.info(f"got prompt #{i} --> '{expected_prompts[i]}'")
+        if i == 0 or i == 4:
+            # send user name
+            log.info("Sending Username")
+            p.sendline(username)
+        elif i == 1:
+            # send password
+            log.info("Sending Password")
+            p.sendline(password)
+        elif i == 2 or i == 5:
+            time.sleep(3)
+            log.info("Sending sudo su")
+            p.sendline('sudo su')
+        elif i == 3 or i == 6:
+            log.info("Executing installation commands before sonic installer")
+            
+            if pre_sonic:
+                run_sonic_pre_install_commands(p, testbed_info_dict, index)
+            else:
+                run_sonic_post_install_commands(p, testbed_info_dict, index)
+
+            time.sleep(3)
+            p.close()
+            break
+        elif i == 7:
+            p.sendline("yes")
+        elif i == 8:
+            p.close()
+            onie_install(args, index)
+        
+        elif i == 9:
+            time.sleep(1) 
+            child.sendline("")
+            if retry_count == 3: # retry 3 times
+                logging.error("Login not successful into DUT")
+                p.close()
+                return -1
+            else:
+                retry_count = retry_count+1
+        else:
+            logging.error("unexpected prompt, exiting telnet")
+            p.sendline(telnet_escape_prompt)
+            p.expect('>telnet')
+            p.sendline('quit')
+            p.close()
+            break
+    return 0
 
 def checkForDockersSonic(testbed, stream, index=0):
     cmd_list = list()
