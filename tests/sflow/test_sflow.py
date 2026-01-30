@@ -5,6 +5,7 @@
         --enable_sflow_feature: Enable sFlow feature on DUT. Default is disabled
 """
 
+import ast
 import pytest
 import logging
 import time
@@ -221,6 +222,44 @@ def config_sflow_interfaces(duthost, intf, **kwargs):
 # ----------------------------------------------------------------------------------
 
 
+def verify_hsflowd_ready(duthost, collector_ip):
+    """
+    Verify hsflowd has fully initialized with the collector configuration.
+    This is done by checking if hsflowd.auto contains the collector entry.
+
+    Args:
+        duthost: DUT host object
+        collector_ip: Collector IP address to check for
+
+    Returns:
+        True if hsflowd is initialized with collector, False otherwise
+    """
+    result = duthost.shell(
+        f"docker exec sflow grep -q 'collector={collector_ip}' /etc/hsflowd.auto 2>/dev/null",
+        module_ignore_errors=True
+    )
+    return result['rc'] == 0
+
+
+def wait_until_hsflowd_ready(duthost, collector_ip):
+    # In some cases (like sflow config enabled for first time, device reboot), hsflowd daemon
+    # is taking little over 3 mins to be fully initialized and process collector config.
+    logger.info("Waiting for hsflowd to initialize with collector configuration...")
+    start_time = time.time()
+    pytest_assert(
+        wait_until(
+            240, 10, 0,  # 4 minutes max, check every 10 seconds
+            verify_hsflowd_ready,
+            duthost,
+            collector_ip,
+        ),
+        f"hsflowd failed to initialize collector {collector_ip} within 240 seconds. "
+        f"Check /etc/hsflowd.auto in sflow container."
+    )
+    elapsed = time.time() - start_time
+    logger.info(f"hsflowd initialized with collector after {elapsed:.1f} seconds")
+
+
 def config_sflow_collector(duthost, collector, config):
     collector = var[collector]
     if config == 'add':
@@ -274,7 +313,9 @@ def verify_sflow_interfaces(duthost, intf, status, sampling_rate):
 
 
 @pytest.fixture
-def partial_ptf_runner(request, ptfhost, tbinfo):
+def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+
     def _partial_ptf_runner(**kwargs):
         logger.info(f'The enabled sflow interface is: {kwargs}')
         params = {'testbed_type': tbinfo['topo']['name'],
@@ -283,6 +324,12 @@ def partial_ptf_runner(request, ptfhost, tbinfo):
                   'agent_id': var['lo_ip'],
                   'sflow_ports_file': "/tmp/sflow_ports.json"}
         params.update(kwargs)
+
+        # Make sure hsflowd daemon has processed collector config before
+        # proceeding with traffic verification.
+        for collector in ast.literal_eval(kwargs['active_collectors']):
+            wait_until_hsflowd_ready(duthost, var[collector]['ip_addr'])
+
         ptf_runner(host=ptfhost,
                    testdir="ptftests",
                    platform_dir="ptftests",
