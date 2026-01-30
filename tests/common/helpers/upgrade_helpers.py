@@ -253,46 +253,53 @@ def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_
         ptfhost.shell('supervisorctl stop ferret')
 
 def gnoi_upgrade_test_helper(
-    ptf_grpc,
+    ptf_gnoi,
     duthost,
     tbinfo,
     image_url,
     local_path,
-    upgrade_type,            # "warm" / "cold" (same as existing upgrade tests)
-    expected_to_version,     # required: "to-image-version" string
-    allow_fail=False,
+    upgrade_type,           # same semantics as existing upgrade tests: "warm"/"cold"
+    expected_to_version,    # required by review: verify running version after reboot
     protocol="HTTP",
+    allow_fail=False,
 ):
     """
-    gNOI upgrade helper with validations.
+    gNOI-based upgrade helper using PtfGnoi high-level APIs (no raw call_unary in tests).
 
-    - No explicit 'ready()' gate is used.
-    - Post-reboot readiness is inferred by wait_until(check_reboot_cause, ...),
-      mimicking the proven pattern in upgrade_test_helper.
+    Flow:
+      1) File.TransferToRemote: download image_url -> local_path on DUT
+      2) System.SetPackage: set package to local_path
+      3) System.Reboot: trigger reboot (non-blocking; disconnect may occur)
+      4) Mimic upgrade_test_helper reboot verification:
+           networking_uptime -> timeout -> wait_until(check_reboot_cause)
+      5) Standard post-reboot checks:
+           check_services / check_neighbors / check_copp_config
+      6) Version validation:
+           assert expected_to_version appears in 'show version'
     """
     logger.info(
-        "gNOI upgrade: image_url=%s local_path=%s upgrade_type=%s expected_to_version=%s",
-        image_url, local_path, upgrade_type, expected_to_version
+        "gNOI upgrade: image_url=%s local_path=%s upgrade_type=%s expected_to_version=%s protocol=%s",
+        image_url, local_path, upgrade_type, expected_to_version, protocol
     )
 
     # ---- Input sanity ----
+    pytest_assert(ptf_gnoi is not None, "ptf_gnoi must be provided")
+    pytest_assert(duthost is not None, "duthost must be provided")
+    pytest_assert(tbinfo is not None, "tbinfo must be provided")
     pytest_assert(image_url, "image_url must be provided")
     pytest_assert(local_path, "local_path must be provided")
-    pytest_assert(tbinfo is not None, "tbinfo must be provided")
     pytest_assert(upgrade_type, "upgrade_type must be provided")
     pytest_assert(expected_to_version, "expected_to_version must be provided (review requirement)")
 
-    # Map upgrade_type ("warm"/"cold") to gNOI enum string ("WARM"/"COLD")
+    # Map upgrade_type ("warm"/"cold") to gNOI enum token ("WARM"/"COLD")
     reboot_method = "WARM" if str(upgrade_type).lower() == "warm" else "COLD"
 
-    # ---- 1) TransferToRemote ----
-    transfer_resp = ptf_grpc.call_unary("gnoi.file.File", "TransferToRemote", {
-        "local_path": local_path,
-        "remote_download": {
-            "path": image_url,
-            "protocol": protocol,
-        }
-    })
+    # ---- 1) TransferToRemote (via wrapper) ----
+    transfer_resp = ptf_gnoi.file_transfer_to_remote(
+        image_url=image_url,
+        local_path=local_path,
+        protocol=protocol,
+    )
     logger.info("TransferToRemote response: %s", transfer_resp)
     pytest_assert(isinstance(transfer_resp, dict), "TransferToRemote did not return a JSON object")
 
@@ -300,43 +307,35 @@ def gnoi_upgrade_test_helper(
     res = duthost.shell(f"test -s {local_path}", module_ignore_errors=True)
     pytest_assert(res.get("rc", 1) == 0, f"Downloaded file not found or empty on DUT: {local_path}")
 
-    # ---- 2) SetPackage ----
-    setpkg_resp = ptf_grpc.call_unary("gnoi.system.System", "SetPackage", {
-        "package": {"filename": local_path}
-    })
+    # ---- 2) SetPackage (via wrapper) ----
+    setpkg_resp = ptf_gnoi.system_set_package(local_path=local_path, package_field="filename")
     logger.info("SetPackage response: %s", setpkg_resp)
     pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
 
-    # ---- 3) Reboot ----
+    # ---- 3) Reboot (via wrapper) ----
     try:
-        reboot_resp = ptf_grpc.call_unary("gnoi.system.System", "Reboot", {"method": reboot_method})
+        reboot_resp = ptf_gnoi.system_reboot(method=reboot_method)
         logger.info("Reboot response: %s", reboot_resp)
         pytest_assert(isinstance(reboot_resp, dict), "Reboot did not return a JSON object")
     except Exception as e:
-        # Common: reboot drops gRPC connection; do not fail solely on this.
+        # Common/expected: connection drops during reboot
         logger.info("Caught exception during gNOI Reboot call (often expected): %s", str(e))
 
     if allow_fail:
         logger.warning("allow_fail=True: skipping reboot-cause/health/version validations")
         return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
 
-    # ---- 4) Wait for reboot-cause to match ----
+    # ---- 4) Reuse EXACT reboot-cause waiting pattern from upgrade_test_helper ----
     logger.info("Check reboot cause. Expected cause %s", upgrade_type)
-
-    try:
-        networking_uptime = duthost.get_networking_uptime().seconds
-        timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
-    except Exception as e:
-        logger.warning("get_networking_uptime failed (%s); using SYSTEM_STABILIZE_MAX_TIME=%s",
-                       str(e), SYSTEM_STABILIZE_MAX_TIME)
-        timeout = SYSTEM_STABILIZE_MAX_TIME
+    networking_uptime = duthost.get_networking_uptime().seconds
+    timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
 
     pytest_assert(
         wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
         "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type)
     )
 
-    # ---- 5) Standard post-reboot validations (same as upgrade_test_helper) ----
+    # ---- 5) Standard post-reboot validations ----
     check_services(duthost, tbinfo)
     check_neighbors(duthost, tbinfo)
     check_copp_config(duthost)
@@ -344,7 +343,6 @@ def gnoi_upgrade_test_helper(
     # ---- 6) Version validation (review requirement) ----
     show_ver = duthost.shell("show version", module_ignore_errors=False).get("stdout", "")
     logger.info("show version output:\n%s", show_ver)
-
     pytest_assert(
         expected_to_version in show_ver,
         "Running version does not contain expected '{}'. Output:\n{}".format(expected_to_version, show_ver)
