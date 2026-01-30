@@ -27,6 +27,7 @@ from tests.common.fixtures.fib_utils import single_fib_for_duts             # no
 from tests.ptf_runner import ptf_runner
 from tests.common.dualtor.mux_simulator_control import mux_server_url       # noqa: F401
 from tests.common.utilities import wait, setup_ferret
+from tests.common.utilities import is_ipv6_only_topology
 from tests.common.dualtor.dual_tor_common import active_active_ports                                # noqa: F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports                               # noqa: F401
 from tests.common.dualtor.dual_tor_common import mux_config                                         # noqa: F401
@@ -81,13 +82,21 @@ def restore_default_decap_cfg(duthosts):
 
 
 @pytest.fixture(scope='module')
-def ip_ver(request):
-    return {
-        "outer_ipv4": to_bool(request.config.getoption("outer_ipv4")),
-        "outer_ipv6": to_bool(request.config.getoption("outer_ipv6")),
-        "inner_ipv4": to_bool(request.config.getoption("inner_ipv4")),
-        "inner_ipv6": to_bool(request.config.getoption("inner_ipv6")),
-    }
+def ip_ver(request, tbinfo):
+    if is_ipv6_only_topology(tbinfo):
+        return {
+            "outer_ipv4": False,
+            "outer_ipv6": to_bool(request.config.getoption("outer_ipv6")),
+            "inner_ipv4": False,
+            "inner_ipv6": to_bool(request.config.getoption("inner_ipv6")),
+        }
+    else:
+        return {
+            "outer_ipv4": to_bool(request.config.getoption("outer_ipv4")),
+            "outer_ipv6": to_bool(request.config.getoption("outer_ipv6")),
+            "inner_ipv4": to_bool(request.config.getoption("inner_ipv4")),
+            "inner_ipv6": to_bool(request.config.getoption("inner_ipv6")),
+        }
 
 
 @pytest.fixture(scope='module')
