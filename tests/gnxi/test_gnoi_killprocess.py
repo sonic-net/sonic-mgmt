@@ -66,9 +66,9 @@ def _apply_shell_wrapper():
 
 
 _apply_shell_wrapper()
+
+
 def _kill_process(ptf_gnoi, name: str, restart: bool = False, signal: int = 1):
-    
-    
     """
     Invoke gNOI System.KillProcess via the underlying grpc client.
     Returns (ret, msg) to mirror the old gnoi_request helper behavior:
