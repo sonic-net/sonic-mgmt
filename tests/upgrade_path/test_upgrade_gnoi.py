@@ -5,7 +5,7 @@ import pytest
 # Ensure grpc fixtures are discovered (ptf_grpc / setup_gnoi_tls_server)
 import tests.common.fixtures.grpc_fixtures  # noqa: F401
 
-from tests.common.helpers.gnoi_upgrade_helper import gnoi_upgrade_test_helper
+from tests.common.helpers.upgrade_helpers import gnoi_upgrade_test_helper
 
 logger = logging.getLogger(__name__)
 
