@@ -43,7 +43,7 @@ PYVXR_BGPPEERS="*"
 PYVXR_CHANNELS="*"
 PYVXR_VRFS=""
 PYVXR_STPS="*"
-CLOUD_URL=https://tortuga-k8s-a.cisco.com:30166
+CLOUD_URL=https://tortuga-k8s-a.cisco.com:32349
 START_TIME=$(date +%s)
 TEST_TAGS="ipv4,ipv6,bgp-debug"
 CGEN_TEST=extended
@@ -310,7 +310,7 @@ fi
 # Set up DHCP relay configs. DHCP server is on the fourth host of leaf0.
 # Fourth host has an untagged Vlan 40. Vrf40000 has a Loopback with 41.216.230.1 as IP.
 if [[ "${DHCP}" == "vlan" ]]; then
-  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20#40|41.216.230.0/24"
+  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20#40|41.216.230.0/24#7000::2:0/112"
   PYVXR_DHCPS="Vrf40000|relay-20|41.216.3.2|20"
 
   # Extend Vlan of DHCP relay to all leaves.
@@ -321,7 +321,7 @@ if [[ "${DHCP}" == "vlan" ]]; then
     HOST_SPECS="${HOST_SPECS},dummy/eth1|leaf2|none|40|false"
   fi
 elif [[ "${DHCP}" == "port" ]]; then
-  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20|41.216.230.0/24"
+  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20|41.216.230.0/24#7000::2:0/112"
   PYVXR_DHCPS="Vrf40000|relay-20|41.216.3.2|20"
   PYVXR_PORTS="${PYVXR_PORTS},leaf0|${DHCP_PORT}#41.216.3.1/24#dead:face::3:1/112#Vrf40000"
 fi
