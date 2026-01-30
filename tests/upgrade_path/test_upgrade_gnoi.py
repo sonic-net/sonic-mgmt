@@ -13,15 +13,6 @@ pytestmark = pytest.mark.usefixtures("setup_gnoi_tls_server")
 @pytest.fixture(scope="module")
 def gnoi_upgrade_path_lists(request):
     """
-    Mimic upgrade_path_lists(request) style, but tailored for gNOI minimal upgrade flow.
-
-    Reuse existing CLI options from upgrade_path:
-      - upgrade_type
-      - base_image_list
-      - target_image_list
-      - restore_to_image
-      - enable_cpa
-
     Mapping for gNOI flow:
       - image_url      := target_image_list
       - local_path     := /tmp/<basename(image_url)>
