@@ -1,3 +1,4 @@
+from functools import wraps
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
@@ -12,10 +13,6 @@ pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.usefixtures("setup_gnoi_tls_server")
 ]
-
-
-# Add this block at the very top of the file (before any test/fixture imports)
-from functools import wraps
 
 
 def _apply_shell_wrapper():
@@ -67,8 +64,11 @@ def _apply_shell_wrapper():
             # ignore import errors; we try several candidates and only need one to succeed
             continue
 
+
 _apply_shell_wrapper()
 def _kill_process(ptf_gnoi, name: str, restart: bool = False, signal: int = 1):
+    
+    
     """
     Invoke gNOI System.KillProcess via the underlying grpc client.
     Returns (ret, msg) to mirror the old gnoi_request helper behavior:
