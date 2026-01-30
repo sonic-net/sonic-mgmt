@@ -78,10 +78,10 @@ def load_conditions(session):
     conditions_list = list()
 
     conditions_files = session.config.option.mark_conditions_files
-    for condition in conditions_files:
-        if '*' in condition:
-            conditions_files.remove(condition)
-            files = glob.glob(condition)
+    for condition_file in conditions_files:
+        if '*' in condition_file:
+            conditions_files.remove(condition_file)
+            files = glob.glob(condition_file)
             for file in files:
                 if file not in conditions_files:
                     conditions_files.append(file)
@@ -643,7 +643,7 @@ def pytest_collection(session):
 
 
 def pytest_collection_modifyitems(session, config, items):
-    """Hook for adding marks to test cases based on conditions defind in a centralized file.
+    """Hook for adding marks to test cases based on conditions defined in a centralized file.
 
     Args:
         session (obj): Pytest session object.

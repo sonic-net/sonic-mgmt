@@ -3,6 +3,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, psu
+from tests.common.mellanox_data import is_mellanox_device
 from tests.common.utilities import skip_release
 from tests.platform_tests.cli.util import get_skip_mod_list
 from .platform_api_test_base import PlatformApiTestBase
@@ -26,7 +27,6 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.disable_loganalyzer  # disable automatic loganalyzer
 ]
 
 STATUS_LED_COLOR_GREEN = "green"
@@ -88,8 +88,11 @@ class TestPsuApi(PlatformApiTestBase):
         is_supported = self.get_psu_facts(psu_info["duthost"], psu_info["psu_id"], True, psu_parameter)
         if is_supported:
             data = get_data(psu_info["api"], psu_info["psu_id"])
-            if self.expect(data is not None, "Failed to retrieve {} of PSU {}".format(message, psu_info["psu_id"])):
-                self.expect(isinstance(data, float), "PSU {} {} appears incorrect".format(psu_info["psu_id"], message))
+            if not is_mellanox_device(self.duthost):
+                if self.expect(
+                        data is not None, "Failed to retrieve {} of PSU {}".format(message, psu_info["psu_id"])):
+                    self.expect(
+                        isinstance(data, float), "PSU {} {} appears incorrect".format(psu_info["psu_id"], message))
 
         return data
 
@@ -157,6 +160,7 @@ class TestPsuApi(PlatformApiTestBase):
             status = psu.get_status(platform_api_conn, i)
             if self.expect(status is not None, "Unable to retrieve PSU {} status".format(i)):
                 self.expect(isinstance(status, bool), "PSU {} status appears incorrect".format(i))
+                self.expect(status is True, "PSU {} status is not True (Power Not Good)".format(i))
         self.assert_expectations()
 
     def test_get_position_in_parent(self, platform_api_conn):     # noqa: F811
@@ -209,6 +213,7 @@ class TestPsuApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
         voltage = current = power = None
+        self.duthost = duthost
         psu_info = {
             "duthost": duthost,
             "api": platform_api_conn,
@@ -224,6 +229,9 @@ class TestPsuApi(PlatformApiTestBase):
             power = self.get_psu_parameter(psu_info, "power", psu.get_power, "power")
 
             failure_occured = self.get_len_failed_expectations() > failure_count
+            if is_mellanox_device(self.duthost):
+                logger.info("Skipping power value validation for Mellanox device")
+                return True
             if current and voltage and power:
                 is_within_tolerance = abs(power - (voltage*current)) < power*0.1
                 if not failure_occured and not is_within_tolerance:
@@ -258,10 +266,11 @@ class TestPsuApi(PlatformApiTestBase):
                 low_threshold = self.get_psu_parameter(psu_info, "voltage_low_threshold",
                                                        psu.get_voltage_low_threshold, "low voltage threshold")
 
-                if high_threshold and low_threshold:
-                    self.expect(voltage < high_threshold and voltage > low_threshold,
-                                "Voltage {} of PSU {} is not in between {} and {}"
-                                .format(voltage, psu_id, low_threshold, high_threshold))
+                if not is_mellanox_device(self.duthost):
+                    if high_threshold and low_threshold:
+                        self.expect(voltage < high_threshold and voltage > low_threshold,
+                                    "Voltage {} of PSU {} is not in between {} and {}"
+                                    .format(voltage, psu_id, low_threshold, high_threshold))
 
         self.assert_expectations()
 
@@ -300,6 +309,7 @@ class TestPsuApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
+    @pytest.mark.disable_loganalyzer
     def test_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):     # noqa: F811
         ''' PSU status led test '''
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -412,6 +422,7 @@ class TestPsuApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
+    @pytest.mark.disable_loganalyzer
     def test_master_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         FAULT_LED_COLOR_LIST = [

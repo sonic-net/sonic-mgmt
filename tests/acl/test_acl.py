@@ -537,8 +537,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
 
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])
 def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
-    if tbinfo["topo"]["type"] in ["t0"] and request.param == "ipv6":
-        pytest.skip("IPV6 ACL test not currently supported on t0 testbeds")
+    v6topo = "isolated-v6" in tbinfo["topo"]["name"]
+    if request.param == "ipv4":
+        if v6topo:
+            pytest.skip("IPV4 ACL test not supported on isolated-v6 testbeds")
+    else:       # ipv6
+        if tbinfo["topo"]["type"] in ["t0"] and not v6topo:
+            pytest.skip("IPV6 ACL test not currently supported on t0 testbeds")
 
     return request.param
 
@@ -1744,8 +1749,6 @@ class TestMultiBindingAcl(TestBasicAcl):
 
     def setup_rules(self, dut, acl_table, ip_version, tbinfo, gnmi_connection):
         """Setup ACL rules for multi-binding ACL testing."""
-        if 'dualtor' not in tbinfo['topo']['name']:
-            pytest.skip("Not a dual-tor testbed")
 
         dut.host.options["variable_manager"].extra_vars.update(
             {"dualtor": True})
