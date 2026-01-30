@@ -195,12 +195,18 @@ def extract_pending_operations(text):
     )
 
     if not ids_match or not types_match:
+        logging.warning(f"Regex match failed - ids_match: {bool(ids_match)}, types_match: {bool(types_match)}")
         return []
 
     try:
         ids = ast.literal_eval(f"{ids_match.group(1)}")
         types = ast.literal_eval(f"{types_match.group(1)}")
-    except Exception:
+    except Exception as e:
+        logging.error(
+            f"Failed to parse ids or types: {e}. "
+            f"ids_match: {ids_match.group(1) if ids_match else None}, "
+            f"types_match: {types_match.group(1) if types_match else None}"
+        )
         return []
 
     return list(zip(types, ids))
@@ -415,6 +421,13 @@ def activate_dash_ha_from_json(duthosts):
             },
         ),
     ]
+    for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
+        proto_utils_hset(
+            duthost,
+            table="DASH_HA_SCOPE_CONFIG_TABLE",
+            key=key,
+            args=build_dash_ha_scope_args(fields),
+        )
 
     for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
         pending_id = wait_for_pending_operation_id(
