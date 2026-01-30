@@ -51,6 +51,7 @@ def _power_off_reboot_helper(kwargs, power_on_event=None):
     """
     pdu_ctrl = kwargs["pdu_ctrl"]
     all_outlets = kwargs["all_outlets"]
+    power_on_seq = kwargs["power_on_seq"]
     for outlet in all_outlets:
         logging.debug("turning off {}".format(outlet))
         pdu_ctrl.turn_off_outlet(outlet)
@@ -64,8 +65,8 @@ def _power_off_reboot_helper(kwargs, power_on_event=None):
     for outlet in outlet_status:
         logging.debug("After turn off outlet, its status is {}".format(outlet))
 
-    logging.info("Power on {}".format(all_outlets))
-    for outlet in all_outlets:
+    logging.info("Power on {}".format(power_on_seq))
+    for outlet in power_on_seq:
         logging.debug("turning on {}".format(outlet))
         pdu_ctrl.turn_on_outlet(outlet)
 
@@ -113,11 +114,10 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
         # Following is to accomodate for chassis, when no '--power_off_delay' option is given on pipeline run
         power_off_delay = 60
     all_outlets = pdu_ctrl.get_outlet_status()
+    pytest_assert(all_outlets, "No outlets found for %s" % duthost.hostname)
+
     # If PDU supports returning output_watts, making sure that all PSUs has power.
     psu_to_pdus = get_grouped_pdus_by_psu(pdu_ctrl)
-    for psu, pdus in psu_to_pdus.items():
-        pytest_assert(any(int(pdu.get('output_watts', '1')) !=
-                      0 for pdu in pdus), "Not all PSUs are getting power")
 
     # Purpose of this list is to control sequence of turning on PSUs in power off testing.
     # If there are 2 PSUs, then 3 scenarios would be covered:
@@ -125,36 +125,32 @@ def test_power_off_reboot(duthosts, localhost, enum_supervisor_dut_hostname, con
     # 2. Turn off all PSUs, turn on PSU2, then check.
     # 3. Turn off all PSUs, turn on one of the PSU, then turn on the other PSU, then check.
     power_on_seq_list = []
-    if all_outlets:
-        power_on_seq_list = [pdus for pdus in psu_to_pdus.values()]
+    for psu, pdus in psu_to_pdus.items():
+        pytest_assert(any(int(pdu.get('output_watts', '1')) !=
+                      0 for pdu in pdus), "Not all PSUs are getting power")
+        if not is_chassis:
+            power_on_seq_list.append(pdus)
+    # if there is exactly one sequence then we don't need to repeat it
+    if len(power_on_seq_list) != 1:
         power_on_seq_list.append(all_outlets)
-
     logging.info("Got all power on sequences {}".format(power_on_seq_list))
 
     poweroff_reboot_kwargs = {"dut": duthost}
 
     try:
-        if is_chassis:
+        if not is_chassis:
+            duthosts = None
+
+        for power_on_seq in power_on_seq_list:
             poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
             poweroff_reboot_kwargs["all_outlets"] = all_outlets
-            poweroff_reboot_kwargs["power_on_seq"] = all_outlets
+            poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
             poweroff_reboot_kwargs["delay_time"] = power_off_delay
             reboot_and_check(
                 localhost, duthost, conn_graph_facts.get(
                     "device_conn", {}).get(duthost.hostname, {}),
                 xcvr_skip_list, REBOOT_TYPE_POWEROFF,
                 _power_off_reboot_helper, poweroff_reboot_kwargs, duthosts=duthosts)
-        else:
-            for power_on_seq in power_on_seq_list:
-                poweroff_reboot_kwargs["pdu_ctrl"] = pdu_ctrl
-                poweroff_reboot_kwargs["all_outlets"] = all_outlets
-                poweroff_reboot_kwargs["power_on_seq"] = power_on_seq
-                poweroff_reboot_kwargs["delay_time"] = power_off_delay
-                reboot_and_check(
-                    localhost, duthost, conn_graph_facts.get(
-                        "device_conn", {}).get(duthost.hostname, {}),
-                    xcvr_skip_list, REBOOT_TYPE_POWEROFF,
-                    _power_off_reboot_helper, poweroff_reboot_kwargs)
 
     except Exception as e:
         logging.debug("Restore power after test failure")
