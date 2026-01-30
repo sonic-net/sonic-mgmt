@@ -130,6 +130,9 @@ sonic_s6000:
     vlab-vpp-01:
       ansible_host: 10.250.0.92
       ansible_hostv6: fec0::ffff:afa:70
+    vlab-vpp-02:
+      ansible_host: 10.250.0.93
+      ansible_hostv6: fec0::ffff:afa:71
 
 sonic_s6100:
   vars:

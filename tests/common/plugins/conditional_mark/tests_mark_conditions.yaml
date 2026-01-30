@@ -827,11 +827,9 @@ db_migrator/test_migrate_dns.py::test_migrate_dns_03:
 #######################################
 decap/test_decap.py:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 and v6 topos'
-    conditions_logical_operator: or
+    reason: 'Skip on t1-isolated-d32/128 topos'
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
-      - "'-v6-' in topo_name"
   xfail:
     reason: "Xfail due to github issue 20982"
     conditions:
@@ -2589,6 +2587,13 @@ generic_config_updater/test_bgp_speaker.py::test_bgp_speaker_tc1_test_config:
     reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20757"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20757 and '-v6-' in topo_name"
+
+generic_config_updater/test_cacl:
+  skip:
+    reason: "Skip on Cisco 8800 due to the known ACL_RULE path failed to be applied for multi-asic platform issue"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/20378"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
@@ -4492,10 +4497,6 @@ route/test_route_flow_counter.py:
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs']"
-  xfail:
-    reason: "xfail for IPv6-only topologies, didn't use IPv6 when should"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19926 and '-v6-' in topo_name"
 
 route/test_route_perf.py:
   skip:

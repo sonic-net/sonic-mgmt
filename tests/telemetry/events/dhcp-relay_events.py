@@ -7,6 +7,7 @@ import ptf.testutils as testutils
 
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.utilities import wait_until
+from tests.common.utilities import is_ipv6_only_topology
 from run_events_test import run_test
 from event_utils import find_test_vlan, find_test_client_port_and_mac, create_dhcp_discover_packet
 
@@ -14,7 +15,7 @@ logger = logging.getLogger(__name__)
 tag = "sonic-events-dhcp-relay"
 
 
-def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
+def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") and \
             duthost.facts.get("router_type") == 'leafrouter':
         pytest.skip("Skipping dhcp_relay events for smartswitch t1 topologies")
@@ -25,30 +26,32 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
     switch_role = device_metadata['localhost'].get('type', '')
     if switch_role == 'BmcMgmtToRRouter':
         pytest.skip("Skipping dhcp_relay events for mx topologies")
+    if is_ipv6_only_topology(tbinfo):
+        pytest.skip("Skipping dhcp_relay events for IPv6-only topologies")
     logger.info("Beginning to test dhcp-relay events")
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_discard,
+    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_discard,
              "dhcp_relay_discard.json", "sonic-events-dhcp-relay:dhcp-relay-discard", tag, False, 30, ptfadapter)
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_disparity,
+    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_disparity,
              "dhcp_relay_disparity.json", "sonic-events-dhcp-relay:dhcp-relay-disparity", tag, False, 30, ptfadapter)
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_bind_failure,
+    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_bind_failure,
              "dhcp_relay_bind_failure.json", "sonic-events-dhcp-relay:dhcp-relay-bind-failure", tag, False, 30)
 
 
-def trigger_dhcp_relay_discard(duthost, ptfadapter):
-    send_dhcp_discover_packets(duthost, ptfadapter)
+def trigger_dhcp_relay_discard(duthost, tbinfo, ptfadapter):
+    send_dhcp_discover_packets(duthost, tbinfo, ptfadapter)
 
 
-def trigger_dhcp_relay_disparity(duthost, ptfadapter):
+def trigger_dhcp_relay_disparity(duthost, tbinfo, ptfadapter):
     """11 packets because dhcpmon process will store up to 10 unhealthy status events
     https://github.com/sonic-net/sonic-dhcpmon/blob/master/src/dhcp_mon.cpp#L94
     static int dhcp_unhealthy_max_count = 10;
     Sending at interval of 18 seconds because dhcpmon process will check health at that interval
     static int window_interval_sec = 18;
     """
-    send_dhcp_discover_packets(duthost, ptfadapter, 11, 18)
+    send_dhcp_discover_packets(duthost, tbinfo, ptfadapter, 11, 18)
 
 
-def trigger_dhcp_relay_bind_failure(duthost):
+def trigger_dhcp_relay_bind_failure(duthost, tbinfo):
     # Flush ipv6 vlan address and restart dhc6relay process
     py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "dhcp_relay"),
               "dhcp_relay container not started")
@@ -84,7 +87,7 @@ def trigger_dhcp_relay_bind_failure(duthost):
                   "dhcp_relay not started.")
 
 
-def send_dhcp_discover_packets(duthost, ptfadapter, packets_to_send=5, interval=1):
+def send_dhcp_discover_packets(duthost, tbinfo, ptfadapter, packets_to_send=5, interval=1):
     py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "dhcp_relay"),
               "dhcp_relay container not started")
 
