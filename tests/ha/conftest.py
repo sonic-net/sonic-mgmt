@@ -199,8 +199,8 @@ def extract_pending_operations(text):
         return []
 
     try:
-        ids = ast.literal_eval(f"{ids_match.group(1)}")
-        types = ast.literal_eval(f"{types_match.group(1)}")
+        ids = ast.literal_eval(f'"{ids_match.group(1)}"')
+        types = ast.literal_eval(f'"{types_match.group(1)}"')
     except Exception as e:
         logging.error(
             f"Failed to parse ids or types: {e}. "
