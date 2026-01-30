@@ -258,8 +258,8 @@ def gnoi_upgrade_test_helper(
     tbinfo,
     image_url,
     local_path,
-    upgrade_type,           # same semantics as existing upgrade tests: "warm"/"cold"
-    expected_to_version,    # required by review: verify running version after reboot
+    upgrade_type,
+    expected_to_version,
     protocol="HTTP",
     allow_fail=False,
 ):
