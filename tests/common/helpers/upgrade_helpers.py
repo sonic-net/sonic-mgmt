@@ -261,7 +261,7 @@ def gnoi_upgrade_test_helper(
     upgrade_type,            # "warm" / "cold" (same as existing upgrade tests)
     expected_to_version,     # required: "to-image-version" string
     allow_fail=False,
-    protocol="HTTPS",
+    protocol="HTTP",
 ):
     """
     gNOI upgrade helper with validations.
