@@ -33,9 +33,9 @@ CRM_TEST_ACL_GROUP_HIGH = 0
 WAIT_TIME = 3
 
 
-def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
+def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
     logger.info("Beginning to test swss events")
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_interface,
+    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_interface,
              "if_state.json", "sonic-events-swss:if-state", tag)
 
     asic_type = duthost.facts["asic_type"]
@@ -49,14 +49,14 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang)
         skip_pfc_hwskus = []
 
     if duthost.facts["hwsku"] not in skip_pfc_hwskus:
-        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, generate_pfc_storm,
+        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, generate_pfc_storm,
                  "pfc_storm.json", "sonic-events-swss:pfc-storm", tag)
 
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_crm_threshold_exceeded,
+    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_crm_threshold_exceeded,
              "chk_crm_threshold.json", "sonic-events-swss:chk_crm_threshold", tag)
 
 
-def shutdown_interface(duthost):
+def shutdown_interface(duthost, tbinfo):
     logger.info("Shutting down interface")
     interfaces = duthost.get_interfaces_status()
     pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
@@ -80,7 +80,7 @@ def shutdown_interface(duthost):
     wait_until(15, 1, 0, verify_port_admin_oper_status, duthost, if_state_test_port, "up")
 
 
-def generate_pfc_storm(duthost):
+def generate_pfc_storm(duthost, tbinfo):
     logger.info("Generating pfc storm")
     interfaces = duthost.get_interfaces_status()
     pattern = re.compile(r'^Ethernet[0-9]{1,2}$')
@@ -102,7 +102,7 @@ def generate_pfc_storm(duthost):
                   format(queue_oid))
 
 
-def trigger_crm_threshold_exceeded(duthost):
+def trigger_crm_threshold_exceeded(duthost, tbinfo):
     logger.info("Triggering crm threshold exceeded")
     duthost.shell("crm config polling interval {}".format(CRM_TEST_POLLING_INTERVAL))
 
