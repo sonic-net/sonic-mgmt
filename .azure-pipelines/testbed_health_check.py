@@ -201,6 +201,12 @@ class TestbedHealthChecker:
             rst = sonichost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}", module_ignore_errors=True).get("stdout",
                                                                                                            None)
 
+            device_hostname = sonichost.shell(f"jq '.DEVICE_METADATA.localhost.hostname' {config_db_file}")\
+                .get("stdout", None)
+
+            if not device_hostname or device_hostname == '"sonic"':
+                raise RuntimeError(f"Device {sonichost.hostname} is not properly configured, "
+                                   f"hostname is still: {device_hostname}")
             # If valid stdout
             if rst is not None and rst.strip() != "":
 

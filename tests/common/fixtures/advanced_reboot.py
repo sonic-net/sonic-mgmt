@@ -654,6 +654,13 @@ class AdvancedReboot:
                 self.ptfhost.shell("pkill -f 'ptftests advanced-reboot.ReloadTest'", module_ignore_errors=True)
                 # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
                 thread.join(timeout=10)
+
+                # The duthost has upgraded at this point and the python interpreter may be different
+                # on this new image. Therefore, clear and refetch any cached facts (which contain the
+                # path to the old python interpreter) to avoid using stale facts that were collected
+                # before the reboot.
+                self.duthost.meta("clear_facts")
+
                 self.__verifyRebootOper(rebootOper)
                 if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
                     test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
@@ -740,6 +747,12 @@ class AdvancedReboot:
                 self.ptfhost.shell("pkill -f 'ptftests advanced-reboot.ReloadTest'", module_ignore_errors=True)
                 # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
                 thread.join(timeout=10)
+
+                # The duthost has upgraded at this point and the python interpreter may be different
+                # on this new image. Therefore, clear and refetch any cached facts (which contain the
+                # path to the old python interpreter) to avoid using stale facts that were collected
+                # before the reboot.
+                self.duthost.meta("clear_facts")
 
                 self.__verifyRebootOper(rebootOper)
                 if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
