@@ -184,15 +184,15 @@ class SflowTest(BaseTest):
                                     % (data['total_counter_count'], collector))
                 else:
                     logging.info("..Analyzing polling test counter packets")
-                    self.assertTrue(data['total_samples'] != 0,
-                                    "....Packets are not received in active collector  ,%s" % collector)
+                    self.assertTrue(data['total_counter_count'] != 0,
+                                    "....Counter packets are not received in active collector  ,%s" % collector)
                     self.analyze_counter_sample(
                         data, collector, self.polling_int, port_sample)
             else:
                 logging.info(
                     "Analyzing flow samples in collector %s" % collector)
-                self.assertTrue(data['total_samples'] != 0,
-                                "....Packets are not received in active collector  ,%s" % collector)
+                self.assertTrue(data['total_flow_count'] != 0,
+                                "....Flow packets are not received in active collector  ,%s" % collector)
                 self.analyze_flow_sample(data, collector)
         return data
 
