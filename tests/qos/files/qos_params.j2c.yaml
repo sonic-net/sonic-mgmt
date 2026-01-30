@@ -1449,7 +1449,7 @@ qos_params:
                 lossless_weight: 30
             hdrm_pool_wm_multiplier: 1
             cell_size: 4096
-        topo-t2_one_hwsku_max:
+        topo-t2_one_hwsku_max: # 100G/400G profile with same hwsku(400G)
             100000_2000m:
                 pkts_num_leak_out: 5
                 internal_hdr_size: 48
@@ -1723,7 +1723,7 @@ qos_params:
                 lossless_weight: 30
             hdrm_pool_wm_multiplier: 1
             cell_size: 4096
-        topo-t2_one_hwsku_min:
+        topo-t2_one_hwsku_min: # 100G/400G profile with same hwsku(400G)
             100000_2000m:
                 pkts_num_leak_out: 5
                 internal_hdr_size: 48
