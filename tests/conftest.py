@@ -787,7 +787,7 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
         _hosts.append(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
-                             macsec_enabled=request.config.option.enable_macsec))
+                              macsec_enabled=request.config.option.enable_macsec))
     return _hosts
 
 
