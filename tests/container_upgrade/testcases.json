@@ -7,6 +7,15 @@
     "gnmi/test_gnmi.py": 0,
     "gnmi/test_gnmi_configdb.py": 0,
     "gnmi/test_gnmi_appldb.py": 0,
+    "tacacs/test_accounting.py": 3,
     "telemetry/test_telemetry.py::test_config_db_parameters": 0,
-    "tacacs/test_accounting.py": 3
+    "telemetry/test_telemetry.py::test_telemetry_enabledbydefault": 0,
+    "telemetry/test_telemetry.py::test_osbuild_version": 0,
+    "telemetry/test_telemetry.py::test_telemetry_ouput": 0,
+    "telemetry/test_telemetry.py::test_sysuptime": 0,
+    "telemetry/test_telemetry.py::test_virtualdb_table_streaming": 0,
+    "telemetry/test_telemetry.py::test_on_change_updates": 0,
+    "telemetry/test_telemetry.py::test_mem_spike": 0,
+    "telemetry/test_telemetry_poll.py": 0,
+    "telemetry/test_telemetry_show_cli_safeguard_test.py": 0
 }

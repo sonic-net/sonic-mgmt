@@ -22,18 +22,27 @@ CONTAINER_STRING_KEY = "container_bundle"
 
 container_name_mapping = {
     "docker-sonic-telemetry": "telemetry",
+    "docker-telemetry-watchdog": "telemetry_watchdog",
     "docker-sonic-gnmi": "gnmi",
     "docker-gnmi-watchdog": "gnmi_watchdog",
     "docker-auditd": "auditd",
     "docker-auditd-watchdog": "auditd_watchdog",
+    "docker-acms": "acms",
+    "docker-acms-watchdog": "acms_watchdog",
     "docker-sonic-bmp": "bmp",
     "docker-bmp-watchdog": "bmp_watchdog",
+    "kubesonic-cleanup": "k8s_cleanup",
 }
 
 existing_service_list = [
-    "gnmi"
+    "acms",
+    "gnmi",
+    "telemetry"
 ]
 
+existing_systemd_services = [
+    "telemetry"
+]
 
 def parse_containers(container_string):
     containers = []
@@ -129,8 +138,24 @@ def os_upgrade(duthost, localhost, tbinfo, image_url):
 def disable_features(duthost):
     for service in existing_service_list:
         logger.info(f"Disabling {service} feature")
+        duthost.shell(f"systemctl reset-failed {service}", module_ignore_errors=True)
         duthost.shell(f"config feature state {service} disabled", module_ignore_errors=True)
     duthost.shell("config save -y", module_ignore_errors=True)
+
+
+def enable_feature(duthost):
+    for service in existing_systemd_services:
+        logger.info(f"Enabling {service} feature")
+        duthost.shell(f"systemctl reset-failed {service}", module_ignore_errors=True)
+        duthost.shell(f"config feature state {service} enabled", module_ignore_errors=True)
+    duthost.shell("config save -y", module_ignore_errors=True)
+
+
+def migrate_container_systemd(duthost, service, container, docker_image, parameters):
+    duthost.shell(f"docker tag {docker_image} {container}:latest")
+    duthost.shell(f'sed -i "s|docker create -t |docker create -t {parameters} |" /usr/bin/{service}.sh')
+    duthost.shell(f"systemctl reset-failed {service}", module_ignore_errors=True)
+    duthost.shell(f"systemctl restart {service}", module_ignore_errors=True)
 
 
 def pull_run_dockers(duthost, creds, env):
@@ -147,6 +172,10 @@ def pull_run_dockers(duthost, creds, env):
         # Stop and remove existing container
         duthost.shell(f"docker stop {name}", module_ignore_errors=True)
         duthost.shell(f"docker rm {name}", module_ignore_errors=True)
+        if name in existing_systemd_services:
+            migrate_container_systemd(duthost, name, container, docker_image, parameters)
+            enable_feature(duthost)
+            return
         if duthost.shell(f"docker run -d {parameters} {optional_parameters} --name {name} {docker_image}",
                          module_ignore_errors=True)['rc'] != 0:
             pytest.fail("Not able to run container using pulled image")

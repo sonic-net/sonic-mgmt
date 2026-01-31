@@ -6,18 +6,30 @@
         "parameters": "--privileged --pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
     },
     "docker-sonic-telemetry": {
-        "parameters": ""
+        "parameters": "--privileged --pid=host -v /host/reboot-cause:/host/reboot-cause:rw -v /tmp/cache:/tmp/cache:rw"
     },
     "docker-sonic-gnmi": {
         "parameters": "--net=host -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro -v /etc/fips/fips_enable:/etc/fips/fips_enable:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -v /var/run/dbus:/var/run/dbus:rw -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-chassis:/var/run/redis-chassis:ro --env RUNTIME_OWNER=local"
     },
-    "docker-sonic-bmp": {
-        "parameters": "--net=host -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-bmp:/var/run/redis-bmp:ro"
+    "docker-telemetry-watchdog": {
+        "parameters": "--privileged --pid=host --net=host -v /host/reboot-cause:/host/reboot-cause:rw -v /tmp/cache:/tmp/cache:rw -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro -v /etc/fips/fips_enable:/etc/fips/fips_enable:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-chassis:/var/run/redis-chassis:ro -v /etc/sonic:/etc/sonic:ro --env RUNTIME_OWNER=local"
     },
     "docker-gnmi-watchdog": {
         "parameters": "--pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
     },
+    "docker-acms": {
+        "parameters": "--net=host -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro -v /etc/fips/fips_enable:/etc/fips/fips_enable:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -v /etc/sonic/credentials:/etc/sonic/credentials:rw -v /etc/sonic/gnmi:/etc/sonic/gnmi:rw -v /var/opt/msft:/var/opt/msft:rw -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-chassis:/var/run/redis-chassis:ro --env RUNTIME_OWNER=local"
+    },
+    "docker-acms-watchdog": {
+        "parameters": "--pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
+    },
+    "docker-sonic-bmp": {
+        "parameters": "--net=host -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-bmp:/var/run/redis-bmp:ro"
+    },
     "docker-bmp-watchdog": {
         "parameters": "--pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
+    },
+    "kubesonic-cleanup": {
+        "parameters": "--privileged --pid=host --net=host"
     }
 }
