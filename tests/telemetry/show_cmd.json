@@ -1,0 +1,964 @@
+[
+  {
+    "path": "show arp",
+    "required_args": [],
+    "optional_args": ["ARP_IPV4_ADDRESS"],
+    "options": ["interface_vlan", "SONIC_CLI_IFACE_MODE"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["Bytes"],
+      "required_map_keys": ["entries", "total_entries"]
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show buffer configuration",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["Bytes"],
+      "required_map_keys": ["losslessTrafficPatterns", "pools", "profiles"]
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show buffer information",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["Bytes"],
+      "required_map_keys": ["losslessTrafficPatterns", "pools", "profiles"]
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show buffer_pool persistent-watermark",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["Bytes"],
+      "required_map_keys": ["egress_lossy_pool", "ingress_lossless_pool"]
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show buffer_pool watermark",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["Bytes"],
+      "required_map_keys": ["egress_lossy_pool", "ingress_lossless_pool"]
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show bgp device-global",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": ["tsa", "w-ecmp"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show clock",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": ["date"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show clock timezones",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": ["timezones"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show dropcounters capabilities",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["count", "reasons"],
+      "required_map_keys": ["PORT_EGRESS_DROPS", "PORT_INGRESS_DROPS", "SWITCH_EGRESS_DROPS", "SWITCH_INGRESS_DROPS"]
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show dropcounters configuration",
+    "required_args": [],
+    "optional_args": [],
+    "options": ["group"],
+    "schema": {
+      "shape": "array",
+      "required_keys": ["alias","description","drop_count_threshold","drop_monitor_status","group","incident_count_threshold","name","reason","type","window"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show dropcounters counts",
+    "required_args": [],
+    "optional_args": [],
+    "options": ["group", "counter_type"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["State"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show feature autorestart",
+    "required_args": [],
+    "optional_args": ["FEATURE_NAME"],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["features"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show feature config",
+    "required_args": [],
+    "optional_args": ["FEATURE_NAME"],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["features"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show feature status",
+    "required_args": [],
+    "optional_args": ["FEATURE_NAME"],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["features"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show headroom-pool persistent-watermark",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["Bytes"],
+      "required_map_keys": ["ingress_lossless_pool"]
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show headroom-pool watermark",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["Bytes"],
+      "required_map_keys": ["ingress_lossless_pool"]
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces alias",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": ["SONIC_CLI_IFACE_MODE"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["alias"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces counters",
+    "required_args": [],
+    "optional_args": [],
+    "options": ["interface","printall","period"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["State","RxOk","RxBps","RxUtil","RxErr","RxDrp","RxOvr","TxOk","TxBps","TxUtil","TxErr","TxDrp","TxOvr"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces counters detailed",
+    "required_args": ["INTERFACE_NAME"],
+    "optional_args": [],
+    "options": ["period"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["TrimPkts","TrimSent","TrimDrp","Rx64","Rx65_127","Rx128_255","Rx256_511","Rx512_1023","Rx1024_1518","Rx1519_2047","Rx2048_4095","Rx4096_9216","Rx9217_16383","Tx64","Tx65_127","Tx128_255","Tx256_511","Tx512_1023","Tx1024_1518","Tx1519_2047","Tx2048_4095","Tx4096_9216","Tx9217_16383","RxAll","RxUnicast","RxMulticast","RxBroadcast","TxAll","TxUnicast","TxMulticast","TxBroadcast","RxJabbers","RxFragments","RxUndersize","RxOverruns","TimestampClearedCounters"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces counters errors",
+    "required_args": [],
+    "optional_args": [],
+    "options": ["period"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["State","RxErr","RxDrp","RxOvr","TxErr","TxDrp","TxOvr"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces counters fec-histogram",
+    "required_args": ["INTERFACE_NAME"],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": ["BinIndex","Codewords"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces counters fec-stats",
+    "required_args": [],
+    "optional_args": [],
+    "options": ["period"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["State","FecCorr","FecUncorr","FecSymbolErr","FecPreBer","FecPostBer"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces counters rates",
+    "required_args": [],
+    "optional_args": [],
+    "options": ["period"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["State","RxOk","RxBps","RxPps","RxUtil","TxOk","TxBps","TxPps","TxUtil"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces counters rif",
+    "required_args": [],
+    "optional_args": ["RIF_INTERFACE"],
+    "options": ["period"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": ["RxOkPackets","RxBps","RxPps","RxErrPackets","TxOkPackets","TxBps","TxPps","TxErrPackets","RxErrBits","TxErrBits","RxOkBits","TxOkBits"],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces counters trim",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": ["period"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces description",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces errors",
+    "required_args": ["INTERFACE_NAME"],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces fec status",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces flap",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": ["SONIC_CLI_IFACE_MODE"],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces neighbor expected",
+    "required_args": [],
+    "optional_args": ["DEVICE_NEIGHBOR"],
+    "options": ["SONIC_CLI_IFACE_MODE"],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces naming_mode",
+    "required_args": [],
+    "optional_args": [],
+    "options": ["SONIC_CLI_IFACE_MODE"],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces portchannel",
+    "required_args": [],
+    "optional_args": [],
+    "options": ["SONIC_CLI_IFACE_MODE"],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces status",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces switchport config",
+    "required_args": [],
+    "optional_args": [],
+    "options": ["SONIC_CLI_IFACE_MODE"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces switchport status",
+    "required_args": [],
+    "optional_args": [],
+    "options": ["SONIC_CLI_IFACE_MODE"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces transceiver eeprom",
+    "required_args": [],
+    "optional_args": [],
+    "options": ["dom"],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces transceiver error-status",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces transceiver info",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces transceiver presence",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces transceiver lpmode",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces transceiver pm",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show interfaces transceiver status",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": ["SONIC_CLI_IFACE_MODE"],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+
+  {
+    "path": "show ipv6 bgp neighbors",
+    "required_args": [],
+    "optional_args": ["IPV6NEIGHBOR", "IPV6_BGP_NEIGHBOR_ARG"],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show ipv6 bgp network",
+    "required_args": [],
+    "optional_args": ["IPV6ADDRESS_PREFIX", "IPV6_BGP_NETWORK_ARG"],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show ipv6 bgp summary",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show ipv6 fib",
+    "required_args": [],
+    "optional_args": ["IPV6ADDRESS_PREFIX"],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show ipv6 interfaces",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show ipv6 link-local-mode",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show ipv6 prefix-list",
+    "required_args": [],
+    "optional_args": ["IPV6ADDRESS_PREFIX_FAMILY"],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show ipv6 protocol",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show ipv6 route",
+    "required_args": [],
+    "optional_args": ["IPV6_ROUTE_ARG"],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show lldp neighbors",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show lldp table",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show mac",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show mac aging-time",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show mmu",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show ndp",
+    "required_args": [],
+    "optional_args": ["IPV6ADDRESS_PREFIX"],
+    "options": ["interface_vlan"],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+ 
+  {
+    "path": "show processes",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show processes memory",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show processes summary",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show processes cpu",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show queue counters",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": ["nonzero", "all", "trim"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show queue wredcounters",
+    "required_args": [],
+    "optional_args": ["INTERFACE_NAME"],
+    "options": ["nonzero"],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show queue watermark",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show queue watermark all",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show queue watermark unicast",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show queue watermark multicast",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show queue persistent-watermark",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show queue persistent-watermark all",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show queue persistent-watermark unicast",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show queue persistent-watermark multicast",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show reboot-cause",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show reboot-cause history",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show services",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show srv6 stats",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_map",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show system-memory",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show uptime",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show version",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show vlan brief",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "array",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  },
+  {
+    "path": "show watermark telemetry interval",
+    "required_args": [],
+    "optional_args": [],
+    "options": [],
+    "schema": {
+      "shape": "object_keys",
+      "required_keys": [],
+      "required_map_keys": []
+    },
+    "validateSchema": false
+  }
+]
