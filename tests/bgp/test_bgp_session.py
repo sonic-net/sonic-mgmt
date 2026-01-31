@@ -229,6 +229,14 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     )
 
     try:
+        # BGP service has start limit with value of StartLimitBurst=3 and StartLimitIntervalUSec=20min,
+        # which means bgp service cannot start if it restarts more than 3 times within 20 minutes.
+        # This case tests bgp and swss service restart. Restarting swss service also triggers bgp service restart.
+        # - In Debian 11, the bgp restart triggered by swss restart was not counted.
+        # - In Debian 13, this is correctly counted, causing the start limit to be reached and bgp service cannot start.
+        # To avoid this issue, reset the systemd failed state counter before service restart.
+        duthost.shell("sudo systemctl reset-failed bgp.service")
+
         if test_type == "bgp_docker":
             duthost.shell("systemctl restart bgp")
         elif test_type == "swss_docker":
