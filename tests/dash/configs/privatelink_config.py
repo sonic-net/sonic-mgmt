@@ -130,6 +130,14 @@ PE_VNET_MAPPING_CONFIG = {
     }
 }
 
+VM_VNET_MAPPING_CONFIG = {
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{VM1_CA}": {
+        "routing_type": RoutingType.ROUTING_TYPE_VNET,
+        "underlay_ip": VM1_PA,
+        "mac_address": VM_MAC,
+    }
+}
+
 PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_CONFIG = {
     f"DASH_VNET_MAPPING_TABLE:{VNET1}:{PE_CA}": {
         "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
@@ -187,7 +195,7 @@ TUNNEL4_CONFIG = {
 INBOUND_VNI_ROUTE_RULE_CONFIG = {
     f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{ENCAP_VNI}:{PE_PA}/32": {
         "action_type": ActionType.ACTION_TYPE_DECAP,
-        "priority": 1
+        "priority": 0
     }
 }
 
@@ -196,7 +204,7 @@ INBOUND_VNI_ROUTE_RULE_CONFIG = {
 TRUSTED_VNI_ROUTE_RULE_CONFIG = {
     f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{ENI_TRUSTED_VNI}:{VM1_PA}/32": {
         "action_type": ActionType.ACTION_TYPE_DECAP,
-        "priority": 1
+        "priority": 0
     }
 }
 
@@ -217,7 +225,7 @@ VM_SUBNET_ROUTE_WITH_TUNNEL_SINGLE_ENDPOINT = {
 VM_VNI_ROUTE_RULE_CONFIG = {
     f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{VM_VNI}:{VM1_PA}/32": {
         "action_type": ActionType.ACTION_TYPE_DECAP,
-        "priority": 1
+        "priority": 0
     }
 }
 
@@ -244,8 +252,7 @@ ROUTING_TYPE_VNET_CONFIG = {
         "items": [
             {
                 "action_name": "action1",
-                "action_type": ActionType.ACTION_TYPE_STATICENCAP,
-                "encap_type": EncapType.ENCAP_TYPE_VXLAN,
+                "action_type": ActionType.ACTION_TYPE_MAPROUTING,
             },
         ]
     }
