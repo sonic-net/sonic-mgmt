@@ -2161,7 +2161,7 @@
             "docker_prompt": "@sonic-ttan-ucs-m6-30",
             "run_type_check": "run_tests",
             "sonic_mgmt_container_202505": "cicd-prod-2025",
-	    "sonic_mgmt_container_202511": "cicd_prod_202511",
+            "sonic_mgmt_container_202511": "cicd_prod_202511",
             "sonic_installer_commands":[
                 "sudo show boot",
                 "sudo sonic-installer install $image_url --skip-package-migration",
