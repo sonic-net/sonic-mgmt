@@ -5,38 +5,38 @@ import time
 import ipaddress
 
 from run_events_test import run_test
+from tests.common.utilities import is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
 tag = "sonic-events-bgp"
 
 
-def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, drop_tcp_packets,
+def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
+    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, drop_tcp_packets,
              "bgp_notification.json", "sonic-events-bgp:notification", tag)
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_bgp_neighbors,
+    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_bgp_neighbors,
              "bgp_state.json", "sonic-events-bgp:bgp-state", tag)
 
 
-def drop_tcp_packets(duthost):
-    # Check if DUT management is IPv6-only and select appropriate BGP neighbor
-    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
-    is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
+def drop_tcp_packets(duthost, tbinfo):
+    # Check if topo is IPv6-only and select appropriate BGP neighbor
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
 
-    # Get all BGP neighbors and filter by IP version based on management interface
+    # Get all BGP neighbors and filter by IP version based on v6/non-v6 topo
     all_bgp_neighbors = duthost.get_bgp_neighbors()
     bgp_neighbor = None
 
-    if is_mgmt_ipv6_only:
+    if is_v6_topo:
         # Find an IPv6 BGP neighbor
         for neighbor_ip in all_bgp_neighbors.keys():
             if ipaddress.ip_address(neighbor_ip).version == 6:
                 bgp_neighbor = neighbor_ip
                 break
         if bgp_neighbor is None:
-            raise Exception("No IPv6 BGP neighbors found for IPv6-only management interface")
+            raise Exception("No IPv6 BGP neighbors found for IPv6-only topo")
         iptables_cmd = "ip6tables"
         logger.info(
-            "Using IPv6 BGP neighbor %s and ip6tables for IPv6-only DUT management interface",
+            "Using IPv6 BGP neighbor %s and ip6tables for IPv6-only topo",
             bgp_neighbor
         )
     else:
@@ -49,7 +49,7 @@ def drop_tcp_packets(duthost):
             # Fallback to first neighbor if no IPv4 found
             bgp_neighbor = list(all_bgp_neighbors.keys())[0]
         iptables_cmd = "iptables"
-        logger.info("Using IPv4 BGP neighbor {} and iptables for IPv4 DUT management interface".format(bgp_neighbor))
+        logger.info("Using IPv4 BGP neighbor {} and iptables".format(bgp_neighbor))
 
     holdtime_timer_ms = duthost.get_bgp_neighbor_info(bgp_neighbor)["bgpTimerConfiguredHoldTimeMsecs"]
 
@@ -73,7 +73,7 @@ def drop_tcp_packets(duthost):
     assert ret["rc"] == 0, "Unable to remove DROP rule from {}".format(iptables_cmd)
 
 
-def shutdown_bgp_neighbors(duthost):
+def shutdown_bgp_neighbors(duthost, tbinfo):
     logger.info("Shutting down bgp neighbors to test bgp-state event")
     assert duthost.is_service_running("bgpcfgd", "bgp") is True and duthost.is_bgp_state_idle() is False
     logger.info("Start all bgp sessions")
