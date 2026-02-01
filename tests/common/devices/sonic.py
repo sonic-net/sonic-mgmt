@@ -2230,7 +2230,9 @@ Totals               6450                 6449
         Returns:
             True or False
         """
-        bgp_summary = self.command("show ip bgp summary")["stdout_lines"]
+        bgp_summary_v4 = self.command("show ip bgp summary")["stdout_lines"]
+        bgp_summary_v6 = self.command("show ipv6 bgp summary")["stdout_lines"]
+        bgp_summary = bgp_summary_v4 + bgp_summary_v6
 
         idle_count = 0
         expected_idle_count = 0
@@ -2241,7 +2243,7 @@ Totals               6450                 6449
 
             if "Total number of neighbors" in line:
                 tokens = line.split()
-                expected_idle_count = int(tokens[-1])
+                expected_idle_count += int(tokens[-1])
 
             if "BGPMonitor" in line:
                 bgp_monitor_count += 1
@@ -3339,6 +3341,28 @@ print(device_prefix)
             raise RuntimeError(error_msg)
 
         logging.info("Successfully cleaned up all console sessions")
+
+    def get_mgmt_ip(self):
+        """
+        Gets the management IP address (v4 or v6) on eth0.
+        Defaults to IPv4 on a dual stack configuration.
+        """
+        ipv4_regex = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/\d+")
+        ipv6_regex = re.compile(r"([a-fA-F0-9:]+)/\d+")
+
+        mgmt_interface = self.shell("show ip interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+        if mgmt_interface:
+            match = ipv4_regex.search(mgmt_interface)
+            if match:
+                return {"mgmt_ip": match.group(1), "version": "v4"}
+
+        mgmt_interface = self.shell("show ipv6 interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+        if mgmt_interface:
+            match = ipv6_regex.search(mgmt_interface)
+            if match:
+                return {"mgmt_ip": match.group(1), "version": "v6"}
+
+        assert False, "Failed to find duthost mgmt ip"  # noqa: F631
 
 
 def assert_exit_non_zero(shell_output):

@@ -80,6 +80,12 @@ acl/test_acl.py:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+acl/test_acl.py::TestMultiBindingAcl:
+  skip:
+    reason: "MultiBinding only supports dualtor topo"
+    conditions:
+      - "'dualtor' not in topo_name"
+
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
@@ -159,7 +165,8 @@ arp/test_arp_extended.py::test_proxy_arp[v4-:
     conditions:
       - "'-v6-' in topo_name"
 
-arp/test_arp_update.py::test_kernel_asic_mac_mismatch[ipv4]:
+arp/test_arp_update.py::test_kernel_asic_mac_mismatch\[.*ipv4.*\]:
+  regex: true
   skip:
     reason: "skip for IPv6-only topologies"
     conditions:
@@ -428,10 +435,8 @@ bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv4:
 
 bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv6:
   xfail:
-    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style or due to GH issue 23938"
-    conditions_logical_operator: or
+    reason: "xfail for GH issue 23938"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20193 and '-v6-' in topo_name"
       - "https://github.com/sonic-net/sonic-buildimage/issues/23938"
 
 bgp/test_bgp_session.py::test_bgp_session_interface_down:
@@ -513,13 +518,15 @@ bgp/test_bgp_suppress_fib.py:
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405', 'master']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
   xfail:
-    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756"
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756 or Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20756 and '-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24679 and asic_type in ['mellanox', 'nvidia']"
 
-bgp/test_bgp_suppress_fib.py::test_credit_loop:
+bgp/test_bgp_suppress_fib.py::test_bgp_route_without_suppress:
   xfail:
-    reason: "xfail for Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
+    reason: "Testcase ignored due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24679 and asic_type in ['mellanox', 'nvidia']"
 
@@ -632,6 +639,15 @@ cacl/test_ebtables_application.py:
     reason: "Ebtables shouldn't be installed in KVM which blocks L2 forwarding, skip in PR testing"
     conditions:
       - "asic_type in ['vs']"
+
+#######################################
+#####             clock           #####
+#######################################
+clock/test_clock.py::test_config_clock_timezone:
+  xfail:
+    reason: "xfail due to github issue https://github.com/sonic-net/sonic-buildimage/issues/24562"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24562 and asic_type in ['mellanox', 'nvidia', 'vs']"
 
 #######################################
 #####           configlet         #####
@@ -811,11 +827,13 @@ db_migrator/test_migrate_dns.py::test_migrate_dns_03:
 #######################################
 decap/test_decap.py:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 and v6 topos'
-    conditions_logical_operator: or
+    reason: 'Skip on t1-isolated-d32/128 topos'
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
-      - "'-v6-' in topo_name"
+  xfail:
+    reason: "Xfail due to github issue 20982"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20982 and asic_type in ['mellanox', 'nvidia']"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
   skip:
@@ -1866,6 +1884,12 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv4-erspan
     conditions:
       - "'-v6-' in topo_name"
 
+everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv4-erspan_ipv4-default]:
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+
 everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv4-erspan_ipv6-default]:
   skip:
     reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3 and Arista-7060CX"
@@ -1934,6 +1958,12 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
       - "asic_type in ['cisco-8000']"
       - "'t0-120' in topo_name and asic_type in ['mellanox']"
       - "'-v6-' in topo_name"
+
+everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv4:
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -2167,11 +2197,11 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
-    reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms and Broadcom DNX platforms."
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8122 platforms and Broadcom DNX platforms."
     conditions_logical_operator: "OR"
     conditions:
-      - "asic_type in ['cisco-8000']"
       - "asic_subtype in ['broadcom-dnx']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -2243,6 +2273,12 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv4:
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
     reason: "Skip for IPv6-only topologies"
@@ -2278,6 +2314,12 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv4:
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -2335,9 +2377,10 @@ fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
 #######################################
 fib/test_fib.py:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Skip on t1-isolated-d32/128 topos or due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17930'
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17930 and topo_name in ['t1-isolated-d28u1']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -2545,6 +2588,13 @@ generic_config_updater/test_bgp_speaker.py::test_bgp_speaker_tc1_test_config:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20757 and '-v6-' in topo_name"
 
+generic_config_updater/test_cacl:
+  skip:
+    reason: "Skip on Cisco 8800 due to the known ACL_RULE path failed to be applied for multi-asic platform issue"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/20378"
+
 generic_config_updater/test_dhcp_relay.py:
   skip:
     reason: "Need to skip for Cisco backend platform/ generic_config_updater is not a supported feature for T2"
@@ -2579,11 +2629,37 @@ generic_config_updater/test_dynamic_acl.py::test_gcu_acl_dhcp_rule_creation:
     conditions:
       - "'t0-isolated' in topo_name"
 
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_drop_rule_creation[default-Vlan1000]:
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_drop_rule_removal[default-Vlan1000]:
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_forward_rule_priority_respected[default-Vlan1000]:
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+
 generic_config_updater/test_dynamic_acl.py::test_gcu_acl_forward_rule_removal:
   xfail:
-    reason: "skip for IPv6-only topologies"
+    reason: "skip for IPv6-only topologies or xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions_logical_operator: "OR"
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_forward_rule_replacement[default-Vlan1000]:
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
@@ -2593,6 +2669,7 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "hwsku in ['Cisco-8800-LC-48H-C48']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/22295 and platform in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -3335,6 +3412,12 @@ ip/test_ip_packet.py:
     conditions:
       - "len(minigraph_interfaces) < 2 and len(minigraph_portchannels) < 2"
 
+ip/test_ip_packet.py::TestIPPacket::
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_drop:
   skip:
     reason: "Broadcom, Cisco, Barefoot, and Marvell Asic will tolorate IP packets with 0xffff checksum
@@ -3371,6 +3454,12 @@ ipfwd/test_dip_sip.py:
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "topo_type not in ['t0', 't1', 't2', 'm0', 'mx', 'm1', 'lt2', 'ft2']"
+
+ipfwd/test_dip_sip.py::test_dip_sip:
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
 ipfwd/test_dir_bcast.py:
   skip:
@@ -4408,10 +4497,6 @@ route/test_route_flow_counter.py:
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs']"
-  xfail:
-    reason: "xfail for IPv6-only topologies, didn't use IPv6 when should"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19926 and '-v6-' in topo_name"
 
 route/test_route_perf.py:
   skip:
@@ -4716,10 +4801,11 @@ snmp/test_snmp_queue.py:
 snmp/test_snmp_queue_counters.py:
   skip:
     conditions_logical_operator: OR
-    reason: "Have an known issue on kvm testbed / Unsupported in M* topos"
+    reason: "Have an known issue on kvm testbed / Unsupported in M* topos or issue #17929 on Mellanox platform"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14007"
       - "topo_type in ['m0', 'mx', 'm1']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17929 and asic_type in ['mellanox']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -4931,6 +5017,13 @@ tacacs/test_authorization.py::test_authorization_tacacs_and_local:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/11349
 
+
+tacacs/test_authorization.py::test_authorization_tacacs_only:
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+
 tacacs/test_ro_disk.py:
   skip:
     reason: "Testcase skip due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/20787"
@@ -5123,6 +5216,12 @@ upgrade_path/test_upgrade_path.py::test_upgrade_path_t2:
 #######################################
 #####            vlan             #####
 #######################################
+vlan/test_vlan.py::test_vlan_tc5_untagged_unicast:
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+
 vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
   skip:
     reason: "Unsupported platform."
@@ -5275,8 +5374,10 @@ vxlan/test_vnet_bgp_route_precedence.py:
       - "release in ['202411']"
   xfail:
     reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23824"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23824"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21895 and '-v6-' in topo_name and asic_type in ['mellanox']"
 
 vxlan/test_vnet_decap.py::test_vnet_decap[inner_ipv4-outer_ipv4]:
   xfail:

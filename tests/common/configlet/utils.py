@@ -121,7 +121,14 @@ scan_dbs = {
             "keys_skip_val_comp": {
                 "last_up_time",
                 "last_down_time",
-                "flap_count"
+                "flap_count",
+                "pre1",
+                "pre2",
+                "pre3",
+                "post1",
+                "post2",
+                "post3",
+                "main"
             }
         },
         "state-db": {
