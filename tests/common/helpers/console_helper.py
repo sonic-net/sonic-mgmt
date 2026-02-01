@@ -1,6 +1,8 @@
 import pytest
 import pexpect
 import re
+import string
+import random
 
 
 def assert_expect_text(client, text, target_line, timeout_sec=0.1):
@@ -60,3 +62,8 @@ def handle_pexpect_exceptions(target_line):
         pytest.fail(f"Timeout reached during console interaction for line {target_line}.")
     except Exception as e:
         pytest.fail(f"Error occured during console interaction for line {target_line}: {e}")
+
+
+def generate_random_string(length):
+    letters = string.ascii_lowercase
+    return ''.join(random.choice(letters) for i in range(length))
