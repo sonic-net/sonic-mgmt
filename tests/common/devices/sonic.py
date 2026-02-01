@@ -24,7 +24,7 @@ from tests.common.helpers.platform_api.chassis import is_inband_port
 from tests.common.helpers.parallel import parallel_run_threaded
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
-from typing import TypedDict
+from typing import Dict, Optional, TypedDict
 
 
 class ShellResult(TypedDict):
@@ -36,6 +36,12 @@ class ShellResult(TypedDict):
     stderr_lines: list
     failed: bool
     changed: bool
+
+
+class ConsoleLineStatus(TypedDict):
+    """Type definition for console line status."""
+    oper_state: str
+    state_duration: str
 
 
 logger = logging.getLogger(__name__)
@@ -3077,8 +3083,7 @@ print(device_prefix)
         # Execute loopback command
         command = (
             f"sudo socat -d -d "
-            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},crtscts={crtscts_val} "
             f"EXEC:'/bin/cat' "
             f"& echo $! "
         )
@@ -3159,10 +3164,8 @@ print(device_prefix)
         # Execute bridge command
         command = (
             f"sudo socat -d -d "
-            f"FILE:{device_path1},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
-            f"FILE:{device_path2},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path1},raw,echo=0,nonblock,b{baud_rate},crtscts={crtscts_val} "
+            f"FILE:{device_path2},raw,echo=0,nonblock,b{baud_rate},crtscts={crtscts_val} "
             f"& echo $! "
         )
 
@@ -3255,8 +3258,7 @@ print(device_prefix)
         # Execute bridge command to remote host
         command = (
             f"sudo socat -d -d "
-            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path},raw,echo=0,b{baud_rate},crtscts={crtscts_val} "
             f"TCP:{remote_host}:{remote_port} "
             f"& echo $! "
         )
@@ -3291,9 +3293,8 @@ print(device_prefix)
         pids = res['stdout'].strip().split('\n') if res['stdout'].strip() else []
 
         if not pids or pids == ['']:
-            error_msg = f"No remote bridge found for port {port}"
-            logging.error(error_msg)
-            raise RuntimeError(error_msg)
+            logging.info(f"No remote bridge found for port {port}, nothing to do")
+            return
 
         # Kill all related socat processes
         for pid in pids:
@@ -3341,6 +3342,96 @@ print(device_prefix)
             raise RuntimeError(error_msg)
 
         logging.info("Successfully cleaned up all console sessions")
+
+    @staticmethod
+    def parse_show_line_output(output: str) -> Dict[str, ConsoleLineStatus]:
+        """
+        Parse the output of 'show line -b' command.
+
+        Example output:
+          Line    Baud    Flow Control    PID    Start Time      Device    Oper State    State Duration
+        ------  ------  --------------  -----  ------------  ----------  ------------  ----------------
+             1    9600        Disabled      -             -   Terminal1       Unknown          3h20m26s
+             2    9600        Disabled      -             -   Terminal2       Unknown          3h32m59s
+
+        Returns:
+            Dict[str, LineStatus]: {line_id: {'oper_state': str, 'state_duration': str}} for all lines
+        """
+        result: Dict[str, ConsoleLineStatus] = {}
+        lines = output.strip().split('\n')
+
+        # Find the header line to determine column positions
+        header_line = None
+        data_start = 0
+        for i, line in enumerate(lines):
+            if 'Line' in line and 'Oper State' in line:
+                header_line = line
+                data_start = i + 2  # Skip header and separator line
+                break
+
+        if header_line is None:
+            return result
+
+        # Parse data lines
+        for line in lines[data_start:]:
+            if not line.strip():
+                continue
+
+            # Split by multiple spaces to handle the tabular format
+            parts = line.split()
+            if len(parts) >= 8:
+                # Line ID is the first column, Oper State is the 7th column (index 6)
+                # State Duration is the 8th column (index 7)
+                # Format: Line, Baud, Flow Control (2 words), PID, Start Time, Device, Oper State, State Duration
+                line_id = parts[0]
+                oper_state = parts[6]
+                state_duration = parts[7]
+                result[line_id] = ConsoleLineStatus(
+                    oper_state=oper_state,
+                    state_duration=state_duration
+                )
+
+        return result
+
+    def get_console_line_statuses(self) -> Dict[str, ConsoleLineStatus]:
+        """
+        Get status of all configured console lines using 'show line -b' command.
+
+        Returns:
+            Dict[str, LineStatus]: {line_id: {'oper_state': str, 'state_duration': str}} for all lines
+        """
+        output = self.shell("show line -b")['stdout']
+        return self.parse_show_line_output(output)
+
+    def get_console_line_status(self, line_id: int) -> Optional[str]:
+        """
+        Get the oper_state of a specific console line.
+
+        Args:
+            line_id: Console line ID (e.g., 1, 2)
+
+        Returns:
+            str: Line status ('Up', 'Unknown') or None if not found
+        """
+        all_statuses = self.get_console_line_statuses()
+        line_info = all_statuses.get(str(line_id))
+        return line_info['oper_state'] if line_info else None
+
+    def enable_console_heartbeat(self) -> None:
+        """
+        Enable console heartbeat on the DTE side.
+        Starts console-monitor-dte service and enables heartbeat sending.
+        """
+        self.shell("sudo systemctl start console-monitor-dte")
+        self.shell("sudo config console heartbeat enable")
+        logging.info("console-monitor-dte service started and heartbeat enabled")
+
+    def disable_console_heartbeat(self) -> None:
+        """
+        Disable console heartbeat on the DTE side.
+        """
+        self.shell("sudo config console heartbeat disable")
+        logging.info("console heartbeat disabled")
 
     def get_mgmt_ip(self):
         """
