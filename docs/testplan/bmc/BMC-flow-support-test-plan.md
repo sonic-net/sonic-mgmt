@@ -252,3 +252,17 @@ The test will be supported on t0 and t1 topology.
 2. Validate appropriate error message is returned indicating BMC is not available
 3. Run command 'config bmc close-session --session-id <invalid-session-id>' on a Non-BMC switch
 4. Validate appropriate error message is returned indicating BMC is not available
+
+### Test Case # 16 - Test CLI command for reset BMC root password
+1. Run command 'config bmc reset-root-password' to ensure the BMC root password is at default state and validate the command returns success message
+2. Use curl command with default credentials to change the root password to a new password and validate the password change is successful
+   'curl -k -i -u root:0penBmc -H "Content-Type: application/json" -X PATCH https://<BMC_IP>/redfish/v1/AccountService/Accounts/root -d '{"Password" : "0penBmcTempPass!"}'
+3. Use curl command with new credentials to verify the new password works and validate the response is successful
+   'curl -k -i -u root:0penBmcTempPass! -X GET https://<BMC_IP>/redfish/v1/SessionService/Sessions'
+4. Use curl command with old default credentials and validate access is denied with authentication failure (HTTP 401)
+   'curl -k -i -u root:0penBmc -X GET https://<BMC_IP>/redfish/v1/SessionService/Sessions'
+5. Run command 'config bmc reset-root-password' and validate the command returns success message
+6. Use curl command with default credentials and validate the password has been reset successfully
+   'curl -k -i -u root:0penBmc -X GET https://<BMC_IP>/redfish/v1/SessionService/Sessions'
+7. Use curl command with the previous new password and validate access is denied with authentication failure (HTTP 401)
+   'curl -k -i -u root:0penBmcTempPass! -X GET https://<BMC_IP>/redfish/v1/SessionService/Sessions'
