@@ -240,6 +240,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
         random_upstream_intf = random.choice(list(upstream_links_for_unselected_dut.keys()))
         rx_port_ptf_id = upstream_links_for_unselected_dut[random_upstream_intf]["ptf_port_id"]
         tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
+        try_num = 1
+        if everflow_dut.facts['asic_type'] == 'vs':
+            try_num = 5                                    
         # Adding retries is required by MSFT to overcome the issue of random packet loss on their simulator
         retry_call(
             self._run_everflow_test_scenarios,
@@ -256,7 +259,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                 'multi_binding_acl': True
             },
             exceptions=Exception,
-            tries=5,
+            tries=try_num,
             delay=10,
             logger=logger
         )
