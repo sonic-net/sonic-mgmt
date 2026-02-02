@@ -24,8 +24,6 @@ container_name_mapping = {
     "docker-sonic-telemetry": "telemetry",
     "docker-sonic-gnmi": "gnmi",
     "docker-gnmi-watchdog": "gnmi_watchdog",
-    "docker-auditd": "auditd",
-    "docker-auditd-watchdog": "auditd_watchdog",
     "docker-sonic-bmp": "bmp",
     "docker-bmp-watchdog": "bmp_watchdog",
 }
