@@ -120,29 +120,37 @@ def convert_to_rsb(duthosts, duts_minigraph_facts, gcu_mode_enabled):
             return
         node.shell("rm /etc/sonic/running_golden*", module_ignore_errors=True)
         filename = node.fetch(src=minigraph_xml, dest="/tmp")['dest']
+        modified = 0
         for entry in duts_minigraph_facts[node.hostname]:
-            modify_minigraph(filename, entry[1], rsb_mode)
+            modified += modify_minigraph(filename, entry[1], rsb_mode)
 
         backup_config_files(node, "full_configs")
-        copy_and_load_minigraph_to_dut(node, filename)
+        if modified:
+            copy_and_load_minigraph_to_dut(node, filename)
         backup_config_files(node, "rsb_configs")
         prepare_gcu_patches(node, "full_configs", "rsb_configs")
         copy_minigraph_back(node, "full_configs")
 
-    # for dut in duthosts:
-    #     convert_dut_to_rsb(dut, duts_minigraph_facts, rsb_mode)
-    parallel_run(
-        convert_dut_to_rsb,
-        [],
-        {'duts_minigraph_facts': duts_minigraph_facts, 'rsb_mode': gcu_mode_enabled},
-        duthosts)
+    try:
+        convert_args = {
+            'duts_minigraph_facts': duts_minigraph_facts,
+            'rsb_mode': gcu_mode_enabled,
+            'results': None}
+        # for dut in duthosts:
+        #     convert_dut_to_rsb(dut, **convert_args)
+        parallel_run(
+            convert_dut_to_rsb,
+            [],
+            convert_args,
+            duthosts)
 
-    yield
+        yield
 
-    for dut in duthosts:
-        config_reload(dut, config_source="minigraph", start_bgp=True)
-        dut.shell("rm /etc/sonic/running_golden*", module_ignore_errors=True)
-        dut.shell("config save -y")
+    finally:
+        for dut in duthosts:
+            config_reload(dut, config_source="minigraph", start_bgp=True)
+            dut.shell("rm /etc/sonic/running_golden*", module_ignore_errors=True)
+            dut.shell("config save -y")
 
 
 def backup_config_files(dut, path):
@@ -159,16 +167,20 @@ def copy_and_load_minigraph_to_dut(dut, path):
 
 def prepare_gcu_patches(duthost, full_configs, rsb_configs, gcu_patches="gcu_patches"):
     duthost.shell(f"mkdir {gcu_patches}", module_ignore_errors=True)
-    for asic in range(3):
+    duthost.shell(f'''rm {gcu_patches}/*.json''', module_ignore_errors=True)
+    for asic in duthost.get_asic_ids():
+        p_file = f"{gcu_patches}/patch{asic}.json"
         cmds = [
-            f'''jsondiff --indent 2 {rsb_configs}/config_db{asic}.json {full_configs}/config_db{asic}.json > /tmp/f; mv /tmp/f {gcu_patches}/patch{asic}.json''',   # noqa: E501
-            f'''jq 'map(select(.op != "remove"))' {gcu_patches}/patch{asic}.json > /tmp/f; mv /tmp/f {gcu_patches}/patch{asic}.json''',  # noqa: E501
-            f'''jq 'map(select(.op != "move"))' {gcu_patches}/patch{asic}.json > /tmp/f; mv /tmp/f {gcu_patches}/patch{asic}.json''',  # noqa: E501
-            f'''jq 'map(select(.path | contains("BUFFER_PROFILE") | not))' {gcu_patches}/patch{asic}.json > /tmp/f; mv /tmp/f {gcu_patches}/patch{asic}.json''',  # noqa: E501
-            f'''jq 'map(select(.path | contains("BUFFER_POOL") | not))' {gcu_patches}/patch{asic}.json > /tmp/f; mv /tmp/f {gcu_patches}/patch{asic}.json''',   # noqa: E501
-            f'''jq 'map(select(.path | contains("BUFFER_PG") | not))' {gcu_patches}/patch{asic}.json > /tmp/f; mv /tmp/f  {gcu_patches}/patch{asic}.json''',    # noqa: E501
-            f'''sed -i 's@path": "@path": "/asic'{asic}'@' {gcu_patches}/patch{asic}.json''',
-            f'''sed -i 's@from": "@from": "/asic'{asic}'@' {gcu_patches}/patch{asic}.json'''
+            f'''jsondiff --indent 2 {rsb_configs}/config_db{asic}.json {full_configs}/config_db{asic}.json > /tmp/f; mv /tmp/f {p_file}''',   # noqa: E501
+            f'''jq 'map(select(.op != "remove"))' {p_file} > /tmp/f; mv /tmp/f {p_file}''',  # noqa: E501
+            f'''jq 'map(select(.op != "move"))' {p_file} > /tmp/f; mv /tmp/f {p_file}''',  # noqa: E501
+            f'''jq 'map(select(.path | contains("BUFFER_PROFILE") | not))' {p_file} > /tmp/f; mv /tmp/f {p_file}''',  # noqa: E501
+            f'''jq 'map(select(.path | contains("BUFFER_POOL") | not))' {p_file} > /tmp/f; mv /tmp/f {p_file}''',   # noqa: E501
+            f'''jq 'map(select(.path | contains("BUFFER_PG") | not))' {p_file} > /tmp/f; mv /tmp/f  {p_file}''',    # noqa: E501
+            f'''sed -i 's@path": "@path": "/asic'{asic}'@' {p_file}''',
+            f'''sed -i 's@from": "@from": "/asic'{asic}'@' {p_file}''',
+            f'''jq 'map(select(.path | contains("INTERFACE")))' {p_file} > {gcu_patches}/INTERFACES_{asic}.json''',
+            f'''jq 'map(select(.path | contains("INTERFACE") | not))' {p_file} > /tmp/f; mv /tmp/f {p_file}'''
         ]
         for cmd in cmds:
             duthost.shell(cmd=cmd)
@@ -178,7 +190,7 @@ def copy_minigraph_back(duthost, source):
     duthost.shell(f"cp {source}/minigraph.xml /etc/sonic/minigraph.xml")
 
 
-@pytest.fixture(autouse=True,  scope="module")
+@pytest.fixture(autouse=True,  scope="session")
 def load_gcu_config(duthosts, gcu_mode_enabled):
 
     if gcu_mode_enabled == "":
@@ -186,26 +198,19 @@ def load_gcu_config(duthosts, gcu_mode_enabled):
         return
 
     def load_file(dut, filename):
-        if dut.stat(path=filename)['stat']['exists']:
+        stats = dut.stat(path=filename)['stat']
+        if stats['exists'] and stats['size'] != 0:
             result = dut.shell(f"config apply-patch {filename}")
             if result['stdout_lines'][-1] != 'Patch applied successfully.':
                 raise RuntimeError(f"GCU patch{filename} was not applied successfully: Result: {result}")
             return True
-        else:
-            return False
 
     for dut in duthosts:
         path = "gcu_patches"
         if dut.stat(path=path)['stat']['exists']:
-            if dut.is_multi_asic:
-                for asic in range(16):
-                    filename = f"{path}/patch{asic}.json"
-                    if load_file(dut, filename):
-                        continue
-                    else:
-                        break
-            else:
-                filename = f"{path}/patch.json"
+            file_list = [x['path'] for x in dut.find(paths=path, pattern="*.json")['files']]
+            file_list.sort()
+            for filename in file_list:
                 load_file(dut, filename)
 
     yield
