@@ -70,6 +70,7 @@ from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.helpers.parallel import patch_ansible_worker_process
 
 import tests.common.gnmi_setup as gnmi_setup
 
@@ -111,6 +112,9 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
                   'tests.common.fixtures.duthost_utils')
+
+
+patch_ansible_worker_process()
 
 
 def pytest_addoption(parser):
