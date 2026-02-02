@@ -55,6 +55,10 @@ acl/custom_acl_table/test_custom_acl_table.py:
     conditions:
       - "release in ['201811', '201911', '202012']"
       - "'dualtor' in topo_name"
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####            acl              #####
@@ -174,9 +178,11 @@ arp/test_neighbor_mac_noptf.py:
 
 arp/test_stress_arp.py::test_ipv4_arp:
   xfail:
-    reason: "skip for IPv6-only topologies"
+    reason: "skip for IPv6-only topologies or test case has issue on the t0-isolated-d256u256s2 topo"
+    conditions_logical_operator: or
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
 arp/test_unknown_mac.py:
   skip:
@@ -437,6 +443,10 @@ bgp/test_bgp_speaker.py:
     reason: "Not supported on topology backend."
     conditions:
       - "'backend' in topo_name"
+  xfail:
+    reason: "xfail for scale topology, issue https://github.com/sonic-net/sonic-buildimage/issues/24537"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24537 and 't0-isolated-d256u256s2' in topo_name"
 
 bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes[:
   skip:
@@ -1073,6 +1083,13 @@ drop_packets/test_configurable_drop_counters.py::test_neighbor_link_down:
     reason: "xfail for IPv6-only topologies, issue with python max size"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19920 and '-v6-' in topo_name"
+
+
+drop_packets/test_drop_counters.py:
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
 drop_packets/test_drop_counters.py::test_acl_egress_drop:
   xfail:
@@ -4254,8 +4271,10 @@ route/test_default_route.py:
 route/test_default_route.py::test_default_route_set_src:
   xfail:
     reason: "xfail for IPv6-only topologies, need add support for IPv6-only"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19925 and '-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24537 and 't0-isolated-d256u256s2' in topo_name"
 
 route/test_default_route.py::test_default_route_with_bgp_flap:
   xfail:
@@ -4298,6 +4317,10 @@ route/test_route_flap.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11324 and 'dualtor-64' in topo_name"
       - "'standalone' in topo_name"
       - "topo_name in ['t1-isolated-d128']"
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
 route/test_route_flow_counter.py:
   skip:
@@ -4337,12 +4360,20 @@ route/test_static_route.py::test_static_route[:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "xfail for scale topology, issue https://github.com/sonic-net/sonic-buildimage/issues/24537"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24537 and 't0-isolated-d256u256s2' in topo_name"
 
 route/test_static_route.py::test_static_route_ecmp[:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "xfail for scale topology, issue https://github.com/sonic-net/sonic-buildimage/issues/24537"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24537 and 't0-isolated-d256u256s2' in topo_name"
 
 route/test_static_route.py::test_static_route_ecmp_ipv6:
   # This test case may fail due to a known issue https://github.com/sonic-net/sonic-buildimage/issues/4930.
