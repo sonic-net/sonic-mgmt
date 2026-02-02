@@ -3,7 +3,7 @@
     "defaults": {
         "vdm_supported": false,
         "is_non_dac_and_cmis": false,
-        "sfputil_eeprom_dump_time": 5
+        "eeprom_dump_timeout_sec": 5
     },
     "transceivers": {
         "deployment_configurations": {
@@ -20,7 +20,7 @@
                     "dual_bank_supported": true,
                     "platform_hwsku_overrides": {
                         "x86_64-mlnx_msn4700-r0+ACS-MSN4700": {
-                            "sfputil_eeprom_dump_sec": 5
+                            "eeprom_dump_timeout_sec": 5
                         }
                     }
                 }
@@ -32,7 +32,7 @@
                     "dual_bank_supported": true,
                     "platform_hwsku_overrides": {
                         "x86_64-mlnx_msn4700-r0+ACS-MSN4700": {
-                            "sfputil_eeprom_dump_sec": 4
+                            "eeprom_dump_timeout_sec": 4
                         }
                     }
                 }
