@@ -167,6 +167,18 @@ tests/transceiver/
 │       ├── test_reboot_stress.py            # TC 3-5: Reboot stress tests
 │       ├── test_link_stability.py           # TC 6: Link stability monitoring
 │       └── test_power_cycle_stress.py       # TC 7: Power cycle stress test
+├── cdb_fw_upgrade/
+│   ├── __init__.py
+│   ├── conftest.py                          # CDB FW upgrade-specific fixtures
+│   └── test_fw_upgrade.py                   # CDB FW upgrade specific test cases
+├── vdm/
+│   ├── __init__.py
+│   ├── conftest.py                          # VDM-specific fixtures
+│   └── test_vdm.py                          # VDM specific test cases
+└── pm/
+    ├── __init__.py
+    ├── conftest.py                          # PM-specific fixtures
+    └── test_pm.py                           # PM specific test cases
 ```
 
 ## Module Relationship
@@ -174,7 +186,7 @@ tests/transceiver/
 ```text
 ┌────────────────────────────────────────────────────────────────────────┐
 │                            Test Files                                  │
-│                  (eeprom/, dom/, system/)                              │
+│       (eeprom/, dom/, system/, cdb_fw_upgrade/, vdm/, pm/ etc.)        │
 └──────────────────────────────┬─────────────────────────────────────────┘
                                │ uses
                                ▼
