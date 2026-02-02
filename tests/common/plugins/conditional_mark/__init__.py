@@ -28,7 +28,7 @@ MARK_CONDITIONS_CONSTANTS = {
                      't1-lag', 't1-28-lag', 't1-48-lag', 't1-64-lag', 't1-56-lag',
                      't1-backend', 't1-isolated-d128', 't1-isolated-d32',
                      't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic',
-                     'lt2-p32o64', 'lt2-o128', 'ft2-64']
+                     'lt2-p32o64', 'lt2-o128', 'ft2-64', 't2_one_hwsku_min', 't2_one_hwsku_max']
 }
 
 
