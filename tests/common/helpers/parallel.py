@@ -41,7 +41,7 @@ os.register_at_fork(before=logging._acquireLock,
                     after_in_child=logging._releaseLock)
 
 
-def _fix_logging_handler_fork_lock():
+def fix_logging_handler_fork_lock():
     """Prevent logging handlers from deadlocking after fork."""
     # Collect all loggers including root
     loggers = [logging.getLogger()] + list(logging.Logger.manager.loggerDict.values())
@@ -184,7 +184,7 @@ def parallel_run(
 
     # Before spawning the child process, ensure current thread is
     # holding the logging handler locks to avoid deadlock in child process.
-    _fix_logging_handler_fork_lock()
+    fix_logging_handler_fork_lock()
 
     while tasks_done < total_tasks:
         # If execution time of processes exceeds timeout, need to force
