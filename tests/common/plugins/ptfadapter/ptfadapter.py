@@ -102,6 +102,9 @@ class PtfTestAdapter(BaseTest):
         nn.platform_config_update(ptf.config)
         ptf.dataplane_instance = DataPlane(config=ptf.config)
 
+        # set ptf logger level to ERROR to reduce log volume
+        ptf.dataplane_instance.logger.setLevel(logging.ERROR)
+
         # TODO: in case of multi PTF hosts topologies we'll have to provide custom platform that supports that
         # and initialize port_map specifying mapping between tcp://<host>:<port> and port tuple (device_id, port_id)
         for id, ifname in list(ptf.config['port_map'].items()):
