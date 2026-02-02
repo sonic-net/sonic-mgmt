@@ -42,6 +42,7 @@ BMC_COMPLETE_STATUS = "Completed"
 # BMC session test commands
 BMC_OPEN_SESSION_COMMAND = "sudo config bmc open-session"
 BMC_CLOSE_SESSION_COMMAND = "sudo config bmc close-session --session-id {}"
+BMC_RESET_ROOT_PASSWORD_COMMAND = "sudo config bmc reset-root-password"
 
 # Redfish API endpoints (for session tests)
 REDFISH_SESSION_SERVICE_ENDPOINT = "/redfish/v1/SessionService/Sessions"
@@ -53,6 +54,8 @@ CURL_TOKEN_AUTH_GET_WITH_HEADERS = "curl -k -i -H \"X-Auth-Token: {}\" -X GET ht
 CURL_TOKEN_AUTH_POST = "curl -k -i -H \"X-Auth-Token: {}\" -H \"Content-Type: application/json\" -X POST https://{}{} -d '{}'"
 CURL_TOKEN_AUTH_DELETE = "curl -i -k -H \"X-Auth-Token: {}\" -X DELETE https://{}{}"
 CURL_BASIC_AUTH_GET = "curl -k -u {}:{} -X GET https://{}{}"
+CURL_BASIC_AUTH_GET_WITH_HEADERS = "curl -k -i -u {}:{} -X GET https://{}{}"
+CURL_BASIC_AUTH_PATCH = "curl -k -i -u {}:{} -H \"Content-Type: application/json\" -X PATCH https://{}{} -d '{}'"
 CURL_BASIC_AUTH_DELETE = "curl -k -u {}:{} -X DELETE https://{}{}"
 
 def pytest_generate_tests(metafunc):
@@ -422,6 +425,83 @@ class TestBMCApi(PlatformApiTestBase):
         self._validate_bmc_login(duthost, bmc_ip, temp_password)
         bmc.reset_root_password(duthost)
         self._validate_bmc_login(duthost, bmc_ip, self.bmc_root_password)
+
+    def test_reset_root_password_cli(self, duthosts, enum_rand_one_per_hwsku_hostname, bmc_ip):
+        """
+        Test CLI command for reset BMC root password
+
+        Steps:
+        1. Run command 'config bmc reset-root-password' to ensure the BMC root password is at default state
+           and validate the command returns success message
+        2. Use curl command with default credentials to change the root password to a new password
+           and validate the password change is successful
+        3. Use curl command with new credentials to verify the new password works
+           and validate the response is successful
+        4. Use curl command with old default credentials and validate access is denied
+           with authentication failure (HTTP 401)
+        5. Run command 'config bmc reset-root-password' and validate the command returns success message
+        6. Use curl command with default credentials and validate the password has been reset successfully
+        7. Use curl command with the previous new password and validate access is denied
+           with authentication failure (HTTP 401)
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+        temp_password = self._generate_password()
+
+        with allure.step("Step 1: Reset password to default state"):
+            reset_result = duthost.command(BMC_RESET_ROOT_PASSWORD_COMMAND)
+            pytest_assert(reset_result["rc"] == 0, f"Failed to reset BMC root password: {reset_result['stderr']}")
+            pytest_assert("BMC root password reset successful" in reset_result["stdout"],
+                          f"Unexpected output: {reset_result['stdout']}")
+            logger.info("BMC root password reset to default state successfully")
+
+        with allure.step("Step 2: Change password from default to new password"):
+            password_data = json.dumps({"Password": temp_password})
+            change_pwd_cmd = CURL_BASIC_AUTH_PATCH.format(
+                self.bmc_root_user, self.bmc_root_password, bmc_ip,
+                "/redfish/v1/AccountService/Accounts/root", password_data)
+            change_result = duthost.command(change_pwd_cmd)
+            pytest_assert(change_result["stdout"].startswith("HTTP/1.1 200 OK"),
+                          f"Failed to change password: {change_result['stdout']}")
+            logger.info("BMC root password changed to new password successfully")
+
+        with allure.step("Step 3: Verify new password works"):
+            verify_new_pwd_cmd = CURL_BASIC_AUTH_GET_WITH_HEADERS.format(
+                self.bmc_root_user, temp_password, bmc_ip, REDFISH_SESSION_SERVICE_ENDPOINT)
+            verify_result = duthost.command(verify_new_pwd_cmd)
+            pytest_assert(verify_result["stdout"].startswith("HTTP/1.1 200 OK"),
+                          f"New password should work, got: {verify_result['stdout']}")
+            logger.info("New password verified successfully")
+
+        with allure.step("Step 4: Verify old default password is denied"):
+            verify_old_pwd_cmd = CURL_BASIC_AUTH_GET_WITH_HEADERS.format(
+                self.bmc_root_user, self.bmc_root_password, bmc_ip, REDFISH_SESSION_SERVICE_ENDPOINT)
+            verify_old_result = duthost.command(verify_old_pwd_cmd, module_ignore_errors=True)
+            pytest_assert(verify_old_result["stdout"].startswith("HTTP/1.1 401 Unauthorized"),
+                          f"Old default password should be denied with HTTP 401, got: {verify_old_result['stdout']}")
+            logger.info("Old default password is correctly denied")
+
+        with allure.step("Step 5: Reset password back to default"):
+            reset_result = duthost.command(BMC_RESET_ROOT_PASSWORD_COMMAND)
+            pytest_assert(reset_result["rc"] == 0, f"Failed to reset BMC root password: {reset_result['stderr']}")
+            pytest_assert("BMC root password reset successful" in reset_result["stdout"],
+                          f"Unexpected output: {reset_result['stdout']}")
+            logger.info("BMC root password reset back to default successfully")
+
+        with allure.step("Step 6: Verify default password works again"):
+            verify_default_cmd = CURL_BASIC_AUTH_GET_WITH_HEADERS.format(
+                self.bmc_root_user, self.bmc_root_password, bmc_ip, REDFISH_SESSION_SERVICE_ENDPOINT)
+            verify_default_result = duthost.command(verify_default_cmd)
+            pytest_assert(verify_default_result["stdout"].startswith("HTTP/1.1 200 OK"),
+                          f"Default password should work after reset, got: {verify_default_result['stdout']}")
+            logger.info("Default password verified successfully after reset")
+
+        with allure.step("Step 7: Verify previous new password is denied"):
+            verify_temp_pwd_cmd = CURL_BASIC_AUTH_GET_WITH_HEADERS.format(
+                self.bmc_root_user, temp_password, bmc_ip, REDFISH_SESSION_SERVICE_ENDPOINT)
+            verify_temp_result = duthost.command(verify_temp_pwd_cmd, module_ignore_errors=True)
+            pytest_assert(verify_temp_result["stdout"].startswith("HTTP/1.1 401 Unauthorized"),
+                          f"Previous new password should be denied with HTTP 401, got: {verify_temp_result['stdout']}")
+            logger.info("Previous new password is correctly denied after reset")
 
     def test_bmc_dump(self, duthosts, enum_rand_one_per_hwsku_hostname):
         """
