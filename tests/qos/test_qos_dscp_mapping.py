@@ -86,6 +86,15 @@ def dscp_config(dscp_mode, duthost, loganalyzer):
         request: pytest request
         duthost (AnsibleHost): The DUT host
     """
+    asic_type = duthost.facts['asic_type']
+
+    # global DSCP_TO_TC_MAP update is not supported on Broadcom platforms
+    if asic_type == 'broadcom':
+        apply_dscp_cfg_setup(duthost, dscp_mode, loganalyzer)
+        yield
+        apply_dscp_cfg_teardown(duthost, loganalyzer)
+        return
+
     is_global_map_key_exist = duthost.shell('redis-cli -n 4 -c KEYS "PORT_QOS_MAP|global"')["stdout"]
     if is_global_map_key_exist:
         origin_dscp_to_tc_map = duthost.shell('redis-cli -n 4 -c HGET "PORT_QOS_MAP|global" "dscp_to_tc_map"')["stdout"]
