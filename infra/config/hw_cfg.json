@@ -292,10 +292,11 @@
             "dut_ssh":["1.71.55.109", "1.71.55.110", "1.71.55.111", "1.71.55.113"],
             "skip_dut_flag": true,
             "run_type_check": "run_tests.sh -n aaa14-t2",
-            "sonic_mgmt_container_202205": "st_202205",
-            "sonic_mgmt_container_202305": "st_202305",
-            "sonic_mgmt_container_202405": "msft-021925-202405",
-            "sonic_mgmt_container_master": "wb_master",
+            "sonic_mgmt_container_202205": "cicd_prod_202205",
+            "sonic_mgmt_container_202305": "cicd_prod_202305",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202511": "cicd_prod_202511",
+            "sonic_mgmt_container_master": "cicd_prod_master",
             "testbed-setup": {
                 "cmd": [
                     "git clone git@wwwin-github.cisco.com:whitebox/sonic-test.git -b master ./",
