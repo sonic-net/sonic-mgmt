@@ -89,6 +89,9 @@ def fdb_has_mac(duthost, mac):
     Check if FDB has specific MAC address
     """
     mac = mac.lower()
+    logger.info(f"Checking if FDB has MAC address {mac}")
+    mac_lines = [line for line in duthost.command("show mac")["stdout_lines"] if mac in line.lower()]
+    logger.info("Matched MAC entries:\n{}".format("\n".join(mac_lines) if mac_lines else "<none>"))
     return any(mac in line.lower() for line in duthost.command("show mac")["stdout_lines"])
 
 
