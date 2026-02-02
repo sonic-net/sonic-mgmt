@@ -214,7 +214,7 @@ def test_dut_ping_learns_mac(
 ):
     """
     After fdbclear on DUT,
-    PTF sends an ARP request to DUT, 
+    PTF sends an ARP request to DUT,
     DUT replies to ARP request,
     PTF then sends ICMP echo request to DUT,
     Verify DUT learns PTF MAC in FDB.
