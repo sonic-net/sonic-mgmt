@@ -137,14 +137,24 @@ def _shutdown_startup_interface(duthost, interface, asic_str=""):
     duthost.shell("sudo config interface {} startup {}".format(asic_str, interface))
 
 
-def _verify_interface_lldp_recovery(db_instance, interface, lldpctl_interfaces, delay=0):
-    """Verify LLDP entry recovers for an interface after flap."""
-    result = wait_until(60, 2, delay, verify_lldp_entry, db_instance, interface)
+def _verify_interface_lldp_recovery(db_instance, interfaces, lldpctl_interfaces, delay=0):
+    """
+    Verify LLDP entry recovers for interface(s) after flap.
+    Supports both single interface (str) and multiple interfaces (list).
+    """
+    if isinstance(interfaces, str):
+        interfaces = [interfaces]
+
+    result = wait_until(60, 2, delay, verify_lldp_entry, db_instance, interfaces)
     pytest_assert(
         result,
-        "After interface {} flap, no LLDP_ENTRY_TABLE entry for it.".format(interface),
+        "After interface flap, LLDP_ENTRY_TABLE entries not recovered for: {}".format(
+            ", ".join(interfaces)
+        ),
     )
-    verify_each_interface_lldp_content(db_instance, interface, lldpctl_interfaces)
+
+    for interface in interfaces:
+        verify_each_interface_lldp_content(db_instance, interface, lldpctl_interfaces)
 
 
 def assert_lldp_interfaces(
@@ -260,12 +270,14 @@ def assert_lldp_entry_content(interface, entry_content, lldpctl_interface):
     )
 
 
-def verify_lldp_entry(db_instance, interface):
-    entry_content = get_lldp_entry_content(db_instance, interface)
-    if len(entry_content) > 1:
-        return True
-    else:
-        return False
+def verify_lldp_entry(db_instance, interfaces: list):
+    for interface in interfaces:
+        entry_content = get_lldp_entry_content(db_instance, interface)
+        if len(entry_content) <= 1:
+            logger.debug("Interface {} LLDP entry not yet recovered".format(interface))
+            return False
+    return True
+
 
 
 def verify_lldp_table(duthost):
@@ -352,7 +364,7 @@ def test_lldp_entry_table_after_syncd_orchagent(
     time.sleep(60)
     # Wait until all interfaces are up and lldp entries are populated
     for interface in lldp_entry_keys:
-        result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, interface)
+        result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, [interface])
         entry_content = get_lldp_entry_content(db_instance, interface)
         pytest_assert(
             result,
@@ -395,9 +407,8 @@ def test_lldp_entry_table_after_flap(
             interface_list = ",".join(asic_interfaces)
             logger.info("Flapping interfaces: {}".format(interface_list))
             _shutdown_startup_interface(duthost, interface_list, asic_str)
-        time.sleep(10)
-        for interface in testable_interfaces:
-            _verify_interface_lldp_recovery(db_instance, interface, lldpctl_interfaces, delay=0)
+        # Single wait_until call checking all interfaces together
+        _verify_interface_lldp_recovery(db_instance, testable_interfaces, lldpctl_interfaces, delay=10)
     else:
         logger.info("Using sequential interface flap for {} interfaces".format(len(testable_interfaces)))
         asic_interface_map = _get_interface_asic_mapping(duthost, testable_interfaces)
