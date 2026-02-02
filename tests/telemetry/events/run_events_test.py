@@ -10,20 +10,21 @@ from telemetry_utils import listen_for_events
 logger = logging.getLogger(__name__)
 
 
-def run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger, json_file,
-             filter_event_regex, tag, heartbeat=False, timeout=30, ptfadapter=None, tbinfo=None):
+def run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger, json_file,
+             filter_event_regex, tag, heartbeat=False, timeout=30, ptfadapter=None):
     op_file = os.path.join(data_dir, json_file)
     if trigger is not None:  # no trigger for heartbeat
         try:
             if ptfadapter is None:
                 trigger(duthost, tbinfo=tbinfo)  # add events to cache
             else:
-                trigger(duthost, ptfadapter, tbinfo=tbinfo)
+                trigger(duthost, ptfadapter=ptfadapter, tbinfo=tbinfo)
         except TypeError:
             if ptfadapter is None:
                 trigger(duthost)
             else:
                 trigger(duthost, ptfadapter)
+
     listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file,
                       timeout)  # listen from cache
     data = {}
