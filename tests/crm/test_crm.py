@@ -324,12 +324,15 @@ def configure_nexthop_groups(amount, interface, asichost, test_name, chunk_size)
     # Template used to speedup execution many similar commands on DUT
     del_template = """
     %s
+    for s in {{neigh_ip_list}}
+    do
+        ip -4 {{ns_prefix}} route del ${s}/32 nexthop via ${s} nexthop via 2.0.0.1
+    done
     ip -4 {{ns_prefix}} route del 2.0.0.0/8 dev {{iface}}
     ip {{ns_prefix}} neigh del 2.0.0.1 lladdr 11:22:33:44:55:66 dev {{iface}}
     for s in {{neigh_ip_list}}
     do
         ip {{ns_prefix}} neigh del ${s} lladdr 11:22:33:44:55:66 dev {{iface}}
-        ip -4 {{ns_prefix}} route del ${s}/32 nexthop via ${s} nexthop via 2.0.0.1
     done""" % (NS_PREFIX_TEMPLATE)
 
     add_template = """
