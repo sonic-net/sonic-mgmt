@@ -8,6 +8,7 @@ import tempfile
 import scapy.all as scapy
 import ptf.testutils as testutils
 import random
+import re
 
 from ptf.mask import Mask
 from tests.common.config_reload import config_reload
@@ -17,12 +18,17 @@ from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_i
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
                                              DUMMY_IP, BATCH_PACKET_COUNT, PACKET_COUNT, STATIC_THRESHOLD_MULTIPLIER,
-                                             BLOCK_DATA_PLANE_SCHEDULER_NAME, TRIM_QUEUE, PACKET_TYPE, SRV6_PACKETS,
+                                             BLOCK_DATA_PLANE_SCHEDULER_NAME, PACKET_TYPE, SRV6_PACKETS,
                                              TRIM_QUEUE_PROFILE, TRIMMING_CAPABILITY, ACL_TABLE_NAME,
                                              ACL_RULE_PRIORITY, ACL_TABLE_TYPE_NAME, ACL_RULE_NAME, SRV6_MY_SID_LIST,
                                              SRV6_INNER_SRC_IP, SRV6_INNER_DST_IP, DEFAULT_QUEUE_SCHEDULER_CONFIG,
                                              SRV6_UNIFORM_MODE, SRV6_OUTER_SRC_IPV6, SRV6_INNER_SRC_IPV6, ECN,
-                                             SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_TC, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP)
+                                             SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP,
+                                             SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR, MIRROR_SESSION_NAME,
+                                             MIRROR_SESSION_SRC_IP, MIRROR_SESSION_DST_IP, MIRROR_SESSION_DSCP,
+                                             MIRROR_SESSION_TTL, MIRROR_SESSION_GRE, MIRROR_SESSION_QUEUE,
+                                             SCHEDULER_CIR, SCHEDULER_METER_TYPE)
+from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +281,103 @@ def generate_packet(duthost, packet_type, dst_addr, send_pkt_size, send_pkt_dscp
     return pkt, masked_exp_packet
 
 
+def get_scheduler_oid_by_attributes(duthost, **kwargs):
+    """
+    Find scheduler OID in ASIC_DB by matching its attributes.
+
+    Args:
+        duthost: DUT host object
+        **kwargs: Scheduler attributes to match
+            - type: Scheduler type (e.g., "DWRR", "STRICT")
+            - weight: Scheduling weight (e.g., 15)
+            - pir: Peak Information Rate (e.g., 1)
+            - cir: Committed Information Rate (e.g., 1)
+
+    Returns:
+        str: OID of the matched scheduler, or None if not found
+    """
+    # Mapping from CONFIG_DB parameters to ASIC_DB SAI attributes
+    param_to_sai_attr = {
+        'type': 'SAI_SCHEDULER_ATTR_SCHEDULING_TYPE',
+        'weight': 'SAI_SCHEDULER_ATTR_SCHEDULING_WEIGHT',
+        'pir': 'SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE',
+        'cir': 'SAI_SCHEDULER_ATTR_MIN_BANDWIDTH_RATE'
+    }
+
+    # Mapping for type values
+    type_value_mapping = {
+        'DWRR': 'SAI_SCHEDULING_TYPE_DWRR',
+        'STRICT': 'SAI_SCHEDULING_TYPE_STRICT'
+    }
+
+    # Build expected attributes dictionary
+    expected_attrs = {}
+    for param, value in kwargs.items():
+        if param not in param_to_sai_attr:
+            logger.warning(f"Unknown scheduler parameter: {param}")
+            continue
+
+        sai_attr = param_to_sai_attr[param]
+
+        # Convert type value to SAI format
+        if param == 'type':
+            if value in type_value_mapping:
+                expected_attrs[sai_attr] = type_value_mapping[value]
+            else:
+                logger.warning(f"Unknown scheduler type: {value}")
+                continue
+        else:
+            # For numeric values, convert to string for comparison
+            expected_attrs[sai_attr] = str(value)
+
+    logger.info(f"Looking for scheduler with attributes: {expected_attrs}")
+
+    # Get all scheduler OIDs from ASIC_DB
+    cmd_get_oids = 'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_SCHEDULER:oid*"'
+    result = duthost.shell(cmd_get_oids)
+
+    if not result["stdout"].strip():
+        logger.warning("No schedulers found in ASIC_DB")
+        return None
+
+    oid_keys = result["stdout"].strip().split('\n')
+    logger.info(f"Found {len(oid_keys)} schedulers in ASIC_DB")
+
+    # Check each scheduler to find a match
+    for oid_key in oid_keys:
+        # Get all attributes of this scheduler
+        cmd_get_attrs = f'redis-cli -n 1 hgetall "{oid_key}"'
+        result = duthost.shell(cmd_get_attrs)
+
+        if not result["stdout"].strip():
+            continue
+
+        # Parse the attributes
+        lines = result["stdout"].strip().split('\n')
+        scheduler_attrs = {}
+        for i in range(0, len(lines), 2):
+            if i + 1 < len(lines):
+                scheduler_attrs[lines[i]] = lines[i + 1]
+
+        # Check if all expected attributes match
+        is_match = True
+        for attr_name, expected_value in expected_attrs.items():
+            actual_value = scheduler_attrs.get(attr_name)
+            if actual_value != expected_value:
+                is_match = False
+                break
+
+        if is_match:
+            # Extract the OID value (e.g., "0x160000000059aa")
+            oid_value = oid_key.split(':')[-1]
+            logger.info(f"Found matching scheduler OID: {oid_value}")
+            logger.debug(f"Scheduler attributes: {scheduler_attrs}")
+            return oid_value
+
+    logger.warning(f"No scheduler found matching attributes: {expected_attrs}")
+    return None
+
+
 def create_blocking_scheduler(duthost):
     """
     Create a blocking scheduler for limiting egress traffic
@@ -294,8 +397,12 @@ def create_blocking_scheduler(duthost):
         # Create blocking scheduler
         cmd_create = (
             f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" '
-            f'"type" DWRR "weight" 15 "pir" 1'
+            f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR} "cir" {SCHEDULER_CIR}'
         )
+        # meter_type is platform specific
+        if duthost.get_asic_name() == 'th5':
+            cmd_create += f' "meter_type" {SCHEDULER_METER_TYPE}'
+
         duthost.shell(cmd_create)
         logger.info(f"Successfully created blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
 
@@ -350,6 +457,62 @@ def validate_scheduler_configuration(duthost, dut_port, queue, expected_schedule
         return False
 
 
+def get_scheduler_usage_count(duthost, scheduler_oid):
+    """
+    Get the count of scheduler groups using the specified scheduler in ASIC_DB.
+
+    Args:
+        duthost: DUT host object
+        scheduler_oid (str): Scheduler OID to validate (e.g., "0x160000000059aa")
+
+    Returns:
+        int: Number of scheduler groups using this scheduler
+    """
+    # Dump ASIC_DB to a temporary file for faster searching
+    tmp_file = "/tmp/asic_db_scheduler_check.json"
+    dump_cmd = f"sonic-db-dump -n ASIC_DB -y > {tmp_file}"
+    duthost.shell(dump_cmd)
+
+    # Search for the scheduler OID in SAI_SCHEDULER_GROUP_ATTR_SCHEDULER_PROFILE_ID
+    cmd_grep_oid = f'grep "SAI_SCHEDULER_GROUP_ATTR_SCHEDULER_PROFILE_ID" {tmp_file} | grep -c "{scheduler_oid}"'
+    result = duthost.shell(cmd_grep_oid, module_ignore_errors=True)
+
+    # Clean up temporary file
+    duthost.shell(f"rm -f {tmp_file}")
+
+    # Return the count
+    count = int(result["stdout"].strip()) if result["stdout"].strip() else 0
+    return count
+
+
+def validate_scheduler_apply_to_queue_in_asic_db(duthost, scheduler_oid, expected_count=1):
+    """
+    Validate that the scheduler is applied to queue in ASIC_DB.
+
+    Args:
+        duthost: DUT host object
+        scheduler_oid (str): Scheduler OID to validate (e.g., "0x160000000059aa")
+        expected_count (int): Expected number of scheduler groups using this scheduler. Default is 1.
+
+    Returns:
+        bool: True if validation passes (count equals expected_count), False otherwise
+    """
+    logger.debug(f"Validating scheduler OID {scheduler_oid} in ASIC_DB (expected_count={expected_count})")
+
+    # Get current usage count
+    count = get_scheduler_usage_count(duthost, scheduler_oid)
+
+    # Validate count matches expected
+    if count == expected_count:
+        logger.debug(f"ASIC_DB scheduler validation successful: "
+                     f"OID {scheduler_oid} found in {count} scheduler groups (matches expected)")
+        return True
+    else:
+        logger.debug(f"ASIC_DB scheduler validation failed: "
+                     f"OID {scheduler_oid} found in {count} scheduler groups (expected {expected_count})")
+        return False
+
+
 def disable_egress_data_plane(duthost, dut_port, queue):
     """
     Disable egress data plane for a specific queue on a specific port.
@@ -373,14 +536,31 @@ def disable_egress_data_plane(duthost, dut_port, queue):
 
     original_scheduler = result["stdout"].strip()
 
+    # Get the blocking scheduler OID from ASIC_DB
+    scheduler_oid = get_scheduler_oid_by_attributes(duthost, type=SCHEDULER_TYPE,
+                                                    weight=SCHEDULER_WEIGHT, pir=SCHEDULER_PIR)
+    pytest_assert(scheduler_oid, "Failed to find blocking scheduler OID in ASIC_DB")
+
+    # Get current scheduler usage count before applying scheduler to specific queue
+    current_count = get_scheduler_usage_count(duthost, scheduler_oid)
+    logger.info(f"Scheduler OID {scheduler_oid} current usage count before applying: {current_count}")
+
     # Apply blocking scheduler to the specified queue
     cmd_block_q = f"sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME}"
     duthost.shell(cmd_block_q)
 
-    # Wait for the blocking scheduler configuration to take effect
+    # Wait for the blocking scheduler configuration to take effect in CONFIG_DB
     pytest_assert(wait_until(60, 5, 0, validate_scheduler_configuration,
                              duthost, dut_port, queue, BLOCK_DATA_PLANE_SCHEDULER_NAME),
                   f"Blocking scheduler configuration failed for port {dut_port} queue {queue}")
+
+    # Wait for the blocking scheduler configuration to take effect in ASIC_DB
+    # Expected count should increase by 1 after applying scheduler to specific queue
+    expected_count = current_count + 1
+    pytest_assert(wait_until(60, 5, 0, validate_scheduler_apply_to_queue_in_asic_db, duthost, scheduler_oid,
+                             expected_count),
+                  f"Scheduler OID {scheduler_oid} validation in ASIC_DB failed for port {dut_port} "
+                  f"queue {queue} (expected count: {expected_count})")
 
     logger.info(f"Successfully applied blocking scheduler to port {dut_port} queue {queue}")
 
@@ -537,6 +717,8 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         # Use different source port for each interface to ensure proper hash distribution
         # This helps ensure packets go to the intended interface in PortChannel scenarios
         src_port = DEFAULT_SRC_PORT + interface_index
+        if duthost.get_asic_name() == 'th5':
+            src_port = DEFAULT_SRC_PORT + 10 * interface_index
 
         # Create packet for this specific interface based on address type
         common_params = {
@@ -646,7 +828,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
 
 
 def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block_queue, send_pkt_size,
-                           send_pkt_dscp, recv_pkt_size, recv_pkt_dscp, packet_count=PACKET_COUNT, timeout=5,
+                           send_pkt_dscp, recv_pkt_size, recv_pkt_dscp, packet_count, timeout=5,
                            fill_buffer=True, expect_packets=True):
     """
     Verify packet trimming for all packet types with given parameters.
@@ -849,6 +1031,62 @@ def verify_srv6_packet_with_trimming(duthost, ptfadapter, config_setup, ingress_
         raise
 
 
+def get_buffer_profile_name_for_queue(duthost, interface: str, queue_id: int):
+    """
+    Return (profile_name, redis_key) for BUFFER_QUEUE on <interface> covering queue_id,
+    preferring range keys; among overlapping ranges choose the largest span first.
+    Falls back to exact key if no matching range exists. Looks in CONFIG_DB (db 4).
+    """
+    list_cmd = f"redis-cli -n 4 KEYS 'BUFFER_QUEUE|{interface}|*'"
+    res = duthost.shell(list_cmd)
+    raw = (res.get("stdout") or "").strip()
+    if not raw:
+        return (None, None)
+
+    keys = []
+    for line in raw.splitlines():
+        line = line.strip()
+        line = re.sub(r'^\d+\)\s*', '', line).strip().strip('"').strip("'")
+        if line.startswith("BUFFER_QUEUE|"):
+            keys.append(line)
+
+    if not keys:
+        return (None, None)
+
+    exact_match = None
+    range_matches = []  # (span, lo, hi, key)
+
+    for k in keys:
+        suffix = k.split("|")[-1]
+
+        if suffix.isdigit():
+            if int(suffix) == queue_id:
+                exact_match = k
+            continue
+
+        m = re.fullmatch(r'(\d+)\s*-\s*(\d+)', suffix)
+        if m:
+            a, b = int(m.group(1)), int(m.group(2))
+            lo, hi = (a, b) if a <= b else (b, a)
+            if lo <= queue_id <= hi:
+                span = hi - lo
+                range_matches.append((span, lo, hi, k))
+
+    # Prefer the largest span; tie-break by lowest lo, then lowest hi for determinism
+    if range_matches:
+        range_matches.sort(key=lambda t: (-t[0], t[1], t[2]))
+        chosen = range_matches[0][3]
+    elif exact_match:
+        chosen = exact_match
+    else:
+        return (None, None)
+
+    hget_cmd = f"redis-cli -n 4 HGET '{chosen}' profile"
+    res = duthost.shell(hget_cmd)
+    profile_name = (res.get("stdout") or "").strip() or None
+    return (profile_name, chosen)
+
+
 def get_buffer_profile_for_queue(duthost, interface, queue_id):
     """
     Get buffer profile information for a specific queue on an interface.
@@ -864,10 +1102,7 @@ def get_buffer_profile_for_queue(duthost, interface, queue_id):
     """
     try:
         # Get buffer profile name for the queue
-        cmd = f"redis-cli -n 4 HGET 'BUFFER_QUEUE|{interface}|{queue_id}' profile"
-        result = duthost.shell(cmd)
-        profile_name = result["stdout"].strip()
-
+        profile_name, _ = get_buffer_profile_name_for_queue(duthost, interface, queue_id)
         if not profile_name:
             logger.warning(f"No buffer profile found for queue {queue_id} on {interface}")
             return None
@@ -1303,7 +1538,7 @@ def cleanup_trimming_acl(duthost):
 
 
 def set_buffer_profiles_for_block_and_trim_queues(duthost, interfaces, block_queue_id,
-                                                  block_queue_profile, trim_queue_id=TRIM_QUEUE,
+                                                  block_queue_profile, trim_queue_id=None,
                                                   trim_queue_profile=TRIM_QUEUE_PROFILE):
     """
     Set buffer profiles for blocked queue and forward trimming packet queue.
@@ -1313,7 +1548,7 @@ def set_buffer_profiles_for_block_and_trim_queues(duthost, interfaces, block_que
         interfaces (list or str): Port names to configure, can be a list or single string
         block_queue_id: Queue index used for blocking traffic
         block_queue_profile (str): Buffer profile name to apply for blocking queue
-        trim_queue_id (int): Queue index used for packet trimming (default: TRIM_QUEUE)
+        trim_queue_id (int): Queue index used for packet trimming (default: trim queue from packet_trimming_config)
         trim_queue_profile (str): Buffer profile name to apply for trimming queue (default: TRIM_QUEUE_PROFILE)
 
     Raises:
@@ -1321,7 +1556,7 @@ def set_buffer_profiles_for_block_and_trim_queues(duthost, interfaces, block_que
     """
     # Convert queue indices to string for Redis commands
     block_queue_id = str(block_queue_id)
-    trim_queue_id = str(trim_queue_id)
+    trim_queue_id = str(trim_queue_id) if trim_queue_id else str(PacketTrimmingConfig.get_trim_queue(duthost))
 
     logger.info(f"Setting blocking queue ({block_queue_id}) buffer profile to '{block_queue_profile}' and "
                 f"trimming queue ({trim_queue_id}) buffer profile to '{trim_queue_profile}', ports: {interfaces}")
@@ -2218,7 +2453,7 @@ def configure_tc_to_dscp_map(duthost, egress_ports):
     """
     logger.info("Configuring TC_TO_DSCP_MAP for asymmetric DSCP")
 
-    tc_to_dscp_map = {"spine_trim_map": {ASYM_TC: ASYM_PORT_1_DSCP}}
+    tc_to_dscp_map = {"spine_trim_map": {PacketTrimmingConfig.get_asym_tc(duthost): ASYM_PORT_1_DSCP}}
     port_qos_map = {}
 
     # Handle first egress port (spine_trim_map)
@@ -2228,7 +2463,7 @@ def configure_tc_to_dscp_map(duthost, egress_ports):
     logger.info(f"Applied spine_trim_map to interfaces: {egress_ports[0]['dut_members']}")
 
     if len(egress_ports) == 2:
-        tc_to_dscp_map["host_trim_map"] = {ASYM_TC: ASYM_PORT_2_DSCP}
+        tc_to_dscp_map["host_trim_map"] = {PacketTrimmingConfig.get_asym_tc(duthost): ASYM_PORT_2_DSCP}
 
         # Handle second egress port (host_trim_map)
         # Apply to all member interfaces
@@ -2333,7 +2568,8 @@ def verify_trimmed_packet(
             send_pkt_dscp=send_pkt_dscp,
             recv_pkt_size=recv_pkt_size,
             recv_pkt_dscp=dscp,
-            expect_packets=expect_packets
+            expect_packets=expect_packets,
+            packet_count=PACKET_COUNT
         )
 
 
@@ -2689,3 +2925,37 @@ def verify_queue_and_port_trim_counter_consistency(duthost, port):
     # Verify the consistency
     pytest_assert(total_queue_trim_packets == port_trim_packets and total_queue_trim_packets > 0,
                   f"Total trim packets on all queues for port {port} is not equal to the port level")
+
+
+def configure_port_mirror_session(duthost):
+    """
+    Configure an ERSPAN mirror session on the DUT.
+    """
+    logger.info("Configuring ERSPAN mirror session")
+
+    cmd = (f"sudo config mirror_session erspan add {MIRROR_SESSION_NAME} {MIRROR_SESSION_SRC_IP} "
+           f"{MIRROR_SESSION_DST_IP} {MIRROR_SESSION_DSCP} {MIRROR_SESSION_TTL} {MIRROR_SESSION_GRE} "
+           f"{MIRROR_SESSION_QUEUE}")
+    duthost.shell(cmd)
+    logger.info(f"Successfully configured mirror session: {MIRROR_SESSION_NAME}")
+
+    # Verify mirror session is created
+    result = duthost.shell("show mirror_session")
+    pytest_assert(MIRROR_SESSION_NAME in result['stdout'],
+                  f"Mirror session {MIRROR_SESSION_NAME} was not created successfully")
+
+
+def remove_port_mirror_session(duthost):
+    """
+    Remove the ERSPAN mirror session from the DUT.
+    """
+    logger.info(f"Removing mirror session: {MIRROR_SESSION_NAME}")
+
+    cmd = f"sudo config mirror_session remove {MIRROR_SESSION_NAME}"
+    duthost.shell(cmd)
+    logger.info(f"Successfully removed mirror session: {MIRROR_SESSION_NAME}")
+
+    # Verify mirror session is removed
+    result = duthost.shell("show mirror_session")
+    pytest_assert(MIRROR_SESSION_NAME not in result['stdout'],
+                  f"Mirror session {MIRROR_SESSION_NAME} was not removed successfully")

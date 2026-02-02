@@ -25,7 +25,7 @@ function usage
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.yaml')"
   echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
-  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic|vcisco) (default: 'ceos')"
+  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic|vcisco|csonic) (default: 'ceos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
   echo "    -s <msetnumber> : master set identifier on specified <k8s-server-name> (default: 1)"
   echo "    -d <dir>        : sonic vm directory (default: $HOME/sonic-vm)"
@@ -700,7 +700,7 @@ function deploy_l1
   echo "Devices to generate config for: $devices"
   echo ""
 
-  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true -e config_duts=false$@
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true -e config_duts=false -e reset_previous_connection=false$@
 
   echo Done
 }
@@ -770,10 +770,11 @@ function set_l2_mode
 function config_vm
 {
   echo "Configure VM $2"
+  testbed_name=$1
 
-  read_file $1
+  read_file ${testned_name}
 
-  ansible-playbook -i $vmfile eos.yml --vault-password-file="$3" -l "$2" -e topo="$topo" -e VM_base="$vm_base"
+  ansible-playbook -i $vmfile eos.yml --vault-password-file="$3" -l "$2" -e vm_type="$vm_type" -e vm_set_name="$vm_set_name" -e topo="$topo" -e VM_base="$vm_base"
 
   echo Done
 }

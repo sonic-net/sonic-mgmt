@@ -64,25 +64,3 @@ def check_pmon_file_and_create(duthost, pmon_daemon_path, pmon_daemon_file_path)
         create_json_file(temp_path, temp_dict)
         duthost.copy(src=temp_path, dest=pmon_daemon_file_path)
         return True
-
-
-@pytest.fixture(autouse=False)
-def stop_xcvrd(duthost):
-    dut_platfrom = duthost.facts['platform']
-    pmon_daemon_path = os.path.join("/usr/share/sonic/device", dut_platfrom)
-    pmon_daemon_file_path = os.path.join(pmon_daemon_path, "pmon_daemon_control.json")
-    pmon_file_created = check_pmon_file_and_create(duthost, pmon_daemon_path, pmon_daemon_file_path)
-    original_file_path = backup_original_daemon_file(duthost, pmon_daemon_file_path)
-    cmd = duthost.shell('cat {}'.format(pmon_daemon_file_path))
-    daemon_control_dict = json.loads(cmd['stdout'])
-    modified_dict = modify_daemon_file(daemon_control_dict)
-    temp_path = os.path.join("/tmp", "pmon_daemon_control.json")
-    create_json_file(temp_path, modified_dict)
-    duthost.copy(src=temp_path, dest=pmon_daemon_file_path)
-    restart_pmon(duthost)
-    yield
-    # return the original daemon control file to the path
-    duthost.shell("mv {} {}".format(original_file_path, pmon_daemon_file_path))
-    if pmon_file_created:
-        duthost.shell('rm {}'.format(pmon_daemon_file_path))
-    restart_pmon(duthost)
