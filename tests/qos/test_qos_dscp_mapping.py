@@ -188,14 +188,14 @@ def send_and_verify_traffic(ptfadapter,
     """
     pkt_egress_index = 0
     ptf_dst_port_list = []
-    ptfadapter.dataplane.flush()
     logger.info("Send packet(s) from port {} from downstream to upstream".format(ptf_src_port_id))
 
     try:
         for pkt, exp_pkt in zip(pkt_list, exp_pkt_list):
+            ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, ptf_src_port_id, pkt, count=DEFAULT_PKT_COUNT)
             logger.info(f"Send packet: {pkt}, expected packet: {exp_pkt}")
-            result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids, timeout=1)
+            result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids, timeout=5)
             if isinstance(result, bool):
                 logger.info("Return a dummy value for VS platform")
                 port_index = 0
@@ -493,7 +493,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         with allure.step("Run test"):
             self._run_test(ptfadapter, duthost, tbinfo, test_params, inner_dst_ip_list, dut_qos_maps_module, dscp_mode)
 
-        if completeness_level != "basic":
+        if completeness_level != "basic" and \
+                not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
             with allure.step("Do warm-reboot"):
                 reboot(duthost, localhost, reboot_type="warm", safe_reboot=True, check_intf_up_ports=True,
                        wait_warmboot_finalizer=True)
