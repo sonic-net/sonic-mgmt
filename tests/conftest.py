@@ -118,6 +118,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
 patch_ansible_worker_process()
 fix_logging_handler_fork_lock()
 
+
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
