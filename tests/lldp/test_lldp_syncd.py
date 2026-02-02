@@ -279,7 +279,6 @@ def verify_lldp_entry(db_instance, interfaces: list):
     return True
 
 
-
 def verify_lldp_table(duthost):
     output = duthost.shell("show lldp table")["stdout"]
     if "Total entries displayed" in output:
