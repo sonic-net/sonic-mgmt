@@ -264,7 +264,7 @@ def setup_config_npu_dpu(request, duthosts, localhost, tbinfo, ha_test_case=None
             duthost1 = duthosts[0]
 
             # Configure SmartSwitch
-            # duthost_port_config(duthost)
+            duthost_port_config(duthost1)
 
             static_ipsmacs_dict1 = duthost_ha_config(duthost1, nw_config)
 
