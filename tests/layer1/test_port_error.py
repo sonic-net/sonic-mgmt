@@ -2,14 +2,12 @@ import logging
 import pytest
 import random
 import time
-import os
-import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
-from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
-from tests.common.mellanox_data import *
+from tests.common.mellanox_data import is_mellanox_device
 from tests.common.utilities import wait_until
+from tests.layer1.conftest import TestMACFaultGeneral, TestMACFaultMellanox
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -28,9 +26,17 @@ def collected_ports_num(request):
     return request.config.getoption("--collected-ports-num")
 
 
+@pytest.fixture(scope="session")
+def vendor_specific_methods(duthost):
+    if is_mellanox_device(duthost):
+        return TestMACFaultMellanox()
+    else:
+        return TestMACFaultGeneral()
+
+
 class TestMACFault(object):
     @pytest.fixture(scope="class", autouse=True)
-    def is_supported_platform(self, duthost, tbinfo):
+    def is_supported_platform(self, duthost, tbinfo, vendor_specific_methods):
         if 'ptp' not in tbinfo['topo']['name']:
             pytest.skip("Skipping test: Not applicable for non-PTP topology")
 
@@ -39,8 +45,8 @@ class TestMACFault(object):
         else:
             pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
 
-        if is_nvidia_platform_with_sw_control_disabled(duthost):
-            pytest.skip("SW control feature is not enabled on Nvidia platform")
+        if not vendor_specific_methods.is_platform_setting_supported(duthost):
+            pytest.skip("Platform setting is not supported for this test")
 
     @staticmethod
     def get_mac_fault_count(dut, interface, fault_type):
@@ -67,38 +73,20 @@ class TestMACFault(object):
                localhost, safe_reboot=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope="class")
-    def get_dut_and_supported_available_optical_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def get_dut_and_supported_available_optical_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                                           vendor_specific_methods):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         sfp_presence = dut.command(cmd_sfp_presence)
         parsed_presence = {line.split()[0]: line.split()[1] for line in sfp_presence["stdout_lines"][2:]}
-        supported_available_optical_interfaces = []
+        test_available_optical_interfaces = []
         failed_api_ports = []
 
-        if is_nvidia_platform_with_sw_control_enabled(dut):
+        test_available_optical_interfaces, failed_api_ports = (
+            vendor_specific_methods.return_available_interfaces(dut, parsed_presence)
+        )
 
-            eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
-            eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
-
-            supported_available_optical_interfaces, failed_api_ports = (
-                get_supported_available_optical_interfaces(
-                    eeprom_infos, parsed_presence, return_failed_api_ports=True
-                )
-            )
-            pytest_assert(supported_available_optical_interfaces,
-                          "No interfaces with SFP detected. Cannot proceed with tests.")
-            logging.info("Available Optical interfaces for tests: {}".format(supported_available_optical_interfaces))
-        else:
-            interfaces = list(dut.show_and_parse("show interfaces status"))
-            supported_available_optical_interfaces = [
-                intf["interface"] for intf in interfaces
-                if parsed_presence.get(intf["interface"]) == "Present"
-            ]
-
-            pytest_assert(supported_available_optical_interfaces,
-                          "No interfaces with SFP detected. Cannot proceed with tests.")
-
-        return dut, supported_available_optical_interfaces, failed_api_ports
+        return dut, test_available_optical_interfaces, failed_api_ports
 
     def shutdown_and_startup_interfaces(self, dut, interface):
         dut.command("sudo config interface shutdown {}".format(interface))

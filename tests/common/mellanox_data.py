@@ -1,6 +1,8 @@
 import functools
 import pytest
 import logging
+import os
+import re
 logger = logging.getLogger(__name__)
 
 
@@ -1344,6 +1346,7 @@ def get_supported_available_optical_interfaces(eeprom_infos, parsed_presence,
     else:
         return available_optical_interfaces
 
+
 def is_sw_control_feature_enabled(duthost):
     """
     Check if SW control feature is enabled.
@@ -1362,8 +1365,6 @@ def is_sw_control_feature_enabled(duthost):
         return False
     return False
 
-def is_nvidia_platform_with_sw_control_disabled(duthost):
-    return 'nvidia' in duthost.facts['platform'].lower() and not is_sw_control_feature_enabled(duthost)
 
 def is_nvidia_platform_with_sw_control_enabled(duthost):
     return 'nvidia' in duthost.facts['platform'].lower() and is_sw_control_feature_enabled(duthost)
