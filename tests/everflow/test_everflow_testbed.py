@@ -282,7 +282,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             logger=logger
         )
 
-    
+
 
     def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,              # noqa F811
                                        dest_port_type, ptfadapter, tbinfo, mux_config,      # noqa F811
