@@ -269,7 +269,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             multi_binding_acl=True
         )
 
-    
+
 
     def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,              # noqa F811
                                        dest_port_type, ptfadapter, tbinfo, mux_config,      # noqa F811
