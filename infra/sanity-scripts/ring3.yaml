@@ -400,9 +400,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - snmp/test_snmp_lldp.py
         #- snmp/test_snmp_queue_counters.py
         - snmp/test_snmp_default_route.py
-        - snmp/test_snmp_psu.py
         - snmp/test_snmp_pfc_counters.py
-        - snmp/test_snmp_phy_entity.py
         - snmp/test_snmp_link_local.py
         - gnmi/test_gnmi_appldb.py
         - gnmi/test_gnmi_configdb.py
@@ -498,9 +496,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - snmp/test_snmp_interfaces.py
         - snmp/test_snmp_lldp.py
         - snmp/test_snmp_default_route.py
-        - snmp/test_snmp_psu.py
         - snmp/test_snmp_pfc_counters.py
-        - snmp/test_snmp_phy_entity.py
         - snmp/test_snmp_link_local.py
         - gnmi/test_gnmi_appldb.py
         - gnmi/test_gnmi_countersdb.py
