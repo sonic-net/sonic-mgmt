@@ -104,6 +104,42 @@ To prevent this, the framework (in `tests/common/helpers/parallel.py`) leverages
 
 This ensures that **locks are always in a released state within the child process immediately after forking**.
 
+```mermaid
+sequenceDiagram
+    participant Main as Main Thread
+    participant Worker as Parallel Fixture Manager Worker
+    participant Logger as Logging Module
+    participant Handler as Log Handler
+    participant Fork as Fork Operation
+    participant Child as Child Process
+
+    Note over Main,Child: Before Fix (Deadlock Scenario)
+    Worker->>Logger: Write log (acquires handler lock)
+    activate Handler
+    Main->>Fork: fork() called
+    Note over Fork: Lock state copied to child
+    Fork->>Child: Child process created
+    Note over Child: Child inherits locked handler
+    Child->>Handler: Attempt to log
+    Note over Child: DEADLOCK: Lock already held by Parallel Fixture Manager Worker
+    deactivate Handler
+
+    Note over Main,Child: After Fix (Safe Fork)
+    Main->>Logger: _fix_logging_handler_fork_lock()
+    Logger->>Handler: Register at_fork handlers
+    Note over Handler: before=lock.acquire<br/>after_in_parent=lock.release<br/>after_in_child=lock.release
+    Main->>Fork: fork() called
+    Fork->>Handler: Execute before fork (acquire lock)
+    activate Handler
+    Fork->>Child: Child process created
+    Fork->>Handler: Execute after_in_parent (release lock)
+    deactivate Handler
+    Fork->>Child: Execute after_in_child (release lock)
+    Child->>Handler: Attempt to log
+    Note over Child: SUCCESS: Lock is free
+    Handler-->>Child: Log written successfully
+```
+
 ## 7. Usage Example
 
 Fixtures interact with the parallel manager via the `parallel_manager` fixture.
