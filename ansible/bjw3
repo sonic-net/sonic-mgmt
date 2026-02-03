@@ -261,7 +261,7 @@ fanout:
       ansible_host: 10.150.238.117
       ansible_hostv6: 2404:f801:10:16::a96:ee75
       os: sonic
-    bjw3-can-8300-leaf-1:
+    bjw3-can-8220-leaf-1:
       ansible_host: 10.150.238.119
       ansible_hostv6: 2404:f801:10:16::a96:ee77
       os: sonic
@@ -282,7 +282,7 @@ sonic:
     sonic_nokia_7215a1d:
     sonic_arista_7060cx:
     sonic_cisco_8102:
-    sonic_cisco_8300:
+    sonic_cisco_8220:
     sonic_arista_720dt:
     sonic_arista_720dtm:
 
@@ -896,17 +896,17 @@ sonic_cisco_8102:
           wait: 600
 
 
-sonic_cisco_8300:
+sonic_cisco_8220:
   vars:
     hwsku: Cisco-C8220TG-48A-O
   hosts:
-    bjw3-can-8300-1:
+    bjw3-can-8220-1:
       ansible_host: 10.150.238.118
       ansible_hostv6: 2404:f801:10:16::a96:ee76
-    bjw3-can-8300-2:
+    bjw3-can-8220-2:
       ansible_host: 10.150.238.120
       ansible_hostv6: 2404:f801:10:16::a96:ee78
-    bjw3-can-8300-3:
+    bjw3-can-8220-3:
       ansible_host: 10.150.238.121
       ansible_hostv6: 2404:f801:10:16::a96:ee79
 
