@@ -3,6 +3,7 @@ import logging
 import ipaddress
 import json
 import re
+from dataclasses import dataclass
 from six.moves.urllib.parse import urlparse
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
@@ -20,6 +21,14 @@ TMP_PORTS_FILE = '/tmp/ports.json'
 TMP_PEER_INFO_FILE = "/tmp/peer_dev_info.json"
 TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
 
+@dataclass(frozen=True)
+class GnoiUpgradeConfig:
+    image_url: str
+    dut_image_path: str
+    upgrade_type: str
+    expected_version: str
+    protocol: str = "HTTP"
+    allow_fail: bool = False
 
 def pytest_runtest_setup(item):
     from_list = item.config.getoption('base_image_list')
@@ -252,63 +261,58 @@ def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_
     if enable_cpa and "warm-reboot" in reboot_type:
         ptfhost.shell('supervisorctl stop ferret')
 
-def gnoi_upgrade_test_helper(
+def perform_gnoi_upgrade(
     ptf_gnoi,
     duthost,
     tbinfo,
-    image_url,
-    local_path,
-    upgrade_type,
-    expected_to_version,
-    protocol="HTTP",
-    allow_fail=False,
+    cfg: GnoiUpgradeConfig,
 ):
     """
     gNOI-based upgrade helper using PtfGnoi high-level APIs (no raw call_unary in tests).
 
     Flow:
-      1) File.TransferToRemote: download image_url -> local_path on DUT
-      2) System.SetPackage: set package to local_path
+      1) File.TransferToRemote: download cfg.image_url -> cfg.dut_image_path on DUT
+      2) System.SetPackage: set package to cfg.dut_image_path
       3) System.Reboot: trigger reboot (non-blocking; disconnect may occur)
       4) Mimic upgrade_test_helper reboot verification:
            networking_uptime -> timeout -> wait_until(check_reboot_cause)
       5) Standard post-reboot checks:
            check_services / check_neighbors / check_copp_config
       6) Version validation:
-           assert expected_to_version appears in 'show version'
+           assert cfg.expected_version appears in 'show version'
     """
     logger.info(
-        "gNOI upgrade: image_url=%s local_path=%s upgrade_type=%s expected_to_version=%s protocol=%s",
-        image_url, local_path, upgrade_type, expected_to_version, protocol
+        "gNOI upgrade: image_url=%s dut_image_path=%s upgrade_type=%s expected_to_version=%s protocol=%s",
+        cfg.image_url, cfg.dut_image_path, cfg.upgrade_type, cfg.expected_version, cfg.protocol
     )
 
     # ---- Input sanity ----
     pytest_assert(ptf_gnoi is not None, "ptf_gnoi must be provided")
     pytest_assert(duthost is not None, "duthost must be provided")
     pytest_assert(tbinfo is not None, "tbinfo must be provided")
-    pytest_assert(image_url, "image_url must be provided")
-    pytest_assert(local_path, "local_path must be provided")
-    pytest_assert(upgrade_type, "upgrade_type must be provided")
-    pytest_assert(expected_to_version, "expected_to_version must be provided (review requirement)")
+    pytest_assert(cfg.image_url, "image_url must be provided")
+    pytest_assert(cfg.dut_image_path, "dut_image_path must be provided")
+    pytest_assert(cfg.upgrade_type, "upgrade_type must be provided")
+    pytest_assert(cfg.expected_version, "expected_version must be provided (review requirement)")
 
     # Map upgrade_type ("warm"/"cold") to gNOI enum token ("WARM"/"COLD")
-    reboot_method = "WARM" if str(upgrade_type).lower() == "warm" else "COLD"
+    reboot_method = "WARM" if str(cfg.upgrade_type).lower() == "warm" else "COLD"
 
     # ---- 1) TransferToRemote (via wrapper) ----
     transfer_resp = ptf_gnoi.file_transfer_to_remote(
-        image_url=image_url,
-        local_path=local_path,
-        protocol=protocol,
+        image_url=cfg.image_url,
+        dut_image_path=cfg.dut_image_path,   # NOTE: wrapper param name is dut_image_path in your PtfGnoi
+        protocol=cfg.protocol,
     )
     logger.info("TransferToRemote response: %s", transfer_resp)
     pytest_assert(isinstance(transfer_resp, dict), "TransferToRemote did not return a JSON object")
 
     # DUT-side validation: file exists and non-empty
-    res = duthost.shell(f"test -s {local_path}", module_ignore_errors=True)
-    pytest_assert(res.get("rc", 1) == 0, f"Downloaded file not found or empty on DUT: {local_path}")
+    res = duthost.shell(f"test -s {cfg.dut_image_path}", module_ignore_errors=True)
+    pytest_assert(res.get("rc", 1) == 0, f"Downloaded file not found or empty on DUT: {cfg.dut_image_path}")
 
     # ---- 2) SetPackage (via wrapper) ----
-    setpkg_resp = ptf_gnoi.system_set_package(local_path=local_path, package_field="filename")
+    setpkg_resp = ptf_gnoi.system_set_package(dut_image_path=cfg.dut_image_path, package_field="filename")
     logger.info("SetPackage response: %s", setpkg_resp)
     pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
 
@@ -321,18 +325,18 @@ def gnoi_upgrade_test_helper(
         # Common/expected: connection drops during reboot
         logger.info("Caught exception during gNOI Reboot call (often expected): %s", str(e))
 
-    if allow_fail:
+    if cfg.allow_fail:
         logger.warning("allow_fail=True: skipping reboot-cause/health/version validations")
         return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
 
     # ---- 4) Reuse EXACT reboot-cause waiting pattern from upgrade_test_helper ----
-    logger.info("Check reboot cause. Expected cause %s", upgrade_type)
+    logger.info("Check reboot cause. Expected cause %s", cfg.upgrade_type)
     networking_uptime = duthost.get_networking_uptime().seconds
     timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
 
     pytest_assert(
-        wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
-        "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), upgrade_type)
+        wait_until(timeout, 5, 0, check_reboot_cause, duthost, cfg.upgrade_type),
+        "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), cfg.upgrade_type)
     )
 
     # ---- 5) Standard post-reboot validations ----
@@ -344,8 +348,8 @@ def gnoi_upgrade_test_helper(
     show_ver = duthost.shell("show version", module_ignore_errors=False).get("stdout", "")
     logger.info("show version output:\n%s", show_ver)
     pytest_assert(
-        expected_to_version in show_ver,
-        "Running version does not contain expected '{}'. Output:\n{}".format(expected_to_version, show_ver)
+        cfg.expected_version in show_ver,
+        "Running version does not contain expected '{}'. Output:\n{}".format(cfg.expected_version, show_ver)
     )
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
