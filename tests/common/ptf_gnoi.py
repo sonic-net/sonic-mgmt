@@ -7,6 +7,7 @@ gRPC complexity behind clean, Pythonic method interfaces.
 """
 import logging
 from typing import Dict, Optional
+from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
