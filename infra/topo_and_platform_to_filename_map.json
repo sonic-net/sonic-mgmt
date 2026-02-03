@@ -291,8 +291,14 @@
         "lightning": {
             "topo_file": "../spytest_tb_files/lightning_lightning_b2b_platform_hardening.yaml"
         },
-	"arctos": {
+        "arctos": {
             "topo_file": "../spytest_tb_files/arctos_dut.yaml"
+        },
+        "superbolt-titan": {
+            "topo_file": "../spytest_tb_files/superbolt_titan_b2b_platform_hardening.yaml"
+        },
+        "mtfuji-cmono": {
+            "topo_file": "../spytest_tb_files/mtfuji_cmono_b2b_platform_hardening.yaml"
         }
     }
 }

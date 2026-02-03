@@ -1,0 +1,41 @@
+version: 2.0
+ 
+services: {default: !include sonic_services.yaml}
+ 
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+ 
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+ 
+devices:
+    leaf0:
+        device_type: DevSonic
+        platform_type: mt-fuji
+        access: {protocol: ssh, ip: 172.26.235.249, port: 22}
+        rps: {model: Raritan, ip: 10.28.105.116, outlet: [18,19], username: admin, password: raritan}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    leaf1:
+        device_type: DevSonic
+        platform_type: churchill-mono
+        access: {protocol: ssh, ip: 172.26.235.59, port: 22}
+        rps: {model: Raritan, ip: 10.28.105.117, outlet: [21,22], username: admin, password: raritan}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+ 
+topology:
+    leaf0:
+        interfaces:
+            Ethernet0: {EndDevice: leaf1, EndPort: Ethernet0, params: def_link}
+            Ethernet8: {EndDevice: leaf1, EndPort: Ethernet8, params: def_link}
+            Ethernet16: {EndDevice: leaf1, EndPort: Ethernet16, params: def_link}
+            Ethernet24: {EndDevice: leaf1, EndPort: Ethernet24, params: def_link}
+            Ethernet32: {EndDevice: leaf1, EndPort: Ethernet32, params: def_link}
+            Ethernet40: {EndDevice: leaf1, EndPort: Ethernet40, params: def_link}
+            Ethernet48: {EndDevice: leaf1, EndPort: Ethernet48, params: def_link}
+            Ethernet56: {EndDevice: leaf1, EndPort: Ethernet56, params: def_link}
