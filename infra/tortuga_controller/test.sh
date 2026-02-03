@@ -43,7 +43,7 @@ PYVXR_BGPPEERS="*"
 PYVXR_CHANNELS="*"
 PYVXR_VRFS=""
 PYVXR_STPS="*"
-CLOUD_URL=https://tortuga-k8s-a.cisco.com:32349
+CLOUD_URL=
 START_TIME=$(date +%s)
 TEST_TAGS="ipv4,ipv6,bgp-debug"
 CGEN_TEST=extended
@@ -172,6 +172,13 @@ do
     shift;;
   esac
 done
+
+# Get URL from config file.
+if [[ -z "${CLOUD_URL}" ]]; then
+  YAML=$(curl --retry 5 -s http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml 2>&1)
+  CLOUD_URL=$(echo ${YAML} | grep -Eo 'https://tortuga-k8s-a.cisco.com:[0-9]+')
+fi
+echo "Cloud URL = ${CLOUD_URL}"
 
 # Number of leaf switches - 1.
 LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
