@@ -87,13 +87,13 @@ def _kill_process(ptf_gnoi, name: str, restart: bool = False, signal: str = SIGN
         return 1, str(e)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(autouse=True)
 def _skip_if_killprocess_not_supported(ptf_gnoi):
     """
-    Probe with a non-destructive request (invalid service name). If the backend
-    is a gNOI/gnxi implementation that returns Unimplemented / Service not
-    found (and does not include legacy 'Dbus' messages), skip the module to
-    avoid noisy failures — this test suite expects the older DBus-style errors.
+    Probe with a non-destructive request (invalid service name). This fixture
+    is function-scoped (autouse) so it can use the function-scoped ptf_gnoi
+    fixture without scope mismatches. If the backend returns Unimplemented /
+    Service not found (and does not include legacy 'Dbus' messages), skip the test.
     """
     ret, msg = _kill_process(ptf_gnoi, name="gnmi", restart=False, signal=SIGNAL_TERM)
     if ret != 0 and ("Service or method not found" in msg or "Code: Unimplemented" in msg) and "Dbus" not in msg:
