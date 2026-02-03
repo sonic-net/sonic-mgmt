@@ -212,4 +212,3 @@ def test_invalid_signal(duthosts, rand_one_dut_hostname, ptf_gnoi):
 
     wait_critical_processes(duthost)
     pytest_assert(duthost.critical_services_fully_started, "System unhealthy after gNOI API request")
-    
