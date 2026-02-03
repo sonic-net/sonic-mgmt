@@ -5,16 +5,62 @@ import os
 import shutil
 import signal
 import tempfile
+import threading
 import time
 import traceback
 from multiprocessing import Process, Manager, Pipe, TimeoutError
 from multiprocessing.pool import ThreadPool
+from ansible.executor.process.worker import WorkerProcess
 
 from psutil import wait_procs
 
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
+
+
+def patch_ansible_worker_process():
+    """Patch AnsibleWorkerProcess to avoid logging deadlock after fork."""
+
+    def start(self):
+        self._save_stdin()
+        try:
+            return super(WorkerProcess, self).start()
+        finally:
+            self._new_stdin.close()
+
+    WorkerProcess.start = start
+
+
+# NOTE: https://github.com/google/python-atfork/blob/main/atfork/stdlib_fixer.py
+# This is to avoid any deadlock issues with logging module after fork.
+_forked_handlers = set()
+_forked_handlers_lock = threading.Lock()
+os.register_at_fork(before=logging._acquireLock,
+                    after_in_parent=logging._releaseLock,
+                    after_in_child=logging._releaseLock)
+
+
+def fix_logging_handler_fork_lock():
+    """Prevent logging handlers from deadlocking after fork."""
+    # Collect all loggers including root
+    loggers = [logging.getLogger()] + list(logging.Logger.manager.loggerDict.values())
+    handlers = set()
+    for logger in loggers:
+        if hasattr(logger, 'handlers'):
+            handlers.update(logger.handlers)
+    for handler in handlers:
+        new_handlers = []
+        with _forked_handlers_lock:
+            if handler not in _forked_handlers and handler.lock is not None:
+                os.register_at_fork(before=handler.lock.acquire,
+                                    after_in_parent=handler.lock.release,
+                                    after_in_child=handler.lock.release)
+                new_handlers.append(handler)
+                _forked_handlers.add(handler)
+
+        if new_handlers:
+            logging.debug("Add handler %s to forked handlers list", new_handlers)
 
 
 class SonicProcess(Process):
@@ -135,6 +181,10 @@ def parallel_run(
         len(nodes)/float(concurrent_tasks)
     ) if timeout else None
     failed_processes = {}
+
+    # Before spawning the child process, ensure current thread is
+    # holding the logging handler locks to avoid deadlock in child process.
+    fix_logging_handler_fork_lock()
 
     while tasks_done < total_tasks:
         # If execution time of processes exceeds timeout, need to force
