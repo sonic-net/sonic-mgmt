@@ -1,6 +1,7 @@
 import functools
-import pytest
 import logging
+import os
+import re
 logger = logging.getLogger(__name__)
 
 
@@ -1274,17 +1275,6 @@ def is_innolight_cable(port_info):
     )
 
 
-def is_unsupported_module(port_info, port_number):
-    if is_innolight_cable(port_info):
-        logger.info(f"Port {port_number} has an unsupported module, skipping it and continue to check other ports")
-        return True
-    return False
-
-
-def skip_on_unsupported_module():
-    pytest.skip("All ports are with unsupported modules, skipping the test due to Github issue #21878")
-
-
 def is_cmis_version_supported(cmis_version, min_required_version=5.0, failed_api_ports=None, port_name=None):
     """
     Check if a CMIS version supports a specific feature by comparing it to a minimum required version
@@ -1303,8 +1293,8 @@ def is_cmis_version_supported(cmis_version, min_required_version=5.0, failed_api
         return False
 
 
-def get_supported_available_optical_interfaces(eeprom_infos, parsed_presence,
-                                               min_cmis_version=5.0, return_failed_api_ports=False):
+def get_supported_available_optic_ifaces(eeprom_infos, parsed_presence,
+                                         min_cmis_version=5.0):
     """
     Filter available optical interfaces based on presence, EEPROM detection, media type, and CMIS version support
     @param: eeprom_infos: Dictionary containing EEPROM information for each port
@@ -1315,7 +1305,7 @@ def get_supported_available_optical_interfaces(eeprom_infos, parsed_presence,
     @return: list or tuple: If return_failed_api_ports=False, returns list of available optical interface names.
                             If return_failed_api_ports=True, returns (available_optical_interfaces, failed_api_ports)
     """
-    available_optical_interfaces = []
+    available_optical_ifaces = []
     failed_api_ports = []
 
     for port_name, eeprom_info in eeprom_infos.items():
@@ -1323,13 +1313,13 @@ def get_supported_available_optical_interfaces(eeprom_infos, parsed_presence,
             continue
         if "SFP EEPROM detected" not in eeprom_info[port_name]:
             continue
-        media_technology = eeprom_info.get("Media Interface Technology", "N/A").upper()
+        media_technology = eeprom_info.get("Media Interface Technology", "").upper()
         if "COPPER" in media_technology:
             continue
         if "N/A" in media_technology:
             failed_api_ports.append(port_name)
             continue
-        cmis_version = eeprom_info.get("CMIS Revision", "N/A")
+        cmis_version = eeprom_info.get("CMIS Revision", "0")
         if "N/A" in cmis_version:
             failed_api_ports.append(port_name)
             continue
@@ -1337,12 +1327,10 @@ def get_supported_available_optical_interfaces(eeprom_infos, parsed_presence,
             logging.info(f"Port {port_name} skipped: CMIS not supported on this port.")
             continue
 
-        available_optical_interfaces.append(port_name)
+        available_optical_ifaces.append(port_name)
 
-    if return_failed_api_ports:
-        return available_optical_interfaces, failed_api_ports
-    else:
-        return available_optical_interfaces
+    return available_optical_ifaces, failed_api_ports
+
 
 def is_sw_control_feature_enabled(duthost):
     """
@@ -1352,18 +1340,12 @@ def is_sw_control_feature_enabled(duthost):
         platform_name = duthost.facts['platform']
         hwsku = duthost.facts.get('hwsku', '')
         sai_profile_path = os.path.join('/usr/share/sonic/device', platform_name, hwsku, 'sai.profile')
-        cmd = duthost.shell('cat {}'.format(sai_profile_path), module_ignore_errors=True)
-        if cmd['rc'] == 0 and 'SAI_INDEPENDENT_MODULE_MODE' in cmd['stdout']:
-            sc_enabled = re.search(r"SAI_INDEPENDENT_MODULE_MODE=(\d?)", cmd['stdout'])
+        result = duthost.shell('cat {}'.format(sai_profile_path), module_ignore_errors=True)
+        if result['rc'] == 0 and 'SAI_INDEPENDENT_MODULE_MODE' in result['stdout']:
+            sc_enabled = re.search(r"SAI_INDEPENDENT_MODULE_MODE=(\d?)", result['stdout'])
             if sc_enabled and sc_enabled.group(1) == '1':
                 return True
     except Exception as e:
-        logging.error("Error checking SW control feature on Nvidia platform: {}".format(e))
+        logging.error("Error checking SW control feature on this platform: {}".format(e))
         return False
     return False
-
-def is_nvidia_platform_with_sw_control_disabled(duthost):
-    return 'nvidia' in duthost.facts['platform'].lower() and not is_sw_control_feature_enabled(duthost)
-
-def is_nvidia_platform_with_sw_control_enabled(duthost):
-    return 'nvidia' in duthost.facts['platform'].lower() and is_sw_control_feature_enabled(duthost)

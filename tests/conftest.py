@@ -308,12 +308,6 @@ def pytest_addoption(parser):
                      help="This flag indicates that the test is being run by the container test.")
 
     #################################
-    #   Port error test options     #
-    #################################
-    parser.addoption("--collected-ports-num", action="store", default=5, type=int,
-                     help="Number of ports to collect for testing (default: 5)")
-
-    #################################
     #   YANG validation options     #
     #################################
     parser.addoption("--skip_yang", action="store_true", default=False,

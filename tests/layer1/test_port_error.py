@@ -2,14 +2,12 @@ import logging
 import pytest
 import random
 import time
-import os
-import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
-from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
-from tests.common.mellanox_data import *
+from tests.common.mellanox_data import is_mellanox_device
 from tests.common.utilities import wait_until
+from tests.layer1.conftest import TestMACFaultMellanox
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -17,20 +15,22 @@ pytestmark = [
 ]
 
 SUPPORTED_PLATFORMS = ["arista_7060x6", "nvidia_sn5640", "nvidia_sn5600"]
+WAIT_FOR_PORT_SHUTDOWN = 5
+WAIT_FOR_PORT_STARTUP = 20
 cmd_sfp_presence = "sudo sfpshow presence"
 
 
 @pytest.fixture(scope="session")
-def collected_ports_num(request):
-    """
-    Fixture to get the number of ports to collect from command line argument
-    """
-    return request.config.getoption("--collected-ports-num")
+def vendor_specific_obj(duthost):
+    if is_mellanox_device(duthost):
+        return TestMACFaultMellanox()
+    else:
+        pytest.skip("Test is not implemented for this specific vendor")
 
 
 class TestMACFault(object):
     @pytest.fixture(scope="class", autouse=True)
-    def is_supported_platform(self, duthost, tbinfo):
+    def is_supported_platform(self, duthost, tbinfo, vendor_specific_obj):
         if 'ptp' not in tbinfo['topo']['name']:
             pytest.skip("Skipping test: Not applicable for non-PTP topology")
 
@@ -39,8 +39,8 @@ class TestMACFault(object):
         else:
             pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
 
-        if is_nvidia_platform_with_sw_control_disabled(duthost):
-            pytest.skip("SW control feature is not enabled on Nvidia platform")
+        if not vendor_specific_obj.is_setting_support_feature(duthost):
+            pytest.skip("Platform setting is not supported for this test")
 
     @staticmethod
     def get_mac_fault_count(dut, interface, fault_type):
@@ -61,65 +61,45 @@ class TestMACFault(object):
         return dut.show_and_parse("show interfaces status {}".format(interface))[0].get("oper", "unknown")
 
     @pytest.fixture(scope="class", autouse=True)
-    def reboot_dut(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname):
+    def reboot_dut(self, rand_selected_dut, localhost):
         from tests.common.reboot import reboot
-        reboot(duthosts[enum_rand_one_per_hwsku_frontend_hostname],
+        reboot(rand_selected_dut,
                localhost, safe_reboot=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope="class")
-    def get_dut_and_supported_available_optical_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-        dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    def select_random_interfaces(self, rand_selected_dut, vendor_specific_obj, collected_ports_num):
+        dut = rand_selected_dut
 
         sfp_presence = dut.command(cmd_sfp_presence)
         parsed_presence = {line.split()[0]: line.split()[1] for line in sfp_presence["stdout_lines"][2:]}
-        supported_available_optical_interfaces = []
+        test_available_ifaces = []
         failed_api_ports = []
 
-        if is_nvidia_platform_with_sw_control_enabled(dut):
+        test_available_ifaces, failed_api_ports = (
+            vendor_specific_obj.return_available_interfaces(dut, parsed_presence)
+        )
 
-            eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
-            eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
+        test_ifaces = random.sample(test_available_ifaces,
+                                    min(collected_ports_num, len(test_available_ifaces)))
 
-            supported_available_optical_interfaces, failed_api_ports = (
-                get_supported_available_optical_interfaces(
-                    eeprom_infos, parsed_presence, return_failed_api_ports=True
-                )
-            )
-            pytest_assert(supported_available_optical_interfaces,
-                          "No interfaces with SFP detected. Cannot proceed with tests.")
-            logging.info("Available Optical interfaces for tests: {}".format(supported_available_optical_interfaces))
-        else:
-            interfaces = list(dut.show_and_parse("show interfaces status"))
-            supported_available_optical_interfaces = [
-                intf["interface"] for intf in interfaces
-                if parsed_presence.get(intf["interface"]) == "Present"
-            ]
+        return test_ifaces, failed_api_ports
 
-            pytest_assert(supported_available_optical_interfaces,
-                          "No interfaces with SFP detected. Cannot proceed with tests.")
-
-        return dut, supported_available_optical_interfaces, failed_api_ports
-
-    def shutdown_and_startup_interfaces(self, dut, interface):
+    def toggle_iface(self, dut, interface):
         dut.command("sudo config interface shutdown {}".format(interface))
-        pytest_assert(wait_until(30, 2, 0, lambda: self.get_interface_status(dut, interface) == "down"),
+        pytest_assert(wait_until(10, 1, 0, lambda: self.get_interface_status(dut, interface) == "down"),
                       "Interface {} did not go down after shutdown".format(interface))
 
         dut.command("sudo config interface startup {}".format(interface))
-        pytest_assert(wait_until(30, 2, 0, lambda: self.get_interface_status(dut, interface) == "up"),
+        pytest_assert(wait_until(30, 1, 0, lambda: self.get_interface_status(dut, interface) == "up"),
                       "Interface {} did not come up after startup".format(interface))
 
-    def test_mac_local_fault_increment(self, get_dut_and_supported_available_optical_interfaces,
-                                       collected_ports_num):
-        dut, supported_available_optical_interfaces, failed_api_ports = (
-            get_dut_and_supported_available_optical_interfaces
-        )
-        selected_interfaces = random.sample(supported_available_optical_interfaces,
-                                            min(collected_ports_num, len(supported_available_optical_interfaces)))
-        logging.info("Selected interfaces for tests: {}".format(selected_interfaces))
+    def test_mac_local_fault_increment(self, select_random_interfaces, rand_selected_dut):
+        dut = rand_selected_dut
+        selected_ifaces, failed_api_ports = select_random_interfaces
+        logging.info("Selected interfaces for tests: {}".format(selected_ifaces))
 
-        for interface in selected_interfaces:
-            self.shutdown_and_startup_interfaces(dut, interface)
+        for interface in selected_ifaces:
+            self.toggle_iface(dut, interface)
 
             pytest_assert(self.get_interface_status(dut, interface) == "up",
                           "Interface {} was not up before disabling/enabling rx-output using sfputil".format(interface))
@@ -128,13 +108,13 @@ class TestMACFault(object):
             logging.info("Initial MAC local fault count on {}: {}".format(interface, local_fault_before))
 
             dut.shell("sudo sfputil debug rx-output {} disable".format(interface))
-            time.sleep(5)
+            time.sleep(WAIT_FOR_PORT_SHUTDOWN)
             pytest_assert(self.get_interface_status(dut, interface) == "down",
                           "Interface {iface} did not go down after 'sudo sfputil debug rx-output {iface} disable'"
                           .format(iface=interface))
 
             dut.shell("sudo sfputil debug rx-output {} enable".format(interface))
-            time.sleep(20)
+            time.sleep(WAIT_FOR_PORT_STARTUP)
             pytest_assert(self.get_interface_status(dut, interface) == "up",
                           "Interface {iface} did not come up after 'sudo sfputil debug rx-output {iface} enable'"
                           .format(iface=interface))
@@ -148,16 +128,13 @@ class TestMACFault(object):
 
         pytest_assert(len(failed_api_ports) == 0, "Interfaces with failed API ports: {}".format(failed_api_ports))
 
-    def test_mac_remote_fault_increment(self, get_dut_and_supported_available_optical_interfaces, collected_ports_num):
-        dut, supported_available_optical_interfaces, failed_api_ports = (
-            get_dut_and_supported_available_optical_interfaces
-        )
-        selected_interfaces = random.sample(supported_available_optical_interfaces,
-                                            min(collected_ports_num, len(supported_available_optical_interfaces)))
-        logging.info("Selected interfaces for tests: {}".format(selected_interfaces))
+    def test_mac_remote_fault_increment(self, select_random_interfaces, rand_selected_dut):
+        dut = rand_selected_dut
+        selected_ifaces, failed_api_ports = select_random_interfaces
+        logging.info("Selected interfaces for tests: {}".format(selected_ifaces))
 
-        for interface in selected_interfaces:
-            self.shutdown_and_startup_interfaces(dut, interface)
+        for interface in selected_ifaces:
+            self.toggle_iface(dut, interface)
 
             pytest_assert(self.get_interface_status(dut, interface) == "up",
                           "Interface {} was not up before disabling/enabling tx-output using sfputil".format(interface))
@@ -166,13 +143,13 @@ class TestMACFault(object):
             logging.info("Initial MAC remote fault count on {}: {}".format(interface, remote_fault_before))
 
             dut.shell("sudo sfputil debug tx-output {} disable".format(interface))
-            time.sleep(5)
+            time.sleep(WAIT_FOR_PORT_SHUTDOWN)
             pytest_assert(self.get_interface_status(dut, interface) == "down",
                           "Interface {iface} did not go down after 'sudo sfputil debug tx-output {iface} disable'"
                           .format(iface=interface))
 
             dut.shell("sudo sfputil debug tx-output {} enable".format(interface))
-            time.sleep(20)
+            time.sleep(WAIT_FOR_PORT_STARTUP)
 
             pytest_assert(self.get_interface_status(dut, interface) == "up",
                           "Interface {iface} did not come up after 'sudo sfputil debug tx-output {iface} enable'"
