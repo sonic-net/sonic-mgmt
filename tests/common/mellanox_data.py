@@ -1343,3 +1343,27 @@ def get_supported_available_optical_interfaces(eeprom_infos, parsed_presence,
         return available_optical_interfaces, failed_api_ports
     else:
         return available_optical_interfaces
+
+def is_sw_control_feature_enabled(duthost):
+    """
+    Check if SW control feature is enabled.
+    """
+    try:
+        platform_name = duthost.facts['platform']
+        hwsku = duthost.facts.get('hwsku', '')
+        sai_profile_path = os.path.join('/usr/share/sonic/device', platform_name, hwsku, 'sai.profile')
+        cmd = duthost.shell('cat {}'.format(sai_profile_path), module_ignore_errors=True)
+        if cmd['rc'] == 0 and 'SAI_INDEPENDENT_MODULE_MODE' in cmd['stdout']:
+            sc_enabled = re.search(r"SAI_INDEPENDENT_MODULE_MODE=(\d?)", cmd['stdout'])
+            if sc_enabled and sc_enabled.group(1) == '1':
+                return True
+    except Exception as e:
+        logging.error("Error checking SW control feature on Nvidia platform: {}".format(e))
+        return False
+    return False
+
+def is_nvidia_platform_with_sw_control_disabled(duthost):
+    return 'nvidia' in duthost.facts['platform'].lower() and not is_sw_control_feature_enabled(duthost)
+
+def is_nvidia_platform_with_sw_control_enabled(duthost):
+    return 'nvidia' in duthost.facts['platform'].lower() and is_sw_control_feature_enabled(duthost)

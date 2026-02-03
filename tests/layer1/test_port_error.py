@@ -8,7 +8,7 @@ import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
-from tests.common.mellanox_data import get_supported_available_optical_interfaces
+from tests.common.mellanox_data import *
 from tests.common.utilities import wait_until
 
 pytestmark = [
@@ -30,15 +30,7 @@ def collected_ports_num(request):
 
 class TestMACFault(object):
     @pytest.fixture(scope="class", autouse=True)
-    def is_supported_nvidia_platform_with_sw_control_disabled(self, duthost):
-        return 'nvidia' in duthost.facts['platform'].lower() and not self.is_sw_control_feature_enabled(duthost)
-
-    @pytest.fixture(scope="class", autouse=True)
-    def is_supported_nvidia_platform_with_sw_control_enabled(self, duthost):
-        return 'nvidia' in duthost.facts['platform'].lower() and self.is_sw_control_feature_enabled(duthost)
-
-    @pytest.fixture(scope="class", autouse=True)
-    def is_supported_platform(self, duthost, tbinfo, is_supported_nvidia_platform_with_sw_control_disabled):
+    def is_supported_platform(self, duthost, tbinfo):
         if 'ptp' not in tbinfo['topo']['name']:
             pytest.skip("Skipping test: Not applicable for non-PTP topology")
 
@@ -47,7 +39,7 @@ class TestMACFault(object):
         else:
             pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
 
-        if is_supported_nvidia_platform_with_sw_control_disabled:
+        if is_nvidia_platform_with_sw_control_disabled(duthost):
             pytest.skip("SW control feature is not enabled on Nvidia platform")
 
     @staticmethod
@@ -75,8 +67,7 @@ class TestMACFault(object):
                localhost, safe_reboot=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope="class")
-    def get_dut_and_supported_available_optical_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                                           is_supported_nvidia_platform_with_sw_control_enabled):
+    def get_dut_and_supported_available_optical_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         sfp_presence = dut.command(cmd_sfp_presence)
@@ -84,7 +75,7 @@ class TestMACFault(object):
         supported_available_optical_interfaces = []
         failed_api_ports = []
 
-        if is_supported_nvidia_platform_with_sw_control_enabled:
+        if is_nvidia_platform_with_sw_control_enabled(dut):
 
             eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
             eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
@@ -109,23 +100,6 @@ class TestMACFault(object):
 
         return dut, supported_available_optical_interfaces, failed_api_ports
 
-    def is_sw_control_feature_enabled(self, duthost):
-        """
-        Check if SW control feature is enabled.
-        """
-        try:
-            platform_name = duthost.facts['platform']
-            hwsku = duthost.facts.get('hwsku', '')
-            sai_profile_path = os.path.join('/usr/share/sonic/device', platform_name, hwsku, 'sai.profile')
-            cmd = duthost.shell('cat {}'.format(sai_profile_path), module_ignore_errors=True)
-            if cmd['rc'] == 0 and 'SAI_INDEPENDENT_MODULE_MODE' in cmd['stdout']:
-                sc_enabled = re.search(r"SAI_INDEPENDENT_MODULE_MODE=(\d?)", cmd['stdout'])
-                if sc_enabled and sc_enabled.group(1) == '1':
-                    return True
-        except Exception as e:
-            logging.error("Error checking SW control feature on Nvidia platform: {}".format(e))
-            return False
-
     def shutdown_and_startup_interfaces(self, dut, interface):
         dut.command("sudo config interface shutdown {}".format(interface))
         pytest_assert(wait_until(30, 2, 0, lambda: self.get_interface_status(dut, interface) == "down"),
@@ -138,7 +112,7 @@ class TestMACFault(object):
     def test_mac_local_fault_increment(self, get_dut_and_supported_available_optical_interfaces,
                                        collected_ports_num):
         dut, supported_available_optical_interfaces, failed_api_ports = (
-            get_dut_and_supported_available_optical_interfaces()
+            get_dut_and_supported_available_optical_interfaces
         )
         selected_interfaces = random.sample(supported_available_optical_interfaces,
                                             min(collected_ports_num, len(supported_available_optical_interfaces)))
@@ -176,7 +150,7 @@ class TestMACFault(object):
 
     def test_mac_remote_fault_increment(self, get_dut_and_supported_available_optical_interfaces, collected_ports_num):
         dut, supported_available_optical_interfaces, failed_api_ports = (
-            get_dut_and_supported_available_optical_interfaces()
+            get_dut_and_supported_available_optical_interfaces
         )
         selected_interfaces = random.sample(supported_available_optical_interfaces,
                                             min(collected_ports_num, len(supported_available_optical_interfaces)))
