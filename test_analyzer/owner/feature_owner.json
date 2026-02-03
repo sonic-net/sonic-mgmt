@@ -114,8 +114,8 @@
     },
     {
         "feature": "bgp",
-        "owner": "Storm Liang",
-        "email": "stormliang@microsoft.com",
+        "owner": "Deepak Singhal",
+        "email": "deepsinghal@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -139,8 +139,8 @@
                     "bgp.test_traffic_shift",
                     "bgp.test_traffic_shift_sup"
                 ],
-                "owner": "Storm Liang",
-                "email": "stormliang@microsoft.com"
+                "owner": "Deepak Singhal",
+                "email": "deepsinghal@microsoft.com"
             },
             {
                 "scripts": [
@@ -917,15 +917,15 @@
     },
     {
         "feature": "metadata-scripts",
-        "owner": "Storm Liang",
-        "email": "stormliang@microsoft.com",
+        "owner": "Deepak Singhal",
+        "email": "deepsinghal@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "metadata-scripts.test_metadata_bgp"
                 ],
-                "owner": "Storm Liang",
-                "email": "stormliang@microsoft.com"
+                "owner": "Deepak Singhal",
+                "email": "deepsinghal@microsoft.com"
             },
             {
                 "scripts": [
