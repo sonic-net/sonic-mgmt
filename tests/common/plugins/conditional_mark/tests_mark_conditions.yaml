@@ -4459,10 +4459,10 @@ restapi/test_restapi.py::test_data_path_sad:
 
 restapi/test_restapi_client_cert_auth.py:
   skip:
-    reason: "Not supported on 7050CX3, S6000, and SN2700 SKUs."
+    reason: "Not supported on 7050 (except 7050CX3), S6000, and SN2700 SKUs."
     conditions_logical_operator: or
     conditions:
-      - "'7050CX3' in hwsku"
+      - "'7050' in hwsku and '7050CX3' not in hwsku"
       - "'S6000' in hwsku"
       - "'SN2700' in hwsku"
 
