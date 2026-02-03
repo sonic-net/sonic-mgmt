@@ -1,6 +1,7 @@
 import pytest
 import logging
 import json
+import time
 
 from tests.common.utilities import wait_until, file_exists_on_dut
 from tests.common.helpers.assertions import pytest_assert as py_assert
@@ -10,6 +11,7 @@ from tests.common.utilities import cleanup_prev_images
 from tests.common.helpers.upgrade_helpers import install_sonic
 from tests.common.reboot import reboot
 from tests.common.helpers.custom_msg_utils import add_custom_msg
+from tests.common.helpers.dut_utils import is_container_running
 
 
 logger = logging.getLogger(__name__)
@@ -26,18 +28,13 @@ container_name_mapping = {
     "docker-gnmi-watchdog": "gnmi_watchdog",
     "docker-auditd": "auditd",
     "docker-auditd-watchdog": "auditd_watchdog",
-    "docker-acms": "k8s_acms",
+    "docker-acms": "acms",
     "docker-acms-watchdog": "acms_watchdog",
     "docker-acms-sidecar": "acms_sidecar",
     "docker-sonic-bmp": "bmp",
     "docker-bmp-watchdog": "bmp_watchdog",
     "kubesonic-cleanup": "k8s_cleanup",
 }
-
-existing_service_list = [
-    "acms",
-    "gnmi"
-]
 
 
 def parse_containers(container_string):
@@ -131,38 +128,28 @@ def os_upgrade(duthost, localhost, tbinfo, image_url):
               "All critical services should be fully started!")
 
 
-def disable_features(duthost):
-    for service in existing_service_list:
-        logger.info(f"Disabling {service} feature")
-        duthost.shell(f"config feature state {service} disabled", module_ignore_errors=True)
-    duthost.shell("config save -y", module_ignore_errors=True)
-
-
-def validate_is_v1_enabled_false(duthost):
+def validate_is_v1_enabled(duthost, sidecar_container_name):
     """
     If sidecar container of existing service has IS_V1_ENABLED=false,
     existing service container should not be running
-
-    Rename k8s_{container_name} to container_name to minimize changes in test cases
     """
-    for container_name in existing_service_list:
-        sidecar_container_name = f"{container_name}_sidecar"
-        cmd = "docker exec %s env | grep IS_V1_ENABLED" % sidecar_container_name
-        output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
-        if "IS_V1_ENABLED=false" in output:
-            output = duthost.shell(f"docker ps | grep docker-{container_name}:latest", module_ignore_errors=True)
-            py_assert(container_name not in output["stdout"], f"{container_name} container should not be running")
-            duthost.command(f"docker rm {container_name}", module_ignore_errors=True)
-            duthost.command(f"docker rename 'k8s_{container_name}' {container_name}", module_ignore_errors=True)
+    container_name = sidecar_container_name.rsplit("_sidecar", 1)[0]
+    cmd = "docker exec %s env | grep IS_V1_ENABLED" % sidecar_container_name
+    output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
+    if "IS_V1_ENABLED=false" in output:
+        time.sleep(5)
+        if is_container_running(duthost, container_name):
+            py_assert(False, f"{container_name} container should not be running")
 
 
 def pull_run_dockers(duthost, creds, env):
     logger.info("Pulling docker images")
-
-    # Disable features, and new container will be managed by kubernetes
-    disable_features(duthost)
     registry = load_docker_registry_info(duthost, creds)
-    for container, version, name in zip(env.containers, env.container_versions, env.container_names):
+    container_entries = list(zip(env.containers, env.container_versions, env.container_names))
+    # Ensure sidecars are processed first
+    container_entries.sort(key=lambda t: 0 if "sidecar" in t[2] else 1)
+
+    for container, version, name in container_entries:
         docker_image = f"{registry.host}/{container}:{version}"
         download_image(duthost, registry, container, version)
         parameters = env.parameters[container]
@@ -174,7 +161,8 @@ def pull_run_dockers(duthost, creds, env):
                          module_ignore_errors=True)['rc'] != 0:
             pytest.fail("Not able to run container using pulled image")
 
-    validate_is_v1_enabled_false(duthost)
+        if "sidecar" in name:
+            validate_is_v1_enabled(duthost, name)
 
 
 def store_results(request, test_results, env):
