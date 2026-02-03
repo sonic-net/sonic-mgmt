@@ -186,14 +186,13 @@ def get_trigger_type(tp_type: str, build_reason: str):
 
     # 2. PR type(pr test or baseline test)
     # check build reason
-    if build_reason.upper() == "BASELINETEST":
+    elif build_reason.upper() == "BASELINETEST":
         return "BaselineTest"
-
-    if build_reason.upper() == "PULLREQUEST":
+    elif build_reason.upper() == "PULLREQUEST":
         return "PRTest"
 
-    # Else, return None, no impact
-    return None
+    else:
+        return build_reason
 
 
 class TestPlanManager(object):
