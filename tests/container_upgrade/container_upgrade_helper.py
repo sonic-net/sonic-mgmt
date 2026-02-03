@@ -24,8 +24,6 @@ container_name_mapping = {
     "docker-sonic-telemetry": "telemetry",
     "docker-sonic-gnmi": "gnmi",
     "docker-gnmi-watchdog": "gnmi_watchdog",
-    "docker-auditd": "auditd",
-    "docker-auditd-watchdog": "auditd_watchdog",
     "docker-sonic-bmp": "bmp",
     "docker-bmp-watchdog": "bmp_watchdog",
 }
@@ -143,10 +141,11 @@ def pull_run_dockers(duthost, creds, env):
         docker_image = f"{registry.host}/{container}:{version}"
         download_image(duthost, registry, container, version)
         parameters = env.parameters[container]
+        optional_parameters = env.optional_parameters
         # Stop and remove existing container
         duthost.shell(f"docker stop {name}", module_ignore_errors=True)
         duthost.shell(f"docker rm {name}", module_ignore_errors=True)
-        if duthost.shell(f"docker run -d {parameters} --name {name} {docker_image}",
+        if duthost.shell(f"docker run -d {parameters} {optional_parameters} --name {name} {docker_image}",
                          module_ignore_errors=True)['rc'] != 0:
             pytest.fail("Not able to run container using pulled image")
 

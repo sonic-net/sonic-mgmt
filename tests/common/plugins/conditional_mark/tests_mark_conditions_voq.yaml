@@ -7,6 +7,24 @@ pc/test_po_voq.py:
     conditions:
       - "is_chassis_config_absent==True"
 
+#################################################
+#####test_voq_chassis_app_db_consistency.py #####
+#################################################
+voq/test_voq_chassis_app_db_consistency.py:
+  skip:
+    reason: "Skipped as the test applies to chassis only"
+    conditions:
+      - "is_chassis_config_absent==True"
+
+#################################################
+#####test_voq_disrupts.py #####
+#################################################
+voq/test_voq_disrupts.py:
+  skip:
+    reason: "Skipped as the test applies to chassis only"
+    conditions:
+      - "is_chassis_config_absent==True"
+
 #######################################
 #####test_voq_init.py #####
 #######################################
@@ -23,6 +41,24 @@ voq/test_voq_init.py::test_voq_interface_create:
       - "is_chassis_config_absent==True"
 
 voq/test_voq_init.py::test_voq_neighbor_create:
+  skip:
+    reason: "Skipped as the test applies to chassis only"
+    conditions:
+      - "is_chassis_config_absent==True"
+
+#################################################
+#####test_voq_ipfwd.py #####
+#################################################
+voq/test_voq_ipfwd.py:
+  skip:
+    reason: "Skipped as the test applies to chassis only"
+    conditions:
+      - "is_chassis_config_absent==True"
+
+#################################################
+#####test_voq_nbr.py #####
+#################################################
+voq/test_voq_nbr.py:
   skip:
     reason: "Skipped as the test applies to chassis only"
     conditions:

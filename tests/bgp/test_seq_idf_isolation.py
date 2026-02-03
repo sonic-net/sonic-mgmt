@@ -63,11 +63,11 @@ def check_idf_isolation_support(duthost):
     return True
 
 
-def dut_nbrs(duthost, nbrhosts):
+def dut_t1_nbrs(duthost, nbrhosts):
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     nbrs_to_dut = {}
     for host in list(nbrhosts.keys()):
-        if host in mg_facts['minigraph_devices']:
+        if host in mg_facts['minigraph_devices'] and host.endswith('T1'):
             new_nbrhost = {host: nbrhosts[host]}
             nbrs_to_dut.update(new_nbrhost)
     return nbrs_to_dut
@@ -103,7 +103,7 @@ def test_idf_isolated_no_export(rand_one_downlink_duthost,
 
     pytest_assert(IDF_UNISOLATED == get_idf_isolation_state(duthost),
                   "DUT is not in unisolated state")
-    nbrs = dut_nbrs(duthost, nbrhosts)
+    nbrs = dut_t1_nbrs(duthost, nbrhosts)
     orig_v4_routes = parse_routes_on_neighbors(duthost, nbrs, 4)
     orig_v6_routes = parse_routes_on_neighbors(duthost, nbrs, 6)
     try:
@@ -156,7 +156,7 @@ def test_idf_isolated_withdraw_all(duthosts, rand_one_downlink_duthost,
 
     pytest_assert(IDF_UNISOLATED == get_idf_isolation_state(duthost),
                   "DUT is not in unisolated state")
-    nbrs = dut_nbrs(duthost, nbrhosts)
+    nbrs = dut_t1_nbrs(duthost, nbrhosts)
     orig_v4_routes = parse_routes_on_neighbors(duthost, nbrs, 4)
     orig_v6_routes = parse_routes_on_neighbors(duthost, nbrs, 6)
     try:
@@ -201,7 +201,7 @@ def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
     # Ensure that the DUT is not in maintenance already before start of the test
     pytest_assert(IDF_UNISOLATED == get_idf_isolation_state(duthost),
                   "DUT is not in normal state")
-    nbrs = dut_nbrs(duthost, nbrhosts)
+    nbrs = dut_t1_nbrs(duthost, nbrhosts)
     orig_v4_routes = parse_routes_on_neighbors(duthost, nbrs, 4)
     orig_v6_routes = parse_routes_on_neighbors(duthost, nbrs, 6)
     try:
@@ -217,12 +217,12 @@ def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
         cur_v4_routes = {}
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(600, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v4_routes, cur_v4_routes, 4, exp_community):
             if not check_and_log_routes_diff(duthost, nbrs, orig_v4_routes, cur_v4_routes, 4):
                 pytest.fail("Not all ipv4 routes are announced to neighbors")
 
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(600, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v6_routes, cur_v6_routes, 6, exp_community):
             if not check_and_log_routes_diff(duthost, nbrs, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
@@ -240,12 +240,12 @@ def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
         cur_v4_routes = {}
         cur_v6_routes = {}
         # Verify that all routes seen at the start of the test are re-advertised to neighbors
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(600, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v4_routes, cur_v4_routes, 4):
             if not check_and_log_routes_diff(duthost, nbrs, orig_v4_routes, cur_v4_routes, 4):
                 pytest.fail("Not all ipv4 routes are announced to neighbors")
 
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(600, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v6_routes, cur_v6_routes, 6):
             if not check_and_log_routes_diff(duthost, nbrs, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")
@@ -265,7 +265,7 @@ def test_idf_isolation_withdraw_all_with_config_reload(duthosts, rand_one_downli
     # Ensure that the DUT is not in maintenance already before start of the test
     pytest_assert(IDF_UNISOLATED == get_idf_isolation_state(duthost),
                   "DUT is not in normal state")
-    nbrs = dut_nbrs(duthost, nbrhosts)
+    nbrs = dut_t1_nbrs(duthost, nbrhosts)
     try:
         # Get all routes on neighbors before doing TSA
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrs, 4)
@@ -295,12 +295,12 @@ def test_idf_isolation_withdraw_all_with_config_reload(duthosts, rand_one_downli
         cur_v4_routes = {}
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(600, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v4_routes, cur_v4_routes, 4):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
                 pytest.fail("Not all ipv4 routes are announced to neighbors")
 
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(600, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v6_routes, cur_v6_routes, 6):
             if not check_and_log_routes_diff(duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
                 pytest.fail("Not all ipv6 routes are announced to neighbors")

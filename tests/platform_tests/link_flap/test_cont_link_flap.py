@@ -10,6 +10,7 @@ import logging
 import pytest
 import time
 import math
+import re
 
 from collections import defaultdict
 
@@ -42,12 +43,40 @@ class TestContLinkFlap(object):
                 f'vtysh -c "show memory {daemon}"', asic.namespace))["stdout"]
             logging.info(f"{daemon} memory status: \n%s", frr_daemon_memory_output)
 
-            output = duthost.shell(duthost.get_vtysh_cmd_for_namespace(
-                f'vtysh -c "show memory {daemon}" | grep "Used ordinary blocks"', asic.namespace))["stdout"]
-            frr_daemon_memory = output.split()[-2]
-            frr_daemon_memory_per_asics[asic.asic_index] = frr_daemon_memory
+            # Parse the output for the three memory values
+            used_ordinary_blocks = 0
+            used_small_blocks = 0
+            holding_block_headers = 0
+            for line in frr_daemon_memory_output.splitlines():
+                if "Used ordinary blocks:" in line:
+                    used_ordinary_blocks = TestContLinkFlap._parse_memory_value(line)
+                elif "Used small blocks:" in line:
+                    used_small_blocks = TestContLinkFlap._parse_memory_value(line)
+                elif "Holding block headers:" in line:
+                    holding_block_headers = TestContLinkFlap._parse_memory_value(line)
+
+            total_memory = used_ordinary_blocks + used_small_blocks + holding_block_headers
+            logging.info("{} total memory for asic{}: {} MiB; ordinary {}, small {}, holding {}".format(
+                daemon, asic.asic_index, total_memory, used_ordinary_blocks, used_small_blocks, holding_block_headers))
+            frr_daemon_memory_per_asics[asic.asic_index] = total_memory
 
         return frr_daemon_memory_per_asics
+
+    @staticmethod
+    def _parse_memory_value(line):
+        match = re.search(r':\s*([\d.]+)\s*(bytes|KiB|MiB)?', line)
+        if not match:
+            return 0
+        value = float(match.group(1))
+        unit = match.group(2)
+        if unit == 'bytes' or unit is None:
+            return value / (1024 * 1024)
+        elif unit == 'KiB':
+            return value / 1024
+        elif unit == 'MiB':
+            return value
+        else:
+            return value
 
     def test_cont_link_flap(self, request, duthosts, nbrhosts, enum_rand_one_per_hwsku_frontend_hostname,
                             fanouthosts, bring_up_dut_interfaces, tbinfo):
@@ -78,7 +107,7 @@ class TestContLinkFlap(object):
         logging.info("Redis Memory: %f M", start_time_redis_memory)
 
         # Record ipv4 route counts at start
-        sumv4, sumv6 = duthost.get_ip_route_summary(skip_kernel_tunnel=True)
+        sumv4, sumv6 = duthost.get_ip_route_summary(skip_kernel_tunnel=True, skip_kernel_linkdown=True)
         logging.debug("sumv4  {} ".format(sumv4))
         logging.debug("sumv6  {} ".format(sumv6))
 
@@ -127,7 +156,7 @@ class TestContLinkFlap(object):
         # Make Sure all ipv4/ipv6 routes are relearned with jitter of ~5
         if not wait_until(120, 2, 0, check_bgp_routes, duthost,
                           start_time_ipv4_route_counts, start_time_ipv6_route_counts):
-            endv4, endv6 = duthost.get_ip_route_summary(skip_kernel_tunnel=True)
+            endv4, endv6 = duthost.get_ip_route_summary(skip_kernel_tunnel=True, skip_kernel_linkdown=True)
             failmsg = []
             failmsg.append("IP routes are not equal after link flap: before ipv4 {} ipv6 {}, after ipv4 {} ipv6 {}"
                            .format(sumv4, sumv6, endv4, endv6))
