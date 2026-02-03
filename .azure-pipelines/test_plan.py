@@ -272,6 +272,7 @@ class TestPlanManager(object):
         ptf_modified = kwargs.get("ptf_modified", False)
         build_reason = kwargs.get("build_reason", "PullRequest")
         lock_wait_timeout_seconds = kwargs.get("lock_wait_timeout_seconds", 0)
+        kvm_image_build_pipeline_id = kwargs.get("kvm_image_build_pipeline_id", None)
         # If not set lock tb timeout, set to 2 hours for pr test plans by default
         if lock_wait_timeout_seconds == 0 and test_plan_type == "PR":
             lock_wait_timeout_seconds = int(os.environ.get("TIMEOUT_IN_SECONDS_PR_TEST_PLAN_LOCK_TB", 7200))
@@ -328,7 +329,7 @@ class TestPlanManager(object):
         # If triggered by buildimage repo, use image built from the buildId
         kvm_image_build_id = kvm_build_id
         kvm_image_branch = kwargs.get("kvm_image_branch", "")
-        if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
+        if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo") and kvm_image_build_pipeline_id is None:
             kvm_image_build_id = build_id
             kvm_image_branch = ""
         affinity = json.loads(kwargs.get("affinity", "[]"))
