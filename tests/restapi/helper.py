@@ -35,3 +35,17 @@ def apply_cert_config(duthost):
     dut_command = "sudo systemctl restart restapi"
     duthost.shell(dut_command)
     time.sleep(RESTAPI_SERVER_START_WAIT_TIME)
+
+
+def set_trusted_client_cert_subject_name(duthost, new_subject_name):
+    # Set trusted client certificate subject name in config DB
+    dut_command = f"redis-cli -n 4 hset \
+                    'RESTAPI|certs' \
+                    'client_crt_cname' \
+                    '{new_subject_name}'"
+    duthost.shell(dut_command)
+
+    # Restart RESTAPI server with the updated config
+    dut_command = "sudo systemctl restart restapi"
+    duthost.shell(dut_command)
+    time.sleep(RESTAPI_SERVER_START_WAIT_TIME)
