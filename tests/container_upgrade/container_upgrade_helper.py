@@ -44,6 +44,7 @@ existing_systemd_services = [
     "telemetry"
 ]
 
+
 def parse_containers(container_string):
     containers = []
     container_versions = []
@@ -175,7 +176,7 @@ def pull_run_dockers(duthost, creds, env):
         if name in existing_systemd_services:
             migrate_container_systemd(duthost, name, container, docker_image, parameters)
             enable_feature(duthost)
-            return
+            continue
         if duthost.shell(f"docker run -d {parameters} {optional_parameters} --name {name} {docker_image}",
                          module_ignore_errors=True)['rc'] != 0:
             pytest.fail("Not able to run container using pulled image")

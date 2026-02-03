@@ -1,6 +1,5 @@
 import json
 import re
-import ipaddress
 from tests.common.reboot import reboot
 
 
@@ -105,7 +104,6 @@ def get_ipv6_neighbor(duthost):
         if ":" in line:
             return [line.split("|", 1)[-1]]
     return None
-
 def get_ipv6_prefix(duthost):
     return ["::\/0"]
 
@@ -148,18 +146,20 @@ def get_device_neighbor(duthost):
         return None
     return [lines[0].split("|", 1)[-1]]
 
+
 def get_device_arp_ip(duthost):
     output = duthost.shell("/usr/sbin/arp -n", module_ignore_errors=True)["stdout"]
     lines = [line.strip() for line in output.splitlines() if line.strip()]
     if len(lines) >= 2:
         first_entry = lines[1].split()
-        return [first_entry[0]]
+        if len(first_entry) >= 1:
+            return [first_entry[0]]
     return None
 
 
 def get_feature_name(duthost):
     output = duthost.shell("redis-cli -n 4 keys 'FEATURE|*'", module_ignore_errors=True)["stdout"]
-    features = [l.split("|", 1)[-1].strip('"') for l in output.splitlines() if l.strip()]
+    features = [line.split("|", 1)[-1].strip('"') for line in output.splitlines() if line.strip()]
     if not features:
         return None
     return features

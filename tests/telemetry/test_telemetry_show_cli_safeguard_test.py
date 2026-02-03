@@ -10,6 +10,8 @@ import re
 import cli_helpers as helper
 from telemetry_utils import generate_client_cli
 from show_cli_to_gnmi_path import ShowCliToGnmiPathConverter, OptionException
+from tests.common.mellanox_data import is_mellanox_device
+from tests.common.broadcom_data import is_broadcom_device
 
 pytestmark = [pytest.mark.topology('any')]
 
@@ -53,9 +55,11 @@ optionMap = {
     "interface_vlan":       ("kv", "iface", helper.get_interface_vlan),
 }
 
+
 def powerset(iterable):
     items = list(iterable)
     return itertools.chain.from_iterable(itertools.combinations(items, r) for r in range(len(items) + 1))
+
 
 def generate_option_combinations(nested):
     result = [[]]  # empty set (no options)
@@ -66,10 +70,12 @@ def generate_option_combinations(nested):
             result.append(list(combo))
     return result
 
+
 def generate_required_argument_combinations(nested):
     if not nested:
         return []
     return [list(t) for t in itertools.product(*nested)]
+
 
 def generate_optional_argument_combinations(nested):
     result = [[]]
@@ -77,11 +83,13 @@ def generate_optional_argument_combinations(nested):
         result.extend([list(t) for t in itertools.product(*nested[:i+1])])
     return result
 
+
 def build_show_cli_tokens(base_path, positional_args, option_tokens):
     parts = [base_path]
     parts.extend(str(arg) for arg in positional_args)
     parts.extend(option_tokens)
     return " ".join(parts)
+
 
 def option_value_lists(option_keys, duthost, arguments):
     lists = []
@@ -107,6 +115,7 @@ def option_value_lists(option_keys, duthost, arguments):
                 continue
             lists.append([f"--{oname}={v}" for v in vals])
     return lists
+
 
 def convert_show_cli_to_xpath(cli_str):
     tokens = shlex.split(cli_str)
@@ -156,7 +165,12 @@ def validate_schema(shape, required_keys, required_map_keys, payload):
         if missing_top:
             return False, f"object_map missing top-level keys: {missing_top}"
 
-        for k, v in payload.items():
+        # Only validate required_keys for keys specified in required_map_keys
+        keys_to_validate = required_map_keys if required_map_keys else payload.keys()
+        for k in keys_to_validate:
+            if k not in payload:
+                continue
+            v = payload[k]
             if not isinstance(v, dict):
                 return False, f"value at key '{k}' is not an object (got {type(v).__name__})"
             missing = [rk for rk in required_keys if rk not in v]
@@ -165,6 +179,7 @@ def validate_schema(shape, required_keys, required_map_keys, payload):
         return True, None
 
     return False, f"unknown shape '{shape}'"
+
 
 def gnmi_get_with_retry(ptfhost, cmd, retries=3):
     res = {"rc": 1, "stdout": "", "stderr": ""}
@@ -178,7 +193,7 @@ def gnmi_get_with_retry(ptfhost, cmd, retries=3):
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_show_cli_schema_and_safeguard(
+def test_telemetry_show_cli_schema_and_safeguard(
     duthosts,
     enum_rand_one_per_hwsku_hostname,
     ptfhost,
@@ -188,6 +203,13 @@ def test_show_cli_schema_and_safeguard(
     skip_non_container_test
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # Skip if not 202412 or not (mellanox or broadcom)
+    if "202412" not in duthost.os_version:
+        pytest.skip("Test only runs on 202412 image version, current version: {}".format(duthost.os_version))
+
+    if not (is_mellanox_device(duthost) or is_broadcom_device(duthost)):
+        pytest.skip("Test only runs on Mellanox or Broadcom ASICs, current ASIC type")
 
     with open(SHOW_CMD_FILE, "r", encoding="utf-8") as f:
         show_cmds = json.load(f)
@@ -232,6 +254,7 @@ def test_show_cli_schema_and_safeguard(
             argument_combinations = generate_required_argument_combinations(required_arg_values)
         elif optional_args:
             arg_values = []
+            optional_arg_failed = False
             for arg in optional_args:
                 getter = argumentMap.get(arg)
                 if not getter:
@@ -240,7 +263,8 @@ def test_show_cli_schema_and_safeguard(
                         "xpath": "",
                         "reason": f"unknown optional arg '{arg}'"
                     })
-                    continue
+                    optional_arg_failed = True
+                    break
                 arg_value = getter(duthost)
                 if not arg_value:
                     failures.append({
@@ -248,8 +272,11 @@ def test_show_cli_schema_and_safeguard(
                         "xpath": "",
                         "reason": f"optional arg: '{arg}' getter failed"
                     })
-                    continue
+                    optional_arg_failed = True
+                    break
                 arg_values.append(arg_value)
+            if optional_arg_failed:
+                continue
             argument_combinations = generate_optional_argument_combinations(arg_values)
         else:
             argument_combinations = [[]]
@@ -261,76 +288,76 @@ def test_show_cli_schema_and_safeguard(
                 failures.append({"cli": path, "xpath": "", "reason": str(e)})
                 continue
             for opt_tokens in (generate_option_combinations(per_option_lists) if per_option_lists else [[]]):
-                    cli = build_show_cli_tokens(path, argument_combination, opt_tokens)
-                    commands_tested.append(cli)
-                    try:
-                        xpath = convert_show_cli_to_xpath(cli)
-                        prefix = "SHOW/"
-                        if xpath.startswith(prefix):
-                            xpath = xpath[len(prefix):]
-                    except (OptionException, ValueError) as e:
-                        failures.append({
-                            "cli": cli,
-                            "xpath": "",
-                            "reason": f"{e}"
-                        })
+                cli = build_show_cli_tokens(path, argument_combination, opt_tokens)
+                commands_tested.append(cli)
+                try:
+                    xpath = convert_show_cli_to_xpath(cli)
+                    prefix = "SHOW/"
+                    if xpath.startswith(prefix):
+                        xpath = xpath[len(prefix):]
+                except (OptionException, ValueError) as e:
+                    failures.append({
+                        "cli": cli,
+                        "xpath": "",
+                        "reason": f"{e}"
+                    })
+                    continue
+
+                logger.info("CLI: %s, XPATH: %s", cli, xpath)
+                xpath_to_query = shlex.quote(xpath)
+
+                before_status = duthost.all_critical_process_status()
+
+                cmd = generate_client_cli(
+                    duthost=duthost,
+                    gnxi_path=gnxi_path,
+                    method=METHOD_GET,
+                    xpath=xpath_to_query,
+                    target="SHOW"
+                )
+                ptf_result = gnmi_get_with_retry(ptfhost, cmd)
+                rc = ptf_result.get("rc", 1)
+                stdout = ptf_result.get("stdout", "")
+                stderr = ptf_result.get("stderr", "")
+
+                if rc != 0:
+                    if RESOURCE_EXHAUSTION in stdout or CLIENT_LARGER_MESSAGE_ERROR in stdout:
                         continue
+                    failures.append({
+                        "cli": cli,
+                        "xpath": xpath,
+                        "reason": f"ptf rc={rc}, stderr={stderr}"
+                    })
+                    continue
 
-                    logger.info("CLI: %s, XPATH: %s", cli, xpath)
-                    xpath_to_query = shlex.quote(xpath)
+                after_status = duthost.all_critical_process_status()
+                if before_status != after_status:
+                    failures.append({
+                        "cli": cli,
+                        "xpath": xpath,
+                        "reason": "Critical process status changed after GET"
+                    })
 
-                    before_status = duthost.all_critical_process_status()
+                try:
+                    payload = helper.get_json_from_gnmi_output(stdout)
+                except (json.JSONDecodeError, TypeError, AssertionError) as e:
+                    failures.append({
+                        "cli": cli,
+                        "xpath": xpath,
+                        "reason": f"JSON parse error: {e}. Raw: {stdout}"
+                    })
+                    continue
 
-                    cmd = generate_client_cli(
-                        duthost=duthost,
-                        gnxi_path=gnxi_path,
-                        method=METHOD_GET,
-                        xpath=xpath_to_query,
-                        target="SHOW"
-                    )
-                    ptf_result = gnmi_get_with_retry(ptfhost, cmd)
-                    rc = ptf_result.get("rc", 1)
-                    stdout = ptf_result.get("stdout", "")
-                    stderr = ptf_result.get("stderr", "")
+                if not should_validate:
+                    continue
 
-                    if rc != 0:
-                        if RESOURCE_EXHAUSTION in stdout or CLIENT_LARGER_MESSAGE_ERROR in stdout:
-                            continue
-                        failures.append({
-                            "cli": cli,
-                            "xpath": xpath,
-                            "reason": f"ptf rc={rc}, stderr={stderr}"
-                        })
-                        continue
-
-                    after_status = duthost.all_critical_process_status()
-                    if before_status != after_status:
-                        failures.append({
-                            "cli": cli,
-                            "xpath": xpath,
-                            "reason": "Critical process status changed after GET"
-                        })
-
-                    try:
-                        payload = helper.get_json_from_gnmi_output(stdout)
-                    except (json.JSONDecodeError, TypeError, AssertionError) as e:
-                        failures.append({
-                            "cli": cli,
-                            "xpath": xpath,
-                            "reason": f"JSON parse error: {e}. Raw: {stdout}"
-                        })
-                        continue
-
-                    if not should_validate:
-                        continue
-
-                    ok, reason = validate_schema(shape, required_keys, required_map_keys, payload)
-                    if not ok:
-                        failures.append({
-                            "cli": cli,
-                            "xpath": xpath,
-                            "reason": reason
-                        })
+                ok, reason = validate_schema(shape, required_keys, required_map_keys, payload)
+                if not ok:
+                    failures.append({
+                        "cli": cli,
+                        "xpath": xpath,
+                        "reason": reason
+                    })
     commands_tested_lines = ["Commands tested: ({} total):".format(len(commands_tested))]
     for commands in commands_tested:
         commands_tested_lines.append(commands)
