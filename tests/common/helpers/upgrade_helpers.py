@@ -260,7 +260,7 @@ def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_
     if enable_cpa and "warm-reboot" in reboot_type:
         ptfhost.shell('supervisorctl stop ferret')
 
-def _get_next_image_from_sonic_installer_list(duthost) -> str | None:
+def _get_next_image_from_sonic_installer_list(duthost) -> Optional[str]:
     """
     Run sonic_installer/sonic-installer list and parse 'Next:' field.
     Returns image string like 'SONiC-OS-20251110.05' or None if not found.
