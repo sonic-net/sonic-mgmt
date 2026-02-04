@@ -2,7 +2,6 @@ import json
 import logging
 import math
 import time
-import uuid
 from functools import lru_cache
 
 import proto_utils
@@ -177,7 +176,7 @@ def apply_gnmi_cert(my_duthost, ptfhost):
     my_duthost.copy(src=env.work_dir+env.gnmi_server_cert, dest=env.gnmi_cert_path)
     my_duthost.copy(src=env.work_dir+env.gnmi_server_key, dest=env.gnmi_cert_path)
     # Copy CA certificate and client certificate over to the PTF
-    
+
     my_dest = '/root/' + my_duthost.hostname
     ptfhost.shell("mkdir -p {0}".format(my_dest))
     ptfhost.copy(src=env.work_dir+env.gnmi_ca_cert, dest=my_dest)
@@ -245,9 +244,9 @@ def gnmi_set(my_duthost, ptfhost, delete_list, update_list, replace_list):
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
-    cmd += '-rcert /root/%s/%s ' % (my_duthost.hostname,env.gnmi_ca_cert)
-    cmd += '-pkey /root/%s/%s ' % (my_duthost.hostname,env.gnmi_client_key)
-    cmd += '-cchain /root/%s/%s ' % (my_duthost.hostname,env.gnmi_client_cert)
+    cmd += '-rcert /root/%s/%s ' % (my_duthost.hostname, env.gnmi_ca_cert)
+    cmd += '-pkey /root/%s/%s ' % (my_duthost.hostname, env.gnmi_client_key)
+    cmd += '-cchain /root/%s/%s ' % (my_duthost.hostname, env.gnmi_client_cert)
     if len(update_list) > 0:
         cmd += '-m set-update '
     elif len(delete_list) > 0:

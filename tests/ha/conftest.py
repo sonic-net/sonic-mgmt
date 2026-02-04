@@ -14,11 +14,11 @@ from common.ha.smartswitch_ha_helper import (
     add_static_route_to_dut
 )
 from ipaddress import ip_interface
-from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_IP, REMOTE_ENI_MAC, \
-    LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC, \
-    REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_ACTION, \
-    ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, LOCAL_DUT_INTF, REMOTE_DUT_INTF, \
-    REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF, LOCAL_REGION_ID, VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK, \
+from constants import LOCAL_CA_IP, \
+    DUT_MAC, LOCAL_PTF_INTF, LOCAL_PTF_MAC, \
+    REMOTE_PTF_INTF, REMOTE_PTF_MAC, \
+    LOCAL_DUT_INTF, REMOTE_DUT_INTF, \
+    REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF, VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK, \
     NPU_DATAPLANE_IP, NPU_DATAPLANE_MAC, NPU_DATAPLANE_PORT, DPU_DATAPLANE_IP, DPU_DATAPLANE_MAC, DPU_DATAPLANE_PORT
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
@@ -31,17 +31,19 @@ logger = logging.getLogger(__name__)
 
 ENABLE_GNMI_API = True
 
+
 @pytest.fixture(scope="module")
 def setup_ha_config(duthosts):
     pass
 
+
 @pytest.fixture(scope="module")
-def program_ha_set_and_initial_ha_scope(duthosts):
+def setup_dash_ha_from_json(duthosts):
     pass
 
 
 @pytest.fixture(scope="module")
-def ha_activate_role(duthosts):
+def activate_dash_ha_from_json(duthosts):
     pass
 
 
@@ -155,7 +157,6 @@ def setup_namespaces_with_routes(ptfhost, duthosts, get_t2_info):
         if ns["namespace"] not in visited_namespaces:
             remove_namespace(ptfhost, ns["namespace"])
             visited_namespaces.add(ns["namespace"])
-
 
 
 def get_interface_ip(duthost, interface):
@@ -296,7 +297,8 @@ def dash_pl_config(duthosts, dpuhosts, dpu_index, duts_minigraph_facts):
                     intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
                     intfs = list(config_facts["PORTCHANNEL_MEMBER"][intf].keys())
                     dash_info[i][REMOTE_PTF_SEND_INTF] = minigraph_facts[0][1]["minigraph_ptf_indices"][intfs[0]]
-                    dash_info[i][REMOTE_PTF_RECV_INTF] = [minigraph_facts[0][1]["minigraph_ptf_indices"][j] for j in intfs]
+                    dash_info[i][REMOTE_PTF_RECV_INTF] = \
+                        [minigraph_facts[0][1]["minigraph_ptf_indices"][j] for j in intfs]
                     dash_info[i][REMOTE_DUT_INTF] = intf
                     dash_info[i][REMOTE_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
 
@@ -314,7 +316,6 @@ def dash_pl_config(duthosts, dpuhosts, dpu_index, duts_minigraph_facts):
         dash_info[i][NPU_DATAPLANE_IP] = dpuhost.npu_data_port_ip
         dash_info[i][NPU_DATAPLANE_MAC] = dpuhost.npu_dataplane_mac
 
-    breakpoint()
     return dash_info
 
 
@@ -441,8 +442,8 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
         logger.warning("Applying Pensando DPU VXLAN sport workaround")
         dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
     yield
-    #if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
-    #    config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 @pytest.fixture(scope="module")
@@ -458,9 +459,13 @@ def single_endpoint(request):
 @pytest.fixture
 def dpu_setup(duthosts, dpuhosts, dpu_index, skip_config):
     if skip_config:
-
         return
+
+    """
+    Prior to this, HA configuration will set the route from DPU to NPU
+    """
     for i in range(len(duthosts)):
+        # we run the DUT and DPU index in parallel because they are forming the HA pair
         duthost = duthosts[i]
         dpuhost = dpuhosts[i]
         # explicitly add mgmt IP route so the default route doesn't disrupt SSH access
@@ -471,16 +476,11 @@ def dpu_setup(duthosts, dpuhosts, dpu_index, skip_config):
             dpu_cmds.append("config loopback add Loopback0")
             dpu_cmds.append(f"config int ip add Loopback0 {pl.APPLIANCE_VIP}/32")
 
-        pt_require(dpuhost.npu_data_port_ip, "DPU data port IP is not set")
-        dpu_cmds.append(f"ip route replace default via {dpuhost.npu_data_port_ip}")
-        dpuhost.shell_cmds(cmds=dpu_cmds)
-
 
 @pytest.fixture(scope="function")
 def add_npu_static_routes(
     duthosts, dash_pl_config, skip_config, skip_cleanup, dpu_index, dpuhosts
 ):
-    #dpuhost = dpuhosts[dpu_index]
     if not skip_config:
         for i in range(len(duthosts)):
             duthost = duthosts[i]
@@ -515,12 +515,9 @@ def add_npu_static_routes(
             cmds.append(f"ip route del {pl.VM1_PA}/32 via {vm_nexthop_ip}")
             cmds.append(f"ip route del {pl.PE_PA}/32 via {pe_nexthop_ip}")
             logger.info(f"Removing static routes: {cmds} from {duthost}")
-            breakpoint()
             duthost.shell_cmds(cmds=cmds)
 
 
 @pytest.fixture(scope="function")
 def setup_npu_dpu(dpu_setup, add_npu_static_routes):
     yield
-
-

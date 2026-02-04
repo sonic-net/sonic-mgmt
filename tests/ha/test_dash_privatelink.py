@@ -3,8 +3,6 @@ import logging
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
-import random
-import ptf.packet as scapy
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
@@ -37,7 +35,6 @@ def common_setup_teardown(
 ):
     if skip_config:
         return
-    breakpoint()
     for i in range(len(duthosts)):
         duthost = duthosts[i]
         dpuhost = dpuhosts[i]
@@ -50,7 +47,6 @@ def common_setup_teardown(
         }
         logger.info(f"configure on {duthost.hostname} dpu {dpuhost.dpu_index} {base_config_messages}")
 
-        breakpoint()
         apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
 
         route_and_mapping_messages = {
@@ -93,10 +89,8 @@ def test_privatelink_basic_transform(
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
     pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config[0])
 
-    breakpoint()
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
     testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[0][REMOTE_PTF_RECV_INTF])
     testutils.send(ptfadapter, dash_pl_config[0][REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
     testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[0][LOCAL_PTF_INTF])
-

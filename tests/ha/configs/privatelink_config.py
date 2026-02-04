@@ -1,4 +1,4 @@
-from dash_api.eni_pb2 import State, EniMode
+from dash_api.eni_pb2 import State
 from dash_api.route_type_pb2 import ActionType, EncapType, RoutingType
 from dash_api.types_pb2 import IpVersion
 
@@ -8,7 +8,7 @@ VNET_DIRECT = "vnet_direct"
 PRIVATELINK = "privatelink"
 DECAP = "decap"
 
-APPLIANCE_VIP="3.2.1.0"
+APPLIANCE_VIP = "3.2.1.0"
 VM1_PA = "25.1.1.1"  # VM host physical address
 VM1_CA = "10.0.0.11"  # VM customer address
 VM_CA_SUBNET = "10.0.0.0/16"
