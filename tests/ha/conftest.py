@@ -171,10 +171,10 @@ def build_dash_ha_scope_args(fields):
 
     return (
         f'version \\"{version}\\" '
-        f'disabled "true" '
+        f'disabled "{fields["disabled"]}" '
         f'desired_ha_state "{fields["desired_ha_state"]}" '
         f'ha_set_id "{fields["ha_set_id"]}" '
-        f'owner "dpu"'
+        f'owner "{fields["owner"]}"'
     )
 
 
@@ -184,29 +184,26 @@ def extract_pending_operations(text):
     and return list of (type, id) tuples.
     """
     ids_match = re.search(
-        r'pending_operation_ids\s+\|\s+(\[.*?\])',
+        r'pending_operation_ids\s*\|\s*([^\|\r\n]+)',
         text,
         re.DOTALL,
     )
     types_match = re.search(
-        r'pending_operation_types\s+\|\s+(\[.*?\])',
+        r'pending_operation_types\s*\|\s*([^\|\r\n]+)',
         text,
         re.DOTALL,
     )
-
     if not ids_match or not types_match:
-        logging.warning(f"Regex match failed - ids_match: {bool(ids_match)}, types_match: {bool(types_match)}")
         return []
 
     try:
-        ids = ast.literal_eval(f'"{ids_match.group(1)}"')
-        types = ast.literal_eval(f'"{types_match.group(1)}"')
-    except Exception as e:
-        logging.error(
-            f"Failed to parse ids or types: {e}. "
-            f"ids_match: {ids_match.group(1) if ids_match else None}, "
-            f"types_match: {types_match.group(1) if types_match else None}"
-        )
+        ids = ast.literal_eval(f"'{ids_match.group(1)}'")
+        id_list = ids.split()
+        ids = id_list[0].split(',')
+        types = ast.literal_eval(f"'{types_match.group(1)}'")
+        type_list = types.split()
+        types = type_list[0].split(',')
+    except Exception:
         return []
 
     return list(zip(types, ids))
@@ -235,12 +232,12 @@ def get_pending_operation_id(duthost, scope_key, expected_op_type):
 def build_dash_ha_scope_activate_args(fields, pending_id):
     return (
         f'version \\"{fields["version"]}\\" '
-        f'disabled "{fields["disabled"]}" '
+        f'disabled {fields["disabled"]} '
         f'desired_ha_state "{fields["desired_ha_state"]}" '
         f'ha_set_id "{fields["ha_set_id"]}" '
         f'owner "{fields["owner"]}" '
         f'approved_pending_operation_ids '
-        f'[\"{pending_id}\"]'
+        f'[\\\"{pending_id}\\\"]'
     )
 
 
@@ -292,17 +289,6 @@ def wait_for_pending_operation_id(
     return pending_id if success else None
 
 
-def expected_ha_state_from_fields(fields):
-    desired = fields.get("desired_ha_state")
-
-    if desired == "active":
-        return "active"
-    if desired == "unspecified":
-        return "unspecified"
-
-    raise ValueError(f"Unknown desired_ha_state: {desired}")
-
-
 def extract_ha_state(text):
     """
     Extract ha_state from swbus-cli output
@@ -329,11 +315,11 @@ def wait_for_ha_state(
         res = duthost.shell(cmd)
         return extract_ha_state(res["stdout"]) == expected_state
 
-    success, _ = wait_until(
+    success = wait_until(
         timeout,
         interval,
-        _check_ha_state,
-        delay=0,
+        0,
+        _check_ha_state
     )
 
     return success
@@ -377,7 +363,7 @@ def setup_dash_ha_from_json(duthosts):
             "vdpu1_0:haset0_0",
             {
                 "version": "1",
-                "disabled": "false",
+                "disabled": "true",
                 "desired_ha_state": "unspecified",
                 "ha_set_id": "haset0_0",
                 "owner": "dpu",
@@ -397,13 +383,13 @@ def setup_dash_ha_from_json(duthosts):
 @pytest.fixture(scope="module")
 def activate_dash_ha_from_json(duthosts):
     # -------------------------------------------------
-    # Step 3: Activate Role (using pending_operation_ids)
+    # Step 4: Activate Role (using pending_operation_ids)
     # -------------------------------------------------
     activate_scope_per_dut = [
         (
             "vdpu0_0:haset0_0",
             {
-                "version": "3",
+                "version": "1",
                 "disabled": "false",
                 "desired_ha_state": "active",
                 "ha_set_id": "haset0_0",
@@ -413,7 +399,7 @@ def activate_dash_ha_from_json(duthosts):
         (
             "vdpu1_0:haset0_0",
             {
-                "version": "3",
+                "version": "1",
                 "disabled": "false",
                 "desired_ha_state": "unspecified",
                 "ha_set_id": "haset0_0",
@@ -433,29 +419,31 @@ def activate_dash_ha_from_json(duthosts):
         pending_id = wait_for_pending_operation_id(
             duthost,
             scope_key=key,
-            expected_op_type="active",
+            expected_op_type="activate_role",
             timeout=60,
             interval=2
         )
         assert pending_id, (
             f"Timed out waiting for active pending_operation_id "
-            f"for scope {key}"
+            f"for {duthost.hostname} scope {key}"
         )
 
+        logger.info(f"DASH HA {duthost.hostname} found pending id {pending_id}")
         proto_utils_hset(
             duthost,
             table="DASH_HA_SCOPE_CONFIG_TABLE",
             key=key,
             args=build_dash_ha_scope_activate_args(fields, pending_id),
         )
-        expected_state = expected_ha_state_from_fields(fields)
         # Verify HA state using fields
+        expected_state = "active"
         assert wait_for_ha_state(
             duthost,
             scope_key=key,
             expected_state=expected_state,
             timeout=120,
             interval=5,
-        ), f"HA did not reach ACTIVE state for {key}"
+        ), f"HA did not reach expected state {expected_state} for {key} on {duthost.hostname}"
+        logger.info(f"DASH HA Step-4 Activate Role completed for {duthost.hostname}")
     logger.info("DASH HA Step-4 Activate Role completed")
     yield
