@@ -46,6 +46,7 @@ def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_compl
     topo_name = tbinfo["topo"]["name"]
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    asic_type = duthost.facts["asic_type"]
     namespace = asichost.namespace
 
     ignoreRegex = [
@@ -87,11 +88,12 @@ def test_announce_withdraw_route(duthosts, localhost, tbinfo, get_function_compl
     ipv4_route_used_after = get_crm_resource_status(duthost, "ipv4_route", "used", namespace)
     ipv6_route_used_after = get_crm_resource_status(duthost, "ipv6_route", "used", namespace)
 
-    pytest_assert(abs(ipv4_route_used_after - ipv4_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS,
-                  "ipv4 route used after is not equal to it used before")
-    pytest_assert(abs(ipv6_route_used_after - ipv6_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS,
-                  "ipv6 route used after is not equal to it used before")
-
+    # Do not check route used for vs tests because vs testbed do not have real asic
+    if asic_type != "vs":
+        pytest_assert(abs(ipv4_route_used_after - ipv4_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS,
+                      "ipv4 route used after is not equal to it used before")
+        pytest_assert(abs(ipv6_route_used_after - ipv6_route_used_before) < ALLOW_ROUTES_CHANGE_NUMS,
+                      "ipv6 route used after is not equal to it used before")
     end_time_frr_daemon_memory = get_frr_daemon_memory_usage(duthost, frr_demons_to_check, namespace)
     logging.info(f"memory usage at end: {end_time_frr_daemon_memory}")
     check_memory_usage_is_expected(duthost, frr_demons_to_check, start_time_frr_daemon_memory,
