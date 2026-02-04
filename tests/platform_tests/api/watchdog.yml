@@ -212,7 +212,7 @@ x86_64-8102_28fh_dpu_o-r0:
     too_big_timeout: 6554
 
 # Nexthop watchdog
-x86_64-nexthop_40(1|2)0-r.*:
+x86_64-nexthop_.*:
   default:
     valid_timeout: 10
     greater_timeout: 16777
