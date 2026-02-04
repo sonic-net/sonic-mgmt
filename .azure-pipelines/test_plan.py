@@ -329,7 +329,9 @@ class TestPlanManager(object):
         # If triggered by buildimage repo, use image built from the buildId
         kvm_image_build_id = kvm_build_id
         kvm_image_branch = kwargs.get("kvm_image_branch", "")
-        if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo") and kvm_image_build_pipeline_id is None:
+        if kvm_image_build_pipeline_id is not None:
+            kvm_image_build_id = ""
+        elif BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
             kvm_image_branch = ""
         affinity = json.loads(kwargs.get("affinity", "[]"))
