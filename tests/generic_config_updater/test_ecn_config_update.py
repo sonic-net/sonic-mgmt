@@ -9,7 +9,7 @@ Note on Platform Support:
 
     The GR2 SAI layer (sai_wred_manager_gr2.cpp) has stub implementations for WRED
     configuration functions. CONFIG_DB changes are accepted but don't propagate to
-    hardware or ASIC_DB. See MIGSOFTWAR-33801 for tracking.
+    hardware or ASIC_DB.
 
     Other Cisco 8000 platforms (GB/GR ASICs like 8101, 8102, 8111) are supported.
 """
