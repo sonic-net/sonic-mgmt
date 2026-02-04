@@ -24,6 +24,7 @@ CONTAINER_STRING_KEY = "container_bundle"
 
 container_name_mapping = {
     "docker-sonic-telemetry": "telemetry",
+    "docker-telemetry-watchdog": "telemetry_watchdog",
     "docker-sonic-gnmi": "gnmi",
     "docker-gnmi-watchdog": "gnmi_watchdog",
     "docker-auditd": "auditd",
@@ -35,6 +36,10 @@ container_name_mapping = {
     "docker-bmp-watchdog": "bmp_watchdog",
     "kubesonic-cleanup": "k8s_cleanup",
 }
+
+existing_systemd_services = [
+    "telemetry"
+]
 
 
 def parse_containers(container_string):
@@ -142,6 +147,13 @@ def validate_is_v1_enabled(duthost, sidecar_container_name):
             py_assert(False, f"{container_name} container should not be running")
 
 
+def migrate_container_systemd(duthost, service, container, docker_image, parameters):
+    duthost.shell(f"docker tag {docker_image} {container}:latest")
+    duthost.shell(f'sed -i "s|docker create -t |docker create -t {parameters} |" /usr/bin/{service}.sh')
+    duthost.shell(f"systemctl reset-failed {service}", module_ignore_errors=True)
+    duthost.shell(f"systemctl restart {service}", module_ignore_errors=True)
+
+
 def pull_run_dockers(duthost, creds, env):
     logger.info("Pulling docker images")
     registry = load_docker_registry_info(duthost, creds)
@@ -157,6 +169,9 @@ def pull_run_dockers(duthost, creds, env):
         # Stop and remove existing container
         duthost.shell(f"docker stop {name}", module_ignore_errors=True)
         duthost.shell(f"docker rm {name}", module_ignore_errors=True)
+        if name in existing_systemd_services:
+            migrate_container_systemd(duthost, name, container, docker_image, parameters)
+            continue
         if duthost.shell(f"docker run -d {parameters} {optional_parameters} --name {name} {docker_image}",
                          module_ignore_errors=True)['rc'] != 0:
             pytest.fail("Not able to run container using pulled image")
