@@ -160,162 +160,162 @@ topology:
         - 31
       vm_offset: 31
 
-    VM01T1:
+    VM01LT2:
       vlans:
         - 32
       vm_offset: 32
 
-    VM02T1:
+    VM02LT2:
       vlans:
         - 33
       vm_offset: 33
 
-    VM03T1:
+    VM03LT2:
       vlans:
         - 34
       vm_offset: 34
 
-    VM04T1:
+    VM04LT2:
       vlans:
         - 35
       vm_offset: 35
 
-    VM05T1:
+    VM05LT2:
       vlans:
         - 36
       vm_offset: 36
 
-    VM06T1:
+    VM06LT2:
       vlans:
         - 37
       vm_offset: 37
 
-    VM07T1:
+    VM07LT2:
       vlans:
         - 38
       vm_offset: 38
 
-    VM08T1:
+    VM08LT2:
       vlans:
         - 39
       vm_offset: 39
 
-    VM09T1:
+    VM09LT2:
       vlans:
         - 40
       vm_offset: 40
 
-    VM10T1:
+    VM10LT2:
       vlans:
         - 41
       vm_offset: 41
 
-    VM11T1:
+    VM11LT2:
       vlans:
         - 42
       vm_offset: 42
 
-    VM12T1:
+    VM12LT2:
       vlans:
         - 43
       vm_offset: 43
 
-    VM13T1:
+    VM13LT2:
       vlans:
         - 44
       vm_offset: 44
 
-    VM14T1:
+    VM14LT2:
       vlans:
         - 45
       vm_offset: 45
 
-    VM15T1:
+    VM15LT2:
       vlans:
         - 46
       vm_offset: 46
 
-    VM16T1:
+    VM16LT2:
       vlans:
         - 47
       vm_offset: 47
 
-    VM17T1:
+    VM17LT2:
       vlans:
         - 48
       vm_offset: 48
 
-    VM18T1:
+    VM18LT2:
       vlans:
         - 49
       vm_offset: 49
 
-    VM19T1:
+    VM19LT2:
       vlans:
         - 50
       vm_offset: 50
 
-    VM20T1:
+    VM20LT2:
       vlans:
         - 51
       vm_offset: 51
 
-    VM21T1:
+    VM21LT2:
       vlans:
         - 52
       vm_offset: 52
 
-    VM22T1:
+    VM22LT2:
       vlans:
         - 53
       vm_offset: 53
 
-    VM23T1:
+    VM23LT2:
       vlans:
         - 54
       vm_offset: 54
 
-    VM24T1:
+    VM24LT2:
       vlans:
         - 55
       vm_offset: 55
 
-    VM25T1:
+    VM25LT2:
       vlans:
         - 56
       vm_offset: 56
 
-    VM26T1:
+    VM26LT2:
       vlans:
         - 57
       vm_offset: 57
 
-    VM27T1:
+    VM27LT2:
       vlans:
         - 58
       vm_offset: 58
 
-    VM28T1:
+    VM28LT2:
       vlans:
         - 59
       vm_offset: 59
 
-    VM29T1:
+    VM29LT2:
       vlans:
         - 60
       vm_offset: 60
 
-    VM30T1:
+    VM30LT2:
       vlans:
         - 61
       vm_offset: 61
 
-    VM31T1:
+    VM31LT2:
       vlans:
         - 62
       vm_offset: 62
 
-    VM32T1:
+    VM32LT2:
       vlans:
         - 63
       vm_offset: 63
@@ -1080,7 +1080,7 @@ configuration:
       ipv4: 10.10.48.32/24
       ipv6: fc30::21/64
 
-  VM01T1:
+  VM01LT2:
     properties:
     - common
     - leaf
@@ -1101,7 +1101,7 @@ configuration:
       ipv4: 10.10.48.65/24
       ipv6: fc30::42/64
 
-  VM02T1:
+  VM02LT2:
     properties:
     - common
     - leaf
@@ -1122,7 +1122,7 @@ configuration:
       ipv4: 10.10.48.66/24
       ipv6: fc30::43/64
 
-  VM03T1:
+  VM03LT2:
     properties:
     - common
     - leaf
@@ -1143,7 +1143,7 @@ configuration:
       ipv4: 10.10.48.67/24
       ipv6: fc30::44/64
 
-  VM04T1:
+  VM04LT2:
     properties:
     - common
     - leaf
@@ -1164,7 +1164,7 @@ configuration:
       ipv4: 10.10.48.68/24
       ipv6: fc30::45/64
 
-  VM05T1:
+  VM05LT2:
     properties:
     - common
     - leaf
@@ -1185,7 +1185,7 @@ configuration:
       ipv4: 10.10.48.69/24
       ipv6: fc30::46/64
 
-  VM06T1:
+  VM06LT2:
     properties:
     - common
     - leaf
@@ -1206,7 +1206,7 @@ configuration:
       ipv4: 10.10.48.70/24
       ipv6: fc30::47/64
 
-  VM07T1:
+  VM07LT2:
     properties:
     - common
     - leaf
@@ -1227,7 +1227,7 @@ configuration:
       ipv4: 10.10.48.71/24
       ipv6: fc30::48/64
 
-  VM08T1:
+  VM08LT2:
     properties:
     - common
     - leaf
@@ -1248,7 +1248,7 @@ configuration:
       ipv4: 10.10.48.72/24
       ipv6: fc30::49/64
 
-  VM09T1:
+  VM09LT2:
     properties:
     - common
     - leaf
@@ -1269,7 +1269,7 @@ configuration:
       ipv4: 10.10.48.73/24
       ipv6: fc30::4a/64
 
-  VM10T1:
+  VM10LT2:
     properties:
     - common
     - leaf
@@ -1290,7 +1290,7 @@ configuration:
       ipv4: 10.10.48.74/24
       ipv6: fc30::4b/64
 
-  VM11T1:
+  VM11LT2:
     properties:
     - common
     - leaf
@@ -1311,7 +1311,7 @@ configuration:
       ipv4: 10.10.48.75/24
       ipv6: fc30::4c/64
 
-  VM12T1:
+  VM12LT2:
     properties:
     - common
     - leaf
@@ -1332,7 +1332,7 @@ configuration:
       ipv4: 10.10.48.76/24
       ipv6: fc30::4d/64
 
-  VM13T1:
+  VM13LT2:
     properties:
     - common
     - leaf
@@ -1353,7 +1353,7 @@ configuration:
       ipv4: 10.10.48.77/24
       ipv6: fc30::4e/64
 
-  VM14T1:
+  VM14LT2:
     properties:
     - common
     - leaf
@@ -1374,7 +1374,7 @@ configuration:
       ipv4: 10.10.48.78/24
       ipv6: fc30::4f/64
 
-  VM15T1:
+  VM15LT2:
     properties:
     - common
     - leaf
@@ -1395,7 +1395,7 @@ configuration:
       ipv4: 10.10.48.79/24
       ipv6: fc30::50/64
 
-  VM16T1:
+  VM16LT2:
     properties:
     - common
     - leaf
@@ -1416,7 +1416,7 @@ configuration:
       ipv4: 10.10.48.80/24
       ipv6: fc30::51/64
 
-  VM17T1:
+  VM17LT2:
     properties:
     - common
     - leaf
@@ -1437,7 +1437,7 @@ configuration:
       ipv4: 10.10.48.81/24
       ipv6: fc30::52/64
 
-  VM18T1:
+  VM18LT2:
     properties:
     - common
     - leaf
@@ -1458,7 +1458,7 @@ configuration:
       ipv4: 10.10.48.82/24
       ipv6: fc30::53/64
 
-  VM19T1:
+  VM19LT2:
     properties:
     - common
     - leaf
@@ -1479,7 +1479,7 @@ configuration:
       ipv4: 10.10.48.83/24
       ipv6: fc30::54/64
 
-  VM20T1:
+  VM20LT2:
     properties:
     - common
     - leaf
@@ -1500,7 +1500,7 @@ configuration:
       ipv4: 10.10.48.84/24
       ipv6: fc30::55/64
 
-  VM21T1:
+  VM21LT2:
     properties:
     - common
     - leaf
@@ -1521,7 +1521,7 @@ configuration:
       ipv4: 10.10.48.85/24
       ipv6: fc30::56/64
 
-  VM22T1:
+  VM22LT2:
     properties:
     - common
     - leaf
@@ -1542,7 +1542,7 @@ configuration:
       ipv4: 10.10.48.86/24
       ipv6: fc30::57/64
 
-  VM23T1:
+  VM23LT2:
     properties:
     - common
     - leaf
@@ -1563,7 +1563,7 @@ configuration:
       ipv4: 10.10.48.87/24
       ipv6: fc30::58/64
 
-  VM24T1:
+  VM24LT2:
     properties:
     - common
     - leaf
@@ -1584,7 +1584,7 @@ configuration:
       ipv4: 10.10.48.88/24
       ipv6: fc30::59/64
 
-  VM25T1:
+  VM25LT2:
     properties:
     - common
     - leaf
@@ -1605,7 +1605,7 @@ configuration:
       ipv4: 10.10.48.89/24
       ipv6: fc30::5a/64
 
-  VM26T1:
+  VM26LT2:
     properties:
     - common
     - leaf
@@ -1626,7 +1626,7 @@ configuration:
       ipv4: 10.10.48.90/24
       ipv6: fc30::5b/64
 
-  VM27T1:
+  VM27LT2:
     properties:
     - common
     - leaf
@@ -1647,7 +1647,7 @@ configuration:
       ipv4: 10.10.48.91/24
       ipv6: fc30::5c/64
 
-  VM28T1:
+  VM28LT2:
     properties:
     - common
     - leaf
@@ -1668,7 +1668,7 @@ configuration:
       ipv4: 10.10.48.92/24
       ipv6: fc30::5d/64
 
-  VM29T1:
+  VM29LT2:
     properties:
     - common
     - leaf
@@ -1689,7 +1689,7 @@ configuration:
       ipv4: 10.10.48.93/24
       ipv6: fc30::5e/64
 
-  VM30T1:
+  VM30LT2:
     properties:
     - common
     - leaf
@@ -1710,7 +1710,7 @@ configuration:
       ipv4: 10.10.48.94/24
       ipv6: fc30::5f/64
 
-  VM31T1:
+  VM31LT2:
     properties:
     - common
     - leaf
@@ -1731,7 +1731,7 @@ configuration:
       ipv4: 10.10.48.95/24
       ipv6: fc30::60/64
 
-  VM32T1:
+  VM32LT2:
     properties:
     - common
     - leaf
