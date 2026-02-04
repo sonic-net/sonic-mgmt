@@ -77,7 +77,7 @@ console-194,10.3.145.194,Cisco,ConsoleServer,ssh
 console-201,10.3.145.201,Cisco,ConsoleServer,ssh
 pdu-85,10.3.154.84,ApcRPDU,Pdu,snmp
 pdu-86,10.3.154.85,ApcRPDU,Pdu,snmp
-pdu-88,10.3.154.86,Sentry,Pdu,snmp
+pdu-88,10.3.154.86,ApcRPDU,Pdu,snmp
 pdu-89,10.3.154.87,ApcRPDU,Pdu,snmp
 pdu-90,10.3.154.88,ApcRPDU,Pdu,snmp
 pdu-91,10.3.154.89,ApcRPDU,Pdu,snmp

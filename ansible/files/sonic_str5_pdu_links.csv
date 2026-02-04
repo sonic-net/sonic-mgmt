@@ -4,8 +4,8 @@ pdu-85,2,str5-7060x6-pe64-root,PSU2
 pdu-85,3,str5-7060x6-512-3,PSU1
 pdu-85,3,str5-7060x6-512-3,PSU2
 pdu-86,3,str5-7060x6-512-fan-3,PSU1
-pdu-83,6,str5-7060x6-512-4,PSU1
-pdu-85,7,str5-7060x6-512-4,PSU2
+pdu-88,13,str5-7060x6-512-4,PSU1
+pdu-88,13,str5-7060x6-512-4,PSU2
 pdu-85,6,str5-7060x6-512-fan-4,PSU1
 pdu-96,21,str5-7060x6-64pe-shared-fan-1,PSU1
 pdu-97,21,str5-7060x6-64pe-shared-fan-1,PSU2

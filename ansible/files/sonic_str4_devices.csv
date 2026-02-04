@@ -60,7 +60,7 @@ str4-sn5640-6,10.64.246.35/25,Mellanox-SN5640-C448O16,DevSonic,,sonic
 str4-sn5640-fan-6,10.64.246.169/25,Mellanox-SN5640-C448O16,FanoutLeafSonic,,sonic
 pdu-85,10.3.154.84,ApcRPDU,Pdu,snmp,
 pdu-86,10.3.154.85,ApcRPDU,Pdu,snmp,
-pdu-88,10.3.154.86,Sentry,Pdu,snmp,
+pdu-88,10.3.154.86,ApcRPDU,Pdu,snmp,
 pdu-89,10.3.154.87,ApcRPDU,Pdu,snmp,
 pdu-90,10.3.154.88,ApcRPDU,Pdu,snmp,
 pdu-91,10.3.154.89,ApcRPDU,Pdu,snmp,
