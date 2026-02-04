@@ -5,6 +5,7 @@ import logging
 import sys
 import os
 import pytest
+import json
 from multiprocessing.pool import ThreadPool
 from collections import deque
 
@@ -16,6 +17,8 @@ from .plugins.loganalyzer.utils import support_ignore_loganalyzer
 from .utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut
 from tests.common.fixtures.conn_graph_facts import get_graph_facts
+from tests.gnmi.helper import gnoi_request
+
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +136,15 @@ reboot_ctrl_dict = {
         # We are searching two types of reboot cause.
         # This change relates to changes of PR #6130 in sonic-buildimage repository
         "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
-        "test_reboot_cause_only": False
+        "test_reboot_cause_only": False,
+        "gnoi_api": {
+            "service": "gnoi.system.System",
+            "method": "Reboot",
+            "params": {
+                "method": 1,  # COLD = 1
+                "message": "gNOI reboot test"
+            }
+        }
     },
     REBOOT_TYPE_POWEROFF: {
         "timeout": 300,
@@ -222,9 +233,32 @@ def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT):
     logger.info('ssh has started up on {}'.format(hostname))
 
 
-def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwargs=None, reboot_type='cold'):
+def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwargs=None, reboot_type='cold',
+                   invocation_type="cli_based", localhost=None):
     # pool for executing tasks asynchronously
+
+    logger.info('perform_reboot called with invocation_type: {}'.format(invocation_type))
     hostname = duthost.hostname
+
+    def execute_gnoi_reboot_command():
+        """Execute gNOI-based reboot"""
+        reboot_ctrl = reboot_ctrl_dict[reboot_type]
+        if 'gnoi_api' not in reboot_ctrl:
+            raise ValueError(f'gNOI reboot is not supported for reboot type: {reboot_type}')
+
+        gnoi_api = reboot_ctrl['gnoi_api']
+        logger.info('rebooting {} with gNOI API service={}, method={}, params={}'.format(
+            hostname, gnoi_api['service'], gnoi_api['method'], gnoi_api['params']))
+
+        # gnoi_request requires module/rpc; reboot is under System
+        request_json = json.dumps(gnoi_api['params'])
+        status, output = gnoi_request(duthost, localhost, "System", gnoi_api['method'], request_json)
+
+        if status != 0:
+            logger.error(f'gNOI reboot failed: {output}')
+            raise Exception(f'gNOI reboot command failed: {output}')
+
+        return output
 
     def execute_reboot_command():
         logger.info('rebooting {} with command "{}"'.format(hostname, reboot_command))
@@ -241,7 +275,10 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
     ignore_t2_syslog_msgs(duthost)
 
     if reboot_type != REBOOT_TYPE_POWEROFF:
-        reboot_res = pool.apply_async(execute_reboot_command)
+        if invocation_type == "cli_based":
+            reboot_res = pool.apply_async(execute_reboot_command)
+        elif invocation_type == "gnoi_based":
+            reboot_res = pool.apply_async(execute_gnoi_reboot_command)
     else:
         assert reboot_helper is not None, "A reboot function must be provided for power off/on reboot"
         reboot_res = pool.apply_async(execute_reboot_helper)
@@ -292,7 +329,8 @@ def check_dshell_ready(duthost):
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
            reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
-           safe_reboot=False, check_intf_up_ports=False, wait_for_bgp=False,  wait_for_ibgp=True):
+           safe_reboot=False, check_intf_up_ports=False, wait_for_bgp=False,  wait_for_ibgp=True,
+           invocation_type="cli_based"):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -358,7 +396,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         reboot_res, dut_datetime = reboot_smartswitch(duthost, pool, reboot_type)
     else:
         reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
-                                                  reboot_kwargs, reboot_type)
+                                                  reboot_kwargs, reboot_type, invocation_type, localhost)
 
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
 
