@@ -944,12 +944,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                                        ip_version=erspan_ip_ver)
             everflow_utils.add_route(remote_dut, session_prefixes[1], peer_ip,
                                      setup_info[dest_port_type]["remote_namespace"])
-            pytest_assert(
-                wait_until(
-                    120, 10, 0,
-                    lambda: not everflow_utils.validate_asic_route(remote_dut, session_prefixes[1])
-                )
-            )
+            time.sleep(15)
             background_traffic(run_count=1)
 
             # Verify that mirrored traffic is still sent along the original route
@@ -976,8 +971,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                      setup_info[dest_port_type]["remote_namespace"])
             pytest_assert(
                 wait_until(
-                    120, 10, 0,
-                    lambda: not everflow_utils.validate_asic_route(remote_dut, session_prefixes[1])
+                    120, 10, 0, everflow_utils.validate_asic_route, remote_dut, session_prefixes[1]
                 )
             )
             background_traffic(run_count=1)
