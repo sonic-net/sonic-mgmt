@@ -17,7 +17,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope='function')
+@pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exceptions_lag(duthosts, rand_one_dut_front_end_hostname, loganalyzer):
     """
         Ignore expected failures logs during test execution.
@@ -31,7 +31,7 @@ def ignore_expected_loganalyzer_exceptions_lag(duthosts, rand_one_dut_front_end_
     """
     ignoreRegex = [
         r".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",
-        r".* ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
+        r".*ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
     ]
 
     duthost = duthosts[rand_one_dut_front_end_hostname]
@@ -271,8 +271,7 @@ def get_port_speeds_for_test(duthost, port):
 
 
 def test_remove_lanes(duthosts, rand_one_dut_front_end_hostname,
-                      ensure_dut_readiness, enum_rand_one_frontend_asic_index,
-                      ignore_expected_loganalyzer_exceptions_lag):
+                      ensure_dut_readiness, enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
@@ -332,7 +331,7 @@ def test_replace_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_rea
 
 
 def test_replace_mtu(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
-                     enum_rand_one_frontend_asic_index, ignore_expected_loganalyzer_exceptions_lag):
+                     enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
@@ -370,7 +369,7 @@ def test_replace_mtu(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
 
 @pytest.mark.parametrize("pfc_asym", ["on", "off"])
 def test_toggle_pfc_asym(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, pfc_asym,
-                         enum_rand_one_frontend_asic_index, ignore_expected_loganalyzer_exceptions_lag):
+                         enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
@@ -402,7 +401,7 @@ def test_toggle_pfc_asym(duthosts, rand_one_dut_front_end_hostname, ensure_dut_r
 @pytest.mark.device_type('physical')
 @pytest.mark.parametrize("fec", ["rs", "fc"])
 def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness, fec,
-                     enum_rand_one_frontend_asic_index, ignore_expected_loganalyzer_exceptions_lag):
+                     enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
@@ -442,7 +441,7 @@ def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
 
 @pytest.mark.skip(reason="Bypass as this is not a production scenario")
 def test_update_invalid_index(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
-                              enum_rand_one_frontend_asic_index, ignore_expected_loganalyzer_exceptions_lag):
+                              enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
@@ -470,8 +469,7 @@ def test_update_invalid_index(duthosts, rand_one_dut_front_end_hostname, ensure_
 
 @pytest.mark.skip(reason="Bypass as this is not a production scenario")
 def test_update_valid_index(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
-                            enum_rand_one_frontend_asic_index, cli_namespace_prefix,
-                            ignore_expected_loganalyzer_exceptions_lag):
+                            enum_rand_one_frontend_asic_index, cli_namespace_prefix):
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
@@ -514,7 +512,7 @@ def test_update_valid_index(duthosts, rand_one_dut_front_end_hostname, ensure_du
 
 
 def test_update_speed(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
-                      enum_rand_one_frontend_asic_index, ignore_expected_loganalyzer_exceptions_lag):
+                      enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
@@ -550,7 +548,7 @@ def test_update_speed(duthosts, rand_one_dut_front_end_hostname, ensure_dut_read
 
 
 def test_update_description(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
-                            enum_rand_one_frontend_asic_index, ignore_expected_loganalyzer_exceptions_lag):
+                            enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
@@ -578,7 +576,7 @@ def test_update_description(duthosts, rand_one_dut_front_end_hostname, ensure_du
 
 @pytest.mark.parametrize("admin_status", ["up", "down"])
 def test_eth_interface_admin_change(duthosts, rand_one_dut_front_end_hostname, admin_status,
-                                    enum_rand_one_frontend_asic_index, ignore_expected_loganalyzer_exceptions_lag):
+                                    enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
