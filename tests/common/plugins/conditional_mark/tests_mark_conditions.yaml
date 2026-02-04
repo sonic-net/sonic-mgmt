@@ -3238,7 +3238,7 @@ high_frequency_telemetry:
 
 high_frequency_telemetry/test_high_frequency_telemetry.py::test_hft_full_counters:
   skip:
-    reason: "HFT for full counters isn't supported in this platform"
+    reason: "In SN5640 platform, it doesn't support multiple types in one session. In 7060X6 platform, it hasn't supported any HFT tests yet."
 
 #######################################
 #####          http              #####
