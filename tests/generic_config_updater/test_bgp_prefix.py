@@ -228,6 +228,7 @@ def bgp_prefix_tc1_replace(duthost, community, community_table, cli_namespace_pr
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+
 def check_bgp_prefix_config_remove(duthost, community, cli_namespace_prefix):
     """ Check bgp prefix config for remove op
     """
@@ -246,6 +247,7 @@ def check_bgp_prefix_config_remove(duthost, community, cli_namespace_prefix):
     except Exception as e:
         logger.error(f"Error checking bgp prefix configuration: {e}")
         return False
+
 
 def bgp_prefix_tc1_remove(duthost, community, cli_namespace_prefix, namespace=None):
     """ Test to remove prefix config
