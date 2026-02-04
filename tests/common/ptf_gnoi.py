@@ -146,4 +146,3 @@ class PtfGnoi:
         except Exception as e:
             logger.error(f"Error while getting upgrade status: {e}")
             raise
-        
