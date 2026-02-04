@@ -18,7 +18,7 @@
         "parameters": "--pid=host --net=host --security-opt apparmor=unconfined --security-opt seccomp=unconfined --cap-add=SYS_ADMIN --cap-add=SYS_PTRACE -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro -v /var/opt/msft:/var/opt/msft:ro"
     },
     "docker-acms-sidecar": {
-        "parameters": "--privileged --pid=host --net=host --uts=host --ipc=host -v /usr/bin/docker:/usr/bin/docker:ro -v /var/run/docker.sock:/var/run/docker.sock -v /:/hostroot:ro -e DOCKER_BIN=/usr/bin/docker"
+        "parameters": "--privileged --pid=host --net=host --uts=host --ipc=host -v /etc/sonic:/etc/sonic:ro -v /usr/bin/docker:/usr/bin/docker:ro -v /var/run/docker.sock:/var/run/docker.sock -v /:/hostroot:ro -e DOCKER_BIN=/usr/bin/docker"
     },
     "docker-sonic-bmp": {
         "parameters": "--net=host -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-bmp:/var/run/redis-bmp:ro"
