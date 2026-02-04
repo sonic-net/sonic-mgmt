@@ -140,10 +140,11 @@ def generic_patch_add_t0(duthost, skip_load=False, hack_apply=False):
         # Hack: TODO: Before adding port, patch updater need to ensure
         # the port is down. Until then bring it down explicitly.
         #
-        tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
-        duthost.shell("config interface shutdown {}".format(tor_ifname))
-        do_pause(PAUSE_INTF_DOWN,
-                 "pause upon i/f {} shutdown before add patch".format(tor_ifname))
+        for link in tor_data["links"]:
+            tor_ifname = link["local"]["sonic_name"]
+            duthost.shell("config interface shutdown {}".format(tor_ifname))
+            do_pause(PAUSE_INTF_DOWN,
+                     "pause upon i/f {} shutdown before add patch".format(tor_ifname))
 
     patch_files = _list_patch_files(patch_add_t0_dir)
 
@@ -163,8 +164,10 @@ def generic_patch_add_t0(duthost, skip_load=False, hack_apply=False):
     do_pause(PAUSE_CLET_APPLY, "Pause after applying add patch")
 
     if hack_apply:
-        duthost.shell("config interface startup {}".format(tor_ifname))
-        do_pause(PAUSE_INTF_UP, "pause upon i/f {} startup after add patch".format(tor_ifname))
+        for link in tor_data["links"]:
+            tor_ifname = link["local"]["sonic_name"]
+            duthost.shell("config interface startup {}".format(tor_ifname))
+            do_pause(PAUSE_INTF_UP, "pause upon i/f {} startup after add patch".format(tor_ifname))
 
     assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, patch_add_t0_dir,
                       orig_db_dir, "generic_patch_add_t0"), \
@@ -187,9 +190,10 @@ def generic_patch_rm_t0(duthost, skip_load=False, hack_apply=False):
         # Hack: TODO: Before removing port, patch updater need to ensure
         # the port is down. Until then bring it down explicitly.
         #
-        tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
-        duthost.shell("config interface shutdown {}".format(tor_ifname))
-        do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown before add patch".format(tor_ifname))
+        for link in tor_data["links"]:
+            tor_ifname = link["local"]["sonic_name"]
+            duthost.shell("config interface shutdown {}".format(tor_ifname))
+            do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown before add patch".format(tor_ifname))
 
     patch_files = _list_patch_files(patch_rm_t0_dir)
 
@@ -208,9 +212,10 @@ def generic_patch_rm_t0(duthost, skip_load=False, hack_apply=False):
 
     # Manual shutdown needed because the removal of admin_status won't operate shutdown. It will
     # by default keep the previous admin_status state. Thus making app-db comparison fail.
-    tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
-    duthost.shell("config interface shutdown {}".format(tor_ifname))
-    do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown before add patch".format(tor_ifname))
+    for link in tor_data["links"]:
+        tor_ifname = link["local"]["sonic_name"]
+        duthost.shell("config interface shutdown {}".format(tor_ifname))
+        do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown before add patch".format(tor_ifname))
 
     assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, patch_rm_t0_dir,
                       no_t0_db_dir, "generic_patch_rm_t0"), \
