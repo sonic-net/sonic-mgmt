@@ -35,19 +35,22 @@ A `eeprom.json` file is used to define the attributes for the EEPROM tests for t
 
 The following table summarizes the key attributes used in EEPROM testing. This table serves as the authoritative reference for all attributes and must be updated whenever new attributes are introduced:
 
+**Legend:** M = Mandatory, O = Optional
+
 | Attribute Name | Type | Default Value | Mandatory | Override Levels | Description |
 |----------------|------|---------------|-----------|-----------------|-------------|
-| dual_bank_supported | boolean | - | ✓ | transceivers | Whether transceiver supports dual bank firmware |
-| vdm_supported | boolean | False | ✗ | transceivers | VDM capability support |
-| cdb_background_mode_supported | boolean | - | ✗ | transceivers | CDB background mode support |
-| gold_firmware_version | string | - | ✗ | transceivers | Expected gold/reference firmware version for validation. This also represents the active firmware version. This attribute is applicable only for modules with CMIS CDB firmware. |
-| inactive_firmware_version | string | - | ✗ | transceivers | Expected inactive bank firmware version for dual-bank CMIS CDB modules during validation |
-| cmis_revision | string | - | ✗ | transceivers | CMIS revision for CMIS based transceivers |
-| sff8024_identifier | string | - | ✓ | transceivers | SFF-8024 identifier for the transceiver |
-| is_non_dac_and_cmis | boolean | False | ✗ | transceivers | Whether the transceiver is a non-DAC CMIS transceiver |
-| breakout_serial_number_pattern | string | - | ✗ | transceivers | Regex pattern to validate serial number format for breakout leaf port transceivers (e.g., ".*-A$", ".*-B$", ".*-C$" for suffix validation, or any other pattern for different placements). Used to validate that leaf-side ports on breakout modules have correctly formatted serial numbers |
-| breakout_stem_serial_number_pattern | string | - | ✗ | transceivers | Regex pattern to validate serial number format for breakout stem (main) port transceivers. Typically validates that the serial number does NOT contain leaf suffixes (e.g., "^(?!.*-[A-Z]$).*$" to ensure no suffix like -A, -B, -C). Used to validate that stem-side ports on breakout modules have correctly formatted serial numbers without leaf identifiers |
-| eeprom_dump_timeout_sec | integer | 5 | ✗ | transceivers or platform | Default EEPROM dump timeout in seconds |
+| dual_bank_supported | boolean | - | M | transceivers | Whether transceiver supports dual bank firmware |
+| vdm_supported | boolean | False | O | transceivers | VDM capability support |
+| pm_supported | | boolean | False | O | transceivers | Performance Monitoring support |
+| cdb_background_mode_supported | boolean | - | O | transceivers | CDB background mode support |
+| gold_firmware_version | string | - | O | transceivers | Expected gold/reference firmware version for validation. This also represents the active firmware version. This attribute is applicable only for modules with CMIS CDB firmware. |
+| inactive_firmware_version | string | - | O | transceivers | Expected inactive bank firmware version for dual-bank CMIS CDB modules during validation |
+| cmis_revision | string | - | O | transceivers | CMIS revision for CMIS based transceivers |
+| sff8024_identifier | string | - | M | transceivers | SFF-8024 identifier for the transceiver |
+| is_non_dac_and_cmis | boolean | False | O | transceivers | Whether the transceiver is a non-DAC CMIS transceiver |
+| breakout_serial_number_pattern | string | - | O | transceivers | Regex pattern to validate serial number format for breakout leaf port transceivers (e.g., ".*-A$", ".*-B$", ".*-C$" for suffix validation, or any other pattern for different placements). Used to validate that leaf-side ports on breakout modules have correctly formatted serial numbers |
+| breakout_stem_serial_number_pattern | string | - | O | transceivers | Regex pattern to validate serial number format for breakout stem (main) port transceivers. Typically validates that the serial number does NOT contain leaf suffixes (e.g., "^(?!.*-[A-Z]$).*$" to ensure no suffix like -A, -B, -C). Used to validate that stem-side ports on breakout modules have correctly formatted serial numbers without leaf identifiers |
+| eeprom_dump_timeout_sec | integer | 5 | O | transceivers or platform | Default EEPROM dump timeout in seconds |
 
 ## CLI Commands Reference
 

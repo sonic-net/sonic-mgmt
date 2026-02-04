@@ -59,48 +59,50 @@ A `system.json` file is used to define the attributes for the system tests for t
 
 The following table summarizes the key attributes used in system testing. This table serves as the authoritative reference for all attributes and must be updated whenever new attributes are introduced:
 
+**Legend:** M = Mandatory, O = Optional
+
 | Attribute Name | Type | Default Value | Mandatory | Override Levels | Description |
 |----------------|------|---------------|-----------|-----------------|-------------|
-| verify_lldp_on_link_up | boolean | True | ✗ | dut | Whether to verify LLDP functionality when link comes up |
-| port_shutdown_wait_sec | integer | 5 | ✗ | transceivers or platform_hwsku_overrides | Wait time after port shutdown before verification |
-| port_startup_wait_sec | integer | 60 | ✗ | transceivers or platform_hwsku_overrides  | Wait time after port startup before link verification |
-| port_toggle_iterations | integer | 100 | ✗ | transceivers or platform_hwsku_overrides | Number of iterations for port toggle stress test |
-| port_toggle_delay_sec | integer | 2 | ✗ | transceivers or platform_hwsku_overrides | Delay between port toggle cycles |
-| port_range_toggle_iterations | integer | 50 | ✗ | transceivers or platform_hwsku_overrides | Number of iterations for port range toggle stress test |
-| port_range_test_ports | list | [] | ✗ | dut | List of specific port names (e.g., 'Ethernet0', 'Ethernet4') to include in port range stress test. Empty list means use all available ports. |
-| port_range_startup_wait_sec | integer | 60 | ✗ | transceivers or platform_hwsku_overrides | Wait time after port range startup |
-| xcvrd_restart_settle_sec | integer | 120 | ✗ | HWSKU | Time to wait after xcvrd restart before checking link status |
-| pmon_restart_settle_sec | integer | 120 | ✗ | HWSKU | Time to wait after pmon restart before verification |
-| swss_restart_settle_sec | integer | 180 | ✗ | HWSKU | Time to wait after swss restart before verification |
-| syncd_restart_settle_sec | integer | 240 | ✗ | HWSKU | Time to wait after syncd restart before verification |
-| expect_pmon_restart_with_swss_or_syncd | boolean | False | ✗ | platform | Whether pmon restart is expected during swss/syncd restart |
-| config_reload_settle_sec | integer | 300 | ✗ | HWSKU | Time to wait after config reload before link status check |
-| cold_reboot_settle_sec | integer | 400 | ✗ | HWSKU | Time to wait after cold reboot before link status check |
-| cold_reboot_iterations | integer | 5 | ✗ | HWSKU | Number of iterations for cold reboot stress test |
-| warm_reboot_supported | boolean | False | ✗ | platform or hwsku | Whether platform supports warm reboot functionality |
-| warm_reboot_settle_sec | integer | 300 | ✗ | HWSKU | Time to wait after warm reboot before verification |
-| warm_reboot_iterations | integer | 5 | ✗ | HWSKU | Number of iterations for warm reboot stress test |
-| fast_reboot_supported | boolean | False | ✗ | platform or hwsku | Whether platform supports fast reboot functionality |
-| fast_reboot_settle_sec | integer | 300 | ✗ | HWSKU | Time to wait after fast reboot before verification |
-| fast_reboot_iterations | integer | 5 | ✗ | HWSKU | Number of iterations for fast reboot stress test |
-| power_cycle_supported | boolean | False | ✗ | platform or hwsku | Whether automated power cycle testing is supported (requires controllable PDU) |
-| power_cycle_settle_sec | integer | 600 | ✗ | HWSKU | Time to wait after full power restoration before starting verification (allows hardware, optics, and services to fully initialize) |
-| power_cycle_iterations | integer | 3 | ✗ | HWSKU | Number of power cycle iterations for recovery/stress validation |
-| transceiver_reset_supported | boolean | True | ✗ | transceivers | Whether transceiver supports reset functionality |
-| transceiver_reset_i2c_recover_sec | integer | 5 | ✗ | transceivers | Time to wait for I2C recovery after transceiver state changes (reset, low power mode) before verification |
-| low_power_mode_supported | boolean | False | ✗ | transceivers | Whether transceiver supports low power mode |
-| loopback_supported | boolean | False | ✗ | transceivers | Whether transceiver supports loopback functionality |
-| supported_loopback_modes | list | [] | ✗ | transceivers | List of supported loopback modes. Possible values include, but are not limited to: ["host-side-input", "media-side-input", "host-side-output", "media-side-output"]. |
-| loopback_settle_sec | integer | 15 | ✗ | transceivers | Time to wait after loopback mode changes |
-| low_pwr_request_hw_asserted | boolean | False | ✗ | platform | Whether to check DataPath state and LowPwrRequestHW signal. When True, expects LowPwrRequestHW signal to be asserted (1); when False, skips these checks |
-| cmis_bootup_low_power_test_supported | boolean | False | ✗ | platform | Whether to test that CMIS transceivers boot up in low power mode when xcvrd is disabled during startup |
-| tx_disable_test_supported | boolean | False | ✗ | transceivers | Whether transceiver supports Tx disable testing and DataPath state verification |
-| optics_si_settings | dict | {} | ✗ | transceivers | Dictionary containing optics SI settings with nested structure for parameters like OutputAmplitudeTargetRx, OutputEqPreCursorTargetRx, OutputEqPostCursorTargetRx, etc. Each parameter contains per-lane values (e.g., OutputAmplitudeTargetRx1-8). Test runs if dictionary is non-empty. |
-| media_si_settings | dict | {} | ✗ | platform_hwsku_overrides | Dictionary containing media SI settings following media_settings.json structure for comparison with APPL_DB values. Test runs if dictionary is non-empty. |
-| frequency_values | list | [] | ✗ | transceivers | List of frequency values for C-CMIS transceivers. First value is the default frequency, followed by test frequencies (min/max supported). Test runs if list is non-empty. |
-| tx_power_values | list | [] | ✗ | transceivers | List of tx power values in dBm for C-CMIS transceivers. First value is the default tx power, followed by test power levels (min/max supported). Test runs if list is non-empty. |
-| expected_application_code | integer | - | ✗ | platform_hwsku_overrides | Expected application code value for the specific transceiver type, platform, and hwsku combination. When defined, the test will verify that the actual application code read from the transceiver matches this expected value. |
-| link_stability_monitor_sec | integer | 300 | ✗ | transceivers or platform_hwsku_overrides | Duration in seconds to monitor link stability without link flaps during steady state monitoring test |
+| verify_lldp_on_link_up | boolean | True | O | dut | Whether to verify LLDP functionality when link comes up |
+| port_shutdown_wait_sec | integer | 5 | O | transceivers or platform_hwsku_overrides | Wait time after port shutdown before verification |
+| port_startup_wait_sec | integer | 60 | O | transceivers or platform_hwsku_overrides  | Wait time after port startup before link verification |
+| port_toggle_iterations | integer | 100 | O | transceivers or platform_hwsku_overrides | Number of iterations for port toggle stress test |
+| port_toggle_delay_sec | integer | 2 | O | transceivers or platform_hwsku_overrides | Delay between port toggle cycles |
+| port_range_toggle_iterations | integer | 50 | O | transceivers or platform_hwsku_overrides | Number of iterations for port range toggle stress test |
+| port_range_test_ports | list | [] | O | dut | List of specific port names (e.g., 'Ethernet0', 'Ethernet4') to include in port range stress test. Empty list means use all available ports. |
+| port_range_startup_wait_sec | integer | 60 | O | transceivers or platform_hwsku_overrides | Wait time after port range startup |
+| xcvrd_restart_settle_sec | integer | 120 | O | HWSKU | Time to wait after xcvrd restart before checking link status |
+| pmon_restart_settle_sec | integer | 120 | O | HWSKU | Time to wait after pmon restart before verification |
+| swss_restart_settle_sec | integer | 180 | O | HWSKU | Time to wait after swss restart before verification |
+| syncd_restart_settle_sec | integer | 240 | O | HWSKU | Time to wait after syncd restart before verification |
+| expect_pmon_restart_with_swss_or_syncd | boolean | False | O | platform | Whether pmon restart is expected during swss/syncd restart |
+| config_reload_settle_sec | integer | 300 | O | HWSKU | Time to wait after config reload before link status check |
+| cold_reboot_settle_sec | integer | 400 | O | HWSKU | Time to wait after cold reboot before link status check |
+| cold_reboot_iterations | integer | 5 | O | HWSKU | Number of iterations for cold reboot stress test |
+| warm_reboot_supported | boolean | False | O | platform or hwsku | Whether platform supports warm reboot functionality |
+| warm_reboot_settle_sec | integer | 300 | O | HWSKU | Time to wait after warm reboot before verification |
+| warm_reboot_iterations | integer | 5 | O | HWSKU | Number of iterations for warm reboot stress test |
+| fast_reboot_supported | boolean | False | O | platform or hwsku | Whether platform supports fast reboot functionality |
+| fast_reboot_settle_sec | integer | 300 | O | HWSKU | Time to wait after fast reboot before verification |
+| fast_reboot_iterations | integer | 5 | O | HWSKU | Number of iterations for fast reboot stress test |
+| power_cycle_supported | boolean | False | O | platform or hwsku | Whether automated power cycle testing is supported (requires controllable PDU) |
+| power_cycle_settle_sec | integer | 600 | O | HWSKU | Time to wait after full power restoration before starting verification (allows hardware, optics, and services to fully initialize) |
+| power_cycle_iterations | integer | 3 | O | HWSKU | Number of power cycle iterations for recovery/stress validation |
+| transceiver_reset_supported | boolean | True | O | transceivers | Whether transceiver supports reset functionality |
+| transceiver_reset_i2c_recover_sec | integer | 5 | O | transceivers | Time to wait for I2C recovery after transceiver state changes (reset, low power mode) before verification |
+| low_power_mode_supported | boolean | False | O | transceivers | Whether transceiver supports low power mode |
+| loopback_supported | boolean | False | O | transceivers | Whether transceiver supports loopback functionality |
+| supported_loopback_modes | list | [] | O | transceivers | List of supported loopback modes. Possible values include, but are not limited to: ["host-side-input", "media-side-input", "host-side-output", "media-side-output"]. |
+| loopback_settle_sec | integer | 15 | O | transceivers | Time to wait after loopback mode changes |
+| low_pwr_request_hw_asserted | boolean | True | O | platform | Whether to check DataPath state and LowPwrRequestHW signal. When True, expects LowPwrRequestHW signal to be asserted (1); when False, skips these checks |
+| cmis_bootup_low_power_test_supported | boolean | False | O | platform | Whether to test that CMIS transceivers boot up in low power mode when xcvrd is disabled during startup |
+| tx_disable_test_supported | boolean | False | O | transceivers | Whether transceiver supports Tx disable testing and DataPath state verification |
+| optics_si_settings | dict | {} | O | transceivers | Dictionary containing optics SI settings with nested structure for parameters like OutputAmplitudeTargetRx, OutputEqPreCursorTargetRx, OutputEqPostCursorTargetRx, etc. Each parameter contains per-lane values (e.g., OutputAmplitudeTargetRx1-8). Test runs if dictionary is non-empty. |
+| media_si_settings | dict | {} | O | platform_hwsku_overrides | Dictionary containing media SI settings following media_settings.json structure for comparison with APPL_DB values. Test runs if dictionary is non-empty. |
+| frequency_values | list | [] | O | transceivers | List of frequency values for C-CMIS transceivers. First value is the default frequency, followed by test frequencies (min/max supported). Test runs if list is non-empty. |
+| tx_power_values | list | [] | O | transceivers | List of tx power values in dBm for C-CMIS transceivers. First value is the default tx power, followed by test power levels (min/max supported). Test runs if list is non-empty. |
+| expected_application_code | integer | - | O | platform_hwsku_overrides | Expected application code value for the specific transceiver type, platform, and hwsku combination. When defined, the test will verify that the actual application code read from the transceiver matches this expected value. |
+| link_stability_monitor_sec | integer | 300 | O | transceivers or platform_hwsku_overrides | Duration in seconds to monitor link stability without link flaps during steady state monitoring test |
 
 For information about attribute override hierarchy and precedence, please refer to the [Transceiver Onboarding Test Plan](../transceiver_onboarding_test_plan.md#test-cases) documentation.
 
