@@ -99,7 +99,7 @@ def _skip_if_killprocess_not_supported(ptf_gnoi):
         ("nonexistent", False, "Dbus does not support nonexistent service management"),
         ("", False, "Dbus stop_service called with no service specified"),
         ("snmp", True, ""),
-        ("dhcp_relay", True, ""),  
+        ("dhcp_relay", True, ""),
     ],
 )
 def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, ptf_gnoi, process, is_valid, expected_msg):
@@ -138,4 +138,3 @@ def test_invalid_signal(duthosts, rand_one_dut_hostname, ptf_gnoi):
 
     wait_critical_processes(duthost)
     pytest_assert(duthost.critical_services_fully_started, "System unhealthy after gNOI API request")
-    
