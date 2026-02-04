@@ -36,7 +36,7 @@ def test_upgrade_via_gnoi(
 ):
     duthost = duthosts[rand_one_dut_hostname]
 
-    (upgrade_type, from_image, to_image, _restore_to_image, dut_image_path) = gnoi_upgrade_path_lists
+    (upgrade_type, from_image, to_image, dut_image_path) = gnoi_upgrade_path_lists
 
     logger.info("Test gNOI upgrade path from %s to %s", from_image, to_image)
 
