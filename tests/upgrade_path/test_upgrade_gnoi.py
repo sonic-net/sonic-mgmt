@@ -21,11 +21,11 @@ pytestmark = [
 def gnoi_upgrade_path_lists(request):
     upgrade_type = request.config.getoption("upgrade_type")          # "warm" / "cold"
     from_image = request.config.getoption("base_image_list")
-    target_image = request.config.getoption("target_image_list")
+    to_image = request.config.getoption("target_image_list")
 
     dut_image_path = "/tmp/sonic_image"
 
-    return (upgrade_type, from_image, target_image, dut_image_path)
+    return (upgrade_type, from_image, to_image, dut_image_path)
 
 
 @pytest.mark.device_type("vs")
@@ -36,19 +36,19 @@ def test_upgrade_via_gnoi(
 ):
     duthost = duthosts[rand_one_dut_hostname]
 
-    (upgrade_type, from_image, target_image, _restore_to_image, dut_image_path) = gnoi_upgrade_path_lists
+    (upgrade_type, from_image, to_image, _restore_to_image, dut_image_path) = gnoi_upgrade_path_lists
 
-    logger.info("Test gNOI upgrade path from %s to %s", from_image, target_image)
+    logger.info("Test gNOI upgrade path from %s to %s", from_image, to_image)
 
     cur = duthost.shell("show version", module_ignore_errors=False)["stdout"]
     logger.info("Pre-upgrade show version:\n%s", cur)
 
     duthost.shell(f"rm -f {dut_image_path}", module_ignore_errors=True)
 
-    assert target_image, "target_image_list must be set (used as target_image for gNOI TransferToRemote)"
+    assert to_image, "target_image_list must be set (used as to_image for gNOI TransferToRemote)"
 
     cfg = GnoiUpgradeConfig(
-        target_image=target_image,
+        to_image=to_image,
         dut_image_path=dut_image_path,
         upgrade_type=upgrade_type,
         protocol="HTTP",
