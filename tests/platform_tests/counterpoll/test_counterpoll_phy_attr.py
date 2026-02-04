@@ -12,7 +12,6 @@ from tests.common.constants import CounterpollConstants
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.counterpoll_helper import ConterpollHelper
 from tests.common.helpers.sonic_db import SonicDbCli, SonicDbKeyNotFound
-from tests.common.utilities import skip_release, wait_until
 from tests.common.reboot import reboot
 from tests.platform_tests.link_flap.link_flap_utils import build_test_candidates
 
@@ -59,7 +58,9 @@ def skip_non_th5_asics(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_type = duthost.get_asic_name()
     supported_asics = ["th5"]
-    pytest_require((is_broadcom_device(duthost) and asic_type in supported_asics), "This test is not supported on {} asic".format(asic_type))
+    pytest_require((is_broadcom_device(duthost)
+                    and asic_type in supported_asics),
+                   "This test is not supported on {} asic".format(asic_type))
 
 
 def get_port_config_from_config_db(duthost):
@@ -148,7 +149,7 @@ def verify_phy_attr_in_cli(duthost, expected_status):
             if PORT_PHY_ATTR_TYPE == entry.get(CounterpollConstants.TYPE, ''):
                 actual_status = entry[CounterpollConstants.STATUS]
                 pytest_assert(expected_status == actual_status,
-                             "PHY counter status is '{}', expected '{}'".format(actual_status, expected_status))
+                              "PHY counter status is '{}', expected '{}'".format(actual_status, expected_status))
                 logging.info("PHY counter status verified: {}".format(actual_status))
                 return
 
@@ -170,18 +171,19 @@ def verify_phy_attr_in_config_db(duthost, expected_status, expected_interval=Non
                 config_data = SonicDbCli(asic, 'CONFIG_DB').hget_all(CONFIG_DB_TABLE)
 
                 pytest_assert('FLEX_COUNTER_STATUS' in config_data,
-                             "FLEX_COUNTER_STATUS not found in CONFIG_DB")
+                              "FLEX_COUNTER_STATUS not found in CONFIG_DB")
 
                 actual_status = config_data['FLEX_COUNTER_STATUS']
                 pytest_assert(expected_status == actual_status,
-                             "CONFIG_DB status is '{}', expected '{}'".format(actual_status, expected_status))
+                              "CONFIG_DB status is '{}', expected '{}'".format(actual_status, expected_status))
 
                 if expected_interval is not None:
                     pytest_assert('POLL_INTERVAL' in config_data,
-                                 "POLL_INTERVAL not found in CONFIG_DB")
+                                  "POLL_INTERVAL not found in CONFIG_DB")
                     actual_interval = config_data['POLL_INTERVAL']
                     pytest_assert(str(expected_interval) == actual_interval,
-                                 "CONFIG_DB interval is '{}', expected '{}'".format(actual_interval, expected_interval))
+                                  "CONFIG_DB interval is '{}', expected '{}'".format(
+                                      actual_interval, expected_interval))
 
                 logging.info("CONFIG_DB verified: status={}, interval={}".format(
                     actual_status, config_data.get('POLL_INTERVAL', 'N/A')))
@@ -204,17 +206,17 @@ def verify_phy_attr_in_flex_counter_db(duthost, expected_interval=None):
                 group_data = SonicDbCli(asic, 'FLEX_COUNTER_DB').hget_all(FLEX_COUNTER_GROUP_TABLE)
 
                 pytest_assert('FLEX_COUNTER_STATUS' in group_data,
-                             "FLEX_COUNTER_STATUS not found in FLEX_COUNTER_DB group table")
+                              "FLEX_COUNTER_STATUS not found in FLEX_COUNTER_DB group table")
                 pytest_assert(group_data['FLEX_COUNTER_STATUS'] == ENABLE,
-                             "FLEX_COUNTER_DB status is not enabled")
+                              "FLEX_COUNTER_DB status is not enabled")
 
                 if expected_interval is not None:
                     pytest_assert('POLL_INTERVAL' in group_data,
-                                 "POLL_INTERVAL not found in FLEX_COUNTER_DB")
+                                  "POLL_INTERVAL not found in FLEX_COUNTER_DB")
                     actual_interval = group_data['POLL_INTERVAL']
                     pytest_assert(str(expected_interval) == actual_interval,
-                                 "FLEX_COUNTER_DB interval is '{}', expected '{}'".format(
-                                     actual_interval, expected_interval))
+                                  "FLEX_COUNTER_DB interval is '{}', expected '{}'".format(
+                                      actual_interval, expected_interval))
 
                 logging.info("FLEX_COUNTER_DB group table verified on asic{}".format(asic.asic_index))
 
@@ -285,12 +287,12 @@ def verify_attribute_list_in_flex_counter_db(duthost, sample_ports):
                 port_data = SonicDbCli(asic, 'FLEX_COUNTER_DB').hget_all(flex_counter_key)
 
                 pytest_assert('PORT_PHY_ATTR_ID_LIST' in port_data,
-                             "PORT_PHY_ATTR_ID_LIST not found for {}".format(port_oid))
+                              "PORT_PHY_ATTR_ID_LIST not found for {}".format(port_oid))
 
                 attr_list = port_data['PORT_PHY_ATTR_ID_LIST']
                 for expected_attr in PORT_PHY_ATTRIBUTES:
                     pytest_assert(expected_attr in attr_list,
-                                 "{} not found in attribute list for {}".format(expected_attr, port_oid))
+                                  "{} not found in attribute list for {}".format(expected_attr, port_oid))
 
                 logging.info("Verified attribute list for {}: {}".format(port_oid, attr_list))
 
@@ -301,21 +303,21 @@ def verify_attribute_list_in_flex_counter_db(duthost, sample_ports):
 def validate_latch_status_value(value, lane, port_oid, attribute_name):
     """Validate latch status value format: [status, timestamp, counter]"""
     pytest_assert(isinstance(value, list),
-                 "{} lane {} value is not a list for {}".format(attribute_name, lane, port_oid))
+                  "{} lane {} value is not a list for {}".format(attribute_name, lane, port_oid))
     pytest_assert(len(value) == 3,
-                 "{} lane {} has {} elements, expected 3 [status, timestamp, counter] for {}".format(
-                     attribute_name, lane, len(value), port_oid))
+                  "{} lane {} has {} elements, expected 3 [status, timestamp, counter] for {}".format(
+                      attribute_name, lane, len(value), port_oid))
 
     status, timestamp, counter = value
     pytest_assert(status in ["T", "T*", "F", "F*"],
-                 "{} lane {} has invalid status '{}', expected T/T*/F/F* for {}".format(
-                     attribute_name, lane, status, port_oid))
+                  "{} lane {} has invalid status '{}', expected T/T*/F/F* for {}".format(
+                      attribute_name, lane, status, port_oid))
     pytest_assert(isinstance(timestamp, int) and timestamp >= 0,
-                 "{} lane {} has invalid timestamp '{}', expected positive integer for {}".format(
-                     attribute_name, lane, timestamp, port_oid))
+                  "{} lane {} has invalid timestamp '{}', expected positive integer for {}".format(
+                      attribute_name, lane, timestamp, port_oid))
     pytest_assert(isinstance(counter, int) and counter >= 0,
-                 "{} lane {} has invalid counter '{}', expected positive integer for {}".format(
-                     attribute_name, lane, counter, port_oid))
+                  "{} lane {} has invalid counter '{}', expected positive integer for {}".format(
+                      attribute_name, lane, counter, port_oid))
 
     return status, timestamp, counter
 
@@ -335,12 +337,12 @@ def read_port_latch_status(asic, port_oid, attribute_name):
     counters_key = 'PORT_PHY_ATTR:{}'.format(port_oid)
     counters_data = SonicDbCli(asic, 'COUNTERS_DB').hget_all(counters_key)
     pytest_assert(attribute_name in counters_data,
-                 "{} not found for {}".format(attribute_name, port_oid))
+                  "{} not found for {}".format(attribute_name, port_oid))
     return json.loads(counters_data[attribute_name])
 
 
 def poll_for_latch_status(asic, port_oid, expected_status, prev_signal_data=None, prev_fec_data=None,
-                           max_attempts=11):
+                          max_attempts=11):
     """
     Poll for expected latch status with counter and timestamp validation
 
@@ -382,17 +384,17 @@ def poll_for_latch_status(asic, port_oid, expected_status, prev_signal_data=None
                 prev_fec_counter = prev_fec_data['0'][2]
 
                 pytest_assert(signal_counter == prev_signal_counter + 1,
-                             "Signal counter should increment by 1: {} -> {}".format(
-                                 prev_signal_counter, signal_counter))
+                              "Signal counter should increment by 1: {} -> {}".format(
+                                  prev_signal_counter, signal_counter))
                 pytest_assert(signal_ts != prev_signal_ts,
-                             "Signal timestamp should change: {} -> {}".format(
-                                 prev_signal_ts, signal_ts))
+                              "Signal timestamp should change: {} -> {}".format(
+                                  prev_signal_ts, signal_ts))
                 pytest_assert(fec_counter == prev_fec_counter + 1,
-                             "FEC counter should increment by 1: {} -> {}".format(
-                                 prev_fec_counter, fec_counter))
+                              "FEC counter should increment by 1: {} -> {}".format(
+                                  prev_fec_counter, fec_counter))
                 pytest_assert(fec_ts != prev_fec_ts,
-                             "FEC timestamp should change: {} -> {}".format(
-                                 prev_fec_ts, fec_ts))
+                              "FEC timestamp should change: {} -> {}".format(
+                                  prev_fec_ts, fec_ts))
 
             return signal_data, fec_data
 
@@ -465,42 +467,42 @@ def verify_counters_db_data(duthost, sample_ports):
 
                 # Verify rx_snr (new short name)
                 pytest_assert('rx_snr' in counters_data,
-                             "rx_snr not found for {} ({})".format(port_oid, interface_name))
+                              "rx_snr not found for {} ({})".format(port_oid, interface_name))
 
                 # Parse flat dictionary format: {0: 3712, 1: 3840, ...}
                 rx_snr_data = json.loads(counters_data['rx_snr'])
                 pytest_assert(isinstance(rx_snr_data, dict),
-                             "rx_snr data is not a dictionary for {} ({})".format(port_oid, interface_name))
+                              "rx_snr data is not a dictionary for {} ({})".format(port_oid, interface_name))
                 pytest_assert(len(rx_snr_data) == expected_lanes,
-                             "rx_snr has {} lanes, expected {} for {} ({})".format(
-                                 len(rx_snr_data), expected_lanes, port_oid, interface_name))
+                              "rx_snr has {} lanes, expected {} for {} ({})".format(
+                                  len(rx_snr_data), expected_lanes, port_oid, interface_name))
 
                 # Verify all lane numbers are present and values are integers
                 for lane in range(expected_lanes):
                     lane_key = str(lane)
                     pytest_assert(lane_key in rx_snr_data,
-                                 "Lane {} missing in rx_snr for {} ({})".format(lane, port_oid, interface_name))
+                                  "Lane {} missing in rx_snr for {} ({})".format(lane, port_oid, interface_name))
                     pytest_assert(isinstance(rx_snr_data[lane_key], int),
-                                 "rx_snr lane {} value is not an integer for {}".format(lane, port_oid))
+                                  "rx_snr lane {} value is not an integer for {}".format(lane, port_oid))
 
                 logging.info("rx_snr verified for {}: {} lanes".format(interface_name, expected_lanes))
 
                 # Verify pcs_fec_lane_alignment_lock (new short name)
                 pytest_assert('pcs_fec_lane_alignment_lock' in counters_data,
-                             "pcs_fec_lane_alignment_lock not found for {} ({})".format(
-                                 port_oid, interface_name))
+                              "pcs_fec_lane_alignment_lock not found for {} ({})".format(
+                                  port_oid, interface_name))
 
                 # Parse new format: {0: ["T*", timestamp, counter], 1: ["F", timestamp, counter], ...}
                 fec_lock_data = json.loads(counters_data['pcs_fec_lane_alignment_lock'])
                 pytest_assert(isinstance(fec_lock_data, dict),
-                             "pcs_fec_lane_alignment_lock data is not a dictionary for {} ({})".format(
-                                 port_oid, interface_name))
+                              "pcs_fec_lane_alignment_lock data is not a dictionary for {} ({})".format(
+                                  port_oid, interface_name))
 
                 fec_count = len(fec_lock_data)
                 valid_fec_counts = [expected_lanes, expected_lanes * 4]
                 pytest_assert(fec_count in valid_fec_counts,
-                             "pcs_fec_lane_alignment_lock has {} entries, expected {} or {} for {} ({})".format(
-                                 fec_count, expected_lanes, expected_lanes * 4, port_oid, interface_name))
+                              "pcs_fec_lane_alignment_lock has {} entries, expected {} or {} for {} ({})".format(
+                                  fec_count, expected_lanes, expected_lanes * 4, port_oid, interface_name))
 
                 # Verify values are in [status, timestamp, counter] format
                 for lane, value in fec_lock_data.items():
@@ -511,17 +513,17 @@ def verify_counters_db_data(duthost, sample_ports):
 
                 # Verify phy_rx_signal_detect (new short name)
                 pytest_assert('phy_rx_signal_detect' in counters_data,
-                             "phy_rx_signal_detect not found for {} ({})".format(
-                                 port_oid, interface_name))
+                              "phy_rx_signal_detect not found for {} ({})".format(
+                                  port_oid, interface_name))
 
                 # Parse new format: {0: ["T", timestamp, counter], 1: ["F*", timestamp, counter], ...}
                 rx_signal_data = json.loads(counters_data['phy_rx_signal_detect'])
                 pytest_assert(isinstance(rx_signal_data, dict),
-                             "phy_rx_signal_detect data is not a dictionary for {} ({})".format(
-                                 port_oid, interface_name))
+                              "phy_rx_signal_detect data is not a dictionary for {} ({})".format(
+                                  port_oid, interface_name))
                 pytest_assert(len(rx_signal_data) == expected_lanes,
-                             "phy_rx_signal_detect has {} lanes, expected {} for {} ({})".format(
-                                 len(rx_signal_data), expected_lanes, port_oid, interface_name))
+                              "phy_rx_signal_detect has {} lanes, expected {} for {} ({})".format(
+                                  len(rx_signal_data), expected_lanes, port_oid, interface_name))
 
                 # Verify values are in [status, timestamp, counter] format
                 for lane, value in rx_signal_data.items():
@@ -673,7 +675,7 @@ def test_phy_reboot_persistence(duthosts, enum_rand_one_per_hwsku_frontend_hostn
 
 
 def test_phy_latch_status_transition(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                      fanouthosts, tbinfo):
+                                     fanouthosts, tbinfo):
     """
     Test 5: Verify latch status transitions (T->T*, F->F*) on link state changes
 
@@ -725,25 +727,30 @@ def test_phy_latch_status_transition(duthosts, enum_rand_one_per_hwsku_frontend_
         fanout.shutdown(port_info['fanout_port'])
 
     with allure.step("Polling for F* after link down"):
-        after_down_signal, after_down_fec = poll_for_latch_status(
+        poll_for_latch_status(
             port_info['asic'], port_info['oid'], 'F*',
             prev_signal_data=initial_signal, prev_fec_data=initial_fec)
 
+    # signal counter and timestamp are updated only when * is set.
+    # Because these are clear-on-read counters
+    # so prev_signal_data should be last signal data before any change(*) happened
     with allure.step("Polling for F (marker cleared)"):
         stable_signal, stable_fec = poll_for_latch_status(
             port_info['asic'], port_info['oid'], 'F',
-            prev_signal_data=after_down_signal, prev_fec_data=after_down_fec)
+            prev_signal_data=initial_signal, prev_fec_data=initial_fec)
 
     with allure.step("Bringing link up"):
         fanout.no_shutdown(port_info['fanout_port'])
 
     with allure.step("Polling for T* after link up"):
-        after_up_signal, after_up_fec = poll_for_latch_status(
+        poll_for_latch_status(
             port_info['asic'], port_info['oid'], 'T*',
             prev_signal_data=stable_signal, prev_fec_data=stable_fec)
 
+    # signal counter and timestamp are updated only when * is set.
+    # Because these are clear-on-read counters
+    # so prev_signal_data should be last signal data before any change(*) happened
     with allure.step("Polling for T (marker cleared)"):
         final_signal, final_fec = poll_for_latch_status(
             port_info['asic'], port_info['oid'], 'T',
-            prev_signal_data=after_up_signal, prev_fec_data=after_up_fec)
-
+            prev_signal_data=stable_signal, prev_fec_data=stable_fec)
