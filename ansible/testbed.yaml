@@ -5159,9 +5159,10 @@
 
 - conf-name: vms29-ut2-route-conv-7280
   group-name: vms20-ixia-12
-  topo: tgen_t2_2lc_masic_route_conv
+  topo: t2_tgen_route_conv
   ptf_image_name: docker-keysight-api-server
-  ptf: vms20-ixia-12
+  ptf_imagetag: 10.80.2412.123
+  ptf: str-t2-aresone-ixia-2-api-serv
   ptf_ip: 10.64.247.89/26
   ptf_ipv6:
   server: server_20

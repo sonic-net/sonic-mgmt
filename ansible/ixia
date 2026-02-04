@@ -30,6 +30,9 @@ all:
         str-aresone-api-serv-03:
           ansible_host: 10.64.246.232
           version: ixnetworkweb_10.25.2405.106
+        str-t2-aresone-ixia-2-api-serv:
+          ansible_host: 10.64.247.89
+          version: ixnetworkweb_10.80.2412.123
       vars:
         ansible_ssh_user: admin
         ansible_ssh_pass: admin

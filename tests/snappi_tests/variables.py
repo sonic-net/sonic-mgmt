@@ -210,6 +210,7 @@ def get_host_addresses(subnet, count):
 #     For T2 Chassis: Use topo_tgen_t2_2lc_masic_route_conv.yml (multi-asic)
 #                     or topo_tgen_t2_2lc_route_conv.yml (single-asic)
 #     For T2 Pizzabox: Use topo_t2_tgen_route_conv.yml (multi-asic)
+#
 #     For Lower Tier DUT: Configure using initial_setup() fixture in conftest.py
 #     For Fanout: Configure using initial_setup() fixture in conftest.py
 #
@@ -261,282 +262,13 @@ FANOUT_PRESENCE = True
 # Organized by: TOPOLOGY -> VENDOR -> DATA
 # =============================================================================
 # Note: Increase the MaxSessions in /etc/ssh/sshd_config if the number of fanout ports used is more than 10
-t2_uplink_fanout_info = {
-    'NOKIA': {
-        'fanout_ip': '10.3.146.9',
-        'port_mapping': [
-            {'fanout_port': 'Ethernet64', 'uplink_port': 'Ethernet0'},
-            {'fanout_port': 'Ethernet68', 'uplink_port': 'Ethernet8'},
-            {'fanout_port': 'Ethernet72', 'uplink_port': 'Ethernet16'},
-            {'fanout_port': 'Ethernet76', 'uplink_port': 'Ethernet24'},
-            {'fanout_port': 'Ethernet80', 'uplink_port': 'Ethernet40'},
-            {'fanout_port': 'Ethernet84', 'uplink_port': 'Ethernet48'},
-            {'fanout_port': 'Ethernet88', 'uplink_port': 'Ethernet56'},
-            {'fanout_port': 'Ethernet92', 'uplink_port': 'Ethernet64'},
-            {'fanout_port': 'Ethernet96', 'uplink_port': 'Ethernet144'},
-            {'fanout_port': 'Ethernet100', 'uplink_port': 'Ethernet152'},
-            {'fanout_port': 'Ethernet104', 'uplink_port': 'Ethernet160'},
-            {'fanout_port': 'Ethernet108', 'uplink_port': 'Ethernet168'},
-            {'fanout_port': 'Ethernet112', 'uplink_port': 'Ethernet176'},
-            {'fanout_port': 'Ethernet116', 'uplink_port': 'Ethernet184'},
-            {'fanout_port': 'Ethernet120', 'uplink_port': 'Ethernet192'},
-            {'fanout_port': 'Ethernet124', 'uplink_port': 'Ethernet200'}
-        ]
-    },
-    'ARISTA': {
-        'fanout_ip': '10.3.146.9',
-        'port_mapping': [
-            {'fanout_port': 'Ethernet128', 'uplink_port': 'Ethernet0'},
-            {'fanout_port': 'Ethernet132', 'uplink_port': 'Ethernet4'},
-            {'fanout_port': 'Ethernet136', 'uplink_port': 'Ethernet8'},
-            {'fanout_port': 'Ethernet140', 'uplink_port': 'Ethernet12'},
-            {'fanout_port': 'Ethernet144', 'uplink_port': 'Ethernet16'},
-            {'fanout_port': 'Ethernet148', 'uplink_port': 'Ethernet20'},
-            {'fanout_port': 'Ethernet152', 'uplink_port': 'Ethernet24'},
-            {'fanout_port': 'Ethernet156', 'uplink_port': 'Ethernet28'},
-            {'fanout_port': 'Ethernet160', 'uplink_port': 'Ethernet32'},
-            {'fanout_port': 'Ethernet164', 'uplink_port': 'Ethernet36'},
-            {'fanout_port': 'Ethernet168', 'uplink_port': 'Ethernet40'},
-            {'fanout_port': 'Ethernet172', 'uplink_port': 'Ethernet44'},
-            {'fanout_port': 'Ethernet176', 'uplink_port': 'Ethernet48'},
-            {'fanout_port': 'Ethernet180', 'uplink_port': 'Ethernet52'},
-            {'fanout_port': 'Ethernet184', 'uplink_port': 'Ethernet56'},
-            {'fanout_port': 'Ethernet188', 'uplink_port': 'Ethernet60'}
-        ]
-    },
-    'CISCO': {
-        'fanout_ip': '10.3.146.9',
-        'port_mapping': [
-            {'fanout_port': 'Ethernet192', 'uplink_port': 'Ethernet0'},
-            {'fanout_port': 'Ethernet196', 'uplink_port': 'Ethernet8'},
-            {'fanout_port': 'Ethernet200', 'uplink_port': 'Ethernet16'},
-            {'fanout_port': 'Ethernet204', 'uplink_port': 'Ethernet24'},
-            {'fanout_port': 'Ethernet208', 'uplink_port': 'Ethernet32'},
-            {'fanout_port': 'Ethernet212', 'uplink_port': 'Ethernet40'},
-            {'fanout_port': 'Ethernet216', 'uplink_port': 'Ethernet48'},
-            {'fanout_port': 'Ethernet220', 'uplink_port': 'Ethernet56'},
-            {'fanout_port': 'Ethernet224', 'uplink_port': 'Ethernet64'},
-            {'fanout_port': 'Ethernet228', 'uplink_port': 'Ethernet72'},
-            {'fanout_port': 'Ethernet232', 'uplink_port': 'Ethernet80'},
-            {'fanout_port': 'Ethernet236', 'uplink_port': 'Ethernet88'},
-            {'fanout_port': 'Ethernet240', 'uplink_port': 'Ethernet96'},
-            {'fanout_port': 'Ethernet244', 'uplink_port': 'Ethernet104'},
-            {'fanout_port': 'Ethernet248', 'uplink_port': 'Ethernet112'},
-            {'fanout_port': 'Ethernet252', 'uplink_port': 'Ethernet120'}
-        ]
-    }
-}
-
-# The order of hostname is very important for the outbound test (T1, T2 Uplink, T2 Downlink and Supervisor)
-t1_t2_device_hostnames = {
-    'NOKIA': [
-        "str2-7260cx3-d10-u42", "str2-7250-lc1-2", "str2-7250-lc2-2", "str2-7250-sup-2"
-    ],
-    'ARISTA': [
-        "str2-7260cx3-d10-u42", "str3-7800-lc6-2", "str3-7800-lc5-2", "str3-7808-sup-2"
-    ],
-    'CISCO': [
-        "str2-7260cx3-d10-u42", "str3-8800-lc3-1", "str3-8800-lc2-1", "str3-8800-sup-2"
-    ]
-}
-
-t1_ports = {
-     'NOKIA': {
-         t1_t2_device_hostnames['NOKIA'][0]:
-         [
-            'Ethernet24',
-            'Ethernet28'
-         ]
-     },
-     'ARISTA': {
-         t1_t2_device_hostnames['ARISTA'][0]:
-         [
-            'Ethernet24',
-            'Ethernet28'
-         ]
-     },
-     'CISCO': {
-         t1_t2_device_hostnames['CISCO'][0]:
-         [
-            'Ethernet24',
-            'Ethernet28'
-         ]
-     }
-}
-
-t1_dut_info = {
-    'NOKIA': {
-        'dut_ip': '10.64.246.10',
-    },
-    'ARISTA': {
-        'dut_ip': '10.64.246.10',
-    },
-    'CISCO': {
-        'dut_ip': '10.64.246.10',
-    }
-}
-
-t1_snappi_ports = {
-    "NOKIA": [
-        {
-            "ip": "10.3.145.74",
-            "port_id": "11.3",
-            "peer_port": "Ethernet24",
-            "peer_device": "str2-7260cx3-d10-u42",
-            "speed": "speed_100_gbps",
-            "location": "10.3.145.74/11.3",
-            "api_server_ip": "10.64.246.188",
-        },
-        {
-            "ip": "10.3.145.74",
-            "port_id": "11.4",
-            "peer_port": "Ethernet28",
-            "peer_device": "str2-7260cx3-d10-u42",
-            "speed": "speed_100_gbps",
-            "location": "10.3.145.74/11.4",
-            "api_server_ip": "10.64.246.188",
-        },
-    ],
-    "ARISTA": [
-        {
-            "ip": "10.3.145.74",
-            "port_id": "11.3",
-            "peer_port": "Ethernet24",
-            "peer_device": "str2-7260cx3-d10-u42",
-            "speed": "speed_100_gbps",
-            "location": "10.3.145.74/11.3",
-            "api_server_ip": "10.64.246.188",
-        },
-        {
-            "ip": "10.3.145.74",
-            "port_id": "11.4",
-            "peer_port": "Ethernet28",
-            "peer_device": "str2-7260cx3-d10-u42",
-            "speed": "speed_100_gbps",
-            "location": "10.3.145.74/11.4",
-            "api_server_ip": "10.64.246.188",
-        },
-    ],
-    "CISCO": [
-        {
-            "ip": "10.3.145.74",
-            "port_id": "11.3",
-            "peer_port": "Ethernet24",
-            "peer_device": "str2-7260cx3-d10-u42",
-            "speed": "speed_100_gbps",
-            "location": "10.3.145.74/11.3",
-            "api_server_ip": "10.64.246.189",
-        },
-        {
-            "ip": "10.3.145.74",
-            "port_id": "11.4",
-            "peer_port": "Ethernet28",
-            "peer_device": "str2-7260cx3-d10-u42",
-            "speed": "speed_100_gbps",
-            "location": "10.3.145.74/11.4",
-            "api_server_ip": "10.64.246.189",
-        },
-    ],
-}
-
-# asic_value is None if it's non-chassis based or single line card
-t2_uplink_portchannel_members = {
-    'NOKIA': {
-        t1_t2_device_hostnames['NOKIA'][1]: {
-            'asic0': {
-                'PortChannel0': ['Ethernet0', 'Ethernet8'],
-                'PortChannel1': ['Ethernet16'],
-                'PortChannel2': ['Ethernet24'],
-                'PortChannel3': ['Ethernet40'],
-                'PortChannel4': ['Ethernet48'],
-                'PortChannel5': ['Ethernet56'],
-                'PortChannel6': ['Ethernet64']
-            },
-            'asic1': {
-                'PortChannel7': ['Ethernet144'],
-                'PortChannel8': ['Ethernet152'],
-                'PortChannel9': ['Ethernet160'],
-                'PortChannel10': ['Ethernet168'],
-                'PortChannel11': ['Ethernet176'],
-                'PortChannel12': ['Ethernet184'],
-                'PortChannel13': ['Ethernet192'],
-                'PortChannel14': ['Ethernet200']
-            }
-        }
-    },
-    'ARISTA': {
-        t1_t2_device_hostnames['ARISTA'][1]: {
-            None: {
-                'PortChannel0': ['Ethernet0', 'Ethernet4'],
-                'PortChannel1': ['Ethernet8'],
-                'PortChannel2': ['Ethernet12'],
-                'PortChannel3': ['Ethernet16'],
-                'PortChannel4': ['Ethernet20'],
-                'PortChannel5': ['Ethernet24'],
-                'PortChannel6': ['Ethernet28'],
-                'PortChannel7': ['Ethernet32'],
-                'PortChannel8': ['Ethernet36'],
-                'PortChannel9': ['Ethernet40'],
-                'PortChannel10': ['Ethernet44'],
-                'PortChannel11': ['Ethernet48'],
-                'PortChannel12': ['Ethernet52'],
-                'PortChannel13': ['Ethernet56'],
-                'PortChannel14': ['Ethernet60']
-            }
-        }
-    },
-    'CISCO': {
-        t1_t2_device_hostnames['CISCO'][1]: {
-            'asic0': {
-                'PortChannel0': ['Ethernet0', 'Ethernet8'],
-                'PortChannel1': ['Ethernet16'],
-                'PortChannel2': ['Ethernet24'],
-                'PortChannel3': ['Ethernet32'],
-                'PortChannel4': ['Ethernet40'],
-                'PortChannel5': ['Ethernet48'],
-                'PortChannel6': ['Ethernet56'],
-                'PortChannel7': ['Ethernet64'],
-                'PortChannel8': ['Ethernet72'],
-                'PortChannel9': ['Ethernet80'],
-                'PortChannel10': ['Ethernet88'],
-
-            },
-            'asic1': {
-                'PortChannel11': ['Ethernet96'],
-                'PortChannel12': ['Ethernet104'],
-                'PortChannel13': ['Ethernet112'],
-                'PortChannel14': ['Ethernet120']
-            }
-        }
-    },
-
-}
-
-# TODO: Multiple interconnected ports scenario
-t1_side_interconnected_port = {
-    'NOKIA': 'Ethernet0',
-    'ARISTA': 'Ethernet32',
-    'CISCO': 'Ethernet48'
-}
-
-t2_side_interconnected_port = {
-    'NOKIA': {'port_name': 'Ethernet0', 'asic_value': 'asic0'},
-    'ARISTA': {'port_name': 'Ethernet0', 'asic_value': None},
-    'CISCO': {'port_name': 'Ethernet264', 'asic_value': 'asic2'}
-}
-
-routed_port_count = 1+len(t1_ports[list(t1_ports.keys())[0]][
-                          t1_t2_device_hostnames[list(t1_t2_device_hostnames.keys())[0]][0]])
-portchannel_count = sum([len(portchannel_info) for _, portchannel_info in
-                        t2_uplink_portchannel_members[list(t2_uplink_portchannel_members.keys())[0]][
-                        t1_t2_device_hostnames[list(t1_t2_device_hostnames.keys())[0]][1]].items()])
 
 TOPOLOGY_CONFIG = {
     # =========================================================================
     # T2 CHASSIS TOPOLOGY (Multi-DUT: Uplink LC, Downlink LC, Supervisor)
     # =========================================================================
     TOPOLOGY_T2_CHASSIS: {
-        'Vendor1': {
+        'NOKIA': {
             # Device hostnames: [lower_tier, uplink_dut, downlink_dut, supervisor]
             'device_hostnames': ["str2-7260cx3-d10-u42", "str2-7250-lc1-2", "str2-7250-lc2-2", "str2-7250-sup-2"],
 
@@ -614,7 +346,7 @@ TOPOLOGY_CONFIG = {
             'dut_interconnect_port': {'port_name': 'Ethernet0', 'asic_value': 'asic0'},
         },
 
-        'Vendor2': {
+        'ARISTA': {
             # Device hostnames: [lower_tier, uplink_dut, downlink_dut, supervisor]
             'device_hostnames': ["str2-7260cx3-d10-u42", "str3-7800-lc6-2", "str3-7800-lc5-2", "str3-7808-sup-2"],
 
@@ -689,13 +421,91 @@ TOPOLOGY_CONFIG = {
 
             'dut_interconnect_port': {'port_name': 'Ethernet0', 'asic_value': None},
         },
+
+        'CISCO': {
+            # Device hostnames: [lower_tier, uplink_dut, downlink_dut, supervisor]
+            'device_hostnames': ["str2-7260cx3-d10-u42", "str3-8800-lc3-1", "str3-8800-lc2-1", "str3-8800-sup-2"],
+
+            'lower_tier_info': {
+                'dut_ip': '10.64.246.10',
+                'ports': ['Ethernet24', 'Ethernet28'],
+                'interconnect_port': 'Ethernet48',
+            },
+
+            'lower_tier_snappi_ports': [
+                {
+                    "ip": "10.3.145.74",
+                    "port_id": "11.3",
+                    "peer_port": "Ethernet24",
+                    "peer_device": "str2-7260cx3-d10-u42",
+                    "speed": "speed_100_gbps",
+                    "location": "10.3.145.74/11.3",
+                    "api_server_ip": "10.64.246.189",
+                },
+                {
+                    "ip": "10.3.145.74",
+                    "port_id": "11.4",
+                    "peer_port": "Ethernet28",
+                    "peer_device": "str2-7260cx3-d10-u42",
+                    "speed": "speed_100_gbps",
+                    "location": "10.3.145.74/11.4",
+                    "api_server_ip": "10.64.246.189",
+                },
+            ],
+
+            'uplink_fanout': {
+                'fanout_ip': '10.3.146.9',
+                'port_mapping': [
+                    {'fanout_port': 'Ethernet192', 'uplink_port': 'Ethernet0'},
+                    {'fanout_port': 'Ethernet196', 'uplink_port': 'Ethernet8'},
+                    {'fanout_port': 'Ethernet200', 'uplink_port': 'Ethernet16'},
+                    {'fanout_port': 'Ethernet204', 'uplink_port': 'Ethernet24'},
+                    {'fanout_port': 'Ethernet208', 'uplink_port': 'Ethernet32'},
+                    {'fanout_port': 'Ethernet212', 'uplink_port': 'Ethernet40'},
+                    {'fanout_port': 'Ethernet216', 'uplink_port': 'Ethernet48'},
+                    {'fanout_port': 'Ethernet220', 'uplink_port': 'Ethernet56'},
+                    {'fanout_port': 'Ethernet224', 'uplink_port': 'Ethernet64'},
+                    {'fanout_port': 'Ethernet228', 'uplink_port': 'Ethernet72'},
+                    {'fanout_port': 'Ethernet232', 'uplink_port': 'Ethernet80'},
+                    {'fanout_port': 'Ethernet236', 'uplink_port': 'Ethernet88'},
+                    {'fanout_port': 'Ethernet240', 'uplink_port': 'Ethernet96'},
+                    {'fanout_port': 'Ethernet244', 'uplink_port': 'Ethernet104'},
+                    {'fanout_port': 'Ethernet248', 'uplink_port': 'Ethernet112'},
+                    {'fanout_port': 'Ethernet252', 'uplink_port': 'Ethernet120'}
+                ]
+            },
+
+            'uplink_portchannel_members': {
+                'asic0': {
+                    'PortChannel0': ['Ethernet0', 'Ethernet8'],
+                    'PortChannel1': ['Ethernet16'],
+                    'PortChannel2': ['Ethernet24'],
+                    'PortChannel3': ['Ethernet32'],
+                    'PortChannel4': ['Ethernet40'],
+                    'PortChannel5': ['Ethernet48'],
+                    'PortChannel6': ['Ethernet56'],
+                    'PortChannel7': ['Ethernet64'],
+                    'PortChannel8': ['Ethernet72'],
+                    'PortChannel9': ['Ethernet80'],
+                    'PortChannel10': ['Ethernet88'],
+                },
+                'asic1': {
+                    'PortChannel11': ['Ethernet96'],
+                    'PortChannel12': ['Ethernet104'],
+                    'PortChannel13': ['Ethernet112'],
+                    'PortChannel14': ['Ethernet120']
+                }
+            },
+
+            'dut_interconnect_port': {'port_name': 'Ethernet264', 'asic_value': 'asic2'},
+        },
     },
 
     # =========================================================================
     # T2 PIZZABOX TOPOLOGY (Single-DUT: multi-asic pizzabox)
     # =========================================================================
     TOPOLOGY_T2_PIZZABOX: {
-        'Vendor1': {
+        'ARISTA': {
             # Device hostnames: [lower_tier, dut]
             'device_hostnames': ["str2-7260cx3-d10-u42", "str-7280dr3-1"],
 
@@ -901,10 +711,14 @@ def generate_ips_for_bgp(ipv4_subnet, ipv6_subnet, total_count):
     for index in range(0, total_count):
         v4_host_addresses = get_host_addresses(str(v4_start_ips[index]) + '/' + str(ipv4_subnet.split('/')[1]), count)
         v6_host_addresses = get_host_addresses(str(v6_start_ips[index]) + '/' + str(ipv6_subnet.split('/')[1]), count)
-        ip_list.append(str(v4_host_addresses[0]))
-        peer_ip_list.append(str(v4_host_addresses[1]))
-        ipv6_list.append(str(v6_host_addresses[0]))
-        peer_ipv6_list.append(str(v6_host_addresses[1]))
+
+        if isinstance(v4_host_addresses, list) and isinstance(v6_host_addresses, list):
+            ip_list.append(str(v4_host_addresses[0]))
+            peer_ip_list.append(str(v4_host_addresses[1]))
+            ipv6_list.append(str(v6_host_addresses[0]))
+            peer_ipv6_list.append(str(v6_host_addresses[1]))
+        else:
+            raise ValueError("Error generating host addresses: {}, {}".format(v4_host_addresses, v6_host_addresses))
 
     router_id_list = create_ip_list('100.0.0.1', total_count, mask=32)
     return ip_list, peer_ip_list, ipv6_list, peer_ipv6_list, router_id_list

@@ -99,7 +99,7 @@
             "holdtime": "10",
             "keepalive": "3",
             "local_addr": "20.0.1.0",
-            "name": "snappi-sonic0",
+            "name": "snappi-T0",
             "nhopself": "0",
             "rrclient": "0"
         },
@@ -109,7 +109,7 @@
             "holdtime": "10",
             "keepalive": "3",
             "local_addr": "20.1.1.0",
-            "name": "snappi-sonic1",
+            "name": "snappi-BackupT2-1",
             "nhopself": "0",
             "rrclient": "0"
         },
@@ -129,7 +129,7 @@
             "holdtime": "10",
             "keepalive": "3",
             "local_addr": "2000:1:1:1::1",
-            "name": "snappi-sonic0",
+            "name": "snappi-T0",
             "nhopself": "0",
             "rrclient": "0"
         },
@@ -139,7 +139,7 @@
             "holdtime": "10",
             "keepalive": "3",
             "local_addr": "2000:1:1:2::1",
-            "name": "snappi-sonic1",
+            "name": "snappi-BackupT2-1",
             "nhopself": "0",
             "rrclient": "0"
         },
@@ -234,16 +234,20 @@
         }
     },
     "DEVICE_NEIGHBOR": {
-        "Ethernet0": {
-            "name": "T2",
-            "port": "Ethernet1"
-        },
         "Ethernet24": {
-            "name": "snappi-sonic0",
+            "name": "snappi-T0",
             "port": "Ethernet1"
         },
         "Ethernet28": {
-            "name": "snappi-sonic1",
+            "name": "snappi-BackupT2-1",
+            "port": "Ethernet1"
+        },
+        "Ethernet32": {
+            "name": "T2",
+            "port": "Ethernet1"
+        },
+        "Ethernet48": {
+            "name": "T2",
             "port": "Ethernet1"
         }
     },
@@ -253,12 +257,12 @@
             "mgmt_addr": "172.16.149.206",
             "type": "SpineRouter"
         },
-        "snappi-sonic0": {
+        "snappi-T0": {
             "hwsku": "Snappi",
             "mgmt_addr": "172.16.149.206",
             "type": "SpineRouter"
         },
-        "snappi-sonic1": {
+        "snappi-BackupT2-1": {
             "hwsku": "Snappi",
             "mgmt_addr": "172.16.149.206",
             "type": "SpineRouter"
@@ -448,15 +452,16 @@
         }
     },
     "INTERFACE": {
-        "Ethernet0": {},
         "Ethernet24": {},
         "Ethernet28": {},
-        "Ethernet0|20.2.1.0/31": {},
-        "Ethernet0|2000:1:1:3::1/126": {},
+        "Ethernet32": {},
+        "Ethernet48": {},
         "Ethernet24|20.0.1.0/31": {},
         "Ethernet24|2000:1:1:1::1/126": {},
         "Ethernet28|20.1.1.0/31": {},
-        "Ethernet28|2000:1:1:2::1/126": {}
+        "Ethernet28|2000:1:1:2::1/126": {},
+        "Ethernet48|20.2.1.0/31": {},
+        "Ethernet48|2000:1:1:3::1/126": {}
     },
     "KDUMP": {
         "config": {
@@ -481,6 +486,9 @@
             "alias": "eth0"
         }
     },
+    "NTP_SERVER": {
+        "10.20.8.129": {}
+    },
     "PASSW_HARDENING": {
         "POLICIES": {
             "digits_class": "true",
@@ -495,11 +503,14 @@
             "upper_class": "true"
         }
     },
+    "PFC_WD": {
+        "GLOBAL": {
+            "POLL_INTERVAL": "600"
+        }
+    },
     "PORT": {
         "Ethernet0": {
-            "admin_status": "up",
             "alias": "Ethernet1/1",
-            "fec": "rs",
             "index": "1",
             "lanes": "77,78,79,80",
             "mtu": "9100",
@@ -542,9 +553,7 @@
             "speed": "100000"
         },
         "Ethernet12": {
-            "admin_status": "up",
             "alias": "Ethernet4/1",
-            "fec": "rs",
             "index": "4",
             "lanes": "89,90,91,92",
             "speed": "100000"
@@ -834,8 +843,9 @@
             "speed": "100000"
         },
         "Ethernet32": {
-            "admin_status": "up",
+            "admin_status": "down",
             "alias": "Ethernet9/1",
+            "fec": "rs",
             "index": "9",
             "lanes": "25,26,27,28",
             "speed": "100000"
@@ -843,14 +853,13 @@
         "Ethernet36": {
             "admin_status": "up",
             "alias": "Ethernet10/1",
+            "fec": "rs",
             "index": "10",
             "lanes": "21,22,23,24",
             "speed": "100000"
         },
         "Ethernet4": {
-            "admin_status": "up",
             "alias": "Ethernet2/1",
-            "fec": "rs",
             "index": "2",
             "lanes": "65,66,67,68",
             "speed": "100000"
@@ -858,6 +867,7 @@
         "Ethernet40": {
             "admin_status": "up",
             "alias": "Ethernet11/1",
+            "fec": "rs",
             "index": "11",
             "lanes": "37,38,39,40",
             "speed": "100000"
@@ -865,6 +875,7 @@
         "Ethernet44": {
             "admin_status": "up",
             "alias": "Ethernet12/1",
+            "fec": "rs",
             "index": "12",
             "lanes": "45,46,47,48",
             "speed": "100000"
@@ -872,6 +883,7 @@
         "Ethernet48": {
             "admin_status": "up",
             "alias": "Ethernet13/1",
+            "fec": "rs",
             "index": "13",
             "lanes": "57,58,59,60",
             "speed": "100000"
@@ -879,6 +891,7 @@
         "Ethernet52": {
             "admin_status": "up",
             "alias": "Ethernet14/1",
+            "fec": "rs",
             "index": "14",
             "lanes": "53,54,55,56",
             "speed": "100000"
@@ -886,6 +899,7 @@
         "Ethernet56": {
             "admin_status": "up",
             "alias": "Ethernet15/1",
+            "fec": "rs",
             "index": "15",
             "lanes": "117,118,119,120",
             "speed": "100000"
@@ -893,6 +907,7 @@
         "Ethernet60": {
             "admin_status": "up",
             "alias": "Ethernet16/1",
+            "fec": "rs",
             "index": "16",
             "lanes": "121,122,123,124",
             "speed": "100000"
@@ -926,9 +941,7 @@
             "speed": "100000"
         },
         "Ethernet8": {
-            "admin_status": "up",
             "alias": "Ethernet3/1",
-            "fec": "rs",
             "index": "3",
             "lanes": "85,86,87,88",
             "speed": "100000"
