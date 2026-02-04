@@ -6,7 +6,7 @@ import pytest
 from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
     setup_gnoi_tls_server, ptf_gnoi, ptf_grpc
 )
-from tests.upgrade_path.utilities import setup_upgrade_test
+from tests.upgrade_path.test_upgrade_path import setup_upgrade_test
 from tests.common.helpers.upgrade_helpers import perform_gnoi_upgrade, GnoiUpgradeConfig
 
 logger = logging.getLogger(__name__)
