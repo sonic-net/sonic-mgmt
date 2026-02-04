@@ -23,7 +23,7 @@ TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
 
 @dataclass(frozen=True)
 class GnoiUpgradeConfig:
-    image_url: str
+    to_image: str
     dut_image_path: str
     upgrade_type: str
     protocol: str = "HTTP"
@@ -293,7 +293,7 @@ def perform_gnoi_upgrade(
 
     Flow:
       1) preboot_setup (if provided)
-      2) File.TransferToRemote: download cfg.image_url -> cfg.dut_image_path on DUT
+      2) File.TransferToRemote: download cfg.to_image -> cfg.dut_image_path on DUT
       3) System.SetPackage: set package to cfg.dut_image_path
       4) System.Reboot: trigger reboot (non-blocking; disconnect may occur)
       5) Mimic upgrade_test_helper reboot verification:
@@ -304,15 +304,15 @@ def perform_gnoi_upgrade(
            assert expected_to_version appears in 'show version'
     """
     logger.info(
-        "gNOI upgrade: image_url=%s dut_image_path=%s upgrade_type=%s protocol=%s",
-        cfg.image_url, cfg.dut_image_path, cfg.upgrade_type, cfg.protocol
+        "gNOI upgrade: to_image=%s dut_image_path=%s upgrade_type=%s protocol=%s",
+        cfg.to_image, cfg.dut_image_path, cfg.upgrade_type, cfg.protocol
     )
 
     # ---- Input sanity ----
     pytest_assert(ptf_gnoi is not None, "ptf_gnoi must be provided")
     pytest_assert(duthost is not None, "duthost must be provided")
     pytest_assert(tbinfo is not None, "tbinfo must be provided")
-    pytest_assert(cfg.image_url, "image_url must be provided")
+    pytest_assert(cfg.to_image, "to_image must be provided")
     pytest_assert(cfg.dut_image_path, "dut_image_path must be provided")
     pytest_assert(cfg.upgrade_type, "upgrade_type must be provided")
 
@@ -325,7 +325,7 @@ def perform_gnoi_upgrade(
             preboot_setup()
     # ---- 2) TransferToRemote (via wrapper) ----
     transfer_resp = ptf_gnoi.file_transfer_to_remote(
-        image_url=cfg.image_url,
+        to_image=cfg.to_image,
         dut_image_path=cfg.dut_image_path,   # NOTE: wrapper param name is dut_image_path in your PtfGnoi
         protocol=cfg.protocol,
     )
