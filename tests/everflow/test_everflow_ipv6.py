@@ -103,7 +103,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
             dut = setup_info[UP_STREAM]['everflow_dut']
         else:
             dut = setup_info[DOWN_STREAM]['everflow_dut']
-            
+
         yield dut
 
     @pytest.fixture(scope='class')
