@@ -326,14 +326,16 @@ class TestPlanManager(object):
         if MGMT_REPO_FLAG in kwargs.get("source_repo"):
             sonic_mgmt_pull_request_id = pr_id
 
-        # If triggered by buildimage repo, use image built from the buildId
-        kvm_image_build_id = kvm_build_id
+        # If kvm image build pipeline id is provided, use the kvm image built from the pipeline
+        # Else if triggered by buildimage repo, use image built from the buildId
         kvm_image_branch = kwargs.get("kvm_image_branch", "")
-        if kvm_image_build_pipeline_id is not None:
+        if kvm_image_build_pipeline_id:
             kvm_image_build_id = ""
         elif BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
             kvm_image_branch = ""
+        else:
+            kvm_image_build_id = kvm_build_id
         affinity = json.loads(kwargs.get("affinity", "[]"))
         payload = {
             "name": test_plan_name,
@@ -374,7 +376,7 @@ class TestPlanManager(object):
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
                     "kvm_image_branch": kvm_image_branch,
-                    "kvm_image_build_pipeline_id": kwargs.get("kvm_image_build_pipeline_id", None)
+                    "kvm_image_build_pipeline_id": kvm_image_build_pipeline_id
                 },
                 "sonic_mgmt": {
                     "repo_url": sonic_mgmt_repo_url,
