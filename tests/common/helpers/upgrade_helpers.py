@@ -11,6 +11,7 @@ from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until, setup_ferret
 from tests.common.platform.device_utils import check_neighbors
+from typing import Optional
 
 SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
