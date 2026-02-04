@@ -174,8 +174,8 @@ def bgp_prefix_tc1_xfail(duthost, community_table, namespace=None):
             delete_tmpfile(duthost, tmpfile)
 
 
-def check_bgp_prefix_config(duthost, community, cli_namespace_prefix):
-    """ Check bgp prefix config
+def check_bgp_prefix_config_replace(duthost, community, cli_namespace_prefix):
+    """ Check bgp prefix config for replace op
     """
     try:
         bgp_config = show_bgp_running_config(duthost, cli_namespace_prefix)
@@ -222,12 +222,30 @@ def bgp_prefix_tc1_replace(duthost, community, community_table, cli_namespace_pr
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        pytest_assert(wait_until(60, 5, 0, check_bgp_prefix_config, duthost, community, cli_namespace_prefix),
+        pytest_assert(wait_until(60, 5, 0, check_bgp_prefix_config_replace, duthost, community, cli_namespace_prefix),
                       "BGP prefix configuration not updated successfully")
 
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+def check_bgp_prefix_config_remove(duthost, community, cli_namespace_prefix):
+    """ Check bgp prefix config for remove op
+    """
+    try:
+        bgp_config = show_bgp_running_config(duthost, cli_namespace_prefix)
+        ipv4_removed = not re.search(PREFIXES_V4_RE.format(community, PREFIXES_V4_DUMMY), bgp_config)
+        ipv6_removed = not re.search(PREFIXES_V6_RE.format(community, PREFIXES_V6_DUMMY), bgp_config)
+
+        if ipv4_removed and ipv6_removed:
+            logger.info("BGP prefix configuration updated successfully")
+            return True
+        else:
+            logger.error(f"BGP prefix configuration not ready yet - IPv4: ipv4_removed={ipv4_removed}, "
+                         f"IPv6: ipv6_removed={ipv6_removed}, ")
+            return False
+    except Exception as e:
+        logger.error(f"Error checking bgp prefix configuration: {e}")
+        return False
 
 def bgp_prefix_tc1_remove(duthost, community, cli_namespace_prefix, namespace=None):
     """ Test to remove prefix config
@@ -248,15 +266,8 @@ def bgp_prefix_tc1_remove(duthost, community, cli_namespace_prefix, namespace=No
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
-        bgp_config = show_bgp_running_config(duthost, cli_namespace_prefix)
-        pytest_assert(
-            not re.search(PREFIXES_V4_RE.format(community, PREFIXES_V4_DUMMY), bgp_config),
-            "Failed to remove bgp prefix v4 config."
-        )
-        pytest_assert(
-            not re.search(PREFIXES_V6_RE.format(community, PREFIXES_V6_DUMMY), bgp_config),
-            "Failed to remove bgp prefix v6 config."
-        )
+        pytest_assert(wait_until(60, 5, 0, check_bgp_prefix_config_remove, duthost, community, cli_namespace_prefix),
+                      "BGP prefix configuration not updated successfully")
 
     finally:
         delete_tmpfile(duthost, tmpfile)
