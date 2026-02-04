@@ -318,7 +318,7 @@ def perform_gnoi_upgrade(
 
     # Map upgrade_type ("warm"/"cold") to gNOI enum token ("WARM"/"COLD")
     # reboot_method = "WARM" if str(cfg.upgrade_type).lower() == "warm" else "COLD"
-    # ---- 1) TransferToRemote (via wrapper) ----
+    # ---- 1) reboot to base image ----
     if cfg.upgrade_type == REBOOT_TYPE_COLD:
         # advance-reboot test (on ptf) does not support cold reboot yet
         if preboot_setup:
