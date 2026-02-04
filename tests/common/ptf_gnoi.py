@@ -109,3 +109,40 @@ class PtfGnoi:
 
     def __repr__(self):
         return self.__str__()
+
+    def upgrade_status(self, upgrade_id: str) -> Dict:
+        """
+        Get the status of an upgrade operation from the device.
+
+        Args:
+            upgrade_id: Identifier for the upgrade operation
+
+        Returns:
+            Dictionary containing the upgrade status details
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+            ValueError: If required fields in the response are not valid
+        """
+        logger.debug(f"Getting upgrade status for Upgrade ID: {upgrade_id}")
+
+        # Build the request payload
+        request = {"id": upgrade_id}
+
+        try:
+            # Make the gRPC call
+            response = self.grpc_client.call_unary("gnoi.upgrade.Upgrade", "Status", request)
+
+            # Validate and process the response
+            if "status" in response:
+                logger.debug(f"Received upgrade status response: {response}")
+            else:
+                raise ValueError("Missing 'status' in upgrade status response")
+
+            return response
+
+        except Exception as e:
+            logger.error(f"Error while getting upgrade status: {e}")
+            raise
