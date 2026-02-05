@@ -629,9 +629,10 @@ def get_ptf_recv_port(duthost, vm_name, tbinfo, multi_vrf_topo=False):
     else:
         pattern = vm_name
 
-    port = duthost.shell("show lldp table | grep -w {} | awk '{{print $1}}'".format(pattern))['stdout']
+    ports_output = duthost.shell("show lldp table | grep -w {} | awk '{{print $1}}'".format(pattern))['stdout']
+    ports = [line.strip() for line in ports_output.split('\n') if line.strip()]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    return mg_facts['minigraph_ptf_indices'][port]
+    return [mg_facts['minigraph_ptf_indices'][port] for port in ports]
 
 
 def get_eth_port(duthost, tbinfo):
