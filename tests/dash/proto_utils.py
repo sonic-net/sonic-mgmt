@@ -17,6 +17,7 @@ from dash_api.meter_policy_pb2 import MeterPolicy
 from dash_api.meter_rule_pb2 import MeterRule
 from dash_api.tunnel_pb2 import Tunnel
 from dash_api.route_rule_pb2 import RouteRule
+import dash_api.types_pb2 as types_pb2
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import ParseDict
@@ -49,6 +50,16 @@ PB_CLASS_MAP = {
     "METER_RULE": MeterRule,
     "TUNNEL": Tunnel,
     "ROUTE_RULE": RouteRule
+}
+
+PB_TYPE_MAP = {
+    "HA_SCOPE": types_pb2.HaScope,
+    "HA_OWNER": types_pb2.HaOwner,
+    "IP_VERSION": types_pb2.IpVersion,
+    "IP_ADDRESS": types_pb2.IpAddress,
+    "IP_PREFIX": types_pb2.IpPrefix,
+    "VALUE_OR_RANGE": types_pb2.ValueOrRange,
+    "RANGE": types_pb2.Range,
 }
 
 
@@ -132,20 +143,26 @@ def parse_dash_proto(key: str, proto_dict: dict):
 
 
 def get_enum_type_from_str(enum_type_str, enum_name_str):
-
-    # 4_to_6 uses small cap so cannot use dynamic naming
+    # Special-case: enum value does not match standard naming
     if enum_name_str == "4_to_6":
-        return ActionType.ACTION_TYPE_4_to_6
+        return ActionType.ACTION_TYPE_4_TO_6
 
+    # Convert enum type name → ENUM_PREFIX
+    # Example: HaScope → HA_SCOPE
     my_enum_type_parts = re.findall(r'[A-Z][^A-Z]*', enum_type_str)
-    my_enum_type_concatenated = '_'.join(my_enum_type_parts)
-    enum_name = f"{my_enum_type_concatenated.upper()}_{enum_name_str.upper()}"
-    a = globals()[enum_type_str]
-    if a is not None:
-        """Returns the value for the given enum name and raisees ValueError if not found."""
-        return a.Value(enum_name)
-    else:
-        raise Exception(f"Cannot find enum type {enum_type_str}")
+    enum_prefix = '_'.join(my_enum_type_parts).upper()
+
+    enum_class = PB_TYPE_MAP.get(enum_prefix)
+    if not enum_class:
+        raise Exception(f"Cannot find enum type {enum_prefix} in PB_TYPE_MAP")
+
+    # Normalize enum value
+    # Example: "dpu" → HA_SCOPE_DPU
+    enum_value = enum_name_str.upper()
+    if not enum_value.startswith(enum_prefix):
+        enum_value = f"{enum_prefix}_{enum_value}"
+
+    return enum_class.Value(enum_value)
 
 
 def routing_type_from_json(json_obj):
@@ -225,39 +242,109 @@ def parse_ip_prefix(ip_prefix_str):
 def json_to_proto(key: str, proto_dict: dict):
     """
     Custom parser for DASH configs to allow writing configs
-    in a more human-readable format
+    in a more human-readable format.
+    Converts JSON → protobuf bytes.
     """
+
     table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
+
+    # Special handler for ROUTING_TYPE
     if table_name == "ROUTING_TYPE":
         pb = routing_type_from_json(proto_dict)
         return pb.SerializeToString()
 
+    # Load the PB message type
     message = get_message_from_table_name(table_name)
     field_map = message.DESCRIPTOR.fields_by_name
     new_dict = {}
-    for key, value in proto_dict.items():
-        if field_map[key].type == field_map[key].TYPE_MESSAGE:
 
-            if field_map[key].message_type.name == "IpAddress":
-                new_dict[key] = parse_ip_address(value)
-            elif field_map[key].message_type.name == "IpPrefix":
-                new_dict[key] = parse_ip_prefix(value)
-            elif field_map[key].message_type.name == "Guid":
-                new_dict[key] = parse_guid(value)
+    for field_name, value in proto_dict.items():
+        field = field_map[field_name]
 
-        elif field_map[key].type == field_map[key].TYPE_ENUM:
-            new_dict[key] = get_enum_type_from_str(field_map[key].enum_type.name, value)
-        elif field_map[key].type == field_map[key].TYPE_BOOL:
-            new_dict[key] = value == 'true'
+        # ============================================================
+        # MESSAGE FIELDS (IpAddress, IpPrefix, Guid, etc.)
+        # ============================================================
+        if field.type == field.TYPE_MESSAGE:
 
-        elif field_map[key].type == field_map[key].TYPE_BYTES:
-            new_dict[key] = parse_byte_field(value)
+            # REPEATED message
+            if field.label == field.LABEL_REPEATED:
+                new_list = []
+                for item in value:
+                    if field.message_type.name == "IpAddress":
+                        new_list.append(parse_ip_address(item))
+                    elif field.message_type.name == "IpPrefix":
+                        new_list.append(parse_ip_prefix(item))
+                    elif field.message_type.name == "Guid":
+                        new_list.append(parse_guid(item))
+                    else:
+                        new_list.append(item)
+                new_dict[field_name] = new_list
+                continue
 
-        elif field_map[key].type in PB_INT_TYPES:
-            new_dict[key] = int(value)
+            # SINGLE message field
+            if field.message_type.name == "IpAddress":
+                new_dict[field_name] = parse_ip_address(value)
+            elif field.message_type.name == "IpPrefix":
+                new_dict[field_name] = parse_ip_prefix(value)
+            elif field.message_type.name == "Guid":
+                new_dict[field_name] = parse_guid(value)
+            else:
+                new_dict[field_name] = value
 
-        if key not in new_dict:
-            new_dict[key] = value
+            continue
 
+        # ============================================================
+        # ENUM FIELDS (HaScope, HaRole, HaOwner, etc.)
+        # ============================================================
+        elif field.type == field.TYPE_ENUM:
+            enum_type = field.enum_type.name  # Example: "HaScope"
+
+            # Convert CamelCase → HA_SCOPE
+            parts = re.findall(r'[A-Z][a-z]*', enum_type)
+            enum_prefix = '_'.join(parts).upper()  # HaScope → HA_SCOPE
+
+            # Normalize user-supplied value (e.g. "dpu" or "HA_SCOPE_DPU")
+            value_upper = value.upper()
+            if value_upper.startswith(enum_prefix):
+                enum_name = value_upper
+            else:
+                enum_name = f"{enum_prefix}_{value_upper}"
+
+            # Lookup enum class from unified PB_TYPE_MAP
+            enum_class = PB_TYPE_MAP.get(enum_prefix)
+            if enum_class is None:
+                raise KeyError(f"Enum type '{enum_type}' ({enum_prefix}) not found in PB_TYPE_MAP")
+
+            # Convert string to enum integer
+            new_dict[field_name] = enum_class.Value(enum_name)
+            continue
+
+        # ============================================================
+        # BOOL
+        # ============================================================
+        if field.type == field.TYPE_BOOL:
+            new_dict[field_name] = bool(value)
+            continue
+
+        # ============================================================
+        # BYTES
+        # ============================================================
+        if field.type == field.TYPE_BYTES:
+            new_dict[field_name] = parse_byte_field(value)
+            continue
+
+        # ============================================================
+        # INT
+        # ============================================================
+        if field.type in PB_INT_TYPES:
+            new_dict[field_name] = int(value)
+            continue
+
+        # ============================================================
+        # STRING / DEFAULT
+        # ============================================================
+        new_dict[field_name] = value
+
+    # Build protobuf
     pb = ParseDict(new_dict, message)
     return pb.SerializeToString()
