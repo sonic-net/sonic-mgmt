@@ -2,7 +2,6 @@ import pytest
 import re
 from tests.common.reboot import reboot
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -31,7 +30,7 @@ def mock_systemctl_reboot(duthost):
         "sudo sed -i 's#/usr/local/bin/watchdogutil#/usr/local/bin/disabled_watchdogutil#g' /usr/local/bin/reboot")
 
 
-def restore_systemctl_reboot_and_reboot(duthost):
+def restore_systemctl_reboot_and_reboot(duthost, localhost):
     if not check_if_dut_file_exist(duthost, "/sbin/reboot.bak"):
         return
     execute_command(duthost, "sudo rm /sbin/reboot")
@@ -39,18 +38,7 @@ def restore_systemctl_reboot_and_reboot(duthost):
     execute_command(
         duthost,
         "sudo sed -i 's#/usr/local/bin/disabled_watchdogutil#/usr/local/bin/watchdogutil#g' /usr/local/bin/reboot")
-    debian_version = duthost.command("grep VERSION_CODENAME /etc/os-release")['stdout'].lower()
-    if "trixie" in debian_version:
-        reboot(duthost, safe_reboot=True)
-    else:
-        execute_command(duthost, "sudo reboot")
-
-        timeout = None
-        if duthost.is_supervisor_node():
-            timeout = 900
-        elif duthost.is_multi_asic:
-            timeout = 420
-        wait_critical_processes(duthost, timeout=timeout)
+    reboot(duthost, localhost, safe_reboot=True)
 
 
 def mock_reboot_config_file(duthost):
@@ -105,7 +93,8 @@ class TestRebootBlockingModeCLI:
     def setup_teardown(
         self,
         duthosts,
-        enum_rand_one_per_hwsku_hostname
+        enum_rand_one_per_hwsku_hostname,
+        localhost
     ):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if check_if_platform_reboot_enabled(duthost):
@@ -113,7 +102,7 @@ class TestRebootBlockingModeCLI:
 
         mock_systemctl_reboot(duthost)
         yield
-        restore_systemctl_reboot_and_reboot(duthost)
+        restore_systemctl_reboot_and_reboot(duthost, localhost)
 
     def test_non_blocking_mode(
         self,
@@ -145,7 +134,8 @@ class TestRebootBlockingModeConfigFile:
     def setup_teardown(
         self,
         duthosts,
-        enum_rand_one_per_hwsku_hostname
+        enum_rand_one_per_hwsku_hostname,
+        localhost
     ):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if check_if_platform_reboot_enabled(duthost):
@@ -155,7 +145,7 @@ class TestRebootBlockingModeConfigFile:
         yield
 
         restore_reboot_config_file(duthost)
-        restore_systemctl_reboot_and_reboot(duthost)
+        restore_systemctl_reboot_and_reboot(duthost, localhost)
 
     def test_timeout_for_blocking_mode(
         self,

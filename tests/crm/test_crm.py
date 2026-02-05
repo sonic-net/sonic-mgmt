@@ -239,6 +239,13 @@ def verify_thresholds(duthost, asichost, **kwargs):
     Verifies that WARNING message logged if there are any resources that exceeds a pre-defined threshold value.
     Verifies the following threshold parameters: percentage, actual used, actual free
     """
+    # Skip on virtual testbed (VS/KVM): ASIC/counters DB checks are not applicable
+    if duthost.facts["asic_type"].lower() == "vs":
+        logging.info(
+            "[CRM] Skipping verify_thresholds on VS/KVM (asic_type == 'vs'); "
+            "ASIC/counters DB checks are not applicable in virtual testbeds."
+        )
+        return
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='crm_test')
     for key, value in list(THR_VERIFY_CMDS.items()):
         logger.info("Verifying CRM threshold '{}'".format(key))
