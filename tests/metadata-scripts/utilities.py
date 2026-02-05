@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import threading
 from ipaddress import ip_network, IPv4Network, IPv6Network
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
@@ -10,6 +11,9 @@ from tests.common.reboot import REBOOT_TYPE_COLD, REBOOT_TYPE_SOFT
 from tests.common.helpers.upgrade_helpers import install_sonic, check_sonic_version, reboot
 
 logger = logging.getLogger(__name__)
+
+# Thread lock to prevent concurrent archive creation
+_archive_lock = threading.Lock()
 
 
 def fix_forced_mgmt_routes_config(duthost):
@@ -150,8 +154,10 @@ def sonic_update_firmware(duthost, localhost, image_url, upgrade_type, upgrade_s
     logger.info("Step 1 Copy the scripts to the DUT")
     duthost.file(path="/tmp/anpscripts", state="absent")
     duthost.file(path="/tmp/anpscripts", state="directory")
-    localhost.archive(path=metadata_scripts_path + "/", dest="metadata.tar.gz", exclusion_patterns=[".git"])
-    duthost.copy(src="metadata.tar.gz", dest="/host/metadata.tar.gz")
+    # Thread-safe: create archive and copy before another thread can overwrite it
+    with _archive_lock:
+        localhost.archive(path=metadata_scripts_path + "/", dest="metadata.tar.gz", exclusion_patterns=[".git"])
+        duthost.copy(src="metadata.tar.gz", dest="/host/metadata.tar.gz")
     duthost.unarchive(src="/host/metadata.tar.gz", dest="/tmp/anpscripts/", remote_src="yes")
 
     logger.info("perform a purge based on manifest.json to make sure it is correct")
