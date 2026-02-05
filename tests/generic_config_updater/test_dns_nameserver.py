@@ -50,8 +50,8 @@ def current_dns_nameservers(duthost):
     """
     config_facts = duthost.config_facts(host=duthost.hostname,
                                         source="running")['ansible_facts']
-    ntp_servers = config_facts.get('DNS_NAMESERVER', {})
-    return ntp_servers
+    dns_nameservers = config_facts.get('DNS_NAMESERVER', {})
+    return dns_nameservers
 
 
 def dns_nameserver_test_setup(duthost):
@@ -100,8 +100,8 @@ def add_dns_nameserver(duthost, dns_nameserver):
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        output_original = output
         if output['rc'] != 0:
+            logger.error(f"Failed to apply patch, rolling back: {output['stdout']}")
             output = apply_patch(duthost, json_data=json_patch_bc,
                                  dest_file=tmpfile)
         expect_op_success(duthost, output)
