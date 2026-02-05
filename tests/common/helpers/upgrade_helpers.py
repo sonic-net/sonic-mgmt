@@ -22,6 +22,7 @@ TMP_PORTS_FILE = '/tmp/ports.json'
 TMP_PEER_INFO_FILE = "/tmp/peer_dev_info.json"
 TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
 
+
 @dataclass(frozen=True)
 class GnoiUpgradeConfig:
     to_image: str
@@ -29,6 +30,7 @@ class GnoiUpgradeConfig:
     upgrade_type: str
     protocol: str = "HTTP"
     allow_fail: bool = False
+
 
 def pytest_runtest_setup(item):
     from_list = item.config.getoption('base_image_list')
@@ -261,6 +263,7 @@ def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_
     if enable_cpa and "warm-reboot" in reboot_type:
         ptfhost.shell('supervisorctl stop ferret')
 
+
 def _get_images_from_sonic_installer_list(duthost) -> Dict[str, Optional[str]]:
     """
     Run `sonic-installer list` and parse 'Current:' and 'Next:'.
@@ -288,6 +291,7 @@ def _get_images_from_sonic_installer_list(duthost) -> Dict[str, Optional[str]]:
             continue
 
     return {"current": current, "next": next}
+
 
 def perform_gnoi_upgrade(
     ptf_gnoi,
