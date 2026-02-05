@@ -274,7 +274,7 @@ def _get_images_from_sonic_installer_list(duthost) -> Dict[str, Optional[str]]:
         return {"current": None, "next": None}
 
     current = None
-    next_img = None
+    next = None
 
     for line in out.splitlines():
         line = line.strip()
@@ -284,10 +284,10 @@ def _get_images_from_sonic_installer_list(duthost) -> Dict[str, Optional[str]]:
             continue
         m = re.match(r"^Next:\s*(.+?)\s*$", line)
         if m:
-            next_img = m.group(1).strip()
+            next = m.group(1).strip()
             continue
 
-    return {"current": current, "next": next_img}
+    return {"current": current, "next": next}
 
 def perform_gnoi_upgrade(
     ptf_gnoi,
@@ -333,8 +333,8 @@ def perform_gnoi_upgrade(
             cold_reboot_setup()
     # ---- 2) TransferToRemote (via wrapper) ----
     transfer_resp = ptf_gnoi.file_transfer_to_remote(
-        to_image=cfg.to_image,
-        dut_image_path=cfg.dut_image_path,   # NOTE: wrapper param name is dut_image_path in your PtfGnoi
+        image_url=cfg.to_image,
+        dut_image_path=cfg.dut_image_path, 
         protocol=cfg.protocol,
     )
     logger.info("TransferToRemote response: %s", transfer_resp)
@@ -345,7 +345,11 @@ def perform_gnoi_upgrade(
     pytest_assert(res.get("rc", 1) == 0, f"Downloaded file not found or empty on DUT: {cfg.dut_image_path}")
 
     # ---- 3) SetPackage (via wrapper) ----
-    setpkg_resp = ptf_gnoi.system_set_package(dut_image_path=cfg.dut_image_path, package_field="filename")
+    setpkg_resp = ptf_gnoi.system_set_package(
+        dut_image_path=cfg.dut_image_path,
+        version=getattr(cfg, "to_version", None),
+        activate=True,
+    )
     logger.info("SetPackage response: %s", setpkg_resp)
     pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
 

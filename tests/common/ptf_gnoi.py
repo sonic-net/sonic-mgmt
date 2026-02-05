@@ -11,7 +11,6 @@ from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
-
 class PtfGnoi:
     """
     High-level gNOI client wrapper.
@@ -195,43 +194,51 @@ class PtfGnoi:
         logger.info("TransferToRemote completed: %s -> %s", image_url, dut_image_path)
         return response
 
-    def system_set_package(self, dut_image_path: str, package_field: str = "filename", version: Optional[str] = None, activate: bool = False) -> Dict:
+    def system_set_package(
+        self,
+        dut_image_path: str,
+        version: Optional[str] = None,
+        activate: bool = True,
+    ) -> Dict:
         """
-        Set the upgrade package on the DUT using gNOI System.SetPackage.
+        Set the upgrade package on the DUT using gNOI System.SetPackage (client-streaming RPC).
+
+        Sends a single stream message containing package metadata:
+        {"package": {<package_field>: <dut_image_path>, "version": ..., "activate": ...}}
+
+        Note: Some server implementations may also require a separate hash message (MD5/SHA).
+        This version intentionally omits hash support.
 
         Args:
             dut_image_path: Path to the package/image on DUT (typically produced by TransferToRemote)
-            package_field: The field name used by the server implementation inside 'package'.
-                Default is "filename". Some implementations might expect "path".
-            version: Optional version string to set (if supported by server)
-            activate: Whether to activate the package immediately (if supported by server)
+            package_field: Field name used by server inside 'package' ("filename" or "path")
+            version: Optional version string
+            activate: Whether to activate/switch to the package (commonly required to update "Next")
+
         Returns:
             Dictionary response from gNOI server.
-
-        Raises:
-            GrpcConnectionError / GrpcCallError / GrpcTimeoutError:
-                As raised by underlying grpc_client.call_unary.
-            ValueError: If inputs are invalid.
         """
         if not dut_image_path:
             raise ValueError("dut_image_path must be provided")
-        if not package_field:
-            raise ValueError("package_field must be provided")
 
-        logger.debug("SetPackage via gNOI System.SetPackage: %s (field=%s)", dut_image_path, package_field)
+        logger.debug(
+            "SetPackage via gNOI System.SetPackage (streaming): filename=%s version=%s activate=%s",
+            dut_image_path, version, activate,
+        )
 
-        request = {
-            "package": {
-                package_field: dut_image_path
-            }
+        pkg: Dict[str, object] = {
+            "filename": dut_image_path,
+            "activate": bool(activate),
         }
-
         if version:
-            request["package"]["version"] = version
-        if activate:
-            request["package"]["activate"] = True
+            pkg["version"] = version
 
-        response = self.grpc_client.call_unary("gnoi.system.System", "SetPackage", request)
+        response = self.grpc_client.call_client_streaming(
+            "gnoi.system.System",
+            "SetPackage",
+            [{"package": pkg}],
+        )
+
         logger.info("SetPackage completed: %s", dut_image_path)
         return response
 

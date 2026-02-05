@@ -21,7 +21,7 @@ def gnoi_upgrade_path_lists(request):
     from_image = request.config.getoption("base_image_list")
     to_image = request.config.getoption("target_image_list")
 
-    dut_image_path = "/tmp/sonic_image"
+    dut_image_path = "/var/tmp/sonic_image"
 
     return (upgrade_type, from_image, to_image, dut_image_path)
 
