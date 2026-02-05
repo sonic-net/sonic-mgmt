@@ -121,6 +121,9 @@ def test_gnmi_zmq(duthosts,
                   enable_zmq):
     duthost = duthosts[rand_one_dut_hostname]
 
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+        pytest.skip("GNMI ZMQ test is not applicable to smartswitch")
+
     command = 'ps -auxww | grep "/usr/sbin/telemetry -logtostderr --noTLS --port 8080"'
     gnmi_process = duthost.shell(command, module_ignore_errors=True)["stdout"]
     logger.debug("gnmi_process: {}".format(gnmi_process))
