@@ -6,7 +6,6 @@ from tests.common.helpers.gnmi_utils import gnmi_capabilities, add_gnmi_client_c
 from .helper import gnmi_set, dump_gnmi_log
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from tests.common.fixtures.duthost_utils import duthost_mgmt_ip       # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -18,12 +17,12 @@ pytestmark = [
 ]
 
 
-def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost, duthost_mgmt_ip):  # noqa: F811
+def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
     '''
     Verify GNMI capabilities
     '''
     duthost = duthosts[rand_one_dut_hostname]
-    ret, msg = gnmi_capabilities(duthost, localhost, duthost_mgmt_ip)
+    ret, msg = gnmi_capabilities(duthost, localhost)
     assert ret == 0, (
         "GNMI capabilities command failed (non-zero return code).\n"
         "- Error message: {}"
@@ -40,7 +39,7 @@ def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost, duthost_m
     ).format(msg)
 
 
-def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localhost, duthost_mgmt_ip):  # noqa: F811
+def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localhost):
     '''
     Verify GNMI capabilities with different roles
     '''
@@ -49,7 +48,7 @@ def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localho
     with allure.step("Verify GNMI capabilities with noaccess role"):
         role = "gnmi_noaccess"
         add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        ret, msg = gnmi_capabilities(duthost, localhost, duthost_mgmt_ip)
+        ret, msg = gnmi_capabilities(duthost, localhost)
         assert ret != 0, (
             "GNMI capabilities authenticate with noaccess role command unexpectedly succeeded "
             "(zero return code) for a client with noaccess role.\n"
@@ -63,7 +62,7 @@ def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localho
     with allure.step("Verify GNMI capabilities with readonly role"):
         role = "gnmi_readonly"
         add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        ret, msg = gnmi_capabilities(duthost, localhost, duthost_mgmt_ip)
+        ret, msg = gnmi_capabilities(duthost, localhost)
         assert ret == 0, (
             "GNMI capabilities authenticate readonly command failed (non-zero return code).\n"
             "- Error message: {}"
@@ -80,7 +79,7 @@ def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localho
     with allure.step("Verify GNMI capabilities with readwrite role"):
         role = "gnmi_readwrite"
         add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        ret, msg = gnmi_capabilities(duthost, localhost, duthost_mgmt_ip)
+        ret, msg = gnmi_capabilities(duthost, localhost)
         assert ret == 0, (
             "GNMI capabilities authenticate readwrite role command failed (non-zero return code).\n"
             "- Error message: {}"
@@ -97,7 +96,7 @@ def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localho
     with allure.step("Verify GNMI capabilities with empty role"):
         role = ""
         add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        ret, msg = gnmi_capabilities(duthost, localhost, duthost_mgmt_ip)
+        ret, msg = gnmi_capabilities(duthost, localhost)
         assert ret == 0, (
             "GNMI capabilities authenticate with empty role command failed (non-zero return code).\n"
             "- Error message: {}"
