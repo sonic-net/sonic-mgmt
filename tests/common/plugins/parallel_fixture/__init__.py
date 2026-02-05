@@ -156,7 +156,9 @@ class ParallelFixtureManager(object):
             with self.monitor_lock:
                 done_futures = set()
                 for f in self.active_futures:
-                    future_threads[f.task_context.tid] = f
+                    tid = f.task_context.tid
+                    if tid is not None:
+                        future_threads[tid] = f
                     if f.done():
                         done_futures.add(f)
                         if f.exception():
@@ -263,7 +265,11 @@ class ParallelFixtureManager(object):
             try:
                 return func(*args, **kwargs)
             except Exception:
-                raise sys.exc_info()[0](traceback.format_exc())
+                _, exc_value, exc_traceback = sys.exc_info()
+                logging.error("[Parallel Fixture] Task %s exception:\n%s",
+                              task_context.task_name,
+                              traceback.format_exc())
+                raise exc_value.with_traceback(exc_traceback)
             finally:
                 _log_context.prefix = None
                 task_context.end_time = time.time()
@@ -351,7 +357,8 @@ class ParallelFixtureManager(object):
         logging.debug("[Parallel Fixture] Running tasks to be terminated: %s", [_.task_name for _ in running_futures])
         if running_futures:
             logging.debug("[Parallel Fixture] Force interrupt thread pool workers")
-            running_futures_tids = [future.task_context.tid for future in running_futures]
+            running_futures_tids = [future.task_context.tid for future in running_futures
+                                    if future.task_context.tid is not None]
             for thread in self.executor._threads:
                 if thread.is_alive() and thread.ident in running_futures_tids:
                     raise_async_exception(thread.ident, ParallelTaskTerminatedError)
@@ -390,12 +397,18 @@ class ParallelFixtureManager(object):
         if not self.terminated:
             raise RuntimeError("Cannot reset a running parallel fixture manager.")
 
+        # Reinitialize buckets for all defined scopes
+        self.setup_futures = {scope: [] for scope in TaskScope}
+        self.teardown_futures = {scope: [] for scope in TaskScope}
+        self.current_scope = None
+
         self.active_futures.clear()
         self.done_futures.clear()
         self.executor = ThreadPoolExecutor(max_workers=self.worker_count)
         self.is_monitor_running = True
         self.monitor_thread = threading.Thread(target=self._monitor_workers, daemon=True)
         self.monitor_thread.start()
+        self.terminated = False
 
     def check_for_exception(self):
         """Check done futures and re-raise any exception."""
