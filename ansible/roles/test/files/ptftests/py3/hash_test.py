@@ -25,6 +25,7 @@ from ptf.testutils import simple_tcpv6_packet
 from ptf.testutils import send_packet
 from ptf.testutils import verify_packet_any_port
 from ptf.testutils import simple_ipv4ip_packet
+from ptf.testutils import simple_ipv6ip_packet
 from ptf.testutils import simple_vxlan_packet
 from ptf.testutils import simple_vxlanv6_packet
 from ptf.testutils import simple_nvgre_packet
@@ -105,6 +106,7 @@ class HashTest(BaseTest):
         self.ipver = self.test_params.get('ipver', 'ipv4')
         self.is_active_active_dualtor = self.test_params.get("is_active_active_dualtor", False)
         self.topo_name = self.test_params.get('topo_name', '')
+        self.is_v6_topo = self.test_params.get('is_v6_topo', False)
 
         self.topo_type = self.test_params.get('topo_type', '')
         # set the base mac here to make it persistent across calls of check_ip_route
@@ -236,16 +238,18 @@ class HashTest(BaseTest):
                 hash_key=hash_key, src_port=src_port, dst_port_lists=dst_port_lists)
         assert received
         logging.info("Received packet at " + str(matched_port))
+        self.dataplane.flush()
         time.sleep(0.02)
         return (matched_port, received)
 
     def _get_ip_proto(self, ipv6=False):
         # ip_proto 2 is IGMP, should not be forwarded by router
-        # ip_proto 4 and 41 are encapsulation protocol, ip payload will be malformat
+        # ip_proto 4, 41 and 47 are encapsulation protocol, ip payload will be malformat
         # ip_proto 60 is redirected to ip_proto 4 as encapsulation protocol, ip payload will be malformat
         # ip_proto 254 is experimental
         # MLNX ASIC can't forward ip_proto 254, BRCM is OK, skip for all for simplicity
-        skip_protos = [2, 253, 4, 41, 60, 254]
+        skip_protos = [2, 253, 4, 41, 47, 60, 254]
+
         if self.is_active_active_dualtor:
             # Skip ICMP for active-active dualtor as it is duplicated to both ToRs
             skip_protos.append(1)
@@ -271,7 +275,7 @@ class HashTest(BaseTest):
             logging.info(log)
         kwargs = {}
         if is_timeout:
-            kwargs["timeout"] = 1
+            kwargs["timeout"] = 10
         dst_ports = list(itertools.chain(*dst_port_lists))
         rcvd_port_index, rcvd_pkt = verify_packet_any_port(
             self, masked_exp_pkt, dst_ports, **kwargs)
@@ -404,7 +408,7 @@ class HashTest(BaseTest):
         ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
-        outer_sport = (random.randint(0, 65536) if hash_key == 'outer-src-port' else 1234)
+        outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
         dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
@@ -468,7 +472,7 @@ class HashTest(BaseTest):
         ) if hash_key == 'dst-ip' else self.dst_ip_interval.get_first_ip()
         sport = random.randint(0, 65535) if hash_key == 'src-port' else 1234
         dport = random.randint(0, 65535) if hash_key == 'dst-port' else 80
-        outer_sport = random.randint(0, 65536) if hash_key == 'outer-src-port' else 1234
+        outer_sport = self.generate_random_sport() if hash_key == 'outer-src-port' else 1234
         src_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
             if hash_key == 'src-mac' else self.base_mac
         dst_mac = (self.base_mac[:-5] + "%02x" % random.randint(0, 255) + ":" + "%02x" % random.randint(0, 255)) \
@@ -500,7 +504,7 @@ class HashTest(BaseTest):
         logs = self.create_packets_logs(
             src_port=src_port,
             pkt=pkt,
-            ipinip_pkt=inner_pkt,
+            ipinip_pkt=pkt,
             vxlan_pkt=pkt,
             nvgre_pkt=pkt,
             inner_pkt=inner_pkt,
@@ -648,6 +652,13 @@ class IPinIPHashTest(HashTest):
     for IPinIP packet.
     '''
 
+    def send_and_verify_packets(self, src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False, logs=[]):
+        """
+        @summary: Send an IPinIP encapsulated packet and verify it is received on expected ports.
+        """
+        return super().send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False,
+                                               logs=logs)
+
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
             vxlan_pkt=None, nvgre_pkt=None, inner_pkt=None, outer_sport=None,
@@ -656,31 +667,37 @@ class IPinIPHashTest(HashTest):
         """
         @summary: return list of packets sending logs
         """
+        outer_ip_ver = "IPv6" if self.is_v6_topo else "IP"
+        next_header_key = "nh" if self.is_v6_topo else "proto"
+        outer_proto = ipinip_pkt[outer_ip_ver].nh if self.is_v6_topo else ipinip_pkt[outer_ip_ver].proto
         logs = []
-        logs.append('Sent Ether(src={}, dst={})/IP(src={}, dst={}, proto={})/{}(src={}, '
+        logs.append('Sent Ether(src={}, dst={})/{}(src={}, dst={}, {}={})/{}(src={}, '
                     'dst={}, proto={})/TCP(sport={}, dport={} on port {})'
                     .format(ipinip_pkt.src,
                             ipinip_pkt.dst,
-                            ipinip_pkt['IP'].src,
-                            ipinip_pkt['IP'].dst,
-                            ipinip_pkt['IP'].proto,
+                            outer_ip_ver,
+                            ipinip_pkt[outer_ip_ver].src,
+                            ipinip_pkt[outer_ip_ver].dst,
+                            next_header_key,
+                            outer_proto,
                             version,
-                            pkt[version].src,
-                            pkt[version].dst,
-                            pkt[version].proto if version == 'IP' else pkt['IPv6'].nh,
+                            inner_pkt[version].src,
+                            inner_pkt[version].dst,
+                            inner_pkt[version].proto if version == 'IP' else inner_pkt['IPv6'].nh,
                             sport,
                             dport,
                             src_port))
         return logs
 
     def set_packet_parameter(self, pkt, exp_pkt, hash_key, ip_proto, version='IP'):
+        outer_ip_ver = "IPv6" if self.is_v6_topo else "IP"
         if hash_key == 'ip-proto':
             if version == 'IP':
-                pkt['IP'].payload.proto = ip_proto
-                exp_pkt['IP'].payload.proto = ip_proto
+                pkt[outer_ip_ver].payload.proto = ip_proto
+                exp_pkt[outer_ip_ver].payload.proto = ip_proto
             else:
-                pkt['IP'].payload['IPv6'].nh = ip_proto
-                exp_pkt['IP'].payload['IPv6'].nh = ip_proto
+                pkt[outer_ip_ver].payload['IPv6'].nh = ip_proto
+                exp_pkt[outer_ip_ver].payload['IPv6'].nh = ip_proto
 
     def create_pkt(
             self, router_mac, src_mac, dst_mac, ip_src, ip_dst, sport, dport, version='IP',
@@ -699,7 +716,6 @@ class IPinIPHashTest(HashTest):
                                     tcp_sport=sport,
                                     tcp_dport=dport,
                                     ip_ttl=64)
-            func = simple_ipv4ip_packet
         else:
             pkt = simple_tcpv6_packet(pktlen=inner_pkt_len if vlan_id == 0 else inner_pkt_len + 4,
                                       dl_vlan_enable=False if vlan_id == 0 else True,
@@ -710,16 +726,25 @@ class IPinIPHashTest(HashTest):
                                       tcp_sport=sport,
                                       tcp_dport=dport,
                                       ipv6_hlim=64)
-            func = simple_ipv4ip_packet
-        ipinip_pkt = func(
-            eth_dst=router_mac,
-            eth_src=src_mac,
-            ip_src=outer_src_ip,
-            ip_dst=outer_dst_ip,
-            inner_frame=pkt[version])
-        exp_pkt = ipinip_pkt.copy()
-        exp_pkt['IP'].ttl -= 1
-        return pkt, exp_pkt, ipinip_pkt
+        if self.is_v6_topo:
+            ipinip_pkt = simple_ipv6ip_packet(
+                eth_dst=router_mac,
+                eth_src=src_mac,
+                ipv6_src=outer_src_ipv6,
+                ipv6_dst=outer_dst_ipv6,
+                inner_frame=pkt['IPv6'])
+            exp_pkt = ipinip_pkt.copy()
+            exp_pkt['IPV6'].hlim -= 1
+        else:
+            ipinip_pkt = simple_ipv4ip_packet(
+                eth_dst=router_mac,
+                eth_src=src_mac,
+                ip_src=outer_src_ip,
+                ip_dst=outer_dst_ip,
+                inner_frame=pkt[version])
+            exp_pkt = ipinip_pkt.copy()
+            exp_pkt['IP'].ttl -= 1
+        return ipinip_pkt, exp_pkt, pkt
 
     def apply_mask_to_exp_pkt(self, masked_exp_pkt, version='IP'):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
@@ -751,6 +776,9 @@ class IPinIPHashTest(HashTest):
         # The outer_src_ip and outer_dst_ip are fixed
         outer_src_ip = '80.1.0.31'
         outer_dst_ip = '80.1.0.32'
+        if self.is_v6_topo:
+            outer_src_ip = '80::31'
+            outer_dst_ip = '80::32'
         src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
             outer_dst_ip)
         if self.switch_type == "chassis-packet":

@@ -198,23 +198,23 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
     return all_routes
 
 
-def verify_only_loopback_routes_are_announced_to_neighs(dut_hosts, duthost, neigh_hosts, community):
+def verify_only_loopback_routes_are_announced_to_neighs(dut_hosts, duthost, neigh_hosts, community, is_v6_topo=False):
     """
     Verify only loopback routes with certain community are announced to neighs in TSA
     """
-    return verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, 4, community) and \
+    return (is_v6_topo or verify_loopback_route_with_community(dut_hosts, duthost, neigh_hosts, 4, community)) and \
         verify_loopback_route_with_community(
             dut_hosts, duthost, neigh_hosts, 6, community)
 
 
 def assert_only_loopback_routes_announced_to_neighs(dut_hosts, duthost, neigh_hosts, community,
-                                                    error_msg=""):
+                                                    error_msg="", is_v6_topo=False):
     if not error_msg:
         error_msg = "Failed to verify only loopback routes are announced to neighbours"
 
     pytest_assert(
         wait_until(180, 10, 5, verify_only_loopback_routes_are_announced_to_neighs,
-                   dut_hosts, duthost, neigh_hosts, community),
+                   dut_hosts, duthost, neigh_hosts, community, is_v6_topo),
         error_msg
     )
 
