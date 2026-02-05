@@ -5,10 +5,9 @@ import json
 from tests.common.helpers.sonic_db import SonicDbCli
 import logging
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_day_of_week_distributed_ports_from_buckets
 from tests.common.helpers.assertions import pytest_assert
 import time
-import random
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +104,14 @@ def get_show_lldp_table_output(duthost):
     lines = duthost.shell("show lldp table")["stdout"].split("\n")[3:-2]
     interface_list = [line.split()[0] for line in lines]
     return interface_list
+
+
+def get_lldp_data(duthost, db_instance):
+    # Fetch interfaces from LLDP_ENTRY_TABLE
+    lldp_entry_keys = get_lldp_entry_keys(db_instance)
+    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
+    lldpctl_output = get_lldpctl_output(duthost)
+    return lldp_entry_keys, show_lldp_table_int_list, lldpctl_output
 
 
 def check_lldp_table_keys(duthost, db_instance):
@@ -326,9 +333,7 @@ def test_lldp_entry_table_content(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
-    lldpctl_output = get_lldpctl_output(duthost)
-    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
+    lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
 
     verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
 
@@ -372,59 +377,69 @@ def test_lldp_entry_table_after_syncd_orchagent(
             ),
         )
     # To get lldp entry keys again after all interfaces are up
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
-    lldpctl_output = get_lldpctl_output(duthost)
-    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
+    lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
 
     verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
 
 
-# Test case 3: Verify LLDP_ENTRY_TABLE after interface flap
-def test_lldp_entry_table_after_flap(
+# Test case 3: Verify LLDP_ENTRY_TABLE after sequential interface flap
+def test_lldp_entry_table_after_cont_flap(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
     db_instance,
     ignore_expected_loganalyzer_exceptions,
 ):
-    interfaces_count_check = 32
+    max_test_interfaces = 32
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     # Fetch interfaces from LLDP_ENTRY_TABLE
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
-    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
-    lldpctl_output = get_lldpctl_output(duthost)
+    lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
     lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
     assert_lldp_interfaces(
         lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
     )
     testable_interfaces = [iface for iface in lldp_entry_keys if iface != "eth0"]
-    use_bulk = len(testable_interfaces) > interfaces_count_check
-    if use_bulk:
-        logger.info("Using bulk interface flap for {} interfaces".format(len(testable_interfaces)))
-        testable_interfaces = random.sample(testable_interfaces, interfaces_count_check)
-        asic_interface_map = _get_interface_asic_mapping(duthost, testable_interfaces)
-        for asic_str, asic_interfaces in asic_interface_map.items():
-            interface_list = ",".join(asic_interfaces)
-            logger.info("Flapping interfaces: {}".format(interface_list))
-            _shutdown_startup_interface(duthost, interface_list, asic_str)
-        # Single wait_until call checking all interfaces together
-        _verify_interface_lldp_recovery(db_instance, testable_interfaces, lldpctl_interfaces, delay=10)
-    else:
-        logger.info("Using sequential interface flap for {} interfaces".format(len(testable_interfaces)))
-        asic_interface_map = _get_interface_asic_mapping(duthost, testable_interfaces)
-        for asic_str, asic_interfaces in asic_interface_map.items():
-            for interface in asic_interfaces:
-                _shutdown_startup_interface(duthost, interface, asic_str)
-                _verify_interface_lldp_recovery(db_instance, interface, lldpctl_interfaces, delay=10)
+    if len(testable_interfaces) > max_test_interfaces:
+        testable_interfaces = get_day_of_week_distributed_ports_from_buckets(
+            testable_interfaces, num_buckets=max_test_interfaces
+        )
+    logger.info("Using sequential flapping interfaces: {}".format(testable_interfaces))
+    asic_interface_map = _get_interface_asic_mapping(duthost, testable_interfaces)
+    for asic_str, asic_interfaces in asic_interface_map.items():
+        for interface in asic_interfaces:
+            _shutdown_startup_interface(duthost, interface, asic_str)
+            _verify_interface_lldp_recovery(db_instance, interface, lldpctl_interfaces, delay=10)
 
 
-# Test case 4: Verify LLDP_ENTRY_TABLE after system reboot
+# Test case 4: Verify LLDP_ENTRY_TABLE after all batched interface flap
+def test_lldp_entry_table_after_all_batched_flap(
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    db_instance,
+    ignore_expected_loganalyzer_exceptions,
+):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
+    lldpctl_interfaces = lldpctl_output["lldp"]["interface"]
+    assert_lldp_interfaces(
+        lldp_entry_keys, show_lldp_table_int_list, lldpctl_interfaces
+    )
+    testable_interfaces = [iface for iface in lldp_entry_keys if iface != "eth0"]
+    logger.info("Using bulk interface flap for {} interfaces".format(len(testable_interfaces)))
+    asic_interface_map = _get_interface_asic_mapping(duthost, testable_interfaces)
+    for asic_str, asic_interfaces in asic_interface_map.items():
+        interface_list = ",".join(asic_interfaces)
+        logger.info("Flapping interfaces: {}".format(interface_list))
+        _shutdown_startup_interface(duthost, interface_list, asic_str)
+    # Single wait_until call checking all interfaces together
+    _verify_interface_lldp_recovery(db_instance, testable_interfaces, lldpctl_interfaces, delay=10)
+
+
+# Test case 5: Verify LLDP_ENTRY_TABLE after system reboot
 def test_lldp_entry_table_after_lldp_restart(
     duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
-    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
-    lldpctl_output = get_lldpctl_output(duthost)
+    lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
 
     # Restart the LLDP service
     for asic in duthost.asics:
@@ -444,7 +459,7 @@ def test_lldp_entry_table_after_lldp_restart(
     verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
 
 
-# Test case 5: Verify LLDP_ENTRY_TABLE after reboot
+# Test case 6: Verify LLDP_ENTRY_TABLE after reboot
 @pytest.mark.disable_loganalyzer
 def test_lldp_entry_table_after_reboot(
     localhost, duthosts, enum_rand_one_per_hwsku_frontend_hostname, db_instance
@@ -468,7 +483,5 @@ def test_lldp_entry_table_after_reboot(
     keys_match = wait_until(90, 5, 30, check_lldp_table_keys, duthost, db_instance)
     if not keys_match:
         assert keys_match, "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output"
-    lldp_entry_keys = get_lldp_entry_keys(db_instance)
-    lldpctl_output = get_lldpctl_output(duthost)
-    show_lldp_table_int_list = get_show_lldp_table_output(duthost)
+    lldp_entry_keys, show_lldp_table_int_list, lldpctl_output = get_lldp_data(duthost, db_instance)
     verify_all_interfaces_lldp_content(db_instance, lldp_entry_keys, lldpctl_output, show_lldp_table_int_list)
