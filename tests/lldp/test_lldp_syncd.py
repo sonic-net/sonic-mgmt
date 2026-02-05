@@ -5,7 +5,11 @@ import json
 from tests.common.helpers.sonic_db import SonicDbCli
 import logging
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
-from tests.common.utilities import wait_until, get_day_of_week_distributed_ports_from_buckets
+from tests.common.utilities import (
+    wait_until,
+    get_day_of_week_distributed_ports_from_buckets,
+    group_interfaces_by_asic
+)
 from tests.common.helpers.assertions import pytest_assert
 import time
 
@@ -119,23 +123,6 @@ def check_lldp_table_keys(duthost, db_instance):
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
     show_lldp_table_int_list = get_show_lldp_table_output(duthost)
     return sorted(lldp_entry_keys) == sorted(show_lldp_table_int_list)
-
-
-def _get_interface_asic_mapping(duthost, interfaces):
-    """
-    Group interfaces by their ASIC namespace.
-    """
-    asic_interface_map = {}
-    for interface in interfaces:
-        if duthost.is_multi_asic:
-            namespace = duthost.get_port_asic_instance(interface).get_asic_namespace()
-            asic_str = "-n {}".format(namespace)
-        else:
-            asic_str = ""
-        if asic_str not in asic_interface_map:
-            asic_interface_map[asic_str] = []
-        asic_interface_map[asic_str].append(interface)
-    return asic_interface_map
 
 
 def _shutdown_startup_interface(duthost, interface, asic_str=""):
@@ -403,7 +390,7 @@ def test_lldp_entry_table_after_cont_flap(
             testable_interfaces, num_buckets=max_test_interfaces
         )
     logger.info("Using sequential flapping interfaces: {}".format(testable_interfaces))
-    asic_interface_map = _get_interface_asic_mapping(duthost, testable_interfaces)
+    asic_interface_map = group_interfaces_by_asic(duthost, testable_interfaces)
     for asic_str, asic_interfaces in asic_interface_map.items():
         for interface in asic_interfaces:
             _shutdown_startup_interface(duthost, interface, asic_str)
@@ -425,7 +412,7 @@ def test_lldp_entry_table_after_all_batched_flap(
     )
     testable_interfaces = [iface for iface in lldp_entry_keys if iface != "eth0"]
     logger.info("Using bulk interface flap for {} interfaces".format(len(testable_interfaces)))
-    asic_interface_map = _get_interface_asic_mapping(duthost, testable_interfaces)
+    asic_interface_map = group_interfaces_by_asic(duthost, testable_interfaces)
     for asic_str, asic_interfaces in asic_interface_map.items():
         interface_list = ",".join(asic_interfaces)
         logger.info("Flapping interfaces: {}".format(interface_list))

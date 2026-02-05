@@ -1687,3 +1687,22 @@ def get_day_of_week_distributed_ports_from_buckets(ports: list, num_buckets: int
     logger.info("Selected {} ports from {} buckets using DoW-based selection: {}".format(
         len(selected_ports), num_buckets, selected_ports))
     return selected_ports
+
+
+def group_interfaces_by_asic(duthost, interfaces: list) -> dict:
+    """
+    Group interfaces by their ASIC namespace.
+    Args:
+        duthost: DUT host object
+        interfaces: List of interface names
+    Returns:
+        dict: Mapping of ASIC namespace string to list of interfaces
+              e.g., {"": ["Eth1", "Eth2"], "-n asic0": ["Eth3"]}
+    """
+    if not duthost.is_multi_asic:
+        return {"": list(interfaces)}
+    asic_interface_map = collections.defaultdict(list)
+    for interface in interfaces:
+        namespace = duthost.get_port_asic_instance(interface).get_asic_namespace()
+        asic_interface_map["-n {}".format(namespace)].append(interface)
+    return dict(asic_interface_map)
