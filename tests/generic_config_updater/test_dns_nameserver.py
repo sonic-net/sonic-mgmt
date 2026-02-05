@@ -102,8 +102,7 @@ def add_dns_nameserver(duthost, dns_nameserver):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if output['rc'] != 0:
             logger.error(f"Failed to apply patch, rolling back: {output['stdout']}")
-            output = apply_patch(duthost, json_data=json_patch_bc,
-                                 dest_file=tmpfile)
+            apply_patch(duthost, json_data=json_patch_bc, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         pytest_assert(
