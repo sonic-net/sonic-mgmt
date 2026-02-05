@@ -1,8 +1,6 @@
-import os
 import logging
 import pytest
 
-# Ensure grpc fixtures are discovered (ptf_gnoi / setup_gnoi_tls_server)
 from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
     setup_gnoi_tls_server, ptf_gnoi, ptf_grpc
 )
@@ -64,5 +62,5 @@ def test_upgrade_via_gnoi(
         duthost=duthost,
         tbinfo=tbinfo,
         cfg=cfg,
-        preboot_setup=upgrade_path_preboot_setup,
+        cold_reboot_setup=upgrade_path_preboot_setup,
     )

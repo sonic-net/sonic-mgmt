@@ -11,7 +11,7 @@ from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until, setup_ferret
 from tests.common.platform.device_utils import check_neighbors
-from typing import Optional
+from typing import Dict, Optional
 
 SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
@@ -261,33 +261,40 @@ def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_
     if enable_cpa and "warm-reboot" in reboot_type:
         ptfhost.shell('supervisorctl stop ferret')
 
-def _get_next_image_from_sonic_installer_list(duthost) -> Optional[str]:
+def _get_images_from_sonic_installer_list(duthost) -> Dict[str, Optional[str]]:
     """
-    Run sonic_installer/sonic-installer list and parse 'Next:' field.
-    Returns image string like 'SONiC-OS-20251110.05' or None if not found.
+    Run `sonic-installer list` and parse 'Current:' and 'Next:'.
+
+    Returns:
+        {"current": <str or None>, "next": <str or None>}
     """
-    # Prefer new command, fall back to deprecated one
-    commands = ["sonic-installer list", "sonic_installer list"]
-    out = ""
-    for cmd in commands:
-        res = duthost.shell(cmd, module_ignore_errors=True)
-        if res.get("rc", 1) == 0:
-            out = res.get("stdout", "") or ""
-            if out.strip():
-                break
+    res = duthost.shell("sonic-installer list", module_ignore_errors=True)
+    out = (res.get("stdout") or "").strip()
+    if res.get("rc", 1) != 0 or not out:
+        return {"current": None, "next": None}
 
-    if not out:
-        return None
+    current = None
+    next_img = None
 
-    m = re.search(r"(?m)^\s*Next:\s*(\S+)\s*$", out)
-    return m.group(1) if m else None
+    for line in out.splitlines():
+        line = line.strip()
+        m = re.match(r"^Current:\s*(.+?)\s*$", line)
+        if m:
+            current = m.group(1).strip()
+            continue
+        m = re.match(r"^Next:\s*(.+?)\s*$", line)
+        if m:
+            next_img = m.group(1).strip()
+            continue
+
+    return {"current": current, "next": next_img}
 
 def perform_gnoi_upgrade(
     ptf_gnoi,
     duthost,
     tbinfo,
     cfg: GnoiUpgradeConfig,
-    preboot_setup=None,
+    cold_reboot_setup=None,
 ):
     """
     gNOI-based upgrade helper using PtfGnoi high-level APIs (no raw call_unary in tests).
@@ -322,8 +329,8 @@ def perform_gnoi_upgrade(
     # ---- 1) reboot to base image ----
     if cfg.upgrade_type == REBOOT_TYPE_COLD:
         # advance-reboot test (on ptf) does not support cold reboot yet
-        if preboot_setup:
-            preboot_setup()
+        if cold_reboot_setup:
+            cold_reboot_setup()
     # ---- 2) TransferToRemote (via wrapper) ----
     transfer_resp = ptf_gnoi.file_transfer_to_remote(
         to_image=cfg.to_image,
@@ -342,7 +349,8 @@ def perform_gnoi_upgrade(
     logger.info("SetPackage response: %s", setpkg_resp)
     pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
 
-    expected_to_version = _get_next_image_from_sonic_installer_list(duthost)
+    images = _get_images_from_sonic_installer_list(duthost)
+    expected_to_version = images.get("next")
     pytest_assert(
         expected_to_version is not None,
         "Could not determine expected_to_version from 'sonic_installer list' output"
