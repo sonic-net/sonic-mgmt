@@ -3,6 +3,7 @@ import logging
 import ipaddress
 import json
 import re
+from dataclasses import dataclass
 from six.moves.urllib.parse import urlparse
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
@@ -10,6 +11,7 @@ from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until, setup_ferret
 from tests.common.platform.device_utils import check_neighbors
+from typing import Dict, Optional
 
 SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
@@ -19,6 +21,15 @@ TMP_VLAN_FILE = '/tmp/vlan_interfaces.json'
 TMP_PORTS_FILE = '/tmp/ports.json'
 TMP_PEER_INFO_FILE = "/tmp/peer_dev_info.json"
 TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
+
+
+@dataclass(frozen=True)
+class GnoiUpgradeConfig:
+    to_image: str
+    dut_image_path: str
+    upgrade_type: str
+    protocol: str = "HTTP"
+    allow_fail: bool = False
 
 
 def pytest_runtest_setup(item):
@@ -251,3 +262,141 @@ def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_
 
     if enable_cpa and "warm-reboot" in reboot_type:
         ptfhost.shell('supervisorctl stop ferret')
+
+
+def _get_images_from_sonic_installer_list(duthost) -> Dict[str, Optional[str]]:
+    """
+    Run `sonic-installer list` and parse 'Current:' and 'Next:'.
+
+    Returns:
+        {"current": <str or None>, "next": <str or None>}
+    """
+    res = duthost.shell("sonic-installer list", module_ignore_errors=True)
+    out = (res.get("stdout") or "").strip()
+    if res.get("rc", 1) != 0 or not out:
+        return {"current": None, "next": None}
+
+    current = None
+    next = None
+
+    for line in out.splitlines():
+        line = line.strip()
+        m = re.match(r"^Current:\s*(.+?)\s*$", line)
+        if m:
+            current = m.group(1).strip()
+            continue
+        m = re.match(r"^Next:\s*(.+?)\s*$", line)
+        if m:
+            next = m.group(1).strip()
+            continue
+
+    return {"current": current, "next": next}
+
+
+def perform_gnoi_upgrade(
+    ptf_gnoi,
+    duthost,
+    tbinfo,
+    cfg: GnoiUpgradeConfig,
+    cold_reboot_setup=None,
+):
+    """
+    gNOI-based upgrade helper using PtfGnoi high-level APIs (no raw call_unary in tests).
+
+    Flow:
+      1) preboot_setup (if provided)
+      2) File.TransferToRemote: download cfg.to_image -> cfg.dut_image_path on DUT
+      3) System.SetPackage: set package to cfg.dut_image_path
+      4) System.Reboot: trigger reboot (non-blocking; disconnect may occur)
+      5) Mimic upgrade_test_helper reboot verification:
+           networking_uptime -> timeout -> wait_until(check_reboot_cause)
+      6) Standard post-reboot checks:
+           check_services / check_neighbors / check_copp_config
+      7) Version validation:
+           assert expected_to_version appears in 'show version'
+    """
+    logger.info(
+        "gNOI upgrade: to_image=%s dut_image_path=%s upgrade_type=%s protocol=%s",
+        cfg.to_image, cfg.dut_image_path, cfg.upgrade_type, cfg.protocol
+    )
+
+    # ---- Input sanity ----
+    pytest_assert(ptf_gnoi is not None, "ptf_gnoi must be provided")
+    pytest_assert(duthost is not None, "duthost must be provided")
+    pytest_assert(tbinfo is not None, "tbinfo must be provided")
+    pytest_assert(cfg.to_image, "to_image must be provided")
+    pytest_assert(cfg.dut_image_path, "dut_image_path must be provided")
+    pytest_assert(cfg.upgrade_type, "upgrade_type must be provided")
+
+    # Map upgrade_type ("warm"/"cold") to gNOI enum token ("WARM"/"COLD")
+    # reboot_method = "WARM" if str(cfg.upgrade_type).lower() == "warm" else "COLD"
+    # ---- 1) reboot to base image ----
+    if cfg.upgrade_type == REBOOT_TYPE_COLD:
+        # advance-reboot test (on ptf) does not support cold reboot yet
+        if cold_reboot_setup:
+            cold_reboot_setup()
+    # ---- 2) TransferToRemote (via wrapper) ----
+    transfer_resp = ptf_gnoi.file_transfer_to_remote(
+        image_url=cfg.to_image,
+        dut_image_path=cfg.dut_image_path, 
+        protocol=cfg.protocol,
+    )
+    logger.info("TransferToRemote response: %s", transfer_resp)
+    pytest_assert(isinstance(transfer_resp, dict), "TransferToRemote did not return a JSON object")
+
+    # DUT-side validation: file exists and non-empty
+    res = duthost.shell(f"test -s {cfg.dut_image_path}", module_ignore_errors=True)
+    pytest_assert(res.get("rc", 1) == 0, f"Downloaded file not found or empty on DUT: {cfg.dut_image_path}")
+
+    # ---- 3) SetPackage (via wrapper) ----
+    setpkg_resp = ptf_gnoi.system_set_package(
+        dut_image_path=cfg.dut_image_path,
+        version=getattr(cfg, "to_version", None),
+        activate=True,
+    )
+    logger.info("SetPackage response: %s", setpkg_resp)
+    pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
+
+    images = _get_images_from_sonic_installer_list(duthost)
+    expected_to_version = images.get("next")
+    pytest_assert(
+        expected_to_version is not None,
+        "Could not determine expected_to_version from 'sonic_installer list' output"
+    )
+    # ---- 4) Reboot (via wrapper) ----
+    try:
+        reboot_resp = ptf_gnoi.system_reboot(method=str(cfg.upgrade_type).upper())
+        logger.info("Reboot response: %s", reboot_resp)
+        pytest_assert(isinstance(reboot_resp, dict), "Reboot did not return a JSON object")
+    except Exception as e:
+        # Common/expected: connection drops during reboot
+        logger.info("Caught exception during gNOI Reboot call (often expected): %s", str(e))
+
+    if cfg.allow_fail:
+        logger.warning("allow_fail=True: skipping reboot-cause/health/version validations")
+        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
+
+    # ---- 5) Reuse EXACT reboot-cause waiting pattern from upgrade_test_helper ----
+    logger.info("Check reboot cause. Expected cause %s", cfg.upgrade_type)
+    networking_uptime = duthost.get_networking_uptime().seconds
+    timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
+
+    pytest_assert(
+        wait_until(timeout, 5, 0, check_reboot_cause, duthost, cfg.upgrade_type),
+        "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), cfg.upgrade_type)
+    )
+
+    # ---- 6) Standard post-reboot validations ----
+    check_services(duthost, tbinfo)
+    check_neighbors(duthost, tbinfo)
+    check_copp_config(duthost)
+
+    # ---- 7) Version validation) ----
+    show_ver = duthost.shell("show version", module_ignore_errors=False).get("stdout", "")
+    logger.info("show version output:\n%s", show_ver)
+    pytest_assert(
+        expected_to_version in show_ver,
+        "Running version does not contain expected '{}'. Output:\n{}".format(expected_to_version, show_ver)
+    )
+
+    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
