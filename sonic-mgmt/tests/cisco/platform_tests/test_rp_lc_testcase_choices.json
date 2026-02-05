@@ -1,0 +1,305 @@
+{
+  "testcases": [ 
+    {
+      "tcname": "TC_acl_ace",
+      "command": "TBD",
+      "supported": "require_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_acl_bind",
+      "command": "TBD",
+      "supported": "require_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_acl_key-profile",
+      "command": "sudo show platform npu acl key-profile",
+      "supported": "yes",
+      "output_match_str": "ACL key profile"
+    },
+    {
+      "tcname": "TC_acl_oid",
+      "command": "TBD",
+      "supported": "require_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_acl_summary",
+      "command": "sudo show platform npu acl summary",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_arc-debug-counters",
+      "command": "sudo show platform npu arc-debug-counters",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_asic-errors",
+      "command": "sudo show platform npu asic-errors",
+      "supported": "yes",
+      "output_match_str": "ECC Counters"
+    },
+    {
+      "tcname": "TC_bfd_counter",
+      "command": "TBD",
+      "supported": "require_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_bfd_summary",
+      "command": "sudo show platform npu bfd summary",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_bp-interface-map",
+      "command": "TBD",
+      "supported": "require_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_cem-db",
+      "command": "TBD",
+      "supported": "debug_cli_to_be_used_only_when_necessary",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_counters",
+      "command": "sudo show platform npu counters",
+      "supported": "yes",
+      "output_match_str": "(.*Slice0.*Slice1.*Slice2.*Slice3.*Slice4.*Slice5.*)"
+    },
+    {
+      "tcname": "TC_ecmp",
+      "command": "sudo show platform npu ecmp",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_multipath",
+      "command": "sudo show platform npu multipath",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_hash",
+      "command": "sudo show platform npu hash",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_event-trap",
+      "command": "sudo show platform npu event-trap",
+      "supported": "lc_output_too_big_not_working",
+      "output_match_str": "event trap counter"
+    },
+    {
+      "tcname": "TC_global",
+      "command": "sudo show platform npu global",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_histogram",
+      "command": "TBD",
+      "supported": "require_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_l3-interface",
+      "command": "sudo show platform npu l3-interface",
+      "supported": "yes",
+      "output_match_str": "l3 interface"
+    },
+    {
+      "tcname": "TC_lag_entries",
+      "command": "TBD",
+      "supported": "not_supported_by_sdk",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_lag_members",
+      "command": "sudo show platform npu lag members",
+      "supported": "yes",
+      "output_match_str": "LAG.*member info"
+    },
+    {
+      "tcname": "TC_lpm-db",
+      "command": "TBD",
+      "supported": "throws_traceback",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_lpts",
+      "command": "sudo show platform npu lpts",
+      "supported": "yes",
+      "output_match_str": "lpts key"
+    },
+    {
+      "tcname": "TC_mac-state",
+      "command": "TBD",
+      "supported": "require_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_next-hop_entries",
+      "command": "sudo show platform npu next-hop entries",
+      "supported": "yes",
+      "output_match_str": "Next Hop Entries"
+    },
+    {
+      "tcname": "TC_next-hop_usage",
+      "command": "sudo show platform npu next-hop usage",
+      "supported": "yes",
+      "output_match_str": "Next Hop Usage"
+    },
+    {
+      "tcname": "TC_oq-debug",
+      "command": "sudo show platform npu oq-debug",
+      "supported": "LC output throws traceback",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_port_counters",
+      "command": "sudo show platform npu port counters",
+      "supported": "yes",
+      "output_match_str": "Port Counters"
+    },
+    {
+      "tcname": "TC_port_entries",
+      "command": "sudo show platform npu port entries",
+      "supported": "yes",
+      "output_match_str": "Port Status"
+    },
+    {
+      "tcname": "TC_rate-check",
+      "command": "sudo show platform npu rate-check",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_resource",
+      "command": "sudo show platform npu resource",
+      "supported": "yes",
+      "output_match_str": "Resource.*Granularity.*Location"
+    },
+    {
+      "tcname": "TC_router_details",
+      "command": "sudo show platform npu router details",
+      "supported": "command_not_supported_on_sup_asic",
+      "output_match_str": "Router Port Details"
+    },
+    {
+      "tcname": "TC_router_entries",
+      "command": "sudo show platform npu router entries",
+      "supported": "yes",
+      "output_match_str": "Routers"
+    },
+    {
+      "tcname": "TC_router_port-counters",
+      "command": "sudo show platform npu router port-counters",
+      "supported": "yes",
+      "output_match_str": "router-id.*router-port-id.*conn-type"
+    },
+    {
+      "tcname": "TC_router_ports",
+      "command": "sudo show platform npu router ports",
+      "supported": "yes",
+      "output_match_str": "Router Ports"
+    },
+    {
+      "tcname": "TC_router_prefix",
+      "command": "TBD",
+      "supported": "require_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_router_route-table",
+      "command": "sudo show platform npu router route-table",
+      "supported": "remote-socket-terminated",
+      "output_match_str": "Route Table"
+    },
+    {
+      "tcname": "TC_rx",
+      "command": "TBD",
+      "supported": "require_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_script",
+      "command": "TBD",
+      "supported": "require_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_sdk-debug_status",
+      "command": "sudo show platform npu sdk-debug status",
+      "supported": "yes",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_switch_entries",
+      "command": "sudo show platform npu switch entries",
+      "supported": "yes",
+      "output_match_str": "Switch Entries"
+    },
+    {
+      "tcname": "TC_switch_ports",
+      "command": "sudo show platform npu switch ports",
+      "supported": "yes",
+      "output_match_str": "Switch Ports"
+    },
+    {
+      "tcname": "TC_temperatures",
+      "command": "sudo show platform npu temperatures",
+      "supported": "yes",
+      "output_match_str": "Device Temperatures"
+    },
+    {
+      "tcname": "TC_trap",
+      "command": "sudo show platform npu trap",
+      "supported": "remote-socket-terminated",
+      "output_match_str": "Trap Info"
+    },
+    {
+      "tcname": "TC_trap_start_event_option",
+      "command": "TBD",
+      "supported": "requires_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_trap_end_event_option",
+      "command": "TBD",
+      "supported": "requires_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_trap-list",
+      "command": "sudo show platform npu trap-list",
+      "supported": "has_extra_checks_with_output",
+      "output_match_str": "NO_PATTERN"
+    },
+    {
+      "tcname": "TC_tx",
+      "command": "TBD",
+      "supported": "require_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_voq",
+      "command": "TBD",
+      "supported": "require_parameters",
+      "output_match_str": "TBD"
+    },
+    {
+      "tcname": "TC_vxlan",
+      "command": "TBD",
+      "supported": "require_parameters",
+      "output_match_str": "TBD"
+    }
+  ]
+}
+
