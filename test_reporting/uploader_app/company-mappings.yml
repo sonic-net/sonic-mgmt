@@ -36,3 +36,7 @@ coherent.com:
 nexthop.com:
   - "https://ingest-vendortestcluster.westus2.kusto.windows.net"
   - "NexthopTestData"
+
+micasnetworks.com:
+  - "https://ingest-vendortestcluster.westus2.kusto.windows.net"
+  - "MicasTestData"
