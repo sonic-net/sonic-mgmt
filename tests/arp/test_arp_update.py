@@ -41,10 +41,10 @@ def ptf_interface_info(ip_and_intf_info, ptfadapter):
     ptf_intf_mac = ptfadapter.dataplane.get_mac(0, ptf_intf_index)
     if isinstance(ptf_intf_mac, (bytes, bytearray)):
         ptf_intf_mac = ptf_intf_mac.decode()
-    
+
     ptf_iface = f"eth{ptf_intf_index}"
     ptf_ip = str(ptf_intf_ipv4_addr)
-    
+
     return {
         'ip': ptf_ip,
         'ipv4_addr': ptf_intf_ipv4_addr,
@@ -54,7 +54,7 @@ def ptf_interface_info(ip_and_intf_info, ptfadapter):
     }
 
 
-@pytest.fixture  
+@pytest.fixture
 def dut_interface_info(rand_selected_dut, config_facts, tbinfo):
     """
     Get DUT interface information
@@ -62,11 +62,11 @@ def dut_interface_info(rand_selected_dut, config_facts, tbinfo):
     duthost = rand_selected_dut
     dut_mac = get_dut_mac(duthost, config_facts, tbinfo)
     vlan_name, dut_ipv4 = get_first_vlan_ipv4(config_facts)
-    
+
     return {
         'host': duthost,
         'mac': dut_mac,
-        'vlan_name': vlan_name, 
+        'vlan_name': vlan_name,
         'ipv4': dut_ipv4
     }
 
@@ -77,14 +77,14 @@ def clean_environment(rand_selected_dut, ptfadapter):
     Cleanup FDB and DUT ARP cache before and after test run
     """
     duthost = rand_selected_dut
-    
+
     logger.info("Setting up clean environment: clearing FDB and ARP cache")
     fdb_cleanup(duthost)
     clear_dut_arp_cache(duthost)
     ptfadapter.dataplane.flush()
-    
+
     yield
-    
+
     logger.info("Test completed, environment cleanup done")
 
 
@@ -94,16 +94,16 @@ def ptf_with_ip_config(ptf_interface_info, ptfhost):
     Configure IP on PTF interface and cleanup afterwards
     """
     ptf_info = ptf_interface_info
-    
+
     # Configure IP on PTF interface
     ptfhost.shell(f"ip addr add {ptf_info['ip']}/21 dev {ptf_info['interface']}", module_ignore_errors=True)
-    
+
     yield ptf_info
-    
+
     # Cleanup: remove IP from PTF interface
     ptfhost.shell(f"ip addr del {ptf_info['ip']}/21 dev {ptf_info['interface']}", module_ignore_errors=True)
-    
-    
+
+
 def neighbor_learned(dut, target_ip):
     neigh_output = dut.shell(f"ip neigh show {target_ip}")['stdout'].strip()
     logger.info(f"DUT neighbor entry: {neigh_output}")
@@ -169,7 +169,7 @@ def test_kernel_asic_mac_mismatch(
 
 def test_ptf_arp_learns_mac(
     ptf_interface_info,
-    dut_interface_info, 
+    dut_interface_info,
     clean_environment,
     ptfadapter,
     tbinfo
@@ -182,7 +182,7 @@ def test_ptf_arp_learns_mac(
     # Setup PTF and DUT info
     ptf_info = ptf_interface_info
     dut_info = dut_interface_info
-    
+
     logger.info("DUT VLAN IPv4: {}".format(dut_info['ipv4']))
 
     # Simulate ARP request from PTF to DUT
@@ -211,7 +211,7 @@ def test_ptf_arp_learns_mac(
 
     logger.info("Sending ARP request for target {} from PTF interface {}".format(
         dut_info['ipv4'], ptf_info['index']))
-    
+
     # Send ARP request and verify ARP reply
     testutils.send_packet(ptfadapter, ptf_info['index'], arp_req)
     testutils.verify_packet(ptfadapter, arp_reply, ptf_info['index'], timeout=PTF_TIMEOUT)
@@ -225,7 +225,7 @@ def test_ptf_arp_learns_mac(
 
 def test_dut_arping_learns_mac(
     ptf_interface_info,
-    dut_interface_info, 
+    dut_interface_info,
     clean_environment,
     setup_vlan_arp_responder  # noqa: F811
 ):
@@ -238,7 +238,7 @@ def test_dut_arping_learns_mac(
     # Setup PTF and DUT info
     ptf_info = ptf_interface_info
     dut_info = dut_interface_info
-    
+
     # Setup PTF responder info
     vlan_name, ipv4_base, _, ip_offset = setup_vlan_arp_responder
     ptf_responder_ip = str(ipv4_base.ip + ip_offset)
@@ -262,7 +262,7 @@ def test_dut_ping_learns_mac(
     ptfhost
 ):
     """
-    Configure IP on PTF interface, 
+    Configure IP on PTF interface,
     ping DUT from PTF,
     then verify both sides learned MAC address
     """
