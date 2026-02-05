@@ -20,28 +20,6 @@ SHOW_FEC_OPER_CMD_TEMPLATE = "show interfaces fec status {}"
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions_lag(duthosts, rand_one_dut_front_end_hostname, loganalyzer):
-    """
-        Ignore expected failures logs during test execution.
-
-        LAG tests are triggering following orchagent complaints but the don't cause
-        harm to DUT.
-       Args:
-            duthosts: list of DUTs.
-            rand_one_dut_front_end_hostname: Hostname of a random chosen frontend dut
-            loganalyzer: Loganalyzer utility fixture
-    """
-    ignoreRegex = [
-        r".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",
-        r".*ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
-    ]
-
-    duthost = duthosts[rand_one_dut_front_end_hostname]
-    if duthost.loganalyzer:
-        duthost.loganalyzer.ignore_regex.extend(ignoreRegex)
-
-
-@pytest.fixture(autouse=True)
 def ensure_dut_readiness(duthosts, rand_one_dut_front_end_hostname):
     """
     Setup/teardown fixture for each ethernet test
