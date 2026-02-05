@@ -122,8 +122,6 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.fixtures.duthost_utils',
                   'tests.common.plugins.parallel_fixture')
 
-patch_ansible_worker_process()
-
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
 if sys.version_info < (3, 12, 8):
