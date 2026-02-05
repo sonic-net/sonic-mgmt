@@ -111,91 +111,91 @@ class PtfGnoi:
     def __repr__(self):
         return self.__str__()
 
-def file_transfer_to_remote(
-    self,
-    image_url: str,
-    dut_image_path: str,
-    protocol: Optional[str] = None,
-    credentials: Optional[Dict[str, str]] = None,
-    remote_extra: Optional[Dict] = None,
-) -> Dict:
-    """
-    Download a remote artifact to the DUT using gNOI File.TransferToRemote.
+    def file_transfer_to_remote(
+        self,
+        image_url: str,
+        dut_image_path: str,
+        protocol: Optional[str] = None,
+        credentials: Optional[Dict[str, str]] = None,
+        remote_extra: Optional[Dict] = None,
+    ) -> Dict:
+        """
+        Download a remote artifact to the DUT using gNOI File.TransferToRemote.
 
-    Notes on protocol:
-        - For http(s):// URLs, protocol can be inferred from the URL scheme.
-        - Some server implementations require an explicit protocol, and some paths may not
-          be standard URLs (implementation-specific). Therefore protocol remains an
-          optional override:
-            * If protocol is None, infer from URL scheme (http/https).
-            * If scheme is unknown/empty, protocol must be provided explicitly.
+        Notes on protocol:
+            - For http(s):// URLs, protocol can be inferred from the URL scheme.
+            - Some server implementations require an explicit protocol, and some paths may not
+            be standard URLs (implementation-specific). Therefore protocol remains an
+            optional override:
+                * If protocol is None, infer from URL scheme (http/https).
+                * If scheme is unknown/empty, protocol must be provided explicitly.
 
-    Args:
-        image_url: Remote URL/path to download from (e.g., http(s)://...)
-        dut_image_path: Destination path on DUT (mapped to gNOI request field 'local_path')
-        protocol: Optional RemoteDownloadProtocol enum name (e.g., "HTTP", "HTTPS").
-                  If None, infer from image_url scheme.
-        credentials: Optional credentials dict {"username": "...", "password": "..."}.
-        remote_extra: Optional dict merged into 'remote_download' (implementation-specific).
+        Args:
+            image_url: Remote URL/path to download from (e.g., http(s)://...)
+            dut_image_path: Destination path on DUT (mapped to gNOI request field 'local_path')
+            protocol: Optional RemoteDownloadProtocol enum name (e.g., "HTTP", "HTTPS").
+                    If None, infer from image_url scheme.
+            credentials: Optional credentials dict {"username": "...", "password": "..."}.
+            remote_extra: Optional dict merged into 'remote_download' (implementation-specific).
 
-    Returns:
-        Dictionary response from gNOI server.
+        Returns:
+            Dictionary response from gNOI server.
 
-    Raises:
-        GrpcConnectionError / GrpcCallError / GrpcTimeoutError:
-            As raised by underlying grpc_client.call_unary.
-        ValueError: If inputs are invalid or protocol cannot be inferred.
-    """
-    if not image_url:
-        raise ValueError("image_url must be provided")
-    if not dut_image_path:
-        raise ValueError("dut_image_path must be provided")
+        Raises:
+            GrpcConnectionError / GrpcCallError / GrpcTimeoutError:
+                As raised by underlying grpc_client.call_unary.
+            ValueError: If inputs are invalid or protocol cannot be inferred.
+        """
+        if not image_url:
+            raise ValueError("image_url must be provided")
+        if not dut_image_path:
+            raise ValueError("dut_image_path must be provided")
 
-    scheme = urlparse(image_url).scheme.lower()
+        scheme = urlparse(image_url).scheme.lower()
 
-    # Infer protocol if not explicitly provided
-    if protocol is None:
-        if scheme == "https":
-            protocol = "HTTPS"
-        elif scheme == "http":
-            protocol = "HTTP"
-        else:
-            raise ValueError(
-                f"protocol must be provided when image_url scheme is '{scheme or 'empty'}'"
-            )
+        # Infer protocol if not explicitly provided
+        if protocol is None:
+            if scheme == "https":
+                protocol = "HTTPS"
+            elif scheme == "http":
+                protocol = "HTTP"
+            else:
+                raise ValueError(
+                    f"protocol must be provided when image_url scheme is '{scheme or 'empty'}'"
+                )
 
-    protocol = str(protocol).upper()
+        protocol = str(protocol).upper()
 
-    # Optional: warn if the override conflicts with URL scheme
-    if scheme == "https" and protocol == "HTTP":
-        logger.warning("image_url is https:// but protocol=HTTP; did you mean HTTPS?")
-    elif scheme == "http" and protocol == "HTTPS":
-        logger.warning("image_url is http:// but protocol=HTTPS; did you mean HTTP?")
+        # Optional: warn if the override conflicts with URL scheme
+        if scheme == "https" and protocol == "HTTP":
+            logger.warning("image_url is https:// but protocol=HTTP; did you mean HTTPS?")
+        elif scheme == "http" and protocol == "HTTPS":
+            logger.warning("image_url is http:// but protocol=HTTPS; did you mean HTTP?")
 
-    logger.debug(
-        "TransferToRemote via gNOI File.TransferToRemote: url=%s dut_image_path=%s protocol=%s",
-        image_url, dut_image_path, protocol,
-    )
+        logger.debug(
+            "TransferToRemote via gNOI File.TransferToRemote: url=%s dut_image_path=%s protocol=%s",
+            image_url, dut_image_path, protocol,
+        )
 
-    remote_download = {"path": image_url, "protocol": protocol}
+        remote_download = {"path": image_url, "protocol": protocol}
 
-    if credentials:
-        remote_download["credentials"] = credentials
+        if credentials:
+            remote_download["credentials"] = credentials
 
-    if remote_extra:
-        remote_download.update(remote_extra)
+        if remote_extra:
+            remote_download.update(remote_extra)
 
-    # gNOI proto field name is 'local_path' (destination path on DUT)
-    request = {
-        "dut_image_path": dut_image_path,
-        "remote_download": remote_download,
-    }
+        # gNOI proto field name is 'local_path' (destination path on DUT)
+        request = {
+            "dut_image_path": dut_image_path,
+            "remote_download": remote_download,
+        }
 
-    response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request)
-    logger.info("TransferToRemote completed: %s -> %s", image_url, dut_image_path)
-    return response
+        response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request)
+        logger.info("TransferToRemote completed: %s -> %s", image_url, dut_image_path)
+        return response
 
-    def system_set_package(self, dut_image_path: str, package_field: str = "filename") -> Dict:
+    def system_set_package(self, dut_image_path: str, package_field: str = "filename", version: Optional[str] = None, activate: bool = False) -> Dict:
         """
         Set the upgrade package on the DUT using gNOI System.SetPackage.
 
@@ -203,7 +203,8 @@ def file_transfer_to_remote(
             dut_image_path: Path to the package/image on DUT (typically produced by TransferToRemote)
             package_field: The field name used by the server implementation inside 'package'.
                 Default is "filename". Some implementations might expect "path".
-
+            version: Optional version string to set (if supported by server)
+            activate: Whether to activate the package immediately (if supported by server)
         Returns:
             Dictionary response from gNOI server.
 
@@ -224,6 +225,11 @@ def file_transfer_to_remote(
                 package_field: dut_image_path
             }
         }
+
+        if version:
+            request["package"]["version"] = version
+        if activate:
+            request["package"]["activate"] = True
 
         response = self.grpc_client.call_unary("gnoi.system.System", "SetPackage", request)
         logger.info("SetPackage completed: %s", dut_image_path)
