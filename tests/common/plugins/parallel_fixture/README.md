@@ -16,7 +16,6 @@ The Parallel Fixture Manager is designed to address specific challenges in the S
         1. All background tasks associated with a specific scope (Session, Module, Class, Function) in setup must complete successfully before the test runner proceeds to a narrower scope or executes the test function.
         2. All background tasks associated with a specific scope (Session, Module, Class, Function) in teardown must complete successfully before the test runner proceeds to a broader scope or finish the test execution.
 * **Fail-Fast Reliability**
-    * The system must immediately detect the exception in the background thread and abort the ongoing test setup to prevent cascading failures, resource wastage, and misleading test results.
     * The system must immediately detect the exception and abort the ongoing test setup to prevent cascading failures, resource wastage, and misleading test results.
 * **Non-Intrusive Integration**
     * The system must expose a minimal and intuitive API. Existing fixtures should be able to adopt parallel execution patterns with minimal code changes, preserving the standard pytest fixture structure.
@@ -47,6 +46,67 @@ The Parallel Fixture Manager is designed to address specific challenges in the S
 ### 3.2 Execution Lifecycle
 
 The manager hooks into the pytest lifecycle to coordinate parallel execution:
+
+```mermaid
+sequenceDiagram
+    participant Pytest
+    participant ParallelManager
+    participant ThreadPool
+    participant MonitorThread
+    participant Fixture
+    participant Barrier
+
+    Note over Pytest,Barrier: Session Setup Phase
+    Pytest->>ParallelManager: Create (session scope)
+    ParallelManager->>ThreadPool: Initialize worker threads
+    ParallelManager->>MonitorThread: Start monitoring
+    
+    Pytest->>Fixture: Execute fixture (session scope)
+    Fixture->>ParallelManager: submit_setup_task(SESSION, func)
+    ParallelManager->>ThreadPool: Submit task to thread pool
+    ThreadPool-->>ParallelManager: Return future
+    Fixture-->>Pytest: Yield immediately
+    
+    Pytest->>Barrier: setup_barrier_session
+    Barrier->>ParallelManager: wait_for_setup_tasks(SESSION)
+    ParallelManager->>ThreadPool: Wait for all session tasks
+    ThreadPool-->>ParallelManager: Tasks complete
+    
+    Note over Pytest,Barrier: Module/Class/Function Scopes
+    Pytest->>Fixture: Execute fixture (module scope)
+    Fixture->>ParallelManager: submit_setup_task(MODULE, func)
+    ParallelManager->>ThreadPool: Submit to pool
+    Fixture-->>Pytest: Yield
+    
+    Pytest->>Barrier: setup_barrier_module
+    Barrier->>ParallelManager: wait_for_setup_tasks(MODULE)
+    ParallelManager->>ThreadPool: Wait for module tasks
+    
+    Note over Pytest,Barrier: Test Execution
+    Pytest->>ParallelManager: pytest_runtest_call hook
+    ParallelManager->>ThreadPool: Ensure all tasks complete
+    ParallelManager->>ThreadPool: Terminate executor
+    Pytest->>Pytest: Run test function
+    
+    Note over Pytest,Barrier: Teardown Phase
+    Pytest->>ParallelManager: pytest_runtest_teardown hook
+    ParallelManager->>ThreadPool: Reset and create new executor
+    ParallelManager->>MonitorThread: Restart monitoring
+    
+    Pytest->>Fixture: Teardown fixture
+    Fixture->>ParallelManager: submit_teardown_task(scope, func)
+    ParallelManager->>ThreadPool: Submit teardown task
+    Fixture-->>Pytest: Return
+    
+    Pytest->>Barrier: teardown_barrier_function
+    Barrier->>ParallelManager: wait_for_teardown_tasks(FUNCTION)
+    ParallelManager->>ThreadPool: Wait for function teardowns
+    
+    Pytest->>ParallelManager: pytest_runtest_logreport hook
+    ParallelManager->>ThreadPool: Terminate executor
+    ParallelManager->>MonitorThread: Stop monitoring
+
+```
 
 #### Setup Phase
 
