@@ -400,4 +400,3 @@ def perform_gnoi_upgrade(
     )
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
-
