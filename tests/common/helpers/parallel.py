@@ -1,3 +1,4 @@
+import ansible
 import datetime
 import logging
 import math
@@ -39,6 +40,10 @@ _forked_handlers_lock = threading.Lock()
 os.register_at_fork(before=logging._acquireLock,
                     after_in_parent=logging._releaseLock,
                     after_in_child=logging._releaseLock)
+display = ansible.utils.display.Display()
+os.register_at_fork(before=display._lock.acquire,
+                    after_in_parent=display._lock.release,
+                    after_in_child=display._lock.release)
 
 
 def fix_logging_handler_fork_lock():
