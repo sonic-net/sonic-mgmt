@@ -338,7 +338,7 @@ def perform_gnoi_upgrade(
     # ---- 2) TransferToRemote (via wrapper) ----
     transfer_resp = ptf_gnoi.file_transfer_to_remote(
         image_url=cfg.to_image,
-        dut_image_path=cfg.dut_image_path, 
+        dut_image_path=cfg.dut_image_path,
         protocol=cfg.protocol,
     )
     logger.info("TransferToRemote response: %s", transfer_resp)
