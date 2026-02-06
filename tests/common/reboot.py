@@ -17,7 +17,7 @@ from .plugins.loganalyzer.utils import support_ignore_loganalyzer
 from .utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut
 from tests.common.fixtures.conn_graph_facts import get_graph_facts
-from tests.gnmi.helper import gnoi_request
+from tests.common.helpers.gnmi_utils import gnoi_request
 
 
 logger = logging.getLogger(__name__)
