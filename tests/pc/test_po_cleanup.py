@@ -2,6 +2,7 @@ import pytest
 import logging
 
 from tests.common.fixtures.duthost_utils import stop_route_checker_on_duthost
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 from tests.common import config_reload
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
@@ -41,12 +42,15 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
 @pytest.fixture(autouse=True)
 def disable_route_check_for_duthost(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    if 't2' not in tbinfo['topo']['name']:
-        logging.info("Topology is not T2, skipping disabling route check")
+    allowed_topologies = {"t2", "ut2", "lt2"}
+    topo_name = tbinfo['topo']['name']
+    if topo_name in allowed_topologies:
+        logging.info("Stopping route check monitor before test case")
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for duthost in duthosts.frontend_nodes:
+                executor.submit(stop_route_checker_on_duthost, duthost, wait_for_status=True)
     else:
-        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-        logging.info("Stopping route check on DUT {}".format(duthost.hostname))
-        stop_route_checker_on_duthost(duthost)
+        logging.info("Topology {} is not allowed for disable_route_check_for_duthost fixture".format(topo_name))
 
     yield
 
