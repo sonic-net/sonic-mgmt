@@ -16,6 +16,29 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+    """
+    Ignore expected failures logs during test execution.
+
+    Static route tests can trigger routeCheck failures during teardown/rollback convergence
+    on multi-ASIC devices, but these don't cause harm to DUT.
+
+    Args:
+        duthosts: list of DUTs
+        enum_rand_one_per_hwsku_frontend_hostname: Hostname of a random chosen frontend dut
+        loganalyzer: Loganalyzer utility fixture
+    """
+    ignoreRegex = [
+        r".*ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
+        r".*ERR.*Data Loading Failed:Invalid value \"fcbb:bbbb:1::\" in \"prefix\" element.",
+    ]
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if loganalyzer and loganalyzer[duthost.hostname]:
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
+
+@pytest.fixture(autouse=True)
 def setup_and_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     """
     Setup/teardown fixture for STATIC ROUTE config
@@ -163,13 +186,6 @@ def test_static_route_add_invalid(duthosts, enum_rand_one_per_hwsku_frontend_hos
     Test adding an invalid static route configuration.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
-    if loganalyzer and loganalyzer[duthost.hostname]:
-        ignore_regex_list = [
-            ".*ERR.*Data Loading Failed:Invalid value \"fcbb:bbbb:1::\" in \"prefix\" element."
-        ]
-        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
-
     asic_namespace = duthost.get_namespace_from_asic_id(enum_frontend_asic_index)
     json_patch = [
         {

@@ -456,9 +456,9 @@ def send_and_verify_packet(ptfadapter, pkt_list, exp_pkt_list, tx_port, rx_ports
         rx_port = rx_ports[ip_ver] if ip_ver else rx_ports
         testutils.send(ptfadapter, pkt=pkt, port_id=tx_port)
         if exp_action == FORWARD:
-            testutils.verify_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=TRAFFIC_WAIT_TIME)
+            testutils.verify_packet_any_port(ptfadapter, pkt=exp_pkt, ports=rx_port, timeout=TRAFFIC_WAIT_TIME)
         else:
-            testutils.verify_no_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=TRAFFIC_WAIT_TIME)
+            testutils.verify_no_packet_any(ptfadapter, pkt=exp_pkt, ports=rx_port, timeout=TRAFFIC_WAIT_TIME)
 
 
 def send_and_verify_loopback_packets(ptfadapter, pkt_list, exp_pkt_list, tx_port, rx_ports, exp_action_list):
@@ -478,7 +478,8 @@ def send_and_verify_bulk_traffic(tcpdump_helper, ptfadapter, ip_ver_list, pkt_li
     """
     Send packet with ptfadapter and verify if packet is forwarded or dropped as expected
     """
-    tcpdump_helper.in_direct_ifaces = rx_ports if isinstance(rx_ports, list) else rx_ports.values()
+    tcpdump_helper.in_direct_ifaces = rx_ports if isinstance(rx_ports, list) else \
+        [port for port_list in rx_ports.values() for port in port_list]
     tcpdump_helper.start_sniffer()
     logger.info("Start sending traffic")
     ptfadapter.dataplane.flush()
@@ -835,7 +836,8 @@ def bgp_route_flap_with_stress(duthost, tbinfo, nbrhosts, ptf_ip, ipv4_route_lis
 
 def perf_sniffer_prepare(tcpdump_sniffer, duthost, tbinfo, nbrhosts, mg_facts, recv_port):
     eths_to_t2_vm = get_port_connected_with_vm(duthost, tbinfo, nbrhosts, vm_type='T2')
-    eths_to_t0_vm = get_eth_name_from_ptf_port(mg_facts, [port for port in recv_port.values()])
+    eths_to_t0_vm = get_eth_name_from_ptf_port(mg_facts, [port for port_list in recv_port.values()
+                                                          for port in port_list])
     tcpdump_sniffer.out_direct_ifaces = [random.choice(eths_to_t2_vm)]
     tcpdump_sniffer.in_direct_ifaces = eths_to_t0_vm
     tcpdump_sniffer.tcpdump_filter = BGP_FILTER
