@@ -13,5 +13,14 @@
     },
     "docker-bmp-watchdog": {
         "parameters": "--pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
+    },
+    "docker-sonic-restapi": {
+        "parameters": "--net=host -v /var/run/redis/redis.sock:/var/run/redis/redis.sock -v /etc/sonic/credentials:/etc/sonic/credentials:ro"
+    },
+    "docker-restapi-watchdog": {
+        "parameters": "--net=host -v /etc/localtime:/etc/localtime:ro"
+    },
+    "docker-restapi-sidecar": {
+        "parameters": "--privileged --pid=host --net=host -v /lib/systemd/system:/lib/systemd/system:rw -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro"
     }
 }
