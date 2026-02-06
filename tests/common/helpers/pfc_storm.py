@@ -250,7 +250,7 @@ class PFCStorm(object):
             self.extra_vars.update({"pfc_storm_stop_defer_time": self.pfc_storm_stop_defer_time})
         if getattr(self, "pfc_asym", None):
             self.extra_vars.update({"pfc_asym": self.pfc_asym})
-        if self.asic_type == "mellanox":
+        if self.asic_type in ["mellanox", "broadcom"]:
             self.extra_vars.update({"pfc_gen_multiprocess": True})
 
         if self.asic_type != 'vs':
