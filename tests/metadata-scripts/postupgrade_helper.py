@@ -1,8 +1,12 @@
 import os
 import logging
+import threading
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
+
+# Thread lock to prevent concurrent archive creation
+_archive_lock = threading.Lock()
 
 
 def _failed_due_to_isc_dhcp_relay_fix_server_inaccessible(result) -> bool:
@@ -49,12 +53,14 @@ def run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_p
     duthost.file(path="/tmp/anpscripts", state="absent")
     duthost.file(path="/tmp/anpscripts", state="directory")
     metadata_tar_stat = duthost.stat(path="/host/metadata.tar.gz")
-    localhost.archive(path=metadata_scripts_path + "/", dest="metadata.tar.gz", exclusion_patterns=[".git"])
     if metadata_tar_stat["stat"]["exists"]:
         duthost.unarchive(src="/host/metadata.tar.gz", dest="/tmp/anpscripts/", remote_src="yes")
         duthost.file(path="/host/metadata.tar.gz", state="absent")
     else:
-        duthost.unarchive(src="metadata.tar.gz", dest="/tmp/anpscripts/")
+        # Thread-safe: create archive and transfer before another thread can overwrite it
+        with _archive_lock:
+            localhost.archive(path=metadata_scripts_path + "/", dest="metadata.tar.gz", exclusion_patterns=[".git"])
+            duthost.unarchive(src="metadata.tar.gz", dest="/tmp/anpscripts/")
 
     duthost.command("chmod +x /tmp/anpscripts/postupgrade_actions")
     result = duthost.command("/usr/bin/sudo /tmp/anpscripts/postupgrade_actions", module_ignore_errors=True)
@@ -104,12 +110,14 @@ def run_bgp_neighbor(duthost, localhost, tbinfo, metadata_process,
     duthost.file(path="/tmp/anpscripts", state="absent")
     duthost.file(path="/tmp/anpscripts", state="directory")
     metadata_tar_stat = duthost.stat(path="/host/metadata.tar.gz")
-    localhost.archive(path=metadata_scripts_path + "/", dest="metadata.tar.gz", exclusion_patterns=[".git"])
     if metadata_tar_stat["stat"]["exists"]:
         duthost.unarchive(src="/host/metadata.tar.gz", dest="/tmp/anpscripts/", remote_src="yes")
         duthost.file(path="/host/metadata.tar.gz", state="absent")
     else:
-        duthost.unarchive(src="metadata.tar.gz", dest="/tmp/anpscripts/")
+        # Thread-safe: create archive and transfer before another thread can overwrite it
+        with _archive_lock:
+            localhost.archive(path=metadata_scripts_path + "/", dest="metadata.tar.gz", exclusion_patterns=[".git"])
+            duthost.unarchive(src="metadata.tar.gz", dest="/tmp/anpscripts/")
 
     duthost.command("chmod +x /tmp/anpscripts/bgp_neighbor")
     result = duthost.command("/usr/bin/sudo /tmp/anpscripts/bgp_neighbor startup 0.0.0.0", module_ignore_errors=True)

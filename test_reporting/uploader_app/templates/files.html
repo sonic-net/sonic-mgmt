@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uploaded Files - {{ app_name }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            padding: 30px;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+        h1 {
+            color: #333;
+            font-size: 28px;
+        }
+        .user-info {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            text-decoration: none;
+            display: inline-block;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #5568d3;
+        }
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .stat-item {
+            flex: 1;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6c757d;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th {
+            background: #f8f9fa;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #dee2e6;
+        }
+        td {
+            padding: 12px;
+            border-bottom: 1px solid #dee2e6;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .file-type {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .file-type-xml {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        .file-type-zip {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .download-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .download-link:hover {
+            text-decoration: underline;
+        }
+        .delete-link {
+            color: #dc3545;
+            text-decoration: none;
+            font-weight: 500;
+            margin-left: 10px;
+            cursor: pointer;
+        }
+        .delete-link:hover {
+            text-decoration: underline;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #6c757d;
+        }
+        .empty-state-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📁 Uploaded Files</h1>
+            <div class="user-info">
+                <span>Admin: <strong>{{ username }}</strong></span>
+                <a href="/" class="btn btn-primary">← Back to Upload</a>
+                <a href="/logout" class="btn btn-secondary">Logout</a>
+            </div>
+        </div>
+
+        <div id="stats" class="stats" style="display: none;">
+            <div class="stat-item">
+                <div class="stat-label">Total Files</div>
+                <div class="stat-value" id="totalFiles">0</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Total Size</div>
+                <div class="stat-value" id="totalSize">0 GB</div>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">
+            Loading files...
+        </div>
+
+        <div id="success" class="success" style="display: none;"></div>
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div id="filesContainer"></div>
+    </div>
+
+    <script>
+        async function loadFiles() {
+            try {
+                const response = await fetch('/uploaded_files');
+                const data = await response.json();
+
+                document.getElementById('loading').style.display = 'none';
+
+                if (!data.success) {
+                    document.getElementById('error').textContent = data.error || 'Failed to load files';
+                    document.getElementById('error').style.display = 'block';
+                    return;
+                }
+
+                // Update stats
+                document.getElementById('totalFiles').textContent = data.total_files;
+                document.getElementById('totalSize').textContent = data.total_size_gb + ' GB';
+                document.getElementById('stats').style.display = 'flex';
+
+                // Display files
+                const container = document.getElementById('filesContainer');
+
+                if (data.files.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <div class="empty-state-icon">📭</div>
+                            <h3>No files uploaded yet</h3>
+                            <p>Upload some files to see them here.</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                let tableHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>File Name</th>
+                                <th>Type</th>
+                                <th>Size</th>
+                                <th>Modified</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                data.files.forEach(file => {
+                    const fileTypeClass = file.file_type === '.xml' ? 'file-type-xml' : 'file-type-zip';
+                    const modifiedDate = new Date(file.modified_time).toLocaleString();
+
+                    tableHTML += `
+                        <tr id="file-row-${escapeHtml(file.relative_path)}">
+                            <td>${escapeHtml(file.relative_path)}</td>
+                            <td><span class="file-type ${fileTypeClass}">${file.file_type}</span></td>
+                            <td>${file.size_mb} MB</td>
+                            <td>${modifiedDate}</td>
+                            <td>
+                                <a href="/uploaded_files?filename=${encodeURIComponent(file.relative_path)}" class="download-link">⬇ Download</a>
+                                <a onclick="deleteFile('${escapeHtml(file.relative_path).replace(/'/g, "\\'")}')"; class="delete-link">🗑 Delete</a>
+                            </td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += `
+                        </tbody>
+                    </table>
+                `;
+
+                container.innerHTML = tableHTML;
+
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('error').textContent = 'Error loading files: ' + error.message;
+                document.getElementById('error').style.display = 'block';
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        async function deleteFile(filename) {
+            if (!confirm(`Are you sure you want to delete "${filename}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/uploaded_files?filename=${encodeURIComponent(filename)}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Show success message
+                    const successDiv = document.getElementById('success');
+                    successDiv.textContent = data.message + ` (${data.size_freed_mb} MB freed)`;
+                    successDiv.style.display = 'block';
+
+                    // Hide success message after 5 seconds
+                    setTimeout(() => {
+                        successDiv.style.display = 'none';
+                    }, 5000);
+
+                    // Reload the file list
+                    loadFiles();
+                } else {
+                    // Show error message
+                    const errorDiv = document.getElementById('error');
+                    errorDiv.textContent = data.error || 'Failed to delete file';
+                    errorDiv.style.display = 'block';
+
+                    // Hide error message after 5 seconds
+                    setTimeout(() => {
+                        errorDiv.style.display = 'none';
+                    }, 5000);
+                }
+            } catch (error) {
+                const errorDiv = document.getElementById('error');
+                errorDiv.textContent = 'Error deleting file: ' + error.message;
+                errorDiv.style.display = 'block';
+
+                // Hide error message after 5 seconds
+                setTimeout(() => {
+                    errorDiv.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Load files on page load
+        loadFiles();
+    </script>
+</body>
+</html>

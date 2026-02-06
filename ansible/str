@@ -257,7 +257,7 @@ sonic:
 
 sonic_cisco_8101:
   hosts:
-    str-8101-D04-U36:
+    str-8101-d04-u36:
       ansible_host: 10.64.246.197
       ansible_hostv6: 2a01:111:e210:b000::a40:f6c5
       mgmt_subnet_mask_length: 25
@@ -666,6 +666,46 @@ sonic_mlnx_4700:
         "0x23": "MT2409XZ00CG"
         "0x24": "9C:05:91:F7:5E:00"
         "0x25": "02/28/2024 14:43:39"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn4700-r0"
+        "0x29": "2022.08-5.3.0010-9600"
+        "0x2B": "Mellanox"
+    str-4700-d04-u10:
+      ansible_host: 10.64.246.46
+      ansible_hostv6: 2a01:111:e210:b000::a40:f62e
+      mgmt_subnet_mask_length: 25
+      mgmt_subnet_v6_mask_length: 121
+      hwsku: Mellanox-SN4700-O8V48
+      iface_speed: 400000
+      model: MSN4700-WS2ROS
+      serial: MT2417XZ01AN
+      base_mac: B0:CF:0E:0B:B8:00
+      syseeprom_info:
+        "0x21": "MSN4700"
+        "0x22": "MSN4700-WS2ROS"
+        "0x23": "MT2417XZ01AN"
+        "0x24": "B0:CF:0E:0B:B8:00"
+        "0x25": "04/25/2024 08:35:57"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn4700-r0"
+        "0x29": "2022.08-5.3.0010-9600"
+        "0x2B": "Mellanox"
+    str-4700-d04-u09:
+      ansible_host: 10.64.247.94
+      ansible_hostv6: 2a01:111:e210:b000::a40:f75e
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Mellanox-SN4700-O8V48
+      iface_speed:
+      model: MSN4700-WS2ROS
+      serial: MT2417XZ01AR
+      base_mac: B0:CF:0E:0B:BB:00
+      syseeprom_info:
+        "0x21": "MSN4700"
+        "0x22": "MSN4700-WS2ROS"
+        "0x23": "MT2417XZ01AR"
+        "0x24": "B0:CF:0E:0B:BB:00"
+        "0x25": "04/25/2024 09:17:12"
         "0x26": "18"
         "0x28": "x86_64-mlnx_msn4700-r0"
         "0x29": "2022.08-5.3.0010-9600"
