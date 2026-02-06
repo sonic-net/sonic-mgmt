@@ -1106,7 +1106,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         pytest_assert(
             wait_until(
                 120, 10, 0,
-                everflow_utils.validate_asic_route, remote_dut, setup_mirror_session["session_prefixes"][0]
+                everflow_utils.validate_asic_route, remote_dut, session_prefixes[0]
             )
         )
         pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_acl_rules_in_asic_db, remote_dut))
