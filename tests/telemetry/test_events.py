@@ -7,7 +7,8 @@ from telemetry_utils import skip_201911_and_older
 from events.event_utils import event_publish_tool
 from events.event_utils import reset_event_counters, read_event_counters
 from events.event_utils import verify_counter_increase, restart_eventd
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m    # noqa F401
+from tests.common.dualtor.mux_simulator_control \
+    import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m    # noqa: F401
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -35,9 +36,10 @@ def validate_yang(duthost, op_file="", yang_file=""):
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 @pytest.mark.disable_loganalyzer
-def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter, setup_streaming_telemetry, gnxi_path,
-                test_eventd_healthy, toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m, # noqa F811
-                setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m): # noqa F811
+def test_events(duthosts, tbinfo, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter,
+                setup_streaming_telemetry, gnxi_path, test_eventd_healthy,
+                toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m,  # noqa: F811
+                setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m):  # noqa: F811
     """ Run series of events inside duthost and validate that output is correct
     and conforms to YANG schema"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -50,7 +52,7 @@ def test_events(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, ptfadapter,
         if file.endswith("_events.py") and not file.endswith("eventd_events.py"):
             module = __import__(file[:len(file)-3])
             try:
-                module.test_event(duthost, gnxi_path, ptfhost, ptfadapter, DATA_DIR, validate_yang)
+                module.test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, DATA_DIR, validate_yang)
             except pytest.skip.Exception as e:
                 logger.info("Skipping test file: {} due to {}".format(file, e))
                 continue

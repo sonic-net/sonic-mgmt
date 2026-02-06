@@ -33,6 +33,8 @@ def topo_name_to_topo_checker(topo_name):
         topo_type = 't0'
     elif topo_type in ['t1-lag', 't1-56-lag', 't1-64-lag']:
         topo_type = 't1'
+    elif 't2' in topo_type:
+        topo_type = 't2'
 
     topology_checker = topo_type + "_checker"
 
@@ -43,7 +45,7 @@ def distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topol
     for topology in match.group(1).split(","):
         topology_mark = topology.strip().strip('"').strip("'")
         if topology_mark == "any":
-            for key in ["t0_checker", "t1_checker"]:
+            for key in ["t0_checker", "t1_checker", "t2_checker"]:
                 if script_name not in test_scripts_per_topology_checker[key]:
                     test_scripts_per_topology_checker[key].append(script_name)
         else:

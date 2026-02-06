@@ -222,7 +222,6 @@ configuration_properties:
   common:
     dut_asn: 65100
     dut_type: ToRRouter
-    swrole: leaf
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
     podset_number: 200
@@ -234,13 +233,18 @@ configuration_properties:
     leaf_asn_start: 64600
     tor_asn_start: 65500
     failure_rate: 0
+  leaf:
+    swrole: leaf
+  tor:
+    swrole: tor
 
 configuration:
   ARISTA01T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64601
+      asn: 64600
       peers:
         65100:
           - 10.0.0.128
@@ -253,13 +257,14 @@ configuration:
         ipv4: 10.0.0.129/31
         ipv6: fc00::102/126
     bp_interface:
-      ipv4: 10.10.246.66/24
+      ipv4: 10.10.246.66/22
       ipv6: fc0a::42/64
   ARISTA09T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64602
+      asn: 64600
       peers:
         65100:
           - 10.0.0.144
@@ -272,13 +277,14 @@ configuration:
         ipv4: 10.0.0.145/31
         ipv6: fc00::122/126
     bp_interface:
-      ipv4: 10.10.246.74/24
+      ipv4: 10.10.246.74/22
       ipv6: fc0a::4a/64
   ARISTA17T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64603
+      asn: 64600
       peers:
         65100:
           - 10.0.0.160
@@ -291,13 +297,14 @@ configuration:
         ipv4: 10.0.0.161/31
         ipv6: fc00::142/126
     bp_interface:
-      ipv4: 10.10.246.82/24
+      ipv4: 10.10.246.82/22
       ipv6: fc0a::52/64
   ARISTA25T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64604
+      asn: 64600
       peers:
         65100:
           - 10.0.0.176
@@ -310,13 +317,14 @@ configuration:
         ipv4: 10.0.0.177/31
         ipv6: fc00::162/126
     bp_interface:
-      ipv4: 10.10.246.90/24
+      ipv4: 10.10.246.90/22
       ipv6: fc0a::5a/64
   ARISTA33T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64605
+      asn: 64600
       peers:
         65100:
           - 10.0.0.192
@@ -329,13 +337,14 @@ configuration:
         ipv4: 10.0.0.193/31
         ipv6: fc00::182/126
     bp_interface:
-      ipv4: 10.10.246.98/24
+      ipv4: 10.10.246.98/22
       ipv6: fc0a::62/64
   ARISTA41T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64606
+      asn: 64600
       peers:
         65100:
           - 10.0.0.208
@@ -348,13 +357,14 @@ configuration:
         ipv4: 10.0.0.209/31
         ipv6: fc00::1a2/126
     bp_interface:
-      ipv4: 10.10.246.106/24
+      ipv4: 10.10.246.106/22
       ipv6: fc0a::6a/64
   ARISTA49T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64607
+      asn: 64600
       peers:
         65100:
           - 10.0.0.224
@@ -367,13 +377,14 @@ configuration:
         ipv4: 10.0.0.225/31
         ipv6: fc00::1c2/126
     bp_interface:
-      ipv4: 10.10.246.114/24
+      ipv4: 10.10.246.114/22
       ipv6: fc0a::72/64
   ARISTA57T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64608
+      asn: 64600
       peers:
         65100:
           - 10.0.0.240
@@ -386,13 +397,14 @@ configuration:
         ipv4: 10.0.0.241/31
         ipv6: fc00::1e2/126
     bp_interface:
-      ipv4: 10.10.246.122/24
+      ipv4: 10.10.246.122/22
       ipv6: fc0a::7a/64
   ARISTA65T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64609
+      asn: 64600
       peers:
         65100:
           - 10.0.1.0
@@ -405,13 +417,14 @@ configuration:
         ipv4: 10.0.1.1/31
         ipv6: fc00::202/126
     bp_interface:
-      ipv4: 10.10.246.130/24
+      ipv4: 10.10.246.130/22
       ipv6: fc0a::82/64
   ARISTA73T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64610
+      asn: 64600
       peers:
         65100:
           - 10.0.1.16
@@ -424,13 +437,14 @@ configuration:
         ipv4: 10.0.1.17/31
         ipv6: fc00::222/126
     bp_interface:
-      ipv4: 10.10.246.138/24
+      ipv4: 10.10.246.138/22
       ipv6: fc0a::8a/64
   ARISTA81T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64611
+      asn: 64600
       peers:
         65100:
           - 10.0.1.32
@@ -443,13 +457,14 @@ configuration:
         ipv4: 10.0.1.33/31
         ipv6: fc00::242/126
     bp_interface:
-      ipv4: 10.10.246.146/24
+      ipv4: 10.10.246.146/22
       ipv6: fc0a::92/64
   ARISTA89T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64612
+      asn: 64600
       peers:
         65100:
           - 10.0.1.48
@@ -462,13 +477,14 @@ configuration:
         ipv4: 10.0.1.49/31
         ipv6: fc00::262/126
     bp_interface:
-      ipv4: 10.10.246.154/24
+      ipv4: 10.10.246.154/22
       ipv6: fc0a::9a/64
   ARISTA97T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64613
+      asn: 64600
       peers:
         65100:
           - 10.0.1.64
@@ -481,13 +497,14 @@ configuration:
         ipv4: 10.0.1.65/31
         ipv6: fc00::282/126
     bp_interface:
-      ipv4: 10.10.246.162/24
+      ipv4: 10.10.246.162/22
       ipv6: fc0a::a2/64
   ARISTA105T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64614
+      asn: 64600
       peers:
         65100:
           - 10.0.1.80
@@ -500,13 +517,14 @@ configuration:
         ipv4: 10.0.1.81/31
         ipv6: fc00::2a2/126
     bp_interface:
-      ipv4: 10.10.246.170/24
+      ipv4: 10.10.246.170/22
       ipv6: fc0a::aa/64
   ARISTA113T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64615
+      asn: 64600
       peers:
         65100:
           - 10.0.1.96
@@ -519,13 +537,14 @@ configuration:
         ipv4: 10.0.1.97/31
         ipv6: fc00::2c2/126
     bp_interface:
-      ipv4: 10.10.246.178/24
+      ipv4: 10.10.246.178/22
       ipv6: fc0a::b2/64
   ARISTA121T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64616
+      asn: 64600
       peers:
         65100:
           - 10.0.1.112
@@ -538,13 +557,14 @@ configuration:
         ipv4: 10.0.1.113/31
         ipv6: fc00::2e2/126
     bp_interface:
-      ipv4: 10.10.246.186/24
+      ipv4: 10.10.246.186/22
       ipv6: fc0a::ba/64
   ARISTA129T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64617
+      asn: 64600
       peers:
         65100:
           - 10.0.2.128
@@ -557,13 +577,14 @@ configuration:
         ipv4: 10.0.2.129/31
         ipv6: fc00::502/126
     bp_interface:
-      ipv4: 10.10.247.66/24
+      ipv4: 10.10.247.66/22
       ipv6: fc0a::142/64
   ARISTA137T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64618
+      asn: 64600
       peers:
         65100:
           - 10.0.2.144
@@ -576,13 +597,14 @@ configuration:
         ipv4: 10.0.2.145/31
         ipv6: fc00::522/126
     bp_interface:
-      ipv4: 10.10.247.74/24
+      ipv4: 10.10.247.74/22
       ipv6: fc0a::14a/64
   ARISTA145T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64619
+      asn: 64600
       peers:
         65100:
           - 10.0.2.160
@@ -595,13 +617,14 @@ configuration:
         ipv4: 10.0.2.161/31
         ipv6: fc00::542/126
     bp_interface:
-      ipv4: 10.10.247.82/24
+      ipv4: 10.10.247.82/22
       ipv6: fc0a::152/64
   ARISTA153T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64620
+      asn: 64600
       peers:
         65100:
           - 10.0.2.176
@@ -614,13 +637,14 @@ configuration:
         ipv4: 10.0.2.177/31
         ipv6: fc00::562/126
     bp_interface:
-      ipv4: 10.10.247.90/24
+      ipv4: 10.10.247.90/22
       ipv6: fc0a::15a/64
   ARISTA161T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64621
+      asn: 64600
       peers:
         65100:
           - 10.0.2.192
@@ -633,13 +657,14 @@ configuration:
         ipv4: 10.0.2.193/31
         ipv6: fc00::582/126
     bp_interface:
-      ipv4: 10.10.247.98/24
+      ipv4: 10.10.247.98/22
       ipv6: fc0a::162/64
   ARISTA169T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64622
+      asn: 64600
       peers:
         65100:
           - 10.0.2.208
@@ -652,13 +677,14 @@ configuration:
         ipv4: 10.0.2.209/31
         ipv6: fc00::5a2/126
     bp_interface:
-      ipv4: 10.10.247.106/24
+      ipv4: 10.10.247.106/22
       ipv6: fc0a::16a/64
   ARISTA177T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64623
+      asn: 64600
       peers:
         65100:
           - 10.0.2.224
@@ -671,13 +697,14 @@ configuration:
         ipv4: 10.0.2.225/31
         ipv6: fc00::5c2/126
     bp_interface:
-      ipv4: 10.10.247.114/24
+      ipv4: 10.10.247.114/22
       ipv6: fc0a::172/64
   ARISTA185T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64624
+      asn: 64600
       peers:
         65100:
           - 10.0.2.240
@@ -690,13 +717,14 @@ configuration:
         ipv4: 10.0.2.241/31
         ipv6: fc00::5e2/126
     bp_interface:
-      ipv4: 10.10.247.122/24
+      ipv4: 10.10.247.122/22
       ipv6: fc0a::17a/64
   ARISTA193T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64625
+      asn: 64600
       peers:
         65100:
           - 10.0.3.0
@@ -709,13 +737,14 @@ configuration:
         ipv4: 10.0.3.1/31
         ipv6: fc00::602/126
     bp_interface:
-      ipv4: 10.10.247.130/24
+      ipv4: 10.10.247.130/22
       ipv6: fc0a::182/64
   ARISTA201T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64626
+      asn: 64600
       peers:
         65100:
           - 10.0.3.16
@@ -728,13 +757,14 @@ configuration:
         ipv4: 10.0.3.17/31
         ipv6: fc00::622/126
     bp_interface:
-      ipv4: 10.10.247.138/24
+      ipv4: 10.10.247.138/22
       ipv6: fc0a::18a/64
   ARISTA209T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64627
+      asn: 64600
       peers:
         65100:
           - 10.0.3.32
@@ -747,13 +777,14 @@ configuration:
         ipv4: 10.0.3.33/31
         ipv6: fc00::642/126
     bp_interface:
-      ipv4: 10.10.247.146/24
+      ipv4: 10.10.247.146/22
       ipv6: fc0a::192/64
   ARISTA217T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64628
+      asn: 64600
       peers:
         65100:
           - 10.0.3.48
@@ -766,13 +797,14 @@ configuration:
         ipv4: 10.0.3.49/31
         ipv6: fc00::662/126
     bp_interface:
-      ipv4: 10.10.247.154/24
+      ipv4: 10.10.247.154/22
       ipv6: fc0a::19a/64
   ARISTA225T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64629
+      asn: 64600
       peers:
         65100:
           - 10.0.3.64
@@ -785,13 +817,14 @@ configuration:
         ipv4: 10.0.3.65/31
         ipv6: fc00::682/126
     bp_interface:
-      ipv4: 10.10.247.162/24
+      ipv4: 10.10.247.162/22
       ipv6: fc0a::1a2/64
   ARISTA233T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64630
+      asn: 64600
       peers:
         65100:
           - 10.0.3.80
@@ -804,13 +837,14 @@ configuration:
         ipv4: 10.0.3.81/31
         ipv6: fc00::6a2/126
     bp_interface:
-      ipv4: 10.10.247.170/24
+      ipv4: 10.10.247.170/22
       ipv6: fc0a::1aa/64
   ARISTA241T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64631
+      asn: 64600
       peers:
         65100:
           - 10.0.3.96
@@ -823,13 +857,14 @@ configuration:
         ipv4: 10.0.3.97/31
         ipv6: fc00::6c2/126
     bp_interface:
-      ipv4: 10.10.247.178/24
+      ipv4: 10.10.247.178/22
       ipv6: fc0a::1b2/64
   ARISTA249T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64632
+      asn: 64600
       peers:
         65100:
           - 10.0.3.112
@@ -842,11 +877,12 @@ configuration:
         ipv4: 10.0.3.113/31
         ipv6: fc00::6e2/126
     bp_interface:
-      ipv4: 10.10.247.186/24
+      ipv4: 10.10.247.186/22
       ipv6: fc0a::1ba/64
   ARISTA01PT0:
     properties:
     - common
+    - tor
     bgp:
       asn: 65101
       peers:
@@ -861,11 +897,12 @@ configuration:
         ipv4: 10.0.4.1/31
         ipv6: fc00::802/126
     bp_interface:
-      ipv4: 10.10.248.2/24
+      ipv4: 10.10.244.4/22
       ipv6: fc0a::202/64
   ARISTA02PT0:
     properties:
     - common
+    - tor
     bgp:
       asn: 65102
       peers:
@@ -880,5 +917,5 @@ configuration:
         ipv4: 10.0.4.3/31
         ipv6: fc00::806/126
     bp_interface:
-      ipv4: 10.10.248.3/24
+      ipv4: 10.10.244.5/22
       ipv6: fc0a::203/64
