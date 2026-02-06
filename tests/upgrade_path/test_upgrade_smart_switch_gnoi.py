@@ -30,7 +30,7 @@ def _dpu_time_ready(ptf_gnoi, idx: int) -> bool:
         return False
 
 
-@pytest.mark.device_type("vs")  # change/remove if SmartSwitch isn't marked as 'vs' in your lab
+@pytest.mark.device_type("smartswitch")
 def test_smartswitch_single_dpu_same_image_cold_reboot_via_gnoi(
     localhost,
     duthosts,
