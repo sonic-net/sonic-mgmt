@@ -171,6 +171,7 @@ def detect_portchannel_egress_member(duthost, tbinfo, ptf_adapter, portchannel_n
     ptf_adapter.dataplane.flush()
     return None, None
 
+
 @pytest.fixture(scope="module")
 def downstream_links(rand_selected_dut, tbinfo, nbrhosts):
     """
