@@ -58,20 +58,17 @@ def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
     dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
     is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
 
-    # Force IPv6 usage if DUT management is IPv6-only
-    use_ipv6 = ptf_use_ipv6 or is_mgmt_ipv6_only
+    if not ptf_use_ipv6 and is_mgmt_ipv6_only:
+        pytest.skip("No IPv4 mgmt address on mgmt IPv6 only DUT host")
 
-    if is_mgmt_ipv6_only:
-        logger.info("DUT management is IPv6-only, forcing NTP to use PTF IPv6 address")
-
-    if use_ipv6 and not ptfhost.mgmt_ipv6:
+    if ptf_use_ipv6 and not ptfhost.mgmt_ipv6:
         pytest.skip("No IPv6 address on PTF host")
 
     logger.info("Using PTF %s address for NTP sync: %s",
-                "IPv6" if use_ipv6 else "IPv4",
-                ptfhost.mgmt_ipv6 if use_ipv6 else ptfhost.mgmt_ip)
+                "IPv6" if ptf_use_ipv6 else "IPv4",
+                ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip)
 
-    with setup_ntp_context(ptfhost, duthost, use_ipv6) as result:
+    with setup_ntp_context(ptfhost, duthost, ptf_use_ipv6) as result:
         yield result
 
 
