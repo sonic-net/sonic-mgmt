@@ -6,7 +6,7 @@ enabling gNOI/gNMI operations against DUT gRPC services with proper process sepa
 """
 import json
 import logging
-from typing import Dict, List, Union
+from typing import Dict, List, Optional, Union
 from tests.common.grpc_config import grpc_config
 
 logger = logging.getLogger(__name__)
@@ -85,19 +85,23 @@ class PtfGrpc:
         self.headers = {}  # Custom headers
         self.verbose = False  # Enable verbose grpcurl output
 
-    def _build_grpcurl_cmd(self, extra_args=None, service_method=None):
+    def _build_grpcurl_cmd(self, extra_args=None, service_method=None,  metadata: Optional[tuple] = None):
         """
         Build grpcurl command with standard options.
 
         Args:
             extra_args: Additional arguments for grpcurl
             service_method: Service.Method for the call (optional)
+            metadata: Optional gRPC metadata headers
 
         Returns:
             List of command arguments
         """
         cmd = ["grpcurl"]
 
+        if metadata:
+            for k, v in metadata:
+                cmd.extend(["-H", f"{k}: {v}"])
         # Connection options
         if self.plaintext:
             cmd.append("-plaintext")
@@ -361,7 +365,8 @@ class PtfGrpc:
         logger.debug(f"Description for {symbol}: {description}")
         return description
 
-    def call_unary(self, service: str, method: str, request: Union[Dict, str] = None) -> Dict:
+    def call_unary(self, service: str, method: str, request: Union[Dict, str] = None,
+                   metadata: Optional[tuple] = None,) -> Dict:
         """
         Make a unary gRPC call (single request/response).
 
@@ -369,6 +374,7 @@ class PtfGrpc:
             service: Service name (e.g., "gnoi.system.System")
             method: Method name (e.g., "Time")
             request: Request payload as dict or JSON string (optional for empty request)
+            metadata: Optional gRPC metadata headers
 
         Returns:
             Response as dictionary
@@ -379,7 +385,7 @@ class PtfGrpc:
             GrpcTimeoutError: If call times out
         """
         service_method = f"{service}/{method}"
-        cmd = self._build_grpcurl_cmd(service_method=service_method)
+        cmd = self._build_grpcurl_cmd(service_method=service_method, metadata=metadata)
 
         # Prepare request data
         request_data = "{}"  # Default empty JSON

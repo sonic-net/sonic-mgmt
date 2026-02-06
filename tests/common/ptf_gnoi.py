@@ -6,7 +6,7 @@ This module provides a user-friendly wrapper around PtfGrpc for gNOI
 gRPC complexity behind clean, Pythonic method interfaces.
 """
 import logging
-from typing import Dict
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +19,49 @@ class PtfGnoi:
     wrapping the low-level PtfGrpc client and handling gNOI-specific
     data transformations and validations.
     """
+
+    @staticmethod
+    def _ss_dpu_metadata(dpu_index: int):
+        return (
+            ("x-sonic-ss-target-type", "dpu"),
+            ("x-sonic-ss-target-index", str(dpu_index)),
+        )
+
+    def system_cold_reboot(
+        self,
+        method: str = "COLD",
+        delay_ns: int = 0,
+        message: str = "Rebooting DPU for maintenance",
+        force: bool = False,
+        ss_dpu_index: Optional[int] = None,
+    ) -> Dict:
+        """
+        gNOI System.Reboot
+
+        Args:
+            method: RebootMethod enum token string, e.g. "COLD"/"WARM"
+            delay_ns: uint64 nanoseconds
+            message: informational reason
+            force: bool
+            ss_dpu_index: for SmartSwitch, target DPU index via headers
+        """
+        request = {
+            "method": method,
+            "delay": int(delay_ns), 
+            "message": message,
+            "force": bool(force),
+        }
+
+        metadata = None
+        if ss_dpu_index is not None:
+            metadata = self._ss_dpu_metadata(ss_dpu_index)
+
+        return self.grpc_client.call_unary(
+            "gnoi.system.System",
+            "Reboot",
+            request,
+            metadata=metadata,
+        )
 
     def __init__(self, grpc_client):
         """
@@ -44,7 +87,6 @@ class PtfGnoi:
             GrpcTimeoutError: If the call times out
         """
         logger.debug("Getting system time via gNOI System.Time")
-
         # Make the low-level gRPC call
         response = self.grpc_client.call_unary("gnoi.system.System", "Time")
 
