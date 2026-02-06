@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
-from flask import Flask, render_template, request, jsonify, session, redirect, url_for
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_from_directory
 import os
 import pyotp
 import qrcode
 import io
 import base64
 import logging
-from logging.handlers import RotatingFileHandler
 from functools import wraps
 import yaml
 import secrets
@@ -15,6 +14,7 @@ from werkzeug.utils import secure_filename
 from datetime import datetime, timezone
 import zipfile
 import subprocess
+import shutil
 
 app = Flask(__name__, template_folder='templates')
 
@@ -28,6 +28,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
+
 
 def setup_logging():
     """Configure console logging based on FLASK_ENV environment variable."""
@@ -47,6 +48,7 @@ def setup_logging():
 
     app.logger.addHandler(console_handler)
     app.logger.info('SONiC Test Results Uploader startup')
+
 
 # Initialize logging
 setup_logging()
@@ -72,13 +74,16 @@ except Exception as e:
     app.logger.error(f'Failed to get Flask secret key from Key Vault: {e}')
     raise SystemExit(f"Application startup failed: Flask secret key initialization error - {e}")
 
+
 def get_user(username: str):
     """Get user from Azure storage."""
     return user_storage.get_user(username)
 
+
 def update_user(username: str, **kwargs):
     """Update user in Azure storage."""
     return user_storage.update_user(username, **kwargs)
+
 
 def is_administrator(username: str) -> bool:
     """Check if username is in administrators.yml."""
@@ -90,6 +95,7 @@ def is_administrator(username: str) -> bool:
     except Exception as e:
         app.logger.error(f'Failed to load administrators.yml: {e}')
         return False
+
 
 def is_password_strong(password: str) -> tuple[bool, str]:
     """Check if password meets strength requirements."""
@@ -109,34 +115,43 @@ def is_password_strong(password: str) -> tuple[bool, str]:
 
     return True, "Password is strong"
 
+
 def create_user(username: str, initial_password: str) -> bool:
     """Create a new user in Azure storage."""
     return user_storage.create_user(username, initial_password, totp_enabled=False)
+
 
 def delete_user(username: str) -> bool:
     """Delete a user from Azure storage."""
     return user_storage.delete_user(username) if hasattr(user_storage, 'delete_user') else False
 
+
 def reset_user(username: str, new_password: str) -> bool:
     """Reset a user's TOTP settings and password."""
-    return user_storage.update_user(username,
-                                   totp_enabled=False,
-                                   totp_secret=None,
-                                   initial_password=new_password)
+    return user_storage.update_user(
+        username,
+        totp_enabled=False,
+        totp_secret=None,
+        initial_password=new_password
+    )
+
 
 def get_all_users() -> list:
     """Get all users from Azure storage."""
     return user_storage.get_all_users() if hasattr(user_storage, 'get_all_users') else []
+
 
 def generate_random_password() -> str:
     """Generate a secure random password."""
     # Generate a secure random password using secrets module
     return secrets.token_urlsafe()
 
+
 def allowed_file(filename):
     """Check if the uploaded file has an allowed extension."""
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
 
 def get_user_cluster_config(username: str, database_override: str = None) -> tuple[str, str]:
     """Map username to cluster URL and database name based on email domain.
@@ -195,6 +210,7 @@ def get_user_cluster_config(username: str, database_override: str = None) -> tup
     # Return default if domain not found or YAML loading failed
     return default_cluster, default_database
 
+
 def extract_zip_files(upload_folder: str, uploaded_files: list) -> list:
     """Extract all ZIP files in the uploaded files list.
 
@@ -248,6 +264,144 @@ def extract_zip_files(upload_folder: str, uploaded_files: list) -> list:
             app.logger.error(f'Failed to extract {filename}: {str(e)}')
 
     return extraction_results
+
+
+def cleanup_extracted_files(extraction_results: list) -> dict:
+    """Delete extracted directories after processing is complete.
+
+    Args:
+        extraction_results: List of extraction results from extract_zip_files
+
+    Returns:
+        dict: Cleanup results with deleted directories and any errors
+    """
+    cleanup_results = {
+        'deleted_directories': [],
+        'errors': []
+    }
+
+    for result in extraction_results:
+        if not result.get('success', False):
+            continue
+
+        extract_dir = result.get('extract_dir')
+        if not extract_dir:
+            continue
+
+        try:
+            if os.path.exists(extract_dir):
+                shutil.rmtree(extract_dir)
+                cleanup_results['deleted_directories'].append(extract_dir)
+                app.logger.info(f'Deleted extracted directory: {extract_dir}')
+            else:
+                app.logger.warning(f'Extracted directory not found for cleanup: {extract_dir}')
+        except Exception as e:
+            error_msg = f'Failed to delete {extract_dir}: {str(e)}'
+            app.logger.error(error_msg)
+            cleanup_results['errors'].append(error_msg)
+
+    return cleanup_results
+
+
+def cleanup_old_files(upload_folder: str, max_size_gb: float = 5.0) -> dict:
+    """Delete oldest uploaded files (.xml and .zip) if upload folder exceeds size limit.
+
+    Only processes files directly in upload_folder, not in subdirectories.
+    Extracted directories are handled separately by cleanup_extracted_files().
+
+    Args:
+        upload_folder: Directory containing uploaded files
+        max_size_gb: Maximum size in GB before cleanup (default: 5.0)
+
+    Returns:
+        dict: Cleanup results with total size, deleted files, and space freed
+    """
+    cleanup_results = {
+        'total_size_gb': 0.0,
+        'deleted_files': [],
+        'space_freed_gb': 0.0,
+        'cleanup_triggered': False
+    }
+
+    try:
+        # Calculate total size of upload folder (including subdirectories for size calculation)
+        total_size = 0
+        for root, dirs, files in os.walk(upload_folder):
+            for file in files:
+                file_path = os.path.join(root, file)
+                if os.path.exists(file_path):
+                    total_size += os.path.getsize(file_path)
+
+        # Track only files directly in upload_folder for potential deletion
+        # (not in subdirectories like extracted directories)
+        file_list = []
+        for file in os.listdir(upload_folder):
+            file_path = os.path.join(upload_folder, file)
+            # Only process regular files (not directories)
+            if os.path.isfile(file_path):
+                # Track .xml and .zip files for potential deletion
+                if file.lower().endswith(('.xml', '.zip')):
+                    file_size = os.path.getsize(file_path)
+                    file_mtime = os.path.getmtime(file_path)
+                    file_list.append({
+                        'path': file_path,
+                        'size': file_size,
+                        'mtime': file_mtime
+                    })
+
+        total_size_gb = total_size / (1024 ** 3)  # Convert to GB
+        cleanup_results['total_size_gb'] = round(total_size_gb, 2)
+
+        app.logger.info(f'Upload folder total size: {cleanup_results["total_size_gb"]} GB')
+
+        # Check if cleanup is needed
+        if total_size_gb > max_size_gb:
+            cleanup_results['cleanup_triggered'] = True
+            app.logger.warning(
+                f'Upload folder size ({cleanup_results["total_size_gb"]} GB) exceeds limit '
+                f'({max_size_gb} GB). Starting cleanup...'
+            )
+
+            # Sort files by modification time (oldest first)
+            file_list.sort(key=lambda x: x['mtime'])
+
+            space_freed = 0
+            current_size = total_size
+
+            # Delete oldest files until we're back under the limit
+            for file_info in file_list:
+                if current_size / (1024 ** 3) <= max_size_gb:
+                    break
+
+                try:
+                    os.remove(file_info['path'])
+                    space_freed += file_info['size']
+                    current_size -= file_info['size']
+                    cleanup_results['deleted_files'].append(os.path.basename(file_info['path']))
+                    app.logger.info(
+                        f'Deleted old file: {os.path.basename(file_info["path"])} '
+                        f'({file_info["size"] / (1024 ** 2):.2f} MB)'
+                    )
+                except Exception as e:
+                    app.logger.error(f'Failed to delete {file_info["path"]}: {str(e)}')
+
+            cleanup_results['space_freed_gb'] = round(space_freed / (1024 ** 3), 2)
+            app.logger.info(
+                f'Cleanup completed: {len(cleanup_results["deleted_files"])} files deleted, '
+                f'{cleanup_results["space_freed_gb"]} GB freed'
+            )
+        else:
+            app.logger.info(
+                f'No cleanup needed. Current size ({cleanup_results["total_size_gb"]} GB) '
+                f'is below limit ({max_size_gb} GB)'
+            )
+
+    except Exception as e:
+        app.logger.error(f'Error during disk cleanup: {str(e)}')
+        cleanup_results['error'] = str(e)
+
+    return cleanup_results
+
 
 def run_report_uploader(upload_folder: str, database_name: str, cluster_url: str) -> dict:
     """Run the report_uploader.py script to upload test results to Kusto.
@@ -336,6 +490,7 @@ def run_report_uploader(upload_folder: str, database_name: str, cluster_url: str
             'stderr': str(e)
         }
 
+
 def require_admin(f):
     """Decorator to require admin authentication for protected endpoints."""
     @wraps(f)
@@ -358,6 +513,7 @@ def require_admin(f):
         return f(*args, **kwargs)
     return decorated_function
 
+
 def require_auth(f):
     """Decorator to require authentication for protected endpoints."""
     @wraps(f)
@@ -374,6 +530,7 @@ def require_auth(f):
 
         return f(*args, **kwargs)
     return decorated_function
+
 
 def generate_qr_code_data_url(secret, username):
     """Generate QR code data URL for TOTP setup."""
@@ -395,6 +552,7 @@ def generate_qr_code_data_url(secret, username):
 
     img_data = base64.b64encode(img_buffer.getvalue()).decode()
     return f"data:image/png;base64,{img_data}"
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -463,6 +621,7 @@ def login():
             return jsonify({'error': error_msg}), 500
         else:
             return render_template('login.html', error=error_msg)
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
@@ -553,6 +712,7 @@ def register():
         else:
             return render_template('register.html', username=username, error=error_msg)
 
+
 @app.route('/admin', methods=['GET', 'POST'])
 @require_admin
 def admin():
@@ -640,6 +800,161 @@ def admin():
         app.logger.error(f'Admin operation error: {str(e)}')
         return jsonify({'error': 'Operation failed due to system error'}), 500
 
+
+@app.route('/files', methods=['GET'])
+@require_admin
+def files_page():
+    """Admin page to view and download uploaded files."""
+    username = session.get('username')
+    app.logger.info(f'Files page accessed by admin: {username}')
+    return render_template('files.html', username=username, app_name=APP_NAME)
+
+
+def validate_file_path(filename: str, upload_folder: str, admin_user: str) -> tuple:
+    """Validate filename and return file path, or error response.
+
+    Args:
+        filename: The filename to validate
+        upload_folder: The upload folder path
+        admin_user: The admin username for logging
+
+    Returns:
+        tuple: (file_path, error_response) - file_path is None if validation fails
+    """
+    if not filename:
+        app.logger.warning(f'File operation without filename by admin: {admin_user}')
+        return None, (jsonify({'error': 'Filename parameter is required'}), 400)
+
+    # Security: Check for path traversal patterns
+    # Check for directory traversal sequences like '../', '..\\', or path separators
+    if '../' in filename or '..\\' in filename or filename.startswith(('/', '\\')) or os.sep in filename:
+        app.logger.warning(f'Potential path traversal attempt by admin {admin_user}: {filename}')
+        return None, (jsonify({'error': 'Invalid filename'}), 400)
+
+    # Check if file exists
+    file_path = os.path.join(upload_folder, filename)
+    if not os.path.exists(file_path):
+        app.logger.warning(f'File not found: {filename}')
+        return None, (jsonify({'error': 'File not found'}), 404)
+
+    # Ensure the resolved path is still within upload folder (prevent path traversal)
+    if not os.path.abspath(file_path).startswith(os.path.abspath(upload_folder)):
+        app.logger.warning(f'Path traversal attempt detected by admin {admin_user}: {filename}')
+        return None, (jsonify({'error': 'Invalid file path'}), 400)
+
+    return file_path, None
+
+
+@app.route('/uploaded_files', methods=['GET', 'DELETE'])
+@require_admin
+def uploaded_files():
+    """Admin endpoint to list all uploaded files, download a specific file, or delete a specific file.
+
+    - GET /uploaded_files -> Returns JSON list of all files
+    - GET /uploaded_files?filename=xyz.xml -> Downloads the specified file
+    - DELETE /uploaded_files?filename=xyz.xml -> Deletes the specified file
+    """
+    try:
+        admin_user = session.get('username')
+        filename = request.args.get('filename')
+        upload_folder = app.config['UPLOAD_FOLDER']
+
+        # Handle DELETE request
+        if request.method == 'DELETE':
+            app.logger.info(f'File deletion requested by admin {admin_user}: {filename}')
+
+            file_path, error_response = validate_file_path(filename, upload_folder, admin_user)
+            if error_response:
+                return error_response
+
+            # Delete the file
+            try:
+                file_size = os.path.getsize(file_path)
+                os.remove(file_path)
+                app.logger.info(
+                    f'File deleted successfully by admin {admin_user}: {filename} '
+                    f'({file_size / (1024 ** 2):.2f} MB)'
+                )
+                return jsonify({
+                    'success': True,
+                    'message': f'File {filename} deleted successfully',
+                    'deleted_file': filename,
+                    'size_freed_mb': round(file_size / (1024 ** 2), 2)
+                }), 200
+            except Exception as e:
+                app.logger.error(f'Failed to delete file {filename} by admin {admin_user}: {str(e)}')
+                return jsonify({'error': f'Failed to delete file: {str(e)}'}), 500
+
+        # Handle GET request with filename - download the file
+        if filename:
+            app.logger.info(f'File download requested by admin {admin_user}: {filename}')
+
+            file_path, error_response = validate_file_path(filename, upload_folder, admin_user)
+            if error_response:
+                return error_response
+
+            app.logger.info(f'File download started by admin {admin_user}: {filename}')
+            return send_from_directory(upload_folder, os.path.basename(file_path), as_attachment=True)
+
+        # Handle GET request without filename - list all files
+        app.logger.info(f'Uploaded files list requested by admin: {admin_user}')
+
+        files_info = []
+
+        # Walk through the upload folder and collect file information
+        for root, dirs, files in os.walk(upload_folder):
+            for file in files:
+                file_path = os.path.join(root, file)
+                try:
+                    if os.path.exists(file_path):
+                        file_size = os.path.getsize(file_path)
+                        file_mtime = os.path.getmtime(file_path)
+                        file_ctime = os.path.getctime(file_path)
+
+                        # Convert timestamps to ISO format
+                        modified_time = datetime.fromtimestamp(file_mtime, timezone.utc).isoformat()
+                        created_time = datetime.fromtimestamp(file_ctime, timezone.utc).isoformat()
+
+                        # Get relative path from upload folder
+                        relative_path = os.path.relpath(file_path, upload_folder)
+
+                        files_info.append({
+                            'filename': file,
+                            'relative_path': relative_path,
+                            'size_bytes': file_size,
+                            'size_mb': round(file_size / (1024 ** 2), 2),
+                            'modified_time': modified_time,
+                            'created_time': created_time,
+                            'file_type': os.path.splitext(file)[1].lower()
+                        })
+                except Exception as e:
+                    app.logger.error(f'Error reading file info for {file_path}: {str(e)}')
+
+        # Sort by modified time (newest first)
+        files_info.sort(key=lambda x: x['modified_time'], reverse=True)
+
+        # Calculate total size
+        total_size_bytes = sum(f['size_bytes'] for f in files_info)
+        total_size_gb = round(total_size_bytes / (1024 ** 3), 2)
+
+        app.logger.info(f'Uploaded files list: {len(files_info)} files, {total_size_gb} GB total')
+
+        return jsonify({
+            'success': True,
+            'total_files': len(files_info),
+            'total_size_bytes': total_size_bytes,
+            'total_size_gb': total_size_gb,
+            'files': files_info
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f'Error in uploaded_files endpoint: {str(e)}')
+        return jsonify({
+            'success': False,
+            'error': f'Operation failed: {str(e)}'
+        }), 500
+
+
 @app.route('/login-setup', methods=['GET', 'POST'])
 def login_setup():
     """Login with initial password."""
@@ -704,6 +1019,7 @@ def login_setup():
             return jsonify({'error': error_msg}), 500
         else:
             return render_template('login-setup.html', username=url_username, error=error_msg)
+
 
 @app.route('/login-code', methods=['GET', 'POST'])
 def login_code():
@@ -775,6 +1091,7 @@ def login_code():
         else:
             return render_template('login-code.html', username=username, error=error_msg)
 
+
 @app.route('/setup', methods=['GET'])
 def setup():
     """TOTP setup page."""
@@ -809,12 +1126,15 @@ def setup():
     qr_code_url = generate_qr_code_data_url(user['totp_secret'], username)
     app.logger.info(f'QR code generated for user: {username}')
 
-    return render_template('setup.html',
-                         qr_code_url=qr_code_url,
-                         secret=user['totp_secret'],
-                         username=username,
-                         app_name=APP_NAME,
-                         issuer=ISSUER_NAME)
+    return render_template(
+        'setup.html',
+        qr_code_url=qr_code_url,
+        secret=user['totp_secret'],
+        username=username,
+        app_name=APP_NAME,
+        issuer=ISSUER_NAME
+    )
+
 
 @app.route('/complete-setup', methods=['POST'])
 def complete_setup():
@@ -862,7 +1182,10 @@ def complete_setup():
         # 1. Set TOTP enabled to true and delete initial password for the user
         last_login_time = datetime.now(timezone.utc).isoformat()
         update_user(username, totp_enabled=True, initial_password=None, last_login=last_login_time)
-        app.logger.info(f'TOTP enabled successfully, initial password deleted, and last login updated for user: {username}')
+        app.logger.info(
+            f'TOTP enabled successfully, initial password deleted, '
+            f'and last login updated for user: {username}'
+        )
 
         # 2. Store username in session to indicate authentication passed
         session['username'] = username
@@ -875,6 +1198,7 @@ def complete_setup():
         app.logger.debug(f'TOTP setup completion traceback for user {username}:', exc_info=True)
         return jsonify({'error': f'Setup failed: {str(e)}'}), 500
 
+
 @app.route('/logout')
 def logout():
     """Logout endpoint."""
@@ -882,6 +1206,7 @@ def logout():
     session.clear()
     app.logger.info(f'User logged out: {username}')
     return redirect(url_for('login'))
+
 
 @app.route('/')
 @require_auth
@@ -914,6 +1239,7 @@ def index():
 
     app.logger.info(f'Main page accessed by user: {username} (admin: {is_admin})')
     return render_template('index.html', username=username, is_admin=is_admin, database_options=database_options)
+
 
 @app.route('/upload', methods=['POST'])
 @require_auth
@@ -951,7 +1277,10 @@ def upload_file():
             try:
                 # Check if file type is allowed
                 if not allowed_file(uploaded_file.filename):
-                    app.logger.warning(f'Upload attempt with invalid file type {uploaded_file.filename} by user: {username}')
+                    app.logger.warning(
+                        f'Upload attempt with invalid file type {uploaded_file.filename} '
+                        f'by user: {username}'
+                    )
                     failed_uploads.append({
                         'original_filename': uploaded_file.filename,
                         'error': 'File type not allowed. Only .xml and .zip files are supported'
@@ -980,7 +1309,10 @@ def upload_file():
                 })
 
             except Exception as file_error:
-                app.logger.error(f'Error uploading file {uploaded_file.filename} for user {username}: {str(file_error)}')
+                app.logger.error(
+                    f'Error uploading file {uploaded_file.filename} for user {username}: '
+                    f'{str(file_error)}'
+                )
                 failed_uploads.append({
                     'original_filename': uploaded_file.filename,
                     'error': f'Upload failed: {str(file_error)}'
@@ -1015,6 +1347,25 @@ def upload_file():
             )
             processing_results['report_upload'] = upload_result
             app.logger.info(f'Report upload completed with status: {upload_result.get("success", False)}')
+
+            # Step 3: Cleanup extracted files after upload completes
+            app.logger.info('Starting cleanup of extracted files...')
+            cleanup_result = cleanup_extracted_files(extraction_results)
+            processing_results['cleanup'] = cleanup_result
+            app.logger.info(
+                f'Cleanup completed: {len(cleanup_result["deleted_directories"])} directories deleted, '
+                f'{len(cleanup_result["errors"])} errors'
+            )
+
+            # Step 4: Cleanup old files (.xml and .zip) if disk usage exceeds 5GB
+            app.logger.info('Checking disk usage and cleaning up old files if needed...')
+            disk_cleanup_result = cleanup_old_files(app.config['UPLOAD_FOLDER'], max_size_gb=5.0)
+            processing_results['disk_cleanup'] = disk_cleanup_result
+            if disk_cleanup_result['cleanup_triggered']:
+                app.logger.info(
+                    f'Disk cleanup completed: {len(disk_cleanup_result["deleted_files"])} files deleted, '
+                    f'{disk_cleanup_result["space_freed_gb"]} GB freed'
+                )
 
         if successful_uploads and not failed_uploads:
             # All files uploaded successfully
@@ -1061,10 +1412,12 @@ def upload_file():
         app.logger.error(f'Upload error for user {username}: {str(e)}')
         return jsonify({'error': f'Upload failed: {str(e)}'}), 500
 
+
 @app.route('/health')
 def health():
     """Health check endpoint."""
     return {'status': 'healthy', 'app': 'sonic-test-uploader'}
+
 
 @app.route('/reset')
 def reset():
@@ -1097,7 +1450,7 @@ def reset():
             }, 500
 
         if key != stored_reset_key:
-            app.logger.warning(f"RESET ENDPOINT ACCESS DENIED - Invalid key provided")
+            app.logger.warning("RESET ENDPOINT ACCESS DENIED - Invalid key provided")
             return {
                 'status': 'error',
                 'message': 'Access denied'
@@ -1130,6 +1483,7 @@ def reset():
             'message': 'Reset operation failed',
             'error': str(e)
         }, 500
+
 
 @app.route('/reset-key', methods=['POST'])
 @require_admin
@@ -1166,6 +1520,7 @@ def reset_key():
             'message': 'Reset key operation failed',
             'error': str(e)
         }, 500
+
 
 if __name__ == '__main__':
     # Get port from environment variable or default to 8000
