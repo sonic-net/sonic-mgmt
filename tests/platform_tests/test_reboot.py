@@ -22,8 +22,8 @@ from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import check_container_state
-from tests.common.helpers.gnmi_utils import create_gnmi_certs, delete_gnmi_certs
-from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config
+from tests.common.helpers.gnmi_utils import (create_gnmi_certs, delete_gnmi_certs, gnmi_container,
+                                             apply_cert_config, recover_cert_config)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
