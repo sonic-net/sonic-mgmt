@@ -1042,8 +1042,8 @@ def telnet_run_sonic_pre_post_commands(args, index, pre_sonic=True):
             onie_install(args, index)
         
         elif i == 9:
-            time.sleep(1) 
-            child.sendline("")
+            time.sleep(1)
+            p.sendline("")
             if retry_count == 3: # retry 3 times
                 logging.error("Login not successful into DUT")
                 p.close()
