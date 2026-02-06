@@ -6,7 +6,7 @@ This module provides a user-friendly wrapper around PtfGrpc for gNOI
 gRPC complexity behind clean, Pythonic method interfaces.
 """
 import logging
-from typing import Dict
+from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -109,3 +109,59 @@ class PtfGnoi:
 
     def __repr__(self):
         return self.__str__()
+
+    def system_reboot(
+        self,
+        method: str,
+        delay: Optional[int] = None,
+        message: Optional[str] = None,
+        force: bool = False,
+    ) -> Dict:
+        """
+        Reboot the DUT using gNOI System.Reboot.
+
+        Note:
+            Blocking behavior is server/implementation dependent and is NOT
+            controlled by this client wrapper.
+            In most SONiC/embedded implementations, System.Reboot behaves like a
+            "trigger" RPC:
+            - The server may start rebooting immediately after receiving the request.
+            - The gRPC/TLS channel can be torn down mid-RPC as the control plane goes down.
+            - As a result, the client may observe UNAVAILABLE/EOF/connection reset even
+                if the reboot was successfully initiated.
+
+            Even when the RPC returns successfully, it typically only confirms the reboot
+            request was accepted, not that the device has completed reboot and is ready.
+
+        Args:
+            method: RebootMethod enum name (e.g., "WARM", "COLD")
+            delay: Optional delay (seconds) before reboot, if supported by server
+            message: Optional reboot message/reason string
+            force: Optional force flag (if supported by server)
+
+        Returns:
+            Dictionary response from gNOI server.
+
+        Raises:
+            GrpcConnectionError / GrpcCallError / GrpcTimeoutError:
+                As raised by underlying grpc_client.call_unary.
+            ValueError: If inputs are invalid.
+        """
+        if not method:
+            raise ValueError("method must be provided")
+
+        request: Dict = {"method": method}
+
+        # Only include optional fields if specified
+        if delay is not None:
+            request["delay"] = delay
+        if message:
+            request["message"] = message
+        if force:
+            request["force"] = True
+
+        logger.debug("Reboot via gNOI System.Reboot: %s", request)
+
+        response = self.grpc_client.call_unary("gnoi.system.System", "Reboot", request)
+        logger.info("Reboot request sent: method=%s delay=%s force=%s", method, delay, force)
+        return response
