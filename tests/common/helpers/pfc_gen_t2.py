@@ -145,6 +145,7 @@ def main():
 
     # Configure logging
     handler = logging.handlers.SysLogHandler(address=(options.rsyslog_server, 514))
+    handler.ident = 'pfc_gen: '
     my_logger.addHandler(handler)
 
     for s, interface in zip(sockets, interfaces):
