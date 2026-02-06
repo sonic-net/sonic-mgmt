@@ -78,6 +78,11 @@ def check_image_version(duthosts, selected_rand_one_per_hwsku_hostname):
                        "Test was not supported for 201911 and older image version!")
 
 
+def check_monit_running(duthost):
+    monit_services_status = duthost.get_monit_services_status()
+    return monit_services_status
+
+
 @pytest.fixture(autouse=True, scope="module")
 def update_monit_service(duthosts, selected_rand_one_per_hwsku_hostname):
     """Update Monit configuration and restart it.
@@ -99,14 +104,20 @@ def update_monit_service(duthosts, selected_rand_one_per_hwsku_hostname):
         duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
         duthost.shell("sudo cp -f /etc/monit/conf.d/sonic-host /tmp/")
 
-        temp_config_line = "    if status != 0 for 1 times within 1 cycles then alert repeat every 1 cycles"
+        cmd_reduce_container_checker_alert_cycle = (
+            "sudo sed -i '/check program container_checker/, /^[ \t]*if status != 0/ { "
+            "/^[ \t]*if status != 0/ { s/^/#/; a\\    if status != 0 "
+            "for 1 times within 1 cycles then alert repeat every 1 cycles\n } } ' "
+            "/etc/monit/conf.d/sonic-host"
+        )
         logger.info("Reduce the monitoring interval of container_checker.")
-        duthost.shell("sudo sed -i '$s/^./#/' /etc/monit/conf.d/sonic-host")
-        duthost.shell("echo '{}' | sudo tee -a /etc/monit/conf.d/sonic-host".format(temp_config_line))
+        duthost.shell(cmd_reduce_container_checker_alert_cycle)
         duthost.shell("sudo sed -i 's/with start delay 300/with start delay 10/' /etc/monit/monitrc")
         duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
         logger.info("Restart the Monit service without delaying to monitor.")
         duthost.shell("sudo systemctl restart monit")
+        is_monit_running = wait_until(320, 5, 5, check_monit_running, duthost)
+        pytest_assert(is_monit_running, "Monit is not running after restart!")
 
     yield
 

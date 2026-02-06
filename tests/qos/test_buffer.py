@@ -922,6 +922,9 @@ def port_to_test(request, duthost):
         PORT_TO_TEST = None
     if not PORT_TO_TEST:
         # The NVIDIA SPC1 platform requires a 4 lanes port for testing to avoid exceeding the maximum available headroom
+        exclude_ports_with_autogeg_enable(duthost, testPort)
+        if not testPort:
+            pytest.skip("No available port to test")
         if duthost.facts['asic_type'].lower() == 'mellanox' and 'sn2' in duthost.facts['hwsku'].lower():
             for port in list(testPort):
                 if duthost.count_portlanes(port) >= 4:
@@ -954,7 +957,8 @@ def pg_to_test(request):
 
 def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts,  # noqa: F811
                             port_to_test, speed_to_test, mtu_to_test, cable_len_to_test,
-                            skip_traditional_model, skip_lossy_buffer_only):
+                            skip_traditional_model, skip_lossy_buffer_only,
+                            update_cable_len_for_all_ports):  # noqa: F811
     """The testcase for changing the speed and cable length of a port
 
     Change the variables of the port, including speed, mtu and cable length,
@@ -1661,8 +1665,8 @@ def test_shared_headroom_pool_configure(duthosts,
                          shp_size_before_shp, None)
 
 
-def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, pg_to_test,   # noqa: F811
-                     skip_traditional_model, skip_lossy_buffer_only):
+def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, pg_to_test,      # noqa: F811
+                     skip_traditional_model, skip_lossy_buffer_only, update_cable_len_for_all_ports):  # noqa: F811
     """Test case for non default dynamic th
 
     Test case to verify the static profile with non default dynamic th
@@ -2661,6 +2665,30 @@ def _recovery_to_dynamic_buffer_model(duthost):
     config_reload(duthost, config_source='config_db')
 
 
+def _is_pfc_enabled_on_port(config_facts, intf):
+    """
+    Checks if Priority Flow Control (PFC) is enabled on a specific interface.
+    Args:
+        config_facts (dict): Configuration facts of the DUT.
+        intf (str): Interface name.
+    Returns:
+        bool: True if PFC is enabled on the specified interface, False otherwise.
+    """
+    if "PORT_QOS_MAP" not in list(config_facts.keys()):
+        return False
+
+    port_qos_map = config_facts["PORT_QOS_MAP"]
+    if len(list(port_qos_map.keys())) == 0:
+        return False
+    if intf not in port_qos_map:
+        return False
+    pfc_enable = port_qos_map[intf].get('pfc_enable')
+    if pfc_enable:
+        return True
+
+    return False
+
+
 def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts, skip_traditional_model):  # noqa: F811
     """Verify whether the buffer model is expected after configuration operations:
     The following items are verified
@@ -2860,6 +2888,10 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         'redis-cli -n 2 hgetall COUNTERS_QUEUE_NAME_MAP')['stdout'].split())
     cable_length_map = _compose_dict_from_cli(duthost.shell(
         'redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"')['stdout'].split())
+
+    if not pg_name_map or not queue_name_map or not cable_length_map:
+        raise Exception("COUNTERS_PG_NAME_MAP, COUNTERS_QUEUE_NAME_MAP or CABLE_LENGTH|AZURE not found in the database")
+
     buffer_table_up = {
         KEY_2_LOSSLESS_QUEUE: [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_profile]'),
                                ('BUFFER_QUEUE_TABLE', '0-2',
@@ -2961,11 +2993,25 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
     profiles_checked = {}
     lossless_pool_oid = None
     admin_up_ports = set()
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0, source="running")['ansible_facts']
     for port in configdb_ports:
         logging.info("Checking port buffer information: {}".format(port))
         port_config = dut_db_info.get_port_info_from_config_db(port)
         cable_length = cable_length_map[port]
         speed = port_config['speed']
+        port_autoneg = port_config.get('autoneg', "N/A")
+        if port_autoneg == "on":
+            # when autoneg is on, if adv_speeds is configured, use the max adv_speeds to create the profile
+            # otherwise if supported_speeds is configured, use the max supported speeds to create the profile
+            # otherwise use the configured speed
+            port_state = dut_db_info.get_port_info_from_state_db(port)
+            supported_speeds = port_state.get('supported_speeds', None)
+            adv_speeds = port_config.get('adv_speeds', None)
+            if adv_speeds:
+                speed = get_max_speed_from_list(adv_speeds)
+            elif supported_speeds:
+                speed = get_max_speed_from_list(supported_speeds)
+        logging.info(f"speed is {speed}")
         expected_profile = make_expected_profile_name(
             speed, cable_length, number_of_lanes=len(port_config['lanes'].split(',')))
 
@@ -2973,6 +3019,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
             key_name = KEY_4_LOSSLESS_QUEUE
         else:
             key_name = KEY_2_LOSSLESS_QUEUE
+
         # The last item in the check list various according to port's admin state.
         # We need to append it according to the port each time. Pop the last item first
         if port_config.get('admin_status') == 'up':
@@ -2983,8 +3030,11 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                     [('BUFFER_PG_TABLE', '2-4', profile_wrapper.format(expected_profile)),
                      ('BUFFER_PG_TABLE', '6', profile_wrapper.format(expected_profile))])
             else:
-                buffer_items_to_check.append(
-                    ('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile)))
+                if _is_pfc_enabled_on_port(config_facts, port):
+                    buffer_items_to_check.append(
+                        ('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile)))
+                else:
+                    logging.info(f"Lossless config does not apply on port {port}")
         else:
             if is_mellanox_device(duthost):
                 buffer_items_to_check = buffer_items_to_check_dict["down"][key_name]
@@ -3000,6 +3050,9 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
 
             buffer_profile_oid, _ = _check_port_buffer_info_and_get_profile_oid(
                 dut_db_info, table, ids, port, expected_profile)
+
+            if not buffer_profile_oid:
+                raise Exception(f"Buffer profile {expected_profile} not found in ASIC_DB")
 
             if is_qos_db_reference_with_table:
                 expected_profile_key = expected_profile[1:-1]
@@ -3027,31 +3080,30 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                                 "Buffer profile {} {} doesn't match default {}"
                                 .format(expected_profile, profile_info, std_profile))
 
-                if buffer_profile_oid:
-                    # Further check the buffer profile in ASIC_DB
-                    logging.info("Checking profile {} oid {}".format(
-                        expected_profile, buffer_profile_oid))
-                    buffer_profile_key = dut_db_info.get_buffer_profile_key_from_asic_db(
-                        buffer_profile_oid)
-                    buffer_profile_asic_info = dut_db_info.get_buffer_profile_info_from_asic_db(
-                        buffer_profile_key)
-                    pytest_assert(
-                        buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XON_TH') ==
-                        profile_info.get('xon') and
-                        buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XOFF_TH') ==
-                        profile_info.get('xoff') and
-                        buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_RESERVED_BUFFER_SIZE'] ==
-                        profile_info['size'] and
-                        (buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] ==
-                         'SAI_BUFFER_PROFILE_THRESHOLD_MODE_DYNAMIC' and
-                         buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH'] ==
-                         profile_info['dynamic_th'] or
-                         buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] ==
-                         'SAI_BUFFER_PROFILE_THRESHOLD_MODE_STATIC' and
-                         buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_STATIC_TH'] ==
-                         profile_info['static_th']),
-                        "Buffer profile {} {} doesn't align with ASIC_TABLE {}"
-                        .format(expected_profile, profile_info, buffer_profile_asic_info))
+                # Further check the buffer profile in ASIC_DB
+                logging.info("Checking profile {} oid {}".format(
+                    expected_profile, buffer_profile_oid))
+                buffer_profile_key = dut_db_info.get_buffer_profile_key_from_asic_db(
+                    buffer_profile_oid)
+                buffer_profile_asic_info = dut_db_info.get_buffer_profile_info_from_asic_db(
+                    buffer_profile_key)
+                pytest_assert(
+                    buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XON_TH') ==
+                    profile_info.get('xon') and
+                    buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XOFF_TH') ==
+                    profile_info.get('xoff') and
+                    buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_RESERVED_BUFFER_SIZE'] ==
+                    profile_info['size'] and
+                    (buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] ==
+                        'SAI_BUFFER_PROFILE_THRESHOLD_MODE_DYNAMIC' and
+                        buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH'] ==
+                        profile_info['dynamic_th'] or
+                        buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] ==
+                        'SAI_BUFFER_PROFILE_THRESHOLD_MODE_STATIC' and
+                        buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_STATIC_TH'] ==
+                        profile_info['static_th']),
+                    "Buffer profile {} {} doesn't align with ASIC_TABLE {}"
+                    .format(expected_profile, profile_info, buffer_profile_asic_info))
 
                 profiles_checked[expected_profile] = buffer_profile_oid
                 if is_ingress_lossless:
@@ -3323,3 +3375,22 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     head_room_data['xon'] = int(xon_value)
     head_room_data['xoff'] = int(xoff_value)
     return True, head_room_data
+
+
+def exclude_ports_with_autogeg_enable(duthost, test_ports):
+    """
+    This function is used to exclude the port with auto-negotiation enabled
+    """
+    logging.info(f"Test ports with auto-negotiation enabled: {test_ports}")
+
+    autoneg_status_list = duthost.show_and_parse("show int autoneg status")
+    for autoneg_status in autoneg_status_list:
+        if autoneg_status.get('auto-neg mode') == 'enabled' and autoneg_status.get('interface') in test_ports:
+            test_ports.remove(autoneg_status.get('interface'))
+
+    logging.info(f"Test ports without auto-negotiation enabled: {test_ports}")
+
+
+def get_max_speed_from_list(speed_list_str):
+    speed_list = natsorted(speed_list_str.split(','))
+    return speed_list[-1]

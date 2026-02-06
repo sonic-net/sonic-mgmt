@@ -1,0 +1,80 @@
+[
+  {
+    "data": 95.0,
+    "labels": {
+      "device.id": "spine-01",
+      "device.sensor.id": "CPU"
+    },
+    "metric": {
+      "description": "Critical high temperature threshold (C)",
+      "metric_type": "gauge",
+      "name": "temperature.crit_high_th",
+      "unit": "celsius"
+    }
+  },
+  {
+    "data": -10.0,
+    "labels": {
+      "device.id": "spine-01",
+      "device.sensor.id": "CPU"
+    },
+    "metric": {
+      "description": "Critical low temperature threshold (C)",
+      "metric_type": "gauge",
+      "name": "temperature.crit_low_th",
+      "unit": "celsius"
+    }
+  },
+  {
+    "data": 85.0,
+    "labels": {
+      "device.id": "spine-01",
+      "device.sensor.id": "CPU"
+    },
+    "metric": {
+      "description": "High temperature threshold (C)",
+      "metric_type": "gauge",
+      "name": "temperature.high_th",
+      "unit": "celsius"
+    }
+  },
+  {
+    "data": 0.0,
+    "labels": {
+      "device.id": "spine-01",
+      "device.sensor.id": "CPU"
+    },
+    "metric": {
+      "description": "Low temperature threshold (C)",
+      "metric_type": "gauge",
+      "name": "temperature.low_th",
+      "unit": "celsius"
+    }
+  },
+  {
+    "data": 42.5,
+    "labels": {
+      "device.id": "spine-01",
+      "device.sensor.id": "CPU"
+    },
+    "metric": {
+      "description": "Current temperature reading (C)",
+      "metric_type": "gauge",
+      "name": "temperature.reading",
+      "unit": "celsius"
+    }
+  },
+  {
+    "data": 0.0,
+    "labels": {
+      "device.id": "spine-01",
+      "device.sensor.id": "CPU"
+    },
+    "metric": {
+      "description": "Temperature warning state (0=normal, 1=warning)",
+      "metric_type": "gauge",
+      "name": "temperature.warning",
+      "unit": "count"
+    }
+  }
+]

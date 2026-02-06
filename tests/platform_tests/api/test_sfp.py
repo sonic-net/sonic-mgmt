@@ -19,7 +19,7 @@ from tests.common.platform.transceiver_utils import is_sw_control_enabled,\
     get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
 from tests.common.mellanox_data import is_mellanox_device
 from collections import defaultdict
-
+from tests.platform_tests.mellanox.conftest import is_sw_control_feature_enabled  # noqa: F401
 
 from .platform_api_test_base import PlatformApiTestBase
 
@@ -271,7 +271,11 @@ class TestSfpApi(PlatformApiTestBase):
 
     # xcvr to be skipped for lpmode test due to known issue
     LPMODE_SKIP_LIST = [
-        {'manufacturer': 'Cloud Light', 'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-01'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-02'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-05'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-0X'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-10'},
     ]
 
     # Keys supported for Amphenol 800G Backplane cartridge.
@@ -360,9 +364,9 @@ class TestSfpApi(PlatformApiTestBase):
         # Temporarily add this logic to skip lpmode test for some transceivers with known issue
         for xcvr_to_skip in self.LPMODE_SKIP_LIST:
             if (xcvr_info_dict["manufacturer"].strip() == xcvr_to_skip["manufacturer"] and
-                    xcvr_info_dict["host_electrical_interface"].strip() == xcvr_to_skip["host_electrical_interface"]):
-                logger.info("Temporarily skipping {} due to known issue".format(
-                    xcvr_info_dict["manufacturer"]))
+                    xcvr_info_dict["model"].strip() == xcvr_to_skip["model"]):
+                logger.info("Temporarily skipping {} - {} due to known issue".format(
+                    xcvr_info_dict["manufacturer"], xcvr_info_dict["model"]))
                 return False
 
         return True
@@ -494,7 +498,7 @@ class TestSfpApi(PlatformApiTestBase):
                         UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_AMPH_BACKPLANE_KEYS
                     else:
 
-                        if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
+                        if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
                             active_apsel_hostlane_count = 8
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
                                 self.EXPECTED_XCVR_NEW_CMIS_INFO_KEYS + \
@@ -527,8 +531,8 @@ class TestSfpApi(PlatformApiTestBase):
                     unexpected_keys = set(actual_keys) - set(UPDATED_EXPECTED_XCVR_INFO_KEYS +
                                                              self.NEWLY_ADDED_XCVR_INFO_KEYS)
                     for key in unexpected_keys:
-                        # hardware_rev is applicable only for QSFP-DD or OSFP
-                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
+                        # hardware_rev is applicable only for QSFP-DD, OSFP or QSFP+C
+                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
                             continue
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
@@ -580,7 +584,7 @@ class TestSfpApi(PlatformApiTestBase):
                     actual_keys = list(thold_info_dict.keys())
 
                     expected_keys = list(self.EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS)
-                    if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
+                    if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
                         expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
                         if sfp.is_coherent_module(platform_api_conn, i):
                             if 'INPHI CORP' in info_dict['manufacturer'] and 'IN-Q3JZ1-TC' in info_dict['model']:
@@ -804,12 +808,18 @@ class TestSfpApi(PlatformApiTestBase):
             logger.info("No interfaces to flap after SFP reset")
         self.assert_expectations()
 
-    def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
+    def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                        platform_api_conn, is_sw_control_feature_enabled):    # noqa: F811
         """This function tests both the get_tx_disable() and tx_disable() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
+        if is_mellanox_device(duthost):
+            port_indices_to_tested = self.get_port_indices_to_tested_for_mellanox_device(
+                duthost, is_sw_control_feature_enabled)
+        else:
+            port_indices_to_tested = self.sfp_setup["sfp_test_port_indices"]
 
-        for i in self.sfp_setup["sfp_test_port_indices"]:
+        for i in port_indices_to_tested:
             # First ensure that the transceiver type supports setting TX disable
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
@@ -832,12 +842,17 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_tx_disable_channel(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                platform_api_conn):     # noqa: F811
+                                platform_api_conn, is_sw_control_feature_enabled):     # noqa: F811
         """This function tests both the get_tx_disable_channel() and tx_disable_channel() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
+        if is_mellanox_device(duthost):
+            port_indices_to_tested = self.get_port_indices_to_tested_for_mellanox_device(
+                duthost, is_sw_control_feature_enabled)
+        else:
+            port_indices_to_tested = self.sfp_setup["sfp_test_port_indices"]
 
-        for i in self.sfp_setup["sfp_test_port_indices"]:
+        for i in port_indices_to_tested:
             # First ensure that the transceiver type supports setting TX disable on individual channels
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
@@ -1020,3 +1035,13 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(thermal and thermal == thermal_list[thermal_index],
                             "Thermal {} is incorrect for sfp {}".format(thermal_index, sfp_id))
         self.assert_expectations()
+
+    def get_port_indices_to_tested_for_mellanox_device(self, duthost, is_sw_control_feature_enabled):  # noqa: F811
+        port_indices_to_tested = []
+        if is_sw_control_feature_enabled:
+            port_indices_to_tested = [port_index for port_index in self.sfp_setup["sfp_test_port_indices"]
+                                      if is_sw_control_enabled(duthost, port_index)]
+        if not port_indices_to_tested:
+            pytest.skip("Skipping test on Mellanox device with no port indices to test")
+        logging.info(f"Port indices to tested for Mellanox device: {port_indices_to_tested}")
+        return port_indices_to_tested
