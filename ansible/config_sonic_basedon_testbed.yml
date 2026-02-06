@@ -126,6 +126,7 @@
       host: "{{ inventory_hostname }}"
       group: "{{ conn_graph_group if conn_graph_group is defined else omit }}"
       ignore_errors: true
+      forced_mgmt_routes: "{{ forced_mgmt_routes | default([]) }}"
     delegate_to: localhost
     ignore_errors: true
 
@@ -336,6 +337,15 @@
           asic_topo_config: "{{ new_asic_topo_config }}"
 
     when: switch_type is defined and switch_type == 'voq' and slot_num is defined and asic_topo_config|length > 0
+
+  - name: set default voq_chassis
+    set_fact:
+      voq_chassis: false
+
+  - name: set voq_chassis
+    set_fact:
+      voq_chassis: true
+    when: switch_type is defined and switch_type == 'voq' and voq_inband_ip is defined
 
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2

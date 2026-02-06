@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Optional
 import enum
 import os
 import json
@@ -70,6 +71,8 @@ from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.helpers.parallel import patch_ansible_worker_process
+from tests.common.helpers.parallel import fix_logging_handler_fork_lock
 
 import tests.common.gnmi_setup as gnmi_setup
 
@@ -113,6 +116,10 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
                   'tests.common.fixtures.duthost_utils')
+
+
+patch_ansible_worker_process()
+fix_logging_handler_fork_lock()
 
 
 def pytest_addoption(parser):
@@ -295,6 +302,8 @@ def pytest_addoption(parser):
                      help="File that containers parameters for each container")
     parser.addoption("--testcase_file", action="store", default=None, type=str,
                      help="File that contains testcases to execute per iteration")
+    parser.addoption("--optional_parameters", action="store", default="", type=str,
+                     help="Extra args appended to docker run, e.g. '-e IS_V1_ENABLED=true'")
 
     #################################
     #   Stress test options         #
@@ -487,35 +496,6 @@ def pytest_sessionstart(session):
     for key in keys:
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
-
-    # Invoke the build-gnmi-stubs.sh script
-    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
-    base_dir = os.getcwd()  # Use the current working directory as the base directory
-    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
-
-    try:
-        result = subprocess.run(
-            [script_path, base_dir],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=False  # Do not raise an exception automatically on non-zero exit
-        )
-        logger.info(f"Output of {script_path}:\n{result.stdout}")
-        # logger.error(f"Error output of {script_path}:\n{result.stderr}")
-
-        if result.returncode != 0:
-            logger.error(f"{script_path} failed with exit code {result.returncode}")
-            session.exitstatus = 1  # Fail the pytest session
-        else:
-            # Add the generated directory to sys.path for module imports
-            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
-            if generated_path not in sys.path:
-                sys.path.insert(0, generated_path)
-                logger.info(f"Added {generated_path} to sys.path")
-    except Exception as e:
-        logger.error(f"Exception occurred while invoking {script_path}: {e}")
-        session.exitstatus = 1  # Fail the pytest session
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -949,7 +929,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     """
 
     # Internal helper functions
-    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> FanoutHost | None:
+    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> Optional[FanoutHost]:
         """
         Create FanoutHost if not exists, or return existing one.
         Fanout creation logic for both Ethernet and Serial connections.
@@ -1183,6 +1163,10 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
     if 'servers' in tbinfo:
         servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
                                   for value in tbinfo['servers'].values()}
+
+    # Check if logs directory exists, otherwise use /tmp
+    log_path = "logs" if os.path.isdir("logs") else "/tmp"
+
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
         res = localhost.announce_routes(
@@ -1190,7 +1174,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             ptf_ip=ptf_ip,
             action='generate',
             path="../ansible/",
-            log_path="logs",
+            log_path=log_path,
             dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
         )
         if 'topo_routes' not in res:
@@ -3466,10 +3450,54 @@ def setup_pfc_test(
 
 
 @pytest.fixture(scope="session")
-def setup_gnmi_server(request, localhost, duthost):
+def build_gnmi_stubs(request):
+    """
+    Generate gRPC stub client code for gNMI server interaction.
+    This fixture only runs when SAI validation is enabled.
+    """
+    disable_sai_validation = request.config.getoption("--disable_sai_validation")
+    if disable_sai_validation:
+        logger.info("SAI validation is disabled, skipping gNMI stub generation")
+        yield
+        return
+
+    # Invoke the build-gnmi-stubs.sh script
+    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
+    base_dir = os.getcwd()  # Use the current working directory as the base directory
+    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
+
+    try:
+        result = subprocess.run(
+            [script_path, base_dir],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False  # Do not raise an exception automatically on non-zero exit
+        )
+        logger.info(f"Output of {script_path}:\n{result.stdout}")
+
+        if result.returncode != 0:
+            logger.error(f"{script_path} failed with exit code {result.returncode}")
+            pytest.fail(f"gNMI stub generation failed with exit code {result.returncode}")
+        else:
+            # Add the generated directory to sys.path for module imports
+            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
+            if generated_path not in sys.path:
+                sys.path.insert(0, generated_path)
+                logger.info(f"Added {generated_path} to sys.path")
+    except Exception as e:
+        logger.error(f"Exception occurred while invoking {script_path}: {e}")
+        pytest.fail(f"gNMI stub generation failed: {e}")
+
+    yield
+
+
+@pytest.fixture(scope="session")
+def setup_gnmi_server(request, localhost, duthost, build_gnmi_stubs):
     """
     SAI validation library uses gNMI to access sonic-db data
-    objects. This fixture is used by tests to set up gNMI server
+    objects. This fixture is used by tests to set up gNMI server.
+    Depends on build_gnmi_stubs to ensure gRPC stubs are generated first.
     """
     disable_sai_validation = request.config.getoption("--disable_sai_validation")
     if disable_sai_validation:
