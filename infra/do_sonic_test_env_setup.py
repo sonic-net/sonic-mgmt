@@ -13,12 +13,18 @@ SONIC_WORKSPACES_DIR = "sonic_test_workspaces"
 
 # Default proxy configuration for the UCS Host
 UCS_PROXY_DEFAULTS = {
-    "no_proxy": ".cisco.com",
+    "no_proxy": "http://sonic-build-rtp.cisco.com:3128/",
+    "http_proxy": "http://sonic-build-rtp.cisco.com:3128/",
+    "https_proxy": "http://sonic-build-rtp.cisco.com:3128/",
+    "ftp_proxy": "http://sonic-build-rtp.cisco.com:3128/"
 }
 
 # Default proxy configuration for the SONiC Management Container
 SONIC_MGMT_CONTAINER_PROXY_DEFAULTS = {
-    "no_proxy": ".cisco.com",
+    "no_proxy": "http://sonic-build-rtp.cisco.com:3128/",
+    "http_proxy": "http://sonic-build-rtp.cisco.com:3128/",
+    "https_proxy": "http://sonic-build-rtp.cisco.com:3128/",
+    "ftp_proxy": "http://sonic-build-rtp.cisco.com:3128/"
 }
 
 class SonicTestEnvSetup:
@@ -104,9 +110,14 @@ class SonicTestEnvSetup:
 
     def _configure_ucs_proxies(self):
         """
-        Configures proxy settings in the user's .bashrc file AND the current process environment.
-        Removes ANY existing export lines for the target proxy variables in .bashrc 
-        and appends a new block.
+        Orchestrator for configuring all UCS proxy settings.
+        """
+        self._configure_bashrc_proxies()
+        self._configure_apt_proxies()
+
+    def _configure_bashrc_proxies(self):
+        """
+        Configures proxy settings in the user's .bashrc file.
         """
         # Determine settings: Use provided JSON or fall back to defaults
         proxy_settings = self.args.proxy if self.args.proxy else UCS_PROXY_DEFAULTS
@@ -179,6 +190,44 @@ class SonicTestEnvSetup:
 
         except Exception as e:
             self.logger.error(f"Failed to configure proxies in .bashrc: {e}")
+            raise
+
+    def _configure_apt_proxies(self):
+        """
+        Configures /etc/apt/apt.conf using sudo.
+        Strictly adds only HTTP and HTTPS proxies.
+        """
+        self.logger.info("Configuring APT proxies in /etc/apt/apt.conf...")
+
+        proxy_settings = self.args.proxy if self.args.proxy else UCS_PROXY_DEFAULTS
+
+        # Construct APT config content (Strictly HTTP/HTTPS only)
+        lines = []
+        if "http_proxy" in proxy_settings:
+            lines.append(f'Acquire::http::Proxy "{proxy_settings["http_proxy"]}";')
+        if "https_proxy" in proxy_settings:
+            lines.append(f'Acquire::https::Proxy "{proxy_settings["https_proxy"]}";')
+
+        config_content = "\n".join(lines) + "\n"
+
+        # Write using sudo
+        # We use a shell command with sudo -S to handle the redirection and password securely
+        full_cmd = f"echo '{self.args.sudo_password}' | sudo -S bash -c 'cat > /etc/apt/apt.conf <<EOF\n{config_content}EOF'"
+
+        try:
+            # Mask password for logging
+            self.logger.info("Executing sudo command to write /etc/apt/apt.conf")
+
+            subprocess.run(
+                full_cmd,
+                shell=True,
+                check=True,
+                executable="/bin/bash"
+            )
+            self.logger.info("Successfully updated /etc/apt/apt.conf with HTTP/HTTPS proxies.")
+
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"Failed to configure APT proxies: {e}")
             raise
 
     def _setup_veos_image(self):
@@ -424,8 +473,7 @@ class SonicTestEnvSetup:
     def _manage_docker_image(self):
         """
         Ensures the required Docker image exists locally.
-        Checks for the image based on the filename from the URL.
-        If missing, uses the universal helper to download and load it.
+        Uses robust formatting to check for existence.
         """
         # Extract filename from URL: "sonic-mgmt_...mix.gz"
         filename_with_ext = self.args.sonic_mgmt_image_url.split('/')[-1]
@@ -437,13 +485,16 @@ class SonicTestEnvSetup:
 
         # 1. Check if image exists locally
         try:
+            # Use --format to get specific output: "Repository:Tag"
+            # This works on old and new Docker versions
             result = subprocess.run(
-                ["docker", "images"],
+                ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True
             )
             
+            # Check if our identifier exists in the output
             if image_identifier in result.stdout:
                 self.logger.info(f"Image '{image_identifier}' found locally. Skipping download.")
                 return  # <--- EXIT HERE if found
@@ -512,17 +563,31 @@ class SonicTestEnvSetup:
         image_identifier = filename_with_ext.split('.')[0]
         
         try:
+            # Get all images in "Repository:Tag" format
             result = subprocess.run(
-                f"docker images | grep {image_identifier}",
-                shell=True,
+                ["docker", "images", "--format", "{{.Repository}}:{{.Tag}}"],
                 stdout=subprocess.PIPE,
-                text=True
+                stderr=subprocess.PIPE,
+                text=True,
+                check=True
             )
-            if not result.stdout:
+
+            found_repo = None
+            # Iterate lines to find the match
+            for line in result.stdout.splitlines():
+                if image_identifier in line:
+                    # Line is "repo:tag". We need just the "repo" part.
+                    # This handles cases where output is "repo:tag" (new docker)
+                    # or just "repo" (if tag was missing/weird, though less likely with format)
+                    parts = line.split(':')
+                    found_repo = parts[0]
+                    break
+
+            if not found_repo:
                 raise ValueError(f"Could not find docker image matching {image_identifier}")
             
-            repo_name = result.stdout.strip().split()[0]
-            full_image_name = f"{repo_name}:{self.args.sonic_mgmt_image_tag}"
+            # Construct the final name using the user-provided tag
+            full_image_name = f"{found_repo}:{self.args.sonic_mgmt_image_tag}"
             self.logger.info(f"Using Docker image: {full_image_name}")
             
         except Exception as e:
@@ -542,6 +607,14 @@ class SonicTestEnvSetup:
             "-v", f"{log_mount}:/run_logs",
             "-itd"
         ]
+
+        # ------------------------------------------------------------------
+        # Mount Host APT Config if it exists
+        # ------------------------------------------------------------------
+        if os.path.exists("/etc/apt/apt.conf"):
+            self.logger.info("Detected /etc/apt/apt.conf on host. Mounting to container...")
+            cmd.extend(["-v", "/etc/apt/apt.conf:/etc/apt/apt.conf:ro"])
+        # ------------------------------------------------------------------
 
         # Add Proxy Env Vars
         container_proxies = self.args.container_proxy if self.args.container_proxy else SONIC_MGMT_CONTAINER_PROXY_DEFAULTS
@@ -615,12 +688,17 @@ def parse_arguments():
     ucs_subparsers = parser_ucs.add_subparsers(dest="subcommand", required=True, help="UCS Setup Subcommands")
 
     # 1.a setup_proxy
-    parser_proxy = ucs_subparsers.add_parser("setup_proxy", help="Configure UCS Host Proxies (.bashrc)")
+    parser_proxy = ucs_subparsers.add_parser("setup_proxy", help="Configure UCS Host Proxies (.bashrc and /etc/apt/apt.conf)")
     parser_proxy.add_argument(
         "--proxy",
         required=False, 
         type=json.loads, 
         help='JSON string of proxies for the UCS Host. If omitted, uses defaults.'
+    )
+    parser_proxy.add_argument(
+        "--sudo_password",
+        required=True,
+        help="Sudo password for writing to /etc/apt/apt.conf"
     )
 
     # 1.b setup_veos_image
@@ -700,7 +778,7 @@ def main():
             1. UCS Host Setup (One-time or Maintenance):
                -----------------------------------------
                python3 do_sonic_test_env_setup.py ucs setup_proxy \\
-                   --proxy '{"http_proxy": "http://proxy.esl.cisco.com:80", "no_proxy": ".cisco.com"}'
+                   --proxy '{"http_proxy": "http://sonic-build-rtp.cisco.com:3128/", "no_proxy": "http://sonic-build-rtp.cisco.com:3128/"}' --sudo_password "pass"
                python3 do_sonic_test_env_setup.py ucs setup_veos_image --image_url "http://172.27.147.154/IMAGES/sonic-test-env/cEOS/cEOS64-lab-4.29.5M.tar"
                python3 do_sonic_test_env_setup.py ucs load_docker_image --image_url "http://172.27.147.154/IMAGES/sonic-test-env/debian/debian-bookworm.tar.gz"
                python3 do_sonic_test_env_setup.py ucs apply_intel_driver_workaround --sudo_password "pass"
