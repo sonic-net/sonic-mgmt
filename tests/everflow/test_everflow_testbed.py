@@ -1156,6 +1156,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
                 valid_across_namespace=everflow_dut.is_multi_asic
             )
         finally:
+            everflow_utils.remove_route(remote_dut, session_prefixes[0],
+                                        peer_ip, setup_info[dest_port_type]["remote_namespace"])
             remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
                 "vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"",
                 setup_info[dest_port_type]["remote_namespace"]))
