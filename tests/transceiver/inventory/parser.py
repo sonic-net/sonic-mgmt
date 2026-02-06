@@ -17,14 +17,15 @@ class TransceiverInventory:
     def parse_common_attributes(self):
         """
         Parses the transceiver_common_attributes.csv file and stores the data in a dictionary.
-        The vendor_pn is used as the key for the outer dictionary, and the remaining row data is stored as the value.
+        The normalized_vendor_pn is used as the key for the outer dictionary,
+        and the remaining row data is stored as the value.
         """
         common_attributes = {}
         with open(self.common_attributes_file, mode='r') as file:
             reader = csv.DictReader(file)
             for row in reader:
-                vendor_pn = row['vendor_pn']
-                common_attributes[vendor_pn] = self._convert_row_types(row)
+                normalized_vendor_pn = row['normalized_vendor_pn']
+                common_attributes[normalized_vendor_pn] = self._convert_row_types(row)
         logging.debug("Common Attributes: {}".format(common_attributes))
         return common_attributes
 
@@ -33,7 +34,7 @@ class TransceiverInventory:
         Parses the transceiver_dut_info.csv file and stores the data in a nested dictionary.
         The outer dictionary is keyed by dut_name, and the inner dictionary is keyed by physical_port.
         The values are dictionaries containing the remaining row data.
-        Common attributes are merged into the inner dictionary based on vendor_pn.
+        Common attributes are merged into the inner dictionary based on normalized_vendor_pn.
         """
         dut_info = {}
         with open(self.dut_info_file, mode='r') as file:
@@ -41,12 +42,12 @@ class TransceiverInventory:
             for row in reader:
                 dut_name = row.pop('dut_name')
                 port = int(row.pop('physical_port'))
-                vendor_pn = row.pop('vendor_pn')
+                normalized_vendor_pn = row.pop('normalized_vendor_pn')
                 if dut_name not in dut_info:
                     dut_info[dut_name] = {}
                 dut_info[dut_name][port] = self._convert_row_types(row)
-                if vendor_pn in self.common_attributes:
-                    dut_info[dut_name][port].update(self.common_attributes[vendor_pn])
+                if normalized_vendor_pn in self.common_attributes:
+                    dut_info[dut_name][port].update(self.common_attributes[normalized_vendor_pn])
         logging.debug("DUT Info: {}".format(dut_info))
         return dut_info
 

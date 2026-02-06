@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0', 't1', 'm1', 'm2', 'm3')
+    pytest.mark.topology('t0', 't1', "m0", "mx", 'm1', 'lt2', 'ft2')
 ]
 
 stop_tasks = False
@@ -23,9 +23,9 @@ neighbor_flap_count = 0
 
 LOOP_TIMES_LEVEL_MAP = {
     'debug': 60,
-    'basic': 300,
-    'confident': 3600,
-    'thorough': 21600
+    'basic': 3600,
+    'confident': 21600,
+    'thorough': 432000
 }
 
 
@@ -205,6 +205,26 @@ async def flap_neighbor_interface(neighbor, neighbor_port, sleep_duration, test_
             break
 
 
+async def monitor_system_resources(duthost, test_run_duration, interval=60):
+    logger.info("Monitoring system resources for {} seconds, interval {} seconds".format(test_run_duration, interval))
+    start_time = time.time()
+
+    monitor_count = 0
+
+    while not stop_tasks and time.time() - start_time < test_run_duration:
+        logger.info("Memory usage:")
+        cmd = "free -m"
+        cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+        logger.info("loop {} cmd {} rsp {}".format(monitor_count, cmd, cmd_response.get('stdout', None)))
+        monitor_count += 1
+
+        await asyncio.sleep(interval)
+
+        if stop_tasks:
+            logger.info("Stop monitor task, breaking monitor system resources monitor_count {} ".format(monitor_count))
+            break
+
+
 @pytest.mark.parametrize("test_type", ["dut", "fanout", "neighbor", "all"])
 def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts, test_type,
                               get_function_completeness_level):
@@ -223,10 +243,10 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
 
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
     asic_type = duthost.facts['asic_type']
-    if asic_type == "vs" and (test_type == "fanout" or test_type == "all"):
+    if (asic_type == "vs" or asic_type == "vpp") and (test_type == "fanout" or test_type == "all"):
         pytest.skip("Stress link flap test is not supported on Virtual Switch")
 
-    if asic_type != "vs":
+    if asic_type != "vs" and asic_type != "vpp":
         delay_time = SLEEP_DURATION
     else:
         delay_time = SLEEP_DURATION * 100
@@ -271,6 +291,12 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
             logger.info("Start flap fanout {} dut {} ".format(fanouthosts, duthost))
             flap_tasks.append(task)
 
+        if normalized_level == 'thorough':
+            task = asyncio.create_task(
+                monitor_system_resources(duthost, TEST_RUN_DURATION, interval=1800))
+            logger.info("Start monitor system resources {}".format(duthost))
+            flap_tasks.append(task)
+
         logger.info("flap_tasks {} ".format(flap_tasks))
         start_time = time.time()
 
@@ -291,4 +317,12 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
         flap_tasks.clear()
 
     asyncio.run(flap_interfaces())
+
+    if asic_type == "vpp":
+        sleep_time = 180
+    else:
+        sleep_time = 60
+    logger.info("Test Completed, waiting for {} seconds to stabilize the system".format(sleep_time))
+    time.sleep(sleep_time)
+
     return

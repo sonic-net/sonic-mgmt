@@ -1,7 +1,7 @@
 import pytest
 import logging
 import random
-from tabulate import tabulate # noqa F401
+from tabulate import tabulate  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require     # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
     fanout_graph_facts_multidut         # noqa: F401
@@ -9,7 +9,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config, \
     is_snappi_multidut, get_snappi_ports_multi_dut, get_snappi_ports_single_dut   # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
-    lossless_prio_list, disable_pfcwd   # noqa F401
+    lossless_prio_list, disable_pfcwd   # noqa: F401
 from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut, enable_debug_shell  # noqa: F401
 from tests.snappi_tests.ecn.files.bpfabric_helper import run_fabric_ecn_marking_test, run_backplane_ecn_marking_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -82,7 +82,7 @@ def test_fabric_ecn_marking_lossless_prio(
     # find the supervisor DUT as the fabric ports are available in it.
     supervisor_dut = next((duthost for duthost in duthosts if duthost.is_supervisor_node()), None)
 
-    pytest_assert(supervisor_dut, "Supervisor DUT not found")
+    pytest_require(supervisor_dut, "Supervisor DUT not found")
 
     pytest_require(is_cisco_device(supervisor_dut), "Test supported on Cisco Supervisor DUT only")
 

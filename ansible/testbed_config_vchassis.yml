@@ -58,7 +58,7 @@
           dest: /usr/bin/setup_vs_chassis.sh
         become: true
 
-      - name: Set routeCheck timeout to 600 seconds
+      - name: Set routeCheck timeout to 600 seconds in monit
         become: true
         lineinfile:
           path: /etc/monit/conf.d/sonic-host
@@ -71,8 +71,8 @@
 
       - name: reboot DUTs
         command: reboot
-        # async: 600
-        # poll: 0
+        async: 600
+        poll: 0
         become: true
 
       - name: Wait for switch to become reachable again
@@ -83,6 +83,6 @@
           port: 22
           state: started
           search_regex: "OpenSSH_[\\w\\.]+ Debian"
-          delay: 10
+          delay: 30
           timeout: 600
         changed_when: false

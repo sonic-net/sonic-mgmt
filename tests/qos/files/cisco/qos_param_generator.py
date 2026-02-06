@@ -12,8 +12,11 @@ class QosParamCisco(object):
                                                         "Cisco-8101-C64",
                                                         "Cisco-8101-O8C48",
                                                         "Cisco-8101-O8V48"],
-                              "x86_64-8101_32fh_o_c01-r0": ["Cisco-8101-O32",
-                                                            "Cisco-8101-V64"],
+                              "x86_64-8101_32fh_o_c01-r0": ["Cisco-8101C01-O8V48",
+                                                            "Cisco-8101C01-O32",
+                                                            "Cisco-8101C01-V64",
+                                                            "Cisco-8101C01-C28S4",
+                                                            "Cisco-8101C01-C32"],
                               "x86_64-8102_64h_o-r0": ["Cisco-8102-C64"]}
     VOQ_ASICS = ["gb", "gr"]
 
@@ -900,9 +903,9 @@ class QosParamCisco(object):
                                            self.dscp_queue1, self.dscp_queue0,
                                            self.dscp_queue1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
                             "pgs":        [3, 0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4],
-                            "queues":     [3, 1, 0, 1, 0, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4],
-                            "src_port_i": [0, 0, 1, 1, 2, 2, 3,  3,  4,  4,  5,  5,  6,  6,  9,  9,  10, 10, 11, 11],
-                            "dst_port_i": [7, 8, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16],
+                            "queues":     [3, 1, 0, 1, 0, 1,  3,  4,  3,  4,  3,  4,  3,  4,  3,  4,  3,  4,  3,  4],
+                            "src_port_i": [0, 0, 0, 1, 1, 2,  2,  2,  3,  3,  4,  4,  5,  5,  6,  6,  10, 10, 11, 11],
+                            "dst_port_i": [7, 8, 8, 9, 9, 12, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18],
                             "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
                 self.write_params("xon_hysteresis_4", params_4)
 

@@ -4,30 +4,31 @@ import pytest
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
 from tests.common.helpers.assertions import pytest_require
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts                      # noqa F401
+    fanout_graph_facts                      # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
-    snappi_api, snappi_testbed_config       # noqa F401
+    snappi_api, snappi_testbed_config, is_pfc_enabled       # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
-    lossy_prio_list, disable_pfcwd          # noqa F401
+    lossy_prio_list, disable_pfcwd          # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('tgen')]
 
 
-def test_pfc_single_lossless_headroom(snappi_api,                       # noqa F811
-                                      snappi_testbed_config,            # noqa F811
-                                      conn_graph_facts,                 # noqa F811
-                                      fanout_graph_facts,               # noqa F811
+def test_pfc_single_lossless_headroom(snappi_api,                       # noqa: F811
+                                      snappi_testbed_config,            # noqa: F811
+                                      conn_graph_facts,                 # noqa: F811
+                                      fanout_graph_facts,               # noqa: F811
                                       duthosts,
                                       rand_one_dut_hostname,
                                       rand_one_dut_portname_oper_up,
                                       enum_dut_lossless_prio,
-                                      all_prio_list,                    # noqa F811
-                                      prio_dscp_map,                    # noqa F811
+                                      all_prio_list,                    # noqa: F811
+                                      prio_dscp_map,                    # noqa: F811
                                       enum_pfc_pause_delay_test_params,
-                                      disable_pfcwd):  # noqa F811
+                                      disable_pfcwd):  # noqa: F811
     """
     Test headroom capacity for DUT for a single lossless priority
 
@@ -90,18 +91,18 @@ def test_pfc_single_lossless_headroom(snappi_api,                       # noqa F
                  snappi_extra_params=snappi_extra_params)
 
 
-def test_pfc_pause_multi_lossless_headroom(snappi_api,                  # noqa F811
-                                           snappi_testbed_config,       # noqa F811
-                                           conn_graph_facts,            # noqa F811
-                                           fanout_graph_facts,          # noqa F811
+def test_pfc_pause_multi_lossless_headroom(snappi_api,                  # noqa: F811
+                                           snappi_testbed_config,       # noqa: F811
+                                           conn_graph_facts,            # noqa: F811
+                                           fanout_graph_facts,          # noqa: F811
                                            duthosts,
                                            rand_one_dut_hostname,
                                            rand_one_dut_portname_oper_up,
-                                           lossless_prio_list,          # noqa F811
-                                           lossy_prio_list,             # noqa F811
-                                           prio_dscp_map,               # noqa F811
+                                           lossless_prio_list,          # noqa: F811
+                                           lossy_prio_list,             # noqa: F811
+                                           prio_dscp_map,               # noqa: F811
                                            enum_pfc_pause_delay_test_params,
-                                           disable_pfcwd):   # noqa F811
+                                           disable_pfcwd):   # noqa: F811
     """
     Test headroom capacity for DUT for multiple lossless priorities
 

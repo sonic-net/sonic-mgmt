@@ -27,6 +27,7 @@ from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 from ptf.testutils import test_params_get, simple_icmp_packet, simple_icmpv6_packet, send_packet,\
     simple_ip_packet, simple_tcpv6_packet, verify_packet_any_port
+import macsec  # noqa F401
 
 
 class MtuTest(BaseTest):
@@ -210,7 +211,23 @@ class MtuTest(BaseTest):
         """
 
         self.pktlen = self.testbed_mtu
-        self.check_icmp_mtu()
-        self.check_icmp_mtu(ipv4=False)
-        self.check_ip_mtu()
-        self.check_ip_mtu(ipv4=False)
+        ipv4_available = (
+            self.src_host_ip is not None
+            and self.src_router_ip is not None
+            and self.dst_host_ip is not None
+            )
+        ipv6_available = (
+            self.src_host_ipv6 is not None
+            and self.src_router_ipv6 is not None
+            and self.dst_host_ipv6 is not None
+            )
+        if not ipv4_available and not ipv6_available:
+            raise Exception("Neither IPv4 nor IPv6 addresses are available for MTU testing")
+        if ipv4_available:
+            logging.info("Running IPv4 MTU tests")
+            self.check_icmp_mtu()
+            self.check_ip_mtu()
+        if ipv6_available:
+            logging.info("Running IPv6 MTU tests")
+            self.check_icmp_mtu(ipv4=False)
+            self.check_ip_mtu(ipv4=False)

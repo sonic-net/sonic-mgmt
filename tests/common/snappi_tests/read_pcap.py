@@ -1,6 +1,7 @@
 import logging
 import dpkt
 from dpkt.utils import mac_to_str
+from scapy.all import PcapReader
 
 from tests.common.snappi_tests.pfc_packet import PFCPacket
 from tests.common.snappi_tests.cisco_pfc_packet import CiscoPFCPacket
@@ -158,5 +159,42 @@ def is_ecn_marked(ip_pkt):
     Returns:
         Return if the packet is ECN congestion marked (bool)
     """
-    logger.info("Checking if the packet is ECN congestion marked")
+    logger.debug("Checking if the packet is ECN congestion marked")
     return (ip_pkt.tos & 3) == 3
+
+
+def validate_trim_pkt_dscp(pcap_file: str, expected_dscp: int, min_pct: float = 0.99) -> bool:
+    """
+    Validate that the outer IPv6 (SRV6 packet) DSCP value in > min_pct of packets
+    matches the expected_dscp.
+
+    Args:
+        pcap_file (str): Path to pcapng file.
+        expected_dscp (int): Expected DSCP value (0–63).
+        min_pct (float): Minimum fraction of packets that must match (default 0.99).
+
+    Returns:
+        bool: True if DSCP matches in > min_pct of packets, else False.
+    """
+    total = 0
+    matches = 0
+
+    with PcapReader(pcap_file) as cap:
+        for pkt in cap:
+            raw = bytes(pkt)
+            if len(raw) < 16:  # skip runt packets
+                continue
+            # Extract Traffic Class across bytes 14/15 of IPv6 header
+            b0, b1 = raw[14], raw[15]
+            traffic_class = ((b0 & 0x0F) << 4) | (b1 >> 4)
+            dscp = traffic_class >> 2
+
+            total += 1
+            if dscp == expected_dscp:
+                matches += 1
+
+    if total == 0:
+        return False
+
+    logger.info(f"DSCP {expected_dscp} matches in {matches}/{total} packets ({matches/total:.2%})")
+    return (matches / total) >= min_pct
