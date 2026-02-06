@@ -96,10 +96,15 @@ def skip_vs_setups(rand_selected_dut):
 
 
 @pytest.fixture(scope="function", autouse=True)
+def skip_lag_tests_on_no_lag_topos(request, rand_selected_dut):
+    if "lag" in request.node.name and \
+            "PORTCHANNEL" not in rand_selected_dut.get_running_config_facts():
+        pytest.skip("The topology doesn't have portchannels, skip the lag test cases.")
+
+
+@pytest.fixture(scope="function", autouse=True)
 def skip_tests_on_isolated_topos(request, tbinfo):
     if 'isolated' in tbinfo['topo']['name']:
-        if "lag" in request.node.name:
-            pytest.skip("Isolated topologies don't have portchannels, skip the lag test cases.")
         uplink_count = re.search(r'u(\d+)', tbinfo['topo']['name'])
         downlink_count = re.search(r'd(\d+)', tbinfo['topo']['name'])
         if uplink_count:
