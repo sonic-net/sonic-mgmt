@@ -31,7 +31,7 @@ def _dpu_time_ready(ptf_gnoi, idx: int) -> bool:
 
 
 @pytest.mark.device_type("smartswitch")
-def test_smartswitch_single_dpu_same_image_cold_reboot_via_gnoi(
+def test_smartswitch_single_dpu_cold_reboot_via_gnoi(
     localhost,
     duthosts,
     ptfhost,
@@ -46,7 +46,7 @@ def test_smartswitch_single_dpu_same_image_cold_reboot_via_gnoi(
     rand_one_dpu_index_0_5,
 ):
     """
-    SmartSwitch: single DPU same-image cold reboot via gNOI.
+    SmartSwitch: single DPU cold reboot via gNOI.
 
     - Pre: System.Time succeeds on target DPU (selected via SmartSwitch metadata headers)
     - Action: System.Reboot(method=COLD)
