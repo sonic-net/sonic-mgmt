@@ -13,7 +13,7 @@ import (
 	log "github.com/golang/glog"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ondatra/binding"
-        "github.com/openconfig/ondatra/binding/introspect"
+    "github.com/openconfig/ondatra/binding/introspect"
 	opb "github.com/openconfig/ondatra/proto"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/bindingbackend"
 	"google.golang.org/grpc"
@@ -21,19 +21,17 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-var (
-	supportedSecurityModes = []string{"insecure", "mtls"}
-	securityMode = flag.String("security_mode", "insecure", fmt.Sprintf("define the security mode of the conntections to gnmi server, choose from : %v. Uses insecure as default.", supportedSecurityModes))
- )
+var insecureMode = flag.Bool("use_binding_insecure_mode", true, "set the flag if the server doesn't support gRPC mTLS.")
 
 // Backend can reserve Ondatra DUTs and provide clients to interact with the DUTs.
 type Backend struct {
-	configs map[string]*tls.Config
+	configs  map[string]*tls.Config
+	insecure bool // use insecure mode to dial to the gRPC server
 }
 
 // New creates a backend object.
 func New() *Backend {
-	return &Backend{configs: map[string]*tls.Config{}}
+	return &Backend{configs: map[string]*tls.Config{}, insecure: *insecureMode}
 }
 
 // registerGRPCTLS caches grpc TLS certificates for the given serverName.
@@ -93,26 +91,26 @@ func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime,
 				ID:   "DUT",
 				Name: dut,
 				PortMap: map[string]*binding.Port{
-					"port1":  {Name: "Ethernet1/1/1"},
-					"port2":  {Name: "Ethernet1/1/5"},
-					"port3":  {Name: "Ethernet1/2/1"},
-					"port4":  {Name: "Ethernet1/2/5"},
-					"port5":  {Name: "Ethernet1/3/1"},
-					"port6":  {Name: "Ethernet1/3/5"},
-					"port7":  {Name: "Ethernet1/4/1"},
-					"port8":  {Name: "Ethernet1/4/5"},
-					"port9":  {Name: "Ethernet1/5/1"},
-					"port10": {Name: "Ethernet1/5/5"},
-					"port11": {Name: "Ethernet1/6/1"},
-					"port12": {Name: "Ethernet1/6/5"},
-					"port13": {Name: "Ethernet1/7/1"},
-					"port14": {Name: "Ethernet1/7/5"},
-					"port15": {Name: "Ethernet1/8/1"},
-					"port16": {Name: "Ethernet1/8/5"},
-					"port17": {Name: "Ethernet1/9/1"},
-					"port18": {Name: "Ethernet1/9/5"},
-					"port19": {Name: "Ethernet1/10/1"},
-					"port20": {Name: "Ethernet1/10/5"},
+					"port1":  {Name: "Ethernet0"},
+					"port2":  {Name: "Ethernet4"},
+					"port3":  {Name: "Ethernet8"},
+					"port4":  {Name: "Ethernet12"},
+					"port5":  {Name: "Ethernet16"},
+					"port6":  {Name: "Ethernet20"},
+					"port7":  {Name: "Ethernet24"},
+					"port8":  {Name: "Ethernet28"},
+					"port9":  {Name: "Ethernet32"},
+					"port10": {Name: "Ethernet36"},
+					"port11": {Name: "Ethernet40"},
+					"port12": {Name: "Ethernet44"},
+					"port13": {Name: "Ethernet48"},
+					"port14": {Name: "Ethernet52"},
+					"port15": {Name: "Ethernet56"},
+					"port16": {Name: "Ethernet60"},
+					"port17": {Name: "Ethernet64"},
+					"port18": {Name: "Ethernet68"},
+					"port19": {Name: "Ethernet72"},
+					"port20": {Name: "Ethernet76"},
 				},
 			},
 			GRPC: bindingbackend.GRPCServices{
@@ -128,26 +126,26 @@ func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime,
 					ID:   "CONTROL",
 					Name: control,
 					PortMap: map[string]*binding.Port{
-						"port1":  {Name: "Ethernet1/1/1"},
-						"port2":  {Name: "Ethernet1/1/5"},
-						"port3":  {Name: "Ethernet1/2/1"},
-						"port4":  {Name: "Ethernet1/2/5"},
-						"port5":  {Name: "Ethernet1/3/1"},
-						"port6":  {Name: "Ethernet1/3/5"},
-						"port7":  {Name: "Ethernet1/4/1"},
-						"port8":  {Name: "Ethernet1/4/5"},
-						"port9":  {Name: "Ethernet1/5/1"},
-						"port10": {Name: "Ethernet1/5/5"},
-						"port11": {Name: "Ethernet1/6/1"},
-						"port12": {Name: "Ethernet1/6/5"},
-						"port13": {Name: "Ethernet1/7/1"},
-						"port14": {Name: "Ethernet1/7/5"},
-						"port15": {Name: "Ethernet1/8/1"},
-						"port16": {Name: "Ethernet1/8/5"},
-						"port17": {Name: "Ethernet1/9/1"},
-						"port18": {Name: "Ethernet1/9/5"},
-						"port19": {Name: "Ethernet1/10/1"},
-						"port20": {Name: "Ethernet1/10/5"},
+						"port1":  {Name: "Ethernet0"},
+						"port2":  {Name: "Ethernet4"},
+						"port3":  {Name: "Ethernet8"},
+						"port4":  {Name: "Ethernet12"},
+						"port5":  {Name: "Ethernet16"},
+						"port6":  {Name: "Ethernet20"},
+						"port7":  {Name: "Ethernet24"},
+						"port8":  {Name: "Ethernet28"},
+						"port9":  {Name: "Ethernet32"},
+						"port10": {Name: "Ethernet36"},
+						"port11": {Name: "Ethernet40"},
+						"port12": {Name: "Ethernet44"},
+						"port13": {Name: "Ethernet48"},
+						"port14": {Name: "Ethernet52"},
+						"port15": {Name: "Ethernet56"},
+						"port16": {Name: "Ethernet60"},
+						"port17": {Name: "Ethernet64"},
+						"port18": {Name: "Ethernet68"},
+						"port19": {Name: "Ethernet72"},
+						"port20": {Name: "Ethernet76"},
 					},
 				},
 				GRPC: bindingbackend.GRPCServices{
@@ -159,6 +157,10 @@ func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime,
 					},
 				}},
 		}}
+	if b.insecure {
+		log.WarningContextf(ctx, "Using insecure mode to dial gRPC.")
+		return r, nil
+	}
 
 	for _, dut := range r.DUTs {
 		if err := b.registerGRPCTLS(&dut.GRPC, dut.Name); err != nil {
@@ -174,18 +176,26 @@ func (b *Backend) Release(ctx context.Context) error {
 	return nil
 }
 
+func (b *Backend) authDialOpts(addr string) ([]grpc.DialOption, error) {
+	if b.insecure {
+		return []grpc.DialOption{grpc.WithTransportCredentials(insecure.NewCredentials())}, nil
+	}
+
+    tlsConfig, ok := b.configs[addr]
+    if !ok {
+        return nil, fmt.Errorf("failed to find TLS config for %s", addr)
+    }
+	return []grpc.DialOption{grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig))}, nil
+}
+
 // DialGRPC connects to grpc service and returns the opened grpc client for use.
 func (b *Backend) DialGRPC(ctx context.Context, addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	if *securityMode  == "mtls" {
-	    tlsConfig, ok := b.configs[addr]
-	    if !ok {
-	   	return nil, fmt.Errorf("failed to find TLS config for %s", addr)
-	    }
+	authOpts, err := b.authDialOpts(addr)
+	if err != nil {
+		return nil, err
+	}
+	opts = append(opts, authOpts...)
 
-	    opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
-        } else  {
-	   opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
- 	}
 	conn, err := grpc.DialContext(ctx, addr, opts...)
  	if err != nil {
  		return nil, fmt.Errorf("DialContext(%s, %v) : %v", addr, opts, err)
