@@ -27,6 +27,8 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     elif ntp_daemon_type == NtpDaemon.NTP:
         ntp_conf_path = '/etc/ntp.conf'
         ntp_service_name = 'ntp'
+
+    if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
         # Limit listening to the mgmt interface, to prevent socket allocation
         # exhaustion
         ptfhost.lineinfile(path=ntp_conf_path, line="interface ignore wildcard")
@@ -98,7 +100,7 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
 
     ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^server.*127.127.1.0.*prefer")
 
-    if ntp_daemon_type == NtpDaemon.NTP:
+    if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
         ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.ignore.wildcard")
         ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.listen.mgmt")
 
