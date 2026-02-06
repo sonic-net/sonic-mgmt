@@ -5187,3 +5187,48 @@
   inv_name: ixia
   auto_recover: 'False'
   comment: yatishkoul
+
+- conf-name: vmsvc-ut2-7280r4-1
+  group-name: svc7-1
+  topo: t2_single_node_min_nexthop_ut2
+  ptf_image_name: docker-ptf
+  ptf: svc7-1
+  ptf_ip: 10.206.144.83/24
+  ptf_ipv6: 2a01:111:e205:100::ace:9053/64
+  server: server_svc_7
+  vm_base: VM65101
+  dut:
+  - svcstr-7280r4-ut2-1
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: yatishkoul
+
+- conf-name: vmsvc-ut2-7280r4-2
+  group-name: svc7-2
+  topo: t2_single_node_min_nexthop_ut2
+  ptf_image_name: docker-ptf
+  ptf: svc7-2
+  ptf_ip: 10.206.144.84/24
+  ptf_ipv6: 2a01:111:e205:100::ace:9054/64
+  server: server_svc_7
+  vm_base: VM65107
+  dut:
+  - svcstr-7280r4-ut2-2
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: yatishkoul
+
+- conf-name: vmsvc-ut2-nh5010-2
+  group-name: svc3-3
+  topo: t2_single_node_max_38p
+  ptf_image_name: docker-ptf
+  ptf: svc3-3
+  ptf_ip: 10.206.144.91/24
+  ptf_ipv6: 2a01:111:e205:100::ace:905b/64
+  server: server_svc_3
+  vm_base: VM30102
+  dut:
+  - svcstr-nh5010-ut2-2
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: yatishkoul
