@@ -323,11 +323,11 @@ def test_buffer_profile_add_remove_rollback(
         new_cable_length, new_profile_name, original_profile_name))
 
     def check_profile_exists(profile_name, should_exist):
-        """Check if profile exists in APPL_DB"""
-        app_key = "BUFFER_PROFILE_TABLE:{}".format(profile_name)
+        """Check if profile exists in CONFIG_DB"""
+        config_key = "BUFFER_PROFILE|{}".format(profile_name)
         result = duthost.shell(
-            'sonic-db-cli {} APPL_DB exists "{}"'.format(
-                cli_namespace_prefix, app_key),
+            'sonic-db-cli {} CONFIG_DB exists "{}"'.format(
+                cli_namespace_prefix, config_key),
             module_ignore_errors=True)
         exists = int(result["stdout"]) == 1 if result["rc"] == 0 else False
         return exists == should_exist
