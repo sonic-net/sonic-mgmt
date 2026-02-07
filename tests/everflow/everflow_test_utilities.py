@@ -486,6 +486,15 @@ def validate_mirror_session_up(duthost, session_name):
     return False
 
 
+def validate_acl_rules_in_asic_db(duthost):
+    """
+    Validate the number of ACL rules in ASIC DB is the same as the number of ACL rules in CONFIG DB.
+    """
+    config_rules = duthost.shell("sonic-db-cli CONFIG_DB KEYS *ACL_RULE*")['stdout_lines']
+    asic_rules = duthost.shell("sonic-db-cli ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*")['stdout_lines']
+    return len(config_rules) == len(asic_rules)
+
+
 # TODO: This should be refactored to some common area of sonic-mgmt.
 def add_route(duthost, prefix, nexthop, namespace):
     """
