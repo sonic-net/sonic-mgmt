@@ -109,13 +109,14 @@ def measure_stats(dut):
 
 
 @pytest.fixture
-def setup_duthost_intervals(duthost):
+def setup_duthost_intervals(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     '''
     Fixture to allow for dynamic interval definitions for each interval, based on duthost facts.
     The default is left relatively long to ensure that it passes on all platforms.
 
     Returns a list of float values.
     '''
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     DEFAULT_INTERVALS = [10.0, 9.0, 8.0]
     PLATFORM_INTERVALS = {
         'mellanox': [4.0, 3.5, 3.0],
@@ -135,7 +136,8 @@ def setup_duthost_intervals(duthost):
 
 @pytest.fixture
 def setup_bgp_peers(
-    duthost,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
     tbinfo,
     ptfhost,
     setup_interfaces,
@@ -144,6 +146,7 @@ def setup_bgp_peers(
 ):
     ASN_BASE = 61000
     PORT_BASE = 11000
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
@@ -211,11 +214,13 @@ def setup_bgp_peers(
 
 
 def test_bgp_update_replication(
-    duthost,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
     setup_bgp_peers,
     setup_duthost_intervals,
 ):
     NUM_ROUTES = 10_000
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bgp_peers: list[BGPNeighbor] = setup_bgp_peers
     duthost_intervals: list[float] = setup_duthost_intervals
 
