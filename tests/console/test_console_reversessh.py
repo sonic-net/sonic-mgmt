@@ -1,18 +1,22 @@
 import pytest
 import pexpect
+import random
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('c0', 'c0-lo')
 ]
 
 
-@pytest.mark.parametrize("target_line", ["1", "2"])
+console_lines = list(map(str, range(1, 49)))
+
+
+@pytest.mark.parametrize("target_line", random.sample(console_lines, 2))
 def test_console_reversessh_connectivity(duthost, creds, target_line):
     """
-    Test reverse SSH are working as expect.
+    Test reverse SSH is working as expect.
     Verify serial session is available after connect DUT via reverse SSH
     """
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
@@ -46,10 +50,10 @@ def test_console_reversessh_connectivity(duthost, creds, target_line):
         "Target line {} is busy after exited reverse SSH session".format(target_line))
 
 
-@pytest.mark.parametrize("target_line", ["1", "2"])
+@pytest.mark.parametrize("target_line", random.sample(console_lines, 2))
 def test_console_reversessh_force_interrupt(duthost, creds, target_line):
     """
-    Test reverse SSH are working as expect.
+    Test reverse SSH is working as expect.
     Verify active serial session can be shut by DUT
     """
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
