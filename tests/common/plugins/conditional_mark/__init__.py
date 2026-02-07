@@ -15,6 +15,7 @@ import pytest
 from tests.common.testbed import TestbedInfo
 from .issue import check_issues
 from tests.common.utilities import get_duts_from_host_pattern
+from .skip_category_validator import check_expiry_and_format_reason
 
 logger = logging.getLogger(__name__)
 
@@ -93,17 +94,26 @@ def load_conditions(session):
     if not conditions_files:
         pytest.fail('There is no conditions files')
 
+    skip_categories = None
     try:
         logger.debug('Trying to load test mark conditions files: {}'.format(conditions_files))
         for conditions_file in conditions_files:
             with open(conditions_file) as f:
                 logger.debug('Loaded test mark conditions file: {}'.format(conditions_file))
                 conditions = yaml.safe_load(f)
+                # Extract skip_categories if present
+                if 'skip_categories' in conditions:
+                    skip_categories = conditions.pop('skip_categories')
+                    logger.info('Loaded skip_categories configuration from {}'.format(conditions_file))
                 for key, value in list(conditions.items()):
                     conditions_list.append({key: value})
     except Exception as e:
         logger.error('Failed to load {}, exception: {}'.format(conditions_files, repr(e)), exc_info=True)
         pytest.fail('Loading conditions file "{}" failed. Possibly invalid yaml file.'.format(conditions_files))
+
+    # Cache skip_categories for validation
+    if skip_categories:
+        session.config.cache.set('SKIP_CATEGORIES', skip_categories)
 
     return conditions_list
 
@@ -558,10 +568,15 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
     Returns:
         bool: True or False based on condition string evaluation result.
     """
+    logger.debug(f"evaluate_condition called - condition: {condition}")
+
     if condition is None or condition.strip() == '':
+        logger.debug("Empty condition, returning True")
         return True    # Empty condition item will be evaluated as True. Equivalent to be ignored.
 
     condition_str = update_issue_status(condition, session)
+    logger.debug(f"Condition after issue status update: {condition_str}")
+
     try:
         safe_facts = {k: v for k, v in basic_facts.items()}
         safe_globals = {}
@@ -570,13 +585,22 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
         for var in ["asic_type"]:
             if var not in safe_globals:
                 safe_globals[var] = None
+                logger.debug(f"Variable '{var}' not in safe_globals, set to None")
+
+        # Log key variables for debugging
+        logger.debug(f"Key variables - asic_type: {safe_globals.get('asic_type')}, "
+                     f"topo_name: {safe_globals.get('topo_name')}, "
+                     f"platform: {safe_globals.get('platform')}")
 
         condition_result = bool(eval(condition_str, safe_globals))
+        logger.debug(f"Condition evaluation result: {condition_result}")
 
         if condition_result and dynamic_update_skip_reason:
             mark_details['reason'].append(condition)
         return condition_result
-    except Exception:
+    except Exception as e:
+        logger.error(f"Failed to evaluate condition - raw_condition={condition}, "
+                     f"condition_str={condition_str}, error={e}")
         raise RuntimeError('Failed to evaluate condition, raw_condition={}, condition_str={}'.format(
             condition,
             condition_str))
@@ -602,18 +626,28 @@ def evaluate_conditions(dynamic_update_skip_reason, mark_details, conditions, ba
     Returns:
         bool: True or False based on condition strings evaluation result.
     """
+    logger.debug(f"evaluate_conditions called - conditions_logical_operator: {conditions_logical_operator}")
+    logger.debug(f"Conditions to evaluate: {conditions}")
+
     if dynamic_update_skip_reason:
         mark_details['reason'] = []
+
     if isinstance(conditions, list):
         # Apply 'AND' or 'OR' operation to list of conditions based on conditions_logical_operator(by default 'AND')
+        logger.debug(f"Evaluating list of {len(conditions)} conditions with {conditions_logical_operator} operator")
         if conditions_logical_operator == 'OR':
-            return any([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
-                        for c in conditions])
+            result = any([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
+                          for c in conditions])
+            logger.debug(f"OR evaluation result: {result}")
+            return result
         else:
-            return all([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
-                        for c in conditions])
+            result = all([evaluate_condition(dynamic_update_skip_reason, mark_details, c, basic_facts, session)
+                          for c in conditions])
+            logger.debug(f"AND evaluation result: {result}")
+            return result
     else:
         if conditions is None or conditions.strip() == '':
+            logger.debug("Empty conditions, returning True")
             return True
         return evaluate_condition(dynamic_update_skip_reason, mark_details, conditions, basic_facts, session)
 
@@ -655,6 +689,12 @@ def pytest_collection_modifyitems(session, config, items):
         logger.debug('No mark condition is defined')
         return
 
+    # Get skip_categories configuration
+    skip_categories = config.cache.get('SKIP_CATEGORIES', None)
+    if skip_categories:
+        logger.info('Skip categories configuration loaded: {}'.format(
+            json.dumps(skip_categories, indent=2)))
+
     dut_name = get_dut_name(session)
     cached_facts_name = f'BASIC_FACTS_{dut_name}'
     basic_facts = config.cache.get(cached_facts_name, None)
@@ -665,7 +705,12 @@ def pytest_collection_modifyitems(session, config, items):
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     basic_facts['constants'] = MARK_CONDITIONS_CONSTANTS
+
+    # Collect validation errors to report at the end
+    all_validation_errors = []
+
     for item in items:
+        logger.debug(f"Processing test item: {item.nodeid}")
         all_matches = find_all_matches(item.nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 
         if all_matches:
@@ -673,25 +718,50 @@ def pytest_collection_modifyitems(session, config, items):
 
             for match in all_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
+                test_path = list(match.keys())[0]
+                logger.debug(f"Processing match for test_path: {test_path}")
                 for mark_name, mark_details in list(list(match.values())[0].items()):
                     if mark_name in ["regex", "use_longest"]:
                         continue
+                    logger.debug(f"Processing mark '{mark_name}' for test: {item.nodeid}")
+                    logger.debug(f"Mark details: {mark_details}")
                     conditions_logical_operator = mark_details.get('conditions_logical_operator', 'AND').upper()
                     add_mark = False
                     if not mark_details:
+                        logger.debug("No mark details, unconditionally adding mark")
                         add_mark = True
                     else:
                         mark_conditions = mark_details.get('conditions', None)
                         if not mark_conditions:
                             # Unconditionally add mark
+                            logger.debug("No mark conditions, unconditionally adding mark")
                             add_mark = True
                         else:
+                            logger.debug(f"Evaluating mark conditions: {mark_conditions}")
                             add_mark = evaluate_conditions(dynamic_update_skip_reason, mark_details, mark_conditions,
                                                            basic_facts, conditions_logical_operator, session)
+                            logger.debug(f"Mark evaluation result (add_mark): {add_mark}")
 
                     if add_mark:
-                        reason = ''
-                        if mark_details:
+                        logger.debug(f"Attempting to add mark '{mark_name}' to test: {item.nodeid}")
+                        # Validate category and expiry before adding mark
+                        should_apply_mark, formatted_reason, validation_errors = check_expiry_and_format_reason(
+                            mark_details, mark_name, test_path, skip_categories
+                        )
+
+                        # Collect validation errors
+                        if validation_errors:
+                            logger.debug(f"Validation errors found: {validation_errors}")
+                            all_validation_errors.extend(validation_errors)
+                            continue  # Skip adding this mark if validation failed
+
+                        if not should_apply_mark:
+                            # Mark expired with action 'warn' or 'run', skip adding mark
+                            logger.debug("should_apply_mark is False, not adding mark")
+                            continue
+
+                        reason = formatted_reason
+                        if not reason:
                             reason = mark_details.get('reason', '')
                             if isinstance(reason, list):
                                 if conditions_logical_operator == "AND":
@@ -711,3 +781,10 @@ def pytest_collection_modifyitems(session, config, items):
 
                         logger.debug('Adding mark {} to {}'.format(mark, item.nodeid))
                         item.add_marker(mark)
+
+    # Report all validation errors at once
+    if all_validation_errors:
+        error_message = "\n\n".join(all_validation_errors)
+        logger.error("Category/Expiry validation errors found:\n{}".format(error_message))
+        pytest.fail("Category/Expiry validation failed. Please fix the errors in mark conditions files:\n\n{}"
+                    .format(error_message))
