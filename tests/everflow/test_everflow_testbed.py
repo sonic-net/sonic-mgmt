@@ -1094,7 +1094,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
                 queue,
                 asic_ns,
                 recircle_port,
-                erspan_ip_ver
+                erspan_ip_ver,
+                valid_across_namespace=everflow_dut.is_multi_asic,
             )
         finally:
             remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
