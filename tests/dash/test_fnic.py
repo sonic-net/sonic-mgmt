@@ -96,13 +96,14 @@ def common_setup_teardown(
         config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
-def test_fnic(ptfadapter, dash_pl_config):
+@pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
+def test_fnic(ptfadapter, dash_pl_config, encap_proto):
     num_packets = 5
     pkt_sets = list()
 
     for _ in range(num_packets):
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt = rand_udp_port_packets(
-            dash_pl_config, floating_nic=True, outbound_vni=pl.VNET1_VNI
+            dash_pl_config, floating_nic=True, outbound_vni=pl.VNET1_VNI, outbound_encap=encap_proto
         )
         pkt_sets.append((vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt))
 

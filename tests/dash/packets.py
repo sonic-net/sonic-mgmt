@@ -70,7 +70,7 @@ def get_pl_overlay_dip(orig_dip, ol_dip, ol_mask):
     return str(ip_address(overlay_dip))
 
 
-def rand_udp_port_packets(config, floating_nic=True, outbound_vni=None):
+def rand_udp_port_packets(config, floating_nic=True, outbound_vni=None, outbound_encap="vxlan"):
     """
     Randomly generate the inner (overlay) UDP source and destination ports.
     Useful to ensure an even distribution of packets across multiple ECMP endpoints.
@@ -78,7 +78,7 @@ def rand_udp_port_packets(config, floating_nic=True, outbound_vni=None):
     sport = random.randint(49152, 65535)
     dport = random.randint(49152, 65535)
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
-        config, "vxlan", floating_nic, inner_sport=sport, inner_dport=dport, vni=outbound_vni
+        config, outbound_encap, floating_nic, inner_sport=sport, inner_dport=dport, vni=outbound_vni
     )
     pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(
         config, floating_nic, inner_sport=dport, inner_dport=sport, exp_vni=outbound_vni
