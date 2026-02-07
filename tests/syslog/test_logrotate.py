@@ -17,6 +17,7 @@ pytestmark = [
 
 LOG_FOLDER = '/var/log'
 SMALL_VAR_LOG_PARTITION_SIZE = '300M'
+SMALL_VAR_LOG_PARTITION_SIZE_FOR_CHASSIS = '600M'
 FAKE_IP = '10.20.30.40'
 FAKE_MAC = 'aa:bb:cc:dd:11:22'
 
@@ -53,9 +54,12 @@ def simulate_small_var_log_partition(rand_selected_dut, localhost):
     :param rand_selected_dut: The fixture returns a randomly selected DUT
     """
     duthost = rand_selected_dut
-    with allure.step('Create a small var log partition with size of {}'.format(SMALL_VAR_LOG_PARTITION_SIZE)):
-        logger.info('Create a small var log partition with size of {}'.format(SMALL_VAR_LOG_PARTITION_SIZE))
-        duthost.shell('sudo fallocate -l {} log-new-partition'.format(SMALL_VAR_LOG_PARTITION_SIZE))
+    small_var_log_size = SMALL_VAR_LOG_PARTITION_SIZE
+    if duthost.get_facts().get("modular_chassis") and duthost.facts["asic_type"] == "cisco-8000":
+        small_var_log_size = SMALL_VAR_LOG_PARTITION_SIZE_FOR_CHASSIS
+    with allure.step('Create a small var log partition with size of {}'.format(small_var_log_size)):
+        logger.info('Create a small var log partition with size of {}'.format(small_var_log_size))
+        duthost.shell('sudo fallocate -l {} log-new-partition'.format(small_var_log_size))
         duthost.shell('sudo losetup -P  /dev/loop2 log-new-partition')
         duthost.shell('sudo mkfs.ext4 /dev/loop2')
         duthost.shell('sudo mount /dev/loop2 /var/log')
