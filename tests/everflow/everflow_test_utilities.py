@@ -595,7 +595,7 @@ def load_acl_rules_config(table_name, rules_file):
 
 def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_session, duthost, rx_port,
                                            tx_ports, direction, queue, asic_ns, recircle_port,
-                                           expect_recv=True, valid_across_namespace=True):
+                                           erspan_ip_ver, expect_recv=True, valid_across_namespace=True):
     tx_port_ids = self._get_tx_port_id_list(tx_ports)
     default_ip = self.DEFAULT_DST_IP
     router_mac = setup[direction]["ingress_router_mac"]
@@ -617,6 +617,7 @@ def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_sessi
                 dest_ports=tx_port_ids,
                 expect_recv=expect_recv,
                 valid_across_namespace=valid_across_namespace,
+                erspan_ip_ver=erspan_ip_ver
             )
 
         # Assert the specific asic recircle port's queue
@@ -691,6 +692,10 @@ class BaseEverflowTest(object):
         for duthost in duthost_set:
             if not session_info:
                 session_info = BaseEverflowTest.mirror_session_info("test_session_1", duthost.facts["asic_type"])
+            # Skip IPv6 mirror session due to issue #19096
+            if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s') and erspan_ip_ver == 6: # noqa E501
+                pytest.skip("Skip IPv6 mirror session on unsupported platforms")
+
             BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, erspan_ip_ver=erspan_ip_ver)
 
         yield session_info
@@ -731,28 +736,47 @@ class BaseEverflowTest(object):
             self.remove_policer_config(duthost, policer, config_method)
 
     @staticmethod
-    def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None, erspan_ip_ver=4):
+    def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None,
+                            erspan_ip_ver=4, queue_num=None):
+        commands_list = list()
         if config_method == CONFIG_MODE_CLI:
             if erspan_ip_ver == 4:
                 command = f"config mirror_session add {session_info['session_name']} \
                             {session_info['session_src_ip']} {session_info['session_dst_ip']} \
                             {session_info['session_dscp']} {session_info['session_ttl']} \
                             {session_info['session_gre']}"
+                if queue_num:
+                    command += f" {queue_num}"
                 if policer:
                     command += f" --policer {policer}"
+                commands_list.append(command)
             else:
-                # Adding IPv6 ERSPAN sessions from the CLI is currently not supported.
-                command = f"sonic-db-cli CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' \
-                            'dscp' '{session_info['session_dscp']}' 'dst_ip' '{session_info['session_dst_ipv6']}' \
-                            'gre_type' '{session_info['session_gre']}' 'src_ip' '{session_info['session_src_ipv6']}' \
-                            'ttl' '{session_info['session_ttl']}'"
-                if policer:
-                    command += f" 'policer' {policer}"
+                for asic_index in duthost.get_frontend_asic_ids():
+                    # Adding IPv6 ERSPAN sessions for each asic, from the CLI is currently not supported.
+                    if asic_index is not None:
+                        command = f"sonic-db-cli -n asic{asic_index} "
+                    else:
+                        command = "sonic-db-cli "
+                    command += (
+                        f"CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' "
+                        f"'dscp' '{session_info['session_dscp']}' "
+                        f"'dst_ip' '{session_info['session_dst_ipv6']}' "
+                        f"'gre_type' '{session_info['session_gre']}' "
+                        f"'type' '{session_info['session_type']}' "
+                        f"'src_ip' '{session_info['session_src_ipv6']}' "
+                        f"'ttl' '{session_info['session_ttl']}'"
+                    )
+                    if queue_num:
+                        command += f" 'queue' {queue_num}"
+                    if policer:
+                        command += f" 'policer' {policer}"
+                    commands_list.append(command)
 
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
 
-        duthost.command(command)
+        for command in commands_list:
+            duthost.command(command)
 
     @staticmethod
     def remove_mirror_config(duthost, session_name, config_method=CONFIG_MODE_CLI):
@@ -956,22 +980,27 @@ class BaseEverflowTest(object):
 
         return new_packet
 
-    def check_rule_counters(self, duthost):
+    def check_rule_active(self, duthost, table_name):
         """
-        Check if Acl rule counters initialized
+        Check if Acl rule initialized
 
         Args:
             duthost: DUT host object
         Returns:
             Bool value
         """
-        res = duthost.shell("aclshow -a")['stdout_lines']
-        if len(res) <= 2 or [line for line in res if 'N/A' in line]:
+        res = duthost.shell(f"show acl rule {table_name}")['stdout_lines']
+        if "Status" not in res[0]:
             return False
-        else:
-            return True
+        status_index = res[0].index("Status")
+        for line in res[2:]:
+            if len(line) < status_index:
+                continue
+            if line[status_index:] != 'Active':
+                return False
+        return True
 
-    def apply_non_openconfig_acl_rle(self, duthost, extra_vars, rule_file):
+    def apply_non_openconfig_acl_rule(self, duthost, extra_vars, rule_file, table_name):
         """
         Not all ACL match groups are valid in openconfig-acl format used in rest of these
         tests. Instead we must load these uing SONiC-style acl jsons.
@@ -988,7 +1017,8 @@ class BaseEverflowTest(object):
         duthost.shell("config load -y {}".format(dest_path))
 
         if duthost.facts['asic_type'] != 'vs':
-            pytest_assert(wait_until(60, 2, 0, self.check_rule_counters, duthost), "Acl rule counters are not ready")
+            pytest_assert(wait_until(60, 2, 0, self.check_rule_active, duthost, table_name),
+                          "Acl rule counters are not ready")
 
     def apply_ip_type_rule(self, duthost, ip_version):
         """
@@ -1011,7 +1041,7 @@ class BaseEverflowTest(object):
             'table_name': table_name,
             'action': action
         }
-        self.apply_non_openconfig_acl_rle(duthost, extra_vars, rule_file)
+        self.apply_non_openconfig_acl_rule(duthost, extra_vars, rule_file, table_name)
 
     def send_and_check_mirror_packets(self,
                                       setup,
@@ -1278,6 +1308,7 @@ class BaseEverflowTest(object):
         session_dst_ipv6 = "2222::2:2:2:2"
         session_dscp = "8"
         session_ttl = "4"
+        session_type = "ERSPAN"
 
         if "mellanox" == asic_type:
             session_gre = 0x8949
@@ -1306,6 +1337,7 @@ class BaseEverflowTest(object):
             "session_dscp": session_dscp,
             "session_ttl": session_ttl,
             "session_gre": session_gre,
+            "session_type": session_type,
             "session_prefixes": session_prefixes,
             "session_prefixes_ipv6": session_prefixes_ipv6
         }
