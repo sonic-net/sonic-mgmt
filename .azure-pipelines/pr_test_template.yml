@@ -38,6 +38,18 @@ parameters:
   type: object
   default: {}
 
+- name: FROM_BUILDIMAGE
+  type: boolean
+  default: false
+
+# AST-based Impact Analysis Rollout Control
+# Set to 0-100 to control percentage of PRs using new AST-based analysis
+# 0 = All PRs use legacy (safe default), 100 = All PRs use AST (full rollout)
+- name: AST_ROLLOUT_PERCENTAGE
+  type: number
+  default: 0  # Start at 0%, gradually increase (10, 25, 50, 75, 100)
+
+
 jobs:
   - job: get_impacted_area
     displayName: "Get impacted area"
@@ -52,7 +64,11 @@ jobs:
       - template: impacted_area_testing/get-impacted-area.yml
         parameters:
           BUILD_BRANCH: $(BUILD_BRANCH)
+          SOURCE_BRANCH: $(Build.SourceBranchName)
+          TARGET_BRANCH: $(BUILD_BRANCH)
           IMPACT_AREA_INFO: ${{ parameters.IMPACT_AREA_INFO }}
+          AST_ROLLOUT_PERCENTAGE: ${{ parameters.AST_ROLLOUT_PERCENTAGE }}
+          FROM_BUILDIMAGE: ${{ parameters.FROM_BUILDIMAGE }}
 
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"

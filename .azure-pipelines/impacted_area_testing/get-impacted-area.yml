@@ -1,8 +1,50 @@
+parameters:
+  - name: BUILD_BRANCH
+    type: string
+    default: 'master'
+  - name: TARGET_BRANCH
+    type: string
+    default: 'origin/master'
+  - name: SOURCE_BRANCH
+    type: string
+    default: ''
+  - name: IMPACT_AREA_INFO
+    type: object
+    default: {}
+  - name: AST_ROLLOUT_PERCENTAGE
+    displayName: "AST Rollout Percentage (0-100)"
+    type: number
+    default: 0
+  - name: FROM_BUILDIMAGE
+    type: boolean
+    default: false
+
 steps:
 - script: |
     echo "##vso[task.setvariable variable=BUILD_BRANCH]${{ parameters.BUILD_BRANCH }}"
     sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
-  displayName: "Setup environment"
+
+    # Routing decision
+    FROM_BUILDIMAGE="${{ parameters.FROM_BUILDIMAGE }}"
+    AST_PCT=${{ parameters.AST_ROLLOUT_PERCENTAGE }}
+
+    # Always use legacy for buildimage PRs
+    if [[ "$FROM_BUILDIMAGE" == "True" ]] || [[ "$FROM_BUILDIMAGE" == "true" ]]; then
+      USE_AST="false"
+      echo "→ FROM_BUILDIMAGE=true: Using Legacy implementation"
+    elif [[ $AST_PCT -eq 100 ]]; then
+      USE_AST="true"
+      echo "→ AST Rollout: 100% - Using AST implementation"
+    elif [[ $AST_PCT -gt 0 ]] && [[ $((1 + RANDOM % 100)) -le $AST_PCT ]]; then
+      USE_AST="true"
+      echo "→ AST Rollout: ${AST_PCT}% - Randomly selected AST implementation"
+    else
+      USE_AST="false"
+      echo "→ AST Rollout: ${AST_PCT}% - Using Legacy implementation"
+    fi
+
+    echo "##vso[task.setvariable variable=USE_AST]$USE_AST"
+  displayName: "Setup & routing decision"
 
 - ${{ if and(ne(parameters.IMPACT_AREA_INFO, ''), ne(length(parameters.IMPACT_AREA_INFO), 0)) }}:
   - script: |
@@ -30,130 +72,34 @@ steps:
 
 
 - script: |
-    set -x
+    set -e
+    set -u
+    set -o pipefail
 
     TEST_SCRIPTS='$(VerifyParams.TEST_SCRIPTS)'
     PR_CHECKERS='$(VerifyParams.PR_CHECKERS)'
+    USE_AST='$(USE_AST)'
+
+    # Skip if pre-defined
     if [[ -n "$TEST_SCRIPTS" && -n "$PR_CHECKERS" ]]; then
-      echo "Impact area was pre-defined, skip get diff step."
-      exit 0
-    fi
-    git fetch --all
-    DIFF_FOLDERS=$(git diff $(git merge-base origin/${{ parameters.BUILD_BRANCH }} HEAD)..HEAD  --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
-
-    if [[ $? -ne 0 ]]; then
-      echo "##vso[task.complete result=Failed;]Get diff folders fails."
-      exit 1
-    else
-      echo -n "##vso[task.setvariable variable=DIFF_FOLDERS]$DIFF_FOLDERS"
-    fi
-  continueOnError: false
-  displayName: "Get diff folders"
-
-- script: |
-    set -x
-
-    TEST_SCRIPTS='$(VerifyParams.TEST_SCRIPTS)'
-    PR_CHECKERS='$(VerifyParams.PR_CHECKERS)'
-    if [[ -n "$TEST_SCRIPTS" && -n "$PR_CHECKERS" ]]; then
-      echo "Impact area was pre-defined, skip get impacted area step."
+      echo "Impact area was pre-defined, skip analysis."
       echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]$PR_CHECKERS"
       echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]$TEST_SCRIPTS"
       exit 0
     fi
-    pip install PyYAML
-    pip install natsort
 
-    FINAL_FEATURES=""
-    IFS=' ' read -ra FEATURES_LIST <<< "$(DIFF_FOLDERS)"
+    # Export BUILD_BRANCH for bash scripts
+    export BUILD_BRANCH="${{ parameters.BUILD_BRANCH }}"
 
-    # Define the list of folders include common features
-    COMMON_DIRS=("tests/common" "tests/scripts")
-
-    for FEATURE in "${FEATURES_LIST[@]}"
-    do
-      for COMMON_DIR in "${COMMON_DIRS[@]}"; do
-        if [[ "$FEATURE" == *$COMMON_DIR* ]]; then
-          FINAL_FEATURES=""
-          break 2
-        fi
-      done
-
-      # If changes only limited to specific feature, the scope of PR testing is impacted area.
-      if [[ "$FEATURE" =~ ^tests\/.* ]]; then
-        # Cut the feature path
-        if [[ $FEATURE == */*/* ]]; then
-            FEATURE=$(echo "$FEATURE" | cut -d'/' -f1-2)
-        fi
-
-        FEATURE=${FEATURE#tests/}
-
-        if [[ -z "$FINAL_FEATURES" ]]; then
-          FINAL_FEATURES="$FEATURE"
-        elif [[ ! "$FINAL_FEATURES" == *$FEATURE* ]]; then
-          FINAL_FEATURES="$FINAL_FEATURES,$FEATURE"
-        fi
-
-      # If changes related to other folders excpet tests, we also consider them as common part.
-      # The scope of PR testing is all test scripts.
-      else
-        FINAL_FEATURES=""
-        break
-      fi
-    done
-
-    # Generate TEST_SCRIPTS with retry logic for JSON validation
-    MAX_RETRIES=3
-    RETRY_COUNT=0
-
-    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-      echo "Attempt $((RETRY_COUNT + 1)): Generating test scripts..."
-
-      TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features ${FINAL_FEATURES} --location tests)
-
-      if [[ $? -ne 0 ]]; then
-        echo "Get test scripts command failed on attempt $((RETRY_COUNT + 1))"
-        RETRY_COUNT=$((RETRY_COUNT + 1))
-        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-          echo "Retrying in 2 seconds..."
-          sleep 2
-        fi
-        continue
-      fi
-
-      # Validate TEST_SCRIPTS is valid JSON
-      if echo "$TEST_SCRIPTS" | jq empty > /dev/null 2>&1; then
-        echo "TEST_SCRIPTS is valid JSON: $TEST_SCRIPTS"
-
-        # Generate PR_CHECKERS
-        PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
-
-        if [[ $? -eq 0 ]] && echo "$PR_CHECKERS" | jq empty > /dev/null 2>&1; then
-          echo "PR_CHECKERS is valid list: $PR_CHECKERS"
-          echo "All validations passed successfully"
-          break
-        else
-          echo "PR_CHECKERS generation failed or invalid list: $PR_CHECKERS"
-        fi
-      else
-        echo "TEST_SCRIPTS is not valid JSON: $TEST_SCRIPTS"
-      fi
-
-      RETRY_COUNT=$((RETRY_COUNT + 1))
-      if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
-        echo "Retrying in 2 seconds..."
-        sleep 2
-      fi
-    done
-
-    # Final validation
-    if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
-      echo "##vso[task.complete result=Failed;]Failed to generate valid JSON after $MAX_RETRIES attempts. Last TEST_SCRIPTS: $TEST_SCRIPTS"
-      exit 1
+    # Route to selected implementation
+    if [ "$USE_AST" = "true" ]; then
+      echo "→ Executing AST-based analysis..."
+      bash $(Build.SourcesDirectory)/.azure-pipelines/impacted_area_testing/impl-ast.sh
+    else
+      echo "→ Executing Legacy directory-based analysis..."
+      bash $(Build.SourcesDirectory)/.azure-pipelines/impacted_area_testing/impl-legacy.sh
     fi
 
-    echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]$PR_CHECKERS"
-    echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]$TEST_SCRIPTS"
   name: SetVariableTask
   continueOnError: false
   displayName: "Get impacted area"
