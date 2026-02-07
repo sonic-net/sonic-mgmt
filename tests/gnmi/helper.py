@@ -5,7 +5,7 @@ import json
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import get_dpu_ip, get_dpu_port
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name, \
-                                            dump_gnmi_log, dump_system_status
+                                            dump_gnmi_log, dump_system_status, gnoi_request
 from tests.common.helpers.gnmi_utils import gnmi_container   # noqa: F401
 from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
 
@@ -424,25 +424,6 @@ def gnoi_reboot(duthost, method, delay, message):
     cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
     cmd += "-logtostderr -rpc Reboot "
     cmd += '-jsonin "{\\\"method\\\":%d, \\\"delay\\\":%d, \\\"message\\\":\\\"%s\\\"}"' % (method, delay, message)
-    output = duthost.shell(cmd, module_ignore_errors=True)
-    if output['stderr']:
-        logger.error(output['stderr'])
-        return -1, output['stderr']
-    else:
-        return 0, output['stdout']
-
-
-def gnoi_request(duthost, localhost, module, rpc, request_json_data):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
-    ip = f"[{duthost.mgmt_ip}]" if dut_facts.get('is_mgmt_ipv6_only', False) else duthost.mgmt_ip
-    port = env.gnmi_port
-    cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
-    cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
-    cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
-    cmd += "-logtostderr -module {} -rpc {} ".format(module, rpc)
-    cmd += f'-jsonin \'{request_json_data}\''
     output = duthost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
         logger.error(output['stderr'])
