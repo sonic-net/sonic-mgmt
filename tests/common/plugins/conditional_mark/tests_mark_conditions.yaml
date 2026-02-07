@@ -1771,12 +1771,6 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan
     reason: "Skip everflow per interface IPv6 test on unsupported platforms x86_64-nvidia_sn5640-r0."
     conditions:
       - "platform in ['x86_64-nvidia_sn5640-r0']"
-  xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19096 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_l3_scenario]:
   skip:
