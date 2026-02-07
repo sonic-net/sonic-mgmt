@@ -12,7 +12,7 @@ from constants import (
 )
 from gnmi_utils import apply_messages
 from packets import inbound_pl_packets, plnsg_packets
-from test_fnic import verify_tunnel_packets
+from tests.dash.dash_utils import verify_tunnel_packets
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 import ptf.packet as scapy
 

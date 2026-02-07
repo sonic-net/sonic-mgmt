@@ -70,7 +70,7 @@ def get_pl_overlay_dip(orig_dip, ol_dip, ol_mask):
     return str(ip_address(overlay_dip))
 
 
-def rand_udp_port_packets(config, floating_nic=True, outbound_vni=None):
+def rand_udp_port_packets(config, floating_nic=True, outbound_vni=None, outbound_encap="vxlan"):
     """
     Randomly generate the inner (overlay) UDP source and destination ports.
     Useful to ensure an even distribution of packets across multiple ECMP endpoints.
@@ -78,9 +78,11 @@ def rand_udp_port_packets(config, floating_nic=True, outbound_vni=None):
     sport = random.randint(49152, 65535)
     dport = random.randint(49152, 65535)
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
-        config, "vxlan", floating_nic, inner_sport=sport, inner_dport=dport, vni=outbound_vni
+        config, outbound_encap, floating_nic, inner_sport=sport, inner_dport=dport, vni=outbound_vni
     )
-    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(config, floating_nic, inner_sport=dport, inner_dport=sport)
+    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(
+        config, floating_nic, inner_sport=dport, inner_dport=sport, exp_vni=outbound_vni
+    )
     return vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt
 
 
@@ -120,8 +122,9 @@ def set_do_not_care_layer(mask, layer, field_name, n=1):
 
 def inbound_pl_packets(
     config, floating_nic=False, inner_packet_type="udp", vxlan_udp_dport=4789, inner_sport=4567, inner_dport=6789,
-    vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT, vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK
+    vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT, vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK, exp_vni=None
 ):
+    expected_vni = int(exp_vni if exp_vni else pl.ENCAP_VNI)
     inner_sip = get_pl_overlay_dip(  # not a typo, inner DIP/SIP are reversed for inbound direction
         pl.PE_CA, pl.PL_OVERLAY_DIP, pl.PL_OVERLAY_DIP_MASK
     )
@@ -170,7 +173,7 @@ def inbound_pl_packets(
         ip_id=0,
         udp_dport=vxlan_udp_dport,
         udp_sport=vxlan_udp_base_src_port,
-        vxlan_vni=pl.ENCAP_VNI if floating_nic else int(pl.VNET1_VNI),
+        vxlan_vni=expected_vni,
         inner_frame=exp_inner_packet,
     )
 
@@ -184,8 +187,7 @@ def inbound_pl_packets(
     if floating_nic:
         # As destination IP is not fixed in case of return path ECMP,
         # we need to mask the checksum and destination IP
-        masked_exp_packet.set_do_not_care_packet(scapy.IP, "dst")
-        masked_exp_packet.set_do_not_care(400, 48)  # Inner dst MAC
+        set_do_not_care_layer(masked_exp_packet, scapy.Ether, "dst", 2)
 
     return gre_packet, masked_exp_packet
 
