@@ -1,0 +1,28 @@
+---
+# Tasks to ensure local SSH public key is in target host's authorized_keys
+
+- name: Read local SSH public key
+  delegate_to: localhost
+  slurp:
+    src: "{{ lookup('env', 'HOME') }}/.ssh/id_rsa.pub"
+  register: local_ssh_public_key
+  run_once: true
+
+- name: Ensure .ssh directory exists on target host
+  file:
+    path: "~/.ssh"
+    state: directory
+    mode: '0700'
+
+- name: Ensure authorized_keys file exists on target host
+  file:
+    path: "~/.ssh/authorized_keys"
+    state: touch
+    mode: '0600'
+  changed_when: false
+
+- name: Add local SSH public key to target host's authorized_keys
+  authorized_key:
+    user: "{{ ansible_user | default(ansible_user_id) }}"
+    key: "{{ local_ssh_public_key.content | b64decode }}"
+    state: present
