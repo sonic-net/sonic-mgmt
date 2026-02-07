@@ -9,13 +9,16 @@ import ptf.testutils
 from tests.common import constants
 import random
 
+import logging
 
-DEFAULT_PTF_NN_PORT_RANGE = [10900, 11000]
+DEFAULT_PTF_NN_PORT_RANGE = [10900, 10999]
 DEFAULT_DEVICE_NUM = 0
 ETH_PFX = 'eth'
 ETHERNET_PFX = "Ethernet"
 BACKPLANE = 'backplane'
 MAX_RETRY_TIME = 3
+
+logger = logging.getLogger(__name__)
 
 
 def pytest_addoption(parser):
@@ -130,6 +133,18 @@ def ptfadapter(ptfhosts, tbinfo, request, duthost):
     def start_ptf_nn_agent(device_num):
         for i in range(MAX_RETRY_TIME):
             ptf_nn_port = random.randint(*DEFAULT_PTF_NN_PORT_RANGE)
+
+            check_cmd = f"ss -tulpn | grep ':{ptf_nn_port}\\b'"
+            res = ptfhost.shell(check_cmd, module_ignore_errors=True)
+
+            # If stdout has content, it means grep found a listener -> PORT IS BUSY
+            if res['stdout'].strip():
+                logger.warning(
+                    "Setup Conflict: Port %s is ALREADY IN USE on PTF host.",
+                    ptf_nn_port
+                )
+                logger.debug("Process details: %s", res['stdout'])
+                continue
 
             # generate supervisor configuration for ptf_nn_agent
             ptfhost.host.options['variable_manager'].extra_vars.update({
