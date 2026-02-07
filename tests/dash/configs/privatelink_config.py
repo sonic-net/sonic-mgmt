@@ -117,6 +117,20 @@ ENI_FNIC_CONFIG = {
     }
 }
 
+ENI_FNIC_PL_CONFIG = {
+    f"DASH_ENI_TABLE:{ENI_ID}": {
+        "vnet": VNET1,
+        "underlay_ip": VM1_PA,
+        "mac_address": ENI_MAC,
+        "eni_id": ENI_ID2,
+        "admin_state": State.STATE_ENABLED,
+        "pl_underlay_sip": APPLIANCE_VIP,
+        "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
+        "eni_mode": EniMode.MODE_FNIC,
+        "trusted_vnis": [VNET1_VNI],
+    }
+}
+
 ENI_CONFIG = {
     f"DASH_ENI_TABLE:{ENI_ID}": {
         "vnet": VNET1,
@@ -137,6 +151,14 @@ PE_VNET_MAPPING_CONFIG = {
         "underlay_ip": PE_PA,
         "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
         "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
+    }
+}
+
+VM_VNET_MAPPING_CONFIG = {
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{VM1_CA}": {
+        "routing_type": RoutingType.ROUTING_TYPE_VNET,
+        "underlay_ip": VM1_PA,
+        "mac_address": VM_MAC,
     }
 }
 
