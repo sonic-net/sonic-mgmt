@@ -28,6 +28,9 @@ container_name_mapping = {
     "docker-gnmi-watchdog": "gnmi_watchdog",
     "docker-sonic-bmp": "bmp",
     "docker-bmp-watchdog": "bmp_watchdog",
+    "docker-sonic-restapi": "restapi",
+    "docker-restapi-watchdog": "restapi_watchdog",
+    "docker-restapi-sidecar": "restapi_sidecar",
 }
 
 
