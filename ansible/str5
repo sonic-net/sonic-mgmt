@@ -36,9 +36,6 @@ all:
         vms92-3:
           ansible_host: 10.64.247.200
           ansible_hostv6: 2a01:111:e210:b000::a40:f7c8
-        vms92-4:
-          ansible_host: 10.64.247.203
-          ansible_hostv6: 2a01:111:e210:b000::a40:f7cb
         vms93-2:
           ansible_host: 10.64.247.190
           ansible_hostv6: 2a01:111:e210:b000::a40:f7be
@@ -63,6 +60,9 @@ all:
         vms95-1:
           ansible_host: 10.64.247.176
           ansible_hostv6: 2a01:111:e210:b000::a40:f7b0
+        vms110-1:
+          ansible_host: 10.64.247.26
+          ansible_hostv6: 2a01:111:e210:b000::a40:f71a
 
     pdu:
       hosts:
@@ -697,6 +697,9 @@ server:
     str5-acs-serv-99:
       ansible_host: 10.64.247.199
       ansible_hostv6: 2a01:111:e210:b000::a40:f7c7
+    str5-acs-serv-110:
+      ansible_host: 10.64.247.2
+      ansible_hostv6: 2a01:111:e210:b000::a40:f702
 # designated nightly agents
 self_hosted_azure_agents:
   hosts:
