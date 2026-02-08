@@ -10,7 +10,7 @@ from tests.common import constants
 import random
 
 
-DEFAULT_PTF_NN_PORT_RANGE = [10900, 11000]
+DEFAULT_PTF_NN_PORT_RANGE = [10900, 10999]
 DEFAULT_DEVICE_NUM = 0
 ETH_PFX = 'eth'
 ETHERNET_PFX = "Ethernet"
