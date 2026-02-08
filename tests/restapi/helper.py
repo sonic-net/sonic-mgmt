@@ -34,7 +34,7 @@ def apply_cert_config(duthost):
     time.sleep(5)
 
     # Restart RESTAPI server with the updated config
-    dut_command = "sudo systemctl restart restapi"
+    dut_command = "docker restart restapi"
     duthost.shell(dut_command)
     time.sleep(RESTAPI_SERVER_START_WAIT_TIME)
 
@@ -50,6 +50,6 @@ def set_trusted_client_cert_subject_name(duthost, new_subject_name):
     time.sleep(5)
 
     # Restart RESTAPI server with the updated config
-    dut_command = "sudo systemctl restart restapi"
+    dut_command = "docker restart restapi"
     duthost.shell(dut_command)
     time.sleep(RESTAPI_SERVER_START_WAIT_TIME)
