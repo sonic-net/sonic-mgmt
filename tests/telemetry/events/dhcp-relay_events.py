@@ -16,6 +16,7 @@ tag = "sonic-events-dhcp-relay"
 
 
 def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
+    is_ipv6_only = tbinfo and is_ipv6_only_topology(tbinfo)
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") and \
             duthost.facts.get("router_type") == 'leafrouter':
         pytest.skip("Skipping dhcp_relay events for smartswitch t1 topologies")
@@ -29,10 +30,12 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
     if is_ipv6_only_topology(tbinfo):
         pytest.skip("Skipping dhcp_relay events for IPv6-only topologies")
     logger.info("Beginning to test dhcp-relay events")
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_discard,
-             "dhcp_relay_discard.json", "sonic-events-dhcp-relay:dhcp-relay-discard", tag, False, 30, ptfadapter)
-    run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_disparity,
-             "dhcp_relay_disparity.json", "sonic-events-dhcp-relay:dhcp-relay-disparity", tag, False, 30, ptfadapter)
+    if not is_ipv6_only:
+        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_discard,
+                 "dhcp_relay_discard.json", "sonic-events-dhcp-relay:dhcp-relay-discard", tag, False, 30, ptfadapter)
+        run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_disparity,
+                 "dhcp_relay_disparity.json", "sonic-events-dhcp-relay:dhcp-relay-disparity", tag,
+                 False, 30, ptfadapter)
     run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigger_dhcp_relay_bind_failure,
              "dhcp_relay_bind_failure.json", "sonic-events-dhcp-relay:dhcp-relay-bind-failure", tag, False, 30)
 
@@ -55,9 +58,8 @@ def trigger_dhcp_relay_bind_failure(duthost, tbinfo):
     # Flush ipv6 vlan address and restart dhc6relay process
     py_assert(wait_until(100, 10, 0, duthost.is_service_fully_started, "dhcp_relay"),
               "dhcp_relay container not started")
-
     # Get Vlan with IPv6 address configured
-    dhcp_test_info = find_test_vlan(duthost)
+    dhcp_test_info = find_test_vlan(duthost, tbinfo)
     py_assert(len(dhcp_test_info) != 0, "Unable to find vlan for test")
 
     vlan = dhcp_test_info["vlan"]

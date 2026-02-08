@@ -2223,16 +2223,18 @@ Totals               6450                 6449
         logging.info('No shut BGP neighbors: {}'.format(json.dumps(neighbors)))
         return self.command(command)
 
-    def is_bgp_state_idle(self):
+    def is_bgp_state_idle(self, ipv6=False):
         """
         Check if all BGP peers are in IDLE state.
 
         Returns:
             True or False
         """
-        bgp_summary_v4 = self.command("show ip bgp summary")["stdout_lines"]
         bgp_summary_v6 = self.command("show ipv6 bgp summary")["stdout_lines"]
-        bgp_summary = bgp_summary_v4 + bgp_summary_v6
+        bgp_summary = bgp_summary_v6
+        if not ipv6:
+            bgp_summary_v4 = self.command("show ip bgp summary")["stdout_lines"]
+            bgp_summary = bgp_summary_v4 + bgp_summary_v6
 
         idle_count = 0
         expected_idle_count = 0

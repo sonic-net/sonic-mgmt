@@ -14,10 +14,17 @@ def run_test(duthost, tbinfo, gnxi_path, ptfhost, data_dir, validate_yang, trigg
              filter_event_regex, tag, heartbeat=False, timeout=30, ptfadapter=None):
     op_file = os.path.join(data_dir, json_file)
     if trigger is not None:  # no trigger for heartbeat
-        if ptfadapter is None:
-            trigger(duthost, tbinfo)  # add events to cache
-        else:
-            trigger(duthost, tbinfo, ptfadapter)
+        try:
+            if ptfadapter is None:
+                trigger(duthost, tbinfo=tbinfo)  # add events to cache
+            else:
+                trigger(duthost, ptfadapter=ptfadapter, tbinfo=tbinfo)
+        except TypeError:
+            if ptfadapter is None:
+                trigger(duthost)
+            else:
+                trigger(duthost, ptfadapter)
+
     listen_for_events(duthost, gnxi_path, ptfhost, filter_event_regex, op_file,
                       timeout)  # listen from cache
     data = {}
