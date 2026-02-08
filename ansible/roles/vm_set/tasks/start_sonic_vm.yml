@@ -2,11 +2,32 @@
     sonic_vm_storage_location: "{{ home_path }}/sonic-vm"
     when: sonic_vm_storage_location is not defined
 
-- name: Create directory for vm images and vm disks
+- set_fact:
+    disable_updategraph: False
+  when: disable_updategraph is not defined
+
+- name: Check if images folder exists
+  stat: path={{ root_path }}/images
+  register: images_folder_stat
+
+- name: Check if discs folder exists
+  stat: path={{ root_path }}/disks
+  register: discs_folder_stat
+
+- name: Create directory for vm images
   file: path={{ item }} state=directory mode=0755
   with_items:
-    - "{{ sonic_vm_storage_location }}/images"
-    - "{{ sonic_vm_storage_location }}/disks"
+    - "{{ root_path }}/images"
+    - "{{ root_path }}/disks"
+  become: yes
+  when: not images_folder_stat.stat.exists
+
+- name: Create directory for vm disks
+  file: path={{ item }} state=directory mode=0755
+  with_items:
+    - "{{ root_path }}/disks"
+  become: yes
+  when: not discs_folder_stat.stat.exists
 
 - set_fact:
     disk_image: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}.img"
