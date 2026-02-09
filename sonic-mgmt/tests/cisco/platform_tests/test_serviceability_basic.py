@@ -4,6 +4,7 @@ Tests for the `show platform npu...` commands in SONiC
 import time
 import logging
 import pytest
+import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.cisco.common.utils import CheckEnvironment
 
@@ -202,6 +203,51 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
         logging.error(result)
 
     assert not result_list, "One or more show platform npu commands failed {}".format(result_list)
+
+def test_show_platform_npu_udump(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index):
+    """
+    @summary: Verify output of 'sudo udump --force -t <sw, full>'
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    check_dshell_client(duthost)
+    
+    if duthost.is_multi_asic:
+        asic = enum_rand_one_asic_index
+    else:
+        asic = ''
+    for dump_type in ['sw', 'full']:
+        cmd = f"udump --force -t sw {get_asic_str(duthost, asic)}"
+        result = duthost.shell(cmd, module_ignore_errors=True)
+    
+        logging.info(f"Command: {cmd}")
+        logging.info(f"Result: {result}")
+    
+        assert result is not None, f"No output for CLI: {cmd}"
+        assert "Traceback" not in result["stdout"], f"Traceback found in CLI: {cmd}"
+        assert not result["failed"], f"CLI command failed: {cmd}"
+    
+        # Check for successful completion message
+        assert "Udump generation completed successfully!" in result["stdout"], \
+            f"Udump generation did not complete successfully for command: {cmd}"
+    
+        # Extract the udump filename to verify file creation
+        match = re.search(r"Created udump\s+(\S+)", result['stdout'])
+        pytest_assert(match, f"Udump filename not found in CLI output for command: {cmd}")
+
+        udump_reference = match.group(1)
+        filename = udump_reference.split('/')[-1]
+
+        if '/' in udump_reference:
+            file_check_path = udump_reference
+        else:
+            file_check_path = f"/var/dump/{filename}"
+
+        exists = duthost.command(f"sudo ls {file_check_path}")
+        if exists["rc"] == 0 and "No such file or directory" not in exists["stdout"]:
+            logging.info(f"Successfully created udump file: {file_check_path}")
+        else:
+            logging.warning(f"Udump file verification failed at {file_check_path}, but CLI execution was successful")
+            raise IOError(f"Udump file {file_check_path} was not created in specified path")
 
 # Test for 'show platform npu packet-path CLI using pre-programmed IPv6 route'
 def test_show_platform_npu_packet_path_ipv6(duthosts, enum_rand_one_per_hwsku_hostname):
