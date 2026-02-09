@@ -567,18 +567,14 @@ def remove_topo(args):
 def load_docker_ptf_image(stream, docker_ptf_url=None):
     log.info('start load_docker_ptf_image')
     global testbed_info_dict  # assuming it's set in add_topo
-    # todo these need to be moved to a location where cicd doesn't periodically wipe >30d age files,
-    #  and possibly replaced with ones with builtin saithrift version
     STREAM_TO_DOCKER_PTF_MAP = {
-        '202305': '',
-        '202311': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202311-05Aug2025-mix.gz',
-        '202405': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202405-27Jun2025-mix.gz',
-        '202405c': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202405-27Jun2025-mix.gz',
-        '202411': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202411-27Jun2025-mix.gz',
-        '202501': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202411-27Jun2025-mix.gz',
-        '202505': 'http://172.26.235.76/IMAGES/anukverm/docker_ptf_202505_8Oct_azure_tagged_latest.tar',
-        '202511': 'http://172.26.235.76/IMAGES/anukverm/docker_ptf_202511_9Dec2025_azure_tagged_latest.tar',
-        'master': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-master-27Jun2025-mix.gz'
+        '202405': 'http://172.26.235.76/MISC/docker-ptf_anukverm-202405-27Jun2025-mix.gz',
+        '202405c': 'http://172.26.235.76/MISC/docker-ptf_anukverm-202405-27Jun2025-mix.gz',
+        '202411': 'http://172.26.235.76/MISC/docker-ptf_anukverm-202411-27Jun2025-mix.gz',
+        '202501': 'http://172.26.235.76/MISC/docker-ptf_anukverm-202411-27Jun2025-mix.gz',
+        '202505': 'http://172.26.235.76/MISC/docker_ptf_202505_8Oct_azure_tagged_latest.tar',
+        '202511': 'http://172.26.235.76/MISC/docker_ptf_202511_9Dec2025_azure_tagged_latest.tar',
+        'master': 'http://172.26.235.76/MISC/docker-ptf_anukverm-master-27Jun2025-mix.gz'
     }
 
     ptf_docker_image_link = docker_ptf_url if docker_ptf_url \
