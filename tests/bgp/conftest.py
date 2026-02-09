@@ -11,6 +11,7 @@ import six
 import socket
 
 from jinja2 import Template
+from tests.bgp.constants import SHOW_IP_INTERFACE_CMD
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.generators import generate_ips
 from tests.common.helpers.parallel import parallel_run
@@ -827,3 +828,13 @@ def traffic_shift_community(duthost):
 @pytest.fixture(scope='module')
 def get_function_completeness_level(pytestconfig):
     return pytestconfig.getoption("--completeness_level")
+
+
+@pytest.fixture(scope='module')
+def ip_version(tbinfo):
+    return 'v6' if is_ipv6_only_topology(tbinfo) else 'v4'
+
+
+@pytest.fixture(scope='module')
+def show_ip_interface_cmd(ip_version):
+    return SHOW_IP_INTERFACE_CMD[ip_version]
