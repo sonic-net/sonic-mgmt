@@ -742,6 +742,18 @@ def pytest_addoption(parser):
         default=None,
         help="Max flap neighbor number, default is None"
     )
+    parser.addoption(
+        "--vnet_count",
+        action="store",
+        default="100",
+        help="Number of VNETs/VLANs/Subinterfaces to create"
+    )
+    parser.addoption(
+        "--subif_per_vnet",
+        action="store",
+        default="16",
+        help="Number of VNETs/VLANs/Subinterfaces to create"
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -827,3 +839,13 @@ def traffic_shift_community(duthost):
 @pytest.fixture(scope='module')
 def get_function_completeness_level(pytestconfig):
     return pytestconfig.getoption("--completeness_level")
+
+
+@pytest.fixture(scope="module")
+def vnet_count(request):
+    return int(request.config.getoption("--vnet_count"))
+
+
+@pytest.fixture(scope="module")
+def subif_per_vnet(request):
+    return int(request.config.getoption("--subif_per_vnet"))
