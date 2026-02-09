@@ -11,7 +11,8 @@ import base64
 
 
 # Constants
-INTERFACE_COMMAND_TEMPLATE = "sudo config interface {action} {target}"
+CONFIG_INTERFACE_COMMAND_TEMPLATE = "sudo config interface {action} {target}"
+CONFIG_BGP_SESSIONS_COMMAND_TEMPLATE = "sudo config bgp {action} {target}"
 
 
 def get_bgp_ipv6_routes(module):
@@ -26,11 +27,21 @@ def _perform_action_on_connections(module, action, connection_type, targets, all
     """
     Perform actions (shutdown/startup) on BGP sessions or interfaces.
     """
-
+    # Action on BGP sessions
+    if connection_type == "bgp_sessions":
+        if all_neighbors:
+            cmd = CONFIG_BGP_SESSIONS_COMMAND_TEMPLATE.format(action=action, target="all")
+            _execute_command_on_dut(module, cmd)
+        else:
+            for session in targets:
+                target_session = "neighbor " + session
+                cmd = CONFIG_BGP_SESSIONS_COMMAND_TEMPLATE.format(action=action, target=target_session)
+                _execute_command_on_dut(module, cmd)
+        logging.info(f"BGP sessions {action} completed.")
     # Action on Interfaces
-    if connection_type == "ports":
+    elif connection_type == "ports":
         ports_str = ",".join(targets)
-        cmd = INTERFACE_COMMAND_TEMPLATE.format(action=action, target=ports_str)
+        cmd = CONFIG_INTERFACE_COMMAND_TEMPLATE.format(action=action, target=ports_str)
         _execute_command_on_dut(module, cmd)
         logging.info(f"Interfaces {action} completed.")
     else:
@@ -102,7 +113,7 @@ def main():
         expected_routes = json.loads(module.params['expected_routes'])
 
     shutdown_connections = module.params.get('shutdown_connections', [])
-    connection_type = module.params['connection_type']
+    connection_type = module.params.get('connection_type', 'none')
     shutdown_all_connections = module.params['shutdown_all_connections']
     timeout = module.params['timeout']
     interval = module.params['interval']
