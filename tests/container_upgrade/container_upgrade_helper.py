@@ -35,6 +35,9 @@ container_name_mapping = {
     "docker-sonic-bmp": "bmp",
     "docker-bmp-watchdog": "bmp_watchdog",
     "kubesonic-cleanup": "k8s_cleanup",
+    "docker-sonic-restapi": "restapi",
+    "docker-restapi-watchdog": "restapi_watchdog",
+    "docker-restapi-sidecar": "restapi_sidecar",
 }
 
 existing_systemd_services = [
