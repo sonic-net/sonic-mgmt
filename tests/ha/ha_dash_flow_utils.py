@@ -3,6 +3,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def parse_flow_data(output):
     keys = [
         "Session", "LookupId", "Dir", "SIP", "DIP",
@@ -36,7 +37,7 @@ def compare_flow_tables(dpuhost1, dpuhost2):
     if 'pensando' not in dpuhost1.facts['asic_type'] or 'pensando' not in dpuhost2.facts['asic_type']:
         logger.warning("Only Pensando is supported for this function")
         return None
-        
+
     output1 = dpuhost1.shell("pdsctl show flow")["stdout"]
     output2 = dpuhost2.shell("pdsctl show flow")["stdout"]
     flow_table1 = parse_flow_data(output1)
@@ -59,4 +60,3 @@ def compare_flow_tables(dpuhost1, dpuhost2):
     else:
         logger.warning(f" flows for {dpuhost1.hostname} and {dpuhost2.hostname} are different")
         return False
-
