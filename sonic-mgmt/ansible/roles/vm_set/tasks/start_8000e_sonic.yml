@@ -35,8 +35,8 @@
        CISCO_SDK_VER: "{{ hostvars[dut_name]['cisco_sdk_ver'] | default(omit) }}"
        CISCO_NPSUITE_VER: "{{ hostvars[dut_name]['cisco_npsuite_ver'] | default(omit) }}"
        MGMT_GATEWAY: "{{ mgmt_gw }}"
-       SONIC_LOGIN: "cisco"
-       SONIC_PASSWORD: "cisco123"
+       SONIC_LOGIN: "admin"
+       SONIC_PASSWORD: "password"
        # 8000e device requires eth4 interface to be configured for for proper device operation (simulation artifact).
        # Disable route check to prevent eth4 route check error ("missed_ROUTE_TABLE_routes": [ "192.168.123.0/24"])
        SONIC_COMMANDS: |

@@ -65,7 +65,7 @@ def optics_module_hooks(request):
     data.password = st.get_password(globalVars.D1)
 
     data.ssh_port = "22"
-    data.destination_path = "/home/cisco"
+    data.destination_path = "/home/admin"
     data.lc0_mgmt_ip = st.get_mgmt_ip(globalVars.D1)
     data.lc1_mgmt_ip = st.get_mgmt_ip(globalVars.D2)
 
@@ -378,7 +378,7 @@ def source_frr():
 
         for asic_no in range(len(data.asics_list)):
             st.log("sourcing frr_cfg file") 
-            command="source /home/cisco/configdb-gen/frr_cfg"+str(asic_no)+".sh" 
+            command="source /home/admin/configdb-gen/frr_cfg"+str(asic_no)+".sh" 
             output=execute_command(ssh_con, command) 
             st.config(dut, command) 
 

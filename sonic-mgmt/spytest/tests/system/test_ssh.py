@@ -22,8 +22,8 @@ ssh_data = SpyTestDict()
 
 def initialize_variables():
     ssh_data.clear()
-    ssh_data.usr_default = 'cisco'
-    ssh_data.pwd_default = ['cisco123', 'YourPaSsWoRd']
+    ssh_data.usr_default = 'admin'
+    ssh_data.pwd_default = ['password', 'YourPaSsWoRd']
     ssh_data.pwd_final = ''
     ssh_data.usr_non_default = random_username(random.randint(5, 31))
     ssh_data.pwd_non_default = random_password(random.randint(6, 12))

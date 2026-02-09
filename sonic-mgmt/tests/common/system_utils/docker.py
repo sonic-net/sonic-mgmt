@@ -131,7 +131,7 @@ def cisco_swap_syncd(duthost, namespace=DEFAULT_NAMESPACE, restore = False):
         duthost.command("docker tag {}:latest {}:{}".format(docker_syncd_name, docker_syncd_name, "nonrpc"))
 
         # Loading rpc image
-        docker_rpc_syncd_file = "/home/cisco/" + docker_rpc_image + ".gz"
+        docker_rpc_syncd_file = "/home/admin/" + docker_rpc_image + ".gz"
         duthost.command("docker image load -i {}".format(docker_rpc_syncd_file))
 
         # Changing tag for rpc-syncd

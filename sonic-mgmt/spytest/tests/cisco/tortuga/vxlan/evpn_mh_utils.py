@@ -65,7 +65,7 @@ def change_fdb_ageout(ageout_time = "600", skip_duts_with = ""):
     st.log("File {} has been created with the specified content.".format(filename))
     for dut in st.get_dut_names():
         if "leaf" in dut or (skip_duts_with and not skip_duts_with in dut):
-            utils_obj.copy_files_to_dut(dut, [filename], '/home/cisco')
-            st.config(dut,"docker cp /home/cisco/ageout.json swss:/",sudo=False, split_cmds=False)
+            utils_obj.copy_files_to_dut(dut, [filename], '/home/admin')
+            st.config(dut,"docker cp /home/admin/ageout.json swss:/",sudo=False, split_cmds=False)
             st.config(dut,"docker exec -it swss swssconfig ageout.json",sudo=False, split_cmds=False)
             st.show(dut, 'sonic-db-dump -n APPL_DB -k *SWITCH_TABLE:switch* -y', skip_tmpl=True, skip_error_check=True)

@@ -611,7 +611,7 @@ def check_hw_or_sim(node):
 
 def verify_vtep_state_v6(nodes, LEAF0_VTEP_IP, LEAF1_VTEP_IP):
     '''
-    root@sonic:/home/cisco# show vxlan remotevtep
+    root@sonic:/home/admin# show vxlan remotevtep
     +---------------------+--------------------+-------------------+--------------+
     | SIP                 | DIP                | Creation Source   | OperStatus   |
     +=====================+====================+===================+==============+

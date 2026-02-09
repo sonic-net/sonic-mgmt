@@ -146,7 +146,7 @@ def vxlan_config_hooks():
 
 def verify_vtep_state(nodes):
     '''
-    root@sonic:/home/cisco# show vxlan remotevtep
+    root@sonic:/home/admin# show vxlan remotevtep
     +---------------------+--------------------+-------------------+--------------+
     | SIP                 | DIP                | Creation Source   | OperStatus   |
     +=====================+====================+===================+==============+

@@ -94,8 +94,8 @@ def tacacs_module_hooks(request):
     data.ssh_port = '22'
     data.login_type = "tacacs+"
     data.failthrough_mode = 'enable'
-    data.local_username = 'cisco'
-    data.local_password = 'cisco123'
+    data.local_username = 'admin'
+    data.local_password = 'password'
     data.local_password2 = 'broadcom'
     data.username1 = 'test'
     data.password1 = 'test'

@@ -1634,7 +1634,7 @@ def test_external_controller_reachability():
 
 
     #Gathering eth1 from RP
-    ssh_RP = connect_to_device(rp_ip_address, "cisco", "cisco123")
+    ssh_RP = connect_to_device(rp_ip_address, "admin", "password")
     if ssh_RP:
         st.log("Executing command - 'ifconfig eth1' in to the SSH session.")
         st.log(execute_command(ssh_RP, 'sudo ifconfig eth1'))
@@ -1648,7 +1648,7 @@ def test_external_controller_reachability():
         raise Exception('SSH connection unsuccessful')
 
     #Verifying Internal reachability from RP to LC
-    ssh_RP = connect_to_device(rp_ip_address, "cisco", "cisco123")
+    ssh_RP = connect_to_device(rp_ip_address, "admin", "password")
     if ssh_RP:
         st.log("Executing PING command in on RP")
         RPpingoutput = execute_command(ssh_RP, 'sudo ping {} -c 5'.format(lc_eth1))

@@ -85,9 +85,9 @@ def setup_duts():
 
   """
   # Unsupported ? Gives this error:
-    cisco@sonic:~$ sudo config interface  mtu PortChannel1 1512
+    admin@sonic:~$ sudo config interface  mtu PortChannel1 1512
     Invalid port specified
-    cisco@sonic:~$ 
+    admin@sonic:~$ 
   # Setup Ethernet 3 - Port Channel.
   member_names = [test_vars['D1D2P{}'.format(3)], test_vars['D2D1P{}'.format(3)]]
   for i in [1, 2]:
