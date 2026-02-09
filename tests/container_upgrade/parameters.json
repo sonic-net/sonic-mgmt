@@ -1,23 +1,26 @@
 {
-    "docker-auditd": {
-        "parameters": "--privileged --pid=host --net=host -v /etc/audit/rules.d:/etc/audit/rules.d:rw -v /etc/audit/plugins.d:/etc/audit/plugins.d:rw -v /lib/systemd/system:/lib/systemd/system:rw -v /etc/audit:/etc/audit:rw -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
-    },
-    "docker-auditd-watchdog": {
-        "parameters": "--privileged --pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
-    },
     "docker-sonic-telemetry": {
         "parameters": ""
     },
     "docker-sonic-gnmi": {
         "parameters": "--net=host -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro -v /etc/fips/fips_enable:/etc/fips/fips_enable:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -v /var/run/dbus:/var/run/dbus:rw -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-chassis:/var/run/redis-chassis:ro --env RUNTIME_OWNER=local"
     },
-    "docker-sonic-bmp": {
-        "parameters": "--net=host -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-bmp:/var/run/redis-bmp:ro"
-    },
     "docker-gnmi-watchdog": {
         "parameters": "--pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
     },
+    "docker-sonic-bmp": {
+        "parameters": "--net=host -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-bmp:/var/run/redis-bmp:ro"
+    },
     "docker-bmp-watchdog": {
         "parameters": "--pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
+    },
+    "docker-sonic-restapi": {
+        "parameters": "--net=host -v /var/run/redis/redis.sock:/var/run/redis/redis.sock -v /etc/sonic/credentials:/etc/sonic/credentials:ro -v /etc/localtime:/etc/localtime:ro"
+    },
+    "docker-restapi-watchdog": {
+        "parameters": "--net=host -v /etc/localtime:/etc/localtime:ro"
+    },
+    "docker-restapi-sidecar": {
+        "parameters": "--privileged --pid=host --net=host --uts=host --ipc=host -v /etc/sonic:/etc/sonic:ro -v /usr/bin/docker:/usr/bin/docker:ro -v /var/run/docker.sock:/var/run/docker.sock -v /:/hostroot:ro -e DOCKER_BIN=/usr/bin/docker"
     }
 }

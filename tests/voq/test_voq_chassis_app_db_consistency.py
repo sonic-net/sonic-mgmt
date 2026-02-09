@@ -48,6 +48,51 @@ def verify_data_in_db(tmp_pc, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_i
     return True
 
 
+def verify_data_not_in_db(pc, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_ipv6):
+    '''
+    Verification of portchannel data in chassis_app_db tables removed
+    '''
+    # Verification on SYSTEM_LAG_MEMBER_TABLE
+    voq_lag.verify_lag_member_in_chassis_db(duthosts, pc_members, pc, expected=False)
+    # Verification on SYSTEM_NEIGH for pc_nbr_ip
+    if len(duthosts) == 1:
+        voqdb = VoqDbCli(duthosts.frontend_nodes[0])
+    else:
+        voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
+    neigh_key = voqdb.get_neighbor_key_by_ip(pc_nbr_ip)
+    if pc in neigh_key:
+        logging.error(
+            "{} Portchannel Neigh ip {} is still allocated to portchannel {}"
+            .format(neigh_key, pc_nbr_ip, pc))
+        return False
+
+    # Verification on SYSTEM_NEIGH for pc_nbr_ipv6
+    neigh_key = voqdb.get_neighbor_key_by_ip(pc_nbr_ipv6)
+    if pc in neigh_key:
+        logging.error(
+            "{} Portchannel Neigh ip {} is still allocated to portchannel {}"
+            .format(neigh_key, pc_nbr_ipv6, pc))
+        return False
+
+    # Verification on SYSTEM_INTERFACE
+    # usage of redis_get_keys as voqdb.get_keys will log an ERROR if stdout is empty
+    key = "SYSTEM_INTERFACE|{}*{}".format(duthost.sonichost.hostname, pc)
+    if len(duthosts) == 1:
+        chassis_app_db_result = redis_get_keys(duthosts.frontend_nodes[0],
+                                               "CHASSIS_APP_DB", key)
+    else:
+        chassis_app_db_result = redis_get_keys(duthosts.supervisor_nodes[0],
+                                               "CHASSIS_APP_DB", key)
+
+    if chassis_app_db_result:
+        logging.error(
+            "{} SYSTEM_INTERFACE in Chasiss_APP_DB is still present for portchannel {}"
+            .format(key, pc))
+        return False
+
+    return True
+
+
 @pytest.mark.parametrize("test_case", ["dut_reboot", "config_reload_with_config_save", "config_reload_no_config_save"])
 def test_voq_chassis_app_db_consistency(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_asic_index,
                                         tbinfo, test_case,
@@ -156,6 +201,10 @@ def test_voq_chassis_app_db_consistency(duthosts, enum_rand_one_per_hwsku_fronte
                 int_facts = asichost.interface_facts()['ansible_facts']
                 if not int_facts['ansible_interface_facts'][tmp_portchannel]['link']:
                     return False
+                # Verify original portchannel is not in db
+                if not verify_data_not_in_db(pc, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_ipv6):
+                    return False
+                # Verify tmp portchannel is in db
                 return verify_data_in_db(tmp_portchannel, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_ipv6)
             except Exception as e:
                 logging.error("Failed to verify portchannel update: {}".format(e))
