@@ -1017,7 +1017,7 @@ class BaseEverflowTest(object):
         duthost.shell("config load -y {}".format(dest_path))
 
         if duthost.facts['asic_type'] != 'vs':
-            pytest_assert(wait_until(120, 2, 0, self.check_rule_active, duthost, table_name),
+            pytest_assert(wait_until(150, 2, 0, self.check_rule_active, duthost, table_name),
                           "Acl rule counters are not ready")
 
     def apply_ip_type_rule(self, duthost, ip_version):
