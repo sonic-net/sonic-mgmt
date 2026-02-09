@@ -1,7 +1,4 @@
 import grpc
-import tests.common.sai_validation.generated.github.com.openconfig.gnmi.proto.gnmi.gnmi_pb2 as gnmi_pb2
-import tests.common.sai_validation.generated.github.com.openconfig.gnmi.proto.gnmi.gnmi_pb2_grpc as gnmi_pb2_grpc
-import tests.common.sai_validation.gnmi_client_internal as internal
 import logging
 import json
 
@@ -14,6 +11,24 @@ import json
 
 logger = logging.getLogger(__name__)
 
+# Lazy imports for generated modules - only imported when functions are called
+# This prevents import errors during pytest collection when SAI validation is disabled
+_gnmi_pb2 = None
+_gnmi_pb2_grpc = None
+_internal = None
+
+
+def _ensure_imports():
+    """Lazy import of generated gNMI modules."""
+    global _gnmi_pb2, _gnmi_pb2_grpc, _internal
+    if _gnmi_pb2 is None:
+        import tests.common.sai_validation.generated.github.com.openconfig.gnmi.proto.gnmi.gnmi_pb2 as gnmi_pb2
+        import tests.common.sai_validation.generated.github.com.openconfig.gnmi.proto.gnmi.gnmi_pb2_grpc as gnmi_pb2_grpc
+        import tests.common.sai_validation.gnmi_client_internal as internal
+        _gnmi_pb2 = gnmi_pb2
+        _gnmi_pb2_grpc = gnmi_pb2_grpc
+        _internal = internal
+
 class Error(Exception):
   """Module-level Exception class."""
 
@@ -23,16 +38,17 @@ class JsonReadError(Error):
 
 
 def create_gnmi_stub(ip, port, secure=False, root_cert_path=None, client_cert_path=None, client_key_path=None):
+    _ensure_imports()
     logger.debug("Creating gNMI stub for target: %s:%s, secure: %s", ip, port, secure)
     try:
         channel = None
         target = f"{ip}:{port}"
         if not secure:
-            channel = gnmi_pb2_grpc.grpc.insecure_channel(target)
+            channel = _gnmi_pb2_grpc.grpc.insecure_channel(target)
             logger.debug("Insecure channel created for target: %s", target)
         else:
-            channel = internal.create_secure_channel(target, root_cert_path, client_cert_path, client_key_path)
-        stub = gnmi_pb2_grpc.gNMIStub(channel)
+            channel = _internal.create_secure_channel(target, root_cert_path, client_cert_path, client_key_path)
+        stub = _gnmi_pb2_grpc.gNMIStub(channel)
         logger.debug("gNMI stub created successfully")
         return channel, stub
     except Exception as e:
@@ -42,19 +58,21 @@ def create_gnmi_stub(ip, port, secure=False, root_cert_path=None, client_cert_pa
 
 def get_gnmi_path(path_str):
     """Convert a string path to a gNMI Path object."""
-    path_elems = [gnmi_pb2.PathElem(name=elem) for elem in path_str.split('/')]
-    return gnmi_pb2.Path(elem=path_elems, origin="sonic-db")
+    _ensure_imports()
+    path_elems = [_gnmi_pb2.PathElem(name=elem) for elem in path_str.split('/')]
+    return _gnmi_pb2.Path(elem=path_elems, origin="sonic-db")
 
 
 def get_request(stub, path):
+    _ensure_imports()
     logger.debug("Sending GetRequest to gNMI server with path: %s", path)
     try:
-        prefix = gnmi_pb2.Path(origin="sonic-db")
-        request = gnmi_pb2.GetRequest(prefix=prefix, path=[path], encoding=gnmi_pb2.Encoding.JSON_IETF)
+        prefix = _gnmi_pb2.Path(origin="sonic-db")
+        request = _gnmi_pb2.GetRequest(prefix=prefix, path=[path], encoding=_gnmi_pb2.Encoding.JSON_IETF)
         logger.debug("GetRequest created: %s", request)
         response = stub.Get(request)
         logger.debug("GetResponse received: %s", response)
-        return internal.extract_json_ietf_as_dict(response)
+        return _internal.extract_json_ietf_as_dict(response)
     except grpc.RpcError as e:
         logger.error("gRPC Error during GetRequest: %s - %s", e.code(), e.details())
         raise
@@ -64,13 +82,14 @@ def get_request(stub, path):
 
 
 def set_request(stub, path, value, data_type='json_val', origin="sonic-db"):
+    _ensure_imports()
     logger.debug("Sending SetRequest to gNMI server with path: %s, value: %s, data_type: %s", path, value, data_type)
     try:
-        path_elements = [gnmi_pb2.PathElem(name=elem) for elem in path.split("/")]
-        path_obj = gnmi_pb2.Path(elem=path_elements, origin=origin)
+        path_elements = [_gnmi_pb2.PathElem(name=elem) for elem in path.split("/")]
+        path_obj = _gnmi_pb2.Path(elem=path_elements, origin=origin)
 
-        update = gnmi_pb2.Update(path=path_obj)
-        typed_value = gnmi_pb2.TypedValue()
+        update = _gnmi_pb2.Update(path=path_obj)
+        typed_value = _gnmi_pb2.TypedValue()
 
         if data_type == "json_val":
             typed_value.json_val = json.dumps(value).encode('utf-8')
@@ -84,7 +103,7 @@ def set_request(stub, path, value, data_type='json_val', origin="sonic-db"):
             raise ValueError("Unsupported value type")
 
         update.val.CopyFrom(typed_value)
-        set_req = gnmi_pb2.SetRequest(update=[update])
+        set_req = _gnmi_pb2.SetRequest(update=[update])
         logger.debug("SetRequest created: %s", set_req)
         response = stub.Set(set_req)
         logger.debug("SetResponse received: %s", response)
@@ -101,19 +120,20 @@ def set_request(stub, path, value, data_type='json_val', origin="sonic-db"):
 
 
 def new_subscribe_call(stub, paths, subscription_mode=1, origin="sonic-db"):
+    _ensure_imports()
     logger.debug(f"Creating new gNMI subscription call for {paths}")
     subscriptions = []
     subscription = None
     try:
         for path_str in paths:
-            path_elements = [gnmi_pb2.PathElem(name=elem) for elem in path_str.split("/")]
-            path_obj = gnmi_pb2.Path(elem=path_elements, origin=origin)
-            subscription = gnmi_pb2.Subscription(path=path_obj, mode=subscription_mode)
+            path_elements = [_gnmi_pb2.PathElem(name=elem) for elem in path_str.split("/")]
+            path_obj = _gnmi_pb2.Path(elem=path_elements, origin=origin)
+            subscription = _gnmi_pb2.Subscription(path=path_obj, mode=subscription_mode)
             subscriptions.append(subscription)
 
-        subscription_list = gnmi_pb2.SubscriptionList()
+        subscription_list = _gnmi_pb2.SubscriptionList()
         subscription_list.subscription.extend(subscriptions)
-        subscribe_request = gnmi_pb2.SubscribeRequest(subscribe=subscription_list)
+        subscribe_request = _gnmi_pb2.SubscribeRequest(subscribe=subscription_list)
         call = stub.Subscribe(iter([subscribe_request]))
         logger.debug("New gNMI subscription call created successfully")
         return call
@@ -135,6 +155,7 @@ def subscribe_gnmi(call, stop_event=None, event_queue=None):
         stop_event: A threading.Event object to signal the thread to stop.
         event_queue: A queue.Queue object to push received events.
     """
+    _ensure_imports()
     try:
         logger.debug("Starting gNMI subscription call")
         responses = iter(call)
