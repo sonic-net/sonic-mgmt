@@ -62,7 +62,7 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
         output = localhost.shell(
             "sshpass -p {} ssh "
             "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-            "{}@{} {}".format(password, username, remote_ip, cmd), module_ignore_errors=True)['stdout_lines']
+            "{}@{} '{}'".format(password, username, remote_ip, cmd), module_ignore_errors=True)['stdout_lines']
         if "active (running)" in str(output):
             return
         else:

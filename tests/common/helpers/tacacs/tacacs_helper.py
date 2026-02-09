@@ -340,7 +340,7 @@ def start_tacacs_server(ptfhost):
 def ssh_remote_run(localhost, remote_ip, username, password, cmd):
     res = localhost.shell("sshpass -p {} ssh "
                           "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-                          "{}@{} {}".format(password, username, remote_ip, cmd), module_ignore_errors=True)
+                          "{}@{} '{}'".format(password, username, remote_ip, cmd), module_ignore_errors=True)
     return res
 
 
