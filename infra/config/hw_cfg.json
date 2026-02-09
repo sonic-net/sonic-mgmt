@@ -1665,6 +1665,7 @@
             "sonic_mgmt_container_202411": "spytest-tornado-b2b",
             "sonic_mgmt_container_202505": "spytest-tornado-b2b",
             "sonic_mgmt_container_202501": "spytest-tornado-b2b",
+            "sonic_mgmt_container_202511": "spytest-tornado-b2b",
             "sonic_mgmt_container_master": "spytest-tornado-b2b",
             "skip_tests": "",
             "skip_folder":"",
