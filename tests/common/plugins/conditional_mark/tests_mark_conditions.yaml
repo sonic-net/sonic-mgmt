@@ -2532,8 +2532,8 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
     # The SDK's sai_wred_manager_gr2.cpp has stub implementations (no-ops) for WRED configuration
     # functions like set_sms_dequeue_cgmlevel_ecnmark_probability(). This means CONFIG_DB changes
     # are accepted but never propagate to ASIC_DB, causing the test to fail.
-    # See: MIGSOFTWAR-33801, sdk/sai/src/cgm/wred/sai_wred_manager_gr2.cpp
-    reason: "WRED dynamic config updates not implemented in SAI for PAC/GR2 ASICs (MIGSOFTWAR-33801)"
+    # See: sdk/sai/src/cgm/wred/sai_wred_manager_gr2.cpp
+    reason: "WRED dynamic config updates not implemented in SAI for PAC/GR2 ASICs"
     conditions_logical_operator: "OR"
     conditions:
       - "hwsku in ['Cisco-8800-LC-48H-C48', 'Cisco-8122-O128S2', 'Cisco-8122-O64']"
