@@ -39,6 +39,7 @@ NUMBER_OF_LANES = None
 PORTS_WITH_8LANES = None
 ASIC_TYPE = None
 
+PLATFORM_SUPPORTED_SPEEDS_TO_TEST = None
 TESTPARAM_HEADROOM_OVERRIDE = None
 TESTPARAM_LOSSLESS_PG = None
 TESTPARAM_SHARED_HEADROOM_POOL = None
@@ -227,6 +228,7 @@ def load_test_parameters(duthost):
     global TESTPARAM_ADMIN_DOWN
     global ASIC_TYPE
     global MAX_SPEED_8LANE_PORT
+    global PLATFORM_SUPPORTED_SPEEDS_TO_TEST
 
     param_file_name = "qos/files/dynamic_buffer_param.json"
     with open(param_file_name) as file:
@@ -234,6 +236,7 @@ def load_test_parameters(duthost):
         logging.info("Loaded test parameters {} from {}".format(
             params, param_file_name))
         ASIC_TYPE = duthost.facts['asic_type']
+        platform = duthost.facts['platform']
         vendor_specific_param = params[ASIC_TYPE]
         DEFAULT_CABLE_LENGTH_LIST = vendor_specific_param['default_cable_length']
         TESTPARAM_HEADROOM_OVERRIDE = vendor_specific_param['headroom-override']
@@ -241,8 +244,17 @@ def load_test_parameters(duthost):
         TESTPARAM_SHARED_HEADROOM_POOL = vendor_specific_param['shared-headroom-pool']
         TESTPARAM_EXTRA_OVERHEAD = vendor_specific_param['extra_overhead']
         TESTPARAM_ADMIN_DOWN = vendor_specific_param['admin-down']
-        MAX_SPEED_8LANE_PORT = vendor_specific_param['max_speed_8lane_platform'].get(
-            duthost.facts['platform'])
+        MAX_SPEED_8LANE_PORT = vendor_specific_param['max_speed_8lane_platform'].get(platform)
+        if buffer_queue_table := TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'].get(platform):    # noqa: F841
+            TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'] = buffer_queue_table
+        else:
+            TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'] = TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'].get('default')
+        if platform_extra_overhead := TESTPARAM_EXTRA_OVERHEAD.get(platform):
+            TESTPARAM_EXTRA_OVERHEAD['default'] = platform_extra_overhead
+        if platform_supported_speeds_to_test := vendor_specific_param['supported_speeds_to_test'].get(platform):
+            PLATFORM_SUPPORTED_SPEEDS_TO_TEST = platform_supported_speeds_to_test
+        else:
+            PLATFORM_SUPPORTED_SPEEDS_TO_TEST = vendor_specific_param['supported_speeds_to_test'].get('default')
 
         # For ingress profile list, we need to check whether the ingress lossy profile exists
         ingress_lossy_pool = duthost.shell(
@@ -850,7 +862,7 @@ def make_expected_profile_name(speed, cable_length, **kwargs):
     return expected_profile
 
 
-@pytest.fixture(params=['50000', '10000'])
+@pytest.fixture(params=['50000', '10000', '100000'])
 def speed_to_test(request):
     """Used to parametrized test cases for speeds
 
@@ -860,6 +872,11 @@ def speed_to_test(request):
     Return:
         speed_to_test
     """
+    global PLATFORM_SUPPORTED_SPEEDS_TO_TEST
+    if not PLATFORM_SUPPORTED_SPEEDS_TO_TEST:
+        pytest.skip("buffer is not dynamic - PLATFORM_SUPPORTED_SPEEDS_TO_TEST wasn't set")
+    if request.param not in PLATFORM_SUPPORTED_SPEEDS_TO_TEST:
+        pytest.skip(f"Skipping case for speed {request.param} because it is not tested by the platform")
     return request.param
 
 
@@ -998,7 +1015,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts,  
     """
     duthost = duthosts[rand_one_dut_hostname]
     supported_speeds = duthost.shell(
-        'redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout']
+        'redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout'].split(',')
     if supported_speeds and speed_to_test not in supported_speeds:
         pytest.skip('Speed is not supported by the port, skip')
     original_speed = duthost.shell(
@@ -2598,10 +2615,10 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname,
             # This should make it exceed the limit, so the profile should not applied to the APPL_DB
             time.sleep(20)
             size_in_appldb = duthost.shell(
-                f'redis-cli hget "BUFFER_PROFILE_TABLE:test-headroom" {param_name}')['stdout']
+                f'redis-cli hget "BUFFER_PROFILE_TABLE: test-headroom" {param_name}')['stdout']
             pytest_assert(size_in_appldb == maximum_profile[param_name],
                           f'The profile with a large size was applied to APPL_DB, which can make headroom exceeding. '
-                          f'size_in_appldb:{size_in_appldb}, '
+                          f'size_in_appldb: {size_in_appldb}, '
                           f'maximum_profile_{param_name}: {maximum_profile[param_name]}')
 
         param_name = "size" if disable_shp else "xoff"
