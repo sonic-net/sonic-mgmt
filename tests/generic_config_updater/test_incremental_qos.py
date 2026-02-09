@@ -260,8 +260,7 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_buffer_profile_create_remove_rollback(
-    duthost, ensure_dut_readiness, cli_namespace_prefix):
+def test_buffer_profile_create_remove_rollback(duthost, ensure_dut_readiness, cli_namespace_prefix):
     """
     Test creating and removing a buffer profile via jsonpatch and rollback to checkpoint.
     Steps:
@@ -271,7 +270,6 @@ def test_buffer_profile_create_remove_rollback(
     4. Rollback checkpoint
     """
     tmpfile = generate_tmpfile(duthost)
-    checkpoint_name = "buffer_profile_create_remove"
     profile_name = "pg_lossless_99999_99m_profile"
     profile_data = {
         "xon": "1234",
@@ -279,10 +277,7 @@ def test_buffer_profile_create_remove_rollback(
         "size": "9999",
         "pool": "ingress_lossless_pool"
     }
-    # Step 1: Take checkpoint
-    duthost.shell("config checkpoint {}".format(checkpoint_name))
-    logger.info("Step 1: Created checkpoint {}".format(checkpoint_name))
-
+    # Step 1: Take checkpoint done by ensure_dut_readiness fixture, verify checkpoint creation
     try:
         # Step 2: Create new profile
         logger.info("Step 2: Creating new buffer profile {}".format(profile_name))
@@ -321,17 +316,8 @@ def test_buffer_profile_create_remove_rollback(
             module_ignore_errors=True)
         pytest_assert(result["stdout"] == "0", "Profile removal failed in CONFIG_DB")
 
-        # Step 4: Rollback checkpoint
-        logger.info("Step 4: Rolling back to checkpoint {}".format(checkpoint_name))
-        rollback_output = duthost.shell(
-            "config rollback {}".format(checkpoint_name))
-        pytest_assert(
-            rollback_output["rc"] == 0,
-            "Rollback failed: {}".format(rollback_output.get("stderr", ""))
-        )
-        logger.info("Rollback completed without errors")
+        # Step 4: Rollback checkpoint done by ensure_dut_readiness fixture, verify rollback
 
     finally:
-        # Clean up checkpoint and tmpfile
-        duthost.shell("config checkpoint delete {}".format(checkpoint_name), module_ignore_errors=True)
+        # cleanup tmpfile
         delete_tmpfile(duthost, tmpfile)
