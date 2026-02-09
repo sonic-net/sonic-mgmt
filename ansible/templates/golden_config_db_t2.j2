@@ -23,8 +23,7 @@
 {% endif %}
 {%- endfor -%}
 {% else %}
-  {
-    "MACSEC_PROFILE": {
+  "MACSEC_PROFILE": {
       "{{macsec_profile}}": {
         "priority": "{{priority}}",
         "cipher_suite": "{{cipher_suite}}",
@@ -34,6 +33,5 @@
         "send_sci": "{{send_sci}}"
       }
     }
-  },
 {%- endif -%}
 }

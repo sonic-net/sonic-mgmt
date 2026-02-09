@@ -122,7 +122,27 @@ class MacsecPlugin(object):
 
     @pytest.fixture(scope="module", autouse=True)
     def load_macsec_info(self, request, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
+        """Pre-load MACsec session info for all control links.
+
+        If MACsec is enabled and configured for this DUT/profile, wait for
+        MKA establishment (APP/STATE DB populated with SC/SA, including SAK)
+        before calling ``load_all_macsec_info``. This avoids races where
+        ``get_macsec_attr`` hits APP_DB before the egress SA row (and ``sak``)
+        has been written by wpa_supplicant.
+        """
+
         if get_macsec_enable_status(macsec_duthost) and get_macsec_profile(macsec_duthost):
+            # Ensure MKA sessions are established (SC/SA present in DB) if the
+            # test environment provides the wait_mka_establish fixture
+            # (defined in tests/macsec/conftest.py). For environments that do
+            # not define it, fall back to the original behaviour.
+            try:
+                request.getfixturevalue('wait_mka_establish')
+            except pytest.FixtureLookupError:
+                # Some environments do not define wait_mka_establish; fall back
+                # to the original behaviour when the fixture is missing.
+                pass
+
             if is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links):
                 load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
             else:
