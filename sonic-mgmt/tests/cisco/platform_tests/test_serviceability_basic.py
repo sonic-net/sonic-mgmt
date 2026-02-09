@@ -3,6 +3,7 @@ Tests for the `show platform npu...` commands in SONiC
 """
 import time
 import logging
+import re
 import pytest
 import re
 from tests.common.helpers.assertions import pytest_assert
@@ -286,3 +287,144 @@ def test_show_platform_npu_packet_path_ipv4(duthosts, enum_rand_one_per_hwsku_ho
     logging.info(result["stdout"])
     assert result is not None, f"No output for CLI: {cmd}"
     assert "Traceback" not in result["stdout"], f"Traceback found in CLI: {cmd}"
+
+def test_show_platform_npu_resource(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    Validate that 'show platform npu resource' CLI output
+    Checks: 1) State is Green/None, 2) All CLI resources are in SDK dump, 3) Max entries match resource usage totals.
+    """
+    script_content = (
+        "import sdk\n"
+        "la_device = sdk.la_get_device(0)\n"
+        "for attr in dir(sdk.la_resource_descriptor):\n"
+        "    if attr.startswith('type_e_'):\n"
+        "        resource_id = getattr(sdk.la_resource_descriptor, attr)\n"
+        "        try:\n"
+        "            resource_usage_vect = la_device.get_resource_usage(resource_id)\n"
+        "            for desc in resource_usage_vect:\n"
+        "                print(f'{attr}: state={desc.state}, used={desc.used}, total={desc.total}')\n"
+        "        except:\n"
+        "            pass\n"
+    )
+
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    check_dshell_client(duthost)
+    
+    asics = duthost.get_asic_ids() if duthost.is_multi_asic else ['']
+    validation_errors = []
+    row_re = re.compile(r"^\|(.+)\|$")
+
+    for asic in asics:
+        script_path = "/tmp/resource_usage.py"
+        heredoc_cmd = f"cat <<EOF > {script_path}\n{script_content}\nEOF"
+        duthost.shell(heredoc_cmd)
+        container = f"syncd{asic}" if duthost.is_multi_asic else "syncd"
+        duthost.shell(f"docker cp {script_path} {container}:/resource_usage.py")
+        asic_str = get_asic_str(duthost, asic)
+        script_result = duthost.shell(f"sudo show platform npu script{asic_str} -s /resource_usage.py", module_ignore_errors=True)
+        
+        # Parse dshell output into dict
+        dshell_resources = {}
+        for line in script_result["stdout"].splitlines():
+            if ": state=" in line:
+                parts = line.split(": state=")
+                if len(parts) == 2:
+                    resource_name = parts[0].replace("type_e_", "")
+                    attrs = parts[1]
+                    try:
+                        state_val = attrs.split(", used=")[0]
+                        used_val = attrs.split(", used=")[1].split(", total=")[0]
+                        total_val = attrs.split(", total=")[1]
+                        if resource_name not in dshell_resources:
+                            dshell_resources[resource_name] = []
+                        dshell_resources[resource_name].append({
+                            'state': state_val,
+                            'used': int(used_val),
+                            'total': int(total_val)
+                        })
+                    except:
+                        pass
+
+        cli_result = duthost.shell(f"sudo show platform npu resource{asic_str}", module_ignore_errors=True)
+        cli_output = cli_result["stdout"]
+        
+        if "Traceback" in cli_output:
+            validation_errors.append(f"Traceback found in CLI output for asic{asic}")
+            continue
+        
+        headers = None
+        resource_idx, max_idx, state_idx = None, None, None
+        cli_resources = {}
+
+        for line in cli_output.splitlines():
+            m = row_re.match(line.strip())
+            if not m:
+                continue
+                
+            cols = [x.strip() for x in m.group(1).split('|')]
+            
+            if headers is None:
+                lower_cols = [c.lower() for c in cols]
+                if 'resource' in lower_cols:
+                    headers = lower_cols
+                    for i, h in enumerate(headers):
+                        if 'resource' in h:
+                            resource_idx = i
+                        if 'max entries' in h:
+                            max_idx = i
+                        if 'state' in h:
+                            state_idx = i
+                continue
+            
+            if len(cols) > max(resource_idx or 0, max_idx or 0, state_idx or 0):
+                resource = cols[resource_idx] if resource_idx is not None else ""
+                max_entries = cols[max_idx] if max_idx is not None else ""
+                state = cols[state_idx] if state_idx is not None else ""
+                
+                if resource and max_entries:
+                    if resource.startswith('-'):
+                        continue
+                    
+                    if resource not in cli_resources:
+                        cli_resources[resource] = []
+                    cli_resources[resource].append({
+                        'max': max_entries,
+                        'state': state
+                    })
+                    
+                    if state and state not in ['Green', 'None', '-']:
+                        validation_errors.append(f"ASIC{asic} Resource '{resource}' has state '{state}' (expected Green or None)")
+
+        for cli_resource in cli_resources.keys():
+            if cli_resource not in dshell_resources:
+                validation_errors.append(f"ASIC{asic} Resource '{cli_resource}' found in CLI but NOT in dshell output")
+                logging.error(f"ASIC{asic} Missing resource in dshell: {cli_resource}")
+
+        for resource_name in cli_resources.keys():
+            if resource_name in dshell_resources:
+                cli_entries = cli_resources[resource_name]
+                dshell_entries = dshell_resources[resource_name]
+                
+                if len(cli_entries) != len(dshell_entries):
+                    logging.info(f"ASIC{asic} Resource '{resource_name}': CLI has {len(cli_entries)} instances, dshell has {len(dshell_entries)} instances")
+                
+                cli_max_values = []
+                for cli_entry in cli_entries:
+                    max_str = cli_entry['max'].replace(',', '')
+                    try:
+                        cli_max_values.append(int(max_str))
+                    except ValueError:
+                        pass
+                
+                dshell_total_values = [entry['total'] for entry in dshell_entries]
+                
+                for cli_max in cli_max_values:
+                    if cli_max not in dshell_total_values:
+                        validation_errors.append(
+                            f"ASIC{asic} Resource '{resource_name}': Max entries {cli_max} from CLI not found in dshell output "
+                            f"(dshell totals: {dshell_total_values})"
+                        )
+
+        logging.info(f"ASIC{asic} validation complete: {len(cli_resources)} CLI resources checked, {len(dshell_resources)} dshell resources found")
+
+    assert not validation_errors, f"NPU resource validation failed with {len(validation_errors)} errors:\n" + "\n".join(validation_errors)
