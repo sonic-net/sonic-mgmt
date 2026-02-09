@@ -26,7 +26,7 @@ from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology("any")]
+pytestmark = [pytest.mark.topology("c0")]
 
 
 # ==================== Constants ====================
@@ -615,3 +615,121 @@ def test_filter_timeout(
 
     logger.info("Test passed: Data pass-through after filter timeout working correctly")
 
+
+def test_filter_correctness(
+    duthost: SonicHost,
+    tbinfo: dict,
+    configured_lines: list[int],
+    bridge_manager: BridgeManager,
+    ensure_dce_service_running,
+    cleanup_console_sessions
+):
+    """
+    Test that filter correctly passes user data while heartbeat is active.
+
+    Verify that when DTE sends heartbeat continuously, user data passes through
+    without non-printable characters being leaked to the DCE side.
+
+    Test steps:
+    1. Build console bridge and enable DTE heartbeat
+    2. Wait for line status to become 'Up' (heartbeat detected)
+    3. Send a long random printable string from DTE side
+    4. Connect to DCE side and read output
+    5. Verify DCE receives only printable characters (plus \\r\\n)
+    """
+    import string
+    import random
+
+    target_link_id = configured_lines[0]
+    neighbor_name = tbinfo.get('vm_base', '')
+    pytest_assert(neighbor_name, "No vm_base in tbinfo")
+    logger.info(f"Testing filter correctness with link {target_link_id}, neighbor {neighbor_name}")
+
+    # Build console bridge
+    _ = bridge_manager.build_console_bridge(target_link_id, neighbor_name)
+    nbr_host = bridge_manager.get_neighbor_host(neighbor_name)
+
+    # Step 1: Enable DTE heartbeat
+    logger.info("Step 1: Enabling DTE heartbeat...")
+    nbr_host.enable_console_heartbeat()
+
+    # Step 2: Wait for line status to become 'Up'
+    logger.info(f"Step 2: Waiting for line {target_link_id} to become 'Up'...")
+    pytest_assert(
+        wait_for_line_status(duthost, target_link_id, 'Up', timeout=HEARTBEAT_DETECT_SEC + 5),
+        f"Line {target_link_id} did not become 'Up' after enabling heartbeat"
+    )
+    logger.info(f"Line {target_link_id} is now 'Up'")
+
+    # Step 3: Generate and send a long random printable string from DTE side
+    # Use only alphanumeric characters to avoid shell escaping issues
+    test_string = ''.join(random.choices(string.ascii_letters, k=256))
+
+    logger.info(f"Step 3: Sending test string from DTE side (length={len(test_string)})")
+    logger.debug(f"Test string: {test_string[:50]}...")
+
+    console_output_file = "/tmp/filter_test_output.txt"
+
+    try:
+        # Step 4: Use script to capture console output on DCE side
+        logger.info("Step 4: Starting script to capture console output on DCE side...")
+
+        # Start script in background to record console output
+        # Using timeout to prevent infinite blocking, -q for quiet, -f for flush
+        duthost.shell(
+            f"timeout 15 script -q -f -c 'sudo connect line {target_link_id}' {console_output_file} &"
+        )
+        time.sleep(1)  # Wait for connection to establish
+
+        # Send test string from DTE side (neighbor VM's serial console)
+        nbr_host.shell(f"printf '{test_string}' > /dev/ttyS0", module_ignore_errors=True)
+
+        # Wait for data transmission and recording
+        time.sleep(7)
+
+        # Step 5: Read the captured output and verify
+        logger.info("Step 5: Reading captured data and verifying...")
+        result = duthost.shell(f"cat {console_output_file}", module_ignore_errors=True)
+        captured_output = result.get('stdout', '')
+
+        logger.info(f"Captured output length: {len(captured_output)}")
+        logger.debug(f"Captured output: {captured_output[:500]}...")
+
+        # Verify DCE receives only printable characters (plus \r\n\t)
+        logger.info("Verifying no non-printable characters in output...")
+
+        # Define allowed characters: printable ASCII + common whitespace
+        allowed_chars = set(string.printable)  # includes \t\n\r\x0b\x0c and space
+
+        non_printable_found = []
+        for i, char in enumerate(captured_output):
+            if char not in allowed_chars:
+                non_printable_found.append((i, ord(char), repr(char)))
+
+        if non_printable_found:
+            logger.error(f"Found {len(non_printable_found)} non-printable characters:")
+            for pos, code, char_repr in non_printable_found[:10]:  # Show first 10
+                logger.error(f"  Position {pos}: code={code} ({char_repr})")
+
+        pytest_assert(
+            len(non_printable_found) == 0,
+            f"DCE received {len(non_printable_found)} non-printable characters. "
+            f"First few: {non_printable_found[:5]}"
+        )
+
+        # Verify the test marker was received (data actually passed through)
+        pytest_assert(
+            test_string in captured_output,
+            f"Test string not found in captured output. "
+            f"Data may not have passed through correctly. Captured: {captured_output[:200]}"
+        )
+
+        logger.info("Successfully verified: no non-printable characters leaked to DCE side")
+
+    finally:
+        # Cleanup
+        duthost.shell(f"sudo consutil clear {target_link_id}", module_ignore_errors=True)
+        duthost.shell(f"rm -f {console_output_file}", module_ignore_errors=True)
+        nbr_host.disable_console_heartbeat()
+
+    logger.info("Test passed: Filter correctly passes user data without non-printable characters")
