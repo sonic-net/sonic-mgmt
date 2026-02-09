@@ -1428,7 +1428,7 @@ def test_gcu_acl_dualtor_standby_drop_takes_priority_across_tables(rand_selected
                                                                    tbinfo,
                                                                    rand_selected_interface):  # noqa:F811
     """In a dual ToR setup, confirm that standby drop rules take priority over active forward rules,
-    even when these rules are in different ACL tables."""
+    even when these rules are in different ACL tables"""
 
     if not setup["is_dualtor"]:
         pytest.skip("Test only valid for active-standby dual ToR setups, skipping on non dual ToR device.")
