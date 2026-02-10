@@ -5,6 +5,7 @@ import binascii
 import netaddr
 import struct
 import math
+import json
 
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 
@@ -78,6 +79,7 @@ DST_IPV6_BLOCKED = "103:23:3:1::1"
 
 MAX_IP_RULE_PRIORITY = 800
 MAX_DROP_RULE_PRIORITY = 200
+DEFAULT_MAX_ACL_RULE_SCALE = 75
 
 # DHCP Constants
 
@@ -109,6 +111,51 @@ DHCP_SERVER_PORT_V6 = 547
 
 dhcp6opts = {79: "OPTION_CLIENT_LINKLAYER_ADDR",  # RFC6939
              }
+
+
+# key: hwsku name
+# value: max number of ACL entries supported by the sku
+rules_per_hwsku = {
+    # Wistron
+    'Wistron_sw_to3200k_32x100': 50,
+    'wistron_6512_32r_32x100': 50
+    }
+
+
+@pytest.fixture(scope="module", autouse=True)
+def remove_dataacl_table(duthosts, rand_selected_dut):
+    """
+    Remove DATAACL to free TCAM resources.
+    """
+    TABLE_NAME_1 = "DATAACL"
+    for duthost in duthosts:
+        lines = duthost.shell(cmd="show acl table {}".format(TABLE_NAME_1))['stdout_lines']
+        data_acl_existing = False
+        for line in lines:
+            if TABLE_NAME_1 in line:
+                data_acl_existing = True
+                break
+
+        if data_acl_existing:
+            # Remove DATAACL
+            logger.info("Removing ACL table {}".format(TABLE_NAME_1))
+            rand_selected_dut.shell(cmd="config acl remove table {}".format(TABLE_NAME_1))
+
+    if not data_acl_existing:
+        yield
+        return
+
+    yield
+    # Recover DATAACL
+    config_db_json = "/etc/sonic/config_db.json"
+    output = rand_selected_dut.shell("sonic-cfggen -j {} --var-json \"ACL_TABLE\"".format(config_db_json))['stdout']
+    entry_json = json.loads(output)
+    if TABLE_NAME_1 in entry_json:
+        entry = entry_json[TABLE_NAME_1]
+        cmd_create_table = "config acl add table {} {} -p {} -s {}"\
+            .format(TABLE_NAME_1, entry['type'], ",".join(entry['ports']), entry['stage'])
+        logger.info("Restoring ACL table {}".format(TABLE_NAME_1))
+        rand_selected_dut.shell(cmd_create_table)
 
 
 class _LLAddrField(MACField):
@@ -225,7 +272,9 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
 
     # Generate destination IP's for scale test
     scale_dest_ips = {}
-    for i in range(1, 75):
+    hwsku = rand_selected_dut.facts['hwsku']
+    max_ace = rules_per_hwsku.get(hwsku, DEFAULT_MAX_ACL_RULE_SCALE)
+    for i in range(1, max_ace+1):
         ipv4_rule_name = "FORWARD_RULE_" + str(i)
         ipv6_rule_name = "V6_FORWARD_RULE_" + str(i)
         ipv4_address = DST_IP_FORWARDED_SCALE_PREFIX + str(i)
