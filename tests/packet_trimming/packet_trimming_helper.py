@@ -431,6 +431,18 @@ def delete_blocking_scheduler(duthost):
         logger.info(f"Successfully deleted blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
 
 
+def validate_packet_size(pkt_size, pkt_size_exp):
+    """
+    Validate packet size against expected size +/- PACKET_SIZE_MARGIN
+
+    Args:
+        pkt_size: the packet's actual size
+        pkt_size_exp: the packet's expected size
+    """
+    pytest_assert(pkt_size - PACKET_SIZE_MARGIN <= pkt_size_exp <= pkt_size + PACKET_SIZE_MARGIN,
+                  f"Packet size expected {pkt_size_exp} +/- {PACKET_SIZE_MARGIN}, was: {pkt_size} ")
+
+
 def validate_scheduler_configuration(duthost, dut_port, queue, expected_scheduler):
     """
     Validate that the scheduler configuration is applied correctly for a specific queue.
@@ -944,8 +956,7 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                         ports=verify_ports,
                         timeout=timeout
                     )
-                    pytest_assert(recv_pkt_size - PACKET_SIZE_MARGIN <= len(matched) <= recv_pkt_size + PACKET_SIZE_MARGIN,
-                        f"packet length expected {recv_pkt_size} +/- {PACKET_SIZE_MARGIN}, was: {len(matched)} ")
+                    validate_packet_size(len(matched), recv_pkt_size)
                     logger.info(
                         f"Successfully verified {packet_type} packet trimming with size {recv_pkt_size} "
                         f"and DSCP {recv_pkt_dscp}")
@@ -2123,14 +2134,13 @@ def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_
 
         if srv6_packet['exp_process_result'] == 'forward':
             _, matched = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=verify_ports)
-            pytest_assert(recv_pkt_size - PACKET_SIZE_MARGIN <= len(matched) <= recv_pkt_size + PACKET_SIZE_MARGIN,
-                f"packet length expected {recv_pkt_size} +/- {PACKET_SIZE_MARGIN}, was: {len(matched)} ")
+            validate_packet_size(len(matched), recv_pkt_size)
             logger.info('Successfully received packets')
         elif srv6_packet['exp_process_result'] == 'drop':
             testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=verify_ports)
             logger.info(f'No packet received on {verify_ports}')
         else:
-            logger.error(f'Wrong expected process result: {exp_pro}')
+            logger.error(f"Wrong expected process result: {srv6_packet['exp_process_result']}")
 
 
 def create_srv6_packet_for_trimming(
@@ -2615,8 +2625,7 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
                 ports=verify_ports,
                 timeout=timeout
             )
-            pytest_assert(recv_pkt_size - PACKET_SIZE_MARGIN <= len(matched) <= recv_pkt_size + PACKET_SIZE_MARGIN,
-                f"packet length expected {recv_pkt_size} +/- {PACKET_SIZE_MARGIN}, was: {len(matched)} ")
+            validate_packet_size(len(matched), recv_pkt_size)
             logger.info(f"Successfully verified normal packet with size {recv_pkt_size}")
         else:
             logger.info(f"Expecting NO packets on ports {verify_ports}")
