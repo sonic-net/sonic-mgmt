@@ -275,7 +275,8 @@ def test_buffer_profile_create_remove_rollback(duthost, ensure_dut_readiness, cl
         "xon": "1234",
         "xoff": "5678",
         "size": "9999",
-        "pool": "ingress_lossless_pool"
+        "pool": "ingress_lossless_pool",
+        "threshold_mode": "static"
     }
     # Step 1: Take checkpoint done by ensure_dut_readiness fixture, verify checkpoint creation
     try:
