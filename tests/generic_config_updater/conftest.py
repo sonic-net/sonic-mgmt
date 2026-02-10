@@ -108,6 +108,7 @@ def ignore_expected_loganalyzer_exceptions(request, duthosts, loganalyzer):
             ".*ERR kernel.*Reset adapter.*",  # Valid test_portchannel_interface replace mtu
             ".*ERR swss[0-9]*#orchagent: :- getPortOperSpeed.*",  # Valid test_portchannel_interface replace mtu
             ".*ERR systemd.*Failed to start Host core file uploader daemon.*",  # Valid test_syslog
+            r".*ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
 
             # sonic-swss/orchagent/crmorch.cpp
             ".*ERR swss[0-9]*#orchagent.*getResAvailableCounters.*",  # test_monitor_config
