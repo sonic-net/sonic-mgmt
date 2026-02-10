@@ -1418,7 +1418,7 @@ def test_gcu_acl_scale_rules(rand_selected_dut, rand_unselected_dut, ptfadapter,
                                src_port=blocked_scale_port)
 
 
-@pytest.mark.topolofy("dualtor")
+@pytest.mark.topology("dualtor")
 def test_gcu_acl_dualtor_standby_drop_takes_priority_across_tables(rand_selected_dut,
                                                                    rand_unselected_dut,
                                                                    ptfadapter,
