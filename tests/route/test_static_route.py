@@ -15,7 +15,7 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.mux_simulator_control import mux_server_url # noqa F811
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m # noqa F811
-from tests.common.utilities import wait_until, get_intf_by_sub_intf
+from tests.common.utilities import wait_until, get_intf_by_sub_intf, is_ipv6_only_topology
 from tests.common.utilities import get_neighbor_ptf_port_list
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
@@ -471,6 +471,11 @@ def get_nexthops(duthost, tbinfo, ipv6=False, count=1):
         vlan_intf = get_vlan_interface_info(duthost, tbinfo, vlan_if_name, "ipv6")
     else:
         vlan_intf = get_vlan_interface_info(duthost, tbinfo, vlan_if_name, "ipv4")
+
+    # Check if the requested IP version is available (e.g., IPv6-only topology has no IPv4)
+    if not vlan_intf or 'prefixlen' not in vlan_intf:
+        return None, None, None, None
+
     prefix_len = vlan_intf['prefixlen']
 
     is_backend_topology = mg_facts.get(constants.IS_BACKEND_TOPOLOGY_KEY, False)
@@ -511,9 +516,12 @@ def test_static_route(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhos
                       toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
-    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo)
-    run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, "1.1.1.0/24",
-                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces, is_route_flow_counter_supported)
+    ipv6 = is_ipv6_only_topology(tbinfo)
+    prefix = "2000:1::/64" if ipv6 else "1.1.1.0/24"
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=ipv6)
+    run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, prefix,
+                          nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces,
+                          is_route_flow_counter_supported, ipv6=ipv6)
 
 
 @pytest.mark.disable_loganalyzer
@@ -522,10 +530,12 @@ def test_static_route_ecmp(rand_selected_dut, rand_unselected_dut, ptfadapter, p
                            toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
-    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, count=3)
-    run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, "2.2.2.0/24",
+    ipv6 = is_ipv6_only_topology(tbinfo)
+    prefix = "2000:2::/64" if ipv6 else "2.2.2.0/24"
+    prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=ipv6, count=3)
+    run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo, prefix,
                           nexthop_addrs, prefix_len, nexthop_devs, nexthop_interfaces,
-                          is_route_flow_counter_supported, config_reload_test=True)
+                          is_route_flow_counter_supported, ipv6=ipv6, config_reload_test=True)
 
 
 def test_static_route_ipv6(rand_selected_dut, rand_unselected_dut, ptfadapter, ptfhost, tbinfo,
