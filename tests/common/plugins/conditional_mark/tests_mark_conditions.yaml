@@ -2529,10 +2529,6 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
     # Cisco-8800-LC-48H-C48 (PAC ASIC) and Cisco-8122 (GR2 ASIC) platforms are skipped because
     # dynamic WRED configuration updates are not yet implemented in the SAI layer for these ASICs.
-    # The SDK's sai_wred_manager_gr2.cpp has stub implementations (no-ops) for WRED configuration
-    # functions like set_sms_dequeue_cgmlevel_ecnmark_probability(). This means CONFIG_DB changes
-    # are accepted but never propagate to ASIC_DB, causing the test to fail.
-    # See: sdk/sai/src/cgm/wred/sai_wred_manager_gr2.cpp
     reason: "WRED dynamic config updates not implemented in SAI for PAC/GR2 ASICs"
     conditions_logical_operator: "OR"
     conditions:

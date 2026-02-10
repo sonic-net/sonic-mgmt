@@ -1,18 +1,6 @@
 """Tests for ECN/WRED configuration updates via Generic Config Updater.
-
-Note on Platform Support:
-    This test validates that WRED profile changes in CONFIG_DB propagate correctly
-    to ASIC_DB. The following Cisco 8000 platforms are skipped:
-
-    - Cisco-8800-LC-48H-C48 (PAC ASIC): WRED dynamic updates not implemented in SAI
-    - Cisco-8122-O128S2, Cisco-8122-O64 (GR2 ASIC): WRED dynamic updates not implemented in SAI
-
-    The GR2 SAI layer (sai_wred_manager_gr2.cpp) has stub implementations for WRED
-    configuration functions. CONFIG_DB changes are accepted but don't propagate to
-    hardware or ASIC_DB.
-
-    Other Cisco 8000 platforms (GB/GR ASICs like 8101, 8102, 8111) are supported.
 """
+
 import ast
 from functools import cmp_to_key
 import logging
