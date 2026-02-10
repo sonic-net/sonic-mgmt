@@ -40,7 +40,8 @@ def db_instance(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         appl_db.append(SonicDbCli(asic, APPL_DB))
     duthost.facts['switch_type'] == "voq"
     is_chassis = duthost.get_facts().get("modular_chassis")
-    if duthost.facts['switch_type'] == "voq" and not is_chassis:
+    # For single ASIC fixed system, APPL_DB is already added above. so skip here
+    if duthost.facts['switch_type'] == "voq" and (not is_chassis and len(duthost.asics) > 1):
         appl_db.append(SonicDbCli(duthost, APPL_DB))
     # Cleanup code here
     return appl_db

@@ -297,3 +297,53 @@ def test_ntp_server_tc1_suite(rand_selected_dut):
     ntp_server_tc1_xfail(rand_selected_dut)
     ntp_server_tc1_replace(rand_selected_dut, ntp_service)
     ntp_server_tc1_remove(rand_selected_dut, ntp_service)
+
+
+def ntp_server_set_intf(duthost, ntp_service, src_intf):
+    """ Test to set NTP source interface
+    """
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/NTP",
+            "value": {
+                "global": {
+                    "src_intf": src_intf
+                }
+            }
+        }
+    ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
+
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    ntp_daemon = get_ntp_daemon_in_use(duthost)
+
+    try:
+        start_time = int(duthost.command("date +%s")['stdout'].strip())
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        pytest_assert(
+            ntp_service_restarted(duthost, ntp_service, start_time),
+            f"{ntp_service} is not restarted after change"
+        )
+
+        if ntp_daemon == NtpDaemon.CHRONY:
+            pytest_assert(
+                server_exist_in_conf(duthost, f"bindacqdevice {src_intf}"),
+                f"Failed to set source interface to {src_intf}"
+            )
+
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def test_ntp_server_change_source_intf(rand_selected_dut):
+    """ Test changing the source interface via GCU
+    """
+    ntp_service = get_ntp_service_name(rand_selected_dut)
+
+    ntp_server_set_intf(rand_selected_dut, ntp_service, "Loopback0")
+    ntp_server_set_intf(rand_selected_dut, ntp_service, "eth0")
