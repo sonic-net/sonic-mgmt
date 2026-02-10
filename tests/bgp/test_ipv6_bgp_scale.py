@@ -451,7 +451,9 @@ def get_route_programming_metrics_from_sairedis_replay(duthost, start_time, sair
         try:
             return duthost.shell(f"sudo grep -e '{nhg_pattern}' -e '{route_pattern}' {path}")['stdout'].splitlines()
         except Exception as e:
-            logger.info("Failed to read %s: %s", path, e)
+            is_rotated_log = path.endswith('.rec.1')
+            log_level = logging.INFO if is_rotated_log else logging.WARNING
+            logger.log(log_level, "Failed to read %s: %s", path, e)
             return []
     lines = read_lines(sairedislog)
     log_rotated_lines = read_lines(sairedislog + ".1")
