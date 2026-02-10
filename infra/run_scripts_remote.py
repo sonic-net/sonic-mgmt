@@ -794,7 +794,9 @@ if __name__ == '__main__':
     dut_data_file = args['dut_data_file']
     add_sim_patches = args['add_sim_patches']
     test_tag = args['test_tag']
-
+    if topo_type == 't2-min-VG' or topo_type == 't2-min-VL':
+        # All LC combinations for SFD T2 min topology use same Sonic-mgmt SIM topology
+        topo_type = 't2-min'
     ret = run_scripts_remote(
         host_address,
         username,

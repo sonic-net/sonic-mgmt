@@ -37,9 +37,10 @@ devices:
     image: /auto/sonic/anamehra/onie-recovery-x86_64-cisco_8000-r0.iso.unsigned
     onie-install: ./sonic-cisco-8000.bin 
     vxr_sim_config:
-      #shelf:
-      #   ConfigS1NplPath: /auto/mb/sonic/workspace/sonic-cicd/sdk/sdk-1.66.11.80/npl
-      #   ConfigS1NpsuiteVer: 1.137.1
+      shelf:
+        ConfigS1Setenv: "ENABLE_NSIM_LOG,disabled"
+        ConfigNsimLoggingLevel: "DISABLED"
+        ConfigS1LogLevel: "DISABLED"
       rp:
           ConfigNicOrder: "mgmt-ce-punt"
       lc:
