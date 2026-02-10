@@ -20,7 +20,7 @@ from constants import LOCAL_CA_IP, \
     LOCAL_DUT_INTF, REMOTE_DUT_INTF, \
     REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF, VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK, \
     NPU_DATAPLANE_IP, NPU_DATAPLANE_MAC, NPU_DATAPLANE_PORT, DPU_DATAPLANE_IP, DPU_DATAPLANE_MAC, DPU_DATAPLANE_PORT
-from dash_utils import render_template_to_host, apply_swssconfig_file
+from tests.dash.dash_utils import render_template_to_host, apply_swssconfig_file
 from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
 from tests.common.helpers.smartswitch_util import correlate_dpu_info_with_dpuhost, get_data_port_on_dpu, get_dpu_dataplane_port # noqa F401
 from tests.common import config_reload
