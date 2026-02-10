@@ -119,12 +119,16 @@ start_container() {
     fi
 
     # Run the container with both IPv4 and IPv6 addresses
+    # Capabilities needed:
+    #   SYS_TIME: to set system time
+    #   NET_BIND_SERVICE: to bind to privileged NTP port 123
     docker run -d \
         --name "${CONTAINER_NAME}" \
         --network "${NETWORK_NAME}" \
         --ip "${NTP_IPV4}" \
         --ip6 "${NTP_IPV6}" \
         --cap-add SYS_TIME \
+        --cap-add NET_BIND_SERVICE \
         --restart unless-stopped \
         "${IMAGE_NAME}"
 
