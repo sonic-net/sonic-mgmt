@@ -3009,10 +3009,10 @@ Totals               6450                 6449
         Get the serial device prefix for the platform.
 
         Returns:
-            str: The device prefix (e.g., "/dev/C0-", "/dev/ttyUSB-")
+            str: The device prefix (e.g., "/dev/C0-", "/dev/ttyUSB")
         """
         # Reads udevprefix.conf from the platform directory to determine the correct device prefix
-        # Falls back to /dev/ttyUSB- if the config file doesn't exist
+        # Falls back to /dev/ttyUSB if the config file doesn't exist
         script = '''
 from sonic_py_common import device_info
 import os
@@ -3032,8 +3032,8 @@ print(device_prefix)
         res: ShellResult = self.shell(cmd, module_ignore_errors=True)
 
         if res['rc'] != 0 or not res['stdout'].strip():
-            logging.warning("Failed to get serial device prefix, using default /dev/ttyUSB-")
-            device_prefix = "/dev/ttyUSB-"
+            logging.warning("Failed to get serial device prefix, using default /dev/ttyUSB")
+            device_prefix = "/dev/ttyUSB"
         else:
             device_prefix = res['stdout'].strip()
 
@@ -3047,7 +3047,7 @@ print(device_prefix)
             port: Port number (e.g., 1, 2)
 
         Returns:
-            str: The full device path (e.g., "/dev/C0-1", "/dev/ttyUSB-1")
+            str: The full device path (e.g., "/dev/C0-1", "/dev/ttyUSB1")
         """
         device_prefix = self._get_serial_device_prefix()
         return f"{device_prefix}{port}"
