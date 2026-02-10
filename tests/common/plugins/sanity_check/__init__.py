@@ -221,7 +221,8 @@ def prepare_parallel_run(request, parallel_run_context):
 
 
 @pytest.fixture(scope="module")
-def sanity_check_full(parallel_manager, ptfhost, prepare_parallel_run, localhost, duthosts, request, fanouthosts, tbinfo):
+def sanity_check_full(parallel_manager, ptfhost, prepare_parallel_run, localhost, duthosts, request,
+                      fanouthosts, tbinfo):
     logger.info("Prepare sanity check")
     should_skip_sanity = prepare_parallel_run
     if should_skip_sanity:
