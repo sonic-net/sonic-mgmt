@@ -29,6 +29,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
 from tests.common.utilities import get_iface_ip
 from tests.common.utilities import is_ipv4_address
+from tests.common.utilities import is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,21 @@ DOWNSTREAM_IP_TO_ALLOW = {
 DOWNSTREAM_IP_TO_BLOCK = {
     "ipv4": "192.168.0.251",
     "ipv6": "20c0:a800::9"
+}
+
+# Below T1 V6 topo IPs are announced to DUT by annouce_route.py
+# IPv4 addrs are placeholders only
+DOWNSTREAM_DST_IP_V6_TOPO = {
+    "ipv4": "192.168.0.253",
+    "ipv6": "2064:100:0::C0A8:0000:14"
+}
+DOWNSTREAM_IP_TO_ALLOW_V6_TOPO = {
+    "ipv4": "192.168.0.252",
+    "ipv6": "2064:100:0::C0A8:0000:1"
+}
+DOWNSTREAM_IP_TO_BLOCK_V6_TOPO = {
+    "ipv4": "192.168.0.251",
+    "ipv6": "2064:100:0::C0A8:0000:9"
 }
 
 # Below M0_L3 IPs are announced to DUT by annouce_route.py, it point to neighbor mx
@@ -309,6 +325,15 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
         DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_L3
         DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_M0_L3
         DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_M0_L3
+    elif is_ipv6_only_topology(tbinfo):
+        if tbinfo['topo']['type'] in ['t0']:
+            DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN
+            DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN
+            DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN
+        else:
+            DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_V6_TOPO
+            DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_V6_TOPO
+            DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_V6_TOPO
     elif tbinfo['topo']['type'] in ['t0']:
         try:
             vlan_config = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['default_vlan_config']
@@ -898,7 +923,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             return True
 
         logger.info('Wait all rule counters are ready')
-        return wait_until(60, 2, 0, self.check_rule_counters_internal, duthost)
+        return wait_until(120, 2, 0, self.check_rule_counters_internal, duthost)
 
     def check_rule_counters_internal(self, duthost):
         for asic_id in duthost.get_frontend_asic_ids():
@@ -1100,6 +1125,11 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 33 if vlan_name == "Vlan1000" else 2
                 logging.info("topo: {} vlan_config: {} vlan_name: {} rule_id: {} ".format(
                     setup["topo"], setup["vlan_config"], vlan_name, rule_id))
+            elif "-v6-" in setup["topo_name"]:
+                if setup["topo"] in ['t0']:
+                    rule_id = 34
+                else:
+                    rule_id = 38
             else:
                 rule_id = 2
         else:
@@ -1128,6 +1158,11 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 32 if vlan_name == "Vlan1000" else 15
                 logging.info("topo: {} vlan_config: {} vlan_name: {} rule_id: {} ".format(
                     setup["topo"], setup["vlan_config"], vlan_name, rule_id))
+            elif "-v6-" in setup["topo_name"]:
+                if setup["topo"] in ['t0']:
+                    rule_id = 35
+                else:
+                    rule_id = 39
             else:
                 rule_id = 15
         else:
