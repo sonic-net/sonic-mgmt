@@ -47,7 +47,8 @@ class DutHosts(object):
             """ To support hash operator on the DUTs (nodes) in the testbed """
             return list.__hash__()
 
-    def __init__(self, ansible_adhoc, tbinfo, request, duts, target_hostname=None, is_parallel_leader=False):
+    def __init__(self, ansible_adhoc, tbinfo, request, duts, target_hostname=None, is_parallel_leader=False,
+                 parallel_manager=None):
         """ Initialize a multi-dut testbed with all the DUT's defined in testbed info.
 
         Args:
@@ -69,7 +70,7 @@ class DutHosts(object):
             self.is_parallel_leader = is_parallel_leader
             self.__initialize_nodes_for_parallel()
         else:
-            self.__initialize_nodes()
+            self.__initialize_nodes(parallel_manager)
 
     def __initialize_nodes_for_parallel(self):
         if self.is_parallel_leader:
@@ -108,15 +109,36 @@ class DutHosts(object):
             node for node in self._nodes_for_parallel if node.is_frontend_node()
         ])
 
-    def __initialize_nodes(self):
-        self._nodes = self._Nodes([
-            MultiAsicSonicHost(
-                self.ansible_adhoc,
-                hostname,
-                self,
-                self.tbinfo['topo']['type'],
-            ) for hostname in self.tbinfo["duts"] if hostname in self.duts
-        ])
+    def __initialize_nodes(self, parallel_manager=None):
+        if parallel_manager and len(self.duts) > 1:
+            def _init_node_helper(hostname):
+                return MultiAsicSonicHost(
+                    self.ansible_adhoc,
+                    hostname,
+                    self,
+                    self.tbinfo['topo']['type'],
+                )
+
+            futures = []
+            for hostname in self.tbinfo["duts"]:
+                if hostname in self.duts:
+                    future = parallel_manager.submit_setup_task(
+                        parallel_manager.current_scope,
+                        _init_node_helper,
+                        hostname
+                    )
+                    futures.append(future)
+            parallel_manager.wait_for_tasks_completion(futures)
+            self._nodes = self._Nodes([future.result() for future in futures])
+        else:
+            self._nodes = self._Nodes([
+                MultiAsicSonicHost(
+                    self.ansible_adhoc,
+                    hostname,
+                    self,
+                    self.tbinfo['topo']['type'],
+                ) for hostname in self.tbinfo["duts"] if hostname in self.duts
+            ])
 
         self._supervisor_nodes = self._Nodes([node for node in self._nodes if node.is_supervisor_node()])
         self._frontend_nodes = self._Nodes([node for node in self._nodes if node.is_frontend_node()])
