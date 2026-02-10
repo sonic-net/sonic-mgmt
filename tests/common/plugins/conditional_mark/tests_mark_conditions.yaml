@@ -4047,9 +4047,7 @@ route/test_default_route.py:
 route/test_default_route.py::test_default_route_set_src:
   xfail:
     reason: "xfail for IPv6-only topologies, need add support for IPv6-only"
-    conditions_logical_operator: or
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19925 and '-v6-' in topo_name"
       - "https://github.com/sonic-net/sonic-buildimage/issues/24537 and 't0-isolated-d256u256s2' in topo_name"
 
 route/test_default_route.py::test_default_route_with_bgp_flap:
