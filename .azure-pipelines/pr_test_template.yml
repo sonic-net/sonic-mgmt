@@ -179,8 +179,6 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -189,7 +187,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          STOP_ON_FAILURE: "false"
+          STOP_ON_FAILURE: "False"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -215,8 +213,6 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t1-lag
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -225,7 +221,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          STOP_ON_FAILURE: "false"
+          STOP_ON_FAILURE: "False"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
