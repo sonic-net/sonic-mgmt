@@ -3351,6 +3351,18 @@ packet_trimming:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name"
 
+packet_trimming/test_packet_trimming_asymmetric.py::TestPacketTrimmingAsymmetric::test_trimming_counters_with_feature_toggle:
+  skip:
+    reason: "TH5 clears trim counters when packet trimming is turned off, skipping until trim counter persistance is supported."
+    conditions:
+      - "asic_gen in ['th5']"
+
+packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_counters_with_feature_toggle:
+  skip:
+    reason: "TH5 clears trim counters when packet trimming is turned off, skipping until trim counter persistance is supported."
+    conditions:
+      - "asic_gen in ['th5']"
+
 #######################################
 #####           pc               #####
 #######################################
