@@ -17,7 +17,8 @@ from tests.common.utilities import wait_until, get_dscp_to_queue_value
 from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_in_appl_db, validate_srv6_in_asic_db
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
-                                             DUMMY_IP, BATCH_PACKET_COUNT, PACKET_COUNT, STATIC_THRESHOLD_MULTIPLIER,
+                                             DUMMY_FILL_IPV6, DUMMY_IP, DUMMY_FILL_IP, BATCH_PACKET_COUNT,
+                                             PACKET_COUNT, STATIC_THRESHOLD_MULTIPLIER,
                                              BLOCK_DATA_PLANE_SCHEDULER_NAME, PACKET_TYPE, SRV6_PACKETS,
                                              TRIM_QUEUE_PROFILE, TRIMMING_CAPABILITY, ACL_TABLE_NAME,
                                              ACL_RULE_PRIORITY, ACL_TABLE_TYPE_NAME, ACL_RULE_NAME, SRV6_MY_SID_LIST,
@@ -732,7 +733,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         if is_ipv6:
             # Create IPv6 UDP packet
             ipv6_params = {
-                'ipv6_src': DUMMY_IPV6,
+                'ipv6_src': DUMMY_FILL_IPV6,
                 'ipv6_dst': dst_addr,
                 'ipv6_hlim': DEFAULT_TTL,
                 'ipv6_tc': dscp_value << 2,  # Convert DSCP to Traffic Class
@@ -742,7 +743,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         else:
             # Create IPv4 UDP packet
             ipv4_params = {
-                'ip_src': DUMMY_IP,
+                'ip_src': DUMMY_FILL_IP,
                 'ip_dst': dst_addr,
                 'ip_ttl': DEFAULT_TTL,
                 'ip_dscp': dscp_value,
