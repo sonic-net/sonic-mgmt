@@ -2661,14 +2661,6 @@ gnmi/test_gnmi_configdb.py:
       - "is_multi_asic==True"
       - "release in ['202412']"
 
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
-  skip:
-    reason: "The test refers to a stale implementation of GNOI.System.Reboot."
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
-      - "release in ['202412']"
-
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_replace_01:
   skip:
     reason: "dut ipv6 mgmt ip not supported"
