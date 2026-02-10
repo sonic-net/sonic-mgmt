@@ -3394,10 +3394,6 @@ pc/test_po_update.py::test_po_update:
     reason: "Skip test due to there is no portchannel or no portchannel member exists in current topology."
     conditions:
       - "len(minigraph_portchannels) == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0"
-  xfail:
-    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20729"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20729 and '-v6-' in topo_name"
 
 pc/test_po_update.py::test_po_update_io_no_loss:
   skip:
