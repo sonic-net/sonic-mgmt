@@ -1,0 +1,46 @@
+---
+# IPv6-only management network configuration for virtual testbed (vm_host)
+# This file contains IPv6 equivalents of management services when using --ipv6-only-mgmt
+#
+# Virtual testbed IPv6 addressing scheme:
+# - Management network: fc00:2::/64 (ULA)
+# - PTF backplane: fc0a::/64 (already defined in vm_host/main.yml as ptf_bp_ipv6)
+# - DUT management: Uses ansible_hostv6 from inventory
+
+# IPv6 NTP servers
+# Primary: Local NTP server on the testbed host (deployed via setup-ntp-server.sh)
+# Fallback: Public IPv6 NTP servers
+ntp_servers_ipv6:
+  - 'fec0::ffff:afa:2'             # Local testbed NTP server (primary)
+  - '2610:20:6f15:15::27'          # NIST NTP server (fallback)
+
+# IPv6 DNS servers
+# Using public Google IPv6 DNS servers
+dns_servers_ipv6:
+  - '2001:4860:4860::8888'          # Google IPv6 DNS Primary
+  - '2001:4860:4860::8844'          # Google IPv6 DNS Secondary
+
+# IPv6 syslog servers
+# In virtual testbed, syslog typically goes to the PTF or test server
+syslog_servers_ipv6:
+  - 'fc00:1::1'                     # Virtual testbed server IPv6 (ULA)
+
+# IPv6 TACACS servers
+# Note: These will be overridden to use PTF IPv6 address when use_ptf_tacacs_server is enabled
+tacacs_servers_ipv6: []
+
+# IPv6 SNMP servers
+snmp_servers_ipv6:
+  - 'fc00:1::1'                     # Virtual testbed server IPv6 (ULA)
+
+# TACACS settings for virtual testbed
+tacacs_group_ipv6: 'testlab'
+tacacs_passkey_ipv6: testing123
+tacacs_enabled_by_default_ipv6: false
+
+# IPv6 forced management routes
+forced_mgmt_routes_ipv6: [
+  'fc00:1::/64',                    # Local test server network
+  'fc00:2::/64',                    # Management network
+  'fc0a::/64'                       # PTF backplane network
+]

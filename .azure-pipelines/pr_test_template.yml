@@ -157,6 +157,78 @@ jobs:
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
+  - job: impacted_area_t0_ipv6_mgmt_elastictest
+    displayName: "impacted-area-kvmtest-t0-ipv6-mgmt by Elastictest"
+    dependsOn:
+    - get_impacted_area
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker')
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
+    continueOnError: true
+    pool: ${{ parameters.AGENT_POOL }}
+    steps:
+      - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
+        - checkout: ${{ parameters.SONIC_MGMT_NAME }}
+          displayName: "Checkout sonic-mgmt repository"
+
+      - template: impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: t0
+          BUILD_BRANCH: $(BUILD_BRANCH)
+
+      - template: run-test-elastictest-template.yml
+        parameters:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
+          TOPOLOGY: t0
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
+          DEPLOY_MG_EXTRA_PARAMS: "--ipv6-only-mgmt"
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: $(BUILD_BRANCH)
+          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          STOP_ON_FAILURE: "false"
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
+
+  - job: impacted_area_t1_lag_ipv6_mgmt_elastictest
+    displayName: "impacted-area-kvmtest-t1-lag-ipv6-mgmt by Elastictest"
+    dependsOn:
+    - get_impacted_area
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
+    continueOnError: true
+    pool: ${{ parameters.AGENT_POOL }}
+    steps:
+      - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
+        - checkout: ${{ parameters.SONIC_MGMT_NAME }}
+          displayName: "Checkout sonic-mgmt repository"
+
+      - template: impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: t1
+          BUILD_BRANCH: $(BUILD_BRANCH)
+
+      - template: run-test-elastictest-template.yml
+        parameters:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
+          TOPOLOGY: t1-lag
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
+          DEPLOY_MG_EXTRA_PARAMS: "--ipv6-only-mgmt"
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: $(BUILD_BRANCH)
+          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          STOP_ON_FAILURE: "false"
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
+
   - job: impacted_area_dualtor_elastictest
     displayName: "impacted-area-kvmtest-dualtor by Elastictest"
     dependsOn:
