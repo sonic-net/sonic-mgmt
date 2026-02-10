@@ -27,7 +27,7 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR, MIRROR_SESSION_NAME,
                                              MIRROR_SESSION_SRC_IP, MIRROR_SESSION_DST_IP, MIRROR_SESSION_DSCP,
                                              MIRROR_SESSION_TTL, MIRROR_SESSION_GRE, MIRROR_SESSION_QUEUE,
-                                             SCHEDULER_CIR, SCHEDULER_METER_TYPE)
+                                             SCHEDULER_CIR, SCHEDULER_METER_TYPE, PACKET_SIZE_MARGIN)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
 logger = logging.getLogger(__name__)
@@ -256,7 +256,7 @@ def generate_packet(duthost, packet_type, dst_addr, send_pkt_size, send_pkt_dscp
         exp_packet = testutils.simple_udpv6_packet(**recv_params)
 
     # Create masked expected packet
-    masked_exp_packet = Mask(exp_packet)
+    masked_exp_packet = Mask(exp_packet, ignore_extra_bytes=True)
 
     # Set fields to ignore in packet matching
     # Common Ethernet header fields to ignore
@@ -908,7 +908,7 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                     dst_addr,
                     send_pkt_size,
                     send_pkt_dscp,
-                    recv_pkt_size,
+                    recv_pkt_size - PACKET_SIZE_MARGIN,
                     recv_pkt_dscp
                 )
 
@@ -938,12 +938,14 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                 if expect_packets:
                     logger.info(
                         f"Expecting packets on ports {verify_ports} with size {recv_pkt_size} and DSCP {recv_pkt_dscp}")
-                    testutils.verify_packet_any_port(
+                    _, matched = testutils.verify_packet_any_port(
                         ptfadapter,
                         exp_pkt,
                         ports=verify_ports,
                         timeout=timeout
                     )
+                    pytest_assert(recv_pkt_size - PACKET_SIZE_MARGIN <= len(matched) <= recv_pkt_size + PACKET_SIZE_MARGIN,
+                        f"packet length expected {recv_pkt_size} +/- {PACKET_SIZE_MARGIN}, was: {len(matched)} ")
                     logger.info(
                         f"Successfully verified {packet_type} packet trimming with size {recv_pkt_size} "
                         f"and DSCP {recv_pkt_dscp}")
@@ -2077,7 +2079,7 @@ def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_
 
         # - SRv6 packet without SRH: IPv6 (40) + IPv4 (20) + UDP (8) + Payload = 256
         # - SRv6 packet with SRH: IPv6 (40) + SRH (40) + IPv4 (20) + UDP (8) + Payload = 256
-        actual_recv_pkt_size = recv_pkt_size - ipv6_header_len
+        actual_recv_pkt_size = recv_pkt_size - ipv6_header_len - PACKET_SIZE_MARGIN
 
         srv6_pkt, exp_pkt = create_srv6_packet_for_trimming(
             outer_src_mac=DUMMY_MAC,
@@ -2109,15 +2111,26 @@ def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_
         else:
             verify_ports = [egress_port['ptf_id']]
 
-        send_verify_srv6_packet_for_trimming(
-            ptfadapter=ptfadapter,
-            pkt=srv6_pkt,
-            exp_pkt=exp_pkt,
-            exp_pro=srv6_packet["exp_process_result"],
-            ptf_src_port_id=ingress_port['ptf_id'],
-            ptf_dst_port_ids=verify_ports,
-            packet_num=PACKET_COUNT
-        )
+        ptfadapter.dataplane.flush()
+
+        logger.info(f"Send SRv6 packet(s) from PTF port {ingress_port['ptf_id']} to upstream")
+        testutils.send(ptfadapter, ingress_port['ptf_id'], srv6_pkt, count=PACKET_COUNT)
+
+        logger.info('SRv6 packet format:\n ---------------------------')
+        logger.info(f'{dump_packet_detail(srv6_pkt)}\n---------------------------')
+        logger.info('Expect receive SRv6 packet format:\n ---------------------------')
+        logger.info(f'{dump_packet_detail(exp_pkt.exp_pkt)}\n---------------------------')
+
+        if srv6_packet['exp_process_result'] == 'forward':
+            _, matched = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=verify_ports)
+            pytest_assert(recv_pkt_size - PACKET_SIZE_MARGIN <= len(matched) <= recv_pkt_size + PACKET_SIZE_MARGIN,
+                f"packet length expected {recv_pkt_size} +/- {PACKET_SIZE_MARGIN}, was: {len(matched)} ")
+            logger.info('Successfully received packets')
+        elif srv6_packet['exp_process_result'] == 'drop':
+            testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=verify_ports)
+            logger.info(f'No packet received on {verify_ports}')
+        else:
+            logger.error(f'Wrong expected process result: {exp_pro}')
 
 
 def create_srv6_packet_for_trimming(
@@ -2265,7 +2278,7 @@ def create_srv6_packet_for_trimming(
                 )
 
             exp_pkt['IPv6'].hlim -= 1
-            exp_pkt = Mask(exp_pkt)
+            exp_pkt = Mask(exp_pkt, ignore_extra_bytes=True)
 
             logger.info('Do not care packet ethernet destination address')
             exp_pkt.set_do_not_care_packet(scapy.Ether, 'dst')
@@ -2315,47 +2328,6 @@ def create_srv6_packet_for_trimming(
         exp_pkt.set_do_not_care_packet(scapy.UDP, "len")
 
     return srv6_pkt, exp_pkt
-
-
-def send_verify_srv6_packet_for_trimming(
-        ptfadapter,
-        pkt,
-        exp_pkt,
-        exp_pro,
-        ptf_src_port_id,
-        ptf_dst_port_ids,
-        packet_num=10):
-    """
-    Send and verify SRv6 packets
-
-    Args:
-        ptfadapter: PTF adapter object
-        pkt: Packet to send
-        exp_pkt: Expected packet
-        exp_pro (str): Expected process result ('forward' or 'drop')
-        ptf_src_port_id (int): Source PTF port ID
-        ptf_dst_port_ids:
-        packet_num (int): Number of packets to send (default: 10)
-    """
-    ptfadapter.dataplane.flush()
-    logger.info(f'Send SRv6 packet(s) from PTF port {ptf_src_port_id} to upstream')
-    testutils.send(ptfadapter, ptf_src_port_id, pkt, count=packet_num)
-    logger.info('SRv6 packet format:\n ---------------------------')
-    logger.info(f'{dump_packet_detail(pkt)}\n---------------------------')
-    logger.info('Expect receive SRv6 packet format:\n ---------------------------')
-    logger.info(f'{dump_packet_detail(exp_pkt.exp_pkt)}\n---------------------------')
-
-    try:
-        if exp_pro == 'forward':
-            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids)
-            logger.info('Successfully received packets')
-        elif exp_pro == 'drop':
-            testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=ptf_dst_port_ids)
-            logger.info(f'No packet received on {ptf_dst_port_ids}')
-        else:
-            logger.error(f'Wrong expected process result: {exp_pro}')
-    except AssertionError as detail:
-        raise detail
 
 
 def check_connected_route_ready(duthost, egress_port):
@@ -2607,7 +2579,7 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
             dst_addr,
             send_pkt_size,
             send_pkt_dscp,
-            recv_pkt_size,
+            recv_pkt_size - PACKET_SIZE_MARGIN,
             recv_pkt_dscp
         )
 
@@ -2637,12 +2609,14 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
         # Verify packet
         if expect_packets:
             logger.info(f"Expecting packets on ports {verify_ports} with size {recv_pkt_size} and DSCP {recv_pkt_dscp}")
-            testutils.verify_packet_any_port(
+            _, matched = testutils.verify_packet_any_port(
                 ptfadapter,
                 exp_pkt,
                 ports=verify_ports,
                 timeout=timeout
             )
+            pytest_assert(recv_pkt_size - PACKET_SIZE_MARGIN <= len(matched) <= recv_pkt_size + PACKET_SIZE_MARGIN,
+                f"packet length expected {recv_pkt_size} +/- {PACKET_SIZE_MARGIN}, was: {len(matched)} ")
             logger.info(f"Successfully verified normal packet with size {recv_pkt_size}")
         else:
             logger.info(f"Expecting NO packets on ports {verify_ports}")
