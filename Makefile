@@ -18,6 +18,8 @@ else
   DISABLE_ZTP_COMMAND :=
 endif
 
+PTF_IMAGE_ARG := $(if $(PTF_IMAGE),--ptf-image=$(PTF_IMAGE),)
+
 .PHONY: init t0_run t1_run collect
 
 init:
@@ -31,7 +33,7 @@ endif
 
 create_sonic_topo:
 	echo "creating SIM sonic topology..."
-	bash -c "python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --goldencode=$(GOLDENCODE) --dut-password=${DUT_PASSWORD} ${DISABLE_ZTP_COMMAND}"
+	bash -c "python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --goldencode=$(GOLDENCODE) --dut-password=${DUT_PASSWORD} $(PTF_IMAGE_ARG) ${DISABLE_ZTP_COMMAND}"
 	bash -c " \
 	 cd infra; \
 	 source pyats/bin/activate; \

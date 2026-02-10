@@ -422,6 +422,20 @@ MGMT: #Anukul Verma / Gourav Sharma
         - ssh/test_ssh_limit.py
         - ssh/test_ssh_default_password.py
         - passw_hardening/test_passw_hardening.py
+        - gnmi/openconfig/test_openconfig_aggregate.py
+        - gnmi/openconfig/test_openconfig_bgp_unnumbered.py
+        - gnmi/openconfig/test_openconfig_bgpglobal.py
+        - gnmi/openconfig/test_openconfig_interfaces.py
+        - gnmi/openconfig/test_openconfig_ipv6_neighbor.py
+        - gnmi/openconfig/test_openconfig_l3_subinterface.py
+        - gnmi/openconfig/test_openconfig_lldp.py
+        - gnmi/openconfig/test_openconfig_loopback.py
+        - gnmi/openconfig/test_openconfig_nht.py
+        - gnmi/openconfig/test_openconfig_platform.py
+        - gnmi/openconfig/test_openconfig_prefix_community_routemap.py
+        - gnmi/openconfig/test_openconfig_redistribution.py
+        - gnmi/openconfig/test_openconfig_routing_policy.py
+        - gnmi/openconfig/test_openconfig_static_routes.py
 
       hw:
         - generic_config_updater/test_aaa.py
@@ -517,6 +531,20 @@ MGMT: #Anukul Verma / Gourav Sharma
         - ssh/test_ssh_limit.py
         - ssh/test_ssh_default_password.py
         - passw_hardening/test_passw_hardening.py
+        - gnmi/openconfig/test_openconfig_aggregate.py
+        - gnmi/openconfig/test_openconfig_bgp_unnumbered.py
+        - gnmi/openconfig/test_openconfig_bgpglobal.py
+        - gnmi/openconfig/test_openconfig_interfaces.py
+        - gnmi/openconfig/test_openconfig_ipv6_neighbor.py
+        - gnmi/openconfig/test_openconfig_l3_subinterface.py
+        - gnmi/openconfig/test_openconfig_lldp.py
+        - gnmi/openconfig/test_openconfig_loopback.py
+        - gnmi/openconfig/test_openconfig_nht.py
+        - gnmi/openconfig/test_openconfig_platform.py
+        - gnmi/openconfig/test_openconfig_prefix_community_routemap.py
+        - gnmi/openconfig/test_openconfig_redistribution.py
+        - gnmi/openconfig/test_openconfig_routing_policy.py
+        - gnmi/openconfig/test_openconfig_static_routes.py
 
       hw:
         - snmp/test_snmp_cpu.py

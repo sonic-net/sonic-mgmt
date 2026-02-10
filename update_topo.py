@@ -26,6 +26,7 @@ parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file', requir
 parser.add_argument('-g', '--goldencode', type=str, help='goldencode url', required=False,default=None)
 parser.add_argument("--dut-username", help = "username for the dut ", nargs='?', const='', default = 'admin', required=False)
 parser.add_argument("--dut-password", help = "password for the dut ", nargs='?', const='', default = 'password', required=False)
+parser.add_argument("--ptf-image", help = "full path to PTF qcow2 image", type=str, default=None, required=False)
 parser.add_argument("--onie-install", help = "path to use for onie install image", nargs='?', const='', default = '', required=False)
 parser.add_argument("--npl-path", help = "npl path", nargs='?', const='', default = '', required=False)
 parser.add_argument("--npl-suite-ver", help = "npl suite version", nargs='?', const='', default = '', required=False)
@@ -101,7 +102,12 @@ with open(topology_file, "r") as fd:
     for device in topo["devices"]:
         # handle docker_ptf related modifications
         if device == "docker_ptf":
-            if not sonic_test_version:
+            ptf_image = args.ptf_image
+            if ptf_image:
+                # Passed via CLI
+                print(f"Set docker ptf image to: {ptf_image} (from --ptf-image)")
+                topo["devices"][device]["image"] = ptf_image
+            elif not sonic_test_version:
                 print("could not determine sonic-test version from golencode! Will not modify the docker ptf version")
             else:
                 docker_ptf_image = DOCKER_PTF_QCOW_IMAGE_PATH_TEMPLATE.format(SONIC_TEST_VERSION=sonic_test_version)
