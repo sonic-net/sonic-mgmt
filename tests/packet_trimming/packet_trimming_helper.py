@@ -439,7 +439,7 @@ def validate_packet_size(pkt_size, pkt_size_exp):
         pkt_size: the packet's actual size
         pkt_size_exp: the packet's expected size
     """
-    pytest_assert(pkt_size - PACKET_SIZE_MARGIN <= pkt_size_exp <= pkt_size + PACKET_SIZE_MARGIN,
+    pytest_assert(pkt_size_exp - PACKET_SIZE_MARGIN <= pkt_size <= pkt_size_exp + PACKET_SIZE_MARGIN,
                   f"Packet size expected {pkt_size_exp} +/- {PACKET_SIZE_MARGIN}, was: {pkt_size} ")
 
 
