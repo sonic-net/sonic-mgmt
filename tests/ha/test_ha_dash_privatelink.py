@@ -30,7 +30,7 @@ def common_setup_teardown(
     skip_config,
     dpuhosts,
     setup_ha_config,
-    program_ha_set_and_initial_ha_scope,
+    setup_dash_ha_from_json,
     set_vxlan_udp_sport_range,
     setup_npu_dpu  # noqa: F811
 ):
@@ -91,7 +91,7 @@ def common_setup_teardown(
 @pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
 def test_privatelink_basic_transform(
     ptfadapter,
-    ha_activate_role,
+    activate_dash_ha_from_json,
     dash_pl_config,
     encap_proto
 ):
