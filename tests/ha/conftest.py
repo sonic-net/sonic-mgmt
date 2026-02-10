@@ -22,7 +22,6 @@ from constants import LOCAL_CA_IP, \
     NPU_DATAPLANE_IP, NPU_DATAPLANE_MAC, NPU_DATAPLANE_PORT, DPU_DATAPLANE_IP, DPU_DATAPLANE_MAC, DPU_DATAPLANE_PORT
 from tests.common.dash_utils import render_template_to_host, apply_swssconfig_file
 from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
-from tests.common.helpers.smartswitch_util import correlate_dpu_info_with_dpuhost, get_data_port_on_dpu, get_dpu_dataplane_port # noqa F401
 from tests.common import config_reload
 import configs.privatelink_config as pl
 from tests.common.helpers.assertions import pytest_require as pt_require
@@ -165,76 +164,6 @@ def get_interface_ip(duthost, interface):
     return ip_interface(output)
 
 
-def pytest_addoption(parser):
-    """
-    Adds pytest options that are used by DASH tests
-    """
-
-    parser.addoption(
-        "--skip_config",
-        action="store_true",
-        help="Don't apply configurations on DUT"
-    )
-
-    parser.addoption(
-        "--config_only",
-        action="store_true",
-        help="Apply new configurations on DUT without running tests"
-    )
-
-    parser.addoption(
-        "--skip_dataplane_checking",
-        action="store_true",
-        help="Skip dataplane checking"
-    )
-
-    parser.addoption(
-        "--vxlan_udp_dport",
-        action="store",
-        default="random",
-        help="The vxlan udp dst port used in the test"
-    )
-
-    parser.addoption(
-        "--skip_cert_cleanup",
-        action="store_true",
-        help="Skip certificates cleanup after test"
-    )
-
-    parser.addoption(
-        "--dpu_index",
-        action="store",
-        default=0,
-        type=int,
-        help="The default dpu used for the test"
-    )
-
-
-@pytest.fixture(scope="module")
-def config_only(request):
-    return request.config.getoption("--config_only")
-
-
-@pytest.fixture(scope="module")
-def skip_config(request):
-    return request.config.getoption("--skip_config")
-
-
-@pytest.fixture(scope="module")
-def skip_cleanup(request):
-    return request.config.getoption("--skip_cleanup")
-
-
-@pytest.fixture(scope="module")
-def skip_dataplane_checking(request):
-    return request.config.getoption("--skip_dataplane_checking")
-
-
-@pytest.fixture(scope="module")
-def skip_cert_cleanup(request):
-    return request.config.getoption("--skip_cert_cleanup")
-
-
 @pytest.fixture(scope="module")
 def config_facts(duthost):
     return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -360,15 +289,6 @@ def setup_gnmi_server(duthosts, localhost, ptfhost, skip_cert_cleanup):
         recover_gnmi_cert(localhost, duthost, skip_cert_cleanup)
 
 
-@pytest.fixture(scope="function")
-def asic_db_checker(duthost):
-    def _check_asic_db(tables):
-        for table in tables:
-            output = duthost.shell("sonic-db-cli ASIC_DB keys 'ASIC_STATE:{}:*'".format(table))
-            assert output["stdout"].strip() != "", "No entries found in ASIC_DB table {}".format(table)
-    yield _check_asic_db
-
-
 @pytest.fixture(scope="function", params=['udp', 'tcp', 'echo_request', 'echo_reply'])
 def inner_packet_type(request):
     return request.param
@@ -449,11 +369,6 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
 @pytest.fixture(scope="module")
 def dpu_index(request):
     return request.config.getoption("--dpu_index")
-
-
-@pytest.fixture(scope="module", params=[True, False], ids=["single-endpoint", "multi-endpoint"])
-def single_endpoint(request):
-    return request.param
 
 
 @pytest.fixture
