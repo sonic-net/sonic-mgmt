@@ -654,8 +654,8 @@
     },
     {
         "feature": "gnmi",
-        "owner": "Vaibhav Hemant Dixit",
-        "email": "vadixit@microsoft.com",
+        "owner": "Dawei Huang",
+        "email": "daweihuang@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -663,8 +663,8 @@
                     "gnmi.test_gnmi_appldb",
                     "gnmi.test_gnmi_configdb"
                 ],
-                "owner": "Vaibhav Hemant Dixit",
-                "email": "vadixit@microsoft.com"
+                "owner": "Dawei Huang",
+                "email": "daweihuang@microsoft.com"
             }
         ]
     },
