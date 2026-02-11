@@ -161,6 +161,26 @@ def get_interface_ip(duthost, interface):
 
 
 @pytest.fixture(scope="module")
+def config_only(request):
+    return request.config.getoption("--config_only")
+
+
+@pytest.fixture(scope="module")
+def skip_config(request):
+    return request.config.getoption("--skip_config")
+
+
+@pytest.fixture(scope="module")
+def skip_cleanup(request):
+    return request.config.getoption("--skip_cleanup")
+
+
+@pytest.fixture(scope="module")
+def skip_cert_cleanup(request):
+    return request.config.getoption("--skip_cert_cleanup")
+
+
+@pytest.fixture(scope="module")
 def config_facts(duthost):
     return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 

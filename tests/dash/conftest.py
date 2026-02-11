@@ -36,48 +36,10 @@ def pytest_addoption(parser):
     """
 
     parser.addoption(
-        "--skip_config",
-        action="store_true",
-        help="Don't apply configurations on DUT"
-    )
-
-    parser.addoption(
-        "--config_only",
-        action="store_true",
-        help="Apply new configurations on DUT without running tests"
-    )
-
-    parser.addoption(
         "--skip_dataplane_checking",
         action="store_true",
         help="Skip dataplane checking"
     )
-
-    parser.addoption(
-        "--vxlan_udp_dport",
-        action="store",
-        default="random",
-        help="The vxlan udp dst port used in the test"
-    )
-
-    parser.addoption(
-        "--skip_cert_cleanup",
-        action="store_true",
-        help="Skip certificates cleanup after test"
-    )
-
-    parser.addoption(
-        "--dpu_index",
-        action="store",
-        default=0,
-        type=int,
-        help="The default dpu used for the test"
-    )
-
-
-@pytest.fixture(scope="module")
-def config_only(request):
-    return request.config.getoption("--config_only")
 
 
 @pytest.fixture(scope="module")
