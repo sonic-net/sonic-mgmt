@@ -61,6 +61,8 @@ class MinikubeManager:
         # Also remove minikube container and config if it exists
         self.vmhost.shell("sudo docker rm -f minikube", module_ignore_errors=True)
         self.vmhost.shell("sudo rm -rf /root/.minikube", module_ignore_errors=True)
+        # Clean up juju lock files that can cause permission issues
+        self.vmhost.shell("sudo rm -f /tmp/juju-mk*", module_ignore_errors=True)
 
     def is_ready(self):
         """Check if minikube is ready."""
