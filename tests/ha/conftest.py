@@ -1,5 +1,6 @@
 import pytest
 import logging
+import time
 import random
 import json
 from pathlib import Path
@@ -29,11 +30,6 @@ from tests.common.helpers.assertions import pytest_require as pt_require
 logger = logging.getLogger(__name__)
 
 ENABLE_GNMI_API = True
-
-
-@pytest.fixture(scope="module")
-def setup_ha_config(duthosts):
-    pass
 
 
 @pytest.fixture(scope="module")
