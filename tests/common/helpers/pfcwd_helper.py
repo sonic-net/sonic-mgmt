@@ -654,13 +654,19 @@ def _get_storm_test_ports(storm_hndle):
 
 
 def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_state, baseline_counters=None,
-                                                 threshold_percentage=100, stormed_ports_list=None):
+                                                 threshold_percentage=100, stormed_ports_list=None,
+                                                 selected_test_ports=None):
     """Verify if threshold percentage of ports reached expected PFC storm state."""
     if dut.facts['asic_type'] == 'vs':
         return True
 
     # Get all ports to check and current stats
     ports_to_check = _get_storm_test_ports(storm_hndle)
+
+    # Filter to only ports with background traffic if selected_test_ports is provided
+    if selected_test_ports:
+        ports_to_check = [(p, q) for p, q in ports_to_check if p in selected_test_ports]
+        logger.debug(f"Filtered to {len(ports_to_check)} ports with background traffic")
 
     # For restore, only check ports that actually stormed
     if expected_state == "restore" and stormed_ports_list:
