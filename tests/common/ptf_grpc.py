@@ -382,7 +382,7 @@ class PtfGrpc:
 
         # Prepare request data
         request_data = "{}"  # Default empty JSON
-        extra_args = ["-d", "@"]    
+        extra_args = ["-d", "@"]
         if request:
             if isinstance(request, dict):
                 request_data = json.dumps(request)
