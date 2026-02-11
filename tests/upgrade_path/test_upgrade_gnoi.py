@@ -32,7 +32,7 @@ def gnoi_upgrade_path_lists(request):
 def test_upgrade_via_gnoi(
     localhost, duthosts, ptfhost, rand_one_dut_hostname,
     nbrhosts, fanouthosts, tbinfo, request,
-    verify_dut_health, gnoi_upgrade_path_lists, ptf_gnoi  # noqa: F811
+    gnoi_upgrade_path_lists, ptf_gnoi  # noqa: F811
 ):
     duthost = duthosts[rand_one_dut_hostname]
 
