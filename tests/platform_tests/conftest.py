@@ -200,6 +200,8 @@ def pytest_generate_tests(metafunc):
 
 def pytest_addoption(parser):
     add_counterpoll_cpu_usage_args(parser)
+    parser.addoption("--strict_watchdog", action="store_true", default=False,
+                     help="Fail the test if the hardware watchdog is not armed (default: warn only)")
 
 
 @pytest.fixture(scope="function", autouse=False)
