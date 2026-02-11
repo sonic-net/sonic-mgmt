@@ -84,12 +84,13 @@ class MinikubeManager:
     def update_kubelet_config(self):
         """Update kubelet config for DUT compatibility."""
         logger.info("Updating kubelet config")
+        # Use sudo tee to write the file since shell redirect runs outside sudo
         self.vmhost.shell(
             "sudo NO_PROXY=192.168.49.2 minikube kubectl -- get cm kubelet-config-1.22 "
-            "-n kube-system -o yaml > /tmp/kubelet-config.yaml"
+            "-n kube-system -o yaml | sudo tee /tmp/kubelet-config.yaml > /dev/null"
         )
         self.vmhost.shell(
-            "sed 's|/var/lib/minikube/certs/ca.crt|/etc/kubernetes/pki/ca.crt|' "
+            "sudo sed 's|/var/lib/minikube/certs/ca.crt|/etc/kubernetes/pki/ca.crt|' "
             "-i /tmp/kubelet-config.yaml"
         )
         self.vmhost.shell(
