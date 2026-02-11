@@ -58,8 +58,9 @@ class MinikubeManager:
         """Stop and delete minikube cluster."""
         logger.info("Stopping minikube cluster")
         self.vmhost.shell("minikube delete --all --purge", module_ignore_errors=True)
-        # Also remove minikube container if it exists
+        # Also remove minikube container and config if it exists
         self.vmhost.shell("docker rm -f minikube", module_ignore_errors=True)
+        self.vmhost.shell("rm -rf /root/.minikube", module_ignore_errors=True)
 
     def is_ready(self):
         """Check if minikube is ready."""

@@ -9,7 +9,9 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.sanity_check(skip_sanity=True),
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.skip_check_dut_health
 ]
 
 DAEMONSET_LABEL = "deployDaemonset"
