@@ -42,6 +42,7 @@ class MinikubeManager:
         logger.info("Starting minikube cluster")
         cmd = f"""
             {self._proxy_env} minikube start \
+            --driver=docker \
             --listen-address=0.0.0.0 \
             --apiserver-port=6443 \
             --ports=6443:6443 \
@@ -57,6 +58,8 @@ class MinikubeManager:
         """Stop and delete minikube cluster."""
         logger.info("Stopping minikube cluster")
         self.vmhost.shell("minikube delete --all --purge", module_ignore_errors=True)
+        # Also remove minikube container if it exists
+        self.vmhost.shell("docker rm -f minikube", module_ignore_errors=True)
 
     def is_ready(self):
         """Check if minikube is ready."""
@@ -165,6 +168,8 @@ spec:
         """Install prerequisites for minikube."""
         logger.info("Installing minikube prerequisites")
         self.vmhost.shell("apt-get update && apt-get install -y conntrack")
+        # Required for minikube to start properly as root
+        self.vmhost.shell("sysctl fs.protected_regular=0")
 
     def setup(self):
         """Full setup sequence."""
@@ -173,7 +178,6 @@ spec:
         self.download()
         self.start()
         self.wait_ready()
-        self.vmhost.shell("sysctl fs.protected_regular=0")
         self.update_kubelet_config()
         self.deploy_test_daemonset()
 
