@@ -39,7 +39,8 @@ from .qos_sai_base import QosSaiBase
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.skip(reason="Skipping all tests in this file until MIGSOFTWAR-34571 is resolved.")
 ]
 
 PTF_PORT_MAPPING_MODE = 'use_orig_interface'

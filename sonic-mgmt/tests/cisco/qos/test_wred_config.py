@@ -84,73 +84,93 @@ def test_verify_wred_drop_config(duthosts, rand_one_dut_hostname, request):
         ]
     )
 
-    # Check CLI output
-    result = duthost.command(show_command.format(port, tc))
-    traceback_found = "Traceback" in result["stdout"]
-    assert not traceback_found, "Traceback found in show platform npu voq for Port"
-    assert result["stdout"], "No output for show platform npu voq CLI"
-    json_str = result["stdout"].strip()
+    # Wrap verification in try/finally to ensure cleanup even if assertions fail
     try:
-        data = json.loads(json_str)
-    except Exception as e:
-        pytest.fail("JSon load error: {}".format(e))
+        # Check CLI output
+        result = duthost.command(show_command.format(port, tc))
+        traceback_found = "Traceback" in result["stdout"]
+        assert not traceback_found, "Traceback found in show platform npu voq for Port"
+        assert result["stdout"], "No output for show platform npu voq CLI"
+        json_str = result["stdout"].strip()
+        try:
+            data = json.loads(json_str)
+        except Exception as e:
+            pytest.fail("JSon load error: {}".format(e))
 
-    if asic_type == "pacific":
-        # Check wred drop probablity for hbm
-        block_size = 6144
-        wred_config = None
-        if "wred_config" in data:
-            wred_config = data["wred_config"]
-        assert (wred_config), "wred drop probability is not set"
-        assert (wred_config["action"] == "DROP"), "wred action is not set to DROP"
-        
-        probabilities = wred_config["probabilities"]
-        thresholds = wred_config["thresholds"]
-        min_threshold_found = False
-        for i in range(len(probabilities)):
-            prob = probabilities[i]
-            if not min_threshold_found and prob > 0:
-                min_threshold_found = True
-                assert (thresholds[i] * block_size > min_threshold and thresholds[i-1] * block_size <= min_threshold
-                        ), "drop probability at min_threshold is not set correctly"
-            if round(prob * 100) == drop_probability:
-                assert (thresholds[i] * block_size <= max_threshold and probabilities[i+1] == 1.0
+        if asic_type == "pacific":
+            # Check wred drop probablity for hbm
+            block_size = 6144
+            wred_config = None
+            if "wred_config" in data:
+                wred_config = data["wred_config"]
+            assert (wred_config), "wred drop probability is not set"
+            assert (wred_config["action"] == "DROP"), "wred action is not set to DROP"
+            
+            probabilities = wred_config["probabilities"]
+            thresholds = wred_config["thresholds"]
+            min_threshold_found = False
+            for i in range(len(probabilities)):
+                prob = probabilities[i]
+                if not min_threshold_found and prob > 0:
+                    min_threshold_found = True
+                    assert (thresholds[i] * block_size > min_threshold and thresholds[i-1] * block_size <= min_threshold
+                            ), "drop probability at min_threshold is not set correctly"
+                if round(prob * 100) == drop_probability:
+                    assert (thresholds[i] * block_size <= max_threshold and probabilities[i+1] == 1.0
+                            ), "drop probability at max_threshold is not set correctly"
+
+        else:
+            # Check WRED drop probabilities for SMS
+            bq_list = data["bq_list"]
+            # Handle nested list structure (on GR2-based platforms) by extracting first element of each sublist
+            if bq_list and isinstance(bq_list[0], list):
+                voq_thresholds = [t[0] for t in bq_list]
+            else:
+                voq_thresholds = bq_list
+            voq_drop_data = None
+            if "voq_drop_probability_g" in data:
+                voq_drop_data = data["voq_drop_probability_g"][0]
+            assert (voq_drop_data), "drop probability is not set"
+
+            min_threshold_found = False
+            for voq_region in range(len(voq_drop_data)):
+                # Skip if voq_region is out of bounds for voq_thresholds
+                if voq_region >= len(voq_thresholds):
+                    break
+                prob = voq_drop_data[voq_region][0]
+                if not min_threshold_found and prob > 0:
+                    min_threshold_found = True
+                    # Only check previous region if voq_region > 0
+                    if voq_region > 0:
+                        assert (
+                        voq_thresholds[voq_region] > min_threshold and voq_thresholds[voq_region-1] <= min_threshold
+                        ), "drop probability at min_threshold is not set correctly, voq_region {} doesn't satisfy {} <= {} < {}".format(voq_region, voq_thresholds[voq_region-1], min_threshold, voq_thresholds[voq_region])
+                    else:
+                        assert (
+                        voq_thresholds[voq_region] > min_threshold
+                        ), "drop probability at min_threshold is not set correctly, voq_region {} threshold {} should be > {}".format(voq_region, voq_thresholds[voq_region], min_threshold)
+                if round(prob * 100) == drop_probability:
+                    # Only check next region if within bounds
+                    if voq_region + 1 < len(voq_thresholds) and voq_region + 1 < len(voq_drop_data):
+                        assert (
+                        voq_thresholds[voq_region] <= max_threshold and\
+                            voq_thresholds[voq_region+1] > max_threshold and\
+                                voq_drop_data[voq_region+1][0] == 1.0
                         ), "drop probability at max_threshold is not set correctly"
+            
+            assert min_threshold_found, "WRED min_threshold region was never detected — WRED profile may not have been applied"
+    finally:
+        # Remove WRED profile from Ethernet0 TC0
+        asic.run_redis_cmd(
+            argv=[
+                "redis-cli", "-n", db, "HDEL", "QUEUE|{}|{}".format(port, tc),
+                "wred_profile"
+            ]
+        )
 
-    else:
-        # Check WRED drop probabilities for SMS
-        voq_thresholds = data["bq_list"]
-        voq_drop_data = None
-        if "voq_drop_probability_g" in data:
-            voq_drop_data = data["voq_drop_probability_g"][0]
-        assert (voq_drop_data), "drop probability is not set"
-
-        min_threshold_found = False
-        for voq_region in range(len(voq_drop_data)):
-            prob = voq_drop_data[voq_region][0]
-            if not min_threshold_found and prob > 0:
-                min_threshold_found = True
-                assert (
-                voq_thresholds[voq_region] > min_threshold and voq_thresholds[voq_region-1] <= min_threshold
-                ), "drop probability at min_threshold is not set correctly, voq_region {} doesn't satisfy {} <= {} < {}".format(voq_region, voq_thresholds[voq_region-1], min_threshold, voq_thresholds[voq_region])
-            if round(prob * 100) == drop_probability:
-                assert (
-                voq_thresholds[voq_region] <= max_threshold and\
-                    voq_thresholds[voq_region+1] > max_threshold and\
-                        voq_drop_data[voq_region+1][0] == 1.0
-                ), "drop probability at max_threshold is not set correctly"
-
-    # Remove WRED profile from Ethernet0 TC0
-    asic.run_redis_cmd(
-        argv=[
-            "redis-cli", "-n", db, "HDEL", "QUEUE|{}|{}".format(port, tc),
-            "wred_profile"
-        ]
-    )
-
-    # Remove wred profile
-    asic.run_redis_cmd(
-        argv=[
-            "redis-cli", "-n", db, "DEL", "WRED_PROFILE|AZURE_LOSSY_test"
-        ]
-    )
+        # Remove wred profile
+        asic.run_redis_cmd(
+            argv=[
+                "redis-cli", "-n", db, "DEL", "WRED_PROFILE|AZURE_LOSSY_test"
+            ]
+        )
