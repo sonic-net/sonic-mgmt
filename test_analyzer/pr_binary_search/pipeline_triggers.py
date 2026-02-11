@@ -1,7 +1,6 @@
 import requests
 import logging
 import time
-import json
 from requests.auth import HTTPBasicAuth
 from schemas import (
     PipelineRunParameters,
@@ -21,31 +20,41 @@ class AzureDevOpsClient:
         self.url_prefix = f"{self.base_url}/{self.organization}/{self.project}/_apis"
         self.token = token
 
-    def queue_build(self, pipeline_id: int, payload: dict) -> dict:
-        """Trigger a pipeline run"""
-        url = f"{self.url_prefix}/pipelines/{pipeline_id}/runs?api-version=7.1-preview.1"
-        logger.info(f"queue build url: {url}")
-        logger.info(
-            "Triggering pipeline %s with payload:\n%s",
-            pipeline_id,
-            json.dumps(payload, indent=2)
-        )
+    def queue_build(self, pipeline_id: int, payload: dict, max_retries: int = 3) -> dict:
+        if max_retries < 1:
+            raise ValueError("max_retries must be at least 1")
 
-        try:
-            resp = requests.post(
-                url,
-                headers={"Content-Type": "application/json"},
-                auth=HTTPBasicAuth("", self.token),
-                json=payload,
-            )
-            resp.raise_for_status()
-            return resp.json()
-        except requests.exceptions.HTTPError as http_err:
-            logger.error(f"HTTP error occurred: {http_err}")
-            return {"error": str(http_err)}
-        except Exception as err:
-            logger.error(f"An error occurred: {err}")
-            return {"error": str(err)}
+        url = f"{self.url_prefix}/pipelines/{pipeline_id}/runs?api-version=7.1-preview.1"
+
+        for attempt in range(1, max_retries + 1):
+            try:
+                resp = requests.post(
+                    url,
+                    headers={"Content-Type": "application/json"},
+                    auth=HTTPBasicAuth("", self.token),
+                    json=payload,
+                    timeout=30
+                )
+                if resp.status_code >= 500:
+                    raise requests.exceptions.HTTPError(
+                        f"Server error {resp.status_code}: {resp.text}"
+                    )
+                resp.raise_for_status()
+                return resp.json()
+
+            except requests.exceptions.HTTPError as http_err:
+                if resp.status_code < 500:
+                    logger.error(f"Non-retriable HTTP error occurred: {http_err}")
+                    raise
+                logger.warning(f"Server error, retrying (attempt {attempt}/{max_retries}): {http_err}")
+
+            except requests.exceptions.RequestException as e:
+                logger.warning(f"Queue build failed (attempt {attempt}/{max_retries}): {e}")
+
+            if attempt == max_retries:
+                logger.error("Queue build failed after max retries")
+                raise
+            time.sleep(2 ** attempt)
 
     def get_pipeline_status(self, run_id: int) -> dict:
         """Get pipeline run status for a given run_id"""
@@ -156,9 +165,15 @@ def trigger_pipeline(
     response = client.queue_build(pipeline_id, payload)
     logger.info(f"Pipeline response: {response}")
 
+    if "id" not in response:
+        raise RuntimeError(f"Pipeline trigger failed for commit {commit}, response: {response}")
+
+    run_id = response.get["id"]
+    run_url = response.get("_links", {}).get("web", {}).get("href")
+
     return PipelineRunParameters(
         commit=commit,
-        run_id=response["id"],
-        run_url=response.get("_links", {}).get("web", {}).get("href"),
+        run_id=run_id,
+        run_url=run_url,
         stage=stage
     )
