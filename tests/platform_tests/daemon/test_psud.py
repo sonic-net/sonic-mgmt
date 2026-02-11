@@ -170,6 +170,51 @@ def test_pmon_psud_running_status(duthosts, enum_supervisor_dut_hostname, data_b
                   "DB data is not availale on daemon running")
 
 
+def test_pmon_psud_psu_status_and_led(duthosts, enum_supervisor_dut_hostname, data_before_restart):
+    """
+    @summary: This test case validates that each present PSU is in OK status
+              and its LED is green. Addresses test gap issue #22143.
+    """
+    duthost = duthosts[enum_supervisor_dut_hostname]
+    daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
+    pytest_assert(daemon_status == expected_running_status,
+                  "{} is not running, cannot validate PSU status".format(daemon_name))
+
+    data = collect_data(duthost)
+    pytest_assert(data['keys'], "No PSU_INFO keys found in STATE_DB")
+    pytest_assert(data['data'], "No PSU_INFO data found in STATE_DB")
+
+    present_psu_count = 0
+    psu_status_failures = []
+    psu_led_failures = []
+
+    for psu_key, psu_data in data['data'].items():
+        psu_name = psu_key.replace("PSU_INFO|", "")
+        presence = psu_data.get("presence", "false")
+
+        if presence.lower() != "true":
+            logger.info("PSU {} is not present, skipping status and LED check".format(psu_name))
+            continue
+
+        present_psu_count += 1
+
+        # Check PSU operational status
+        status = psu_data.get("status", "false")
+        if status.lower() != "true":
+            psu_status_failures.append("{} status is '{}', expected 'true'".format(psu_name, status))
+
+        # Check PSU LED is green
+        led_status = psu_data.get("led_status", "unknown")
+        if led_status.lower() != "green":
+            psu_led_failures.append("{} led_status is '{}', expected 'green'".format(psu_name, led_status))
+
+    pytest_assert(present_psu_count > 0, "No present PSUs found in STATE_DB")
+    pytest_assert(len(psu_status_failures) == 0,
+                  "PSU status check failed: {}".format("; ".join(psu_status_failures)))
+    pytest_assert(len(psu_led_failures) == 0,
+                  "PSU LED check failed: {}".format("; ".join(psu_led_failures)))
+
+
 def test_pmon_psud_stop_and_start_status(check_daemon_status, duthosts,
                                          enum_supervisor_dut_hostname, data_before_restart):
     """
