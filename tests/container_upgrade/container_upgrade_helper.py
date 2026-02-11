@@ -82,6 +82,20 @@ def parse_os_versions(os_versions_string):
     return os_versions
 
 
+def extract_major_version(os_version):
+    if not os_version or not isinstance(os_version, str):
+        return ""
+    os_version = os_version.strip()
+    # Need at least 6 characters for major version (YYYYMM)
+    if len(os_version) < 6:
+        return ""
+    # Validate first 6 chars are digits
+    major_version = os_version[:6]
+    if not major_version.isdigit():
+        return ""
+    return major_version
+
+
 def create_image_list(os_versions, image_url_template_string):
     image_list = []
 
@@ -89,7 +103,13 @@ def create_image_list(os_versions, image_url_template_string):
         pytest.fail("Invalid image_url_template_string")
 
     for os_version in os_versions:
-        image_list.append(image_url_template_string.replace("<osversion>", os_version))
+        url = image_url_template_string.replace("<osversion>", os_version)
+        if "<majorversion>" in url:
+            major_version = extract_major_version(os_version)
+            if not major_version:
+                pytest.fail(f"Failed to extract major version from os_version: {os_version}")
+            url = url.replace("<majorversion>", major_version)
+        image_list.append(url)
 
     return image_list
 
