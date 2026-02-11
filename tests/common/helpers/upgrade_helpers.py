@@ -31,7 +31,8 @@ class GnoiUpgradeConfig:
     upgrade_type: str
     protocol: str = "HTTP"
     allow_fail: bool = False
-    to_version: Optional[str] = None  # Optional expected version string to validate after upgrade (e.g. "SONiC-OS-202012")
+    to_version: Optional[str] = None  # Optional expected version string to validate after upgrade
+
 
 def pytest_runtest_setup(item):
     from_list = item.config.getoption('base_image_list')
@@ -389,8 +390,8 @@ def perform_gnoi_upgrade(
     images = _get_images_from_sonic_installer_list(duthost)
     logger.info("sonic-installer list parsed: %s", images)
     pytest_assert(
-    images.get("current") == cfg.to_version,
-    f"Current image mismatch after reboot. current={images.get('current')} expected={cfg.to_version}. full={images}"
+        images.get("current") == cfg.to_version,
+        f"Current image mismatch after reboot. current={images.get('current')} expected={cfg.to_version}. full={images}"
     )
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
