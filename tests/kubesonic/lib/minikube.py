@@ -102,8 +102,7 @@ class MinikubeManager:
     def deploy_test_daemonset(self):
         """Deploy test daemonset."""
         logger.info("Deploying test daemonset")
-        yaml_content = """
-apiVersion: apps/v1
+        yaml_content = """apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: test-daemonset
@@ -123,7 +122,9 @@ spec:
       - image: k8s.gcr.io/pause:3.5
         name: mock-ds-container
 """
-        self.vmhost.shell(f"cat > /tmp/daemonset.yaml << 'EOF'\n{yaml_content}\nEOF")
+        # Clean up and write using sudo tee (escape single quotes in yaml)
+        self.vmhost.shell("sudo rm -f /tmp/daemonset.yaml", module_ignore_errors=True)
+        self.vmhost.shell(f"echo '{yaml_content}' | sudo tee /tmp/daemonset.yaml > /dev/null")
         self.vmhost.shell(
             "sudo NO_PROXY=192.168.49.2 minikube kubectl -- apply -f /tmp/daemonset.yaml"
         )
