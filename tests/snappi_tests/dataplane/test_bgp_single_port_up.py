@@ -207,6 +207,7 @@ def get_convergence_for_single_session_flap(
             snappi_api.set_config(snappi_config)
             start_stop(snappi_api, operation="start", op_type="protocols")
             logger.info('\n')
+            # Unless we configure acl on the DUT, the packets will not drop on route withdraw
             logger.info("Configuring ACL for packet drop on one of the BGP peer")
             destination_ip_list = [list(item) for item in ROUTE_RANGES[ip_version][0]]
             acl_dict = configure_acl_for_route_withdrawl(destination_ip_list, table_name)
