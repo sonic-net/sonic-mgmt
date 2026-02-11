@@ -354,7 +354,7 @@ def perform_gnoi_upgrade(
     setpkg_resp = ptf_gnoi.system_set_package(
         dut_image_path=cfg.dut_image_path,
         version=cfg.to_version,
-        activate=True,
+        activate=False,
     )
     logger.info("SetPackage response: %s", setpkg_resp)
     pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
