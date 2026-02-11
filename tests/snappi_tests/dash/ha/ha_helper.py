@@ -230,7 +230,7 @@ def startup_link_npu_dpu(duthost, dpu_id, tbinfo):
 
     dpu_if = tbinfo['dpu_active_if']
     try:
-        duthost.shell(f"sudo config interface shutdown {dpu_if}")
+        duthost.shell(f"sudo config interface startup {dpu_if}")
         logger.info(f"Starting up link between NPU and DPU{dpu_id}")
     except Exception as e:
         logger.error(f"Error starting up link {dpu_if}: {e}")
@@ -594,7 +594,6 @@ def create_and_apply_acl_rules(duthost, dpu_ip, npu_ip, l4_src_port1, l4_src_por
     """
     Creates ACL rules JSON file and apply it to the DPU.
     """
-
     acl_rules = {
         "ACL_RULE": {
             "ACL_LINK_DROP_TEST|LOCAL_PROBE_DROP1": {
@@ -630,17 +629,26 @@ def create_and_apply_acl_rules(duthost, dpu_ip, npu_ip, l4_src_port1, l4_src_por
         'username': f'{username}',
         'password': f'{password}',
     }
+    net_connect_jump = ConnectHandler(**jump_host)
+    scp_command = (f"scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null /tmp/acl_drop_rule.json "
+                   f"admin@{dpu_midplane_if}:/home/admin/")  # noqa: E231
+    try:
+        net_connect_jump.write_channel(f"{scp_command}\n")
+        time.sleep(2)  # Wait for password prompt
 
-    scp_command = f"""sudo python3 -c 'import pexpect
-child = pexpect.spawn("scp /tmp/acl_drop_rule.json admin@{dpu_midplane_if}:/home/admin/")  # noqa: E231
-child.expect("password:")
-child.sendline("password")
-child.expect(pexpect.EOF)
-child.close()'"""
-    duthost.shell(scp_command)
+        output = net_connect_jump.read_channel()
+        logger.info(f"{duthost.hostname} SCP output: {output}")
+
+        if 'password' in output.lower():
+            net_connect_jump.write_channel(f"{target_password}\n")
+            time.sleep(3)  # Wait for SCP to complete
+
+        output = net_connect_jump.read_channel()
+        logger.info(f"{duthost.hostname} SCP transfer output: {output}")
+    except Exception as e:
+        logger.error(f"Error during SCP transfer: {e}")
 
     net_connect_jump = ConnectHandler(**jump_host)
-
     # SSH from jump host to target device using proper netmiko method
     # First, create the SSH command
     ssh_command = f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@{dpu_ip}"
@@ -662,14 +670,75 @@ child.close()'"""
 
         # Now use send_command_timing instead of send_command for better compatibility
         logger.info(f"{duthost.hostname} Execute on DPU Target - Connected")
-
-        output = net_connect_jump.send_command_timing('"sudo config load -y /home/admin/acl_drop_rule.json',
-                                                      delay_factor=2)
+        output = net_connect_jump.write_channel('sudo config load -y /home/admin/acl_drop_rule.json\n')
+        time.sleep(5)  # Wait for command to complete
+        output = net_connect_jump.read_channel()
         logger.info(f"{duthost.hostname} Execute on DPU Target {output}")
     except Exception as e:
         logger.error(f"Error applying ACL rules: {e}")
 
     duthost.shell("rm -f /tmp/acl_drop_rule.json")
+
+    return
+
+
+def remove_acl_rules(duthost, dpu_midplane_if="169.254.200.1"):
+
+    target_password = 'password'
+    username = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_user']
+    password = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_password']
+    jump_host = {
+        'device_type': 'linux',
+        'ip': f'{duthost.mgmt_ip}',
+        'username': f'{username}',
+        'password': f'{password}',
+    }
+
+    net_connect_jump = ConnectHandler(**jump_host)
+    ssh_command = f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@{dpu_midplane_if}"
+    try:
+        net_connect_jump.write_channel(f"{ssh_command}\n")
+        time.sleep(2)  # Wait for password prompt
+
+        output = net_connect_jump.read_channel()
+        logger.info(f"{duthost.hostname} SSH output: {output}")
+
+        if 'password' in output.lower():
+            net_connect_jump.write_channel(f"{target_password}\n")
+            time.sleep(3)  # Wait for login to complete
+
+        output = net_connect_jump.read_channel()
+        logger.info(f"{duthost.hostname} Login output: {output}")
+
+        logger.info(f"{duthost.hostname} Execute on DPU Target - Connected, removing ACL rules")
+
+        # Delete ACL_RULE entries
+        net_connect_jump.write_channel(
+            'redis-cli -n 4 DEL "ACL_RULE|ACL_LINK_DROP_TEST|LOCAL_PROBE_DROP1"\n'
+        )
+        time.sleep(2)
+        output = net_connect_jump.read_channel()
+        logger.info(f"{duthost.hostname} DEL LOCAL_PROBE_DROP1 output: {output}")
+
+        net_connect_jump.write_channel(
+            'redis-cli -n 4 DEL "ACL_RULE|ACL_LINK_DROP_TEST|LOCAL_PROBE_DROP2"\n'
+        )
+        time.sleep(2)
+        output = net_connect_jump.read_channel()
+        logger.info(f"{duthost.hostname} DEL LOCAL_PROBE_DROP2 output: {output}")
+
+        # Delete ACL_TABLE entry
+        net_connect_jump.write_channel(
+            'redis-cli -n 4 DEL "ACL_TABLE|ACL_LINK_DROP_TEST"\n'
+        )
+        time.sleep(2)
+        output = net_connect_jump.read_channel()
+        logger.info(f"{duthost.hostname} DEL ACL_TABLE output: {output}")
+
+    except Exception as e:
+        logger.error(f"Error removing ACL rules: {e}")
+    finally:
+        net_connect_jump.disconnect()
 
     return
 
@@ -1222,6 +1291,7 @@ def run_linkloss(duthosts, tbinfo, api, initial_cps_value, ha_test_case):
             'constraintValue': initial_cps_value,
             'enableConstraint': False,
         }
+
         api.ixload_configure("patch", "ixload/test/activeTest/communityList/0/activityList/0", activityList_json)
 
         # Start traffic
@@ -1241,11 +1311,9 @@ def run_linkloss(duthosts, tbinfo, api, initial_cps_value, ha_test_case):
         # Initial collection period
         logger.info("Collecting initial metrics...")
         time.sleep(30)
-
-        # First switchover
-        logger.info("Executing first switchover...")
+        logger.info("Executing acl rules drop...")
         collector.set_phase(HATestPhase.DURING_FIRST_SWITCH)
-        shutdown_link_npu_dpu(duthost, link_to_drop)
+        shutdown_link_npu_dpu(duthost, link_to_drop, tbinfo)
         result = create_and_apply_acl_rules(  # noqa: 841
             duthost=duthost,
             dpu_ip="169.254.200.1",
@@ -1272,10 +1340,16 @@ def run_linkloss(duthosts, tbinfo, api, initial_cps_value, ha_test_case):
         collector.stop_collection()
 
         # ha_switchTraffic(duthost, dpu_if_ips, 'dpu1')
-        startup_link_npu_dpu(duthost, link_to_drop)
+        startup_link_npu_dpu(duthost, link_to_drop, tbinfo)
         logger.info("Stopping traffic...")
         cs.app.state = 'stop'
+        # remove ACL rules and switch back traffic to original side
         api.set_control_state(cs)
+        remove_acl_rules(duthost)
+        if switchedTraffic_enabled:
+            ha_switchTraffic(tbinfo, False)
+        else:
+            ha_switchTraffic(tbinfo, True)
 
     # Get and process metrics
     all_metrics = collector.get_metrics()
