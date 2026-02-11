@@ -32,9 +32,9 @@ ROUTE_RANGES = {
 }
 
 
-@pytest.mark.parametrize("subnet_type", ["IPv6"])
-@pytest.mark.parametrize("frame_rate", [10])
-@pytest.mark.parametrize("frame_size", [64, 128, 256, 512, 1024, 1518])
+@pytest.mark.parametrize("ip_version", ["IPv6"])
+@pytest.mark.parametrize("frame_rate", [10, 100])
+@pytest.mark.parametrize("frame_size", [64, 128, 256, 512, 1024, 4096, 8192])
 @pytest.mark.parametrize("event_type", ["config_reload", "all_ports_startup", "bgp_container_restart"])
 @pytest.mark.parametrize("unisolation_device_hostname", ['sonic-s6100-dut3'])
 def test_bgp_sessions(
@@ -44,7 +44,7 @@ def test_bgp_sessions(
     fanout_graph_facts_multidut,
     set_primary_chassis,   # noqa: F811, F401
     create_snappi_config,  # noqa: F811, F401
-    subnet_type,
+    ip_version,
     db_reporter,
     tbinfo,
     frame_rate,
@@ -60,10 +60,10 @@ def test_bgp_sessions(
     """
     snappi_extra_params = SnappiTestParams()
     pytest_assert(
-        subnet_type in ROUTE_RANGES, "Failing test as no route ranges are provided for {}".format(subnet_type)
+        ip_version in ROUTE_RANGES, "Failing test as no route ranges are provided for {}".format(ip_version)
     )
     snappi_extra_params.ROUTE_RANGES = ROUTE_RANGES
-    snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type)
+    snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, ip_version)
     tx_ports = snappi_ports[::2]
     rx_ports = snappi_ports[1::2]
 
@@ -79,14 +79,14 @@ def test_bgp_sessions(
         "Tx": {
             "protocol_type": "bgp",
             "ports": tx_ports,
-            "subnet_type": subnet_type,
+            "subnet_type": ip_version,
             "is_rdma": False,
         },
         "Rx": {
-            "route_ranges": ROUTE_RANGES[subnet_type] * len(rx_ports),
+            "route_ranges": ROUTE_RANGES[ip_version] * len(rx_ports),
             "protocol_type": "bgp",
             "ports": rx_ports,
-            "subnet_type": subnet_type,
+            "subnet_type": ip_version,
             "is_rdma": False,
         },
     }
@@ -102,13 +102,13 @@ def test_bgp_sessions(
         },
     ]
     snappi_config = create_traffic_items(snappi_config, snappi_extra_params)
-    get_convergence_for_device_unisolation(
+    run_convergence_test_for_device_unisolation(
         duthosts,
         snappi_api,
         snappi_config,
         tx_ports,
         rx_ports,
-        subnet_type,
+        ip_version,
         snappi_obj_handles,
         event_type,
         db_reporter,
@@ -116,13 +116,13 @@ def test_bgp_sessions(
     )
 
 
-def get_convergence_for_device_unisolation(
+def run_convergence_test_for_device_unisolation(
     duthosts,
     snappi_api,
     snappi_config,
     tx_ports,
     rx_ports,
-    subnet_type,
+    ip_version,
     snappi_obj_handles,
     event_type,
     db_reporter,
@@ -138,7 +138,7 @@ def get_convergence_for_device_unisolation(
     dut_obj = snappi_extra_params.unisolation_device
     snappi_api.set_config(snappi_config)
     start_stop(snappi_api, operation="start", op_type="protocols")
-    check_bgp_state(snappi_api, subnet_type)
+    check_bgp_state(snappi_api, ip_version)
     logger.info('\n')
     logger.info("-------------------------------------")
     logger.info("Starting {} test".format(event_type))
@@ -206,10 +206,10 @@ def get_convergence_for_device_unisolation(
         start_stop(snappi_api, operation="stop", op_type="traffic")
         test_labels = {
             METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: event_type,
-            METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: ROUTE_RANGES[subnet_type][0][0][-1],
+            METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: ROUTE_RANGES[ip_version][0][0][-1],
             METRIC_LABEL_TG_TRAFFIC_RATE: snappi_extra_params.traffic_flow_config[0]['line_rate'],
             METRIC_LABEL_TG_FRAME_BYTES: snappi_extra_params.traffic_flow_config[0]['frame_size'],
-            METRIC_LABEL_TG_IP_VERSION: subnet_type,
+            METRIC_LABEL_TG_IP_VERSION: ip_version,
         }
         convergence_dataplane_time.record(pkt_loss_duration, test_labels)
         db_reporter.report()
