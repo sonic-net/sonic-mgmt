@@ -95,7 +95,7 @@ jobs:
           git checkout -b $branch --track origin/$branch
           git status | grep "working tree clean"
 
-          if ! git cherry-pick $sha;then
+          if ! git cherry-pick -s $sha; then
             echo 'cherry-pick failed.'
             git cherry-pick --abort
             git status | grep "working tree clean"

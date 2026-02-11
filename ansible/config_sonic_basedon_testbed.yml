@@ -40,13 +40,16 @@
       set_fact:
         testbed_file: testbed.yaml
       when: testbed_file is not defined
+      tags: always
 
     - name: Gathering testbed information
       test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
       delegate_to: localhost
+      tags: always
 
     - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
       when: inventory_hostname not in testbed_facts['duts']
+      tags: always
 
     - name: Set default num_asic
       set_fact:
@@ -60,11 +63,13 @@
     - name: set testbed_type
       set_fact:
         topo: "{{ testbed_facts['topo'] }}"
+      tags: always
 
     - name: set default light mode
       set_fact:
         is_light_mode: true
       when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode is not defined
+      tags: always
 
     - name: set ptf image name
       set_fact:
@@ -756,7 +761,7 @@
           macsec_profile: "{{ macsec_profile }}"
           num_asics: "{{ num_asics }}"
         become: true
-        when: "('t2' in topo) and (enable_macsec is defined)"
+        when: "('t2' in topo) and (macsec_profile is defined)"
 
       - name: Use minigraph case
         block:
@@ -915,6 +920,7 @@
         become: true
         # t1-28-lag is smartswitch topo only
         when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
+        tags: [ dpu_config ]
 
       - name: Load DPU config in smartswitch
         load_extra_dpu_config:
@@ -924,6 +930,7 @@
         become: true
         # t1-28-lag is smartswitch topo only
         when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
+        tags: [ dpu_config ]
 
       - name: Configure TACACS
         become: true
