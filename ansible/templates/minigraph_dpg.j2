@@ -191,10 +191,16 @@
         <IPInterface>
           <Name i:nil="true"/>
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int][intf_index]|lower %}
-          <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
+  <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
 {% else %}
-          {% set intf_alias = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
-          <AttachTo>{{ port_alias_map[intf_alias].split('/')[0] }}</AttachTo>
+  {% set intf_alias = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
+  {% if num_asics > 1 %}
+    {# Chassis: use alias directly #}
+    <AttachTo>{{ intf_alias }}</AttachTo>
+  {% else %}
+    {# TOR: use port_alias_map #}
+    <AttachTo>{{ port_alias_map[intf_alias] }}</AttachTo>
+  {% endif %}
 {% endif %}
           <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv4'][dut_index|int][intf_index] }}/{{ vm_topo_config['vm'][vms[index]]['ipv4mask'][dut_index|int][intf_index] }}</Prefix>
         </IPInterface>
@@ -206,7 +212,11 @@
           <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
 {% else %}
           {% set intf_alias = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
-          <AttachTo>{{ port_alias_map[intf_alias].split('/')[0]}}</AttachTo>
+          {% if num_asics > 1 %}
+            <AttachTo>{{ intf_alias }}</AttachTo>
+          {% else %}
+            <AttachTo>{{ port_alias_map[intf_alias] }}</AttachTo>
+          {% endif %}
 {% endif %}
           <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int][intf_index] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'][dut_index|int][intf_index] }}</Prefix>
         </IPInterface>
@@ -303,7 +313,11 @@
 {% if 'port-channel' not in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
 {% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length %}
 {% set intf_alias = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
-{% set a_intf = port_alias_map[intf_alias].split('/')[0] %}
+{% if num_asics > 1 %}
+  {% set a_intf = intf_alias %}
+{% else %}
+  {% set a_intf = port_alias_map[intf_alias] %}
+{% endif %}
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endif %}
