@@ -52,9 +52,28 @@ class DutKubeConfig:
             else:
                 logger.warning("ctrmgrd service not found - DUT may not have kubesonic support")
 
+    def check_api_server_from_dut(self):
+        """Check if DUT can reach the API server - checkpoint for debugging."""
+        logger.info("Checking API server accessibility from DUT")
+        result = self.duthost.shell(
+            f"curl -k -s -o /dev/null -w '%{{http_code}}' https://{self.vmhost.mgmt_ip}:6443/healthz",
+            module_ignore_errors=True
+        )
+        http_code = result.get("stdout", "").strip()
+        logger.info("API server health check from DUT returned HTTP %s", http_code)
+        if http_code not in ("200", "401", "403"):
+            logger.warning("API server not accessible from DUT, got HTTP %s", http_code)
+            return False
+        return True
+
     def join(self, timeout=120):
         """Join DUT to K8s cluster."""
         logger.info("Joining DUT to K8s cluster")
+
+        # Checkpoint: verify DUT can reach API server before attempting join
+        if not self.check_api_server_from_dut():
+            raise RuntimeError(f"DUT cannot reach API server at {self.vmhost.mgmt_ip}:6443")
+
         self.duthost.shell(f"sudo config kube server ip {self.vmhost.mgmt_ip}")
         self.duthost.shell("sudo config kube server disable off")
 

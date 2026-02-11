@@ -57,12 +57,14 @@ class MinikubeManager:
     def stop(self):
         """Stop and delete minikube cluster."""
         logger.info("Stopping minikube cluster")
-        self.vmhost.shell("sudo minikube delete --all --purge", module_ignore_errors=True)
-        # Also remove minikube container and config if it exists
-        self.vmhost.shell("sudo docker rm -f minikube", module_ignore_errors=True)
+        # Clean up any root-owned files first to avoid permission issues
         self.vmhost.shell("sudo rm -rf /root/.minikube", module_ignore_errors=True)
-        # Clean up juju lock files that can cause permission issues
         self.vmhost.shell("sudo rm -f /tmp/juju-mk*", module_ignore_errors=True)
+        self.vmhost.shell("sudo rm -f /tmp/minikube*", module_ignore_errors=True)
+        # Stop and remove minikube (matches original test - no sudo for minikube itself)
+        self.vmhost.shell("minikube delete --all --purge", module_ignore_errors=True)
+        # Also remove minikube container if it exists
+        self.vmhost.shell("docker rm -f minikube", module_ignore_errors=True)
 
     def is_ready(self):
         """Check if minikube is ready."""
@@ -80,6 +82,21 @@ class MinikubeManager:
                 return True
             time.sleep(5)
         return False
+
+    def check_api_server(self):
+        """Check if API server is accessible - useful checkpoint for debugging."""
+        logger.info("Checking API server accessibility")
+        # Check from vmhost using curl (insecure since we're just checking connectivity)
+        result = self.vmhost.shell(
+            f"curl -k -s -o /dev/null -w '%{{http_code}}' https://{self.vmhost.mgmt_ip}:6443/healthz",
+            module_ignore_errors=True
+        )
+        http_code = result.get("stdout", "").strip()
+        logger.info("API server health check returned HTTP %s", http_code)
+        if http_code not in ("200", "401", "403"):
+            logger.warning("API server may not be accessible, got HTTP %s", http_code)
+            return False
+        return True
 
     def update_kubelet_config(self):
         """Update kubelet config for DUT compatibility."""
@@ -185,6 +202,9 @@ spec:
         self.download()
         self.start()
         self.wait_ready()
+        # Checkpoint: verify API server is accessible before proceeding
+        if not self.check_api_server():
+            raise RuntimeError("API server not accessible after minikube start")
         self.update_kubelet_config()
         self.deploy_test_daemonset()
 
