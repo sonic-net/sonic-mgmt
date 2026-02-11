@@ -130,10 +130,10 @@ class PtfGnoi:
                 * If scheme is unknown/empty, protocol must be provided explicitly.
 
         Args:
-            image_url: Remote URL/path to download from (e.g., http(s)://...)
-            dut_image_path: Destination path on DUT (mapped to gNOI request field 'local_path')
+            url: Remote URL/path to download from (e.g., http(s)://...)
+            local_path: Destination path on DUT (mapped to gNOI request field 'local_path')
             protocol: Optional RemoteDownloadProtocol enum name (e.g., "HTTP", "HTTPS").
-                    If None, infer from image_url scheme.
+                    If None, infer from url scheme.
             credentials: Optional credentials dict {"username": "...", "password": "..."}.
             remote_extra: Optional dict merged into 'remote_download' (implementation-specific).
 
@@ -145,12 +145,12 @@ class PtfGnoi:
                 As raised by underlying grpc_client.call_unary.
             ValueError: If inputs are invalid or protocol cannot be inferred.
         """
-        if not image_url:
-            raise ValueError("image_url must be provided")
-        if not dut_image_path:
-            raise ValueError("dut_image_path must be provided")
+        if not url:
+            raise ValueError("url must be provided")
+        if not local_path:
+            raise ValueError("local_path must be provided")
 
-        scheme = urlparse(image_url).scheme.lower()
+        scheme = urlparse(url).scheme.lower()
 
         # Infer protocol if not explicitly provided
         if protocol is None:
@@ -160,42 +160,39 @@ class PtfGnoi:
                 protocol = "HTTP"
             else:
                 raise ValueError(
-                    f"protocol must be provided when image_url scheme is '{scheme or 'empty'}'"
+                    f"protocol must be provided when url scheme is '{scheme or 'empty'}'"
                 )
 
         protocol = str(protocol).upper()
 
         # Optional: warn if the override conflicts with URL scheme
         if scheme == "https" and protocol == "HTTP":
-            logger.warning("image_url is https:// but protocol=HTTP; did you mean HTTPS?")
+            logger.warning("url is https:// but protocol=HTTP; did you mean HTTPS?")
         elif scheme == "http" and protocol == "HTTPS":
-            logger.warning("image_url is http:// but protocol=HTTPS; did you mean HTTP?")
+            logger.warning("url is http:// but protocol=HTTPS; did you mean HTTP?")
 
         logger.debug(
-            "TransferToRemote via gNOI File.TransferToRemote: url=%s dut_image_path=%s protocol=%s",
-            image_url, dut_image_path, protocol,
+            "TransferToRemote via gNOI File.TransferToRemote: url=%s local_path=%s protocol=%s",
+            url, local_path, protocol,
         )
 
-        remote_download = {"path": image_url, "protocol": protocol}
+        remote_download = {"path": url, "protocol": protocol}
 
         if credentials:
             remote_download["credentials"] = credentials
 
-        if remote_extra:
-            remote_download.update(remote_extra)
-
         request = {
-            "localPath": dut_image_path,
+            "localPath": local_path,
             "remoteDownload": remote_download,
         }
 
         response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request)
-        logger.info("TransferToRemote completed: %s -> %s", image_url, dut_image_path)
+        logger.info("TransferToRemote completed: %s -> %s", url, local_path)
         return response
 
     def system_set_package(
         self,
-        dut_image_path: str,
+        local_path: str,
         version: Optional[str] = None,
         activate: bool = True,
     ) -> Dict:
@@ -203,13 +200,13 @@ class PtfGnoi:
         Set the upgrade package on the DUT using gNOI System.SetPackage (client-streaming RPC).
 
         Sends a single stream message containing package metadata:
-        {"package": {<package_field>: <dut_image_path>, "version": ..., "activate": ...}}
+        {"package": {<package_field>: <local_path>, "version": ..., "activate": ...}}
 
         Note: Some server implementations may also require a separate hash message (MD5/SHA).
         This version intentionally omits hash support.
 
         Args:
-            dut_image_path: Path to the package/image on DUT (typically produced by TransferToRemote)
+            local_path: Path to the package/image on DUT (typically produced by TransferToRemote)
             package_field: Field name used by server inside 'package' ("filename" or "path")
             version: Optional version string
             activate: Whether to activate/switch to the package (commonly required to update "Next")
@@ -217,16 +214,16 @@ class PtfGnoi:
         Returns:
             Dictionary response from gNOI server.
         """
-        if not dut_image_path:
-            raise ValueError("dut_image_path must be provided")
+        if not local_path:
+            raise ValueError("local_path must be provided")
 
         logger.debug(
             "SetPackage via gNOI System.SetPackage (streaming): filename=%s version=%s activate=%s",
-            dut_image_path, version, activate,
+            local_path, version, activate,
         )
 
         pkg: Dict[str, object] = {
-            "filename": dut_image_path,
+            "filename": local_path,
             "activate": bool(activate),
         }
         if version:
@@ -238,7 +235,7 @@ class PtfGnoi:
             [{"package": pkg}],
         )
 
-        logger.info("SetPackage completed: %s", dut_image_path)
+        logger.info("SetPackage completed: %s", local_path)
         return response
 
     def system_reboot(
