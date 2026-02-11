@@ -272,11 +272,11 @@ def test_buffer_profile_create_remove_rollback(duthost, ensure_dut_readiness, cl
     tmpfile = generate_tmpfile(duthost)
     profile_name = "pg_lossless_99999_99m_profile"
     profile_data = {
-        "xon": "1234",
-        "xoff": "5678",
-        "size": "9999",
+        "dynamic_th": "-2",
         "pool": "ingress_lossless_pool",
-        "threshold_mode": "0"
+        "size": "0",
+        "xoff": "1020672",
+        "xon": "0"
     }
     # Step 1: Take checkpoint done by ensure_dut_readiness fixture, verify checkpoint creation
     try:
