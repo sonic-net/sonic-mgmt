@@ -1444,8 +1444,8 @@
   topo: t0
   ptf_image_name: docker-ptf
   ptf: vms63-1
-  ptf_ip: 10.64.247.185/26
-  ptf_ipv6: 2a01:111:e210:b000::a40:f7b9/122
+  ptf_ip: 10.64.246.185/26
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6b9/121
   server: server_63
   vm_base: VM63000
   dut:
@@ -1459,8 +1459,8 @@
   topo: t0
   ptf_image_name: docker-ptf
   ptf: vms63-2
-  ptf_ip: 10.64.247.43/26
-  ptf_ipv6: 2a01:111:e210:b000::a40:f72b/122
+  ptf_ip: 10.64.246.182/26
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6b6/121
   server: server_63
   vm_base: VM63004
   dut:
@@ -1474,8 +1474,8 @@
   topo: t1-lag
   ptf_image_name: docker-ptf
   ptf: vms63-3
-  ptf_ip: 10.64.247.44/26
-  ptf_ipv6: 2a01:111:e210:b000::a40:f72c/122
+  ptf_ip: 10.64.246.188/26
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6bc/121
   server: server_63
   vm_base: VM63008
   dut:
