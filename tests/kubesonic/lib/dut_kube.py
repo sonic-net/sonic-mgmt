@@ -81,7 +81,7 @@ class DutKubeConfig:
         start = time.time()
         while time.time() - start < timeout:
             result = self.vmhost.shell(
-                f"sudo NO_PROXY=192.168.49.2 minikube kubectl -- get nodes {self.duthost.hostname}",
+                f"NO_PROXY=192.168.49.2 minikube kubectl -- get nodes {self.duthost.hostname}",
                 module_ignore_errors=True
             )
             if self.duthost.hostname in result.get("stdout", "") and "NotReady" not in result.get("stdout", ""):

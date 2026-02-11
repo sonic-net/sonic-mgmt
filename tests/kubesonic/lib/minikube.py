@@ -7,6 +7,7 @@ logger = logging.getLogger(__name__)
 
 MINIKUBE_VERSION = "v1.34.0"
 KUBERNETES_VERSION = "v1.22.2"
+NO_PROXY = "NO_PROXY=192.168.49.2"
 
 
 class MinikubeManager:
@@ -28,6 +29,12 @@ class MinikubeManager:
             parts.append(f"https_proxy={https_proxy}")
         return " ".join(parts)
 
+    def install_prerequisites(self):
+        """Install prerequisites for minikube."""
+        logger.info("Installing minikube prerequisites")
+        self.vmhost.shell("sudo apt-get update && sudo apt-get install -y conntrack")
+        self.vmhost.shell("sudo sysctl fs.protected_regular=0")
+
     def download(self):
         """Download minikube binary."""
         logger.info("Downloading minikube %s", MINIKUBE_VERSION)
@@ -40,9 +47,9 @@ class MinikubeManager:
     def start(self):
         """Start minikube cluster."""
         logger.info("Starting minikube cluster")
+        # Match original test - no sudo for minikube itself
         cmd = f"""
-            sudo {self._proxy_env} minikube start \
-            --driver=docker \
+            {self._proxy_env} minikube start \
             --listen-address=0.0.0.0 \
             --apiserver-port=6443 \
             --ports=6443:6443 \
@@ -57,19 +64,18 @@ class MinikubeManager:
     def stop(self):
         """Stop and delete minikube cluster."""
         logger.info("Stopping minikube cluster")
-        # Clean up any root-owned files first to avoid permission issues
+        # Clean up root-owned files first
         self.vmhost.shell("sudo rm -rf /root/.minikube", module_ignore_errors=True)
         self.vmhost.shell("sudo rm -f /tmp/juju-mk*", module_ignore_errors=True)
         self.vmhost.shell("sudo rm -f /tmp/minikube*", module_ignore_errors=True)
-        # Stop and remove minikube (matches original test - no sudo for minikube itself)
+        # Match original test - no sudo for minikube
         self.vmhost.shell("minikube delete --all --purge", module_ignore_errors=True)
-        # Also remove minikube container if it exists
         self.vmhost.shell("docker rm -f minikube", module_ignore_errors=True)
 
     def is_ready(self):
         """Check if minikube is ready."""
         result = self.vmhost.shell(
-            "sudo NO_PROXY=192.168.49.2 minikube kubectl -- get node minikube --no-headers",
+            f"{NO_PROXY} minikube kubectl -- get node minikube --no-headers",
             module_ignore_errors=True
         )
         return "Ready" in result.get("stdout", "")
@@ -85,41 +91,35 @@ class MinikubeManager:
 
     def check_api_server(self):
         """Check if API server is accessible - useful checkpoint for debugging."""
-        logger.info("Checking API server accessibility")
-        # Check from vmhost using curl (insecure since we're just checking connectivity)
+        logger.info("Checking API server accessibility from vmhost")
         result = self.vmhost.shell(
             f"curl -k -s -o /dev/null -w '%{{http_code}}' https://{self.vmhost.mgmt_ip}:6443/healthz",
             module_ignore_errors=True
         )
         http_code = result.get("stdout", "").strip()
         logger.info("API server health check returned HTTP %s", http_code)
-        if http_code not in ("200", "401", "403"):
-            logger.warning("API server may not be accessible, got HTTP %s", http_code)
-            return False
-        return True
+        # 401/403 means API is running but auth required - that's fine
+        if http_code in ("200", "401", "403"):
+            return True
+        logger.warning("API server may not be accessible, got HTTP %s", http_code)
+        return False
 
     def update_kubelet_config(self):
         """Update kubelet config for DUT compatibility."""
         logger.info("Updating kubelet config")
-        # Clean up any existing file that may have restrictive permissions
-        self.vmhost.shell("sudo rm -f /tmp/kubelet-config.yaml", module_ignore_errors=True)
-        # Use sudo sh -c to run the entire redirect under sudo
-        self.vmhost.shell(
-            "sudo sh -c 'NO_PROXY=192.168.49.2 minikube kubectl -- get cm kubelet-config-1.22 "
-            "-n kube-system -o yaml > /tmp/kubelet-config.yaml'"
-        )
-        self.vmhost.shell(
-            "sudo sed 's|/var/lib/minikube/certs/ca.crt|/etc/kubernetes/pki/ca.crt|' "
-            "-i /tmp/kubelet-config.yaml"
-        )
-        self.vmhost.shell(
-            "sudo NO_PROXY=192.168.49.2 minikube kubectl -- apply -f /tmp/kubelet-config.yaml"
-        )
+        # Match original test approach
+        tmp_file = "/tmp/kubelet-config.yaml"
+        get_cmd = f"{NO_PROXY} minikube kubectl -- get cm kubelet-config-1.22 -n kube-system -o yaml"
+        self.vmhost.shell(f"{get_cmd} > {tmp_file}")
+        self.vmhost.shell(f"sed 's|/var/lib/minikube/certs/ca.crt|/etc/kubernetes/pki/ca.crt|' -i {tmp_file}")
+        self.vmhost.shell(f"{NO_PROXY} minikube kubectl -- apply -f {tmp_file}")
+        self.vmhost.shell(f"rm -f {tmp_file}")
 
     def deploy_test_daemonset(self):
         """Deploy test daemonset."""
         logger.info("Deploying test daemonset")
-        yaml_content = """apiVersion: apps/v1
+        daemonset_content = """
+apiVersion: apps/v1
 kind: DaemonSet
 metadata:
   name: test-daemonset
@@ -139,12 +139,10 @@ spec:
       - image: k8s.gcr.io/pause:3.5
         name: mock-ds-container
 """
-        # Clean up and write using sudo tee (escape single quotes in yaml)
-        self.vmhost.shell("sudo rm -f /tmp/daemonset.yaml", module_ignore_errors=True)
-        self.vmhost.shell(f"echo '{yaml_content}' | sudo tee /tmp/daemonset.yaml > /dev/null")
-        self.vmhost.shell(
-            "sudo NO_PROXY=192.168.49.2 minikube kubectl -- apply -f /tmp/daemonset.yaml"
-        )
+        # Match original test approach
+        daemonset_yaml = "/tmp/daemonset.yaml"
+        self.vmhost.shell(f"echo -n '{daemonset_content}' > {daemonset_yaml}")
+        self.vmhost.shell(f"{NO_PROXY} minikube kubectl -- apply -f {daemonset_yaml}")
 
     def get_kubeconfig_data(self):
         """Get kubeconfig as dict, built in memory from vmhost certs.
@@ -188,13 +186,6 @@ spec:
             }]
         }
 
-    def install_prerequisites(self):
-        """Install prerequisites for minikube."""
-        logger.info("Installing minikube prerequisites")
-        self.vmhost.shell("sudo apt-get update && sudo apt-get install -y conntrack")
-        # Required for minikube to start properly as root
-        self.vmhost.shell("sudo sysctl fs.protected_regular=0")
-
     def setup(self):
         """Full setup sequence."""
         self.stop()  # Clean any existing
@@ -202,9 +193,6 @@ spec:
         self.download()
         self.start()
         self.wait_ready()
-        # Checkpoint: verify API server is accessible before proceeding
-        if not self.check_api_server():
-            raise RuntimeError("API server not accessible after minikube start")
         self.update_kubelet_config()
         self.deploy_test_daemonset()
 
