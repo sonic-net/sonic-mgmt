@@ -167,6 +167,24 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return True
         return True
+    
+    def check_version_for_otel(self):
+        output_version = device_info.get_sonic_version_info()
+        build_version = output_version.get("build_version", "")
+
+        m = re.match(r'^(\d{8})(?:\.(\d+))?$', build_version)
+        if m:
+            major = int(m.group(1))
+            minor = int(m.group(2)) if m.group(2) else 0
+            return (major, minor) > (20241212, 49)
+
+        m = re.match(r'^internal-(\d{8})(?:\.(\d+))?$', build_version)
+        if m:
+            major = int(m.group(1))
+            minor = int(m.group(2)) if m.group(2) else 0
+            return (major, minor) > (20241212, 49)
+
+        return True
 
     def get_config_from_minigraph(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -636,6 +654,13 @@ class GenerateGoldenConfigDBModule(object):
             else:
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
+
+        # Enable otel feature only when version > 20241212.49
+        if self.check_version_for_otel():
+            if multi_asic.is_multi_asic():
+                config = self.overwrite_feature_golden_config_db_multiasic(config, "otel", "enabled", "enabled")
+            else:
+                config = self.overwrite_feature_golden_config_db_singleasic(config, "otel", "enabled", "enabled")
 
         # Disable dash-ha feature for all multi-asic platforms
         if multi_asic.is_multi_asic():
