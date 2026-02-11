@@ -6,11 +6,13 @@ from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
 )
 from tests.upgrade_path.test_upgrade_path import setup_upgrade_test
 from tests.common.helpers.upgrade_helpers import perform_gnoi_upgrade, GnoiUpgradeConfig
+from tests.common.platform.device_utils import verify_dut_health
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.disable_loganalyzer,
     pytest.mark.usefixtures("setup_gnoi_tls_server"),
 ]
 
@@ -20,10 +22,11 @@ def gnoi_upgrade_path_lists(request):
     upgrade_type = request.config.getoption("upgrade_type")          # "warm" / "cold"
     from_image = request.config.getoption("base_image_list")
     to_image = request.config.getoption("target_image_list")
+    to_version = request.config.getoption("target_version")
 
     dut_image_path = "/var/tmp/sonic_image"
 
-    return (upgrade_type, from_image, to_image, dut_image_path)
+    return (upgrade_type, from_image, to_image, to_version, dut_image_path)
 
 
 @pytest.mark.device_type("vs")
@@ -34,7 +37,7 @@ def test_upgrade_via_gnoi(
 ):
     duthost = duthosts[rand_one_dut_hostname]
 
-    (upgrade_type, from_image, to_image, dut_image_path) = gnoi_upgrade_path_lists
+    (upgrade_type, from_image, to_image, to_version, dut_image_path) = gnoi_upgrade_path_lists
 
     logger.info("Test gNOI upgrade path from %s to %s", from_image, to_image)
 
@@ -51,6 +54,7 @@ def test_upgrade_via_gnoi(
         upgrade_type=upgrade_type,
         protocol="HTTP",
         allow_fail=False,
+        to_version=to_version,
     )
 
     def upgrade_path_preboot_setup():

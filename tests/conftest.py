@@ -265,6 +265,12 @@ def pytest_addoption(parser):
                      help="Use insecure connection to gNMI target")
     parser.addoption("--disable_sai_validation", action="store_true", default=True,
                      help="Disable SAI validation")
+    parser.addoption(
+        "--target_version",
+        action="store",
+        default=None,
+        help="Target SONiC version string for gNOI SetPackage (e.g. SONiC-OS-20251110.06)",
+    )
     ############################
     #   Parallel run options   #
     ############################

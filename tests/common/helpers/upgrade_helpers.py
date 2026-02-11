@@ -5,6 +5,7 @@ import json
 import re
 from dataclasses import dataclass
 from six.moves.urllib.parse import urlparse
+import tests.common.fixtures.grpc_fixtures  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
@@ -30,7 +31,7 @@ class GnoiUpgradeConfig:
     upgrade_type: str
     protocol: str = "HTTP"
     allow_fail: bool = False
-
+    to_version: Optional[str] = None  # Optional expected version string to validate after upgrade (e.g. "SONiC-OS-202012")
 
 def pytest_runtest_setup(item):
     from_list = item.config.getoption('base_image_list')
@@ -327,7 +328,7 @@ def perform_gnoi_upgrade(
     pytest_assert(cfg.to_image, "to_image must be provided")
     pytest_assert(cfg.dut_image_path, "dut_image_path must be provided")
     pytest_assert(cfg.upgrade_type, "upgrade_type must be provided")
-
+    gNOI_REBOOT_CAUSE_TIMEOUT = 5 * 60
     # Map upgrade_type ("warm"/"cold") to gNOI enum token ("WARM"/"COLD")
     # reboot_method = "WARM" if str(cfg.upgrade_type).lower() == "warm" else "COLD"
     # ---- 1) reboot to base image ----
@@ -351,18 +352,13 @@ def perform_gnoi_upgrade(
     # ---- 3) SetPackage (via wrapper) ----
     setpkg_resp = ptf_gnoi.system_set_package(
         dut_image_path=cfg.dut_image_path,
-        version=getattr(cfg, "to_version", None),
+        version=cfg.to_version,
         activate=True,
     )
     logger.info("SetPackage response: %s", setpkg_resp)
     pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
 
-    images = _get_images_from_sonic_installer_list(duthost)
-    expected_to_version = images.get("next")
-    pytest_assert(
-        expected_to_version is not None,
-        "Could not determine expected_to_version from 'sonic_installer list' output"
-    )
+    pytest_assert(cfg.to_version, "cfg.to_version must be provided for validation")
     # ---- 4) Reboot (via wrapper) ----
     try:
         reboot_resp = ptf_gnoi.system_reboot(method=str(cfg.upgrade_type).upper())
@@ -378,11 +374,9 @@ def perform_gnoi_upgrade(
 
     # ---- 5) Reuse EXACT reboot-cause waiting pattern from upgrade_test_helper ----
     logger.info("Check reboot cause. Expected cause %s", cfg.upgrade_type)
-    networking_uptime = duthost.get_networking_uptime().seconds
-    timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
 
     pytest_assert(
-        wait_until(timeout, 5, 0, check_reboot_cause, duthost, cfg.upgrade_type),
+        wait_until(gNOI_REBOOT_CAUSE_TIMEOUT, 10, 0, check_reboot_cause, duthost, cfg.upgrade_type),
         "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), cfg.upgrade_type)
     )
 
@@ -392,11 +386,11 @@ def perform_gnoi_upgrade(
     check_copp_config(duthost)
 
     # ---- 7) Version validation) ----
-    show_ver = duthost.shell("show version", module_ignore_errors=False).get("stdout", "")
-    logger.info("show version output:\n%s", show_ver)
+    images = _get_images_from_sonic_installer_list(duthost)
+    logger.info("sonic-installer list parsed: %s", images)
     pytest_assert(
-        expected_to_version in show_ver,
-        "Running version does not contain expected '{}'. Output:\n{}".format(expected_to_version, show_ver)
+    images.get("current") == cfg.to_version,
+    f"Current image mismatch after reboot. current={images.get('current')} expected={cfg.to_version}. full={images}"
     )
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}

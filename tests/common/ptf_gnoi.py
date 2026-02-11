@@ -185,10 +185,9 @@ class PtfGnoi:
         if remote_extra:
             remote_download.update(remote_extra)
 
-        # gNOI proto field name is 'local_path' (destination path on DUT)
         request = {
-            "dut_image_path": dut_image_path,
-            "remote_download": remote_download,
+            "localPath": dut_image_path,
+            "remoteDownload": remote_download,
         }
 
         response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request)
