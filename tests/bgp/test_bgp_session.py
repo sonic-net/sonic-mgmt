@@ -188,7 +188,7 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
 
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
     asic_type = duthost.facts['asic_type']
-    if asic_type == "vs" and (failure_type == "interface" or test_type == "reboot"):
+    if (asic_type == "vs" or asic_type == "vpp") and (failure_type == "interface" or test_type == "reboot"):
         pytest.skip("BGP session test is not supported on Virtual Switch")
 
     # Skip the test if BGP or SWSS autorestart is disabled
