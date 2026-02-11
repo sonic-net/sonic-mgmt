@@ -165,9 +165,9 @@ def test_pmon_psud_running_status(duthosts, enum_supervisor_dut_hostname, data_b
                   "{} expected pid is a positive integer but is {}".format(daemon_name, daemon_pid))
 
     pytest_assert(data_before_restart['keys'],
-                  "DB keys is not availale on daemon running")
+                  "DB keys is not available on daemon running")
     pytest_assert(data_before_restart['data'],
-                  "DB data is not availale on daemon running")
+                  "DB data is not available on daemon running")
 
 
 def test_pmon_psud_psu_status_and_led(duthosts, enum_supervisor_dut_hostname, data_before_restart):
@@ -180,15 +180,14 @@ def test_pmon_psud_psu_status_and_led(duthosts, enum_supervisor_dut_hostname, da
     pytest_assert(daemon_status == expected_running_status,
                   "{} is not running, cannot validate PSU status".format(daemon_name))
 
-    data = collect_data(duthost)
-    pytest_assert(data['keys'], "No PSU_INFO keys found in STATE_DB")
-    pytest_assert(data['data'], "No PSU_INFO data found in STATE_DB")
+    pytest_assert(data_before_restart['keys'], "No PSU_INFO keys found in STATE_DB")
+    pytest_assert(data_before_restart['data'], "No PSU_INFO data found in STATE_DB")
 
     present_psu_count = 0
     psu_status_failures = []
     psu_led_failures = []
 
-    for psu_key, psu_data in data['data'].items():
+    for psu_key, psu_data in data_before_restart['data'].items():
         psu_name = psu_key.replace("PSU_INFO|", "")
         presence = psu_data.get("presence", "false")
 
@@ -209,6 +208,7 @@ def test_pmon_psud_psu_status_and_led(duthosts, enum_supervisor_dut_hostname, da
             psu_led_failures.append("{} led_status is '{}', expected 'green'".format(psu_name, led_status))
 
     pytest_assert(present_psu_count > 0, "No present PSUs found in STATE_DB")
+    logger.info("Validated {} present PSU(s) for status and LED".format(present_psu_count))
     pytest_assert(len(psu_status_failures) == 0,
                   "PSU status check failed: {}".format("; ".join(psu_status_failures)))
     pytest_assert(len(psu_led_failures) == 0,
