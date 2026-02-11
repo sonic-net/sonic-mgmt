@@ -339,8 +339,8 @@ def perform_gnoi_upgrade(
             cold_reboot_setup()
     # ---- 2) TransferToRemote (via wrapper) ----
     transfer_resp = ptf_gnoi.file_transfer_to_remote(
-        image_url=cfg.to_image,
-        dut_image_path=cfg.dut_image_path,
+        url=cfg.to_image,
+        local_path=cfg.dut_image_path,
         protocol=cfg.protocol,
     )
     logger.info("TransferToRemote response: %s", transfer_resp)
@@ -352,7 +352,7 @@ def perform_gnoi_upgrade(
 
     # ---- 3) SetPackage (via wrapper) ----
     setpkg_resp = ptf_gnoi.system_set_package(
-        dut_image_path=cfg.dut_image_path,
+        local_path=cfg.dut_image_path,
         version=cfg.to_version,
         activate=True,
     )

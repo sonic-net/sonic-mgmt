@@ -113,11 +113,10 @@ class PtfGnoi:
 
     def file_transfer_to_remote(
         self,
-        image_url: str,
-        dut_image_path: str,
+        url: str,
+        local_path: str,
         protocol: Optional[str] = None,
         credentials: Optional[Dict[str, str]] = None,
-        remote_extra: Optional[Dict] = None,
     ) -> Dict:
         """
         Download a remote artifact to the DUT using gNOI File.TransferToRemote.
