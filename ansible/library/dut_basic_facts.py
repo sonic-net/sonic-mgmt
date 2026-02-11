@@ -51,6 +51,10 @@ def main():
         if hasattr(device_info, 'is_chassis'):
             results['is_chassis'] = device_info.is_chassis()
 
+        results['is_chassis_config_absent'] = False
+        if hasattr(device_info, 'is_chassis_config_absent'):
+            results['is_chassis_config_absent'] = device_info.is_chassis_config_absent()
+
         if results['is_multi_asic']:
             results['asic_index_list'] = []
             if results['is_chassis']:
