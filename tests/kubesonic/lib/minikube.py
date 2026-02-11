@@ -161,9 +161,15 @@ spec:
             }]
         }
 
+    def install_prerequisites(self):
+        """Install prerequisites for minikube."""
+        logger.info("Installing minikube prerequisites")
+        self.vmhost.shell("apt-get update && apt-get install -y conntrack")
+
     def setup(self):
         """Full setup sequence."""
         self.stop()  # Clean any existing
+        self.install_prerequisites()
         self.download()
         self.start()
         self.wait_ready()
