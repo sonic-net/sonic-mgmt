@@ -194,7 +194,7 @@
           <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
 {% else %}
           {% set intf_alias = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
-          <AttachTo>{{ port_alias_map[intf_alias] }}</AttachTo>
+          <AttachTo>{{ port_alias_map[intf_alias].split('/')[0] }}</AttachTo>
 {% endif %}
           <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv4'][dut_index|int][intf_index] }}/{{ vm_topo_config['vm'][vms[index]]['ipv4mask'][dut_index|int][intf_index] }}</Prefix>
         </IPInterface>
@@ -206,7 +206,7 @@
           <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
 {% else %}
           {% set intf_alias = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
-          <AttachTo>{{ port_alias_map[intf_alias] }}</AttachTo>
+          <AttachTo>{{ port_alias_map[intf_alias].split('/')[0]}}</AttachTo>
 {% endif %}
           <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int][intf_index] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'][dut_index|int][intf_index] }}</Prefix>
         </IPInterface>
@@ -303,7 +303,7 @@
 {% if 'port-channel' not in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
 {% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length %}
 {% set intf_alias = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
-{% set a_intf = port_alias_map[intf_alias] %}
+{% set a_intf = port_alias_map[intf_alias].split('/')[0] %}
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endif %}
