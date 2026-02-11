@@ -1350,6 +1350,12 @@ def get_chip_type(dut):
     return platform_data.get("chip_type")
 
 
+def is_ld_system(duthost):
+    logger.info(f"Checking if {duthost.facts['platform']} is LD system")
+    chassis_name = duthost.facts.get("chassis", {}).get("name", "")
+    return 'ld' in chassis_name.lower()
+
+
 @read_only_cache()
 def get_hardware_version(duthost, platform):
     if platform in MULTI_HARDWARE_TYPE_PLATFORMS:
