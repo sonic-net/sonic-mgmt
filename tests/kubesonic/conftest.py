@@ -9,7 +9,18 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
-def minikube(vmhost, creds):
+def check_kube_support(duthost):
+    """Check if DUT has kubesonic support, skip tests if not."""
+    result = duthost.shell(
+        "systemctl list-unit-files ctrmgrd.service",
+        module_ignore_errors=True
+    )
+    if "ctrmgrd.service" not in result.get("stdout", ""):
+        pytest.skip("DUT does not have kubesonic support (ctrmgrd service not found)")
+
+
+@pytest.fixture(scope="module")
+def minikube(check_kube_support, vmhost, creds):
     """Setup minikube cluster on vmhost."""
     mgr = MinikubeManager(vmhost, creds)
     mgr.setup()

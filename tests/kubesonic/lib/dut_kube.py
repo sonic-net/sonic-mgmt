@@ -15,6 +15,14 @@ class DutKubeConfig:
         self.duthost = duthost
         self.vmhost = vmhost
 
+    def has_kube_support(self):
+        """Check if DUT has kubernetes/kubesonic support."""
+        result = self.duthost.shell(
+            "systemctl list-unit-files ctrmgrd.service",
+            module_ignore_errors=True
+        )
+        return "ctrmgrd.service" in result.get("stdout", "")
+
     def setup_dns(self):
         """Add minikube VIP to /etc/hosts."""
         logger.info("Setting up DNS for minikube VIP")
@@ -39,7 +47,10 @@ class DutKubeConfig:
             self.duthost.shell(
                 "sonic-db-cli STATE_DB hset 'KUBERNETES_MASTER|SERVER' update_time '2024-12-24 01:01:01'"
             )
-            self.duthost.shell("systemctl restart ctrmgrd")
+            if self.has_kube_support():
+                self.duthost.shell("systemctl restart ctrmgrd")
+            else:
+                logger.warning("ctrmgrd service not found - DUT may not have kubesonic support")
 
     def join(self, timeout=120):
         """Join DUT to K8s cluster."""
