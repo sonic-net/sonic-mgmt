@@ -61,7 +61,7 @@ BULK_ROUTE_COUNT = 512  # 512 ipv4 route and 512 ipv6 route
 FUNCTION = "function"
 STRESS = "stress"
 TRAFFIC_WAIT_TIME = 0.1
-BULK_TRAFFIC_WAIT_TIME = 0.004
+BULK_TRAFFIC_WAIT_TIME = 0.01
 BGP_ROUTE_FLAP_TIMES = 5
 UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
 
@@ -529,10 +529,14 @@ def parse_time_stamp(bgp_packets, ipv4_route_list, ipv6_route_list):
                 layer = bgp_updates[i].getlayer(bgp.BGPUpdate, nb=layer_index)
                 if layer.nlri:
                     for route in layer.nlri:
+                        if not hasattr(route, 'prefix'):  # skip malformed/segmented routes
+                            continue
                         if route.prefix in ipv4_route_list:
                             update_time_stamp(announce_prefix_time_stamp, route.prefix, bgp_packets[i].time)
                 if layer.withdrawn_routes:
                     for route in layer.withdrawn_routes:
+                        if not hasattr(route, 'prefix'):  # skip malformed/segmented routes
+                            continue
                         if route.prefix in ipv4_route_list:
                             update_time_stamp(withdraw_prefix_time_stamp, route.prefix, bgp_packets[i].time)
                 layer_index += 1
