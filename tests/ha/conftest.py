@@ -185,22 +185,6 @@ def config_facts(duthost):
     return duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
 
-@pytest.fixture(scope="module")
-def minigraph_facts(duthosts, rand_one_dut_hostname, tbinfo):
-    """
-    Fixture to get minigraph facts
-
-    Args:
-        duthost: DUT host object
-
-    Returns:
-        Dictionary containing minigraph information
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-
-    return duthost.get_extended_minigraph_facts(tbinfo)
-
-
 def get_intf_from_ip(local_ip, config_facts):
     for intf, config in list(config_facts["INTERFACE"].items()):
         for ip in config:
@@ -220,7 +204,7 @@ def use_underlay_route(request):
     return request.param == "with-underlay-route"
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def dash_pl_config(duthosts, dpuhosts, dpu_index, duts_minigraph_facts):
     dash_info = [{
         LOCAL_CA_IP: "10.2.2.2",
@@ -292,7 +276,7 @@ def apply_config(localhost, duthost, ptfhost, skip_config, skip_cleanup):
             _apply_config(config_info)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function")
 def setup_gnmi_server(duthosts, localhost, ptfhost, skip_cert_cleanup):
     if not ENABLE_GNMI_API:
         yield

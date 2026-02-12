@@ -31,6 +31,7 @@ def common_setup_teardown(
     dpuhosts,
     setup_ha_config,
     setup_dash_ha_from_json,
+    setup_gnmi_server,
     set_vxlan_udp_sport_range,
     setup_npu_dpu  # noqa: F811
 ):
