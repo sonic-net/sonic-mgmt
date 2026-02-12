@@ -12,7 +12,6 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
     lossless_prio_list, disable_pfcwd                                                   # noqa: F401
 from tests.snappi_tests.pfc.files.helper import run_tx_drop_counter
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut     # noqa: F401
 from tests.snappi_tests.cisco.helper import disable_voq_watchdog                        # noqa: F401
 
 logger = logging.getLogger(__name__)
