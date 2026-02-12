@@ -241,7 +241,15 @@ echo "  config_db=$FAKE_CONFIG_DB_EXISTS minigraph=$FAKE_MINIGRAPH_EXISTS"
 echo "  ztp=$FAKE_ZTP_ENABLED warm=$FAKE_WARM_BOOT migration=$FAKE_PENDING_MIGRATION"
 echo "=== OUTPUT ==="
 
-$TEST_FUNC
+# Some DUT functions use "exit 0" instead of "return 0" (e.g.,
+# do_config_migration warm boot path). Run in a subshell so exit
+# does not kill the harness, then always print actions and state.
+set +e
+(
+    $TEST_FUNC
+)
+FUNC_RC=$?
+set -e
 
 echo "=== ACTIONS ==="
 command cat "${ACTION_LOG}" 2>/dev/null || echo "(none)"
@@ -258,6 +266,7 @@ if [ -e "${CONFIG_DB_JSON}" ]; then
 else
     echo "config_db_exists=false"
 fi
+exit $FUNC_RC
 '''
 
 
