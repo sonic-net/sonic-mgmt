@@ -69,6 +69,17 @@ def _get_buffer_pg_entries(duthost, cli_namespace_prefix):
     return entries
 
 
+def _get_cable_length(duthost, cli_namespace_prefix, port):
+    return duthost.shell(
+        f"sonic-db-cli {cli_namespace_prefix} CONFIG_DB hget 'CABLE_LENGTH|AZURE' '{port}'"
+    )["stdout"].strip()
+
+
+def _is_zero_cable_length(duthost, cli_namespace_prefix, port):
+    value = _get_cable_length(duthost, cli_namespace_prefix, port)
+    return value in {"0", "0m", "0M"}
+
+
 def _find_pg_key(duthost, cli_namespace_prefix, port, pg_num):
     keys = _get_config_db_keys(duthost, cli_namespace_prefix, "BUFFER_PG")
     prefix = f"BUFFER_PG|{port}|{pg_num}"
@@ -114,6 +125,8 @@ def _get_pg_entry_profile(duthost, cli_namespace_prefix, entry_key):
 def _pick_pg_entry_for_replace(duthost, cli_namespace_prefix, profiles):
     entries = _get_buffer_pg_entries(duthost, cli_namespace_prefix)
     for port, pg_num, entry_key in entries:
+        if _is_zero_cable_length(duthost, cli_namespace_prefix, port):
+            continue
         current = _get_pg_entry_profile(duthost, cli_namespace_prefix, entry_key)
         if not current:
             continue
@@ -134,6 +147,8 @@ def _pick_pg_entry_for_replace(duthost, cli_namespace_prefix, profiles):
 def _pick_pg_entry_for_remove(duthost, cli_namespace_prefix):
     entries = _get_buffer_pg_entries(duthost, cli_namespace_prefix)
     for port, pg_num, entry_key in entries:
+        if _is_zero_cable_length(duthost, cli_namespace_prefix, port):
+            continue
         current = _get_pg_entry_profile(duthost, cli_namespace_prefix, entry_key)
         if current and "lossless" not in current:
             return port, pg_num, entry_key, current
