@@ -19,6 +19,26 @@ logger = logging.getLogger(__name__)
 CUSTOMIZED_BGP_ROUTER_ID = "8.8.8.8"
 
 
+def verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_v6_topo, vrf="default"):
+    if neighbor_type == "sonic":
+        if is_v6_topo:
+            cmd = "show ipv6 bgp neighbors {}".format(localip)
+        else:
+            cmd = "show ip bgp neighbors {}".format(localip)
+    elif neighbor_type == "eos":
+        if is_v6_topo:
+            cmd = "/usr/bin/Cli -c \"show ipv6 bgp peers {} vrf {}\"".format(localip, vrf)
+        else:
+            cmd = "/usr/bin/Cli -c \"show ip bgp neighbors {} vrf {}\"".format(localip, vrf)
+    output = nbrhost["host"].shell(cmd, module_ignore_errors=True)["stdout"]
+    pattern = r"BGP version 4, remote router ID (\d+\.\d+\.\d+\.\d+)"
+    match = re.search(pattern, output)
+    pytest_assert(match, "Cannot get remote BGP router id from [{}]".format(output))
+    pytest_assert(match.group(1) == expected_bgp_router_id,
+                  "BGP router id is unexpected, local: {}, fetch from remote:{}".format(
+                      expected_bgp_router_id, match.group(1)))
+
+
 def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, nbrhosts, tbinfo):
     is_v6_topo = is_ipv6_only_topology(tbinfo)
     cmd = "show ipv6 bgp summary" if is_v6_topo else "show ip bgp summary"
@@ -53,27 +73,9 @@ def verify_bgp(enum_asic_index, duthost, expected_bgp_router_id, neighbor_type, 
             "Cannot find local ip for {}. "
             "Local IP map: {}"
         ).format(neighbor_name, local_ip_map))
-
-        if neighbor_type == "sonic":
-            if is_v6_topo:
-                cmd = "show ipv6 bgp neighbors {}".format(local_ip_map[neighbor_name])
-            else:
-                cmd = "show ip bgp neighbors {}".format(local_ip_map[neighbor_name])
-        elif neighbor_type == "eos":
-            if is_v6_topo:
-                cmd = "/usr/bin/Cli -c \"show ipv6 bgp peers {}\"".format(local_ip_map[neighbor_name])
-            else:
-                cmd = "/usr/bin/Cli -c \"show ip bgp neighbors {}\"".format(local_ip_map[neighbor_name])
-        output = nbrhost["host"].shell(cmd, module_ignore_errors=True)['stdout']
-        pattern = r"BGP version 4, remote router ID (\d+\.\d+\.\d+\.\d+)"
-        match = re.search(pattern, output)
-        pytest_assert(match, (
-            "Cannot get remote BGP router id from [{}]. "
-        ).format(output))
-
-        pytest_assert(match.group(1) == expected_bgp_router_id, (
-            "BGP router id is unexpected, local: {}, fetch from remote: {}. "
-        ).format(expected_bgp_router_id, match.group(1)))
+        localip = local_ip_map[neighbor_name]
+        vrf = neighbor_name if nbrhost["is_multi_vrf_peer"] else "default"
+        verify_bgp_peer(neighbor_type, nbrhost, localip, expected_bgp_router_id, is_v6_topo, vrf=vrf)
 
 
 @pytest.fixture()
