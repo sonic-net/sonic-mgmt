@@ -6,6 +6,7 @@ from ipaddress import ip_address
 
 import ptf.packet as scapy
 import ptf.testutils as testutils
+from scapy.all import Ether, IP, VXLAN, IPv6, GRE
 import scapy.utils as scapy_utils
 from configs import privatelink_config as pl
 from constants import *  # noqa: F403
@@ -190,8 +191,8 @@ def inbound_pl_packets(
     return gre_packet, masked_exp_packet
 
 
-def plnsg_packets(config):
-    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(config, "vxlan")
+def plnsg_packets(config, **kwargs):
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(config, "vxlan", **kwargs)
     inner_pkt = exp_dpu_to_pe_pkt.exp_pkt
     inner_pkt[scapy.Ether].src = config[DPU_DATAPLANE_MAC]
     inner_pkt[scapy.Ether].dst = config[NPU_DATAPLANE_MAC]
@@ -227,7 +228,12 @@ def outbound_pl_packets(
         VXLAN_UDP_BASE_SRC_PORT + 2**VXLAN_UDP_SRC_PORT_MASK - 1),
     inner_sport=6789,
     inner_dport=4567,
-    vni=None
+    vni=None,
+    tcp_flag_syn=False,
+    tcp_flag_ack=False,
+    tcp_flag_fin=False,
+    tcp_seq_num=None,
+    tcp_ack_num=None
 ):
     outer_vni = int(vni if vni else pl.VM_VNI)
 
@@ -241,6 +247,21 @@ def outbound_pl_packets(
     )
     inner_packet[l4_protocol_key].sport = inner_sport
     inner_packet[l4_protocol_key].dport = inner_dport
+
+    if inner_packet_type == "tcp":
+        tcp_flags = ''
+        if tcp_seq_num:
+            inner_packet[l4_protocol_key].seq = tcp_seq_num
+        if tcp_ack_num:
+            inner_packet[l4_protocol_key].ack = tcp_ack_num
+        if tcp_flag_syn:
+            tcp_flags += 'S'
+        if tcp_flag_ack:
+            tcp_flags += 'A'
+        if tcp_flag_fin:
+            tcp_flags += 'F'
+        if tcp_flags:
+            inner_packet[l4_protocol_key].flags = tcp_flags
 
     if outer_encap == "vxlan":
         outer_packet = testutils.simple_vxlan_packet(
@@ -542,3 +563,127 @@ def get_scapy_l4_protocol_key(inner_packet_type):
     scapy_udp = scapy.UDP
     l4_protocol_key = scapy_udp if inner_packet_type == 'udp' else scapy_tcp
     return l4_protocol_key
+
+
+def generate_pl_pkts_with_inner_l4_parameters(
+                         config,
+                         outer_encap="vxlan",
+                         floating_nic=False,
+                         inner_packet_type="udp",
+                         inner_sport=4567,
+                         inner_dport=6789,
+                         vni=None,
+                         plnsg=False):
+    """Generates PL packets with specific L4 protocol & its inner source and destination ports
+    """
+    if inner_packet_type == "udp":
+        if plnsg:
+            logger.info(f"Generating outbound PLNSG {inner_packet_type} packets")
+            vm_to_dpu_pkt, exp_dpu_to_pe_pkt = plnsg_packets(
+                config, floating_nic=floating_nic,
+                inner_packet_type=inner_packet_type,
+                inner_sport=inner_sport, inner_dport=inner_dport, vni=vni)
+        else:
+            logger.info(f"Generating outbound {inner_packet_type} packets")
+            vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
+                       config, outer_encap, floating_nic=floating_nic,
+                       inner_packet_type=inner_packet_type,
+                       inner_sport=inner_sport,
+                       inner_dport=inner_dport, vni=vni)
+
+        logger.info(f"Generating inbound {inner_packet_type} packets")
+        pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(
+                       config, floating_nic=floating_nic,
+                       inner_packet_type=inner_packet_type,
+                       inner_sport=inner_dport,
+                       inner_dport=inner_sport)
+    elif inner_packet_type == "tcp":
+        if plnsg:
+            logger.info(f"Generating outbound PLNSG {inner_packet_type} packets with SYN flag")
+            vm_to_dpu_pkt, exp_dpu_to_pe_pkt = plnsg_packets(
+                config, floating_nic=floating_nic,
+                inner_packet_type=inner_packet_type, inner_sport=inner_sport,
+                inner_dport=inner_dport, vni=vni, tcp_flag_syn=True,
+                tcp_seq_num=0)
+        else:
+            logger.info(f"Generating outbound {inner_packet_type} packets")
+            vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
+                        config, outer_encap, floating_nic=floating_nic,
+                        inner_packet_type=inner_packet_type,
+                        inner_sport=inner_sport,
+                        inner_dport=inner_dport, vni=vni, tcp_flag_syn=True,
+                        tcp_seq_num=0)
+        logger.info(f"Generating inbound {inner_packet_type} packets")
+        pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(
+                       config, floating_nic=floating_nic,
+                       inner_packet_type=inner_packet_type,
+                       inner_sport=inner_dport,
+                       inner_dport=inner_sport, tcp_flag_syn=True, tcp_flag_ack=True,
+                       tcp_seq_num=0, tcp_ack_num=100)
+    logger.info("Finished generating packets")
+    return vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt
+
+
+def get_overlay_packet(pkt, plnsg=False):
+    """Extracts the inner (overlay) packet from the given packet
+    arguments:
+    pkt: the packet from which to extract the inner packet
+    (should be either VXLAN or GRE encapsulated or both for PLNSG)
+    plnsg: a boolean indicating whether the packet is for PLNSG.
+    returns: the inner (overlay) packet which is CE packet without any encapsulation
+    """
+    if plnsg:
+        if VXLAN in pkt and GRE in pkt:
+            return pkt[VXLAN][Ether][GRE][Ether]
+        else:
+            return pkt[VXLAN][Ether]
+    return pkt[VXLAN][Ether] if VXLAN in pkt else pkt[GRE][Ether]
+
+
+def get_overlay_pkt_details(pkt, plnsg=False):
+    """Extracts the source IP, destination IP, source port and destination port from the inner (overlay) packet
+    arguments:
+    pkt: the packet from which to extract the details (should be CE packet without any encapsulation)
+    plnsg: a boolean indicating whether the packet is for PLNSG, which affects how to extract the inner packet
+    returns: a dictionary containing the source IP, destination IP, source port and destination port
+    """
+    overlay_pkt = get_overlay_packet(pkt, plnsg)
+    src_ip = (
+        overlay_pkt[IP].src if IP in overlay_pkt
+        else overlay_pkt[IPv6].src
+    )
+    dst_ip = (
+        overlay_pkt[IP].dst if IP in overlay_pkt
+        else overlay_pkt[IPv6].dst
+    )
+    src_port = overlay_pkt.sport
+    dst_port = overlay_pkt.dport
+    packet_dict = {
+        "src_ip": src_ip,
+        "dst_ip": dst_ip,
+        "sport": src_port,
+        "dport": dst_port
+    }
+    return packet_dict
+
+
+def get_underlay_pkt_details(pkt):
+    """Extracts the source IP and destination IP from the underlay packet
+    arguments:
+    pkt: the packet from which to extract the outer layer details
+    returns: a dictionary containing the source IP and destination IP
+    """
+    return {"src_ip": pkt[IP].src, "dst_ip": pkt[IP].dst}
+
+
+def get_plnsg_gre_pkt_details(pkt):
+    """Extracts the source IP and destination IP from the GRE packet in PLNSG scenario
+    arguments:
+    pkt: the packet from which to extract the GRE layer details
+    (should be PLNSG encapsulated with VXLAN outer & GRE middle layers)
+    returns: a dictionary containing the source IP and destination IP
+    """
+    return {
+        "src_ip": pkt[VXLAN][Ether][IP].src,
+        "dst_ip": pkt[VXLAN][Ether][IP].dst
+    }
