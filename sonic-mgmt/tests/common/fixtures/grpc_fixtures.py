@@ -4,6 +4,7 @@ Pytest fixtures for gRPC clients (gNOI, gNMI, etc.)
 This module provides pytest fixtures for easy access to gRPC clients with
 automatic configuration discovery, making it simple to write gRPC-based tests.
 """
+import os
 import pytest
 import logging
 from tests.common.grpc_config import grpc_config
@@ -176,7 +177,7 @@ def ptf_gnmi(ptf_grpc):
 
 
 @pytest.fixture(scope="module")
-def setup_gnoi_tls_server(duthost, localhost, ptfhost):
+def setup_gnoi_tls_server(duthost, ptfhost):
     """
     Set up gNOI server with TLS certificates and configuration.
 
@@ -185,7 +186,7 @@ def setup_gnoi_tls_server(duthost, localhost, ptfhost):
 
     The fixture:
     1. Creates a configuration checkpoint for rollback
-    2. Generates TLS certificates with proper SAN for DUT IP
+    2. Generates TLS certificates with proper SAN for DUT IP (backdated to handle clock skew)
     3. Distributes certificates to DUT and PTF container
     4. Configures CONFIG_DB for TLS mode (port 50052)
     5. Restarts the gNOI server process
@@ -194,7 +195,6 @@ def setup_gnoi_tls_server(duthost, localhost, ptfhost):
 
     Args:
         duthost: DUT host instance to configure
-        localhost: Localhost instance for certificate generation
         ptfhost: PTF host instance for client certificates
 
     Usage:
@@ -207,10 +207,14 @@ def setup_gnoi_tls_server(duthost, localhost, ptfhost):
     Note:
         Client fixtures (ptf_grpc, ptf_gnoi) automatically adapt to TLS mode
         when this fixture is active through GNMIEnvironment detection.
+
+        Certificates are backdated by 1 day to handle clock skew between
+        the test host, DUT, and PTF container.
     """
     from tests.common.gu_utils import create_checkpoint, rollback
 
     checkpoint_name = "gnoi_tls_setup"
+    cert_dir = "/tmp/gnoi_certs"
 
     logger.info("Setting up gNOI TLS server environment")
 
@@ -218,8 +222,8 @@ def setup_gnoi_tls_server(duthost, localhost, ptfhost):
     create_checkpoint(duthost, checkpoint_name)
 
     try:
-        # 2. Generate certificates
-        _create_gnoi_certs(duthost, localhost, ptfhost)
+        # 2. Generate and distribute certificates
+        _create_gnoi_certs(duthost, ptfhost, cert_dir)
 
         # 3. Configure server for TLS mode
         _configure_gnoi_tls_server(duthost)
@@ -243,59 +247,32 @@ def setup_gnoi_tls_server(duthost, localhost, ptfhost):
             logger.error(f"Failed to rollback configuration: {e}")
 
         try:
-            _delete_gnoi_certs(localhost)
+            _delete_gnoi_certs(cert_dir)
             logger.info("Certificate cleanup completed")
         except Exception as e:
             logger.error(f"Failed to cleanup certificates: {e}")
 
 
-def _create_gnoi_certs(duthost, localhost, ptfhost):
-    """Generate gNOI TLS certificates with proper SAN for DUT IP."""
+def _create_gnoi_certs(duthost, ptfhost, cert_dir):
+    """
+    Generate and distribute gNOI TLS certificates.
+
+    Certificates are backdated by 1 day to handle clock skew between hosts.
+
+    Args:
+        duthost: DUT host instance (for IP and copying server certs)
+        ptfhost: PTF host instance (for copying client certs)
+        cert_dir: Local directory to store generated certificates
+    """
+    from tests.common.cert_utils import create_gnmi_cert_generator
+
     logger.info("Generating gNOI TLS certificates")
 
-    # Create all certificate files in /tmp to avoid polluting working directory
-    cert_dir = "/tmp/gnoi_certs"
-    localhost.shell(f"mkdir -p {cert_dir}")
-    localhost.shell(f"cd {cert_dir}")
+    # Generate certificates with 1-day backdating to handle clock skew
+    generator = create_gnmi_cert_generator(server_ip=duthost.mgmt_ip)
+    generator.write_all(cert_dir)
 
-    # Create Root key
-    localhost.shell(f"cd {cert_dir} && openssl genrsa -out gnmiCA.key 2048")
-
-    # Create Root cert
-    localhost.shell(f"""cd {cert_dir} && openssl req -x509 -new -nodes -key gnmiCA.key -sha256 -days 1825 \
-                       -subj '/CN=test.gnmi.sonic' -out gnmiCA.cer""")
-
-    # Create server key
-    localhost.shell(f"cd {cert_dir} && openssl genrsa -out gnmiserver.key 2048")
-
-    # Create server CSR
-    localhost.shell(f"""cd {cert_dir} && openssl req -new -key gnmiserver.key \
-                       -subj '/CN=test.server.gnmi.sonic' -out gnmiserver.csr""")
-
-    # Create extension file with DUT IP SAN
-    ext_conf_content = f"""[ req_ext ]
-subjectAltName = @alt_names
-[alt_names]
-DNS.1   = hostname.com
-IP      = {duthost.mgmt_ip}"""
-
-    localhost.shell(f"cd {cert_dir} && echo '{ext_conf_content}' > extfile.cnf")
-
-    # Sign server certificate with SAN extension
-    localhost.shell(f"""cd {cert_dir} && openssl x509 -req -in gnmiserver.csr -CA gnmiCA.cer -CAkey gnmiCA.key \
-                       -CAcreateserial -out gnmiserver.cer -days 825 -sha256 \
-                       -extensions req_ext -extfile extfile.cnf""")
-
-    # Create client key
-    localhost.shell(f"cd {cert_dir} && openssl genrsa -out gnmiclient.key 2048")
-
-    # Create client CSR
-    localhost.shell(f"""cd {cert_dir} && openssl req -new -key gnmiclient.key \
-                       -subj '/CN=test.client.gnmi.sonic' -out gnmiclient.csr""")
-
-    # Sign client certificate
-    localhost.shell(f"""cd {cert_dir} && openssl x509 -req -in gnmiclient.csr -CA gnmiCA.cer -CAkey gnmiCA.key \
-                       -CAcreateserial -out gnmiclient.cer -days 825 -sha256""")
+    logger.info(f"Certificates generated in {cert_dir}")
 
     # Get certificate copy destinations from centralized config
     copy_destinations = grpc_config.get_cert_copy_destinations()
@@ -343,9 +320,10 @@ def _restart_gnoi_server(duthost):
     logger.info("Restarting gNOI server process")
 
     # Check if the 'gnmi' container exists
-    container_check = duthost.shell("docker ps --format '{{.Names}}' | grep '^gnmi$'", module_ignore_errors=True)
+    container_check = duthost.shell(r"docker ps --format \{\{.Names\}\} | grep '^gnmi$'",
+                                    module_ignore_errors=True)
 
-    if container_check['rc'] != 0:
+    if container_check.get('rc', 1) != 0:
         raise Exception("The 'gnmi' container does not exist.")
 
     # Restart gnmi-native process to pick up new configuration
@@ -397,10 +375,12 @@ def _verify_gnoi_tls_connectivity(duthost, ptfhost):
     logger.info("TLS connectivity verification completed successfully")
 
 
-def _delete_gnoi_certs(localhost):
+def _delete_gnoi_certs(cert_dir):
     """Clean up generated certificate files."""
+    import shutil
+
     logger.info("Cleaning up certificate files")
 
-    # Remove the entire certificate directory in /tmp
-    cert_dir = "/tmp/gnoi_certs"
-    localhost.shell(f"rm -rf {cert_dir}", module_ignore_errors=True)
+    # Remove the entire certificate directory
+    if os.path.exists(cert_dir):
+        shutil.rmtree(cert_dir, ignore_errors=True)

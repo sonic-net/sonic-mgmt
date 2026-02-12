@@ -1,3 +1,4 @@
+import time
 import logging
 import pytest
 import allure
@@ -318,4 +319,129 @@ def test_orchagent_logrotate(orch_logrotate_setup, duthosts, enum_rand_one_per_h
     pytest_assert(
         wait_until(30, 1, 0, no_pending_entries, duthost, ignore_list=ignore_entries),
         "Found pending entries in APPL_DB"
+    )
+
+
+def get_var_log_avail_kb(duthost):
+    """Return 'Available' KB for /var/log filesystem"""
+    out = duthost.shell("sudo df -k /var/log | sed -n 2p | awk '{ print $4 }'")["stdout"]
+    return int(out)
+
+
+def is_var_log_full(duthost):
+    return get_var_log_avail_kb(duthost) == 0
+
+
+def delete_all_archives_under_var_log(duthost):
+    """
+    Ensure there are no archived logs before reproducing the bug.
+    """
+    duthost.shell(
+        r"sudo find /var/log -type f -regextype posix-extended "
+        r"-regex '.*\.[0-9]+(\.gz)?$' -delete",
+        module_ignore_errors=True
+    )
+    duthost.shell("sudo find /var/log -type f -name '*.1.gz' -delete", module_ignore_errors=True)
+
+
+def count_archives_under_var_log(duthost):
+    out = duthost.shell(
+        r"sudo find /var/log -type f -regextype posix-extended "
+        r"-regex '.*\.[0-9]+(\.gz)?$' | wc -l"
+    )["stdout"]
+    return int(out)
+
+
+def build_origin_log_targets(duthost):
+    targets = [
+        "/var/log/syslog",
+        "/var/log/auth.log",
+        "/var/log/cron.log",
+        "/var/log/teamd.log",
+        "/var/log/telemetry.log",
+        "/var/log/gnmi.log",
+    ]
+
+    duthost.shell("sudo mkdir -p /var/log/swss")
+
+    if duthost.sonichost.is_multi_asic:
+        # create per-asic origin logs to look like real multi-asic devices
+        for i in range(len(duthost.asics)):
+            targets.append(f"/var/log/swss/swss.asic{i}.rec")
+            targets.append(f"/var/log/swss/sairedis.asic{i}.rec")
+    else:
+        targets.append("/var/log/swss/swss.rec")
+        targets.append("/var/log/swss/sairedis.rec")
+
+    return targets
+
+
+def fill_var_log_with_origin_logs_until_full(duthost, chunk_kb=10 * 1024):
+    """
+    Fill /var/log to 100%.
+    Repeatedly grow origin log files until df Available becomes 0.
+    """
+    targets = build_origin_log_targets(duthost)
+
+    # Ensure files exist (origin logs)
+    for p in targets:
+        duthost.shell(f"sudo touch {p}")
+
+    idx = 0
+    while True:
+        avail_kb = get_var_log_avail_kb(duthost)
+        if avail_kb <= 0:
+            break
+
+        # Allocate up to what's available
+        alloc_kb = min(chunk_kb, avail_kb)
+        p = targets[idx % len(targets)]
+
+        cur_bytes = int(duthost.shell(f"sudo stat -c%s {p}")["stdout"] or "0")
+        new_bytes = cur_bytes + (alloc_kb * 1024)
+
+        duthost.shell(f"sudo fallocate -l {new_bytes} {p}", module_ignore_errors=True)
+        idx += 1
+
+    pytest_assert(is_var_log_full(duthost), "Failed to fill /var/log to 100% (Available != 0)")
+
+
+def syslog_contains_marker(duthost, marker):
+    out = duthost.shell(f"sudo grep -F '{marker}' /var/log/syslog", module_ignore_errors=True)
+    return out.get("rc", 1) == 0
+
+
+@pytest.mark.disable_loganalyzer
+def test_logrotate_full_partition_no_archives_cleanup(rand_selected_dut, simulate_small_var_log_partition):
+    """
+    Covers the corner case:
+      - /var/log is 100% full
+      - space is consumed by origin logs only
+      - no archived logs exist yet
+    Expectation after fix:
+      - running logrotate -f should free space
+      - syslog becomes writable again
+    """
+    duthost = rand_selected_dut
+
+    # Precondition: no archives exist
+    delete_all_archives_under_var_log(duthost)
+    pytest_assert(count_archives_under_var_log(duthost) == 0, "Precondition failed: archived logs exist")
+
+    # Precondition: /var/log becomes 100% full due to origin logs
+    fill_var_log_with_origin_logs_until_full(duthost)
+    pytest_assert(is_var_log_full(duthost), "Precondition failed: /var/log is not full")
+
+    # Trigger: forced logrotate. This should rotate logs (creating .1) then cleanup archives in postrotate(syslog)
+    run_logrotate(duthost, force=True)
+
+    # Validate: space is available again
+    pytest_assert(get_var_log_avail_kb(duthost) > 0, "Expected /var/log to have free space after logrotate cleanup")
+
+    # Validate: syslog writable again (functional)
+    marker = f"logrotate-full-no-archives-{int(time.time())}"
+    duthost.shell(f"logger -t logrotate-test '{marker}'", module_ignore_errors=True)
+    pytest_assert(
+        wait_until(30, 1, 0, syslog_contains_marker, duthost, marker),
+        "Expected syslog to be writable after cleanup, but marker not found"
     )
