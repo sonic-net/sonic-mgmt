@@ -97,7 +97,30 @@ if [ "$FAKE_PENDING_MIGRATION" = "true" ]; then
     touch "${FAKE_ROOT}/tmp/pending_config_migration"
 fi
 
-# Override constants to use fake paths
+# --- Step 1: Extract functions from the DUT's actual config-setup script ---
+# We cannot source config-setup directly because it has an execution block
+# at the bottom. Instead, extract everything up to "### Execution starts
+# here ###" (or the first non-function line after all function defs).
+EXTRACTED="${HARNESS_DIR}/config_setup_functions.sh"
+sed -n '1,/^### Execution starts here ###/p' \
+    /usr/bin/config-setup | head -n -1 > "${EXTRACTED}"
+
+# Rewrite hardcoded paths in the extracted script to use our fake root.
+# The DUT script uses /tmp/pending_* paths directly; redirect to fake root.
+sed -i "s|/tmp/pending_config_migration|${FAKE_ROOT}/tmp/pending_config_migration|g" \
+    "${EXTRACTED}"
+sed -i "s|/tmp/pending_config_initialization|${FAKE_ROOT}/tmp/pending_config_initialization|g" \
+    "${EXTRACTED}"
+sed -i "s|/tmp/pending_ztp_restart|${FAKE_ROOT}/tmp/pending_ztp_restart|g" \
+    "${EXTRACTED}"
+
+# Source the extracted functions — this gives us the DUT's real
+# do_config_initialization(), boot_config(), check_system_warm_boot(),
+# do_config_migration(), and all other functions as installed on the DUT.
+source "${EXTRACTED}"
+
+# --- Step 2: Override constants to use fake paths ---
+# These must come AFTER sourcing so they replace the real paths.
 CONFIG_DB_JSON="${FAKE_ROOT}/etc/sonic/config_db.json"
 MINGRAPH_FILE="${FAKE_ROOT}/etc/sonic/minigraph.xml"
 TMP_ZTP_CONFIG_DB_JSON="${FAKE_ROOT}/tmp/ztp_config_db.json"
@@ -106,8 +129,12 @@ CONFIG_SETUP_POST_MIGRATION_FLAG="${CONFIG_SETUP_VAR_DIR}/pending_post_migration
 CONFIG_SETUP_INITIALIZATION_FLAG="${CONFIG_SETUP_VAR_DIR}/pending_initialization"
 CONFIG_POST_MIGRATION_HOOKS="${FAKE_ROOT}/etc/config-setup/config-migration-post-hooks.d"
 FACTORY_DEFAULT_HOOKS="${FAKE_ROOT}/etc/config-setup/factory-default-hooks.d"
+NUM_ASIC=1
 
-# Override destructive functions with stubs
+# --- Step 3: Override destructive/external commands with safe stubs ---
+# These MUST come AFTER sourcing the extracted functions so our stubs
+# replace the real implementations of commands that have side effects.
+
 reload_minigraph() {
     echo "ACTION: reload_minigraph" >> "${ACTION_LOG}"
     echo "Reloading minigraph..."
@@ -121,12 +148,13 @@ reload_configdb() {
 generate_config() {
     echo "ACTION: generate_config $1 $2" >> "${ACTION_LOG}"
     if [ "$1" = "factory" ]; then
-        # Create a fake config_db.json so the flow sees it as generated
         echo '{}' > "$2"
     elif [ "$1" = "ztp" ]; then
         echo '{}' > "$2"
     fi
 }
+
+apply_tacacs() { :; }
 
 config() {
     echo "ACTION: config $*" >> "${ACTION_LOG}"
@@ -136,7 +164,6 @@ do_db_migration() {
     echo "ACTION: do_db_migration" >> "${ACTION_LOG}"
 }
 
-# Override ztp command
 ztp() {
     if [ "$1" = "status" ] && [ "$2" = "-c" ]; then
         if [ "$FAKE_ZTP_ENABLED" = "true" ]; then
@@ -149,10 +176,10 @@ ztp() {
     fi
 }
 
-# Override sonic-db-cli to be a no-op for SET/DEL, return test values for GET
 sonic-db-cli() {
     if [ "$1" = "STATE_DB" ] && [ "$2" = "hget" ]; then
-        if [ "$3" = "WARM_RESTART_ENABLE_TABLE|system" ] && [ "$4" = "enable" ]; then
+        if [ "$3" = "WARM_RESTART_ENABLE_TABLE|system" ] && \
+           [ "$4" = "enable" ]; then
             echo "$FAKE_WARM_BOOT"
         fi
     elif [ "$1" = "CONFIG_DB" ] && [ "$2" = "SET" ]; then
@@ -162,7 +189,7 @@ sonic-db-cli() {
     fi
 }
 
-# Override check for /proc/cmdline warm boot detection
+# Override /proc/cmdline reads for warm boot detection
 cat() {
     if [ "$1" = "/proc/cmdline" ]; then
         if [ "$FAKE_WARM_BOOT" = "true" ]; then
@@ -175,22 +202,6 @@ cat() {
     fi
 }
 
-# Override check_system_warm_boot to use our overridden cat and sonic-db-cli
-check_system_warm_boot() {
-    WARM_BOOT="false"
-    case "$(cat /proc/cmdline)" in
-    *SONIC_BOOT_TYPE=warm*)
-        WARM_BOOT="true"
-        return
-        ;;
-    esac
-    SYSTEM_WARM_START=$(sonic-db-cli STATE_DB hget "WARM_RESTART_ENABLE_TABLE|system" enable)
-    if [ "x${SYSTEM_WARM_START}" = "xtrue" ]; then
-        WARM_BOOT="true"
-    fi
-}
-
-# Override ztp_is_enabled
 ztp_is_enabled() {
     if [ "$FAKE_ZTP_ENABLED" = "true" ]; then
         return 0
@@ -199,7 +210,7 @@ ztp_is_enabled() {
     fi
 }
 
-# Stub out functions not under test
+# Stub helpers that depend on real filesystem or services
 run_hookdir() { :; }
 copy_config_files_and_directories() { :; }
 copy_post_migration_hooks() { :; }
@@ -208,102 +219,23 @@ check_all_config_db_present() {
     [ -r "${CONFIG_DB_JSON}" ]
 }
 
-# Set NUM_ASIC for multi-npu check (single ASIC for testing)
-NUM_ASIC=1
+# --- Step 4: Re-source the functions under test ---
+# The functions under test (do_config_initialization, boot_config, etc.)
+# were sourced in Step 1 from the DUT. However, they reference variables
+# and call functions that we just overrode in Steps 2-3. Since bash
+# functions capture code, not variable values, the DUT's functions will
+# use our fake paths and stub commands at call time.
+#
+# BUT: check_system_warm_boot() reads /proc/cmdline via 'cat'. Since
+# the DUT's version may or may not use our overridden cat (depending on
+# whether it uses a subshell or case statement), we re-source it here
+# to pick up the DUT's actual implementation. Our 'cat' override above
+# will intercept /proc/cmdline reads regardless.
+#
+# The key functions under test come directly from the DUT's config-setup.
+# We do NOT redefine them here — that's the whole point.
 
-# Source the do_config_initialization and boot_config functions from
-# the actual config-setup script. We can't source the whole file because
-# it executes commands at the bottom, so we extract just the functions.
-# Instead, define them inline based on what we need to test.
-
-do_config_initialization() {
-    if [ -r ${MINGRAPH_FILE} ]; then
-        echo "No config_db.json found but minigraph.xml is available, using minigraph..."
-        reload_minigraph
-        rm -f /tmp/pending_config_initialization 2>/dev/null || true
-        sonic-db-cli CONFIG_DB SET "CONFIG_DB_INITIALIZED" "1"
-        return 0
-    fi
-
-    if ! ztp_is_enabled ; then
-        echo "No configuration detected, generating factory default configuration..."
-        generate_config factory ${CONFIG_DB_JSON}
-        reload_configdb ${CONFIG_DB_JSON}
-    fi
-
-    if ztp_is_enabled ; then
-        echo "No configuration detected, initiating zero touch provisioning..."
-        generate_config ztp ${TMP_ZTP_CONFIG_DB_JSON}
-        reload_configdb ${TMP_ZTP_CONFIG_DB_JSON}
-        rm -f ${TMP_ZTP_CONFIG_DB_JSON}
-    fi
-
-    rm -f /tmp/pending_config_initialization 2>/dev/null || true
-    sonic-db-cli CONFIG_DB SET "CONFIG_DB_INITIALIZED" "1"
-}
-
-do_config_migration() {
-    copy_config_files_and_directories minigraph.xml snmp.yml acl.json
-    copy_config_files_and_directories $(get_config_db_file_list)
-    copy_post_migration_hooks
-    run_hookdir ${CONFIG_POST_MIGRATION_HOOKS} ${CONFIG_SETUP_POST_MIGRATION_FLAG}
-
-    if [ "x${WARM_BOOT}" = "xtrue" ]; then
-        echo "Warm reboot detected..."
-        do_db_migration
-        rm -f "${FAKE_ROOT}/tmp/pending_config_migration"
-        return 0
-    elif check_all_config_db_present; then
-        echo "Use config_db.json from old system..."
-        reload_configdb
-        do_db_migration
-    elif [ -r ${MINGRAPH_FILE} ]; then
-        echo "Use minigraph.xml from old system..."
-        reload_minigraph
-        do_db_migration
-    else
-        echo "Didn't found neither config_db.json nor minigraph.xml ..."
-    fi
-
-    rm -f "${FAKE_ROOT}/tmp/pending_config_migration"
-}
-
-boot_config() {
-    check_system_warm_boot
-    if [ -e "${FAKE_ROOT}/tmp/pending_config_migration" ] || \
-       [ -e "${CONFIG_SETUP_POST_MIGRATION_FLAG}" ]; then
-        do_config_migration
-    fi
-
-    if [ "x${WARM_BOOT}" = "xtrue" ]; then
-        echo "Warm boot detected, skipping config initialization and ZTP."
-        return 0
-    fi
-
-    if [ ${NUM_ASIC} -gt 1 ]; then
-        return 0
-    fi
-
-    if [ -e "${FAKE_ROOT}/tmp/pending_config_initialization" ] || \
-       [ -e "${CONFIG_SETUP_INITIALIZATION_FLAG}" ]; then
-        do_config_initialization
-    fi
-
-    if [ ! -e ${CONFIG_DB_JSON} ]; then
-        do_config_initialization
-        if [ ! -e ${MINGRAPH_FILE} ] && ztp_is_enabled ; then
-            ztp_status=$(ztp status -c)
-            if [ "$ztp_status" = "5:SUCCESS" ] || \
-               [ "$ztp_status" = "6:FAILED" ]; then
-                ztp erase -y
-            else
-                touch "${FAKE_ROOT}/tmp/pending_ztp_restart"
-            fi
-        fi
-    fi
-}
-
-# Run the requested function and capture output
+# --- Step 5: Run the requested function ---
 echo "=== TEST: $TEST_FUNC ==="
 echo "  config_db=$FAKE_CONFIG_DB_EXISTS minigraph=$FAKE_MINIGRAPH_EXISTS"
 echo "  ztp=$FAKE_ZTP_ENABLED warm=$FAKE_WARM_BOOT migration=$FAKE_PENDING_MIGRATION"
@@ -312,12 +244,20 @@ echo "=== OUTPUT ==="
 $TEST_FUNC
 
 echo "=== ACTIONS ==="
-cat "${ACTION_LOG}" 2>/dev/null || echo "(none)"
+command cat "${ACTION_LOG}" 2>/dev/null || echo "(none)"
 
 # Report state
 echo "=== STATE ==="
-[ -e "${FAKE_ROOT}/tmp/pending_ztp_restart" ] && echo "pending_ztp_restart=true" || echo "pending_ztp_restart=false"
-[ -e "${CONFIG_DB_JSON}" ] && echo "config_db_exists=true" || echo "config_db_exists=false"
+if [ -e "${FAKE_ROOT}/tmp/pending_ztp_restart" ]; then
+    echo "pending_ztp_restart=true"
+else
+    echo "pending_ztp_restart=false"
+fi
+if [ -e "${CONFIG_DB_JSON}" ]; then
+    echo "config_db_exists=true"
+else
+    echo "config_db_exists=false"
+fi
 '''
 
 
