@@ -202,10 +202,11 @@ def test_pmon_psud_psu_status_and_led(duthosts, enum_supervisor_dut_hostname, da
         if status.lower() != "true":
             psu_status_failures.append("{} status is '{}', expected 'true'".format(psu_name, status))
 
-        # Check PSU LED is green
+        # Check PSU LED is green when a real color value is reported.
+        # Some platforms report 'N/A' when PSU LED status is not supported; accept that as well.
         led_status = psu_data.get("led_status", "unknown")
-        if led_status.lower() != "green":
-            psu_led_failures.append("{} led_status is '{}', expected 'green'".format(psu_name, led_status))
+        if led_status.lower() not in ("green", "n/a"):
+            psu_led_failures.append("{} led_status is '{}', expected 'green' or 'N/A'".format(psu_name, led_status))
 
     pytest_assert(present_psu_count > 0, "No present PSUs found in STATE_DB")
     logger.info("Validated {} present PSU(s) for status and LED".format(present_psu_count))
