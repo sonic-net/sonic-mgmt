@@ -379,16 +379,16 @@ class PtfGrpc:
             GrpcTimeoutError: If call times out
         """
         service_method = f"{service}/{method}"
-        cmd = self._build_grpcurl_cmd(service_method=service_method)
 
         # Prepare request data
         request_data = "{}"  # Default empty JSON
+        extra_args = ["-d", "@"]
         if request:
             if isinstance(request, dict):
                 request_data = json.dumps(request)
             else:
                 request_data = str(request)
-
+        cmd = self._build_grpcurl_cmd(extra_args=extra_args, service_method=service_method)
         result = self._execute_grpcurl(cmd, request_data)
 
         try:
@@ -479,7 +479,7 @@ class PtfGrpc:
             GrpcTimeoutError: If call times out
         """
         service_method = f"{service}/{method}"
-        cmd = self._build_grpcurl_cmd(service_method=service_method)
+        cmd = self._build_grpcurl_cmd(extra_args=["-d", "@"], service_method=service_method)
 
         # Prepare multiple requests as newline-delimited JSON
         if not requests:
