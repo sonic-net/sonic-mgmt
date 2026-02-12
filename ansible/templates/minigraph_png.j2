@@ -10,7 +10,11 @@
         <EndDevice>{{ vms[index] }}</EndDevice>
         <EndPort>{{ vm_intfs[if_index] }}</EndPort>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
+        {% if num_asics > 1 %}
         <StartPort>{{ port_alias[dut_intfs[if_index]] }}</StartPort>
+        {% else %}
+        <StartPort>{{ port_alias_map[port_alias[dut_intfs[if_index]]] }}</StartPort>
+        {% endif %}
 {% if device_conn[inventory_hostname][port_alias_map[port_alias[dut_intfs[if_index]]]] is defined %}
         <Bandwidth>{{ device_conn[inventory_hostname][port_alias_map[port_alias[dut_intfs[if_index]]]]['speed'] }}</Bandwidth>
 {% endif %}
@@ -106,7 +110,11 @@
         <EndPort>{{ front_panel_asic_ifnames[if_index] }}</EndPort>
         <FlowControl>true</FlowControl>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
+        {% if num_asics > 1 %}
         <StartPort>{{ port_alias[loop.index - 1] }}</StartPort>
+        {% else %}
+        <StartPort>{{ port_alias_map[port_alias[loop.index - 1]] }}</StartPort>
+        {% endif %}
         <Validate>true</Validate>
       </DeviceLinkBase>
 {% endfor %}
