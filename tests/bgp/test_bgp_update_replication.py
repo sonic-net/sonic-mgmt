@@ -124,7 +124,7 @@ def setup_duthost_intervals(duthost):
     PLATFORM_INTERVALS = {
         'mellanox': [4.0, 3.5, 3.0],
         'arista': [5.0, 4.5, 4.0],
-        'vpp': [20.0, 18.0, 16.0]
+        'vpp': [40.0, 36.0, 32.0]
     }
     dut_platform = duthost.facts["platform"]
     dut_asic_type = duthost.facts.get("asic_type", "").lower()
