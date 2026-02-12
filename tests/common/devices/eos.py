@@ -30,7 +30,7 @@ class EosHost(AnsibleHostBase):
     """
 
     def __init__(self, ansible_adhoc, hostname, eos_user, eos_passwd,
-                 shell_user=None, shell_passwd=None, gather_facts=False):
+                 shell_user=None, shell_passwd=None, gather_facts=False, ssh_proxy={}):
         '''Initialize an object for interacting with EoS type device using ansible modules
 
         Args:
@@ -41,20 +41,28 @@ class EosHost(AnsibleHostBase):
             shell_user (string, optional): Username for accessing the Linux shell CLI interface. Defaults to None.
             shell_passwd (string, optional): Password for the shell_user. Defaults to None.
             gather_facts (bool, optional): Whether to gather some basic facts. Defaults to False.
+            ssh_proxy (dict, optional): SSH proxy configuration to reach the EOS device. Defaults to {}.
+                Example format: {'proxy_user': 'user1', 'proxy_host': '192.168.1.1'}
         '''
         self.eos_user = eos_user
         self.eos_passwd = eos_passwd
         self.shell_user = shell_user
         self.shell_passwd = shell_passwd
         self.is_multi_asic = False
+        # With this argument, there is a possibility to pass down ansible_ssh_extra_args to the neighbor hosts
+        # Then we could use ssh proxy command to reach the neighbor hosts via vmhosts
+        self._ssh_proxy = ssh_proxy
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
         self.localhost = ansible_adhoc(inventory='localhost', connection='local',
                                        host_pattern="localhost")["localhost"]
+
+        logger.info(f'===== EosHost initialized, ssh_proxy: {self._ssh_proxy} =====')
 
     def __getattr__(self, module_name):
         if module_name.startswith('eos_'):
             evars = {
                 'ansible_connection': 'network_cli',
+                'ansible_network_cli_ssh_type': 'paramiko',
                 'ansible_network_os': 'eos',
                 'ansible_user': self.eos_user,
                 'ansible_password': self.eos_passwd,
@@ -62,6 +70,13 @@ class EosHost(AnsibleHostBase):
                 'ansible_ssh_pass': self.eos_passwd,
                 'ansible_become_method': 'enable'
             }
+            proxy_user = self._ssh_proxy.get('proxy_user', None)
+            proxy_host = self._ssh_proxy.get('proxy_host', None)
+            if proxy_user and proxy_host:
+                evars['ansible_paramiko_proxy_command'] = \
+                    'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ' + \
+                    f'-W %h:%p {proxy_user}@{proxy_host}'
+            logger.info(f'Extra vars to be added for {self.hostname}: {evars}')
         else:
             if not self.shell_user or not self.shell_passwd:
                 raise Exception("Please specify shell_user and shell_passwd for {}".format(self.hostname))
@@ -74,7 +89,14 @@ class EosHost(AnsibleHostBase):
                 'ansible_ssh_pass': self.shell_passwd,
                 'ansible_become_method': 'sudo'
             }
+            proxy_user = self._ssh_proxy.get('proxy_user', None)
+            proxy_host = self._ssh_proxy.get('proxy_host', None)
+            if proxy_user and proxy_host:
+                evars['ansible_ssh_extra_args'] = \
+                    "-o ProxyCommand='ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no " + \
+                    f"-W %h:%p {proxy_user}@{proxy_host}'"
         self.host.options['variable_manager'].extra_vars.update(evars)
+        logger.info(f"Final extra vars for host {self.hostname}: {self.host.options['variable_manager'].extra_vars}")
         return super(EosHost, self).__getattr__(module_name)
 
     def __str__(self):

@@ -135,6 +135,8 @@
     pip_executable: pip3
   when: pip_executable is not defined and (host_distribution_version.stdout >= "20.04")
 
+- include_tasks: ssh-key.yml
+
 - include_tasks: docker.yml
   when: package_installation|bool
 

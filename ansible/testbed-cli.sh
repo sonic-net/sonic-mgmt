@@ -85,6 +85,33 @@ function usage
   exit
 }
 
+function generate_ssh_key
+{
+  # Check if running inside a Docker container
+  if [ ! -f /.dockerenv ]; then
+    echo "Not running inside a Docker container, skipping SSH key generation"
+    return
+  fi
+
+  # Check if SSH key files exist and are non-empty
+  if [ -s ~/.ssh/id_rsa ] && [ -s ~/.ssh/id_rsa.pub ]; then
+    echo "SSH keys already exist and are valid"
+    return
+  fi
+
+  # Generate SSH key
+  echo "Generating SSH key pair..."
+  mkdir -p ~/.ssh
+  ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N "" -q
+
+  if [ $? -eq 0 ]; then
+    echo "SSH key pair generated successfully"
+  else
+    echo "Failed to generate SSH key pair"
+    return 1
+  fi
+}
+
 function read_csv
 {
   # Filter testbed names in the first column in the testbed definition file
@@ -982,6 +1009,9 @@ vm_type=ceos
 vm_num=0
 msetnumber=1
 sonic_vm_dir=""
+
+# Generate SSH key if running in Docker container
+generate_ssh_key
 
 while getopts "t:m:k:n:s:d:" OPTION; do
     case $OPTION in
