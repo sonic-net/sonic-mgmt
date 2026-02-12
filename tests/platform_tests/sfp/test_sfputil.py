@@ -61,7 +61,6 @@ class LogicalInterfaceDisabler:
         self.logical_intf = logical_intf
         self.phy_intf = phy_intf
         self.skip_dom_polling_handle = skip_dom_polling_handle
-        self.wait_after_dom_config = 5
 
         self.namespace_cmd_opt = get_namespace_cmd_option(duthost,
                                                           enum_frontend_asic_index)
@@ -85,81 +84,6 @@ class LogicalInterfaceDisabler:
         self.orig_dom_polling_value = None
         self.is_admin_up = is_admin_up
 
-    def disable(self):
-        """
-        Disable a logical interface by doing below:
-            * Disable DOM polling
-            * Shutdown port
-        """
-        if not self.skip_dom_polling_handle:
-            orig_dom_get_result = self.duthost.command(self.db_cmd_dom_polling_get)
-            if orig_dom_get_result["stdout"] in DOM_POLLING_CONFIG_VALUES:
-                self.orig_dom_polling_value = orig_dom_get_result["stdout"]
-            logging.info("Disable DOM polling to avoid race condition during sfp reset"
-                         " for {}".format(self.logical_intf))
-            disable_dom_result = self.duthost.command(self.cmd_disable_dom)
-            assert disable_dom_result["rc"] == 0, (
-                "Disable DOM polling failed for {}."
-            ).format(self.logical_intf)
-
-            time.sleep(self.wait_after_dom_config)
-
-        if not self.is_admin_up:
-            logging.info("Skip shutdown {} as it's already admin down pre-test".format(self.logical_intf))
-            return
-        # It's needed to shutdown ports before reset and startup ports after reset,
-        # to get config/state machine/etc replayed, so that the modules can be fully
-        # restored.
-        logging.info("Shutdown {} before sfp reset".format(self.logical_intf))
-        shutdown_result = self.duthost.command(self.cmd_down)
-        assert shutdown_result["rc"] == 0, (
-            "Shutdown {} failed. "
-            "- Command return code: {}\n"
-            "- Command output: {}\n"
-        ).format(
-            self.logical_intf,
-            shutdown_result.get("rc", "N/A"),
-            shutdown_result.get("stdout", "N/A")
-        )
-
-        assert check_interface_status(self.duthost, [self.logical_intf], expect_up=False), (
-            "Interface '{}' did not transition to the 'down' state after shutdown."
-        ).format(self.logical_intf)
-
-    def restore(self):
-        """
-        Restore a logical interface from disabled state by doing below:
-            * Startup port
-            * Enable DOM polling
-        """
-        if self.is_admin_up:
-            logging.info("Startup {} after sfp reset to restore module".format(self.logical_intf))
-            startup_result = self.duthost.command(self.cmd_up)
-            assert startup_result["rc"] == 0, (
-                "Startup {} failed."
-            ).format(self.logical_intf)
-
-            assert check_interface_status(self.duthost, [self.logical_intf], expect_up=True), (
-                "Interface '{}' did not transition to the 'up' state after startup."
-            ).format(self.logical_intf)
-
-        else:
-            logging.info("Skip startup {} after sfp reset as it's admin down pre-test".format(self.logical_intf))
-
-        if not self.skip_dom_polling_handle:
-            logging.info("Restore DOM polling to {} after sfp reset for {}".format(self.orig_dom_polling_value,
-                                                                                   self.logical_intf))
-            if not self.orig_dom_polling_value:
-                restore_dom_result = self.duthost.command(self.db_cmd_dom_polling_clear)
-            else:
-                restore_dom_result = self.duthost.command(db_cmd_dom_polling.format(self.namespace_cmd_opt,
-                                                                                    "HSET",
-                                                                                    self.logical_intf,
-                                                                                    self.orig_dom_polling_value))
-            assert restore_dom_result["rc"] == 0, (
-                "Restore DOM polling failed for {}."
-            ).format(self.logical_intf)
-
 
 class DisablePhysicalInterface:
     """
@@ -173,8 +97,7 @@ class DisablePhysicalInterface:
     def __init__(self, duthost, enum_frontend_asic_index, phy_intf, logical_intfs_dict):
         self.duthost = duthost
         self.phy_intf = phy_intf
-        self.original_lpmode_state = None
-        self.wait_after_dom_config = 1
+        self.wait_after_dom_config = 5
         self.logical_intf_disablers = \
             [LogicalInterfaceDisabler(duthost,
                                       enum_frontend_asic_index,
@@ -187,20 +110,85 @@ class DisablePhysicalInterface:
     def __enter__(self):
         """
         Disable a physical port by doing below:
-            * Disable DOM polling
-            * Shutdown port
+            * Disable DOM polling (batched)
+            * Shutdown ports (batched)
         """
+        # Disable DOM polling for all logical interfaces
+        dom_disabled = False
         for logical_intf_disabler in self.logical_intf_disablers:
-            logical_intf_disabler.disable()
+            if not logical_intf_disabler.skip_dom_polling_handle:
+                orig_dom_get_result = logical_intf_disabler.duthost.command(
+                    logical_intf_disabler.db_cmd_dom_polling_get)
+                if orig_dom_get_result["stdout"] in DOM_POLLING_CONFIG_VALUES:
+                    logical_intf_disabler.orig_dom_polling_value = orig_dom_get_result["stdout"]
+                logging.info("Disable DOM polling to avoid race condition during sfp reset"
+                             " for {}".format(logical_intf_disabler.logical_intf))
+                disable_dom_result = logical_intf_disabler.duthost.command(logical_intf_disabler.cmd_disable_dom)
+                assert disable_dom_result["rc"] == 0, \
+                    "Disable DOM polling failed for {}".format(logical_intf_disabler.logical_intf)
+                dom_disabled = True
+
+        if dom_disabled:
+            time.sleep(self.wait_after_dom_config)
+
+        # Batch shutdown all logical interfaces that are admin up
+        interfaces_to_shutdown = []
+        for logical_intf_disabler in self.logical_intf_disablers:
+            if logical_intf_disabler.is_admin_up:
+                interfaces_to_shutdown.append(logical_intf_disabler.logical_intf)
+
+        if interfaces_to_shutdown:
+            # Batch shutdown command
+            shutdown_str = ",".join(interfaces_to_shutdown)
+            logging.info("Batch shutdown logical interfaces before sfp reset: {}".format(shutdown_str))
+            namespace_opt = self.logical_intf_disablers[0].namespace_cmd_opt
+            cmd_batch_shutdown = "config interface {} shutdown {}".format(namespace_opt, shutdown_str)
+            shutdown_result = self.duthost.command(cmd_batch_shutdown)
+            assert shutdown_result["rc"] == 0, "Batch shutdown failed for {}".format(shutdown_str)
+            # Verify all interfaces are down
+            is_ok, err_msg = check_interface_status(self.duthost, interfaces_to_shutdown, expect_up=False)
+            assert is_ok, err_msg
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
         Restore a physical port from disabled state by doing below:
-            * Startup port
-            * Enable DOM polling
+            * Startup ports (batched)
+            * Enable DOM polling (batched)
         """
+        # Batch startup all logical interfaces that were admin up
+        interfaces_to_startup = []
         for logical_intf_disabler in self.logical_intf_disablers:
-            logical_intf_disabler.restore()
+            if logical_intf_disabler.is_admin_up:
+                interfaces_to_startup.append(logical_intf_disabler.logical_intf)
+        if interfaces_to_startup:
+            # Batch startup command
+            startup_str = ",".join(interfaces_to_startup)
+            logging.info("Batch startup logical interfaces after sfp reset: {}".format(startup_str))
+            namespace_opt = self.logical_intf_disablers[0].namespace_cmd_opt
+            cmd_batch_startup = "config interface {} startup {}".format(namespace_opt, startup_str)
+            startup_result = self.duthost.command(cmd_batch_startup)
+            assert startup_result["rc"] == 0, "Batch startup failed for {}".format(startup_str)
+            # Verify all interfaces are up
+            is_ok, err_msg = check_interface_status(self.duthost, interfaces_to_startup, expect_up=True)
+            assert is_ok, err_msg
+
+        # Restore DOM polling for all logical interfaces
+        for logical_intf_disabler in self.logical_intf_disablers:
+            if not logical_intf_disabler.skip_dom_polling_handle:
+                logging.info("Restore DOM polling to {} after sfp reset for {}".format(
+                    logical_intf_disabler.orig_dom_polling_value,
+                    logical_intf_disabler.logical_intf))
+                if not logical_intf_disabler.orig_dom_polling_value:
+                    restore_dom_result = logical_intf_disabler.duthost.command(
+                        logical_intf_disabler.db_cmd_dom_polling_clear)
+                else:
+                    restore_dom_result = logical_intf_disabler.duthost.command(
+                        db_cmd_dom_polling.format(logical_intf_disabler.namespace_cmd_opt,
+                                                  "HSET",
+                                                  logical_intf_disabler.logical_intf,
+                                                  logical_intf_disabler.orig_dom_polling_value))
+                assert restore_dom_result["rc"] == 0, \
+                    "Restore DOM polling failed for {}".format(logical_intf_disabler.logical_intf)
 
 
 def get_transceiver_info(duthost, enum_frontend_asic_index, logical_intf):
