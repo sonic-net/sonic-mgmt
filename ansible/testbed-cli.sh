@@ -70,6 +70,7 @@ function usage
   echo "        -e enable_data_plane_acl=true"
   echo "        -e enable_data_plane_acl=false"
   echo "        by default, data acl is enabled"
+  echo "To restore L1 connections to DUT in specified testbed: $0 restore-l1 'testbed-name' 'inventory' ~/.password"
   echo "To config simulated y-cable driver for DUT in specified testbed: $0 config-y-cable 'testbed-name' 'inventory' ~/.password"
   echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
@@ -638,6 +639,26 @@ function deploy_minigraph
   echo Done
 }
 
+function restore_l1
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  if [[ "$testbed_name" =~ "rdma" ]]; then
+    echo "Restoring L1 connections on RDMA testbed '$testbed_name'"
+    read_file $testbed_name
+    ansible-playbook -i "$inventory" restore_l1switch_connections.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile $@
+  else
+    echo "No need to restore L1 connections on testbed '$testbed_name' since this is not an RDMA testbed"
+  fi
+
+  echo Done
+}
+
 function test_minigraph
 {
   testbed_name=$1
@@ -1053,6 +1074,8 @@ case "${subcmd}" in
   gen-mg)      generate_minigraph $@
                ;;
   deploy-mg)   deploy_minigraph $@
+               ;;
+  restore-l1)  restore_l1 $@
                ;;
   test-mg)     test_minigraph $@
                ;;

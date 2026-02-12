@@ -107,6 +107,101 @@
         vm_base: "{% if 'vm_base' in testbed_facts and testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
     when: testbed_name is defined
 
+  - name: Run L1 Switch connection panel for RDMA testing
+    block:
+    - name: Get HWSKU type
+      set_fact:
+        hwsku_type: "{{ hostvars[inventory_hostname]['hwsku'] }}"
+
+    - name: Create connections for 8111 testbed
+      block:
+      - name: Create 1st port connection for Cisco 8111 testbed
+        raw: connection create p40 to p45
+        ignore_errors: true
+      
+      - name: Pause for 2 seconds
+        pause:
+          seconds: 2
+      
+      - name: Create 2nd port connection for Cisco 8111 testbed
+        raw: connection create p41 to p46
+        ignore_errors: yes
+      
+      - name: Pause for 2 seconds
+        pause:
+          seconds: 2
+      
+      - name: Create 3rd port connection for Cisco 8111 testbed
+        raw: connection create p42 to p47
+        ignore_errors: yes
+      
+      delegate_to: STR-W2W-SONIC-03-A
+      run_once: true
+      when: "'Cisco-8111' in hwsku_type"
+    
+    - name: Create connections for 7050CX3 testbed
+      block:
+      - name: Create 1st port connection for 7050CX3 testbed
+        raw: connection create p40 to p45
+        register: result_cc1
+        ignore_errors: true
+      
+      - name: Pause for 2 seconds
+        pause:
+          seconds: 2
+      
+      - name: Create 2nd port connection for 7050CX3 testbed
+        raw: connection create p41 to p46
+        ignore_errors: yes
+      
+      - name: Pause for 2 seconds
+        pause:
+          seconds: 2
+      
+      - name: Create 3rd port connection for 7050CX3 testbed
+        raw: connection create p42 to p47
+        ignore_errors: yes
+      
+      delegate_to: STR-W2W-SONIC-03-A
+      run_once: true
+      when: "'7050CX3' in hwsku_type"
+    
+    - name: Create connections for Cisco 8102 testbed
+      block:
+      - name: Create 1st port connection for Cisco 8102 testbed
+        raw: connection create p40 to p45
+        register: result_cc1
+        ignore_errors: true
+      
+      - name: Pause for 2 seconds
+        pause:
+          seconds: 2
+      
+      - name: Create 2nd port connection for Cisco 8102 testbed
+        raw: connection create p41 to p46
+        ignore_errors: yes
+      
+      - name: Pause for 2 seconds
+        pause:
+          seconds: 2
+      
+      - name: Create 3rd port connection for Cisco 8102 testbed
+        raw: connection create p42 to p47
+        ignore_errors: yes
+      
+      delegate_to: STR-W2W-SONIC-03-A
+      run_once: true
+      when: "'8102' in hwsku_type"
+
+    - name: Get connection panel information
+      raw: cc
+      register: cc_output
+      ignore_errors: yes
+      delegate_to: STR-W2W-SONIC-03-A
+      run_once: true
+
+    when: is_ixia_testbed
+
   - name: find supervisor dut of testbed
     set_fact:
       sup_dut: "{{ item | default(None) }}"
