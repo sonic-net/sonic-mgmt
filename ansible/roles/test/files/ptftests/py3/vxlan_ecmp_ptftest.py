@@ -134,7 +134,6 @@ class VxlanEcmpTest(BaseTest):
             self.mac_list[self.modified_mac_index] = self.modified_mac_value
 
         for _ in range(self.num_packets):
-
             sport = self._next_port("sport")
             dport = self._next_port("dport")
 
@@ -152,29 +151,36 @@ class VxlanEcmpTest(BaseTest):
 
             send_packet(self, self.send_port, inner)
 
-            res = dp_poll(self, timeout=2)
-            if not isinstance(res, self.dataplane.PollSuccess):
-                continue
-            pkt = scapy.Ether(res.packet)
-            if scapy.IP not in pkt or scapy.UDP not in pkt:
-                continue
-            if pkt[scapy.UDP].dport != self.vxlan_port:
-                continue
-            outer_dst = pkt[scapy.IP].dst
-            if outer_dst not in self.endpoints:
-                logger.error(f"Received VXLAN pkt to unexpected endpoint {outer_dst}")
-                continue
+            # Poll for VXLAN packets
+            poll_start = datetime.now()
+            poll_timeout = 2
+            while (datetime.now() - poll_start).total_seconds() < poll_timeout:
+                res = dp_poll(self, timeout=2)
+                if not isinstance(res, self.dataplane.PollSuccess):
+                    continue
 
-            idx = self.endpoints.index(outer_dst)
-            exp = self._build_expected_for_index(idx, inner)
+                pkt = scapy.Ether(res.packet)
+                if scapy.IP not in pkt or scapy.UDP not in pkt:
+                    continue
+                if pkt[scapy.UDP].dport != self.vxlan_port:
+                    continue
+                outer_dst = pkt[scapy.IP].dst
+                if outer_dst not in self.endpoints:
+                    logger.error(f"Received VXLAN pkt to unexpected endpoint {outer_dst}")
+                    continue
 
-            if exp.pkt_match(pkt):
-                endpoint_hits[outer_dst] += 1
-            else:
-                mismatch_count += 1
-                logger.error(
-                    f"Packet mismatch for endpoint={outer_dst}, mac={self.mac_list[idx]}"
-                )
+                idx = self.endpoints.index(outer_dst)
+                exp = self._build_expected_for_index(idx, inner)
+
+                if exp.pkt_match(pkt):
+                    endpoint_hits[outer_dst] += 1
+                    break
+                else:
+                    mismatch_count += 1
+                    logger.error(
+                        f"Packet mismatch for endpoint={outer_dst}, mac={self.mac_list[idx]}."
+                        f"\n\nExpected:\n{exp}\n\nReceived:\n{pkt}\n\n"
+                    )
 
         logger.info(f"MAC+VNI Multi-endpoint validation counts: {endpoint_hits}")
         if mismatch_count > 0:

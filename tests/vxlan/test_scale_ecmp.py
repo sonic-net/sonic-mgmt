@@ -467,6 +467,7 @@ def test_ecmp_scale_modify_mac(ptfhost, one_vnet_setup_teardown):
         "mac_vni_verify": "yes",
         "modified_mac_index": mod_idx,
         "modified_mac_value": new_mac,
+        "vni": VNI,
     }
 
     num_packets = num * PACKET_MULTIPLIER
