@@ -17,19 +17,18 @@ files/image_config/config-setup/config-setup to:
 Config priority order (consistent across all code paths):
     config_db.json > minigraph.xml > ZTP > factory default
 
-Test approach (non-destructive):
-    Instead of actually deleting config_db.json and running config-setup boot
-    (which risks bricking the DUT if the fix is not present), these tests
-    create a test harness that:
-    - Copies config-setup to a temp location
-    - Overrides destructive commands (config reload, config load_minigraph,
-      config save, generate_config, ztp) with stubs that log actions
-    - Simulates file presence/absence via environment variables
-    - Runs the decision logic and checks which code path was taken
+Test modes (--config_setup_test_mode):
+    harness: Non-destructive test harness that stubs destructive commands
+        and runs config-setup decision logic in isolation. Safe for physical
+        DUTs — no config changes, no service restarts, no console needed.
+    real: End-to-end test that deletes config_db.json and runs actual
+        config-setup boot. Only safe on VS/KVM where mgmt IP loss is
+        recoverable. Backs up and restores config_db.json via fixture.
+    auto (default): Uses 'real' on VS/KVM, 'harness' on physical DUTs.
 
-    This means no config changes are made, no services are restarted, and
-    the DUT remains fully operational regardless of test outcome. No console
-    connection is needed for recovery.
+    Harness tests validate decision logic paths (7 test classes, 13 tests).
+    Real tests validate end-to-end behavior (1 test class, 2 tests).
+    Both run in 'auto' mode on VS/KVM; only harness runs on physical DUTs.
 
 Topology: any
 """
@@ -38,6 +37,7 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,9 @@ pytestmark = [
 ]
 
 CONFIG_SETUP_SCRIPT = "/usr/bin/config-setup"
+CONFIG_DB_JSON = "/etc/sonic/config_db.json"
+CONFIG_DB_BAK = "/etc/sonic/config_db.json.test_bak"
+MINIGRAPH_FILE = "/etc/sonic/minigraph.xml"
 HARNESS_DIR = "/tmp/config_setup_test"
 HARNESS_SCRIPT = "{}/test_harness.sh".format(HARNESS_DIR)
 
@@ -329,6 +332,26 @@ def ztp_image(request):
 
 
 @pytest.fixture(scope="module")
+def test_mode(request, duthosts, rand_one_dut_hostname):
+    """Determine whether to use 'harness' (mock) or 'real' (actual config-setup).
+
+    'auto' (default) selects 'real' on VS/KVM and 'harness' on physical DUTs.
+    Can be overridden with --config_setup_test_mode.
+    """
+    mode = request.config.getoption("--config_setup_test_mode", default="auto")
+    duthost = duthosts[rand_one_dut_hostname]
+    is_vs = duthost.facts.get("asic_type", "") == "vs"
+
+    if mode == "auto":
+        resolved = "real" if is_vs else "harness"
+    else:
+        resolved = mode
+
+    logger.info("config-setup test mode: %s (requested=%s, is_vs=%s)", resolved, mode, is_vs)
+    return resolved
+
+
+@pytest.fixture(scope="module")
 def harness(duthosts, rand_one_dut_hostname):
     """Deploy the test harness script to the DUT."""
     duthost = duthosts[rand_one_dut_hostname]
@@ -341,6 +364,37 @@ def harness(duthosts, rand_one_dut_hostname):
 
     # Cleanup
     duthost.shell("rm -rf {}".format(HARNESS_DIR), module_ignore_errors=True)
+
+
+CONFIG_DB_JSON = "/etc/sonic/config_db.json"
+CONFIG_DB_BAK = "/etc/sonic/config_db.json.config_setup_test_bak"
+MINIGRAPH_FILE = "/etc/sonic/minigraph.xml"
+
+
+@pytest.fixture(scope="function")
+def real_dut(duthosts, rand_one_dut_hostname):
+    """Provide the DUT with config_db.json backup/restore for real-mode tests.
+
+    Backs up config_db.json before the test and restores it afterwards,
+    including a config reload to recover the DUT to its original state.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    logger.info("Backing up %s to %s", CONFIG_DB_JSON, CONFIG_DB_BAK)
+    duthost.shell("cp {} {}".format(CONFIG_DB_JSON, CONFIG_DB_BAK))
+
+    yield duthost
+
+    # Restore config_db.json and reload to recover
+    logger.info("Restoring %s from %s", CONFIG_DB_JSON, CONFIG_DB_BAK)
+    duthost.shell("cp {} {}".format(CONFIG_DB_BAK, CONFIG_DB_JSON),
+                  module_ignore_errors=True)
+    duthost.shell("rm -f {}".format(CONFIG_DB_BAK), module_ignore_errors=True)
+    duthost.shell("config reload -y -f", module_ignore_errors=True)
+    pytest_assert(
+        wait_until(300, 20, 0, duthost.critical_services_fully_started),
+        "Critical services did not start after config restore"
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -392,6 +446,30 @@ def run_harness(duthost, func, config_db="false", minigraph="false",
         'pending_ztp_restart': state.get('pending_ztp_restart', 'false') == 'true',
         'config_db_exists': state.get('config_db_exists', 'false') == 'true',
     }
+
+
+def run_real_config_setup(duthost):
+    """Run actual config-setup boot on the DUT and return output."""
+    result = duthost.shell("sudo /usr/bin/config-setup boot",
+                           module_ignore_errors=True)
+    logger.info("config-setup boot stdout:\n%s", result['stdout'])
+    if result['stderr']:
+        logger.info("config-setup boot stderr:\n%s", result['stderr'])
+    return result
+
+
+def get_mgmt_ip(duthost):
+    """Get the current management IP."""
+    result = duthost.shell("ip -4 addr show eth0 | grep inet | awk '{print $2}'",
+                           module_ignore_errors=True)
+    return result['stdout'].strip()
+
+
+def has_minigraph(duthost):
+    """Check if minigraph.xml exists on the DUT."""
+    result = duthost.shell("test -f {}".format(MINIGRAPH_FILE),
+                           module_ignore_errors=True)
+    return result['rc'] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -611,3 +689,116 @@ class TestBootConfigMigrationPath:
             "do_db_migration" in result['actions'],
             "db_migration should run during warm boot migration"
         )
+
+
+# ---------------------------------------------------------------------------
+# Real-mode tests (run actual config-setup on KVM/VS DUTs)
+# ---------------------------------------------------------------------------
+
+class TestRealConfigSetupMinigraphFallback:
+    """End-to-end test: config-setup boot uses minigraph when config_db.json is absent.
+
+    Only runs in 'real' mode (default on VS/KVM). This test actually deletes
+    config_db.json and runs config-setup boot, then verifies the management
+    IP is preserved. The fixture restores config_db.json afterwards.
+
+    On physical DUTs this is skipped to avoid bricking the device.
+    """
+
+    def test_real_minigraph_fallback(self, test_mode, real_dut):
+        """Delete config_db.json, run config-setup boot, verify minigraph used."""
+        if test_mode != "real":
+            pytest.skip("Skipping real-mode test (mode={})".format(test_mode))
+
+        duthost = real_dut
+
+        if not has_minigraph(duthost):
+            pytest.skip("No minigraph.xml on this device")
+
+        # Capture mgmt IP before
+        mgmt_ip_before = get_mgmt_ip(duthost)
+        logger.info("Management IP before test: %s", mgmt_ip_before)
+
+        # Remove config_db.json
+        logger.info("Removing %s to trigger config initialization", CONFIG_DB_JSON)
+        duthost.shell("rm -f {}".format(CONFIG_DB_JSON))
+        duthost.shell('sonic-db-cli CONFIG_DB DEL "CONFIG_DB_INITIALIZED"',
+                      module_ignore_errors=True)
+
+        # Run actual config-setup boot
+        result = run_real_config_setup(duthost)
+
+        # Verify minigraph was used
+        stdout_lower = result['stdout'].lower()
+        pytest_assert(
+            "minigraph" in stdout_lower,
+            "Expected config-setup to use minigraph, got: {}".format(result['stdout'])
+        )
+        pytest_assert(
+            "zero touch" not in stdout_lower,
+            "ZTP should not trigger when minigraph is available"
+        )
+        pytest_assert(
+            "factory default" not in stdout_lower,
+            "Factory default should not be generated when minigraph is available"
+        )
+
+        # Wait for services and verify mgmt IP survived
+        pytest_assert(
+            wait_until(120, 10, 0, duthost.critical_services_fully_started),
+            "Critical services did not start after config-setup boot"
+        )
+
+        mgmt_ip_after = get_mgmt_ip(duthost)
+        logger.info("Management IP after test: %s", mgmt_ip_after)
+        pytest_assert(
+            mgmt_ip_after == mgmt_ip_before,
+            "Management IP changed from {} to {} — minigraph fallback may have failed".format(
+                mgmt_ip_before, mgmt_ip_after)
+        )
+
+    def test_real_warm_boot_skips_init(self, test_mode, real_dut):
+        """Simulate warm boot, delete config_db.json, verify init skipped."""
+        if test_mode != "real":
+            pytest.skip("Skipping real-mode test (mode={})".format(test_mode))
+
+        duthost = real_dut
+        mgmt_ip_before = get_mgmt_ip(duthost)
+
+        # Set warm boot flag in STATE_DB
+        duthost.shell(
+            'sonic-db-cli STATE_DB HSET "WARM_RESTART_ENABLE_TABLE|system" enable true',
+            module_ignore_errors=True
+        )
+
+        try:
+            # Remove config_db.json
+            duthost.shell("rm -f {}".format(CONFIG_DB_JSON))
+            duthost.shell('sonic-db-cli CONFIG_DB DEL "CONFIG_DB_INITIALIZED"',
+                          module_ignore_errors=True)
+
+            # Run actual config-setup boot
+            result = run_real_config_setup(duthost)
+
+            stdout_lower = result['stdout'].lower()
+            pytest_assert(
+                "warm boot detected" in stdout_lower,
+                "Expected warm boot detection, got: {}".format(result['stdout'])
+            )
+            pytest_assert(
+                "zero touch" not in stdout_lower and "factory default" not in stdout_lower,
+                "No config initialization should happen during warm boot"
+            )
+
+            # Mgmt IP must be unchanged
+            mgmt_ip_after = get_mgmt_ip(duthost)
+            pytest_assert(
+                mgmt_ip_after == mgmt_ip_before,
+                "Management IP changed during warm boot"
+            )
+
+        finally:
+            duthost.shell(
+                'sonic-db-cli STATE_DB HSET "WARM_RESTART_ENABLE_TABLE|system" enable false',
+                module_ignore_errors=True
+            )
