@@ -131,6 +131,8 @@ fix_logging_handler_fork_lock()
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
+    parser.addoption("--ipv6_only_mgmt", action="store_true", default=False,
+                     help="Use IPv6-only management network. DUT mgmt_ip will be set to IPv6 address.")
     parser.addoption("--uhd_config", action="store", help="Enable UHD config mode")
     parser.addoption("--save_uhd_config", action="store_true", help="Save UHD config mode")
     parser.addoption("--npu_dpu_startup", action="store_true", help="Startup NPU and DPUs and install configurations")
@@ -336,6 +338,12 @@ def pytest_addoption(parser):
 
 
 def pytest_configure(config):
+    # Set environment variable for IPv6-only management mode
+    # This allows base.py and other modules to check the mode without needing pytest request object
+    if config.getoption("ipv6_only_mgmt", default=False):
+        os.environ['SONIC_MGMT_IPV6_ONLY'] = '1'
+        logger.info("IPv6-only management mode enabled via --ipv6_only_mgmt")
+
     if config.getoption("enable_macsec"):
         topo = config.getoption("topology")
         if topo is not None and "t2" in topo:

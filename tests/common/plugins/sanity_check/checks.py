@@ -1137,6 +1137,13 @@ def check_ipv4_mgmt(duthosts, localhost):
             results[dut.hostname] = check_result
             return
 
+        # Skip IPv4 check if mgmt_ip is an IPv6 address (IPv6-only management mode)
+        if is_ipv6_address(dut.mgmt_ip):
+            logger.info("%s is using IPv6 management address (%s). Skip the ipv4 mgmt reachability check."
+                        % (dut.hostname, dut.mgmt_ip))
+            results[dut.hostname] = check_result
+            return
+
         # most of the testbed should reply within 10 ms, Set the timeout to 2 seconds to reduce the impact of delay.
         try:
             shell_result = localhost.shell("ping -c 2 -W 2 " + dut.mgmt_ip)

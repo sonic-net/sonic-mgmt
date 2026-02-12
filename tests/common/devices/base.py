@@ -1,6 +1,7 @@
 import inspect
 import json
 import logging
+import os
 import collections
 from multiprocessing.pool import ThreadPool
 from pytest_ansible.results import AdHocResult, ModuleResult
@@ -8,6 +9,17 @@ from pytest_ansible.results import AdHocResult, ModuleResult
 from tests.common.errors import RunAnsibleModuleFail
 
 logger = logging.getLogger(__name__)
+
+
+def is_ipv6_only_mgmt():
+    """Check if running in IPv6-only management mode.
+
+    Returns True if SONIC_MGMT_IPV6_ONLY env var is set to '1' or 'true'.
+    This is set by run_tests.sh when -6 flag is passed, or by pytest
+    when --ipv6_only_mgmt option is used.
+    """
+    return os.environ.get('SONIC_MGMT_IPV6_ONLY', '').lower() in ('1', 'true')
+
 
 # HACK: This is a hack for issue https://github.com/sonic-net/sonic-mgmt/issues/1941 and issue
 # https://github.com/ansible/pytest-ansible/issues/47
@@ -46,11 +58,20 @@ class AnsibleHostBase(object):
             self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
             self.host = ansible_adhoc(become=True, *args, **kwargs)[hostname]
-            self.mgmt_ip = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_host"]
-            if "ansible_hostv6" in self.host.options["inventory_manager"].get_host(hostname).vars:
-                self.mgmt_ipv6 = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_hostv6"]
+            host_vars = self.host.options["inventory_manager"].get_host(hostname).vars
+            ansible_host = host_vars.get("ansible_host")
+            ansible_hostv6 = host_vars.get("ansible_hostv6")
+
+            # In IPv6-only management mode, use IPv6 address as the primary mgmt_ip
+            if is_ipv6_only_mgmt() and ansible_hostv6:
+                self.mgmt_ip = ansible_hostv6
+                self.mgmt_ipv6 = ansible_hostv6
+                # Keep IPv4 available for reference but it won't be used for connectivity
+                self._mgmt_ipv4 = ansible_host
+                logger.debug("IPv6-only management mode: using %s as mgmt_ip for %s", ansible_hostv6, hostname)
             else:
-                self.mgmt_ipv6 = None
+                self.mgmt_ip = ansible_host
+                self.mgmt_ipv6 = ansible_hostv6
         self.hostname = hostname
 
     def __getattr__(self, module_name):
