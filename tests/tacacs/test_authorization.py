@@ -235,11 +235,12 @@ def test_authorization_tacacs_only_some_server_down(
         remote_user_client):
     """
         Setup multiple tacacs server for this UT.
-        Tacacs server 127.0.0.1 not accessible.
+        Tacacs server 127.0.0.1/::1 not accessible.
     """
-    invalid_tacacs_server_ip = "127.0.0.1"
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    tacacs_server_ip = ptfhost.mgmt_ip
+    duthost_mgmt_info = duthost.get_mgmt_ip()
+    invalid_tacacs_server_ip = "::1" if duthost_mgmt_info["version"] == "v6" else "127.0.0.1"
+    tacacs_server_ip = ptfhost.mgmt_ipv6 if duthost_mgmt_info["version"] == "v6" else ptfhost.mgmt_ip
     duthost.shell("sudo config tacacs timeout 1")
 
     # cleanup all tacacs server, if UT break, tacacs server may still left in dut and will break next UT.
@@ -560,14 +561,20 @@ def test_stop_request_next_server_after_reject(
     skip_versions = ["201811", "201911", "202012", "202106", "202111", "202205", "202211"]
     skip_release(duthost, skip_versions)
 
-    # Use ptfhost ipv6 address as second ip address
+    # Use ptfhost ipv6 address as second ip address if duthost_mgmt_info["version"] is ipv4, otherwise ipv4
+    duthost_mgmt_info = duthost.get_mgmt_ip()
     ptfhost_vars = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars
-    if 'ansible_hostv6' not in ptfhost_vars:
-        pytest.skip("Skip UT. ptf ansible_hostv6 not configured.")
-    tacacs_server_ipv6 = ptfhost_vars['ansible_hostv6']
+    if duthost_mgmt_info["version"] == "v4":
+        if 'ansible_hostv6' not in ptfhost_vars:
+            pytest.skip("Skip UT. ptf ansible_hostv6 not configured.")
+        second_tacacs_server_ip = ptfhost_vars['ansible_hostv6']
+    else:
+        if 'ansible_host' not in ptfhost_vars:
+            pytest.skip("Skip UT. ptf ansible_host not configured.")
+        second_tacacs_server_ip = ptfhost_vars['ansible_host']
 
     # Setup second tacacs server
-    duthost_shell_with_unreachable_retry(duthost, "sudo config tacacs add {} --port 59".format(tacacs_server_ipv6))
+    duthost_shell_with_unreachable_retry(duthost, "sudo config tacacs add {} --port 59".format(second_tacacs_server_ip))
     duthost.shell("sudo config tacacs timeout 1")
 
     # Clean tacacs log
@@ -588,7 +595,7 @@ def test_stop_request_next_server_after_reject(
     pytest_assert(len(res["stdout_lines"]) == 1)
 
     # Remove second server IP
-    duthost.shell("sudo config tacacs delete %s" % tacacs_server_ipv6)
+    duthost.shell("sudo config tacacs delete %s" % second_tacacs_server_ip)
     duthost.shell("sudo config tacacs timeout 5")
 
 
@@ -616,7 +623,8 @@ def test_fallback_to_local_authorization_with_config_reload(
     backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
 
     # Reload minigraph with override per-command authorization to "tacacs+,local"
-    tacacs_server_ip = ptfhost.mgmt_ip
+    duthost_mgmt_info = duthost.get_mgmt_ip()
+    tacacs_server_ip = ptfhost.mgmt_ipv6 if duthost_mgmt_info["version"] == "v6" else ptfhost.mgmt_ip
     tacacs_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
     override_config = {
         "AAA": {
