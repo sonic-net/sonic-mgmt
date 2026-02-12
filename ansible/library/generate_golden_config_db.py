@@ -168,23 +168,12 @@ class GenerateGoldenConfigDBModule(object):
             return True
         return True
     
-    def check_version_for_otel(self):
-        output_version = device_info.get_sonic_version_info()
-        build_version = output_version.get("build_version", "")
-
-        m = re.match(r'^(\d{8})(?:\.(\d+))?$', build_version)
-        if m:
-            major = int(m.group(1))
-            minor = int(m.group(2)) if m.group(2) else 0
-            return (major, minor) > (20241212, 49)
-
-        m = re.match(r'^internal-(\d{8})(?:\.(\d+))?$', build_version)
-        if m:
-            major = int(m.group(1))
-            minor = int(m.group(2)) if m.group(2) else 0
-            return (major, minor) > (20241212, 49)
-
-        return True
+    def has_otel_image(self):
+        rc, out, _ = self.module.run_command("docker images --format '{{.Repository}}'")
+        if rc != 0:
+            return False
+        repos = [line.strip().lower() for line in out.splitlines() if line.strip()]
+        return "docker-sonic-otel" in repos
 
     def get_config_from_minigraph(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -654,9 +643,9 @@ class GenerateGoldenConfigDBModule(object):
             else:
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
-
-        # Enable otel feature only when version > 20241212.49
-        if self.check_version_for_otel():
+                
+        # Enable otel feature when docker-sonic-otel image exists
+        if self.has_otel_image():
             if multi_asic.is_multi_asic():
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "otel", "enabled", "enabled")
             else:
