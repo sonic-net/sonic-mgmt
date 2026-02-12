@@ -16,19 +16,21 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+SHOW_FEC_OPER_CMD_TEMPLATE = "show interfaces fec status {}"
+
 
 @pytest.fixture(autouse=True)
-def ensure_dut_readiness(duthosts, rand_one_dut_hostname):
+def ensure_dut_readiness(duthosts, rand_one_dut_front_end_hostname):
     """
     Setup/teardown fixture for each ethernet test
     rollback to check if it goes back to starting config
 
     Args:
         duthosts: list of DUTs
-        rand_one_dut_hostname: The fixture returns a randomly selected DUT hostname
+        rand_one_dut_front_end_hostname: The fixture returns a randomly selected frontend DUT hostname
     """
 
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     create_checkpoint(duthost)
 
     yield
@@ -110,6 +112,27 @@ def check_interface_status(duthost, field, interface='Ethernet0'):
     return status
 
 
+def remove_port_from_portchannel(duthost, port, portchannel, namespace=None):
+    """
+        Removes a port from its PortChannel membership
+
+        Args:
+            duthost: DUT host object under test
+            port: Port name to remove
+            portchannel: PortChannel name
+            namespace: DUT asic namespace
+    """
+    namespace_prefix = '' if namespace is None else '-n ' + namespace
+    cmd = 'config portchannel {} member del {} {}'.format(namespace_prefix, portchannel, port)
+    logger.info("Removing {} from {} in namespace {}".format(
+        port, portchannel, namespace or 'default'))
+    output = duthost.shell(cmd)
+    pytest_assert(
+        output['rc'] == 0,
+        "Failed to remove {} from {}: {}".format(port, portchannel, output.get('stderr', '')))
+    return True
+
+
 def get_ethernet_port_not_in_portchannel(duthost, namespace=None):
     """
         Returns the name of an ethernet port which is not a member of a port channel
@@ -145,6 +168,62 @@ def get_ethernet_port_not_in_portchannel(duthost, namespace=None):
     return port_name
 
 
+def get_test_port(duthost, namespace=None, remove_from_portchannel=True):
+    """
+        Returns an available ethernet port for testing.
+        If no free ports exist and remove_from_portchannel=True, removes a port from a PortChannel.
+        The port will be restored by the ensure_dut_readiness fixture's rollback mechanism.
+
+        Args:
+            duthost: DUT host object under test
+            namespace: DUT asic namespace
+            remove_from_portchannel: If True, remove a port from PortChannel if no free ports available
+
+        Returns:
+            Port name string, or empty string if no suitable port found
+    """
+    # First try to get a port not in a PortChannel
+    port = get_ethernet_port_not_in_portchannel(duthost, namespace=namespace)
+    if port:
+        logger.info("Found available port: {}".format(port))
+        return port
+
+    if not remove_from_portchannel:
+        logger.warning("No available ports and remove_from_portchannel=False")
+        return ""
+
+    # If no free port, find one in a PortChannel and remove it
+    logger.info("No free ports available, attempting to remove a port from PortChannel")
+    config_facts = duthost.config_facts(
+        host=duthost.hostname,
+        source="running",
+        verbose=False,
+        namespace=namespace
+    )['ansible_facts']
+
+    if 'PORTCHANNEL_MEMBER' not in config_facts or 'PORT' not in config_facts:
+        logger.warning("No PortChannel members or ports found")
+        return ""
+
+    port_channel_member_facts = config_facts['PORTCHANNEL_MEMBER']
+
+    # Find a suitable port to remove (prefer Ext role ports)
+    for portchannel in list(port_channel_member_facts.keys()):
+        for member in list(port_channel_member_facts[portchannel].keys()):
+            port_role = config_facts['PORT'].get(member, {}).get('role')
+            if port_role and port_role != 'Ext':
+                continue  # Skip internal/fabric ports
+
+            # Found a candidate - remove it from the PortChannel
+            logger.info("Removing {} from {} for testing (will be restored by rollback)".format(
+                member, portchannel))
+            remove_port_from_portchannel(duthost, member, portchannel, namespace=namespace)
+            return member
+
+    logger.warning("No suitable ports found even in PortChannels")
+    return ""
+
+
 def get_port_speeds_for_test(duthost, port):
     """
     Get the speeds parameters for case test_update_speed, including 2 valid speeds and 1 invalid speed
@@ -171,12 +250,30 @@ def get_port_speeds_for_test(duthost, port):
     return speeds_to_test
 
 
+def get_fec_oper(duthost, interface):
+    """
+    Get the operational FEC for a given interface
+
+    Args:
+        duthost: DUT host object
+        interface: The name of the interface to be checked
+
+    Returns:
+        The operational FEC of the interface
+    """
+    show_fec_oper_cmd = SHOW_FEC_OPER_CMD_TEMPLATE.format(interface)
+    logger.info("Get output of '{}'".format(show_fec_oper_cmd))
+    fec_status = duthost.show_and_parse(show_fec_oper_cmd)
+    return fec_status[0].get("fec oper", "N/A")
+
+
 def test_remove_lanes(duthosts, rand_one_dut_front_end_hostname,
                       ensure_dut_readiness, enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
-    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
+    port = get_test_port(duthost, namespace=asic_namespace)
+    pytest_assert(port, "No available ethernet ports on this ASIC")
     json_patch = [
         {
             "op": "remove",
@@ -202,7 +299,8 @@ def test_replace_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_rea
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
-    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
+    port = get_test_port(duthost, namespace=asic_namespace)
+    pytest_assert(port, "No available ethernet ports on this ASIC")
     cur_lanes = check_interface_status(duthost, "Lanes", port)
     cur_lanes = cur_lanes.split(",")
     cur_lanes.sort()
@@ -234,10 +332,14 @@ def test_replace_mtu(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
-    # Can't directly change mtu of the port channel member
-    # So find a ethernet port that are not in a port channel
-    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
-    pytest_assert(port, "No available ethernet ports, all ports are in port channels.")
+
+    # Get a test port - check without removing from PortChannel to avoid routing issues
+    port = get_test_port(duthost, namespace=asic_namespace, remove_from_portchannel=False)
+
+    if not port:
+        # MTU changes on ports removed from PortChannel can cause routing convergence issues
+        # Skip this test to avoid teardown failures
+        pytest.skip("No free ports available. Skipping MTU test to avoid routing issues from PortChannel changes.")
     target_mtu = "1514"
     json_patch = [
         {
@@ -268,7 +370,8 @@ def test_toggle_pfc_asym(duthosts, rand_one_dut_front_end_hostname, ensure_dut_r
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
-    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
+    port = get_test_port(duthost, namespace=asic_namespace)
+    pytest_assert(port, "No available ethernet ports on this ASIC")
     json_patch = [
         {
             "op": "replace",
@@ -301,7 +404,9 @@ def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
         'asic{}'.format(enum_rand_one_frontend_asic_index)
     namespace_prefix = '' if asic_namespace is None else '-n ' + asic_namespace
     intf_init_status = duthost.get_interfaces_status()
-    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
+    port = get_test_port(duthost, namespace=asic_namespace)
+    pytest_assert(port, "No available ethernet ports on this ASIC")
+    intf_init_fec_oper = get_fec_oper(duthost, port)
     json_patch = [
         {
             "op": "add",
@@ -322,8 +427,13 @@ def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
             pytest_assert(current_status_fec == fec,
                           "Failed to properly configure interface FEC to requested value {}".format(fec))
 
-            # The rollback after the test cannot revert the fec, when fec is not configured in config_db.json
-            if intf_init_status[port].get("fec", "N/A") == "N/A":
+            # When FEC is not configured in CONFIG_DB and the default FEC is 'none',
+            # explicitly set FEC to 'none' to restore to initial state.
+            # Since the default FEC is vendor dependent, double check initial operational FEC
+            # to make sure it is not 'rs' or 'fc'.
+            if (intf_init_status[port].get("fec", "N/A") == "N/A" and
+                    intf_init_fec_oper in ["none", "N/A"] and
+                    is_valid_fec_state_db(duthost, "none", port, namespace=asic_namespace)):
                 out = duthost.command("config interface {} fec {} none".format(namespace_prefix, port))
                 pytest_assert(out["rc"] == 0, "Failed to set {} fec to none. Error: {}".format(port, out["stderr"]))
         else:
@@ -338,7 +448,8 @@ def test_update_invalid_index(duthosts, rand_one_dut_front_end_hostname, ensure_
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
-    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
+    port = get_test_port(duthost, namespace=asic_namespace)
+    pytest_assert(port, "No available ethernet ports on this ASIC")
     json_patch = [
         {
             "op": "replace",
@@ -408,7 +519,8 @@ def test_update_speed(duthosts, rand_one_dut_front_end_hostname, ensure_dut_read
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
-    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
+    port = get_test_port(duthost, namespace=asic_namespace)
+    pytest_assert(port, "No available ethernet ports on this ASIC")
     speed_params = get_port_speeds_for_test(duthost, port)
     for speed, is_valid in speed_params:
         json_patch = [
@@ -443,7 +555,8 @@ def test_update_description(duthosts, rand_one_dut_front_end_hostname, ensure_du
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
-    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
+    port = get_test_port(duthost, namespace=asic_namespace)
+    pytest_assert(port, "No available ethernet ports on this ASIC")
     json_patch = [
         {
             "op": "replace",
@@ -470,7 +583,8 @@ def test_eth_interface_admin_change(duthosts, rand_one_dut_front_end_hostname, a
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
-    port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
+    port = get_test_port(duthost, namespace=asic_namespace)
+    pytest_assert(port, "No available ethernet ports on this ASIC")
     json_patch = [
         {
             "op": "add",
