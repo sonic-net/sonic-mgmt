@@ -197,6 +197,7 @@ def remove_dataacl_table(duthosts):
                 check_intf_up_ports=True
             )
 
+
 def remove_dataacl_table_single_dut(table_name, duthost):
     lines = duthost.shell(cmd="show acl table {}".format(table_name))['stdout_lines']
     data_acl_existing = False
