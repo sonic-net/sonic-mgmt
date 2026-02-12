@@ -8,8 +8,8 @@ SONiC requires the hardware watchdog to be enabled on all platforms.
 This test validates that the watchdog utility is available and that
 the hardware watchdog is armed.
 
-By default, an unarmed watchdog produces a warning. Use --strict_watchdog
-to make it a test failure.
+By default, an unarmed watchdog produces a warning and skips.
+Use --strict_watchdog to make it a test failure.
 """
 import logging
 import pytest
@@ -43,6 +43,8 @@ def test_hw_watchdog_supported(duthosts, enum_rand_one_per_hwsku_hostname):
     pytest_assert(result["rc"] == 0,
                   "watchdogutil command failed with rc={}: {}".format(
                       result["rc"], result["stderr"]))
+    pytest_assert(result["stderr"].strip() == "",
+                  "watchdogutil status reported errors: {}".format(result["stderr"]))
     pytest_assert(result["stdout"].strip() != "",
                   "watchdogutil status returned empty output")
 
@@ -53,15 +55,18 @@ def test_hw_watchdog_armed(duthosts, enum_rand_one_per_hwsku_hostname, strict_wa
               SONiC requires the hardware watchdog to be enabled on all platforms
               to ensure the system can recover from hangs.
 
-              By default, an unarmed watchdog logs a warning.
+              By default, an unarmed watchdog logs a warning and skips.
               Pass --strict_watchdog to treat it as a failure.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     result = duthost.command(WATCHDOG_STATUS_CMD, module_ignore_errors=True)
 
-    if result["rc"] != 0 or result["stdout"].strip() == "":
-        pytest.skip("watchdogutil is not supported on this platform")
+    if (result["rc"] != 0 or
+            result["stdout"].strip() == "" or
+            result["stderr"].strip() != ""):
+        pytest.skip("watchdogutil is not supported on this platform (rc={}, stderr='{}')".format(
+            result["rc"], result["stderr"]))
 
     status_output = result["stdout"].strip().lower()
 
