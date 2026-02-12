@@ -72,8 +72,13 @@ class MinikubeManager:
         self.vmhost.shell("minikube delete --all --purge", module_ignore_errors=True)
         self.vmhost.shell("docker rm -f minikube", module_ignore_errors=True)
 
+    def _clean_juju_locks(self):
+        """Clean up juju lock files that cause permission issues."""
+        self.vmhost.shell("sudo rm -f /tmp/juju-mk*", module_ignore_errors=True)
+
     def is_ready(self):
         """Check if minikube is ready."""
+        self._clean_juju_locks()
         result = self.vmhost.shell(
             f"{NO_PROXY} minikube kubectl -- get node minikube --no-headers",
             module_ignore_errors=True
@@ -107,6 +112,8 @@ class MinikubeManager:
     def update_kubelet_config(self):
         """Update kubelet config for DUT compatibility."""
         logger.info("Updating kubelet config")
+        # Clean juju locks before kubectl operations
+        self._clean_juju_locks()
         # Match original test approach
         tmp_file = "/tmp/kubelet-config.yaml"
         get_cmd = f"{NO_PROXY} minikube kubectl -- get cm kubelet-config-1.22 -n kube-system -o yaml"
@@ -118,6 +125,8 @@ class MinikubeManager:
     def deploy_test_daemonset(self):
         """Deploy test daemonset."""
         logger.info("Deploying test daemonset")
+        # Clean juju locks before kubectl operations
+        self._clean_juju_locks()
         daemonset_content = """
 apiVersion: apps/v1
 kind: DaemonSet
