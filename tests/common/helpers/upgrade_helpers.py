@@ -8,6 +8,7 @@ from six.moves.urllib.parse import urlparse
 import tests.common.fixtures.grpc_fixtures  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until, setup_ferret
@@ -22,7 +23,8 @@ TMP_VLAN_FILE = '/tmp/vlan_interfaces.json'
 TMP_PORTS_FILE = '/tmp/ports.json'
 TMP_PEER_INFO_FILE = "/tmp/peer_dev_info.json"
 TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
-
+SS_TARGET_TYPE_HDR = "x-sonic-ss-target-type"
+SS_TARGET_INDEX_HDR = "x-sonic-ss-target-index"
 
 @dataclass(frozen=True)
 class GnoiUpgradeConfig:
@@ -32,6 +34,15 @@ class GnoiUpgradeConfig:
     protocol: str = "HTTP"
     allow_fail: bool = False
     to_version: Optional[str] = None  # Optional expected version string to validate after upgrade
+    ss_target_type: Optional[str] = None   # e.g. "dpu"
+    ss_target_index: Optional[int] = None  # e.g. 3
+    
+
+def build_smartswitch_metadata(target_type: str, target_index: int):
+    return [
+        (SS_TARGET_TYPE_HDR, str(target_type)),
+        (SS_TARGET_INDEX_HDR, str(target_index)),
+    ]
 
 
 def pytest_runtest_setup(item):
@@ -395,3 +406,110 @@ def perform_gnoi_upgrade(
     )
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
+
+def _wait_gnoi_time_ready(ptf_gnoi, metadata, timeout: int, interval: int = 10) -> bool:
+    """Wait until System.Time succeeds for the given target."""
+    def _probe():
+        try:
+            ptf_gnoi.system_time(metadata=metadata)
+            return True
+        except Exception as e:
+            logger.debug("gNOI Time probe failed (expected during reboot): %s", e)
+            return False
+    return wait_until(timeout, interval, 0, _probe)
+def _upgrade_one_dpu_via_gnoi(
+    ptf_gnoi,
+    dpu_index: int,
+    image_url: str,
+    dut_image_path: str,
+    to_version: str,
+    target_type: str = "dpu",
+    transfer_protocol: str = "HTTP",
+    reboot_method: str = "COLD",
+    reboot_delay: int = 0,
+    reboot_message: str = "Rebooting DPU for maintenance",
+    timeout_reboot_ready: int = 1200,
+):
+    """
+    Worker for one DPU upgrade (suitable for SafeThreadPoolExecutor.submit).
+    """
+    metadata = build_smartswitch_metadata(target_type, dpu_index)
+    logger.info("[DPU %s] Sanity: System.Time", dpu_index)
+    # sanity before upgrade: fail fast if routing/headers wrong
+    ptf_gnoi.system_time(metadata=metadata)
+    logger.info("[DPU %s] TransferToRemote: %s -> %s", dpu_index, image_url, dut_image_path)
+    ptf_gnoi.file_transfer_to_remote(
+        url=image_url,
+        local_path=dut_image_path,
+        protocol=transfer_protocol,
+        metadata=metadata,
+    )
+    logger.info("[DPU %s] SetPackage: filename=%s version=%s", dpu_index, dut_image_path, to_version)
+    ptf_gnoi.system_set_package(
+        local_path=dut_image_path,
+        version=to_version,
+        activate=True,
+        metadata=metadata,
+    )
+    logger.info("[DPU %s] Reboot: method=%s delay=%s", dpu_index, reboot_method, reboot_delay)
+    try:
+        ptf_gnoi.system_reboot(
+            method=reboot_method,
+            delay=reboot_delay,
+            message=reboot_message,
+            metadata=metadata,
+        )
+    except Exception as e:
+        # reboot often drops the channel; treat as expected transient
+        logger.info("[DPU %s] Reboot RPC raised (often expected): %s", dpu_index, e)
+    logger.info("[DPU %s] Waiting for gNOI Time to be reachable again...", dpu_index)
+    if not _wait_gnoi_time_ready(ptf_gnoi, metadata, timeout=timeout_reboot_ready, interval=10):
+        raise TimeoutError(f"[DPU {dpu_index}] Timed out waiting for gNOI Time after reboot")
+    logger.info("[DPU %s] Upgrade flow done (target reachable).", dpu_index)
+def perform_gnoi_upgrade_smartswitch_dpu(
+    ptf_gnoi,
+    dpu_index: int,
+    image_url: str,
+    dut_image_path: str,
+    to_version: str,
+    **kwargs,
+):
+    """Single DPU upgrade entrypoint (non-parallel)."""
+    _upgrade_one_dpu_via_gnoi(
+        ptf_gnoi=ptf_gnoi,
+        dpu_index=dpu_index,
+        image_url=image_url,
+        dut_image_path=dut_image_path,
+        to_version=to_version,
+        **kwargs,
+    )
+def perform_gnoi_upgrade_smartswitch_dpus_parallel(
+    ptf_gnoi,
+    dpu_indices,
+    image_url: str,
+    dut_image_path: str,
+    to_version: str,
+    max_workers: int = None,
+    **kwargs,
+):
+    """
+    Parallel upgrade for multiple DPUs, SafeThreadPoolExecutor style (matches CLI reload testcase).
+    Any per-DPU failure should be surfaced by SafeThreadPoolExecutor.
+    """
+    dpu_indices = list(dpu_indices)
+    if not dpu_indices:
+        raise ValueError("dpu_indices is empty")
+    workers = max_workers or len(dpu_indices)
+    logger.info("Upgrading DPUs in parallel: %s (workers=%s)", dpu_indices, workers)
+    with SafeThreadPoolExecutor(max_workers=workers) as executor:
+        for idx in dpu_indices:
+            executor.submit(
+                _upgrade_one_dpu_via_gnoi,
+                ptf_gnoi,
+                idx,
+                image_url,
+                dut_image_path,
+                to_version,
+                **kwargs,
+            )
+
