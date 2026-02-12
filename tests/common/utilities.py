@@ -24,6 +24,7 @@ from io import StringIO
 from ast import literal_eval
 from scapy.all import sniff as scapy_sniff
 from paramiko.ssh_exception import AuthenticationException
+from datetime import datetime
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
@@ -1639,3 +1640,63 @@ def parse_rif_counters(output_lines):
             results[intf][headers[idx]] = portstats[idx].replace(',', '')
 
     return results
+
+
+def get_day_of_week_distributed_ports_from_buckets(ports: list, num_buckets: int) -> list:
+    """
+    Select ports randomly using buckets and Day of Week (DoW) based selection.
+    Args:
+        ports (list): List of ports to select from.
+        num_buckets (int): Number of buckets to divide the ports into.
+    Returns:
+        list: Selected ports based on DoW from each bucket.
+    """
+    if len(ports) == 0:
+        return []
+    if len(ports) <= num_buckets:
+        return ports
+    # Get DoW
+    day_of_week = datetime.now().weekday()
+    logger.info("Day of Week: {} (0=Mon, 6=Sun) - used for port selection".format(day_of_week))
+
+    bucket_size = len(ports) // num_buckets
+    remainder = len(ports) % num_buckets
+    shuffled_ports = list(ports)
+    random.shuffle(shuffled_ports)
+    selected_ports = []
+    start_idx = 0
+
+    for i in range(num_buckets):
+        # Distribute remainder across first available buckets
+        current_bucket_size = bucket_size + (1 if i < remainder else 0)
+        if current_bucket_size == 0:
+            break
+        end_idx = start_idx + current_bucket_size
+        bucket_ports = shuffled_ports[start_idx:end_idx]
+        # Select port based on DoW index (wrapping if bucket is smaller than 7)
+        port_index = day_of_week % len(bucket_ports)
+        selected_ports.append(bucket_ports[port_index])
+        start_idx = end_idx
+
+    logger.info("Selected {} ports from {} buckets using DoW-based selection: {}".format(
+        len(selected_ports), num_buckets, selected_ports))
+    return selected_ports
+
+
+def group_interfaces_by_asic(duthost, interfaces: list) -> dict:
+    """
+    Group interfaces by their ASIC namespace.
+    Args:
+        duthost: DUT host object
+        interfaces: List of interface names
+    Returns:
+        dict: Mapping of ASIC namespace string to list of interfaces
+              e.g., {"": ["Eth1", "Eth2"], "-n asic0": ["Eth3"]}
+    """
+    if not duthost.is_multi_asic:
+        return {"": list(interfaces)}
+    asic_interface_map = collections.defaultdict(list)
+    for interface in interfaces:
+        namespace = duthost.get_port_asic_instance(interface).get_asic_namespace()
+        asic_interface_map["-n {}".format(namespace)].append(interface)
+    return dict(asic_interface_map)
