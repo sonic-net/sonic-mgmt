@@ -255,6 +255,9 @@
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
+      multi_vrf: "{{ topo_is_multi_vrf }}"
+      multi_vrf_data: "{{ convergence_data|default({}) }}"
+      topo_config: "{{ configuration }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
     when: not enable_async
@@ -289,6 +292,9 @@
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
+      multi_vrf: "{{ topo_is_multi_vrf }}"
+      multi_vrf_data: "{{ convergence_data|default({}) }}"
+      topo_config: "{{ configuration }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
     async: 3600

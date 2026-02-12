@@ -6,6 +6,7 @@ import sys
 import yaml
 import re
 from ansible.module_utils.basic import AnsibleModule
+import itertools
 
 DOCUMENTATION = '''
 module: topo_facts.py
@@ -88,12 +89,26 @@ class ParseTestbedTopoinfo():
     def __init__(self):
         self.vm_topo_config = {}
         self.asic_topo_config = {}
+        self.topo_is_multi_vrf = False
+
+    def get_vm_list(self, topo_definition, neigh_type):
+        if neigh_type == 'VMs' and self.topo_is_multi_vrf:
+            mapping = topo_definition['convergence_data']['convergence_mapping']
+            return list(itertools.chain(*mapping.values()))
+        else:
+            return topo_definition['topology'][neigh_type]
+
+    def get_vlans(self, vm, topo_definition, neigh_type):
+        if neigh_type == 'VMs' and self.topo_is_multi_vrf:
+            return topo_definition['convergence_data']['interface_index_mapping'][vm]
+        else:
+            return topo_definition['topology'][neigh_type][vm]['vlans']
 
     def parse_topo_defintion(self, topo_definition, po_map, dut_num, neigh_type='VMs'):
         vmconfig = dict()
         if topo_definition['topology'][neigh_type] is None:
             return vmconfig
-        for vm in topo_definition['topology'][neigh_type]:
+        for vm in self.get_vm_list(topo_definition, neigh_type):
             vmconfig[vm] = dict()
             vmconfig[vm]['intfs'] = [[] for i in range(dut_num)]
             if 'properties' in vmconfig[vm]:
@@ -107,7 +122,7 @@ class ParseTestbedTopoinfo():
             if neigh_type == 'VMs':
                 vmconfig[vm]['interface_indexes'] = [[]
                                                      for i in range(dut_num)]
-                for vlan in topo_definition['topology'][neigh_type][vm]['vlans']:
+                for vlan in self.get_vlans(vm, topo_definition, neigh_type):
                     (dut_index, vlan_index, _) = parse_vm_vlan_port(vlan)
                     vmconfig[vm]['interface_indexes'][dut_index].append(
                         vlan_index)
@@ -286,6 +301,9 @@ class ParseTestbedTopoinfo():
         if 'dut_num' in topo_definition['topology']:
             dut_num = topo_definition['topology']['dut_num']
         vm_topo_config['dut_num'] = dut_num
+
+        self.topo_is_multi_vrf = topo_definition.get('topo_is_multi_vrf', False)
+        vm_topo_config['topo_is_multi_vrf'] = self.topo_is_multi_vrf
 
         if 'topo_type' in topo_definition['topology']:
             vm_topo_config['topo_type'] = topo_definition['topology']['topo_type']
