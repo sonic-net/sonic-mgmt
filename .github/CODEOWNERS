@@ -14,7 +14,7 @@
 # Documents
 
 # spytest
-sonic-mgmt/spytest/tests/cisco @pevenkat @bhavani @rraguraj @jsanghra
+sonic-mgmt/spytest/tests/cisco @pevenkat @bhavani @rraguraj @jsanghra @akroy @savinaya
 
 # test reporting
 
@@ -25,7 +25,7 @@ sonic-mgmt/ansible @pevenkat @bhavani
 sonic-mgmt/tests @pevenkat @bhavani  # Catch-all for tests/
 
 # More specific rules last (these override the general ones)
-sonic-mgmt/spytest/tests/cisco @pevenkat @bhavani @rraguraj @jsanghra
-sonic-mgmt/tests/cisco @pevenkat @bhavani @rraguraj @anamehra @mridul @jsanghra
+sonic-mgmt/spytest/tests/cisco @pevenkat @bhavani @rraguraj @jsanghra @akroy @savinaya
+sonic-mgmt/tests/cisco @pevenkat @bhavani @rraguraj @anamehra @mridul @jsanghra @akroy @savinaya
 sonic-mgmt/tests/cisco/platform_tests @mridul @pevenkat @bhavani @rraguraj @anamehra
 sonic-mgmt/tests/cisco/fault_handler @pevenkat @bhavani @anamehra @yenlu @mridul
