@@ -205,8 +205,12 @@ class ParseTestbedTopoinfo():
 
                 # bgp
                 vmconfig[vm]['bgp_asn'] = topo_definition['configuration'][vm]['bgp']['asn']
-                dut_asn = topo_definition['configuration_properties']['common']['dut_asn']
-                for ipstr in topo_definition['configuration'][vm]['bgp']['peers'][dut_asn]:
+                peer_in_bgp_confed = topo_definition['configuration'][vm]['bgp'].get('peer_in_bgp_confed', False)
+                if peer_in_bgp_confed:
+                    peer_asn = topo_definition['configuration_properties']['common']['dut_confed_asn']
+                else:
+                    peer_asn = topo_definition['configuration_properties']['common']['dut_asn']
+                for ipstr in topo_definition['configuration'][vm]['bgp']['peers'][peer_asn]:
                     ip_mask = None
                     if '/' in ipstr:
                         (ipstr, ip_mask) = ipstr.split('/')
