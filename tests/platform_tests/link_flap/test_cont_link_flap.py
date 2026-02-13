@@ -23,11 +23,13 @@ from tests.common.utilities import wait_until
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
 from tests.common.platform.device_utils import toggle_one_link
+from tests.common.plugins.test_completeness import CompletenessLevel
 
 pytestmark = [
     pytest.mark.disable_route_check,
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.supported_completeness_level(CompletenessLevel.confident, CompletenessLevel.thorough)
 ]
 
 
@@ -37,14 +39,11 @@ class TestContLinkFlap(object):
     """
 
     @staticmethod
-    def get_random_candidates(duthost, fanouthosts, num_ports=32):
-        candidates = build_test_candidates(duthost, fanouthosts, 'all_ports')
+    def get_candidates(duthost, fanouthosts, completeness_level="confident"):
+        candidates = build_test_candidates(duthost, fanouthosts, 'all_ports', completeness_level=completeness_level)
         pytest_require(candidates, "Didn't find any port that is admin up and present in the connection graph")
-        selected_candidates = random.sample(candidates, min(num_ports, len(candidates)))
-        selected_ports = [dut_port for dut_port, fanout, fanout_port in selected_candidates]
-        logging.info("Randomly selected %d ports: %s", len(selected_ports), selected_ports)
-        logging.info("Randomly selected candidates: %s", selected_candidates)
-        return selected_candidates, selected_ports
+        logging.info("Randomly selected candidates: %s", candidates)
+        return candidates
 
     def get_frr_daemon_memory_usage(self, duthost, daemon):
         frr_daemon_memory_per_asics = {}
@@ -108,6 +107,9 @@ class TestContLinkFlap(object):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         duthost.command("sonic-clear arp")
         orch_cpu_threshold = request.config.getoption("--orch_cpu_threshold")
+        completeness_level = request.config.getoption("--completeness_level")
+        if not completeness_level or completeness_level not in ["confident", "thorough"]:
+            completeness_level = "confident"
 
         # Record memory status at start
         memory_output = duthost.shell("show system-memory")["stdout"]
@@ -152,13 +154,14 @@ class TestContLinkFlap(object):
         # Flap randomly sampled interfaces one by one on DUT
         for iteration in range(3):
             logging.info("%d Iteration flap randomly sampled interfaces one by one on DUT", iteration + 1)
-            _, selected_ports = self.get_random_candidates(duthost, fanouthosts, num_ports=32)
+            selected_candidates = self.get_candidates(duthost, fanouthosts, completeness_level=completeness_level)
+            selected_ports = [dut_port for dut_port, fanout, fanout_port in selected_candidates]
             port_toggle(duthost, tbinfo, ports=selected_ports, wait_after_ports_up=30, watch=True)
 
         # Flap randomly sampled interfaces one by one on Peer Device
         for iteration in range(3):
             logging.info("%d Iteration flap randomly sampled interfaces one by one on Peer Device", iteration + 1)
-            selected_candidates, _ = self.get_random_candidates(duthost, fanouthosts, num_ports=32)
+            selected_candidates = self.get_candidates(duthost, fanouthosts, completeness_level=completeness_level)
             for dut_port, fanout, fanout_port in selected_candidates:
                 toggle_one_link(duthost, dut_port, fanout, fanout_port, watch=True)
 
