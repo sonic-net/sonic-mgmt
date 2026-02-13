@@ -354,4 +354,4 @@ jobs:
           ASIC_TYPE: "vpp"
           KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
           COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer"
-          STOP_ON_FAILURE: "False"
+          EXPECTED_RESULT: "SUCCESS"
