@@ -1,7 +1,6 @@
 import inspect
 import json
 import logging
-import os
 import collections
 from multiprocessing.pool import ThreadPool
 from pytest_ansible.results import AdHocResult, ModuleResult
@@ -11,14 +10,28 @@ from tests.common.errors import RunAnsibleModuleFail
 logger = logging.getLogger(__name__)
 
 
-def is_ipv6_only_mgmt():
+# Module-level flag for IPv6-only management mode.
+# This is set by the ipv6_only_mgmt_enabled fixture in conftest.py
+_ipv6_only_mgmt_enabled = False
+
+
+def set_ipv6_only_mgmt(enabled: bool):
+    """Set the IPv6-only management mode flag.
+
+    Called by the ipv6_only_mgmt_enabled fixture in conftest.py.
+    """
+    global _ipv6_only_mgmt_enabled
+    _ipv6_only_mgmt_enabled = enabled
+    if enabled:
+        logger.info("IPv6-only management mode enabled")
+
+
+def is_ipv6_only_mgmt() -> bool:
     """Check if running in IPv6-only management mode.
 
-    Returns True if SONIC_MGMT_IPV6_ONLY env var is set to '1' or 'true'.
-    This is set by run_tests.sh when -6 flag is passed, or by pytest
-    when --ipv6_only_mgmt option is used.
+    Returns True if --ipv6_only_mgmt pytest option was passed.
     """
-    return os.environ.get('SONIC_MGMT_IPV6_ONLY', '').lower() in ('1', 'true')
+    return _ipv6_only_mgmt_enabled
 
 
 # HACK: This is a hack for issue https://github.com/sonic-net/sonic-mgmt/issues/1941 and issue

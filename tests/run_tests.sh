@@ -521,7 +521,6 @@ while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:uxw6" opt; do
             ;;
         6 )
             IPV6_ONLY_MGMT="True"
-            export SONIC_MGMT_IPV6_ONLY=1
             ;;
     esac
 done
