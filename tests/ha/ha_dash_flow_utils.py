@@ -3,7 +3,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 def parse_flow_data(output):
     keys = [
         "Session", "LookupId", "Dir", "SIP", "DIP",
@@ -33,6 +32,13 @@ def parse_flow_data(output):
     return flow_tables
 
 
+def get_flow_array(flow_table):
+    flow_array = []
+    for records in flow_table.values():
+        flow_array.extend(records)
+    return flow_array
+
+
 def compare_flow_tables(dpuhost1, dpuhost2):
     if 'pensando' not in dpuhost1.facts['asic_type'] or 'pensando' not in dpuhost2.facts['asic_type']:
         logger.warning("Only Pensando is supported for this function")
@@ -51,10 +57,16 @@ def compare_flow_tables(dpuhost1, dpuhost2):
         logger.warning(f" flows table for {dpuhost2.hostname} is empty")
         return False
 
-    logger.debug(f"flow_table1: {flow_table1}")
-    logger.debug(f"flow_table2: {flow_table2}")
+    flow_array1 = get_flow_array(flow_table1)
+    flow_array2 = get_flow_array(flow_table2)
 
-    if flow_table1 == flow_table2:
+    sorted_flow_array1 = sorted(flow_array1, key=lambda x: int(x['Session']))
+    sorted_flow_array2 = sorted(flow_array2, key=lambda x: int(x['Session']))
+
+    logger.debug(f"flows on primary: {sorted_flow_array1}")
+    logger.debug(f"flows on standby: {sorted_flow_array2}")
+
+    if sorted_flow_array1 == sorted_flow_array2:
         logger.info(f" flows for {dpuhost1.hostname} and {dpuhost2.hostname} are identical")
         return True
     else:
