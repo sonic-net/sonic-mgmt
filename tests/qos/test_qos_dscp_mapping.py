@@ -507,8 +507,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             and not is_smartswitch
             and "dualtor" not in topo_name
             and "t1" not in topo_name):
-            with allure.step("Do warm-reboot"
-        ):
+            with allure.step("Do warm-reboot"):
                 reboot(duthost, localhost, reboot_type="warm", safe_reboot=True, check_intf_up_ports=True,
                        wait_warmboot_finalizer=True)
 
