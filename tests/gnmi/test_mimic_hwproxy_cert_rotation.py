@@ -11,7 +11,9 @@ from tests.common.utilities import get_image_type
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.usefixtures("setup_gnmi_server", "setup_gnmi_rotated_server",
+                            "setup_gnmi_ntp_client_server", "check_dut_timestamp")
 ]
 
 
