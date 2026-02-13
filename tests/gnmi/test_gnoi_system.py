@@ -8,8 +8,8 @@ import re
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.usefixtures("setup_gnmi_server", "setup_gnmi_rotated_server",
-                            "setup_gnmi_ntp_client_server", "check_dut_timestamp")
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
+                            "setup_gnmi_rotated_server", "check_dut_timestamp")
 ]
 
 
