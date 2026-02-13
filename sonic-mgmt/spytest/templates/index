@@ -46,6 +46,8 @@ show_ip_bgp_peer_group.tmpl, .*, sonic, show bgp all\s+(vrf .*\s+)?peer-group
 show_bgp_ipv4v6uni_routes.tmpl, .*, sonic, show bgp ipv(4|6) unicast\s+(vrf .*\s+)?route-map
 show_bgp_ipv4v6uni_stats.tmpl, .*, sonic, show bgp ipv(4|6) unicast\s+(vrf .*\s+)?statistics
 show_bgp_vrf_routes.tmpl, .*, sonic, show bgp vrf .* ipv(4|6) unicast
+show_fgnhg_hashview.tmpl, .*, sonic, show fgnhg hash-view
+show_fgnhg_active_hop.tmpl, .*, sonic, show fgnhg active-hops
 show_ip_bgp_summary.tmpl, .*, sonic, show ip bgp summary
 show_ip_bgp_summary.tmpl, .*, sonic, show ipv6 bgp summary
 show_ip_bgp_summary.tmpl, .*, sonic, show bgp ipv4 summary
@@ -80,7 +82,7 @@ show_ip_ospf_neighbor.tmpl, .*, sonic, show ip ospf vrf .* neighbor
 show_ip_ospf_router.tmpl, .*, sonic, show ip ospf
 show_ip_ospf_router.tmpl, .*, sonic, show ip ospf vrf all
 show_ip_ospf_router.tmpl, .*, sonic, show ip ospf vrf .*
-show_ip_route_summary.tmpl, .*, sonic, show ip route summary
+show_ip_route_summary.tmpl, .*, sonic, show ip(v6)? route summary
 show_ip_route_summary.tmpl, .*, sonic, show ip route vrf .* summary
 show_ip_route_summary.tmpl, .*, sonic, show ipv6 route vrf .* summary
 show_ip_route.tmpl, .*, sonic, show ip route
@@ -621,3 +623,4 @@ show_tacacs_server.tmpl, .*, sonic, show tacacs-server.*
 show_vlan_config.tmpl, .*, sonic, show vlan config
 show_ntp.tmpl, .*, sonic, show ntp.*
 show_bfd_sum_sonic.tmpl, .*, sonic, show bfd sum.*
+show_ip_route_summary.tmpl, .*, sonic, show ipv6 route summary

@@ -1,0 +1,7 @@
+Value Source (\S+)
+Value Routes (\d+)
+Value Fib (\d+)
+
+Start
+  ^Route\sSource\s+Routes\s+FIB\s+(vrf\d+default)
+  ^${Source}\s+${Routes}\s+${Fib} -> Record

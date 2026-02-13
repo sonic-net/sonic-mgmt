@@ -1,0 +1,12 @@
+Value PREFIX (\S+)
+Value ACTIVENEXTHOP (\S+)
+Value ACTIVENEXTHOPIP (\S+)
+
+
+Start
+  ^FG NHG Prefix\s+Active Next Hops\s.*$$
+  ^(-+\s*)\s.*$$
+  ^${PREFIX}\s+${ACTIVENEXTHOP}\s* -> Record
+  ^\s+${ACTIVENEXTHOP}\s*$$ -> Record
+
+EOF

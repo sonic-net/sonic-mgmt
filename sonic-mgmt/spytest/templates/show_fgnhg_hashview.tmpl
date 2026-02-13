@@ -1,0 +1,11 @@
+Value PREFIX (\S+)
+Value NEXTHOP (\S+)
+Value HASHBUCKET (.*)
+
+
+Start
+  ^FG NHG Prefix\s+Next Hop\s+Hash buckets\s.*$$
+  ^(-+\s*)\s.*$$
+  ^${PREFIX}\s+${NEXTHOP}\s+${HASHBUCKET}\s*$$ -> Record
+
+EOF

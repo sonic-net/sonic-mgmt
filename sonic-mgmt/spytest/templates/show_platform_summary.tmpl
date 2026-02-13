@@ -4,8 +4,10 @@
 Value Platform (\S+)
 Value HwSKU (\S+)
 Value ASIC (\S+)
+Value Model (\S+)
 
 Start
   ^Platform:\s+${Platform} -> Continue
   ^HwSKU:\s+${HwSKU} -> Continue
-  ^ASIC:\s+${ASIC}
+  ^ASIC:\s+${ASIC} -> Continue
+  ^Model Number:\s+${Model} -> Continue

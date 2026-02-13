@@ -1,0 +1,19 @@
+Value AdminMode (\S+)
+Value Service (.*)
+Value Status (.*)
+Value Source (.*)
+Value Timestamp (.*)
+Value FirmwareStatus (\S+)
+
+
+Start
+  ^ZTP\s+Admin\s+Mode\s+:\s+${AdminMode}$$
+  ^ZTP\s+Service\s+:\s+${Service}$$
+  ^ZTP\s+Status\s+:\s+${Status}$$
+  ^ZTP\s+Source\s+:\s+${Source}$$
+  ^Timestamp\s+:\s+${Timestamp}$$
+  ^.*\s+firmware:\s+${FirmwareStatus}\s+firmware.*$$
+  ^.*\s+firmware:\s+${FirmwareStatus}\s+installed.*$$
+
+
+
