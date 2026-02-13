@@ -383,11 +383,12 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
             mock_result = device_mocker.mock_asic_temperature(False)
             expect_value = EXPECT_ASIC_HOT
             if mock_result:
-                time.sleep(THERMAL_CHECK_INTERVAL)
-                value = redis_get_field_value(
-                    duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
-                assert not value or expect_value not in value, 'ASIC check is still performed after it ' \
-                                                               'is configured to be ignored'
+                def _check_asic_is_ignored(duthost):
+                    value = redis_get_field_value(
+                        duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
+                    return not value or expect_value not in value
+                assert wait_until(DEFAULT_INTERVAL, FAST_INTERVAL, 0, _check_asic_is_ignored, duthost), \
+                    'ASIC check is still performed after it is configured to be ignored'
 
     logger.info(
         'Ignore PSU check, verify there is no error information about psu')
@@ -397,10 +398,12 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
             mock_result, psu_name = device_mocker.mock_psu_presence(False)
             expect_value = EXPECT_PSU_MISSING.format(psu_name)
             if mock_result:
-                time.sleep(PSU_CHECK_INTERVAL)
-                value = redis_get_field_value(
-                    duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
-                assert not value or expect_value != value, \
+                def _check_psu_is_ignored(duthost, psu_name):
+                    value = redis_get_field_value(
+                        duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
+                    return not value or expect_value != value
+
+                assert wait_until(DEFAULT_INTERVAL, FAST_INTERVAL, 0, _check_psu_is_ignored, duthost, psu_name), \
                     'PSU check is still performed after it is configured to be ignored'
 
 
