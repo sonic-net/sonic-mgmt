@@ -13,7 +13,7 @@ from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until, setup_ferret
 from tests.common.platform.device_utils import check_neighbors
-from typing import Dict, Optional
+from typing import Optional, Sequence, Tuple, Union, Dict
 
 SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
@@ -26,6 +26,8 @@ TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
 SS_TARGET_TYPE_HDR = "x-sonic-ss-target-type"
 SS_TARGET_INDEX_HDR = "x-sonic-ss-target-index"
 
+GrpcMetadata = Union[Dict[str, str], Sequence[Tuple[str, str]]]
+
 @dataclass(frozen=True)
 class GnoiUpgradeConfig:
     to_image: str
@@ -36,7 +38,9 @@ class GnoiUpgradeConfig:
     to_version: Optional[str] = None  # Optional expected version string to validate after upgrade
     ss_target_type: Optional[str] = None   # e.g. "dpu"
     ss_target_index: Optional[int] = None  # e.g. 3
-    
+    metadata: Optional[GrpcMetadata] = None
+    ss_reboot_ready_timeout: int = 1200
+    ss_reboot_message: str = "Rebooting DPU for maintenance"
 
 def build_smartswitch_metadata(target_type: str, target_index: int):
     return [
@@ -417,99 +421,73 @@ def _wait_gnoi_time_ready(ptf_gnoi, metadata, timeout: int, interval: int = 10) 
             logger.debug("gNOI Time probe failed (expected during reboot): %s", e)
             return False
     return wait_until(timeout, interval, 0, _probe)
-def _upgrade_one_dpu_via_gnoi(
-    ptf_gnoi,
-    dpu_index: int,
-    image_url: str,
-    dut_image_path: str,
-    to_version: str,
-    target_type: str = "dpu",
-    transfer_protocol: str = "HTTP",
-    reboot_method: str = "COLD",
-    reboot_delay: int = 0,
-    reboot_message: str = "Rebooting DPU for maintenance",
-    timeout_reboot_ready: int = 1200,
-):
-    """
-    Worker for one DPU upgrade (suitable for SafeThreadPoolExecutor.submit).
-    """
-    metadata = build_smartswitch_metadata(target_type, dpu_index)
-    logger.info("[DPU %s] Sanity: System.Time", dpu_index)
-    # sanity before upgrade: fail fast if routing/headers wrong
-    ptf_gnoi.system_time(metadata=metadata)
-    logger.info("[DPU %s] TransferToRemote: %s -> %s", dpu_index, image_url, dut_image_path)
-    ptf_gnoi.file_transfer_to_remote(
-        url=image_url,
-        local_path=dut_image_path,
-        protocol=transfer_protocol,
-        metadata=metadata,
+
+
+def _upgrade_one_dpu_via_gnoi(ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
+    if not cfg.metadata:
+        raise ValueError("cfg.metadata must be provided for SmartSwitch DPU upgrade")
+
+    md = cfg.metadata
+
+    ptf_gnoi.system_time(metadata=md)
+
+    transfer_resp = ptf_gnoi.file_transfer_to_remote(
+        url=cfg.to_image,
+        local_path=cfg.dut_image_path,
+        protocol=cfg.protocol,
+        metadata=md,
     )
-    logger.info("[DPU %s] SetPackage: filename=%s version=%s", dpu_index, dut_image_path, to_version)
-    ptf_gnoi.system_set_package(
-        local_path=dut_image_path,
-        version=to_version,
+
+    setpkg_resp = ptf_gnoi.system_set_package(
+        local_path=cfg.dut_image_path,
+        version=cfg.to_version,
         activate=True,
-        metadata=metadata,
+        metadata=md,
     )
-    logger.info("[DPU %s] Reboot: method=%s delay=%s", dpu_index, reboot_method, reboot_delay)
+
+    method = str(cfg.upgrade_type).upper()
     try:
-        ptf_gnoi.system_reboot(
-            method=reboot_method,
-            delay=reboot_delay,
-            message=reboot_message,
-            metadata=metadata,
+        reboot_resp = ptf_gnoi.system_reboot(
+            method=method,
+            delay=0,
+            message=cfg.ss_reboot_message,
+            metadata=md,
         )
     except Exception as e:
-        # reboot often drops the channel; treat as expected transient
-        logger.info("[DPU %s] Reboot RPC raised (often expected): %s", dpu_index, e)
-    logger.info("[DPU %s] Waiting for gNOI Time to be reachable again...", dpu_index)
-    if not _wait_gnoi_time_ready(ptf_gnoi, metadata, timeout=timeout_reboot_ready, interval=10):
-        raise TimeoutError(f"[DPU {dpu_index}] Timed out waiting for gNOI Time after reboot")
-    logger.info("[DPU %s] Upgrade flow done (target reachable).", dpu_index)
-def perform_gnoi_upgrade_smartswitch_dpu(
-    ptf_gnoi,
-    dpu_index: int,
-    image_url: str,
-    dut_image_path: str,
-    to_version: str,
-    **kwargs,
-):
-    """Single DPU upgrade entrypoint (non-parallel)."""
-    _upgrade_one_dpu_via_gnoi(
-        ptf_gnoi=ptf_gnoi,
-        dpu_index=dpu_index,
-        image_url=image_url,
-        dut_image_path=dut_image_path,
-        to_version=to_version,
-        **kwargs,
-    )
+        logger.info("Reboot raised (often expected): %s", e)
+        reboot_resp = None
+
+    if cfg.allow_fail:
+        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
+
+    ok = wait_until(cfg.ss_reboot_ready_timeout, 10, 0, lambda: _probe_time(ptf_gnoi, md))
+    pytest_assert(ok, f"gNOI Time not reachable within {cfg.ss_reboot_ready_timeout}s after reboot")
+
+    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
+
+
+def perform_gnoi_upgrade_smartswitch_dpu(ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
+    return _upgrade_one_dpu_via_gnoi(ptf_gnoi, cfg)
+
+
 def perform_gnoi_upgrade_smartswitch_dpus_parallel(
     ptf_gnoi,
-    dpu_indices,
-    image_url: str,
-    dut_image_path: str,
-    to_version: str,
-    max_workers: int = None,
-    **kwargs,
-):
-    """
-    Parallel upgrade for multiple DPUs, SafeThreadPoolExecutor style (matches CLI reload testcase).
-    Any per-DPU failure should be surfaced by SafeThreadPoolExecutor.
-    """
-    dpu_indices = list(dpu_indices)
-    if not dpu_indices:
-        raise ValueError("dpu_indices is empty")
-    workers = max_workers or len(dpu_indices)
-    logger.info("Upgrading DPUs in parallel: %s (workers=%s)", dpu_indices, workers)
+    cfgs: Sequence[GnoiUpgradeConfig],
+    max_workers: Optional[int] = None,
+) -> Dict[int, Dict]:
+    if not cfgs:
+        raise ValueError("cfgs is empty")
+
+    workers = max_workers or len(cfgs)
+    results: Dict[int, Dict] = {}
+
     with SafeThreadPoolExecutor(max_workers=workers) as executor:
-        for idx in dpu_indices:
-            executor.submit(
-                _upgrade_one_dpu_via_gnoi,
-                ptf_gnoi,
-                idx,
-                image_url,
-                dut_image_path,
-                to_version,
-                **kwargs,
-            )
+        futs = {}
+        for i, cfg in enumerate(cfgs):
+            futs[i] = executor.submit(_upgrade_one_dpu_via_gnoi, ptf_gnoi, cfg)
+
+        for i, fut in futs.items():
+            results[i] = fut.result()
+
+    return results
 
