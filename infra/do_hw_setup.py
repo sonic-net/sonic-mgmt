@@ -929,17 +929,19 @@ def sonic_install(args, index):
         username = CISCO_USERNAME
         password = CISCO_PASSWORD
 
-    rc = telnet_run_sonic_pre_post_commands(args, index, True)
-    if rc!=0:
-        log.error("Execution failed in sonic_pre_install_commands")
+    if 'sonic_pre_install_commands' in testbed_info_dict:
+        rc = telnet_run_sonic_pre_post_commands(args, index, True)
+        if rc!=0:
+            log.error("Execution failed in sonic_pre_install_commands")
 
     rc = nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], testbed_info_dict["dut_ssh"][index], username, password, cmd_list, False)
     time.sleep(120)
     log.debug("Image loaded, log into dut again and check for docker count")
 
-    rc = telnet_run_sonic_pre_post_commands(args, index, False)
-    if rc!=0:
-        log.error("Execution failed in sonic_post_install_commands")
+    if 'sonic_post_install_commands' in testbed_info_dict:
+        rc = telnet_run_sonic_pre_post_commands(args, index, False)
+        if rc!=0:
+            log.error("Execution failed in sonic_post_install_commands")
 
     if 'extra_sonic_commands' in testbed_info_dict:
         log.debug("Executing extra_sonic_commands")
