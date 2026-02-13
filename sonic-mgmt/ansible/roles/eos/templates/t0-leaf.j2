@@ -1,4 +1,10 @@
+{% set converged = topo_is_multi_vrf|default(false) %}
 {% set host = configuration[hostname] %}
+{% if converged %}
+    {% set conv_config = convergence_data["converged_peers"][hostname] %}
+    {% set conv_mapping = convergence_data["convergence_mapping"][hostname] %}
+    {% set ptf_bp_addrs = convergence_data["ptf_backplane_addrs"] %}
+{% endif %}
 {% set mgmt_ip = ansible_host %}
 {% if vm_type is defined and vm_type == "ceos" %}
     {% set mgmt_if_index = 0 %}
@@ -19,8 +25,16 @@ agent Bfd shutdown
 !
 hostname {{ hostname }}
 !
-vrf definition MGMT
- rd 1:1
+{% if converged %}
+vlan {{ ptf_bp_addrs|allowed_vlans_range_str(conv_mapping) }}
+!
+{% endif %}
+vrf instance MGMT
+{% if converged %}
+    {% for vrf_name in conv_config['vrf'] %}
+vrf instance {{vrf_name}}
+    {% endfor %}
+{% endif %}
 !
 spanning-tree mode mstp
 !
@@ -39,7 +53,17 @@ snmp-server vrf MGMT
 !
 ip routing
 ip routing vrf MGMT
+{% if converged %}
+    {% for vrf_name in conv_config['vrf'] %}
+ip routing vrf {{vrf_name}}
+    {% endfor %}
+{% endif %}
 ipv6 unicast-routing
+{% if converged %}
+    {% for vrf_name in conv_config['vrf'] %}
+ipv6 unicast-routing vrf {{vrf_name}}
+    {% endfor %}
+{% endif %}
 !
 {% if disable_ceos_mgmt_gateway is defined and disable_ceos_mgmt_gateway == 'yes'%}
 {% elif vm_mgmt_gw is defined %}
@@ -58,87 +82,193 @@ interface Management {{ mgmt_if_index }}
  ip address {{ mgmt_ip }}/{{ mgmt_prefixlen }}
  no shutdown
 !
-{% for name, iface in host['interfaces'].items() %}
+{% if converged %}
+interface {{ bp_ifname }}
+!
+ description backplane
+ mtu 9214
+ switchport trunk allowed vlan {{ ptf_bp_addrs|allowed_vlans_range_str(conv_mapping) }}
+ switchport mode trunk
+ no shutdown
+!
+    {% for vrf in conv_mapping %}
+        {% for if_name, if_data in conv_config['vrf'][vrf].items() %}
+interface {{ if_name }}
+            {% if if_name.startswith('Vlan') %}
+ description {{ vrf }} backplane
+            {% endif %}
+            {% if if_name.startswith('Loopback') %}
+ description {{ vrf }} LOOPBACK
+            {% endif %}
+            {% if if_name.startswith('Port-Channel') %}
+ port-channel min-links 1
+ mtu 9214
+ no switchport
+            {% endif %}
+            {% if if_name.startswith('Ethernet') %}
+ mtu 9214
+ no switchport
+            {% endif %}
+ vrf {{ vrf }}
+            {% if if_data['lacp'] is defined %}
+ channel-group {{ if_data['lacp'] }} mode active
+ lacp rate normal
+            {% endif %}
+            {% if if_data['ipv4'] is defined %}
+ ip address {{ if_data['ipv4'] }}
+            {% endif %}
+            {% if if_data['ipv6'] is defined %}
+ ipv6 enable
+ ipv6 address {{ if_data['ipv6'] }}
+ ipv6 nd ra suppress
+ ipv6 nd dad disabled
+            {% endif %}
+ no shutdown
+!
+        {% endfor %}
+    {% endfor %}
+!
+{% else %}
+    {% for name, iface in host['interfaces'].items() %}
 interface {{ name }}
-    {% if name.startswith('Loopback') %}
+        {% if name.startswith('Loopback') %}
  description LOOPBACK
-    {% else %}
+        {% else %}
  mtu 9214
  no switchport
  no shutdown
-    {% endif %}
-    {% if name.startswith('Port-Channel') %}
+        {% endif %}
+        {% if name.startswith('Port-Channel') %}
  port-channel min-links 1
-    {% endif %}
-    {% if iface['lacp'] is defined %}
+        {% endif %}
+        {% if iface['lacp'] is defined %}
  channel-group {{ iface['lacp'] }} mode active
  lacp rate normal
-    {% endif %}
-    {% if iface['ipv4'] is defined %}
+        {% endif %}
+        {% if iface['ipv4'] is defined %}
  ip address {{ iface['ipv4'] }}
-    {% endif %}
-    {% if iface['ipv6'] is defined %}
+        {% endif %}
+        {% if iface['ipv6'] is defined %}
  ipv6 enable
  ipv6 address {{ iface['ipv6'] }}
  ipv6 nd ra suppress
-    {% endif %}
+        {% endif %}
  no shutdown
 !
-{% endfor %}
+    {% endfor %}
 !
 interface {{ bp_ifname }}
  description backplane
  no switchport
  no shutdown
-{% if host['bp_interface']['ipv4'] is defined %}
+    {% if host['bp_interface']['ipv4'] is defined %}
  ip address {{ host['bp_interface']['ipv4'] }}
-{% endif %}
-{% if host['bp_interface']['ipv6'] is defined %}
+    {% endif %}
+    {% if host['bp_interface']['ipv6'] is defined %}
  ipv6 enable
  ipv6 address {{ host['bp_interface']['ipv6'] }}
  ipv6 nd ra suppress
-{% endif %}
+    {% endif %}
  no shutdown
 !
+{% endif %}
+{% if converged %}
+router bgp {{ conv_config['bgp']['asn'] }}
+ vrf MGMT
+  rd 1:1
+ exit
+    {% for vrf in conv_config['vrf'] %}
+ vrf {{ vrf }}
+        {% set vrf_bgp = configuration[vrf]['bgp'] %}
+        {% set vrf_intfs = conv_config['vrf'][vrf] %}
+        {% set lo_config = vrf_intfs|get_first_loopback %}
+        {% if vrf_bgp['router-id'] is defined %}
+  router-id {{ vrf_bgp['router-id'] }}
+        {% else %}
+            {% if lo_config['ipv4'] is defined %}
+  router-id {{ lo_config['ipv4']|ansible.utils.ipaddr('address') }}
+            {% endif %}
+        {% endif %}
+  local-as {{ vrf_bgp['asn'] }}
+        {% for asn, remote_ips in vrf_bgp['peers'].items() %}
+            {% for remote_ip in remote_ips %}
+  neighbor {{ remote_ip }} remote-as {{ asn }}
+  neighbor {{ remote_ip }} description {{ asn }}
+  neighbor {{ remote_ip }} next-hop-self
+                {% if remote_ip|ipv6 %}
+  address-family ipv6
+   neighbor {{ remote_ip }} activate
+  exit
+                {% endif %}
+            {% endfor %}
+        {% endfor %}
+        {% if props.enable_ipv4_routes_generation is not defined or props.enable_ipv4_routes_generation %}
+  neighbor {{ ptf_bp_addrs[vrf]['ipv4'] | ansible.utils.ipaddr('address') }} remote-as {{ vrf_bgp['asn'] }}
+  neighbor {{ ptf_bp_addrs[vrf]['ipv4'] | ansible.utils.ipaddr('address') }} next-hop-peer
+  neighbor {{ ptf_bp_addrs[vrf]['ipv4'] | ansible.utils.ipaddr('address') }} description exabgp_v4
+        {% endif %}
+        {% if props.enable_ipv6_routes_generation is not defined or props.enable_ipv6_routes_generation %}
+  neighbor {{ ptf_bp_addrs[vrf]['ipv6'] | ansible.utils.ipaddr('address') }} remote-as {{ vrf_bgp['asn'] }}
+  neighbor {{ ptf_bp_addrs[vrf]['ipv6'] | ansible.utils.ipaddr('address') }} next-hop-peer
+  neighbor {{ ptf_bp_addrs[vrf]['ipv6'] | ansible.utils.ipaddr('address') }} description exabgp_v6
+        {% endif %}
+  address-family ipv4
+        {% if lo_config['ipv4'] is defined %}
+   network {{ lo_config['ipv4'] }}
+        {% endif %}
+  exit
+  address-family ipv6
+   neighbor {{ ptf_bp_addrs[vrf]['ipv6'] | ansible.utils.ipaddr('address') }} activate
+        {% if lo_config['ipv6'] is defined %}
+   network {{ lo_config['ipv6'] }}
+        {% endif %}
+  exit
+ exit
+    {% endfor %}
+{% else %}
 router bgp {{ host['bgp']['asn'] }}
+ vrf MGMT
+  rd 1:1
+ exit
  router-id {{ host['bgp']['router-id'] if host['bgp']['router-id'] is defined else host['interfaces']['Loopback0']['ipv4'] | ansible.utils.ipaddr('address') }}
  !
-{% for asn, remote_ips in host['bgp']['peers'].items() %}
-    {% for remote_ip in remote_ips %}
+    {% for asn, remote_ips in host['bgp']['peers'].items() %}
+        {% for remote_ip in remote_ips %}
  neighbor {{ remote_ip }} remote-as {{ asn }}
  neighbor {{ remote_ip }} description {{ asn }}
 {# set LT2/FT2 as reflector to advertise route to DUT #}
-        {% if props.swrole is defined and props.swrole in ("lowerspine", "fabricspine") %}
+            {% if props.swrole is defined and props.swrole in ("lowerspine", "fabricspine") %}
  neighbor {{ remote_ip }} route-reflector-client
  neighbor {{ remote_ip }} additional-paths send any
-        {% endif %}
-        {% if remote_ip | ansible.utils.ipv6 %}
+            {% endif %}
+            {% if remote_ip | ansible.utils.ipv6 %}
  address-family ipv6
   neighbor {{ remote_ip }} activate
  exit
-        {% endif %}
+            {% endif %}
+        {% endfor %}
     {% endfor %}
-{% endfor %}
-{% if props.enable_ipv4_routes_generation is not defined or props.enable_ipv4_routes_generation %}
+    {% if props.enable_ipv4_routes_generation is not defined or props.enable_ipv4_routes_generation %}
  neighbor {{ props.nhipv4 }} remote-as {{ host['bgp']['asn'] }}
  neighbor {{ props.nhipv4 }} description exabgp_v4
-{% endif %}
-{% if props.enable_ipv6_routes_generation is not defined or props.enable_ipv6_routes_generation %}
+    {% endif %}
+    {% if props.enable_ipv6_routes_generation is not defined or props.enable_ipv6_routes_generation %}
  neighbor {{ props.nhipv6 }} remote-as {{ host['bgp']['asn'] }}
  neighbor {{ props.nhipv6 }} description exabgp_v6
  address-family ipv6
   neighbor {{ props.nhipv6 }} activate
  exit
-{% endif %}
+    {% endif %}
  !
-{% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
-    {% if iface['ipv4'] is defined %}
+    {% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
+        {% if iface['ipv4'] is defined %}
  network {{ iface['ipv4'] }}
-    {% endif %}
-    {% if iface['ipv6'] is defined %}
+        {% endif %}
+        {% if iface['ipv6'] is defined %}
  network {{ iface['ipv6'] }}
-    {% endif %}
-{% endfor %}
+        {% endif %}
+    {% endfor %}
+{% endif %}
 !
 management api http-commands
  no protocol https

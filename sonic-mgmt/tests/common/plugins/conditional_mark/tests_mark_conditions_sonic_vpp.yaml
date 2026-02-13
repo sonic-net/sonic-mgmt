@@ -184,30 +184,6 @@ bgp/test_bgp_port_disable.py:
     conditions:
       - "asic_type in ['vpp']"
 
-bgp/test_bgp_session.py::test_bgp_session_interface_down:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_session_flap.py::test_bgp_multiple_session_flaps:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_session_flap.py::test_bgp_single_session_flaps:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 bgp/test_bgp_suppress_fib.py:
   skip:
     reason: >
