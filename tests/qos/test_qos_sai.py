@@ -2708,7 +2708,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("ecn", ["ecn_1", "ecn_2", "ecn_3", "ecn_4", "ecn_5"])
     def testQosSaiDscpEcn(
         self, ecn, duthosts, get_src_dst_asic_and_duts,
-        ptfhost, dutTestParams, dutConfig, dutQosConfig, ecnLosslessProfile,
+        ptfhost, dutTestParams, dutConfig, dutQosConfig, ecnLosslessProfile, enableECN,
         change_lag_lacp_timer
     ):
         """

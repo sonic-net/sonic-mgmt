@@ -3214,3 +3214,38 @@ def set_queue_pir(interface, queue, rate):
             "QUEUE",
             dstport
         )
+
+    @pytest.fixture(scope='class', autouse=True)
+    def enableECN(self, duthosts, get_src_dst_asic_and_duts):
+        """
+        By default WRED_ECN_QUEUE and WRED_ECN_PORT are disabled for polling.
+        Enable flexcounter groups WRED_ECN_QUEUE and WRED_ECN_PORT using counterpoll CLI
+        """
+        duthost = duthosts.frontend_nodes[0]
+        if duthost.sonichost.is_multi_asic:
+            for duthost in get_src_dst_asic_and_duts['all_duts']:
+                for asic in duthost.asics:
+                    namespace_arg = '-n asic{}'.format(asic.asic_index)
+                    duthost.command("sudo counterpoll wredqueue {} enable".format(namespace_arg))
+                    duthost.command("sudo counterpoll wredport {} enable".format(namespace_arg))
+                duthost.command("sudo config save -y")
+        else:
+            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
+                dut_asic.command("counterpoll wredqueue enable")
+                dut_asic.command("counterpoll wredport enable")
+            duthost.command("sudo config save -y")
+
+
+        yield
+        if duthost.sonichost.is_multi_asic:
+            for duthost in get_src_dst_asic_and_duts['all_duts']:
+                for asic in duthost.asics:
+                    namespace_arg = '-n asic{}'.format(asic.asic_index)
+                    duthost.command("sudo counterpoll wredqueue {} disable".format(namespace_arg))
+                    duthost.command("sudo counterpoll wredport {} disable".format(namespace_arg))
+                duthost.command("sudo config save -y")
+        else:
+            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
+                dut_asic.command("counterpoll wredqueue disable")
+                dut_asic.command("counterpoll wredport disable")
+            duthost.command("sudo config save -y")
