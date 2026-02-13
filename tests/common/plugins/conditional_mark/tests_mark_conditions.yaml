@@ -3108,6 +3108,11 @@ high_frequency_telemetry:
     conditions:
       - "platform not in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0', 'x86_64-arista_7060x6_64pe_b']"
 
+high_frequency_telemetry/test_high_frequency_telemetry.py::test_hft_full_counters:
+  skip:
+    reason: "In SN5640 platform, it doesn't support multiple types in one session. In 7060X6 platform, it hasn't supported any HFT tests yet."
+
+#######################################
 #####          http              #####
 #######################################
 http:
@@ -3819,11 +3824,12 @@ qos/test_buffer.py::test_buffer_model_test:
 
 qos/test_buffer_traditional.py:
   skip:
-    reason: "Buffer traditional test is only supported 201911 branch / M* topo does not support qos"
+    reason: "Buffer traditional test is supported on Mellanox and Broadcom platforms only / M* topo does not support qos"
     conditions_logical_operator: or
     conditions:
-      - "release not in ['201911']"
-      - "topo_type in ['m0', 'mx', 'm1']"
+      - "asic_type not in ['mellanox', 'broadcom']"
+      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
+
 
 qos/test_ecn_config.py:
   skip:
@@ -4237,9 +4243,11 @@ restapi/test_restapi_vxlan_ecmp.py:
 #######################################
 route/test_default_route.py:
   skip:
-    reason: "Does not apply to standalone topos."
+    reason: "Does not apply to standalone topos. Skip on vs due to known issue with multiple threads"
+    conditions_logical_operator: or
     conditions:
       - "'standalone' in topo_name"
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/22336"
 
 route/test_default_route.py::test_default_route_set_src:
   xfail:
