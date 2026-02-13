@@ -424,7 +424,7 @@ def setup_ha_config(duthosts):
     return final_cfg
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def setup_dash_ha_from_json(duthosts):
     base_dir = "/data/tests/common/ha"
     ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
