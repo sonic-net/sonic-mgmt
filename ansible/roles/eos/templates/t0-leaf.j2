@@ -232,12 +232,17 @@ router bgp {{ host['bgp']['asn'] }}
  exit
  router-id {{ host['bgp']['router-id'] if host['bgp']['router-id'] is defined else host['interfaces']['Loopback0']['ipv4'] | ansible.utils.ipaddr('address') }}
  !
-    {% for asn, remote_ips in host['bgp']['peers'].items() %}
-        {% for remote_ip in remote_ips %}
+{% if host['bgp']['confed_asn'] is defined and host['bgp']['confed_peers'] is defined %}
+ bgp confederation identifier {{ host['bgp']['confed_asn'] }}
+ bgp confederation peers {{ host['bgp']['confed_peers'] }}
+ !
+{% endif %}
+{% for asn, remote_ips in host['bgp']['peers'].items() %}
+    {% for remote_ip in remote_ips %}
  neighbor {{ remote_ip }} remote-as {{ asn }}
  neighbor {{ remote_ip }} description {{ asn }}
 {# set LT2/FT2 as reflector to advertise route to DUT #}
-            {% if props.swrole is defined and props.swrole in ("lowerspine", "fabricspine") %}
+{% if props.swrole is defined and props.swrole in ("lowerspine", "fabricspine") and host['bgp']['confed_asn'] is not defined %}
  neighbor {{ remote_ip }} route-reflector-client
  neighbor {{ remote_ip }} additional-paths send any
             {% endif %}

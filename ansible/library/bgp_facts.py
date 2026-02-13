@@ -120,6 +120,7 @@ class BgpModule(object):
     def parse_neighbors(self):
         regex_ipv4 = re.compile(
             r'^BGP neighbor is \*?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+        regex_confed_link = re.compile(r'^BGP neighbor is .*(confed-(?:internal|external) link)')
         regex_ipv6 = re.compile(r'^BGP neighbor is \*?([0-9a-fA-F:]+)')
         regex_remote_as = re.compile(r'.*remote AS (\d+)')
         regex_local_as = re.compile(r'.*local AS (\d+)')
@@ -165,6 +166,11 @@ class BgpModule(object):
                     neighbor_ip = None
 
                     for line in lines:
+                        if regex_confed_link.match(line):
+                            neighbor['confed_peer'] = True
+                            if neighbor['confed_peer']:
+                                confed_peer_type = regex_confed_link.match(line).group(1)
+                                neighbor['confed_peer_type'] = 'external' if confed_peer_type == 'confed-external link' else 'internal'  # noqa: E501
                         if regex_ipv4.match(line):
                             neighbor_ip = regex_ipv4.match(line).group(1)
                             neighbor['ip_version'] = 4
