@@ -70,6 +70,8 @@ function usage
   echo "        -e enable_data_plane_acl=true"
   echo "        -e enable_data_plane_acl=false"
   echo "        by default, data acl is enabled"
+  echo "    deploy-mg also supports IPv6-only management network configuration:"
+  echo "        --ipv6-only-mgmt      Use IPv6-only management configuration (NTP, DNS, TACACS, etc.)"
   echo "To config simulated y-cable driver for DUT in specified testbed: $0 config-y-cable 'testbed-name' 'inventory' ~/.password"
   echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
@@ -142,7 +144,7 @@ function read_yaml
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers upstream_neighbor_groups downstream_neighbor_groups;
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers upstream_neighbor_groups downstream_neighbor_groups use_converged_peers;
   do
     value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
@@ -168,6 +170,7 @@ function read_yaml
   servers=${line_arr[15]}
   upstream_neighbor_groups=${line_arr[16]}
   downstream_neighbor_groups=${line_arr[17]}
+  use_converged_peers=${line_arr[18]}
   # Remove the dpu duts by the keyword 'dpu' in the dut name
   duts=$(echo $duts | sed "s/,[^,]*dpu[^,]*//g")
 }
@@ -384,6 +387,7 @@ function add_topo
           -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
           -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" \
           -e upstream_neighbor_groups="$upstream_neighbor_groups" -e downstream_neighbor_groups="$downstream_neighbor_groups" \
+          -e use_converged_peers="$use_converged_peers" \
           $ansible_options $@
 
     if [ $i -eq 0 ]; then
@@ -613,7 +617,24 @@ function generate_minigraph
 
   read_file $testbed_name
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $@
+  # Parse --ipv6-only-mgmt flag
+  ipv6_mgmt_flag=""
+  for arg in "$@"; do
+    if [[ "$arg" == "--ipv6-only-mgmt" ]]; then
+      ipv6_mgmt_flag="-e use_ipv6_mgmt=true -e use_ptf_tacacs_server=true"
+      break
+    fi
+  done
+
+  # Remove --ipv6-only-mgmt from args if present
+  filtered_args=()
+  for arg in "$@"; do
+    if [[ "$arg" != "--ipv6-only-mgmt" ]]; then
+      filtered_args+=("$arg")
+    fi
+  done
+
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $ipv6_mgmt_flag "${filtered_args[@]}"
 
   echo Done
 }
@@ -631,7 +652,24 @@ function deploy_minigraph
 
   read_file $testbed_name
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $@
+  # Parse --ipv6-only-mgmt flag
+  ipv6_mgmt_flag=""
+  for arg in "$@"; do
+    if [[ "$arg" == "--ipv6-only-mgmt" ]]; then
+      ipv6_mgmt_flag="-e use_ipv6_mgmt=true -e use_ptf_tacacs_server=true"
+      break
+    fi
+  done
+
+  # Remove --ipv6-only-mgmt from args if present
+  filtered_args=()
+  for arg in "$@"; do
+    if [[ "$arg" != "--ipv6-only-mgmt" ]]; then
+      filtered_args+=("$arg")
+    fi
+  done
+
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $ipv6_mgmt_flag "${filtered_args[@]}"
 
   echo Done
 }
@@ -649,7 +687,24 @@ function test_minigraph
 
   read_file $testbed_name
 
-  ansible-playbook -i "$inventory" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $@
+  # Parse --ipv6-only-mgmt flag
+  ipv6_mgmt_flag=""
+  for arg in "$@"; do
+    if [[ "$arg" == "--ipv6-only-mgmt" ]]; then
+      ipv6_mgmt_flag="-e use_ipv6_mgmt=true -e use_ptf_tacacs_server=true"
+      break
+    fi
+  done
+
+  # Remove --ipv6-only-mgmt from args if present
+  filtered_args=()
+  for arg in "$@"; do
+    if [[ "$arg" != "--ipv6-only-mgmt" ]]; then
+      filtered_args+=("$arg")
+    fi
+  done
+
+  ansible-playbook -i "$inventory" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $ipv6_mgmt_flag "${filtered_args[@]}"
 
   echo Done
 }
