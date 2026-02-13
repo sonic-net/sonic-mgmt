@@ -580,6 +580,81 @@ TOPOLOGY_CONFIG = {
 
             'dut_interconnect_port': {'port_name': 'Ethernet256', 'asic_value': 'asic1'},
         },
+        'NEXTHOP': {
+            # Device hostnames: [lower_tier, dut]
+            'device_hostnames': ["str2-7260cx3-d10-u42", "str-nh5010-ut2-2"],
+
+            'lower_tier_info': {
+                'dut_ip': '10.64.246.10',
+                'ports': ['Ethernet24', 'Ethernet28'],
+                'interconnect_port': 'Ethernet96',
+            },
+
+            'lower_tier_snappi_ports': [
+                {
+                    "ip": "10.64.247.89",
+                    "port_id": "9.3",
+                    "peer_port": "Ethernet24",
+                    "peer_device": "str2-7260cx3-d10-u42",
+                    "speed": "speed_100_gbps",
+                    "location": "10.64.247.89/9.3",
+                    "api_server_ip": "10.64.247.89",
+                },
+                {
+                    "ip": "10.64.247.89",
+                    "port_id": "9.4",
+                    "peer_port": "Ethernet28",
+                    "peer_device": "str2-7260cx3-d10-u42",
+                    "speed": "speed_100_gbps",
+                    "location": "10.64.247.89/9.4",
+                    "api_server_ip": "10.64.247.89",
+                },
+            ],
+
+            'uplink_fanout': {
+                'fanout_ip': '10.64.247.77',
+                'port_mapping': [
+                    {'fanout_port': 'Ethernet128', 'uplink_port': 'Ethernet0'},
+                    {'fanout_port': 'Ethernet132', 'uplink_port': 'Ethernet4'},
+                    {'fanout_port': 'Ethernet136', 'uplink_port': 'Ethernet8'},
+                    {'fanout_port': 'Ethernet140', 'uplink_port': 'Ethernet12'},
+                    {'fanout_port': 'Ethernet144', 'uplink_port': 'Ethernet16'},
+                    {'fanout_port': 'Ethernet148', 'uplink_port': 'Ethernet20'},
+                    {'fanout_port': 'Ethernet152', 'uplink_port': 'Ethernet24'},
+                    {'fanout_port': 'Ethernet156', 'uplink_port': 'Ethernet28'},
+                    {'fanout_port': 'Ethernet160', 'uplink_port': 'Ethernet32'},
+                    {'fanout_port': 'Ethernet164', 'uplink_port': 'Ethernet36'},
+                    {'fanout_port': 'Ethernet168', 'uplink_port': 'Ethernet40'},
+                    {'fanout_port': 'Ethernet172', 'uplink_port': 'Ethernet44'},
+                    {'fanout_port': 'Ethernet176', 'uplink_port': 'Ethernet48'},
+                    {'fanout_port': 'Ethernet180', 'uplink_port': 'Ethernet52'},
+                    {'fanout_port': 'Ethernet184', 'uplink_port': 'Ethernet56'},
+                    {'fanout_port': 'Ethernet188', 'uplink_port': 'Ethernet60'}
+                ]
+            },
+
+            'uplink_portchannel_members': {
+                None: {
+                    'PortChannel0': ['Ethernet0', 'Ethernet4'],
+                    'PortChannel1': ['Ethernet8'],
+                    'PortChannel2': ['Ethernet12'],
+                    'PortChannel3': ['Ethernet16'],
+                    'PortChannel4': ['Ethernet20'],
+                    'PortChannel5': ['Ethernet24'],
+                    'PortChannel6': ['Ethernet28'],
+                    'PortChannel7': ['Ethernet32'],
+                    'PortChannel8': ['Ethernet36'],
+                    'PortChannel9': ['Ethernet40'],
+                    'PortChannel10': ['Ethernet44'],
+                    'PortChannel11': ['Ethernet48'],
+                    'PortChannel12': ['Ethernet52'],
+                    'PortChannel13': ['Ethernet56'],
+                    'PortChannel14': ['Ethernet60']
+                }
+            },
+
+            'dut_interconnect_port': {'port_name': 'Ethernet96', 'asic_value': None},
+        },
     },
 }
 

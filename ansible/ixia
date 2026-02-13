@@ -59,6 +59,7 @@ sonic:
     sonic_arista_7060x6_512_stress:
     sonic_arista_7280dr3_400G:
     sonic_mlnx_100:
+    sonic_nexthop_ut2:
 
 sonic_str_cisco_8111_O32:
   hosts:
@@ -642,6 +643,48 @@ sonic_mlnx_100:
     vars:
       iface_speed: 100000
       msft_an_enabled: True
+
+sonic_nexthop_ut2:
+  vars:
+    max_cores: 8
+    switch_type: voq
+    num_asics: 1
+    macsec_card: True
+    mgmt_subnet_mask_length: 26
+    mgmt_subnet_v6_mask_length: 122
+    plt_reboot_dict:
+      cold:
+        timeout: 360
+        wait: 360
+      watchdog:
+        timeout: 360
+        wait: 360
+      platform_tests/test_reload_config.py::test_reload_configuration_checks:
+        timeout: 360
+        wait: 60
+  hosts:
+    str-nh5010-ut2-2:
+      hwsku: NH-5010-F-O64
+      sonic_hwsku: NH-5010-F-O64
+      sonic_hw_platform: x86_64-nexthop_5010-r0
+      switchids: [0]
+      serial: NH-SMP2544003D
+      base_mac:
+      ansible_host: 10.3.152.67
+      ansible_hostv6:
+      model: 'NH-5010-F'
+      syseeprom_info:
+        "0x21": "NH-5010-F"
+        "0x22": ""
+        "0x23": "NH-SMP2544003D"
+        "0x24": ""
+        "0x26": ""
+        "0x28": "x86_64-nexthop_5010-r0"
+        "0x2B": "Nexthop Systems Inc"
+        "0x2D": "Nexthop AI"
+        "0x2F": "www.nexthop.ai"
+        "0xFD": ""
+        "0xFE": ""
 
 ixia_chassis:
   hosts:
