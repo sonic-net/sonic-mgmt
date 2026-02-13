@@ -4,4 +4,9 @@ mgmt_gw: 10.250.0.1
 mgmt_gw_v6: fec0::1
 vm_mgmt_gw: 10.250.0.1
 
+# Local NTP server running on the testbed host (setup via setup-ntp-server.sh)
+# These addresses are used by DUTs for time synchronization
+local_ntp_ipv4: 10.250.0.2
+local_ntp_ipv6: fec0::ffff:afa:2
+
 internal_mgmt_port: True
