@@ -549,6 +549,10 @@ class TestBootConfigWarmBootGuard:
             not any("generate_config" in a for a in result['actions']),
             "No config generation during warm boot"
         )
+        pytest_assert(
+            any("CONFIG_DB_INITIALIZED" in a for a in result['actions']),
+            "CONFIG_DB_INITIALIZED should be set even during warm boot"
+        )
 
     def test_warm_boot_skips_ztp(self, harness):
         """Warm boot with ZTP enabled → ZTP not triggered."""
