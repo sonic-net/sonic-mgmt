@@ -11,6 +11,7 @@ import re
 import threading
 import time
 from datetime import datetime, timedelta, timezone
+from collections.abc import Iterable
 
 import pytest
 import ptf.testutils as testutils
@@ -108,8 +109,74 @@ def get_available_ports(duthost, tbinfo, desired_ports=2, min_ports=None):
         return available_ports
 
 
+def _format_counter_db_name_map_keys(name_map_keys):
+    """Return sorted, de-duplicated object names as <port>|<queue_id> strings."""
+    objects = [key.replace(":", "|") for key in natsorted(name_map_keys)]
+    return list(dict.fromkeys(objects))
+
+
+def _get_counter_db_name_map_keys(duthost, name_map):
+    """Return list of keys from COUNTERS_DB name map hash table."""
+    cmd = f'redis-cli -n 2 --raw hgetall "{name_map}"'
+    result = duthost.shell(cmd, module_ignore_errors=True)
+
+    if result.get("rc", 1) != 0:
+        logger.warning("Failed to read %s from COUNTERS_DB: %s", name_map, result.get("stderr"))
+        return []
+
+    lines = [line for line in (result.get("stdout", "") or "").splitlines() if line]
+    if not lines:
+        logger.info("No entries found in COUNTERS_DB %s", name_map)
+        return []
+
+    # redis-cli --raw hgetall returns alternating lines: key, value, key, value...
+    keys = lines[0::2]
+    return keys
+
+
+def get_configured_queue_objects(duthost):
+    """Return all queue objects from COUNTERS_DB as <port>|<queue_id> strings."""
+    name_map_keys = _get_counter_db_name_map_keys(duthost, "COUNTERS_QUEUE_NAME_MAP")
+
+    if not name_map_keys:
+        logger.info("No queue entries found in COUNTERS_QUEUE_NAME_MAP")
+        return []
+
+    queue_objects = _format_counter_db_name_map_keys(name_map_keys)
+    logger.info(f"Found {len(queue_objects)} queue objects: {queue_objects}")
+    return queue_objects
+
+
+def get_configured_buffer_queue_objects(duthost):
+    """Return all buffer queue objects as <port>|<queue_id> strings."""
+    name_map_keys = _get_counter_db_name_map_keys(duthost, "COUNTERS_PG_NAME_MAP")
+
+    if not name_map_keys:
+        logger.info("No buffer queue entries found in COUNTERS_PG_NAME_MAP")
+        return []
+
+    buffer_queue_objects = _format_counter_db_name_map_keys(name_map_keys)
+    logger.info(f"Found {len(buffer_queue_objects)} buffer queue objects: {buffer_queue_objects}")
+    return buffer_queue_objects
+
+
+def get_configured_buffer_pools(duthost, source="persistent"):
+    """Return all buffer pool names from CONFIG_DB."""
+    cfg_facts = duthost.config_facts(
+        host=duthost.hostname, source=source)['ansible_facts']
+    buffer_pools = natsorted(cfg_facts.get('BUFFER_POOL', {}).keys())
+    buffer_pools = list(dict.fromkeys(buffer_pools))
+
+    if not buffer_pools:
+        logger.info("No BUFFER_POOL entries found in config facts")
+    else:
+        logger.info(f"Found {len(buffer_pools)} buffer pools: {buffer_pools}")
+
+    return buffer_pools
+
+
 def setup_hft_profile(duthost, profile_name, poll_interval=10000,
-                      stream_state="enabled", otel_endpoint=None,
+                      stream_state="disabled", otel_endpoint=None,
                       otel_certs=None):
     """
     Set up a high frequency telemetry profile.
@@ -117,35 +184,71 @@ def setup_hft_profile(duthost, profile_name, poll_interval=10000,
     Args:
         duthost: DUT host object
         profile_name: Name of the profile
-        poll_interval: Polling interval in microseconds (default: 30000)
-        stream_state: enabled/disabled (default: enabled)
+        poll_interval: Polling interval in microseconds (default: 10000)
+        stream_state: enabled/disabled (default: disabled)
         otel_endpoint: OpenTelemetry endpoint (optional)
         otel_certs: Path to certificates (optional)
     """
-    profile_config = {
-        "poll_interval": str(poll_interval),
-        "stream_state": stream_state
-    }
+    stream_state = (stream_state or "").strip().lower()
+    if stream_state not in {"enabled", "disabled"}:
+        pytest_assert(
+            False,
+            f"Invalid stream_state '{stream_state}'. Expected 'enabled' or 'disabled'."
+        )
 
-    if otel_endpoint:
-        profile_config["otel_endpoint"] = otel_endpoint
-    if otel_certs:
-        profile_config["otel_certs"] = otel_certs
-
-    # Build the HSET command
-    config_parts = []
-    for key, value in profile_config.items():
-        config_parts.extend([f'"{key}"', f'"{value}"'])
+    if otel_endpoint or otel_certs:
+        logger.warning(
+            "otel_endpoint/otel_certs are not supported by 'config hft add profile' yet. "
+            "Ignoring these parameters."
+        )
 
     profile_cmd = (
-        f'redis-cli -n 4 HSET "HIGH_FREQUENCY_TELEMETRY_PROFILE|'
-        f'{profile_name}" {" ".join(config_parts)}'
+        f"sudo config hft add profile {profile_name} "
+        f"--poll_interval {poll_interval} "
+        f"--stream_state {stream_state}"
     )
 
     result = duthost.shell(profile_cmd, module_ignore_errors=False)
-    logger.info(f"Created high frequency telemetry profile '{profile_name}': "
-                f"{profile_config}")
+    logger.info(
+        "Created high frequency telemetry profile '%s' with poll_interval=%s, stream_state=%s",
+        profile_name,
+        poll_interval,
+        stream_state,
+    )
     return result
+
+
+def _stringify_sequence(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, Iterable):
+        return ",".join(str(item) for item in value)
+    return str(value)
+
+
+def _normalize_hft_group_type(group_name):
+    if not group_name:
+        pytest_assert(False, "group_name must not be empty")
+
+    key = re.sub(r"[\s\-]+", "_", str(group_name).strip()).upper()
+    mapping = {
+        "PORT": "PORT",
+        "QUEUE": "QUEUE",
+        "BUFFER": "BUFFER_POOL",
+        "BUFFER_POOL": "BUFFER_POOL",
+        "INGRESS_PRIORITY_GROUP": "INGRESS_PRIORITY_GROUP",
+        "PG": "INGRESS_PRIORITY_GROUP",
+        "IPG": "INGRESS_PRIORITY_GROUP",
+    }
+    group_type = mapping.get(key, key)
+    allowed = {"PORT", "BUFFER_POOL", "INGRESS_PRIORITY_GROUP", "QUEUE"}
+    if group_type not in allowed:
+        pytest_assert(
+            False,
+            f"Unsupported HFT group type '{group_name}'. "
+            f"Expected one of: {sorted(allowed)}"
+        )
+    return group_type
 
 
 def setup_hft_group(duthost, profile_name, group_name,
@@ -160,22 +263,54 @@ def setup_hft_group(duthost, profile_name, group_name,
         object_names: List of object names or comma-separated string
         object_counters: List of counter names or comma-separated string
     """
-    if isinstance(object_names, list):
-        object_names = ",".join(object_names)
-    if isinstance(object_counters, list):
-        object_counters = ",".join(object_counters)
+    object_names = _stringify_sequence(object_names)
+    object_counters = _stringify_sequence(object_counters)
+
+    group_type = _normalize_hft_group_type(group_name)
 
     group_cmd = (
-        f'redis-cli -n 4 HSET "HIGH_FREQUENCY_TELEMETRY_GROUP|'
-        f'{profile_name}|{group_name}" '
-        f'"object_names" "{object_names}" '
-        f'"object_counters" "{object_counters}"'
+        f"sudo config hft add group {profile_name} "
+        f"--group_type {group_type} "
+        f"--object_names \"{object_names}\" "
+        f"--object_counters \"{object_counters}\""
     )
 
     result = duthost.shell(group_cmd, module_ignore_errors=False)
-    logger.info(f"Created high frequency telemetry group '{group_name}' "
-                f"for profile '{profile_name}': "
-                f"objects={object_names}, counters={object_counters}")
+    logger.info(
+        "Created high frequency telemetry group '%s' (type=%s) for profile '%s': "
+        "objects=%s, counters=%s",
+        group_name,
+        group_type,
+        profile_name,
+        object_names,
+        object_counters,
+    )
+    return result
+
+
+def setup_hft_stream_state(duthost, profile_name, stream_state):
+    """
+    Enable or disable an HFT stream for a profile.
+
+    Args:
+        duthost: DUT host object
+        profile_name: Name of the profile
+        stream_state: enabled/disabled/enable/disable
+    """
+    state = (stream_state or "").strip().lower()
+    if state in {"enabled", "enable"}:
+        action = "enable"
+    elif state in {"disabled", "disable"}:
+        action = "disable"
+    else:
+        pytest_assert(
+            False,
+            f"Invalid stream_state '{stream_state}'. Expected 'enabled' or 'disabled'."
+        )
+
+    cmd = f"sudo config hft {action} {profile_name}"
+    result = duthost.shell(cmd, module_ignore_errors=False)
+    logger.info("Set HFT stream state to '%s' for profile '%s'", action, profile_name)
     return result
 
 
@@ -191,40 +326,52 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
     """
     cleanup_commands = []
 
-    # Clean up profile
-    cleanup_commands.append(
-        f'redis-cli -n 4 DEL "HIGH_FREQUENCY_TELEMETRY_PROFILE|{profile_name}"'
-    )
-
-    # Clean up groups
+    # Clean up groups first
     if group_names:
         if isinstance(group_names, str):
             group_names = [group_names]
         for group_name in group_names:
+            group_type = _normalize_hft_group_type(group_name)
             cleanup_commands.append(
-                f'redis-cli -n 4 DEL "HIGH_FREQUENCY_TELEMETRY_GROUP|'
-                f'{profile_name}|{group_name}"'
+                f"sudo config hft del group {profile_name} {group_type}"
             )
     else:
-        # Clean up all groups for this profile (use pattern matching)
+        # Query all groups for this profile (use redis-cli for discovery only)
         pattern_cmd = (
             f'redis-cli -n 4 KEYS "HIGH_FREQUENCY_TELEMETRY_GROUP|'
             f'{profile_name}|*"'
         )
         result = duthost.shell(pattern_cmd, module_ignore_errors=True)
-        if result['rc'] == 0 and result['stdout_lines']:
+        if result.get('rc') == 0 and result.get('stdout_lines'):
             for key in result['stdout_lines']:
-                if key.strip():
-                    cleanup_commands.append(
-                        f'redis-cli -n 4 DEL "{key.strip()}"'
-                    )
+                key = (key or "").strip()
+                if not key:
+                    continue
+                parts = key.split("|", 2)
+                if len(parts) != 3:
+                    logger.warning("Unexpected HFT group key format: %s", key)
+                    continue
+                _, key_profile, key_group = parts
+                if key_profile != profile_name:
+                    continue
+                group_type = _normalize_hft_group_type(key_group)
+                cleanup_commands.append(
+                    f"sudo config hft del group {profile_name} {group_type}"
+                )
+
+    # Clean up profile last
+    cleanup_commands.append(
+        f"sudo config hft del profile {profile_name}"
+    )
 
     # Execute cleanup commands
     for cmd in cleanup_commands:
         duthost.shell(cmd, module_ignore_errors=True)
 
-    logger.info(f"Cleaned up high frequency telemetry configuration "
-                f"for profile '{profile_name}'")
+    logger.info(
+        "Cleaned up high frequency telemetry configuration for profile '%s'",
+        profile_name,
+    )
 
 
 def run_countersyncd_and_capture_output(duthost, timeout=120, stats_interval=60):
@@ -406,11 +553,10 @@ def run_continuous_countersyncd_with_state_changes(duthost, profile_name,
             phase_start_position = monitor.get_current_file_size()
 
             # Change stream state
-            setup_hft_profile(
+            setup_hft_stream_state(
                 duthost=duthost,
                 profile_name=profile_name,
-                poll_interval=10000,
-                stream_state=state
+                stream_state=state,
             )
 
             # Wait for the state change to take effect
@@ -1292,17 +1438,29 @@ def analyze_counter_trend(output):
     first_val = sample_values[0]
     last_val = sample_values[-1]
 
-    # Calculate the difference and percentage change
-    diff = last_val - first_val
-    pct_change = (diff / first_val * 100) if first_val > 0 else 0
+    # Analyze per-sample direction without percentage thresholds
+    diffs = [b - a for a, b in zip(sample_values, sample_values[1:])]
+    pos_changes = sum(1 for d in diffs if d > 0)
+    neg_changes = sum(1 for d in diffs if d < 0)
+    non_zero_changes = pos_changes + neg_changes
 
-    logger.info(f"Counter trend analysis: first={first_val}, last={last_val}, "
-                f"diff={diff}, pct_change={pct_change: .2f}%")
+    logger.info(
+        "Counter trend analysis: first=%s, last=%s, diffs=%s, +changes=%s, -changes=%s",
+        first_val,
+        last_val,
+        diffs,
+        pos_changes,
+        neg_changes,
+    )
 
-    # Determine trend based on percentage change
-    if pct_change > 5:  # More than 5% increase
-        return 'increasing'
-    elif pct_change < -5:  # More than 5% decrease
-        return 'decreasing'
-    else:  # Within 5% change
+    # Stable means the sequence changes at most once across all samples
+    if non_zero_changes <= 1:
         return 'stable'
+
+    # Determine overall trend by dominant direction
+    if pos_changes > neg_changes:
+        return 'increasing'
+    if neg_changes > pos_changes:
+        return 'decreasing'
+
+    return 'stable'
