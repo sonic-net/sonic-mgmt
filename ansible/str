@@ -635,6 +635,7 @@ sonic_mlnx_4700:
     str-msn4700-01:
       ansible_host: 10.3.146.206
       ansible_hostv6: 2a01:111:e210:3000::a03:92ce
+      mgmt_subnet_mask_length: 24
       hwsku: Mellanox-SN4700-O32
       iface_speed: 400000
       model: MSN4700-WS2ROS
