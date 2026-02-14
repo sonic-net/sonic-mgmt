@@ -185,7 +185,6 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
         if peer_in_bgp_confed:
             asn = confed_asn
         peer_ips = node['conf']['bgp']['peers'][asn]
-        peer_ips = node['conf']['bgp']['peers'][asn]
 
         for ip in peer_ips:
             if ipaddress.IPNetwork(ip).version == 4:
