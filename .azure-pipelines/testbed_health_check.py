@@ -237,6 +237,10 @@ class TestbedHealthChecker:
     def run_check(self):
         try:
 
+            # temporarily skip dpu smartswitch
+            if self.testbed_name in ["vms66-t1-8102-7"]:
+                raise SkipCurrentTestbed()
+
             self.init_hosts()
 
             self.pre_check()
