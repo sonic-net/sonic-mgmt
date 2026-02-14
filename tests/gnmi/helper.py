@@ -237,9 +237,9 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
 
     output = ptfhost.shell(cmd, module_ignore_errors=True)
 
-    stdout = output.get("stdout", "") or ""
-    stderr = output.get("stderr", "") or ""
-    rc = output.get("rc", 0)
+    stdout = output.get("stdout") or ""
+    stderr = output.get("stderr") or ""
+    rc = output.get("rc", 1)
     combined = f"{stdout}\n{stderr}"
 
     if rc != 0 or "GRPC error" in combined or "rpc error" in combined:
