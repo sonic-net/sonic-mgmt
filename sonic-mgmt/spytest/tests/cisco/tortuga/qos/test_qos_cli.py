@@ -21,8 +21,8 @@ def setup_topo():
     global test_dict
 
     st.log("setup topology Started")
-    testbed_dict = st.ensure_min_topology("D1")
-    dut1 = testbed_dict.D1
+    testbed_dict = st.ensure_min_topology("D3")
+    dut1 = testbed_dict.D3
     test_dict = common_util.get_qos_test_dict('../qos/qos_test_input1.json2',
                                               'CLI_TESTS', True)
     if test_dict == None:
@@ -162,6 +162,7 @@ def qos_cfg_scheduler_handler(cli_dict, op, tag_name, user_data):
     return 'Unknown op {}'.format(op), {}
 
 def test_single_map_add_update_del():
+    pass_ctr = fail_ctr = 0
     for cmd_name, val in test_dict.items():
         if 'key_name' not in val:
             st.error("'key_name' missing in test block {}".format(cmd_name))
@@ -208,12 +209,18 @@ def test_single_map_add_update_del():
                     st.report_fail('Test failed and cli corrupt {}'.format(rv))
                     return
                 if 'bad_input' in cmd_dict and cmd_dict['bad_input']:
+                    pass_ctr += 1
                     st.banner('PASS: Dict {} rejected as EXPECTED {}'.format(cmd_dict, rv))
                 else:
                     st.report_fail('Test dict {} FAILED {}'.format(cmd_dict, rv))
                     return
             else:
+                pass_ctr += 1
                 st.banner('PASS: Dict {}'.format(cmd_dict))
             curr_dict = new_dict
-    st.config(dut1, "config qos clear")
-    st.report_pass('test_case_passed')
+    st.config(dut1, "config qos reload")
+    final_msg = f'Test Cases: Passed={pass_ctr} Failed={fail_ctr}'
+    if fail_ctr > 0:
+        st.report_fail('msg', final_msg)
+    else:
+        st.report_pass('msg', final_msg)

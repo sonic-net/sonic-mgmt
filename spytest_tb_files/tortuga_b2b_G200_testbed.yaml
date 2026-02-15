@@ -35,9 +35,13 @@ devices:
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     T1:
        device_type: TGEN
-       properties: {type: ixia, version: 10.0, ip: 172.27.143.161, ix_server: 10.29.158.67}
+       properties: {type: ixia, version: 10.25, ip: 172.27.143.161, ix_server: 10.29.158.196}
 
 topology:
+    spine1:
+        interfaces:
+    spine2:
+        interfaces:
     leaf1:
         interfaces:
             Ethernet1_49: {EndDevice: leaf2, EndPort: Ethernet1_49, params: def_link}
@@ -57,5 +61,5 @@ topology:
             Ethernet1_62: {EndDevice: spine2, EndPort: Ethernet1_14, params: def_link}
             Ethernet1_64_1: {EndDevice: T1, EndPort: 1/17, params: def_tg_link}
             Ethernet1_64_2: {EndDevice: T1, EndPort: 1/18, params: def_tg_link}
-            Ethernet1_60_2: {EndDevice: T1, EndPort: 1/19, params: def_tg_link}
-            Ethernet1_60_1: {EndDevice: T1, EndPort: 1/20, params: def_tg_link}
+            Ethernet1_48_1: {EndDevice: T1, EndPort: 1/19, params: def_tg_link}
+            Ethernet1_48_2: {EndDevice: T1, EndPort: 1/20, params: def_tg_link}
