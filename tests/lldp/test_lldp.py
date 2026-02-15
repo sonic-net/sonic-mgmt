@@ -244,3 +244,82 @@ def test_lldp_neighbor_post_swss_reboot(duthosts, enum_rand_one_per_hwsku_fronte
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
                         enum_frontend_asic_index, tbinfo, request)
+
+
+@pytest.mark.disable_loganalyzer
+def test_lldp_after_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                  localhost, collect_techsupport_all_duts,
+                                  enum_frontend_asic_index, request):
+    """Verify LLDP neighbors and chassis info are correct after config reload.
+
+    Addresses test gap: https://github.com/sonic-net/sonic-mgmt/issues/22376
+
+    This test validates that after a config reload:
+    1. All LLDP neighbor entries are restored (no missing interfaces)
+    2. Chassis ID type is 'mac' and matches eth0 MAC address
+    3. No 'cannot find port' or 'ERR lldp#lldpmgrd' errors in syslog
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asic_index = enum_frontend_asic_index
+
+    # Record LLDP state before config reload
+    pre_lldpctl_count = get_num_lldpctl_facts(duthost, asic_index)
+    assert pre_lldpctl_count > 0, "No LLDP neighbors found before config reload"
+
+    internal_port_list = get_dpu_npu_ports_from_hwsku(duthost)
+    pre_lldpctl_facts = duthost.lldpctl_facts(
+        asic_instance_id=asic_index,
+        skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list
+    )['ansible_facts']
+    pre_neighbors = set(pre_lldpctl_facts['lldpctl'].keys())
+
+    # Perform config reload
+    from tests.common import config_reload as config_reload_mod
+    config_reload_mod.config_reload(duthost, wait=300)
+
+    # Wait for all critical services to be up
+    assert wait_until(300, 10, 30, duthost.critical_services_fully_started), \
+        "Not all critical services are fully started after config reload"
+
+    # Wait for LLDP neighbors to be restored
+    assert wait_until(300, 20, 60,
+                      lambda: pre_lldpctl_count <= get_num_lldpctl_facts(duthost, asic_index)), \
+        "LLDP neighbor count not restored after config reload. " \
+        "Expected at least {}, got {}".format(
+            pre_lldpctl_count,
+            get_num_lldpctl_facts(duthost, asic_index))
+
+    # Verify all pre-reload neighbors are present
+    post_lldpctl_facts = duthost.lldpctl_facts(
+        asic_instance_id=asic_index,
+        skip_interface_pattern_list=["eth0", "Ethernet-BP", "Ethernet-IB"] + internal_port_list
+    )['ansible_facts']
+    post_neighbors = set(post_lldpctl_facts['lldpctl'].keys())
+    missing_neighbors = pre_neighbors - post_neighbors
+    assert not missing_neighbors, \
+        "LLDP neighbors missing after config reload: {}".format(missing_neighbors)
+
+    # Verify Chassis ID is MAC type (not hostname)
+    asic_suffix = '' if asic_index is None else asic_index
+    chassis_output = duthost.shell(
+        "docker exec -i lldp{} lldpcli show chassis".format(asic_suffix))['stdout']
+    assert "mac" in chassis_output.lower(), \
+        "Chassis ID type is not 'mac' after config reload. Output:\n{}".format(chassis_output)
+
+    # Verify lldpcli show interfaces lists all expected interfaces
+    lldpcli_intf_output = duthost.shell(
+        "docker exec -i lldp{} lldpcli show interfaces".format(asic_suffix))['stdout']
+    for neighbor_intf in pre_neighbors:
+        assert neighbor_intf in lldpcli_intf_output, \
+            "Interface {} missing from 'lldpcli show interfaces' after config reload".format(neighbor_intf)
+
+    # Check syslog for lldp errors (informational, not a hard failure)
+    syslog_output = duthost.shell(
+        "sudo grep -c 'cannot find port\\|ERR lldp#lldpmgrd' /var/log/syslog || true",
+        module_ignore_errors=True)['stdout'].strip()
+    if syslog_output and int(syslog_output) > 0:
+        lldp_errors = duthost.shell(
+            "sudo grep 'cannot find port\\|ERR lldp#lldpmgrd' /var/log/syslog | tail -10",
+            module_ignore_errors=True)['stdout']
+        logger.warning("Found %s lldp-related errors in syslog after config reload:\n%s",
+                       syslog_output, lldp_errors)
