@@ -270,7 +270,8 @@ def extract_ha_state(text):
     """
     Extract ha_state from swbus-cli output
     """
-    match = re.search(r'ha_state\s+\|\s+(\w+)', text)
+    text_str = str(text)
+    match = re.search(r'"ha_role":\s*"(\w+)"', text_str)
     return match.group(1) if match else None
 
 

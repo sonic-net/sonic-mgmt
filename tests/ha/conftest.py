@@ -514,7 +514,7 @@ def activate_dash_ha_from_json(duthosts):
             args=build_dash_ha_scope_args(fields),
         )
 
-    for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
+    for idx, (duthost, (key, fields)) in enumerate(zip(duthosts, activate_scope_per_dut)):
         pending_id = wait_for_pending_operation_id(
             duthost,
             scope_key=key,
@@ -535,10 +535,11 @@ def activate_dash_ha_from_json(duthosts):
             args=build_dash_ha_scope_activate_args(fields, pending_id),
         )
         # Verify HA state using fields
+        expected_state = "active" if idx == 0 else "standby"
         assert wait_for_ha_state(
             duthost,
             scope_key=key,
-            expected_state="active",
+            expected_state=expected_state,
             timeout=120,
             interval=5,
         ), f"HA did not reach expected state for {key} on {duthost.hostname}"
