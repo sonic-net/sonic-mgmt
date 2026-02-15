@@ -244,7 +244,7 @@ def test_setup_and_cleanup(memory_checker_dut_and_container, request):
 
 @pytest.fixture
 def remove_and_restart_container(memory_checker_dut_and_container):
-    """Removes and restarts 'telemetry' container from DuT.
+    """Removes and restarts 'gnmi' container from DuT.
 
     Args:
         memory_checker_dut_and_container: Fixture providing the duthost and container to test
@@ -263,11 +263,14 @@ def remove_and_restart_container(memory_checker_dut_and_container):
 
 
 def get_test_container(duthost):
-    test_container = "gnmi"
-    cmd = "docker images | grep -w sonic-telemetry"
-    if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-        test_container = "telemetry"
-    return test_container
+    """Return the container name for memory checker tests.
+
+    Always use 'gnmi' — the telemetry container is deprecated and may be
+    masked via systemd even when its Docker image is present.  Testing
+    telemetry when it exists but is masked causes spurious failures.
+    See: https://github.com/sonic-net/sonic-mgmt/issues/22349
+    """
+    return "gnmi"
 
 
 @pytest.fixture
