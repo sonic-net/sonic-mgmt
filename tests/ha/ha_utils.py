@@ -16,10 +16,11 @@ def build_dash_ha_scope_args(fields):
     version = str(fields["version"])
     if version.endswith(".0"):
         version = version[:-2]
+    disabled_val = str(fields["disabled"]).lower()
 
     return (
         f'version \\"{version}\\" '
-        f'disabled "{fields["disabled"]}" '
+        f'disabled  {disabled_val} '
         f'desired_ha_state "{fields["desired_ha_state"]}" '
         f'ha_set_id "{fields["ha_set_id"]}" '
         f'owner "{fields["owner"]}"'
@@ -97,7 +98,7 @@ def extract_pending_operations(text):
     return list(zip(types, ids))
 
 
-def get_pending_operation_id(duthost, scope_key, timeout=60):
+def get_pending_operation_id(duthost, scope_key, expected_op_type, timeout=60):
     """
     scope_key example: vdpu0_0:haset0_0
     expected_op_type example: ACTIVATE_ROLE
@@ -111,7 +112,6 @@ def get_pending_operation_id(duthost, scope_key, timeout=60):
     Wait until the expected pending_operation_id appears.
     """
     pending_id = None
-    expected_op_type = "activate_role"
 
     def _condition():
         nonlocal pending_id
@@ -137,9 +137,10 @@ def get_pending_operation_id(duthost, scope_key, timeout=60):
 
 
 def build_dash_ha_scope_activate_args(fields, pending_id):
+    disabled_val = str(fields["disabled"]).lower()
     return (
         f'version \\"{fields["version"]}\\" '
-        f'disabled {fields["disabled"]} '
+        f'disabled {disabled_val} '
         f'desired_ha_state "{fields["desired_ha_state"]}" '
         f'ha_set_id "{fields["ha_set_id"]}" '
         f'owner "{fields["owner"]}" '

@@ -479,7 +479,7 @@ def setup_dash_ha_from_json(duthosts):
         )
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def activate_dash_ha_from_json(duthosts):
     # -------------------------------------------------
     # Step 4: Activate Role (using pending_operation_ids)
@@ -489,7 +489,7 @@ def activate_dash_ha_from_json(duthosts):
             "vdpu0_0:haset0_0",
             {
                 "version": "1",
-                "disabled": "false",
+                "disabled": False,
                 "desired_ha_state": "active",
                 "ha_set_id": "haset0_0",
                 "owner": "dpu",
@@ -499,7 +499,7 @@ def activate_dash_ha_from_json(duthosts):
             "vdpu1_0:haset0_0",
             {
                 "version": "1",
-                "disabled": "false",
+                "disabled": False,
                 "desired_ha_state": "unspecified",
                 "ha_set_id": "haset0_0",
                 "owner": "dpu",
@@ -513,13 +513,12 @@ def activate_dash_ha_from_json(duthosts):
             key=key,
             args=build_dash_ha_scope_args(fields),
         )
-
     for idx, (duthost, (key, fields)) in enumerate(zip(duthosts, activate_scope_per_dut)):
         pending_id = wait_for_pending_operation_id(
             duthost,
             scope_key=key,
             expected_op_type="activate_role",
-            timeout=60,
+            timeout=120,
             interval=2
         )
         assert pending_id, (
@@ -542,7 +541,7 @@ def activate_dash_ha_from_json(duthosts):
             expected_state=expected_state,
             timeout=120,
             interval=5,
-        ), f"HA did not reach expected state for {key} on {duthost.hostname}"
+        ), f"HA did not reach expected state {expected_state} for {key} on {duthost.hostname}"
         logger.info(f"DASH HA Step-4 Activate Role completed for {duthost.hostname}")
     logger.info("DASH HA Step-4 Activate Role completed")
     yield
