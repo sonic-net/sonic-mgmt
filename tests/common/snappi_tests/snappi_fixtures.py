@@ -205,7 +205,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True
                 ipv6=v6_addr,
                 gw_ipv6=v6_gw,
                 prefix_len_v6=str(v6_prefix) if v6_prefix is not None else None,
-                port_type=SnappiPortType.IPInterface,
+                port_type=SnappiPortType.RtrInterface,
                 peer_port=intf
             )
             port_config_list.append(port_config)
