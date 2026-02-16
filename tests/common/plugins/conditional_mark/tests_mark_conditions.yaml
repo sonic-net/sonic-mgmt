@@ -170,16 +170,16 @@ arp/test_arp_update.py::test_dut_arping_learns_mac:
     reason: "Skip test_dut_arping_learns_mac on dualtor"
     conditions:
       - "'dualtor' in topo_name"
+
+arp/test_arp_update.py::test_dut_ping_learns_mac:
+  skip:
+    reason: "Skip test_dut_ping_learns_mac on dualtor"
+    conditions:
+      - "'dualtor' in topo_name"
       
 arp/test_arp_update.py::test_ptf_arp_learns_mac:
   skip:
     reason: "Skip test_ptf_arp_learns_mac on dualtor"
-    conditions:
-      - "'dualtor' in topo_name"
-      
-arp/test_arp_update.py::test_dut_ping_learns_mac:
-  skip:
-    reason: "Skip test_dut_ping_learns_mac on dualtor"
     conditions:
       - "'dualtor' in topo_name"
       
