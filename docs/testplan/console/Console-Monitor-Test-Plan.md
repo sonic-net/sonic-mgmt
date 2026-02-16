@@ -5,11 +5,10 @@
   - [2 Scope](#2-scope)
   - [3 Testbed Setup](#3-testbed-setup)
   - [4 Test Cases](#4-test-cases)
-    - [4.1 Functional Tests](#41-functional-tests)
-    - [4.2 Filter Timeout Test](#42-filter-timeout-test)
-    - [4.3 Filter Correctness Test](#43-filter-correctness-test)
-    - [4.4 Enable/Disable Toggle Test](#44-enabledisable-toggle-test)
-    - [4.5 Performance Tests](#45-performance-tests)
+    - [4.1 Connectivity Test](#41-connectivity-test)
+    - [4.2 Functionality Test](#42-functionality-test)
+    - [4.3 Filter Test](#43-filter-test)
+    - [4.4 Performance Test](#44-performance-test)
 
 ## 1 Background
 
@@ -23,69 +22,84 @@ The scope of this test plan is to verify the correct operation of Console Monito
 
 - Heartbeat-based link state detection (Oper Up/Unknown)
 - Frame filtering (heartbeat frames should not pass through to user sessions)
-- Service enable/disable functionality
-- Performance under concurrent serial port monitoring
+- DCE service enable/disable functionality (DTE toggle is covered implicitly by other tests)
+- Memory and CPU usage under normal operation
 
 ## 3 Testbed Setup
 
 The testbed consists of:
 
 - **DCE (Console Switch, DUT)**: SONiC device with Console Switch attached, running `consoled-dce` service
-- **Fanout**: Intermediate device that bridges serial link to TCP using `socat`
-- **DTE (SONiC Switch)**: Target SONiC device running `consoled-dte` service, connected via TCP
+- **Fanout**: Intermediate device that bridges serial port to TCP using `socat`
+- **Lab Server**: Host machine running KVM; uses `socat` to bridge an eth port to the DTE VM's management interface
+- **DTE (KVM VM)**: SONiC virtual machine running `consoled-dte` service, hosted on Lab Server
 
 Wiring diagram:
 
 ```mermaid
 flowchart LR
     subgraph DCE["DCE (Console Switch, DUT)"]
-        dce_service["consoled-dce"]
+        dce_service["console-monitor-dce"]
     end
 
     subgraph Fanout["Fanout"]
-        socat["socat"]
+        fanout_serial["serial device"]
     end
 
-    subgraph DTE["DTE (SONiC Switch)"]
-        dte_service["consoled-dte"]
+    subgraph LabServer["Lab Server"]
+        lab_eth["network port"]
+        subgraph DTE["DTE (KVM VM, SONiC Switch)"]
+            dte_service["console-monitor-dte"]
+        end
     end
 
     DCE <-->|"Serial Link"| Fanout
-    Fanout <-->|"socat TCP"| DTE
+    Fanout <-->|"socat TCP"| lab_eth
+    lab_eth <-->|"socat TCP"| DTE
 ```
+
+## 3.1 Test Utilities
+
+### ConsoleBridge
+
+`ConsoleBridge` is a dataclass that describes a fully established console bridge between a DUT serial port and a neighbor VM. It records the link ID, VM serial port, socat bridge port, fanout device path, and neighbor VM name.
+
+### BridgeManager
+
+`BridgeManager` orchestrates the setup and teardown of console bridges during tests. For a given console line and neighbor VM, it:
+
+1. Looks up the fanout host and port that corresponds to the DUT's serial line.
+2. Queries the VM host (`virsh dumpxml`) to find the VM's serial TCP port.
+3. Starts a `socat` TCP relay on the VM host to bridge the VM serial port to a known TCP port.
+4. Instructs the fanout to connect its serial device to the VM host's TCP port via `bridge_remote`.
+5. Tracks all active bridges and cleans them up (kills socat, unbridges fanout) after the test.
+
+This utility enables tests to programmatically connect DUT console lines to neighbor VMs without manual wiring changes.
 
 ## 4 Test Cases
 
-### 4.1 Functional Tests
+### 4.1 Connectivity Test
 
 | Case | Objective | Test Steps | Expected Result |
 |-|-|-|-|
-| Initial State | Verify initial oper state is `unknown` after timeout | 1. Configure serial ports in CONFIG_DB<br>2. Start DCE service<br>3. Wait for initial timeout | All configured ports show `oper_state=unknown` in STATE_DB |
-| Link Up Detection | Verify oper state changes to `up` when heartbeat received | 1. Start DTE service on switch<br>2. Connect serial cable<br>3. Wait for heartbeat | DCE shows `oper_state=up`, `state_duration` resets to 0 |
-| Link Unknown Detection | Verify oper state changes to `unknown` after heartbeat timeout | 1. Establish link (oper_state=up)<br>2. Disconnect serial cable or stop DTE heartbeat<br>3. Wait for heartbeat timeout | DCE shows `oper_state=unknown`, `state_duration` resets to 0 |
+| DUT Connected to Fanout | Verify DUT console line is physically connected to a fanout | 1. Get configured console lines from DUT<br>2. Search fanout hosts for serial port mapping to the target line | Fanout host with matching serial port mapping is found |
 
-### 4.2 Filter Timeout Test
+### 4.2 Functionality Test
 
 | Case | Objective | Test Steps | Expected Result |
 |-|-|-|-|
-| Data Pass-through | Verify user data passes through after filter timeout | 1. Stop DTE heartbeat<br>2. Send short string from DTE side<br>3. Read from DCE PTY | DCE receives the exact string sent |
+| Oper State Transition | Verify full oper state lifecycle: initial Unknown, heartbeat-driven Up, and timeout-driven Unknown | 1. Wait for heartbeat timeout; verify all lines are `Unknown`<br>2. Build console bridge (DUT → Fanout → VM Host → Neighbor VM)<br>3. Enable DTE heartbeat on neighbor VM<br>4. Wait for heartbeat detection; verify target line is `Up` and others remain `Unknown`<br>5. SSH to DUT and `connect line`; verify login prompt from DTE is visible<br>6. Disable DTE heartbeat; wait for timeout; verify target line returns to `Unknown` | All state transitions occur correctly; login prompt visible on DCE side when link is Up |
 
-### 4.3 Filter Correctness Test
-
-| Case | Objective | Test Steps | Expected Result |
-|-|-|-|-|
-| Concurrent Heartbeat and Data | Verify data integrity while heartbeat is active | 1. DTE sends heartbeat continuously<br>2. DTE sends a long random string<br>3. DCE reads from PTY | DCE receives complete string without heartbeat frame corruption |
-
-### 4.4 Enable/Disable Toggle Test
+### 4.3 Filter Test
 
 | Case | Objective | Test Steps | Expected Result |
 |-|-|-|-|
-| DCE Service Toggle | Verify DCE service starts and stops gracefully | 1. Start consoled-dce service<br>2. Verify service is running<br>3. Stop consoled-dce service | Service starts/stops without errors; PTY symlinks cleaned up on stop |
-| DTE Service Toggle | Verify DTE service starts and stops gracefully | 1. Start consoled-dte service<br>2. Verify service is running<br>3. Stop consoled-dte service | Service starts/stops without errors; heartbeat stops on service stop |
+| Filter Correctness | Verify data integrity while heartbeat is active; no non-printable characters leak | 1. Build console bridge and enable DTE heartbeat<br>2. Wait for line status to become `Up`<br>3. Send a long random printable string (256 chars) from DTE side<br>4. Capture output on DCE side<br>5. Verify output contains only printable ASCII characters<br>6. Verify the test string is received intact | DCE receives complete string without heartbeat frame corruption; no non-printable characters in output |
+| Filter Timeout | Verify user data passes through after filter timeout (no heartbeat) | 1. Build console bridge and disable DTE heartbeat<br>2. Capture console output<br>3. Send short test string from DTE side<br>4. Read captured output on DCE and verify string is present | DCE receives the exact string sent from DTE |
 
-### 4.5 Performance Tests
+### 4.4 Performance Test
 
-| Case | Objective | Test Setup | Expected Result |
+| Case | Objective | Test Steps | Expected Result |
 |-|-|-|-|
-| Heartbeat Scalability | Verify system handles 48 ports heartbeat concurrently | 48 serial ports with active heartbeat monitoring for 60s | Avg CPU < 10%; Memory < 200MB; All ports report correct oper_state |
-| Data Transfer Scalability | Verify system handles 48 ports data transfer concurrently | 48 serial ports with continuous data transfer for 60s | Avg CPU < 10%; Memory < 200MB; No data corruption |
+| Memory Usage | Verify total memory of all console-monitor services is within threshold | 1. Verify all services are active (`console-monitor-dce`, `pty-bridge@N`, `proxy@N` for each line)<br>2. Parse memory from `systemctl status` output for each service<br>3. Sum total memory across all services | Total memory usage across all services < 1024 MB |
+| CPU Usage | Verify peak CPU usage of a single link under active traffic is within threshold | 1. Build console bridge and start DTE heartbeat<br>2. Wait for link to become `Up`<br>3. Get PIDs of `pty-bridge` and `proxy` services for the target line<br>4. SSH to DCE and `connect line`; continuously generate data traffic<br>5. while traffic is still active, measure CPU usage<br>6. Assert total CPU of both services < 1.0% | Total CPU usage of bridge + proxy for one link < 1.0% under active traffic |
