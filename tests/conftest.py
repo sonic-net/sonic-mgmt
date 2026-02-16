@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Optional
 import enum
 import os
 import json
@@ -16,6 +17,7 @@ import threading
 import pathlib
 import importlib
 import inspect
+import concurrent.futures.thread as cft
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -70,6 +72,8 @@ from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.helpers.parallel import patch_ansible_worker_process
+from tests.common.helpers.parallel import fix_logging_handler_fork_lock
 
 import tests.common.gnmi_setup as gnmi_setup
 
@@ -113,6 +117,15 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
                   'tests.common.fixtures.duthost_utils')
+
+
+# NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
+if sys.version_info < (3, 12, 8):
+    os.register_at_fork(after_in_child=cft._threads_queues.clear)
+
+
+patch_ansible_worker_process()
+fix_logging_handler_fork_lock()
 
 
 def pytest_addoption(parser):
@@ -265,6 +278,12 @@ def pytest_addoption(parser):
                      help="Use insecure connection to gNMI target")
     parser.addoption("--disable_sai_validation", action="store_true", default=True,
                      help="Disable SAI validation")
+    parser.addoption(
+        "--target_version",
+        action="store",
+        default=None,
+        help="Target SONiC version string for gNOI SetPackage (e.g. SONiC-OS-20251110.06)",
+    )
     ############################
     #   Parallel run options   #
     ############################
@@ -786,8 +805,8 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
-        _hosts.apend(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
-                             macsec_enabled=request.config.option.enable_macsec))
+        _hosts.append(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
+                              macsec_enabled=request.config.option.enable_macsec))
     return _hosts
 
 
@@ -842,9 +861,22 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
         return devices
 
-    def initial_neighbor(neighbor_name, vm_name):
+    def initial_neighbor(neighbor_name, vm_name, multi_vrf_peer=False, multi_vrf_primary_host=None):
         logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
         if neighbor_type == "eos":
+            if multi_vrf_peer:
+                data = tbinfo['topo']['properties']['convergence_data']
+                primary_data = data['converged_peers'][multi_vrf_primary_host]
+                primary_asn = tbinfo['topo']['properties']['configuration'][multi_vrf_primary_host]['bgp']['asn']
+                multi_vrf_data = {'vrf': neighbor_name,
+                                  'intf_config': copy.deepcopy(primary_data['vrf'][neighbor_name]),
+                                  'intf_offset': primary_data['intf_mapping'][neighbor_name]["offset"],
+                                  'orig_intf_map': primary_data['intf_mapping'][neighbor_name]["orig_intf_map"],
+                                  'primary_host': multi_vrf_primary_host,
+                                  'primary_host_asn': primary_asn,
+                                  'intf_index_mapping': copy.deepcopy(data['interface_index_mapping'][neighbor_name]),
+                                  'vm_offset_mapping': data['vm_offset_mapping'][neighbor_name],
+                                  'ptf_bp_config': copy.deepcopy(data['ptf_backplane_addrs'][neighbor_name])}
             device = NeighborDevice(
                 {
                     'host': EosHost(
@@ -855,7 +887,9 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
                         shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name],
+                    'is_multi_vrf_peer': multi_vrf_peer,
+                    'multi_vrf_data': multi_vrf_data if multi_vrf_peer else None,
                 }
             )
         elif neighbor_type == "sonic":
@@ -903,9 +937,17 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     tbinfo['topo']['properties']['topology']['VMs'],
                     server['dut_interfaces']
                 ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
+            topo_is_multi_vrf = tbinfo['topo']['properties'].get('topo_is_multi_vrf', False)
             for neighbor_name, neighbor in vms.items():
                 vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
-                executor.submit(initial_neighbor, neighbor_name, vm_name)
+                if topo_is_multi_vrf:
+                    convergence_info = tbinfo['topo']['properties']['convergence_data']
+                    for vrf_name in convergence_info['convergence_mapping'][neighbor_name]:
+                        executor.submit(initial_neighbor, vrf_name, vm_name,
+                                        multi_vrf_peer=True,
+                                        multi_vrf_primary_host=neighbor_name)
+                else:
+                    executor.submit(initial_neighbor, neighbor_name, vm_name)
 
     logger.info("Fixture nbrhosts finished")
     return devices
@@ -922,7 +964,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     """
 
     # Internal helper functions
-    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> FanoutHost | None:
+    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> Optional[FanoutHost]:
         """
         Create FanoutHost if not exists, or return existing one.
         Fanout creation logic for both Ethernet and Serial connections.
