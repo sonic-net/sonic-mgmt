@@ -86,13 +86,20 @@ class TestCOPP(object):
                                           "UDLD",
                                           "Default"])
     def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                     ptfhost, copp_testbed, dut_type):
+                     ptfhost, copp_testbed, dut_type, fanouthosts):
         """
             Validates that rate-limited COPP groups work as expected.
 
             Checks that the policer enforces the rate limit for protocols
             that have a set rate limit.
         """
+        # If fanout is running 7060x6 and running SONiC, the only supported action for UDLD is trap, which means
+        # UDLD packet will not be forwarded to DUT
+        if 'UDLD' == protocol:
+            for fanouthost in list(fanouthosts.values()):
+                if fanouthost.get_fanout_os() == 'sonic' and "arista_7060x6_64pe_b" in fanouthost.facts["platform"]:
+                    pytest.skip("Skip UDLD test for Arista-7060x6 fanout without UDLD forward support")
+
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         _copp_runner(duthost,
                      ptfhost,
