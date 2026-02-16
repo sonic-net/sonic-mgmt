@@ -124,7 +124,7 @@ def get_vmhost_ip(vmhost) -> str:
     return vmhost.host.options['inventory_manager'].get_host(vmhost.hostname).vars.get('ansible_host', '')
 
 
-def get_serial_fanout_for_line(
+def get_console_fanout_for_line(
     fanouthosts: dict[str, FanoutHost],
     duthost: SonicHost,
     link_id: int,
@@ -240,7 +240,7 @@ class BridgeManager:
             ConsoleBridge: Bridge info (pytest.fail on error)
         """
         # Get fanout for this link
-        fanout, fanout_port = get_serial_fanout_for_line(
+        fanout, fanout_port = get_console_fanout_for_line(
             self._fanouthosts, self._duthost, link_id
         )
         self._current_fanout = fanout
@@ -321,7 +321,7 @@ class BridgeManager:
 # ==================== Fixtures ====================
 
 @pytest.fixture(scope="module")
-def serial_fanouts(fanouthosts, duthost):
+def console_fanouts(fanouthosts, duthost):
     """
     Get list of fanout hosts that have serial port connections to the DUT.
 
@@ -330,20 +330,20 @@ def serial_fanouts(fanouthosts, duthost):
     """
     dut_hostname = duthost.hostname
 
-    serial_fanout_list = []
+    console_fanout_list = []
     for fanout in fanouthosts.values():
         has_serial = any(
             mapping is not None and mapping.dut_name == dut_hostname
             for mapping in fanout.serial_port_map.values()
         )
         if has_serial:
-            serial_fanout_list.append(fanout)
+            console_fanout_list.append(fanout)
             logger.info(f"Found serial fanout: {fanout.hostname}")
 
-    if not serial_fanout_list:
+    if not console_fanout_list:
         pytest.skip("No serial fanouts found in testbed")
 
-    return serial_fanout_list
+    return console_fanout_list
 
 
 @pytest.fixture(scope="function")
@@ -428,7 +428,7 @@ def test_dut_connected_to_fanout(duthost, fanouthosts, configured_lines: list[in
     logger.info(f"Testing with link {target_link_id}")
 
     # Will pytest.fail if not found
-    fanout, _ = get_serial_fanout_for_line(fanouthosts, duthost, target_link_id)
+    fanout, _ = get_console_fanout_for_line(fanouthosts, duthost, target_link_id)
     logger.info(f"Link {target_link_id} connected to fanout {fanout.hostname}")
 
 
