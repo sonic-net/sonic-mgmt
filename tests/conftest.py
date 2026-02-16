@@ -222,6 +222,11 @@ def pytest_addoption(parser):
                      help="collect show techsupport since <date>. <date> should be a string which can "
                           "be parsed by bash command 'date --d <date>'. Default value is yesterday. "
                           "To collect all time spans, please use '@0' as the value.")
+    ############################
+    #   weak server options    #
+    ############################
+    parser.addoption("--weak_server", action="store_true", default=False,
+                     help="Treat testbed as a weak server (reduces packet counts and adds delays in relevant tests)")
 
     ############################
     #  keysight ixanvl options #
@@ -3601,6 +3606,17 @@ def restore_golden_config_db(duthost):
 def gnmi_connection(request, setup_connection):
     connection = setup_connection
     yield connection
+
+
+@pytest.fixture(scope="session")
+def weak_server(request, duthosts):
+    """
+    Returns True if the testbed should be treated as a weak server.
+    Can be forced via --weak_server CLI flag.
+    """
+    if request.config.getoption("--weak_server"):
+        return True
+    return False
 
 
 class DualtorMuxPortSetupConfig(enum.Flag):
