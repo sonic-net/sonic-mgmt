@@ -167,7 +167,7 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return True
         return True
-    
+
     def has_otel_image(self):
         rc, out, _ = self.module.run_command("docker images --format '{{.Repository}}'")
         if rc != 0:
@@ -643,7 +643,7 @@ class GenerateGoldenConfigDBModule(object):
             else:
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
-                
+
         # Enable otel feature when docker-sonic-otel image exists
         if self.has_otel_image():
             if multi_asic.is_multi_asic():
