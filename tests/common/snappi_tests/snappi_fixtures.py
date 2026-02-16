@@ -832,22 +832,32 @@ def setup_dut_ports(
         config,
         port_config_list,
         snappi_ports):
+    """
+    Function is used to setup interfaces for the test.
+    config_port function does not have explicit setup flag as there is no clean-up required.
+    if setup flag is true, VLANs, Port-channels and rtr interfaces are used in that order.
+    Last option is to use P2P IPs in 20.x.x.x configured in variables.override.yml file.
+    If setup flag is false, then port-type is used to determine if rtr interface is used.
+    For router interfaces, there is no explicit clean-up on the DUT.
+    For P2P interfaces, the P2P IPs configured on the DUT are removed.
+    """
 
-    for index, duthost in enumerate(duthost_list):
-        config_result = __vlan_intf_config(config=config,
-                                           port_config_list=port_config_list,
-                                           duthost=duthost,
-                                           snappi_ports=snappi_ports)
-        pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
+    target_ports = len(snappi_ports)
 
-    for index, duthost in enumerate(duthost_list):
-        config_result = __portchannel_intf_config(config=config,
-                                                  port_config_list=port_config_list,
-                                                  duthost=duthost,
-                                                  snappi_ports=snappi_ports)
-        pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
+    # Function to check if port_config_list has all ports required for test.
+    def found_ports():
+        return len(port_config_list) >= target_ports
 
-    if is_snappi_multidut(duthost_list):
+    def config_port(fn):
+        for index, duthost in enumerate(duthost_list):
+            config_result = fn(config=config,
+                               port_config_list=port_config_list,
+                               duthost=duthost,
+                               snappi_ports=snappi_ports)
+            pytest_assert(config_result is True, 'Failed to configure via {fn.__name__}')
+        return found_ports()
+
+    def config_port_setup(fn):
         for index, duthost in enumerate(duthost_list):
             config_result = __intf_config_multidut(
                                                     config=config,
@@ -855,19 +865,29 @@ def setup_dut_ports(
                                                     duthost=duthost,
                                                     snappi_ports=snappi_ports,
                                                     setup=setup)
-            pytest_assert(config_result is True, 'Fail to configure multidut L3 interfaces')
-    else:
-        for index, duthost in enumerate(duthost_list):
-            config_result = __l3_intf_config(config=config,
-                                             port_config_list=port_config_list,
-                                             duthost=duthost,
-                                             snappi_ports=snappi_ports,
-                                             setup=setup)
-            pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
+            pytest_assert(config_result is True, 'Failed to configure via {fn.__name__}')
 
-    pytest_assert(len(port_config_list) == len(snappi_ports), 'Failed to configure DUT ports')
+    if setup:
+        if config_port(__vlan_intf_config):
+            logger.info('Found relevant VLAN interfaces')
+            return config, port_config_list, snappi_ports
+        if config_port(__portchannel_intf_config):
+            logger.info('Found relevant portchannel interfaces')
+            return config, port_config_list, snappi_ports
 
-    return config, port_config_list, snappi_ports
+        config_port_setup(__l3_intf_config)
+        if found_ports():
+            return config, port_config_list, snappi_ports
+
+        config_port_setup(__intf_config_multidut)
+        pytest_assert(found_ports(), 'Failed to configure DUT ports')
+        return config, port_config_list, snappi_ports
+    elif (str(port_config_list[-1].type) == 'SnappiPortType.RtrInterface'):
+        config_port_setup(__l3_intf_config)
+        return None
+    elif (str(port_config_list[-1].type) == 'SnappiPortType.IPInterface'):
+        config_port_setup(__intf_config_multidut)
+        return None
 
 
 def get_tgen_peer_ports(snappi_ports, hostname):
