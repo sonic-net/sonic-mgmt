@@ -2477,13 +2477,19 @@ def main():
                                   'ptf_bp_ip_addr',
                                   'ptf_bp_ipv6_addr',
                                   'mgmt_bridge',
-                                  'duts_fp_ports'], cmd)
+                                  'duts_fp_ports',
+                                  'multi_vrf',
+                                  'multi_vrf_data'], cmd)
 
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
             duts_fp_ports = module.params['duts_fp_ports']
+            duts_midplane_ports = module.params['duts_midplane_ports']
+            duts_inband_ports = module.params['duts_inband_ports']
             duts_name = module.params['duts_name']
             is_multi_duts = True if len(duts_name) > 1 else False
+            is_multi_vrf = module.params['multi_vrf']
+            multi_vrf_data = module.params['multi_vrf_data']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (
