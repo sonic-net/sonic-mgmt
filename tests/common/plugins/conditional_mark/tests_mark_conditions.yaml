@@ -165,6 +165,24 @@ arp/test_arp_extended.py::test_proxy_arp[v4-:
     conditions:
       - "'-v6-' in topo_name"
 
+arp/test_arp_update.py::test_ptf_arp_learns_mac:
+  skip:
+    reason: "Skip test_ptf_arp_learns_mac on dualtor"
+    conditions:
+      - "'dualtor' in topo_name"
+
+arp/test_arp_update.py::test_dut_arping_learns_mac:
+  skip:
+    reason: "Skip test_dut_arping_learns_mac on dualtor"
+    conditions:
+      - "'dualtor' in topo_name"
+      
+arp/test_arp_update.py::test_dut_ping_learns_mac:
+  skip:
+    reason: "Skip test_dut_ping_learns_mac on dualtor"
+    conditions:
+      - "'dualtor' in topo_name"
+      
 arp/test_arp_update.py::test_kernel_asic_mac_mismatch\[.*ipv4.*\]:
   regex: true
   skip:
