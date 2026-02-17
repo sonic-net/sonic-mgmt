@@ -1,0 +1,15 @@
+- name: Start TACACS daily daemon on PTF
+  hosts: localhost
+  gather_facts: no
+  vars:
+    inventory_path_default: "/data/ansible/lab"
+  tasks:
+    - name: Stat inventory file (role expects inventory_file.stat.exists)
+      ansible.builtin.stat:
+        path: "{{ inventory_path | default(inventory_path_default) }}"
+      register: inventory_file
+
+    - name: Run vm_set start_tacacs_daily_daemon task file
+      import_role:
+        name: vm_set
+        tasks_from: start_tacacs_daily_daemon.yml

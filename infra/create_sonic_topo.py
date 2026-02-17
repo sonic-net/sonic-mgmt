@@ -834,7 +834,8 @@ def add_vEOS_cfg(data):
         'env',
         'unset HTTP_PROXY HTTPS_PROXY http_proxy https_proxy',
         './testbed-cli.sh -t testbed.csv -k veos -m veos add-topo docker-ptf password.txt',
-        './testbed-cli.sh -t testbed.csv -k veos -m veos announce-routes docker-ptf password.txt'
+        './testbed-cli.sh -t testbed.csv -k veos -m veos announce-routes docker-ptf password.txt',
+        'ansible-playbook -i lab run_start_tacacs_daily_daemon.yml -e testbed_name=docker-ptf -e ptf_ip={}/24 -vvvv'.format(data['docker_ptf']['xr_mgmt_ip'])
     ]
     _run_cmd_in_ssh_container(ssh, DEFAULT_SONIC_MGMT_DOCKER_CONTAINER_NAME, add_veos_cmd)
 
