@@ -433,7 +433,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_model:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs']"
+      - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_get_revision:
@@ -455,7 +455,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_get_serial:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs']"
+      - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_get_status:
@@ -479,7 +479,7 @@ platform_tests/api/test_psu.py::TestPsuApi::test_power:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['vs'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_psu.py::TestPsuApi::test_temperature:
@@ -499,7 +499,7 @@ platform_tests/api/test_psu.py::test_temperature:
     reason: "Test not supported on Mellanox Platforms."
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs']"
+      - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_error_description:
@@ -630,7 +630,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_los:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs'] or (asic_type in ['cisco-8000'] and release in ['202012'])"
+      - "asic_type in ['vs'] or (asic_type in ['cisco-8000'] and release in ['202012'])"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_power:
@@ -638,7 +638,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_rx_power:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs']"
+      - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_serial:
@@ -646,7 +646,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_serial:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs']"
+      - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_status:
@@ -662,7 +662,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_temperature:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs']"
+      - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_dom_real_value:
@@ -695,7 +695,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_bias:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs']"
+      - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_fault:
@@ -711,7 +711,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_power:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs']"
+      - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_voltage:
@@ -719,7 +719,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_voltage:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs']"
+      - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_is_replaceable:
@@ -745,7 +745,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_power_override:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'nvidia-bluefield', 'vs'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['nvidia-bluefield', 'vs'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
@@ -775,7 +775,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs']"
+      - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
@@ -783,7 +783,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_tx_disable_channel:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0', 'x86_64-cel_e1031-r0']"
+      - "asic_type in ['vs'] or (asic_type in ['barefoot'] and hwsku in ['newport']) or platform in ['armhf-nokia_ixs7215_52x-r0', 'x86_64-cel_e1031-r0']"
       - "is_multi_asic==True and release in ['201911']"
 
 #######################################
@@ -794,7 +794,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_critical_thres
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "asic_type in ['vs'] or platform in ['armhf-nokia_ixs7215_52x-r0']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold:
@@ -802,7 +802,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_high_threshold:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs']"
+      - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_get_low_critical_threshold:
@@ -878,7 +878,7 @@ platform_tests/api/test_thermal.py::TestThermalApi::test_get_temperature:
     reason: "Unsupported platform API"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox', 'vs']"
+      - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
 platform_tests/api/test_thermal.py::TestThermalApi::test_set_high_threshold:
@@ -1452,6 +1452,15 @@ platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
       - https://github.com/sonic-net/sonic-buildimage/issues/18231
+
+####################################################
+#####   test_dpu_show_platform_temperature.py  #####
+####################################################
+smartswitch/platform_tests/test_dpu_show_platform_temperature.py:
+  skip:
+    reason: "Skip on the platforms not explicitly supported in the code"
+    conditions:
+      - "platform not in ['arm64-nvda_bf-bf3comdpu', 'arm64-nvda_bf-9009d3b600cvaa']"
 
 #######################################
 #####   test_platform_dpu.py   #####

@@ -14,7 +14,8 @@ steps:
 - script: |
     set -x
 
-    sudo apt-get -o DPkg::Lock::Timeout=600 update && sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
+    sudo apt-get -o DPkg::Lock::Timeout=600 update || true
+    sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
 
     echo "$TEST_SCRIPTS" > /tmp/ts.json
     echo "TEST_SCRIPTS value from file:"

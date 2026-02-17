@@ -28,6 +28,11 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 SONIC_RES_UPDATE_TIME = 50
+SONIC_RES_CLEANUP_UPDATE_TIME = 20
+CONFIG_UPDATE_TIME = 5
+FDB_CLEAR_TIMEOUT = 20
+ROUTE_COUNTER_POLL_TIMEOUT = 15
+CRM_COUNTER_TOLERANCE = 2
 ACL_TABLE_NAME = "DATAACL"
 
 RESTORE_CMDS = {"test_crm_route": [],
@@ -126,7 +131,9 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
         pytest.skip("DATAACL does not exist")
 
     # Make sure CRM counters updated
-    time.sleep(CRM_UPDATE_TIME)
+    # ACL configuration usually propagates in 3-5 seconds
+    logger.info("Waiting for ACL configuration to propagate...")
+    time.sleep(CONFIG_UPDATE_TIME)
 
     collector["acl_tbl_key"] = get_acl_tbl_key(asichost)
 
@@ -206,7 +213,9 @@ def apply_fdb_config(duthost, test_name, vlan_id, iface, entry_num):
     duthost.command(cmd)
 
     # Make sure CRM counters updated
-    time.sleep(CRM_UPDATE_TIME)
+    # FDB entries typically propagate in 3-5 seconds
+    logger.info("Waiting for FDB entries to propagate...")
+    time.sleep(CONFIG_UPDATE_TIME)
 
 
 def get_acl_tbl_key(asichost):
@@ -239,6 +248,13 @@ def verify_thresholds(duthost, asichost, **kwargs):
     Verifies that WARNING message logged if there are any resources that exceeds a pre-defined threshold value.
     Verifies the following threshold parameters: percentage, actual used, actual free
     """
+    # Skip on virtual testbed (VS/KVM): ASIC/counters DB checks are not applicable
+    if duthost.facts["asic_type"].lower() == "vs":
+        logging.info(
+            "[CRM] Skipping verify_thresholds on VS/KVM (asic_type == 'vs'); "
+            "ASIC/counters DB checks are not applicable in virtual testbeds."
+        )
+        return
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='crm_test')
     for key, value in list(THR_VERIFY_CMDS.items()):
         logger.info("Verifying CRM threshold '{}'".format(key))
@@ -306,6 +322,104 @@ def check_crm_stats(cmd, duthost, origin_crm_stats_used, origin_crm_stats_availa
         return True
     else:
         return False
+
+
+def wait_for_crm_counter_update(cmd, duthost, expected_used, oper_used=">=", timeout=15, interval=1):
+    """
+    Wait for CRM used counter to update by polling.
+    Raises pytest.fail() if timeout is reached.
+    """
+    last_values = {'used': None, 'avail': None}
+
+    def check_counters():
+        try:
+            crm_used, crm_avail = get_crm_stats(cmd, duthost)
+            last_values['used'] = crm_used
+            last_values['avail'] = crm_avail
+            used_ok = eval(f"{crm_used} {oper_used} {expected_used}")
+
+            if used_ok:
+                logger.info(f"CRM counter updated: used={crm_used} (expected {oper_used} {expected_used})")
+                return True
+            else:
+                logger.debug(f"Waiting for CRM update: used={crm_used} (expected {oper_used} {expected_used})")
+                return False
+        except Exception as e:
+            logger.debug(f"Error checking CRM stats: {e}")
+            return False
+
+    pytest_assert(wait_until(timeout, interval, 0, check_counters),
+                  f"CRM counter did not reach expected value within {timeout} seconds. "
+                  f"Expected: used {oper_used} {expected_used}, "
+                  f"Actual: used={last_values['used']}, available={last_values['avail']}")
+
+
+def wait_for_resource_stabilization(get_stats_func, duthost, asic_index, resource_key,
+                                    min_expected_used=None, tolerance_percent=5,
+                                    timeout=60, interval=5):
+    """
+    Wait for large resource configurations to stabilize by polling.
+    Raises pytest.fail() if timeout is reached.
+    """
+    logger.info("Waiting for {} resources to stabilize (expecting at least {} used)...".format(
+        resource_key, min_expected_used if min_expected_used else "N/A"))
+
+    stable_count = 0
+    prev_used = None
+    start_time = time.time()
+
+    def check_stabilized():
+        nonlocal stable_count, prev_used
+        try:
+            stats = get_stats_func(duthost, asic_index)
+            current_used = stats[resource_key]['used']
+            current_avail = stats[resource_key]['available']
+
+            logger.debug("{} used: {}, available: {}".format(resource_key, current_used, current_avail))
+
+            # Check if we've reached minimum expected usage
+            if min_expected_used and current_used < min_expected_used * (1 - tolerance_percent / 100):
+                logger.debug("Still adding resources: {} < {} (min expected)".format(
+                    current_used, min_expected_used))
+                prev_used = current_used
+                stable_count = 0
+                return False
+
+            # Check if counter is stable (not changing significantly)
+            if prev_used is not None:
+                change = abs(current_used - prev_used)
+                if change <= max(1, current_used * tolerance_percent / 100):
+                    stable_count += 1
+                    if stable_count >= 2:  # Stable for 2 consecutive checks
+                        logger.info("{} resources stabilized at used={}, available={}".format(
+                            resource_key, current_used, current_avail))
+                        return True
+                else:
+                    stable_count = 0
+
+            prev_used = current_used
+            return False
+        except Exception as e:
+            logger.debug("Error checking resource stats: {}".format(e))
+            return False
+
+    if wait_until(timeout, interval, 0, check_stabilized):
+        elapsed = time.time() - start_time
+        logger.info("{} stabilization took {:.1f} seconds".format(resource_key, elapsed))
+    else:
+        # final stats for error message
+        try:
+            final_stats = get_stats_func(duthost, asic_index)
+            final_used = final_stats[resource_key]['used']
+            final_avail = final_stats[resource_key]['available']
+        except Exception:
+            final_used = prev_used
+            final_avail = "unknown"
+
+        pytest.fail("{} resources did not stabilize within {} seconds. "
+                    "Expected min: {}, Actual: used={}, available={}".format(
+                        resource_key, timeout, min_expected_used if min_expected_used else "N/A",
+                        final_used, final_avail))
 
 
 def generate_neighbors(amount, ip_ver):
@@ -446,7 +560,9 @@ def configure_neighbors(amount, interface, ip_ver, asichost, test_name):
                             iface=interface,
                             namespace=asichost.namespace))
     # Make sure CRM counters updated
-    time.sleep(CRM_UPDATE_TIME)
+    # Neighbor additions typically propagate in 3-5 seconds
+    logger.info("Waiting for neighbor entries to propagate...")
+    time.sleep(CONFIG_UPDATE_TIME)
 
 
 def get_entries_num(used, available):
@@ -555,8 +671,22 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     if duthost.facts['asic_type'] == 'broadcom':
         check_available_counters = False
 
-    # Make sure CRM counters updated
-    time.sleep(CRM_UPDATE_TIME)
+    # Helper function to get current route used counter
+    def get_route_used():
+        stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
+        return stats[f'ipv{ip_ver}_route']['used']
+
+    # Make sure CRM counters updated - use polling to wait for route counter to update
+    logger.info(f"Waiting for route counters to update after adding {total_routes} routes...")
+    expected_min_used = crm_stats_route_used + total_routes - CRM_COUNTER_TOLERANCE
+
+    def check_route_added():
+        return get_route_used() >= expected_min_used
+
+    pytest_assert(wait_until(ROUTE_COUNTER_POLL_TIMEOUT, CRM_POLLING_INTERVAL, 0, check_route_added),
+                  f"Route counter did not update after adding {total_routes} routes "
+                  f"within {ROUTE_COUNTER_POLL_TIMEOUT} seconds. "
+                  f"Expected: used >= {expected_min_used}, Actual: used={get_route_used()}")
 
     # Get new ipv[4/6]_route/fdb_entry used and available counter value
     crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
@@ -589,8 +719,17 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     for i in range(total_routes):
         duthost.command(route_del_cmd.format(asichost.ip_cmd, i, nh_ip))
 
-    # Make sure CRM counters updated
-    time.sleep(CRM_UPDATE_TIME)
+    # Make sure CRM counters updated - use polling to wait for route counter to update
+    logger.info(f"Waiting for route counters to update after deleting {total_routes} routes...")
+    expected_max_used = crm_stats_route_used - total_routes + CRM_COUNTER_TOLERANCE
+
+    def check_route_deleted():
+        return get_route_used() <= expected_max_used
+
+    pytest_assert(wait_until(ROUTE_COUNTER_POLL_TIMEOUT, CRM_POLLING_INTERVAL, 0, check_route_deleted),
+                  f"Route counter did not update after deleting {total_routes} routes "
+                  f"within {ROUTE_COUNTER_POLL_TIMEOUT} seconds. "
+                  f"Expected: used <= {expected_max_used}, Actual: used={get_route_used()}")
 
     # Get new ipv[4/6]_route/fdb_entry used and available counter value
     crm_stats = get_crm_resources_fdb_and_ip_route(duthost, enum_frontend_asic_index)
@@ -637,11 +776,14 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             duthost.shell(add_routes_template.render(routes_list=routes_list,
                                                      interface=crm_interface[0],
                                                      namespace=asichost.namespace))
-        logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
-        # Make sure SONIC configure expected entries
-        time.sleep(SONIC_RES_UPDATE_TIME)
+        # Wait for resources to stabilize using adaptive polling
+        expected_routes = new_crm_stats_route_used + routes_num
+        logger.info("Waiting for {} route resources to stabilize".format(routes_num))
+        wait_for_resource_stabilization(get_crm_resources_fdb_and_ip_route, duthost,
+                                        enum_frontend_asic_index, 'ipv{}_route'.format(ip_ver),
+                                        min_expected_used=expected_routes, timeout=60, interval=5)
 
-        RESTORE_CMDS["wait"] = SONIC_RES_UPDATE_TIME
+        RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] route" CRM resource
     # Get "crm_stats_ipv[4/6]_route" used and available counter value
@@ -763,11 +905,14 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         configure_neighbors(amount=neighbours_num, interface=crm_interface[0], ip_ver=ip_ver,
                             asichost=asichost, test_name="test_crm_nexthop")
 
-        logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
-        # Make sure SONIC configure expected entries
-        time.sleep(SONIC_RES_UPDATE_TIME)
+        # Wait for nexthop resources to stabilize using polling
+        expected_nexthop_used = new_crm_stats_nexthop_used + neighbours_num - CRM_COUNTER_TOLERANCE
+        logger.info("Waiting for {} nexthop resources to stabilize (expecting ~{} total used)...".format(
+            neighbours_num, expected_nexthop_used))
+        wait_for_crm_counter_update(get_nexthop_stats, duthost, expected_used=expected_nexthop_used,
+                                    oper_used=">=", timeout=60, interval=5)
 
-        RESTORE_CMDS["wait"] = SONIC_RES_UPDATE_TIME
+        RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] nexthop" CRM resource
     verify_thresholds(duthost, asichost, crm_cli_res="ipv{ip_ver} nexthop".format(ip_ver=ip_ver),
@@ -846,11 +991,13 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         configure_neighbors(amount=neighbours_num, interface=crm_interface[0], ip_ver=ip_ver,
                             asichost=asichost, test_name="test_crm_neighbor")
 
-        logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
-        # Make sure SONIC configure expected entries
-        time.sleep(SONIC_RES_UPDATE_TIME)
+        # Wait for neighbor resources to stabilize using polling
+        expected_neighbor_used = new_crm_stats_neighbor_used + neighbours_num - CRM_COUNTER_TOLERANCE
+        logger.info("Waiting for {} neighbor resources to stabilize".format(neighbours_num))
+        wait_for_crm_counter_update(get_neighbor_stats, duthost, expected_used=expected_neighbor_used,
+                                    oper_used=">=", timeout=60, interval=5)
 
-        RESTORE_CMDS["wait"] = SONIC_RES_UPDATE_TIME
+        RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
     # Verify thresholds for "IPv[4/6] neighbor" CRM resource
     verify_thresholds(duthost, asichost,  crm_cli_res="ipv{ip_ver} neighbor".format(ip_ver=ip_ver),
@@ -969,11 +1116,13 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                  asichost=asichost, test_name="test_crm_nexthop_group",
                                  chunk_size=chunk_size)
 
-        logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
-        # Make sure SONIC configure expected entries
-        time.sleep(SONIC_RES_UPDATE_TIME)
+        # Wait for nexthop group resources to stabilize using polling
+        expected_nhg_used = new_nexthop_group_used + nexthop_group_num - CRM_COUNTER_TOLERANCE
+        logger.info("Waiting for {} nexthop group resources to stabilize".format(nexthop_group_num))
+        wait_for_crm_counter_update(get_nexthop_group_stats, duthost, expected_used=expected_nhg_used,
+                                    oper_used=">=", timeout=60, interval=5)
 
-        RESTORE_CMDS["wait"] = SONIC_RES_UPDATE_TIME
+        RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
     verify_thresholds(duthost, asichost, crm_cli_res=redis_threshold, crm_cmd=get_nexthop_group_stats)
 
@@ -1051,8 +1200,11 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
         logger.info(f"Next hop group number: {nexthop_group_num}")
         apply_acl_config(duthost, asichost, "test_acl_entry", asic_collector, nexthop_group_num)
 
-        # Make sure SONIC configure expected entries
-        time.sleep(SONIC_RES_UPDATE_TIME)
+        # Wait for ACL entry resources to stabilize using polling
+        expected_acl_used = new_crm_stats_acl_entry_used + nexthop_group_num - CRM_COUNTER_TOLERANCE
+        logger.info("Waiting for {} ACL entry resources to stabilize".format(nexthop_group_num))
+        wait_for_crm_counter_update(get_acl_entry_stats, duthost, expected_used=expected_acl_used,
+                                    oper_used=">=", timeout=60, interval=5)
 
     # Verify thresholds for "ACL entry" CRM resource
     verify_thresholds(duthost, asichost, crm_cli_res="acl group entry", crm_cmd=get_acl_entry_stats)
@@ -1172,12 +1324,14 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
         crm_stats_acl_entry_available".format(db_cli=asichost.sonic_db_cli, acl_tbl_key=acl_tbl_key)
         _, available_acl_entry_num = get_crm_stats(get_acl_entry_stats, duthost)
         # The number we can applied is limited to available_acl_entry_num
-        apply_acl_config(duthost, asichost, "test_acl_counter", asic_collector,
-                         min(needed_acl_counter_num, available_acl_entry_num))
+        actual_acl_count = min(needed_acl_counter_num, available_acl_entry_num)
+        apply_acl_config(duthost, asichost, "test_acl_counter", asic_collector, actual_acl_count)
 
-        logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
-        # Make sure SONIC configure expected entries
-        time.sleep(SONIC_RES_UPDATE_TIME)
+        # Wait for ACL counter resources to stabilize using polling
+        expected_acl_counter_used = new_crm_stats_acl_counter_used + actual_acl_count - CRM_COUNTER_TOLERANCE
+        logger.info("Waiting for {} ACL counter resources to stabilize".format(actual_acl_count))
+        wait_for_crm_counter_update(get_acl_counter_stats, duthost, expected_used=expected_acl_counter_used,
+                                    oper_used=">=", timeout=60, interval=5)
 
         new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available = \
             get_crm_stats(get_acl_counter_stats, duthost)
@@ -1291,11 +1445,14 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
         fdb_entries_num = get_entries_num(new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available)
         # Generate FDB json file with 'fdb_entries_num' entries and apply it on DUT
         apply_fdb_config(duthost, "test_crm_fdb_entry", vlan_id, iface, fdb_entries_num)
-        logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
-        # Make sure SONIC configure expected entries
-        time.sleep(SONIC_RES_UPDATE_TIME)
 
-        RESTORE_CMDS["wait"] = SONIC_RES_UPDATE_TIME
+        # Wait for FDB entry resources to stabilize using polling
+        expected_fdb_used = new_crm_stats_fdb_entry_used + fdb_entries_num - CRM_COUNTER_TOLERANCE
+        logger.info("Waiting for {} FDB entry resources to stabilize".format(fdb_entries_num))
+        wait_for_crm_counter_update(get_fdb_stats, duthost, expected_used=expected_fdb_used,
+                                    oper_used=">=", timeout=60, interval=5)
+
+        RESTORE_CMDS["wait"] = SONIC_RES_CLEANUP_UPDATE_TIME
 
     # Verify thresholds for "FDB entry" CRM resource
     verify_thresholds(duthost, asichost, crm_cli_res="fdb", crm_cmd=get_fdb_stats)
@@ -1304,16 +1461,19 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     cmd = "fdbclear"
     duthost.command(cmd)
 
-    # Make sure CRM counters updated
-    time.sleep(CRM_UPDATE_TIME)
-    # Timeout for asyc fdb clear
-    FDB_CLEAR_TIMEOUT = 10
-    while FDB_CLEAR_TIMEOUT > 0:
+    # Make sure CRM counters updated - use polling
+    # Wait for FDB clear to complete with async polling
+    logger.info("Waiting for FDB clear to complete...")
+    fdb_clear_timeout = FDB_CLEAR_TIMEOUT
+    new_crm_stats_fdb_entry_used = None
+    new_crm_stats_fdb_entry_available = None
+    while fdb_clear_timeout > 0:
         # Get new "crm_stats_fdb_entry" used and available counter value
         new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
         if new_crm_stats_fdb_entry_used == 0:
+            logger.debug("FDB cleared successfully")
             break
-        FDB_CLEAR_TIMEOUT -= CRM_POLLING_INTERVAL
+        fdb_clear_timeout -= CRM_POLLING_INTERVAL
         time.sleep(CRM_POLLING_INTERVAL)
 
     # Verify "crm_stats_fdb_entry_used" counter was decremented

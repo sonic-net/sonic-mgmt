@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Optional
 import enum
 import os
 import json
@@ -16,6 +17,7 @@ import threading
 import pathlib
 import importlib
 import inspect
+import concurrent.futures.thread as cft
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -70,6 +72,8 @@ from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.helpers.parallel import patch_ansible_worker_process
+from tests.common.helpers.parallel import fix_logging_handler_fork_lock
 
 import tests.common.gnmi_setup as gnmi_setup
 
@@ -113,6 +117,15 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
                   'tests.common.fixtures.duthost_utils')
+
+
+# NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
+if sys.version_info < (3, 12, 8):
+    os.register_at_fork(after_in_child=cft._threads_queues.clear)
+
+
+patch_ansible_worker_process()
+fix_logging_handler_fork_lock()
 
 
 def pytest_addoption(parser):
@@ -265,6 +278,12 @@ def pytest_addoption(parser):
                      help="Use insecure connection to gNMI target")
     parser.addoption("--disable_sai_validation", action="store_true", default=True,
                      help="Disable SAI validation")
+    parser.addoption(
+        "--target_version",
+        action="store",
+        default=None,
+        help="Target SONiC version string for gNOI SetPackage (e.g. SONiC-OS-20251110.06)",
+    )
     ############################
     #   Parallel run options   #
     ############################
@@ -295,6 +314,8 @@ def pytest_addoption(parser):
                      help="File that containers parameters for each container")
     parser.addoption("--testcase_file", action="store", default=None, type=str,
                      help="File that contains testcases to execute per iteration")
+    parser.addoption("--optional_parameters", action="store", default="", type=str,
+                     help="Extra args appended to docker run, e.g. '-e IS_V1_ENABLED=true'")
 
     #################################
     #   Stress test options         #
@@ -487,35 +508,6 @@ def pytest_sessionstart(session):
     for key in keys:
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
-
-    # Invoke the build-gnmi-stubs.sh script
-    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
-    base_dir = os.getcwd()  # Use the current working directory as the base directory
-    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
-
-    try:
-        result = subprocess.run(
-            [script_path, base_dir],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=False  # Do not raise an exception automatically on non-zero exit
-        )
-        logger.info(f"Output of {script_path}:\n{result.stdout}")
-        # logger.error(f"Error output of {script_path}:\n{result.stderr}")
-
-        if result.returncode != 0:
-            logger.error(f"{script_path} failed with exit code {result.returncode}")
-            session.exitstatus = 1  # Fail the pytest session
-        else:
-            # Add the generated directory to sys.path for module imports
-            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
-            if generated_path not in sys.path:
-                sys.path.insert(0, generated_path)
-                logger.info(f"Added {generated_path} to sys.path")
-    except Exception as e:
-        logger.error(f"Exception occurred while invoking {script_path}: {e}")
-        session.exitstatus = 1  # Fail the pytest session
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -813,8 +805,8 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
-        _hosts.apend(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
-                             macsec_enabled=request.config.option.enable_macsec))
+        _hosts.append(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
+                              macsec_enabled=request.config.option.enable_macsec))
     return _hosts
 
 
@@ -869,9 +861,22 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
         return devices
 
-    def initial_neighbor(neighbor_name, vm_name):
+    def initial_neighbor(neighbor_name, vm_name, multi_vrf_peer=False, multi_vrf_primary_host=None):
         logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
         if neighbor_type == "eos":
+            if multi_vrf_peer:
+                data = tbinfo['topo']['properties']['convergence_data']
+                primary_data = data['converged_peers'][multi_vrf_primary_host]
+                primary_asn = tbinfo['topo']['properties']['configuration'][multi_vrf_primary_host]['bgp']['asn']
+                multi_vrf_data = {'vrf': neighbor_name,
+                                  'intf_config': copy.deepcopy(primary_data['vrf'][neighbor_name]),
+                                  'intf_offset': primary_data['intf_mapping'][neighbor_name]["offset"],
+                                  'orig_intf_map': primary_data['intf_mapping'][neighbor_name]["orig_intf_map"],
+                                  'primary_host': multi_vrf_primary_host,
+                                  'primary_host_asn': primary_asn,
+                                  'intf_index_mapping': copy.deepcopy(data['interface_index_mapping'][neighbor_name]),
+                                  'vm_offset_mapping': data['vm_offset_mapping'][neighbor_name],
+                                  'ptf_bp_config': copy.deepcopy(data['ptf_backplane_addrs'][neighbor_name])}
             device = NeighborDevice(
                 {
                     'host': EosHost(
@@ -882,7 +887,9 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
                         shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name],
+                    'is_multi_vrf_peer': multi_vrf_peer,
+                    'multi_vrf_data': multi_vrf_data if multi_vrf_peer else None,
                 }
             )
         elif neighbor_type == "sonic":
@@ -930,9 +937,17 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     tbinfo['topo']['properties']['topology']['VMs'],
                     server['dut_interfaces']
                 ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
+            topo_is_multi_vrf = tbinfo['topo']['properties'].get('topo_is_multi_vrf', False)
             for neighbor_name, neighbor in vms.items():
                 vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
-                executor.submit(initial_neighbor, neighbor_name, vm_name)
+                if topo_is_multi_vrf:
+                    convergence_info = tbinfo['topo']['properties']['convergence_data']
+                    for vrf_name in convergence_info['convergence_mapping'][neighbor_name]:
+                        executor.submit(initial_neighbor, vrf_name, vm_name,
+                                        multi_vrf_peer=True,
+                                        multi_vrf_primary_host=neighbor_name)
+                else:
+                    executor.submit(initial_neighbor, neighbor_name, vm_name)
 
     logger.info("Fixture nbrhosts finished")
     return devices
@@ -949,7 +964,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     """
 
     # Internal helper functions
-    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> FanoutHost | None:
+    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> Optional[FanoutHost]:
         """
         Create FanoutHost if not exists, or return existing one.
         Fanout creation logic for both Ethernet and Serial connections.
@@ -1183,6 +1198,10 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
     if 'servers' in tbinfo:
         servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
                                   for value in tbinfo['servers'].values()}
+
+    # Check if logs directory exists, otherwise use /tmp
+    log_path = "logs" if os.path.isdir("logs") else "/tmp"
+
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
         res = localhost.announce_routes(
@@ -1190,7 +1209,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             ptf_ip=ptf_ip,
             action='generate',
             path="../ansible/",
-            log_path="logs",
+            log_path=log_path,
             dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
         )
         if 'topo_routes' not in res:
@@ -3466,10 +3485,54 @@ def setup_pfc_test(
 
 
 @pytest.fixture(scope="session")
-def setup_gnmi_server(request, localhost, duthost):
+def build_gnmi_stubs(request):
+    """
+    Generate gRPC stub client code for gNMI server interaction.
+    This fixture only runs when SAI validation is enabled.
+    """
+    disable_sai_validation = request.config.getoption("--disable_sai_validation")
+    if disable_sai_validation:
+        logger.info("SAI validation is disabled, skipping gNMI stub generation")
+        yield
+        return
+
+    # Invoke the build-gnmi-stubs.sh script
+    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
+    base_dir = os.getcwd()  # Use the current working directory as the base directory
+    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
+
+    try:
+        result = subprocess.run(
+            [script_path, base_dir],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False  # Do not raise an exception automatically on non-zero exit
+        )
+        logger.info(f"Output of {script_path}:\n{result.stdout}")
+
+        if result.returncode != 0:
+            logger.error(f"{script_path} failed with exit code {result.returncode}")
+            pytest.fail(f"gNMI stub generation failed with exit code {result.returncode}")
+        else:
+            # Add the generated directory to sys.path for module imports
+            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
+            if generated_path not in sys.path:
+                sys.path.insert(0, generated_path)
+                logger.info(f"Added {generated_path} to sys.path")
+    except Exception as e:
+        logger.error(f"Exception occurred while invoking {script_path}: {e}")
+        pytest.fail(f"gNMI stub generation failed: {e}")
+
+    yield
+
+
+@pytest.fixture(scope="session")
+def setup_gnmi_server(request, localhost, duthost, build_gnmi_stubs):
     """
     SAI validation library uses gNMI to access sonic-db data
-    objects. This fixture is used by tests to set up gNMI server
+    objects. This fixture is used by tests to set up gNMI server.
+    Depends on build_gnmi_stubs to ensure gRPC stubs are generated first.
     """
     disable_sai_validation = request.config.getoption("--disable_sai_validation")
     if disable_sai_validation:

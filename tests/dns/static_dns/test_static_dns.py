@@ -5,6 +5,7 @@ import re
 
 from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db  # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
@@ -58,7 +59,7 @@ def stop_dhclient(duthost):
 
 
 @pytest.mark.disable_loganalyzer
-def test_static_dns_basic(request, duthost, localhost, mgmt_interfaces):
+def test_static_dns_basic(request, duthost, localhost, backup_and_restore_config_db, mgmt_interfaces): # noqa F811
     """
     Basic test for the Static DNS
     :param duthost: DUT host object
