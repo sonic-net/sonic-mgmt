@@ -31,21 +31,59 @@ logger = logging.getLogger(__name__)
 
 def is_hsflowd_ready(duthost):
     """
-    Check if hsflowd is running.
+    Check if hsflowd is running and fully initialized.
     """
-    # Check if the sflow container is running
     if not duthost.is_container_running("sflow"):
+        logger.info("is_hsflowd_ready: sflow container not running")
         return False
 
-    # Check if hsflowd is running inside the container
     result = duthost.command("docker exec sflow pgrep hsflowd")
     if result['failed']:
+        logger.info("is_hsflowd_ready: hsflowd process not found")
         return False
     hsflowd_pid = result['stdout_lines'][0]
     if not hsflowd_pid:
+        logger.info("is_hsflowd_ready: hsflowd pid is empty")
         return False
 
+    result = duthost.command("docker exec sflow test -f /etc/hsflowd.auto", module_ignore_errors=True)
+    if result['failed'] or result['rc'] != 0:
+        logger.info("is_hsflowd_ready: hsflowd.auto does not exist")
+        return False
+
+    logger.info("is_hsflowd_ready: all checks passed")
     return True
+
+
+# ----------------------------------------------------------------------------------
+
+
+def wait_for_system_ready(duthost, timeout=180):
+    """
+    Wait for SYSTEM_READY|SYSTEM_STATE to be set to "UP" in Redis STATE_DB.
+
+    hsflowd and other services wait for this key to be set before becoming fully operational.
+
+    Args:
+        duthost: DUT host object
+        timeout: Maximum seconds to wait
+    """
+    def check_system_ready():
+        result = duthost.shell(
+            'redis-cli -n 6 HGET "SYSTEM_READY|SYSTEM_STATE" Status',
+            module_ignore_errors=True
+        )
+        if result['rc'] == 0 and result['stdout'].strip() == 'UP':
+            logger.info("SYSTEM_READY|SYSTEM_STATE is UP")
+            return True
+        logger.info("SYSTEM_READY|SYSTEM_STATE is not UP yet")
+        return False
+
+    if not wait_until(timeout, 5, 0, check_system_ready):
+        logger.warn(f"SYSTEM_READY|SYSTEM_STATE is not UP after {timeout}s, test may not behave predictably")
+
+
+# ----------------------------------------------------------------------------------
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -205,13 +243,23 @@ def config_sflow_agent(duthosts, rand_one_dut_hostname):
 
 
 def config_sflow(duthost, sflow_status='enable'):
+    """
+    Enable or disable sflow on the DUT.
+
+    Args:
+        duthost: DUT host object
+        sflow_status: 'enable' or 'disable'
+    """
     duthost.shell('config sflow %s' % sflow_status)
     expected = 'up' if sflow_status == 'enable' else 'down'
     wait_until(30, 5, 0, lambda: re.search(
         r"sFlow Admin State:\s+%s" % expected,
         duthost.shell('show sflow')['stdout']))
-    if sflow_status == 'enable' and not wait_until(180, 10, 0, is_hsflowd_ready, duthost):
-        pytest.fail("hsflowd is not running")
+
+    if sflow_status == 'enable':
+        wait_for_system_ready(duthost)
+        if not wait_until(180, 10, 0, is_hsflowd_ready, duthost):
+            pytest.fail("hsflowd is not running")
 
 # ----------------------------------------------------------------------------------
 
@@ -328,15 +376,13 @@ def partial_ptf_runner(request, ptfhost, tbinfo):
 
 def check_sflow_traffic(duthost, partial_ptf_runner, enabled_sflow_interfaces="[]",
                         active_collectors="[]", agent_id=None, polling_int=None):
-    def check_sflow_traffic_on_ptf():
-        kwargs = {'enabled_sflow_interfaces': enabled_sflow_interfaces,
-                  'active_collectors': active_collectors}
-        if agent_id is not None:
-            kwargs['agent_id'] = agent_id
-        if polling_int is not None:
-            kwargs['polling_int'] = polling_int
-        return partial_ptf_runner(**kwargs)
-    return wait_until(180, 10, 0, check_sflow_traffic_on_ptf)
+    kwargs = {'enabled_sflow_interfaces': enabled_sflow_interfaces,
+              'active_collectors': active_collectors}
+    if agent_id is not None:
+        kwargs['agent_id'] = agent_id
+    if polling_int is not None:
+        kwargs['polling_int'] = polling_int
+    return partial_ptf_runner(**kwargs)
 
 
 # ----------------------------------------------------------------------------------
@@ -678,6 +724,7 @@ class TestReboot():
         reboot(duthost, localhost)
         assert wait_until(
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        wait_for_system_ready(duthost)
         assert wait_until(60, 5, 0, verify_sflow_config_apply, duthost)
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'], polling_int=80)
@@ -710,6 +757,7 @@ class TestReboot():
         reboot(duthost, localhost)
         assert wait_until(
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        wait_for_system_ready(duthost)
         verify_show_sflow(duthost, status='down')
         for intf in var['sflow_ports']:
             var['sflow_ports'][intf]['ifindex'] = get_ifindex(duthost, intf)
@@ -732,6 +780,7 @@ class TestReboot():
         reboot(duthost, localhost, reboot_type='fast')
         assert wait_until(
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        wait_for_system_ready(duthost)
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'])
         for intf in var['sflow_ports']:
@@ -757,6 +806,7 @@ class TestReboot():
         reboot(duthost, localhost, reboot_type='warm')
         assert wait_until(
             300, 20, 0, duthost.critical_services_fully_started), "Not all critical services are fully started"
+        wait_for_system_ready(duthost)
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'])
         for intf in var['sflow_ports']:
