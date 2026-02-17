@@ -2503,14 +2503,6 @@ gnmi/test_gnmi_configdb.py:
       - "is_multi_asic==True"
       - "release in ['202412']"
 
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
-  skip:
-    reason: "The test refers to a stale implementation of GNOI.System.Reboot."
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
-      - "release in ['202412']"
-
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_replace_01:
   skip:
     reason: "dut ipv6 mgmt ip not supported"
@@ -4047,9 +4039,7 @@ route/test_default_route.py:
 route/test_default_route.py::test_default_route_set_src:
   xfail:
     reason: "xfail for IPv6-only topologies, need add support for IPv6-only"
-    conditions_logical_operator: or
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19925 and '-v6-' in topo_name"
       - "https://github.com/sonic-net/sonic-buildimage/issues/24537 and 't0-isolated-d256u256s2' in topo_name"
 
 route/test_default_route.py::test_default_route_with_bgp_flap:
@@ -4128,20 +4118,12 @@ route/test_static_route.py:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 route/test_static_route.py::test_static_route[:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
   xfail:
     reason: "xfail for scale topology, issue https://github.com/sonic-net/sonic-buildimage/issues/24537"
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24537 and 't0-isolated-d256u256s2' in topo_name"
 
 route/test_static_route.py::test_static_route_ecmp[:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
   xfail:
     reason: "xfail for scale topology, issue https://github.com/sonic-net/sonic-buildimage/issues/24537"
     conditions:

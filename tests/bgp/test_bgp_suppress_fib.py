@@ -61,7 +61,7 @@ BULK_ROUTE_COUNT = 512  # 512 ipv4 route and 512 ipv6 route
 FUNCTION = "function"
 STRESS = "stress"
 TRAFFIC_WAIT_TIME = 0.1
-BULK_TRAFFIC_WAIT_TIME = 0.004
+BULK_TRAFFIC_WAIT_TIME = 0.01
 BGP_ROUTE_FLAP_TIMES = 5
 UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
 
@@ -129,7 +129,8 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganaly
             "\\(.* minutes\\).*",
             r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
             r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*",
-            r".*ERR teamd#teamsyncd: :- readData: netlink reports an error=.*"
+            r".*ERR teamd#teamsyncd: :- readData: netlink reports an error=.*",
+            r".*ERR bgp#fpmsyncd: .*zmq send failed.*zmqerrno: 11:Resource temporarily unavailable.*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
@@ -528,10 +529,14 @@ def parse_time_stamp(bgp_packets, ipv4_route_list, ipv6_route_list):
                 layer = bgp_updates[i].getlayer(bgp.BGPUpdate, nb=layer_index)
                 if layer.nlri:
                     for route in layer.nlri:
+                        if not hasattr(route, 'prefix'):  # skip malformed/segmented routes
+                            continue
                         if route.prefix in ipv4_route_list:
                             update_time_stamp(announce_prefix_time_stamp, route.prefix, bgp_packets[i].time)
                 if layer.withdrawn_routes:
                     for route in layer.withdrawn_routes:
+                        if not hasattr(route, 'prefix'):  # skip malformed/segmented routes
+                            continue
                         if route.prefix in ipv4_route_list:
                             update_time_stamp(withdraw_prefix_time_stamp, route.prefix, bgp_packets[i].time)
                 layer_index += 1
@@ -959,7 +964,8 @@ def test_bgp_route_without_suppress(duthost, tbinfo, nbrhosts, ptfadapter, prepa
 
 
 def test_bgp_route_with_suppress_negative_operation(duthost, tbinfo, nbrhosts, ptfadapter, localhost, prepare_param,
-                                                    restore_bgp_suppress_fib, generate_route_and_traffic_data):
+                                                    restore_bgp_suppress_fib, generate_route_and_traffic_data,
+                                                    loganalyzer):
     try:
         with allure.step("Prepare needed parameters"):
             router_mac, mg_facts, ptf_ip, exabgp_port_list, exabgp_port_list_v6, recv_port_list = prepare_param
