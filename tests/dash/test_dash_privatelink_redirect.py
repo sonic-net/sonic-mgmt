@@ -19,11 +19,11 @@ import configs.privatelink_config as pl
 from dash_utils import apply_swssconfig_file
 from gnmi_utils import apply_messages
 from packets import (
-    generate_pl_pkts_with_inner_l4_parameters,
     get_pl_overlay_dip,
     get_overlay_pkt_details,
     get_underlay_pkt_details,
-    get_plnsg_gre_pkt_details
+    get_plnsg_gre_pkt_details,
+    generate_packets
 )
 from tests.common.helpers.assertions import (
     pytest_assert, pytest_require as pt_require
@@ -41,55 +41,6 @@ pytestmark = [
 Test prerequisites:
 - Assign IPs to DPU-NPU dataplane interfaces
 """
-
-
-def generate_packets(
-    ptfadapter,
-    config=None,
-    packets=3,
-    outer_encap="vxlan",
-    l4_protocols=['tcp', 'udp'],
-    inner_sport=12345,
-    inner_dport=8500,
-    vni=None,
-    plnsg=False,
-    floating_nic=False
-):
-    """
-    Generate packets to test PrivateLink redirect.
-    """
-    return_dic = {}
-    for protocol in l4_protocols:
-        logger.info(f"Generating packets for {protocol} protocol")
-        pkt_list = []
-        for _ in range(packets):
-            logger.info(
-                f"Generating packet set {_+1} for {protocol} protocol"
-            )
-            (
-                vm_to_dpu_pkt, exp_dpu_to_pe_pkt,
-                pe_to_dpu_pkt, exp_dpu_to_vm_pkt
-            ) = (
-                generate_pl_pkts_with_inner_l4_parameters(
-                    config,
-                    outer_encap=outer_encap,
-                    floating_nic=floating_nic,
-                    inner_packet_type=protocol,
-                    inner_sport=inner_sport,
-                    inner_dport=inner_dport,
-                    vni=vni,
-                    plnsg=plnsg
-                )
-            )
-            exp_dpu_to_vm_pkt = ptfadapter.update_payload(
-                exp_dpu_to_vm_pkt
-            )
-            pkt_list.append((
-                vm_to_dpu_pkt, exp_dpu_to_pe_pkt,
-                pe_to_dpu_pkt, exp_dpu_to_vm_pkt
-            ))
-        return_dic[protocol] = pkt_list
-    return return_dic
 
 
 def send_and_receive_packet(

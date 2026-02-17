@@ -565,6 +565,70 @@ def get_scapy_l4_protocol_key(inner_packet_type):
     return l4_protocol_key
 
 
+def generate_packets(
+    ptfadapter,
+    config=None,
+    packets=3,
+    outer_encap="vxlan",
+    l4_protocols=['tcp', 'udp'],
+    inner_sport=12345,
+    inner_dport=8500,
+    vni=None,
+    plnsg=False,
+    floating_nic=False
+):
+    """
+    Generate packets to test PrivateLink redirect.
+    Arguments:
+    - ptfadapter: the PTF adapter to use for packet generation
+    - config: the test configuration dictionary containing necessary information for packet generation
+    - packets: the number of packets to generate for each L4 protocol
+    - outer_encap: the type of outer encapsulation to use for the packets (e.g., "vxlan" or "gre")
+    - l4_protocols: a list of L4 protocols for which to generate packets (e.g., ["tcp", "udp"])
+    - inner_sport: the source port to use in the inner (overlay) packet
+    - inner_dport: the destination port to use in the inner (overlay) packet
+    - vni: the VNI to use for the outer encapsulation (if None, default VNI from config will be used)
+    - plnsg: a boolean indicating whether to generate PLNSG packets
+    Returns:
+    - A dictionary where the keys are the L4 protocols and the values are lists of tuples,
+    - Each list containing the generated packets for that protocol in the format
+    - Eg: [(vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt)]
+    - return_dic = {'tcp': [(),(),..], 'udp': [(),(),..]}
+    """
+    return_dic = {}
+    for protocol in l4_protocols:
+        logger.info(f"Generating packets for {protocol} protocol")
+        pkt_list = []
+        for _ in range(packets):
+            logger.info(
+                f"Generating packet set {_+1} for {protocol} protocol"
+            )
+            (
+                vm_to_dpu_pkt, exp_dpu_to_pe_pkt,
+                pe_to_dpu_pkt, exp_dpu_to_vm_pkt
+            ) = (
+                generate_pl_pkts_with_inner_l4_parameters(
+                    config,
+                    outer_encap=outer_encap,
+                    floating_nic=floating_nic,
+                    inner_packet_type=protocol,
+                    inner_sport=inner_sport,
+                    inner_dport=inner_dport,
+                    vni=vni,
+                    plnsg=plnsg
+                )
+            )
+            exp_dpu_to_vm_pkt = ptfadapter.update_payload(
+                exp_dpu_to_vm_pkt
+            )
+            pkt_list.append((
+                vm_to_dpu_pkt, exp_dpu_to_pe_pkt,
+                pe_to_dpu_pkt, exp_dpu_to_vm_pkt
+            ))
+        return_dic[protocol] = pkt_list
+    return return_dic
+
+
 def generate_pl_pkts_with_inner_l4_parameters(
                          config,
                          outer_encap="vxlan",

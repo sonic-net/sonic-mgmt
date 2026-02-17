@@ -138,7 +138,7 @@ def parse_dash_proto(key: str, proto_dict: dict):
 def get_enum_type_from_str(enum_type_str, enum_name_str):
 
     # 4_to_6 uses small cap so cannot use dynamic naming
-    if enum_name_str in ["4_to_6", "action_type"]:
+    if enum_name_str == "4_to_6":
         return ActionType.ACTION_TYPE_4_to_6
 
     my_enum_type_parts = re.findall(r'[A-Z][^A-Z]*', enum_type_str)
