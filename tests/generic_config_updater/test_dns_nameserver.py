@@ -66,6 +66,7 @@ def server_exist_in_conf(duthost, server_pattern):
     """ Check if dns nameserver take effect in resolv.conf
     """
     content = duthost.command("cat /etc/resolv.conf")
+    logger.info(f"Contents of resolv.conf: {content['stdout']}")
     for line in content['stdout_lines']:
         if re.search(server_pattern, line):
             return True
