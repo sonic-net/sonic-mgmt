@@ -15,6 +15,8 @@ pytestmark = [
     pytest.mark.topology('any'),
     # Reboot triggers kernel warnings on VS.
     pytest.mark.disable_loganalyzer,
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
+                            "setup_gnmi_rotated_server", "check_dut_timestamp")
 ]
 
 
