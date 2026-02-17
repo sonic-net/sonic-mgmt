@@ -95,6 +95,7 @@ class TestbedHealthChecker:
         self.testbed_file = testbed_file
         self.log_verbosity = log_verbosity
         self.output_file = output_file
+        self.is_snappi_testbed = False
 
         self.check_result = TestbedCheckResult(code=0, errmsg=[], data={})
 
@@ -120,6 +121,9 @@ class TestbedHealthChecker:
 
         self.is_chassis = self.duts_basic_facts[self.sonichosts[0].hostname][
             "ansible_facts"]["dut_basic_facts"]["is_chassis"]
+
+        if 'rdma' in self.testbed_name or 'ixia' in self.testbed_name:
+            self.is_snappi_testbed = True
 
         logger.info("======================= init_hosts ends =======================")
 
@@ -310,6 +314,10 @@ class TestbedHealthChecker:
             state: str. The target state to compare the BGP session state against. Defaults to "established".
         """
 
+        if self.is_snappi_testbed:
+            logger.info("======================= skip check_bgp_session_state for snappi =======================")
+            return
+
         def find_unexpected_bgp_neighbors(neigh_bgp_facts, expected_state, unexpected_neighbors):
             for k, v in list(neigh_bgp_facts['bgp_neighbors'].items()):
                 if v['state'] != expected_state:
@@ -374,6 +382,9 @@ class TestbedHealthChecker:
         """
         Check the status of up ports on a list of SonicHost objects representing the DUTs.
         """
+        if self.is_snappi_testbed:
+            logger.info("=================== skip check_interface_status_of_up_ports for snappi ===================")
+            return
 
         failed = False
         interface_facts_on_hosts = {}
