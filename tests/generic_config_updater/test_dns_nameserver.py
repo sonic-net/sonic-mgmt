@@ -7,6 +7,7 @@ from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -66,7 +67,6 @@ def server_exist_in_conf(duthost, server_pattern):
     """ Check if dns nameserver take effect in resolv.conf
     """
     content = duthost.command("cat /etc/resolv.conf")
-    logger.info(f"Contents of resolv.conf: {content['stdout']}")
     for line in content['stdout_lines']:
         if re.search(server_pattern, line):
             return True
@@ -101,16 +101,15 @@ def add_dns_nameserver(duthost, dns_nameserver):
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        if output['rc'] != 0:
-            logger.error(f"Failed to apply patch, rolling back: {output['stdout']}")
-            apply_patch(duthost, json_data=json_patch_bc, dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         pytest_assert(
-            server_exist_in_conf(duthost, DNS_SERVER_RE.format(dns_nameserver)),
-            "Failed to add {} in /etc/resolv.conf".format(dns_nameserver)
+            wait_until(10, 2, 0,
+                       server_exist_in_conf,
+                       duthost,
+                       DNS_SERVER_RE.format(dns_nameserver)),
+            f"Failed to add {dns_nameserver} in /etc/resolv.conf"
         )
-
     finally:
         delete_tmpfile(duthost, tmpfile)
 
