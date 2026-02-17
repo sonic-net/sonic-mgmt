@@ -3837,14 +3837,6 @@ qos/test_pfc_counters.py:
                    'Mellanox-SN5640-C448O16']"
       - "release in ['202412']"
 
-qos/test_pfc_pause.py:
-  skip:
-    reason: "This test is not run on this asic type or version or topology currently and also skip for 202412 for now"
-    conditions_logical_operator: or
-    conditions:
-      - "topo_type not in ['t0']"
-      - "release in ['202412']"
-
 qos/test_pfc_counters.py::test_pfc_unpause:
   # The test case expects both XON and XOFF frames to be supported.
   # In wistron platform the port PFC stats count only XOFF frames. Hence skipping this case.
@@ -3852,6 +3844,14 @@ qos/test_pfc_counters.py::test_pfc_unpause:
     reason: "Not supported on platform"
     conditions:
       - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_sw_to3200k-r0']"
+
+qos/test_pfc_pause.py:
+  skip:
+    reason: "This test is not run on this asic type or version or topology currently and also skip for 202412 for now"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type not in ['t0']"
+      - "release in ['202412']"
 
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
@@ -4075,16 +4075,17 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
 
-qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark:
-  skip:
-    reason: "PG Shared Watermark not supported."
-    conditions:
-      - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_sw_to3200k-r0']"
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgMinThreshold:
   skip:
     reason: "testQosSaiPgMinThreshold is only supported on x86_64-nexthop_4010* platforms."
     conditions:
       - "not platform.startswith('x86_64-nexthop_4010')"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark:
+  skip:
+    reason: "PG Shared Watermark not supported."
+    conditions:
+      - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_sw_to3200k-r0']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_lossy]:
   xfail:
