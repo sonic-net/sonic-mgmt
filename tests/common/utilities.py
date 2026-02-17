@@ -24,6 +24,7 @@ from io import StringIO
 from ast import literal_eval
 from scapy.all import sniff as scapy_sniff
 from paramiko.ssh_exception import AuthenticationException
+from datetime import datetime
 
 import pytest
 from ansible.parsing.dataloader import DataLoader
@@ -963,16 +964,21 @@ def get_all_upstream_neigh_type(topo_type, is_upper=True):
     return UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
 
 
-def get_downstream_neigh_type(topo_type, is_upper=True):
+def get_downstream_neigh_type(tbinfo, is_upper=True):
     """
     @summary: Get neighbor type by topo type
-    @param topo_type: topo type
+    @param tbinfo: testbed info
     @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
     @return a str
         Sample output: "mx"
     """
-    if topo_type in DOWNSTREAM_NEIGHBOR_MAP:
-        return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
+    topo_name = tbinfo["topo"]["name"]
+    topo_type = tbinfo["topo"]["type"]
+    topo_attrs = [topo_name, topo_type]
+
+    for topo_attr in topo_attrs:
+        if topo_attr in DOWNSTREAM_NEIGHBOR_MAP:
+            return DOWNSTREAM_NEIGHBOR_MAP[topo_attr].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_attr]
 
     return None
 
@@ -1216,6 +1222,19 @@ def find_egress_queue(all_queue_pkts, exp_queue_pkts, tolerance=0.05):
     return -1
 
 
+def handle_queue_stats_output(intf_queue_stats):
+    queue_stats = []
+    for prio in range(8):
+        total_pkts_prio_str = intf_queue_stats.get("UC{}".format(prio)) if intf_queue_stats.get("UC{}".format(prio)) \
+            is not None else {"totalpacket": "0"}
+        total_pkts_str = total_pkts_prio_str.get("totalpacket")
+        if total_pkts_str == "N/A" or total_pkts_str is None:
+            total_pkts_str = "0"
+        queue_stats.append(int(total_pkts_str.replace(',', '')))
+
+    return queue_stats
+
+
 def get_egress_queue_pkt_count_all_prio(duthost, port):
     """
     Get the egress queue count in packets for a given port and all priorities from SONiC CLI.
@@ -1229,17 +1248,27 @@ def get_egress_queue_pkt_count_all_prio(duthost, port):
     raw_out = duthost.shell("queuestat -jp {}".format(port))['stdout']
     raw_json = json.loads(raw_out)
     intf_queue_stats = raw_json.get(port)
-    queue_stats = []
 
-    for prio in range(8):
-        total_pkts_prio_str = intf_queue_stats.get("UC{}".format(prio)) if intf_queue_stats.get("UC{}".format(prio)) \
-            is not None else {"totalpacket": "0"}
-        total_pkts_str = total_pkts_prio_str.get("totalpacket")
-        if total_pkts_str == "N/A" or total_pkts_str is None:
-            total_pkts_str = "0"
-        queue_stats.append(int(total_pkts_str.replace(',', '')))
+    return handle_queue_stats_output(intf_queue_stats)
 
-    return queue_stats
+
+def get_egress_queue_pkt_count_all_port_prio(duthost):
+    """
+    Get the egress queue count in packets for all ports and all priorities from SONiC CLI.
+    This is the equivalent of the "queuestat -j" command.
+    Args:
+        duthost (Ansible host instance): device under test
+    Returns:
+        array [int]: total count of packets in the queue for all priorities and ports
+    """
+    raw_out = duthost.shell("queuestat -j")['stdout']
+    raw_json = json.loads(raw_out)
+    all_stats = {}
+    for port in raw_json.keys():
+        intf_queue_stats = raw_json.get(port)
+        all_stats[port] = handle_queue_stats_output(intf_queue_stats)
+
+    return all_stats
 
 
 @contextlib.contextmanager
@@ -1423,9 +1452,10 @@ def restore_config(duthost, config, config_backup):
     duthost.shell("mv {} {}".format(config_backup, config))
 
 
-def get_running_config(duthost, asic=None):
+def get_running_config(duthost, asic=None, filter=None):
     ns = "-n " + asic if asic else ""
-    return json.loads(duthost.shell("sonic-cfggen {} -d --print-data".format(ns))['stdout'])
+    fil = f"| jq {filter}" if filter else ""
+    return json.loads(duthost.shell(f"sonic-cfggen {ns} -d --print-data {fil}")['stdout'])
 
 
 def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
@@ -1616,3 +1646,63 @@ def parse_rif_counters(output_lines):
             results[intf][headers[idx]] = portstats[idx].replace(',', '')
 
     return results
+
+
+def get_day_of_week_distributed_ports_from_buckets(ports: list, num_buckets: int) -> list:
+    """
+    Select ports randomly using buckets and Day of Week (DoW) based selection.
+    Args:
+        ports (list): List of ports to select from.
+        num_buckets (int): Number of buckets to divide the ports into.
+    Returns:
+        list: Selected ports based on DoW from each bucket.
+    """
+    if len(ports) == 0:
+        return []
+    if len(ports) <= num_buckets:
+        return ports
+    # Get DoW
+    day_of_week = datetime.now().weekday()
+    logger.info("Day of Week: {} (0=Mon, 6=Sun) - used for port selection".format(day_of_week))
+
+    bucket_size = len(ports) // num_buckets
+    remainder = len(ports) % num_buckets
+    shuffled_ports = list(ports)
+    random.shuffle(shuffled_ports)
+    selected_ports = []
+    start_idx = 0
+
+    for i in range(num_buckets):
+        # Distribute remainder across first available buckets
+        current_bucket_size = bucket_size + (1 if i < remainder else 0)
+        if current_bucket_size == 0:
+            break
+        end_idx = start_idx + current_bucket_size
+        bucket_ports = shuffled_ports[start_idx:end_idx]
+        # Select port based on DoW index (wrapping if bucket is smaller than 7)
+        port_index = day_of_week % len(bucket_ports)
+        selected_ports.append(bucket_ports[port_index])
+        start_idx = end_idx
+
+    logger.info("Selected {} ports from {} buckets using DoW-based selection: {}".format(
+        len(selected_ports), num_buckets, selected_ports))
+    return selected_ports
+
+
+def group_interfaces_by_asic(duthost, interfaces: list) -> dict:
+    """
+    Group interfaces by their ASIC namespace.
+    Args:
+        duthost: DUT host object
+        interfaces: List of interface names
+    Returns:
+        dict: Mapping of ASIC namespace string to list of interfaces
+              e.g., {"": ["Eth1", "Eth2"], "-n asic0": ["Eth3"]}
+    """
+    if not duthost.is_multi_asic:
+        return {"": list(interfaces)}
+    asic_interface_map = collections.defaultdict(list)
+    for interface in interfaces:
+        namespace = duthost.get_port_asic_instance(interface).get_asic_namespace()
+        asic_interface_map["-n {}".format(namespace)].append(interface)
+    return dict(asic_interface_map)

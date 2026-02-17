@@ -40,6 +40,15 @@ def delete_tmpfile(duthost, tmpfile):
     duthost.file(path=tmpfile, state='absent')
 
 
+def apply_gcu_patch(duthost, json_patch):
+    tmpfile = generate_tmpfile(duthost)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
 def create_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     """Run checkpoint on target duthost
 
@@ -101,7 +110,7 @@ def rollback(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     return output
 
 
-def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
+def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME, fail_on_rollback_error=True):
     """Run rollback on target duthost. config_reload if rollback failed.
 
     Args:
@@ -111,7 +120,8 @@ def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
 
     if output['rc'] or "Config rolled back successfully" not in output['stdout']:
         config_reload(duthost)
-        pytest.fail("config rollback failed. Restored by config_reload")
+        if fail_on_rollback_error:
+            pytest.fail("config rollback failed. Restored by config_reload")
 
 
 def delete_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):

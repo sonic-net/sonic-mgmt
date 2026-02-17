@@ -1,0 +1,67 @@
+[
+  {
+    "data": 18.5,
+    "labels": {
+      "device.id": "leaf-02",
+      "device.psu.id": "PSU-1"
+    },
+    "metric": {
+      "description": "PSU output current (A)",
+      "metric_type": "gauge",
+      "name": "psu.current",
+      "unit": "amperes"
+    }
+  },
+  {
+    "data": 1.0,
+    "labels": {
+      "device.id": "leaf-02",
+      "device.psu.id": "PSU-1"
+    },
+    "metric": {
+      "description": "PSU LED indicator state (0=off, 1=green, 2=amber, 3=red)",
+      "metric_type": "gauge",
+      "name": "psu.led",
+      "unit": "count"
+    }
+  },
+  {
+    "data": 222.0,
+    "labels": {
+      "device.id": "leaf-02",
+      "device.psu.id": "PSU-1"
+    },
+    "metric": {
+      "description": "PSU output power (W)",
+      "metric_type": "gauge",
+      "name": "psu.power",
+      "unit": "watts"
+    }
+  },
+  {
+    "data": 1.0,
+    "labels": {
+      "device.id": "leaf-02",
+      "device.psu.id": "PSU-1"
+    },
+    "metric": {
+      "description": "PSU operational status (0=error, 1=ok)",
+      "metric_type": "gauge",
+      "name": "psu.status",
+      "unit": "count"
+    }
+  },
+  {
+    "data": 12.1,
+    "labels": {
+      "device.id": "leaf-02",
+      "device.psu.id": "PSU-1"
+    },
+    "metric": {
+      "description": "PSU output voltage (V)",
+      "metric_type": "gauge",
+      "name": "psu.voltage",
+      "unit": "volts"
+    }
+  }
+]

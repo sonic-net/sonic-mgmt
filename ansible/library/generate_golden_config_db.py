@@ -59,14 +59,18 @@ class GenerateGoldenConfigDBModule(object):
                                     macsec_profile=dict(require=False, type='str', default=None),
                                     num_asics=dict(require=False, type='int', default=1),
                                     hwsku=dict(require=False, type='str', default=None),
-                                    vm_configuration=dict(require=False, type='dict', default={})),
+                                    vm_configuration=dict(require=False, type='dict', default={}),
+                                    is_light_mode=dict(require=False, type='bool', default=True)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
         self.macsec_profile = self.module.params['macsec_profile']
         self.num_asics = self.module.params['num_asics']
         self.hwsku = self.module.params['hwsku']
+        self.platform, _ = device_info.get_platform_and_hwsku()
+
         self.vm_configuration = self.module.params['vm_configuration']
+        self.is_light_mode = self.module.params['is_light_mode']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -140,6 +144,11 @@ class GenerateGoldenConfigDBModule(object):
                "default_pfcwd_status" in golden_config_db["DEVICE_METADATA"]["localhost"]):
                 golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "disable"
                 golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
+        # set counterpoll interval to 2000ms as workaround for Slowness observed in nexthop group and member programming
+        if "FLEX_COUNTER_TABLE" in ori_config_db and 'sn5640' in self.platform:
+            golden_config_db["FLEX_COUNTER_TABLE"] = ori_config_db["FLEX_COUNTER_TABLE"]
+            golden_config_db["FLEX_COUNTER_TABLE"]["PORT"]["POLL_INTERVAL"] = "2000"
 
         return json.dumps(golden_config_db, indent=4)
 
@@ -464,7 +473,6 @@ class GenerateGoldenConfigDBModule(object):
         dhcp_server_ipv4_config = {
             "DHCP_SERVER_IPV4": {
                 "bridge-midplane": {
-                    "gateway": "169.254.200.254",
                     "lease_time": "600000000",
                     "mode": "PORT",
                     "netmask": "255.255.255.0",
@@ -593,7 +601,8 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_mgfx_golden_config_db()
             module_msg = module_msg + " for mgfx"
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
-        elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1", "t1-48-lag"]:
+        elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1", "t1-48-lag"] \
+                and self.is_light_mode:
             config = self.generate_smartswitch_golden_config_db()
             module_msg = module_msg + " for smartswitch"
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))

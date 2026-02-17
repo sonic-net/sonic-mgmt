@@ -39,6 +39,7 @@ NUMBER_OF_LANES = None
 PORTS_WITH_8LANES = None
 ASIC_TYPE = None
 
+PLATFORM_SUPPORTED_SPEEDS_TO_TEST = None
 TESTPARAM_HEADROOM_OVERRIDE = None
 TESTPARAM_LOSSLESS_PG = None
 TESTPARAM_SHARED_HEADROOM_POOL = None
@@ -227,6 +228,7 @@ def load_test_parameters(duthost):
     global TESTPARAM_ADMIN_DOWN
     global ASIC_TYPE
     global MAX_SPEED_8LANE_PORT
+    global PLATFORM_SUPPORTED_SPEEDS_TO_TEST
 
     param_file_name = "qos/files/dynamic_buffer_param.json"
     with open(param_file_name) as file:
@@ -234,6 +236,7 @@ def load_test_parameters(duthost):
         logging.info("Loaded test parameters {} from {}".format(
             params, param_file_name))
         ASIC_TYPE = duthost.facts['asic_type']
+        platform = duthost.facts['platform']
         vendor_specific_param = params[ASIC_TYPE]
         DEFAULT_CABLE_LENGTH_LIST = vendor_specific_param['default_cable_length']
         TESTPARAM_HEADROOM_OVERRIDE = vendor_specific_param['headroom-override']
@@ -241,8 +244,17 @@ def load_test_parameters(duthost):
         TESTPARAM_SHARED_HEADROOM_POOL = vendor_specific_param['shared-headroom-pool']
         TESTPARAM_EXTRA_OVERHEAD = vendor_specific_param['extra_overhead']
         TESTPARAM_ADMIN_DOWN = vendor_specific_param['admin-down']
-        MAX_SPEED_8LANE_PORT = vendor_specific_param['max_speed_8lane_platform'].get(
-            duthost.facts['platform'])
+        MAX_SPEED_8LANE_PORT = vendor_specific_param['max_speed_8lane_platform'].get(platform)
+        if buffer_queue_table := TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'].get(platform):    # noqa: F841
+            TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'] = buffer_queue_table
+        else:
+            TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'] = TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'].get('default')
+        if platform_extra_overhead := TESTPARAM_EXTRA_OVERHEAD.get(platform):
+            TESTPARAM_EXTRA_OVERHEAD['default'] = platform_extra_overhead
+        if platform_supported_speeds_to_test := vendor_specific_param['supported_speeds_to_test'].get(platform):
+            PLATFORM_SUPPORTED_SPEEDS_TO_TEST = platform_supported_speeds_to_test
+        else:
+            PLATFORM_SUPPORTED_SPEEDS_TO_TEST = vendor_specific_param['supported_speeds_to_test'].get('default')
 
         # For ingress profile list, we need to check whether the ingress lossy profile exists
         ingress_lossy_pool = duthost.shell(
@@ -850,7 +862,7 @@ def make_expected_profile_name(speed, cable_length, **kwargs):
     return expected_profile
 
 
-@pytest.fixture(params=['50000', '10000'])
+@pytest.fixture(params=['50000', '10000', '100000'])
 def speed_to_test(request):
     """Used to parametrized test cases for speeds
 
@@ -860,6 +872,11 @@ def speed_to_test(request):
     Return:
         speed_to_test
     """
+    global PLATFORM_SUPPORTED_SPEEDS_TO_TEST
+    if not PLATFORM_SUPPORTED_SPEEDS_TO_TEST:
+        pytest.skip("buffer is not dynamic - PLATFORM_SUPPORTED_SPEEDS_TO_TEST wasn't set")
+    if request.param not in PLATFORM_SUPPORTED_SPEEDS_TO_TEST:
+        pytest.skip(f"Skipping case for speed {request.param} because it is not tested by the platform")
     return request.param
 
 
@@ -922,6 +939,9 @@ def port_to_test(request, duthost):
         PORT_TO_TEST = None
     if not PORT_TO_TEST:
         # The NVIDIA SPC1 platform requires a 4 lanes port for testing to avoid exceeding the maximum available headroom
+        exclude_ports_with_autogeg_enable(duthost, testPort)
+        if not testPort:
+            pytest.skip("No available port to test")
         if duthost.facts['asic_type'].lower() == 'mellanox' and 'sn2' in duthost.facts['hwsku'].lower():
             for port in list(testPort):
                 if duthost.count_portlanes(port) >= 4:
@@ -954,7 +974,8 @@ def pg_to_test(request):
 
 def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts,  # noqa: F811
                             port_to_test, speed_to_test, mtu_to_test, cable_len_to_test,
-                            skip_traditional_model, skip_lossy_buffer_only):
+                            skip_traditional_model, skip_lossy_buffer_only,
+                            update_cable_len_for_all_ports):  # noqa: F811
     """The testcase for changing the speed and cable length of a port
 
     Change the variables of the port, including speed, mtu and cable length,
@@ -994,7 +1015,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts,  
     """
     duthost = duthosts[rand_one_dut_hostname]
     supported_speeds = duthost.shell(
-        'redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout']
+        'redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout'].split(',')
     if supported_speeds and speed_to_test not in supported_speeds:
         pytest.skip('Speed is not supported by the port, skip')
     original_speed = duthost.shell(
@@ -1661,8 +1682,8 @@ def test_shared_headroom_pool_configure(duthosts,
                          shp_size_before_shp, None)
 
 
-def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, pg_to_test,   # noqa: F811
-                     skip_traditional_model, skip_lossy_buffer_only):
+def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, pg_to_test,      # noqa: F811
+                     skip_traditional_model, skip_lossy_buffer_only, update_cable_len_for_all_ports):  # noqa: F811
     """Test case for non default dynamic th
 
     Test case to verify the static profile with non default dynamic th
@@ -2594,10 +2615,10 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname,
             # This should make it exceed the limit, so the profile should not applied to the APPL_DB
             time.sleep(20)
             size_in_appldb = duthost.shell(
-                f'redis-cli hget "BUFFER_PROFILE_TABLE:test-headroom" {param_name}')['stdout']
+                f'redis-cli hget "BUFFER_PROFILE_TABLE: test-headroom" {param_name}')['stdout']
             pytest_assert(size_in_appldb == maximum_profile[param_name],
                           f'The profile with a large size was applied to APPL_DB, which can make headroom exceeding. '
-                          f'size_in_appldb:{size_in_appldb}, '
+                          f'size_in_appldb: {size_in_appldb}, '
                           f'maximum_profile_{param_name}: {maximum_profile[param_name]}')
 
         param_name = "size" if disable_shp else "xoff"
@@ -2884,6 +2905,10 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         'redis-cli -n 2 hgetall COUNTERS_QUEUE_NAME_MAP')['stdout'].split())
     cable_length_map = _compose_dict_from_cli(duthost.shell(
         'redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"')['stdout'].split())
+
+    if not pg_name_map or not queue_name_map or not cable_length_map:
+        raise Exception("COUNTERS_PG_NAME_MAP, COUNTERS_QUEUE_NAME_MAP or CABLE_LENGTH|AZURE not found in the database")
+
     buffer_table_up = {
         KEY_2_LOSSLESS_QUEUE: [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_profile]'),
                                ('BUFFER_QUEUE_TABLE', '0-2',
@@ -2991,6 +3016,19 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         port_config = dut_db_info.get_port_info_from_config_db(port)
         cable_length = cable_length_map[port]
         speed = port_config['speed']
+        port_autoneg = port_config.get('autoneg', "N/A")
+        if port_autoneg == "on":
+            # when autoneg is on, if adv_speeds is configured, use the max adv_speeds to create the profile
+            # otherwise if supported_speeds is configured, use the max supported speeds to create the profile
+            # otherwise use the configured speed
+            port_state = dut_db_info.get_port_info_from_state_db(port)
+            supported_speeds = port_state.get('supported_speeds', None)
+            adv_speeds = port_config.get('adv_speeds', None)
+            if adv_speeds:
+                speed = get_max_speed_from_list(adv_speeds)
+            elif supported_speeds:
+                speed = get_max_speed_from_list(supported_speeds)
+        logging.info(f"speed is {speed}")
         expected_profile = make_expected_profile_name(
             speed, cable_length, number_of_lanes=len(port_config['lanes'].split(',')))
 
@@ -3030,6 +3068,9 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
             buffer_profile_oid, _ = _check_port_buffer_info_and_get_profile_oid(
                 dut_db_info, table, ids, port, expected_profile)
 
+            if not buffer_profile_oid:
+                raise Exception(f"Buffer profile {expected_profile} not found in ASIC_DB")
+
             if is_qos_db_reference_with_table:
                 expected_profile_key = expected_profile[1:-1]
             else:
@@ -3056,31 +3097,30 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                                 "Buffer profile {} {} doesn't match default {}"
                                 .format(expected_profile, profile_info, std_profile))
 
-                if buffer_profile_oid:
-                    # Further check the buffer profile in ASIC_DB
-                    logging.info("Checking profile {} oid {}".format(
-                        expected_profile, buffer_profile_oid))
-                    buffer_profile_key = dut_db_info.get_buffer_profile_key_from_asic_db(
-                        buffer_profile_oid)
-                    buffer_profile_asic_info = dut_db_info.get_buffer_profile_info_from_asic_db(
-                        buffer_profile_key)
-                    pytest_assert(
-                        buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XON_TH') ==
-                        profile_info.get('xon') and
-                        buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XOFF_TH') ==
-                        profile_info.get('xoff') and
-                        buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_RESERVED_BUFFER_SIZE'] ==
-                        profile_info['size'] and
-                        (buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] ==
-                         'SAI_BUFFER_PROFILE_THRESHOLD_MODE_DYNAMIC' and
-                         buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH'] ==
-                         profile_info['dynamic_th'] or
-                         buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] ==
-                         'SAI_BUFFER_PROFILE_THRESHOLD_MODE_STATIC' and
-                         buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_STATIC_TH'] ==
-                         profile_info['static_th']),
-                        "Buffer profile {} {} doesn't align with ASIC_TABLE {}"
-                        .format(expected_profile, profile_info, buffer_profile_asic_info))
+                # Further check the buffer profile in ASIC_DB
+                logging.info("Checking profile {} oid {}".format(
+                    expected_profile, buffer_profile_oid))
+                buffer_profile_key = dut_db_info.get_buffer_profile_key_from_asic_db(
+                    buffer_profile_oid)
+                buffer_profile_asic_info = dut_db_info.get_buffer_profile_info_from_asic_db(
+                    buffer_profile_key)
+                pytest_assert(
+                    buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XON_TH') ==
+                    profile_info.get('xon') and
+                    buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XOFF_TH') ==
+                    profile_info.get('xoff') and
+                    buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_RESERVED_BUFFER_SIZE'] ==
+                    profile_info['size'] and
+                    (buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] ==
+                        'SAI_BUFFER_PROFILE_THRESHOLD_MODE_DYNAMIC' and
+                        buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH'] ==
+                        profile_info['dynamic_th'] or
+                        buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] ==
+                        'SAI_BUFFER_PROFILE_THRESHOLD_MODE_STATIC' and
+                        buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_STATIC_TH'] ==
+                        profile_info['static_th']),
+                    "Buffer profile {} {} doesn't align with ASIC_TABLE {}"
+                    .format(expected_profile, profile_info, buffer_profile_asic_info))
 
                 profiles_checked[expected_profile] = buffer_profile_oid
                 if is_ingress_lossless:
@@ -3352,3 +3392,22 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     head_room_data['xon'] = int(xon_value)
     head_room_data['xoff'] = int(xoff_value)
     return True, head_room_data
+
+
+def exclude_ports_with_autogeg_enable(duthost, test_ports):
+    """
+    This function is used to exclude the port with auto-negotiation enabled
+    """
+    logging.info(f"Test ports with auto-negotiation enabled: {test_ports}")
+
+    autoneg_status_list = duthost.show_and_parse("show int autoneg status")
+    for autoneg_status in autoneg_status_list:
+        if autoneg_status.get('auto-neg mode') == 'enabled' and autoneg_status.get('interface') in test_ports:
+            test_ports.remove(autoneg_status.get('interface'))
+
+    logging.info(f"Test ports without auto-negotiation enabled: {test_ports}")
+
+
+def get_max_speed_from_list(speed_list_str):
+    speed_list = natsorted(speed_list_str.split(','))
+    return speed_list[-1]
