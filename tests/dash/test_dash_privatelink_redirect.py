@@ -297,10 +297,10 @@ def verify_packets(
 
 
 @pytest.fixture(scope="class", autouse=True)
-def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
+def set_vxlan_udp_sport_range_redirect(dpuhosts, dpu_index):
     """
     Configure VXLAN UDP source port range in dpu configuration.
-
+    Similar to the fixture(function scope) in conftest.py, but here in 'Class' scope.
     """
     dpuhost = dpuhosts[dpu_index]
     vxlan_sport_config = [
