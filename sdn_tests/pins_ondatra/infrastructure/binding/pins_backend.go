@@ -43,7 +43,7 @@ func (b *Backend) registerGRPCTLS(grpc *bindingbackend.GRPCServices, serverName 
 	}
 
 	// Load certificate of the CA who signed server's certificate.
-	pemServerCA, err := os.ReadFile("ondatra/certs/ca_crt.pem")
+	pemServerCA, err := os.ReadFile("/data/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/certs/ca_crt.pem")
 	if err != nil {
 		return err
 	}
@@ -53,7 +53,7 @@ func (b *Backend) registerGRPCTLS(grpc *bindingbackend.GRPCServices, serverName 
 		return fmt.Errorf("failed to add server CA's certificate")
 	}
 	// Load client's certificate and private key
-	clientCert, err := tls.LoadX509KeyPair("ondatra/certs/client_crt.pem", "ondatra/certs/client_key.pem")
+	clientCert, err := tls.LoadX509KeyPair("/data/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/certs/client_crt.pem", "/data/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/certs/client_key.pem")
 	if err != nil {
 		return err
 	}
@@ -74,11 +74,11 @@ func (b *Backend) registerGRPCTLS(grpc *bindingbackend.GRPCServices, serverName 
 // ReserveTopology returns topology containing reserved DUT and ATE devices.
 func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime, waitTime time.Duration) (*bindingbackend.ReservedTopology, error) {
 	// Fill in the Dut and Control device details.
-	dut := "192.168.0.1"     // sample dut address.
+	dut := "10.250.0.101"     // sample dut address.
 	control := "192.168.0.2" // sample control address.
 	log.InfoContextf(ctx, "testbed Dut:%s Control switch:%s", dut, control)
 
-	grpcPort := "9339"
+	grpcPort := "8080"
 	p4rtPort := "9559"
 	dutGRPCInfo := bindingbackend.ServiceInfo{Addr: fmt.Sprintf("%v:%v", dut, grpcPort)}
 	dutP4RTInfo := bindingbackend.ServiceInfo{Addr: fmt.Sprintf("%v:%v", dut, p4rtPort)}
@@ -93,26 +93,11 @@ func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime,
 				ID:   "DUT",
 				Name: dut,
 				PortMap: map[string]*binding.Port{
-					"port1":  {Name: "Ethernet1/1/1"},
-					"port2":  {Name: "Ethernet1/1/5"},
-					"port3":  {Name: "Ethernet1/2/1"},
-					"port4":  {Name: "Ethernet1/2/5"},
-					"port5":  {Name: "Ethernet1/3/1"},
-					"port6":  {Name: "Ethernet1/3/5"},
-					"port7":  {Name: "Ethernet1/4/1"},
-					"port8":  {Name: "Ethernet1/4/5"},
-					"port9":  {Name: "Ethernet1/5/1"},
-					"port10": {Name: "Ethernet1/5/5"},
-					"port11": {Name: "Ethernet1/6/1"},
-					"port12": {Name: "Ethernet1/6/5"},
-					"port13": {Name: "Ethernet1/7/1"},
-					"port14": {Name: "Ethernet1/7/5"},
-					"port15": {Name: "Ethernet1/8/1"},
-					"port16": {Name: "Ethernet1/8/5"},
-					"port17": {Name: "Ethernet1/9/1"},
-					"port18": {Name: "Ethernet1/9/5"},
-					"port19": {Name: "Ethernet1/10/1"},
-					"port20": {Name: "Ethernet1/10/5"},
+					"port1":  {Name: "Ethernet0"},
+					"port2":  {Name: "Ethernet4"},
+					"port3":  {Name: "Ethernet8"},
+					"port4":  {Name: "Ethernet12"},
+					"port5":  {Name: "Ethernet16"},
 				},
 			},
 			GRPC: bindingbackend.GRPCServices{
@@ -128,26 +113,11 @@ func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime,
 					ID:   "CONTROL",
 					Name: control,
 					PortMap: map[string]*binding.Port{
-						"port1":  {Name: "Ethernet1/1/1"},
-						"port2":  {Name: "Ethernet1/1/5"},
-						"port3":  {Name: "Ethernet1/2/1"},
-						"port4":  {Name: "Ethernet1/2/5"},
-						"port5":  {Name: "Ethernet1/3/1"},
-						"port6":  {Name: "Ethernet1/3/5"},
-						"port7":  {Name: "Ethernet1/4/1"},
-						"port8":  {Name: "Ethernet1/4/5"},
-						"port9":  {Name: "Ethernet1/5/1"},
-						"port10": {Name: "Ethernet1/5/5"},
-						"port11": {Name: "Ethernet1/6/1"},
-						"port12": {Name: "Ethernet1/6/5"},
-						"port13": {Name: "Ethernet1/7/1"},
-						"port14": {Name: "Ethernet1/7/5"},
-						"port15": {Name: "Ethernet1/8/1"},
-						"port16": {Name: "Ethernet1/8/5"},
-						"port17": {Name: "Ethernet1/9/1"},
-						"port18": {Name: "Ethernet1/9/5"},
-						"port19": {Name: "Ethernet1/10/1"},
-						"port20": {Name: "Ethernet1/10/5"},
+						"port1":  {Name: "Ethernet0"},
+						"port2":  {Name: "Ethernet4"},
+						"port3":  {Name: "Ethernet8"},
+						"port4":  {Name: "Ethernet12"},
+						"port5":  {Name: "Ethernet16"},
 					},
 				},
 				GRPC: bindingbackend.GRPCServices{
