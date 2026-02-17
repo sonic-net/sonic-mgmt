@@ -1775,20 +1775,25 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
                 rx_port_count,
                 testbed
             )
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
+            duthosts, snappi_ports, snappi_api, setup=True)
+        yield (testbed_config, port_config_list, snappi_ports)
+        logger.info('Snappi cleanup after test')
+        setup = False
+        setup_dut_ports(setup, duthosts, testbed_config, port_config_list, snappi_ports)
+    else:
+        flatten_skeleton_parameter = request.param
+        speed, category = flatten_skeleton_parameter.split("-")
+
+        if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
+            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+
+        snappi_ports = snappi_port_selection[float(speed)][category]
+
+        if not snappi_ports:
+            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+
         return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
-
-    flatten_skeleton_parameter = request.param
-    speed, category = flatten_skeleton_parameter.split("-")
-
-    if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
-        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
-
-    snappi_ports = snappi_port_selection[float(speed)][category]
-
-    if not snappi_ports:
-        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
-
-    return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
 
 
 def flatten_list(lst):
