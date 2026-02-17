@@ -3,6 +3,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def parse_flow_data(output):
     keys = [
         "Session", "LookupId", "Dir", "SIP", "DIP",
