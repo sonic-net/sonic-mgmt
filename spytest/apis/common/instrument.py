@@ -68,8 +68,8 @@ def todo(scope, *args, **kwargs):
     data.append(cache_debug(get_cache_duts()))
     trace("{}({}) {}".format(scope, logargs(*args, **kwargs), " ".join(data)))
 
-
-def change_cache(val, *args, dut=None):
+def change_cache(val, *args, **kwargs):
+    dut = kwargs.get('dut', None)
     for arg in args:
         st.set_cache(arg, val, dut=dut)
 

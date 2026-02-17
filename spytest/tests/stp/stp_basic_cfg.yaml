@@ -1,0 +1,172 @@
+spine0:
+    sonic:
+      config: |
+        sudo config interface startup D1D3P1
+        sudo config interface startup D1D4P1
+        sudo config interface startup D1D4P2
+        sudo config portchannel add PortChannel01
+        sudo config portchannel member add PortChannel01 D1D4P1
+        sudo config portchannel member add PortChannel01 D1D4P2
+        sudo config vlan add 10
+        sudo config vlan member add 10 D1D3P1
+        sudo config vlan member add 10 PortChannel01
+        sudo config vlan add 20
+        sudo config vlan member add 20 D1D3P1
+        sudo config vlan member add 20 PortChannel01
+        sudo config vlan add 30
+        sudo config vlan member add 30 D1D3P1
+        sudo config vlan member add 30 PortChannel01
+        config spanning-tree vlan enable 10
+        config spanning-tree vlan enable 30
+      deconfig: |
+        config spanning-tree vlan disable 10
+        config spanning-tree vlan disable 30
+        sudo config vlan member del 10 D1D3P1
+        sudo config vlan member del 10 PortChannel01
+        sudo config vlan del 10
+        sudo config vlan member del 20 D1D3P1
+        sudo config vlan member del 20 PortChannel01
+        sudo config vlan del 20
+        sudo config vlan member del 30 D1D3P1
+        sudo config vlan member del 30 PortChannel01
+        sudo config vlan del 30
+        sudo config portchannel member del PortChannel01 D1D4P1
+        sudo config portchannel member del PortChannel01 D1D4P2
+        sudo config portchannel del PortChannel01
+        sudo config interface startup D1D3P1
+        sudo config interface startup D1D4P1
+        sudo config interface startup D1D4P2
+
+spine1:
+    sonic:
+      config: |
+        sudo config interface startup D2D3P1
+        sudo config interface startup D2D4P1
+        sudo config interface startup D2D4P2
+        sudo config vlan add 10
+        sudo config vlan member add 10 D2D3P1
+        sudo config vlan member add 10 D2D4P1
+        sudo config vlan member add 10 D2D4P2
+        sudo config vlan add 20
+        sudo config vlan member add 20 D2D3P1
+        sudo config vlan member add 20 D2D4P1
+        sudo config vlan member add 20 D2D4P2
+        sudo config vlan add 30
+        sudo config vlan member add 30 D2D3P1
+        sudo config vlan member add 30 D2D4P1
+        sudo config vlan member add 30 D2D4P2
+        config spanning-tree vlan enable 10
+        config spanning-tree vlan enable 30
+        sudo config spanning-tree interface uplink_fast enable D2D4P1
+        sudo config spanning-tree interface uplink_fast enable D2D4P2
+      deconfig: |
+        config spanning-tree vlan disable 10
+        config spanning-tree vlan disable 30
+        sudo config vlan member del 10 D2D3P1
+        sudo config vlan member del 10 D2D4P1
+        sudo config vlan member del 10 D2D4P2
+        sudo config vlan del 10
+        sudo config vlan member del 20 D2D3P1
+        sudo config vlan member del 20 D2D4P1
+        sudo config vlan member del 20 D2D4P2
+        sudo config vlan del 20
+        sudo config vlan member del 30 D2D3P1
+        sudo config vlan member del 30 D2D4P1
+        sudo config vlan member del 30 D2D4P2
+        sudo config vlan del 30
+        sudo config interface startup D2D3P1
+        sudo config interface startup D2D4P1
+        sudo config interface startup D2D4P2
+
+leaf0:
+    sonic:
+      config: |
+        sudo config interface startup D3D1P1
+        sudo config interface startup D3D2P1
+        sudo config interface startup D3T1P1
+        sudo config vlan add 10
+        sudo config vlan member add 10 D3D1P1
+        sudo config vlan member add 10 D3D2P1
+        sudo config vlan member add -u 10 D3T1P1
+        sudo config vlan add 20
+        sudo config vlan member add 20 D3D1P1
+        sudo config vlan member add 20 D3D2P1
+        sudo config vlan add 30
+        sudo config vlan member add 30 D3D1P1
+        sudo config vlan member add 30 D3D2P1
+        sudo config vlan member add -u 30 D3T1P2
+        config spanning-tree vlan enable 10
+        config spanning-tree vlan enable 30
+      deconfig: |
+        config spanning-tree vlan disable 10
+        config spanning-tree vlan disable 30
+        sudo config vlan member del 10 D3D1P1
+        sudo config vlan member del 10 D3D2P1
+        sudo config vlan member del 10 D3T1P1
+        sudo config vlan del 10
+        sudo config vlan member del 20 D3D1P1
+        sudo config vlan member del 20 D3D2P1
+        sudo config vlan del 20
+        sudo config vlan member del 30 D3D1P1
+        sudo config vlan member del 30 D3D2P1
+        sudo config vlan member del 30 D3T1P2
+        sudo config vlan del 30
+        sudo config interface startup D3D1P1
+        sudo config interface startup D3D2P1
+        sudo config interface startup D3T1P1
+        sudo config interface startup D3T1P2
+
+leaf1:
+    sonic:
+      config: |
+        sudo config interface startup D4D1P1
+        sudo config interface startup D4D1P2
+        sudo config interface startup D4D2P1
+        sudo config interface startup D4D2P2
+        sudo config interface startup D4T1P1
+        sudo config interface startup D4T1P2
+        sudo config portchannel add PortChannel01
+        sudo config portchannel member add PortChannel01 D4D1P1
+        sudo config portchannel member add PortChannel01 D4D1P2
+        sudo config vlan add 10
+        sudo config vlan member add 10 PortChannel01
+        sudo config vlan member add 10 D4D2P1
+        sudo config vlan member add 10 D4D2P2
+        sudo config vlan member add -u 10 D4T1P1
+        sudo config vlan add 20
+        sudo config vlan member add 20 PortChannel01
+        sudo config vlan member add 20 D4D2P1
+        sudo config vlan member add 20 D4D2P2
+        sudo config vlan add 30
+        sudo config vlan member add 30 PortChannel01
+        sudo config vlan member add 30 D4D2P1
+        sudo config vlan member add 30 D4D2P2
+        sudo config vlan member add -u 30 D4T1P2
+        config spanning-tree vlan enable 10
+        config spanning-tree vlan enable 30
+      deconfig: |
+        config spanning-tree vlan disable 10
+        config spanning-tree vlan disable 30
+        sudo config vlan member del 10 PortChannel01
+        sudo config vlan member del 10 D4D2P1
+        sudo config vlan member del 10 D4D2P2
+        sudo config vlan member del 10 D4T1P1
+        sudo config vlan del 10
+        sudo config vlan member del 20 PortChannel01
+        sudo config vlan member del 20 D4D2P1
+        sudo config vlan member del 20 D4D2P2
+        sudo config vlan del 20
+        sudo config vlan member del 30 PortChannel01
+        sudo config vlan member del 30 D4D2P1
+        sudo config vlan member del 30 D4D2P2
+        sudo config vlan member del 30 D4T1P2
+        sudo config vlan del 30
+        sudo config portchannel member del PortChannel01 D4D1P1
+        sudo config portchannel member del PortChannel01 D4D1P2
+        sudo config portchannel del PortChannel01
+        sudo config interface startup D4D1P1
+        sudo config interface startup D4D1P2
+        sudo config interface startup D4D2P1
+        sudo config interface startup D4D2P2
+        sudo config interface startup D4T1P1
+        sudo config interface startup D4T1P2
