@@ -1779,8 +1779,7 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
             duthosts, snappi_ports, snappi_api, setup=True)
         yield (testbed_config, port_config_list, snappi_ports)
         logger.info('Snappi cleanup after test')
-        setup = False
-        setup_dut_ports(setup, duthosts, testbed_config, port_config_list, snappi_ports)
+        setup_dut_ports(False, duthosts, testbed_config, port_config_list, snappi_ports)
     else:
         flatten_skeleton_parameter = request.param
         speed, category = flatten_skeleton_parameter.split("-")
