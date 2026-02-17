@@ -7,8 +7,8 @@ import random
 import time
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
-from tests.common.dualtor.dual_tor_common import active_standby_ports                                       # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports                                       # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder                                          # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
@@ -57,7 +57,7 @@ def setup_faulted_y_cable_driver(duthost, simulate_probe_unknown=False, simulate
             force=True
         )
         find_path_res = duthost.shell(
-            "docker exec pmon find / -name y_cable_simulated.py")["stdout"]
+            "docker exec pmon find / -name y_cable_simulated.py 2>/dev/null", module_ignore_errors=True)["stdout"]
         # Let's check the file exist before patching
         duthost.shell("docker exec pmon stat %s" % find_path_res)
         y_cable_simulated_path = os.path.dirname(find_path_res)

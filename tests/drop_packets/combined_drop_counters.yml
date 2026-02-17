@@ -28,7 +28,10 @@ l2_l3:
     - "x86_64-8.*"
     - "x86_64-cel_midstone-r0"
     - "x86_64-wistron_sw_to3200k-r0"
+    - "x86_64-wistron_6512_32r-r0"
+    - "x86_64-marvell_dbmvtx9180-r0"
     - "x86_64-nokia.*"
+    - "x86_64-nexthop*"
 
 acl_l2:
     - "x86_64-mlnx"

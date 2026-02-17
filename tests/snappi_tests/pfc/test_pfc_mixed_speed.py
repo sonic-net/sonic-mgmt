@@ -12,6 +12,7 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_
 from tests.snappi_tests.variables import MIXED_SPEED_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.pfc.files.mixed_speed_multidut_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 
 import logging
 logger = logging.getLogger(__name__)
@@ -108,7 +109,7 @@ def test_mixed_speed_diff_dist_over(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Single_400Gbps_Ingress_Single_100Gbps_Egress_diff_dist_',
+                'test_type': 'logs/snappi_tests/pfc/Single_400Gbps_Ingress_Single_100Gbps_Egress_diff_dist_',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': True,
@@ -244,7 +245,7 @@ def test_mixed_speed_uni_dist_over(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Single_400Gbps_Ingress_Single_100Gbps_Egress_uni_dist_',
+                'test_type': 'logs/snappi_tests/pfc/Single_400Gbps_Ingress_Single_100Gbps_Egress_uni_dist_',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': True,
@@ -378,7 +379,7 @@ def test_mixed_speed_no_congestion(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Single_400Gbps_Ingress_Single_100Gbps_Egress_no_cong_',
+                'test_type': 'logs/snappi_tests/pfc/Single_400Gbps_Ingress_Single_100Gbps_Egress_no_cong_',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': True,

@@ -29,6 +29,7 @@ function show_help_and_exit()
     echo "    -S <folders>   : specify list of test folders to skip (default: none)"
     echo "    -t <topology>  : specify toplogy: t0|t1|any|combo like t0,any (*)"
     echo "    -u             : bypass util group"
+    echo "    -w             : warm run, don't clear cache before running tests"
     echo "    -x             : print commands and their arguments as they are executed"
 
     exit $1
@@ -55,7 +56,33 @@ function get_dut_from_testbed_file() {
             IFS=$'+' read -r -a tb_lines <<< $content
             tb_line=${tb_lines[0]}
             DUT_NAME=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(\",\".join(tb[\"dut\"]))")
+
+            topo_name=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('topo', ''))")
+            use_converged_peers=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('use_converged_peers', ''))")
+            converge_topo_if_needed "$topo_name" "$use_converged_peers"
         fi
+    fi
+}
+
+function converge_topo_if_needed
+{
+    topo_name="$1"
+    use_converged_peers="$2"
+    ANSIBLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)/ansible"
+    VARS_DIR="$ANSIBLE_DIR/vars"
+    topo_file="$VARS_DIR/topo_${topo_name}.yml"
+    backup_file="${topo_file}".bak
+    if [[ "$use_converged_peers" == "True" ]]; then
+        echo "use_converged_peers is true, converging topo..."
+
+        if [[ -f "$backup_file" ]];then
+            echo "Backup file exists, recover..."
+            cp "$backup_file" "$topo_file"
+        elif [[ -f "$topo_file" ]]; then
+            echo "Back up topo file"
+            cp "$topo_file" "$backup_file"
+        fi
+        PYTHONPATH="$ANSIBLE_DIR:$PYTHONPATH" python -m ceos_topo_converger "$backup_file" "$topo_file"
     fi
 }
 
@@ -122,6 +149,7 @@ function setup_environment()
     TEST_METHOD='group'
     TEST_MAX_FAIL=0
     DPU_NAME="None"
+    NO_CLEAR_CACHE="False"
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
@@ -134,8 +162,6 @@ function setup_environment()
     pkill --signal 9 ansible-playbook
     # Kill ssh initiated by ansible, try to match full command begins with 'ssh' and contains path '/.ansible'
     pkill --signal 9 -f "^ssh.*/\.ansible"
-
-    rm -fr ${BASE_PATH}/tests/_cache
 }
 
 function setup_test_options()
@@ -281,8 +307,20 @@ function run_debug_tests()
     echo "PRET_LOGGING_OPTIONS:  ${PRET_LOGGING_OPTIONS}"
     echo "POST_LOGGING_OPTIONS:  ${POST_LOGGING_OPTIONS}"
     echo "UTIL_TOPOLOGY_OPTIONS: ${UTIL_TOPOLOGY_OPTIONS}"
+    echo "NO_CLEAR_CACHE:        ${NO_CLEAR_CACHE}"
 
     echo "PYTEST_COMMON_OPTS:    ${PYTEST_COMMON_OPTS}"
+}
+
+function clear_cache()
+{
+    if [[ x"${NO_CLEAR_CACHE}" == x"True" ]]; then
+        echo "=== Skipping cache clear ==="
+        return
+    fi
+
+    echo "=== Clearing pytest cache ==="
+    rm -fr ${BASE_PATH}/tests/_cache
 }
 
 # Extra parameters for pre/post test stage
@@ -364,6 +402,12 @@ function run_individual_tests()
                 return ${ret_code}
             fi
 
+            # rc 16 means ptfhost is unreachable
+            if [ ${ret_code} -eq 16 ]; then
+                echo "=== ptfhost has exception for $test_script. Skip rest of the scripts if there is any. ==="
+                return ${ret_code}
+            fi
+
             EXIT_CODE=1
             if [[ ${TEST_MAX_FAIL} != 0 ]]; then
                 return ${EXIT_CODE}
@@ -405,7 +449,7 @@ for arg in "$@"; do
     fi
 done
 
-while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
+while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:uxw" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -489,12 +533,16 @@ while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
         u )
             BYPASS_UTIL="True"
             ;;
+        w )
+            NO_CLEAR_CACHE="True"
+            ;;
         x )
             set -x
             ;;
     esac
 done
 
+clear_cache
 get_dut_from_testbed_file
 
 if [[ x"${TEST_METHOD}" != x"debug" ]]; then
@@ -526,6 +574,12 @@ fi
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
     cleanup_dut
+fi
+
+if [[ -f "$backup_file" ]];then
+    echo "Backup exists, restore backup file"
+    rm -f "$topo_file"
+    mv "$backup_file" "$topo_file"
 fi
 
 exit ${RC}

@@ -1,6 +1,5 @@
 import logging
 import time
-
 from tests.common.macsec.macsec_helper import get_mka_session, getns_prefix, wait_all_complete, \
      submit_async_task, load_all_macsec_info
 from tests.common.macsec.macsec_platform_helper import global_cmd, find_portchannel_from_member, get_portchannel
@@ -17,7 +16,8 @@ __all__ = [
     'enable_macsec_port',
     'disable_macsec_port',
     'get_macsec_enable_status',
-    'get_macsec_profile'
+    'get_macsec_profile',
+    'wait_for_macsec_cleanup'
 ]
 
 logger = logging.getLogger(__name__)
@@ -81,6 +81,34 @@ def set_macsec_profile(host, port, profile_name, priority, cipher_suite,
         # So, if send_sci = false and the neighbor device is SONiC VM,
         # LLDPd need to use the real MAC address as the source MAC address
         host.command("lldpcli configure system bond-slave-src-mac-type real")
+
+
+def is_macsec_configured(host, mac_profile, ctrl_links):
+    is_profile_present = False
+    is_port_profile_present = False
+    profile_name = mac_profile['name']
+
+    # Check macsec profile is configured in all namespaces
+    if host.is_multi_asic:
+        for ns in host.get_asic_namespace_list():
+            CMD_PREFIX = "-n {}".format(ns) if ns is not None else " "
+            cmd = "sonic-db-cli {} CONFIG_DB KEYS 'MACSEC_PROFILE|{}'".format(CMD_PREFIX, profile_name)
+            output = host.command(cmd)['stdout'].strip()
+            profile = output.split('|')[1] if output else None
+            is_profile_present = (profile == profile_name)
+    else:
+        cmd = "sonic-db-cli CONFIG_DB KEYS 'MACSEC_PROFILE|{}'".format(profile_name)
+        output = host.command(cmd)['stdout'].strip()
+        profile = output.split('|')[1] if output else None
+        is_profile_present = (profile == profile_name)
+
+    # Check if macsec profile is configured on interfaces
+    for port, nbr in ctrl_links.items():
+        cmd = "sonic-db-cli {} CONFIG_DB HGET 'PORT|{}' 'macsec' ".format(getns_prefix(host, port), port)
+        output = host.command(cmd)['stdout'].strip()
+        is_port_profile_present = (output == profile_name)
+
+    return is_profile_present and is_port_profile_present
 
 
 def delete_macsec_profile(host, port, profile_name):
@@ -191,9 +219,21 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
         submit_async_task(delete_macsec_profile, (d, None, profile_name))
     wait_all_complete(timeout=300)
 
+    logger.info("Cleanup macsec configuration step3: wait for automatic cleanup")
+
+    # Extract DUT interface names from ctrl_links and wait for automatic
+    # MACsec cleanup on the DUT side.
+    interfaces = list(ctrl_links.keys())
+    wait_for_macsec_cleanup(duthost, interfaces)
+
+    # Also wait for neighbor devices to complete automatic cleanup for their
+    # corresponding ports.
+    for dut_port, nbr in list(ctrl_links.items()):
+        wait_for_macsec_cleanup(nbr["host"], [nbr["port"]])
+
     logger.info("Cleanup macsec configuration finished")
 
-    # Waiting for all mka session were cleared in all devices
+    # Waiting for all MKA sessions to be cleared on neighbor devices.
     for d in devices:
         if isinstance(d, EosHost):
             continue
@@ -240,3 +280,93 @@ def setup_macsec_configuration(duthost, ctrl_links, profile_name, default_priori
 
     # Load the MACSEC_INFO, to have data of all macsec sessions
     load_all_macsec_info(duthost, ctrl_links, tbinfo)
+
+
+def wait_for_macsec_cleanup(host, interfaces, timeout=90):
+    """Wait for MACsec daemon to automatically clean up all MACsec entries.
+
+    This function implements proper synchronization to wait for the automatic
+    cleanup process to complete, preserving the intended MACsec cleanup behavior.
+
+    Args:
+        host: SONiC DUT or neighbor host object
+        interfaces: List of interface names to check
+        timeout: Maximum time to wait in seconds for MACsec cleanup to finish (default: 90).
+
+    Returns:
+        bool: True if cleanup completed, False if timeout
+    """
+    if isinstance(host, EosHost):
+        # EOS hosts don't use Redis databases
+        logger.info("EOS host detected, skipping Redis cleanup verification")
+        return True
+
+    logger.info(f"Waiting for automatic MACsec cleanup (timeout: {timeout}s)")
+
+    start_time = time.time()
+    # Poll at most ~10 times over the full timeout, capped at 10 seconds between checks.
+    poll_interval = min(10, max(1, timeout / 10.0))
+
+    # We only care about APPL_DB and STATE_DB for MACsec tables. Instead of
+    # trying to reverse-engineer numeric DB IDs from CONFIG_DB, rely on
+    # sonic-db-cli with logical DB names and the same namespace logic used
+    # elsewhere in MACsec helpers.
+
+    while time.time() - start_time < timeout:
+        all_clean = True
+        remaining_entries = {}
+
+        for interface in interfaces:
+            ns_prefix = getns_prefix(host, interface)
+
+            for db_name, sep in (("APPL_DB", ":"), ("STATE_DB", "|")):
+                pattern = f"MACSEC_*{sep}{interface}*"
+                cmd = f"sonic-db-cli {ns_prefix} {db_name} KEYS '{pattern}'"
+
+                try:
+                    result = host.command(cmd, verbose=False)
+                    out_lines = result.get("stdout_lines", [])
+                except Exception as e:
+                    logger.warning(
+                        "Failed to query MACsec keys on host %s, DB %s, interface %s: %r",
+                        getattr(host, 'hostname', host),
+                        db_name,
+                        interface,
+                        e,
+                    )
+                    # If we cannot query Redis for this DB/interface, be
+                    # conservative and assume cleanup is not complete yet.
+                    all_clean = False
+                    continue
+
+                keys = [k.strip() for k in out_lines if k.strip()]
+                if keys:
+                    all_clean = False
+                    remaining_entries.setdefault((db_name, interface), []).extend(keys)
+
+        elapsed = time.time() - start_time
+
+        if all_clean:
+            logger.info(
+                f"Automatic MACsec cleanup completed successfully in {elapsed:.1f}s"
+            )
+            return True
+
+        # Log progress every 30 seconds to reduce verbosity
+        if int(elapsed) % 30 == 0 and elapsed > 0:
+            logger.info(f"Still waiting for cleanup... ({elapsed:.0f}s elapsed)")
+
+        time.sleep(poll_interval)
+
+    # Timeout reached
+    elapsed = time.time() - start_time
+    logger.warning(f"Automatic MACsec cleanup timeout after {elapsed:.1f}s")
+
+    # Log summary of remaining entries
+    total_remaining = sum(len(entries) for entries in remaining_entries.values())
+    if total_remaining > 0:
+        logger.warning(
+            f"  {total_remaining} MACsec entries still remain after timeout"
+        )
+
+    return False

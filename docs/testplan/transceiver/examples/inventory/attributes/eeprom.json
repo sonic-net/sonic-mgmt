@@ -1,0 +1,42 @@
+{
+    "mandatory": ["sff8024_identifier", "dual_bank_supported"],
+    "defaults": {
+        "vdm_supported": false,
+        "is_non_dac_and_cmis": false,
+        "eeprom_dump_timeout_sec": 5
+    },
+    "transceivers": {
+        "deployment_configurations": {
+            "8x100G_DR8": {
+                "vdm_supported": true,
+                "dual_bank_supported": true
+            }
+        }
+    },
+    "vendors": {
+        "ACME_CORP": {
+            "part_numbers": {
+                "QSFP-2X100G-AOC-GENERIC_2_ENDM": {
+                    "dual_bank_supported": true,
+                    "platform_hwsku_overrides": {
+                        "x86_64-mlnx_msn4700-r0+ACS-MSN4700": {
+                            "eeprom_dump_timeout_sec": 5
+                        }
+                    }
+                }
+            }
+        },
+        "XYZ_CORP": {
+            "part_numbers": {
+                "QSFP-2X100G-AOC-GENERIC_2_ENDM": {
+                    "dual_bank_supported": true,
+                    "platform_hwsku_overrides": {
+                        "x86_64-mlnx_msn4700-r0+ACS-MSN4700": {
+                            "eeprom_dump_timeout_sec": 4
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

@@ -41,26 +41,34 @@ topology:
         - "0.7@14"
         - "1.7@15"
       vm_offset: 7
-    ARISTA01T0:
+    ARISTA11T0:
       vlans:
         - "0.8@16"
         - "1.8@17"
       vm_offset: 8
-    ARISTA02T0:
+    ARISTA12T0:
       vlans:
         - "0.9@18"
         - "1.9@19"
       vm_offset: 9
-    ARISTA03T0:
+    ARISTA13T0:
       vlans:
         - "0.10@20"
         - "1.10@21"
       vm_offset: 10
-    ARISTA04T0:
+    ARISTA14T0:
       vlans:
         - "0.11@22"
         - "1.11@23"
       vm_offset: 11
+  DUT:
+    loopback:
+      ipv4:
+        - 10.1.0.32/32
+        - 10.1.0.33/32
+      ipv6:
+        - FC00:1:0:32::/128
+        - FC00:1:0:33::/128
 
 
 configuration_properties:
@@ -336,7 +344,7 @@ configuration:
       ipv4: 10.10.246.8/24
       ipv6: fc0a::11/64
 
-  ARISTA01T0:
+  ARISTA11T0:
     properties:
     - common
     - tor
@@ -359,22 +367,18 @@ configuration:
         ipv4: 100.1.0.17/32
         ipv6: 2064:100::11/128
       Ethernet1:
-        lacp: 1
         dut_index: 0
-      Ethernet2:
-        lacp: 2
-        dut_index: 1
-      Port-Channel1:
         ipv4: 10.0.0.33/31
         ipv6: fc00::42/126
-      Port-Channel2:
+      Ethernet2:
+        dut_index: 1
         ipv4: 10.0.1.33/31
         ipv6: fc00::1:42/126
     bp_interface:
       ipv4: 10.10.246.17/24
       ipv6: fc0a::22/64
 
-  ARISTA02T0:
+  ARISTA12T0:
     properties:
     - common
     - tor
@@ -397,22 +401,18 @@ configuration:
         ipv4: 100.1.0.18/32
         ipv6: 2064:100::12/128
       Ethernet1:
-        lacp: 1
         dut_index: 0
-      Ethernet2:
-        lacp: 2
-        dut_index: 1
-      Port-Channel1:
         ipv4: 10.0.0.35/31
         ipv6: fc00::46/126
-      Port-Channel2:
+      Ethernet2:
+        dut_index: 1
         ipv4: 10.0.1.35/31
         ipv6: fc00::1:46/126
     bp_interface:
       ipv4: 10.10.246.18/24
       ipv6: fc0a::25/64
 
-  ARISTA03T0:
+  ARISTA13T0:
     properties:
     - common
     - tor
@@ -435,22 +435,18 @@ configuration:
         ipv4: 100.1.0.19/32
         ipv6: 2064:100::13/128
       Ethernet1:
-        lacp: 1
         dut_index: 0
-      Ethernet2:
-        lacp: 2
-        dut_index: 1
-      Port-Channel1:
         ipv4: 10.0.0.37/31
         ipv6: fc00::4a/126
-      Port-Channel2:
+      Ethernet2:
+        dut_index: 1
         ipv4: 10.0.1.37/31
         ipv6: fc00::1:4a/126
     bp_interface:
       ipv4: 10.10.246.19/24
       ipv6: fc0a::26/64
 
-  ARISTA04T0:
+  ARISTA14T0:
     properties:
     - common
     - tor
@@ -473,15 +469,11 @@ configuration:
         ipv4: 100.1.0.20/32
         ipv6: 2064:100::14/128
       Ethernet1:
-        lacp: 1
         dut_index: 0
-      Ethernet2:
-        lacp: 2
-        dut_index: 1
-      Port-Channel1:
         ipv4: 10.0.0.39/31
         ipv6: fc00::4e/126
-      Port-Channel2:
+      Ethernet2:
+        dut_index: 1
         ipv4: 10.0.1.39/31
         ipv6: fc00::1:4e/126
     bp_interface:

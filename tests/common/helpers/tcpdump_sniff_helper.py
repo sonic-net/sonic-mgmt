@@ -1,6 +1,8 @@
 import time
 import logging
 import scapy.all as scapyall
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 
 class TcpdumpSniffHelper(object):
@@ -68,6 +70,13 @@ class TcpdumpSniffHelper(object):
         if host is self.duthost:
             cmd = "sudo " + cmd
         host.shell(self.run_background_cmd(cmd))
+        pytest_assert(wait_until(10, 1, 0, self.check_pcap_file_exist, host, iface_pcap_path))
+
+    def check_pcap_file_exist(self, host, iface_pcap_path):
+        res = host.shell(f"ls -l {iface_pcap_path}", module_ignore_errors=True)
+        if res["rc"] == 0:
+            return True
+        return False
 
     def run_background_cmd(self, command):
         return "nohup " + command + " &"

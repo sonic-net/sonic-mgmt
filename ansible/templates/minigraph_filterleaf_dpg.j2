@@ -1,0 +1,382 @@
+  <DpgDec>
+    <DeviceDataPlaneInfo>
+      <IPSecTunnels/>
+      <LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+{% if card_type is not defined or card_type != 'supervisor' %}
+        <a:LoopbackIPInterface>
+          <Name>HostIP</Name>
+          <AttachTo>Loopback0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ lp_ipv4 }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ lp_ipv4 }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+        <a:LoopbackIPInterface>
+          <Name>HostIP1</Name>
+          <AttachTo>Loopback0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ lp_ipv6 }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ lp_ipv6 }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+      {% if num_asics == 1 and switch_type is defined and (switch_type == 'voq' or switch_type == 'chassis-packet') %}
+      {% if loopback4096_ip is defined %}
+        <a:LoopbackIPInterface>
+          <Name>HostIP1</Name>
+          <AttachTo>Loopback4096</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ loopback4096_ip[0] }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ loopback4096_ip[0] }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+        <a:LoopbackIPInterface>
+          <Name>HostIP1</Name>
+          <AttachTo>Loopback4096</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ loopback4096_ipv6[0] }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ loopback4096_ipv6[0] }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+      {% endif %}
+      {% endif %}
+      {%- if 'addl_loopbacks' in dual_tor_facts -%}
+      {%- for loopback_num in dual_tor_facts['addl_loopbacks'][inventory_hostname] -%}
+        {%- set loopback_facts = dual_tor_facts['addl_loopbacks'][inventory_hostname][loopback_num] -%}
+        <a:LoopbackIPInterface>
+          <Name>HostIP{{ loopback_facts['host_ip_base_index'] }}</Name>
+          <AttachTo>Loopback{{ loopback_num }}</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ loopback_facts['ipv4'] }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ loopback_facts['ipv4'] }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+        <a:LoopbackIPInterface>
+          <Name>HostIP{{ loopback_facts['host_ip_base_index'] + 1 }}</Name>
+          <AttachTo>Loopback{{ loopback_num }}</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ loopback_facts['ipv6'] }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ loopback_facts['ipv6'] }}</a:PrefixStr>
+        </a:LoopbackIPInterface>
+      {%- endfor -%}
+      {%- endif -%}
+{% endif %}
+</LoopbackIPInterfaces>
+      <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+        <a:ManagementIPInterface>
+          <Name>HostIP</Name>
+          <AttachTo>eth0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ ansible_host }}/{{ mgmt_subnet_mask_length }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ ansible_host }}/{{ mgmt_subnet_mask_length }}</a:PrefixStr>
+        </a:ManagementIPInterface>
+        <a:ManagementIPInterface>
+          <Name>V6HostIP</Name>
+          <AttachTo>eth0</AttachTo>
+          <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
+            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
+          </a:Prefix>
+          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</a:PrefixStr>
+        </a:ManagementIPInterface>
+      </ManagementIPInterfaces>
+      <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+{% if num_asics == 1 and (voq_inband_ip is defined or voq_inband_ipv6 is defined) %}
+      <VoqInbandInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+{% if voq_inband_ip is defined %}
+        <a:VoqInbandInterface>
+          <Name>{{ voq_inband_intf[0] }}</Name>
+          <Type>{{ voq_inband_type }}</Type>
+          <a:PrefixStr>{{ voq_inband_ip[0] }}</a:PrefixStr>
+        </a:VoqInbandInterface>
+{% endif %}
+{% if voq_inband_ipv6 is defined %}
+        <a:VoqInbandInterface>
+          <Name>{{ voq_inband_intf[0] }}</Name>
+          <Type>{{ voq_inband_type }}</Type>
+          <a:PrefixStr>{{ voq_inband_ipv6[0] }}</a:PrefixStr>
+        </a:VoqInbandInterface>
+{% endif %}
+      </VoqInbandInterfaces>
+{% endif %}
+      <MplsInterfaces/>
+      <MplsTeInterfaces/>
+      <RsvpInterfaces/>
+      <Hostname>{{ inventory_hostname }}</Hostname>
+      <PortChannelInterfaces>
+{% if vm_topo_config['topo_type'] != 'wan' %}
+{% for index in range(vms_number) %}
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
+{% set port_channel_intf=';'.join(intf_names[vms[index]])  %}
+        <PortChannel>
+          <Name>PortChannel{{ ((index+1)|string) }}</Name>
+          <AttachTo>{{ port_channel_intf }}</AttachTo>
+          <SubInterface/>
+        </PortChannel>
+{% endif %}
+{% endfor %}
+{% if 'tor' in vm_topo_config['dut_type'] | lower %}
+{% for portchannel, params in portchannel_config.items() %}
+{% set port_channel_intf=';'.join(params['intfs'] | map('extract', port_alias)) %}
+        <PortChannel>
+          <Name>{{ portchannel }}</Name>
+          <AttachTo>{{ port_channel_intf }}</AttachTo>
+          <SubInterface/>
+        </PortChannel>
+{% endfor %}
+{% endif %}
+{% elif 'wan_dut_configuration' in vm_topo_config %}
+{% for ifname, params in vm_topo_config['wan_dut_configuration'][dut_index|int]['interfaces'].items() %}
+{% if ifname.startswith('PortChannel') %}
+{% set port_channel_intf=';'.join(params['intfs'] | map('extract', port_alias)) %}
+        <PortChannel>
+          <Name>{{ ifname }}</Name>
+          <AttachTo>{{ port_channel_intf }}</AttachTo>
+          <SubInterface/>
+        </PortChannel>
+{% endif %}
+{% endfor %}
+{% endif %}
+      </PortChannelInterfaces>
+{% if tunnel_configs | length > 0 %}
+      <TunnelInterfaces>
+{% for tunnel, tunnel_param in tunnel_configs.items() %}
+        <TunnelInterface Name="{{ tunnel }}" Type="{{ tunnel_param['type'] }}" AttachTo="{{ tunnel_param['attach_to'] }}" DifferentiatedServicesCodePointMode="{{ tunnel_param['dscp'] }}" EcnEncapsulationMode="{{ tunnel_param['ecn_encap'] }}" EcnDecapsulationMode="{{ tunnel_param['ecn_decap'] }}" TtlMode="{{ tunnel_param['ttl_mode'] }}" />
+{% endfor %}
+      </TunnelInterfaces>
+{% endif %}
+      <VlanInterfaces>
+{% if 'tor' in vm_topo_config['dut_type'] | lower %}
+{% for vlan, vlan_param in vlan_configs.items() %}
+        <VlanInterface>
+          <Name>{{ vlan }}</Name>
+{% set vlan_intf_str=';'.join(vlan_param['intfs'] + vlan_param['portchannels']) %}
+          <AttachTo>{{ vlan_intf_str }}</AttachTo>
+          <NoDhcpRelay>False</NoDhcpRelay>
+          <StaticDHCPRelay>0.0.0.0/0</StaticDHCPRelay>
+{% if 'type' in vlan_param %}
+{% if vlan_param['type']|lower == 'tagged'%}
+          <Type>Tagged</Type>
+{% else %}
+          <Type i:nil="true"/>
+{% endif %}
+{% endif %}
+{% set dhcp_servers_str=';'.join(dhcp_servers) %}
+          <DhcpRelays>{{ dhcp_servers_str }}</DhcpRelays>
+{% if dhcpv6_servers is defined %}
+{% set dhcpv6_servers_str=';'.join(dhcpv6_servers) %}
+          <Dhcpv6Relays>{{ dhcpv6_servers_str }}</Dhcpv6Relays>
+{% endif %}
+          <VlanID>{{ vlan_param['id'] }}</VlanID>
+          <Tag>{{ vlan_param['tag'] }}</Tag>
+          <Subnets>{{ vlan_param['prefix'] | ansible.utils.ipaddr('network') }}/{{ vlan_param['prefix'] | ansible.utils.ipaddr('prefix') }}</Subnets>
+{% if 'secondary_subnet' in vlan_param %}
+          <SecondarySubnets>{{ vlan_param['secondary_subnet'] | ansible.utils.ipaddr('network') }}/{{ vlan_param['secondary_subnet'] | ansible.utils.ipaddr('prefix') }}</SecondarySubnets>
+{% endif %}
+{% if 'mac' in vlan_param %}
+          <MacAddress>{{ vlan_param['mac'] }}</MacAddress>
+{% endif %}
+        </VlanInterface>
+{% endfor %}
+{% endif %}
+      </VlanInterfaces>
+      <IPInterfaces>
+{% if (card_type is not defined or card_type != 'supervisor') and (vm_topo_config['topo_type'] != 'wan') %}
+{% for index in range(vms_number) %}
+{% if vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int] is not none %}
+        <IPInterface>
+          <Name i:nil="true"/>
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
+          <AttachTo>PortChannel{{ ((index+1) |string) }}</AttachTo>
+{% else %}
+          <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
+{% endif %}
+          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv4'][dut_index|int] }}/{{ vm_topo_config['vm'][vms[index]]['ipv4mask'][dut_index|int] }}</Prefix>
+        </IPInterface>
+        <IPInterface>
+          <Name i:Name="true"/>
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
+          <AttachTo>PortChannel{{ ((index+1) |string) }}</AttachTo>
+{% else %}
+          <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
+{% endif %}
+          <Prefix>{{ vm_topo_config['vm'][vms[index]]['bgp_ipv6'][dut_index|int] }}/{{ vm_topo_config['vm'][vms[index]]['ipv6mask'][dut_index|int] }}</Prefix>
+        </IPInterface>
+{% endif %}
+{% endfor %}
+{% if 'tor' in vm_topo_config['dut_type'] | lower %}
+{% for vlan, vlan_param in vlan_configs.items() %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>{{ vlan }}</AttachTo>
+          <Prefix>{{ vlan_param['prefix'] }}</Prefix>
+        </IPInterface>
+{%if 'secondary_subnet' in vlan_param %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>{{ vlan }}</AttachTo>
+          <Prefix>{{ vlan_param['secondary_subnet'] }}</Prefix>
+        </IPInterface>
+{% endif %}
+{% endfor %}
+{% for vlan, vlan_param in vlan_configs.items() %}
+{%   if 'prefix_v6' in vlan_param %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>{{ vlan }}</AttachTo>
+          <Prefix>{{ vlan_param['prefix_v6'] }}</Prefix>
+        </IPInterface>
+{%   endif %}
+{% endfor %}
+{% endif %}
+{% elif vm_topo_config['topo_type'] == 'wan' and 'wan_dut_configuration' in vm_topo_config %}
+{% for ifname, params in vm_topo_config['wan_dut_configuration'][dut_index|int]['interfaces'].items() %}
+{% if ifname.startswith('PortChannel') %}
+{% if 'ipv4' in params %}
+        <IPInterface>
+          <Name i:nil="true"/>
+          <AttachTo>{{ ifname }}</AttachTo>
+          <Prefix>{{ params['ipv4'] }}</Prefix>
+        </IPInterface>
+{% endif %}
+{% if 'ipv6' in params %}
+        <IPInterface>
+          <Name i:Name="true"/>
+          <AttachTo>{{ ifname }}</AttachTo>
+          <Prefix>{{ params['ipv6'] }}</Prefix>
+        </IPInterface>
+{% endif %}
+{% endif %}
+{% endfor %}
+{% endif %}
+      </IPInterfaces>
+      <DataAcls/>
+      <AclInterfaces>
+{% if switch_type is not defined or switch_type != 'dpu' %}
+        <AclInterface>
+          <InAcl>NTP_ACL</InAcl>
+          <AttachTo>NTP</AttachTo>
+          <Type>NTP</Type>
+        </AclInterface>
+        <AclInterface>
+          <InAcl>SNMP_ACL</InAcl>
+          <AttachTo>SNMP</AttachTo>
+          <Type>SNMP</Type>
+        </AclInterface>
+        <AclInterface>
+          <AttachTo>VTY_LINE</AttachTo>
+          <InAcl>ssh-only</InAcl>
+          <Type>SSH</Type>
+        </AclInterface>
+{% if card_type is not defined or card_type != 'supervisor' %}
+        <AclInterface>
+          <AttachTo>ERSPAN</AttachTo>
+          <InAcl>Everflow</InAcl>
+          <Type>Everflow</Type>
+        </AclInterface>
+        <AclInterface>
+          <AttachTo>ERSPANV6</AttachTo>
+          <InAcl>EverflowV6</InAcl>
+          <Type>EverflowV6</Type>
+        </AclInterface>
+{% if enable_data_plane_acl|default('true')|bool and vm_topo_config['topo_type'] != 'wan' %}
+{%- set acl_intfs = [] -%}
+{%- for index in range(vms_number) %}
+{% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
+{% set a_intf = 'PortChannel' + ((index+1) |string) %}
+{{- acl_intfs.append(a_intf) -}}
+{% endif %}
+{% endfor %}
+{% for index in range(vms_number) %}
+{% if 'port-channel' not in vm_topo_config['vm'][vms[index]]['ip_intf']|lower %}
+{% if vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|length %}
+{% set a_intf = port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] %}
+{{- acl_intfs.append(a_intf) -}}
+{% endif %}
+{% endif %}
+{% endfor -%}
+{%- if acl_intfs | length > 0 -%}
+        <AclInterface>
+          <AttachTo>
+{{- acl_intfs|join(';') -}}
+          </AttachTo>
+          <InAcl>DataAcl</InAcl>
+          <Type>DataPlane</Type>
+        </AclInterface>
+{% endif %}
+{% endif %}
+{% endif %}
+{% endif %}
+      </AclInterfaces>
+      <DownstreamSummaries/>
+      <DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
+    </DeviceDataPlaneInfo>
+{% if mux_cable_facts is defined and mux_cable_facts %}
+{% if dual_tor_facts is defined and 'cables' in dual_tor_facts %}
+{% for cable in dual_tor_facts['cables'] %}
+{% set intf_index = port_alias.index(cable['dut_intf'])|string %}
+		<DeviceDataPlaneInfo>
+			<IPSecTunnels />
+			<LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
+				<a:LoopbackIPInterface>
+					<ElementType>LoopbackInterface</ElementType>
+					<Name>HostIP</Name>
+					<AttachTo>Loopback0</AttachTo>
+					<a:Prefix xmlns:b="Microsoft.Search.Autopilot.NetMux">
+						<b:IPPrefix>{{ mux_cable_facts[intf_index]['server_ipv4'] }}</b:IPPrefix>
+					</a:Prefix>
+					<a:PrefixStr>{{ mux_cable_facts[intf_index]['server_ipv4'] }}</a:PrefixStr>
+				</a:LoopbackIPInterface>
+				<a:LoopbackIPInterface>
+					<ElementType>LoopbackInterface</ElementType>
+					<Name>HostIP1</Name>
+					<AttachTo>Loopback0</AttachTo>
+					<a:Prefix xmlns:b="Microsoft.Search.Autopilot.NetMux">
+						<b:IPPrefix>{{ mux_cable_facts[intf_index]['server_ipv6'] }}</b:IPPrefix>
+					</a:Prefix>
+					<a:PrefixStr>{{ mux_cable_facts[intf_index]['server_ipv6'] }}</a:PrefixStr>
+				</a:LoopbackIPInterface>
+{% if 'soc_ipv4' in mux_cable_facts[intf_index] %}
+				<a:LoopbackIPInterface>
+					<ElementType>LoopbackInterface</ElementType>
+					<Name>SoCHostIP0</Name>
+					<AttachTo>Servers{{ loop.index - 1 }}SOC</AttachTo>
+					<a:Prefix xmlns:b="Microsoft.Search.Autopilot.NetMux">
+						<b:IPPrefix>{{ mux_cable_facts[intf_index]['soc_ipv4'] }}</b:IPPrefix>
+					</a:Prefix>
+					<a:PrefixStr>{{ mux_cable_facts[intf_index]['soc_ipv4'] }}</a:PrefixStr>
+				</a:LoopbackIPInterface>
+{% endif %}
+{% if 'soc_ipv6' in mux_cable_facts[intf_index] %}
+				<a:LoopbackIPInterface>
+					<ElementType>LoopbackInterface</ElementType>
+					<Name>SoCHostIP1</Name>
+					<AttachTo>Servers{{ loop.index - 1 }}SOC</AttachTo>
+					<a:Prefix xmlns:b="Microsoft.Search.Autopilot.NetMux">
+						<b:IPPrefix>{{ mux_cable_facts[intf_index]['soc_ipv6'] }}</b:IPPrefix>
+					</a:Prefix>
+					<a:PrefixStr>{{ mux_cable_facts[intf_index]['soc_ipv6'] }}</a:PrefixStr>
+				</a:LoopbackIPInterface>
+{% endif %}
+			</LoopbackIPInterfaces>
+			<ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution" />
+			<ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution" />
+			<MplsInterfaces />
+			<MplsTeInterfaces />
+			<RsvpInterfaces />
+			<Hostname>Servers{{ loop.index - 1 }}</Hostname>
+			<PortChannelInterfaces />
+			<SubInterfaces />
+			<VlanInterfaces />
+			<IPInterfaces />
+			<DataAcls />
+			<AclInterfaces />
+			<NatInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution" />
+			<DownstreamSummaries />
+			<DownstreamSummarySet xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution" />
+		</DeviceDataPlaneInfo>
+{% endfor %}
+{% endif %}
+{% endif %}
+{% include 'minigraph_dpg_asic.j2' %}
+  </DpgDec>

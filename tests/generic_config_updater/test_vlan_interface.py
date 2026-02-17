@@ -42,7 +42,7 @@ IGNORE_REG_LIST = [
 if sys.version_info.major >= 3:
     UNICODE_TYPE = str
 else:
-    UNICODE_TYPE = unicode      # noqa F821
+    UNICODE_TYPE = unicode      # noqa:F821
 
 
 def get_vlan_info(intf):
@@ -414,8 +414,13 @@ def vlan_interface_tc1_remove(duthost, vlan_info):
 
 
 def test_vlan_interface_tc1_suite(rand_selected_dut, vlan_info, loganalyzer, tbinfo, duthost):
-    if tbinfo["topo"]["name"] == "m0-2vlan" and loganalyzer:
-        loganalyzer[duthost.hostname].ignore_regex.extend(IGNORE_REG_LIST)
+    if loganalyzer:
+        if tbinfo["topo"]["name"] == "m0-2vlan":
+            loganalyzer[duthost.hostname].ignore_regex.extend(IGNORE_REG_LIST)
+        loganalyzer[duthost.hostname].ignore_regex.extend([
+            ".*ERR GenericConfigUpdater: Change Applier: service invoked: "
+            "generic_config_updater.services_validator.vlanintf_validator failed.*"
+        ])
     vlan_interface_tc1_add_duplicate(rand_selected_dut, vlan_info)
     vlan_interface_tc1_xfail(rand_selected_dut, vlan_info)
     vlan_interface_tc1_add_new(rand_selected_dut)

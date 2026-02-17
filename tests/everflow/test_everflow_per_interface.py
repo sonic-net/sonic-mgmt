@@ -10,7 +10,7 @@ from scapy.layers.l2 import Dot1Q
 from scapy.layers.vxlan import VXLAN
 from . import everflow_test_utilities as everflow_utils
 
-from .everflow_test_utilities import BaseEverflowTest, erspan_ip_ver  # noqa: F401
+from .everflow_test_utilities import BaseEverflowTest, erspan_ip_ver, skip_ipv6_everflow_tests  # noqa: F401
 from .everflow_test_utilities import TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE, \
     DUT_RUN_DIR, EVERFLOW_RULE_CREATE_FILE, UP_STREAM
 from tests.common.helpers.assertions import pytest_require
@@ -56,8 +56,9 @@ def build_candidate_ports(duthost, tbinfo, ns):
             continue
         ptf_idx = mg_facts["minigraph_ptf_indices"][dut_port]
 
-        if candidate_neigh_name in neigh['name'] and len(candidate_ports) < 4 and i % 2:
-            candidate_ports.update({dut_port: ptf_idx})
+        if candidate_neigh_name in neigh['name'] and len(candidate_ports) < 4:
+            if candidate_neigh_name == 'T0' or i % 2:
+                candidate_ports.update({dut_port: ptf_idx})
         if len(unselected_ports) < 4 and dut_port not in candidate_ports:
             unselected_ports.update({dut_port: ptf_idx})
 
@@ -67,7 +68,7 @@ def build_candidate_ports(duthost, tbinfo, ns):
     return candidate_ports, unselected_ports
 
 
-def build_acl_rule_vars(candidate_ports, ip_ver):
+def build_acl_rule_vars(candidate_ports, ip_ver, erspan_ip_ver):  # noqa F811
     """
     Build vars for generating ACL rule
     """
@@ -78,7 +79,7 @@ def build_acl_rule_vars(candidate_ports, ip_ver):
     # trying to resolve link-local IPv6 addresses. All of these packets were mirrored by the DUT. This overwhelmed
     # the PTF container, causing the kernel to drop some packets. As a result, the IPv6 tests sometimes failed.
     # To prevent this issue from happening, we restrict Everflow IPv6 mirroring to TCP packets.
-    if ip_ver == "ipv6":
+    if ip_ver == "ipv6" or erspan_ip_ver == 6:
         qualifiers["ip"] = {"protocol": 6}  # Only mirror TCP packets
     config_vars['rules'] = [{'qualifiers': qualifiers}]
     return config_vars
@@ -86,6 +87,12 @@ def build_acl_rule_vars(candidate_ports, ip_ver):
 
 @pytest.fixture(scope='module')
 def apply_mirror_session(setup_info, erspan_ip_ver):  # noqa F811
+    duthost_set = BaseEverflowTest.get_duthost_set(setup_info)
+    for duthost in duthost_set:
+        # Skip IPv6 mirror session due to issue #19096
+        if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s') and erspan_ip_ver == 6: # noqa E501
+            pytest.skip("Skip IPv6 mirror session on unsupported platforms")
+
     mirror_session_info = BaseEverflowTest.mirror_session_info(
         EVERFLOW_SESSION_NAME, setup_info[UP_STREAM]['everflow_dut'].facts["asic_type"])
     logger.info("Applying mirror session to DUT")
@@ -130,7 +137,7 @@ def ip_ver(request):
 
 
 @pytest.fixture(scope='module')
-def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ver):  # noqa F811
+def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ver, erspan_ip_ver):  # noqa F811
     """
     Apply ACL rule for matching input_ports
     """
@@ -147,7 +154,7 @@ def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ve
     pytest_require(len(unselected_ports) >= 1, "Not sufficient ports for testing")
 
     # Copy and apply ACL rule
-    config_vars = build_acl_rule_vars(candidate_ports, ip_ver)
+    config_vars = build_acl_rule_vars(candidate_ports, ip_ver, erspan_ip_ver)
     setup_info[UP_STREAM]['everflow_dut'].host.options["variable_manager"].extra_vars.update(config_vars)
     setup_info[UP_STREAM]['everflow_dut'].command("mkdir -p {}".format(DUT_RUN_DIR))
     setup_info[UP_STREAM]['everflow_dut'].template(src=os.path.join(TEMPLATE_DIR, EVERFLOW_RULE_CREATE_TEMPLATE),
@@ -173,13 +180,23 @@ def apply_acl_rule(setup_info, tbinfo, setup_mirror_session_dest_ip_route, ip_ve
 def generate_testing_packet(ptfadapter, duthost, mirror_session_info, router_mac, setup, pkt_ip_ver,
                             erspan_ip_ver=4):  # noqa F811
     if pkt_ip_ver == 'ipv4':
-        packet = testutils.simple_tcp_packet(eth_src=ptfadapter.dataplane.get_mac(0, 0), eth_dst=router_mac)
+        packet = testutils.simple_tcp_packet(
+            eth_src=ptfadapter.dataplane.get_mac(
+                *list(ptfadapter.dataplane.ports.keys())[0]
+            ),
+            eth_dst=router_mac
+        )
     else:
-        packet = testutils.simple_tcpv6_packet(eth_src=ptfadapter.dataplane.get_mac(0, 0), eth_dst=router_mac)
+        packet = testutils.simple_tcpv6_packet(
+            eth_src=ptfadapter.dataplane.get_mac(
+                *list(ptfadapter.dataplane.ports.keys())[0]
+            ),
+            eth_dst=router_mac
+        )
 
     dec_ttl = 0
-
-    if 't2' in setup['topo']:
+    # Only need to decrement TTL for chassis T2
+    if setup['topo'].startswith('t2'):
         dec_ttl = 1
     elif duthost.is_multi_asic:
         dec_ttl = 2
