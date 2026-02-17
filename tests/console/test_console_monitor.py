@@ -181,8 +181,10 @@ def get_neighbor_by_name(
         if host_vm_name and host_vm_name.upper() == vm_name.upper():
             nbr_host = neighbor_device['host']
             if not isinstance(nbr_host, SonicHost):
-                if fail_on_not_found:
-                    pytest.fail(f"Neighbor {neighbor_name} is not a SonicHost")
+                pytest.skip(
+                    f"Neighbor {neighbor_name} is not a SONiC host; "
+                    f"This test require vSONiC neighbors"
+                )
                 return None
             logger.info(f"Found neighbor {neighbor_name} (VM: {vm_name})")
             return nbr_host
@@ -231,14 +233,24 @@ class BridgeManager:
     def build_console_bridge(self, link_id: int, neighbor_name: str) -> ConsoleBridge:
         """
         Build a complete console bridge from DUT to neighbor VM.
+        Skips the test if the neighbor is not a SONiC host.
 
         Args:
             link_id: Console line ID on DUT
             neighbor_name: VM name of the neighbor (e.g., 'VM0100')
 
         Returns:
-            ConsoleBridge: Bridge info (pytest.fail on error)
+            ConsoleBridge: Bridge info (pytest.fail on error, pytest.skip if not SONiC)
         """
+        # Check if the neighbor is a SONiC host by running 'show version'
+        nbr_host = self.get_neighbor_host(neighbor_name)
+        result = nbr_host.shell("show version", module_ignore_errors=True)
+        if result['rc'] != 0 or 'SONiC Software Version' not in result.get('stdout', ''):
+            pytest.skip(
+                f"Neighbor {neighbor_name} is not a SONiC host; "
+                f"This tests require vSONiC neighbors"
+            )
+
         # Get fanout for this link
         fanout, fanout_port = get_console_fanout_for_line(
             self._fanouthosts, self._duthost, link_id
