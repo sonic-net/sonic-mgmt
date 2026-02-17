@@ -37,7 +37,7 @@ pdu-117,38,str2-7215-acs-1,PSU1
 pdu-118,38,str2-7215-acs-1,PSU2
 pdu-122,23,str2-7260cx3-acs-9,PSU1
 pdu-121,23,str2-7260cx3-acs-9,PSU2
-pdu-114,22,str2-7260cx3-acs-10,PSU1
+pdu-112,33,str2-7260cx3-acs-10,PSU1
 pdu-113,22,str2-7260cx3-acs-10,PSU2
 pdu-114,20,str2-7260cx3-acs-11,PSU1
 pdu-113,20,str2-7260cx3-acs-11,PSU2
@@ -192,7 +192,7 @@ pdu-81,11,str2-8102-smartswitch-03,PSU1
 pdu-81,12,str2-8102-smartswitch-03,PSU2
 pdu-81,13,str2-8101-fanout-13,PSU1
 pdu-81,14,str2-8101-fanout-13,PSU2
-pdu-100,26,str2-8101c1-01,PSU1
+pdu-98,46,str2-8101c1-01,PSU1
 pdu-99,32,str2-8101c1-01,PSU2
 pdu-98,34,str2-8101c1-02,PSU1
 pdu-99,34,str2-8101c1-02,PSU2
