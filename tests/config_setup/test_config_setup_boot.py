@@ -11,7 +11,7 @@ These tests address the bug reported in ADO 36697420:
 The fix is in sonic-buildimage PR #25463 which updates
 files/image_config/config-setup/config-setup to:
 1. Prefer minigraph.xml over ZTP/factory-default when config_db.json is missing
-2. Check /proc/cmdline for SONIC_BOOT_TYPE=warm (reliable warm boot detection)
+2. Use STATE_DB for warm boot detection (with /proc/cmdline fallback during early boot only)
 3. Skip config initialization and ZTP entirely during warm boot
 
 Config priority order (consistent across all code paths):
@@ -130,6 +130,7 @@ CONFIG_SETUP_INITIALIZATION_FLAG="${CONFIG_SETUP_VAR_DIR}/pending_initialization
 CONFIG_POST_MIGRATION_HOOKS="${FAKE_ROOT}/etc/config-setup/config-migration-post-hooks.d"
 FACTORY_DEFAULT_HOOKS="${FAKE_ROOT}/etc/config-setup/factory-default-hooks.d"
 NUM_ASIC=1
+CMD="boot"
 
 # --- Step 3: Override destructive/external commands with safe stubs ---
 # These MUST come AFTER sourcing the extracted functions so our stubs
@@ -181,15 +182,20 @@ sonic-db-cli() {
         if [ "$3" = "WARM_RESTART_ENABLE_TABLE|system" ] && \
            [ "$4" = "enable" ]; then
             echo "$FAKE_WARM_BOOT"
+            return 0
         fi
     elif [ "$1" = "CONFIG_DB" ] && [ "$2" = "SET" ]; then
         echo "ACTION: sonic-db-cli CONFIG_DB SET $3 $4" >> "${ACTION_LOG}"
     elif [ "$1" = "CONFIG_DB" ] && [ "$2" = "HGET" ]; then
         echo ""
     fi
+    return 0
 }
 
-# Override /proc/cmdline reads for warm boot detection
+# Override /proc/cmdline reads for warm boot detection.
+# With DB-first logic, this is only consulted when DB is unavailable
+# (early boot). The harness stub returns rc=0 so DB is always used,
+# but we keep this override for completeness.
 cat() {
     if [ "$1" = "/proc/cmdline" ]; then
         if [ "$FAKE_WARM_BOOT" = "true" ]; then
@@ -226,11 +232,9 @@ check_all_config_db_present() {
 # functions capture code, not variable values, the DUT's functions will
 # use our fake paths and stub commands at call time.
 #
-# BUT: check_system_warm_boot() reads /proc/cmdline via 'cat'. Since
-# the DUT's version may or may not use our overridden cat (depending on
-# whether it uses a subshell or case statement), we re-source it here
-# to pick up the DUT's actual implementation. Our 'cat' override above
-# will intercept /proc/cmdline reads regardless.
+# check_system_warm_boot() uses DB-first logic: it calls sonic-db-cli
+# (our stub returns rc=0) so STATE_DB is always used. The /proc/cmdline
+# fallback only activates when DB is unavailable AND CMD="boot".
 #
 # The key functions under test come directly from the DUT's config-setup.
 # We do NOT redefine them here — that's the whole point.
