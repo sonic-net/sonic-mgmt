@@ -23,7 +23,6 @@
 """
 
 import ptf
-import os
 import json
 from ptf.base_tests import BaseTest
 import ptf.testutils as testutils
@@ -104,6 +103,53 @@ class SflowTest(BaseTest):
 
     # --------------------------------------------------------------------------
 
+    def parse_sflow_samples(self, outfile, collector):
+        """
+        Parse sflow samples from a file.
+
+        Args:
+            outfile: Path to the file containing sflow data
+            collector: Name of the collector ('collector0' or 'collector1')
+
+        Returns:
+            dict: port_sample[collector]['FlowSample'] = list of flow samples
+                  port_sample[collector]['CounterSample'] = list of counter samples
+        """
+        port_sample = {}
+        port_sample[collector] = {}
+        port_sample[collector]['FlowSample'] = []
+        port_sample[collector]['CounterSample'] = []
+
+        try:
+            with open(outfile, 'r') as sflow_data:
+                for line in sflow_data:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        j = json.dumps(ast.literal_eval(line))
+                        datagram = json.loads(j)
+                        agent = datagram.get('agent')
+                        samples = datagram.get('samples', [])
+                        for sample in samples:
+                            sampleType = sample.get('sampleType', '')
+                            if sampleType == 'FLOWSAMPLE':
+                                port_sample[collector]['FlowSample'].append(sample)
+                            elif sampleType == 'COUNTERSSAMPLE':
+                                sample['agent_id'] = agent
+                                port_sample[collector]['CounterSample'].append(sample)
+                    except (ValueError, SyntaxError) as e:
+                        # sflowtool can spit out bad lines if it recieves chopped or malformed packets
+                        logging.warning("Skipping malformed line in %s: %s (error: %s)", collector, line[:100], str(e))
+                        continue
+        except OSError as e:
+            # if sflowtool hasn't started writing yet this is expected
+            logging.warning("Could not read file %s: %s", outfile, str(e))
+
+        return port_sample
+
+    # --------------------------------------------------------------------------
+
     def read_data(self, collector, ready_event, stop_event, sflow_port=['6343']):
         """
         Starts sflowtool with the corresponding port and saves the data to file for processing
@@ -116,12 +162,6 @@ class SflowTest(BaseTest):
                                        shell=False
                                        )
 
-            flow_count = 0
-            counter_count = 0
-            port_sample = {}
-            port_sample[collector] = {}
-            port_sample[collector]['FlowSample'] = {}
-            port_sample[collector]['CounterSample'] = {}
             logging.info("Collector %s starts collecting ......" % collector)
             ready_event.set()
             timeout = 240
@@ -131,69 +171,23 @@ class SflowTest(BaseTest):
             event_is_set = stop_event.wait(timeout=timeout)
             logging.info("{}; stop_event set: {}".format(
                 threading.current_thread().getName(), event_is_set))
+            process.terminate()
+            try:
+                process.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                logging.warning("Process did not terminate gracefully, killing it")
+                process.kill()
+                process.wait()
 
-        process.terminate()
-        process.wait()
-        f.close()
-        with open(outfile, 'r') as sflow_data:
-            for line in sflow_data:
-                j = json.dumps(ast.literal_eval(line))
-                datagram = json.loads(j)
-                agent = datagram["agent"]
-                samples = datagram["samples"]
-                for sample in samples:
-                    sampleType = sample["sampleType"]
-                    if sampleType == "FLOWSAMPLE":
-                        flow_count += 1
-                        port_sample[collector]['FlowSample'][flow_count] = sample
-                    elif sampleType == "COUNTERSSAMPLE":
-                        counter_count += 1
-                        port_sample[collector]['CounterSample'][counter_count] = sample
-                        port_sample[collector]['CounterSample'][counter_count]['agent_id'] = agent
-        sflow_data.close()
-        port_sample[collector]['counter_count'] = counter_count
-        port_sample[collector]['flow_count'] = flow_count
-        port_sample[collector]['total_count'] = counter_count + flow_count
+        port_sample = self.parse_sflow_samples(outfile, collector)
+
+        flow_count = len(port_sample[collector]['FlowSample'])
+        counter_count = len(port_sample[collector]['CounterSample'])
+
         logging.info("%s Sampled Packets : Total flow samples -> %s Total counter samples -> %s" %
                      (collector, flow_count, counter_count))
-        return (port_sample)
+        return port_sample
 
-    def count_packets_received(self, collector_name):
-        """
-        Count packets received by checking the collector's output file
-
-        Args:
-            collector_name: 'collector0' or 'collector1'
-
-        Returns:
-            tuple: flow_count, counter_count
-        """
-        outfile = f'/tmp/{collector_name}'
-        flow_count = 0
-        counter_count = 0
-        try:
-            if os.path.exists(outfile):
-                with open(outfile, 'r') as f:
-                    lines = f.readlines()
-                for line in lines:
-                    try:
-                        j = json.dumps(ast.literal_eval(line.strip()))
-                        datagram = json.loads(j)
-                        samples = datagram.get("samples", [])
-                        for sample in samples:
-                            sample_type = sample.get("sampleType", "")
-                            if sample_type == "FLOWSAMPLE":
-                                flow_count += 1
-                            elif sample_type == "COUNTERSSAMPLE":
-                                counter_count += 1
-                    except (ValueError, SyntaxError, json.JSONDecodeError):
-                        # Skip malformed lines
-                        continue
-        except (OSError, IOError):
-            # File doesn't exist or can't be read
-            pass
-        total_count = flow_count + counter_count
-        return flow_count, counter_count, total_count
     # --------------------------------------------------------------------------
 
     def collector_0(self, ready_event, stop_event):
@@ -208,14 +202,13 @@ class SflowTest(BaseTest):
         logging.info("Analysing collector  %s" % collector)
         data = {}
         data['total_samples'] = 0
-        data['total_flow_count'] = port_sample[collector]['flow_count']
-        data['total_counter_count'] = port_sample[collector]['counter_count']
-        data['total_samples'] = port_sample[collector]['flow_count'] + \
-            port_sample[collector]['counter_count']
+        data['total_flow_count'] = len(port_sample[collector]['FlowSample'])
+        data['total_counter_count'] = len(port_sample[collector]['CounterSample'])
+        data['total_samples'] = data['total_flow_count'] + data['total_counter_count']
         logging.info(data)
         if data['total_flow_count']:
             data['flow_port_count'] = Counter(
-                k['inputPort'] for k in port_sample[collector]['FlowSample'].values())
+                k['inputPort'] for k in port_sample[collector]['FlowSample'])
 
         if collector not in self.active_col:
             logging.info("....%s : Sample Packets are not expected , received %s flow packets  and %s counter packets"
@@ -254,13 +247,13 @@ class SflowTest(BaseTest):
             counter_sample[intf] = 0
         self.assertTrue(data['total_counter_count'] > 0,
                         "No counter packets are received in collector %s" % collector)
-        for i in range(1, data['total_counter_count']+1):
-            rcvd_agent_id = port_sample[collector]['CounterSample'][i]['agent_id']
+        for sample in port_sample[collector]['CounterSample']:
+            rcvd_agent_id = sample['agent_id']
             self.assertTrue(
                 rcvd_agent_id == self.agent_id,
                 "Agent id in Sampled packet is not expected . Expected :  %s , received : %s"
                 % (self.agent_id, rcvd_agent_id))
-            elements = port_sample[collector]['CounterSample'][i]['elements']
+            elements = sample['elements']
             for element in elements:
                 try:
                     if 'ifName' in element and element['ifName'] in self.interfaces.keys():
@@ -341,7 +334,6 @@ class SflowTest(BaseTest):
         thr1.start()
         thr2.start()
 
-        # Wait for both collectors to be ready
         if not collector0_ready.wait(timeout=30):
             raise Exception("Collector 0 failed to initialize")
         if not collector1_ready.wait(timeout=30):
@@ -366,7 +358,9 @@ class SflowTest(BaseTest):
                 time.sleep(5)
                 current_packet_count = 0
                 for collector in self.active_col:
-                    flow_count, _, _ = self.count_packets_received(collector)
+                    outfile = f'/tmp/{collector}'
+                    port_sample = self.parse_sflow_samples(outfile, collector)
+                    flow_count = len(port_sample[collector]['FlowSample'])
                     current_packet_count += flow_count
                 if current_packet_count > last_packet_count:
                     last_packet_count = current_packet_count
