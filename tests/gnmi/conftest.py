@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
     """Auto-setup NTP for all gNMI tests using existing helper."""
     duthost = duthosts[rand_one_dut_hostname]
@@ -41,7 +41,7 @@ def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
         yield
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
     Setup GNMI server with client certificates
@@ -70,7 +70,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     recover_cert_config(duthost)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
     Create GNMI client certificates
@@ -90,7 +90,7 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
     copy_certificate_to_dut(duthost)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
     '''
     Check DUT time to detect NTP issue
@@ -134,7 +134,7 @@ def cleanup_generated_files():
         os.remove(file)
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def setup_and_cleanup_protos():
     """Compile proto files before running tests and remove them afterward."""
     PROTO_ROOT = "gnmi/protos"
