@@ -509,6 +509,16 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             # In multi-asic we need config both in host and namespace.
             if v['namespace']:
                 acl_table_ports[''].append(k)
+        # Add upstream ports not covered by any PortChannel
+        pc_members = set()
+        for pc in port_channels.values():
+            pc_members.update(pc.get('members', []))
+        for namespace, port in list(upstream_ports.items()):
+            non_pc_ports = [p for p in port if p not in pc_members]
+            acl_table_ports[namespace] += non_pc_ports
+            # In multi-asic we need config both in host and namespace.
+            if namespace:
+                acl_table_ports[''] += non_pc_ports
     elif topo == "t2":
         acl_table_ports = t2_info['acl_table_ports']
     elif topo == "lt2":
