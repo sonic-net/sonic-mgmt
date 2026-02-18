@@ -101,10 +101,19 @@ class DutKubeConfig:
         logger.info("Cleaning K8s config DB")
         self.duthost.shell("sonic-db-cli CONFIG_DB DEL 'KUBERNETES_MASTER|SERVER'")
 
+    def fix_kubelet_cgroup_driver(self):
+        """Fix kubelet cgroup driver to match Docker (systemd)."""
+        logger.info("Fixing kubelet cgroup driver to systemd")
+        self.duthost.shell(
+            "sudo sed -i 's/--cgroup-driver=cgroupfs/--cgroup-driver=systemd/' /etc/default/kubelet",
+            module_ignore_errors=True
+        )
+
     def setup(self):
         """Full DUT setup for K8s."""
         self.setup_dns()
         self.check_state_db()
+        self.fix_kubelet_cgroup_driver()
 
     def teardown(self):
         """Full DUT teardown."""
