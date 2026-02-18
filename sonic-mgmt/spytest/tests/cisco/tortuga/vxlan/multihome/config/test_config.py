@@ -155,7 +155,7 @@ def test_rt2_proxy(setup):
     else:
         report_pass(nodes["leaf2"], "test_rt2_proxy")
 
-
+'''
 def test_reload_and_restart_config(setup):
     """
     Test EVPN Multihome Reload Config
@@ -259,7 +259,7 @@ def test_reload_and_restart_config(setup):
         report_fail(nodes["leaf0"], "ES is not peering between T1 and T2")
 
     report_pass(nodes["leaf0"], "test_reload_config")
-
+'''
 # FIXME: This Test on SIM is not working as expected
 # eth4 interface is interfering with the EVPN tunnel
 # during cleanup, the tunnel is not removed

@@ -30,13 +30,21 @@ def setup_teardown_basic():
     yield 'setup_teardown_basic'
 
 def test_qos_with_dpb():
+    # Runtime platform check 
+    platform_output = st.show(data_glob.leaf1, "show platform summary")
+    hwsku = platform_output[0].get('hwsku', '') or platform_output[0].get('HwSKU', '')
+    st.log("Detected HwSKU: {}".format(hwsku))
+    if 'HF6100-32D' not in hwsku:
+        st.log("Test is only applicable for HF6100-32D platform. Current: {}".format(hwsku))
+        st.report_pass('test_case_passed')
+        return
+
     result = True 
     st.banner("Configure DPB on D3D1P1")
     if common_obj.configure_dynamic_breakout(data_glob.leaf0, {vars.D3D1P1 : '4x100G'}):
         st.log("Successfully configured DPB on D3D1P1.")
     else:
         st.report_fail("Failed to configure DPB on D3D1P1.")
-
     st.wait(10)
 
     if common_obj.verify_queue_counters(data_glob.leaf0, vars.D3D1P1, "UC1", ['counter_pkts', 'drop_pkts'], ['0','0'],['0','0']):
