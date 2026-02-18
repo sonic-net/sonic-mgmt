@@ -102,13 +102,38 @@ class DutKubeConfig:
         self.duthost.shell("sonic-db-cli CONFIG_DB DEL 'KUBERNETES_MASTER|SERVER'")
 
     def fix_kubelet_cgroup_driver(self):
-        """Fix kubelet cgroup driver to match Docker (systemd)."""
-        logger.info("Fixing kubelet cgroup driver to systemd")
-        self.duthost.shell(
-            "sudo sed -i 's/--cgroup-driver=cgroupfs/--cgroup-driver=systemd/' /etc/default/kubelet",
+        """Fix kubelet cgroup driver to match Docker if needed.
+
+        Newer SONiC images (Debian 13+) use systemd cgroup driver for Docker,
+        but kubelet may still be configured with cgroupfs. This causes kubelet
+        to fail with "misconfiguration: kubelet cgroup driver cgroupfs is
+        different from docker cgroup driver systemd".
+        """
+        # Check Docker's cgroup driver
+        result = self.duthost.shell(
+            "docker info --format '{{.CgroupDriver}}'",
             module_ignore_errors=True
         )
-        self.duthost.shell("sudo systemctl daemon-reload", module_ignore_errors=True)
+        docker_cgroup = result.get("stdout", "").strip()
+
+        if docker_cgroup != "systemd":
+            logger.info("Docker cgroup driver is %s, no fix needed", docker_cgroup)
+            return
+
+        # Check if kubelet is configured with cgroupfs
+        result = self.duthost.shell(
+            "grep -q 'cgroup-driver=cgroupfs' /etc/default/kubelet",
+            module_ignore_errors=True
+        )
+        if result.get("rc", 1) != 0:
+            logger.info("Kubelet not configured with cgroupfs, no fix needed")
+            return
+
+        logger.info("Fixing kubelet cgroup driver: cgroupfs -> systemd")
+        self.duthost.shell(
+            "sudo sed -i 's/--cgroup-driver=cgroupfs/--cgroup-driver=systemd/' /etc/default/kubelet"
+        )
+        self.duthost.shell("sudo systemctl daemon-reload")
 
     def setup(self):
         """Full DUT setup for K8s."""
