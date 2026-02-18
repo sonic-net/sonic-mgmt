@@ -1706,3 +1706,10 @@ def group_interfaces_by_asic(duthost, interfaces: list) -> dict:
         namespace = duthost.get_port_asic_instance(interface).get_asic_namespace()
         asic_interface_map["-n {}".format(namespace)].append(interface)
     return dict(asic_interface_map)
+
+
+def testbed_is_multi_vrf(tbinfo):
+    val = tbinfo.get('use_converged_peers')
+    if val:
+        return str(val).lower == 'true'
+    return False

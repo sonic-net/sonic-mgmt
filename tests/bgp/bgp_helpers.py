@@ -20,6 +20,7 @@ from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
+from tests.common.utilities import testbed_is_multi_vrf
 from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
 from tests.common.devices.eos import EosHost
@@ -683,7 +684,7 @@ def get_vm_name_list(tbinfo, vm_level='T2'):
     Get vm name, default return value would be T2 VM name
     """
     vm_name_list = []
-    if tbinfo.get('use_converged_peers', False):
+    if testbed_is_multi_vrf(tbinfo):
         vms = list(tbinfo['topo']['properties']['configuration'].keys())
     else:
         vms = list(tbinfo['topo']['properties']['topology']['VMs'].keys())
