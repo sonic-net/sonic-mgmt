@@ -859,12 +859,11 @@ def setup_dut_ports(
 
     def config_port_setup(fn):
         for index, duthost in enumerate(duthost_list):
-            config_result = __intf_config_multidut(
-                                                    config=config,
-                                                    port_config_list=port_config_list,
-                                                    duthost=duthost,
-                                                    snappi_ports=snappi_ports,
-                                                    setup=setup)
+            config_result = fn(config=config,
+                                port_config_list=port_config_list,
+                                duthost=duthost,
+                                snappi_ports=snappi_ports,
+                                setup=setup)
             pytest_assert(config_result is True, 'Failed to configure via {fn.__name__}')
 
     if setup:
