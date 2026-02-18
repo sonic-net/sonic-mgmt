@@ -996,8 +996,15 @@ class BaseEverflowTest(object):
         for line in res[2:]:
             if len(line) < status_index:
                 continue
-            if line[status_index:] != 'Active':
-                return False
+            if duthost.is_multi_asic:
+                st = eval(line[status_index:])
+                namespace_list = duthost.get_asic_namespace_list()
+                for namespace in namespace_list:
+                    if st[namespace] != 'Active':
+                        return False
+            else:
+                if line[status_index:] != 'Active':
+                    return False
         return True
 
     def apply_non_openconfig_acl_rule(self, duthost, extra_vars, rule_file, table_name):
@@ -1014,7 +1021,12 @@ class BaseEverflowTest(object):
         duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
         duthost.file(path=dest_path, state='absent')
         duthost.template(src=os.path.join(FILE_DIR, rule_file), dest=dest_path)
-        duthost.shell("config load -y {}".format(dest_path))
+        dest_paths = dest_path
+        if duthost.is_multi_asic:
+            num_asics = duthost.facts['num_asic']
+            for num_asic in range(num_asics):
+                dest_paths = dest_paths + "," + dest_path
+        duthost.shell("config load -y {}".format(dest_paths))
 
         if duthost.facts['asic_type'] != 'vs':
             pytest_assert(wait_until(60, 2, 0, self.check_rule_active, duthost, table_name),
