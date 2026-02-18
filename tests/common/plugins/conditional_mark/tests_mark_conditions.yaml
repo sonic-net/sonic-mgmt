@@ -176,7 +176,7 @@ arp/test_arp_update.py::test_dut_ping_learns_mac:
     reason: "Skip test_dut_ping_learns_mac on dualtor"
     conditions:
       - "'dualtor' in topo_name"
-      
+
 arp/test_arp_update.py::test_kernel_asic_mac_mismatch\[.*ipv4.*\]:
   regex: true
   skip:
@@ -189,7 +189,7 @@ arp/test_arp_update.py::test_ptf_arp_learns_mac:
     reason: "Skip test_ptf_arp_learns_mac on dualtor"
     conditions:
       - "'dualtor' in topo_name"
-      
+
 arp/test_neighbor_mac_noptf.py:
   skip:
     reason: "Not supported in standalone topologies."
@@ -5593,4 +5593,3 @@ zmq/test_gnmi_zmq.py::test_gnmi_zmq:
     conditions:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
