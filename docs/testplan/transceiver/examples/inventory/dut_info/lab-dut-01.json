@@ -1,0 +1,48 @@
+{
+  "Ethernet0:7": {
+    "vendor_name": "ACME Corp.",
+    "vendor_pn": "QSFP-2X100G-AOC-15M",
+    "vendor_sn": "ACM2024001234",
+    "vendor_date": "20240115",
+    "vendor_oui": "00-A0-C9",
+    "vendor_rev": "A1",
+    "hardware_rev": "1.0"
+  },
+  "Ethernet0": {
+    "transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0x1-0x1"
+  },
+  "Ethernet1": {
+    "transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0x2-0x2"
+  },
+  "Ethernet2": {
+    "transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0x4-0x4"
+  },
+  "Ethernet3": {
+    "transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0x8-0x8"
+  },
+  "Ethernet4": {
+    "transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0x10-0x10"
+  },
+  "Ethernet5": {
+    "transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0x20-0x20"
+  },
+  "Ethernet6": {
+    "transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0x40-0x40"
+  },
+  "Ethernet16,Ethernet20,Ethernet24": {
+    "vendor_name": "Example & Co",
+    "vendor_pn": "SFP-1000BASE-LX",
+    "transceiver_configuration": "LR-1-SFP-1G_STRAIGHT-0x01-0x01"
+  },
+  "Ethernet28:33,Ethernet36,Ethernet40:45": {
+    "vendor_name": "Vendor/Inc",
+    "vendor_pn": "QSFP-100G-AOC-10M",
+    "transceiver_configuration": "AOC-100-QSFP-100G_STRAIGHT-0x0F-0x0F"
+  },
+  "Ethernet48": {
+    "vendor_name": "Tech-Solutions Ltd.",
+    "vendor_pn": "DAC-400G-5M",
+    "vendor_sn": "TSL2024005678",
+    "transceiver_configuration": "DAC-400-OSFP-400G_STRAIGHT-0x0F-0x0F"
+  }
+}
