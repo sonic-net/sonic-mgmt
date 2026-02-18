@@ -8,7 +8,7 @@ Run tests one at a time to isolate issues:
 import pytest
 import logging
 
-from tests.kubesonic.lib import MinikubeManager, CertManager, DutKubeConfig, KubeClient
+from tests.common.kubesonic import MinikubeManager, CertManager, DutKubeConfig, KubeClient
 
 logger = logging.getLogger(__name__)
 
