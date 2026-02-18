@@ -5,19 +5,19 @@
 This test plan outlines a comprehensive framework for testing the online insertion and removal (OIR) of CMIS compliant transceivers being onboarded to SONiC. It includes both physical OIR (where transceivers are physically inserted and removed) and remote reseat (where OIR is simulated using on-device command or script). The goal is to automate all tests listed in this document.
 
 **Optics Scope**:
-All the optics types mentioned in the [Transceiver Onboarding Test Plan](./transceiver_onboarding_test_plan.md#scope) are in scope for this test plan.
+All the optics types mentioned in the [Transceiver Onboarding Test Plan](./test_plan.md#scope) are in scope for this test plan.
 
 ## Testbed Topology
 
-Please refer to the [Testbed Topology](./transceiver_onboarding_test_plan.md#testbed-topology) section.
+Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 
 ## Test Cases
 
 **Pre-requisites for the Below Tests:**
 
-1. All the pre-requisites mentioned in [Transceiver Onboarding Test Plan](./transceiver_onboarding_test_plan.md#test-cases) must be met.
+1. All the pre-requisites mentioned in [Transceiver Onboarding Test Plan](./test_plan.md#test-cases) must be met.
 
-2. `physical_oir.json` located in `ansible/files/transceiver/inventory` directory should be present to define the attributes for the physical OIR tests. The schema is defined in [Transceiver Onboarding Test Plan](./transceiver_onboarding_test_plan.md#test-cases). Following attributes are applicable here:
+2. `physical_oir.json` located in `ansible/files/transceiver/inventory` directory should be present to define the attributes for the physical OIR tests. The schema is defined in [Transceiver Onboarding Test Plan](./test_plan.md#test-cases). Following attributes are applicable here:
 
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
@@ -30,7 +30,7 @@ Please refer to the [Testbed Topology](./transceiver_onboarding_test_plan.md#tes
 | link_flap_monitor_timeout_sec | Int | 10 | No | transceivers | The duration in seconds to monitor for link flaps after OIR operations. |
 
 
-3. `remote_reseat.json` located in `ansible/files/transceiver/inventory` directory should be present to define the attributes for the remote reseat tests. The schema is defined in [Transceiver Onboarding Test Plan](./transceiver_onboarding_test_plan.md#test-cases).
+3. `remote_reseat.json` located in `ansible/files/transceiver/inventory` directory should be present to define the attributes for the remote reseat tests. The schema is defined in [Transceiver Onboarding Test Plan](./test_plan.md#test-cases).
 
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
@@ -156,4 +156,4 @@ class PhysicalOir:
 
 #### CLI commands
 
-Refer to [CLI commands](./transceiver_onboarding_test_plan.md#cli-commands) section for the CLI commands used in the above test cases.
+Refer to [CLI commands](./test_plan.md#cli-commands) section for the CLI commands used in the above test cases.
