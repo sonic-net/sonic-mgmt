@@ -108,6 +108,7 @@ class DutKubeConfig:
             "sudo sed -i 's/--cgroup-driver=cgroupfs/--cgroup-driver=systemd/' /etc/default/kubelet",
             module_ignore_errors=True
         )
+        self.duthost.shell("sudo systemctl daemon-reload", module_ignore_errors=True)
 
     def setup(self):
         """Full DUT setup for K8s."""

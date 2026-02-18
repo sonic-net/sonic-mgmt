@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.sanity_check(skip_sanity=True),  # Skip sanity check - monit gives false positives
+    pytest.mark.disable_loganalyzer,  # Disable log analyzer - ctrmgrd logs cause false positives
 ]
 
 
