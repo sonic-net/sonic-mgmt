@@ -76,13 +76,7 @@ def common_setup_teardown(
 
     # Route rule removal is broken so config reload to cleanup for now
     # https://github.com/sonic-net/sonic-buildimage/issues/23590
-    if "pensando" in dpuhost.facts["asic_type"]:
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
-        apply_messages(localhost, duthost, ptfhost, pl.ENI_FNIC_CONFIG, dpuhost.dpu_index, False)
-        apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
-        apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
-    else:
-        config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 def test_route_bind_churn(localhost, duthost, ptfhost, dpuhosts, dpu_index):
