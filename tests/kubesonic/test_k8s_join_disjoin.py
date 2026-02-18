@@ -4,7 +4,6 @@ import time
 
 from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import get_image_type
 
 logger = logging.getLogger(__name__)
 
