@@ -33,8 +33,6 @@ class MinikubeManager:
         """Install prerequisites for minikube."""
         logger.info("Installing minikube prerequisites")
         self.vmhost.shell("sudo apt-get update && sudo apt-get install -y conntrack")
-        # Need sudo to actually set the kernel parameter
-        self.vmhost.shell("sudo sysctl fs.protected_regular=0")
 
     def download(self):
         """Download minikube binary."""
@@ -108,7 +106,8 @@ class MinikubeManager:
     def update_kubelet_config(self):
         """Update kubelet config for DUT compatibility."""
         logger.info("Updating kubelet config")
-        # Match original test approach
+        # Must set sysctl right before kubectl to avoid juju lock permission issues
+        self.vmhost.shell("sudo sysctl fs.protected_regular=0")
         tmp_file = "/tmp/kubelet-config.yaml"
         get_cmd = f"{NO_PROXY} minikube kubectl -- get cm kubelet-config-1.22 -n kube-system -o yaml"
         self.vmhost.shell(f"{get_cmd} > {tmp_file}")
