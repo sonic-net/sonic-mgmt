@@ -1154,13 +1154,6 @@ drop_packets:
     conditions:
       - "topo_type in ['m0', 'mx']"
 
-drop_packets/test_configurable_drop_counters.py::test_neighbor_link_down:
-  xfail:
-    reason: "xfail for IPv6-only topologies, issue with python max size"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19920 and '-v6-' in topo_name"
-
-
 drop_packets/test_drop_counters.py:
   xfail:
     reason: "xfail for scale topology, PTF is not stable at the scale testbed"
@@ -1468,6 +1461,12 @@ dut_console/test_console_chassis_conn.py::test_console_availability_serial_ports
     conditions:
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
       - "'t2_single_node' in topo_name"
+
+dut_console/test_console_stress.py:
+  skip:
+    reason: "Console stress test on modular chassis only supports Arista platforms. Non-Arista modular chassis are not supported."
+    conditions:
+      - "is_chassis == True and 'arista' not in hwsku.lower()"
 
 #######################################
 #####             ecmp            #####

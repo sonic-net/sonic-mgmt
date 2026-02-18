@@ -8,6 +8,7 @@ from copy import deepcopy
 from ipaddress import ip_address
 from typing import Dict, List, Union
 import yaml
+import sys
 
 CEOSLAB_INTF_LIMIT = 127  # 128, minus one for backplane interface
 BASE_VLAN_ID = 2000
@@ -266,3 +267,10 @@ def converge_testbed(input_file: str, output_file: str) -> None:
         topo = yaml.safe_load(in_file)
     converger = SonicTopoConverger(topo, output_file)
     converger.run()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python -m ceos_topo_converger <input_topo> <output_topo>")
+        sys.exit(1)
+    converge_testbed(sys.argv[1], sys.argv[2])
