@@ -85,7 +85,7 @@ class PtfGrpc:
         self.headers = {}  # Custom headers
         self.verbose = False  # Enable verbose grpcurl output
 
-    def _build_grpcurl_cmd(self, extra_args=None, service_method=None):
+    def _build_grpcurl_cmd(self, extra_args=None, service_method=None, metadata=None):
         """
         Build grpcurl command with standard options.
 
@@ -115,6 +115,16 @@ class PtfGrpc:
             "-connect-timeout", str(self.timeout),
             "-format", "json"
         ])
+
+        # Add per-call metadata headers (higher priority than self.headers)
+        if metadata:
+            if isinstance(metadata, dict):
+                items = metadata.items()
+            else:
+                items = metadata  # list of (k, v)
+
+            for name, value in items:
+                cmd.extend(["-H", f"{name}: {value}"])
 
         # Add custom headers
         for name, value in self.headers.items():
@@ -361,7 +371,7 @@ class PtfGrpc:
         logger.debug(f"Description for {symbol}: {description}")
         return description
 
-    def call_unary(self, service: str, method: str, request: Union[Dict, str] = None) -> Dict:
+    def call_unary(self, service: str, method: str, request: Union[Dict, str] = None, metadata = None) -> Dict:
         """
         Make a unary gRPC call (single request/response).
 
@@ -388,7 +398,7 @@ class PtfGrpc:
                 request_data = json.dumps(request)
             else:
                 request_data = str(request)
-        cmd = self._build_grpcurl_cmd(extra_args=extra_args, service_method=service_method)
+        cmd = self._build_grpcurl_cmd(extra_args=extra_args, service_method=service_method, metadata=metadata)
         result = self._execute_grpcurl(cmd, request_data)
 
         try:
@@ -398,7 +408,7 @@ class PtfGrpc:
         except json.JSONDecodeError as e:
             raise GrpcCallError(f"Failed to parse response from {service_method}: {e}")
 
-    def call_server_streaming(self, service: str, method: str, request: Union[Dict, str] = None) -> List[Dict]:
+    def call_server_streaming(self, service: str, method: str, request: Union[Dict, str] = None, metadata = None) -> List[Dict]:
         """
         Make a server streaming gRPC call (single request, multiple responses).
 
@@ -416,7 +426,7 @@ class PtfGrpc:
             GrpcTimeoutError: If call times out
         """
         service_method = f"{service}/{method}"
-        cmd = self._build_grpcurl_cmd(service_method=service_method)
+        cmd = self._build_grpcurl_cmd(service_method=service_method, metadata=metadata)
 
         # Prepare request data
         request_data = "{}"  # Default empty JSON
