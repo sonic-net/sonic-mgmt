@@ -1,5 +1,6 @@
 import logging
 import pytest
+import re
 import time
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait_until
@@ -188,7 +189,7 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
 
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
     asic_type = duthost.facts['asic_type']
-    if asic_type == "vs" and (failure_type == "interface" or test_type == "reboot"):
+    if (asic_type == "vs" or asic_type == "vpp") and (failure_type == "interface" or test_type == "reboot"):
         pytest.skip("BGP session test is not supported on Virtual Switch")
 
     # Skip the test if BGP or SWSS autorestart is disabled
@@ -217,22 +218,30 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     elif failure_type == "neighbor":
         for port in local_interfaces:
             neighbor_port = setup['neighhosts'][neighbor]['interface'][port]['port']
+            nbr_data = nbrhosts[neighbor_name]
+            if nbr_data.get('is_multi_vrf_peer', False):
+                offset = nbr_data['multi_vrf_data']['intf_offset']
+                intf_prefix, intf_num = re.findall(r"(\D+)(\d+)", neighbor_port)[0]
+                neighbor_port = intf_prefix + str(int(intf_num) + offset)
+
             logger.info("shutdown interface neighbor {} port {}".format(neighbor_name, neighbor_port))
             nbrhosts[neighbor_name]['host'].shutdown(neighbor_port)
             time.sleep(1)
 
     duthost.shell('show ip bgp summary', module_ignore_errors=True)
-    # default keepalive is 60 seconds, timeout 180 seconds. Hence wait for 180 seconds before timeout.
-    pytest_assert(
-        wait_until(180, 10, 0, verify_bgp_session_down, duthost, neighbor),
-        "neighbor {} state is still established".format(neighbor)
-    )
+    duthost.shell('show ipv6 bgp summary', module_ignore_errors=True)
 
     try:
+        # default keepalive is 60 seconds, timeout 180 seconds. Hence wait for 180 seconds before timeout.
+        pytest_assert(
+            wait_until(180, 10, 0, verify_bgp_session_down, duthost, neighbor),
+            "neighbor {} state is still established".format(neighbor)
+        )
+
         if test_type == "bgp_docker":
-            duthost.shell("docker restart bgp")
+            duthost.shell("systemctl restart bgp")
         elif test_type == "swss_docker":
-            duthost.shell("docker restart swss")
+            duthost.shell("systemctl restart swss")
         elif test_type == "reboot":
             # Use warm reboot for t0, cold reboot for others
             topo_name = tbinfo["topo"]["name"]
@@ -258,11 +267,22 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
         elif failure_type == "neighbor":
             for port in local_interfaces:
                 neighbor_port = setup['neighhosts'][neighbor]['interface'][port]['port']
+                nbr_data = nbrhosts[neighbor_name]
+                if nbr_data.get('is_multi_vrf_peer', False):
+                    offset = nbr_data['multi_vrf_data']['intf_offset']
+                    intf_prefix, intf_num = re.findall(r"(\D+)(\d+)", neighbor_port)[0]
+                    neighbor_port = intf_prefix + str(int(intf_num) + offset)
+
                 logger.info("no shutdown interface neighbor {} port {}".format(neighbor_name, neighbor_port))
                 nbrhosts[neighbor_name]['host'].no_shutdown(neighbor_port)
                 time.sleep(1)
 
     pytest_assert(wait_until(120, 10, 30, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
-    pytest_assert(wait_until(120, 10, 0, duthost.check_bgp_session_state, list(setup['neighhosts'].keys())),
+
+    timeout = 120
+    if test_type == "swss_docker":
+        # It may take up to 6 minutes after restarting swss for BGP sessions to be up
+        timeout = 360
+    pytest_assert(wait_until(timeout, 10, 0, duthost.check_bgp_session_state, list(setup['neighhosts'].keys())),
                   "Not all BGP sessions are established on DUT")
