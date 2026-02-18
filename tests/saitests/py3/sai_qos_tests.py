@@ -4381,7 +4381,7 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 non_marked_data = not_marked_cnt * cell_occupancy
                 assert (limit * 0.95 <= non_marked_data)
-                #If the number of packets in the queue is below the minimum threshold
+                # If the number of packets in the queue is below the minimum threshold
                 # then the packets will not be marked
                 if num_of_pkts > min_limit:
                     assert (limit * 0.03 <= marked_cnt <= limit * 0.07)

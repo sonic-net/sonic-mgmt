@@ -3235,7 +3235,6 @@ def set_queue_pir(interface, queue, rate):
                 dut_asic.command("counterpoll wredport enable")
             duthost.command("sudo config save -y")
 
-
         yield
         if duthost.sonichost.is_multi_asic:
             for duthost in get_src_dst_asic_and_duts['all_duts']:
