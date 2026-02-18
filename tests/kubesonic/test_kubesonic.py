@@ -52,9 +52,9 @@ class TestKubesonic:
             assert wait_until(60, 5, 0, pod_running_on_node), \
                 f"DaemonSet pod not running on {node_name}"
 
-            # Verify container on DUT
+            # Verify container on DUT (use docker ps without format to avoid Jinja2 escaping)
             result = duthost.shell(
-                "docker ps --format '{{.Image}}' | grep -q pause",
+                "docker ps | grep -q pause",
                 module_ignore_errors=True
             )
             assert result.get("rc", 1) == 0, "Pause container not found on DUT"
