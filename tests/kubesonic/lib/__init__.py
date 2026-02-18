@@ -1,6 +1,6 @@
 from .minikube import MinikubeManager
 from .certs import CertManager
 from .dut_kube import DutKubeConfig
-from .kube_client import KubeClient
+from .kube_client import KubeClient, wait_until
 
-__all__ = ['MinikubeManager', 'CertManager', 'DutKubeConfig', 'KubeClient']
+__all__ = ['MinikubeManager', 'CertManager', 'DutKubeConfig', 'KubeClient', 'wait_until']
