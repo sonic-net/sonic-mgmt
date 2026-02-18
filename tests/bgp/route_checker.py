@@ -238,26 +238,27 @@ def get_dut_advertised_routes(duthost, ip_ver):
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     advertised = {}
     for bgp_neigh in mg_facts['minigraph_bgp']:
-        peer_addr = bgp_neigh['peer_addr']
-        peer_ver = ipaddress.IPNetwork(peer_addr).version
-        if peer_ver != ip_ver:
+        # In minigraph_bgp, 'addr' is the neighbor's IP and 'peer_addr' is the DUT's own IP
+        neigh_addr = bgp_neigh['addr']
+        neigh_ver = ipaddress.IPNetwork(neigh_addr).version
+        if neigh_ver != ip_ver:
             continue
         if ip_ver == 4:
-            cmd = "sudo vtysh -c 'show ip bgp neighbors {} advertised-routes json'".format(peer_addr)
+            cmd = "sudo vtysh -c 'show ip bgp neighbors {} advertised-routes json'".format(neigh_addr)
         else:
-            cmd = "sudo vtysh -c 'show bgp ipv6 neighbors {} advertised-routes json'".format(peer_addr)
+            cmd = "sudo vtysh -c 'show bgp ipv6 neighbors {} advertised-routes json'".format(neigh_addr)
         res = duthost.shell(cmd, module_ignore_errors=True, verbose=False)
         if res['rc'] != 0:
             logger.warning(
                 "Failed to get advertised routes for neighbor {}: {}"
-                .format(peer_addr, res.get('stderr', '')))
+                .format(neigh_addr, res.get('stderr', '')))
             return None
         try:
             routes_json = json.loads(res['stdout'])
             prefixes = set(routes_json.get('advertisedRoutes', {}).keys())
-            advertised[peer_addr] = prefixes
+            advertised[neigh_addr] = prefixes
         except (ValueError, KeyError) as e:
-            logger.warning("Failed to parse advertised routes for neighbor {}: {}".format(peer_addr, e))
+            logger.warning("Failed to parse advertised routes for neighbor {}: {}".format(neigh_addr, e))
             return None
     return advertised
 
