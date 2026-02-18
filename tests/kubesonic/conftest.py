@@ -74,7 +74,7 @@ def dut_joined_minikube(minikube, duthost):
         pytest.skip("DUT does not have kubesonic support (ctrmgrd service not found)")
 
     setup_dut(duthost, minikube.vmhost)
-    join_cluster(duthost, minikube.vip)
+    join_cluster(duthost, minikube.vip, vmhost=minikube.vmhost)
 
     yield
 

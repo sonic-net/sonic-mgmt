@@ -33,12 +33,13 @@ def setup_dut(duthost, vmhost):
     _fix_cgroup_driver(duthost)
 
 
-def join_cluster(duthost, vip, timeout=120):
+def join_cluster(duthost, vip, vmhost=None, timeout=120):
     """Join DUT to K8s cluster.
 
     Args:
         duthost: DUT host fixture
         vip: API server VIP (usually vmhost.mgmt_ip)
+        vmhost: VM host fixture (for kubectl verification, optional)
         timeout: Max seconds to wait for join
 
     Raises:
@@ -59,12 +60,24 @@ def join_cluster(duthost, vip, timeout=120):
     duthost.shell(f"sudo config kube server ip {vip}")
     duthost.shell("sudo config kube server disable off")
 
-    # Wait for join
+    # Wait for join - verify via kubectl on vmhost if available
     start = time.time()
+    hostname = duthost.hostname
     while time.time() - start < timeout:
-        if _check_connected(duthost):
-            logger.info("DUT joined successfully")
-            return
+        if vmhost:
+            # Check via kubectl
+            result = vmhost.shell(
+                f"NO_PROXY=192.168.49.2 minikube kubectl -- get nodes {hostname}",
+                module_ignore_errors=True
+            )
+            if hostname in result.get("stdout", "") and "NotReady" not in result.get("stdout", ""):
+                logger.info("DUT joined successfully (verified via kubectl)")
+                return
+        else:
+            # Fallback: check via DUT status
+            if _check_connected(duthost):
+                logger.info("DUT joined successfully (verified via DUT status)")
+                return
         time.sleep(10)
 
     raise RuntimeError("DUT failed to join K8s cluster within timeout")
