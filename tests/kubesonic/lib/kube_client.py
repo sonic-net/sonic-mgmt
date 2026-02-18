@@ -1,31 +1,10 @@
 """Kubernetes Python client wrapper."""
 
 import logging
-import time
 from kubernetes import client, config
 from kubernetes.client.exceptions import ApiException
 
 logger = logging.getLogger(__name__)
-
-
-def wait_until(condition, timeout=60, interval=5):
-    """Wait until condition() returns truthy value.
-
-    Args:
-        condition: Callable that returns truthy value when done
-        timeout: Max seconds to wait
-        interval: Seconds between checks
-
-    Returns:
-        The truthy result from condition(), or None if timeout
-    """
-    start = time.time()
-    while time.time() - start < timeout:
-        result = condition()
-        if result:
-            return result
-        time.sleep(interval)
-    return None
 
 
 class KubeClient:
