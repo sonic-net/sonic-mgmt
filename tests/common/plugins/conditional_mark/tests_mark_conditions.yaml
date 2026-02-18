@@ -1462,6 +1462,12 @@ dut_console/test_console_chassis_conn.py::test_console_availability_serial_ports
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
       - "'t2_single_node' in topo_name"
 
+dut_console/test_console_stress.py:
+  skip:
+    reason: "Console stress test on modular chassis only supports Arista platforms. Non-Arista modular chassis are not supported."
+    conditions:
+      - "is_chassis == True and 'arista' not in hwsku.lower()"
+
 #######################################
 #####             ecmp            #####
 #######################################
