@@ -121,7 +121,9 @@ def set_do_not_care_layer(mask, layer, field_name, n=1):
 
 def inbound_pl_packets(
     config, floating_nic=False, inner_packet_type="udp", vxlan_udp_dport=4789, inner_sport=4567, inner_dport=6789,
-    vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT, vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK
+    vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT, vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK,
+    tcp_flag_syn=False, tcp_flag_ack=False, tcp_flag_fin=False,
+    tcp_seq_num=None, tcp_ack_num=None
 ):
     inner_sip = get_pl_overlay_dip(  # not a typo, inner DIP/SIP are reversed for inbound direction
         pl.PE_CA, pl.PL_OVERLAY_DIP, pl.PL_OVERLAY_DIP_MASK
@@ -141,6 +143,21 @@ def inbound_pl_packets(
     )
     inner_packet[l4_protocol_key].sport = inner_sport
     inner_packet[l4_protocol_key].dport = inner_dport
+
+    if inner_packet_type == "tcp":
+        tcp_flags = ''
+        if tcp_seq_num:
+            inner_packet[l4_protocol_key].seq = tcp_seq_num
+        if tcp_ack_num:
+            inner_packet[l4_protocol_key].ack = tcp_ack_num
+        if tcp_flag_syn:
+            tcp_flags += 'S'
+        if tcp_flag_ack:
+            tcp_flags += 'A'
+        if tcp_flag_fin:
+            tcp_flags += 'F'
+        if tcp_flags:
+            inner_packet[l4_protocol_key].flags = tcp_flags
 
     gre_packet = testutils.simple_gre_packet(
         eth_dst=config[DUT_MAC],
