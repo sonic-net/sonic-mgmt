@@ -785,6 +785,18 @@ def disable_last_ecmp_interface(duthost, ifaces):
     return
 
 
+def get_linkloss_range(ha_test_case):
+    m = re.search(r'(\d+)$', ha_test_case)
+    if not m:
+        return None
+    n = int(m.group(1))
+    if 4 <= n <= 7:
+        return "4-7"
+    elif 8 <= n <= 11:
+        return "8-11"
+    return None
+
+
 def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
 
     error_threshold = 0.01  # noqa: F841
@@ -1313,15 +1325,23 @@ def run_linkloss(duthosts, tbinfo, api, initial_cps_value, ha_test_case):
         time.sleep(30)
         logger.info("Executing acl rules drop...")
         collector.set_phase(HATestPhase.DURING_FIRST_SWITCH)
-        shutdown_link_npu_dpu(duthost, link_to_drop, tbinfo)
-        result = create_and_apply_acl_rules(  # noqa: 841
-            duthost=duthost,
-            dpu_ip="169.254.200.1",
-            npu_ip=duthost.mgmt_ip,
-            l4_src_port1="3784",
-            l4_src_port2="3784",
-            dpu_midplane_if="169.254.200.1"  # Optional, defaults to 169.254.200.1
-        )
+
+        # Select between linkloss testcases
+        r = get_linkloss_range(ha_test_case)
+        if r == "4-7":
+            shutdown_link_npu_dpu(duthost, link_to_drop, tbinfo)
+            result = create_and_apply_acl_rules(  # noqa: 841
+                duthost=duthost,
+                dpu_ip="169.254.200.1",
+                npu_ip=duthost.mgmt_ip,
+                l4_src_port1="3784",
+                l4_src_port2="3784",
+                dpu_midplane_if="169.254.200.1"  # Optional, defaults to 169.254.200.1
+            )
+        elif r == "8-11":
+            route_text = get_ip_routes(duthost)
+            protocol, interfaces = extract_bgp_interfaces(route_text)
+            disable_last_ecmp_interface(duthost, interfaces)
         time.sleep(1)
         # ha_switchTraffic(duthost, dpu_if_ips, 'dpu2')
         collector.set_phase(HATestPhase.AFTER_FIRST_SWITCH)
@@ -1340,7 +1360,8 @@ def run_linkloss(duthosts, tbinfo, api, initial_cps_value, ha_test_case):
         collector.stop_collection()
 
         # ha_switchTraffic(duthost, dpu_if_ips, 'dpu1')
-        startup_link_npu_dpu(duthost, link_to_drop, tbinfo)
+        if r == "4-7":
+            startup_link_npu_dpu(duthost, link_to_drop, tbinfo)
         logger.info("Stopping traffic...")
         cs.app.state = 'stop'
         # remove ACL rules and switch back traffic to original side
