@@ -19,11 +19,11 @@ The scope of this test plan includes the following:
 
 ## Optics Scope
 
-All the optics covered in the parent [transceiver onboarding test plan](../transceiver_onboarding_test_plan.md#scope)
+All the optics covered in the parent [transceiver onboarding test plan](test_plan.md#scope)
 
 ## Testbed Topology
 
-Please refer to the [Testbed Topology](../transceiver_onboarding_test_plan.md#testbed-topology)
+Please refer to the [Testbed Topology](test_plan.md#testbed-topology)
 
 ## Pre-requisites
 
@@ -31,8 +31,8 @@ Before executing the system tests, ensure the following pre-requisites are met:
 
 ### Setup Requirements
 
-- The testbed is set up according to the [Testbed Topology](../transceiver_onboarding_test_plan.md#testbed-topology)
-- All the pre-requisites mentioned in [Transceiver Onboarding Test Plan](../transceiver_onboarding_test_plan.md#test-cases) must be met
+- The testbed is set up according to the [Testbed Topology](test_plan.md#testbed-topology)
+- All the pre-requisites mentioned in [Transceiver Onboarding Test Plan](test_plan.md#test-prerequisites-and-configuration-files) must be met
 
 ### Environment Validation
 
@@ -71,23 +71,23 @@ The following table summarizes the key attributes used in system testing. This t
 | port_range_toggle_iterations | integer | 50 | O | transceivers or platform_hwsku_overrides | Number of iterations for port range toggle stress test |
 | port_range_test_ports | list | [] | O | dut | List of specific port names (e.g., 'Ethernet0', 'Ethernet4') to include in port range stress test. Empty list means use all available ports. |
 | port_range_startup_wait_sec | integer | 60 | O | transceivers or platform_hwsku_overrides | Wait time after port range startup |
-| xcvrd_restart_settle_sec | integer | 120 | O | HWSKU | Time to wait after xcvrd restart before checking link status |
-| pmon_restart_settle_sec | integer | 120 | O | HWSKU | Time to wait after pmon restart before verification |
-| swss_restart_settle_sec | integer | 180 | O | HWSKU | Time to wait after swss restart before verification |
-| syncd_restart_settle_sec | integer | 240 | O | HWSKU | Time to wait after syncd restart before verification |
+| xcvrd_restart_settle_sec | integer | 120 | O | hwsku | Time to wait after xcvrd restart before checking link status |
+| pmon_restart_settle_sec | integer | 120 | O | hwsku | Time to wait after pmon restart before verification |
+| swss_restart_settle_sec | integer | 180 | O | hwsku | Time to wait after swss restart before verification |
+| syncd_restart_settle_sec | integer | 240 | O | hwsku | Time to wait after syncd restart before verification |
 | expect_pmon_restart_with_swss_or_syncd | boolean | False | O | platform | Whether pmon restart is expected during swss/syncd restart |
-| config_reload_settle_sec | integer | 300 | O | HWSKU | Time to wait after config reload before link status check |
-| cold_reboot_settle_sec | integer | 400 | O | HWSKU | Time to wait after cold reboot before link status check |
-| cold_reboot_iterations | integer | 5 | O | HWSKU | Number of iterations for cold reboot stress test |
+| config_reload_settle_sec | integer | 300 | O | hwsku | Time to wait after config reload before link status check |
+| cold_reboot_settle_sec | integer | 400 | O | hwsku | Time to wait after cold reboot before link status check |
+| cold_reboot_iterations | integer | 5 | O | hwsku | Number of iterations for cold reboot stress test |
 | warm_reboot_supported | boolean | False | O | platform or hwsku | Whether platform supports warm reboot functionality |
-| warm_reboot_settle_sec | integer | 300 | O | HWSKU | Time to wait after warm reboot before verification |
-| warm_reboot_iterations | integer | 5 | O | HWSKU | Number of iterations for warm reboot stress test |
+| warm_reboot_settle_sec | integer | 300 | O | hwsku | Time to wait after warm reboot before verification |
+| warm_reboot_iterations | integer | 5 | O | hwsku | Number of iterations for warm reboot stress test |
 | fast_reboot_supported | boolean | False | O | platform or hwsku | Whether platform supports fast reboot functionality |
-| fast_reboot_settle_sec | integer | 300 | O | HWSKU | Time to wait after fast reboot before verification |
-| fast_reboot_iterations | integer | 5 | O | HWSKU | Number of iterations for fast reboot stress test |
+| fast_reboot_settle_sec | integer | 300 | O | hwsku | Time to wait after fast reboot before verification |
+| fast_reboot_iterations | integer | 5 | O | hwsku | Number of iterations for fast reboot stress test |
 | power_cycle_supported | boolean | False | O | platform or hwsku | Whether automated power cycle testing is supported (requires controllable PDU) |
-| power_cycle_settle_sec | integer | 600 | O | HWSKU | Time to wait after full power restoration before starting verification (allows hardware, optics, and services to fully initialize) |
-| power_cycle_iterations | integer | 3 | O | HWSKU | Number of power cycle iterations for recovery/stress validation |
+| power_cycle_settle_sec | integer | 600 | O | hwsku | Time to wait after full power restoration before starting verification (allows hardware, optics, and services to fully initialize) |
+| power_cycle_iterations | integer | 3 | O | hwsku | Number of power cycle iterations for recovery/stress validation |
 | transceiver_reset_supported | boolean | True | O | transceivers | Whether transceiver supports reset functionality |
 | transceiver_reset_i2c_recover_sec | integer | 5 | O | transceivers | Time to wait for I2C recovery after transceiver state changes (reset, low power mode) before verification |
 | low_power_mode_supported | boolean | False | O | transceivers | Whether transceiver supports low power mode |
@@ -104,17 +104,17 @@ The following table summarizes the key attributes used in system testing. This t
 | expected_application_code | integer | - | O | platform_hwsku_overrides | Expected application code value for the specific transceiver type, platform, and hwsku combination. When defined, the test will verify that the actual application code read from the transceiver matches this expected value. |
 | link_stability_monitor_sec | integer | 300 | O | transceivers or platform_hwsku_overrides | Duration in seconds to monitor link stability without link flaps during steady state monitoring test |
 
-For information about attribute override hierarchy and precedence, please refer to the [Transceiver Onboarding Test Plan](../transceiver_onboarding_test_plan.md#test-cases) documentation.
+For information about attribute override hierarchy and precedence, please refer to the [Priority-Based Attribute Resolution](test_plan.md#priority-based-attribute-resolution) documentation.
 
 ## CLI Commands Reference
 
-For detailed CLI commands used in the test cases below, please refer to the [CLI Commands section](../transceiver_onboarding_test_plan.md#cli-commands) in the transceiver onboarding test plan. This section provides comprehensive examples of all relevant commands
+For detailed CLI commands used in the test cases below, please refer to the [CLI Commands section](test_plan.md#cli-commands) in the transceiver onboarding test plan. This section provides comprehensive examples of all relevant commands
 
 ## Test Cases
 
 **Test Execution Prerequisites:**
 
-The following tests from the [Transceiver Onboarding Test Plan](../transceiver_onboarding_test_plan.md#test-cases) will be run prior to executing the system tests:
+The following tests from the [Transceiver Onboarding Test Plan](test_plan.md#test-cases) will be run prior to executing the system tests:
 
 - Transceiver presence check
 - Ensure active firmware is gold firmware (for non-DAC CMIS transceivers)
@@ -169,7 +169,7 @@ This procedure is used after any test that modifies transceiver state or after s
    - Verify port appears in LLDP neighbor table
    - Confirm LLDP neighbor information is correctly populated (remote device ID, port ID, etc. if applicable)
 
-3. **CMIS State Verification** (for non-DAC CMIS transceivers (can be checked via `is_non_dac_cmis` attribute))
+3. **CMIS State Verification** (for non-DAC CMIS transceivers (can be checked via `is_non_dac_and_cmis` attribute))
    - Verify DataPathState is `DPActivated` for operational ports
    - Verify ConfigState is `ConfigSuccess`
 

@@ -14,11 +14,11 @@ The scope of this test plan includes the following:
 
 ## Optics Scope
 
-All the optics covered in the parent [transceiver onboarding test plan](../transceiver_onboarding_test_plan.md#scope)
+All the optics covered in the parent [transceiver onboarding test plan](test_plan.md#scope)
 
 ## Testbed Topology
 
-Please refer to the [Testbed Topology](../transceiver_onboarding_test_plan.md#testbed-topology)
+Please refer to the [Testbed Topology](test_plan.md#testbed-topology)
 
 ## Pre-requisites
 
@@ -26,8 +26,8 @@ Before executing the EEPROM tests, ensure the following pre-requisites are met:
 
 ### Setup Requirements
 
-- The testbed is set up according to the [Testbed Topology](../transceiver_onboarding_test_plan.md#testbed-topology)
-- All the pre-requisites mentioned in [Transceiver Onboarding Test Plan](../transceiver_onboarding_test_plan.md#test-cases) must be met
+- The testbed is set up according to the [Testbed Topology](test_plan.md#testbed-topology)
+- All the pre-requisites mentioned in [Transceiver Onboarding Test Plan](test_plan.md#test-prerequisites-and-configuration-files) must be met
 
 ## Attributes
 
@@ -41,7 +41,7 @@ The following table summarizes the key attributes used in EEPROM testing. This t
 |----------------|------|---------------|-----------|-----------------|-------------|
 | dual_bank_supported | boolean | - | M | transceivers | Whether transceiver supports dual bank firmware |
 | vdm_supported | boolean | False | O | transceivers | VDM capability support |
-| pm_supported | | boolean | False | O | transceivers | Performance Monitoring support |
+| pm_supported | boolean | False | O | transceivers | Performance Monitoring support |
 | cdb_background_mode_supported | boolean | - | O | transceivers | CDB background mode support |
 | gold_firmware_version | string | - | O | transceivers | Expected gold/reference firmware version for validation. This also represents the active firmware version. This attribute is applicable only for modules with CMIS CDB firmware. |
 | inactive_firmware_version | string | - | O | transceivers | Expected inactive bank firmware version for dual-bank CMIS CDB modules during validation |
@@ -54,7 +54,7 @@ The following table summarizes the key attributes used in EEPROM testing. This t
 
 ## CLI Commands Reference
 
-For detailed CLI commands used in the test cases below, please refer to the [CLI Commands section](../transceiver_onboarding_test_plan.md#cli-commands) in the transceiver onboarding test plan. This section provides comprehensive examples of all relevant commands
+For detailed CLI commands used in the test cases below, please refer to the [CLI Commands section](test_plan.md#cli-commands) in the transceiver onboarding test plan. This section provides comprehensive examples of all relevant commands
 
 ## Test Cases
 
