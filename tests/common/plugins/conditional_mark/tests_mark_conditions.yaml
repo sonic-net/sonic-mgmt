@@ -183,7 +183,7 @@ arp/test_arp_update.py::test_kernel_asic_mac_mismatch\[.*ipv4.*\]:
     reason: "skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
-      
+
 arp/test_arp_update.py::test_ptf_arp_learns_mac:
   skip:
     reason: "Skip test_ptf_arp_learns_mac on dualtor"
@@ -5593,3 +5593,4 @@ zmq/test_gnmi_zmq.py::test_gnmi_zmq:
     conditions:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
