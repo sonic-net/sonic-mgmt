@@ -46,16 +46,33 @@ def get_tor_name(root):
 
 def find_sonic_ports():
     global tor_data, managed_files
-
     port_table = config_db_data_orig["PORT"]
     alias_map = {}
+
+    # Build alias to port name mapping
     for name, obj in port_table.items():
         alias = obj["alias"]
         alias_map[alias] = name
 
     lst_links = tor_data["links"]
     for link in lst_links:
-        link["local"]["sonic_name"] = alias_map[link["local"]["alias"]]
+        lookup_value = link["local"]["alias"]
+
+        # Check if lookup_value is a port name or an alias
+        if lookup_value in port_table:
+            # It's already a port name (e.g., "Ethernet64")
+            link["local"]["sonic_name"] = lookup_value
+        elif lookup_value in alias_map:
+            # It's an alias (e.g., "etp64"), map it to port name
+            link["local"]["sonic_name"] = alias_map[lookup_value]
+        else:
+            # Not found in either - raise error with helpful info
+            raise KeyError(
+                f"Port reference '{lookup_value}' not found. "
+                f"Available ports: {list(port_table.keys())[:10]}, "
+                f"Available aliases: {list(alias_map.keys())[:10]}"
+            )
+
         log_debug("link.local: alias={} sonic_name={}".format(
             link["local"]["alias"], link["local"]["sonic_name"]))
 

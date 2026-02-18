@@ -25,10 +25,10 @@ from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from ipaddress import IPv6Network, IPv6Address
 import ipaddress
 from random import getrandbits
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
 from tests.conftest import parse_override
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -187,29 +187,23 @@ def get_pg_dropped_packets(duthost, phys_intf, prio, asic_value=None):
     return dropped_packets
 
 
-def get_addrs_in_subnet(subnet, number_of_ip, exclude_ips=[]):
+def get_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
     """
-    Get N IP addresses in a subnet (supports both IPv4 and IPv6).
-
-    Args:
-        subnet (str): IPv4 or IPv6 subnet, e.g., '192.168.1.0/24' or '2001:db8::/32'
-        number_of_ip (int): Number of IP addresses to retrieve
-        exclude_ips (list): List of IP addresses to exclude from the result
-
-    Returns:
-        list: List of N IP addresses in this subnet, excluding specified addresses.
+    Efficiently yield N IPs from a subnet, skipping excluded IPs.
+    Handles large IPv6 subnets quickly.
     """
-    try:
-        ip_network = IPNetwork(subnet)
-        # Generate the list of usable IP addresses
-        ip_addrs = [str(ip) for ip in ip_network.iter_hosts()]
-        # Exclude provided IPs
-        ip_addrs = [ip for ip in ip_addrs if ip not in exclude_ips]
-        # Return the first 'number_of_ips' addresses
-        return ip_addrs[:number_of_ip]
-    except Exception as e:
-        print(f"Error processing subnet {subnet}: {e}")
-        return []
+    net = ipaddress.ip_network(subnet, strict=False)
+    exclude_set = set(exclude_ips) if exclude_ips else set()
+    results = []
+
+    # Calculate the first usable host (for IPv4, skip network & broadcast)
+    hosts = net.hosts() if net.version == 4 else net.hosts()
+    for addr in hosts:
+        if str(addr) not in exclude_set:
+            results.append(str(addr))
+            if len(results) == number_of_ip:
+                break
+    return results
 
 
 def get_peer_snappi_chassis(conn_data, dut_hostname):
@@ -547,8 +541,8 @@ def enable_ecn(host_ans, prio, asic_value=None):
     """
     if asic_value is None:
         host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
-        results = host_ans.shell('ecnconfig -q {}'.format(prio))
-        if re.search("queue {}: on".format(prio), results['stdout']):
+        results = host_ans.shell('sudo ecnconfig -q {} on'.format(prio))
+        if re.search("sudo ecnconfig -q {} on".format(prio), results['cmd']):
             return True
     else:
         host_ans.shell('sudo ecnconfig -n {} -q {} on'.format(asic_value, prio))
@@ -1328,12 +1322,13 @@ def start_pfcwd_fwd(duthost, asic_value=None):
                       format(asic_value))
 
 
-def clear_counters(duthost, port):
+def clear_counters(duthost, port=None, namespace=None):
     """
     Clear PFC, Queuecounters, Drop and generic counters from SONiC CLI.
     Args:
         duthost (Ansible host instance): Device under test
         port (str): port name
+        namespace (str): namespace name in case of multi asic duthost
     Returns:
         None
     """
@@ -1349,8 +1344,15 @@ def clear_counters(duthost, port):
     duthost.command("sonic-clear queue watermark all \n")
 
     if (duthost.is_multi_asic):
-        asic = duthost.get_port_asic_instance(port).get_asic_namespace()
-        duthost.command("sudo ip netns exec {} sonic-clear dropcounters \n".format(asic))
+        pytest_assert(
+            port or namespace,
+            'Cannot clear counters in case of multi asic, either port or namespace needs to be provided.'
+            )
+        if not namespace:
+            namespace = duthost.get_port_asic_instance(port).get_asic_namespace()
+        duthost.command("sudo ip netns exec {} sonic-clear dropcounters \n".format(namespace))
+    else:
+        duthost.command("sonic-clear dropcounters \n")
 
 
 def get_interface_stats(duthost, port):

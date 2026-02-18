@@ -126,6 +126,64 @@ def clear_failed_flag_and_restart(duthost, container_name):
     pytest_assert(restarted, "Failed to restart container '{}' after reset-failed was cleared".format(container_name))
 
 
+def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds=30, verify_timeout=180):
+    """
+    Restart a systemd-managed service with StartLimitHit guard.
+
+    Strategy:
+    0) Pre-detect StartLimitHit and, if present, skip a failing restart
+    1) When not rate-limited, reset-failed to clear stale counters and try restart
+    2) If restart fails, rate-limit is detected, or container isn't running:
+       - 'systemctl reset-failed <service>.service'
+       - fixed backoff (default 30s when rate-limited, 1s otherwise)
+       - 'systemctl start <service>.service'
+       - wait until container is running
+
+    Returns: True when the service is (re)started and running; asserts on failure.
+    """
+
+    # 0) Pre-detect StartLimitHit so we can optionally skip a failing restart
+    pre_rate_limited = is_hitting_start_limit(duthost, service_name)
+
+    if not pre_rate_limited:
+        # 1) Proactively clear stale failure counters and try a normal restart
+        duthost.shell(
+            f"sudo systemctl reset-failed {service_name}.service",
+            module_ignore_errors=True
+        )
+        ret = duthost.shell(
+            f"sudo systemctl restart {service_name}.service",
+            module_ignore_errors=True
+        )
+        rate_limited = is_hitting_start_limit(duthost, service_name)
+    else:
+        logger.info(
+            f"StartLimitHit pre-detected for {service_name}, applying reset-failed and "
+            f"fixed backoff {backoff_seconds}s before start"
+        )
+        # Force the recovery path below without attempting an immediate restart.
+        ret = {"rc": 1}
+        rate_limited = True
+
+    # 2/3) Recovery path: reset-failed + backoff + start if needed
+    if ret.get("rc", 1) != 0 or rate_limited or not is_container_running(duthost, service_name):
+        duthost.shell(
+            f"sudo systemctl reset-failed {service_name}.service",
+            module_ignore_errors=True
+        )
+        time.sleep(backoff_seconds if rate_limited else 1)
+        duthost.shell(
+            f"sudo systemctl start {service_name}.service",
+            module_ignore_errors=True
+        )
+        pytest_assert(
+            wait_until(verify_timeout, 1, 0, check_container_state, duthost, service_name, True),
+            f"{service_name} container did not become running after recovery start"
+        )
+
+    return True
+
+
 def get_group_program_info(duthost, container_name, group_name):
     """Gets program names, running status and their pids by analyzing the command
        output of "docker exec <container_name> supervisorctl status". Program name
@@ -375,7 +433,7 @@ def get_sai_sdk_dump_file(duthost, dump_file_name):
     cmd_gen_sdk_dump = f"docker exec syncd bash -c 'saisdkdump -f {full_path_dump_file}' "
     duthost.shell(cmd_gen_sdk_dump)
 
-    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd:{full_path_dump_file}  {full_path_dump_file}"
+    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd:{full_path_dump_file}  {full_path_dump_file}"  # noqa E231
     duthost.shell(cmd_copy_dmp_from_syncd_to_host)
 
     compressed_dump_file = f"/tmp/{dump_file_name}.tar.gz"
@@ -693,7 +751,7 @@ def get_dpu_names_and_ssh_ports(duthost, dpuhost_names, ansible_adhoc):
                        f"e.g smartswitch-01-dpu-1, smartswitch-01 is the duthost name, " \
                        f"dpu-1 is the dpu name, and 1 is the dpu index"
             dpu_name_ssh_port_dict[f"dpu{dpuhost_index}"] = str(dpu_host_ssh_port)
-    logger.info(f"dpu_name_ssh_port_dict:{dpu_name_ssh_port_dict}")
+    logger.info(f"dpu_name_ssh_port_dict: {dpu_name_ssh_port_dict}")
 
     return dpu_name_ssh_port_dict
 
@@ -711,11 +769,13 @@ def check_nat_is_enabled_and_set_cache(duthost, request):
 
 
 def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request):
+    is_bookworm = "bookworm" in duthost.shell("cat /etc/os-release")['stdout']
+    sysctl_file = "/etc/sysctl.conf" if is_bookworm else "/usr/lib/sysctl.d/90-sonic.conf"
     enable_nat_cmds = [
         "sudo su",
-        "sudo sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g' /etc/sysctl.conf",
-        "sudo echo net.ipv4.conf.eth0.forwarding=1 >> /etc/sysctl.conf",
-        "sudo sysctl -p",
+        f"sudo echo net.ipv4.ip_forward=1 >> {sysctl_file}",
+        f"sudo echo net.ipv4.conf.eth0.forwarding=1 >> {sysctl_file}",
+        f"sudo sysctl -p {sysctl_file}",
         f"sudo sonic-dpu-mgmt-traffic.sh inbound -e --dpus "
         f"{','.join(dpu_name_ssh_port_dict.keys())} --ports {','.join(dpu_name_ssh_port_dict.values())}",
         "sudo iptables-save > /etc/iptables/rules.v4",

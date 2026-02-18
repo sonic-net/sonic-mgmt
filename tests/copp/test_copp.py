@@ -35,6 +35,7 @@ from tests.common.reboot import reboot
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
 
@@ -93,12 +94,8 @@ class TestCOPP(object):
     feature_name = "bgp"
 
     @pytest.mark.parametrize("protocol", ["ARP",
-                                          "IP2ME",
-                                          "SNMP",
-                                          "SSH",
                                           "DHCP",
                                           "DHCP6",
-                                          "BGP",
                                           "LACP",
                                           "LLDP",
                                           "UDLD",
@@ -119,17 +116,20 @@ class TestCOPP(object):
                     pytest.skip("Skip UDLD test for Arista-7060x6 fanout without UDLD forward support")
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        namespace = DEFAULT_NAMESPACE
+        if duthost.is_multi_asic:
+            namespace = random.choice(duthost.asics)
 
         # Skip the check if the protocol is "Default"
         if protocol != "Default":
             trap_ids = PROTOCOL_TO_TRAP_ID.get(protocol)
             is_always_enabled, feature_name = copp_utils.get_feature_name_from_trap_id(duthost, trap_ids[0])
             if is_always_enabled:
-                pytest_assert(copp_utils.is_trap_installed(duthost, trap_ids[0]),
+                pytest_assert(copp_utils.is_trap_installed(duthost, trap_ids[0], namespace),
                               f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
             else:
                 feature_list, _ = duthost.get_feature_status()
-                trap_installed = copp_utils.is_trap_installed(duthost, trap_ids[0])
+                trap_installed = copp_utils.is_trap_installed(duthost, trap_ids[0], namespace)
                 if feature_name in feature_list and feature_list[feature_name] == "enabled":
                     pytest_assert(trap_installed,
                                   f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
@@ -142,6 +142,27 @@ class TestCOPP(object):
                      protocol,
                      copp_testbed,
                      dut_type)
+
+    @pytest.mark.parametrize("protocol", ["IP2ME",
+                                          "SNMP",
+                                          "SSH",
+                                          "BGP"])
+    def test_policer_mtu(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                         ptfhost, copp_testbed, dut_type, packet_size):
+        """
+            Validates that rate-limited COPP groups work as expected.
+
+            Checks that the policer enforces the rate limit for protocols
+            that can receive packets with different sizes and have a set rate
+            limit.
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        _copp_runner(duthost,
+                     ptfhost,
+                     protocol,
+                     copp_testbed,
+                     dut_type,
+                     packet_size=packet_size)
 
     @pytest.mark.disable_loganalyzer
     def test_trap_neighbor_miss(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -303,10 +324,13 @@ def test_verify_copp_configuration_cli(duthosts, enum_rand_one_per_hwsku_fronten
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    namespace = DEFAULT_NAMESPACE
+    if duthost.is_multi_asic:
+        namespace = random.choice(duthost.asics)
 
     trap, trap_group, copp_group_cfg = copp_utils.get_random_copp_trap_config(duthost)
-    hw_status = copp_utils.get_trap_hw_status(duthost)
-    show_copp_config = copp_utils.parse_show_copp_configuration(duthost)
+    hw_status = copp_utils.get_trap_hw_status(duthost, namespace)
+    show_copp_config = copp_utils.parse_show_copp_configuration(duthost, namespace)
 
     pytest_assert(trap in show_copp_config,
                   f"Trap {trap} not found in show copp configuration output")
@@ -403,7 +427,7 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
 
 def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
-                 ip_version="4"):    # noqa: F811
+                 ip_version="4", packet_size=100):    # noqa: F811
     """
         Configures and runs the PTF test cases.
     """
@@ -420,9 +444,11 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
               "has_trap": has_trap,
               "hw_sku": dut.facts["hwsku"],
               "asic_type": dut.facts["asic_type"],
+              "is_smartswitch": dut.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"),
               "platform": dut.facts["platform"],
               "topo_type": test_params.topo_type,
               "ip_version": ip_version,
+              "packet_size": packet_size,
               "neighbor_miss_trap_supported": test_params.neighbor_miss_trap_supported}
 
     dut_ip = dut.mgmt_ip

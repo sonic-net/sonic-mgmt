@@ -14,6 +14,8 @@ SKU_NEXTHOP_THRESHOLDS = {
     'arista-720dt-g48s4': 15,
     'nokia-m0-7215': 126,
     'nokia-7215-a1': 126,
+    'nokia-7215-a1-g48s4': 126,
+    'nokia-7215-a1-mgx-g48s4': 126,
     'nokia-7215': 126,
     'arista-7050cx3-32s-c28s4': 255,
     'Arista-7050CX3-32S-C32': 255,
