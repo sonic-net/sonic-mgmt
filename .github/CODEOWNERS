@@ -20,6 +20,9 @@ sonic-mgmt/spytest/tests/cisco @pevenkat @bhavani @rraguraj @jsanghra @akroy @sa
 
 # tests
 
+# CICD-related
+infra @whitebox/sonic-operations-team
+
 # General rules first
 sonic-mgmt/ansible @pevenkat @bhavani
 sonic-mgmt/tests @pevenkat @bhavani  # Catch-all for tests/
