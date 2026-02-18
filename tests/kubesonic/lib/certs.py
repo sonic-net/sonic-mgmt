@@ -35,9 +35,9 @@ class CertManager:
         )
         self.duthost.shell(f"mkdir -p {DUT_CERT_DIR}")
 
-        # Write certs
-        self.duthost.shell(f"cat > {DUT_CERT_DIR}/restapiserver.crt << 'EOF'\n{cert}\nEOF")
-        self.duthost.shell(f"cat > {DUT_CERT_DIR}/restapiserver.key << 'EOF'\n{key}\nEOF")
+        # Write certs - use echo -n to match original test (no trailing newline)
+        self.duthost.shell("echo -n '{}' > {}/restapiserver.crt".format(cert, DUT_CERT_DIR))
+        self.duthost.shell("echo -n '{}' > {}/restapiserver.key".format(key, DUT_CERT_DIR))
 
     def setup(self):
         """Extract and install certs."""
