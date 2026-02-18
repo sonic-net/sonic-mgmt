@@ -338,7 +338,7 @@ qos_params:
                 ecn: 1
                 num_of_pkts: 1800
                 limit: 1800
-                min_limit: 0
+                min_limit: 2000
                 cell_size: 4096
             ecn_3:
                 dscp: 3
@@ -358,7 +358,7 @@ qos_params:
                 dscp: 0
                 ecn: 1
                 num_of_pkts: 8500
-                limit: 8500
+                limit: 0
                 min_limit: 0
                 cell_size: 4096
             wrr:
@@ -723,7 +723,7 @@ qos_params:
                 ecn: 1
                 num_of_pkts: 1800
                 limit: 1800
-                min_limit: 0
+                min_limit: 2000
                 cell_size: 4096
             ecn_3:
                 dscp: 3
@@ -743,7 +743,7 @@ qos_params:
                 dscp: 0
                 ecn: 1
                 num_of_pkts: 8500
-                limit: 8500
+                limit: 0
                 min_limit: 0
                 cell_size: 4096
             wrr:
@@ -1423,7 +1423,7 @@ qos_params:
                 ecn: 1
                 num_of_pkts: 1800
                 limit: 1800
-                min_limit: 0
+                min_limit: 2000
                 cell_size: 4096
             ecn_3:
                 dscp: 3
@@ -1443,7 +1443,7 @@ qos_params:
                 dscp: 0
                 ecn: 1
                 num_of_pkts: 8500
-                limit: 8500
+                limit: 0
                 min_limit: 0
                 cell_size: 4096
             wrr:

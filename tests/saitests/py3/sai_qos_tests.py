@@ -4369,19 +4369,23 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                 # the output number format is comma seperated value,remove comma if expected marked_pkts > 999
                 if ecn_queue_status == 'off':
                     assert (marked_cnt == 0)
+                    limit = 0
                 assert (int(stdOut[0].split()[4]) == marked_cnt)
 
             assert (port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS] >= num_of_pkts)
             if ecn == 0:
                 assert (marked_cnt == 0)
-                transmitted_data = port_counters[TRANSMITTED_PKTS] * cell_occupancy
-                assert (port_counters[TRANSMITTED_OCTETS] <= limit * 1.05)
-                assert (transmitted_data >= min_limit)
+                transmitted_data = ((port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS])
+                                    * cell_occupancy)
+                assert (min_limit <= transmitted_data <= limit * 1.05)
             else:
                 non_marked_data = not_marked_cnt * cell_occupancy
-                assert (limit * 0.95 <= non_marked_data <= limit * 1.05)
-                assert (limit * 0.45 <= marked_cnt <= limit * 0.55)
-                assert (marked_cnt >= (num_of_pkts - not_marked_cnt))
+                assert (limit * 0.95 <= non_marked_data)
+                #If the number of packets in the queue is below the minimum threshold
+                # then the packets will not be marked
+                if num_of_pkts > min_limit:
+                    assert (limit * 0.03 <= marked_cnt <= limit * 0.07)
+                    assert (marked_cnt >= (num_of_pkts - not_marked_cnt))
 
                 for cntr in ingress_counters:
                     assert (port_counters[cntr] == port_counters_base[cntr])
