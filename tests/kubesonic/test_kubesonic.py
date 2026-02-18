@@ -57,7 +57,7 @@ class TestKubesonic:
                 "docker ps --format '{{.Image}}' | grep -q pause",
                 module_ignore_errors=True
             )
-            assert result["rc"] == 0, "Pause container not found on DUT"
+            assert result.get("rc", 1) == 0, "Pause container not found on DUT"
 
         finally:
             # Remove label to clean up
@@ -101,6 +101,6 @@ class TestKubesonic:
 
     def test_kube_server_status(self, duthost, dut_joined_minikube):
         """Verify DUT shows connected status."""
-        result = duthost.shell("show kube server")
+        result = duthost.shell("show kube server status")
         assert "true" in result["stdout"].lower(), \
             "DUT not showing connected status"
