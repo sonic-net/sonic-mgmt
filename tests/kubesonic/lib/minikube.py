@@ -33,8 +33,8 @@ class MinikubeManager:
         """Install prerequisites for minikube."""
         logger.info("Installing minikube prerequisites")
         self.vmhost.shell("sudo apt-get update && sudo apt-get install -y conntrack")
-        # Must match original test - no sudo for sysctl
-        self.vmhost.shell("sysctl fs.protected_regular=0")
+        # Need sudo to actually set the kernel parameter
+        self.vmhost.shell("sudo sysctl fs.protected_regular=0")
 
     def download(self):
         """Download minikube binary."""
