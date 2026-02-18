@@ -41,7 +41,8 @@ container_name_mapping = {
 }
 
 existing_systemd_services = [
-    "telemetry"
+    "telemetry",
+    "acms"
 ]
 
 
