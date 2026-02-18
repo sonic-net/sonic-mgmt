@@ -57,3 +57,23 @@ class KubeClient:
         if label_selector:
             kwargs["label_selector"] = label_selector
         return self.v1.list_namespaced_pod(**kwargs).items
+
+    def label_node(self, name, labels):
+        """Add labels to a node.
+
+        Args:
+            name: Node name
+            labels: Dict of labels to add
+        """
+        body = {"metadata": {"labels": labels}}
+        return self.v1.patch_node(name, body)
+
+    def unlabel_node(self, name, label_keys):
+        """Remove labels from a node.
+
+        Args:
+            name: Node name
+            label_keys: List of label keys to remove
+        """
+        body = {"metadata": {"labels": {k: None for k in label_keys}}}
+        return self.v1.patch_node(name, body)
