@@ -573,3 +573,138 @@ def test_lag_db_status_with_po_update(duthosts, teardown, enum_dut_portchannel_w
             pytest_assert(wait_until(60, 1, 0, check_link_is_up, duthost, asichost, po_intf, port_info, lag_name),
                           "{} member {}'s admin_status or oper_status in state_db is not up."
                           .format(lag_name, po_intf))
+
+
+def check_lacp_statistics(lag_name, po_intf, duthost, cleared):
+    # Verifying lacp statistics
+    lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
+    if cleared:
+        pytest_assert(int(lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['statistics']
+                      ['lacpdu_rx_stats']) == 0 and int(lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]
+                      ['runner']['statistics']['lacpdu_tx_stats']) == 0,
+                      "Some issue with clearing the statistics for lag{} lag_member {}".format(lag_name, po_intf))
+    else:
+        pytest_assert(int(lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]['runner']['statistics']
+                      ['lacpdu_rx_stats']) != 0 and int(lag_facts['lags'][lag_name]['po_stats']['ports'][po_intf]
+                      ['runner']['statistics']['lacpdu_tx_stats']) != 0,
+                      "Some issue with lag statistics {}lag_member {}".format(lag_name, po_intf))
+
+
+def test_lag_lacp_statistics(duthosts, enum_dut_portchannel_with_completeness_level):
+    # Testing lacp statistics for porchannel memeber
+    dut_name, dut_lag = decode_dut_port_name(enum_dut_portchannel_with_completeness_level)
+    logger.info("Start test_lag_lacp_statistics test on dut {}".format(dut_name))
+    duthost = get_duthost_with_name(duthosts, dut_name)
+    if duthost is None:
+        pytest.fail("Failed with duthost is not found for dut name {}.".format(dut_name))
+    test_lags = []
+    try:
+        lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
+        test_lags = lag_facts['names']
+
+        # Verifying that LACP statistics counters
+        for lag_name in list(test_lags.keys())[:1]:  # Limiting to one LAG for test
+            for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items())[:1]:
+                # 1. Capture current LACP Rx and Tx statistics
+                before_rx_stats = int(lag_facts['lags'][lag_name]['po_stats']
+                                      ['ports'][po_intf]['runner']['statistics']['lacpdu_rx_stats'])
+                before_tx_stats = int(lag_facts['lags'][lag_name]['po_stats']
+                                      ['ports'][po_intf]['runner']['statistics']['lacpdu_tx_stats'])
+                # 2. Wait to allow LACP PDUs to be exchanged
+                time.sleep(60)
+                # 3. Capture statistics again after delay
+                lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
+                after_rx_stats = int(lag_facts['lags'][lag_name]['po_stats']
+                                     ['ports'][po_intf]['runner']['statistics']['lacpdu_rx_stats'])
+                after_tx_stats = int(lag_facts['lags'][lag_name]['po_stats']
+                                     ['ports'][po_intf]['runner']['statistics']['lacpdu_tx_stats'])
+                # 4. Validate that counters have incremented
+                pytest_assert((after_rx_stats > before_rx_stats) and (after_tx_stats > before_tx_stats),
+                              "LACP statistics did not increment as expected for lag {} lag_member {}"
+                              .format(lag_name, po_intf))
+
+        # Testing for specific portchannel member
+        for lag_name in list(test_lags.keys())[:1]:  # Limit to first PortChannel for test
+            namespace_id = lag_facts['lags'][lag_name]['po_namespace_id']
+            if namespace_id:
+                asic_index = int(lag_facts['lags'][lag_name]['po_namespace_id'])
+            else:
+                asic_index = DEFAULT_ASIC_ID
+            asichost = duthost.asic_instance(asic_index)
+            # Iterate over the first member interface of the PortChannel
+            for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items())[:1]:
+                # 1. Shut down the member interface to stop LACP traffic
+                duthost.shell("sudo config interface shutdown {}".format(po_intf))
+                # 2. Confirm that LACP statistics are non-zero before clearing
+                check_lacp_statistics(lag_name, po_intf, duthost, False)
+                # 3. Clear LACP statistics for this specific member
+                asichost.clear_portchannel_statistics(lag_name, po_intf)
+                # 4. Verify that LACP stats are cleared (i.e., counters are zero)
+                check_lacp_statistics(lag_name, po_intf, duthost, True)
+                # 5. Start the interface again to resume LACP exchange
+                duthost.shell("sudo config interface startup {}".format(po_intf))
+                # 6. Wait for LACP to settle
+                time.sleep(1)
+                # 7. Confirm that LACP stats begin incrementing again after restart
+                check_lacp_statistics(lag_name, po_intf, duthost, False)
+
+        # Testing for specific portchannel
+        # 1. Select the first PortChannel for testing
+        for lag_name in list(test_lags.keys())[:1]:
+            # a. Shut down all member interfaces of the selected PortChannel
+            for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items()):
+                duthost.shell("sudo config interface shutdown {}".format(po_intf))
+                # b. Verify that statistics are present before clearing
+                check_lacp_statistics(lag_name, po_intf, duthost, False)
+            # 2. Clear statistics for the entire PortChannel
+            asichost.clear_portchannel_statistics(lag_name, None)
+            # 3. Verify that statistics are cleared (set to 0) for all members
+            for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items()):
+                check_lacp_statistics(lag_name, po_intf, duthost, True)
+        # 4. For remaining PortChannels, ensure statistics are still present (not affected)
+        for lag_name in list(test_lags.keys())[1:]:
+            for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items()):
+                check_lacp_statistics(lag_name, po_intf, duthost, False)
+        # 5. Bring member interfaces of the first PortChannel back up and verify recovery
+        for lag_name in list(test_lags.keys())[:1]:
+            for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items()):
+                duthost.shell("sudo config interface startup {}".format(po_intf))
+                time.sleep(1)
+                check_lacp_statistics(lag_name, po_intf, duthost, False)
+
+        # Testing LACP statistics clearing across all PortChannels
+        # 1. Shutdown all member interfaces of all PortChannels
+        for lag_name in list(test_lags.keys()):
+            for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items()):
+                duthost.shell("sudo config interface shutdown {}".format(po_intf))
+                # Verify that stats are present before clearing
+                check_lacp_statistics(lag_name, po_intf, duthost, False)
+        # 2. Clear LACP statistics (for all PortChannels and members)
+        asichost.clear_portchannel_statistics(None, None)
+        # 3. Verify that statistics have been cleared (reset to 0)
+        for lag_name in list(test_lags.keys()):
+            for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items()):
+                check_lacp_statistics(lag_name, po_intf, duthost, True)
+        # 4. Start up all member interfaces and verify LACP resumes correctly
+        for lag_name in list(test_lags.keys()):
+            for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items()):
+                duthost.shell("sudo config interface startup {}".format(po_intf))
+                time.sleep(1)
+                check_lacp_statistics(lag_name, po_intf, duthost, False)
+    finally:
+        # Recover interfaces in case of failure
+        lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
+        for lag_name in test_lags:
+            namespace_id = lag_facts['lags'][lag_name]['po_namespace_id']
+            if namespace_id:
+                asic_index = int(lag_facts['lags'][lag_name]['po_namespace_id'])
+            else:
+                asic_index = DEFAULT_ASIC_ID
+            asichost = duthost.asic_instance(asic_index)
+            for po_intf, port_info in list(lag_facts['lags'][lag_name]['po_stats']['ports'].items()):
+                if port_info['link']['up']:
+                    logger.info("{} of {} is up, ignore it.".format(po_intf, lag_name))
+                    continue
+                else:
+                    logger.info("Interface {} of {} is down, no shutdown to recover it.".format(po_intf, lag_name))
+                    asichost.startup_interface(po_intf)
