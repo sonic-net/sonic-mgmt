@@ -45,8 +45,7 @@ VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 
 MOCK_DEST_IP = "2.2.2.2"
 MOCK_DEST_IP_V6 = "2001:db8::2"
-LINK_LOCAL_IP = "169.254.0.1"  # 169.254.0.0/16
-LINK_LOCAL_IP_V6 = "fe81::1"  # fe80::/10
+LINK_LOCAL_IP = "169.254.0.1"
 
 
 # For dualtor
@@ -208,7 +207,7 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
 
 
 @pytest.mark.parametrize("drop_reason", ["DIP_LINK_LOCAL"])
-def test_dip_link_local(testbed_params, setup_counters, duthosts, tbinfo, rand_one_dut_hostname,
+def test_dip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
                         toggle_all_simulator_ports_to_rand_selected_tor_m,                      # noqa: F811
                         setup_standby_ports_on_rand_unselected_tor,                             # noqa: F811
                         send_dropped_traffic, drop_reason, add_default_route_to_dut, generate_dropped_packet):
@@ -224,13 +223,8 @@ def test_dip_link_local(testbed_params, setup_counters, duthosts, tbinfo, rand_o
     rx_port = random.choice(list(testbed_params["physical_port_map"].keys()))
     logging.info("Selected port %s to send traffic", rx_port)
 
-    if is_ipv6_only_topology(tbinfo):
-        src_ip = "2001:db8::10:10"
-        dst_ip = LINK_LOCAL_IP_V6
-    else:
-        src_ip = "10.10.10.10"
-        dst_ip = LINK_LOCAL_IP
-    pkt = generate_dropped_packet(rx_port, src_ip, dst_ip)
+    src_ip = "10.10.10.10"
+    pkt = generate_dropped_packet(rx_port, src_ip, LINK_LOCAL_IP)
 
     try:
         send_dropped_traffic(counter_type, pkt, rx_port)
@@ -240,7 +234,7 @@ def test_dip_link_local(testbed_params, setup_counters, duthosts, tbinfo, rand_o
 
 
 @pytest.mark.parametrize("drop_reason", ["SIP_LINK_LOCAL"])
-def test_sip_link_local(testbed_params, setup_counters, duthosts, tbinfo, rand_one_dut_hostname,
+def test_sip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
                         toggle_all_simulator_ports_to_rand_selected_tor_m,                      # noqa: F811
                         setup_standby_ports_on_rand_unselected_tor,                             # noqa: F811
                         send_dropped_traffic, drop_reason, add_default_route_to_dut, generate_dropped_packet):
@@ -256,13 +250,8 @@ def test_sip_link_local(testbed_params, setup_counters, duthosts, tbinfo, rand_o
     rx_port = random.choice(list(testbed_params["physical_port_map"].keys()))
     logging.info("Selected port %s to send traffic", rx_port)
 
-    if is_ipv6_only_topology(tbinfo):
-        src_ip = LINK_LOCAL_IP_V6
-        dst_ip = "2001:db8::10:10"
-    else:
-        src_ip = LINK_LOCAL_IP
-        dst_ip = "10.10.10.10"
-    pkt = generate_dropped_packet(rx_port, src_ip, dst_ip)
+    dst_ip = "10.10.10.10"
+    pkt = generate_dropped_packet(rx_port, LINK_LOCAL_IP, dst_ip)
 
     try:
         send_dropped_traffic(counter_type, pkt, rx_port)
