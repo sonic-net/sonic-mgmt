@@ -1,3 +1,17 @@
+"""
+AST-based impacted test detector used by CI.
+
+High-level flow:
+1. Read changed files from git diff (`target_branch...feature_branch`).
+2. Map changed lines to Python functions using AST line ranges.
+3. For each changed function, ask `analyze_impact.py` to find dependent tests.
+4. Independently detect non-function changes (imports, dynamic imports, globals).
+5. Escalate to full-suite execution for high-impact conditions
+    (infrastructure files, autouse fixture changes, risky import patterns, conftest changes).
+6. Apply static module dependency expansion from `test_dependencies.json`.
+7. Emit compact JSON to stdout for pipeline consumption.
+"""
+
 import argparse
 import subprocess
 import os
@@ -17,7 +31,18 @@ logger.setLevel(logging.DEBUG)
 
 def map_lines_to_functions(file_path):
     """
-    Map each line number in a Python file to the function it belongs to.
+    Build a line-to-function lookup for a Python file.
+
+    The mapping includes decorator lines so decorator-only edits (for example
+    changing `@pytest.fixture(autouse=True)`) are still attributed to the
+    underlying function.
+
+    Args:
+        file_path: Python file path in the workspace.
+
+    Returns:
+        Dict[int, str]: `line_number -> function_name`.
+        Returns an empty dict if the file cannot be parsed.
     """
     line_to_function = {}
     try:
@@ -28,83 +53,176 @@ def map_lines_to_functions(file_path):
         return line_to_function
 
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef):
-            for i in range(node.lineno, getattr(node, 'end_lineno', node.lineno + 1)):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            start_line = node.lineno
+            if node.decorator_list:
+                start_line = min(dec.lineno for dec in node.decorator_list)
+
+            end_line = getattr(node, 'end_lineno', node.lineno)
+            for i in range(start_line, end_line + 1):
                 line_to_function[i] = node.name
 
     return line_to_function
 
 
-def get_changed_functions(file_path, target_branch, feature_branch):
+def get_changed_new_lines(file_path, target_branch, feature_branch):
     """
-    Get the list of functions that have changed in a Python file between two branches.
+    Parse unified git diff and return changed line numbers on the "new" side.
+
+    This function tracks hunk positions (`@@ -old,+new @@`) and advances old/new
+    cursors line-by-line to compute exact line numbers in the feature branch
+    version. That precision avoids the common pitfall of guessing changed ranges.
+
+    Why this matters:
+    - Function attribution depends on exact new-file line numbers.
+    - Decorator-only and small edits are easy to miss with coarse heuristics.
+
+    Args:
+        file_path: File path to diff.
+        target_branch: Base branch ref (for example `origin/master`).
+        feature_branch: Head ref/sha being analyzed.
+
+    Returns:
+        Tuple[Set[int], str]:
+            - set of changed line numbers in the new file
+            - raw diff text (used by higher-level non-function scanners)
     """
     try:
-        # Get the diff of the file between the two branches
         diff_output = subprocess.check_output(
             ["git", "diff", f"{target_branch}...{feature_branch}", "--", file_path],
             universal_newlines=True
         )
     except subprocess.CalledProcessError as e:
         logger.error(f"Error running git diff for {file_path}: {e}")
-        return []
+        return set(), ""
 
+    changed_new_lines = set()
+    old_line = None
+    new_line = None
+
+    for line in diff_output.splitlines():
+        if line.startswith("@@"):
+            try:
+                parts = line.split(" ")
+                old_range = parts[1]  # -<start>,<count>
+                new_range = parts[2]  # +<start>,<count>
+                old_line = int(old_range[1:].split(",")[0])
+                new_line = int(new_range[1:].split(",")[0])
+            except (IndexError, ValueError):
+                old_line = None
+                new_line = None
+            continue
+
+        if old_line is None or new_line is None:
+            continue
+
+        if line.startswith("+") and not line.startswith("+++"):
+            changed_new_lines.add(new_line)
+            new_line += 1
+        elif line.startswith("-") and not line.startswith("---"):
+            old_line += 1
+        else:
+            old_line += 1
+            new_line += 1
+
+    return changed_new_lines, diff_output
+
+
+def get_changed_functions(file_path, target_branch, feature_branch):
+    """
+    Determine which functions were touched in a file between two revisions.
+
+    Strategy:
+    - Compute exact changed new-file lines from git diff.
+    - Map those lines to function definitions from AST.
+
+    Args:
+        file_path: Python file being analyzed.
+        target_branch: Base branch ref.
+        feature_branch: Head ref/sha.
+
+    Returns:
+        List[str]: Unique function names with at least one changed line.
+    """
     # Map line numbers to functions
     line_to_function = map_lines_to_functions(file_path)
     changed_functions = set()
+    changed_new_lines, _ = get_changed_new_lines(file_path, target_branch, feature_branch)
 
-    # Parse the diff output to find changed lines
-    for line in diff_output.splitlines():
-        if line.startswith("@@"):  # Diff hunk header
-            # Extract the line range from the hunk header
-            parts = line.split(" ")
-            if len(parts) > 2:
-                line_info = parts[2]  # Example: "+12,5"
-                if line_info.startswith("+"):
-                    start_line = int(line_info[1:].split(",")[0])
-                    for i in range(start_line, start_line + 5):  # Assume 5 lines in the hunk
-                        if i in line_to_function:
-                            changed_functions.add(line_to_function[i])
-        elif line.startswith("+") or line.startswith("-"):  # Detect changes
-            # Use the line number to find the function it belongs to
-            # This is handled by the hunk header logic above
-            continue
+    for line_number in changed_new_lines:
+        function_name = line_to_function.get(line_number)
+        if function_name:
+            changed_functions.add(function_name)
 
     return list(changed_functions)
 
 
 def get_changed_non_function_parts(file_path, target_branch, feature_branch):
     """
-    Detect changes to imports, global variables, or other non-function parts of a Python file.
+    Detect top-level/non-call-graph-sensitive changes in a Python file.
+
+    The call-graph analyzer is excellent for function-body changes, but some
+    changes impact runtime behavior without explicit call edges. This function
+    captures those classes of changes from diff text:
+    - import statements (`import`, `from ... import ...`)
+    - dynamic import patterns (`importlib`, `__import__`, module spec loading)
+    - global assignments
+
+    Args:
+        file_path: Python file being analyzed.
+        target_branch: Base branch ref.
+        feature_branch: Head ref/sha.
+
+    Returns:
+        Dict[str, List[str]] with keys:
+        - `imports`
+        - `globals`
+        - `dynamic_imports`
     """
-    try:
-        # Get the diff of the file between the two branches
-        diff_output = subprocess.check_output(
-            ["git", "diff", f"{target_branch}...{feature_branch}", "--", file_path],
-            universal_newlines=True
-        )
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Error running git diff for {file_path}: {e}")
-        return {"imports": [], "globals": []}
+    changed_new_lines, diff_output = get_changed_new_lines(file_path, target_branch, feature_branch)
+    if diff_output == "" and not changed_new_lines:
+        return {"imports": [], "globals": [], "dynamic_imports": []}
 
     changed_imports = set()
     changed_globals = set()
+    changed_dynamic_imports = set()
 
     for line in diff_output.splitlines():
-        if line.startswith("+") and not line.startswith("+++"):  # Added lines
+        if (line.startswith("+") and not line.startswith("+++")) or (line.startswith("-") and not line.startswith("---")):  # noqa: E501
             stripped_line = line[1:].strip()
             if stripped_line.startswith("import ") or stripped_line.startswith("from "):
                 changed_imports.add(stripped_line)
+            if (
+                "importlib.import_module(" in stripped_line
+                or "__import__(" in stripped_line
+                or "importlib.util.spec_from_file_location(" in stripped_line
+            ):
+                changed_dynamic_imports.add(stripped_line)
             elif "=" in stripped_line and not stripped_line.startswith("def ") and not stripped_line.startswith("class "):  # noqa: E501
                 # Detect global variable assignments
                 changed_globals.add(stripped_line.split("=")[0].strip())
 
-    return {"imports": list(changed_imports), "globals": list(changed_globals)}
+    return {
+        "imports": list(changed_imports),
+        "globals": list(changed_globals),
+        "dynamic_imports": list(changed_dynamic_imports)
+    }
 
 
 def invoke_analyze_impact(function_name, directory, trace=False):
     """
-    Invoke the analyze_impact.py script for a given function name.
+    Execute `analyze_impact.py` for one changed function and parse JSON output.
+
+    This keeps function-level dependency logic isolated in `analyze_impact.py`
+    while this script focuses on diff interpretation and CI decisions.
+
+    Args:
+        function_name: Changed function to analyze.
+        directory: Root directory to scan (typically `tests`).
+        trace: Enable verbose analyzer logging.
+
+    Returns:
+        Dict/None: Parsed analyzer response, or `None` on subprocess failure.
     """
     script_path = os.path.join(os.path.dirname(__file__), "analyze_impact.py")
     command = ["python", script_path, "--function_name", function_name, "--directory", directory]
@@ -122,8 +240,10 @@ def invoke_analyze_impact(function_name, directory, trace=False):
 
 def is_infrastructure_file(file_path):
     """
-    Check if a file is part of infrastructure that affects all tests.
-    Infrastructure changes require running the full test suite.
+    Decide whether a changed file should force full-suite execution.
+
+    Infrastructure files can alter broad test execution semantics, so they are
+    treated as global-impact changes and bypass fine-grained call-graph routing.
 
     Note: tests/common is NOT included here because AST-based analysis
     can precisely detect which tests depend on changed common code.
@@ -158,15 +278,24 @@ def is_infrastructure_file(file_path):
 
 def has_autouse_fixture(file_path, function_name):
     """
-    Check if a function in a file is a pytest fixture with autouse=True.
-    Autouse fixtures affect all tests and require running the full test suite.
+    Check if the named function is a pytest fixture with `autouse=True`.
+
+    Autouse fixtures can implicitly affect many or all tests, so any detected
+    change is treated as high impact and can trigger full-suite selection.
+
+    Args:
+        file_path: Python file containing the candidate function.
+        function_name: Function name identified from changed lines.
+
+    Returns:
+        bool: True if the function is an autouse fixture, else False.
     """
     try:
         with open(file_path, 'r') as f:
             tree = ast.parse(f.read())
 
         for node in tree.body:
-            if isinstance(node, ast.FunctionDef) and node.name == function_name:
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name == function_name:
                 # Check if it has @pytest.fixture decorator
                 for decorator in node.decorator_list:
                     # Handle @pytest.fixture(autouse=True)
@@ -175,8 +304,18 @@ def has_autouse_fixture(file_path, function_name):
                            (hasattr(decorator.func, 'id') and decorator.func.id == 'fixture'):
                             # Check for autouse=True in keywords
                             for keyword in decorator.keywords:
-                                if keyword.arg == 'autouse' and \
-                                   isinstance(keyword.value, ast.Constant) and keyword.value.value is True:
+                                if keyword.arg != 'autouse':
+                                    continue
+
+                                is_true_autouse = (
+                                    isinstance(keyword.value, ast.Constant) and keyword.value.value is True
+                                ) or (
+                                    hasattr(ast, 'NameConstant')
+                                    and isinstance(keyword.value, ast.NameConstant)
+                                    and keyword.value.value is True
+                                )
+
+                                if is_true_autouse:
                                     return True
     except (SyntaxError, FileNotFoundError) as e:
         logger.error(f"Error checking autouse fixture in {file_path}: {e}")
@@ -186,8 +325,16 @@ def has_autouse_fixture(file_path, function_name):
 
 def collect_all_tests(directory):
     """
-    Collect all test files in the tests directory.
-    Used when infrastructure files change and we need to run all tests.
+    Collect all discoverable test files under the target directory.
+
+    This is used by conservative fallback paths (global-impact changes) where
+    precision is intentionally traded for safety.
+
+    Args:
+        directory: Root test directory to walk.
+
+    Returns:
+        List[str]: Paths to `test_*.py` files, excluding helper-only folders.
     """
     all_tests = []
     tests_path = directory
@@ -204,6 +351,16 @@ def collect_all_tests(directory):
                 all_tests.append(full_path)
 
     return all_tests
+
+
+def is_conftest_file(file_path):
+    """
+    Check whether the changed file is a pytest `conftest.py`.
+
+    `conftest.py` can alter fixture behavior for large test scopes, therefore
+    it is treated as high-impact in the main decision flow.
+    """
+    return os.path.basename(file_path) == "conftest.py"
 
 
 if __name__ == "__main__":
@@ -279,8 +436,28 @@ if __name__ == "__main__":
 
         # Detect changes to imports and global variables
         changed_non_function_parts = get_changed_non_function_parts(file_path, args.target_branch, args.feature_branch)
-        if changed_non_function_parts["imports"] or changed_non_function_parts["globals"]:
+        if (
+            changed_non_function_parts["imports"]
+            or changed_non_function_parts["globals"]
+            or changed_non_function_parts["dynamic_imports"]
+        ):
             logger.info(f"File {file_path} has changes in non-function parts.")
+            should_run_full_suite = (
+                is_conftest_file(file_path)
+                or bool(changed_non_function_parts["dynamic_imports"])
+                or bool(changed_non_function_parts["imports"] and not file_path.startswith("tests"))
+            )
+
+            if should_run_full_suite:
+                logger.info(
+                    f"Detected high-impact import/dynamic-import/conftest change in {file_path}. "
+                    "Running full test suite."
+                )
+                all_tests = collect_all_tests(args.directory)
+                consolidated_results = {"tests": all_tests, "others": []}
+                print(json.dumps(consolidated_results, separators=(',', ':')))
+                sys.exit(0)
+
             if file_path.startswith("tests"):
                 consolidated_results["tests"].append(file_path)
             else:
@@ -288,6 +465,8 @@ if __name__ == "__main__":
 
             if changed_non_function_parts["imports"]:
                 logger.info(f"Changed imports in {file_path}: {changed_non_function_parts['imports']}")
+            if changed_non_function_parts["dynamic_imports"]:
+                logger.info(f"Changed dynamic imports in {file_path}: {changed_non_function_parts['dynamic_imports']}")
             if changed_non_function_parts["globals"]:
                 logger.info(f"Changed global variables in {file_path}: {changed_non_function_parts['globals']}")
 
