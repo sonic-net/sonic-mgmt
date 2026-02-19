@@ -262,14 +262,6 @@ def remove_and_restart_container(memory_checker_dut_and_container):
     container.post_check()
 
 
-def get_test_container(duthost):
-    test_container = "gnmi"
-    cmd = "docker images | grep -w sonic-telemetry"
-    if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-        test_container = "telemetry"
-    return test_container
-
-
 @pytest.fixture
 def memory_checker_dut_and_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Perform some checks and return applicable duthost and container name
@@ -283,9 +275,7 @@ def memory_checker_dut_and_container(duthosts, enum_rand_one_per_hwsku_frontend_
         (duthost, container)
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
-    container_name = get_test_container(duthost)
-    container = MemoryCheckerContainer(container_name, duthost)
+    container = MemoryCheckerContainer("gnmi", duthost)
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
                    and (("20191130" in duthost.os_version and
