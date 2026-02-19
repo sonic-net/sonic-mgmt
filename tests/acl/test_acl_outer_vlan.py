@@ -670,7 +670,7 @@ def skip_sonic_leaf_fanout(fanouthosts):
                 asic_type in ["broadcom", "mellanox", "cisco-8000", "marvell", "marvell-teralynx"]
                 or platform in ["armhf-nokia_ixs7215_52x-r0"]
             ):
-                pytest.skip("Not supporteds on SONiC leaf-fanout platform")
+                pytest.skip("Not supported on SONiC leaf-fanout platform")
 
 
 class TestAclVlanOuter_Ingress(AclVlanOuterTest_Base):
