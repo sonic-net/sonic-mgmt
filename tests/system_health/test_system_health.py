@@ -542,13 +542,26 @@ class ConfigFileContext:
 
     def __enter__(self):
         """
-        Back up original system health config file and replace it with the given one.
+        Back up original system health config and merge updates from source file.
+        This should preserve platform-specific settings like led_color.
         :return:
         """
         self.dut.command(
             'mv -f {} {}'.format(self.origin_config, self.backup_config))
-        self.dut.copy(src=os.path.join(FILES_DIR, self.src),
-                      dest=self.origin_config)
+
+        output = self.dut.command('cat {}'.format(self.backup_config))
+        origin = json.loads(output['stdout'])
+
+        with open(self.src, 'r') as f:
+            updates = json.load(f)
+
+        # Preserve platform-specific settings if it exists in the original config
+        if 'led_color' in origin:
+            updates.pop('led_color', None)
+
+        origin.update(updates)
+
+        self.dut.copy(content=json.dumps(origin, indent=4), dest=self.origin_config)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """
