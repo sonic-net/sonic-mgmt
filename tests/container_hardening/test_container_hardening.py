@@ -38,7 +38,8 @@ def get_base_container_name(container_name):
     return container_name
 
 
-def test_container_block_device_mounted(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index, enum_dut_feature):
+def test_container_block_device_mounted(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
+                                        enum_dut_feature):
     """
     Test only containers allowed have access to block devices such as /dev/vda*, /dev/sda*, /dev/nvme0n1*
     """
