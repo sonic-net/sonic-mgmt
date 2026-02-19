@@ -1685,11 +1685,11 @@ def multi_base_traffic_config(testbed_config,
     base_flow_config["rx_port_config"] = rx_port_config
 
     # Instantiate peer ports in dut_port_config
-    dut_port_config = []
+    dut_port_config = {"Tx": [], "Rx": []}
     tx_dict = {str(tx_port_config.peer_port): []}
     rx_dict = {str(rx_port_config.peer_port): []}
-    dut_port_config.append(tx_dict)
-    dut_port_config.append(rx_dict)
+    dut_port_config["Tx"].append(tx_dict)
+    dut_port_config["Rx"].append(rx_dict)
     base_flow_config["dut_port_config"] = dut_port_config
 
     base_flow_config["tx_mac"] = tx_port_config.mac
