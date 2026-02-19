@@ -1,6 +1,7 @@
 import logging
 import re
 import ast
+import json
 
 from tests.common.utilities import wait_until
 
@@ -55,15 +56,23 @@ def build_dash_ha_set_args(fields):
     version = str(fields["version"])
     if version.endswith(".0"):
         version = version[:-2]
-
+    vdpu_ids = fields.get("vdpu_ids", ["vdpu0_0", "vdpu1_0"])
+    if isinstance(vdpu_ids, list):
+        vdpu_ids_str = json.dumps(vdpu_ids)
+    elif isinstance(vdpu_ids, str):
+        # If already a JSON string, use as-is
+        vdpu_ids_str = vdpu_ids
+    else:
+        raise TypeError(f"vdpu_ids must be list or string, got {type(vdpu_ids)}")
+    standalone_index = fields.get("preferred_standalone_vdpu_index", 0)
     return (
         f'version \\"{version}\\" '
         f'vip_v4 "{fields["vip_v4"]}" '
         f'vip_v6 "{fields["vip_v6"]}" '
         f'scope "{fields["scope"]}" '
         f'preferred_vdpu_id "{fields["preferred_vdpu_id"]}" '
-        f'preferred_standalone_vdpu_index 0 '
-        f'vdpu_ids \'["vdpu0_0","vdpu1_0"]\''
+        f'preferred_standalone_vdpu_index {standalone_index} '
+        f'vdpu_ids \'{vdpu_ids_str}\' '
     )
 
 
@@ -98,42 +107,52 @@ def extract_pending_operations(text):
     return list(zip(types, ids))
 
 
-def get_pending_operation_id(duthost, scope_key, expected_op_type, timeout=60):
+def get_pending_operation_id(duthost, scope_key, expected_op_type):
     """
-    scope_key example: vdpu0_0:haset0_0
-    expected_op_type example: ACTIVATE_ROLE
+    Get pending operation ID from HA scope (single query, no retry).
+
+    Args:
+        duthost: DUT host object
+        scope_key: HA scope key (e.g., "vdpu0_0:haset0_0")
+        expected_op_type: Expected operation type (e.g., "activate_role")
+
+    Returns:
+        str: Pending operation ID if found, None otherwise
     """
     cmd = (
         "docker exec dash-hadpu0 swbus-cli show hamgrd actor "
         f"/hamgrd/0/ha-scope/{scope_key}"
     )
 
-    """
-    Wait until the expected pending_operation_id appears.
-    """
-    pending_id = None
-
-    def _condition():
-        nonlocal pending_id
+    try:
         res = duthost.shell(cmd)
+
+        if res.get("rc", 0) != 0:
+            logger.debug(
+                f"{duthost.hostname} Command failed for scope {scope_key}: "
+                f"{res.get('stderr', '')}"
+            )
+            return None
+
         pending_ops = extract_pending_operations(res["stdout"])
 
         for op_type, op_id in pending_ops:
             if op_type == expected_op_type:
-                pending_id = op_id
-                break
-        return pending_id is not None
+                logger.debug(
+                    f"{duthost.hostname} Found pending_operation_id {op_id} "
+                    f"for scope {scope_key}"
+                )
+                return op_id
 
-    interval = 2
-    success = wait_until(
-        timeout,
-        interval,
-        0,           # REQUIRED delay argument
-        _condition,  # condition callable
-    )
-    if not success:
-        logger.warning(f"{duthost.hostname} Timeout waiting for pending operation ID for scope {scope_key}")
-    return pending_id if success else None
+        logger.debug(
+            f"{duthost.hostname} No {expected_op_type} operation found. "
+            f"Available: {pending_ops}"
+        )
+        return None
+
+    except Exception as e:
+        logger.debug(f"{duthost.hostname} Exception: {e}")
+        return None
 
 
 def build_dash_ha_scope_activate_args(fields, pending_id):
@@ -173,7 +192,7 @@ def verify_ha_state(
     return success
 
 
-def activate_primary_dash_ha(duthost, scope_key):
+def activate_primary_dash_ha(duthost, scope_key, expected_op_type):
     """
     Activate Role using pending_operation_ids
     """
@@ -184,10 +203,10 @@ def activate_primary_dash_ha(duthost, scope_key):
                 "ha_set_id": "haset0_0",
                 "owner": "dpu",
             }
-    return activate_dash_ha(duthost, scope_key, fields)
+    return activate_dash_ha(duthost, scope_key, fields, expected_op_type)
 
 
-def activate_secondary_dash_ha(duthost, scope_key):
+def activate_secondary_dash_ha(duthost, scope_key, expected_op_type):
     """
     Activate Role using pending_operation_ids
     """
@@ -198,10 +217,10 @@ def activate_secondary_dash_ha(duthost, scope_key):
                 "ha_set_id": "haset0_0",
                 "owner": "dpu",
             }
-    return activate_dash_ha(duthost, scope_key, fields)
+    return activate_dash_ha(duthost, scope_key, fields, expected_op_type)
 
 
-def activate_dash_ha(duthost, scope_key, fields):
+def activate_dash_ha(duthost, scope_key, fields, expected_op_type):
 
     proto_utils_hset(
             duthost,
@@ -210,7 +229,7 @@ def activate_dash_ha(duthost, scope_key, fields):
             args=build_dash_ha_scope_args(fields),
         )
 
-    pending_id = get_pending_operation_id(duthost, scope_key, timeout=60)
+    pending_id = get_pending_operation_id(duthost, scope_key, expected_op_type, timeout=60)
     assert pending_id, (
         f"Timed out waiting for active pending_operation_id "
         f"for scope {scope_key}"

@@ -17,7 +17,7 @@ from tests.common.ha.smartswitch_ha_helper import (
     add_static_route_to_dut
 )
 
-from ha_utils import (
+from tests.ha.ha_utils import (
 
     build_dash_ha_scope_args,
     wait_for_pending_operation_id,
@@ -426,7 +426,8 @@ def setup_ha_config(duthosts):
 
 @pytest.fixture(scope="module")
 def setup_dash_ha_from_json(duthosts):
-    base_dir = "/data/tests/common/ha"
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(current_dir, "..", "common", "ha")
     ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
 
     with open(ha_set_file) as f:
