@@ -363,6 +363,30 @@ def is_conftest_file(file_path):
     return os.path.basename(file_path) == "conftest.py"
 
 
+def validate_python_syntax(file_path):
+    """
+    Validate that a Python source file can be parsed.
+
+    This guard is used as a CI safety check. If a modified Python file has
+    invalid syntax, impact analysis is unreliable and we fall back to running
+    the full test suite.
+
+    Args:
+        file_path: Path to a Python source file.
+
+    Returns:
+        Tuple[bool, str]:
+            - True/False indicating parse success
+            - Empty string on success, or parse error message on failure
+    """
+    try:
+        with open(file_path, 'r') as f:
+            ast.parse(f.read(), filename=file_path)
+        return True, ""
+    except (SyntaxError, FileNotFoundError) as e:
+        return False, str(e)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Detect changed functions and invoke analyze_impact.py.")
     parser.add_argument("--modified_files", type=str, nargs="+", required=True, help="List of modified files.")
@@ -385,6 +409,27 @@ if __name__ == "__main__":
     logger.info(f"Modified files: {args.modified_files}")
     logger.info(f"Feature branch: {args.feature_branch}")
     logger.info(f"Target branch: {args.target_branch}")
+
+    # Safety guard: if any modified Python file has syntax errors,
+    # skip fine-grained analysis and run full suite.
+    syntax_errors = []
+    for file_path in args.modified_files:
+        if not file_path.endswith('.py'):
+            continue
+
+        is_valid, error_msg = validate_python_syntax(file_path)
+        if not is_valid:
+            syntax_errors.append((file_path, error_msg))
+
+    if syntax_errors:
+        logger.error("Syntax error detected in modified Python file(s). Falling back to full test suite.")
+        for file_path, error_msg in syntax_errors:
+            logger.error(f"  - {file_path}: {error_msg}")
+        all_tests = collect_all_tests(args.directory)
+        consolidated_results = {"tests": all_tests, "others": []}
+        logger.info(f"Collected {len(all_tests)} tests from full test suite")
+        print(json.dumps(consolidated_results, separators=(',', ':')))
+        sys.exit(0)
 
     # Check if any infrastructure files were modified
     has_infrastructure_changes = any(is_infrastructure_file(f) for f in args.modified_files)

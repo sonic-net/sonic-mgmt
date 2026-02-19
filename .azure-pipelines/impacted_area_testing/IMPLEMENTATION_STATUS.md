@@ -18,7 +18,7 @@ This document explains how the **AST-based impacted area algorithm** behaves for
 | Non-Python file in general | File extension check (`.py`) | Skipped in function-level analysis |
 | Direct edit in a test file function (`tests/**/test_*.py`) | Changed lines mapped to function; call graph lookup | Select impacted test files returned by call graph logic |
 | Edit in shared Python helper used by tests (for example under `tests/common`) | Changed function → dependent callers/tests via `analyze_impact.py` | Select tests that depend on changed function(s) |
-| Python syntax error in changed file | AST parse failure during mapping/checks | Function-level mapping may be empty for that file; other changed files still process |
+| Python syntax error in changed file | Upfront parse validation on all changed `.py` files | **Run full test suite** (safe fallback; no silent misses) |
 | Change to normal import statement (`import ...` / `from ... import ...`) in a **test** file | Diff scanner classifies as non-function import change | Changed test file is added to impacted tests |
 | Change to normal import statement in a **non-test Python** file | Diff scanner classifies as import change | **Run full test suite** (conservative global-impact fallback) |
 | Change to dynamic import usage (`importlib.import_module`, `__import__`, `spec_from_file_location`) | Diff scanner classifies as dynamic import change | **Run full test suite** |
