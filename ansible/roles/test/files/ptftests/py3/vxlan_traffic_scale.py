@@ -197,12 +197,7 @@ class VXLANScaleTest(BaseTest):
         if total > 0:
             self.fail(f"MAC+VNI validation failed ({total} failures).")
 
-    def runTest(self):
-        self.logger.info("Starting VXLAN scale TCP verification test...")
-        self.dataplane.flush()
-        if self.mac_vni_per_vnet:
-            return self.run_mac_vni_per_vnet_test()
-
+    def run_endpoint_test(self):
         # Track failures per VNET
         failures = {vnet_name: 0 for vnet_name in self.vnet_ptf_map}
 
@@ -241,3 +236,11 @@ class VXLANScaleTest(BaseTest):
             self.fail(f"VXLAN verification failed with {total_failures} packet misses")
         else:
             self.logger.info("VXLANScaleTest completed successfully.")
+
+    def runTest(self):
+        self.logger.info("Starting VXLAN scale TCP verification test...")
+        self.dataplane.flush()
+        if self.mac_vni_per_vnet:
+            return self.run_mac_vni_per_vnet_test()
+        else:
+            return self.run_endpoint_test()        
