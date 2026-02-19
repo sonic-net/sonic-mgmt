@@ -340,10 +340,11 @@ def ntp_server_set_intf(duthost, ntp_service, src_intf):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_ntp_server_change_source_intf(rand_selected_dut):
+# For T2 devices, don't run this on the sup, since Loopback0 doesn't exist.
+def test_ntp_server_change_source_intf(rand_selected_front_end_dut):
     """ Test changing the source interface via GCU
     """
-    ntp_service = get_ntp_service_name(rand_selected_dut)
+    ntp_service = get_ntp_service_name(rand_selected_front_end_dut)
 
-    ntp_server_set_intf(rand_selected_dut, ntp_service, "Loopback0")
-    ntp_server_set_intf(rand_selected_dut, ntp_service, "eth0")
+    ntp_server_set_intf(rand_selected_front_end_dut, ntp_service, "Loopback0")
+    ntp_server_set_intf(rand_selected_front_end_dut, ntp_service, "eth0")
