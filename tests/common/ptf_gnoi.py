@@ -28,121 +28,91 @@ class PtfGnoi:
             grpc_client: PtfGrpc instance for low-level gRPC operations
         """
         self.grpc_client = grpc_client
-        logger.info(f"Initialized PtfGnoi wrapper with {grpc_client}")
+        logger.info("Initialized PtfGnoi wrapper with %s", grpc_client)
 
     def system_time(self) -> Dict:
-        """
-        Get the current system time from the device.
-
-        Returns:
-            Dictionary containing:
-            - time: Nanoseconds since Unix epoch (int)
-
-        Raises:
-            GrpcConnectionError: If connection fails
-            GrpcCallError: If the gRPC call fails
-            GrpcTimeoutError: If the call times out
-        """
+        """Get the current system time from the device."""
         logger.debug("Getting system time via gNOI System.Time")
-
-        # Make the low-level gRPC call
         response = self.grpc_client.call_unary("gnoi.system.System", "Time")
 
-        # Convert time string to int for consistency
         if "time" in response:
             try:
                 response["time"] = int(response["time"])
-                logger.debug(f"System time: {response['time']} ns")
-            except (ValueError, TypeError) as e:
-                logger.warning(f"Failed to convert time to int: {e}")
+                logger.debug("System time: %s ns", response["time"])
+            except (ValueError, TypeError) as exc:
+                logger.warning("Failed to convert time to int: %s", exc)
 
         return response
 
-    # File service operations
-    # TODO: Add file_get(), file_put(), file_remove() methods
-    # These are left for future implementation when gNOI File service is stable
-
     def file_stat(self, remote_file: str) -> Dict:
-        """
-        Get file statistics from the device.
-
-        Args:
-            remote_file: Path to the file on the device
-
-        Returns:
-            File statistics including size, permissions, timestamps
-
-        Raises:
-            GrpcConnectionError: If connection fails
-            GrpcCallError: If the gRPC call fails
-            GrpcTimeoutError: If the call times out
-            FileNotFoundError: If the file doesn't exist
-        """
-        logger.debug(f"Getting file stats from device: {remote_file}")
-
+        """Get file statistics from the device."""
+        logger.debug("Getting file stats from device: %s", remote_file)
         request = {"path": remote_file}
 
         try:
             response = self.grpc_client.call_unary("gnoi.file.File", "Stat", request)
 
-            # Convert numeric strings to proper types for consistency
             if "stats" in response and isinstance(response["stats"], list):
                 for stat in response["stats"]:
-                    # Convert numeric fields from strings to integers
                     for field in ["last_modified", "permissions", "size", "umask"]:
                         if field in stat:
                             try:
                                 stat[field] = int(stat[field])
-                            except (ValueError, TypeError) as e:
-                                logger.warning(f"Failed to convert {field} to int: {e}")
+                            except (ValueError, TypeError) as exc:
+                                logger.warning(
+                                    "Failed to convert %s to int: %s", field, exc
+                                )
 
-            logger.info(f"Successfully got file stats: {remote_file}")
+            logger.info("Successfully got file stats: %s", remote_file)
             return response
 
-        except Exception as e:
-            if "not found" in str(e).lower() or "no such file" in str(e).lower():
-                raise FileNotFoundError(f"File not found: {remote_file}") from e
+        except Exception as exc:
+            low = str(exc).lower()
+            if "not found" in low or "no such file" in low:
+                raise FileNotFoundError(f"File not found: {remote_file}") from exc
             raise
+
+    def kill_process(self, name: str, restart: bool = False, signal="SIGNAL_TERM") -> Dict:
+        """
+        Kill (and optionally restart) a process/service via gNOI System.KillProcess.
+
+        NOTE:
+        grpcurl JSON->proto mapping is most reliable when enums are passed as
+        their string names (e.g., "SIGNAL_TERM"), not numeric values.
+        """
+        # Normalize TERM representations to the enum name expected by grpcurl mapping.
+        if isinstance(signal, int):
+            # Keep non-1 ints as-is for negative tests, but map 1 => SIGNAL_TERM
+            signal = "SIGNAL_TERM" if signal == 1 else signal
+        elif isinstance(signal, str):
+            low = signal.strip().lower()
+            if low in ("sigterm", "term", "signal_term", "1"):
+                signal = "SIGNAL_TERM"
+
+        logger.debug(
+            "Calling gNOI System.KillProcess: name=%s restart=%s signal=%s",
+            name,
+            restart,
+            signal,
+        )
+        request = {"name": name, "restart": restart, "signal": signal}
+        return self.grpc_client.call_unary("gnoi.system.System", "KillProcess", request)
+
+    def upgrade_status(self, upgrade_id: str) -> Dict:
+        """Get the status of an upgrade operation from the device."""
+        logger.debug("Getting upgrade status for Upgrade ID: %s", upgrade_id)
+        request = {"id": upgrade_id}
+
+        response = self.grpc_client.call_unary("gnoi.upgrade.Upgrade", "Status", request)
+
+        if "status" not in response:
+            raise ValueError("Missing 'status' in upgrade status response")
+
+        logger.debug("Received upgrade status response: %s", response)
+        return response
 
     def __str__(self):
         return f"PtfGnoi(grpc_client={self.grpc_client})"
 
     def __repr__(self):
         return self.__str__()
-
-    def upgrade_status(self, upgrade_id: str) -> Dict:
-        """
-        Get the status of an upgrade operation from the device.
-
-        Args:
-            upgrade_id: Identifier for the upgrade operation
-
-        Returns:
-            Dictionary containing the upgrade status details
-
-        Raises:
-            GrpcConnectionError: If connection fails
-            GrpcCallError: If the gRPC call fails
-            GrpcTimeoutError: If the call times out
-            ValueError: If required fields in the response are not valid
-        """
-        logger.debug(f"Getting upgrade status for Upgrade ID: {upgrade_id}")
-
-        # Build the request payload
-        request = {"id": upgrade_id}
-
-        try:
-            # Make the gRPC call
-            response = self.grpc_client.call_unary("gnoi.upgrade.Upgrade", "Status", request)
-
-            # Validate and process the response
-            if "status" in response:
-                logger.debug(f"Received upgrade status response: {response}")
-            else:
-                raise ValueError("Missing 'status' in upgrade status response")
-
-            return response
-
-        except Exception as e:
-            logger.error(f"Error while getting upgrade status: {e}")
-            raise

@@ -1,13 +1,18 @@
+import logging
 from functools import wraps
+
 import pytest
+
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.platform.processes_utils import wait_critical_processes
 
 pytest_plugins = ["tests.common.fixtures.grpc_fixtures"]  # noqa: F401
 
+
+logger = logging.getLogger(__name__)
+
 SIGNAL_TERM = "SIGNAL_TERM"
-SIGNAL_INVALID = "SIGNAL_KILL"  # intentionally invalid enum name for negative test
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -15,16 +20,14 @@ pytestmark = [
 ]
 
 
-def _apply_shell_wrapper():
-    """
-    Wrap `shell` methods for classes to handle literal docker format tokens.
-    """
+def _apply_shell_wrapper() -> None:
     jinja_literal = "{{.Names}}"
     safe_replacement = "{% raw %}{{.Names}}{% endraw %}"
 
-    def _wrap_class_shell(cls):
+    def _wrap_class_shell(cls) -> None:
         if not cls or getattr(cls, "_gnxi_shell_wrapped", False):
             return
+
         orig_shell = getattr(cls, "shell", None)
         if not callable(orig_shell):
             return
@@ -41,13 +44,11 @@ def _apply_shell_wrapper():
         setattr(cls, "shell", wrapped_shell)
         setattr(cls, "_gnxi_shell_wrapped", True)
 
-    candidates = [
+    for path in [
         "tests.common.devices.sonic.MultiAsicSonicHost",
         "tests.common.devices.sonic.SonicHost",
         "pytest_ansible.host.Host",
-    ]
-
-    for path in candidates:
+    ]:
         try:
             mod_path, cls_name = path.rsplit(".", 1)
             mod = __import__(mod_path, fromlist=[cls_name])
@@ -60,36 +61,20 @@ def _apply_shell_wrapper():
 _apply_shell_wrapper()
 
 
-def _kill_process(ptf_gnoi, name: str, restart: bool = False, signal: str = SIGNAL_TERM):
-    """
-    Wrap gNOI System.KillProcess by invoking the high-level utility.
-
-    Args:
-        ptf_gnoi: PtfGnoi instance to perform operations
-        name: Name of the process to kill
-        restart: Whether to restart the process
-        signal: Signal to use (default: SIGNAL_TERM)
-
-    Returns:
-        ret: 0 on success, non-zero on failure
-        msg: Response message or error
-    """
+def _kill_process(ptf_gnoi, name: str, restart: bool = False, signal=SIGNAL_TERM):
+    logger.info(
+        "gNOI KillProcess request: name=%r restart=%r signal=%r",
+        name,
+        restart,
+        signal,
+    )
     try:
-        # Use the gNOI utility instead of direct call_unary usage
-        response = ptf_gnoi.upgrade_status(name)
-        return 0, str(response)
-    except Exception as e:
-        return 1, str(e)
-
-
-@pytest.fixture(autouse=True)
-def _skip_if_killprocess_not_supported(ptf_gnoi):
-    """
-    Skip the test if KillProcess API is not supported.
-    """
-    ret, msg = _kill_process(ptf_gnoi, name="gnmi", restart=False, signal=SIGNAL_TERM)
-    if ret != 0 and ("Service or method not found" in msg or "Code: Unimplemented" in msg) and "Dbus" not in msg:
-        pytest.skip(f"KillProcess not supported in this environment: {msg}")
+        resp = ptf_gnoi.kill_process(name=name, restart=restart, signal=signal)
+        logger.info("gNOI KillProcess response: %s", resp)
+        return 0, str(resp) if resp is not None else ""
+    except Exception as exc:
+        logger.error("gNOI KillProcess error: %s", exc)
+        return 1, str(exc)
 
 
 @pytest.mark.parametrize(
@@ -100,41 +85,141 @@ def _skip_if_killprocess_not_supported(ptf_gnoi):
         ("", False, "Dbus stop_service called with no service specified"),
         ("snmp", True, ""),
         ("dhcp_relay", True, ""),
+        ("radv", True, ""),
+        ("restapi", True, ""),
+        ("lldp", True, ""),
+        ("sshd", True, ""),
+        ("pmon", True, ""),
+        ("rsyslog", True, ""),
+        ("telemetry", True, ""),
     ],
 )
-def test_gnoi_killprocess_then_restart(duthosts, rand_one_dut_hostname, ptf_gnoi, process, is_valid, expected_msg):
+def test_gnoi_killprocess_then_restart(
+    duthosts,
+    rand_one_dut_hostname,
+    ptf_gnoi,
+    process,
+    is_valid,
+    expected_msg,
+):
     duthost = duthosts[rand_one_dut_hostname]
 
-    if process and not duthost.is_host_service_running(process):
+    if is_valid and process and not duthost.is_host_service_running(process):
         pytest.skip(f"{process} is not running")
 
-    ret, msg = _kill_process(ptf_gnoi, name=process, restart=False, signal=SIGNAL_TERM)
+    ret, msg = _kill_process(ptf_gnoi, name=process, restart=False)
 
     if is_valid:
-        pytest_assert(ret == 0, f"KillProcess API unexpectedly reported failure: {msg}")
+        pytest_assert(
+            ret == 0,
+            f"KillProcess API unexpectedly reported failure: {msg}",
+        )
         pytest_assert(
             not is_container_running(duthost, process),
             f"{process} found running after KillProcess reported success",
         )
 
-        ret, msg = _kill_process(ptf_gnoi, name=process, restart=True, signal=SIGNAL_TERM)
-        pytest_assert(ret == 0, f"KillProcess API unexpectedly failed when restarting {process}: {msg}")
-        pytest_assert(duthost.is_host_service_running(process), f"{process} not running after API restart")
-
+        ret, msg = _kill_process(ptf_gnoi, name=process, restart=True)
+        pytest_assert(
+            ret == 0,
+            (
+                "KillProcess API unexpectedly reported failure when "
+                f"attempting to restart {process}: {msg}"
+            ),
+        )
+        pytest_assert(
+            duthost.is_host_service_running(process),
+            f"{process} not running after KillProcess reported successful restart",
+        )
     else:
-        pytest_assert(ret != 0, "KillProcess API unexpectedly succeeded with invalid parameters")
+        pytest_assert(
+            ret != 0,
+            "KillProcess API unexpectedly succeeded with invalid request parameters",
+        )
         pytest_assert(expected_msg in msg, f"Unexpected error message: {msg}")
 
     wait_critical_processes(duthost)
-    pytest_assert(duthost.critical_services_fully_started, "System unhealthy after gNOI API request")
+    pytest_assert(
+        duthost.critical_services_fully_started,
+        "System unhealthy after gNOI API request",
+    )
+
+
+@pytest.mark.parametrize(
+    "restart_value,should_be_running_after",
+    [
+        (True, True),
+        (False, False),
+    ],
+)
+def test_gnoi_killprocess_restart(
+    duthosts,
+    rand_one_dut_hostname,
+    ptf_gnoi,
+    restart_value,
+    should_be_running_after,
+):
+    """
+    Verify the restart parameter behavior in KillProcess API.
+
+    Tests that restart=True brings the service back up, and restart=False
+    leaves it down.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    process = "snmp"
+
+    if not duthost.is_host_service_running(process):
+        pytest.skip(f"{process} is not running")
+
+    ret, msg = _kill_process(ptf_gnoi, name=process, restart=restart_value)
+    pytest_assert(
+        ret == 0,
+        f"KillProcess API unexpectedly reported failure: {msg}",
+    )
+
+    # Check if service state matches expectations based on restart parameter
+    is_running = is_container_running(duthost, process)
+    pytest_assert(
+        is_running == should_be_running_after,
+        f"After KillProcess with restart={restart_value}: "
+        f"expected running={should_be_running_after}, got running={is_running}",
+    )
+
+    # If service was stopped, restart it for cleanup
+    if not should_be_running_after:
+        ret, msg = _kill_process(ptf_gnoi, name=process, restart=True)
+        pytest_assert(
+            ret == 0,
+            f"Failed to restart {process} for cleanup: {msg}",
+        )
+
+    wait_critical_processes(duthost)
+    pytest_assert(
+        duthost.critical_services_fully_started,
+        "System unhealthy after gNOI API request",
+    )
 
 
 def test_invalid_signal(duthosts, rand_one_dut_hostname, ptf_gnoi):
     duthost = duthosts[rand_one_dut_hostname]
 
-    ret, msg = _kill_process(ptf_gnoi, name="snmp", restart=True, signal=SIGNAL_INVALID)
-    pytest_assert(ret != 0, "KillProcess API unexpectedly succeeded with invalid signal")
-    pytest_assert("invalid" in msg.lower() or "enum" in msg.lower(), f"Unexpected error message: {msg}")
+    ret, msg = _kill_process(
+        ptf_gnoi,
+        name="snmp",
+        restart=True,
+        signal="SIGNAL_KILL",
+    )
+    pytest_assert(
+        ret != 0,
+        "KillProcess API unexpectedly succeeded with invalid request parameters",
+    )
+    pytest_assert(
+        "KillProcess only supports SIGNAL_TERM (option 1)" in msg,
+        f"Unexpected error message in response to invalid gNOI request: {msg}",
+    )
 
     wait_critical_processes(duthost)
-    pytest_assert(duthost.critical_services_fully_started, "System unhealthy after gNOI API request")
+    pytest_assert(
+        duthost.critical_services_fully_started,
+        "System unhealthy after gNOI API request",
+    )

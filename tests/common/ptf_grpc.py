@@ -164,6 +164,17 @@ class PtfGrpc:
             logger.debug(f"Executing: {cmd_str}")
             result = self.ptfhost.command(cmd_str, module_ignore_errors=True)
 
+        logger.info("grpcurl rc=%s", result.get("rc"))
+        logger.info("grpcurl stdout=%s", result.get("stdout"))
+        logger.info("grpcurl stderr=%s", result.get("stderr"))
+
+        if result.get("rc", 1) == 0:
+            logger.debug(
+                "grpcurl succeeded rc=%s stdout=%s stderr=%s",
+                result.get("rc"), result.get("stdout", ""), result.get("stderr", ""),
+            )
+            return result
+
         # Analyze errors and provide specific exceptions
         if result['rc'] != 0:
             stderr = result['stderr']
@@ -181,10 +192,13 @@ class PtfGrpc:
             ]):
                 raise GrpcTimeoutError(f"Operation timed out after {self.timeout}s: {stderr}")
 
-            # Service/method not found
-            if any(term in stderr.lower() for term in [
-                'unknown service', 'unknown method', 'not found',
-                'unimplemented', 'service not found'
+            low = stderr.lower()
+            if any(term in low for term in [
+                "unknown service",
+                "unknown method",
+                "server does not expose service",
+                "symbol not found",
+                "service not found",
             ]):
                 raise GrpcCallError(f"Service or method not found: {stderr}")
 
@@ -379,7 +393,7 @@ class PtfGrpc:
             GrpcTimeoutError: If call times out
         """
         service_method = f"{service}/{method}"
-        cmd = self._build_grpcurl_cmd(service_method=service_method)
+        cmd = self._build_grpcurl_cmd(extra_args=["-d", "@"], service_method=service_method)
 
         # Prepare request data
         request_data = "{}"  # Default empty JSON
@@ -389,6 +403,10 @@ class PtfGrpc:
             else:
                 request_data = str(request)
 
+        logger.info("PtfGrpc.call_unary: %s", service_method)
+        logger.info("PtfGrpc.call_unary: request_data=%s", request_data)
+        logger.info("PtfGrpc.call_unary: cmd=%s", " ".join(cmd))
+        logger.info("grpcurl unary %s/%s request_json=%s", service, method, request_data)
         result = self._execute_grpcurl(cmd, request_data)
 
         try:
