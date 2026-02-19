@@ -13,8 +13,6 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.utilities import wait_until
 from tests.common.fixtures.ptfhost_utils import skip_traffic_test  # noqa: F401
 
-# comment to test impact area testing
-
 pytestmark = [
     pytest.mark.topology("t0", "t1", "m0", "mx", "m1"),
     pytest.mark.device_type('vs')

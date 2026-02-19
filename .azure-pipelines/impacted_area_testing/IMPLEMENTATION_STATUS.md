@@ -1,38 +1,363 @@
-# Impacted Area Algorithm: Behavior by PR Change Type
+# Impacted Area Algorithm: Empirical Case Matrix
 
-This document explains how the **AST-based impacted area algorithm** behaves for common PR change patterns.
+This report uses **patch-based case simulation** (`test_locally.sh --patch`) so each case runs with only the case patch and avoids branch-drift contamination.
 
-## 1) Decision Flow (Simple)
+## 1) Run Context
 
-1. Pipeline collects changed files from `merge-base..HEAD`.
-2. If AST path is selected, `detect_function_changes.py` analyzes modified files.
-3. The analyzer uses function-level AST + call graph (`analyze_impact.py`) for precise test selection.
-4. For high-risk/global-impact changes, it intentionally falls back to **run full test suite**.
-5. Final selected tests are expanded by `test_dependencies.json` (module dependency rules).
+- Target branch: `origin/master`
+- Mode: `patch-based`
+- Cases executed: `15`
+- Full raw outputs: `impact_case_results.json`
 
-## 2) Behavior Matrix (Change Type → Result)
+## 2) Summary Table
 
-| PR change type | How code detects it | Current behavior |
-|---|---|---|
-| Only docs / markdown / text changes | Non-`.py` files are skipped by analyzer | **No tests selected by AST analyzer** (empty impacted list) |
-| Non-Python file in general | File extension check (`.py`) | Skipped in function-level analysis |
-| Direct edit in a test file function (`tests/**/test_*.py`) | Changed lines mapped to function; call graph lookup | Select impacted test files returned by call graph logic |
-| Edit in shared Python helper used by tests (for example under `tests/common`) | Changed function → dependent callers/tests via `analyze_impact.py` | Select tests that depend on changed function(s) |
-| Python syntax error in changed file | Upfront parse validation on all changed `.py` files | **Run full test suite** (safe fallback; no silent misses) |
-| Change to normal import statement (`import ...` / `from ... import ...`) in a **test** file | Diff scanner classifies as non-function import change | Changed test file is added to impacted tests |
-| Change to normal import statement in a **non-test Python** file | Diff scanner classifies as import change | **Run full test suite** (conservative global-impact fallback) |
-| Change to dynamic import usage (`importlib.import_module`, `__import__`, `spec_from_file_location`) | Diff scanner classifies as dynamic import change | **Run full test suite** |
-| Change to global variable assignment at module level | Diff scanner detects non-function global assignment | File added as impacted artifact (`tests/*` goes to tests, others to non-test bucket) |
-| Change to fixture function (`@pytest.fixture`) | Function change detected and analyzed via call graph + fixture usage graph in `analyze_impact.py` | Select tests using that fixture (directly/indirectly where resolvable) |
-| Change to **autouse** fixture (`@pytest.fixture(autouse=True)`) | Changed line maps to function (including decorator lines), then autouse check | **Run full test suite** |
-| Change in `conftest.py` non-function area (imports/globals/etc.) | `conftest.py` special check in non-function handling | **Run full test suite** |
-| Infrastructure changes (`ansible/**`, `tests/scripts/**`, `tests/run_tests.sh`, `setup-container.sh`) | Infrastructure path matcher | **Run full test suite** immediately |
-| Changes inside `.azure-pipelines/impacted_area_testing/**` | Explicitly excluded from infrastructure-trigger rule | No automatic full-suite trigger from this rule alone |
-| PR has pre-defined impact area parameters | Pipeline parameter shortcut (`IMPACT_AREA_INFO`) | Skip analysis and use provided impacted set |
+| Case | Changed file | Impacted tests | Impacted others | `test_locally.sh` |
+|---|---|---:|---:|---|
+| `docs_only_change` | `README.md` | 0 | 0 | `ok` (`0`) |
+| `non_python_general_change` | `pyproject.toml` | 0 | 0 | `ok` (`0`) |
+| `direct_test_function_change` | `tests/acl/test_acl.py` | 1 | 0 | `ok` (`0`) |
+| `common_function_change` | `tests/common/helpers/assertions.py` | 1 | 0 | `ok` (`0`) |
+| `syntax_error_in_changed_py` | `tests/acl/test_acl.py` | 598 | 0 | `ok` (`0`) |
+| `import_change_in_test_file` | `tests/acl/test_acl.py` | 1 | 0 | `ok` (`0`) |
+| `import_change_in_non_test_file` | `tests/common/helpers/assertions.py` | 1 | 0 | `ok` (`0`) |
+| `dynamic_import_change_non_test` | `tests/common/helpers/assertions.py` | 598 | 0 | `ok` (`0`) |
+| `global_variable_change_non_test` | `tests/common/helpers/assertions.py` | 1 | 0 | `ok` (`0`) |
+| `fixture_non_autouse_change` | `tests/restapi/conftest.py` | 598 | 0 | `ok` (`0`) |
+| `autouse_fixture_change` | `tests/restapi/conftest.py` | 598 | 0 | `ok` (`0`) |
+| `conftest_non_function_change` | `tests/restapi/conftest.py` | 598 | 0 | `ok` (`0`) |
+| `infrastructure_ansible_change` | `ansible/basic_check.yml` | 598 | 0 | `ok` (`0`) |
+| `infrastructure_script_change` | `tests/run_tests.sh` | 598 | 0 | `ok` (`0`) |
+| `impacted_area_internal_change` | `.azure-pipelines/impacted_area_testing/constant.py` | 0 | 1 | `ok` (`0`) |
+
+## 3) Case Details (Change + JSON Output)
+
+### `docs_only_change`
+
+- Change: Append one HTML comment in README.md
+- Changed file: `README.md`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "README.md"
+  ],
+  "tests_count": 0,
+  "others_count": 0,
+  "sample_tests": [],
+  "sample_others": []
+}
+```
+
+### `non_python_general_change`
+
+- Change: Append one harmless TOML comment
+- Changed file: `pyproject.toml`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "pyproject.toml"
+  ],
+  "tests_count": 0,
+  "others_count": 0,
+  "sample_tests": [],
+  "sample_others": []
+}
+```
+
+### `direct_test_function_change`
+
+- Change: Add one unused module-level marker near logger
+- Changed file: `tests/acl/test_acl.py`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "tests/acl/test_acl.py"
+  ],
+  "tests_count": 1,
+  "others_count": 0,
+  "sample_tests": [
+    "tests/acl/test_acl.py"
+  ],
+  "sample_others": []
+}
+```
+
+### `common_function_change`
+
+- Change: Add one unused module-level variable
+- Changed file: `tests/common/helpers/assertions.py`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "tests/common/helpers/assertions.py"
+  ],
+  "tests_count": 1,
+  "others_count": 0,
+  "sample_tests": [
+    "tests/common/helpers/assertions.py"
+  ],
+  "sample_others": []
+}
+```
+
+### `syntax_error_in_changed_py`
+
+- Change: Inject one invalid Python line
+- Changed file: `tests/acl/test_acl.py`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "tests/acl/test_acl.py"
+  ],
+  "tests_count": 598,
+  "others_count": 0,
+  "sample_tests": [
+    "tests/test_procdockerstatsd.py",
+    "tests/test_posttest.py",
+    "tests/test_features.py",
+    "tests/test_interfaces.py",
+    "tests/test_nbr_health.py"
+  ],
+  "sample_others": []
+}
+```
+
+### `import_change_in_test_file`
+
+- Change: Add one extra import in test file
+- Changed file: `tests/acl/test_acl.py`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "tests/acl/test_acl.py"
+  ],
+  "tests_count": 1,
+  "others_count": 0,
+  "sample_tests": [
+    "tests/acl/test_acl.py"
+  ],
+  "sample_others": []
+}
+```
+
+### `import_change_in_non_test_file`
+
+- Change: Add one extra import in common helper
+- Changed file: `tests/common/helpers/assertions.py`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "tests/common/helpers/assertions.py"
+  ],
+  "tests_count": 1,
+  "others_count": 0,
+  "sample_tests": [
+    "tests/common/helpers/assertions.py"
+  ],
+  "sample_others": []
+}
+```
+
+### `dynamic_import_change_non_test`
+
+- Change: Add importlib dynamic import line
+- Changed file: `tests/common/helpers/assertions.py`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "tests/common/helpers/assertions.py"
+  ],
+  "tests_count": 598,
+  "others_count": 0,
+  "sample_tests": [
+    "tests/test_procdockerstatsd.py",
+    "tests/test_posttest.py",
+    "tests/test_features.py",
+    "tests/test_interfaces.py",
+    "tests/test_nbr_health.py"
+  ],
+  "sample_others": []
+}
+```
+
+### `global_variable_change_non_test`
+
+- Change: Add one global variable assignment
+- Changed file: `tests/common/helpers/assertions.py`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "tests/common/helpers/assertions.py"
+  ],
+  "tests_count": 1,
+  "others_count": 0,
+  "sample_tests": [
+    "tests/common/helpers/assertions.py"
+  ],
+  "sample_others": []
+}
+```
+
+### `fixture_non_autouse_change`
+
+- Change: Add one unused local variable in non-autouse fixture
+- Changed file: `tests/restapi/conftest.py`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "tests/restapi/conftest.py"
+  ],
+  "tests_count": 598,
+  "others_count": 0,
+  "sample_tests": [
+    "tests/test_procdockerstatsd.py",
+    "tests/test_posttest.py",
+    "tests/test_features.py",
+    "tests/test_interfaces.py",
+    "tests/test_nbr_health.py"
+  ],
+  "sample_others": []
+}
+```
+
+### `autouse_fixture_change`
+
+- Change: Add one unused local variable in autouse fixture
+- Changed file: `tests/restapi/conftest.py`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "tests/restapi/conftest.py"
+  ],
+  "tests_count": 598,
+  "others_count": 0,
+  "sample_tests": [
+    "tests/test_procdockerstatsd.py",
+    "tests/test_posttest.py",
+    "tests/test_features.py",
+    "tests/test_interfaces.py",
+    "tests/test_nbr_health.py"
+  ],
+  "sample_others": []
+}
+```
+
+### `conftest_non_function_change`
+
+- Change: Add one import at module top in conftest.py
+- Changed file: `tests/restapi/conftest.py`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "tests/restapi/conftest.py"
+  ],
+  "tests_count": 598,
+  "others_count": 0,
+  "sample_tests": [
+    "tests/test_procdockerstatsd.py",
+    "tests/test_posttest.py",
+    "tests/test_features.py",
+    "tests/test_interfaces.py",
+    "tests/test_nbr_health.py"
+  ],
+  "sample_others": []
+}
+```
+
+### `infrastructure_ansible_change`
+
+- Change: Add one harmless YAML comment
+- Changed file: `ansible/basic_check.yml`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "ansible/basic_check.yml"
+  ],
+  "tests_count": 598,
+  "others_count": 0,
+  "sample_tests": [
+    "tests/test_procdockerstatsd.py",
+    "tests/test_posttest.py",
+    "tests/test_features.py",
+    "tests/test_interfaces.py",
+    "tests/test_nbr_health.py"
+  ],
+  "sample_others": []
+}
+```
+
+### `infrastructure_script_change`
+
+- Change: Add one harmless shell comment
+- Changed file: `tests/run_tests.sh`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    "tests/run_tests.sh"
+  ],
+  "tests_count": 598,
+  "others_count": 0,
+  "sample_tests": [
+    "tests/test_procdockerstatsd.py",
+    "tests/test_posttest.py",
+    "tests/test_features.py",
+    "tests/test_interfaces.py",
+    "tests/test_nbr_health.py"
+  ],
+  "sample_others": []
+}
+```
+
+### `impacted_area_internal_change`
+
+- Change: Add one unused variable in impacted_area_testing internals
+- Changed file: `.azure-pipelines/impacted_area_testing/constant.py`
+- `test_locally.sh`: `ok` (exit `0`)
+
+```json
+{
+  "changed_files_vs_target": [
+    ".azure-pipelines/impacted_area_testing/constant.py"
+  ],
+  "tests_count": 0,
+  "others_count": 1,
+  "sample_tests": [],
+  "sample_others": [
+    ".azure-pipelines/impacted_area_testing/constant.py"
+  ]
+}
+```
 
 ---
 
-### Notes for Reviewers
+### Notes
 
-- The algorithm is intentionally **precision-first** for function changes and **safety-first** for high-risk import/fixture/infrastructure changes.
-- Full-suite fallback is expected for change types that can alter runtime behavior beyond explicit call edges.
+- Full per-case raw records are in `impact_case_results.json`.
+- This markdown intentionally keeps compact JSON summaries for readability.

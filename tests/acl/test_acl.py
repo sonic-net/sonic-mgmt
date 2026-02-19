@@ -1510,7 +1510,7 @@ class TestBasicAcl(BaseAclTest):
         if stage == "egress":
             dut.command("config acl update full {}".format(dut_conf_file_path))
             return
-        logger.debug(f'Using ACL rules config file: {dut_conf_file_path}')
+
         with SafeThreadPoolExecutor(max_workers=8) as executor:
             logger.info('Start monitoring for ACL rules')
             path = 'ASIC_DB/localhost/ASIC_STATE'

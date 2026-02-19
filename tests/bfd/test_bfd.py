@@ -9,8 +9,7 @@ from datetime import timedelta
 
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa:F401
 from tests.common.snappi_tests.common_helpers import get_egress_queue_count
-from tests.common.sai_validation.sonic_db import start_db_monitor, stop_db_monitor
-from tests.common.sai_validation.sonic_db import wait_until_condition, check_key
+from tests.common.sai_validation.sonic_db import start_db_monitor, stop_db_monitor, wait_until_condition, check_key
 from tests.common.utilities import wait_until
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 

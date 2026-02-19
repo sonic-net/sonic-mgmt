@@ -113,6 +113,14 @@ if [[ -n "$PATCH_FILE" ]]; then
     # Apply the patch
     if git apply --check "$PATCH_FILE" 2>/dev/null; then
         git apply "$PATCH_FILE"
+        # Commit the applied patch on temp branch so commit-to-commit diff picks it up
+        PATCHED_FILES=$(git diff --name-only)
+        git config user.email "impact-local-test@example.com" >/dev/null 2>&1 || true
+        git config user.name "impact-local-test" >/dev/null 2>&1 || true
+        if [[ -n "$PATCHED_FILES" ]]; then
+            git add $PATCHED_FILES
+            git commit --no-verify -m "test_locally: apply patch" >/dev/null 2>&1 || true
+        fi
         SOURCE_BRANCH="$TEMP_BRANCH"
         echo -e "${GREEN}Patch applied successfully${NC}"
     else
@@ -274,7 +282,7 @@ echo ""
 
 # Show per-topology counts
 for checker in $(echo "$PR_CHECKERS" | jq -r '.[]'); do
-    count=$(echo "$TEST_SCRIPTS" | jq -r ".$checker | length")
+    count=$(echo "$TEST_SCRIPTS" | jq -r --arg checker "$checker" '.[$checker] | length')
     echo "  - ${checker}: ${count} tests"
 done
 echo ""
