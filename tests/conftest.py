@@ -64,7 +64,8 @@ from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
-    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node
+    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node, \
+    get_supervisor_for_linecard, create_linecard_console
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -162,6 +163,13 @@ def pytest_addoption(parser):
 
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
+
+    # read_mac options
+    parser.addoption('--image1', action='store', type=str, help='1st image to download and install')
+    parser.addoption('--image2', action='store', type=str, help='2nd image to download and install')
+    parser.addoption('--iteration', action='store', type=int, help='Number of image installing iterations')
+    parser.addoption('--minigraph1', action='store', type=str, help='path to the minigraph1')
+    parser.addoption('--minigraph2', action='store', type=str, help='path to the minigraph2')
 
     #####################################
     # dash, vxlan, route shared options #
@@ -2414,12 +2422,37 @@ def enum_downstream_dut_hostname(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_graph_facts, creds):   # noqa: F811
-    duthost = duthosts[enum_supervisor_dut_hostname]
-    host = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
+def duthost_console(duthosts, enum_rand_one_per_hwsku_hostname, request, localhost,
+                    conn_graph_facts, creds):   # noqa: F811
+    """
+    Provides a console connection object for testing.
 
-    yield host
-    host.disconnect()
+    Automatically determines node type and returns appropriate console:
+    - For LINECARD: Uses LinecardConsoleConn via supervisor
+    - For everything else (SUPERVISOR/STANDALONE): Uses create_duthost_console()
+
+    This fixture runs once per unique hwsku in the testbed.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    inv_files = get_inventory_files(request)
+
+    # Check if this is a linecard that needs supervisor access
+    supervisor = get_supervisor_for_linecard(duthost, duthosts, inv_files)
+
+    if supervisor:
+        # LINECARD node - use console via supervisor
+        console = create_linecard_console(supervisor, duthost, inv_files, creds)
+    else:
+        # SUPERVISOR or STANDALONE node - use standard console
+        console = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
+
+    yield console
+
+    if console:
+        try:
+            console.disconnect()
+        except Exception:
+            pass
 
 
 @pytest.fixture(scope='session')

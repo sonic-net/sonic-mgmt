@@ -5,12 +5,14 @@ import jinja2
 import glob
 import re
 import yaml
+import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
 from collections import defaultdict
-from tests.common.connections.console_host import ConsoleHost
+from tests.common.connections.console_host import ConsoleHost, CONSOLE_LINECARD
+from tests.common.connections.linecard_console_conn import UnsupportedPlatformError
 from tests.common.utilities import get_dut_current_passwd
 from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_CISCO_CONFIG,
@@ -480,6 +482,74 @@ def is_mellanox_fanout(duthost, localhost):
         return False
 
     return True
+
+
+def get_supervisor_for_linecard(duthost, duthosts, inv_files):
+    """
+    Returns the supervisor duthost for a given linecard duthost.
+
+    Args:
+        duthost: The potential linecard duthost
+        duthosts: Collection of all duthosts in the testbed
+        inv_files: Inventory files for looking up node types
+
+    Returns:
+        supervisor duthost object if this is a linecard with a supervisor, None otherwise
+
+    Conditions satisfied for returning supervisor:
+        - duthost is NOT a supervisor node
+        - A supervisor node exists in duthosts collection
+    """
+    if is_supervisor_node(inv_files, duthost.hostname):
+        return None
+
+    for node in duthosts.nodes:
+        node_hostname = node.hostname
+        if is_supervisor_node(inv_files, node_hostname):
+            return duthosts[node_hostname]
+
+    return None
+
+
+def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
+    """
+    Instantiates a CONSOLE_LINECARD connection for accessing a linecard via supervisor.
+
+    Args:
+        supervisor: The supervisor duthost object
+        linecard_duthost: The linecard duthost object
+        inv_files: Inventory files for looking up slot numbers
+        creds: Credentials dictionary
+
+    Returns:
+        ConsoleHost instance configured for linecard console access
+
+    Raises:
+        pytest.skip: If platform is not supported or slot_num not found
+    """
+    supervisor_ip = supervisor.host.options['inventory_manager'].get_host(
+        supervisor.hostname).vars['ansible_host']
+
+    host_vars = get_host_visible_vars(inv_files, linecard_duthost.hostname)
+    slot_num = host_vars.get('slot_num')
+
+    if not slot_num:
+        pytest.skip(f"Could not determine slot number for linecard {linecard_duthost.hostname} from inventory. "
+                    f"Ensure 'slot_num' variable is defined in inventory.")
+
+    try:
+        return ConsoleHost(
+            console_type=CONSOLE_LINECARD,
+            console_host=None,
+            console_port=None,
+            sonic_username=creds['sonicadmin_user'],
+            sonic_password=[creds['sonicadmin_password']],
+            supervisor_ip=supervisor_ip,
+            slot_num=slot_num,
+            hwsku=supervisor.facts['hwsku']
+        )
+    except UnsupportedPlatformError as e:
+        pytest.skip(f"Linecard console not supported: {str(e)}")
 
 
 def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
