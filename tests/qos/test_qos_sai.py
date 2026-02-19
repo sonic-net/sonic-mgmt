@@ -434,6 +434,7 @@ class TestQosSai(QosSaiBase):
         testParams.update(dutTestParams["basicParams"])
         testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
+            "dut_asic": dutConfig["dutAsic"],
             "dscp": qosConfig[xoffProfile]["dscp"],
             "ecn": qosConfig[xoffProfile]["ecn"],
             "pg": qosConfig[xoffProfile]["pg"],
@@ -894,7 +895,7 @@ class TestQosSai(QosSaiBase):
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
 
         if ('platform_asic' in dutTestParams["basicParams"] and
-                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx") and (dutConfig["dutAsic"] != 'q3d'):
             # for 100G port speed the number of ports required to fill headroom is huge,
             # hence skipping the test with speed 100G or cable length of 2k
             if portSpeedCableLength not in ['400000_120000m']:
@@ -920,9 +921,12 @@ class TestQosSai(QosSaiBase):
             else:
                 qosConfig["hdrm_pool_size"]["dst_port_id"] = dutConfig['testPortIds'][dst_dut_index][dst_asic_index][0]
 
-            src_port_vlans = [testPortIps[src_dut_index][src_asic_index][port]['vlan_id']
-                              if 'vlan_id' in testPortIps[src_dut_index][src_asic_index][port]
-                              else None for port in qosConfig["hdrm_pool_size"]["src_port_ids"]]
+        src_port_vlans = [
+            testPortIps[src_dut_index][src_asic_index][port]['vlan_id']
+            if port in testPortIps[src_dut_index][src_asic_index] and
+            'vlan_id' in testPortIps[src_dut_index][src_asic_index][port]
+            else None for port in qosConfig["hdrm_pool_size"]["src_port_ids"]]
+
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig["hdrm_pool_size"])
 
         testParams = dict()
@@ -1310,7 +1314,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
             "pkts_num_trig_egr_drp": qosConfig["lossy_queue_1"]["pkts_num_trig_egr_drp"],
             "hwsku": dutTestParams['hwsku'],
-            "ip_type": dutConfig["ip_type"]
+            "ip_type": dutConfig["ip_type"],
+            "dut_asic": dutConfig["dutAsic"],
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
