@@ -1779,8 +1779,7 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
             duthosts, snappi_ports, snappi_api, setup=True)
         yield (testbed_config, port_config_list, snappi_ports)
         logger.info('Snappi cleanup after test')
-        setup = False
-        setup_dut_ports(setup, duthosts, testbed_config, port_config_list, snappi_ports)
+        setup_dut_ports(False, duthosts, testbed_config, port_config_list, snappi_ports)
     else:
         flatten_skeleton_parameter = request.param
         speed, category = flatten_skeleton_parameter.split("-")
@@ -1794,6 +1793,29 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
             pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
 
         return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
+
+
+@pytest.fixture(scope="function")
+def tgen_testbed_subtype(request: pytest.FixtureRequest):
+    """
+    Return the testbed subtype for the current tgen parametrization, so tests
+    (e.g. line_card_choice in test_def) work the same whether is_override is
+    True or False.
+
+    - When is_override is True: returns the subtype key from the override
+      (e.g. from variables.override.yml multidut_port_info).
+    - When is_override is False: returns the skeleton param string in
+      "speed-category" form (e.g. "400.0-single_linecard_single_asic", "25-2").
+    """
+    testbed = request.config.getoption("--testbed")
+    is_override, _ = parse_override(testbed, 'multidut_port_info')
+    if is_override:
+        # request.param is a dict {testbed_subtype: rdma_ports}
+        return next(iter(request.param.items()))[0]
+    # request.param is the "speed-category" string from generate_skeleton_port_info
+    # (e.g. "400.0-single_linecard_single_asic", "25-2"); return as-is so tests
+    # can use it the same way as the override subtype.
+    return request.param
 
 
 def flatten_list(lst):
