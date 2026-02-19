@@ -3,6 +3,7 @@ import netaddr
 import pytest
 import random
 import time
+import json
 import logging
 import ptf.testutils as testutils
 import ptf.mask as mask
@@ -413,7 +414,7 @@ def rif_port_down(duthosts, enum_rand_one_per_hwsku_frontend_hostname, setup, fa
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="drop_packet_rif_port_down")
 
     if not setup["rif_members"]:
-        pytest.skip("RIF interface is absent")
+        pytest.skip("Test case is not suitable for t0 type topology since it requires rif interfaces")
     rif_member_iface = list(setup["rif_members"].keys())[0]
 
     vm_name = setup["mg_facts"]["minigraph_neighbors"][rif_member_iface].get("name", None)
@@ -454,6 +455,9 @@ def tx_dut_ports(request, setup, tbinfo):
         reason = "No {} available".format(request.param)
         if tbinfo["topo"]["type"] != "t0" and request.param == "vlan_members":
             reason = "Test case is only suitable for t0 type topology since it requires vlan interfaces"
+        if tbinfo["topo"]["type"] == "t0" and request.param == "rif_members":
+            reason = "Test case is not suitable for t0 type topology since it requires rif interfaces"
+
         pytest.skip(reason)
     else:
         return setup[request.param]
@@ -1221,6 +1225,29 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_p
     do_test(group, pkt, ptfadapter, ports_info, list(setup["dut_to_ptf_port_map"].values()), tx_dut_ports)
 
 
+def update_acl_table_with_port(duthost, iface_port):
+    """
+    @summary: Update acl table with port.
+    """
+    config_db_json = "/etc/sonic/config_db.json"
+    output = duthost.shell(
+        f"sonic-cfggen -j {config_db_json} --var-json \"ACL_TABLE\""
+    )['stdout']
+    entry_json = json.loads(output)
+
+    table_name = "DATAACL"
+    entry = entry_json[table_name]
+
+    # Append the interface to the list of ACL ports
+    if "ports" in entry and isinstance(entry["ports"], list):
+        entry["ports"].append(iface_port)
+
+    cmd_create_table = (
+        "config acl add table {} {} -p {} -s {}"
+        .format(table_name, entry['type'], ",".join(entry['ports']), entry['stage'])
+    )
+    duthost.shell(cmd_create_table)
+
 def test_acl_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                   setup, tx_dut_ports, pkt_fields, acl_ingress, ports_info):
     """
@@ -1228,9 +1255,8 @@ def test_acl_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_fronten
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     namespace = duthost.get_namespace_from_asic_id(ports_info['asic_index'])
-    if tx_dut_ports[ports_info["dut_iface"]] not in \
-            duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
-        pytest.skip("RX DUT port absent in 'DATAACL' table")
+    iface_port = tx_dut_ports[ports_info["dut_iface"]]
+    update_acl_table_with_port(duthost, iface_port)
 
     ip_src = "20.0.0.5"
 
@@ -1257,9 +1283,8 @@ def test_acl_egress_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsku_
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     namespace = duthost.get_namespace_from_asic_id(ports_info['asic_index'])
-    if tx_dut_ports[ports_info["dut_iface"]] not in \
-            duthost.acl_facts(namespace=namespace)["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"]:
-        pytest.skip("RX DUT port absent in 'DATAACL' table")
+    iface_port = tx_dut_ports[ports_info["dut_iface"]]
+    update_acl_table_with_port(duthost, iface_port)
 
     ip_dst = "192.168.144.1"
 
