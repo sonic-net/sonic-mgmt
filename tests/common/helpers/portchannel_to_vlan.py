@@ -435,7 +435,7 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
             platform = fanouthost.facts["platform"]
             if not (asic_type in ["broadcom", "mellanox", "cisco-8000", "marvell", "marvell-teralynx"] or platform in
                     ["armhf-nokia_ixs7215_52x-r0", "arm64-nokia_ixs7215_52xb-r0"]):
-                pytest.skip("Not supporteds on SONiC leaf-fanout platform")
+                pytest.skip("Not supported on SONiC leaf-fanout platform")
 
     duthost = duthosts[rand_one_dut_hostname]
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
