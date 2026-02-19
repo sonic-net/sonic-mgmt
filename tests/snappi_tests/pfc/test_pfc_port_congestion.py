@@ -1,25 +1,35 @@
 import pytest
 import random
-from tests.common.helpers.assertions import pytest_require, pytest_assert                            # noqa: F401
+from tests.common.helpers.assertions import pytest_require, pytest_assert                           # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
-    fanout_graph_facts     # noqa: F401
+    fanout_graph_facts                                                                              # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
-    snappi_api, snappi_multi_base_config, cleanup_config, get_snappi_ports_for_rdma, \
-    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
-    get_snappi_ports_single_dut       # noqa: F401
+    snappi_api, snappi_dut_base_config, get_snappi_ports_for_rdma, cleanup_config, \
+    snappi_testbed_config, get_snappi_ports_single_dut, snappi_port_selection, \
+    get_snappi_ports, tgen_port_info, tgen_testbed_subtype, is_snappi_multidut, get_snappi_ports_multi_dut, \
+    clear_fabric_counters, check_fabric_counters, snappi_multi_base_config                          # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
-    lossy_prio_list, all_prio_list, disable_pfcwd                                                     # noqa: F401
-from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
+    lossy_prio_list, all_prio_list, disable_pfcwd                                                   # noqa: F401
 from tests.snappi_tests.pfc.files.pfc_congestion_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                                    # noqa: F401
 
 import logging
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
-port_map = [[1, 100, 2, 100], [1, 400, 2, 400]]
+
+@pytest.fixture(autouse=True, scope='module')
+def number_of_tx_rx_ports():
+    yield (1, 2)
+
+
+def create_port_map(snappi_ports):
+    return ([1,
+             int(snappi_ports[0]['snappi_speed_type'].split('_')[1]),
+             len(snappi_ports) - 1,
+             int(snappi_ports[-1]['snappi_speed_type'].split('_')[1])])
 
 # Testplan: docs/testplan/PFC_Snappi_Additional_Testcases.md
 # This test-script covers following testcases:
@@ -27,8 +37,6 @@ port_map = [[1, 100, 2, 100], [1, 400, 2, 400]]
 # testcase#05: DETECT CONGESTION WITH EQUAL DISTRIBUTION OF LOSSLESS AND LOSSY TRAFFIC
 
 
-@pytest.mark.parametrize('port_map', port_map)
-@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
                                  conn_graph_facts,             # noqa: F811
                                  fanout_graph_facts_multidut,  # noqa: F811
@@ -37,9 +45,8 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
                                  lossless_prio_list,           # noqa: F811
                                  lossy_prio_list,              # noqa: F811
                                  tbinfo,
-                                 get_snappi_ports,             # noqa: F811
-                                 port_map,
-                                 multidut_port_info,           # noqa: F811
+                                 tgen_testbed_subtype,         # noqa: F811
+                                 tgen_port_info,               # noqa: F811
                                  disable_pfcwd):               # noqa: F811
 
     """
@@ -56,9 +63,8 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
-        get_snappi_ports(pytest fixture): returns list of ports based on linecards selected.
-        port_map(list): list for port-speed combination.
-        multidut_port_info : Line card classification along with ports selected as Rx and Tx port.
+        tgen_port_info(pytest fixture): returns list of ports based on linecards selected.
+        tgen_testbed_subtype(pytest_fixture): returns test_subtype for the test.
     Returns:
         N/A
 
@@ -72,36 +78,12 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in multidut_port_info.items():
-        rx_port_count = port_map[0]
-        tx_port_count = port_map[2]
-        tmp_snappi_port_list = get_snappi_ports
-        snappi_port_list = []
-        for item in tmp_snappi_port_list:
-            if (int(item['speed']) == (port_map[1] * 1000)):
-                snappi_port_list.append(item)
-        pytest_require(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                       "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
-        pytest_require(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    logger.info("Snappi Ports : {}".format(snappi_ports))
 
-        pytest_require(len(rdma_ports['tx_ports']) >= tx_port_count,
-                       'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
-                       testbed {}, subtype {} in variables.py'.
-                       format(MULTIDUT_TESTBED, testbed_subtype))
+    # port_map = [1 egress port, speed of egress port, remaining ingress ports, speed of ingress port]
+    port_map = create_port_map(snappi_ports)
 
-        pytest_require(len(rdma_ports['rx_ports']) >= rx_port_count,
-                       'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
-                       testbed {}, subtype {} in variables.py'.
-                       format(MULTIDUT_TESTBED, testbed_subtype))
-        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-
-        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
-
-        testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
-                                                                                  snappi_ports,
-                                                                                  snappi_api)
     enable_pfcwd = True
     if duthosts[0].facts["platform_asic"] == 'cisco-8000' and duthosts[0].get_facts().get("modular_chassis"):
         enable_pfcwd = False
@@ -117,7 +99,7 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
                 'test_type': 'logs/snappi_tests/pfc/Two_Ingress_Single_Egress_diff_dist_'+str(port_map[1])+'Gbps',
-                'line_card_choice': testbed_subtype,
+                'line_card_choice': tgen_testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': enable_pfcwd,
                 'enable_credit_wd': True,
@@ -137,38 +119,28 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
     snappi_extra_params.multi_dut_params.duthost2 = snappi_ports[-1]['duthost']
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
-    if (snappi_ports[0]['peer_device'] == snappi_ports[-1]['peer_device']):
-        dut_list = [snappi_ports[0]['duthost']]
-    else:
-        dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
     for dut in duthosts:
         clear_fabric_counters(dut)
 
-    try:
-        run_pfc_test(api=snappi_api,
-                     testbed_config=testbed_config,
-                     port_config_list=port_config_list,
-                     conn_data=conn_graph_facts,
-                     fanout_data=fanout_graph_facts_multidut,
-                     global_pause=False,
-                     pause_prio_list=pause_prio_list,
-                     test_prio_list=test_prio_list,
-                     bg_prio_list=bg_prio_list,
-                     prio_dscp_map=prio_dscp_map,
-                     test_traffic_pause=False,
-                     test_def=test_def,
-                     snappi_extra_params=snappi_extra_params)
+    run_pfc_test(api=snappi_api,
+                 testbed_config=testbed_config,
+                 port_config_list=port_config_list,
+                 conn_data=conn_graph_facts,
+                 fanout_data=fanout_graph_facts_multidut,
+                 global_pause=False,
+                 pause_prio_list=pause_prio_list,
+                 test_prio_list=test_prio_list,
+                 bg_prio_list=bg_prio_list,
+                 prio_dscp_map=prio_dscp_map,
+                 test_traffic_pause=False,
+                 test_def=test_def,
+                 snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
-
-    finally:
-        cleanup_config(dut_list, snappi_ports)
+    for dut in duthosts:
+        check_fabric_counters(dut)
 
 
-@pytest.mark.parametrize('port_map', port_map)
-@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
                                 conn_graph_facts,             # noqa: F811
                                 fanout_graph_facts_multidut,  # noqa: F811
@@ -177,10 +149,9 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
                                 lossless_prio_list,           # noqa: F811
                                 lossy_prio_list,              # noqa: F811
                                 tbinfo,
-                                get_snappi_ports,             # noqa: F811
-                                port_map,
-                                multidut_port_info,  # noqa: F811
-                                disable_pfcwd):          # noqa: F811
+                                tgen_testbed_subtype,         # noqa: F811
+                                tgen_port_info,               # noqa: F811
+                                disable_pfcwd):               # noqa: F811
     """
     Purpose of the test case is to test oversubscription with two ingresses and single ingress.
     Traffic pattern has 24% lossless priority and 36% lossy priority traffic.
@@ -195,9 +166,8 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
-        get_snappi_ports(pytest fixture): returns list of ports based on linecards selected.
-        port_map(list): list for port-speed combination.
-        multidut_port_info : Line card classification along with ports selected as Rx and Tx port.
+        tgen_port_info(pytest fixture): returns list of ports based on linecards selected.
+        tgen_testbed_subtype(pytest_fixture): returns test_subtype for the test.
 
     Returns:
         N/A
@@ -210,36 +180,12 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in multidut_port_info.items():
-        rx_port_count = port_map[0]
-        tx_port_count = port_map[2]
-        tmp_snappi_port_list = get_snappi_ports
-        snappi_port_list = []
-        for item in tmp_snappi_port_list:
-            if (int(item['speed']) == (port_map[1] * 1000)):
-                snappi_port_list.append(item)
-        pytest_require(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                       "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
-        pytest_require(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    logger.info("Snappi Ports : {}".format(snappi_ports))
 
-        pytest_require(len(rdma_ports['tx_ports']) >= tx_port_count,
-                       'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
-                       testbed {}, subtype {} in variables.py'.
-                       format(MULTIDUT_TESTBED, testbed_subtype))
+    # port_map = [1 egress port, speed of egress port, remaining ingress ports, speed of ingress port]
+    port_map = create_port_map(snappi_ports)
 
-        pytest_require(len(rdma_ports['rx_ports']) >= rx_port_count,
-                       'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
-                       testbed {}, subtype {} in variables.py'.
-                       format(MULTIDUT_TESTBED, testbed_subtype))
-        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-
-        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
-
-        testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
-                                                                                  snappi_ports,
-                                                                                  snappi_api)
     enable_pfcwd = True
     if duthosts[0].facts["platform_asic"] == 'cisco-8000' and duthosts[0].get_facts().get("modular_chassis"):
         enable_pfcwd = False
@@ -256,7 +202,7 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
                 'test_type': 'logs/snappi_tests/pfc/Two_Ingress_Single_Egress_uni_dist_full'+str(port_map[1])+'Gbps',
-                'line_card_choice': testbed_subtype,
+                'line_card_choice': tgen_testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': enable_pfcwd,
                 'enable_credit_wd': True,
@@ -276,38 +222,28 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
     snappi_extra_params.multi_dut_params.duthost2 = snappi_ports[-1]['duthost']
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
-    if (snappi_ports[0]['peer_device'] == snappi_ports[-1]['peer_device']):
-        dut_list = [snappi_ports[0]['duthost']]
-    else:
-        dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
     for dut in duthosts:
         clear_fabric_counters(dut)
 
-    try:
-        run_pfc_test(api=snappi_api,
-                     testbed_config=testbed_config,
-                     port_config_list=port_config_list,
-                     conn_data=conn_graph_facts,
-                     fanout_data=fanout_graph_facts_multidut,
-                     global_pause=False,
-                     pause_prio_list=pause_prio_list,
-                     test_prio_list=test_prio_list,
-                     bg_prio_list=bg_prio_list,
-                     prio_dscp_map=prio_dscp_map,
-                     test_traffic_pause=False,
-                     test_def=test_def,
-                     snappi_extra_params=snappi_extra_params)
+    run_pfc_test(api=snappi_api,
+                 testbed_config=testbed_config,
+                 port_config_list=port_config_list,
+                 conn_data=conn_graph_facts,
+                 fanout_data=fanout_graph_facts_multidut,
+                 global_pause=False,
+                 pause_prio_list=pause_prio_list,
+                 test_prio_list=test_prio_list,
+                 bg_prio_list=bg_prio_list,
+                 prio_dscp_map=prio_dscp_map,
+                 test_traffic_pause=False,
+                 test_def=test_def,
+                 snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
-
-    finally:
-        cleanup_config(dut_list, snappi_ports)
+    for dut in duthosts:
+        check_fabric_counters(dut)
 
 
-@pytest.mark.parametrize('port_map', port_map)
-@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
                                   conn_graph_facts,             # noqa: F811
                                   fanout_graph_facts_multidut,  # noqa: F811
@@ -316,10 +252,9 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
                                   lossless_prio_list,           # noqa: F811
                                   lossy_prio_list,              # noqa: F811
                                   tbinfo,
-                                  get_snappi_ports,             # noqa: F811
-                                  port_map,
-                                  multidut_port_info,  # noqa: F811
-                                  disable_pfcwd):          # noqa: F811
+                                  tgen_testbed_subtype,         # noqa: F811
+                                  tgen_port_info,               # noqa: F811
+                                  disable_pfcwd):               # noqa: F811
 
     """
     Purpose of the test case is to test oversubscription with two ingresses and single ingress.
@@ -336,9 +271,8 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
-        get_snappi_ports(pytest fixture): returns list of ports based on linecards selected.
-        port_map(list): list for port-speed combination.
-        multidut_port_info : Line card classification along with ports selected as Rx and Tx port.
+        tgen_port_info(pytest fixture): returns list of ports based on linecards selected.
+        tgen_testbed_subtype(pytest_fixture): returns test_subtype for the test.
 
     Returns:
         N/A
@@ -351,36 +285,12 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in multidut_port_info.items():
-        rx_port_count = port_map[0]
-        tx_port_count = port_map[2]
-        tmp_snappi_port_list = get_snappi_ports
-        snappi_port_list = []
-        for item in tmp_snappi_port_list:
-            if (int(item['speed']) == (port_map[1] * 1000)):
-                snappi_port_list.append(item)
-        pytest_require(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                       "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
-        pytest_require(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    logger.info("Snappi Ports : {}".format(snappi_ports))
 
-        pytest_require(len(rdma_ports['tx_ports']) >= tx_port_count,
-                       'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
-                       testbed {}, subtype {} in variables.py'.
-                       format(MULTIDUT_TESTBED, testbed_subtype))
+    # port_map = [1 egress port, speed of egress port, remaining ingress ports, speed of ingress port]
+    port_map = create_port_map(snappi_ports)
 
-        pytest_require(len(rdma_ports['rx_ports']) >= rx_port_count,
-                       'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
-                       testbed {}, subtype {} in variables.py'.
-                       format(MULTIDUT_TESTBED, testbed_subtype))
-        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-
-        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
-
-        testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
-                                                                                  snappi_ports,
-                                                                                  snappi_api)
     enable_pfcwd = True
     if duthosts[0].facts["platform_asic"] == 'cisco-8000' and duthosts[0].get_facts().get("modular_chassis"):
         enable_pfcwd = False
@@ -397,7 +307,7 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
                 'test_type': 'logs/snappi_tests/pfc/Two_Ingress_Single_Egress_equal_dist'+str(port_map[1])+'Gbps',
-                'line_card_choice': testbed_subtype,
+                'line_card_choice': tgen_testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': enable_pfcwd,
                 'enable_credit_wd': True,
@@ -417,38 +327,28 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
     snappi_extra_params.multi_dut_params.duthost2 = snappi_ports[-1]['duthost']
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
-    if (snappi_ports[0]['peer_device'] == snappi_ports[-1]['peer_device']):
-        dut_list = [snappi_ports[0]['duthost']]
-    else:
-        dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
     for dut in duthosts:
         clear_fabric_counters(dut)
 
-    try:
-        run_pfc_test(api=snappi_api,
-                     testbed_config=testbed_config,
-                     port_config_list=port_config_list,
-                     conn_data=conn_graph_facts,
-                     fanout_data=fanout_graph_facts_multidut,
-                     global_pause=False,
-                     pause_prio_list=pause_prio_list,
-                     test_prio_list=test_prio_list,
-                     bg_prio_list=bg_prio_list,
-                     prio_dscp_map=prio_dscp_map,
-                     test_traffic_pause=False,
-                     test_def=test_def,
-                     snappi_extra_params=snappi_extra_params)
+    run_pfc_test(api=snappi_api,
+                 testbed_config=testbed_config,
+                 port_config_list=port_config_list,
+                 conn_data=conn_graph_facts,
+                 fanout_data=fanout_graph_facts_multidut,
+                 global_pause=False,
+                 pause_prio_list=pause_prio_list,
+                 test_prio_list=test_prio_list,
+                 bg_prio_list=bg_prio_list,
+                 prio_dscp_map=prio_dscp_map,
+                 test_traffic_pause=False,
+                 test_def=test_def,
+                 snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
-
-    finally:
-        cleanup_config(dut_list, snappi_ports)
+    for dut in duthosts:
+        check_fabric_counters(dut)
 
 
-@pytest.mark.parametrize('port_map', port_map)
-@pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
 def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
                                  conn_graph_facts,             # noqa: F811
                                  fanout_graph_facts_multidut,  # noqa: F811
@@ -457,10 +357,9 @@ def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
                                  lossless_prio_list,           # noqa: F811
                                  lossy_prio_list,              # noqa: F811
                                  tbinfo,
-                                 get_snappi_ports,             # noqa: F811
-                                 port_map,
-                                 multidut_port_info,  # noqa: F811
-                                 disable_pfcwd):          # noqa: F811
+                                 tgen_testbed_subtype,         # noqa: F811
+                                 tgen_port_info,               # noqa: F811
+                                 disable_pfcwd):               # noqa: F811
 
     """
     Purpose of the test case is to test oversubscription with two ingresses and single ingress.
@@ -477,9 +376,9 @@ def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
-        get_snappi_ports(pytest fixture): returns list of ports based on linecards selected.
-        port_map(list): list for port-speed combination.
-        multidut_port_info : Line card classification along with ports selected as Rx and Tx port.
+        tgen_port_info(pytest fixture): returns list of ports based on linecards selected.
+        tgen_testbed_subtype(pytest_fixture): returns test_subtype for the test.
+
     Returns:
         N/A
 
@@ -493,36 +392,12 @@ def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
     # With imix flag set, the traffic_generation.py uses IMIX profile.
     pkt_size = 1024
 
-    for testbed_subtype, rdma_ports in multidut_port_info.items():
-        rx_port_count = port_map[0]
-        tx_port_count = port_map[2]
-        tmp_snappi_port_list = get_snappi_ports
-        snappi_port_list = []
-        for item in tmp_snappi_port_list:
-            if (int(item['speed']) == (port_map[1] * 1000)):
-                snappi_port_list.append(item)
-        pytest_require(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                       "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
-        pytest_require(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+    testbed_config, port_config_list, snappi_ports = tgen_port_info
+    logger.info("Snappi Ports : {}".format(snappi_ports))
 
-        pytest_require(len(rdma_ports['tx_ports']) >= tx_port_count,
-                       'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
-                       testbed {}, subtype {} in variables.py'.
-                       format(MULTIDUT_TESTBED, testbed_subtype))
+    # port_map = [1 egress port, speed of egress port, remaining ingress ports, speed of ingress port]
+    port_map = create_port_map(snappi_ports)
 
-        pytest_require(len(rdma_ports['rx_ports']) >= rx_port_count,
-                       'MULTIDUT_PORT_INFO doesn\'t have the required Rx ports defined for \
-                       testbed {}, subtype {} in variables.py'.
-                       format(MULTIDUT_TESTBED, testbed_subtype))
-        logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
-
-        snappi_ports = get_snappi_ports_for_rdma(snappi_port_list, rdma_ports,
-                                                 tx_port_count, rx_port_count, MULTIDUT_TESTBED)
-
-        testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
-                                                                                  snappi_ports,
-                                                                                  snappi_api)
     enable_pfcwd = True
     if duthosts[0].facts["platform_asic"] == 'cisco-8000' and duthosts[0].get_facts().get("modular_chassis"):
         enable_pfcwd = False
@@ -539,7 +414,7 @@ def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
                 'test_type': 'logs/snappi_tests/pfc/Two_Ingress_Single_Egress_non_cngstn_'+str(port_map[1])+'Gbps',
-                'line_card_choice': testbed_subtype,
+                'line_card_choice': tgen_testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': enable_pfcwd,
                 'enable_credit_wd': True,
@@ -559,31 +434,23 @@ def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
     snappi_extra_params.multi_dut_params.duthost2 = snappi_ports[-1]['duthost']
 
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
-    if (snappi_ports[0]['peer_device'] == snappi_ports[-1]['peer_device']):
-        dut_list = [snappi_ports[0]['duthost']]
-    else:
-        dut_list = [snappi_ports[0]['duthost'], snappi_ports[-1]['duthost']]
 
     for dut in duthosts:
         clear_fabric_counters(dut)
 
-    try:
-        run_pfc_test(api=snappi_api,
-                     testbed_config=testbed_config,
-                     port_config_list=port_config_list,
-                     conn_data=conn_graph_facts,
-                     fanout_data=fanout_graph_facts_multidut,
-                     global_pause=False,
-                     pause_prio_list=pause_prio_list,
-                     test_prio_list=test_prio_list,
-                     bg_prio_list=bg_prio_list,
-                     prio_dscp_map=prio_dscp_map,
-                     test_traffic_pause=False,
-                     test_def=test_def,
-                     snappi_extra_params=snappi_extra_params)
+    run_pfc_test(api=snappi_api,
+                 testbed_config=testbed_config,
+                 port_config_list=port_config_list,
+                 conn_data=conn_graph_facts,
+                 fanout_data=fanout_graph_facts_multidut,
+                 global_pause=False,
+                 pause_prio_list=pause_prio_list,
+                 test_prio_list=test_prio_list,
+                 bg_prio_list=bg_prio_list,
+                 prio_dscp_map=prio_dscp_map,
+                 test_traffic_pause=False,
+                 test_def=test_def,
+                 snappi_extra_params=snappi_extra_params)
 
-        for dut in duthosts:
-            check_fabric_counters(dut)
-
-    finally:
-        cleanup_config(dut_list, snappi_ports)
+    for dut in duthosts:
+        check_fabric_counters(dut)
