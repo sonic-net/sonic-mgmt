@@ -59,7 +59,7 @@ class GenerateGoldenConfigDBModule(object):
                                     num_asics=dict(require=False, type='int', default=1),
                                     hwsku=dict(require=False, type='str', default=None),
                                     vm_configuration=dict(require=False, type='dict', default={}),
-                                    is_light_mode=dict(require=False, type='bool', default=True)),
+                                    is_lit_mode=dict(require=False, type='bool', default=True)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -68,7 +68,7 @@ class GenerateGoldenConfigDBModule(object):
         self.hwsku = self.module.params['hwsku']
 
         self.vm_configuration = self.module.params['vm_configuration']
-        self.is_light_mode = self.module.params['is_light_mode']
+        self.is_lit_mode = self.module.params['is_lit_mode']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -584,7 +584,7 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for mgfx"
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
         elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1", "t1-48-lag"] \
-                and self.is_light_mode:
+                and self.is_lit_mode:
             config = self.generate_smartswitch_golden_config_db()
             module_msg = module_msg + " for smartswitch"
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
