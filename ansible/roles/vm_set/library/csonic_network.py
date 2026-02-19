@@ -243,13 +243,13 @@ class CsonicNetwork(object):
     def init_network(self):
         """Create SONiC network interfaces
 
-        This creates:
-        - One management interface (eth0)
-        - One front panel interface (Ethernet0) connected to OVS bridge
-        - One backplane interface (eth_bp)
+        This creates veth pairs injected into the container:
+        - eth0: management interface, connected to mgmt bridge
+        - eth1: front panel interface, connected to OVS bridge
+        - eth2: backplane interface, for PTF/ExaBGP connectivity
 
-        Each cSONiC VM represents one neighbor, so it only needs one front panel
-        port (Ethernet0) connected to one DUT port via the OVS bridge.
+        The sonic-vs start.sh maps eth1 -> Ethernet0 via lanemap.ini.
+        Each cSONiC VM represents one neighbor with a single front panel port.
         """
         # Create management link (eth0)
         mp_name = MGMT_TAP_TEMPLATE % (self.vm_name)
