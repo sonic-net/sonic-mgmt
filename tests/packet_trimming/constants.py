@@ -21,11 +21,14 @@ DEFAULT_TTL = 64
 JUMBO_PACKET_SIZE = 5000
 MIN_PACKET_SIZE = 100
 DUMMY_IP = "8.8.8.8"
+DUMMY_FILL_IP = "9.9.9.9"
 DUMMY_IPV6 = "8000::2"
+DUMMY_FILL_IPV6 = "9000::2"
 DUMMY_MAC = "00:11:22:33:44:55"
 PACKET_COUNT = 1000
 BATCH_PACKET_COUNT = 10000
 ECN = 2   # ECN Capable Transport(0), ECT(0)
+PACKET_SIZE_MARGIN = 4
 
 # Buffer configuration constants
 TRIM_QUEUE_PROFILE = "egress_lossy_profile"
@@ -139,6 +142,9 @@ SRV6_MY_SID_LIST = [
     [SRV6_MY_LOCATOR_LIST[8][0], SRV6_MY_LOCATOR_LIST[8][1], SRV6_UN, 'default'],
     [SRV6_MY_LOCATOR_LIST[9][0], SRV6_MY_LOCATOR_LIST[9][1], SRV6_UN, 'default']
 ]
+
+# Static route prefix for SRv6 packets
+SRV6_ROUTE_PREFIX = '2001::/16'
 
 # Drop counter
 SWITCH_INTERVAL = 1000

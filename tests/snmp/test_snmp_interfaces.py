@@ -26,12 +26,13 @@ COUNTER_VALUE = 5000
 
 
 @pytest.fixture()
-def disable_conterpoll(duthost):
+def disable_conterpoll(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     Disable conterpoll for RIF and PORT and re-enable it when TC finished
-    :param duthost: DUT host object
-    :return: dict with data collected from DUT per each port
+    :param duthosts: DUT hosts object
+    :param enum_rand_one_per_hwsku_hostname: hostname of the DUT to run the test on
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ConterpollHelper.disable_counterpoll(duthost, counter_type_list=[CounterpollConstants.PORT,
                                                                      CounterpollConstants.RIF])
     yield
