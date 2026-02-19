@@ -1,4 +1,9 @@
 import functools
+import logging
+import pytest
+from tests.common.helpers.sed_password_helper import SED_Change_Password_General
+
+logger = logging.getLogger(__name__)
 
 
 SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410",
@@ -1257,3 +1262,68 @@ def get_hardware_version(duthost, platform):
 def get_hw_management_version(duthost):
     full_version = duthost.shell('dpkg-query --showformat=\'${Version}\' --show hw-management')['stdout']
     return full_version[len('1.mlnx.'):]
+
+
+class SED_Change_Password_Mellanox(SED_Change_Password_General):
+    PRIMARY_SED_TPM_BANK = '0x81010001'
+    SECONDARY_SED_TPM_BANK = '0x81010002'
+    THIRD_SED_TPM_BANK = '0x81010003'
+    TPM_AUTH_PASS = (
+        "$(dd if=/sys/firmware/efi/efivars/TpmSealCtx-36bfcbde-d710-4903-ba2e-c03ec245dcee "
+        "bs=1 skip=4 2>/dev/null | base64 -d)"
+    )
+
+    MINIMAL_PASSWORD_LENGTH = 8
+    MAXIMUM_PASSWORD_LENGTH = 124
+
+    def set_sed_pass_in_tpm_bank(self, duthost, tpm_bank, password, tpm_auth_pass=None):
+        """
+        Store a new SED password in the specified TPM bank.
+        """
+        super().set_sed_pass_in_tpm_bank(duthost, tpm_bank, password, self.TPM_AUTH_PASS)
+
+    def get_primary_sed_tpm_bank(self):
+        return self.PRIMARY_SED_TPM_BANK
+
+    def get_secondary_sed_tpm_bank(self):
+        return self.SECONDARY_SED_TPM_BANK
+
+    def get_third_sed_tpm_bank(self):
+        return self.THIRD_SED_TPM_BANK
+
+    def get_sed_pass_from_tpm_bank(self, duthost, tpm_bank, tpm_auth_pass=None):
+        return super().get_sed_pass_from_tpm_bank(duthost, tpm_bank, self.TPM_AUTH_PASS)
+
+    def get_min_and_max_pass_len(self, duthost):
+        """
+        Get the minimal and maximum password length for Mellanox devices.
+        """
+        return (self.MINIMAL_PASSWORD_LENGTH, self.MAXIMUM_PASSWORD_LENGTH)
+
+    def get_default_sed_pass(self, duthost):
+        """
+        Get the default SED password from the device.
+        """
+        return self.get_sed_pass_from_tpm_bank(duthost, self.THIRD_SED_TPM_BANK)
+
+    def verify_sed_pass_change_feature_enabled(self, duthost):
+        """Verify SED password change feature is enabled.
+            1. Check SED-enabled NVME disk exists
+            2. Check LockingEnabled=Y
+            3. Check third TPM bank is configured
+            Skips test if not.
+        """
+        logger.info("Check SED-enabled NVME disk exists")
+        scan = duthost.shell("sedutil-cli --scan | grep -q '/dev/nvme'", module_ignore_errors=True)
+        if scan['rc'] != 0:
+            pytest.skip("No SED-enabled NVME disk found")
+
+        super().verify_sed_pass_change_feature_enabled(duthost)
+
+        logger.info("Check third TPM bank configured")
+        tpm = duthost.shell("tpm2_getcap handles-persistent", module_ignore_errors=True)
+        if tpm['rc'] != 0:
+            pytest.skip("Failed to query TPM handles")
+
+        if self.THIRD_SED_TPM_BANK not in tpm['stdout']:
+            pytest.skip("Required third TPM bank not configured")
