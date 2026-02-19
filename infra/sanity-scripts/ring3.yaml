@@ -384,58 +384,34 @@ MGMT: #Anukul Verma / Gourav Sharma
   t0-64:
     mth64:
       sim:
-        - dns/static_dns/test_static_dns.py
+        - console/test_console_availability.py
+        - console/test_console_driver.py
         - dns/test_dns_resolv_conf.py
+        - dut_console/test_idle_timeout.py
         - generic_config_updater/test_aaa.py
-        - generic_config_updater/test_ip_bgp.py
         - generic_config_updater/test_ntp.py
-        - generic_config_updater/test_mgmt_interface.py
-        - memory_checker/test_memory_checker.py
-        - snmp/test_snmp_cpu.py
-        - snmp/test_snmp_memory.py
-        - snmp/test_snmp_queue.py
-        - snmp/test_snmp_v2mib.py
-        - snmp/test_snmp_loopback.py
-        - snmp/test_snmp_interfaces.py
-        - snmp/test_snmp_lldp.py
-        #- snmp/test_snmp_queue_counters.py
-        - snmp/test_snmp_default_route.py
-        - snmp/test_snmp_pfc_counters.py
-        - snmp/test_snmp_link_local.py
-        - gnmi/test_gnmi_appldb.py
-        - gnmi/test_gnmi_configdb.py
-        - gnmi/test_gnmi_countersdb.py
-        - gnmi/test_gnmi.py
-        - gnmi/test_gnmi_smartswitch.py
-        #- gnmi/test_gnmi_stress.py
-        #- gnmi/test_gnoi_killprocess.py
-        - gnmi/test_gnoi_os.py
-        - gnmi/test_gnoi_system_grpc.py
-        - gnmi/test_gnoi_system.py
-        - gnmi/test_gnoi_system_reboot.py
-        - gnmi/test_mimic_hwproxy_cert_rotation.py
-        - tacacs/test_authorization.py
-        #- tacacs/test_ro_disk.py
-        #- http/test_http_copy.py
-        #- mvrf/test_mgmtvrf.py
-        - ssh/test_ssh_ciphers.py
-        - ssh/test_ssh_limit.py
-        - ssh/test_ssh_default_password.py
-        - passw_hardening/test_passw_hardening.py
-        - gnmi/openconfig/test_openconfig_aggregate.py
-        - gnmi/openconfig/test_openconfig_bgp_unnumbered.py
         - gnmi/openconfig/test_openconfig_bgpglobal.py
         - gnmi/openconfig/test_openconfig_interfaces.py
-        - gnmi/openconfig/test_openconfig_ipv6_neighbor.py
-        - gnmi/openconfig/test_openconfig_l3_subinterface.py
         - gnmi/openconfig/test_openconfig_lldp.py
         - gnmi/openconfig/test_openconfig_loopback.py
-        - gnmi/openconfig/test_openconfig_nht.py
-        - gnmi/openconfig/test_openconfig_platform.py
-        - gnmi/openconfig/test_openconfig_prefix_community_routemap.py
-        - gnmi/openconfig/test_openconfig_redistribution.py
-        - gnmi/openconfig/test_openconfig_routing_policy.py
         - gnmi/openconfig/test_openconfig_static_routes.py
+        - gnmi/test_gnmi.py
+        - gnmi/test_gnmi_configdb.py
+        - gnmi/test_gnmi_smartswitch.py
+        - gnmi/test_gnoi_os.py
+        - memory_checker/test_memory_checker.py
+        - restapi/test_restapi_vxlan_ecmp.py
+        - snmp/test_snmp_cpu.py
+        - snmp/test_snmp_default_route.py
+        - snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_lldp.py
+        - snmp/test_snmp_pfc_counters.py
+        - snmp/test_snmp_queue_counters.py
+        - ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_limit.py
+        - tacacs/test_authorization.py
+        - tacacs/test_rw_user.py
+        - telemetry/test_telemetry.py
 
       hw:
         - generic_config_updater/test_aaa.py
@@ -495,56 +471,53 @@ MGMT: #Anukul Verma / Gourav Sharma
   t1-64-lag:
     mth64:
       sim:
+        - console/test_console_loopback.py
+        - console/test_console_reversessh.py
+        - console/test_console_udevrule.py
         - dns/static_dns/test_static_dns.py
-        - dns/test_dns_resolv_conf.py
-        - generic_config_updater/test_aaa.py
-        - generic_config_updater/test_ip_bgp.py
-        - generic_config_updater/test_ntp.py
-        - generic_config_updater/test_mgmt_interface.py
-        - memory_checker/test_memory_checker.py
-        - snmp/test_snmp_cpu.py
-        - snmp/test_snmp_memory.py
-        - snmp/test_snmp_queue.py
-        - snmp/test_snmp_v2mib.py
-        - snmp/test_snmp_loopback.py
-        - snmp/test_snmp_interfaces.py
-        - snmp/test_snmp_lldp.py
-        - snmp/test_snmp_default_route.py
-        - snmp/test_snmp_pfc_counters.py
-        - snmp/test_snmp_link_local.py
-        - gnmi/test_gnmi_appldb.py
-        - gnmi/test_gnmi_countersdb.py
-        - gnmi/test_gnmi.py
-        - gnmi/test_gnmi_smartswitch.py
-        #- gnmi/test_gnmi_stress.py
-        #- gnmi/test_gnoi_killprocess.py
-        - gnmi/test_gnoi_os.py
-        - gnmi/test_gnoi_system_grpc.py
-        - gnmi/test_gnoi_system.py
-        - gnmi/test_gnoi_system_reboot.py
-        - gnmi/test_mimic_hwproxy_cert_rotation.py
-        - tacacs/test_authorization.py
-        #- tacacs/test_ro_disk.py
-        #- http/test_http_copy.py
-        #- mvrf/test_mgmtvrf.py
-        - ssh/test_ssh_ciphers.py
-        - ssh/test_ssh_limit.py
-        - ssh/test_ssh_default_password.py
-        - passw_hardening/test_passw_hardening.py
+        - dut_console/test_console_baud_rate.py
+        - dut_console/test_console_chassis_conn.py
+        - dut_console/test_escape_character.py
+        - generic_config_updater/test_bgpl.py
+        - generic_config_updater/test_lo_interface.py
+        - generic_config_updater/test_syslog.py
         - gnmi/openconfig/test_openconfig_aggregate.py
         - gnmi/openconfig/test_openconfig_bgp_unnumbered.py
-        - gnmi/openconfig/test_openconfig_bgpglobal.py
-        - gnmi/openconfig/test_openconfig_interfaces.py
         - gnmi/openconfig/test_openconfig_ipv6_neighbor.py
         - gnmi/openconfig/test_openconfig_l3_subinterface.py
-        - gnmi/openconfig/test_openconfig_lldp.py
-        - gnmi/openconfig/test_openconfig_loopback.py
         - gnmi/openconfig/test_openconfig_nht.py
         - gnmi/openconfig/test_openconfig_platform.py
         - gnmi/openconfig/test_openconfig_prefix_community_routemap.py
         - gnmi/openconfig/test_openconfig_redistribution.py
         - gnmi/openconfig/test_openconfig_routing_policy.py
-        - gnmi/openconfig/test_openconfig_static_routes.py
+        - gnmi/test_gnmi_appldb.py
+        - gnmi/test_gnmi_countersdb.py
+        #- gnmi/test_gnoi_killprocess.py //https://github.com/sonic-net/sonic-mgmt/issues/15507
+        - gnmi/test_gnoi_system.py
+        - gnmi/test_gnoi_system_grpc.py
+        #- gnmi/test_gnoi_system_reboot.py //https://github.com/sonic-net/sonic-mgmt/issues/20779
+        - gnmi/test_mimic_hwproxy_cert_rotation.py
+        - http/test_http_copy.py
+        #- mvrf/test_mgmtvrf.py //https://github.com/sonic-net/sonic-mgmt/issues/3589
+        - passw_hardening/test_passw_hardening.py
+        - restapi/test_restapi.py
+        - snmp/test_snmp_fdb.py
+        - snmp/test_snmp_link_local.py
+        - snmp/test_snmp_loopback.py
+        - snmp/test_snmp_memory.py
+        - snmp/test_snmp_phy_entity.py
+        - snmp/test_snmp_psu.py
+        - snmp/test_snmp_queue.py
+        - snmp/test_snmp_v2mib.py
+        - ssh/test_ssh_default_password.py
+        - ssh/test_ssh_stress.py
+        - tacacs/test_accounting.py
+        - tacacs/test_jit_user.py
+        #- tacacs/test_ro_disk.py //https://github.com/sonic-net/sonic-mgmt/issues/20787
+        - tacacs/test_ro_user.py
+        - telemetry/test_events.py
+        - telemetry/test_telemetry_cert_rotation.py
+        - telemetry/test_telemetry_poll.py
 
       hw:
         - snmp/test_snmp_cpu.py

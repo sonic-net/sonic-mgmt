@@ -251,23 +251,21 @@ MGMT: #Anukul Verma / Bidipta Das
   t0-64:
     mth64:
       sim:
-        - dns/static_dns/test_static_dns.py
-        - generic_config_updater/test_aaa.py
+        - dns/test_dns_resolv_conf.py
         - generic_config_updater/test_ntp.py
         - gnmi/test_gnmi.py
-        - gnmi/test_gnmi_countersdb.py
-        #- gnmi/test_gnmi_configdb.py
-        #- gnmi/test_gnmi_appldb.py
-        - gnmi/test_gnoi_system.py
-        - gnmi/test_gnoi_system_grpc.py
-        - snmp/test_snmp_interfaces.py
-        - snmp/test_snmp_lldp.py
-        - ssh/test_ssh_limit.py
-        - gnmi/openconfig/test_openconfig_bgp_unnumbered.py
+        - gnmi/test_gnmi_configdb.py
         - gnmi/openconfig/test_openconfig_bgpglobal.py
         - gnmi/openconfig/test_openconfig_interfaces.py
-        - gnmi/openconfig/test_openconfig_prefix_community_routemap.py
-        - gnmi/openconfig/test_openconfig_static_routes.py
+        - http/test_http_copy.py
+        - memory_checker/test_memory_checker.py
+        #- mvrf/test_mgmtvrf.py //https://github.com/sonic-net/sonic-mgmt/issues/3589
+        - passw_hardening/test_passw_hardening.py
+        - restapi/test_restapi.py
+        - snmp/test_snmp_lldp.py
+        - ssh/test_ssh_default_password.py
+        - tacacs/test_rw_user.py
+        - telemetry/test_telemetry.py
   t2-min:
     sfd:
       sim:
