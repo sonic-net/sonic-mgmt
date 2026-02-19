@@ -77,7 +77,6 @@ The following table summarizes the key attributes used in DOM testing. This tabl
 | shutdown_tx_bias_threshold | float | 0 | O | transceivers | Maximum TX bias current in mA expected when interface is shutdown |
 | shutdown_tx_power_threshold | float | -30.0 | O | transceivers | Maximum TX power in dBm expected when interface is shutdown |
 | shutdown_rx_power_threshold | float | -30.0 | O | transceivers | Maximum RX power in dBm expected on remote side when interface is shutdown |
-| consistency_check_enabled | boolean | True | O | platform | Whether to verify DOM data consistency between STATE_DB and CLI interfaces |
 | data_max_age_min | integer | 5 | O | platform | Maximum age in minutes for DOM data to be considered fresh (last_update_time validation) |
 
 ## Example `dom.json` File
@@ -155,7 +154,7 @@ For detailed CLI commands used in the test cases below, please refer to the [CLI
 
 **Test Execution Prerequisites:**
 
-The following tests from the [Transceiver Onboarding Test Plan](test_plan.md#test-cases) will be run prior to executing the system tests:
+The following tests from the [Transceiver Onboarding Test Plan](test_plan.md#test-cases) will be run prior to executing the DOM tests:
 
 - Transceiver presence check
 - Ensure active firmware is gold firmware (for non-DAC CMIS transceivers)
@@ -167,7 +166,7 @@ The following tests from the [Transceiver Onboarding Test Plan](test_plan.md#tes
 
 - All the below tests will be executed for all the transceivers connected to the DUT (the port list is derived from the `port_attributes_dict`) unless specified otherwise.
 
-## Basic DOM Functionality Tests
+### Basic DOM Functionality Tests
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
@@ -176,7 +175,7 @@ The following tests from the [Transceiver Onboarding Test Plan](test_plan.md#tes
 | 3 | DOM threshold validation | 1. Retrieve threshold data from `TRANSCEIVER_DOM_THRESHOLD` table in STATE_DB.<br>2. Dynamically determine expected threshold fields based on attributes ending with `_threshold_range` present in `dom.json` using the [Dynamic Field Mapping Algorithm](#dynamic-field-mapping-algorithm).<br>3. For each determined threshold field, validate threshold data completeness by checking for corresponding alarm and warning thresholds (highalarm, lowalarm, highwarning, lowwarning).<br>4. Compare configured threshold ranges via attributes with thresholds values from DB and validate logical hierarchy (lowalarm < lowwarning < highwarning < highalarm).<br>5. For parameters that have both operational and threshold range attributes, validate that operational ranges fall within warning thresholds (lowwarning < operational_min and operational_max < highwarning).<br>6. Only validate threshold fields derived from attributes present in `dom.json`. | All threshold values are present and follow logical hierarchy. EEPROM thresholds align with configured threshold ranges when present. Operational ranges are properly positioned within warning threshold boundaries to ensure appropriate alarm behavior. Threshold data integrity is maintained in STATE_DB. Threshold validation is performed at transceiver level (no lane-specific expansion). Threshold validation is dynamically determined from attribute table. |
 | 4 | DOM data consistency verification | 1. Read DOM data `consistency_check_poll_count` times with `max_update_time_sec` intervals between readings.<br>2. Verify data consistency between readings.<br>3. Check that `last_update_time` field is being updated correctly with each polling cycle.<br>4. Validate that sensor readings show expected behavior (e.g., temperature variations within reasonable limits). | DOM data shows consistent and reasonable variations between polling intervals over `consistency_check_poll_count` polling cycles. The `last_update_time` field is properly updated with each polling cycle. No erratic or impossible sensor value changes are observed during the monitoring period. Variation patterns indicate stable DOM monitoring system operation. |
 
-## Advanced DOM Testing
+### Advanced DOM Testing
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
