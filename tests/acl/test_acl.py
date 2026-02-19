@@ -188,7 +188,14 @@ def remove_dataacl_table(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         # Recover DUT by reloading minigraph
         for duthost in duthosts:
-            executor.submit(config_reload, duthost, config_source="minigraph", safe_reload=True, override_config=True)
+            executor.submit(
+                config_reload,
+                duthost,
+                config_source="minigraph",
+                safe_reload=True,
+                override_config=True,
+                check_intf_up_ports=True
+            )
 
 
 def remove_dataacl_table_single_dut(table_name, duthost):
@@ -1728,6 +1735,10 @@ class TestAclWithPortToggle(TestBasicAcl):
                 route_convergence_delay = delay
                 break
 
+        asic_type = dut.facts["asic_type"]
+        if asic_type in ["vpp"]:
+            route_convergence_delay += 60
+
         logger.info("Route count: {}, setting convergence delay to: {}".format(max_routes, route_convergence_delay))
 
         # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
@@ -1749,8 +1760,6 @@ class TestMultiBindingAcl(TestBasicAcl):
 
     def setup_rules(self, dut, acl_table, ip_version, tbinfo, gnmi_connection):
         """Setup ACL rules for multi-binding ACL testing."""
-        if 'dualtor' not in tbinfo['topo']['name']:
-            pytest.skip("Not a dual-tor testbed")
 
         dut.host.options["variable_manager"].extra_vars.update(
             {"dualtor": True})

@@ -692,6 +692,10 @@ class BaseEverflowTest(object):
         for duthost in duthost_set:
             if not session_info:
                 session_info = BaseEverflowTest.mirror_session_info("test_session_1", duthost.facts["asic_type"])
+            # Skip IPv6 mirror session due to issue #19096
+            if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s') and erspan_ip_ver == 6: # noqa E501
+                pytest.skip("Skip IPv6 mirror session on unsupported platforms")
+
             BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, erspan_ip_ver=erspan_ip_ver)
 
         yield session_info
@@ -976,22 +980,34 @@ class BaseEverflowTest(object):
 
         return new_packet
 
-    def check_rule_counters(self, duthost):
+    def check_rule_active(self, duthost, table_name):
         """
-        Check if Acl rule counters initialized
+        Check if Acl rule initialized
 
         Args:
             duthost: DUT host object
         Returns:
             Bool value
         """
-        res = duthost.shell("aclshow -a")['stdout_lines']
-        if len(res) <= 2 or [line for line in res if 'N/A' in line]:
+        res = duthost.shell(f"show acl rule {table_name}")['stdout_lines']
+        if "Status" not in res[0]:
             return False
-        else:
-            return True
+        status_index = res[0].index("Status")
+        for line in res[2:]:
+            if len(line) < status_index:
+                continue
+            if duthost.is_multi_asic:
+                st = eval(line[status_index:])
+                namespace_list = duthost.get_asic_namespace_list()
+                for namespace in namespace_list:
+                    if st[namespace] != 'Active':
+                        return False
+            else:
+                if line[status_index:] != 'Active':
+                    return False
+        return True
 
-    def apply_non_openconfig_acl_rle(self, duthost, extra_vars, rule_file):
+    def apply_non_openconfig_acl_rule(self, duthost, extra_vars, rule_file, table_name):
         """
         Not all ACL match groups are valid in openconfig-acl format used in rest of these
         tests. Instead we must load these uing SONiC-style acl jsons.
@@ -1005,10 +1021,16 @@ class BaseEverflowTest(object):
         duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
         duthost.file(path=dest_path, state='absent')
         duthost.template(src=os.path.join(FILE_DIR, rule_file), dest=dest_path)
-        duthost.shell("config load -y {}".format(dest_path))
+        dest_paths = dest_path
+        if duthost.is_multi_asic:
+            num_asics = duthost.facts['num_asic']
+            for num_asic in range(num_asics):
+                dest_paths = dest_paths + "," + dest_path
+        duthost.shell("config load -y {}".format(dest_paths))
 
         if duthost.facts['asic_type'] != 'vs':
-            pytest_assert(wait_until(60, 2, 0, self.check_rule_counters, duthost), "Acl rule counters are not ready")
+            pytest_assert(wait_until(150, 2, 0, self.check_rule_active, duthost, table_name),
+                          "Acl rule counters are not ready")
 
     def apply_ip_type_rule(self, duthost, ip_version):
         """
@@ -1031,7 +1053,7 @@ class BaseEverflowTest(object):
             'table_name': table_name,
             'action': action
         }
-        self.apply_non_openconfig_acl_rle(duthost, extra_vars, rule_file)
+        self.apply_non_openconfig_acl_rule(duthost, extra_vars, rule_file, table_name)
 
     def send_and_check_mirror_packets(self,
                                       setup,

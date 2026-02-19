@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Optional
 import enum
 import os
 import json
@@ -16,6 +17,7 @@ import threading
 import pathlib
 import importlib
 import inspect
+import concurrent.futures.thread as cft
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -62,7 +64,8 @@ from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
-    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node
+    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node, \
+    get_supervisor_for_linecard, create_linecard_console
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -70,6 +73,8 @@ from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.helpers.parallel import patch_ansible_worker_process
+from tests.common.helpers.parallel import fix_logging_handler_fork_lock
 
 import tests.common.gnmi_setup as gnmi_setup
 
@@ -115,6 +120,15 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.fixtures.duthost_utils')
 
 
+# NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
+if sys.version_info < (3, 12, 8):
+    os.register_at_fork(after_in_child=cft._threads_queues.clear)
+
+
+patch_ansible_worker_process()
+fix_logging_handler_fork_lock()
+
+
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
@@ -149,6 +163,13 @@ def pytest_addoption(parser):
 
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
+
+    # read_mac options
+    parser.addoption('--image1', action='store', type=str, help='1st image to download and install')
+    parser.addoption('--image2', action='store', type=str, help='2nd image to download and install')
+    parser.addoption('--iteration', action='store', type=int, help='Number of image installing iterations')
+    parser.addoption('--minigraph1', action='store', type=str, help='path to the minigraph1')
+    parser.addoption('--minigraph2', action='store', type=str, help='path to the minigraph2')
 
     #####################################
     # dash, vxlan, route shared options #
@@ -265,6 +286,12 @@ def pytest_addoption(parser):
                      help="Use insecure connection to gNMI target")
     parser.addoption("--disable_sai_validation", action="store_true", default=True,
                      help="Disable SAI validation")
+    parser.addoption(
+        "--target_version",
+        action="store",
+        default=None,
+        help="Target SONiC version string for gNOI SetPackage (e.g. SONiC-OS-20251110.06)",
+    )
     ############################
     #   Parallel run options   #
     ############################
@@ -786,8 +813,8 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
-        _hosts.apend(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
-                             macsec_enabled=request.config.option.enable_macsec))
+        _hosts.append(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
+                              macsec_enabled=request.config.option.enable_macsec))
     return _hosts
 
 
@@ -842,9 +869,22 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
         return devices
 
-    def initial_neighbor(neighbor_name, vm_name):
+    def initial_neighbor(neighbor_name, vm_name, multi_vrf_peer=False, multi_vrf_primary_host=None):
         logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
         if neighbor_type == "eos":
+            if multi_vrf_peer:
+                data = tbinfo['topo']['properties']['convergence_data']
+                primary_data = data['converged_peers'][multi_vrf_primary_host]
+                primary_asn = tbinfo['topo']['properties']['configuration'][multi_vrf_primary_host]['bgp']['asn']
+                multi_vrf_data = {'vrf': neighbor_name,
+                                  'intf_config': copy.deepcopy(primary_data['vrf'][neighbor_name]),
+                                  'intf_offset': primary_data['intf_mapping'][neighbor_name]["offset"],
+                                  'orig_intf_map': primary_data['intf_mapping'][neighbor_name]["orig_intf_map"],
+                                  'primary_host': multi_vrf_primary_host,
+                                  'primary_host_asn': primary_asn,
+                                  'intf_index_mapping': copy.deepcopy(data['interface_index_mapping'][neighbor_name]),
+                                  'vm_offset_mapping': data['vm_offset_mapping'][neighbor_name],
+                                  'ptf_bp_config': copy.deepcopy(data['ptf_backplane_addrs'][neighbor_name])}
             device = NeighborDevice(
                 {
                     'host': EosHost(
@@ -855,7 +895,9 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
                         shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name],
+                    'is_multi_vrf_peer': multi_vrf_peer,
+                    'multi_vrf_data': multi_vrf_data if multi_vrf_peer else None,
                 }
             )
         elif neighbor_type == "sonic":
@@ -903,9 +945,17 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     tbinfo['topo']['properties']['topology']['VMs'],
                     server['dut_interfaces']
                 ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
+            topo_is_multi_vrf = tbinfo['topo']['properties'].get('topo_is_multi_vrf', False)
             for neighbor_name, neighbor in vms.items():
                 vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
-                executor.submit(initial_neighbor, neighbor_name, vm_name)
+                if topo_is_multi_vrf:
+                    convergence_info = tbinfo['topo']['properties']['convergence_data']
+                    for vrf_name in convergence_info['convergence_mapping'][neighbor_name]:
+                        executor.submit(initial_neighbor, vrf_name, vm_name,
+                                        multi_vrf_peer=True,
+                                        multi_vrf_primary_host=neighbor_name)
+                else:
+                    executor.submit(initial_neighbor, neighbor_name, vm_name)
 
     logger.info("Fixture nbrhosts finished")
     return devices
@@ -922,7 +972,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     """
 
     # Internal helper functions
-    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> FanoutHost | None:
+    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> Optional[FanoutHost]:
         """
         Create FanoutHost if not exists, or return existing one.
         Fanout creation logic for both Ethernet and Serial connections.
@@ -2372,12 +2422,37 @@ def enum_downstream_dut_hostname(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_graph_facts, creds):   # noqa: F811
-    duthost = duthosts[enum_supervisor_dut_hostname]
-    host = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
+def duthost_console(duthosts, enum_rand_one_per_hwsku_hostname, request, localhost,
+                    conn_graph_facts, creds):   # noqa: F811
+    """
+    Provides a console connection object for testing.
 
-    yield host
-    host.disconnect()
+    Automatically determines node type and returns appropriate console:
+    - For LINECARD: Uses LinecardConsoleConn via supervisor
+    - For everything else (SUPERVISOR/STANDALONE): Uses create_duthost_console()
+
+    This fixture runs once per unique hwsku in the testbed.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    inv_files = get_inventory_files(request)
+
+    # Check if this is a linecard that needs supervisor access
+    supervisor = get_supervisor_for_linecard(duthost, duthosts, inv_files)
+
+    if supervisor:
+        # LINECARD node - use console via supervisor
+        console = create_linecard_console(supervisor, duthost, inv_files, creds)
+    else:
+        # SUPERVISOR or STANDALONE node - use standard console
+        console = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
+
+    yield console
+
+    if console:
+        try:
+            console.disconnect()
+        except Exception:
+            pass
 
 
 @pytest.fixture(scope='session')
