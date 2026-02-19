@@ -199,6 +199,10 @@ class TestQosSai(QosSaiBase):
         'Arista-7050CX3-32S-C32',
         'Arista-7050CX3-32S-C28S4',
         'Arista-7050CX3-32S-D48C8',
+        'Wistron_sw_to3200k_32x100',
+        'Wistron_sw_to3200k',
+        'wistron_6512_32r_32x100',
+        'dbmvtx9180_64x100G',
         'dbmvtx9180_64osfp_128x400G_lab'
     ]
 
@@ -1163,6 +1167,11 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_trig_pfc_multi" in qosConfig["hdrm_pool_size"]:
             testParams.update({"pkts_num_trig_pfc_multi": qosConfig["hdrm_pool_size"]["pkts_num_trig_pfc_multi"]})
 
+        pkts_num_trig_pfc_shp = qosConfig["hdrm_pool_size"].get(
+            "pkts_num_trig_pfc_shp")
+        if pkts_num_trig_pfc_shp:
+            testParams["pkts_num_trig_pfc_shp"] = pkts_num_trig_pfc_shp
+
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.HdrmPoolSizeTest",
             testParams=testParams
@@ -1252,6 +1261,9 @@ class TestQosSai(QosSaiBase):
 
         if "packet_size" in list(qosConfig[bufPool].keys()):
             testParams["packet_size"] = qosConfig[bufPool]["packet_size"]
+
+        if "extra_cap_margin" in list(qosConfig[bufPool].keys()):
+            testParams["extra_cap_margin"] = qosConfig[bufPool]["extra_cap_margin"]
 
         if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' and dutConfig["dutAsic"] == "gr2":
             testParams["extra_cap_margin"] = 20
