@@ -134,8 +134,11 @@ def remove_dns_nameserver(duthost, dns_nameserver):
         expect_op_success(duthost, output)
 
         pytest_assert(
-            not server_exist_in_conf(duthost, DNS_SERVER_RE.format(dns_nameserver)),
-            "Failed to remove {} from /etc/resolv.conf".format(dns_nameserver)
+            wait_until(10, 2, 0,
+                       lambda host, ns: not server_exist_in_conf(host, ns),
+                       duthost,
+                       DNS_SERVER_RE.format(dns_nameserver)),
+            f"Failed to remove {dns_nameserver} from /etc/resolv.conf"
         )
 
     finally:
