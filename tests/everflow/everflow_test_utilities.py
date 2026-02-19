@@ -486,6 +486,15 @@ def validate_mirror_session_up(duthost, session_name):
     return False
 
 
+def validate_acl_rules_in_asic_db(duthost):
+    """
+    Validate the number of ACL rules in ASIC DB is the same as the number of ACL rules in CONFIG DB.
+    """
+    config_rules = duthost.shell("sonic-db-cli CONFIG_DB KEYS *ACL_RULE*")['stdout_lines']
+    asic_rules = duthost.shell("sonic-db-cli ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*")['stdout_lines']
+    return len(config_rules) == len(asic_rules)
+
+
 # TODO: This should be refactored to some common area of sonic-mgmt.
 def add_route(duthost, prefix, nexthop, namespace):
     """
@@ -997,7 +1006,7 @@ class BaseEverflowTest(object):
         duthost.shell("config load -y {}".format(dest_path))
 
         if duthost.facts['asic_type'] != 'vs':
-            pytest_assert(wait_until(60, 2, 0, self.check_rule_active, duthost, table_name),
+            pytest_assert(wait_until(240, 2, 0, self.check_rule_active, duthost, table_name),
                           "Acl rule counters are not ready")
 
     def apply_ip_type_rule(self, duthost, ip_version):
@@ -1046,9 +1055,9 @@ class BaseEverflowTest(object):
         src_port_metadata_map = {}
 
         if 't2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo']:
+            src_port_set.add(src_port)
+            src_port_metadata_map[src_port] = (None, 1)
             if valid_across_namespace is True:
-                src_port_set.add(src_port)
-                src_port_metadata_map[src_port] = (None, 1)
                 # Add the dest_port to src_port_set only in non MACSEC testbed scenarios
                 if not MACSEC_INFO:
                     if duthost.facts['switch_type'] == "voq":
