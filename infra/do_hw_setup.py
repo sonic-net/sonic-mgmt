@@ -134,11 +134,11 @@ def configure_user_on_prod_images(stream, testbed_info_dict):
                     p2 = add_user(p2, DUT_USERNAME, DUT_PASSWORD, prompt)
                 p2.expect(prompt)
             time.sleep(120)
-            logging.info("User and permissions successfully configured.")
+            log.info("User and permissions successfully configured.")
             p2.close()
             p1.close()
         except Exception as e:
-            logging.error(f"An error occurred while configuring the user: {e}")
+            log.error(f"An error occurred while configuring the user: {e}")
             p2.close()
             p1.close()
             return -1
@@ -148,9 +148,9 @@ def configure_user_on_prod_images(stream, testbed_info_dict):
 def fetch_image_pipeline(args):
     testbed = args.testbed.strip()
     image_ucs = getImageUCS(testbed)
-    logging.info("Start login")
-    logging.info(image_ucs)
-    logging.info(image_ucs['username'])
+    log.info("Start login")
+    log.info(image_ucs)
+    log.info(image_ucs['username'])
     user = image_ucs['username']
     host = image_ucs['host']
     pswd = image_ucs['password']
@@ -164,7 +164,7 @@ def fetch_image_pipeline(args):
 
 
     # ssh to server
-    logging.info(f"SSH to server {host}, {user}/{pswd}")
+    log.info(f"SSH to server {host}, {user}/{pswd}")
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     ssh.connect(host, 22, user, pswd)
@@ -176,7 +176,7 @@ def fetch_image_pipeline(args):
         sftp.put(sonic_image_location+"/sonic-cisco-8000.bin", f"{image_folder}/{build_id}/sonic-cisco-8000.bin")
         sftp.put(sonic_image_location+"/docker-syncd-cisco-rpc.gz", f"{image_folder}/{build_id}/docker-syncd-cisco-rpc.gz")
     except FileNotFoundError:
-        logging.info(f"Path {image_folder}/{build_id} does not exist in server, create one")
+        log.info(f"Path {image_folder}/{build_id} does not exist in server, create one")
         sftp.mkdir(f"{image_folder}/{build_id}")
         sftp.put(sonic_image_location+"/sonic-cisco-8000.bin", f"{image_folder}/{build_id}/sonic-cisco-8000.bin")
         sftp.put(sonic_image_location+"/docker-syncd-cisco-rpc.gz", f"{image_folder}/{build_id}/docker-syncd-cisco-rpc.gz")
@@ -191,9 +191,9 @@ def fetch_image(args):
     [image, image_id, stream] = extractFromImageName(full_link)
     image_ucs = getImageUCS(testbed)
     log.debug("Fetch image")
-    logging.info("Start login")
-    logging.info(image_ucs)
-    logging.info(image_ucs['username'])
+    log.info("Start login")
+    log.info(image_ucs)
+    log.info(image_ucs['username'])
     user = image_ucs['username']
     host = image_ucs['host']
     pswd = image_ucs['password']
@@ -220,7 +220,7 @@ def fetch_image(args):
         return -1
     p.sendline(f'cd {image_folder}')
     p.expect(cmd)
-    logging.debug("downloading")
+    log.debug("downloading")
     p.sendline(UNSET_HTTP_PROXY)
     p.expect(cmd)
     wget = image_ucs['wget']
@@ -351,7 +351,8 @@ def run_onie_pre_install_commands(p, testbed_info_dict, index):
         raise
 
 def onie_install(args, index):
-    logging.info("Starting onie_install")
+    log.info(f"Starting onie_install for testbed {args.testbed} DUT index {index}")
+    log.info(f"args: {args}")
     global testbed_info_dict
     full_link = args.full_link.strip()
     [image, image_id, stream] = extractFromImageName(full_link)
@@ -359,6 +360,7 @@ def onie_install(args, index):
     testbed_info_dict = getTestbedInfoDict(testbed)
     image_ucs = getImageUCS(testbed)
     [host, port] = testbed_info_dict['telnet_details'][index].split(" ")
+    log.info(f"Telnet details for DUT index {index}: host={host}, port={port}")
     p = telnetConnection(host, port, None, sys.stdout, 'latin-1', False, testbed_info_dict)
     expected_prompts = [
         login_prompt, #0
@@ -383,9 +385,9 @@ def onie_install(args, index):
     retry_count = 0
     while True:
         time.sleep(2)
-        logging.info("Getting prompt")
+        log.info("Getting prompt")
         i = p.expect(expected_prompts)
-        logging.info(f"got prompt #{i} --> '{expected_prompts[i]}'")
+        log.info(f"got prompt #{i} --> '{expected_prompts[i]}'")
         if i == 0 or i == 4:
             # send user name
             p.sendline(username)
@@ -414,36 +416,36 @@ def onie_install(args, index):
             onie_path = testbed_info_dict['onie_path'] if "onie_path" in testbed_info_dict else DEFAULT_IMAGES_FOLDER
             p.send(f'http://{ip}/{onie_path}{image_folder}/{BIN_FILE}')
             p.sendline()
-            logging.info(p.after)
+            log.info(p.after)
             skip_onie = "True"
         elif i == 9:
             time.sleep(1) 
             if retry_count == 3: # retry 3 times
-                logging.error("Login not successful into DUT")
+                log.error("Login not successful into DUT")
                 return -1
             else:
                 retry_count = retry_count+1
         else:
-            logging.error("unexpected prompt, exiting telnet")
+            log.error("unexpected prompt, exiting telnet")
             p.sendline(telnet_escape_prompt)
             p.expect('>telnet')
             p.sendline('quit')
             break
     
-    logging.info("Reboot done. Waiting for GRUB ONIE selection menu")
+    log.info("Reboot done. Waiting for GRUB ONIE selection menu")
     if skip_onie != "True":
         p.expect(grub_selection)
-        logging.info("Got GRUB menu, selecting ONIE instead of default image")
+        log.info("Got GRUB menu, selecting ONIE instead of default image")
         p.send(KEY_DOWN)
         p.send(KEY_DOWN)
         p.send(KEY_DOWN)
         p.send(KEY_DOWN)
         p.sendline(newline_prompt)
         p.expect("Loading ONIE")
-        logging.info("Got 'Loading ONIE', waiting for GRUB menu")
+        log.info("Got 'Loading ONIE', waiting for GRUB menu")
         time.sleep(1)
         p.expect(["ONIE: Install OS", "ONIE: Rescue"])
-        logging.info("Got GRUB menu, ONIE Install Mode by seinding KEY_UP and enter, allow for ONIE Rescue Mode")
+        log.info("Got GRUB menu, ONIE Install Mode by seinding KEY_UP and enter, allow for ONIE Rescue Mode")
         p.sendline(KEY_UP)
         p.sendline(KEY_UP)
         p.sendline(KEY_UP)
@@ -460,13 +462,13 @@ def onie_install(args, index):
         p.sendline(newline_prompt)
         p.sendline(newline_prompt)
 
-        logging.info("Waiting for prompt: 'ONIE: OS Install Mode ...'")
+        log.info("Waiting for prompt: 'ONIE: OS Install Mode ...'")
         p.expect(["ONIE: OS Install Mode ...", "ONIE: Rescue Mode ..."])
-        logging.info("Got prompt: 'ONIE: OS Install/Rescue Mode ...'")
-        logging.info("Waiting for prompt: 'Please press Enter to activate this console.'")
-        logging.debug(p.after)
+        log.info("Got prompt: 'ONIE: OS Install/Rescue Mode ...'")
+        log.info("Waiting for prompt: 'Please press Enter to activate this console.'")
+        log.debug(p.after)
         p.expect('Please press Enter to activate this console.')
-        logging.info("Got prompt: 'Please press Enter to activate this console.'")
+        log.info("Got prompt: 'Please press Enter to activate this console.'")
         p.sendline(newline_prompt)
         p.sendline(newline_prompt)
         p.sendline(newline_prompt)
@@ -491,7 +493,7 @@ def onie_install(args, index):
     if telnetLoginUtil(p, stream) == -1:
         return -1
     
-    logging.info('Install process completed!')
+    log.info('Install process completed!')
 
     p.close()
     # Wait for 10 minutes before checking
@@ -513,9 +515,11 @@ def onie_install(args, index):
     log.debug("check for extra onie commands")
     # Send extra commands after loading image, map of what commands to run on which telnet connection
     if 'extra_onie_commands' in testbed_info_dict:
-        comds_list = testbed_info_dict['extra_onie_commands'][index]
-        log.debug(comds_list)
-        for cmd in comds_list:
+        cmds_list = testbed_info_dict['extra_onie_commands'][index]
+        log.debug(cmds_list)
+        for cmd in cmds_list:
+            log.debug(f"Executing extra ONIE command: {cmd}")
+            time.sleep(2)
             if cmd.startswith("scp"):
                 scpUtil(p, cmd, testbed_info_dict["ucs_password"])
                 p.expect(sonic_prompt)
@@ -527,10 +531,17 @@ def onie_install(args, index):
                 p.sendline(cmd)
                 if telnetLoginUtil(p, stream) == -1:
                     return -1
+            elif "config reload" in cmd:
+                log.debug(f"Executing config reload, command: {cmd}")
+                time.sleep(30) #give time for reload commands to run before continuing
+                p.sendline('\n')
+                p.expect(sonic_prompt)
             else:
                 p.sendline(cmd)
                 p.expect(sonic_prompt)      
     p.close()
+
+    log.info(f"ONIE install completed successfully for testbed {testbed}, DUT index {index} (telnet host {host}, port {port})")
     return
 
 def remove_topo(args):
@@ -580,7 +591,7 @@ def load_docker_ptf_image(stream, docker_ptf_url=None):
     ptf_docker_image_link = docker_ptf_url if docker_ptf_url \
         else STREAM_TO_DOCKER_PTF_MAP.get(stream)
     if not ptf_docker_image_link:
-        logging.error(f"unable to find matching docker ptf link for {stream}.")
+        log.error(f"unable to find matching docker ptf link for {stream}.")
         return 1
     log.debug(f'ptf_docker_image_link set to {ptf_docker_image_link}')
 
@@ -747,7 +758,7 @@ def deploy_mg(args):
     p2.sendline(f"./testbed-cli.sh deploy-mg {tb} ./lab ./password.txt")
     if checkForMGFailures(p2) == -1:
         return -1
-    logging.debug(p2.after)
+    log.debug(p2.after)
     
     time.sleep(20)
     p2.sendline("exit")
@@ -1043,13 +1054,13 @@ def telnet_run_sonic_pre_post_commands(args, index, pre_sonic=True):
             time.sleep(1)
             p.sendline("")
             if retry_count == 3: # retry 3 times
-                logging.error("Login not successful into DUT")
+                log.error("Login not successful into DUT")
                 p.close()
                 return -1
             else:
                 retry_count = retry_count+1
         else:
-            logging.error("unexpected prompt, exiting telnet")
+            log.error("unexpected prompt, exiting telnet")
             p.sendline(telnet_escape_prompt)
             p.expect('>telnet')
             p.sendline('quit')

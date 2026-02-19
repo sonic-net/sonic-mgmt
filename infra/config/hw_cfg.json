@@ -2265,7 +2265,7 @@
             ]],
             "extra_onie_commands": [[
                 "sudo rm /usr/share/sonic/device/x86_64-8122_64ehf_o-r0/default_sku",
-                "sudo bash -c 'echo 'Cisco-8122-64x800GS2 l1' > /usr/share/sonic/device/x86_64-8122_64ehf_o-r0/default_sku'",
+                "sudo bash -c 'echo \"Cisco-8122-64x800GS2 l1\" > /usr/share/sonic/device/x86_64-8122_64ehf_o-r0/default_sku'",
                 "sudo bash -c 'sonic-cfggen -H -k Cisco-8122-64x800GS2 --preset l1 > /etc/sonic/config_db.json'",
                 "sudo config reload -fy",
                 "sleep 90",

@@ -363,6 +363,8 @@ def checkTortugaImage(stream):
     return "tortuga" in stream
 
 def telnetConnection(host, port, timeout, logfile_loc, encoding, without_port, testbed_info_dict):
+    log.debug(f"Starting telnet connection")
+    log.debug(f"host={host}, port={port}, timeout={timeout}, logfile_loc={logfile_loc}, encoding={encoding}, without_port={without_port}")
     retries = 0
     while True:
         try:
@@ -435,7 +437,7 @@ def checkForMGFailures(p):
         return
 
 def checkTelnetconnection(p, host, port):
-    log.info("Check for connection refused")
+    log.info("Check for telnet connection and clear line if necessary")
     i = p.expect([telnet_error_prompt, "Connected to "])
     if i == 0:
         clearTelnetLine(p, host, port)
