@@ -3870,40 +3870,16 @@ def yang_validation_check(request, duthosts):
         logger.info("Skipping YANG validation check due to --skip_yang flag")
         return
 
-    def run_yang_validation(stage):
-        """Run YANG validation and return results"""
+    def run_yang_validation_all(stage):
+        """Run YANG validation on all DUTs and return results"""
+        from tests.common.helpers.yang_utils import run_yang_validation
         validation_results = {}
-
         for duthost in duthosts:
-            logger.info(f"Running YANG validation on {duthost.hostname} ({stage})")
-            try:
-                result = duthost.shell(
-                    'echo "[]" | sudo config apply-patch /dev/stdin',
-                    module_ignore_errors=True
-                )
-
-                if result['rc'] != 0:
-                    validation_results[duthost.hostname] = {
-                        'failed': True,
-                        'error': result.get('stderr', result.get('stdout', 'Unknown error'))
-                    }
-                    logger.error(f"YANG validation failed on {duthost.hostname} ({stage}): "
-                                 f"{validation_results[duthost.hostname]['error']}")
-                else:
-                    validation_results[duthost.hostname] = {'failed': False}
-                    logger.info(f"YANG validation passed on {duthost.hostname} ({stage})")
-
-            except Exception as e:
-                validation_results[duthost.hostname] = {
-                    'failed': True,
-                    'error': str(e)
-                }
-                logger.error(f"Exception during YANG validation on {duthost.hostname} ({stage}): {str(e)}")
-
+            validation_results[duthost.hostname] = run_yang_validation(duthost, stage)
         return validation_results
 
     # pre-test YANG validation
-    pre_results = run_yang_validation("pre-test")
+    pre_results = run_yang_validation_all("pre-test")
 
     # Check if any pre-test validation failed
     pre_failures = {host: result for host, result in pre_results.items() if result['failed']}
@@ -3917,7 +3893,7 @@ def yang_validation_check(request, duthosts):
     yield
 
     # post-test YANG validation
-    post_results = run_yang_validation("post-test")
+    post_results = run_yang_validation_all("post-test")
 
     # Check if any post-test validation failed
     post_failures = {host: result for host, result in post_results.items() if result['failed']}
