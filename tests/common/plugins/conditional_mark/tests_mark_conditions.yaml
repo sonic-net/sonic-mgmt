@@ -4742,7 +4742,7 @@ vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
   skip:
     reason: "Unsupported platform."
     conditions:
-      - "asic_type not in ['mellanox', 'barefoot', 'cisco-8000']"
+      - "asic_type not in ['mellanox', 'barefoot', 'cisco-8000', 'marvell-teralynx']"
 
 vlan/test_vlan_ping.py:
   skip:
