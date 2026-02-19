@@ -8,7 +8,6 @@ import collections
 import ipaddress
 import time
 import json
-import re
 
 from pytest_ansible.errors import AnsibleConnectionFailure
 from paramiko.ssh_exception import AuthenticationException
@@ -93,12 +92,31 @@ def backup_and_restore_config_db_session(duthosts):
         yield func
 
 
-def stop_route_checker_on_duthost(duthost):
+def _is_route_checker_in_status(duthost, expected_status_substrings):
+    """
+    Check if routeCheck service status contains any expected substring.
+    """
+    route_checker_status = duthost.get_monit_services_status().get("routeCheck", {})
+    status = route_checker_status.get("service_status", "").lower()
+    return any(status_fragment in status for status_fragment in expected_status_substrings)
+
+
+def stop_route_checker_on_duthost(duthost, wait_for_status=False):
     duthost.command("sudo monit stop routeCheck", module_ignore_errors=True)
+    if wait_for_status:
+        pt_assert(
+            wait_until(600, 15, 0, _is_route_checker_in_status, duthost, ("not monitored",)),
+            "routeCheck service did not stop on {}".format(duthost.hostname),
+        )
 
 
-def start_route_checker_on_duthost(duthost):
+def start_route_checker_on_duthost(duthost, wait_for_status=False):
     duthost.command("sudo monit start routeCheck", module_ignore_errors=True)
+    if wait_for_status:
+        pt_assert(
+            wait_until(900, 20, 0, _is_route_checker_in_status, duthost, ("status ok",)),
+            "routeCheck service did not start on {}".format(duthost.hostname),
+        )
 
 
 def _disable_route_checker(duthost):
@@ -578,6 +596,65 @@ def is_support_psu(duthosts, rand_one_dut_hostname):
         return platform_data['psus']['number'] > 0
     else:
         return True
+
+
+@pytest.fixture(scope='module')
+def frontend_asic_index_with_portchannel(request, duthosts, tbinfo):
+    """
+    Select a frontend ASIC that has portchannels configured.
+    Returns the ASIC index or None for single-ASIC devices.
+
+    This fixture is useful for tests that require portchannels on multi-ASIC devices,
+    ensuring the test runs on an ASIC that actually has portchannels configured.
+
+    Args:
+        request: Pytest request object to detect which DUT fixture is being used
+        duthosts: Fixture for DUT hosts
+        tbinfo: Testbed info fixture
+
+    Returns:
+        int: ASIC index for multi-ASIC devices with portchannels
+        None: For single-ASIC devices
+
+    Raises:
+        pytest_require: If no frontend ASIC with external portchannels is found
+    """
+    # Determine which DUT hostname fixture is being used
+    if "enum_rand_one_per_hwsku_frontend_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("enum_rand_one_per_hwsku_frontend_hostname")
+    elif "rand_one_dut_front_end_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("rand_one_dut_front_end_hostname")
+    elif "enum_frontend_dut_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("enum_frontend_dut_hostname")
+    else:
+        # Fallback to rand_one_dut_hostname if no frontend-specific fixture is found
+        dut_hostname = request.getfixturevalue("rand_one_dut_hostname")
+
+    duthost = duthosts[dut_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    if duthost.is_multi_asic:
+        # For multi-ASIC, find an ASIC with portchannels
+        for asic_index in duthost.get_frontend_asic_ids():
+            asic_namespace = duthost.get_namespace_from_asic_id(asic_index)
+            asic_cfg_facts = duthost.config_facts(
+                host=duthost.hostname,
+                source="persistent",
+                namespace=asic_namespace
+            )['ansible_facts']
+
+            portchannel_dict = asic_cfg_facts.get('PORTCHANNEL', {})
+            if portchannel_dict:
+                # Check if there are external (non-backend) portchannels
+                for portchannel_key in portchannel_dict:
+                    if not duthost.is_backend_portchannel(portchannel_key, mg_facts):
+                        logger.info(f"Selected ASIC {asic_index} with external portchannel: {portchannel_key}")
+                        return asic_index
+
+        pt_assert(False, "No frontend ASIC with external portchannels found")
+    else:
+        # For single-ASIC, return None
+        return None
 
 
 def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
