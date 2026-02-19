@@ -1,10 +1,20 @@
 import grpc
 import json
-import tests.common.sai_validation.generated.github.com.openconfig.gnmi.proto.gnmi.gnmi_pb2 as gnmi_pb2
 import logging
 from typing import List, Dict
 
 logger = logging.getLogger(__name__)
+
+# Lazy import for generated module
+_gnmi_pb2 = None
+
+
+def _ensure_imports():
+    """Lazy import of generated gNMI modules."""
+    global _gnmi_pb2
+    if _gnmi_pb2 is None:
+        import tests.common.sai_validation.generated.github.com.openconfig.gnmi.proto.gnmi.gnmi_pb2 as gnmi_pb2
+        _gnmi_pb2 = gnmi_pb2
 
 def create_secure_channel(target, root_cert_path, client_cert_path, client_key_path):
     logger.debug("Creating secure channel with target: %s", target)

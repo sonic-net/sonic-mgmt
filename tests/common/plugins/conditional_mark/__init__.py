@@ -28,7 +28,7 @@ MARK_CONDITIONS_CONSTANTS = {
                      't1-lag', 't1-28-lag', 't1-48-lag', 't1-64-lag', 't1-56-lag',
                      't1-backend', 't1-isolated-d128', 't1-isolated-d32',
                      't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic',
-                     'lt2-p32o64', 'lt2-o128', 'ft2-64']
+                     'lt2-p32o64', 'lt2-o128', 'ft2-64', 't2_one_hwsku_min', 't2_one_hwsku_max']
 }
 
 
@@ -78,10 +78,10 @@ def load_conditions(session):
     conditions_list = list()
 
     conditions_files = session.config.option.mark_conditions_files
-    for condition in conditions_files:
-        if '*' in condition:
-            conditions_files.remove(condition)
-            files = glob.glob(condition)
+    for condition_file in conditions_files:
+        if '*' in condition_file:
+            conditions_files.remove(condition_file)
+            files = glob.glob(condition_file)
             for file in files:
                 if file not in conditions_files:
                     conditions_files.append(file)
@@ -643,7 +643,7 @@ def pytest_collection(session):
 
 
 def pytest_collection_modifyitems(session, config, items):
-    """Hook for adding marks to test cases based on conditions defind in a centralized file.
+    """Hook for adding marks to test cases based on conditions defined in a centralized file.
 
     Args:
         session (obj): Pytest session object.

@@ -20,7 +20,7 @@ from tests.dash.conftest import get_interface_ip
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('smartswitch')
 ]
 
 
