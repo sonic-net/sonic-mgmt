@@ -414,6 +414,14 @@ def collect_results(args):
     [image, image_id, stream] = extractFromImageName(full_link)
     testbed_info_dict = getTestbedInfoDict(testbed)
     rc = 0
+
+    SUMMARY_REPORT_FILENAME = "results.json"
+    WORKSPACE = os.getenv("WORKSPACE")
+    test_suites_arg = os.getenv("TEST_SUITES")
+    results_path = os.path.join(WORKSPACE, SUMMARY_REPORT_FILENAME)
+    dut_run_log_folder = f'{image_id}_jenkins_logs_{build_id}_{testbed}'
+    logs_path = getLogsPath(stream, testbed)
+
     #default results json
     result = {
         "total" : 0,
@@ -423,16 +431,11 @@ def collect_results(args):
         "errored" : 0,
         "skipped" : 0,
         "success_rate" : 0,
-        "status": FAILURE_STATUS
+        "status": FAILURE_STATUS,
+        "ucs_server": testbed_info_dict["ucs_host_name"],
+        "log_path": f"{logs_path}{dut_run_log_folder}",
     }
 
-    SUMMARY_REPORT_FILENAME = "results.json"
-
-    WORKSPACE = os.getenv("WORKSPACE")
-    test_suites_arg = os.getenv("TEST_SUITES")
-    results_path = os.path.join(WORKSPACE, SUMMARY_REPORT_FILENAME)
-    dut_run_log_folder = f'{image_id}_jenkins_logs_{build_id}_{testbed}'
-    logs_path = getLogsPath(stream, testbed)
     log.debug(f"Entered collect_results, dut_run_log_folder: {dut_run_log_folder}, results_path: {results_path}, logs_path: {logs_path}")
 
     if 'custom_result_url' in testbed_info_dict:
