@@ -3318,6 +3318,7 @@
   inv_name: str3
   auto_recover: 'True'
   is_smartswitch: 'True'
+  is_lit_mode: 'False'
   comment: paravind
 
 - conf-name: vms12-t1-smartswitch-4280-02
