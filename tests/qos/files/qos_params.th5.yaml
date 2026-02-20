@@ -579,7 +579,7 @@ qos_params:
                     dscps:
                     - 3
                     - 4
-                    dst_port_id: 0
+                    dst_port_id: 32
                     ecn: 1
                     margin: 2
                     pgs:

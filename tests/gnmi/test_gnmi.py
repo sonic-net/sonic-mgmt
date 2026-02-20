@@ -8,6 +8,7 @@ from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
 
+
 logger = logging.getLogger(__name__)
 allure.logger = logger
 

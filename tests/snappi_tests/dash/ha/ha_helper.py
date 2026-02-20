@@ -185,6 +185,7 @@ def power_off_dpu(duthost, dpu_id):
         logger.error(f"Error powering off dpu{dpu_id}: {e}")
 
     return
+'''
 
 
 def power_on_dpu(duthost, dpu_id):
