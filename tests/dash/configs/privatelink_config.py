@@ -1,6 +1,8 @@
 from dash_api.eni_pb2 import State, EniMode
 from dash_api.route_type_pb2 import ActionType, EncapType, RoutingType
 from dash_api.types_pb2 import IpVersion
+from dash_api.outbound_port_map_range_pb2 import PortMapRangeAction
+
 
 VNET = "vnet"
 VNET_ENCAP = "vnet_encap"
@@ -21,6 +23,13 @@ PL_OVERLAY_SIP = "fd41:108:20:abc:abc::0"
 PL_OVERLAY_SIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff::"
 PL_OVERLAY_DIP = "2603:10e1:100:2::3401:203"
 PL_OVERLAY_DIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
+PL_REDIRECT_OVERLAY_DIP = "2603:10e1:100:2::0"
+PL_REDIRECT_OVERLAY_DIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff::"
+PL_REDIRECT_BACKEND_PORT_BASE = 42001
+PL_REDIRECT_BACKEND_IP = "60.60.60.1"
+PORT_MAP_1 = "portmap_1"
+PORT_MAP_1_RANGE_START = "8001"
+PORT_MAP_1_RANGE_END = "9000"
 
 APPLIANCE_ID = "100"
 LOCAL_REGION_ID = "100"
@@ -32,6 +41,7 @@ VNET2 = "Vnet2"
 VNET1_VNI = "2001"
 VNET1_GUID = "559c6ce8-26ab-4193-b946-ccc6e8f930b2"
 VNET2_GUID = "559c6ce8-26ab-4193-b946-ccc6e8f930b3"
+PORTMAP_GUID = "600c6ce8-26ab-4193-b946-ccc6e8f93001"
 VM_MAC = "44:E3:9F:EF:C4:6E"
 ENI_MAC = "F4:93:9F:EF:C4:7E"
 ENI_MAC_STRING = ENI_MAC.replace(":", "")
@@ -53,6 +63,7 @@ TUNNEL2 = "Tunnel2"
 TUNNEL1_ENDPOINT_IPS = [TUNNEL1_ENDPOINT_IP]
 TUNNEL2_ENDPOINT_IPS = ["60.60.60.60", "70.70.70.70"]
 TUNNEL3 = "Tunnel3"
+TUNNEL3_ENDPOINT_IP = "80.80.80.80"
 TUNNEL3_ENDPOINT_IPS = ["80.80.80.80"]
 TUNNEL4 = "Tunnel4"
 TUNNEL4_ENDPOINT_IPS = ["90.90.90.90", "10.10.10.10"]
@@ -140,6 +151,31 @@ PE_VNET_MAPPING_CONFIG = {
     }
 }
 
+PL_REDIRECT_PE_VNET_MAPPING_CONFIG = {
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{PE_CA}": {
+        "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
+        "underlay_ip": PE_PA,
+        "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
+        "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
+        "metering_class_or": "1586",
+        "port_map": PORT_MAP_1,
+    }
+}
+
+RD_PORTMAP_CONFIG = {
+        f"DASH_OUTBOUND_PORT_MAP_TABLE:{PORT_MAP_1}": {
+              "guid": f"{PORTMAP_GUID}"
+        }
+}
+
+RD_PORTMAP_RANGE_CONFIG = {
+     f"DASH_OUTBOUND_PORT_MAP_RANGE_TABLE:{PORT_MAP_1}:{PORT_MAP_1_RANGE_START}-{PORT_MAP_1_RANGE_END}": {
+         "action": PortMapRangeAction.ACTION_MAP_PRIVATE_LINK_SERVICE,
+         "backend_ip": PL_REDIRECT_BACKEND_IP,
+         "backend_port_base": PL_REDIRECT_BACKEND_PORT_BASE
+     }
+}
+
 PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_CONFIG = {
     f"DASH_VNET_MAPPING_TABLE:{VNET1}:{PE_CA}": {
         "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
@@ -147,6 +183,18 @@ PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_CONFIG = {
         "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
         "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
         "tunnel": TUNNEL3,
+    }
+}
+
+PL_REDIRECT_PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_CONFIG = {
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{PE_CA}": {
+        "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
+        "underlay_ip": PE_PA,
+        "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
+        "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
+        "metering_class_or": "1586",
+        "tunnel": TUNNEL3,
+        "port_map": PORT_MAP_1,
     }
 }
 
