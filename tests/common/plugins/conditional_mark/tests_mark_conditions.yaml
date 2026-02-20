@@ -3735,6 +3735,12 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "is_smartswitch==True"
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/20675"
         - "release in ['202412']"
+   xfail:
+     reason: "This case has a known issue. Skipping until the issue is addressed."
+     conditions_logical_operator: or
+     conditions:
+        - "https://github.com/sonic-net/sonic-sairedis/issues/1030 and 't0' in topo_name and asic_type in ['marvell-teralynx']"
+        - "https://github.com/sonic-net/sonic-swss/issues/2231 and 't0' in topo_name and asic_type in ['marvell-teralynx']"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv4-async_storm:
    skip:
