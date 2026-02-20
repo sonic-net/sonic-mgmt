@@ -97,6 +97,7 @@ from tests.common.snappi_tests.snappi_helpers import (
     fetch_snappi_flow_metrics,
     SnappiFanoutManager,
     get_snappi_port_location,
+    is_traffic_converged,
 )     # noqa: F403, F401, F405
 
 #  Port Management (Selection, Configuration)
