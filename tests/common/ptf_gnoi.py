@@ -131,19 +131,6 @@ class PtfGnoi:
         request = {"name": name, "restart": restart, "signal": signal}
         return self.grpc_client.call_unary("gnoi.system.System", "KillProcess", request)
 
-    def upgrade_status(self, upgrade_id: str) -> Dict:
-        """Get the status of an upgrade operation from the device."""
-        logger.debug("Getting upgrade status for Upgrade ID: %s", upgrade_id)
-        request = {"id": upgrade_id}
-
-        response = self.grpc_client.call_unary("gnoi.upgrade.Upgrade", "Status", request)
-
-        if "status" not in response:
-            raise ValueError("Missing 'status' in upgrade status response")
-
-        logger.debug("Received upgrade status response: %s", response)
-        return response
-
     def __str__(self):
         return f"PtfGnoi(grpc_client={self.grpc_client})"
 
