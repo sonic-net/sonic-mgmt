@@ -32,7 +32,7 @@ def add_acl_link_drop(duthost, interface):
             }
         }
     }
-    acl_rule_json_path = "/tmp/ACL_RULE.json"
+    acl_rule_json_path = f"/tmp/{ACL_TABLE}_{ACL_RULE}.json"
     duthost.copy(
         content=json.dumps(acl_rule_config, indent=4),
         dest=acl_rule_json_path
