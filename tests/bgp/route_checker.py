@@ -80,8 +80,12 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
         :param neigh_host_item: tuple of hostname and host_conf dict
         :return: no return value
         """
-        # get hostname('ARISTA11T0') by VM name('VM0122')
-        hostname = host_name_map[node['host'].hostname]
+        multi_vrf_peer = node.get('is_multi_vrf_peer', False)
+        if multi_vrf_peer:
+            hostname = node['multi_vrf_data']['vrf']
+        else:
+            # get hostname('ARISTA11T0') by VM name('VM0122')
+            hostname = host_name_map[node['host'].hostname]
         host = node['host']
         peer_ips = node['conf']['bgp']['peers'][asn]
         for ip in peer_ips:
@@ -91,16 +95,23 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
                 peer_ip_v6 = ip
         # The json formatter on EOS consumes too much time (over 40 seconds).
         # So we have to parse the raw output instead json.
+        grepCmd = 'grep -E "{}|{}"'.format(BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
         if 4 == ip_ver:
-            cmd = "show ip bgp neighbors {} received-routes detail | grep -E \"{}|{}\""\
-                  .format(peer_ip_v4, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
+            cmd = "show ip bgp neighbors {} received-routes detail".format(peer_ip_v4)
+            if multi_vrf_peer:
+                cmd = "{} vrf {}".format(cmd, hostname)
+            cmd = "{} | {}".format(cmd, grepCmd)
             cmd_backup = ""
         else:
-            cmd = "show ipv6 bgp peers {} received-routes detail | grep -E \"{}|{}\""\
-                  .format(peer_ip_v6, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
+            cmd = "show ipv6 bgp peers {} received-routes detail".format(peer_ip_v6)
+            if multi_vrf_peer:
+                cmd = "{} vrf {}".format(cmd, hostname)
+            cmd = "{} | {}".format(cmd, grepCmd)
             # For compatibility on EOS of old version
-            cmd_backup = "show ipv6 bgp neighbors {} received-routes detail | grep -E \"{}|{}\""\
-                         .format(peer_ip_v6, BGP_ENTRY_HEADING, BGP_COMMUNITY_HEADING)
+            cmd_backup = "show ipv6 bgp neighbors {} received-routes detail".format(peer_ip_v6)
+            if multi_vrf_peer:
+                cmd_backup = "{} vrf {}".format(cmd_backup, hostname)
+            cmd_backup = "{} | {}".format(cmd_backup, grepCmd)
         res = host.eos_command(commands=[cmd], module_ignore_errors=True)
         if res['failed'] and cmd_backup != "":
             res = host.eos_command(
