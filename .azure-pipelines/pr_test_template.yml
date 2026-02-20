@@ -344,6 +344,10 @@ jobs:
     continueOnError: true
     pool: sonic-ubuntu-1c
     steps:
+      - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
+        - checkout: ${{ parameters.SONIC_MGMT_NAME }}
+          displayName: "Checkout sonic-mgmt repository"
+
       - template: run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t1-lag-vpp
