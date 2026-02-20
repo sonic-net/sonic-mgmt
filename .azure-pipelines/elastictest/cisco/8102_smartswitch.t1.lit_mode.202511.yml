@@ -4,7 +4,7 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "0 16 * * 1"
+  - cron: "0 4 * * 5"
     displayName: Nightly Scheduler
     branches:
       include:
@@ -26,8 +26,18 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms12-t1-smartswitch-8102-02"
+    default: "vms66-t1-8102-7"
     displayName: "Testbed Name"
+
+  - name: DUT_NAME
+    type: string
+    default: "str3-8102-07"
+    displayName: "DUT Name"
+
+  - name: DPU_NAME
+    type: string
+    default: "str3-8102-07-dpu-0, str3-8102-07-dpu-1, str3-8102-07-dpu-2, str3-8102-07-dpu-3, str3-8102-07-dpu-4, str3-8102-07-dpu-5, str3-8102-07-dpu-6, str3-8102-07-dpu-7"
+    displayName: "DPU Name"
 
   - name: MIN_WORKER
     type: string
@@ -60,7 +70,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "ntp/test_ntp.py,ip/test_mgmt_ipv6_only.py,platform_tests/api/test_module.py"
+    default: "ntp/test_ntp.py,ip/test_mgmt_ipv6_only.py"
     displayName: "Scripts to be excluded"
 
   - name: SPECIFIC_PARAM
@@ -73,7 +83,7 @@ parameters:
 
   - name: FEATURES_EXCLUDE
     type: string
-    default: "dash,smartswitch"
+    default: " "
     displayName: "Features to be excluded"
 
   - name: COMMON_EXTRA_PARAMS
@@ -108,7 +118,7 @@ stages:
 
   jobs:
   - job:
-    displayName: 8102.t1-smartswitch.202511.NightlyTest_by_Elastictest
+    displayName: 8102.t1-smartswitch.lit_mode.202511.NightlyTest_by_Elastictest
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -121,7 +131,7 @@ stages:
         SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
-        COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+        COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }} --host-pattern ${{ parameters.DUT_NAME }}
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
