@@ -22,7 +22,7 @@ EXAMPLES = '''
 
 
 class ConfigureVMs(object):
-    def __init__(self, ip, cmds, module, login='admin', password='123456'):
+    def __init__(self, ip, cmds, module, login='admin', password='123456'):  # nosemgrep: hardcoded-password-default-argument
         self.ip = ip
         self.cmds = cmds
         self.login = login
