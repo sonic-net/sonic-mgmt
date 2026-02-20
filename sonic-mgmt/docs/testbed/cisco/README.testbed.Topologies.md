@@ -30,7 +30,7 @@ Below are the details of the various T1 Topologies used within Cisco across diff
 &nbsp;
 &nbsp;
 
-#### T1-64-LAG
+#### T1-64-LAG (topology_id: t1-64-lag)
 
 ![](./img/topo-t1-64-lag.png)
 
@@ -42,7 +42,7 @@ Below are the details of the various T1 Topologies used within Cisco across diff
 &nbsp;
 &nbsp;
 
-#### T1-56-LAG
+#### T1-56-LAG (topology_id: t1-56-lag)
 
 ![](./img/topo-t1-56-lag.png)
 
@@ -54,7 +54,7 @@ Below are the details of the various T1 Topologies used within Cisco across diff
 &nbsp;
 &nbsp;
 
-#### T1-LAG
+#### T1-LAG (topology_id: t1-lag)
 
 ![](./img/topo-t1-lag.png)
 
@@ -66,7 +66,7 @@ Below are the details of the various T1 Topologies used within Cisco across diff
 &nbsp;
 &nbsp;
 
-#### T1-LAG-Lightning
+#### T1-LAG-Lightning (topology_id: t1-lag-lightning)
 
 ![](./img/topo-t1-lag-lightning.png)
 
@@ -78,7 +78,7 @@ Below are the details of the various T1 Topologies used within Cisco across diff
 &nbsp;
 &nbsp;
 
-#### T1-LAG-Superbolt
+#### T1-LAG-Superbolt (topology_id: t1-lag-superbolt)
 
 ![](./img/topo-t1-lag-superbolt.png)
 
@@ -104,7 +104,7 @@ Below are details of some of the T0 variations:
 &nbsp;
 &nbsp;
 
-#### T0-64
+#### T0-64 (topology_id: t0-64)
 
 ![](./img/topo-t0-64.png)
 
@@ -117,7 +117,7 @@ Below are details of some of the T0 variations:
 &nbsp;
 
 
-#### T0
+#### T0 (topology_id: t0)
 
 ![](./img/topo-t0.png)
 
@@ -130,7 +130,7 @@ Below are details of some of the T0 variations:
 &nbsp;
 
 
-#### T0-Lightning
+#### T0-Lightning (topology_id: t0-lightning)
 
 ![](./img/topo-t0-lightning.png)
 
@@ -146,6 +146,7 @@ Below are details of some of the T0 variations:
 
 Below are the details of the DualToR variations:
 
+#### DualToR-56 (topology_id: dualtor-56)
 
 ![](./img/topo-dualtor-56.png)
 
@@ -161,6 +162,7 @@ Below are the details of the DualToR variations:
 
 Below are the details of the T2 variations for Modular Chassis:
 
+#### T2 SF-D (topology_id: t2-sfd)
 
 ![](./img/topo-t2.png)
 
@@ -181,7 +183,7 @@ Below are the details of the Smartswitch variations:
 &nbsp;
 &nbsp;
 
-### Mt.Fuji T1 Topology
+### Mt.Fuji T1 Topology (topology_id: mt-fuji-t1)
 
 ![](./img/topo-smartswitch-t1.png)
 
@@ -194,6 +196,8 @@ Below are the details of the Smartswitch variations:
 &nbsp;
 
 ### SONiC B2B(Back-to-Back) type Topology
+
+#### SONiC Tests: B2B Topology (topology_id: sonic-tests-b2b)
 
 ![](./img/topo-b2b-tgen.png)
 
@@ -212,12 +216,15 @@ Additional details regarding the exact topo used for each of these B2B tests is 
 &nbsp;
 &nbsp;
 
-### SONiC-Mgmt Pytest TGEN Topology
+### Other Topology Types
+
+The topologies in this section are **purpose-built** test setups that do not fit cleanly into the standard T0/T1/T2/DualToR categories.
+Each subsection below includes the reference diagram and notes on the platforms/tests that use it.
+
+#### SONiC-Mgmt Pytest TGEN Topology (topology_id: N/A - Use above 'sonic-tests-b2b' for this)
 
 These are IXIA based topologies mainly used to execute Pytest PFC, PFCWD, ECN tests
 Theses topologies utilize the above B2B setup
-
-![](./img/topo-ixia-pfc-b2b.png)
 
 Reference Wikis with additional details to bringup this topology are below.
 
@@ -246,7 +253,7 @@ Note: For both of these, the Topo bringup is done via handcrafted Minigraph
 &nbsp;
 
 
-### Latency Tests Topology
+#### Latency Tests Topology (topology_id: latency-tests)
 
 This test also leverages the above B2B topology
 
@@ -261,7 +268,7 @@ The above topology is used for Latency tests
 &nbsp;
 &nbsp;
 
-### Optics Tests Topology
+#### Optics Tests Topology (topology_id: optics-tests)
 
 This test also leverages the above B2B topology
 
@@ -277,7 +284,7 @@ The above topology is used for Optics tests
 &nbsp;
 &nbsp;
 
-### Snake Test Topology
+#### Snake Test Topology (topology_id: snake-test)
 
 
 ![](./img/topo-snake.png)
@@ -297,7 +304,7 @@ Below are the reference topologies for various Tortuga Test activities
 
 
 
-### Tortuga: Dev and CI/CD Test Topology
+#### Tortuga: Dev and CI/CD Test Topology (topology_id: tortuga-dev-cicd-test)
 
 ![](./img/topo-tortuga-cicd.png)
 
@@ -306,7 +313,7 @@ Below are the reference topologies for various Tortuga Test activities
 &nbsp;
 &nbsp;
 
-### Tortuga: Solution Test Topology
+#### Tortuga: Solution Test Topology (topology_id: tortuga-solution-test)
 
 ![](./img/topo-tortuga-sol.png)
 
@@ -315,7 +322,7 @@ Below are the reference topologies for various Tortuga Test activities
 &nbsp;
 
 
-### Tortuga: Performance & Scale Test Topology
+#### Tortuga: Performance & Scale Test Topology (topology_id: tortuga-performance-scale-test)
 
 ![](./img/topo-tortuga-pns.png)
 
@@ -324,6 +331,6 @@ Below are the reference topologies for various Tortuga Test activities
 &nbsp;
 &nbsp;
 
-### Ostara: Solution Test Topology
+#### Ostara: Solution Test Topology (topology_id: ostara-solution-test)
 
 ![](./img/topo-ostara-sol.png)
