@@ -13,7 +13,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # no
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa:F401
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_tcp_connection
-from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, \
     is_route_flow_counter_supported  # noqa:F401
@@ -212,17 +212,27 @@ def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthosts, rand_one_dut_
         "HTTP Ready: {}"
     ).format(http_ready)
 
-    logger.info("Wait some time to verify that bgp sessions are established")
-    time.sleep(20)
-    bgp_facts = duthost.bgp_facts()['ansible_facts']
-    assert all([v["state"] == "established" for _, v in list(bgp_facts["bgp_neighbors"].items())]), (
-        "Not all BGP sessions are established. "
-        "Current state: {} "
-        "BGP neighbors items: {} "
-    ).format(
-        (v["state"] for _, v in list(bgp_facts["bgp_neighbors"].items())),
-        list(bgp_facts["bgp_neighbors"].items())
-    )
+    logger.info("Wait for bgp sessions to be established")
+
+    last_bgp_facts = {}
+
+    def _all_bgp_sessions_established():
+        facts = duthost.bgp_facts()['ansible_facts']
+        last_bgp_facts.update(facts)
+        not_established = {k: v["state"] for k, v in
+                           list(facts["bgp_neighbors"].items())
+                           if v["state"] != "established"}
+        if not_established:
+            logger.debug("BGP sessions not established: %s", not_established)
+            return False
+        return True
+
+    pytest_assert(wait_until(60, 5, 0, _all_bgp_sessions_established),
+                  "Not all BGP sessions are established: {}".format(
+                      {k: v["state"] for k, v in
+                       list(last_bgp_facts.get("bgp_neighbors", {}).items())
+                       if v["state"] != "established"}))
+    bgp_facts = last_bgp_facts
 
     assert str(speaker_ips[2].ip) in bgp_facts["bgp_neighbors"], (
         "No BGP session with PTF. "
