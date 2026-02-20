@@ -7193,3 +7193,1535 @@ sensors_checks:
       temp: [ ]
     psu_skips: { }
     sensor_skip_per_version: { }
+
+  x86_64-arista_7280r4_32qf_32df:
+    alarms:
+      fan:
+      - dps800-i2c-22-58/fan1/fan1_alarm
+      - dps800-i2c-22-58/fan1/fan1_fault
+      - dps800-i2c-22-58/fan2/fan2_alarm
+      - dps800-i2c-22-58/fan2/fan2_fault
+      - dps800-i2c-23-58/fan1/fan1_alarm
+      - dps800-i2c-23-58/fan1/fan1_fault
+      - dps800-i2c-23-58/fan2/fan2_alarm
+      - dps800-i2c-23-58/fan2/fan2_fault
+      - pali2_cpld-i2c-16-60/fan1/fan1_fault
+      - pali2_cpld-i2c-16-60/fan2/fan2_fault
+      - pali2_cpld-i2c-16-60/fan3/fan3_fault
+      - pali2_cpld-i2c-16-60/fan4/fan4_fault
+      power:
+      - dps800-i2c-22-58/iin/curr1_crit_alarm
+      - dps800-i2c-22-58/iin/curr1_max_alarm
+      - dps800-i2c-22-58/iout1/curr2_crit_alarm
+      - dps800-i2c-22-58/iout1/curr2_lcrit_alarm
+      - dps800-i2c-22-58/iout1/curr2_max_alarm
+      - dps800-i2c-22-58/pin/power1_alarm
+      - dps800-i2c-22-58/pout1/power2_cap_alarm
+      - dps800-i2c-22-58/pout1/power2_crit_alarm
+      - dps800-i2c-22-58/pout1/power2_max_alarm
+      - dps800-i2c-22-58/vin/in1_crit_alarm
+      - dps800-i2c-22-58/vin/in1_lcrit_alarm
+      - dps800-i2c-22-58/vin/in1_max_alarm
+      - dps800-i2c-22-58/vin/in1_min_alarm
+      - dps800-i2c-22-58/vout1/in3_crit_alarm
+      - dps800-i2c-22-58/vout1/in3_lcrit_alarm
+      - dps800-i2c-22-58/vout1/in3_max_alarm
+      - dps800-i2c-22-58/vout1/in3_min_alarm
+      - dps800-i2c-23-58/iin/curr1_crit_alarm
+      - dps800-i2c-23-58/iin/curr1_max_alarm
+      - dps800-i2c-23-58/iout1/curr2_crit_alarm
+      - dps800-i2c-23-58/iout1/curr2_lcrit_alarm
+      - dps800-i2c-23-58/iout1/curr2_max_alarm
+      - dps800-i2c-23-58/pin/power1_alarm
+      - dps800-i2c-23-58/pout1/power2_cap_alarm
+      - dps800-i2c-23-58/pout1/power2_crit_alarm
+      - dps800-i2c-23-58/pout1/power2_max_alarm
+      - dps800-i2c-23-58/vin/in1_crit_alarm
+      - dps800-i2c-23-58/vin/in1_lcrit_alarm
+      - dps800-i2c-23-58/vin/in1_max_alarm
+      - dps800-i2c-23-58/vin/in1_min_alarm
+      - dps800-i2c-23-58/vout1/in3_crit_alarm
+      - dps800-i2c-23-58/vout1/in3_lcrit_alarm
+      - dps800-i2c-23-58/vout1/in3_max_alarm
+      - dps800-i2c-23-58/vout1/in3_min_alarm
+      - isl68223-i2c-25-47/iin1/curr1_crit_alarm
+      - isl68223-i2c-25-47/iin1/curr1_max_alarm
+      - isl68223-i2c-25-47/iin2/curr2_crit_alarm
+      - isl68223-i2c-25-47/iin2/curr2_max_alarm
+      - isl68223-i2c-25-47/iout1/curr3_crit_alarm
+      - isl68223-i2c-25-47/iout1/curr3_max_alarm
+      - isl68223-i2c-25-47/iout2/curr4_crit_alarm
+      - isl68223-i2c-25-47/iout2/curr4_max_alarm
+      - isl68223-i2c-25-47/pin1/power1_alarm
+      - isl68223-i2c-25-47/pin2/power2_alarm
+      - isl68223-i2c-25-47/vin/in1_crit_alarm
+      - isl68223-i2c-25-47/vin/in1_lcrit_alarm
+      - isl68223-i2c-25-47/vin/in1_max_alarm
+      - isl68223-i2c-25-47/vin/in1_min_alarm
+      - isl68223-i2c-25-47/vout1/in3_crit_alarm
+      - isl68223-i2c-25-47/vout1/in3_lcrit_alarm
+      - isl68223-i2c-25-47/vout2/in4_crit_alarm
+      - isl68223-i2c-25-47/vout2/in4_lcrit_alarm
+      - isl68226-i2c-24-4c/iin1/curr1_crit_alarm
+      - isl68226-i2c-24-4c/iin1/curr1_max_alarm
+      - isl68226-i2c-24-4c/iin2/curr2_crit_alarm
+      - isl68226-i2c-24-4c/iin2/curr2_max_alarm
+      - isl68226-i2c-24-4c/iin3/curr3_crit_alarm
+      - isl68226-i2c-24-4c/iin3/curr3_max_alarm
+      - isl68226-i2c-24-4c/iout1/curr4_crit_alarm
+      - isl68226-i2c-24-4c/iout1/curr4_max_alarm
+      - isl68226-i2c-24-4c/iout2/curr5_crit_alarm
+      - isl68226-i2c-24-4c/iout2/curr5_max_alarm
+      - isl68226-i2c-24-4c/iout3/curr6_crit_alarm
+      - isl68226-i2c-24-4c/iout3/curr6_max_alarm
+      - isl68226-i2c-24-4c/pin1/power1_alarm
+      - isl68226-i2c-24-4c/pin2/power2_alarm
+      - isl68226-i2c-24-4c/pin3/power3_alarm
+      - isl68226-i2c-24-4c/vin/in1_crit_alarm
+      - isl68226-i2c-24-4c/vin/in1_lcrit_alarm
+      - isl68226-i2c-24-4c/vin/in1_max_alarm
+      - isl68226-i2c-24-4c/vin/in1_min_alarm
+      - isl68226-i2c-24-4c/vout1/in3_crit_alarm
+      - isl68226-i2c-24-4c/vout1/in3_lcrit_alarm
+      - isl68226-i2c-24-4c/vout2/in4_crit_alarm
+      - isl68226-i2c-24-4c/vout2/in4_lcrit_alarm
+      - isl68226-i2c-24-4c/vout3/in5_crit_alarm
+      - isl68226-i2c-24-4c/vout3/in5_lcrit_alarm
+      - isl68226-i2c-24-4f/iin1/curr1_crit_alarm
+      - isl68226-i2c-24-4f/iin1/curr1_max_alarm
+      - isl68226-i2c-24-4f/iin2/curr2_crit_alarm
+      - isl68226-i2c-24-4f/iin2/curr2_max_alarm
+      - isl68226-i2c-24-4f/iin3/curr3_crit_alarm
+      - isl68226-i2c-24-4f/iin3/curr3_max_alarm
+      - isl68226-i2c-24-4f/iout1/curr4_crit_alarm
+      - isl68226-i2c-24-4f/iout1/curr4_max_alarm
+      - isl68226-i2c-24-4f/iout2/curr5_crit_alarm
+      - isl68226-i2c-24-4f/iout2/curr5_max_alarm
+      - isl68226-i2c-24-4f/iout3/curr6_crit_alarm
+      - isl68226-i2c-24-4f/iout3/curr6_max_alarm
+      - isl68226-i2c-24-4f/pin1/power1_alarm
+      - isl68226-i2c-24-4f/pin2/power2_alarm
+      - isl68226-i2c-24-4f/pin3/power3_alarm
+      - isl68226-i2c-24-4f/vin/in1_crit_alarm
+      - isl68226-i2c-24-4f/vin/in1_lcrit_alarm
+      - isl68226-i2c-24-4f/vin/in1_max_alarm
+      - isl68226-i2c-24-4f/vin/in1_min_alarm
+      - isl68226-i2c-24-4f/vout1/in3_crit_alarm
+      - isl68226-i2c-24-4f/vout1/in3_lcrit_alarm
+      - isl68226-i2c-24-4f/vout2/in4_crit_alarm
+      - isl68226-i2c-24-4f/vout2/in4_lcrit_alarm
+      - isl68226-i2c-24-4f/vout3/in5_crit_alarm
+      - isl68226-i2c-24-4f/vout3/in5_lcrit_alarm
+      - isl68226-i2c-25-4c/iin1/curr1_crit_alarm
+      - isl68226-i2c-25-4c/iin1/curr1_max_alarm
+      - isl68226-i2c-25-4c/iin2/curr2_crit_alarm
+      - isl68226-i2c-25-4c/iin2/curr2_max_alarm
+      - isl68226-i2c-25-4c/iin3/curr3_crit_alarm
+      - isl68226-i2c-25-4c/iin3/curr3_max_alarm
+      - isl68226-i2c-25-4c/iout1/curr4_crit_alarm
+      - isl68226-i2c-25-4c/iout1/curr4_max_alarm
+      - isl68226-i2c-25-4c/iout2/curr5_crit_alarm
+      - isl68226-i2c-25-4c/iout2/curr5_max_alarm
+      - isl68226-i2c-25-4c/iout3/curr6_crit_alarm
+      - isl68226-i2c-25-4c/iout3/curr6_max_alarm
+      - isl68226-i2c-25-4c/pin1/power1_alarm
+      - isl68226-i2c-25-4c/pin2/power2_alarm
+      - isl68226-i2c-25-4c/pin3/power3_alarm
+      - isl68226-i2c-25-4c/vin/in1_crit_alarm
+      - isl68226-i2c-25-4c/vin/in1_lcrit_alarm
+      - isl68226-i2c-25-4c/vin/in1_max_alarm
+      - isl68226-i2c-25-4c/vin/in1_min_alarm
+      - isl68226-i2c-25-4c/vout1/in3_crit_alarm
+      - isl68226-i2c-25-4c/vout1/in3_lcrit_alarm
+      - isl68226-i2c-25-4c/vout2/in4_crit_alarm
+      - isl68226-i2c-25-4c/vout2/in4_lcrit_alarm
+      - isl68226-i2c-25-4c/vout3/in5_crit_alarm
+      - isl68226-i2c-25-4c/vout3/in5_lcrit_alarm
+      - raa228228-i2c-24-45/iin1/curr1_crit_alarm
+      - raa228228-i2c-24-45/iin1/curr1_max_alarm
+      - raa228228-i2c-24-45/iin2/curr2_crit_alarm
+      - raa228228-i2c-24-45/iin2/curr2_max_alarm
+      - raa228228-i2c-24-45/iout1/curr3_crit_alarm
+      - raa228228-i2c-24-45/iout1/curr3_max_alarm
+      - raa228228-i2c-24-45/iout2/curr4_crit_alarm
+      - raa228228-i2c-24-45/iout2/curr4_max_alarm
+      - raa228228-i2c-24-45/pin1/power1_alarm
+      - raa228228-i2c-24-45/pin2/power2_alarm
+      - raa228228-i2c-24-45/vin/in1_crit_alarm
+      - raa228228-i2c-24-45/vin/in1_lcrit_alarm
+      - raa228228-i2c-24-45/vin/in1_max_alarm
+      - raa228228-i2c-24-45/vin/in1_min_alarm
+      - raa228228-i2c-24-45/vout1/in3_crit_alarm
+      - raa228228-i2c-24-45/vout1/in3_lcrit_alarm
+      - raa228228-i2c-24-45/vout2/in4_crit_alarm
+      - raa228228-i2c-24-45/vout2/in4_lcrit_alarm
+      - raa228228-i2c-25-45/iin1/curr1_crit_alarm
+      - raa228228-i2c-25-45/iin1/curr1_max_alarm
+      - raa228228-i2c-25-45/iin2/curr2_crit_alarm
+      - raa228228-i2c-25-45/iin2/curr2_max_alarm
+      - raa228228-i2c-25-45/iout1/curr3_crit_alarm
+      - raa228228-i2c-25-45/iout1/curr3_max_alarm
+      - raa228228-i2c-25-45/iout2/curr4_crit_alarm
+      - raa228228-i2c-25-45/iout2/curr4_max_alarm
+      - raa228228-i2c-25-45/pin1/power1_alarm
+      - raa228228-i2c-25-45/pin2/power2_alarm
+      - raa228228-i2c-25-45/vin/in1_crit_alarm
+      - raa228228-i2c-25-45/vin/in1_lcrit_alarm
+      - raa228228-i2c-25-45/vin/in1_max_alarm
+      - raa228228-i2c-25-45/vin/in1_min_alarm
+      - raa228228-i2c-25-45/vout1/in3_crit_alarm
+      - raa228228-i2c-25-45/vout1/in3_lcrit_alarm
+      - raa228228-i2c-25-45/vout2/in4_crit_alarm
+      - raa228228-i2c-25-45/vout2/in4_lcrit_alarm
+      temp:
+      - amax31732-i2c-19-1c/temp1/temp1_crit_alarm
+      - amax31732-i2c-19-1c/temp1/temp1_lcrit_alarm
+      - amax31732-i2c-19-1c/temp1/temp1_max_alarm
+      - amax31732-i2c-19-1c/temp1/temp1_min_alarm
+      - amax31732-i2c-19-1c/temp2/temp2_crit_alarm
+      - amax31732-i2c-19-1c/temp2/temp2_fault
+      - amax31732-i2c-19-1c/temp2/temp2_lcrit_alarm
+      - amax31732-i2c-19-1c/temp2/temp2_max_alarm
+      - amax31732-i2c-19-1c/temp2/temp2_min_alarm
+      - amax31732-i2c-19-1c/temp3/temp3_crit_alarm
+      - amax31732-i2c-19-1c/temp3/temp3_fault
+      - amax31732-i2c-19-1c/temp3/temp3_lcrit_alarm
+      - amax31732-i2c-19-1c/temp3/temp3_max_alarm
+      - amax31732-i2c-19-1c/temp3/temp3_min_alarm
+      - amax31732-i2c-19-1c/temp4/temp4_crit_alarm
+      - amax31732-i2c-19-1c/temp4/temp4_fault
+      - amax31732-i2c-19-1c/temp4/temp4_lcrit_alarm
+      - amax31732-i2c-19-1c/temp4/temp4_max_alarm
+      - amax31732-i2c-19-1c/temp4/temp4_min_alarm
+      - amax31732-i2c-19-1c/temp5/temp5_crit_alarm
+      - amax31732-i2c-19-1c/temp5/temp5_fault
+      - amax31732-i2c-19-1c/temp5/temp5_lcrit_alarm
+      - amax31732-i2c-19-1c/temp5/temp5_max_alarm
+      - amax31732-i2c-19-1c/temp5/temp5_min_alarm
+      - dps800-i2c-22-58/temp1/temp1_crit_alarm
+      - dps800-i2c-22-58/temp1/temp1_lcrit_alarm
+      - dps800-i2c-22-58/temp1/temp1_max_alarm
+      - dps800-i2c-22-58/temp1/temp1_min_alarm
+      - dps800-i2c-22-58/temp2/temp2_crit_alarm
+      - dps800-i2c-22-58/temp2/temp2_lcrit_alarm
+      - dps800-i2c-22-58/temp2/temp2_max_alarm
+      - dps800-i2c-22-58/temp2/temp2_min_alarm
+      - dps800-i2c-22-58/temp3/temp3_crit_alarm
+      - dps800-i2c-22-58/temp3/temp3_lcrit_alarm
+      - dps800-i2c-22-58/temp3/temp3_max_alarm
+      - dps800-i2c-22-58/temp3/temp3_min_alarm
+      - dps800-i2c-23-58/temp1/temp1_crit_alarm
+      - dps800-i2c-23-58/temp1/temp1_lcrit_alarm
+      - dps800-i2c-23-58/temp1/temp1_max_alarm
+      - dps800-i2c-23-58/temp1/temp1_min_alarm
+      - dps800-i2c-23-58/temp2/temp2_crit_alarm
+      - dps800-i2c-23-58/temp2/temp2_lcrit_alarm
+      - dps800-i2c-23-58/temp2/temp2_max_alarm
+      - dps800-i2c-23-58/temp2/temp2_min_alarm
+      - dps800-i2c-23-58/temp3/temp3_crit_alarm
+      - dps800-i2c-23-58/temp3/temp3_lcrit_alarm
+      - dps800-i2c-23-58/temp3/temp3_max_alarm
+      - dps800-i2c-23-58/temp3/temp3_min_alarm
+      - isl68223-i2c-25-47/temp1/temp1_crit_alarm
+      - isl68223-i2c-25-47/temp1/temp1_lcrit_alarm
+      - isl68223-i2c-25-47/temp1/temp1_max_alarm
+      - isl68223-i2c-25-47/temp2/temp2_crit_alarm
+      - isl68223-i2c-25-47/temp2/temp2_lcrit_alarm
+      - isl68223-i2c-25-47/temp2/temp2_max_alarm
+      - isl68223-i2c-25-47/temp3/temp3_crit_alarm
+      - isl68223-i2c-25-47/temp3/temp3_lcrit_alarm
+      - isl68223-i2c-25-47/temp3/temp3_max_alarm
+      - isl68223-i2c-25-47/temp4/temp4_crit_alarm
+      - isl68223-i2c-25-47/temp4/temp4_lcrit_alarm
+      - isl68223-i2c-25-47/temp4/temp4_max_alarm
+      - isl68223-i2c-25-47/temp5/temp5_crit_alarm
+      - isl68223-i2c-25-47/temp5/temp5_lcrit_alarm
+      - isl68223-i2c-25-47/temp5/temp5_max_alarm
+      - isl68226-i2c-24-4c/temp1/temp1_crit_alarm
+      - isl68226-i2c-24-4c/temp1/temp1_lcrit_alarm
+      - isl68226-i2c-24-4c/temp1/temp1_max_alarm
+      - isl68226-i2c-24-4c/temp2/temp2_crit_alarm
+      - isl68226-i2c-24-4c/temp2/temp2_lcrit_alarm
+      - isl68226-i2c-24-4c/temp2/temp2_max_alarm
+      - isl68226-i2c-24-4c/temp3/temp3_crit_alarm
+      - isl68226-i2c-24-4c/temp3/temp3_lcrit_alarm
+      - isl68226-i2c-24-4c/temp3/temp3_max_alarm
+      - isl68226-i2c-24-4c/temp4/temp4_crit_alarm
+      - isl68226-i2c-24-4c/temp4/temp4_lcrit_alarm
+      - isl68226-i2c-24-4c/temp4/temp4_max_alarm
+      - isl68226-i2c-24-4c/temp5/temp5_crit_alarm
+      - isl68226-i2c-24-4c/temp5/temp5_lcrit_alarm
+      - isl68226-i2c-24-4c/temp5/temp5_max_alarm
+      - isl68226-i2c-24-4c/temp6/temp6_crit_alarm
+      - isl68226-i2c-24-4c/temp6/temp6_lcrit_alarm
+      - isl68226-i2c-24-4c/temp6/temp6_max_alarm
+      - isl68226-i2c-24-4c/temp7/temp7_crit_alarm
+      - isl68226-i2c-24-4c/temp7/temp7_lcrit_alarm
+      - isl68226-i2c-24-4c/temp7/temp7_max_alarm
+      - isl68226-i2c-24-4f/temp1/temp1_crit_alarm
+      - isl68226-i2c-24-4f/temp1/temp1_lcrit_alarm
+      - isl68226-i2c-24-4f/temp1/temp1_max_alarm
+      - isl68226-i2c-24-4f/temp2/temp2_crit_alarm
+      - isl68226-i2c-24-4f/temp2/temp2_lcrit_alarm
+      - isl68226-i2c-24-4f/temp2/temp2_max_alarm
+      - isl68226-i2c-24-4f/temp3/temp3_crit_alarm
+      - isl68226-i2c-24-4f/temp3/temp3_lcrit_alarm
+      - isl68226-i2c-24-4f/temp3/temp3_max_alarm
+      - isl68226-i2c-24-4f/temp4/temp4_crit_alarm
+      - isl68226-i2c-24-4f/temp4/temp4_lcrit_alarm
+      - isl68226-i2c-24-4f/temp4/temp4_max_alarm
+      - isl68226-i2c-24-4f/temp5/temp5_crit_alarm
+      - isl68226-i2c-24-4f/temp5/temp5_lcrit_alarm
+      - isl68226-i2c-24-4f/temp5/temp5_max_alarm
+      - isl68226-i2c-24-4f/temp6/temp6_crit_alarm
+      - isl68226-i2c-24-4f/temp6/temp6_lcrit_alarm
+      - isl68226-i2c-24-4f/temp6/temp6_max_alarm
+      - isl68226-i2c-24-4f/temp7/temp7_crit_alarm
+      - isl68226-i2c-24-4f/temp7/temp7_lcrit_alarm
+      - isl68226-i2c-24-4f/temp7/temp7_max_alarm
+      - isl68226-i2c-25-4c/temp1/temp1_crit_alarm
+      - isl68226-i2c-25-4c/temp1/temp1_lcrit_alarm
+      - isl68226-i2c-25-4c/temp1/temp1_max_alarm
+      - isl68226-i2c-25-4c/temp2/temp2_crit_alarm
+      - isl68226-i2c-25-4c/temp2/temp2_lcrit_alarm
+      - isl68226-i2c-25-4c/temp2/temp2_max_alarm
+      - isl68226-i2c-25-4c/temp3/temp3_crit_alarm
+      - isl68226-i2c-25-4c/temp3/temp3_lcrit_alarm
+      - isl68226-i2c-25-4c/temp3/temp3_max_alarm
+      - isl68226-i2c-25-4c/temp4/temp4_crit_alarm
+      - isl68226-i2c-25-4c/temp4/temp4_lcrit_alarm
+      - isl68226-i2c-25-4c/temp4/temp4_max_alarm
+      - isl68226-i2c-25-4c/temp5/temp5_crit_alarm
+      - isl68226-i2c-25-4c/temp5/temp5_lcrit_alarm
+      - isl68226-i2c-25-4c/temp5/temp5_max_alarm
+      - isl68226-i2c-25-4c/temp6/temp6_crit_alarm
+      - isl68226-i2c-25-4c/temp6/temp6_lcrit_alarm
+      - isl68226-i2c-25-4c/temp6/temp6_max_alarm
+      - isl68226-i2c-25-4c/temp7/temp7_crit_alarm
+      - isl68226-i2c-25-4c/temp7/temp7_lcrit_alarm
+      - isl68226-i2c-25-4c/temp7/temp7_max_alarm
+      - nvme-pci-0500/Composite/temp1_alarm
+      - raa228228-i2c-24-45/temp1/temp1_crit_alarm
+      - raa228228-i2c-24-45/temp1/temp1_lcrit_alarm
+      - raa228228-i2c-24-45/temp1/temp1_max_alarm
+      - raa228228-i2c-24-45/temp2/temp2_crit_alarm
+      - raa228228-i2c-24-45/temp2/temp2_lcrit_alarm
+      - raa228228-i2c-24-45/temp2/temp2_max_alarm
+      - raa228228-i2c-24-45/temp3/temp3_crit_alarm
+      - raa228228-i2c-24-45/temp3/temp3_lcrit_alarm
+      - raa228228-i2c-24-45/temp3/temp3_max_alarm
+      - raa228228-i2c-25-45/temp1/temp1_crit_alarm
+      - raa228228-i2c-25-45/temp1/temp1_lcrit_alarm
+      - raa228228-i2c-25-45/temp1/temp1_max_alarm
+      - raa228228-i2c-25-45/temp2/temp2_crit_alarm
+      - raa228228-i2c-25-45/temp2/temp2_lcrit_alarm
+      - raa228228-i2c-25-45/temp2/temp2_max_alarm
+      - raa228228-i2c-25-45/temp3/temp3_crit_alarm
+      - raa228228-i2c-25-45/temp3/temp3_lcrit_alarm
+      - raa228228-i2c-25-45/temp3/temp3_max_alarm
+
+    compares:
+      fan: [ ]
+      power: [ ]
+      temp:
+      - - amax31732-i2c-19-1c/temp1/temp1_input
+        - amax31732-i2c-19-1c/temp1/temp1_crit
+      - - amax31732-i2c-19-1c/temp2/temp2_input
+        - amax31732-i2c-19-1c/temp2/temp2_crit
+      - - amax31732-i2c-19-1c/temp3/temp3_input
+        - amax31732-i2c-19-1c/temp3/temp3_crit
+      - - amax31732-i2c-19-1c/temp4/temp4_input
+        - amax31732-i2c-19-1c/temp4/temp4_crit
+      - - amax31732-i2c-19-1c/temp5/temp5_input
+        - amax31732-i2c-19-1c/temp5/temp5_crit
+      - - dps800-i2c-22-58/temp1/temp1_input
+        - dps800-i2c-22-58/temp1/temp1_crit
+      - - dps800-i2c-22-58/temp2/temp2_input
+        - dps800-i2c-22-58/temp2/temp2_crit
+      - - dps800-i2c-22-58/temp3/temp3_input
+        - dps800-i2c-22-58/temp3/temp3_crit
+      - - dps800-i2c-23-58/temp1/temp1_input
+        - dps800-i2c-23-58/temp1/temp1_crit
+      - - dps800-i2c-23-58/temp2/temp2_input
+        - dps800-i2c-23-58/temp2/temp2_crit
+      - - dps800-i2c-23-58/temp3/temp3_input
+        - dps800-i2c-23-58/temp3/temp3_crit
+      - - isl68223-i2c-25-47/temp1/temp1_input
+        - isl68223-i2c-25-47/temp1/temp1_crit
+      - - isl68223-i2c-25-47/temp3/temp3_input
+        - isl68223-i2c-25-47/temp3/temp3_crit
+      - - isl68226-i2c-24-4c/temp1/temp1_input
+        - isl68226-i2c-24-4c/temp1/temp1_crit
+      - - isl68226-i2c-24-4c/temp2/temp2_input
+        - isl68226-i2c-24-4c/temp2/temp2_crit
+      - - isl68226-i2c-24-4c/temp3/temp3_input
+        - isl68226-i2c-24-4c/temp3/temp3_crit
+      - - isl68226-i2c-24-4c/temp4/temp4_input
+        - isl68226-i2c-24-4c/temp4/temp4_crit
+      - - isl68226-i2c-24-4f/temp1/temp1_input
+        - isl68226-i2c-24-4f/temp1/temp1_crit
+      - - isl68226-i2c-24-4f/temp2/temp2_input
+        - isl68226-i2c-24-4f/temp2/temp2_crit
+      - - isl68226-i2c-24-4f/temp3/temp3_input
+        - isl68226-i2c-24-4f/temp3/temp3_crit
+      - - isl68226-i2c-24-4f/temp4/temp4_input
+        - isl68226-i2c-24-4f/temp4/temp4_crit
+      - - isl68226-i2c-25-4c/temp1/temp1_input
+        - isl68226-i2c-25-4c/temp1/temp1_crit
+      - - isl68226-i2c-25-4c/temp2/temp2_input
+        - isl68226-i2c-25-4c/temp2/temp2_crit
+      - - isl68226-i2c-25-4c/temp3/temp3_input
+        - isl68226-i2c-25-4c/temp3/temp3_crit
+      - - isl68226-i2c-25-4c/temp4/temp4_input
+        - isl68226-i2c-25-4c/temp4/temp4_crit
+      - - nvme-pci-0500/Composite/temp1_input
+        - nvme-pci-0500/Composite/temp1_crit
+      - - raa228228-i2c-24-45/temp1/temp1_input
+        - raa228228-i2c-24-45/temp1/temp1_crit
+      - - raa228228-i2c-24-45/temp2/temp2_input
+        - raa228228-i2c-24-45/temp2/temp2_crit
+      - - raa228228-i2c-24-45/temp3/temp3_input
+        - raa228228-i2c-24-45/temp3/temp3_crit
+      - - raa228228-i2c-25-45/temp1/temp1_input
+        - raa228228-i2c-25-45/temp1/temp1_crit
+      - - raa228228-i2c-25-45/temp2/temp2_input
+        - raa228228-i2c-25-45/temp2/temp2_crit
+      - - raa228228-i2c-25-45/temp3/temp3_input
+        - raa228228-i2c-25-45/temp3/temp3_crit
+      - - tmp75-i2c-16-48/temp1/temp1_input
+        - tmp75-i2c-16-48/temp1/temp1_max
+      - - tmp75-i2c-19-48/temp1/temp1_input
+        - tmp75-i2c-19-48/temp1/temp1_max
+
+    non_zero:
+      fan:
+      - dps800-i2c-22-58/fan1/fan1_input
+      - dps800-i2c-22-58/fan2/fan2_input
+      - dps800-i2c-23-58/fan1/fan1_input
+      - dps800-i2c-23-58/fan2/fan2_input
+      - pali2_cpld-i2c-16-60/fan1/fan1_input
+      - pali2_cpld-i2c-16-60/fan2/fan2_input
+      - pali2_cpld-i2c-16-60/fan3/fan3_input
+      - pali2_cpld-i2c-16-60/fan4/fan4_input
+      power: [ ]
+      temp: [ ]
+
+    psu_skips:
+      dps800-i2c-22-58:
+        number: 1
+        side: left
+        skip_list:
+        - dps800-i2c-22-58
+      dps800-i2c-23-58:
+        number: 2
+        side: right
+        skip_list:
+        - dps800-i2c-23-58
+
+    sensor_skip_per_version: { }
+
+  x86_64-arista_7280r4k_32qf_32df:
+    alarms:
+      fan:
+      - dps800-i2c-22-58/fan1/fan1_alarm
+      - dps800-i2c-22-58/fan1/fan1_fault
+      - dps800-i2c-22-58/fan2/fan2_alarm
+      - dps800-i2c-22-58/fan2/fan2_fault
+      - dps800-i2c-23-58/fan1/fan1_alarm
+      - dps800-i2c-23-58/fan1/fan1_fault
+      - dps800-i2c-23-58/fan2/fan2_alarm
+      - dps800-i2c-23-58/fan2/fan2_fault
+      - pali2_cpld-i2c-16-60/fan1/fan1_fault
+      - pali2_cpld-i2c-16-60/fan2/fan2_fault
+      - pali2_cpld-i2c-16-60/fan3/fan3_fault
+      - pali2_cpld-i2c-16-60/fan4/fan4_fault
+      power:
+      - dps800-i2c-22-58/iin/curr1_crit_alarm
+      - dps800-i2c-22-58/iin/curr1_max_alarm
+      - dps800-i2c-22-58/iout1/curr2_crit_alarm
+      - dps800-i2c-22-58/iout1/curr2_lcrit_alarm
+      - dps800-i2c-22-58/iout1/curr2_max_alarm
+      - dps800-i2c-22-58/pin/power1_alarm
+      - dps800-i2c-22-58/pout1/power2_cap_alarm
+      - dps800-i2c-22-58/pout1/power2_crit_alarm
+      - dps800-i2c-22-58/pout1/power2_max_alarm
+      - dps800-i2c-22-58/vin/in1_crit_alarm
+      - dps800-i2c-22-58/vin/in1_lcrit_alarm
+      - dps800-i2c-22-58/vin/in1_max_alarm
+      - dps800-i2c-22-58/vin/in1_min_alarm
+      - dps800-i2c-22-58/vout1/in3_crit_alarm
+      - dps800-i2c-22-58/vout1/in3_lcrit_alarm
+      - dps800-i2c-22-58/vout1/in3_max_alarm
+      - dps800-i2c-22-58/vout1/in3_min_alarm
+      - dps800-i2c-23-58/iin/curr1_crit_alarm
+      - dps800-i2c-23-58/iin/curr1_max_alarm
+      - dps800-i2c-23-58/iout1/curr2_crit_alarm
+      - dps800-i2c-23-58/iout1/curr2_lcrit_alarm
+      - dps800-i2c-23-58/iout1/curr2_max_alarm
+      - dps800-i2c-23-58/pin/power1_alarm
+      - dps800-i2c-23-58/pout1/power2_cap_alarm
+      - dps800-i2c-23-58/pout1/power2_crit_alarm
+      - dps800-i2c-23-58/pout1/power2_max_alarm
+      - dps800-i2c-23-58/vin/in1_crit_alarm
+      - dps800-i2c-23-58/vin/in1_lcrit_alarm
+      - dps800-i2c-23-58/vin/in1_max_alarm
+      - dps800-i2c-23-58/vin/in1_min_alarm
+      - dps800-i2c-23-58/vout1/in3_crit_alarm
+      - dps800-i2c-23-58/vout1/in3_lcrit_alarm
+      - dps800-i2c-23-58/vout1/in3_max_alarm
+      - dps800-i2c-23-58/vout1/in3_min_alarm
+      - isl68223-i2c-25-47/iin1/curr1_crit_alarm
+      - isl68223-i2c-25-47/iin1/curr1_max_alarm
+      - isl68223-i2c-25-47/iin2/curr2_crit_alarm
+      - isl68223-i2c-25-47/iin2/curr2_max_alarm
+      - isl68223-i2c-25-47/iout1/curr3_crit_alarm
+      - isl68223-i2c-25-47/iout1/curr3_max_alarm
+      - isl68223-i2c-25-47/iout2/curr4_crit_alarm
+      - isl68223-i2c-25-47/iout2/curr4_max_alarm
+      - isl68223-i2c-25-47/pin1/power1_alarm
+      - isl68223-i2c-25-47/pin2/power2_alarm
+      - isl68223-i2c-25-47/vin/in1_crit_alarm
+      - isl68223-i2c-25-47/vin/in1_lcrit_alarm
+      - isl68223-i2c-25-47/vin/in1_max_alarm
+      - isl68223-i2c-25-47/vin/in1_min_alarm
+      - isl68223-i2c-25-47/vout1/in3_crit_alarm
+      - isl68223-i2c-25-47/vout1/in3_lcrit_alarm
+      - isl68223-i2c-25-47/vout2/in4_crit_alarm
+      - isl68223-i2c-25-47/vout2/in4_lcrit_alarm
+      - isl68226-i2c-24-4c/iin1/curr1_crit_alarm
+      - isl68226-i2c-24-4c/iin1/curr1_max_alarm
+      - isl68226-i2c-24-4c/iin2/curr2_crit_alarm
+      - isl68226-i2c-24-4c/iin2/curr2_max_alarm
+      - isl68226-i2c-24-4c/iin3/curr3_crit_alarm
+      - isl68226-i2c-24-4c/iin3/curr3_max_alarm
+      - isl68226-i2c-24-4c/iout1/curr4_crit_alarm
+      - isl68226-i2c-24-4c/iout1/curr4_max_alarm
+      - isl68226-i2c-24-4c/iout2/curr5_crit_alarm
+      - isl68226-i2c-24-4c/iout2/curr5_max_alarm
+      - isl68226-i2c-24-4c/iout3/curr6_crit_alarm
+      - isl68226-i2c-24-4c/iout3/curr6_max_alarm
+      - isl68226-i2c-24-4c/pin1/power1_alarm
+      - isl68226-i2c-24-4c/pin2/power2_alarm
+      - isl68226-i2c-24-4c/pin3/power3_alarm
+      - isl68226-i2c-24-4c/vin/in1_crit_alarm
+      - isl68226-i2c-24-4c/vin/in1_lcrit_alarm
+      - isl68226-i2c-24-4c/vin/in1_max_alarm
+      - isl68226-i2c-24-4c/vin/in1_min_alarm
+      - isl68226-i2c-24-4c/vout1/in3_crit_alarm
+      - isl68226-i2c-24-4c/vout1/in3_lcrit_alarm
+      - isl68226-i2c-24-4c/vout2/in4_crit_alarm
+      - isl68226-i2c-24-4c/vout2/in4_lcrit_alarm
+      - isl68226-i2c-24-4c/vout3/in5_crit_alarm
+      - isl68226-i2c-24-4c/vout3/in5_lcrit_alarm
+      - isl68226-i2c-24-4f/iin1/curr1_crit_alarm
+      - isl68226-i2c-24-4f/iin1/curr1_max_alarm
+      - isl68226-i2c-24-4f/iin2/curr2_crit_alarm
+      - isl68226-i2c-24-4f/iin2/curr2_max_alarm
+      - isl68226-i2c-24-4f/iin3/curr3_crit_alarm
+      - isl68226-i2c-24-4f/iin3/curr3_max_alarm
+      - isl68226-i2c-24-4f/iout1/curr4_crit_alarm
+      - isl68226-i2c-24-4f/iout1/curr4_max_alarm
+      - isl68226-i2c-24-4f/iout2/curr5_crit_alarm
+      - isl68226-i2c-24-4f/iout2/curr5_max_alarm
+      - isl68226-i2c-24-4f/iout3/curr6_crit_alarm
+      - isl68226-i2c-24-4f/iout3/curr6_max_alarm
+      - isl68226-i2c-24-4f/pin1/power1_alarm
+      - isl68226-i2c-24-4f/pin2/power2_alarm
+      - isl68226-i2c-24-4f/pin3/power3_alarm
+      - isl68226-i2c-24-4f/vin/in1_crit_alarm
+      - isl68226-i2c-24-4f/vin/in1_lcrit_alarm
+      - isl68226-i2c-24-4f/vin/in1_max_alarm
+      - isl68226-i2c-24-4f/vin/in1_min_alarm
+      - isl68226-i2c-24-4f/vout1/in3_crit_alarm
+      - isl68226-i2c-24-4f/vout1/in3_lcrit_alarm
+      - isl68226-i2c-24-4f/vout2/in4_crit_alarm
+      - isl68226-i2c-24-4f/vout2/in4_lcrit_alarm
+      - isl68226-i2c-24-4f/vout3/in5_crit_alarm
+      - isl68226-i2c-24-4f/vout3/in5_lcrit_alarm
+      - isl68226-i2c-25-4c/iin1/curr1_crit_alarm
+      - isl68226-i2c-25-4c/iin1/curr1_max_alarm
+      - isl68226-i2c-25-4c/iin2/curr2_crit_alarm
+      - isl68226-i2c-25-4c/iin2/curr2_max_alarm
+      - isl68226-i2c-25-4c/iin3/curr3_crit_alarm
+      - isl68226-i2c-25-4c/iin3/curr3_max_alarm
+      - isl68226-i2c-25-4c/iout1/curr4_crit_alarm
+      - isl68226-i2c-25-4c/iout1/curr4_max_alarm
+      - isl68226-i2c-25-4c/iout2/curr5_crit_alarm
+      - isl68226-i2c-25-4c/iout2/curr5_max_alarm
+      - isl68226-i2c-25-4c/iout3/curr6_crit_alarm
+      - isl68226-i2c-25-4c/iout3/curr6_max_alarm
+      - isl68226-i2c-25-4c/pin1/power1_alarm
+      - isl68226-i2c-25-4c/pin2/power2_alarm
+      - isl68226-i2c-25-4c/pin3/power3_alarm
+      - isl68226-i2c-25-4c/vin/in1_crit_alarm
+      - isl68226-i2c-25-4c/vin/in1_lcrit_alarm
+      - isl68226-i2c-25-4c/vin/in1_max_alarm
+      - isl68226-i2c-25-4c/vin/in1_min_alarm
+      - isl68226-i2c-25-4c/vout1/in3_crit_alarm
+      - isl68226-i2c-25-4c/vout1/in3_lcrit_alarm
+      - isl68226-i2c-25-4c/vout2/in4_crit_alarm
+      - isl68226-i2c-25-4c/vout2/in4_lcrit_alarm
+      - isl68226-i2c-25-4c/vout3/in5_crit_alarm
+      - isl68226-i2c-25-4c/vout3/in5_lcrit_alarm
+      - raa228228-i2c-24-45/iin1/curr1_crit_alarm
+      - raa228228-i2c-24-45/iin1/curr1_max_alarm
+      - raa228228-i2c-24-45/iin2/curr2_crit_alarm
+      - raa228228-i2c-24-45/iin2/curr2_max_alarm
+      - raa228228-i2c-24-45/iout1/curr3_crit_alarm
+      - raa228228-i2c-24-45/iout1/curr3_max_alarm
+      - raa228228-i2c-24-45/iout2/curr4_crit_alarm
+      - raa228228-i2c-24-45/iout2/curr4_max_alarm
+      - raa228228-i2c-24-45/pin1/power1_alarm
+      - raa228228-i2c-24-45/pin2/power2_alarm
+      - raa228228-i2c-24-45/vin/in1_crit_alarm
+      - raa228228-i2c-24-45/vin/in1_lcrit_alarm
+      - raa228228-i2c-24-45/vin/in1_max_alarm
+      - raa228228-i2c-24-45/vin/in1_min_alarm
+      - raa228228-i2c-24-45/vout1/in3_crit_alarm
+      - raa228228-i2c-24-45/vout1/in3_lcrit_alarm
+      - raa228228-i2c-24-45/vout2/in4_crit_alarm
+      - raa228228-i2c-24-45/vout2/in4_lcrit_alarm
+      - raa228228-i2c-25-45/iin1/curr1_crit_alarm
+      - raa228228-i2c-25-45/iin1/curr1_max_alarm
+      - raa228228-i2c-25-45/iin2/curr2_crit_alarm
+      - raa228228-i2c-25-45/iin2/curr2_max_alarm
+      - raa228228-i2c-25-45/iout1/curr3_crit_alarm
+      - raa228228-i2c-25-45/iout1/curr3_max_alarm
+      - raa228228-i2c-25-45/iout2/curr4_crit_alarm
+      - raa228228-i2c-25-45/iout2/curr4_max_alarm
+      - raa228228-i2c-25-45/pin1/power1_alarm
+      - raa228228-i2c-25-45/pin2/power2_alarm
+      - raa228228-i2c-25-45/vin/in1_crit_alarm
+      - raa228228-i2c-25-45/vin/in1_lcrit_alarm
+      - raa228228-i2c-25-45/vin/in1_max_alarm
+      - raa228228-i2c-25-45/vin/in1_min_alarm
+      - raa228228-i2c-25-45/vout1/in3_crit_alarm
+      - raa228228-i2c-25-45/vout1/in3_lcrit_alarm
+      - raa228228-i2c-25-45/vout2/in4_crit_alarm
+      - raa228228-i2c-25-45/vout2/in4_lcrit_alarm
+      temp:
+      - amax31732-i2c-19-1c/temp1/temp1_crit_alarm
+      - amax31732-i2c-19-1c/temp1/temp1_lcrit_alarm
+      - amax31732-i2c-19-1c/temp1/temp1_max_alarm
+      - amax31732-i2c-19-1c/temp1/temp1_min_alarm
+      - amax31732-i2c-19-1c/temp2/temp2_crit_alarm
+      - amax31732-i2c-19-1c/temp2/temp2_fault
+      - amax31732-i2c-19-1c/temp2/temp2_lcrit_alarm
+      - amax31732-i2c-19-1c/temp2/temp2_max_alarm
+      - amax31732-i2c-19-1c/temp2/temp2_min_alarm
+      - amax31732-i2c-19-1c/temp3/temp3_crit_alarm
+      - amax31732-i2c-19-1c/temp3/temp3_fault
+      - amax31732-i2c-19-1c/temp3/temp3_lcrit_alarm
+      - amax31732-i2c-19-1c/temp3/temp3_max_alarm
+      - amax31732-i2c-19-1c/temp3/temp3_min_alarm
+      - amax31732-i2c-19-1c/temp4/temp4_crit_alarm
+      - amax31732-i2c-19-1c/temp4/temp4_fault
+      - amax31732-i2c-19-1c/temp4/temp4_lcrit_alarm
+      - amax31732-i2c-19-1c/temp4/temp4_max_alarm
+      - amax31732-i2c-19-1c/temp4/temp4_min_alarm
+      - amax31732-i2c-19-1c/temp5/temp5_crit_alarm
+      - amax31732-i2c-19-1c/temp5/temp5_fault
+      - amax31732-i2c-19-1c/temp5/temp5_lcrit_alarm
+      - amax31732-i2c-19-1c/temp5/temp5_max_alarm
+      - amax31732-i2c-19-1c/temp5/temp5_min_alarm
+      - dps800-i2c-22-58/temp1/temp1_crit_alarm
+      - dps800-i2c-22-58/temp1/temp1_lcrit_alarm
+      - dps800-i2c-22-58/temp1/temp1_max_alarm
+      - dps800-i2c-22-58/temp1/temp1_min_alarm
+      - dps800-i2c-22-58/temp2/temp2_crit_alarm
+      - dps800-i2c-22-58/temp2/temp2_lcrit_alarm
+      - dps800-i2c-22-58/temp2/temp2_max_alarm
+      - dps800-i2c-22-58/temp2/temp2_min_alarm
+      - dps800-i2c-22-58/temp3/temp3_crit_alarm
+      - dps800-i2c-22-58/temp3/temp3_lcrit_alarm
+      - dps800-i2c-22-58/temp3/temp3_max_alarm
+      - dps800-i2c-22-58/temp3/temp3_min_alarm
+      - dps800-i2c-23-58/temp1/temp1_crit_alarm
+      - dps800-i2c-23-58/temp1/temp1_lcrit_alarm
+      - dps800-i2c-23-58/temp1/temp1_max_alarm
+      - dps800-i2c-23-58/temp1/temp1_min_alarm
+      - dps800-i2c-23-58/temp2/temp2_crit_alarm
+      - dps800-i2c-23-58/temp2/temp2_lcrit_alarm
+      - dps800-i2c-23-58/temp2/temp2_max_alarm
+      - dps800-i2c-23-58/temp2/temp2_min_alarm
+      - dps800-i2c-23-58/temp3/temp3_crit_alarm
+      - dps800-i2c-23-58/temp3/temp3_lcrit_alarm
+      - dps800-i2c-23-58/temp3/temp3_max_alarm
+      - dps800-i2c-23-58/temp3/temp3_min_alarm
+      - isl68223-i2c-25-47/temp1/temp1_crit_alarm
+      - isl68223-i2c-25-47/temp1/temp1_lcrit_alarm
+      - isl68223-i2c-25-47/temp1/temp1_max_alarm
+      - isl68223-i2c-25-47/temp2/temp2_crit_alarm
+      - isl68223-i2c-25-47/temp2/temp2_lcrit_alarm
+      - isl68223-i2c-25-47/temp2/temp2_max_alarm
+      - isl68223-i2c-25-47/temp3/temp3_crit_alarm
+      - isl68223-i2c-25-47/temp3/temp3_lcrit_alarm
+      - isl68223-i2c-25-47/temp3/temp3_max_alarm
+      - isl68223-i2c-25-47/temp4/temp4_crit_alarm
+      - isl68223-i2c-25-47/temp4/temp4_lcrit_alarm
+      - isl68223-i2c-25-47/temp4/temp4_max_alarm
+      - isl68223-i2c-25-47/temp5/temp5_crit_alarm
+      - isl68223-i2c-25-47/temp5/temp5_lcrit_alarm
+      - isl68223-i2c-25-47/temp5/temp5_max_alarm
+      - isl68226-i2c-24-4c/temp1/temp1_crit_alarm
+      - isl68226-i2c-24-4c/temp1/temp1_lcrit_alarm
+      - isl68226-i2c-24-4c/temp1/temp1_max_alarm
+      - isl68226-i2c-24-4c/temp2/temp2_crit_alarm
+      - isl68226-i2c-24-4c/temp2/temp2_lcrit_alarm
+      - isl68226-i2c-24-4c/temp2/temp2_max_alarm
+      - isl68226-i2c-24-4c/temp3/temp3_crit_alarm
+      - isl68226-i2c-24-4c/temp3/temp3_lcrit_alarm
+      - isl68226-i2c-24-4c/temp3/temp3_max_alarm
+      - isl68226-i2c-24-4c/temp4/temp4_crit_alarm
+      - isl68226-i2c-24-4c/temp4/temp4_lcrit_alarm
+      - isl68226-i2c-24-4c/temp4/temp4_max_alarm
+      - isl68226-i2c-24-4c/temp5/temp5_crit_alarm
+      - isl68226-i2c-24-4c/temp5/temp5_lcrit_alarm
+      - isl68226-i2c-24-4c/temp5/temp5_max_alarm
+      - isl68226-i2c-24-4c/temp6/temp6_crit_alarm
+      - isl68226-i2c-24-4c/temp6/temp6_lcrit_alarm
+      - isl68226-i2c-24-4c/temp6/temp6_max_alarm
+      - isl68226-i2c-24-4c/temp7/temp7_crit_alarm
+      - isl68226-i2c-24-4c/temp7/temp7_lcrit_alarm
+      - isl68226-i2c-24-4c/temp7/temp7_max_alarm
+      - isl68226-i2c-24-4f/temp1/temp1_crit_alarm
+      - isl68226-i2c-24-4f/temp1/temp1_lcrit_alarm
+      - isl68226-i2c-24-4f/temp1/temp1_max_alarm
+      - isl68226-i2c-24-4f/temp2/temp2_crit_alarm
+      - isl68226-i2c-24-4f/temp2/temp2_lcrit_alarm
+      - isl68226-i2c-24-4f/temp2/temp2_max_alarm
+      - isl68226-i2c-24-4f/temp3/temp3_crit_alarm
+      - isl68226-i2c-24-4f/temp3/temp3_lcrit_alarm
+      - isl68226-i2c-24-4f/temp3/temp3_max_alarm
+      - isl68226-i2c-24-4f/temp4/temp4_crit_alarm
+      - isl68226-i2c-24-4f/temp4/temp4_lcrit_alarm
+      - isl68226-i2c-24-4f/temp4/temp4_max_alarm
+      - isl68226-i2c-24-4f/temp5/temp5_crit_alarm
+      - isl68226-i2c-24-4f/temp5/temp5_lcrit_alarm
+      - isl68226-i2c-24-4f/temp5/temp5_max_alarm
+      - isl68226-i2c-24-4f/temp6/temp6_crit_alarm
+      - isl68226-i2c-24-4f/temp6/temp6_lcrit_alarm
+      - isl68226-i2c-24-4f/temp6/temp6_max_alarm
+      - isl68226-i2c-24-4f/temp7/temp7_crit_alarm
+      - isl68226-i2c-24-4f/temp7/temp7_lcrit_alarm
+      - isl68226-i2c-24-4f/temp7/temp7_max_alarm
+      - isl68226-i2c-25-4c/temp1/temp1_crit_alarm
+      - isl68226-i2c-25-4c/temp1/temp1_lcrit_alarm
+      - isl68226-i2c-25-4c/temp1/temp1_max_alarm
+      - isl68226-i2c-25-4c/temp2/temp2_crit_alarm
+      - isl68226-i2c-25-4c/temp2/temp2_lcrit_alarm
+      - isl68226-i2c-25-4c/temp2/temp2_max_alarm
+      - isl68226-i2c-25-4c/temp3/temp3_crit_alarm
+      - isl68226-i2c-25-4c/temp3/temp3_lcrit_alarm
+      - isl68226-i2c-25-4c/temp3/temp3_max_alarm
+      - isl68226-i2c-25-4c/temp4/temp4_crit_alarm
+      - isl68226-i2c-25-4c/temp4/temp4_lcrit_alarm
+      - isl68226-i2c-25-4c/temp4/temp4_max_alarm
+      - isl68226-i2c-25-4c/temp5/temp5_crit_alarm
+      - isl68226-i2c-25-4c/temp5/temp5_lcrit_alarm
+      - isl68226-i2c-25-4c/temp5/temp5_max_alarm
+      - isl68226-i2c-25-4c/temp6/temp6_crit_alarm
+      - isl68226-i2c-25-4c/temp6/temp6_lcrit_alarm
+      - isl68226-i2c-25-4c/temp6/temp6_max_alarm
+      - isl68226-i2c-25-4c/temp7/temp7_crit_alarm
+      - isl68226-i2c-25-4c/temp7/temp7_lcrit_alarm
+      - isl68226-i2c-25-4c/temp7/temp7_max_alarm
+      - nvme-pci-0500/Composite/temp1_alarm
+      - raa228228-i2c-24-45/temp1/temp1_crit_alarm
+      - raa228228-i2c-24-45/temp1/temp1_lcrit_alarm
+      - raa228228-i2c-24-45/temp1/temp1_max_alarm
+      - raa228228-i2c-24-45/temp2/temp2_crit_alarm
+      - raa228228-i2c-24-45/temp2/temp2_lcrit_alarm
+      - raa228228-i2c-24-45/temp2/temp2_max_alarm
+      - raa228228-i2c-24-45/temp3/temp3_crit_alarm
+      - raa228228-i2c-24-45/temp3/temp3_lcrit_alarm
+      - raa228228-i2c-24-45/temp3/temp3_max_alarm
+      - raa228228-i2c-25-45/temp1/temp1_crit_alarm
+      - raa228228-i2c-25-45/temp1/temp1_lcrit_alarm
+      - raa228228-i2c-25-45/temp1/temp1_max_alarm
+      - raa228228-i2c-25-45/temp2/temp2_crit_alarm
+      - raa228228-i2c-25-45/temp2/temp2_lcrit_alarm
+      - raa228228-i2c-25-45/temp2/temp2_max_alarm
+      - raa228228-i2c-25-45/temp3/temp3_crit_alarm
+      - raa228228-i2c-25-45/temp3/temp3_lcrit_alarm
+      - raa228228-i2c-25-45/temp3/temp3_max_alarm
+
+    compares:
+      fan: [ ]
+      power: [ ]
+      temp:
+      - - amax31732-i2c-19-1c/temp1/temp1_input
+        - amax31732-i2c-19-1c/temp1/temp1_crit
+      - - amax31732-i2c-19-1c/temp2/temp2_input
+        - amax31732-i2c-19-1c/temp2/temp2_crit
+      - - amax31732-i2c-19-1c/temp3/temp3_input
+        - amax31732-i2c-19-1c/temp3/temp3_crit
+      - - amax31732-i2c-19-1c/temp4/temp4_input
+        - amax31732-i2c-19-1c/temp4/temp4_crit
+      - - amax31732-i2c-19-1c/temp5/temp5_input
+        - amax31732-i2c-19-1c/temp5/temp5_crit
+      - - dps800-i2c-22-58/temp1/temp1_input
+        - dps800-i2c-22-58/temp1/temp1_crit
+      - - dps800-i2c-22-58/temp2/temp2_input
+        - dps800-i2c-22-58/temp2/temp2_crit
+      - - dps800-i2c-22-58/temp3/temp3_input
+        - dps800-i2c-22-58/temp3/temp3_crit
+      - - dps800-i2c-23-58/temp1/temp1_input
+        - dps800-i2c-23-58/temp1/temp1_crit
+      - - dps800-i2c-23-58/temp2/temp2_input
+        - dps800-i2c-23-58/temp2/temp2_crit
+      - - dps800-i2c-23-58/temp3/temp3_input
+        - dps800-i2c-23-58/temp3/temp3_crit
+      - - isl68223-i2c-25-47/temp1/temp1_input
+        - isl68223-i2c-25-47/temp1/temp1_crit
+      - - isl68223-i2c-25-47/temp3/temp3_input
+        - isl68223-i2c-25-47/temp3/temp3_crit
+      - - isl68226-i2c-24-4c/temp1/temp1_input
+        - isl68226-i2c-24-4c/temp1/temp1_crit
+      - - isl68226-i2c-24-4c/temp2/temp2_input
+        - isl68226-i2c-24-4c/temp2/temp2_crit
+      - - isl68226-i2c-24-4c/temp3/temp3_input
+        - isl68226-i2c-24-4c/temp3/temp3_crit
+      - - isl68226-i2c-24-4c/temp4/temp4_input
+        - isl68226-i2c-24-4c/temp4/temp4_crit
+      - - isl68226-i2c-24-4f/temp1/temp1_input
+        - isl68226-i2c-24-4f/temp1/temp1_crit
+      - - isl68226-i2c-24-4f/temp2/temp2_input
+        - isl68226-i2c-24-4f/temp2/temp2_crit
+      - - isl68226-i2c-24-4f/temp3/temp3_input
+        - isl68226-i2c-24-4f/temp3/temp3_crit
+      - - isl68226-i2c-24-4f/temp4/temp4_input
+        - isl68226-i2c-24-4f/temp4/temp4_crit
+      - - isl68226-i2c-25-4c/temp1/temp1_input
+        - isl68226-i2c-25-4c/temp1/temp1_crit
+      - - isl68226-i2c-25-4c/temp2/temp2_input
+        - isl68226-i2c-25-4c/temp2/temp2_crit
+      - - isl68226-i2c-25-4c/temp3/temp3_input
+        - isl68226-i2c-25-4c/temp3/temp3_crit
+      - - isl68226-i2c-25-4c/temp4/temp4_input
+        - isl68226-i2c-25-4c/temp4/temp4_crit
+      - - nvme-pci-0500/Composite/temp1_input
+        - nvme-pci-0500/Composite/temp1_crit
+      - - raa228228-i2c-24-45/temp1/temp1_input
+        - raa228228-i2c-24-45/temp1/temp1_crit
+      - - raa228228-i2c-24-45/temp2/temp2_input
+        - raa228228-i2c-24-45/temp2/temp2_crit
+      - - raa228228-i2c-24-45/temp3/temp3_input
+        - raa228228-i2c-24-45/temp3/temp3_crit
+      - - raa228228-i2c-25-45/temp1/temp1_input
+        - raa228228-i2c-25-45/temp1/temp1_crit
+      - - raa228228-i2c-25-45/temp2/temp2_input
+        - raa228228-i2c-25-45/temp2/temp2_crit
+      - - raa228228-i2c-25-45/temp3/temp3_input
+        - raa228228-i2c-25-45/temp3/temp3_crit
+      - - tmp75-i2c-16-48/temp1/temp1_input
+        - tmp75-i2c-16-48/temp1/temp1_max
+      - - tmp75-i2c-19-48/temp1/temp1_input
+        - tmp75-i2c-19-48/temp1/temp1_max
+
+    non_zero:
+      fan:
+      - dps800-i2c-22-58/fan1/fan1_input
+      - dps800-i2c-22-58/fan2/fan2_input
+      - dps800-i2c-23-58/fan1/fan1_input
+      - dps800-i2c-23-58/fan2/fan2_input
+      - pali2_cpld-i2c-16-60/fan1/fan1_input
+      - pali2_cpld-i2c-16-60/fan2/fan2_input
+      - pali2_cpld-i2c-16-60/fan3/fan3_input
+      - pali2_cpld-i2c-16-60/fan4/fan4_input
+      power: [ ]
+      temp: [ ]
+
+    psu_skips:
+      dps800-i2c-22-58:
+        number: 1
+        side: left
+        skip_list:
+        - dps800-i2c-22-58
+      dps800-i2c-23-58:
+        number: 2
+        side: right
+        skip_list:
+        - dps800-i2c-23-58
+
+    sensor_skip_per_version: { }
+
+  x86_64-arista_7280dr3a_36:
+    alarms:
+      fan:
+      - dps800-i2c-21-58/fan1/fan1_alarm
+      - dps800-i2c-21-58/fan1/fan1_fault
+      - dps800-i2c-21-58/fan2/fan2_alarm
+      - dps800-i2c-21-58/fan2/fan2_fault
+      - dps800-i2c-22-58/fan1/fan1_alarm
+      - dps800-i2c-22-58/fan1/fan1_fault
+      - dps800-i2c-22-58/fan2/fan2_alarm
+      - dps800-i2c-22-58/fan2/fan2_fault
+      - scd_fan_p3-pci-00c7/fan1/fan1_fault
+      - scd_fan_p3-pci-00c7/fan2/fan2_fault
+      - scd_fan_p3-pci-00c7/fan3/fan3_fault
+      - scd_fan_p3-pci-00c7/fan4/fan4_fault
+      power:
+      - dps800-i2c-21-58/iin/curr1_crit_alarm
+      - dps800-i2c-21-58/iin/curr1_max_alarm
+      - dps800-i2c-21-58/iout1/curr2_crit_alarm
+      - dps800-i2c-21-58/iout1/curr2_lcrit_alarm
+      - dps800-i2c-21-58/iout1/curr2_max_alarm
+      - dps800-i2c-21-58/pin/power1_alarm
+      - dps800-i2c-21-58/pout1/power2_cap_alarm
+      - dps800-i2c-21-58/pout1/power2_crit_alarm
+      - dps800-i2c-21-58/pout1/power2_max_alarm
+      - dps800-i2c-21-58/vin/in1_crit_alarm
+      - dps800-i2c-21-58/vin/in1_lcrit_alarm
+      - dps800-i2c-21-58/vin/in1_max_alarm
+      - dps800-i2c-21-58/vin/in1_min_alarm
+      - dps800-i2c-21-58/vout1/in3_crit_alarm
+      - dps800-i2c-21-58/vout1/in3_lcrit_alarm
+      - dps800-i2c-21-58/vout1/in3_max_alarm
+      - dps800-i2c-21-58/vout1/in3_min_alarm
+      - dps800-i2c-22-58/iin/curr1_crit_alarm
+      - dps800-i2c-22-58/iin/curr1_max_alarm
+      - dps800-i2c-22-58/iout1/curr2_crit_alarm
+      - dps800-i2c-22-58/iout1/curr2_lcrit_alarm
+      - dps800-i2c-22-58/iout1/curr2_max_alarm
+      - dps800-i2c-22-58/pin/power1_alarm
+      - dps800-i2c-22-58/pout1/power2_cap_alarm
+      - dps800-i2c-22-58/pout1/power2_crit_alarm
+      - dps800-i2c-22-58/pout1/power2_max_alarm
+      - dps800-i2c-22-58/vin/in1_crit_alarm
+      - dps800-i2c-22-58/vin/in1_lcrit_alarm
+      - dps800-i2c-22-58/vin/in1_max_alarm
+      - dps800-i2c-22-58/vin/in1_min_alarm
+      - dps800-i2c-22-58/vout1/in3_crit_alarm
+      - dps800-i2c-22-58/vout1/in3_lcrit_alarm
+      - dps800-i2c-22-58/vout1/in3_max_alarm
+      - dps800-i2c-22-58/vout1/in3_min_alarm
+      temp:
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_crit_alarm
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_lcrit_alarm
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_max_alarm
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_min_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_crit_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_lcrit_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_max_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_min_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_crit_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_lcrit_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_max_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_min_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_crit_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_lcrit_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_max_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_min_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_crit_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_lcrit_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_max_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_min_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_crit_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_lcrit_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_max_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_min_alarm
+      - max6658-i2c-9-4c/temp1/temp1_crit_alarm
+      - max6658-i2c-9-4c/temp1/temp1_max_alarm
+      - max6658-i2c-9-4c/temp1/temp1_min_alarm
+      - max6658-i2c-9-4c/temp2/temp2_crit_alarm
+      - max6658-i2c-9-4c/temp2/temp2_fault
+      - max6658-i2c-9-4c/temp2/temp2_max_alarm
+      - max6658-i2c-9-4c/temp2/temp2_min_alarm
+      - nvme-pci-0500/Composite/temp1_alarm
+      - tmp464-i2c-28-48/temp1/temp1_crit_alarm
+      - tmp464-i2c-28-48/temp1/temp1_max_alarm
+      - tmp464-i2c-28-48/temp2/temp2_crit_alarm
+      - tmp464-i2c-28-48/temp2/temp2_fault
+      - tmp464-i2c-28-48/temp2/temp2_max_alarm
+      - tmp464-i2c-28-48/temp3/temp3_crit_alarm
+      - tmp464-i2c-28-48/temp3/temp3_fault
+      - tmp464-i2c-28-48/temp3/temp3_max_alarm
+      - tmp464-i2c-28-48/temp4/temp4_crit_alarm
+      - tmp464-i2c-28-48/temp4/temp4_fault
+      - tmp464-i2c-28-48/temp4/temp4_max_alarm
+      - tmp464-i2c-28-48/temp5/temp5_crit_alarm
+      - tmp464-i2c-28-48/temp5/temp5_fault
+      - tmp464-i2c-28-48/temp5/temp5_max_alarm
+      - tmp464-i2c-28-48/temp6/temp6_crit_alarm
+      - tmp464-i2c-28-48/temp6/temp6_fault
+      - tmp464-i2c-28-48/temp6/temp6_max_alarm
+      - tmp464-i2c-28-48/temp7/temp7_crit_alarm
+      - tmp464-i2c-28-48/temp7/temp7_fault
+      - tmp464-i2c-28-48/temp7/temp7_max_alarm
+      - tmp464-i2c-28-48/temp8/temp8_crit_alarm
+      - tmp464-i2c-28-48/temp8/temp8_fault
+      - tmp464-i2c-28-48/temp8/temp8_max_alarm
+      - tmp464-i2c-28-48/temp9/temp9_crit_alarm
+      - tmp464-i2c-28-48/temp9/temp9_fault
+      - tmp464-i2c-28-48/temp9/temp9_max_alarm
+
+    compares:
+      fan: [ ]
+      power: [ ]
+      temp:
+      - - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_input
+        - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_crit
+      - - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_input
+        - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_crit
+      - - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_input
+        - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_crit
+      - - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_input
+        - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_crit
+      - - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_input
+        - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_crit
+      - - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_input
+        - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_crit
+      - - max6658-i2c-9-4c/temp1/temp1_input
+        - max6658-i2c-9-4c/temp1/temp1_crit
+      - - max6658-i2c-9-4c/temp2/temp2_input
+        - max6658-i2c-9-4c/temp2/temp2_crit
+      - - nvme-pci-0500/Composite/temp1_input
+        - nvme-pci-0500/Composite/temp1_crit
+      - - tmp464-i2c-28-48/temp1/temp1_input
+        - tmp464-i2c-28-48/temp1/temp1_crit
+      - - tmp464-i2c-28-48/temp2/temp2_input
+        - tmp464-i2c-28-48/temp2/temp2_crit
+      - - tmp464-i2c-28-48/temp3/temp3_input
+        - tmp464-i2c-28-48/temp3/temp3_crit
+      - - tmp464-i2c-28-48/temp4/temp4_input
+        - tmp464-i2c-28-48/temp4/temp4_crit
+      - - tmp464-i2c-28-48/temp5/temp5_input
+        - tmp464-i2c-28-48/temp5/temp5_crit
+
+    non_zero:
+      fan:
+      - dps800-i2c-21-58/fan1/fan1_input
+      - dps800-i2c-21-58/fan2/fan2_input
+      - dps800-i2c-22-58/fan1/fan1_input
+      - dps800-i2c-22-58/fan2/fan2_input
+      - scd_fan_p3-pci-00c7/fan1/fan1_input
+      - scd_fan_p3-pci-00c7/fan2/fan2_input
+      - scd_fan_p3-pci-00c7/fan3/fan3_input
+      - scd_fan_p3-pci-00c7/fan4/fan4_input
+      power: [ ]
+      temp: [ ]
+
+    psu_skips:
+      dps800-i2c-21-58:
+        number: 1
+        side: left
+        skip_list:
+        - dps800-i2c-21-58
+      dps800-i2c-22-58:
+        number: 2
+        side: right
+        skip_list:
+        - dps800-i2c-22-58
+
+    sensor_skip_per_version: { }
+
+  x86_64-arista_7280dr3ak_36:
+    alarms:
+      fan:
+      - dps800-i2c-21-58/fan1/fan1_alarm
+      - dps800-i2c-21-58/fan1/fan1_fault
+      - dps800-i2c-21-58/fan2/fan2_alarm
+      - dps800-i2c-21-58/fan2/fan2_fault
+      - dps800-i2c-22-58/fan1/fan1_alarm
+      - dps800-i2c-22-58/fan1/fan1_fault
+      - dps800-i2c-22-58/fan2/fan2_alarm
+      - dps800-i2c-22-58/fan2/fan2_fault
+      - scd_fan_p3-pci-00c7/fan1/fan1_fault
+      - scd_fan_p3-pci-00c7/fan2/fan2_fault
+      - scd_fan_p3-pci-00c7/fan3/fan3_fault
+      - scd_fan_p3-pci-00c7/fan4/fan4_fault
+      power:
+      - dps800-i2c-21-58/iin/curr1_crit_alarm
+      - dps800-i2c-21-58/iin/curr1_max_alarm
+      - dps800-i2c-21-58/iout1/curr2_crit_alarm
+      - dps800-i2c-21-58/iout1/curr2_lcrit_alarm
+      - dps800-i2c-21-58/iout1/curr2_max_alarm
+      - dps800-i2c-21-58/pin/power1_alarm
+      - dps800-i2c-21-58/pout1/power2_cap_alarm
+      - dps800-i2c-21-58/pout1/power2_crit_alarm
+      - dps800-i2c-21-58/pout1/power2_max_alarm
+      - dps800-i2c-21-58/vin/in1_crit_alarm
+      - dps800-i2c-21-58/vin/in1_lcrit_alarm
+      - dps800-i2c-21-58/vin/in1_max_alarm
+      - dps800-i2c-21-58/vin/in1_min_alarm
+      - dps800-i2c-21-58/vout1/in3_crit_alarm
+      - dps800-i2c-21-58/vout1/in3_lcrit_alarm
+      - dps800-i2c-21-58/vout1/in3_max_alarm
+      - dps800-i2c-21-58/vout1/in3_min_alarm
+      - dps800-i2c-22-58/iin/curr1_crit_alarm
+      - dps800-i2c-22-58/iin/curr1_max_alarm
+      - dps800-i2c-22-58/iout1/curr2_crit_alarm
+      - dps800-i2c-22-58/iout1/curr2_lcrit_alarm
+      - dps800-i2c-22-58/iout1/curr2_max_alarm
+      - dps800-i2c-22-58/pin/power1_alarm
+      - dps800-i2c-22-58/pout1/power2_cap_alarm
+      - dps800-i2c-22-58/pout1/power2_crit_alarm
+      - dps800-i2c-22-58/pout1/power2_max_alarm
+      - dps800-i2c-22-58/vin/in1_crit_alarm
+      - dps800-i2c-22-58/vin/in1_lcrit_alarm
+      - dps800-i2c-22-58/vin/in1_max_alarm
+      - dps800-i2c-22-58/vin/in1_min_alarm
+      - dps800-i2c-22-58/vout1/in3_crit_alarm
+      - dps800-i2c-22-58/vout1/in3_lcrit_alarm
+      - dps800-i2c-22-58/vout1/in3_max_alarm
+      - dps800-i2c-22-58/vout1/in3_min_alarm
+      temp:
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_crit_alarm
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_lcrit_alarm
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_max_alarm
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_min_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_crit_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_lcrit_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_max_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_min_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_crit_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_lcrit_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_max_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_min_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_crit_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_lcrit_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_max_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_min_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_crit_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_lcrit_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_max_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_min_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_crit_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_lcrit_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_max_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_min_alarm
+      - max6658-i2c-9-4c/temp1/temp1_crit_alarm
+      - max6658-i2c-9-4c/temp1/temp1_max_alarm
+      - max6658-i2c-9-4c/temp1/temp1_min_alarm
+      - max6658-i2c-9-4c/temp2/temp2_crit_alarm
+      - max6658-i2c-9-4c/temp2/temp2_fault
+      - max6658-i2c-9-4c/temp2/temp2_max_alarm
+      - max6658-i2c-9-4c/temp2/temp2_min_alarm
+      - nvme-pci-0500/Composite/temp1_alarm
+      - tmp464-i2c-28-48/temp1/temp1_crit_alarm
+      - tmp464-i2c-28-48/temp1/temp1_max_alarm
+      - tmp464-i2c-28-48/temp2/temp2_crit_alarm
+      - tmp464-i2c-28-48/temp2/temp2_fault
+      - tmp464-i2c-28-48/temp2/temp2_max_alarm
+      - tmp464-i2c-28-48/temp3/temp3_crit_alarm
+      - tmp464-i2c-28-48/temp3/temp3_fault
+      - tmp464-i2c-28-48/temp3/temp3_max_alarm
+      - tmp464-i2c-28-48/temp4/temp4_crit_alarm
+      - tmp464-i2c-28-48/temp4/temp4_fault
+      - tmp464-i2c-28-48/temp4/temp4_max_alarm
+      - tmp464-i2c-28-48/temp5/temp5_crit_alarm
+      - tmp464-i2c-28-48/temp5/temp5_fault
+      - tmp464-i2c-28-48/temp5/temp5_max_alarm
+      - tmp464-i2c-28-48/temp6/temp6_crit_alarm
+      - tmp464-i2c-28-48/temp6/temp6_fault
+      - tmp464-i2c-28-48/temp6/temp6_max_alarm
+      - tmp464-i2c-28-48/temp7/temp7_crit_alarm
+      - tmp464-i2c-28-48/temp7/temp7_fault
+      - tmp464-i2c-28-48/temp7/temp7_max_alarm
+      - tmp464-i2c-28-48/temp8/temp8_crit_alarm
+      - tmp464-i2c-28-48/temp8/temp8_fault
+      - tmp464-i2c-28-48/temp8/temp8_max_alarm
+      - tmp464-i2c-28-48/temp9/temp9_crit_alarm
+      - tmp464-i2c-28-48/temp9/temp9_fault
+      - tmp464-i2c-28-48/temp9/temp9_max_alarm
+
+    compares:
+      fan: [ ]
+      power: [ ]
+      temp:
+      - - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_input
+        - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_crit
+      - - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_input
+        - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_crit
+      - - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_input
+        - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_crit
+      - - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_input
+        - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_crit
+      - - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_input
+        - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_crit
+      - - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_input
+        - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_crit
+      - - max6658-i2c-9-4c/temp1/temp1_input
+        - max6658-i2c-9-4c/temp1/temp1_crit
+      - - max6658-i2c-9-4c/temp2/temp2_input
+        - max6658-i2c-9-4c/temp2/temp2_crit
+      - - nvme-pci-0500/Composite/temp1_input
+        - nvme-pci-0500/Composite/temp1_crit
+      - - tmp464-i2c-28-48/temp1/temp1_input
+        - tmp464-i2c-28-48/temp1/temp1_crit
+      - - tmp464-i2c-28-48/temp2/temp2_input
+        - tmp464-i2c-28-48/temp2/temp2_crit
+      - - tmp464-i2c-28-48/temp3/temp3_input
+        - tmp464-i2c-28-48/temp3/temp3_crit
+      - - tmp464-i2c-28-48/temp4/temp4_input
+        - tmp464-i2c-28-48/temp4/temp4_crit
+      - - tmp464-i2c-28-48/temp5/temp5_input
+        - tmp464-i2c-28-48/temp5/temp5_crit
+
+    non_zero:
+      fan:
+      - dps800-i2c-21-58/fan1/fan1_input
+      - dps800-i2c-21-58/fan2/fan2_input
+      - dps800-i2c-22-58/fan1/fan1_input
+      - dps800-i2c-22-58/fan2/fan2_input
+      - scd_fan_p3-pci-00c7/fan1/fan1_input
+      - scd_fan_p3-pci-00c7/fan2/fan2_input
+      - scd_fan_p3-pci-00c7/fan3/fan3_input
+      - scd_fan_p3-pci-00c7/fan4/fan4_input
+      power: [ ]
+      temp: [ ]
+
+    psu_skips:
+      dps800-i2c-21-58:
+        number: 1
+        side: left
+        skip_list:
+        - dps800-i2c-21-58
+      dps800-i2c-22-58:
+        number: 2
+        side: right
+        skip_list:
+        - dps800-i2c-22-58
+
+    sensor_skip_per_version: { }
+
+  x86_64-arista_7280dr3ak_36s:
+    alarms:
+      fan:
+      - dps800-i2c-21-58/fan1/fan1_alarm
+      - dps800-i2c-21-58/fan1/fan1_fault
+      - dps800-i2c-21-58/fan2/fan2_alarm
+      - dps800-i2c-21-58/fan2/fan2_fault
+      - dps800-i2c-22-58/fan1/fan1_alarm
+      - dps800-i2c-22-58/fan1/fan1_fault
+      - dps800-i2c-22-58/fan2/fan2_alarm
+      - dps800-i2c-22-58/fan2/fan2_fault
+      - scd_fan_p3-pci-00c7/fan1/fan1_fault
+      - scd_fan_p3-pci-00c7/fan2/fan2_fault
+      - scd_fan_p3-pci-00c7/fan3/fan3_fault
+      - scd_fan_p3-pci-00c7/fan4/fan4_fault
+      power:
+      - dps800-i2c-21-58/iin/curr1_crit_alarm
+      - dps800-i2c-21-58/iin/curr1_max_alarm
+      - dps800-i2c-21-58/iout1/curr2_crit_alarm
+      - dps800-i2c-21-58/iout1/curr2_lcrit_alarm
+      - dps800-i2c-21-58/iout1/curr2_max_alarm
+      - dps800-i2c-21-58/pin/power1_alarm
+      - dps800-i2c-21-58/pout1/power2_cap_alarm
+      - dps800-i2c-21-58/pout1/power2_crit_alarm
+      - dps800-i2c-21-58/pout1/power2_max_alarm
+      - dps800-i2c-21-58/vin/in1_crit_alarm
+      - dps800-i2c-21-58/vin/in1_lcrit_alarm
+      - dps800-i2c-21-58/vin/in1_max_alarm
+      - dps800-i2c-21-58/vin/in1_min_alarm
+      - dps800-i2c-21-58/vout1/in3_crit_alarm
+      - dps800-i2c-21-58/vout1/in3_lcrit_alarm
+      - dps800-i2c-21-58/vout1/in3_max_alarm
+      - dps800-i2c-21-58/vout1/in3_min_alarm
+      - dps800-i2c-22-58/iin/curr1_crit_alarm
+      - dps800-i2c-22-58/iin/curr1_max_alarm
+      - dps800-i2c-22-58/iout1/curr2_crit_alarm
+      - dps800-i2c-22-58/iout1/curr2_lcrit_alarm
+      - dps800-i2c-22-58/iout1/curr2_max_alarm
+      - dps800-i2c-22-58/pin/power1_alarm
+      - dps800-i2c-22-58/pout1/power2_cap_alarm
+      - dps800-i2c-22-58/pout1/power2_crit_alarm
+      - dps800-i2c-22-58/pout1/power2_max_alarm
+      - dps800-i2c-22-58/vin/in1_crit_alarm
+      - dps800-i2c-22-58/vin/in1_lcrit_alarm
+      - dps800-i2c-22-58/vin/in1_max_alarm
+      - dps800-i2c-22-58/vin/in1_min_alarm
+      - dps800-i2c-22-58/vout1/in3_crit_alarm
+      - dps800-i2c-22-58/vout1/in3_lcrit_alarm
+      - dps800-i2c-22-58/vout1/in3_max_alarm
+      - dps800-i2c-22-58/vout1/in3_min_alarm
+      temp:
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_crit_alarm
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_lcrit_alarm
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_max_alarm
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_min_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_crit_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_lcrit_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_max_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_min_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_crit_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_lcrit_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_max_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_min_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_crit_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_lcrit_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_max_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_min_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_crit_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_lcrit_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_max_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_min_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_crit_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_lcrit_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_max_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_min_alarm
+      - max6658-i2c-9-4c/temp1/temp1_crit_alarm
+      - max6658-i2c-9-4c/temp1/temp1_max_alarm
+      - max6658-i2c-9-4c/temp1/temp1_min_alarm
+      - max6658-i2c-9-4c/temp2/temp2_crit_alarm
+      - max6658-i2c-9-4c/temp2/temp2_fault
+      - max6658-i2c-9-4c/temp2/temp2_max_alarm
+      - max6658-i2c-9-4c/temp2/temp2_min_alarm
+      - nvme-pci-0500/Composite/temp1_alarm
+      - tmp464-i2c-28-48/temp1/temp1_crit_alarm
+      - tmp464-i2c-28-48/temp1/temp1_max_alarm
+      - tmp464-i2c-28-48/temp2/temp2_crit_alarm
+      - tmp464-i2c-28-48/temp2/temp2_fault
+      - tmp464-i2c-28-48/temp2/temp2_max_alarm
+      - tmp464-i2c-28-48/temp3/temp3_crit_alarm
+      - tmp464-i2c-28-48/temp3/temp3_fault
+      - tmp464-i2c-28-48/temp3/temp3_max_alarm
+      - tmp464-i2c-28-48/temp4/temp4_crit_alarm
+      - tmp464-i2c-28-48/temp4/temp4_fault
+      - tmp464-i2c-28-48/temp4/temp4_max_alarm
+      - tmp464-i2c-28-48/temp5/temp5_crit_alarm
+      - tmp464-i2c-28-48/temp5/temp5_fault
+      - tmp464-i2c-28-48/temp5/temp5_max_alarm
+      - tmp464-i2c-28-48/temp6/temp6_crit_alarm
+      - tmp464-i2c-28-48/temp6/temp6_fault
+      - tmp464-i2c-28-48/temp6/temp6_max_alarm
+      - tmp464-i2c-28-48/temp7/temp7_crit_alarm
+      - tmp464-i2c-28-48/temp7/temp7_fault
+      - tmp464-i2c-28-48/temp7/temp7_max_alarm
+      - tmp464-i2c-28-48/temp8/temp8_crit_alarm
+      - tmp464-i2c-28-48/temp8/temp8_fault
+      - tmp464-i2c-28-48/temp8/temp8_max_alarm
+      - tmp464-i2c-28-48/temp9/temp9_crit_alarm
+      - tmp464-i2c-28-48/temp9/temp9_fault
+      - tmp464-i2c-28-48/temp9/temp9_max_alarm
+
+    compares:
+      fan: [ ]
+      power: [ ]
+      temp:
+      - - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_input
+        - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_crit
+      - - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_input
+        - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_crit
+      - - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_input
+        - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_crit
+      - - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_input
+        - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_crit
+      - - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_input
+        - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_crit
+      - - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_input
+        - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_crit
+      - - max6658-i2c-9-4c/temp1/temp1_input
+        - max6658-i2c-9-4c/temp1/temp1_crit
+      - - max6658-i2c-9-4c/temp2/temp2_input
+        - max6658-i2c-9-4c/temp2/temp2_crit
+      - - nvme-pci-0500/Composite/temp1_input
+        - nvme-pci-0500/Composite/temp1_crit
+      - - tmp464-i2c-28-48/temp1/temp1_input
+        - tmp464-i2c-28-48/temp1/temp1_crit
+      - - tmp464-i2c-28-48/temp2/temp2_input
+        - tmp464-i2c-28-48/temp2/temp2_crit
+      - - tmp464-i2c-28-48/temp3/temp3_input
+        - tmp464-i2c-28-48/temp3/temp3_crit
+      - - tmp464-i2c-28-48/temp4/temp4_input
+        - tmp464-i2c-28-48/temp4/temp4_crit
+      - - tmp464-i2c-28-48/temp5/temp5_input
+        - tmp464-i2c-28-48/temp5/temp5_crit
+
+    non_zero:
+      fan:
+      - dps800-i2c-21-58/fan1/fan1_input
+      - dps800-i2c-21-58/fan2/fan2_input
+      - dps800-i2c-22-58/fan1/fan1_input
+      - dps800-i2c-22-58/fan2/fan2_input
+      - scd_fan_p3-pci-00c7/fan1/fan1_input
+      - scd_fan_p3-pci-00c7/fan2/fan2_input
+      - scd_fan_p3-pci-00c7/fan3/fan3_input
+      - scd_fan_p3-pci-00c7/fan4/fan4_input
+      power: [ ]
+      temp: [ ]
+
+    psu_skips:
+      dps800-i2c-21-58:
+        number: 1
+        side: left
+        skip_list:
+        - dps800-i2c-21-58
+      dps800-i2c-22-58:
+        number: 2
+        side: right
+        skip_list:
+        - dps800-i2c-22-58
+
+    sensor_skip_per_version: { }
+
+  x86_64-arista_7280dr3am_36:
+    alarms:
+      fan:
+      - dps800-i2c-21-58/fan1/fan1_alarm
+      - dps800-i2c-21-58/fan1/fan1_fault
+      - dps800-i2c-21-58/fan2/fan2_alarm
+      - dps800-i2c-21-58/fan2/fan2_fault
+      - dps800-i2c-22-58/fan1/fan1_alarm
+      - dps800-i2c-22-58/fan1/fan1_fault
+      - dps800-i2c-22-58/fan2/fan2_alarm
+      - dps800-i2c-22-58/fan2/fan2_fault
+      - scd_fan_p3-pci-00c7/fan1/fan1_fault
+      - scd_fan_p3-pci-00c7/fan2/fan2_fault
+      - scd_fan_p3-pci-00c7/fan3/fan3_fault
+      - scd_fan_p3-pci-00c7/fan4/fan4_fault
+      power:
+      - dps800-i2c-21-58/iin/curr1_crit_alarm
+      - dps800-i2c-21-58/iin/curr1_max_alarm
+      - dps800-i2c-21-58/iout1/curr2_crit_alarm
+      - dps800-i2c-21-58/iout1/curr2_lcrit_alarm
+      - dps800-i2c-21-58/iout1/curr2_max_alarm
+      - dps800-i2c-21-58/pin/power1_alarm
+      - dps800-i2c-21-58/pout1/power2_cap_alarm
+      - dps800-i2c-21-58/pout1/power2_crit_alarm
+      - dps800-i2c-21-58/pout1/power2_max_alarm
+      - dps800-i2c-21-58/vin/in1_crit_alarm
+      - dps800-i2c-21-58/vin/in1_lcrit_alarm
+      - dps800-i2c-21-58/vin/in1_max_alarm
+      - dps800-i2c-21-58/vin/in1_min_alarm
+      - dps800-i2c-21-58/vout1/in3_crit_alarm
+      - dps800-i2c-21-58/vout1/in3_lcrit_alarm
+      - dps800-i2c-21-58/vout1/in3_max_alarm
+      - dps800-i2c-21-58/vout1/in3_min_alarm
+      - dps800-i2c-22-58/iin/curr1_crit_alarm
+      - dps800-i2c-22-58/iin/curr1_max_alarm
+      - dps800-i2c-22-58/iout1/curr2_crit_alarm
+      - dps800-i2c-22-58/iout1/curr2_lcrit_alarm
+      - dps800-i2c-22-58/iout1/curr2_max_alarm
+      - dps800-i2c-22-58/pin/power1_alarm
+      - dps800-i2c-22-58/pout1/power2_cap_alarm
+      - dps800-i2c-22-58/pout1/power2_crit_alarm
+      - dps800-i2c-22-58/pout1/power2_max_alarm
+      - dps800-i2c-22-58/vin/in1_crit_alarm
+      - dps800-i2c-22-58/vin/in1_lcrit_alarm
+      - dps800-i2c-22-58/vin/in1_max_alarm
+      - dps800-i2c-22-58/vin/in1_min_alarm
+      - dps800-i2c-22-58/vout1/in3_crit_alarm
+      - dps800-i2c-22-58/vout1/in3_lcrit_alarm
+      - dps800-i2c-22-58/vout1/in3_max_alarm
+      - dps800-i2c-22-58/vout1/in3_min_alarm
+      temp:
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_crit_alarm
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_lcrit_alarm
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_max_alarm
+      - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_min_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_crit_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_lcrit_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_max_alarm
+      - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_min_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_crit_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_lcrit_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_max_alarm
+      - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_min_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_crit_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_lcrit_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_max_alarm
+      - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_min_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_crit_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_lcrit_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_max_alarm
+      - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_min_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_crit_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_lcrit_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_max_alarm
+      - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_min_alarm
+      - max6658-i2c-9-4c/temp1/temp1_crit_alarm
+      - max6658-i2c-9-4c/temp1/temp1_max_alarm
+      - max6658-i2c-9-4c/temp1/temp1_min_alarm
+      - max6658-i2c-9-4c/temp2/temp2_crit_alarm
+      - max6658-i2c-9-4c/temp2/temp2_fault
+      - max6658-i2c-9-4c/temp2/temp2_max_alarm
+      - max6658-i2c-9-4c/temp2/temp2_min_alarm
+      - nvme-pci-0500/Composite/temp1_alarm
+      - tmp464-i2c-28-48/temp1/temp1_crit_alarm
+      - tmp464-i2c-28-48/temp1/temp1_max_alarm
+      - tmp464-i2c-28-48/temp2/temp2_crit_alarm
+      - tmp464-i2c-28-48/temp2/temp2_fault
+      - tmp464-i2c-28-48/temp2/temp2_max_alarm
+      - tmp464-i2c-28-48/temp3/temp3_crit_alarm
+      - tmp464-i2c-28-48/temp3/temp3_fault
+      - tmp464-i2c-28-48/temp3/temp3_max_alarm
+      - tmp464-i2c-28-48/temp4/temp4_crit_alarm
+      - tmp464-i2c-28-48/temp4/temp4_fault
+      - tmp464-i2c-28-48/temp4/temp4_max_alarm
+      - tmp464-i2c-28-48/temp5/temp5_crit_alarm
+      - tmp464-i2c-28-48/temp5/temp5_fault
+      - tmp464-i2c-28-48/temp5/temp5_max_alarm
+      - tmp464-i2c-28-48/temp6/temp6_crit_alarm
+      - tmp464-i2c-28-48/temp6/temp6_fault
+      - tmp464-i2c-28-48/temp6/temp6_max_alarm
+      - tmp464-i2c-28-48/temp7/temp7_crit_alarm
+      - tmp464-i2c-28-48/temp7/temp7_fault
+      - tmp464-i2c-28-48/temp7/temp7_max_alarm
+      - tmp464-i2c-28-48/temp8/temp8_crit_alarm
+      - tmp464-i2c-28-48/temp8/temp8_fault
+      - tmp464-i2c-28-48/temp8/temp8_max_alarm
+      - tmp464-i2c-28-48/temp9/temp9_crit_alarm
+      - tmp464-i2c-28-48/temp9/temp9_fault
+      - tmp464-i2c-28-48/temp9/temp9_max_alarm
+
+    compares:
+      fan: [ ]
+      power: [ ]
+      temp:
+      - - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_input
+        - dps800-i2c-21-58/Power supply 1 inlet temp sensor/temp1_crit
+      - - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_input
+        - dps800-i2c-21-58/Power supply 1 primary hotspot temp sensor/temp3_crit
+      - - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_input
+        - dps800-i2c-21-58/Power supply 1 secondary hotspot sensor/temp2_crit
+      - - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_input
+        - dps800-i2c-22-58/Power supply 2 inlet temp sensor/temp1_crit
+      - - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_input
+        - dps800-i2c-22-58/Power supply 2 primary hotspot temp sensor/temp3_crit
+      - - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_input
+        - dps800-i2c-22-58/Power supply 2 secondary hotspot sensor/temp2_crit
+      - - max6658-i2c-9-4c/temp1/temp1_input
+        - max6658-i2c-9-4c/temp1/temp1_crit
+      - - max6658-i2c-9-4c/temp2/temp2_input
+        - max6658-i2c-9-4c/temp2/temp2_crit
+      - - nvme-pci-0500/Composite/temp1_input
+        - nvme-pci-0500/Composite/temp1_crit
+      - - tmp464-i2c-28-48/temp1/temp1_input
+        - tmp464-i2c-28-48/temp1/temp1_crit
+      - - tmp464-i2c-28-48/temp2/temp2_input
+        - tmp464-i2c-28-48/temp2/temp2_crit
+      - - tmp464-i2c-28-48/temp3/temp3_input
+        - tmp464-i2c-28-48/temp3/temp3_crit
+      - - tmp464-i2c-28-48/temp4/temp4_input
+        - tmp464-i2c-28-48/temp4/temp4_crit
+      - - tmp464-i2c-28-48/temp5/temp5_input
+        - tmp464-i2c-28-48/temp5/temp5_crit
+
+    non_zero:
+      fan:
+      - dps800-i2c-21-58/fan1/fan1_input
+      - dps800-i2c-21-58/fan2/fan2_input
+      - dps800-i2c-22-58/fan1/fan1_input
+      - dps800-i2c-22-58/fan2/fan2_input
+      - scd_fan_p3-pci-00c7/fan1/fan1_input
+      - scd_fan_p3-pci-00c7/fan2/fan2_input
+      - scd_fan_p3-pci-00c7/fan3/fan3_input
+      - scd_fan_p3-pci-00c7/fan4/fan4_input
+      power: [ ]
+      temp: [ ]
+
+    psu_skips:
+      dps800-i2c-21-58:
+        number: 1
+        side: left
+        skip_list:
+        - dps800-i2c-21-58
+      dps800-i2c-22-58:
+        number: 2
+        side: right
+        skip_list:
+        - dps800-i2c-22-58
+
+    sensor_skip_per_version: { }
