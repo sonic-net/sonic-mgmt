@@ -915,6 +915,15 @@ decap/test_decap.py::test_decap[ttl=uniform, dscp=uniform, vxlan=set_unset]:
   skip:
     reason: "Not supported uniform ttl mode"
 
+decap/test_subnet_decap.py::test_vip_packet_decap:
+  skip:
+    reason: "Supported only on T0 topology with KVM or broadcom td3 asic or mellanox asic, and available for 202405 release and later"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type not in ['t0']"
+      - "asic_type not in ['vs', 'mellanox'] and asic_gen not in ['td3']"
+      - "release in ['202012', '202205', '202305', '202311']"
+
 decap/test_subnet_decap.py::test_vlan_subnet_decap:
   skip:
     reason: "Supported only on T0 topology with KVM or broadcom td3 asic or mellanox asic, and available for 202405 release and later, need to skip on KVM testbed since subnet_decap feature haven't been added into yang model. Skip on t1-isolated-d32/128 topos"
