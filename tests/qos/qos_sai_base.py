@@ -18,10 +18,10 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device, copy_dshell_script_cisco_8000, run_dshell_command
 from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa: F401
-from tests.common.dualtor.dual_tor_utils \
-    import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa: F401
-from tests.common.dualtor.mux_simulator_control \
-    import toggle_all_simulator_ports, check_mux_status, validate_check_result  # noqa: F401
+from tests.common.dualtor.dual_tor_utils import (upper_tor_host,  # noqa: F401
+                                                 lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled)
+from tests.common.dualtor.mux_simulator_control import (toggle_all_simulator_ports,  # noqa: F401
+                                                        check_mux_status, validate_check_result)
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR  # noqa: F401
 from tests.common.utilities import check_qos_db_fv_reference_with_table
 from tests.common.fixtures.duthost_utils import dut_qos_maps, separated_dscp_to_tc_map_on_uplink  # noqa: F401
@@ -468,6 +468,11 @@ class QosSaiBase(QosBase):
             Returns:
                 wredProfile (dict): Map of ECN/WRED attributes
         """
+        if table == "QUEUE" and dut_asic.sonichost.facts['switch_type'] == 'voq':
+            # For VoQ chassis, the buffer queues config is based on system port
+            if dut_asic.sonichost.is_multi_asic:
+                port = "{}|{}|{}".format(
+                    dut_asic.sonichost.hostname, dut_asic.namespace, port)
         if check_qos_db_fv_reference_with_table(dut_asic):
             out = dut_asic.run_redis_cmd(
                 argv=[
@@ -1712,7 +1717,7 @@ class QosSaiBase(QosBase):
         self, duthosts, get_src_dst_asic_and_duts,
         dutConfig, ingressLosslessProfile, ingressLossyProfile,
         egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize,
-        tbinfo, lower_tor_host  # noqa: F811
+        tbinfo, lower_tor_host, ecnLosslessProfile  # noqa: F811
     ):
         """
             Prepares DUT host QoS configuration
@@ -2456,15 +2461,29 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-
-        for dut_asic in get_src_dst_asic_and_duts['all_asics']:
-            dut_asic.command("counterpoll watermark enable")
-            dut_asic.command("counterpoll queue enable")
+        duthost = duthosts.frontend_nodes[0]
+        if duthost.sonichost.is_multi_asic:
+            for duthost in get_src_dst_asic_and_duts['all_duts']:
+                for asic in duthost.asics:
+                    namespace_arg = '-n asic{}'.format(asic.asic_index)
+                    duthost.command("sudo counterpoll watermark {} enable".format(namespace_arg))
+                    duthost.command("sudo counterpoll queue {} enable".format(namespace_arg))
+        else:
+            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
+                dut_asic.command("counterpoll watermark enable")
+                dut_asic.command("counterpoll queue enable")
 
         time.sleep(70)
-        for dut_asic in get_src_dst_asic_and_duts['all_asics']:
-            dut_asic.command("counterpoll watermark disable")
-            dut_asic.command("counterpoll queue disable")
+        if duthost.sonichost.is_multi_asic:
+            for duthost in get_src_dst_asic_and_duts['all_duts']:
+                for asic in duthost.asics:
+                    namespace_arg = '-n asic{}'.format(asic.asic_index)
+                    duthost.command("sudo counterpoll watermark {} disable".format(namespace_arg))
+                    duthost.command("sudo counterpoll queue {} disable".format(namespace_arg))
+        else:
+            for dut_asic in get_src_dst_asic_and_duts['all_asics']:
+                dut_asic.command("counterpoll watermark disable")
+                dut_asic.command("counterpoll queue disable")
 
     @pytest.fixture
     def blockGrpcTraffic(self, tbinfo, lower_tor_host, nic_simulator_info):   # noqa F811
@@ -3169,3 +3188,63 @@ def set_queue_pir(interface, queue, rate):
         sai_profile_content = duthost.shell(get_sai_profile_cmd)['stdout']
         logging.info(f"sai_profile_content: {sai_profile_content}")
         return "SAI_KEY_DISABLE_PORT_ALPHA=1" not in sai_profile_content
+
+    def ecnLosslessProfile(
+            self, request, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host  # noqa F811
+    ):
+        """
+                   Retreives ecn lossless profile
+
+                   Args:
+                       request (Fixture): pytest request object
+                       duthost (AnsibleHost): Device Under Test (DUT)
+                       dutConfig (Fixture, dict): Map of DUT config containing dut interfaces,
+                       test port IDs, test port IPs,
+                       and test ports
+
+                   Returns:
+                       ecnLosslessProfile (dict): Map of ecn marking for lossless queue
+               """
+
+        dut_asic = get_src_dst_asic_and_duts['dst_asic']
+        dstport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["dst_port_id"]]
+
+        yield self.__getEcnWredParam(
+            dut_asic,
+            "QUEUE",
+            dstport
+        )
+
+    @pytest.fixture(scope='class', autouse=True)
+    def enableECN(self, duthosts, get_src_dst_asic_and_duts):
+        """
+        By default WRED_ECN_QUEUE and WRED_ECN_PORT are disabled for polling.
+        Enable flexcounter groups WRED_ECN_QUEUE and WRED_ECN_PORT using counterpoll CLI
+        """
+        duthost = duthosts.frontend_nodes[0]
+        if duthost.sonichost.is_multi_asic:
+            for duthost in get_src_dst_asic_and_duts['all_duts']:
+                for asic in duthost.asics:
+                    namespace_arg = '-n asic{}'.format(asic.asic_index)
+                    duthost.command("sudo counterpoll wredqueue {} enable".format(namespace_arg))
+                    duthost.command("sudo counterpoll wredport {} enable".format(namespace_arg))
+                duthost.command("sudo config save -y")
+        else:
+            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
+                dut_asic.command("counterpoll wredqueue enable")
+                dut_asic.command("counterpoll wredport enable")
+            duthost.command("sudo config save -y")
+
+        yield
+        if duthost.sonichost.is_multi_asic:
+            for duthost in get_src_dst_asic_and_duts['all_duts']:
+                for asic in duthost.asics:
+                    namespace_arg = '-n asic{}'.format(asic.asic_index)
+                    duthost.command("sudo counterpoll wredqueue {} disable".format(namespace_arg))
+                    duthost.command("sudo counterpoll wredport {} disable".format(namespace_arg))
+                duthost.command("sudo config save -y")
+        else:
+            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
+                dut_asic.command("counterpoll wredqueue disable")
+                dut_asic.command("counterpoll wredport disable")
+            duthost.command("sudo config save -y")
