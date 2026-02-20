@@ -6,104 +6,50 @@ import apis.routing.ip as ip_obj
 import apis.routing.vrf as vrf_obj
 import apis.switching.vlan as vlan_obj
 import apis.switching.mac as mac_obj
-from spytest.tgen.tg import tgen_obj_dict
 import vxlan_helper as vxlan_obj
-import ipaddress
+import profile 
 import apis.system.interface as interface_obj
 import apis.system.basic as basic_obj
 import apis.system.reboot as reboot_obj
 from spytest.utils import poll_wait
 
-def initialize_variables():
-    global vars, nodes, handles
-    vars = st.get_testbed_vars()
-    nodes = st.get_dut_names()
 
 @pytest.fixture(scope="module", autouse=True)
-def choose_config_file():
+def initialize_variables():
+    global vars, nodes, pf    
     global CONFIGS_FILE
-    if st.getenv("topo") == "4s4l":
-        exp_no_nodes = 8
-        CONFIGS_FILE = 'vxlan_4S4L_config_input_file.yaml'
-        if len(st.get_dut_names()) != 8:
-            st.report_fail('topology_not_matching', "Topology not matching, required {} dut, having {} duts".format(exp_no_nodes,len(st.get_dut_names())))
+    if st.getenv("topo", "4s4l") == "4s4l":
+        CONFIGS_FILE = 'vxlan_input.yaml'
     elif st.getenv("topo") == "2l":
-        exp_no_nodes = 2
-        CONFIGS_FILE = "vxlan_2L_config_input_file.yaml"
-        if len(st.get_dut_names()) != 2:
-            st.report_fail('topology_not_matching', "Topology not matching, required {} dut, having {} duts".format(exp_no_nodes,len(st.get_dut_names())))
+        CONFIGS_FILE = "vxlan_input_2L.yaml"
     elif st.getenv("topo") == "2s2l":
-        exp_no_nodes = 2
-        CONFIGS_FILE = "vxlan_2S2L_config_input_file.yaml"
-        if len(st.get_dut_names()) != 4:
-            st.report_fail('topology_not_matching', "Topology not matching, required {} dut, having {} duts".format(exp_no_nodes,len(st.get_dut_names())))
+        CONFIGS_FILE = "vxlan_input_2S2L.yaml"
     else:
         st.report_fail('no_data_found')
 
+    vars = st.get_testbed_vars()
+    nodes = st.get_dut_names()
+    leaf_nodes = [dut for dut in st.get_dut_names() if "leaf" in dut]
+    spine_nodes = [dut for dut in st.get_dut_names() if "spine" in dut]
+    pf = profile.VxlanProfile(input_file=CONFIGS_FILE, vars=vars, topo_type=st.getenv("topo", "4s4l"), 
+                                          leaf_nodes=leaf_nodes, spine_nodes=spine_nodes)
+
 @pytest.fixture(scope="module", autouse=True)
 def copy_default_config_db():
-    initialize_variables()
     cmd = "sudo cp /etc/sonic/config_db.json config_db.json.orig"
     for dut in st.get_dut_names():
         st.config(dut, cmd, skip_error_check=True)
 
 @pytest.fixture(scope="module", autouse=True)
-def vxlan_config_hooks(configure_underlay, configure_overlay, configure_l2l3vni):
-    global handles
-    handles = tgen_preconfig()
-        
-###VxLAN Configs###
-@pytest.fixture(scope="module")
-def configure_l2l3vni(request):
-    initialize_variables()
-    leaf_nodes=[]
-    spine_nodes=[]
-    for dut in st.get_dut_names():
-        if "leaf" in dut:
-            leaf_nodes.append(dut)
-        else:
-            spine_nodes.append(dut)
-    vxlan_obj.config_feature(leaf_nodes,'nvo')
-    vxlan_obj.config_feature(leaf_nodes,'enable_tunnel_counters')
-    vxlan_obj.config_feature(leaf_nodes,'l2vni')
-    vxlan_obj.config_feature(leaf_nodes,'l3vni')
-    vxlan_obj.config_feature(leaf_nodes,'add_sag_mac')
-    vxlan_obj.config_feature(leaf_nodes,'sag_v4')
-    vxlan_obj.config_feature(leaf_nodes,'sag_v6')
-    vxlan_obj.config_feature(leaf_nodes,'bgp_l3vni_config')
+def vxlan_config():
+
+    st.log("Configuring VXLAN profile")
+    pf.config()
     st.wait(60)
     yield
-    vxlan_obj.config_feature(leaf_nodes,'delete_sag_v6')
-    vxlan_obj.config_feature(leaf_nodes,'delete_sag_v4')
-    vxlan_obj.config_feature(leaf_nodes,'del_sag_mac')
-    vxlan_obj.config_feature(leaf_nodes,'delete_bgp_l3vni_config')
-    vxlan_obj.config_feature(leaf_nodes,'delete_l3vni')
-    vxlan_obj.config_feature(leaf_nodes,'delete_l2vni')
-    vxlan_obj.config_feature(st.get_dut_names(),'delete_bgp_config')
-    vxlan_obj.config_feature(leaf_nodes,'disable_tunnel_counters')
-    vxlan_obj.config_feature(leaf_nodes,'delete_vxlan')
-    router_preconfig_cleanup()
-    # config save
-    for dut in st.get_dut_names(): 
-        vxlan_obj.config_dut(dut, 'sonic', "sudo config save -y")
-    
-@pytest.fixture(scope="module")
-def configure_underlay(request): 
-    initialize_variables()
-    vxlan_obj.config_feature(nodes,'loopback')
-    vxlan_obj.config_feature(nodes,'unnumbered')
-    vxlan_obj.config_feature(nodes,'bgp_underlay')
-    yield
-    vxlan_obj.config_feature(nodes,'delete_loopback')
-
-@pytest.fixture(scope="module")
-def configure_overlay(request): 
-    leaf_nodes=[]
-    for dut in st.get_dut_names():
-        if "leaf" in dut:
-            leaf_nodes.append(dut)
-    vxlan_obj.config_feature(leaf_nodes,'bgp_overlay')
-
+    st.log("Un-Configuring VXLAN profile")
+    pf.unconfig()
+        
 def router_preconfig_cleanup():
     vrf_obj.clear_vrf_configuration(st.get_dut_names())
     ip_obj.clear_ip_configuration(st.get_dut_names(), family='all', thread=True, skip_error_check = True)
@@ -114,102 +60,31 @@ def report_fail(dut, msg=''):
     st.error(msg, dut)
     st.report_fail('test_case_failed', dut)
 
-def tgen_preconfig(**kwargs):
-    initialize_variables()
-    leaf_nodes=[]
-    svi_dict_v4 = {}
-    svi_dict_v6 ={}
-    for dut in st.get_dut_names():
-        if "leaf" in dut and dut != 'leaf3':
-            leaf_nodes.append(dut)
-    l2vni_intf_dict = vxlan_obj.get_interfaces(vars, leaf_nodes,'l2vni')
-    ###Get topology Handles###
-    topo_handles = vxlan_obj.create_topology_handles(l2vni_intf_dict)
-
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    with open(dir_path + '/' + CONFIGS_FILE) as f:
-        config_dict = yaml.load(f, Loader=yaml.FullLoader)
-        for node, config in config_dict.items():
-            if 'leaf' in node:
-                if kwargs.get('custom_svi_ip'):
-                    svi_dict_v4[node] = vxlan_obj.generate_svi_ip_sag(config,'ipv4', ip_start = "10.2.0.1")
-                    svi_dict_v6[node] = vxlan_obj.generate_svi_ip_sag(config,'ipv6', ip_start = "1000:2::1")
-                else:
-                    svi_dict_v4[node] = vxlan_obj.generate_svi_ip_sag(config,'ipv4')
-                    svi_dict_v6[node] = vxlan_obj.generate_svi_ip_sag(config,'ipv6')
-    v4_host_info_dict = vxlan_obj.generate_sag_hosts(l2vni_intf_dict,svi_dict_v4)
-    v6_host_info_dict = vxlan_obj.generate_sag_hosts(l2vni_intf_dict,svi_dict_v6,version="ipv6")
-    
-    tg_handle = topo_handles[leaf_nodes[0]][l2vni_intf_dict[leaf_nodes[0]][0]]['tg_handle']
-    ###CREATE DEVICE GROUPS###
-    #ipv4
-    out_v4 = vxlan_obj.create_device_groups(topo_handles,v4_host_info_dict)
-    v4_node_device_handles = out_v4[0]
-    #ipv6
-    out_v6 = vxlan_obj.create_device_groups(topo_handles,v6_host_info_dict,version ="ipv6")
-    v6_node_device_handles = out_v6[0]
-    v4_device_handles = {}
-    v6_device_handles = {}
-    for node, interfaces in v4_node_device_handles.items():
-        for interface,values in interfaces.items():
-            v4_device_handles[interface] =values
-    for node, interfaces in v6_node_device_handles.items():
-        for interface,values in interfaces.items():
-            v6_device_handles[interface] =values
-    ### start all protocols ###
-    start_protocol = vxlan_obj.start_stop_protocols(tg_handle,action='start')
-    if start_protocol == 1:
-        st.log("protocols started successfully")
-    else:
-        st.report_tgen_fail('start protocols failed!')
-    st.wait(5)
-    ### choose traffic item endpoints###
-    l2_traffic_endpoints = vxlan_obj.find_l2_traffic_endpoints(v4_host_info_dict)
-    l3_traffic_endpoints = vxlan_obj.find_l3_traffic_endpoints(v4_host_info_dict)
-    ### create traffic item endpoints###
-    stream_handles = {}
-    stream_handles['l2_v4'] = vxlan_obj.create_traffic_item(device_handles = v4_device_handles,endpoints=l2_traffic_endpoints,topo_handles=topo_handles)
-    stream_handles['l3_v4'] = vxlan_obj.create_traffic_item(device_handles = v4_device_handles,endpoints=l3_traffic_endpoints,topo_handles=topo_handles)
-    stream_handles['l2_v6'] = vxlan_obj.create_traffic_item(device_handles = v6_device_handles,endpoints=l2_traffic_endpoints,topo_handles=topo_handles,version = "ipv6")
-    stream_handles['l3_v6'] = vxlan_obj.create_traffic_item(device_handles = v6_device_handles,endpoints=l3_traffic_endpoints,topo_handles=topo_handles,version = "ipv6")
-    #BUM
-    bum_info ={}
-    bum_info['tg_handle'] = topo_handles[leaf_nodes[0]][l2vni_intf_dict[leaf_nodes[0]][0]]['tg_handle']
-    bum_info['topology_handle'] = topo_handles[leaf_nodes[0]][l2vni_intf_dict[leaf_nodes[0]][0]]['topology_handle']
-    bum_info['port_handle'] = topo_handles[leaf_nodes[0]][l2vni_intf_dict[leaf_nodes[0]][0]]['port_handle']
-    bum_info['dst_port_handles'] = []
-    for node, interfaces in topo_handles.items():
-        for interface, values in interfaces.items():
-            if values['port_handle'] != bum_info['port_handle']:
-                bum_info['dst_port_handles'].append(values['port_handle'])
-    svi_info = v4_host_info_dict[leaf_nodes[0]][l2vni_intf_dict[leaf_nodes[0]][0]]
-    stream_handles['bum'] = vxlan_obj.generate_bum_handles(bum_info,svi_info)
-    stream_handles["topo_handles"] = topo_handles
-
-    return stream_handles
-
 @pytest.fixture(scope = "function", autouse=True)
-def pretest():
+def pretest(request):
     global vtep_state
-    initialize_variables()
+    if request.cls.__name__ == "TestVxlanStaticRoute":
+        st.log("Skipping pretest for TestVxlanStaticRoute")
+        return
+    st.log("Starting pretest for {}".format(request.cls.__name__))
     leaf_nodes=[]
     for dut in st.get_dut_names():
         if "leaf" in dut:
             leaf_nodes.append(dut)
     vtep_state = vxlan_obj.verify_vtep(leaf_nodes)
     if not vtep_state:
-        vxlan_obj.get_cli_out(leaf_nodes)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         cmds = ["do show bgp summary, do show run"]
         for dut in st.get_dut_names():
             for cmd in cmds:
                 st.config(dut, cmd, type='vtysh', skip_error_check=True)
         pytest.skip("Skipping tests due to vtep state not up")
+    st.log("Completed pretest for {}".format(request.cls.__name__))
 
 class TestVxlanBasic():
     
     def test_vtep_state(self):
         st.banner("TEST 1: Verify the expected remote vtep in all leafs  ")
-        initialize_variables()
         leaf_nodes=[]
         spine_nodes=[]
         for dut in st.get_dut_names():
@@ -220,7 +95,7 @@ class TestVxlanBasic():
         for dut in st.get_dut_names():
             for cmd in cmds:
                 st.config(dut, cmd, type='vtysh', skip_error_check=True)
-        vxlan_obj.get_cli_out(leaf_nodes)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         vtep_state = vxlan_obj.verify_vtep(leaf_nodes)
         if vtep_state:
             st.banner("vtep_state test passed")
@@ -231,7 +106,6 @@ class TestVxlanBasic():
 
     def test_vlanvnimap_state(self):
         st.banner("TEST 2: Verify the expected vlan vni mappings in all leafs")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -245,7 +119,6 @@ class TestVxlanBasic():
 
     def test_vrfvnimap_state(self):
         st.banner("TEST 3: Verify the expected vrf vni mappings in all leafs")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -259,23 +132,21 @@ class TestVxlanBasic():
  
     def test_all_traffic(self):
         st.banner("TEST 4: Verify Basic Traffic L2/L3 v4/v6")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
                 leaf_nodes.append(dut)
         vxlan_obj.get_cli_out(leaf_nodes)
-        traffic_result = run_traffic(handles)
+        traffic_result = pf.verify_traffic()
         return_result(traffic_result)
 
     def test_bum_traffic(self):
         st.banner("TEST 5: Verify BUM Traffic")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
                 leaf_nodes.append(dut)
-        bum_test = vxlan_obj.check_bum_traffic(handles['bum'])
+        bum_test = vxlan_obj.check_bum_traffic(pf.handles['bum'])
         if bum_test:
             st.banner("BUM test passed")
             st.report_pass('test_case_passed')
@@ -287,7 +158,6 @@ class TestVxlanBasic():
 class TestVxlanBasicTriggers():
     def test_upstream_int_flap(self):
         st.banner("TEST 6:Trigger 1: Verify L2/L3 Traffic after upstream int flap on all leafs")
-        initialize_variables()
         dut_int = vxlan_obj.get_dut_interfaces(vars) 
         flap_port_dict = {}
         for node, value in dut_int.items():
@@ -300,13 +170,12 @@ class TestVxlanBasicTriggers():
         interface_obj.interface_operation_parallel(flap_port_dict, operation='shutdown')
         st.wait(5)
         interface_obj.interface_operation_parallel(flap_port_dict)
-        st.wait(10) 
-        traffic_result = run_traffic(handles)
+        st.wait(5) 
+        traffic_result = pf.verify_traffic()
         return_result(traffic_result)
         
     def test_host_int_flap(self):
         st.banner("TEST 7:Trigger 2: Verify L2/L3 Traffic after host int flap on all leafs")
-        initialize_variables()
         dut_int = vxlan_obj.get_config_interfaces_list(vars) 
         flap_port_dict = {}
         for node, value in dut_int.items():
@@ -321,34 +190,32 @@ class TestVxlanBasicTriggers():
         st.wait(5)
         interface_obj.interface_operation_parallel(flap_port_dict)
         st.wait(5)      
-        traffic_result = run_traffic(handles)
+        traffic_result = pf.verify_traffic()
         return_result(traffic_result)
         
     def test_bgp_clear(self):
         st.banner("TEST 8:Trigger 3: Verify L2/L3 Traffic after clear bgp on all leafs")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
                 leaf_nodes.append(dut)
-        vxlan_obj.get_cli_out(leaf_nodes)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         for node in leaf_nodes:
             cmd = "do clear bgp *"
             vxlan_obj.config_dut(node, 'bgp', cmd, add=True)
         st.wait(30)
         vxlan_obj.clear_counters(leaf_nodes)
-        traffic_result = run_traffic(handles)
+        traffic_result = pf.verify_traffic()
         vxlan_obj.show_counters(leaf_nodes)
         return_result(traffic_result)
         
     def test_clear_fdb(self):
         st.banner("TEST 9:Trigger 4: Verify L2/L3 Traffic after clear fdb on all leafs") 
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
                 leaf_nodes.append(dut)
-        vxlan_obj.get_cli_out(leaf_nodes)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         for node in leaf_nodes:
             st.banner("Clearing fdb in {}".format(node))
             #check for remote mac count on all leafs
@@ -359,33 +226,31 @@ class TestVxlanBasicTriggers():
                 st.log("fdb clear failed")
                 st.report_fail("test_case_failed")
         #check for remote mac count on all leafs
-        traffic_result = run_traffic(handles)
-        vxlan_obj.get_cli_out(leaf_nodes)
+        traffic_result = pf.verify_traffic()
+        #vxlan_obj.get_cli_out(leaf_nodes)
         #check for remote mac count on all leafs
         return_result(traffic_result)
 
 class TestVxlanSagTriggers():
     def test_del_add_new_sag_mac(self):
         st.banner("TEST 10:Trigger 5: Verify L2/L3 Traffic after del and add new sag mac on all leafs") 
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
                 leaf_nodes.append(dut)
-        vxlan_obj.get_cli_out(leaf_nodes)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         #del sag mac and add new sag mac
         for node in leaf_nodes:
             cmd = "sudo config static-anycast-gateway mac_address del\n"
             cmd += "sudo config static-anycast-gateway mac_address add 00:55:44:33:22:11\n"
             vxlan_obj.config_dut(node, 'sonic', cmd, add=True)
-        st.wait(30)
-        vxlan_obj.get_cli_out(leaf_nodes)
-        traffic_result = run_traffic(handles)
+        st.wait(10)
+        #vxlan_obj.get_cli_out(leaf_nodes)
+        traffic_result = pf.verify_traffic()
         return_result(traffic_result)
     
     def test_del_add_sag_configs(self):
         st.banner("TEST 11:Trigger 6: Verify L2/L3 Traffic after del and add sag configs on all leafs") 
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -395,19 +260,18 @@ class TestVxlanSagTriggers():
         vxlan_obj.config_feature(leaf_nodes,'delete_sag_v6')
         vxlan_obj.config_feature(leaf_nodes,'del_sag_mac')
         st.wait(5)
-        vxlan_obj.get_cli_out(leaf_nodes)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         #add sag config
         vxlan_obj.config_feature(leaf_nodes,'add_sag_mac')
         vxlan_obj.config_feature(leaf_nodes,'sag_v4')
         vxlan_obj.config_feature(leaf_nodes,'sag_v6')
         st.wait(10)
-        vxlan_obj.get_cli_out(leaf_nodes)
-        traffic_result = run_traffic(handles)
+        #vxlan_obj.get_cli_out(leaf_nodes)
+        traffic_result = pf.verify_traffic()
         return_result(traffic_result)
 
     def test_del_add_sag_svi_ip(self):
         st.banner("TEST 12:Trigger 7: Verify L2/L3 Traffic after del and add svi_ip on all leafs") 
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -424,8 +288,8 @@ class TestVxlanSagTriggers():
                     v6_sag_dict = vxlan_obj.generate_svi_ip_sag(config,'ipv6')
                     output = vxlan_obj.svi_config(v6_sag_dict,'ipv6',mode ='del')
                     vxlan_obj.config_dut(node, 'sonic', output, add=True)
-            vxlan_obj.get_cli_out(leaf_nodes)
-            st.wait(10)
+            #vxlan_obj.get_cli_out(leaf_nodes)
+            st.wait(5)
             for node, config in config_dict.items():
                 if node in leaf_nodes:
                     v4_sag_dict = vxlan_obj.generate_svi_ip_sag(config,'ipv4')
@@ -434,20 +298,19 @@ class TestVxlanSagTriggers():
                     v6_sag_dict = vxlan_obj.generate_svi_ip_sag(config,'ipv6')
                     output = vxlan_obj.svi_config(v6_sag_dict,'ipv6',mode ='add')
                     vxlan_obj.config_dut(node, 'sonic', output, add=True)        
-        st.wait(10)
-        vxlan_obj.get_cli_out(leaf_nodes)
-        traffic_result = run_traffic(handles)
+        st.wait(5)
+        #vxlan_obj.get_cli_out(leaf_nodes)
+        traffic_result = pf.verify_traffic()
         return_result(traffic_result)
 
     def test_del_local_mac(self):
         st.banner("TEST 13:Trigger 8: Verify on deleting locally learnt MAC on leaf0, MAC entry is deleted in remote VTEP")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
                 leaf_nodes.append(dut)
-        vxlan_obj.get_cli_out(leaf_nodes)
-        ref_mac_list = mac_obj.get_mac_address_list('leaf0')
+        #vxlan_obj.get_cli_out(leaf_nodes)
+        ref_mac_list = mac_obj.get_mac_address_list('leaf0', type='Dynamic')
         out = st.show('leaf0', "show mac", skip_tmpl=False)
         st.log(out)
         ##Clear fdb on leaf0
@@ -485,7 +348,6 @@ class TestVxlanSagTriggers():
     #  Remove/Add VLAN member with SAG remove on all interface and add it back(one vlan)
     def test_remove_add_vlan_member(self):
         st.banner("TEST 14:Trigger 9: Verify. Remove and add back VLAN member with SAG ")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -510,12 +372,11 @@ class TestVxlanSagTriggers():
             port_list = int_config_dict[node]['l2vni_int']
             vlan_obj.add_vlan_member(node, ref_vlan, port_list, tagging_mode=True, skip_error=True)
         
-        traffic_result = run_traffic(handles,bum = True)
+        traffic_result = pf.verify_traffic(bum = True)
         return_result(traffic_result)
     
     def test_remove_add_vlan(self):
         st.banner("TEST 15:Trigger 10: Verify. Remove and add back VLAN with SAG ")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -541,7 +402,7 @@ class TestVxlanSagTriggers():
                 selected_leaf_list.append(node)
         st.banner(selected_leaf_list)
         data = {'l2vni':{'vlan_start_range':ref_vlan,'count':1}}
-        # vxlan_obj.get_cli_out(leaf_nodes)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         ###DELETE VLAN ###
         for node in selected_leaf_list:
             port_list = int_config_dict[node]['l2vni_int']
@@ -563,8 +424,9 @@ class TestVxlanSagTriggers():
             #Finally delete vlan
             vlan_obj.delete_vlan(node,[str(ref_vlan)])
         st.wait(10)
-        vxlan_obj.get_cli_out(leaf_nodes)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         ###ADD BACK VLAN###
+        st.log("Adding back vlan {}".format(ref_vlan))
         for node in selected_leaf_list:
             port_list = int_config_dict[node]['l2vni_int']
             #add vlan, vlan member and vxlan mapping
@@ -577,13 +439,12 @@ class TestVxlanSagTriggers():
             ip_obj.config_ip_addr_interface(node, interface_name=ref_int, ip_address=v6_sag_ip, subnet='64', family="ipv6", config='add', skip_error=True)
             cmd = "sudo config vlan static-anycast-gateway enable {}".format(ref_vlan)
             vxlan_obj.config_dut(node, 'sonic', cmd, add=True)
-        vxlan_obj.get_cli_out(leaf_nodes)
-        traffic_result = run_traffic(handles, bum = True)
+        #vxlan_obj.get_cli_out(leaf_nodes)
+        traffic_result = pf.verify_traffic(bum = True)
         return_result(traffic_result)
 
     def test_del_add_vlan_vni(self):
         st.banner("TEST 16:Trigger 11: Verify traffic after del/add vxlan mapping ")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -595,18 +456,17 @@ class TestVxlanSagTriggers():
                 if node in leaf_nodes:
                     config_out = vxlan_obj.get_vxlan_mapping(config,mode="del")
                     vxlan_obj.config_dut(node, 'sonic', config_out)
-            st.wait(10)
+            st.wait(5)
             for node, config in config_dict.items():
                 if node in leaf_nodes:
                     config_out = vxlan_obj.get_vxlan_mapping(config,mode="add")
                     vxlan_obj.config_dut(node, 'sonic', config_out)
-            st.wait(10)
-        traffic_result = run_traffic(handles)
+            st.wait(5)
+        traffic_result = pf.verify_traffic()
         return_result(traffic_result)
  
     def test_remove_add_vrf(self):
         st.banner("TEST 17:Trigger 12: Verify. Remove and add back VRF ")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -638,7 +498,7 @@ class TestVxlanSagTriggers():
             out = vxlan_obj.delete_vrf(node, ref_vrf)
             if out:
                 st.log("VRF deletion Success")
-                st.wait(10)
+                st.wait(5)
                 #Add back vrf
                 #sonic configs
                 for node in selected_leaf_dict:
@@ -674,12 +534,11 @@ class TestVxlanSagTriggers():
             else:
                 st.banner("VRF deletion Failed")
                 st.report_fail("test_case_failed")
-        traffic_result = run_traffic(handles)
+        traffic_result = pf.verify_traffic()
         return_result(traffic_result)
      
     def test_add_del_new_l2vni(self):
         st.banner("TEST 18:Trigger 13: Create and delete new l2vni and verify traffic ")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -699,9 +558,9 @@ class TestVxlanSagTriggers():
             #enable sag on vlan
             cmd = "sudo config vlan static-anycast-gateway enable {}".format(vlan_data['l2vni']['vlan_start_range'])
             vxlan_obj.config_dut(node, 'sonic', cmd, add=True)
-        vxlan_obj.get_cli_out(leaf_nodes)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         ###TRAFFIC###
-        topo_handles = handles["topo_handles"]
+        topo_handles = pf.handles["topo_handles"]
 
         svi_dict_v4 = {'leaf0':{900:'111.111.111.1'},'leaf1':{900:'111.111.111.1'}}
         svi_dict_v6 = {'leaf0':{900:'111:111:111::1'},'leaf1':{900:'111:111:111::1'}}
@@ -756,7 +615,7 @@ class TestVxlanSagTriggers():
                 vlan_obj.delete_vlan_member(node, 900 ,item, tagging_mode=True, skip_error_check=True, participation_mode="trunk")
             #del vlan
             vlan_obj.delete_vlan(node,[900])
-        vxlan_obj.get_cli_out(leaf_nodes)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         #Delete Tgen traffic items and device group
         #Traffic item del
         for traffic_type, traffic_items in new_stream_handles.items():
@@ -775,7 +634,6 @@ class TestVxlanSagTriggers():
 
     def test_add_del_new_l3vni(self):
         st.banner("TEST 19:Trigger 14: Create new vlan and verify traffic ")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -805,10 +663,10 @@ class TestVxlanSagTriggers():
             #bgp_l3vni_config
             config_out = vxlan_obj.generate_bgp_l3vni_config(l3vni_data,bgp_info[node])
             vxlan_obj.config_dut(node, 'bgp', config_out)
-        vxlan_obj.get_cli_out(leaf_nodes)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         ###Traffic###
         #Generate host info
-        topo_handles = handles["topo_handles"]
+        topo_handles = pf.handles["topo_handles"]
         svi_dict_v4 = {'leaf0':{900:'111.111.111.1',901:'111.111.112.1'},'leaf1':{900:'111.111.111.1',901:'111.111.112.1'}}
         svi_dict_v6 = {'leaf0':{900:'111:111:111::1',901:'111:111:112::1'},'leaf1':{900:'111:111:111::1',901:'111:111:112::1'}}
         l2vni_intf_dict = vxlan_obj.get_interfaces(vars, leaf_nodes,'l2vni')
@@ -833,7 +691,7 @@ class TestVxlanSagTriggers():
         l3_traffic_endpoints = vxlan_obj.find_l3_traffic_endpoints(v4_host_info_dict,vrf_vlan_dict = {"1":[900,901]})
         #disable old streams
         streams = []
-        for traffic_type, item in handles.items():
+        for traffic_type, item in pf.handles.items():
             if traffic_type != 'bum' and traffic_type != "topo_handles":
                 for key, value in item.items():
                     streams.append(value['stream_id'])
@@ -847,7 +705,7 @@ class TestVxlanSagTriggers():
         new_stream_handles['new_l3_v4'] = vxlan_obj.create_traffic_item(device_handles = v4_device_handles,endpoints=l3_traffic_endpoints,topo_handles=topo_handles)
         st.wait(2)
         new_stream_handles['new_l3_v6'] = vxlan_obj.create_traffic_item(device_handles = v6_device_handles,endpoints=l3_traffic_endpoints,topo_handles=topo_handles,version = "ipv6")
-        st.wait(10)
+        st.wait(5)
         #run traffic
         flag = True
         for traffic_type, traffic_items in new_stream_handles.items():
@@ -885,7 +743,7 @@ class TestVxlanSagTriggers():
                 vlan_obj.delete_vlan_member(node, 901 ,item, tagging_mode=True, skip_error_check=True, participation_mode="trunk")
             #del vlan
             vlan_obj.delete_vlan(node,[900,901,999])
-        vxlan_obj.get_cli_out(leaf_nodes)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         #tgen cleanup
         for traffic_type, traffic_items in new_stream_handles.items():
             for key, item in traffic_items.items():
@@ -905,7 +763,6 @@ class TestVxlanSagTriggers():
 
     def test_ecmp(self):
         st.banner("TEST 20:Trigger 15: Create new vlan and verify ecmp traffic ")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -926,7 +783,7 @@ class TestVxlanSagTriggers():
             cmd = "sudo config vlan static-anycast-gateway enable {}".format(vlan_data['l2vni']['vlan_start_range'])
             vxlan_obj.config_dut(node, 'sonic', cmd, add=True)
         ###TRAFFIC###
-        topo_handles = handles["topo_handles"]
+        topo_handles = pf.handles["topo_handles"]
 
         svi_dict_v4 = {'leaf0':{900:'111.111.111.1'},'leaf1':{900:'111.111.111.1'}}
         l2vni_intf_dict = vxlan_obj.get_interfaces(vars, leaf_nodes,'l2vni')
@@ -956,7 +813,7 @@ class TestVxlanSagTriggers():
         my_topo_handle = {}
         my_topo_handle['src'] = {}
         my_topo_handle['dst'] = {}
-        for node ,ports in topo_handles.items():
+        for node, ports in topo_handles.items():
             if node == 'leaf0':
                 for port, value in ports.items():
                     if port == list(host_info_dict['src']['leaf0'].keys())[0]:
@@ -1021,7 +878,7 @@ class TestVxlanSagTriggers():
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=stream_list)
-        st.wait(30)
+        st.wait(10)
         
         #ECMP check
         ecmp_check = True
@@ -1054,8 +911,8 @@ class TestVxlanSagTriggers():
         #Del traffic item and device group
         for item in stream_list:
             vxlan_obj.delete_traffic_item(tg_handle,item)
-        vxlan_obj.delete_device_groups(tg_handle,dst_dev_handle.values()[0].values()[0].values()[0])
-        vxlan_obj.delete_device_groups(tg_handle,src_dev_handle.values()[0].values()[0].values()[0])
+        vxlan_obj.delete_device_groups(tg_handle,list(list(list(dst_dev_handle.values())[0].values())[0].values())[0])
+        vxlan_obj.delete_device_groups(tg_handle,list(list(list(src_dev_handle.values())[0].values())[0].values())[0])
 
         ###DEL###
         for node in selected_leaf_list:
@@ -1087,13 +944,22 @@ class TestVxlanSagTriggers():
 class TestVxlanMacMoveTriggers():
 
     def check_mm_no(self,cli_output,dst_mac, MM = 1, local = False):
+            """
+            Checks if the mac move is successful by looking for the MM number in the CLI output.
+            If MM is 1, it checks for the first mac move, if MM is 2, it checks for the second mac move, and so on.
+            If string 'MM:1' is found in the output, it checks the lines above it for the destination MAC address.
+            If the destination MAC is found in the line above, it returns True, indicating a successful mac move.
+            If the destination MAC is not found, it returns False.
+            """
             my_str = "MM:"+str(MM)
+            st.banner("Checking for string {}".format(my_str))
             lines = cli_output.split('\n')
             results = []
             flag = False
             for i in range(len(lines)):
                 line = lines[i]
                 if my_str in line:
+                    st.log("Found {}".format(my_str))
                     current_match = line.strip()
                     if i > 0:
                         above_line = lines[i - 2].strip()
@@ -1133,7 +999,6 @@ class TestVxlanMacMoveTriggers():
         # add negative traffic check
         '''
         st.banner("TEST 21:Trigger 16: verify mac move")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -1162,7 +1027,7 @@ class TestVxlanMacMoveTriggers():
             cmd = "sudo config vlan static-anycast-gateway enable {}".format(vlan_data['l2vni']['vlan_start_range'])
             vxlan_obj.config_dut(node, 'sonic', cmd, add=True)
         ###TRAFFIC###
-        topo_handles = handles["topo_handles"]
+        topo_handles = pf.handles["topo_handles"]
         svi_dict_v4 = {'leaf0':{900:'111.111.111.1'},'leaf1':{900:'111.111.111.1'}}
         l2vni_intf_dict = vxlan_obj.get_interfaces(vars, leaf_nodes,'l2vni')
         v4_host_info_dict = vxlan_obj.generate_sag_hosts(l2vni_intf_dict,svi_dict_v4,custom_mac_enable = True, custom_start_mac = "00:00:00:00:25:01")
@@ -1198,7 +1063,7 @@ class TestVxlanMacMoveTriggers():
         my_topo_handle['src'] = {}
         my_topo_handle['dst'] = {}
         my_topo_handle['dst1'] = {}
-        for node ,ports in topo_handles.items():
+        for node, ports in topo_handles.items():
             if node == 'leaf0':
                 for port, value in ports.items():
                     if port == list(host_info_dict['src']['leaf0'].keys())[0]:
@@ -1247,7 +1112,7 @@ class TestVxlanMacMoveTriggers():
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=new_stream_id)
-        st.wait(30)
+        st.wait(10)
         traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=new_stream_id)
         #verify stats
         st.banner("Before MAC move")
@@ -1261,7 +1126,7 @@ class TestVxlanMacMoveTriggers():
         #Del traffic item and device group
         vxlan_obj.delete_traffic_item(tg_handle,new_stream_id)
         
-        vxlan_obj.delete_device_groups(tg_handle,dst_dev_handle.values()[0].values()[0].values()[0])
+        vxlan_obj.delete_device_groups(tg_handle,list(list(list(dst_dev_handle.values())[0].values())[0].values())[0])
         # Add device grp on leaf1
         dst1_dev = vxlan_obj.create_device_groups(my_topo_handle['dst1'],host_info_dict['dst1'])
         dst1_dev_handle = dst1_dev[0]
@@ -1313,7 +1178,7 @@ class TestVxlanMacMoveTriggers():
 
         #Del traffic item and device group
         vxlan_obj.delete_traffic_item(tg_handle,new_stream_id_1)
-        vxlan_obj.delete_device_groups(tg_handle,dst1_dev_handle.values()[0].values()[0].values()[0])
+        vxlan_obj.delete_device_groups(tg_handle,list(list(list(dst1_dev_handle.values())[0].values())[0].values())[0])
 
         ###Move the host: MAC MOVE 2###
         dst_dev = vxlan_obj.create_device_groups(my_topo_handle['dst'],host_info_dict['dst'])
@@ -1343,7 +1208,7 @@ class TestVxlanMacMoveTriggers():
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=new_stream_id_2)
-        st.wait(30)
+        st.wait(10)
         traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=new_stream_id_2)
         #verify stats
         st.banner(" MAC move to original leaf")
@@ -1363,8 +1228,8 @@ class TestVxlanMacMoveTriggers():
             mac_move_2 = False
         
         vxlan_obj.delete_traffic_item(tg_handle,new_stream_id_2)
-        vxlan_obj.delete_device_groups(tg_handle,dst_dev_handle.values()[0].values()[0].values()[0])
-        vxlan_obj.delete_device_groups(tg_handle,src_dev_handle.values()[0].values()[0].values()[0])
+        vxlan_obj.delete_device_groups(tg_handle,list(list(list(dst_dev_handle.values())[0].values())[0].values())[0])
+        vxlan_obj.delete_device_groups(tg_handle,list(list(list(src_dev_handle.values())[0].values())[0].values())[0])
         ###DEL###
         for node in selected_leaf_list:
             #disable sag on vlan
@@ -1397,7 +1262,6 @@ class TestVxlanMacMoveTriggers():
         # add negative traffic check
         '''
         st.banner("TEST 22:Trigger 17:verify mac move and check l3 traffic")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -1436,7 +1300,7 @@ class TestVxlanMacMoveTriggers():
             config_out = vxlan_obj.generate_bgp_l3vni_config(l3vni_data,bgp_info[node])
             vxlan_obj.config_dut(node, 'bgp', config_out)
         ###TRAFFIC###
-        topo_handles = handles["topo_handles"]
+        topo_handles = pf.handles["topo_handles"]
 
         svi_dict_v4 = {'leaf0':{900:'111.111.111.1',901:'111.111.112.1'},'leaf1':{900:'111.111.111.1',901:'111.111.112.1'}}
         l2vni_intf_dict = vxlan_obj.get_interfaces(vars, leaf_nodes,'l2vni')
@@ -1473,7 +1337,7 @@ class TestVxlanMacMoveTriggers():
         my_topo_handle['src'] = {}
         my_topo_handle['dst'] = {}
         my_topo_handle['dst1'] = {}
-        for node ,ports in topo_handles.items():
+        for node, ports in topo_handles.items():
             if node == 'leaf0':
                 for port, value in ports.items():
                     if port == list(host_info_dict['src']['leaf0'].keys())[0]:
@@ -1521,7 +1385,7 @@ class TestVxlanMacMoveTriggers():
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=new_stream_id)
-        st.wait(30)
+        st.wait(10)
         traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=new_stream_id)
         #verify stats
         st.banner("Before MAC move")
@@ -1535,7 +1399,7 @@ class TestVxlanMacMoveTriggers():
         #Del traffic item and device group
         vxlan_obj.delete_traffic_item(tg_handle,new_stream_id)
         
-        vxlan_obj.delete_device_groups(tg_handle,dst_dev_handle.values()[0].values()[0].values()[0])
+        vxlan_obj.delete_device_groups(tg_handle,list(list(list(dst_dev_handle.values())[0].values())[0].values())[0])
         # list(list(dst_dev_handle.values())[0].values())[0]
         # Add device grp on leaf1
         dst1_dev = vxlan_obj.create_device_groups(my_topo_handle['dst1'],host_info_dict['dst1'])
@@ -1566,7 +1430,7 @@ class TestVxlanMacMoveTriggers():
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=new_stream_id_1)
-        st.wait(30)
+        st.wait(10)
         
         traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=new_stream_id_1)
         #verify stats
@@ -1585,7 +1449,7 @@ class TestVxlanMacMoveTriggers():
             mac_move_1 = False
         #Del traffic item and device group
         vxlan_obj.delete_traffic_item(tg_handle,new_stream_id_1)
-        vxlan_obj.delete_device_groups(tg_handle,dst1_dev_handle.values()[0].values()[0].values()[0])
+        vxlan_obj.delete_device_groups(tg_handle,list(list(list(dst1_dev_handle.values())[0].values())[0].values())[0])
         st.wait(5)
         ###Move the host: MAC MOVE 2###
         dst_dev = vxlan_obj.create_device_groups(my_topo_handle['dst'],host_info_dict['dst'])
@@ -1615,7 +1479,7 @@ class TestVxlanMacMoveTriggers():
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=new_stream_id_2)
-        st.wait(30)
+        st.wait(10)
         traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=new_stream_id_2)
         #verify stats
         st.banner(" MAC move to original leaf")
@@ -1633,8 +1497,8 @@ class TestVxlanMacMoveTriggers():
             mac_move_2 = False
         
         vxlan_obj.delete_traffic_item(tg_handle,new_stream_id_2)
-        vxlan_obj.delete_device_groups(tg_handle,dst_dev_handle.values()[0].values()[0].values()[0])
-        vxlan_obj.delete_device_groups(tg_handle,src_dev_handle.values()[0].values()[0].values()[0])
+        vxlan_obj.delete_device_groups(tg_handle,list(list(list(dst_dev_handle.values())[0].values())[0].values())[0])
+        vxlan_obj.delete_device_groups(tg_handle,list(list(list(src_dev_handle.values())[0].values())[0].values())[0])
         ###DEL###
         for node in selected_leaf_list:
             #remove bgp_l3vni_config
@@ -1666,10 +1530,9 @@ class TestVxlanMacMoveTriggers():
 
     def test_mac_freeze(self):
         '''
-        
+        Validate mac move freezes after performing mac move 4 times in 200 secs
         '''
         st.banner("TEST 23:Trigger 18: duplicate mac move detection ")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -1701,11 +1564,11 @@ class TestVxlanMacMoveTriggers():
             vxlan_obj.config_dut(node, 'sonic', cmd, add=True)
             #Mac freeze config
             bgp_cmd = "router bgp {}\naddress-family l2vpn evpn\n".format(bgp_info[node]['as_num'])
-            bgp_cmd+= "dup-addr-detection max-moves 4 time 200\ndup-addr-detection freeze 60\nexit\n"
+            bgp_cmd+= "dup-addr-detection max-moves 4 time 200\ndup-addr-detection freeze 60\nend\nexit\n"
             vxlan_obj.config_dut(node, 'bgp', bgp_cmd)
         
         ###TRAFFIC###
-        topo_handles = handles["topo_handles"]
+        topo_handles = pf.handles["topo_handles"]
 
         svi_dict_v4 = {'leaf0':{900:'111.111.111.1'},'leaf1':{900:'111.111.111.1'}}
         l2vni_intf_dict = vxlan_obj.get_interfaces(vars, leaf_nodes,'l2vni')
@@ -1741,7 +1604,7 @@ class TestVxlanMacMoveTriggers():
         my_topo_handle['src'] = {}
         my_topo_handle['dst'] = {}
         my_topo_handle['dst1'] = {}
-        for node ,ports in topo_handles.items():
+        for node, ports in topo_handles.items():
             if node == 'leaf0':
                 for port, value in ports.items():
                     if port == list(host_info_dict['src']['leaf0'].keys())[0]:
@@ -1789,7 +1652,7 @@ class TestVxlanMacMoveTriggers():
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=new_stream_id)
-        st.wait(30)
+        st.wait(10)
         traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=new_stream_id)
         #verify stats
         st.banner("Before MAC move")
@@ -1801,52 +1664,63 @@ class TestVxlanMacMoveTriggers():
         st.config('leaf1', 'do show bgp l2vpn evpn route type 2', type='vtysh', skip_error_check=True)
         ###Move the host multiple times###
         i = 1
-        j = 1
         flag = True
-        while i <=6:
+
+        while i <= 6:
             mac_move = False
-            vxlan_obj.delete_device_groups(tg_handle,dst_dev_handle.values()[0].values()[0].values()[0])
+            if i % 2 == 1:
+                # Odd = LEAF1
+                # Reset device groups every iteration
+                vxlan_obj.delete_device_groups(tg_handle,list(list(list(dst_dev_handle.values())[0].values())[0].values())[0])
+                dst1_dev = vxlan_obj.create_device_groups(my_topo_handle['dst1'],host_info_dict['dst1'])
+                dst1_dev_handle = dst1_dev[0]
+                vxlan_obj.start_stop_protocols(tg_handle,'stop')
+                st.wait(15)
+                vxlan_obj.start_stop_protocols(tg_handle,'start')
+                st.wait(15)
+                # Odd = LEAF1
+                st.banner("MAC move iteration {} on LEAF1".format(i))
+
+                cli_output = st.show('leaf1', "do show bgp l2vpn evpn route type 2\nend\nexit\n", type='vtysh', skip_tmpl=True)
+                st.log("Checking MM:{} on leaf1".format(i))
             
-            dst1_dev = vxlan_obj.create_device_groups(my_topo_handle['dst1'],host_info_dict['dst1'])
-            dst1_dev_handle = dst1_dev[0]
-            vxlan_obj.start_stop_protocols(tg_handle,'stop')
-            st.wait(10)
-            vxlan_obj.start_stop_protocols(tg_handle,'start')
-            st.wait(10)
-            st.config('leaf0', 'do show bgp l2vpn evpn route type 2', type='vtysh', skip_error_check=True)
-            st.config('leaf1', 'do show bgp l2vpn evpn route type 2', type='vtysh', skip_error_check=True)
-            cli_output = st.show('leaf1', "do show bgp l2vpn evpn route type 2",type='vtysh', skip_tmpl=True)
-            mac_move = self.check_mm_no(cli_output,host_info_dict['dst_mac'],j,local = True)
-            
-            #local to leaf1
-            if i <=4:
-                j+=1
-            if not mac_move:
-                flag = False
-                st.banner("mac not moved as expected")
-            i+=1
-            vxlan_obj.delete_device_groups(tg_handle,dst1_dev_handle.values()[0].values()[0].values()[0])
-            dst_dev = vxlan_obj.create_device_groups(my_topo_handle['dst'],host_info_dict['dst'])
-            vxlan_obj.start_stop_protocols(tg_handle,'stop')
-            st.wait(10)
-            vxlan_obj.start_stop_protocols(tg_handle,'start')
-            st.wait(10)
-            dst_dev_handle = dst_dev[0]
-            if i <=4:
-                j+=1
-            i+=1
-            #local to leaf0
-            cli_output = st.show('leaf0', "do show bgp l2vpn evpn route type 2",type='vtysh', skip_tmpl=True)
-            mac_move = self.check_mm_no(cli_output,host_info_dict['dst_mac'],j,local = True)
-            if not mac_move:
-                flag = False
-                st.banner("mac not moved as expected")
+                mac_move = self.check_mm_no(cli_output, host_info_dict['dst_mac'], i, local=True)
+                if mac_move:
+                    st.banner("mac moved as expected leaf1")
+                else:
+                    flag = False
+                    st.banner("mac not moved as expected leaf1")
+
+            else:
+                # Even = LEAF0
+                # Reset device groups every iteration
+                vxlan_obj.delete_device_groups(tg_handle,list(list(list(dst1_dev_handle.values())[0].values())[0].values())[0])
+                dst_dev = vxlan_obj.create_device_groups(my_topo_handle['dst'],host_info_dict['dst'])
+                dst_dev_handle = dst_dev[0]
+                vxlan_obj.start_stop_protocols(tg_handle,'stop')
+                st.wait(5)
+                vxlan_obj.start_stop_protocols(tg_handle,'start')
+                st.wait(10)
+                st.banner("MAC move iteration {} on LEAF0".format(i))
+
+                cli_output = st.show('leaf0', "do show bgp l2vpn evpn route type 2\nend\nexit\n", type='vtysh', skip_tmpl=True)
+                st.log("Checking MM:{} on leaf0".format(i))
+                mac_move = self.check_mm_no(cli_output, host_info_dict['dst_mac'], i, local=True)
+                if mac_move:
+                    st.banner("mac moved as expected leaf0")
+                else:
+                    flag = False
+                    st.banner("mac not moved as expected leaf0")
+
+            i += 1 # Increment i after each iteration
+
+        st.banner("After MAC move iterations")
         #check traffic
         tg_handle.tg_traffic_control(action='run', stream_handle=new_stream_id)
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=new_stream_id)
-        st.wait(30)
+        st.wait(10)
         traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=new_stream_id)
         #verify stats
         st.banner("After mac freeze")
@@ -1854,9 +1728,10 @@ class TestVxlanMacMoveTriggers():
         
         #####
         vxlan_obj.delete_traffic_item(tg_handle,new_stream_id)
-        vxlan_obj.delete_device_groups(tg_handle,dst_dev_handle.values()[0].values()[0].values()[0])
-        vxlan_obj.delete_device_groups(tg_handle,src_dev_handle.values()[0].values()[0].values()[0])
+        vxlan_obj.delete_device_groups(tg_handle,list(list(list(dst_dev_handle.values())[0].values())[0].values())[0])
+        vxlan_obj.delete_device_groups(tg_handle,list(list(list(src_dev_handle.values())[0].values())[0].values())[0])
         ###DEL###
+        st.log("Test completed. Now deleting configurations")
         for node in selected_leaf_list:
             #disable sag on vlan
             cmd = "sudo config vlan static-anycast-gateway disable {}".format(vlan_data['l2vni']['vlan_start_range'])
@@ -1882,56 +1757,44 @@ class TestVxlanMacMoveTriggers():
 class TestVxlanChangeSviIpTrigger():
     def test_del_add_new_sag_ip(self):
         st.banner("TEST 24:Trigger 19: Change svi ip and check traffic ")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
                 leaf_nodes.append(dut)
         #del old tgen configs
-        global handles, new_handles
-        cleanup_tgen(handles)
+        global new_handles
+        cleanup_tgen(pf.handles)
         #clear sag config
         vxlan_obj.config_feature(leaf_nodes,'delete_sag_v4')
         vxlan_obj.config_feature(leaf_nodes,'delete_sag_v6')
-        st.wait(30)
-        vxlan_obj.get_cli_out(leaf_nodes)
+        st.wait(5)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         #add sag config
         vxlan_obj.config_feature(leaf_nodes,'new_sag_v4')
         vxlan_obj.config_feature(leaf_nodes,'new_sag_v6')
-        st.wait(30)
-        vxlan_obj.get_cli_out(leaf_nodes)
+        st.wait(5)
+        #vxlan_obj.get_cli_out(leaf_nodes)
         #add new tgen configs
-        new_handles = tgen_preconfig(custom_svi_ip = True)
+        new_handles = pf.configure_tgen(custom_svi_ip = True)
         
-        #check traffic
-        def check_traffic_results(tgen_han):
-            traffic_result = run_traffic(tgen_han)
-            flag = True
-            for traffic_type , result in traffic_result.items():
-                if result == True :
-                    st.banner("{} traffic passed".format(traffic_type))
-                else:
-                    st.banner("{} traffic failed".format(traffic_type))
-                    flag = False
-            return flag
-        result_1 = check_traffic_results(new_handles)
+        result_1 = pf.verify_traffic()
         ###Revert to original configs###
         #clear new sag config
         vxlan_obj.config_feature(leaf_nodes,'delete_new_sag_v4')
         vxlan_obj.config_feature(leaf_nodes,'delete_new_sag_v6')
-        st.wait(30)
-        vxlan_obj.get_cli_out(leaf_nodes)
+        st.wait(5)
+        #vxlan_obj.get_cli_out(leaf_nodes)
 
         #add back original config
         vxlan_obj.config_feature(leaf_nodes,'sag_v4')
         vxlan_obj.config_feature(leaf_nodes,'sag_v6')
-        st.wait(30)
-        vxlan_obj.get_cli_out(leaf_nodes)
+        st.wait(5)
+        #vxlan_obj.get_cli_out(leaf_nodes)
 
         #clean tgen
         cleanup_tgen(new_handles)
-        handles =  tgen_preconfig()
-        result_2 = check_traffic_results(handles)
+        pf.configure_tgen()
+        result_2 = pf.verify_traffic()
 
         if not result_1:
             st.banner("Traffic failed after svi ip change")
@@ -1945,10 +1808,8 @@ class TestVxlanChangeSviIpTrigger():
 @pytest.fixture(scope="class")
 def setup_cleanup_for_static():
     #tgen cleanup
-    global handles
-    cleanup_tgen(handles)
+    cleanup_tgen(pf.handles)
     #config cleanup
-    initialize_variables()
     leaf_nodes=[]
     for dut in st.get_dut_names():
         if "leaf" in dut:
@@ -1963,7 +1824,6 @@ def setup_cleanup_for_static():
     vrf_obj.clear_vrf_configuration(st.get_dut_names())
     vlan_obj.clear_vlan_configuration(st.get_dut_names())
     yield
-    initialize_variables()
     leaf_nodes=[]
     for dut in st.get_dut_names():
         if "leaf" in dut:
@@ -1975,7 +1835,7 @@ def setup_cleanup_for_static():
     vxlan_obj.config_feature(leaf_nodes,'sag_v6')
     vxlan_obj.config_feature(leaf_nodes,'bgp_l3vni_config')
     # global handles
-    handles = tgen_preconfig()
+    pf.configure_tgen()
     st.wait(60)
 
 @pytest.mark.usefixtures("setup_cleanup_for_static")
@@ -2025,7 +1885,7 @@ class TestVxlanStaticRoute():
             vxlan_obj.config_dut(node, 'bgp', config_out)
         #redistribute static
         cmd = "router bgp {} vrf Vrf999\n".format(bgp_info['leaf0']['as_num'])
-        cmd += "address-family ipv4 unicast\nredistribute static\nexit"
+        cmd += "address-family ipv4 unicast\nredistribute static\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         #config routed interface and add to vrf
         selected_port = []
@@ -2034,7 +1894,7 @@ class TestVxlanStaticRoute():
         vrf_obj.bind_vrf_interface(dut = 'leaf0', vrf_name = 'Vrf999', intf_name =selected_port)
         ip_obj.config_ip_addr_interface('leaf0', interface_name=selected_port, ip_address='192.168.1.1', subnet='24', family="ipv4", config='add', skip_error=True)
         #add static route
-        cmd = "vrf Vrf999\nip route 60.60.60.1/32 192.168.1.2\nexit"
+        cmd = "vrf Vrf999\nip route 60.60.60.1/32 192.168.1.13\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         #create traffic handles
         l2vni_intf_dict = vxlan_obj.get_interfaces(vars, selected_leaf_list,'l2vni')
@@ -2058,7 +1918,7 @@ class TestVxlanStaticRoute():
         my_topo_handle = {}
         my_topo_handle['src'] = {}
         my_topo_handle['dst'] = {}
-        for node ,ports in topo_handles.items():
+        for node, ports in topo_handles.items():
             if node == 'leaf1':
                 for port, value in ports.items():
                     if 'P1' in port:
@@ -2077,7 +1937,7 @@ class TestVxlanStaticRoute():
         static_topo_handle = ""
         for key, value in my_topo_handle.items():
             if key == "dst":
-                for node ,port in value.items():
+                for node, port in value.items():
                     static_topo_handle = port[list(port.keys())[0]]['topology_handle']
         device_group = tg_handle.tg_topology_config(
                     topology_handle= static_topo_handle,
@@ -2101,7 +1961,7 @@ class TestVxlanStaticRoute():
             ipv4_resolve_gateway= "1",
             gateway= '192.168.1.1',
             gateway_step= "0.0.0.0",
-            intf_ip_addr = '192.168.1.2',
+            intf_ip_addr = '192.168.1.13',
             intf_ip_addr_step= "0.0.0.1"
             )
         ipv4_handle = l3_protocol['ipv4_handle']
@@ -2117,7 +1977,7 @@ class TestVxlanStaticRoute():
                         circuit_endpoint_type='ipv4', 
                         frame_size=500, 
                         mac_src= host_info_dict['src_mac'], 
-                        mac_dst= ' 00:55:44:33:22:11',
+                        mac_dst= '00:55:44:33:22:11',
                         vlan_id = 900,
                         ip_dst_addr = '60.60.60.1',
                         ip_src_addr = host_info_dict['src_ip']
@@ -2131,16 +1991,16 @@ class TestVxlanStaticRoute():
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=new_stream_id)
-        st.wait(30)
+        st.wait(10)
         traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=new_stream_id)
         result_1 = vxlan_obj.stats_check(traffic_stat)
         #Remove config
-        cmd = "vrf Vrf999\nno ip route 60.60.60.1/32 192.168.1.2\nexit"
+        cmd = "vrf Vrf999\nno ip route 60.60.60.1/32 192.168.1.13\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         for dut in selected_leaf_list: 
             ip_obj.verify_ip_route(dut, vrf_name = 'all')
         #Change to recursive:
-        cmd = "vrf Vrf999\nip route 60.60.60.1/32 80.80.80.1\nip route 80.80.80.1/32 192.168.1.2\nexit"
+        cmd = "vrf Vrf999\nip route 60.60.60.1/32 80.80.80.1\nip route 80.80.80.1/32 192.168.1.13\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         for dut in selected_leaf_list: 
             ip_obj.verify_ip_route(dut, vrf_name = 'all')
@@ -2148,12 +2008,12 @@ class TestVxlanStaticRoute():
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=new_stream_id)
-        st.wait(30)
+        st.wait(10)
         traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=new_stream_id)
         result_2 = vxlan_obj.stats_check(traffic_stat)
 
         #Remove config
-        cmd = "vrf Vrf999\nno ip route 60.60.60.1/32 80.80.80.1\nno ip route 80.80.80.1/32 192.168.1.2\nexit"
+        cmd = "vrf Vrf999\nno ip route 60.60.60.1/32 80.80.80.1\nno ip route 80.80.80.1/32 192.168.1.13\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         
         #rem static route
@@ -2185,7 +2045,7 @@ class TestVxlanStaticRoute():
             st.report_pass("test_case_passed")
         if not result_1 and not result_2 :
             st.banner("Traffic failed for single static route and recursive static route")
-            st.report_pass("test_case_passed")
+            st.report_fail("test_case_failed")
         if not result_1:
             st.banner("Traffic Failed for static route")
             st.report_fail("test_case_failed")
@@ -2237,7 +2097,7 @@ class TestVxlanStaticRoute():
             vxlan_obj.config_dut(node, 'bgp', config_out)
         #redistribute static
         cmd = "router bgp {} vrf Vrf999\n".format(bgp_info['leaf0']['as_num'])
-        cmd += "address-family ipv4 unicast\nredistribute static\nexit"
+        cmd += "address-family ipv4 unicast\nredistribute static\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         #config svi interface and add to vrf
         selected_port = []
@@ -2248,7 +2108,7 @@ class TestVxlanStaticRoute():
         vrf_obj.bind_vrf_interface(dut = 'leaf0', vrf_name = 'Vrf999', intf_name ='Vlan950')
         ip_obj.config_ip_addr_interface('leaf0', interface_name="Vlan950", ip_address='192.168.1.1', subnet='24', family="ipv4", config='add', skip_error=True)
         #add static route
-        cmd = "vrf Vrf999\nip route 60.60.60.1/32 192.168.1.2\nexit"
+        cmd = "vrf Vrf999\nip route 60.60.60.1/32 192.168.1.13\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         #create traffic handles
         l2vni_intf_dict = vxlan_obj.get_interfaces(vars, selected_leaf_list,'l2vni')
@@ -2273,7 +2133,7 @@ class TestVxlanStaticRoute():
         my_topo_handle = {}
         my_topo_handle['src'] = {}
         my_topo_handle['dst'] = {}
-        for node ,ports in topo_handles.items():
+        for node, ports in topo_handles.items():
             if node == 'leaf1':
                 for port, value in ports.items():
                     if 'P1' in port:
@@ -2291,7 +2151,7 @@ class TestVxlanStaticRoute():
         static_topo_handle = ""
         for key, value in my_topo_handle.items():
             if key == "dst":
-                for node ,port in value.items():
+                for node, port in value.items():
                     static_topo_handle = port[list(port.keys())[0]]['topology_handle']
         device_group = tg_handle.tg_topology_config(
                     topology_handle= static_topo_handle,
@@ -2315,7 +2175,7 @@ class TestVxlanStaticRoute():
             ipv4_resolve_gateway= "1",
             gateway= '192.168.1.1',
             gateway_step= "0.0.0.0",
-            intf_ip_addr = '192.168.1.2',
+            intf_ip_addr = '192.168.1.13',
             intf_ip_addr_step= "0.0.0.1"
             )
         ipv4_handle = l3_protocol['ipv4_handle']
@@ -2343,25 +2203,25 @@ class TestVxlanStaticRoute():
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=new_stream_id)
-        st.wait(30)
+        st.wait(10)
         traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=new_stream_id)
         result_1 = vxlan_obj.stats_check(traffic_stat)
         #Remove config
-        cmd = "vrf Vrf999\nno ip route 60.60.60.1/32 192.168.1.2\nexit"
+        cmd = "vrf Vrf999\nno ip route 60.60.60.1/32 192.168.1.13\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
 
         #Change to recursive:
-        cmd = "vrf Vrf999\nip route 60.60.60.1/32 80.80.80.1\nip route 80.80.80.1/32 192.168.1.2\nexit"
+        cmd = "vrf Vrf999\nip route 60.60.60.1/32 80.80.80.1\nip route 80.80.80.1/32 192.168.1.13\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         tg_handle.tg_traffic_control(action='run', stream_handle=new_stream_id)
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=new_stream_id)
-        st.wait(30)
+        st.wait(10)
         traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=new_stream_id)
         result_2 = vxlan_obj.stats_check(traffic_stat)
         #rem static route
-        cmd = "vrf Vrf999\nno ip route 60.60.60.1/32 80.80.80.1\nno ip route 80.80.80.1/32 192.168.1.2\nexit"
+        cmd = "vrf Vrf999\nno ip route 60.60.60.1/32 80.80.80.1\nno ip route 80.80.80.1/32 192.168.1.13\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         
         for node in selected_leaf_list:
@@ -2445,7 +2305,7 @@ class TestVxlanStaticRoute():
             vxlan_obj.config_dut(node, 'bgp', config_out)
         #redistribute static
         cmd = "router bgp {} vrf Vrf999\n".format(bgp_info['leaf0']['as_num'])
-        cmd += "address-family ipv4 unicast\nredistribute static\nexit"
+        cmd += "address-family ipv4 unicast\nredistribute static\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         #config routed interface and add to vrf
         selected_port = []
@@ -2454,7 +2314,7 @@ class TestVxlanStaticRoute():
         vrf_obj.bind_vrf_interface(dut = 'leaf0', vrf_name = 'Vrf999', intf_name =selected_port)
         ip_obj.config_ip_addr_interface('leaf0', interface_name=selected_port, ip_address='192.168.1.1', subnet='24', family="ipv4", config='add', skip_error=True)
         #add static route
-        cmd = "vrf Vrf999\nip route 60.60.60.1/32 192.168.1.2\nexit"
+        cmd = "vrf Vrf999\nip route 60.60.60.1/32 192.168.1.13\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         #create traffic handles
         l2vni_intf_dict = vxlan_obj.get_interfaces(vars, selected_leaf_list,'l2vni')
@@ -2478,7 +2338,7 @@ class TestVxlanStaticRoute():
         my_topo_handle = {}
         my_topo_handle['src'] = {}
         my_topo_handle['dst'] = {}
-        for node ,ports in topo_handles.items():
+        for node, ports in topo_handles.items():
             if node == 'leaf0':
                 for port, value in ports.items():
                     if 'P1' in port:
@@ -2495,7 +2355,7 @@ class TestVxlanStaticRoute():
         static_topo_handle = ""
         for key, value in my_topo_handle.items():
             if key == "dst":
-                for node ,port in value.items():
+                for node, port in value.items():
                     static_topo_handle = port[list(port.keys())[0]]['topology_handle']
         device_group = tg_handle.tg_topology_config(
                     topology_handle= static_topo_handle,
@@ -2519,7 +2379,7 @@ class TestVxlanStaticRoute():
             ipv4_resolve_gateway= "1",
             gateway= '192.168.1.1',
             gateway_step= "0.0.0.0",
-            intf_ip_addr = '192.168.1.2',
+            intf_ip_addr = '192.168.1.13',
             intf_ip_addr_step= "0.0.0.1"
             )
         ipv4_handle = l3_protocol['ipv4_handle']
@@ -2549,16 +2409,16 @@ class TestVxlanStaticRoute():
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=new_stream_id)
-        st.wait(30)
+        st.wait(10)
         traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=new_stream_id)
         result_1 = vxlan_obj.stats_check(traffic_stat)
         #Remove config
-        cmd = "vrf Vrf999\nno ip route 60.60.60.1/32 192.168.1.2\nexit"
+        cmd = "vrf Vrf999\nno ip route 60.60.60.1/32 192.168.1.13\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         for dut in selected_leaf_list: 
             ip_obj.verify_ip_route(dut, vrf_name = 'all')
         #Change to recursive:
-        cmd = "vrf Vrf999\nip route 60.60.60.1/32 80.80.80.1\nip route 80.80.80.1/32 192.168.1.2\nexit"
+        cmd = "vrf Vrf999\nip route 60.60.60.1/32 80.80.80.1\nip route 80.80.80.1/32 192.168.1.13\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         for dut in selected_leaf_list: 
             ip_obj.verify_ip_route(dut, vrf_name = 'all')
@@ -2566,11 +2426,11 @@ class TestVxlanStaticRoute():
         st.wait(30)
         ###Stop Traffic###
         tg_handle.tg_traffic_control(action='stop', stream_handle=new_stream_id)
-        st.wait(30)
+        st.wait(10)
         traffic_stat = tgapi.get_traffic_stats(tg_handle, mode='streams', port_handle=my_topo_handle['src_port'], direction='tx', stream_handle=new_stream_id)
         result_2 = vxlan_obj.stats_check(traffic_stat)
         #Remove config
-        cmd = "vrf Vrf999\nno ip route 60.60.60.1/32 80.80.80.1\nno ip route 80.80.80.1/32 192.168.1.2\nexit"
+        cmd = "vrf Vrf999\nno ip route 60.60.60.1/32 80.80.80.1\nno ip route 80.80.80.1/32 192.168.1.13\nend\nexit"
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         
         #rem static route
@@ -2614,7 +2474,6 @@ class TestVxlanReloadTriggers():
 
     def test_config_reload(self):
         st.banner("TEST 28:Trigger 23: Verify traffic after config reload ")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -2649,15 +2508,14 @@ class TestVxlanReloadTriggers():
             st.banner("All remote vteps are found")
         else:
             st.banner("Not all or no remote vteps are found")
-            st.report_fail(test_case_failed)
+            st.report_fail("test_case_failed")
     
         vxlan_obj.get_cli_out(leaf_nodes)
-        traffic_result = run_traffic(handles)
+        traffic_result = pf.verify_traffic()
         return_result(traffic_result)
 
     def test_reboot(self):
         st.banner("TEST 29:Trigger 24: Verify traffic after config reload ")
-        initialize_variables()
         leaf_nodes=[]
         for dut in st.get_dut_names():
             if "leaf" in dut:
@@ -2685,9 +2543,9 @@ class TestVxlanReloadTriggers():
             st.banner("All remote vteps are found")
         else:
             st.banner("Not all or no remote vteps are found")
-            st.report_fail(test_case_failed)
-        vxlan_obj.get_cli_out(leaf_nodes)
-        traffic_result = run_traffic(handles)
+            st.report_fail("test_case_failed")
+        #vxlan_obj.get_cli_out(leaf_nodes)
+        traffic_result = pf.verify_traffic()
         return_result(traffic_result)
         
 #######TGEN CLeanup#######        
@@ -2706,35 +2564,14 @@ def cleanup_tgen(tg_han):
 
 #######DUT config#######        
 def return_result(traffic_result):
-    flag = True
-    for traffic_type , result in traffic_result.items():
-        if result == True :
-            st.banner("{} traffic passed".format(traffic_type))
-        else:
-            st.banner("{} traffic failed".format(traffic_type))
-            flag = False
-    if flag:
+    if traffic_result:
+        st.banner("traffic verification passed")
         st.report_pass("test_case_passed")
     else:
+        st.banner("traffic verification failed")
         #check bgp on all nodes
         cmds = ["do show bgp summary, do show run"]
         for dut in st.get_dut_names:
             for cmd in cmds:
                 st.config(dut, cmd, type='vtysh', skip_error_check=True)
         st.report_fail("test_case_failed")
-
-def run_traffic(traffic_handles, bum = False):
-    traffic_result = {}
-    if not bum:
-        for traffic_type, traffic_items in traffic_handles.items():
-            if traffic_type != 'bum' and traffic_type != "topo_handles":
-                st.banner("Running {}".format(traffic_type))
-                traffic_result[traffic_type] = vxlan_obj.check_traffic(traffic_items, regenerate_traffic_items = True)
-    else:
-        for traffic_type, traffic_items in traffic_handles.items():
-            if traffic_type != 'bum' and traffic_type != "topo_handles":
-                st.banner("Running {}".format(traffic_type))
-                traffic_result[traffic_type] = vxlan_obj.check_traffic(traffic_items, regenerate_traffic_items = True)
-            if traffic_type == 'bum':
-                traffic_result[traffic_type] = vxlan_obj.check_bum_traffic(handles['bum'])
-    return traffic_result

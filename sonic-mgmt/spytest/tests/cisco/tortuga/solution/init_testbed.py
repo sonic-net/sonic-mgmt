@@ -9,6 +9,8 @@ spytest script to do the following
     --env "routers=spine0,spine2,leaf1,leaf2" : Specify the routers to run the script on
     --env "image=<image_url>" : Specify the image URL to be used for upgrade 
         Example: --env "image=https://engci-maven.cisco.com/artifactory/whitebox-group/sonic-cicd/Pipeline2_build/sonic-buildimage/sonic-buildimage-cisco.202305.1.tortuga.no-agents-p2-18153-583d0911ec2cf732732bd3443c0163e6b29cc320.tar.gz"
+    --env "max_init_threads=<number_of_threads>" : Specify the max number of threads for device initialization (default is 0 - max parallelism). One thread per device.
+    --env "input=<input_yaml_file>" : Specify the input yaml file with device specific configuration for image upgrade, config clean and persistent config setup. Refer to example input yaml file below for syntax and details.
 
 
     Sytest options:
@@ -18,8 +20,7 @@ spytest script to do the following
     --tc-max-timeout=<timeout> : Maximum timeout for test case execution
     --skip-init-checks : Skip initial checks before running the script  
 
- PS:  script should be run with -noconftest option to avoid removing the config file after script exection.
-
+ PS:  script should be run with --noconftest option to avoid removing the config file after script execution.
 
 
  Example:
@@ -68,6 +69,8 @@ leaf1:
   persistent_config: true
   reimage: &img2
     url: https://engci-maven-master.cisco.com/artifactory/whitebox-group/sonic-cicd/Pipeline2_build/sonic-buildimage/sonic-buildimage-cisco.202405c.2.tortuga.no-agents-periodic-25293-c41ced57013ac23ecdf0004d0d20ae6485ab6bbc.tar.gz
+  breakout_ports:
+    2x400G: [Ethernet1_5, Ethernet1_9, Ethernet1_53, Ethernet1_54, Ethernet1_55, Ethernet1_56]
 leaf2:
   clean_config: reboot
   persistent_config: true
@@ -97,6 +100,7 @@ def initialize_variables():
     # img_path = 'https://engci-maven.cisco.com/artifactory/whitebox-group/sonic-cicd/Pipeline2_build/sonic-buildimage/sonic-buildimage-cisco.202305.1.tortuga.no-agents-p2-18153-583d0911ec2cf732732bd3443c0163e6b29cc320.tar.gz'
     test_cfg['img_path'] = st.getenv('image', None)
     test_cfg['input_file'] = st.getenv('input', "")
+    test_cfg['max_init_threads'] = st.getenv('max_init_threads', 0)
     test_cfg['local_dir'] = '/tmp/img_upgrd/{}'.format(time.time())
     test_cfg['local_img_paths'] = dict()
     test_cfg['max_boot_time'] = 600
@@ -104,6 +108,7 @@ def initialize_variables():
     test_cfg['init_cfg'] = {'routers' : list()}
     test_cfg['frr_cfg'] = {'routers' : list()}
     test_cfg['clean_cfg'] = {'routers' : list()}
+    test_cfg['breakout'] = {'routers' : list()}
     vars = st.get_testbed_vars()
 
     test_cfg['input'] = dict()
@@ -143,13 +148,21 @@ def initialize_variables():
             if 'initial_config' in test_cfg['input'][rtr].keys() and \
                 test_cfg['input'][rtr]['initial_config']:
                 test_cfg['init_cfg']['routers'].append(rtr) 
+            if 'breakout_ports' in test_cfg['input'][rtr].keys() and \
+                test_cfg['input'][rtr]['breakout_ports']:
+                test_cfg['breakout']['routers'].append(rtr) 
     else:
         test_cfg['reimage']['routers'] = \
         test_cfg['frr_cfg']['routers'] = \
         test_cfg['clean_cfg']['routers'] = routers
         test_cfg['init_cfg']['routers'] = []
+        test_cfg['breakout']['routers'] = []
+
 
     st.log('Selected routers : {}'.format(routers))
+    if test_cfg['max_init_threads'] == 0 or int(test_cfg['max_init_threads']) > len(routers):
+        test_cfg['max_init_threads'] = len(routers)
+    st.log('Max parallel threads set to: {}'.format(test_cfg['max_init_threads']))
     
     for rtr in routers:
         st.log('Getting docker count for router: {}'.format(rtr))
@@ -164,6 +177,13 @@ def parallel_exec(proc, routers, ret_val):
     """
     global test_cfg
     threads = list()
+
+    def wait_for_threads(threads):
+        for thread in threads:
+            st.log('Waiting for thread to complete {}'.format(thread.name))
+            thread.join()
+            st.log('Thread {} completed'.format(thread.name))
+
     for rtr in routers:
         ret_val[rtr] = {'result': False, 'result_msg': ''}
         thread = threading.Thread(target=proc,
@@ -173,11 +193,12 @@ def parallel_exec(proc, routers, ret_val):
 
         thread.start()
         threads.append(thread)
-
-    for thread in threads:
-        st.log('Waiting for thread to complete {}'.format(thread.name))
-        thread.join()
-        st.log('Thread {} completed'.format(thread.name))
+        if len(threads) >= int(test_cfg['max_init_threads']):
+            st.log('Max parallel threads reached. Waiting for threads to complete before starting new ones.')
+            wait_for_threads(threads)
+            threads = list()
+    # if any threads are remaining
+    wait_for_threads(threads)
 
 @pytest.mark.usefixtures("file_transfer")
 class TestReimage():
@@ -416,7 +437,7 @@ class TestReimage():
         Verify basic system parameters
         """
         verify_data['result'] = True
-        st.log('Verify container count no Dut({})'.format(dut))
+        st.log('Verify container count on Dut({})'.format(dut))
         op = basic_obj.get_docker_ps(dut)
         cnt = 0
         for docker in op:
@@ -539,6 +560,30 @@ class TestSetConfigs():
         else:
             st.report_pass('test_case_failed')
 
+    def test_breakout_configs(self):
+        """
+        Test case to setup breakout configs on the testbed routers
+        """
+        global test_cfg
+        st.log('Setting breakout configs on routers : {}'.format(test_cfg['breakout']['routers']))
+        ret_val = dict()
+    
+        parallel_exec(self.breakout_ports, test_cfg['breakout']['routers'], ret_val)
+
+        result = True
+        for rtr in test_cfg['breakout']['routers']:
+
+            if ret_val[rtr]['result']:
+                st.log('Setting breakout configs on router {} : Pass'.format(rtr))
+            else:
+                st.error('Setting breakout configs on router {} : Fail'.format(rtr))
+                st.error('  Error message :  {}'.format(ret_val[rtr]['result_msg']))
+                result = False
+
+        if result:
+            st.report_pass('test_case_passed')
+        else:
+            st.report_pass('test_case_failed')
 
     def verify_docker_count(self, rtr, count):
         """
@@ -634,3 +679,34 @@ class TestSetConfigs():
         else:
             st.banner("===== Initial configs on Router: {} Done : {} \n{} =====".format(rtr, 'Fail', ret_val['result_msg']))
 
+    def breakout_ports(self, rtr, ret_val):  
+
+        global test_cfg
+        ret_val['result'] = True
+        st.banner("===== Configuring Breakout configs on Router: {} Start =====".format(rtr))
+        cfg = ""
+        for breakout_type in test_cfg['input'][rtr]['breakout_ports'].keys():
+            interfaces = test_cfg['input'][rtr]['breakout_ports'][breakout_type]
+            no_of_intf = int(breakout_type[0])
+            st.log("Configuring breakout type: {} on Router: {} Interfaces {}".format(breakout_type, rtr, interfaces))
+            for intf in interfaces: 
+                cfg += "sudo config interface breakout {} {} -yfl\n".format(intf, breakout_type)
+                for cntr in range(no_of_intf):
+                    intf_new = intf + '_{}'.format(cntr + 1)
+                    cfg += "sudo config interface startup {} \n".format(intf_new)
+
+        status = st.config(rtr, cfg)
+        if status:
+            ret_val['result_msg'] =  "{} : Breakout Config done".format(rtr)
+            st.log(ret_val['result_msg'])
+        else:
+            ret_val['result_msg'] =  "{} : Breakout Config failed".format(rtr)
+            st.error(ret_val['result_msg'])
+            ret_val['result'] = False
+            return
+
+        #check docker status
+        if ret_val['result']:
+            st.banner("===== Breakout configs on Router: {} Done : {} =====".format(rtr, 'Pass'))
+        else:
+            st.banner("===== Breakout configs on Router: {} Done : {} \n{} =====".format(rtr, 'Fail', ret_val['result_msg']))

@@ -214,6 +214,7 @@ global:
     bum:
         pkts_per_burst: 100
         rate_percent: 5
+    bfd_enable: false
 testcases:
     all:
         debug_cmds_vtysh:

@@ -60,7 +60,7 @@ class VxlanProfile(Profile):
             raise Exception('invalid_topology', "Invalid topology type provided: {}".format(topo_type))
 
         if len(leaf_nodes) != exp_no_leaf_nodes or len(spine_nodes) != exp_no_spine_nodes:
-            raise Exception("Topology not matching, required leaf {}, spine {} dut, " \
+            st.warn("Topology not matching, required leaf {}, spine {} dut, " \
             "having leaf {}, spine {}".format(exp_no_leaf_nodes, exp_no_spine_nodes, len(leaf_nodes), len(spine_nodes)))
     
     def config(self):
@@ -94,6 +94,9 @@ class VxlanProfile(Profile):
         self.configure_underlay(config=config)
         self.configure_overlay(config=config)
         self.configure_l2l3vni(config=config)
+        # Enable QoS on all nodes
+        for node in self.nodes:
+            vxlan_obj.config_dut(node, 'sonic', "sudo config qos reload")
         pass
 
     def configure_tgen(self, **kwargs):
@@ -140,6 +143,7 @@ class VxlanProfile(Profile):
             st.log("protocols started successfully")
         else:
             st.report_tgen_fail('start protocols failed!')
+            pass
         st.wait(5)
         ### choose traffic item endpoints###
         l2_traffic_endpoints = vxlan_obj.find_l2_traffic_endpoints(v4_host_info_dict)
@@ -220,6 +224,9 @@ class VxlanProfile(Profile):
             vxlan_obj.config_feature(self.leaf_nodes,'delete_l2vni')
             vxlan_obj.config_feature(self.leaf_nodes,'disable_tunnel_counters')
             vxlan_obj.config_feature(self.leaf_nodes,'delete_vxlan')
+            vrf_obj.clear_vrf_configuration(st.get_dut_names())
+            ip_obj.clear_ip_configuration(st.get_dut_names(), family='all', thread=True, skip_error_check = True)
+            vlan_obj.clear_vlan_configuration(st.get_dut_names())
     
     def verify_base_setup(self, retry=1):
 
@@ -345,9 +352,16 @@ class VxlanMultiHomingProfile(Profile):
             self.configure_underlay()
             self.configure_overlay()
             self.configure_l2l3vni()
+            # Enable QoS on all nodes
+            for node in self.nodes:
+                vxlan_obj.config_dut(node, 'sonic', "sudo config qos reload")
+
+            # Save the configuration for the relevant nodes
+            for node in self.l2l3vni_nodes:
+                vxlan_obj.config_dut(node, 'sonic', "sudo config save -y")
+                vxlan_obj.config_dut(node, "bgp", "do write")
         else:
-            self.unconfigure_underlay
-            self.unconfigure_overlay()
+            self.unconfigure_underlay()
             self.unconfigure_l2l3vni()
         pass
 
@@ -591,14 +605,7 @@ class VxlanMultiHomingProfile(Profile):
             cmd += 'no ipv6 nht resolve-via-default\n'
             vxlan_obj.config_dut(dut, 'bgp', cmd)
 
-        # Enable QoS on all leagf nodes
-        for node in self.nodes:
-            vxlan_obj.config_dut(node, 'sonic', "sudo config qos reload")
 
-        # Save the configuration for the relevant nodes
-        for node in self.l2l3vni_nodes:
-            vxlan_obj.config_dut(node, 'sonic', "sudo config save -y")
-            vxlan_obj.config_dut(node, "bgp", "do write")
 
     def unconfigure_l2l3vni(self, ):
         # Log the operation
@@ -932,7 +939,7 @@ class VxlanMultiHomingProfile(Profile):
             7. add new underlay interfaces in bgp
         """
         num_intfs, speed = dpb_type.split('x')
-        node_intfs = vxlan_obj.get_dut_interfaces(vars)
+        node_intfs = vxlan_obj.get_dut_interfaces(self.vars)
         st.log("Configuring new DPB setting (type: {}) and reconfiguring bgp, link-local and Qos".format(dpb_type))
         if not self.test_cfg['global'].get('current_dpb_type'):
             dut = 'leaf0'
@@ -1005,7 +1012,7 @@ class VxlanMultiHomingProfile(Profile):
 
                 new_underlay_intfs[node].append(new_intfs[main_intf][dpb_intf_idx])
                 # update vars with the new underlay inteface
-                vars[port_id] = new_intfs[main_intf][dpb_intf_idx]
+                self.vars[port_id] = new_intfs[main_intf][dpb_intf_idx]
 
             st.log("Configuring new Underlay Config on node {}".format(node))
             config_intfs_underlay(node, bgp_info[node], new_underlay_intfs[node])

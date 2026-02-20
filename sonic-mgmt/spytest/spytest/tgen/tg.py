@@ -3440,12 +3440,11 @@ def load_tgen_int(tgen_dict):
                 elif tg_version == 10.25:
                     sys.path.append("/opt/ixia/ixnetwork/10.25.2405.75/lib/PythonApi")
                     sys.path.append("/opt/ixia/hlapi/10.25.2405.23/library/common/ixiangpf/python")
-                    os.environ['TCLLIBPATH'] = "/opt/ixia/hlapi/10.25.2405.23/library/common/ixia_hl_lib-10.25 /opt/ixia/ixnetwork/10.25.2405.75/lib/TclApi /opt/ixia/hlapi/10.25.2405.23/"
+                    os.environ['TCLLIBPATH'] = "/opt/ixia/hlapi/10.25.2405.23/library/common/ixia_hl_lib-10.25/ /opt/ixia/ixnetwork/10.25.2405.75/lib/TclApi /opt/ixia/hlapi/10.25.2405.23/"
                 else:
                     sys.path.append("/opt/ixia/ixnetwork/9.20.2201.70/lib/PythonApi")
                     sys.path.append("/opt/ixia/hlapi/9.20.2201.38/library/common/ixiangpf/python")
-                    os.environ[
-                        'TCLLIBPATH'] = "/opt/ixia/hlapi/9.20.2201.38/library/common/ixia_hl_lib-9.20 /opt/ixia/ixnetwork/9.20.2201.70/lib/TclApi /opt/ixia/hlapi/9.20.2201.38/"
+                    os.environ['TCLLIBPATH'] = "/opt/ixia/hlapi/9.20.2201.38/library/common/ixia_hl_lib-9.20 /opt/ixia/ixnetwork/9.20.2201.70/lib/TclApi /opt/ixia/hlapi/9.20.2201.38/"
 
                 exec(code, globals(), globals())
                 if tgen_log_lvl_is_debug():

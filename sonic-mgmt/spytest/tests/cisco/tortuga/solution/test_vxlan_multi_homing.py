@@ -2,20 +2,20 @@ import os
 import re
 import yaml
 import pytest
-import threading
+import random
 from spytest import st, tgapi
 import apis.routing.ip as ip_obj
 import apis.routing.vrf as vrf_obj
 import apis.switching.vlan as vlan_obj
 import apis.switching.mac as mac_obj
 import apis.switching.portchannel as pc_obj
-from spytest.tgen.tg import tgen_obj_dict
 from spytest.tgen import tg
 import vxlan_helper as vxlan_obj
-import ipaddress
+import profile
 import apis.system.interface as intf_obj
 import apis.system.basic as basic_obj
 import apis.system.reboot as reboot_obj
+import apis.system.basic as basic
 from spytest.utils import poll_wait
 from copy import deepcopy
 import json
@@ -23,31 +23,33 @@ import json
 from utilities.utils import get_intf_short_name
 
 
-ext_sub_int_vlan_id_1 = 201
-ext_sub_int_vlan_id_2 = 202
-lb_addr_vrf_1 = '21.1.1.1'
-lb_v6addr_vrf_1 = '2100:1:1::1'
-ext_addr_vrf_1 = '21.1.1.2'
-ext_v6addr_vrf_1 = '2100:1:1::2'
-lb_addr_vrf_2 = '22.1.1.1'
-lb_v6addr_vrf_2 = '2200:1:1::1'
-ext_addr_vrf_2 = '22.1.1.2'
-ext_v6addr_vrf_2 = '2200:1:1::2'
-ext_asn_no = "65203"
-host_addr_1 = '90.0.0.1'
-host_mask_1 = '24'
-host_gateway_1 = '80.2.0.10'
-
-
 @pytest.fixture(scope="module", autouse=True)
 def initialize_variables():
-    global vars, nodes, tgen_handles, test_cfg, CONFIGS_FILE
+    global vars, nodes, pf, tgen_handles, test_cfg, CONFIGS_FILE
 
-    CONFIGS_FILE = 'vxlan_4S4L_multi_homing_config_input_file.yaml'
+    CONFIGS_FILE = 'vxlan_multi_homing_input.yaml'
 
     dir_path = os.path.dirname(os.path.realpath(__file__))
     with open(dir_path + '/' + CONFIGS_FILE) as f:
         test_cfg = yaml.load(f, Loader=yaml.FullLoader)
+
+    # Initialize tc_cfg with common configuration parameters
+    test_cfg['tc_cfg'] = {
+        'ext_sub_int_vlan_id_1': 201,
+        'ext_sub_int_vlan_id_2': 202,
+        'lb_addr_vrf_1': '21.1.1.1',
+        'lb_v6addr_vrf_1': '2100:1:1::1',
+        'ext_addr_vrf_1': '21.1.1.2',
+        'ext_v6addr_vrf_1': '2100:1:1::2',
+        'lb_addr_vrf_2': '22.1.1.1',
+        'lb_v6addr_vrf_2': '2200:1:1::1',
+        'ext_addr_vrf_2': '22.1.1.2',
+        'ext_v6addr_vrf_2': '2200:1:1::2',
+        'ext_asn_no': "65203",
+        'host_addr_1': '90.0.0.1',
+        'host_mask_1': '24',
+        'host_gateway_1': '80.2.0.10'
+    }
 
     test_cfg['nodes'] = {'leaf': [], 'spine': [], 'all': [], 'l2l3vni': []}
     for dut in st.get_dut_names():
@@ -67,7 +69,15 @@ def initialize_variables():
         test_cfg['global'] = dict()
 
     # setting platform specific variables
-    if st.getenv('platform', 'q200')== 'g200':
+    if not st.getenv('platform'):
+        if basic.get_hwsku('leaf0') == "Cisco-HF6100-64ED":
+            platform = 'g200'
+        else:
+            platform = 'q200'
+    else:
+        platform = st.getenv('platform')
+
+    if platform == 'g200':
         test_cfg['global']['ndf_exp_tx_pkts'] = 300
         test_cfg['global']['bum_triggers_retries'] = 4
         test_cfg['global']['del_add_bgp_retries'] = 10
@@ -76,8 +86,9 @@ def initialize_variables():
         test_cfg['global']['plus_bringup_time'] = 12
         test_cfg['global']['traffic_stop_protocol_sleep'] = 15
         test_cfg['global']['traffic_start_protocol_sleep'] = 15
-        test_cfg['global']['bfd_enable'] = False
         test_cfg['global']['restart_tgen_per_class'] = False
+        # TODO test_cfg['global']['dpb_types'] = ['1x800G', '2x400G', '4x200G', '8x100G']
+        test_cfg['global']['dpb_types'] = ['2x400G']
     else:
         test_cfg['global']['ndf_exp_tx_pkts'] = 150
         test_cfg['global']['bum_triggers_retries'] = 2
@@ -87,11 +98,14 @@ def initialize_variables():
         test_cfg['global']['plus_bringup_time'] = 0
         test_cfg['global']['traffic_stop_protocol_sleep'] = 15
         test_cfg['global']['traffic_start_protocol_sleep'] = 15
-        test_cfg['global']['bfd_enable'] = False
         test_cfg['global']['restart_tgen_per_class'] = False
+        test_cfg['global']['dpb_types'] = ['1x50', '1x25G', '1x10G']
 
     vars = st.get_testbed_vars()
     nodes = st.get_dut_names()
+    pf = profile.VxlanMultiHomingProfile(input_file=CONFIGS_FILE, vars=vars, 
+                                          leaf_nodes=test_cfg['nodes']['leaf'], spine_nodes=test_cfg['nodes']['spine'],
+                                          l2l3vni_nodes=test_cfg['nodes']['l2l3vni'], test_cfg=test_cfg)
 
 @pytest.fixture(scope="module", autouse=True)
 def copy_default_config_db():
@@ -100,400 +114,25 @@ def copy_default_config_db():
         st.config(dut, cmd, skip_error_check=True)
 
 @pytest.fixture(scope="module", autouse=True)
-def copy_spytest_helper():
-    for dut in st.get_dut_names():
-        st.config(dut, "cp /etc/spytest/remote/spytest-helper.py /etc/sonic/spytest-helper.py ")
-        st.config(dut, " ls -lrt  /etc/spytest/remote/")
-        st.config(dut, " ls -lrt /etc/sonic/")
-    yield
-    for dut in st.get_dut_names():
-        st.config(dut,"rm /etc/sonic/spytest-helper.py")
-
-@pytest.fixture(scope="module")
-def restore_spytest_helper():
-    st.log("TODO: hack for st.reboot aborting too soon")
-    st.wait(600)
-    for dut in test_cfg['nodes']['l2l3vni']:
-        count = basic_obj.get_and_match_docker_count(dut)
-        st.config(dut, "mkdir -p /etc/spytest/remote")
-        st.config(dut, "cp /etc/sonic/spytest-helper.py /etc/spytest/remote/spytest-helper.py")
-        st.config(dut, "ls -lrt /etc | grep spytest")
-
-def restore_helper_file(dut):
-    st.config(dut, "mkdir -p /etc/spytest/remote")
-    st.config(dut, "cp /etc/sonic/spytest-helper.py /etc/spytest/remote/spytest-helper.py")
-    st.config(dut, "ls -lrt /etc | grep spytest")
-
-
-@pytest.fixture(scope="module", autouse=True)
-def vxlan_config_hooks(enable_debugs, configure_underlay, configure_overlay, configure_l2l3vni):
+def vxlan_multi_homing_config():
     global tgen_handles
     
-    # tgen_preconfig is called in fixture of all classes . add back if fixture changes
-    #tgen_handles = tgen_preconfig()
-    pass
+    if st.getenv('skip_cfg', 'false') == 'false':
+        pf.configure_sonic()
+        # configure_tgen is called in fixture of all classes . add back if fixture changes
+        #tgen_handles = pf.configure_tgen()
+
+        for node in test_cfg['nodes']['l2l3vni']:
+            vxlan_obj.config_dut(node, 'sonic', "sudo config save -y")
+            vxlan_obj.config_dut(node, "bgp", "do write")
+
+    yield
+    if st.getenv('skip_uncfg', 'false') == 'false':
+        pf.configure_sonic(config=False)
    
-###Enable debugs###
-@pytest.fixture(scope="module")
-def enable_debugs(request):
-     vxlan_obj.enable_debugs()
+        for node in test_cfg['nodes']['all']:
+            vxlan_obj.config_dut(node, 'sonic', "sudo config save -y")
 
-###VxLAN Configs###
-
-def config_l2l3vni(dut=None):
-    """
-    Configures L2/L3 VNI on the specified nodes.
-    If `dut` is provided, only configure the specified node.
-    """
-    # Determine the nodes to configure
-    l2l3vni_nodes = [dut] if dut else test_cfg['nodes']['l2l3vni']
-
-    # Perform the configuration
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'nvo')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'enable_tunnel_counters')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'port_channels')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'l2vni')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'l3vni')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'add_sag_mac')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'sag_v4')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'sag_v6')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'bgp_l3vni_config')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'evpn_mh')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'evpn_esi')
-    vxlan_obj.enable_uplink_tracking_configs(l2l3vni_nodes)
-
-    # configs changed after image issues 24806, 27192
-    for dut in test_cfg['nodes']['l2l3vni']:
-        cmd = 'evpn mh startup-delay 10\n'
-        cmd += 'no ip nht resolve-via-default\n'
-        cmd += 'no ipv6 nht resolve-via-default\n'
-        vxlan_obj.config_dut(dut, 'bgp', cmd)
-    for dut in test_cfg['nodes']['spine']:
-        cmd = 'no ip nht resolve-via-default\n'
-        cmd += 'no ipv6 nht resolve-via-default\n'
-        vxlan_obj.config_dut(dut, 'bgp', cmd)
-
-    # Enable QoS on all leagf nodes
-    for node in test_cfg['nodes']['all']:
-        vxlan_obj.config_dut(node, 'sonic', "sudo config qos reload")
-
-    # Save the configuration for the relevant nodes
-    for node in l2l3vni_nodes:
-        vxlan_obj.config_dut(node, 'sonic', "sudo config save -y")
-        vxlan_obj.config_dut(node, "bgp", "do write")
-
-
-def unconfig_l2l3vni(dut=None):
-    """
-    Unconfigures L2/L3 VNI on the specified nodes.
-    If `dut` is provided, only unconfigure the specified node.
-    """
-    # Determine the nodes to unconfigure
-    l2l3vni_nodes = [dut] if dut else test_cfg['nodes']['l2l3vni']
-    all_nodes = [dut] if dut else test_cfg['nodes']['all']
-
-    # Log the operation
-    st.log("Unconfiguring L2/L3 VNI on nodes: {}".format(l2l3vni_nodes))
-
-    # Perform the unconfiguration
-    vxlan_obj.enable_uplink_tracking_configs(l2l3vni_nodes, add=False)
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'delete_evpn_esi')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'delete_evpn_mh')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'delete_sag_v6')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'delete_sag_v4')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'del_sag_mac')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'delete_bgp_l3vni_config')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'delete_l3vni')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'delete_l2vni')
-    vxlan_obj.config_feature_parallel(all_nodes, 'delete_bgp_config')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'delete_port_channels')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'disable_tunnel_counters')
-    vxlan_obj.config_feature_parallel(l2l3vni_nodes, 'delete_vxlan')
-
-    # configs changed after image issues 24806, 27192
-    for dut in test_cfg['nodes']['l2l3vni']:
-        cmd = 'no evpn mh startup-delay 10\n'
-        cmd += 'ip nht resolve-via-default\n'
-        cmd += 'ipv6 nht resolve-via-default\n'
-        vxlan_obj.config_dut(dut, 'bgp', cmd)
-    for dut in test_cfg['nodes']['spine']:
-        cmd = 'ip nht resolve-via-default\n'
-        cmd += 'ipv6 nht resolve-via-default\n'
-        vxlan_obj.config_dut(dut, 'bgp', cmd)
-
-    # Perform router pre-configuration cleanup
-    router_preconfig_cleanup()
-
-    # Save the configuration
-    for node in all_nodes:
-        vxlan_obj.config_dut(node, 'sonic', "sudo config save -y")
-
-@pytest.fixture(scope="module")
-def configure_l2l3vni(request):
-    """
-    Configures and unconfigures L2/L3 VNI using the above methods.
-    """
-    if st.getenv('skip_cfg', 'false') == 'false':
-        config_l2l3vni()
-    yield
-    if st.getenv('skip_uncfg', 'false') == 'false':
-        unconfig_l2l3vni()
-
-    
-@pytest.fixture(scope="module")
-def configure_underlay(request): 
-    if st.getenv('skip_cfg', 'false') == 'false':
-        vxlan_obj.config_feature_parallel(test_cfg['nodes']['all'],'loopback')
-        vxlan_obj.config_feature_parallel(test_cfg['nodes']['all'],'unnumbered')
-        vxlan_obj.config_feature_parallel(test_cfg['nodes']['all'],'bgp_underlay')
-        if test_cfg['global']['bfd_enable']:
-            vxlan_obj.config_feature_parallel(test_cfg['nodes']['all'],'bgp_bfd_underlay')
-    yield
-    if st.getenv('skip_uncfg', 'false') == 'false':
-        vxlan_obj.config_feature_parallel(test_cfg['nodes']['all'],'delete_loopback')
-
-@pytest.fixture(scope="module")
-def configure_overlay(request): 
-    if st.getenv('skip_cfg', 'false') == 'false':
-        vxlan_obj.config_feature_parallel(test_cfg['nodes']['l2l3vni'],'bgp_overlay')
-        if test_cfg['global']['bfd_enable']:
-            vxlan_obj.config_feature_parallel(test_cfg['nodes']['l2l3vni'],'bgp_bfd_overlay')
-
-def router_preconfig_cleanup():
-    vrf_obj.clear_vrf_configuration(st.get_dut_names())
-    ip_obj.clear_ip_configuration(st.get_dut_names(), family='all', thread=True, skip_error_check = True)
-    vlan_obj.clear_vlan_configuration(st.get_dut_names())
-
-def tgen_preconfig(**kwargs):
-    leaf_nodes = test_cfg['nodes']['l2l3vni']
-    svi_dict_v4 = {}
-    svi_dict_v6 ={}
-    stream_handles = {}
-
-    global g_v4_host_info_dict
-    global g_v6_host_info_dict
-
-    if st.getenv('skip_tgen', 'false') == 'true':
-        return stream_handles        
-    l2vni_intf_dict = vxlan_obj.get_interfaces(vars, leaf_nodes, 'l2vni')
-
-    #port channel interfaces 
-    # getting list of port_channels in config file
-    port_channel = dict()
-    for node, config in test_cfg.items():
-        if not config: continue
-        if node not in test_cfg['nodes']['all']: continue
-        for pc_channel in test_cfg[node].get('port_channels', []):
-            pc_num = pc_channel['port_channel_num']
-            if pc_num not in port_channel:
-                port_channel[pc_num] = dict()
-            port_channel[pc_num][node] = pc_channel['member_ids']
-
-    def get_port_channel_match(tgn_port, port_channel):
-        """check if tgn port is part of  any of the port channels and create port channel info"""
-        pc_match = False
-        for pc_num , pc_info in port_channel.items():
-            port_list = list()
-            node_list = list()
-            for node, member_ids in pc_info.items():
-                for member_id in member_ids:
-                    peer_port_id = vxlan_obj.get_peer_port_id(member_id, vars, node)
-                    node_list.append(vxlan_obj.get_device_id(node, vars))
-                    port_list.append(peer_port_id)
-                    if tgn_port == peer_port_id:
-                        pc_match = True 
-            if pc_match:
-                return {'num': pc_num, 'nodes': node_list, 'ports': port_list}
-        else:
-            return pc_match
-
-    # search for port channel ports in l2vi_int_dict and replace with portchannel info dict
-    pc_list = list()
-    new_l2vni_intf_dict = dict()
-    for node in sorted(l2vni_intf_dict.keys()):
-        new_l2vni_intf_dict[node] = list()
-        for tgn_port in l2vni_intf_dict[node]:
-            port_channel_match = get_port_channel_match(tgn_port, port_channel)
-            if port_channel_match:
-                if port_channel_match['num'] not in pc_list:
-
-                    pc_list.append(port_channel_match['num'])
-                    port_channel_name =  'PortChannel{}_{}'.format(port_channel_match['num'], 
-                                                                     ''.join(port_channel_match['nodes']))
-                    tgn_port =  {'name': port_channel_name, 
-                                 'ports': port_channel_match['ports'], 
-                                 'port_channel_num': port_channel_match['num']}
-                    new_l2vni_intf_dict[node].append(tgn_port)
-            else:
-                new_l2vni_intf_dict[node].append(tgn_port)
-    
-    l2vni_intf_dict = new_l2vni_intf_dict
-    test_cfg["l2vni_intf_dict"] = l2vni_intf_dict
-
-    # generate vlans on each port
-    port_vlan_dict = {}
-    for node , ports in l2vni_intf_dict.items():
-        node_id = vxlan_obj.get_device_id(node, vars)
-        for port in ports:
-            if type(port) == dict:
-                # port channel type
-                peer_port_id = 'PortChannel{}'.format(port['port_channel_num'])
-                port = port['name']
-            else:
-                peer_port_id = vxlan_obj.get_peer_port_id(port, vars)
-
-            port_vlan_dict[port] = list()
-            for item in test_cfg[node]['l2vni']:
-                for member in item['members']:
-                    if node_id+member == peer_port_id or member == peer_port_id:
-                        port_vlan_dict[port].append(item['vlan_id'])
-    ###Get topology Handles###
-    topo_handles = vxlan_obj.create_topology_handles(l2vni_intf_dict)
-    
-    for node, config in test_cfg.items():
-        if node in test_cfg['nodes']['l2l3vni']:
-
-            if kwargs.get('custom_svi_ip'):
-                svi_dict_v4[node] = vxlan_obj.generate_svi_ip_sag(config,'ipv4', ip_start = "10.2.0.1")
-                svi_dict_v6[node] = vxlan_obj.generate_svi_ip_sag(config,'ipv6', ip_start = "1000:2::1")
-            else:
-                svi_dict_v4[node] = vxlan_obj.generate_svi_ip_sag(config,'ipv4')
-                svi_dict_v6[node] = vxlan_obj.generate_svi_ip_sag(config,'ipv6')
-    g_v4_host_info_dict = vxlan_obj.generate_sag_hosts(l2vni_intf_dict,svi_dict_v4, port_vlan_dict=port_vlan_dict, 
-                                                     skip_nodes=[])
-    g_v6_host_info_dict = vxlan_obj.generate_sag_hosts(l2vni_intf_dict,svi_dict_v6, port_vlan_dict = port_vlan_dict, 
-                                                     version="ipv6", skip_nodes=[])
-
-    ###CREATE DEVICE GROUPS###
-    
-    #ipv4
-    out_v4 = vxlan_obj.create_device_groups(topo_handles,g_v4_host_info_dict)
-    v4_node_device_handles = out_v4[0]
-    #ipv6
-    out_v6 = vxlan_obj.create_device_groups(topo_handles,g_v6_host_info_dict,version ="ipv6")
-    v6_node_device_handles = out_v6[0]
-    
-    v4_device_handles = {}
-    v6_device_handles = {}
-    
-    for node, interfaces in v4_node_device_handles.items():
-        for interface,values in interfaces.items():
-            v4_device_handles[interface] =values
-    for node, interfaces in v6_node_device_handles.items():
-        for interface,values in interfaces.items():
-            v6_device_handles[interface] =values
-    ###Tgen fix
-    ixNet = tg.get_ixnet()
-    try:
-        for node, nodeValues in topo_handles.items():
-            for topo, topoValues in nodeValues.items():
-                if re.search('/log:', topoValues['port_handle']):
-                    vport_list = topoValues['vport_handles']
-                    for vport in vport_list:
-                        #NS Retransmit Interval
-                        ixNet.setAttribute(vport+ '/protocolStack/options', '-retransTime', 3000)
-                        #NS Transmit Count
-                        ixNet.setAttribute(vport+'/protocolStack/options', '-mcast_solicit', 10)
-                        #ARP Retransmit Interval
-                        ixNet.setAttribute(vport+'/protocolStack/options', '-ipv4RetransTime', 3000)
-                        #ARP Transmit Count
-                        ixNet.setAttribute(vport+'/protocolStack/options', '-ipv4McastSolicit', 10)
-
-                    ixNet.commit()
-               
-    except:
-        print(" ")
-  
-
-
-    ### start all protocols ###
-    tg_handle = topo_handles[leaf_nodes[0]][l2vni_intf_dict[leaf_nodes[0]][0]]['tg_handle']
-
-    start_protocol = vxlan_obj.start_stop_protocols(tg_handle,action='start')
-    # fail only if it is not 0, Otherwise say started successfully
-    if start_protocol == 0:
-        st.report_tgen_fail('start protocols failed!')
-    else:
-        st.log("protocols started successfully")
-        
-    ### choose traffic item endpoints###
-    l2_traffic_endpoints = vxlan_obj.find_l2_traffic_endpoints(g_v4_host_info_dict)
-    # get vrf - vlan mapping from configs
-    vrf_vlan_dict = dict()
-    for item in test_cfg['leaf0']['l3vni']:
-       vrf_vlan_dict[item['vrf_id']] = item['vlan_bindings']
-
-    l3_traffic_endpoints = vxlan_obj.find_l3_traffic_endpoints(g_v4_host_info_dict, vrf_vlan_dict = vrf_vlan_dict)
-    ### create traffic item endpoints###
-    stream_handles['l2_v4'] = vxlan_obj.create_traffic_item(device_handles = v4_device_handles,
-                                                            endpoints=l2_traffic_endpoints,
-                                                            topo_handles=topo_handles, 
-                                                            multi_dst = 'vlan', name_prfx='L2',
-                                                            rate_percent=test_cfg['global']['l2l3']['rate_percent'],
-                                                            pkts_per_burst=test_cfg['global']['l2l3']['pkts_per_burst'])
-    stream_handles['l3_v4'] = vxlan_obj.create_traffic_item(device_handles = v4_device_handles,
-                                                            endpoints=l3_traffic_endpoints,
-                                                            topo_handles=topo_handles,
-                                                            multi_dst = 'vrf', name_prfx='L3',
-                                                            rate_percent=test_cfg['global']['l2l3']['rate_percent'],
-                                                            pkts_per_burst=test_cfg['global']['l2l3']['pkts_per_burst'])
-    stream_handles['l2_v6'] = vxlan_obj.create_traffic_item(device_handles = v6_device_handles,
-                                                            endpoints=l2_traffic_endpoints,
-                                                            topo_handles=topo_handles,
-                                                            version = "ipv6", multi_dst = 'vlan', name_prfx='L2',
-                                                            rate_percent=test_cfg['global']['l2l3']['rate_percent'],
-                                                            pkts_per_burst=test_cfg['global']['l2l3']['pkts_per_burst'])
-    stream_handles['l3_v6'] = vxlan_obj.create_traffic_item(device_handles = v6_device_handles,
-                                                            endpoints=l3_traffic_endpoints,
-                                                            topo_handles=topo_handles,
-                                                            version = "ipv6", multi_dst = 'vrf', name_prfx='L3',
-                                                            rate_percent=test_cfg['global']['l2l3']['rate_percent'],
-                                                            pkts_per_burst=test_cfg['global']['l2l3']['pkts_per_burst'])
-    #BUM
-    cntr = 1
-    for node, config in test_cfg.items():
-        if not node in test_cfg['nodes']['l2l3vni']:
-            continue
-        for l2_info in test_cfg[node].get('l2vni', []):
-            if l2_info.get('bum_traffic', False):
-                for port in l2_info['members']:
-
-                    bum_l2_endpoints = find_traffic_enpoints(topo_handles, g_v4_host_info_dict, node, port, 
-                                                             l2_info['vlan_id'], l2_info['vlan_id'],  traffic_type='raw')
-                    for dest_type, dst_mac in \
-                        [('unknown', '00:99:00:00:00:99'), ('broadcast', 'ff:ff:ff:ff:ff:ff'), ('multicast', '01:00:5e:44:44:44')]:
-
-                        for name,value in bum_l2_endpoints.items():
-                            value['dst_mac'] = dst_mac
-
-                        bum_type = 'bum_MH' if 'PortChannel' in port else 'bum_SH'
-                        stream_prfx = '{}_{}'.format(bum_type, dest_type)
-                        stream_info = vxlan_obj.create_traffic_item(device_handles = v4_device_handles,
-                                                                endpoints=bum_l2_endpoints,
-                                                                topo_handles=topo_handles,
-                                                                multi_dst = 'vlan', name_prfx=stream_prfx, 
-                                                                circuit_type='raw', rx_all_ports=True,
-                                                                rate_percent=test_cfg['global']['bum']['rate_percent'], 
-                                                                pkts_per_burst=test_cfg['global']['bum']['pkts_per_burst'])
-                        if not stream_handles.get(bum_type):
-                            stream_handles[bum_type] = dict()    
-                        stream_handles[bum_type][cntr] =  stream_info[1]
-                        cntr += 1
-    
-    ###Disable all streams###
-    streams = []
-    for traffic_type, item in stream_handles.items():
-        if traffic_type in ['l2_v4','l3_v4','l2_v6','l3_v6','bum_MH','bum_SH']:
-            for key, value in item.items():
-                streams.append(value['stream_id'])
-    tg_handle.tg_traffic_config(mode = 'disable', stream_id = streams)
-
-    stream_handles["tg_handle"] = tg_handle
-    stream_handles["topo_handles"] = topo_handles
-    stream_handles["v4_device_handles"] = v4_device_handles
-    stream_handles["v6_device_handles"] = v6_device_handles
-
-    return stream_handles
 
 @pytest.fixture(scope = "function", autouse=True)
 def pretest(request):
@@ -514,7 +153,7 @@ def pretest(request):
     else:
         st.log("Pretest : Fail")
         vxlan_obj.get_cli_out(test_cfg['nodes']['l2l3vni'])
-        collect_diags()
+        vxlan_obj.collect_diags()
         st.banner("Pretest : Fail. Skipping testcase.")
     return result
 
@@ -556,7 +195,8 @@ def reset_preconf_tgen(kill=True):
             tgobj.tg_disconnect()
         st.wait(120)
         tg.connect_tgen()
-    tgen_handles = tgen_preconfig()
+    tgen_handles = pf.configure_tgen()
+
     return True
 
 @pytest.fixture(scope = 'function', autouse=True)
@@ -605,6 +245,17 @@ def tgen_health_check_class(request):
         st.getwa().abort_module_msg = None
         st.getwa().abort_module_res = None
 
+@pytest.fixture(scope = 'class', autouse=True)
+def config_random_dpb_underlay(request):
+    if st.getenv('config_dpb', 'true') == 'true':
+        try:
+            dpb_type = random.choice(test_cfg['global']['dpb_types'])
+            st.log("Configuring new DPB setting on underlay links: {})".format(dpb_type))
+            pf.change_underlay_dpb(dpb_type=dpb_type)
+        except Exception as err:
+            if not "already configured" in str(err):
+                raise err
+
 @pytest.mark.usefixtures('tgen_health_check_class')
 class TestVxlanMultiHomingBase():
     
@@ -629,7 +280,7 @@ class TestVxlanMultiHomingBase():
         """
         tc_id = "test_base_mh_l2l3vni_bringup"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
 
         st.banner('Testcase MH:125: Bring up L2VNI and L3VNI with multi-homed host ({})'.format(tc_id))
         leaf_nodes = test_cfg['nodes']['l2l3vni']
@@ -657,7 +308,7 @@ class TestVxlanMultiHomingBase():
                 summ += msg
                 result = False
 
-        report_result(result, tc_id, summ)
+        vxlan_obj.report_result(result, tc_id, summ)
 
     def test_base_mh_frr_es(self, pause_run):
         """
@@ -673,7 +324,7 @@ class TestVxlanMultiHomingBase():
         """
         tc_id = "test_base_mh_frr_es"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
 
         st.banner('Testcase MH:126: Verify FRR ES SHOW commands ({})'.format(tc_id))
         leaf_nodes = test_cfg['nodes']['l2l3vni']
@@ -702,7 +353,7 @@ class TestVxlanMultiHomingBase():
                 summ += msg
                 result = False
 
-        report_result(result, tc_id, summ)
+        vxlan_obj.report_result(result, tc_id, summ)
 
     def test_base_mh_evpn(self, pause_run):
         """
@@ -715,7 +366,7 @@ class TestVxlanMultiHomingBase():
         """
         tc_id = "test_base_mh_evpn"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
 
         st.banner('Testcase MH:127: Verify EVPN SHOW commands ({})'.format(tc_id))
         leaf_nodes = test_cfg['nodes']['l2l3vni']
@@ -734,7 +385,7 @@ class TestVxlanMultiHomingBase():
                 summ += msg
                 result = False
 
-        report_result(result, tc_id, summ)
+        vxlan_obj.report_result(result, tc_id, summ)
 
     def test_base_mh_nexthop_group(self, pause_run):
         """
@@ -748,7 +399,7 @@ class TestVxlanMultiHomingBase():
         """
         tc_id = "test_base_mh_nexthop_group"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
 
         st.banner('Testcase MH:281: check L2 Next-hop group ({})'.format(tc_id))
         leaf_nodes = test_cfg['nodes']['l2l3vni']
@@ -759,7 +410,7 @@ class TestVxlanMultiHomingBase():
             st.banner('Verify vxlan neighbor group on leaf node: {}'.format(dut))
 
             try:
-                verify_vxlan_neigh_groups(dut)
+                pf.verify_vxlan_neigh_groups(dut)
                 st.log('Verify Vxlan neighbor group on {}: Pass'.format(dut))
             except Exception as err:
                 msg = 'Verify Vxlan neighbor group on {}: Fail\n{}\n'.format(dut, err)
@@ -767,7 +418,7 @@ class TestVxlanMultiHomingBase():
                 summ += msg
                 result = False
 
-        report_result(result, tc_id, summ)
+        vxlan_obj.report_result(result, tc_id, summ)
 
     def test_base_mh_L2L3VNI_v4_traffic(self, pause_run):
         """
@@ -787,20 +438,20 @@ class TestVxlanMultiHomingBase():
         """
         tc_id = "test_base_mh_L2L3VNI_v4_traffic"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
 
         st.banner('Testcase MH:129: Verify L2VNI and L3VNI IPv4 traffic between the hosts ({})'.format(tc_id))
         result = True
         summ = ''
 
-        if verify_traffic(tgen_handles,regenerate = True, traffic_types=['l2_v4', 'l3_v4']):
+        if pf.verify_traffic(tgen_handles,regenerate = True, traffic_types=['l2_v4', 'l3_v4']):
             st.log('L2VNI and L3VNI IPv4 traffic Check: Pass')
         else:
             summ = 'L2VNI and L3VNI IPv4 traffic Check: Fail'
             st.log(summ)
             result = False
 
-        report_result(result, tc_id, summ)
+        vxlan_obj.report_result(result, tc_id, summ)
 
     def test_base_mh_L2L3VNI_v6_traffic(self, pause_run):
         """
@@ -820,20 +471,20 @@ class TestVxlanMultiHomingBase():
         """
         tc_id = "test_base_mh_L2L3VNI_v6_traffic"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
 
         st.banner('Testcase MH:130: Verify L2VNI and L3VNI IPv6 traffic between the hosts ({})'.format(tc_id))
         result = True
         summ = ''
 
-        if verify_traffic(tgen_handles,regenerate = True, traffic_types=['l2_v6', 'l3_v6']):
+        if pf.verify_traffic(tgen_handles,regenerate = True, traffic_types=['l2_v6', 'l3_v6']):
             st.log('L2VNI and L3VNI IPv6 traffic Check: Pass')
         else:
             summ = 'L2VNI and L3VNI IPv6 traffic Check: Fail'
             st.log(summ)
             result = False
 
-        report_result(result, tc_id, summ)
+        vxlan_obj.report_result(result, tc_id, summ)
 
     def test_base_mh_dual_home_BUM_traffic(self, pause_run):
         """
@@ -855,19 +506,19 @@ class TestVxlanMultiHomingBase():
         """
         tc_id = "test_base_mh_dual_home_BUM_traffic"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
 
         st.banner('Testcase MH:140: BUM Traffic verification from dual-homed host ({})'.format(tc_id))
         result = True
         summ = ''
 
-        if verify_traffic(tgen_handles,regenerate = True, bum=True, traffic_types=['bum_MH']):
+        if pf.verify_traffic(tgen_handles,regenerate = True, bum=True, traffic_types=['bum_MH']):
             st.log('Single-Homed BUM traffic Check: Pass')
         else:
             summ = 'Single-Homed BUM traffic Check: Fail'
             st.log(summ)
             result = False
-        report_result(result, tc_id, summ)
+        vxlan_obj.report_result(result, tc_id, summ)
 
     def test_base_mh_single_home_BUM_traffic(self, pause_run):
         """
@@ -888,7 +539,7 @@ class TestVxlanMultiHomingBase():
         """
         tc_id = "test_base_mh_single_home_BUM_traffic"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params('test_mh_bum_triggers')
+        tc_cfg = vxlan_obj.get_tc_params('test_mh_bum_triggers')
         tc_cfg['uncfg_cli'] = dict()
         df_dut = tc_cfg['df_dut']
         df_dut_id = vxlan_obj.get_device_id(df_dut,vars)
@@ -939,7 +590,7 @@ class TestVxlanMultiHomingBase():
         st.show(ndf_dut, "sonic-clear counters",  skip_tmpl=True)
 
         st.log('Verify traffic to multi-homed host')
-        if verify_traffic(tgen_handles, bum=True, traffic_types=[traffic_type]):
+        if pf.verify_traffic(tgen_handles, bum=True, traffic_types=[traffic_type]):
             st.banner('BUM Traffic Check Passed')
         else:
             st.banner('BUM Traffic Check Failed')
@@ -976,7 +627,7 @@ class TestVxlanMultiHomingBase():
             summ += msg
             result = False
 
-        report_result(result, tc_id, summ)
+        vxlan_obj.report_result(result, tc_id, summ)
 
 ###TRIGGERS####
 @pytest.mark.usefixtures("tgen_health_check_class")
@@ -1003,7 +654,7 @@ class TestVxlanBumTriggers():
         """
         tc_id = "test_bum_local_int_shut"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params('test_mh_bum_triggers')
+        tc_cfg = vxlan_obj.get_tc_params('test_mh_bum_triggers')
         tc_cfg['uncfg'] = None
         df_dut = tc_cfg['df_dut']
         ndf_dut = tc_cfg['ndf_dut']
@@ -1015,7 +666,7 @@ class TestVxlanBumTriggers():
         result = self._verify_mh_int_down(tc_id=tc_id, tc_cfg=tc_cfg, df_dut=df_dut, ndf_dut=ndf_dut,
                                  interface = es_if, shut_oper = 'local')
 
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mh_remote_int_down(self, cleanup_mh_int_down, pause_run):
         """
@@ -1038,7 +689,7 @@ class TestVxlanBumTriggers():
         """
         tc_id = "test_bum_remote_int_shut"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params('test_mh_bum_triggers')
+        tc_cfg = vxlan_obj.get_tc_params('test_mh_bum_triggers')
         tc_cfg['uncfg'] = None
         df_dut = tc_cfg['df_dut']
         ndf_dut = tc_cfg['ndf_dut']
@@ -1050,7 +701,7 @@ class TestVxlanBumTriggers():
         result = self._verify_mh_int_down(tc_id=tc_id, tc_cfg=tc_cfg, df_dut=df_dut, ndf_dut=ndf_dut,
                                  interface = es_if, shut_oper = 'remote')
 
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mh_local_bias(self, pause_run, cleanup_local_bias):
         """
@@ -1069,7 +720,7 @@ class TestVxlanBumTriggers():
         """
         tc_id = 'test_mh_local_bias'
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params('test_mh_bum_triggers')
+        tc_cfg = vxlan_obj.get_tc_params('test_mh_bum_triggers')
         df_dut = tc_cfg['df_dut']
         ndf_dut = tc_cfg['ndf_dut']
         tc_cfg['interface'] = 'PortChannel{}'.format(tc_cfg['port_channel_num'])
@@ -1124,7 +775,7 @@ class TestVxlanBumTriggers():
 
         st.log('Verify BUM traffic takes local bias to reach multi-homed host')
 
-        if verify_traffic(tgen_handles, bum=True, traffic_types=[traffic_type], traffic_names=[traffic_name],):
+        if pf.verify_traffic(tgen_handles, bum=True, traffic_types=[traffic_type], traffic_names=[traffic_name],):
             st.banner('BUM Traffic Check Passed')
         else:
             log = 'BUM Traffic Check Failed'
@@ -1160,7 +811,7 @@ class TestVxlanBumTriggers():
             summ += msg
             result = False
 
-        report_result(result, tc_id, summ)
+        vxlan_obj.report_result(result, tc_id, summ)
 
 
     def _verify_mh_int_down(self, tc_id, tc_cfg, df_dut, ndf_dut, interface , shut_oper):
@@ -1246,7 +897,7 @@ class TestVxlanBumTriggers():
         st.show(ndf_dut, "sonic-clear counters",  skip_tmpl=True)
 
         st.log('Verify traffic to multi-homed host')
-        if verify_traffic(tgen_handles, bum=True, traffic_types=[traffic_type]):
+        if pf.verify_traffic(tgen_handles, bum=True, traffic_types=[traffic_type]):
             st.banner('BUM Traffic Check Passed')
         else:
             st.banner('BUM Traffic Check Failed')
@@ -1313,7 +964,7 @@ class TestVxlanBumTriggers():
         """
 
         yield
-        tc_cfg = get_tc_params('test_mh_bum_triggers')
+        tc_cfg = vxlan_obj.get_tc_params('test_mh_bum_triggers')
         if tc_cfg['uncfg'] == 'local':
             tc_cfg['tg_handle'].tg_interface_config(mode='modify', 
                                                     port_handle=tc_cfg['port_handle'], 
@@ -1331,7 +982,7 @@ class TestVxlanBumTriggers():
         yield
 
         tc_id = test_cfg['tc_id']
-        tc_cfg = get_tc_params('test_mh_bum_triggers')
+        tc_cfg = vxlan_obj.get_tc_params('test_mh_bum_triggers')
         if tc_cfg['uncfg']:
             df_dut = tc_cfg['df_dut']
             ndf_dut = tc_cfg['ndf_dut']
@@ -1361,12 +1012,12 @@ class TestVxlanBasicTriggers():
                 st.log("fdb clear successful")
             else:
                 st.log("fdb clear failed, skipping traffic test")
-                report_result(result = False)
+                vxlan_obj.report_result(result = False)
         st.wait(10)
         #check for remote mac count on all leafs
-        traffic_result = verify_traffic(tgen_handles, bum=True)
+        traffic_result = pf.verify_traffic(tgen_handles, bum=True)
         vxlan_obj.get_cli_out(leaf_nodes)
-        report_result(traffic_result)
+        vxlan_obj.report_result(traffic_result)
 
     def test_del_local_mac(self):
         st.banner("TEST Trigger delete local MAC: Verify on deleting locally learnt MAC on leaf0, MAC entry is deleted in remote VTEP")
@@ -1495,8 +1146,8 @@ class TestVxlanBasicTriggers():
         else:
             st.banner("VRF deletion Failed")
             st.report_fail("test_case_failed")
-        traffic_result = verify_traffic(tgen_handles, bum=True)
-        report_result(traffic_result)
+        traffic_result = pf.verify_traffic(tgen_handles, bum=True)
+        vxlan_obj.report_result(traffic_result)
 
 
     def test_bgp_clear(self):
@@ -1512,9 +1163,9 @@ class TestVxlanBasicTriggers():
         # st.wait(5)
         ##--> check MH cli verication
         vxlan_obj.clear_counters(leaf_nodes)
-        traffic_result = verify_traffic(tgen_handles, bum=True)
+        traffic_result = pf.verify_traffic(tgen_handles, bum=True)
         vxlan_obj.show_counters(leaf_nodes)
-        report_result(traffic_result)
+        vxlan_obj.report_result(traffic_result)
 
 ###DHCP RELAY TESTS###
 
@@ -1827,7 +1478,7 @@ class TestVxlanDhcpRelay():
         st.wait(4)
         st.log("After intf shutdown")
         result = self.verify_dhcp_bindings(server_port = ["orphan","mh"], vni_type = "l3")
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_rem_add_src_loopback(self):
         tc_id = "rem add dhcp src loopback"
@@ -1836,7 +1487,7 @@ class TestVxlanDhcpRelay():
         vxlan_obj.dhcp_relay_config(add = True, src_loopback = True, dhcp_helper = False)
         st.wait(5)
         result = self.verify_dhcp_bindings(server_port = ["orphan","mh"], vni_type = "l3")
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_rem_add_helper_address(self):
         tc_id = "rem add dhcp helper address"
@@ -1845,7 +1496,7 @@ class TestVxlanDhcpRelay():
         vxlan_obj.dhcp_relay_config(add = True, src_loopback = False, dhcp_helper = True)
         st.wait(30)
         result = self.verify_dhcp_bindings(server_port = ["orphan","mh"], vni_type = "l3")
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
     
     def test_restart_dhcp(self):
         """
@@ -1864,19 +1515,19 @@ class TestVxlanDhcpRelay():
             if not poll_wait(basic_obj.verify_docker_status, 180, dut, 'Exited'):
                 st.error("Post 'systemctl restart dhcp on {}', dockers are not auto recovered.".format(dut))
                 result = False
-                report_result(result, tc_id, "Docker Status Failed")
+                vxlan_obj.report_result(result, tc_id, "Docker Status Failed")
             if not poll_wait(basic_obj.get_and_match_docker_count, 180, dut, dut_count_arr[dut]):
                 st.error("Post 'systemctl restart dhcp on {}', ALL dockers are not UP.".format(dut))
                 result = False
-                report_result(result, tc_id, "Docker Status Failed")
+                vxlan_obj.report_result(result, tc_id, "Docker Status Failed")
         # PreSanity
-        result_presanity = verify_base_setup(retry=3)
+        result_presanity = pf.verify_base_setup(retry=3)
         if not result_presanity :
-            report_result(result_presanity, tc_id, "Presanity Check Failed")
+            vxlan_obj.report_result(result_presanity, tc_id, "Presanity Check Failed")
         #Check Traffic
         traffic_result = self.verify_dhcp_bindings(server_port = ["orphan","mh"], vni_type = "l3")
         #check for remote mac count on all leafs
-        report_result(traffic_result, tc_id, "Traffic Failed")
+        vxlan_obj.report_result(traffic_result, tc_id, "Traffic Failed")
 
     @pytest.mark.skip
     def test_reboot(self):
@@ -1915,7 +1566,7 @@ class TestVxlanDhcpRelay():
         vxlan_obj.get_cli_out(leaf_nodes)
         
         result = self.verify_dhcp_bindings(server_port = ["orphan","mh"], vni_type = "l3")
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_config_reload(self):
         tc_id = "Server behind both orphan and MH after reload"
@@ -1958,24 +1609,24 @@ class TestVxlanDhcpRelay():
 
         vxlan_obj.get_cli_out(leaf_nodes)
         result = self.verify_dhcp_bindings(server_port = ["orphan","mh"], vni_type = "l3")
-        report_result(result, tc_id)  
+        vxlan_obj.report_result(result, tc_id)  
 
     
     ###Server and client on diff vlans###
     def test_server_behind_orphan(self):
         tc_id = "Server behind orphan"
         result = self.verify_dhcp_bindings(server_port = ["orphan"], vni_type = "l3")
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_server_behind_mh(self):
         tc_id = "Server behind MH"
         result = self.verify_dhcp_bindings(server_port = ["mh"], vni_type = "l3")
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_server_behind_both(self):
         tc_id = "Server behind both orphan and MH"
         result = self.verify_dhcp_bindings(server_port = ["orphan","mh"], vni_type = "l3")
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     ### Server behind routed interface###
     @pytest.fixture
@@ -1990,7 +1641,7 @@ class TestVxlanDhcpRelay():
     def test_server_behind_routed_int(self, add_routed_interface):
         tc_id = "Server behind routed int"
         result = self.verify_dhcp_bindings(server_port = ["routed"], vni_type = "l3")
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     ### Server behind native vlan interface (vlan untagged)###
     @pytest.fixture
@@ -2030,7 +1681,7 @@ class TestVxlanDhcpRelay():
     def test_server_behind_native_vlan(self,add_untag_interface):
         tc_id = "Server behind native vlan"
         result = self.verify_dhcp_bindings(server_port = ['native'], vni_type = "l3")
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     ###server and client on same vlan###
     @pytest.fixture
@@ -2053,17 +1704,17 @@ class TestVxlanDhcpRelay():
     def test_server_behind_orphan_samevlan(self,setup_l2_test):
         tc_id = "Server behind orphan"
         result = self.verify_dhcp_bindings(server_port = ["orphan"], vni_type = "l2")
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_server_behind_mh_samevlan(self,setup_l2_test):
         tc_id = "Server behind MH"
         result = self.verify_dhcp_bindings(server_port = ["mh"], vni_type = "l2")
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_server_behind_both_samevlan(self,setup_l2_test):
         tc_id = "Server behind both orphan and MH"
         result = self.verify_dhcp_bindings(server_port = ["orphan","mh"], vni_type = "l2")
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     @pytest.fixture
     def setup_config_for_static(self):
@@ -2179,7 +1830,7 @@ class TestVxlanDhcpRelay():
             result = False
         if not out:
             result = False
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
 
 
@@ -4045,49 +3696,49 @@ class TestVxlanMacMoveTriggers():
         move_dir = "mh1_to_mh2"
         host_type = 'mac+ipv4'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_mh_mac_and_ipv6(self):
         tc_id = "Mac+ipv6 move from MH to MH "
         move_dir = "mh1_to_mh2"
         host_type = 'mac+ipv6'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_mh_mac_only(self):
         tc_id = "mac_only move from MH to MH "
         move_dir = "mh1_to_mh2"
         host_type = 'mac_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_mh_ipv4_changes(self):
         tc_id = "ipv4_changes move from MH to MH "
         move_dir = "mh1_to_mh2"
         host_type = 'ipv4_changes'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_mh_ipv6_changes(self):
         tc_id = "ipv6_changes move from MH to MH "
         move_dir = "mh1_to_mh2"
         host_type = 'ipv6_changes'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_mh_ipv4_only(self):
         tc_id = "ipv4_only move from MH to MH "
         move_dir = "mh1_to_mh2"
         host_type = 'ipv4_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_mh_ipv6_only(self):
         tc_id = "ipv6_only move from MH to MH "
         move_dir = "mh1_to_mh2"
         host_type = 'ipv6_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     ### MH to L1orp ###
     def test_mac_move_mh_to_local_orp_mac_and_ipv4(self):
@@ -4095,49 +3746,49 @@ class TestVxlanMacMoveTriggers():
         move_dir = "mh1_to_L1orp"
         host_type = 'mac+ipv4'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_local_orp_mac_and_ipv6(self):
         tc_id = "Mac+ipv6 move from MH to  L1 orp "
         move_dir = "mh1_to_L1orp"
         host_type = 'mac+ipv6'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_local_orp_mac_only(self):
         tc_id = "mac_only move from MH to  L1 orp "
         move_dir = "mh1_to_L1orp"
         host_type = 'mac_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_local_orp_ipv4_changes(self):
         tc_id = "ipv4_changes move from MH to  L1 orp "
         move_dir = "mh1_to_L1orp"
         host_type = 'ipv4_changes'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_local_orp_ipv6_changes(self):
         tc_id = "ipv6_changes move from MH to  L1 orp "
         move_dir = "mh1_to_L1orp"
         host_type = 'ipv6_changes'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_local_orp_ipv4_only(self):
         tc_id = "ipv4_only move from MH to  L1 orp "
         move_dir = "mh1_to_L1orp"
         host_type = 'ipv4_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_local_orp_ipv6_only(self):
         tc_id = "ipv6_only move from MH to  L1 orp "
         move_dir = "mh1_to_L1orp"
         host_type = 'ipv6_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     ###MH to L3 orp###
     def test_mac_move_mh_to_remote_orp_mac_and_ipv4(self):
@@ -4145,49 +3796,49 @@ class TestVxlanMacMoveTriggers():
         move_dir = "mh1_to_L3orp"
         host_type = 'mac+ipv4'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_remote_orp_mac_and_ipv6(self):
         tc_id = "Mac+ipv6 move from MH to L3 orp "
         move_dir = "mh1_to_L3orp"
         host_type = 'mac+ipv6'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_remote_orp_mac_only(self):
         tc_id = "mac_only move from MH to L3 orp "
         move_dir = "mh1_to_L3orp"
         host_type = 'mac_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_remote_orp_ipv4_changes(self):
         tc_id = "ipv4_changes move from MH to L3 orp "
         move_dir = "mh1_to_L3orp"
         host_type = 'ipv4_changes'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_remote_orp_ipv6_changes(self):
         tc_id = "ipv6_changes move from MH to L3 orp "
         move_dir = "mh1_to_L3orp"
         host_type = 'ipv6_changes'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_remote_orp_ipv4_only(self):
         tc_id = "ipv4_only move from MH to L3 orp "
         move_dir = "mh1_to_L3orp"
         host_type = 'ipv4_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_mh_to_remote_orp_ipv6_only(self):
         tc_id = "ipv6_only move from MH to L3 orp "
         move_dir = "mh1_to_L3orp"
         host_type = 'ipv6_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
      ###Between orphan###
     def test_mac_move_between_orphan_mac_and_ipv4(self):
@@ -4195,49 +3846,49 @@ class TestVxlanMacMoveTriggers():
         move_dir = "L1orp_to_L3orp"
         host_type = 'mac+ipv4'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_between_orphan_mac_and_ipv6(self):
         tc_id = "Mac+ipv6 move between_orphan "
         move_dir = "L1orp_to_L3orp"
         host_type = 'mac+ipv6'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_between_orphan_mac_only(self):
         tc_id = "mac_only move between_orphan "
         move_dir = "L1orp_to_L3orp"
         host_type = 'mac_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_between_orphan_ipv4_changes(self):
         tc_id = "ipv4_changes move between_orphan "
         move_dir = "L1orp_to_L3orp"
         host_type = 'ipv4_changes'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_between_orphan_ipv6_changes(self):
         tc_id = "ipv6_changes move between_orphan "
         move_dir = "L1orp_to_L3orp"
         host_type = 'ipv6_changes'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_between_orphan_ipv4_only(self):
         tc_id = "ipv4_only move between_orphan "
         move_dir = "L1orp_to_L3orp"
         host_type = 'ipv4_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_between_orphan_ipv6_only(self):
         tc_id = "ipv6_only move between_orphan "
         move_dir = "L1orp_to_L3orp"
         host_type = 'ipv6_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     ###L1 orp to Spine orp###
     @pytest.mark.skip
@@ -4246,7 +3897,7 @@ class TestVxlanMacMoveTriggers():
         move_dir = "L1orp_to_S3orp"
         host_type = 'mac+ipv4'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
     
     @pytest.mark.skip
     def test_mac_move_L1orp_to_S3orp_mac_and_ipv6(self):
@@ -4254,7 +3905,7 @@ class TestVxlanMacMoveTriggers():
         move_dir = "L1orp_to_S3orp"
         host_type = 'mac+ipv6'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     @pytest.mark.skip
     def test_mac_move_L1orp_to_S3orp_mac_only(self):
@@ -4262,7 +3913,7 @@ class TestVxlanMacMoveTriggers():
         move_dir = "L1orp_to_S3orp"
         host_type = 'mac_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     @pytest.mark.skip
     def test_mac_move_L1orp_to_S3orp_ipv4_changes(self):
@@ -4270,7 +3921,7 @@ class TestVxlanMacMoveTriggers():
         move_dir = "L1orp_to_S3orp"
         host_type = 'ipv4_changes'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     @pytest.mark.skip
     def test_mac_move_L1orp_to_S3orp_ipv6_changes(self):
@@ -4278,7 +3929,7 @@ class TestVxlanMacMoveTriggers():
         move_dir = "L1orp_to_S3orp"
         host_type = 'ipv6_changes'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     @pytest.mark.skip
     def test_mac_move_L1orp_to_S3orp_ipv4_only(self):
@@ -4286,7 +3937,7 @@ class TestVxlanMacMoveTriggers():
         move_dir = "L1orp_to_S3orp"
         host_type = 'ipv4_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     @pytest.mark.skip
     def test_mac_move_L1orp_to_S3orp_ipv6_only(self):
@@ -4294,7 +3945,7 @@ class TestVxlanMacMoveTriggers():
         move_dir = "L1orp_to_S3orp"
         host_type = 'ipv6_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     ### MAc move between es###
     def test_mac_move_between_es_mac_and_ipv4(self):
@@ -4302,49 +3953,49 @@ class TestVxlanMacMoveTriggers():
         move_dir = "mh1_to_mh1_2"
         host_type = 'mac+ipv4'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_between_es_mac_and_ipv6(self):
         tc_id = "Mac+ipv6 move between_es "
         move_dir = "mh1_to_mh1_2"
         host_type = 'mac+ipv6'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_between_es_mac_only(self):
         tc_id = "mac_only move between_es "
         move_dir = "mh1_to_mh1_2"
         host_type = 'mac_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_between_es_ipv4_changes(self):
         tc_id = "ipv4_changes move between_es "
         move_dir = "mh1_to_mh1_2"
         host_type = 'ipv4_changes'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_between_es_ipv6_changes(self):
         tc_id = "ipv6_changes move between_es "
         move_dir = "mh1_to_mh1_2"
         host_type = 'ipv6_changes'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_between_es_ipv4_only(self):
         tc_id = "ipv4_only move between_es "
         move_dir = "mh1_to_mh1_2"
         host_type = 'ipv4_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_mac_move_between_es_ipv6_only(self):
         tc_id = "ipv6_only move between_es "
         move_dir = "mh1_to_mh1_2"
         host_type = 'ipv6_only'
         result = self.verify_mac_move(tc_id, move_dir, host_type)
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     @pytest.mark.skip
     def test_mac_freeze(self):
@@ -4428,7 +4079,7 @@ class TestVxlanMacMoveTriggers():
             st.banner(" {} : traffic failed after mac freeze".format(item))
         #tgen_cleanup
         self.cleanup_tgen(mm_handles)
-        report_result(result_flag, tc_id)
+        vxlan_obj.report_result(result_flag, tc_id)
      
         
 @pytest.mark.usefixtures("tgen_health_check_class")
@@ -4479,7 +4130,7 @@ class TestVxlanNegativeTriggers():
         cmd_1 = "sudo config interface sys-mac remove PortChannel10 00:44:33:22:99:99\n"
         st.config(dut, cmd_1, skip_error_check=True)
         pc_obj.delete_portchannel(dut, "PortChannel10")
-        report_result(flag)
+        vxlan_obj.report_result(flag)
          
 
     def test_reserved_esid(self):
@@ -4511,7 +4162,7 @@ class TestVxlanNegativeTriggers():
         cmd_1 = "sudo config interface sys-mac remove PortChannel10 00:44:33:22:99:99\n"
         st.config(dut, cmd_1, skip_error_check=True)
         pc_obj.delete_portchannel(dut, "PortChannel10")
-        report_result(flag)
+        vxlan_obj.report_result(flag)
 
 @pytest.fixture(scope="class")
 def setup_devices_for_timer_check():
@@ -4706,7 +4357,7 @@ class TestVxlanEvpnTimerChecks():
         st.log(leaf0_age_out_list)
         if len(leaf0_age_out_list) > 0:
             st.banner("local mac ageout failed")
-            report_result('False')
+            vxlan_obj.report_result('False')
         else:
             st.banner("local mac ageout passed")
 
@@ -4723,7 +4374,7 @@ class TestVxlanEvpnTimerChecks():
             st.banner("remote mac ageout Passed")
         else:
             st.banner("remote mac ageout Failed")
-            report_result('False')
+            vxlan_obj.report_result('False')
                         
         st.wait(int(evpn_timers['mac-holdtime']))
         leaf1_out = st.show('leaf1', "show mac -l", skip_tmpl=False)
@@ -4736,10 +4387,10 @@ class TestVxlanEvpnTimerChecks():
         if len(leaf1_age_out_list) > 0:
             st.banner("mac holdtime test failed")
             st.log("following mac present after holdtime expired {}".format(leaf1_age_out_list))
-            report_result('False')
+            vxlan_obj.report_result('False')
         else:
             st.banner(("mac holdtime test passed"))
-            report_result('True')
+            vxlan_obj.report_result('True')
 
     def test_startup_delay(self):
         '''
@@ -4761,7 +4412,7 @@ class TestVxlanEvpnTimerChecks():
         verify_pc = pc_obj.verify_portchannel('leaf0', portchannel_name = pc_id)
         if not verify_pc:
             st.banner("Portchannel not up : Not expected")
-            report_result(False)
+            vxlan_obj.report_result(False)
             
         flag = True
         for delay_timer in [default_startup_delay, 30, 0]:
@@ -4796,7 +4447,7 @@ class TestVxlanEvpnTimerChecks():
                 st.banner("Portchannel didn't come up afterstartup delay")
                 flag = False
 
-        report_result(flag)  
+        vxlan_obj.report_result(flag)  
 
 @pytest.mark.usefixtures("tgen_health_check_class", "setup_df_ndf_failure")
 class TestVxlanDfNdfFailure():
@@ -4817,7 +4468,7 @@ class TestVxlanDfNdfFailure():
         """
         tc_id = 'test_mh_df_node_failure'
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params('test_df_ndf_node_failure')
+        tc_cfg = vxlan_obj.get_tc_params('test_df_ndf_node_failure')
         df_dut = tc_cfg['df_dut']
         result_str = ''
 
@@ -4830,7 +4481,7 @@ class TestVxlanDfNdfFailure():
                                     start_proto_wait = test_cfg['global']['traffic_start_protocol_sleep'])
         except Exception as err:
             st.error('Traffic stream start error: {}'.format(str(err)))
-            report_result(False, tc_id, str(err))
+            vxlan_obj.report_result(False, tc_id, str(err))
 
         st.log('Rebooting DF node : {}'.format(df_dut))
         vxlan_obj.config_dut(df_dut,'bgp', 'do write') 
@@ -4841,11 +4492,11 @@ class TestVxlanDfNdfFailure():
         #check docker status
         st.log('Checking if dockers are up after reload on DF node : {}'.format(df_dut))
         if not poll_wait(basic_obj.verify_docker_status, 180, df_dut, 'Exited'):
-            report_result(False, tc_id, 'Docker status not up after reboot')
+            vxlan_obj.report_result(False, tc_id, 'Docker status not up after reboot')
 
         st.log('Checking docker count reload on DF node : {}'.format(df_dut))
         if not poll_wait(basic_obj.get_and_match_docker_count, 180, df_dut, docker_cnt):
-            report_result(False, tc_id, 'Not all dockers are up after reboot. Expected {}'.format(docker_cnt))
+            vxlan_obj.report_result(False, tc_id, 'Not all dockers are up after reboot. Expected {}'.format(docker_cnt))
 
         #check vtep status 
         max = 5
@@ -4857,7 +4508,7 @@ class TestVxlanDfNdfFailure():
             st.log('Not all or no remote vteps are found. Retry {}/{}'.format(cntr, max+1))
             st.wait(60)
         else:
-            report_result(False, tc_id, 'Not all vteps are found after reboot.')
+            vxlan_obj.report_result(False, tc_id, 'Not all vteps are found after reboot.')
 
         st.log('Checking status of continuous traffic after reboot')
         if vxlan_obj.check_traffic(tc_cfg['stream_handles']['DF_NDF'], action='check', min_perc=99.6):
@@ -4868,7 +4519,7 @@ class TestVxlanDfNdfFailure():
             result_str += '{}\n'.format(log)
         ### add base verifications here
         st.log('Checking status of all traffic reboot')
-        if verify_traffic(tgen_handles, bum=True):
+        if pf.verify_traffic(tgen_handles, bum=True):
             st.banner('All Traffic Check Passed')
         else:
             log = 'All Traffic check Failed'
@@ -4876,9 +4527,9 @@ class TestVxlanDfNdfFailure():
             result_str += '{}\n'.format(log)
 
         if not result_str:
-            report_result(True, tc_id)
+            vxlan_obj.report_result(True, tc_id)
         else:
-            report_result(False, tc_id, result_str)
+            vxlan_obj.report_result(False, tc_id, result_str)
 
     def test_mh_ndf_node_failure(self, pause_run):
         """
@@ -4896,7 +4547,7 @@ class TestVxlanDfNdfFailure():
         """
         tc_id = 'test_mh_ndf_node_failure'
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params('test_df_ndf_node_failure')
+        tc_cfg = vxlan_obj.get_tc_params('test_df_ndf_node_failure')
         ndf_dut = tc_cfg['ndf_dut']
         result_str = ''
 
@@ -4909,7 +4560,7 @@ class TestVxlanDfNdfFailure():
                                     start_proto_wait = test_cfg['global']['traffic_start_protocol_sleep'])
         except Exception as err:
             st.error('Traffic stream start error: {}'.format(str(err)))
-            report_result(False, tc_id, str(err))
+            vxlan_obj.report_result(False, tc_id, str(err))
 
         st.log('Rebooting NDF node : {}'.format(ndf_dut))
         vxlan_obj.config_dut(ndf_dut,'bgp', 'do write') 
@@ -4922,11 +4573,11 @@ class TestVxlanDfNdfFailure():
         #check docker status
         st.log('Checking if dockers are up after reload on NDF node : {}'.format(ndf_dut))
         if not poll_wait(basic_obj.verify_docker_status, 180, ndf_dut, 'Exited'):
-            report_result(False, tc_id, 'Docker status not up after reboot')
+            vxlan_obj.report_result(False, tc_id, 'Docker status not up after reboot')
 
         st.log('Checking docker count reload on NDF node : {}'.format(ndf_dut))
         if not poll_wait(basic_obj.get_and_match_docker_count, 180, ndf_dut, docker_cnt):
-            report_result(False, tc_id, 'Not all dockers are up after reboot. Expected {}'.format(docker_cnt))
+            vxlan_obj.report_result(False, tc_id, 'Not all dockers are up after reboot. Expected {}'.format(docker_cnt))
 
         #check vtep status 
         max = 5
@@ -4938,7 +4589,7 @@ class TestVxlanDfNdfFailure():
             st.log('Not all or no remote vteps are found. Retry {}/{}'.format(cntr, max+1))
             st.wait(60)
         else:
-            report_result(False, tc_id, 'Not all vteps are found after reboot.')
+            vxlan_obj.report_result(False, tc_id, 'Not all vteps are found after reboot.')
 
         
 
@@ -4953,7 +4604,7 @@ class TestVxlanDfNdfFailure():
 
         ### todo add base verifications here
         st.log('Checking status of all traffic reboot')
-        if verify_traffic(tgen_handles, bum=True):
+        if pf.verify_traffic(tgen_handles, bum=True):
             st.banner('All Traffic Check Passed')
         else:
             log = 'All Traffic check Failed'
@@ -4961,9 +4612,9 @@ class TestVxlanDfNdfFailure():
             result_str += '{}\n'.format(log)
 
         if not result_str:
-            report_result(True, tc_id)
+            vxlan_obj.report_result(True, tc_id)
         else:
-            report_result(False, tc_id, result_str)
+            vxlan_obj.report_result(False, tc_id, result_str)
 
     def test_mh_df_switchover(self, pause_run, cleanup_DF_preference):
         """
@@ -4988,7 +4639,7 @@ class TestVxlanDfNdfFailure():
         """
         tc_id = 'test_mh_df_switchover'
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params('test_df_ndf_node_failure')
+        tc_cfg = vxlan_obj.get_tc_params('test_df_ndf_node_failure')
         df_dut = tc_cfg['df_dut']
         ndf_dut = tc_cfg['ndf_dut']
         tc_cfg['df_pref'] = 100
@@ -5006,7 +4657,7 @@ class TestVxlanDfNdfFailure():
                                     start_proto_wait = test_cfg['global']['traffic_start_protocol_sleep'])
         except Exception as err:
             st.error('Traffic stream start error: {}'.format(str(err)))
-            report_result(False, tc_id, str(err))
+            vxlan_obj.report_result(False, tc_id, str(err))
 
         st.log('Changing DF prority on DF node : {}'.format(df_dut))
         st.config(df_dut, 'interface {} \nevpn mh es-df-pref {}\n\
@@ -5056,7 +4707,7 @@ class TestVxlanDfNdfFailure():
 
         ### add base verifications here
         st.log('Checking status of all traffic after DF change')
-        if verify_traffic(tgen_handles, bum=True):
+        if pf.verify_traffic(tgen_handles, bum=True):
             st.banner('All Traffic Check Passed')
         else:
             log = 'All Traffic check Failed after DF change'
@@ -5073,7 +4724,7 @@ class TestVxlanDfNdfFailure():
                                     start_proto_wait = test_cfg['global']['traffic_start_protocol_sleep'])
         except Exception as err:
             st.error('Traffic stream start error: {}'.format(str(err)))
-            report_result(False, tc_id, str(err))
+            vxlan_obj.report_result(False, tc_id, str(err))
 
         st.log('Removing DF prority on NDF node : {}'.format(ndf_dut))
         st.config(ndf_dut, 'interface {} \nno evpn mh es-df-pref {}\n\
@@ -5113,7 +4764,7 @@ class TestVxlanDfNdfFailure():
 
         ### add base verifications here
         st.log('Checking status of all traffic after DF restored')
-        if verify_traffic(tgen_handles, bum=True):
+        if pf.verify_traffic(tgen_handles, bum=True):
             st.banner('All Traffic Check Passed')
         else:
             log = 'All Traffic check Failed after DF restored'
@@ -5121,9 +4772,9 @@ class TestVxlanDfNdfFailure():
             result_str += '{}\n'.format(log)
 
         if not result_str:
-            report_result(True, tc_id)
+            vxlan_obj.report_result(True, tc_id)
         else:
-            report_result(False, tc_id, result_str)
+            vxlan_obj.report_result(False, tc_id, result_str)
 
     def test_mh_sh_migration(self):
         """
@@ -5147,7 +4798,7 @@ class TestVxlanDfNdfFailure():
         tc_id = 'test_mh_sh_migration'
         tc_cfg_name = 'test_df_ndf_node_failure'
         test_cfg['tc_id'] = tc_cfg_name
-        tc_cfg = get_tc_params(tc_cfg_name)
+        tc_cfg = vxlan_obj.get_tc_params(tc_cfg_name)
         dut = tc_cfg["mh_sh_dut"]
         dut_id = vxlan_obj.get_device_id(dut,vars)
         int_id = dut_id + tc_cfg['mh_sh_port']
@@ -5172,7 +4823,7 @@ class TestVxlanDfNdfFailure():
                                     start_proto_wait = test_cfg['global']['traffic_start_protocol_sleep'])
         except Exception as err:
             st.error('Traffic stream start error: {}'.format(str(err)))
-            report_result(False, tc_id, str(err))
+            vxlan_obj.report_result(False, tc_id, str(err))
 
         st.log('Shutting down interfaces {} on {}'.format(intfs, dut))
         for intf in intfs:
@@ -5237,7 +4888,7 @@ class TestVxlanDfNdfFailure():
 
         ### add base verifications here
         st.log('Checking status of all traffic after vlan restored')
-        if verify_traffic(tgen_handles, bum=True):
+        if pf.verify_traffic(tgen_handles, bum=True):
             st.banner('All Traffic Check Passed')
         else:
             log = 'All Traffic check Failed after vlan restored'
@@ -5248,9 +4899,9 @@ class TestVxlanDfNdfFailure():
         tg_handle.tg_interface_config(mode='modify', port_handle=port_handle, ignore_link=0)
 
         if not result_str:
-            report_result(True, tc_id)
+            vxlan_obj.report_result(True, tc_id)
         else:
-            report_result(False, tc_id, result_str)
+            vxlan_obj.report_result(False, tc_id, result_str)
 
     @pytest.fixture
     def cleanup_DF_preference(self):
@@ -5260,7 +4911,7 @@ class TestVxlanDfNdfFailure():
 
         yield
 
-        tc_cfg = get_tc_params('test_df_ndf_node_failure')
+        tc_cfg = vxlan_obj.get_tc_params('test_df_ndf_node_failure')
         if tc_cfg['uncfg']:
             df_dut = tc_cfg['df_dut']
             ndf_dut = tc_cfg['ndf_dut']
@@ -5278,11 +4929,11 @@ class TestVxlanDfNdfFailure():
             Fixture to setup/teardown traffic streams to test df failure testcases
         """
         tc_id = 'test_df_ndf_node_failure'
-        tc_cfg = get_tc_params(tc_id) 
+        tc_cfg = vxlan_obj.get_tc_params(tc_id) 
         df_dut = tc_cfg['df_dut']
         tgen_port_channel = find_tgen_port_name(tc_cfg['port_channel_num'], df_dut)
         if not tgen_port_channel:
-            report_result(False, tc_id, 'Port channel {} not configured on TGEN'.format(tc_cfg['port_channel_num']))
+            vxlan_obj.report_result(False, tc_id, 'Port channel {} not configured on TGEN'.format(tc_cfg['port_channel_num']))
         result = True
 
         l2_endpoints = dict()
@@ -5367,7 +5018,7 @@ class TestVxlanDfNdfFailure():
             ### todo add bum traffic
         except Exception as err:
             st.error('Traffic stream config error: {}'.format(str(err)))
-            report_result(False, tc_id, str(err))
+            vxlan_obj.report_result(False, tc_id, str(err))
 
         yield
 
@@ -5375,7 +5026,7 @@ class TestVxlanDfNdfFailure():
             vxlan_obj.check_traffic(tc_cfg['stream_handles']['DF_NDF'], action='stop')
         except Exception as err:
             st.error('Traffic stream start error: {}'.format(str(err)))
-            report_result(False, tc_id, str(err))
+            vxlan_obj.report_result(False, tc_id, str(err))
 
         st.wait(30)
         #vxlan_obj.start_stop_protocols(tgen_handles['tg_handle'], 'stop')
@@ -5455,7 +5106,7 @@ class TestVxlanTriggers():
             if not pc_obj.verify_portchannel(leaf_nodes[2], portchannel_name = each_po['teamdev']):
                     st.report_fail("Portchannel should not down after the flap trigger")
         
-        if not verify_traffic(traffic_handles=tgen_handles, bum=False):
+        if not pf.verify_traffic(traffic_handles=tgen_handles, bum=False):
             st.report_fail("Traffic failed after flap trigger")
 
         st.banner("Flap trigger passed")
@@ -5471,13 +5122,13 @@ class TestVxlanTriggers():
                 leaf_nodes.append(dut)
         dut_interfaces = vxlan_obj.get_dut_interfaces(vars)
         uplink_intfs = dut_interfaces['leaf0']['underlay_dict']
-        verify_traffic(traffic_handles=tgen_handles, bum=False)
+        pf.verify_traffic(traffic_handles=tgen_handles, bum=False)
         for key, value in uplink_intfs.items():
             uplink_port = uplink_intfs[key]
             #shut the member interface
             intf_obj.interface_shutdown(leaf_nodes[0], uplink_port)
             st.wait(30)
-            if not verify_traffic(traffic_handles=tgen_handles, bum=False):
+            if not pf.verify_traffic(traffic_handles=tgen_handles, bum=False):
                 intf_obj.interface_noshutdown(leaf_nodes[0], uplink_port)
                 st.report_fail("Traffic failed after flap trigger")
             #unshut the member interface
@@ -5486,7 +5137,7 @@ class TestVxlanTriggers():
             if not intf_obj.verify_interface_status(leaf_nodes[0], uplink_port, 'oper', 'up'):
                 st.report_fail("member interface {} did not come up".format(uplink_port))
             
-            if not verify_traffic(traffic_handles=tgen_handles, bum=False):
+            if not pf.verify_traffic(traffic_handles=tgen_handles, bum=False):
                 st.report_fail("Traffic failed after link up trigger")
             
         st.report_pass("test_case_passed")
@@ -5518,7 +5169,7 @@ class TestVxlanTriggers():
 
         #Need to understand how to isolate stream that go from orphan port to portchannel
         '''
-        if not verify_traffic(traffic_handles=tgen_handles, bum=False):
+        if not pf.verify_traffic(traffic_handles=tgen_handles, bum=False):
             self.recover_from_flap(leaf_nodes[0], uplink_intfs)
             st.report_fail("Traffic failed after flap trigger")
         '''
@@ -5538,7 +5189,7 @@ class TestVxlanTriggers():
             st.report_fail("Uplink tracking did not bring up portchannel after all uplinks came up")
         else:
             st.log("Status is oper state and admin state is up due to Uplink tracking")
-        if not verify_traffic(traffic_handles=tgen_handles, bum=False):
+        if not pf.verify_traffic(traffic_handles=tgen_handles, bum=False):
             st.report_fail("Traffic failed after flap trigger")
 
         st.report_pass("test_case_passed")
@@ -6155,16 +5806,16 @@ class TestVxlanSBStaticRoute():
             for error in sb_static_errors:
                 st.log(error)
             sb_static_errors = []
-            report_result(False, tc_id=tc_id)
+            vxlan_obj.report_result(False, tc_id=tc_id)
         else:
-            report_result(True, tc_id=tc_id)
+            vxlan_obj.report_result(True, tc_id=tc_id)
 
     def test_sb_static_route_basic(self):
         tc_id = "VXLAN MH SB STATIC 1: Add a new Southbound Static routes with Single NH"
         st.banner(tc_id)
 
         global sb_static_errors
-        if verify_base_setup():
+        if pf.verify_base_setup():
             st.banner('Verify base setup: Pass')
         else:
             st.banner('Verify base setup: Fail')
@@ -6372,7 +6023,7 @@ class TestVxlanSBStaticRoute():
 
         self.check_and_report_result(tc_id)
         result = self.verify_dhcp_bindings(server_port = ["orphan","mh"], vni_type = "L3")
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
 @pytest.mark.usefixtures('tgen_health_check_class')
 class TestRemoveAddCfgTriggers():
@@ -6388,7 +6039,7 @@ class TestRemoveAddCfgTriggers():
 
         for attempt in range(1, retries + 1):
             st.log("Attempt {} / {}: Verifying traffic...".format(attempt, retries))
-            if verify_traffic(tgen_handles):
+            if pf.verify_traffic(tgen_handles):
                 st.log("Traffic verification passed in attempt - {} .".format(attempt))
                 return True
             else:
@@ -6412,7 +6063,7 @@ class TestRemoveAddCfgTriggers():
         """
         tc_id = "test_remove_add_vlan_members"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
         duts = []
         result_str = ''
     
@@ -6496,9 +6147,9 @@ class TestRemoveAddCfgTriggers():
         
         # Report results
         if not result_str:
-            report_result(True, tc_id)
+            vxlan_obj.report_result(True, tc_id)
         else:
-            report_result(False, tc_id, result_str)
+            vxlan_obj.report_result(False, tc_id, result_str)
 
     def test_remove_add_port_channel(self):
         """
@@ -6513,7 +6164,7 @@ class TestRemoveAddCfgTriggers():
         """
         tc_id = "test_remove_add_port_channel"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
         duts = []
         result_str = ''
     
@@ -6617,9 +6268,9 @@ class TestRemoveAddCfgTriggers():
 
         # Report results
         if not result_str:
-            report_result(True, tc_id)
+            vxlan_obj.report_result(True, tc_id)
         else:
-            report_result(False, tc_id, result_str)
+            vxlan_obj.report_result(False, tc_id, result_str)
 
     def test_remove_add_ethernet_segment(self):
         """
@@ -6634,7 +6285,7 @@ class TestRemoveAddCfgTriggers():
         """
         tc_id = "test_remove_add_ethernet_segment"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
         duts = []
         result_str = ''
     
@@ -6722,9 +6373,9 @@ class TestRemoveAddCfgTriggers():
     
         # Report results
         if not result_str:
-            report_result(True, tc_id)
+            vxlan_obj.report_result(True, tc_id)
         else:
-            report_result(False, tc_id, result_str)
+            vxlan_obj.report_result(False, tc_id, result_str)
 
 @pytest.mark.usefixtures("tgen_health_check_class", "cfg_new_tgen_port_channel")
 class TestVxlanES():
@@ -6743,7 +6394,7 @@ class TestVxlanES():
         """
         tc_id = "test_add_new_ES_new_vlan"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
         tc_cfg['uncfg_cli'] = dict()
         dut = tc_cfg['dut']
         result = True
@@ -6754,13 +6405,13 @@ class TestVxlanES():
         self._cfg_add_new_ES_new_vlan(tc_id = tc_id, tc_cfg=tc_cfg, new_vlan=True)
 
         st.log('Verify traffic')
-        if verify_traffic(tc_cfg['stream_handles'], regenerate=True, stop_start_protocols=True):
+        if pf.verify_traffic(tc_cfg['stream_handles'], regenerate=True, stop_start_protocols=True):
             st.banner('Traffic Check Passed')
         else:
             st.banner('Traffic Check Failed')
             result = False
 
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_add_new_ES_add_vlan(self, cleanup_new_devices_streams, pause_run):
         """
@@ -6777,7 +6428,7 @@ class TestVxlanES():
         """
         tc_id = "test_add_new_ES_add_vlan"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id) 
+        tc_cfg = vxlan_obj.get_tc_params(tc_id) 
         tc_cfg['uncfg_cli'] = dict()
         dut = tc_cfg['dut']
         result = True
@@ -6789,26 +6440,26 @@ class TestVxlanES():
                 tc_cfg['vxlan_id'] = l2_info['vxlan_id']
                 break
         else:
-            report_result(False, tc_id, 'Vlan {} not configured on dut {}'.format(tc_cfg['vlan_id'], dut))
+            vxlan_obj.report_result(False, tc_id, 'Vlan {} not configured on dut {}'.format(tc_cfg['vlan_id'], dut))
         
         for l3_info in test_cfg[dut]['l3vni']:
             if tc_cfg['vlan_id'] in l3_info['vlan_bindings']:
                 tc_cfg['vrf_id'] = l3_info['vrf_id']
                 break
         else:
-            report_result(False, tc_id, 'Vlan {} not configured on any vrf on dut {}'.format(tc_cfg['vlan_id'], dut))
+            vxlan_obj.report_result(False, tc_id, 'Vlan {} not configured on any vrf on dut {}'.format(tc_cfg['vlan_id'], dut))
             
         # calling common api to configure ES and add vlan
         self._cfg_add_new_ES_new_vlan(tc_id=tc_id, tc_cfg=tc_cfg, new_vlan=False)
 
         st.log('Verify traffic')
-        if verify_traffic(tc_cfg['stream_handles'], regenerate=True, stop_start_protocols=True):
+        if pf.verify_traffic(tc_cfg['stream_handles'], regenerate=True, stop_start_protocols=True):
             st.banner('Traffic Check Passed')
         else:
             st.banner('Traffic Check Failed')
             result = False
 
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     def test_add_new_ES_remove_add_vlan(self, cleanup_new_devices_streams, pause_run):
         """
@@ -6825,7 +6476,7 @@ class TestVxlanES():
         """
         tc_id = "test_add_new_ES_remove_add_vlan"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
         tc_cfg['uncfg_cli'] = dict()
         dut = tc_cfg['dut']
         result = True
@@ -6847,33 +6498,33 @@ class TestVxlanES():
 
         st.log('Configuring dut')
         if not config_nodes(cfg_cli):
-            report_result(False, tc_id, 'DUT config operation failed')
+            vxlan_obj.report_result(False, tc_id, 'DUT config operation failed')
 
         for l2_info in test_cfg[dut]['l2vni']:
             if tc_cfg['vlan_id'] == l2_info['vlan_id']:
                 tc_cfg['vxlan_id'] = l2_info['vxlan_id']
                 break
         else:
-            report_result(False, tc_id, 'Vlan {} not configured on dut {}'.format(tc_cfg['vlan_id'], dut))
+            vxlan_obj.report_result(False, tc_id, 'Vlan {} not configured on dut {}'.format(tc_cfg['vlan_id'], dut))
         
         for l3_info in test_cfg[dut]['l3vni']:
             if tc_cfg['vlan_id'] in l3_info['vlan_bindings']:
                 tc_cfg['vrf_id'] = l3_info['vrf_id']
                 break
         else:
-            report_result(False, tc_id, 'Vlan {} not configured on any vrf on dut {}'.format(tc_cfg['vlan_id'], dut))
+            vxlan_obj.report_result(False, tc_id, 'Vlan {} not configured on any vrf on dut {}'.format(tc_cfg['vlan_id'], dut))
 
         # calling common api to configure ES and add vlan
         self._cfg_add_new_ES_new_vlan(tc_id=tc_id, tc_cfg=tc_cfg, new_vlan=False)
 
         st.log('Verify traffic')
-        if verify_traffic(tc_cfg['stream_handles'], regenerate=True, stop_start_protocols=True):
+        if pf.verify_traffic(tc_cfg['stream_handles'], regenerate=True, stop_start_protocols=True):
             st.banner('Traffic Check Passed')
         else:
             st.banner('Traffic Check Failed')
             result = False
 
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
     @pytest.fixture(scope="class")
     def cfg_new_tgen_port_channel(self):
@@ -6881,7 +6532,7 @@ class TestVxlanES():
             Fixture to setup/teardown new portchanell
         """
         tc_id = 'test_add_new_ES_new_vlan'
-        tc_cfg = get_tc_params(tc_id) 
+        tc_cfg = vxlan_obj.get_tc_params(tc_id) 
         tc_cfg['node_tgen_ports'] = list()
         dut = tc_cfg['dut']
         dut_ids = list()
@@ -6915,12 +6566,12 @@ class TestVxlanES():
                                                 handle=topo_handles[dut][lag_name]['topology_handle'])
 
         except Exception as err:
-            report_result(False, tc_id, str(err))
+            vxlan_obj.report_result(False, tc_id, str(err))
 
         yield
 
         tc_id = 'test_add_new_ES_new_vlan'
-        tc_cfg = get_tc_params(tc_id) 
+        tc_cfg = vxlan_obj.get_tc_params(tc_id) 
         dut = tc_cfg['dut']
         lag_name = 'PortChannel{}_{}'.format(tc_cfg['port_channel_num'], ''.join(dut_ids))
             
@@ -7015,7 +6666,7 @@ class TestVxlanES():
 
         st.log('Configuring dut')
         if not config_nodes(cfg_cli):
-            report_result(False, tc_id, 'DUT config operation failed')
+            vxlan_obj.report_result(False, tc_id, 'DUT config operation failed')
 
         st.log('Configuring TGEN') 
         vxlan_obj.start_stop_protocols(tgen_handles['tg_handle'], 'stop')
@@ -7048,14 +6699,14 @@ class TestVxlanES():
             st.wait(90)
             
         except Exception as err:
-            report_result(False, tc_id, str(err))
+            vxlan_obj.report_result(False, tc_id, str(err))
 
         st.log('Creating traffic streams')
 
         # find l2 / l3 endpoints
-        l2_endpoints = find_traffic_enpoints(tgen_handles['topo_handles'], v4_host_info_dict, dut, 
+        l2_endpoints = pf.find_traffic_enpoints(tgen_handles['topo_handles'], v4_host_info_dict, dut, 
                                              lag_name, tc_cfg['vlan_id'], tc_cfg['vlan_id'])
-        l3_endpoints = find_traffic_enpoints(tgen_handles['topo_handles'], v4_host_info_dict, dut, 
+        l3_endpoints = pf.find_traffic_enpoints(tgen_handles['topo_handles'], v4_host_info_dict, dut, 
                                              lag_name, tc_cfg['vlan_id'], tc_cfg['l3_traffic_dst']['vlan_id'])
 
         tc_cfg['stream_handles'] = dict()
@@ -7096,7 +6747,7 @@ class TestVxlanES():
             st.wait(15)
         except Exception as err:
             st.error('Traffic stream config error: {}'.format(str(err)))
-            report_result(False, tc_id, str(err))
+            vxlan_obj.report_result(False, tc_id, str(err))
 
     @pytest.fixture
     def cleanup_new_devices_streams(self):
@@ -7107,7 +6758,7 @@ class TestVxlanES():
         yield
 
         tc_id = test_cfg['tc_id'] 
-        tc_cfg = get_tc_params(tc_id) 
+        tc_cfg = vxlan_obj.get_tc_params(tc_id) 
         lag_name = tc_cfg['lag_name'] 
         dut = tc_cfg['dut'] 
         if tc_cfg.get('stream_handles'):
@@ -7142,20 +6793,20 @@ class TestVxlanRestartTriggers():
         """
         tc_id = "test_restart_{}".format(restart_type)
         st.banner("Checking base before trigger")
-        result_before_trigger = verify_base_setup()
+        result_before_trigger = pf.verify_base_setup()
         if not result_before_trigger:
             st.error("Base setup verification failed before trigger")
-            report_result(result_before_trigger, tc_id, "Base Setup Failed")
+            vxlan_obj.report_result(result_before_trigger, tc_id, "Base Setup Failed")
         st.banner("Base setup verification passed before trigger")
 
         # Do the Restart
         st.banner("TEST 40:Trigger: Verify traffic after {} restart".format(restart_type))
         dut_count_arr = {}
         
-        result_before_trigger = verify_base_setup()
+        result_before_trigger = pf.verify_base_setup()
         if not result_before_trigger:
             st.error("Base setup verification failed before trigger")
-            report_result(result_before_trigger, tc_id, "Base Setup Failed")
+            vxlan_obj.report_result(result_before_trigger, tc_id, "Base Setup Failed")
         st.banner("Base setup verification passed before trigger")
 
         for dut in test_cfg['nodes']['l2l3vni']:
@@ -7169,11 +6820,11 @@ class TestVxlanRestartTriggers():
             if not poll_wait(basic_obj.verify_docker_status, 180, dut, 'Exited'):
                 st.error("Post 'systemctl restart {} on {}', dockers are not auto recovered.".format(restart_type,dut))
                 result = False
-                report_result(result, tc_id, "Docker Status Failed")
+                vxlan_obj.report_result(result, tc_id, "Docker Status Failed")
             if not poll_wait(basic_obj.get_and_match_docker_count, 180, dut, dut_count_arr[dut]):
                 st.error("Post 'systemctl restart {} on {}', ALL dockers are not UP.".format(restart_type,dut))
                 result = False
-                report_result(result, tc_id, "Docker Status Failed")
+                vxlan_obj.report_result(result, tc_id, "Docker Status Failed")
         # PreSanity
         # For swss, retry 10 times because interfaces need to come up
         # For others, retry 5 times
@@ -7181,14 +6832,14 @@ class TestVxlanRestartTriggers():
             retry_count = 10
         else:
             retry_count = test_cfg['global']['proc_restart_retries']
-        result_presanity = verify_base_setup(retry=retry_count)
+        result_presanity = pf.verify_base_setup(retry=retry_count)
         st.banner(" Result AFTER PreSanity Checkrestart: {}".format(result_presanity))
         if not result_presanity :
-            report_result(result_presanity, tc_id, "After restart {}, base setup check failed".format(restart_type))
+            vxlan_obj.report_result(result_presanity, tc_id, "After restart {}, base setup check failed".format(restart_type))
         #Check Traffic
-        traffic_result = verify_traffic(tgen_handles, bum=True)
+        traffic_result = pf.verify_traffic(tgen_handles, bum=True)
         #check for remote mac count on all leafs
-        report_result(traffic_result, tc_id, "Traffic Failed")
+        vxlan_obj.report_result(traffic_result, tc_id, "Traffic Failed")
 
 
 class TestDelAddBGPConfigs():
@@ -7203,7 +6854,7 @@ class TestDelAddBGPConfigs():
         '''
         st.log("Starting test for del/add BGP configs")
         st.log("Verifying base setup")
-        base_res = verify_base_setup()
+        base_res = pf.verify_base_setup()
         st.log("Removing all BGP configs")
         cli_output = st.show("leaf0", "show vrf", skip_tmpl=True)
         parsed_output = st.parse_show('leaf0', "show vrf", cli_output, "show_vrf.tmpl")
@@ -7223,20 +6874,20 @@ class TestDelAddBGPConfigs():
         vxlan_obj.config_feature(["leaf0"],'bgp_l3vni_config')
 
         st.log("Reconfigured all BGP configs. Verifying base setup")
-        base_res = verify_base_setup(retry=test_cfg['global']['del_add_bgp_retries'])
+        base_res = pf.verify_base_setup(retry=test_cfg['global']['del_add_bgp_retries'])
         st.log("TEST 1: Verify base result after trigger:")
         st.log(base_res)
 
         if not base_res:
-            report_result(False, "test_del_add_bgp_configs", 'Base configs not back up after del/add BGP configs')
+            vxlan_obj.report_result(False, "test_del_add_bgp_configs", 'Base configs not back up after del/add BGP configs')
 
         st.log("Now validating traffic")
-        traffic_result = verify_traffic(tgen_handles, bum=True)
+        traffic_result = pf.verify_traffic(tgen_handles, bum=True)
         if not traffic_result:
-            report_result(False, "test_del_add_bgp_configs", 'Traffic validation failed after del/add BGP configs')
+            vxlan_obj.report_result(False, "test_del_add_bgp_configs", 'Traffic validation failed after del/add BGP configs')
         else:
             st.log("Traffic validation passed after del/add bgp configs")
-            report_result(traffic_result, "test_del_add_bgp_configs")
+            vxlan_obj.report_result(traffic_result, "test_del_add_bgp_configs")
 
 
 @pytest.mark.usefixtures("tgen_health_check_class")
@@ -7271,12 +6922,12 @@ class TestVxlanReloadTriggers():
                 st.report_fail("test_case_failed")
         st.wait(60)
         st.log("Verifying base setup")
-        base_res = verify_base_setup(retry=10)
+        base_res = pf.verify_base_setup(retry=10)
         if base_res:
             st.banner("Base verification pass after config reload")
         else:
             vxlan_obj.get_cli_out(leaf_nodes)
-            report_result(False, "test_config_reload", 'Base setup verification failed after config reload')
+            vxlan_obj.report_result(False, "test_config_reload", 'Base setup verification failed after config reload')
 
         #check vtep status 
         vtep_state = vxlan_obj.verify_vtep(leaf_nodes)
@@ -7287,8 +6938,8 @@ class TestVxlanReloadTriggers():
             st.banner("Not all or no remote vteps are found")
             st.report_fail("test_case_failed")
 
-        traffic_result = verify_traffic(tgen_handles, bum=True)
-        report_result(traffic_result)
+        traffic_result = pf.verify_traffic(tgen_handles, bum=True)
+        vxlan_obj.report_result(traffic_result)
 
     def test_reboot(self):
         st.banner("TEST 56:Trigger 24: Verify traffic after node reboot ")
@@ -7304,20 +6955,20 @@ class TestVxlanReloadTriggers():
         #check docker status
         result = True
         if not poll_wait(basic_obj.verify_docker_status, 180, selected_dut, 'Exited'):
-            report_result(False, "test_reboot", 'Dockers not auto recovered after reboot')
+            vxlan_obj.report_result(False, "test_reboot", 'Dockers not auto recovered after reboot')
         if not poll_wait(basic_obj.get_and_match_docker_count, 180, selected_dut, count):
             st.error("Post 'reboot', ALL dockers are not UP.")
-            report_result(False, "test_reboot", 'All dockerts not up after reboot')
+            vxlan_obj.report_result(False, "test_reboot", 'All dockerts not up after reboot')
         st.log("Verifying base setup")
-        base_res = verify_base_setup(retry=10)
+        base_res = pf.verify_base_setup(retry=10)
         if base_res:
             st.banner("Base verification pass after reboot found")
         else:
             vxlan_obj.get_cli_out(leaf_nodes)
-            report_result(False, "test_reboot", 'Base setup verification failed after reboot')
+            vxlan_obj.report_result(False, "test_reboot", 'Base setup verification failed after reboot')
 
-        traffic_result = verify_traffic(tgen_handles, bum=True)
-        report_result(traffic_result)
+        traffic_result = pf.verify_traffic(tgen_handles, bum=True)
+        vxlan_obj.report_result(traffic_result)
     
 
     
@@ -7336,7 +6987,7 @@ class TestHostOnSpine():
         """
         tc_id = "test_host_on_spine_add_vlan"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
         tc_cfg['uncfg_cli'] = dict()
         dut = tc_cfg['dut']
         result = True
@@ -7376,7 +7027,7 @@ class TestHostOnSpine():
         st.log('Configuring dut')
         config_nodes(tc_cfg['uncfg_cli'])
         if not config_nodes(cfg_cli):
-            report_result(False, tc_id, 'DUT config operation failed')
+            vxlan_obj.report_result(False, tc_id, 'DUT config operation failed')
 
         v4_host_info_dict = {dut : {tc_cfg['tgn_port_id']: {tc_cfg['vlan_id']: {'src_mac': '00:{:02d}:00:00:04:94'.format(int(tc_cfg['vlan_id'])),
                                                 'vlan': tc_cfg['vlan_id'], 'gateway': '80.{}.0.1'.format(tc_cfg['vlan_id']),
@@ -7398,14 +7049,14 @@ class TestHostOnSpine():
                     tgen_handles['v6_device_handles'][interface].update(values)
 
         except Exception as err:
-            report_result(False, tc_id, str(err))
+            vxlan_obj.report_result(False, tc_id, str(err))
 
         st.log('Creating traffic streams')
 
         # find l2 / l3 endpoints
-        l2_endpoints = find_traffic_enpoints(tgen_handles['topo_handles'], v4_host_info_dict, dut, 
+        l2_endpoints = pf.find_traffic_enpoints(tgen_handles['topo_handles'], v4_host_info_dict, dut, 
                                              tc_cfg['port_id'], tc_cfg['vlan_id'], tc_cfg['vlan_id'])
-        l3_endpoints = find_traffic_enpoints(tgen_handles['topo_handles'], v4_host_info_dict, dut, 
+        l3_endpoints = pf.find_traffic_enpoints(tgen_handles['topo_handles'], v4_host_info_dict, dut, 
                                              tc_cfg['port_id'], tc_cfg['vlan_id'], tc_cfg['l3_traffic_dst']['vlan_id'])
 
         tc_cfg['stream_handles'] = dict()
@@ -7436,17 +7087,17 @@ class TestHostOnSpine():
             tc_cfg['stream_handles']['HostOnSpine'][4] = stream_info[1]
         except Exception as err:
             st.error('Traffic stream config error: {}'.format(str(err)))
-            report_result(False, tc_id, str(err))
+            vxlan_obj.report_result(False, tc_id, str(err))
 
 
         st.log('Verify traffic')
-        if verify_traffic(tc_cfg['stream_handles'], regenerate=True):
+        if pf.verify_traffic(tc_cfg['stream_handles'], regenerate=True):
             st.banner('Traffic Check Passed')
         else:
             st.banner('Traffic Check Failed')
             result = False
 
-        report_result(result, tc_id)
+        vxlan_obj.report_result(result, tc_id)
 
 
     @pytest.fixture
@@ -7458,7 +7109,7 @@ class TestHostOnSpine():
         yield
 
         tc_id = test_cfg['tc_id'] 
-        tc_cfg = get_tc_params(tc_id) 
+        tc_cfg = vxlan_obj.get_tc_params(tc_id) 
         if tc_cfg.get('stream_handles'):
             st.log('Delete traffic items')
             try:
@@ -7476,45 +7127,6 @@ class TestHostOnSpine():
         if not config_nodes(tc_cfg['uncfg_cli']):
             st.error('Unconfig duts failed')
 
-### common procs ###
-
-def report_result(result, tc_id='', rc_msg=''):
-    if result:
-        st.banner('Testcase: {} :: Result: Pass'.format(tc_id))
-        st.report_pass('test_case_passed')
-    else:
-        st.banner('Testcase: {} :: Result: Fail'.format(tc_id))
-        st.banner('Testcase: {} :: Diags: {}'.format(tc_id, rc_msg))
-        collect_diags(tc_id)
-        st.report_fail("test_case_failed")
-
-def collect_diags(tc_id=''):
-    cmds = list()
-    vtysh_cmds = list()
-    tc_dict = get_tc_params('all') 
-    cmds.extend(tc_dict.get('debug_cmds', []))
-    vtysh_cmds.extend(tc_dict.get('debug_cmds_vtysh', []))
-    if tc_id:
-        tc_dict = get_tc_params(tc_id) 
-        cmds.extend(tc_dict.get('debug_cmds', []))
-        vtysh_cmds.extend(tc_dict.get('debug_cmds_vtysh', []))
-    for dut in st.get_dut_names():
-        for cmd in cmds:
-            try:
-                st.config(dut, cmd, skip_error_check=True)
-            except Exception as err:
-                st.error('Error collecting : {}'.format(cmd))
-        for cmd in vtysh_cmds:
-            try:
-                st.config(dut, cmd, type='vtysh', skip_error_check=True)
-            except Exception as err:
-                st.error('Error collecting : {}'.format(cmd))
-
-def get_tc_params(tc_id):
-    if tc_id not in test_cfg['testcases'].keys():
-        test_cfg['testcases'][tc_id] = dict()
-
-    return test_cfg['testcases'][tc_id]
     
 def config_nodes(cfg):
     ret_val = True
@@ -7526,119 +7138,6 @@ def config_nodes(cfg):
             ret_val = False
     return ret_val
     
-def find_traffic_enpoints(topo_handles, v4_host_info_dict, src_int_dut, src_int, src_vlan_id, dst_vlan_id, 
-                          traffic_type='default'):
-
-    cntr = 1
-    endpoints = dict()
-
-    if src_int.startswith('PortChannel'):
-        for port_id in topo_handles[src_int_dut].keys():
-            if src_int in port_id:
-                src_port_id = port_id
-                break
-        else:
-            raise Exception('Port channel {} not found in toplogy'.format(src_int))
-    else:
-        src_port_id = vxlan_obj.get_peer_port_id(src_int, vars, src_int_dut)
-
-    for lnode in test_cfg.keys():
-        if not lnode in test_cfg['nodes']['l2l3vni']:
-            continue
-        for l2vni_item in test_cfg[lnode]['l2vni']:
-            if l2vni_item['vlan_id'] == dst_vlan_id:
-                for l3vni_item in test_cfg[lnode]['l3vni']:
-                    if dst_vlan_id in l3vni_item['vlan_bindings']:
-                        vrf = l3vni_item['vrf_id']
-                        break
-                else:
-                    vrf = ''
-                for member in l2vni_item['members']:
-                    if member.startswith('PortChannel'):
-                        # look for portchannel name in topo_handles
-                        for port_id in topo_handles[lnode].keys():
-                            if member in port_id:
-                                dst_port_id = port_id
-                                break
-                        else:
-                            continue
-                    else:
-                        # orphan port
-                        dst_port_id = vxlan_obj.get_peer_port_id(member, vars, lnode)
-
-                    if dst_port_id == src_port_id: 
-                        continue
-                    # find mac addresses
-                    endpoints['traffic_item_{}_{}'.format(src_port_id,cntr)] = {
-                                        'dst_int': dst_port_id,
-                                        'dst_node': lnode,
-                                        'dst_vlan': dst_vlan_id,
-                                        'dst_vrf': vrf,
-                                        'src_int': src_port_id,
-                                        'src_node': src_int_dut,
-                                        'src_vrf': vrf,
-                                        'src_vlan': src_vlan_id}
-                    if traffic_type == 'raw':
-                        endpoints['traffic_item_{}_{}'.format(src_port_id,cntr)]['dst_mac'] = \
-                                v4_host_info_dict[lnode][dst_port_id][dst_vlan_id]['src_mac']
-                        endpoints['traffic_item_{}_{}'.format(src_port_id,cntr)]['src_mac'] = \
-                                v4_host_info_dict[src_int_dut][src_port_id][src_vlan_id]['src_mac']
-                    cntr += 1
-    return endpoints
-        
-def verify_traffic(traffic_handles, regenerate=False, traffic_types=[], traffic_names=[], 
-                   bum=True, stop_start_protocols=True):
-
-    traffic_result = {}
-    for traffic_type, traffic_items in traffic_handles.items():
-        if '_handle' in traffic_type: continue
-        mode = 'traffic_item'
-        if bum:
-            if 'bum' in traffic_type: 
-                mode = 'flow'
-        else:
-            if 'bum' in traffic_type: 
-                continue
-
-        if traffic_types:
-            for ttype in traffic_types:
-                if ttype in traffic_type:
-                    break
-            else:
-                continue
-
-        if traffic_names:
-            sel_traffic_items = {}
-            for tname in traffic_names:
-                for idx , traffic_info in traffic_items.items():
-                    if tname in traffic_info['stream_id']:
-                        sel_traffic_items[idx] = traffic_info
-            traffic_items = sel_traffic_items
-
-        st.banner("Verifying {} traffic".format(traffic_type))
-        try:
-            traffic_result[traffic_type] = vxlan_obj.check_traffic(traffic_items,
-                                            regenerate_traffic_items = regenerate,
-                                            stop_start_protocols=stop_start_protocols, mode=mode,
-                                            stop_proto_wait = test_cfg['global']['traffic_stop_protocol_sleep'],
-                                            start_proto_wait = test_cfg['global']['traffic_start_protocol_sleep'])
-            stop_start_protocols=False
-            st.log("Traffic type {} verify result: {}".format(traffic_type, traffic_result[traffic_type]))
-            if not traffic_result[traffic_type]:
-                
-                pass
-        except Exception as err:
-            st.error('Exception when checking traffic: {}'.format(str(err)))
-            traffic_result[traffic_type] = False
-    ret = True
-    for traffic_type , result in traffic_result.items():
-        if result == True :
-            st.banner("{} traffic passed".format(traffic_type))
-        else:
-            st.banner("{} traffic failed".format(traffic_type))
-            ret = False
-    return ret
-
 def find_tgen_port_name(port, dut=None):  
     """
     Find the "tgen port channel name" given the port channel name / number
@@ -7656,121 +7155,6 @@ def find_tgen_port_name(port, dut=None):
                 return tgen_port
     else:
         return None
-
-def verify_base_setup(retry=1):
-    leaf_nodes = test_cfg['nodes']['l2l3vni']
-    st.log('Calling verify_base_setup method')
-    dut_result = {}
-    for dut in leaf_nodes:
-        dut_result[dut] = {}
-        st.banner('Verify vlan/vrf/vxlan/evpn on leaf node: {}'.format(dut))
-        try:
-            dut_result[dut]['EVPN ES'] = True
-            exp_data = vxlan_obj.get_expected_evpn_es(dut)
-            vxlan_obj.verify_evpn_es(dut, exp_data, vl_retries=retry)
-            st.log('Verify EVPN ES on {}: Pass'.format(dut))
-        except Exception as err:
-            st.log('Verify EVPN ES on {}: Fail\n{}'.format(dut, err))
-            dut_result[dut]['EVPN ES'] = False
-
-        try:
-            dut_result[dut]['EVPN ES-EVI'] = True
-            exp_data = vxlan_obj.get_expected_evpn_es_evi(dut)
-            vxlan_obj.verify_evpn_es_evi(dut, exp_data, vl_retries=retry)
-            st.log('Verify EVPN ES-EVI on {}: Pass'.format(dut))
-        except Exception as err:
-            st.log('Verify EVPN ES-EVI on {}: Fail\n{}'.format(dut, err))
-            dut_result[dut]['EVPN ES-EVI'] = False
-
-        try:
-            dut_result[dut]['Vxlan-VlanVni map'] = True
-            exp_data = vxlan_obj.get_expected_vxlan_vlanvnimap(dut)
-            vxlan_obj.verify_vxlan_vlanvnimap(dut, exp_data, vl_retries=retry)
-            st.log('Verify Vxlan-VlanVni map on {}: Pass'.format(dut))
-        except Exception as err:
-            st.log('Verify Vxlan-VlanVni map on {}: Fail\n{}'.format(dut, err))
-            dut_result[dut]['Vxlan-VlanVni map'] = False
-
-        try:
-            dut_result[dut]['Vxlan-VrfVni map'] = True
-            exp_data = vxlan_obj.get_expected_vxlan_vrfvnimap(dut)
-            vxlan_obj.verify_vxlan_vrfvnimap(dut, exp_data, vl_retries=retry)
-            st.log('Verify Vxlan-VrfVni map on {}: Pass'.format(dut))
-        except Exception as err:
-            st.log('Verify Vxlan-VrfVni map on {}: Fail\n{}'.format(dut, err))
-            dut_result[dut]['Vxlan-VrfVni map'] = False
-
-        try:
-            dut_result[dut]['Vxlan remote vtep'] = True
-            exp_data = vxlan_obj.get_expected_vxlan_remotevtep(dut)
-            vxlan_obj.verify_vxlan_remotevtep(dut, exp_data, vl_retries=retry)
-            st.log('Verify Vxlan remote vtep on {}: Pass'.format(dut))
-        except Exception as err:
-            st.log('Verify Vxlan remote vtep on {}: Fail\n{}'.format(dut, err))
-            dut_result[dut]['Vxlan remote vtep'] = False
-        
-        try:
-            dut_result[dut]['BGP summary'] = True
-            exp_data = vxlan_obj.get_expected_bgp_summary(dut)
-            vxlan_obj.verify_bgp_summary(dut, exp_data, vl_retries=retry)
-            st.log('Verify BGP summary on {}: Pass'.format(dut))
-        except Exception as err:
-            st.log('Verify BGP summary on {}: Fail\n{}'.format(dut, err))
-            # TODO ; FIX dut_result[dut]['BGP summary'] = False
-        """
-        try:
-            dut_result[dut]['BFD summary'] = True
-            exp_data = vxlan_obj.get_expected_bfd_summary(dut)
-            vxlan_obj.verify_bfd_summary(dut, exp_data, vl_retries=retry)
-            st.log('Verify BFD summary on {}: Pass'.format(dut))
-        except Exception as err:
-            st.log('Verify BFD summary on {}: Fail\n{}'.format(dut, err))
-            dut_result[dut]['BFD summary'] = False
-        """
-
-        try:
-            dut_result[dut]['Vxlan neighbor group'] = True
-            verify_vxlan_neigh_groups(dut, retry=retry)
-            st.log('Verify Vxlan neighbor group on {}: Pass'.format(dut))
-        except Exception as err:
-            st.log('Verify Vxlan neighbor group on {}: Fail\n{}'.format(dut, err))
-            dut_result[dut]['Vxlan neighbor group'] = False
-
-        try:
-            dut_result[dut]['EVPN Type 1 Routes'] = True
-            exp_data = vxlan_obj.get_expected_evpn_type1_routes(dut)
-            vxlan_obj.verify_evpn_type1_routes(dut, exp_data, vl_retries=retry)
-            st.log('Verify EVPN Type 1 Routes on {}: Pass'.format(dut))
-        except Exception as err:
-            st.log('Verify EVPN Type 1 Routes on {}: Fail\n{}'.format(dut, err))
-            dut_result[dut]['EVPN Type 1 Routes'] = False
-
-        try:
-            dut_result[dut]['EVPN Type 4 Routes'] = True
-            exp_data = vxlan_obj.get_expected_evpn_type4_routes(dut)
-            vxlan_obj.verify_evpn_type4_routes(dut, exp_data)
-            st.log('Verify EVPN Type 4 Routes on {}: Pass'.format(dut))
-        except Exception as err:
-            st.log('Verify EVPN Type 4 Routes on {}: Fail\n{}'.format(dut, err))
-            dut_result[dut]['EVPN Type 4 Routes'] = False
-
-        dut_result[dut]['result'] = True
-        for v_name , res in dut_result[dut].items():
-            if res:
-                st.log('Verify {} on {}: Pass'.format(v_name, dut))
-            else:
-                st.error('Verify {} on {}: Fail'.format(v_name, dut))
-                dut_result[dut]['result'] = False
-
-    result = True
-    for dut in leaf_nodes:
-        if dut_result[dut]['result']:
-            st.banner('Base verification on {}: Pass'.format(dut))
-        else:
-            st.banner('Base verification on {}: Fail'.format(dut))
-            result = False
-    return result
-        
 
 def verify_vxlan_neigh_groups(dut, retry=1):
 
@@ -7809,7 +7193,6 @@ def verify_vxlan_neigh_groups(dut, retry=1):
             err += 'Local Members {} not found\n'.format(members)
     if err:
         raise Exception(err)    
-    
 
 @pytest.fixture(scope="class")
 def configure_external_router(request):
@@ -7817,7 +7200,7 @@ def configure_external_router(request):
     global ref_vrf_1, ref_vrf_2, org_bgp_cfg_ext, ext_v6addr_vrf_1, lb_v6addr_vrf_1, ext_asn_no
     tc_id = "base_config_ext_connectivity"
     test_cfg['tc_id'] = tc_id
-    tc_cfg = get_tc_params(tc_id) 
+    tc_cfg = vxlan_obj.get_tc_params(tc_id) 
     tc_cfg['hx1_vlan_int'] = "Vlan{}".format(tc_cfg['vlan_id_hx1'])
     tc_cfg['hx2_vlan_int'] = "Vlan{}".format(tc_cfg['vlan_id_hx2'])
     result = True
@@ -7844,8 +7227,8 @@ def configure_external_router(request):
         if dut_id == ext_dut_id or dut_id == leaf3_dut_id :
             for key,value in vars.items():
                 if ext_dut_id+leaf3_dut_id in key:
-                    ext_dut_int_vrf_1 = get_intf_short_name(value + '.' + str(ext_sub_int_vlan_id_1))
-                    ext_dut_int_vrf_2 = get_intf_short_name(value + '.' + str(ext_sub_int_vlan_id_2))
+                    ext_dut_int_vrf_1 = get_intf_short_name(value + '.' + str(test_cfg['tc_cfg']['ext_sub_int_vlan_id_1']))
+                    ext_dut_int_vrf_2 = get_intf_short_name(value + '.' + str(test_cfg['tc_cfg']['ext_sub_int_vlan_id_2']))
 
                     continue
                 if leaf3_dut_id+ext_dut_id in key:
@@ -7982,7 +7365,7 @@ def tgen_ext_conn_preconfig():
     #Src port selection
     tc_id = "base_config_ext_connectivity"
     test_cfg['tc_id'] = tc_id
-    tc_cfg = get_tc_params(tc_id) 
+    tc_cfg = vxlan_obj.get_tc_params(tc_id) 
     result = True
     spine_testbed = True
     selected_leaf_list = ['leaf0']
@@ -8513,12 +7896,12 @@ class TestVxlanExternalConnectivity():
         
         st.wait(180)
         st.log("Verifying base setup")
-        base_res = verify_base_setup(retry=test_cfg['global']['config_reload'])
+        base_res = pf.verify_base_setup(retry=test_cfg['global']['config_reload'])
         if base_res:
             st.banner("Base verification pass after config reload")
         else:
             vxlan_obj.get_cli_out(leaf_nodes)
-            report_result(False, "test_config_reload", 'Base setup verification failed after config reload')
+            vxlan_obj.report_result(False, "test_config_reload", 'Base setup verification failed after config reload')
     
         traffic_result = vxlan_obj.check_traffic(self.handles,
                                    stop_proto_wait = test_cfg['global']['traffic_stop_protocol_sleep'],
@@ -8550,12 +7933,12 @@ class TestVxlanExternalConnectivity():
                 st.error("Post 'config reload', ALL dockers are not UP.")
                 st.report_fail("test_case_failed")
         st.log("Verifying base setup")
-        base_res = verify_base_setup(retry=10)
+        base_res = pf.verify_base_setup(retry=10)
         if base_res:
             st.banner("Base verification pass after reboot")
         else:
             vxlan_obj.get_cli_out(leaf_nodes)
-            report_result(False, "test_config_reload", 'Base setup verification failed after reboot')
+            vxlan_obj.report_result(False, "test_config_reload", 'Base setup verification failed after reboot')
 
         traffic_result = vxlan_obj.check_traffic(self.handles,
                                    stop_proto_wait = test_cfg['global']['traffic_stop_protocol_sleep'],
@@ -8582,7 +7965,7 @@ def setup_scaled_mac_vlans():
    
     tc_id = 'test_mac_learn_and_withdraw'
     test_cfg['tc_id'] = tc_id
-    tc_cfg = get_tc_params(tc_id) 
+    tc_cfg = vxlan_obj.get_tc_params(tc_id) 
     result = True
     leaf_nodes=[]
     for dut in st.get_dut_names():
@@ -8637,7 +8020,7 @@ def tgen_scaled_mac_preconfig(request):
     #Src port selection
     tc_id = 'test_mac_learn_and_withdraw'
     test_cfg['tc_id'] = tc_id
-    tc_cfg = get_tc_params(tc_id) 
+    tc_cfg = vxlan_obj.get_tc_params(tc_id) 
     result = True
     selected_leaf_list = ['leaf0']
     topo_handles = tgen_handles['topo_handles']
@@ -9078,7 +8461,7 @@ def tgen_local_bridged_config():
     ### ADD DUT CONFIGS ###
     tc_id = 'test_local_bridged_traffic'
     test_cfg['tc_id'] = tc_id
-    tc_cfg = get_tc_params(tc_id) 
+    tc_cfg = vxlan_obj.get_tc_params(tc_id) 
     result = True
     
     selected_leaf_list = ['leaf0']
@@ -9295,7 +8678,7 @@ class TestMoveExistingVlanToDiffVrf():
         """
         tc_id = "test_move_vlan_to_diff_vrf"
         test_cfg['tc_id'] = tc_id
-        tc_cfg = get_tc_params(tc_id)
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
         duts = []
         result_str = ''
 
@@ -9314,7 +8697,7 @@ class TestMoveExistingVlanToDiffVrf():
                 cmd += "sudo config vlan static-anycast-gateway enable {}\n".format(vlan["id"][-1])
             st.config(dut, cmd, skip_error_check=True)
         st.log('Verifying traffic after moving')
-        if not verify_traffic(tgen_handles):
+        if not pf.verify_traffic(tgen_handles):
             log = 'Verifying traffic after moving failed'
             st.banner(log)
             result_str += '{}\n'.format(log)
@@ -9331,15 +8714,15 @@ class TestMoveExistingVlanToDiffVrf():
                 cmd += "sudo config vlan static-anycast-gateway enable {}\n".format(vlan["id"][-1])
             st.config(dut, cmd, skip_error_check=True)
         st.log('Verifying traffic after restoring')
-        if not verify_traffic(tgen_handles):
+        if not pf.verify_traffic(tgen_handles):
             log = 'Verifying traffic after restoring failed'
             st.banner(log)
             result_str += '{}\n'.format(log)
 
         if not result_str:
-            report_result(True, tc_id)
+            vxlan_obj.report_result(True, tc_id)
         else:
-            report_result(False, tc_id, result_str)
+            vxlan_obj.report_result(False, tc_id, result_str)
 
 
 

@@ -157,7 +157,7 @@ def get_vxlan_mapping(data, mode="add"):
         for vlan_id in range(data['l2vni']['vlan_start_range'], 
                           data['l2vni']['vlan_start_range']+data['l2vni']['count']):
             vlan_list.append(vlan_id)
-            vxlan_list.append(vxlan_id + vxlan_start_id)
+            vxlan_list.append(vlan_id + vxlan_start_id)
                 
     for vlan_id, vxlan_id in zip(vlan_list, vxlan_list):
         if mode == "add":
@@ -770,9 +770,9 @@ def get_config_interfaces_list(var_dict):
             else:
                 temp_dict[key]['l2vni_int_count'] = config[key]['l2vni']['count']
     for node in var_dict.dut_ids.keys():
-        temp_list=[]
         if node in config['nodes']['spine'] or \
             node in config['nodes']['leaf']:
+            temp_list=[]
             final_config_dict[node]={}
             final_config_dict[node]['underlay']={}
             for item,value in dut_int_data[node]['underlay_dict'].items():
@@ -780,6 +780,7 @@ def get_config_interfaces_list(var_dict):
             final_config_dict[node]['underlay'] = sorted(temp_list)
         if node in config['nodes']['l2l3vni']:
             my_list =[]
+            temp_list=[]
             for key in dut_int_data[node]['dut_port_dict'].keys():      
                 my_list.append(key)
             sorted_list =sorted(my_list)
@@ -1464,44 +1465,65 @@ def create_device_groups(topo_handles_dict,host_dict,version = "ipv4"):
 def delete_device_groups(tg_handle, device_handle):
     tg_handle.tg_topology_config(device_group_handle =device_handle, mode = 'destroy')
     
-def start_stop_protocols(tg_handle,action):
+def start_stop_protocols(tg_handle,action, start_wait = 40, check_protocol = True):
+    """
+    starts or stops all protocols on tgen and checks for session status after start, 
+    if any sessions are down it flaps those sessions individually and checks again
+    
+    :param tg_handle: Description
+    :param action: Description
+    
+    returns 0 if start/stop failed, 1 if start/stop succeeded and all sessions are up, 
+    2 if start/stop succeeded but some sessions were down and had to be flapped
+    """
     status = 0
     action_dict = {"start":"start_all_protocols", "stop":"stop_all_protocols"}
     start_stop_protocol = tg_handle.tg_test_control(action=action_dict[action])
     if start_stop_protocol['status'] == '1':
         status = 1
     # Check to see if all sessions are up after start, if down then flap individual ones
-    if action == "start":
-        st.wait(40)
+    if check_protocol and action == "start":
+        st.wait(start_wait)
         st.log('Checking protocol sessions for DOWN handles after start/stop...')
-        res = tg_handle.tg_protocol_info(handle='', mode='aggregate')
-
-        # collect handles that report any sessions_down != '0'
-        down_handles = [h for h, v in res.items() if isinstance(v, dict) and v.get('aggregate', {}).get('sessions_down', '0') != '0']
-
-        if down_handles:
-            st.log('Flapping protocol sessions for DOWN handles.')
-            for hand in down_handles:
-                st.log("Stopping handle ")
-                tg_handle.tg_test_control(action='stop_protocol', handle=hand)
-                st.wait(3)
-
-                st.log("Starting handle")
-                tg_handle.tg_test_control(action='start_protocol', handle=hand)
-            st.wait(15)
-
-            # Re-check after flaps
-            res2 = tg_handle.tg_protocol_info(handle='', mode='aggregate')
-            still_down = [h for h, v in res2.items()
-                        if isinstance(v, dict) and v.get('aggregate', {}).get('sessions_down', '0') != '0']
-            if still_down:
-                st.banner("After flap, some sessions are still DOWN")
-                status = 2
-            else:
-                st.log('All protocol sessions UP after flap.')
-        else:
-            st.log('No DOWN protocol sessions detected.')
+        proto_status = check_protocol_status(tg_handle)
+        if not proto_status:
+            status = 2
     return status 
+
+def check_protocol_status(tg_handle):
+    """
+    checks protocol status on tgen and if any sessions are down, it flaps those sessions and checks again
+    
+    :param tg_handle: Description
+    """
+    status = 1
+    res = tg_handle.tg_protocol_info(handle='', mode='aggregate')
+    # collect handles that report any sessions_down != '0'
+    down_handles = [h for h, v in res.items() if isinstance(v, dict) and v.get('aggregate', {}).get('sessions_down', '0') != '0']
+
+    if down_handles:
+        st.log('Flapping protocol sessions for DOWN handles.')
+        for hand in down_handles:
+            st.log("Stopping handle ")
+            tg_handle.tg_test_control(action='stop_protocol', handle=hand)
+            st.wait(3)
+
+            st.log("Starting handle")
+            tg_handle.tg_test_control(action='start_protocol', handle=hand)
+        st.wait(15)
+
+        # Re-check after flaps
+        res2 = tg_handle.tg_protocol_info(handle='', mode='aggregate')
+        still_down = [h for h, v in res2.items()
+                    if isinstance(v, dict) and v.get('aggregate', {}).get('sessions_down', '0') != '0']
+        if still_down:
+            st.error("After flap, some sessions are still DOWN")
+            status = 0
+        else:
+            st.log('All protocol sessions UP after flap.')
+    else:
+        st.log('No DOWN protocol sessions detected.')
+    return status
     
 def find_l2_traffic_endpoints(host_info_dict):
     end_point_dict ={}
@@ -1788,10 +1810,10 @@ def delete_traffic_item(tg_handle, stream_handle):
         tg_handle.tg_traffic_config(mode = 'remove', stream_id = stream_handle)
     
 def check_traffic(streams_info, regenerate_traffic_items=False, mode='traffic_item', action='default', 
-                  stop_start_protocols=True, stop_proto_wait=15, start_proto_wait=15, min_perc=99.8, max_perc=100.2 ):
+                  stop_start_protocols=True, check_protocol=True, stop_proto_wait=15, start_proto_wait=15, min_perc=99.8, max_perc=100.2 ):
     '''
     Author:Ramsiddarth Ragurajan (rraguraj@cisco.com)
-    acions : start/stop/check/default(does start->stop->check)
+    acions : start/stop/check/default(does start->stop->check)/start_check(start and check without stopping)
 
     '''
     flag = True
@@ -1802,26 +1824,36 @@ def check_traffic(streams_info, regenerate_traffic_items=False, mode='traffic_it
             stream_list.append(values['stream_id'])
     tg_handle = streams_info[item]['tg_handle']
     ###Enable streams
-    if not (action == 'check' or action == 'stop'):
+    if not ('check' in action or action == 'stop'):
         tg_handle.tg_traffic_config(mode = 'enable', stream_id = stream_list)
 
     ###stop/start all protocols###
-    if action == 'start' or action == 'default':
-        if stop_start_protocols:
+    if 'start' in action  or action == 'default':
+        if type(stop_start_protocols) == bool:
+            start_proto = stop_proto = stop_start_protocols
+        elif type(stop_start_protocols) == str and stop_start_protocols.lower() == 'start_only':
+            stop_proto = False
+            start_proto = True
+
+        if stop_proto:
             start_stop_protocols(tg_handle,'stop')
             st.wait(stop_proto_wait)
-            start_stop_protocols(tg_handle,'start')
-            st.wait(start_proto_wait)
-        else:
-            ###
-            res2 = tg_handle.tg_protocol_info(handle='', mode='aggregate')
-            protocols_down = [h for h, v in res2.items() if isinstance(v, dict) and v.get('aggregate', {}).get('sessions_down', '0') != '0']
-            if protocols_down:
-                st.banner("Some sessions are DOWN")
+        if start_proto:
+            res = start_stop_protocols(tg_handle,'start', start_wait=start_proto_wait, 
+                                 check_protocol=check_protocol)
+            if res == 0:
+                st.log('Could not start protocol sessions')
+            elif res == 2:
+                st.error("Some sessions are DOWN")
             else:
-                st.banner('All protocol sessions UP')
-            ###
-
+                st.log('All protocol sessions UP')
+            check_protocol = False 
+            st.wait(start_proto_wait)
+        if check_protocol:
+            if check_protocol_status(tg_handle):
+                st.log('All protocol sessions UP')
+            else:
+                st.error("Some sessions are DOWN")
 
         ###start traffic###
         if regenerate_traffic_items and action != 'check':
@@ -1836,15 +1868,17 @@ def check_traffic(streams_info, regenerate_traffic_items=False, mode='traffic_it
         return flag
 
     ###Stop Traffic###
-    tg_handle.tg_traffic_control(action='stop', stream_handle=stream_list, max_wait_timer = '30')
-    st.wait(10)
+    if not 'check' in action :
+        tg_handle.tg_traffic_control(action='stop', stream_handle=stream_list, max_wait_timer = '30')
+        st.wait(10)
 
     if action == 'stop':
         return flag
 
     traffic_stat = tg_handle.tg_traffic_stats(mode= mode, streams=stream_list)
     ###Disable streams .
-    tg_handle.tg_traffic_config(mode = 'disable', stream_id = stream_list)
+    if not 'check' in action :
+        tg_handle.tg_traffic_config(mode = 'disable', stream_id = stream_list)
 
     if mode == 'traffic_item':
         row_format = '|{:20}|{:20}|{:20}|{:15}|'
@@ -2788,6 +2822,68 @@ def get_expected_evpn_es_evi(dut):
 def verify_evpn_es_evi(dut, exp_data, id_keys=['esi', 'vni'], **kwargs): 
 
     act_data = get_evpn_es_evi(dut)
+    compare_exp_actual_data(exp_data, act_data, id_keys)
+    return act_data
+
+def get_interfaces_status(dut, interface=""):
+    """
+    parses 'show interfaces status ' output into data struct below
+    cisco@sonic:~$ sudo 
+    sudo show interfaces status
+    FCMD: sudo show interfaces status
+         Interface                                    Lanes    Speed    MTU    FEC           Alias          Vlan    Oper    Admin                           Type    Asym PFC
+    --------------  ---------------------------------------  -------  -----  -----  --------------  ------------  ------  -------  -----------------------------  ----------
+     Ethernet1_1_1                      1544,1545,1546,1547     400G   9100     rs   Ethernet1_1_1        routed      up       up  OSFP 8X Pluggable Transceiver         N/A
+     Ethernet1_1_2                      1548,1549,1550,1551     400G   9100     rs   Ethernet1_1_2        routed      up       up  OSFP 8X Pluggable Transceiver         N/A
+       Ethernet1_2  1536,1537,1538,1539,1540,1541,1542,1543     800G   9100    N/A     Ethernet1_2        routed      up       up  OSFP 8X Pluggable Transceiver         N/A
+
+    Returns:
+    [{'admin': 'up',
+    'alias': 'Ethernet1_1_1',
+    'asympfc': 'N/A',
+    'fec': 'rs',
+    'interface': 'Ethernet1_1_1',
+    'lanes': '1544,1545,1546,1547',
+    'mtu': '9100',
+    'oper': 'up',
+    'speed': '400G',
+    'type': 'OSFP 8X Pluggable Transceiver        ',
+    'vlan': 'routed'},
+    {'admin': 'up',
+    'alias': 'Ethernet1_1_2',
+    'asympfc': 'N/A',
+    'fec': 'rs',
+    'interface': 'Ethernet1_1_2',
+    'lanes': '1548,1549,1550,1551',
+    'mtu': '9100',
+    'oper': 'up',
+    'speed': '400G',
+    'type': 'OSFP 8X Pluggable Transceiver        ',
+    'vlan': 'routed'},
+    {'admin': 'up',
+    'alias': 'Ethernet1_2',
+    'asympfc': 'N/A',
+    'fec': 'N/A',
+    'interface': 'Ethernet1_2',
+    'lanes': '1536,1537,1538,1539,1540,1541,1542,1543',
+    'mtu': '9100',
+    'oper': 'up',
+    'speed': '800G',
+    'type': 'OSFP 8X Pluggable Transceiver        ',
+    'vlan': 'routed'},
+    ...]
+
+    """
+    cmd = 'show interfaces status {}'.format(interface)
+    cmd_output = st.show(dut, cmd, skip_tmpl=True, skip_error_check=False)
+    parsed_output = st.parse_show(dut, cmd, cmd_output, 'show_interfaces_status_qa.tmpl')
+
+    return parsed_output
+
+@VerifyLoop()
+def verify_interfaces_status(dut, exp_data, id_keys=['interface'], interface="", **kwargs): 
+
+    act_data = get_interfaces_status(dut, interface)
     compare_exp_actual_data(exp_data, act_data, id_keys)
     return act_data
 
@@ -3863,5 +3959,44 @@ def verify_bfd_summary(dut, exp_data, **kwargs):
     """
     act_data = get_bfd_summary(dut)
     compare_exp_actual_data(exp_data, act_data, ['interface', 'state'])
-  
 
+def report_result(result, tc_id='', rc_msg=''):
+    if result:
+        st.banner('Testcase: {} :: Result: Pass'.format(tc_id))
+        st.report_pass('test_case_passed')
+    else:
+        st.banner('Testcase: {} :: Result: Fail'.format(tc_id))
+        st.banner('Testcase: {} :: Diags: {}'.format(tc_id, rc_msg))
+        collect_diags(tc_id)
+        st.report_fail("test_case_failed")
+
+def collect_diags(tc_id=''):
+    cmds = list()
+    vtysh_cmds = list()
+    tc_dict = get_tc_params('all') 
+    cmds.extend(tc_dict.get('debug_cmds', []))
+    vtysh_cmds.extend(tc_dict.get('debug_cmds_vtysh', []))
+    if tc_id:
+        tc_dict = get_tc_params(tc_id) 
+        cmds.extend(tc_dict.get('debug_cmds', []))
+        vtysh_cmds.extend(tc_dict.get('debug_cmds_vtysh', []))
+    for dut in st.get_dut_names():
+        for cmd in cmds:
+            try:
+                st.config(dut, cmd, skip_error_check=True)
+            except Exception as err:
+                st.error('Error collecting : {}'.format(cmd))
+        for cmd in vtysh_cmds:
+            try:
+                st.config(dut, cmd, type='vtysh', skip_error_check=True)
+            except Exception as err:
+                st.error('Error collecting : {}'.format(cmd))
+
+def get_tc_params(tc_id):
+    test_cfg = get_cfg_dict()
+    if not test_cfg or 'testcases' not in test_cfg.keys():
+        return dict()
+    if tc_id not in test_cfg['testcases'].keys():
+        test_cfg['testcases'][tc_id] = dict()
+
+    return test_cfg['testcases'][tc_id]
