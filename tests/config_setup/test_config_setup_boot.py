@@ -122,7 +122,7 @@ source "${EXTRACTED}"
 # --- Step 2: Override constants to use fake paths ---
 # These must come AFTER sourcing so they replace the real paths.
 CONFIG_DB_JSON="${FAKE_ROOT}/etc/sonic/config_db.json"
-MINGRAPH_FILE="${FAKE_ROOT}/etc/sonic/minigraph.xml"
+MINIGRAPH_FILE="${FAKE_ROOT}/etc/sonic/minigraph.xml"
 TMP_ZTP_CONFIG_DB_JSON="${FAKE_ROOT}/tmp/ztp_config_db.json"
 CONFIG_SETUP_VAR_DIR="${FAKE_ROOT}/var/lib/config-setup"
 CONFIG_SETUP_POST_MIGRATION_FLAG="${CONFIG_SETUP_VAR_DIR}/pending_post_migration"
