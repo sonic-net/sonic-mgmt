@@ -18,6 +18,9 @@ Homepage = "https://github.com/sonic-net/sonic-mgmt"
 [tool.setuptools]
 package-dir = {"" = ".hooks"}
 
+[tool.pytest.ini_options]
+junit_family = "xunit1"
+
 [tool.setuptools.packages.find]
 where = [".hooks"]
 
