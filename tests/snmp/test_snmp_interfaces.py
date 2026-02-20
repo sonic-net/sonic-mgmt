@@ -52,7 +52,10 @@ def get_interfaces(duthost, tbinfo):
             return [interface], interface
         else:
             mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+            if interface not in mg_facts["minigraph_portchannels"].keys():
+                continue
             return mg_facts["minigraph_portchannels"][interface]['members'], interface
+    pytest.skip("No RIF interfaces nor Portchannels, skiping the test")
 
 
 def get_oid_for_interface(duthost, table_name, interface_name):
@@ -265,10 +268,12 @@ def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, ri
                     f"{int(rif_counters[rif_interface]['tx_err']) + int(port_counters['tx_drp'])}")
         return False
     if int(rif_snmp_facts['ifInErrors']) != COUNTER_VALUE * num_port_intfs:
-        logger.info(f"ifInErrors value is {rif_snmp_facts['ifInErrors']} but must be {COUNTER_VALUE}")
+        logger.info(f"ifInErrors value is {rif_snmp_facts['ifInErrors']} "
+                    f"but must be {COUNTER_VALUE * num_port_intfs}")
         return False
     if int(rif_snmp_facts['ifOutErrors']) != COUNTER_VALUE * num_port_intfs:
-        logger.info(f"ifOutErrors value is {rif_snmp_facts['ifOutErrors']} but must be {COUNTER_VALUE}")
+        logger.info(f"ifOutErrors value is {rif_snmp_facts['ifOutErrors']} "
+                    f"but must be {COUNTER_VALUE * num_port_intfs}")
         return False
 
     return True
@@ -426,13 +431,13 @@ def test_snmp_interfaces_error_discard(duthosts, enum_rand_one_per_hwsku_hostnam
 
     logger.info('Compare port counters in COUNTERS DB and counters get from SONiC CLI')
     assert int(port_counters['tx_err']) == COUNTER_VALUE * num_port_intfs, \
-        f"tx_err value is {port_counters['tx_err']} not set to {COUNTER_VALUE}"
+        f"tx_err value is {port_counters['tx_err']} not set to {COUNTER_VALUE * num_port_intfs}"
     assert int(port_counters['rx_err']) == COUNTER_VALUE * num_port_intfs, \
-        f"rx_err value is {port_counters['rx_err']} not set to {COUNTER_VALUE}"
+        f"rx_err value is {port_counters['rx_err']} not set to {COUNTER_VALUE * num_port_intfs}"
     assert int(port_counters['tx_drp']) == COUNTER_VALUE * num_port_intfs, \
-        f"tx_drp value is {port_counters['tx_drp']} not set to {COUNTER_VALUE}"
+        f"tx_drp value is {port_counters['tx_drp']} not set to {COUNTER_VALUE * num_port_intfs}"
     assert int(port_counters['rx_drp']) == COUNTER_VALUE * num_port_intfs, \
-        f"rx_drp value is {port_counters['rx_drp']} not set to {COUNTER_VALUE}"
+        f"rx_drp value is {port_counters['rx_drp']} not set to {COUNTER_VALUE * num_port_intfs}"
 
     pytest_assert(wait_until(60, 10, 0, verify_snmp_counter, duthost, localhost, creds_all_duts, hostip, mg_facts,
                              rif_interface, rif_counters, port_counters, num_port_intfs),
