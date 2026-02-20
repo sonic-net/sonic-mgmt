@@ -5018,6 +5018,7 @@ upgrade_path:
       Skipped due to one or more unsupported conditions:
       - Upgrade path test needs base and target image lists, currently do not support on KVM.
       - Not supported on t1 topology
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
       - "'t1' in topo_type and asic_type in ['marvell-teralynx']"
