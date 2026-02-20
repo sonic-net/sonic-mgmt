@@ -38,8 +38,8 @@
     capabilities:
       - net_admin
     privileged: yes
-    memory: 2G
-    memory_swap: 4G
+    memory: "{{ '10G' if use_converged_peers|bool else '2G' }}"
+    memory_swap: "{{ '20G' if use_converged_peers|bool else '4G' }}"
     env:
       CEOS=1
       container=docker
