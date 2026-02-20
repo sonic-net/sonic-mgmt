@@ -653,9 +653,9 @@ def _get_storm_test_ports(storm_hndle):
     return ports
 
 
-def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_state, baseline_counters=None,
-                                                 threshold_percentage=100, stormed_ports_list=None,
-                                                 selected_test_ports=None):
+def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_state, selected_test_ports,
+                                                 baseline_counters=None, threshold_percentage=100,
+                                                 stormed_ports_list=None):
     """Verify if threshold percentage of ports reached expected PFC storm state."""
     if dut.facts['asic_type'] == 'vs':
         return True

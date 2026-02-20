@@ -208,8 +208,8 @@ class TestPfcwdAllPortStorm(object):
     # Threshold percentage for restore verification (100% of stormed ports must restore)
     PFC_RESTORE_THRESHOLD_PERCENTAGE = 100
 
-    def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action, stormed_ports_list=None,
-                 selected_test_ports=None):
+    def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action, selected_test_ports,
+                 stormed_ports_list=None):
         """Storm generation/restoration on all ports and verification."""
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=syslog_marker)
         ignore_file = os.path.join(TEMPLATES_DIR, "ignore_pfc_wd_messages")
@@ -237,8 +237,8 @@ class TestPfcwdAllPortStorm(object):
 
             pytest_assert(
                 wait_until(60, 2, 5, verify_all_ports_pfc_storm_in_expected_state, duthost,
-                           storm_hndle, action, baseline_counters, threshold, stormed_ports_list,
-                           selected_test_ports),
+                           storm_hndle, action, selected_test_ports, baseline_counters, threshold,
+                           stormed_ports_list),
                 f"Not enough ports reached {action} state (threshold: {threshold}%)"
             )
 
