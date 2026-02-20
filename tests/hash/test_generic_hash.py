@@ -8,10 +8,12 @@ from generic_hash_helper import get_hash_fields_from_option, get_ip_version_from
     get_reboot_type_from_option, HASH_CAPABILITIES, check_global_hash_config, startup_interface, \
     get_interfaces_for_test, get_ptf_port_indices, check_default_route, generate_test_params, flap_interfaces, \
     PTF_QLEN, remove_ip_interface_and_config_vlan, config_custom_vxlan_port, shutdown_interface, \
-    remove_add_portchannel_member, get_hash_algorithm_from_option, check_global_hash_algorithm, get_diff_hash_algorithm
+    remove_add_portchannel_member, get_hash_algorithm_from_option, check_global_hash_algorithm, \
+    get_diff_hash_algorithm, check_default_route_asic_db
 from generic_hash_helper import restore_configuration, reload, global_hash_capabilities, restore_interfaces  # noqa:F401
 from generic_hash_helper import mg_facts, restore_init_hash_config, restore_vxlan_port, \
-    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor  # noqa:F401
+    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor, skip_lag_tests_on_no_lag_topos  # noqa:F401
+from generic_hash_helper import skip_tests_on_isolated_topos  # noqa:F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
@@ -330,9 +332,17 @@ def test_ecmp_and_lag_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_f
         )
 
 
+def is_bgp_session_established(duthost, neighbor_ip):
+    """
+    Check if the BGP session is established.
+    """
+    bgp_neighbors = duthost.get_bgp_neighbors()
+    return bgp_neighbors.get(neighbor_ip, {}).get('state') == 'established'
+
+
 def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_interfaces,  # noqa:F811
                       restore_vxlan_port, global_hash_capabilities, get_supported_hash_algorithms,    # noqa:F811
-                      toggle_all_aa_ports_to_rand_selected_tor):                                      # noqa:F811
+                      toggle_all_aa_ports_to_rand_selected_tor, duthost):                             # noqa:F811
     """
     Test case to validate the ecmp hash when there is nexthop flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -407,8 +417,11 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
     with allure.step('Startup the interface, and then flap it 3 more times'):
         startup_interface(rand_selected_dut, interface)
         flap_interfaces(rand_selected_dut, [interface], times=3)
-        pytest_assert(wait_until(10, 2, 0, check_default_route, rand_selected_dut, uplink_interfaces.keys()),
-                      'The default route is not restored after the flapping.')
+        ip_intfs = duthost.show_and_parse('show ip interface')
+        ip_intf = next((intf for intf in ip_intfs if intf['interface'] == interface), None)
+        neighbor_ip = ip_intf['neighbor ip']
+        pytest_assert(wait_until(60, 2, 0, is_bgp_session_established, duthost, neighbor_ip),
+                      "BGP session is not established on DUT after the flapping")
         ptf_params['expected_port_groups'] = origin_ptf_expected_port_groups
     with allure.step('Start the ptf test, send traffic and check the balancing'):
         ptf_runner(
@@ -697,6 +710,8 @@ def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_f
     with allure.step('Check the route is established'):
         pytest_assert(wait_until(60, 10, 0, check_default_route, rand_selected_dut, uplink_interfaces.keys()),
                       "The default route is not established after the cold reboot.")
+        pytest_assert(wait_until(120, 10, 0, check_default_route_asic_db, rand_selected_dut),
+                      'The default route are not installed to the asic db.')
     with allure.step('Start the ptf test, send traffic and check the balancing'):
         ptf_runner(
             ptfhost,

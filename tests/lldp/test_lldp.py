@@ -1,9 +1,6 @@
 import logging
 import pytest
-import time
 from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
-from tests.common.helpers.dut_utils import get_program_info, kill_process_by_pid, is_container_running
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -23,12 +20,12 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
 
 
 @pytest.fixture(scope="function")
-def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+def restart_swss_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # Check for swss autorestart state
+    swss_autorestart_state = "enabled" if "enabled" in duthost.shell("show feature autorestart swss")['stdout'] \
+        else "disabled"
     asic = duthost.asic_instance(enum_frontend_asic_index)
-    feature_name = "swss"
-    container_name = asic.get_docker_name(feature_name)
-    program_name = "orchagent"
 
     pre_lldpctl_facts = get_num_lldpctl_facts(duthost, enum_frontend_asic_index)
     assert pre_lldpctl_facts != 0, (
@@ -37,53 +34,28 @@ def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         "pre_lldpctl_facts value: {}"
     ).format(pre_lldpctl_facts)
 
-    if duthost.facts['switch_type'] == "voq":
-        """ VOQ type chassis does not support warm restart of orchagent. Use restart service here """
-        duthost.shell("sudo systemctl reset-failed")
-        duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("swss")))
-        # make sure all critical services are up
-        assert wait_until(600, 5, 30, duthost.critical_services_fully_started), (
-            "Not all critical services are fully started after restarting orchagent. "
-            "Hostname: {}\n"
-            "Platform: {}\n"
-            "HWSKU: {}\n"
-        ).format(
-            duthost.hostname,
-            duthost.facts.get("platform"),
-            duthost.facts.get("hwsku")
-        )
+    duthost.shell("sudo systemctl reset-failed")
+    duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("swss")))
 
-        # wait for ports to be up and lldp neighbor information has been received by dut
-        assert wait_until(300, 20, 60,
-                          lambda: pre_lldpctl_facts == get_num_lldpctl_facts(duthost, enum_frontend_asic_index)), (
-            "Cannot get all lldp entries. "
-            "Expected LLDP entries: {}\n"
-            "Current LLDP entries: {}"
-        ).format(
-            pre_lldpctl_facts,
-            get_num_lldpctl_facts(duthost, enum_frontend_asic_index)
-        )
+    # make sure all critical services are up
+    assert wait_until(600, 5, 30, duthost.critical_services_fully_started), (
+        "Not all critical services are fully started after restarting orchagent. "
+    )
 
-        # add delay here to make sure neighbor devices also have received lldp packets from dut and neighbor
-        # information has been updated properly
-        time.sleep(30)
-    else:
-        logger.info("Restarting program '{}' in container '{}'".format(program_name, container_name))
-        # disable feature autorestart. Feature is enabled/disabled at feature level and
-        # not per container namespace level.
-        duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
-        _, program_pid = get_program_info(duthost, container_name, program_name)
-        kill_process_by_pid(duthost, container_name, program_name, program_pid)
-        is_running = is_container_running(duthost, container_name)
-        pytest_assert(
-            is_running,
-            (
-                "Container '{}' is not running."
-            ).format(container_name)
-        )
+    # wait for ports to be up and lldp neighbor information has been received by dut
+    assert wait_until(300, 20, 60,
+                      lambda: pre_lldpctl_facts == get_num_lldpctl_facts(duthost, enum_frontend_asic_index)), (
+        "Cannot get all lldp entries. "
+        "Expected LLDP entries: {}\n"
+        "Current LLDP entries: {}"
+    ).format(
+        pre_lldpctl_facts,
+        get_num_lldpctl_facts(duthost, enum_frontend_asic_index)
+    )
 
-        duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
     yield
+
+    duthost.shell(f"sudo config feature autorestart swss {swss_autorestart_state}")
 
 
 def get_num_lldpctl_facts(duthost, enum_frontend_asic_index):
@@ -99,6 +71,15 @@ def get_num_lldpctl_facts(duthost, enum_frontend_asic_index):
 def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
               collect_techsupport_all_duts, enum_frontend_asic_index, request):
     """ verify the LLDP message on DUT """
+    converged = duthosts.tbinfo['topo']['properties'].get('topo_is_multi_vrf', False)
+    convergence_info = None
+    rev_vrf_map = {}
+    if converged:
+        convergence_info = duthosts.tbinfo['topo']['properties']['convergence_data']
+        for primary, vrflist in convergence_info['convergence_mapping'].items():
+            for vrf in vrflist:
+                rev_vrf_map[vrf] = primary
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
     config_facts = duthost.asic_instance(
@@ -110,31 +91,38 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
     if not list(lldpctl_facts['lldpctl'].items()):
         pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
     for k, v in list(lldpctl_facts['lldpctl'].items()):
-        # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
-        assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name'], (
-            "LLDP neighbor name mismatch. Expected '{}', but got '{}'."
-        ).format(
-            config_facts['DEVICE_NEIGHBOR'][k]['name'],
-            v['chassis']['name']
-        )
-
-        # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
-        if request.config.getoption("--neighbor_type") == 'eos':
-            assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port'], (
-                "LLDP neighbor port interface name mismatch. Expected '{}', but got '{}'."
-            ).format(
-                config_facts['DEVICE_NEIGHBOR'][k]['port'],
-                v['port']['ifname']
-            )
-
+        if converged:
+            exp_intf = config_facts['DEVICE_NEIGHBOR'][k]['port']
+            vrf = config_facts['DEVICE_NEIGHBOR'][k]['name']
+            primary = rev_vrf_map[vrf]
+            new_intf = convergence_info['converged_peers'][primary]['intf_mapping'][vrf]['orig_intf_map'][exp_intf]
+            assert v['chassis']['name'] == primary
+            assert v['port']['ifname'] == new_intf
         else:
-            # Dealing with KVM that advertises port description
-            assert v['port']['descr'] == config_facts['DEVICE_NEIGHBOR'][k]['port'], (
-                "LLDP neighbor port description mismatch. Expected '{}', but got '{}'."
+            # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
+            assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
+            assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name'], (
+                "LLDP neighbor name mismatch. Expected '{}', but got '{}'."
             ).format(
-                config_facts['DEVICE_NEIGHBOR'][k]['port'],
-                v['port']['descr']
+                config_facts['DEVICE_NEIGHBOR'][k]['name'],
+                v['chassis']['name']
             )
+            # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
+            if request.config.getoption("--neighbor_type") == 'eos':
+                assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port'], (
+                    "LLDP neighbor port interface name mismatch. Expected '{}', but got '{}'."
+                ).format(
+                    config_facts['DEVICE_NEIGHBOR'][k]['port'],
+                    v['port']['ifname']
+                )
+            else:
+                # Dealing with KVM that advertises port description
+                assert v['port']['descr'] == config_facts['DEVICE_NEIGHBOR'][k]['port'], (
+                    "LLDP neighbor port description mismatch. Expected '{}', but got '{}'."
+                ).format(
+                    config_facts['DEVICE_NEIGHBOR'][k]['port'],
+                    v['port']['descr']
+                )
 
 
 def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
@@ -266,10 +254,9 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
 
 
 @pytest.mark.disable_loganalyzer
-def test_lldp_neighbor_post_orchagent_reboot(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
-                                             sonic, collect_techsupport_all_duts,
-                                             enum_frontend_asic_index, tbinfo, request, restart_orchagent):
+def test_lldp_neighbor_post_swss_reboot(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
+                                        sonic, collect_techsupport_all_duts, enum_frontend_asic_index,
+                                        tbinfo, request, restart_swss_container):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
                         enum_frontend_asic_index, tbinfo, request)
-    duthost.shell("sudo config feature autorestart swss enabled")

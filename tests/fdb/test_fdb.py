@@ -222,9 +222,7 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                
         logger.info("Dest MAC is {}, show mac results {}".format(dest_mac, result['stdout']))
         pytest_assert(
             False,
-            (
-                "Expected packet was not received on ports {}."
-            ).format(dest_ports)
+            "Expected packet was not received on ports {}.".format(dest_ports)
         )
 
 

@@ -9,13 +9,13 @@ import time
 import pytest
 
 from tests.common.config_reload import config_reload
+from tests.common.constants import CounterpollConstants
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
 from tests.common.helpers.sonic_db import SonicDbCli, SonicDbKeyNotFound
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.utilities import skip_release, wait_until
 from tests.common.reboot import reboot
-from .counterpoll_constants import CounterpollConstants
-from .counterpoll_helper import ConterpollHelper
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
@@ -246,8 +246,10 @@ def verify_counterpoll_status(duthost, counterpoll_list, expected):
         verified_output_dict = {}
         for counterpoll_parsed_dict in counterpoll_output:
             for k, v in list(CounterpollConstants.COUNTERPOLL_MAPPING.items()):
-                if k in counterpoll_parsed_dict[CounterpollConstants.TYPE]:
-                    verified_output_dict[v] = counterpoll_parsed_dict[CounterpollConstants.STATUS]
+                if k == counterpoll_parsed_dict[CounterpollConstants.TYPE]:
+                    status = counterpoll_parsed_dict[CounterpollConstants.STATUS]
+                    logging.info(f"Setting verified_output_dict[{v}] = {status}")
+                    verified_output_dict[v] = status
 
         # Validate all of the relevant keys are disabled - QUEUE/WATERMARK/PG-DROP
         for counterpoll in counterpoll_list:

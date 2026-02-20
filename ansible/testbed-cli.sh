@@ -25,7 +25,7 @@ function usage
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.yaml')"
   echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
-  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic|vcisco) (default: 'ceos')"
+  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic|vcisco|csonic) (default: 'ceos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
   echo "    -s <msetnumber> : master set identifier on specified <k8s-server-name> (default: 1)"
   echo "    -d <dir>        : sonic vm directory (default: $HOME/sonic-vm)"
@@ -70,6 +70,8 @@ function usage
   echo "        -e enable_data_plane_acl=true"
   echo "        -e enable_data_plane_acl=false"
   echo "        by default, data acl is enabled"
+  echo "    deploy-mg also supports IPv6-only management network configuration:"
+  echo "        --ipv6-only-mgmt      Use IPv6-only management configuration (NTP, DNS, TACACS, etc.)"
   echo "To config simulated y-cable driver for DUT in specified testbed: $0 config-y-cable 'testbed-name' 'inventory' ~/.password"
   echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
@@ -142,7 +144,7 @@ function read_yaml
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers upstream_neighbor_groups downstream_neighbor_groups;
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers upstream_neighbor_groups downstream_neighbor_groups use_converged_peers;
   do
     value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
@@ -168,8 +170,36 @@ function read_yaml
   servers=${line_arr[15]}
   upstream_neighbor_groups=${line_arr[16]}
   downstream_neighbor_groups=${line_arr[17]}
+  use_converged_peers=${line_arr[18]}
   # Remove the dpu duts by the keyword 'dpu' in the dut name
   duts=$(echo $duts | sed "s/,[^,]*dpu[^,]*//g")
+
+  converge_topo_if_needed "$topo" "$use_converged_peers"
+}
+
+function converge_topo_if_needed
+{
+    topo="$1"
+    use_converged_peers="$2"
+
+    ANSIBLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    VARS_DIR="$ANSIBLE_DIR/vars"
+    topo_file="$VARS_DIR/topo_${topo}.yml"
+    backup_file="${topo_file}".bak
+
+    if [[ "$use_converged_peers" == "True" ]]; then
+        echo "use_converged_peers is true, converging topo..."
+
+        if [[ -f "$backup_file" ]];then
+            echo "Backup file exists, recover..."
+            cp "$backup_file" "$topo_file"
+        elif [[ -f "$topo_file" ]]; then
+            echo "Back up topo file"
+            cp "$topo_file" "$backup_file"
+        fi
+
+        python -m ceos_topo_converger "$backup_file" "$topo_file"
+    fi
 }
 
 function read_file
@@ -188,7 +218,13 @@ function read_file
 function read_nut_file
 {
   echo "Reading NUT testbed file '$tbfile' for testbed '$1'"
-  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['name']))")
+  keyName="conf-name"
+
+  if [[ $tbfile == *nut.yaml ]]; then
+    keyName="name"
+  fi
+
+  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['$keyName']))")
   echo ""
 
   IFS=$'+' read -r -a tb_lines <<< $content
@@ -208,7 +244,15 @@ function read_nut_file
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in inv_name test_tags duts l1s;
+
+  attributes="inv_name test_tags dut l1s";
+
+  if [[ $tbfile == *nut.yaml ]]
+  then
+    attributes="inv_name test_tags duts l1s"
+  fi
+
+  for attr in $attributes
   do
     value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
@@ -370,6 +414,7 @@ function add_topo
           -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
           -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" \
           -e upstream_neighbor_groups="$upstream_neighbor_groups" -e downstream_neighbor_groups="$downstream_neighbor_groups" \
+          -e use_converged_peers="$use_converged_peers" \
           $ansible_options $@
 
     if [ $i -eq 0 ]; then
@@ -599,7 +644,24 @@ function generate_minigraph
 
   read_file $testbed_name
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $@
+  # Parse --ipv6-only-mgmt flag
+  ipv6_mgmt_flag=""
+  for arg in "$@"; do
+    if [[ "$arg" == "--ipv6-only-mgmt" ]]; then
+      ipv6_mgmt_flag="-e use_ipv6_mgmt=true -e use_ptf_tacacs_server=true"
+      break
+    fi
+  done
+
+  # Remove --ipv6-only-mgmt from args if present
+  filtered_args=()
+  for arg in "$@"; do
+    if [[ "$arg" != "--ipv6-only-mgmt" ]]; then
+      filtered_args+=("$arg")
+    fi
+  done
+
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $ipv6_mgmt_flag "${filtered_args[@]}"
 
   echo Done
 }
@@ -617,7 +679,24 @@ function deploy_minigraph
 
   read_file $testbed_name
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $@
+  # Parse --ipv6-only-mgmt flag
+  ipv6_mgmt_flag=""
+  for arg in "$@"; do
+    if [[ "$arg" == "--ipv6-only-mgmt" ]]; then
+      ipv6_mgmt_flag="-e use_ipv6_mgmt=true -e use_ptf_tacacs_server=true"
+      break
+    fi
+  done
+
+  # Remove --ipv6-only-mgmt from args if present
+  filtered_args=()
+  for arg in "$@"; do
+    if [[ "$arg" != "--ipv6-only-mgmt" ]]; then
+      filtered_args+=("$arg")
+    fi
+  done
+
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $ipv6_mgmt_flag "${filtered_args[@]}"
 
   echo Done
 }
@@ -635,7 +714,24 @@ function test_minigraph
 
   read_file $testbed_name
 
-  ansible-playbook -i "$inventory" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $@
+  # Parse --ipv6-only-mgmt flag
+  ipv6_mgmt_flag=""
+  for arg in "$@"; do
+    if [[ "$arg" == "--ipv6-only-mgmt" ]]; then
+      ipv6_mgmt_flag="-e use_ipv6_mgmt=true -e use_ptf_tacacs_server=true"
+      break
+    fi
+  done
+
+  # Remove --ipv6-only-mgmt from args if present
+  filtered_args=()
+  for arg in "$@"; do
+    if [[ "$arg" != "--ipv6-only-mgmt" ]]; then
+      filtered_args+=("$arg")
+    fi
+  done
+
+  ansible-playbook -i "$inventory" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $ipv6_mgmt_flag "${filtered_args[@]}"
 
   echo Done
 }
@@ -661,6 +757,32 @@ function deploy_config
   echo ""
 
   ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true $@
+
+  echo Done
+}
+
+
+function deploy_l1
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Deploying L1 config to testbed '$testbed_name'"
+
+  read_nut_file $testbed_name
+
+  devices=$duts
+  if [ ! -z "$l1s" ]; then
+    devices="$devices,$l1s"
+  fi
+  echo "Devices to generate config for: $devices"
+  echo ""
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true -e config_duts=false -e reset_previous_connection=false$@
 
   echo Done
 }
@@ -730,10 +852,11 @@ function set_l2_mode
 function config_vm
 {
   echo "Configure VM $2"
+  testbed_name=$1
 
-  read_file $1
+  read_file ${testned_name}
 
-  ansible-playbook -i $vmfile eos.yml --vault-password-file="$3" -l "$2" -e topo="$topo" -e VM_base="$vm_base"
+  ansible-playbook -i $vmfile eos.yml --vault-password-file="$3" -l "$2" -e vm_type="$vm_type" -e vm_set_name="$vm_set_name" -e topo="$topo" -e VM_base="$vm_base"
 
   echo Done
 }
@@ -1015,6 +1138,8 @@ case "${subcmd}" in
                ;;
   deploy-cfg)  deploy_config $@
                ;;
+  deploy-l1)   deploy_l1 $@
+               ;;
   gen-cfg)     generate_config $@
                ;;
   config-y-cable) config_y_cable $@
@@ -1039,3 +1164,9 @@ case "${subcmd}" in
   *)           usage
                ;;
 esac
+
+if [[ -f "$backup_file" ]];then
+    echo "Backup exists, restore backup file"
+    rm -f "$topo_file"
+    mv "$backup_file" "$topo_file"
+fi

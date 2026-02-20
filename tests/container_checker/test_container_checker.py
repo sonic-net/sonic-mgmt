@@ -22,12 +22,14 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.disable_memory_utilization
+    pytest.mark.disable_memory_utilization,
+    pytest.mark.dualtor_skip_setup_mux_ports
 ]
 
-CONTAINER_CHECK_INTERVAL_SECS = 1
+CONTAINER_CHECK_INTERVAL_SECS = 5     # Monit daemon runs every 10s in test; poll at half that rate
 CONTAINER_STOP_THRESHOLD_SECS = 30
 CONTAINER_RESTART_THRESHOLD_SECS = 180
+MONIT_START_THRESHOLD_SECS = 360      # Max wait for Monit to become ready
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -77,6 +79,11 @@ def check_image_version(duthosts, selected_rand_one_per_hwsku_hostname):
                        "Test was not supported for 201911 and older image version!")
 
 
+def check_monit_running(duthost):
+    monit_services_status = duthost.get_monit_services_status()
+    return monit_services_status
+
+
 @pytest.fixture(autouse=True, scope="module")
 def update_monit_service(duthosts, selected_rand_one_per_hwsku_hostname):
     """Update Monit configuration and restart it.
@@ -98,14 +105,21 @@ def update_monit_service(duthosts, selected_rand_one_per_hwsku_hostname):
         duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
         duthost.shell("sudo cp -f /etc/monit/conf.d/sonic-host /tmp/")
 
-        temp_config_line = "    if status != 0 for 1 times within 1 cycles then alert repeat every 1 cycles"
+        cmd_reduce_container_checker_alert_cycle = (
+            "sudo sed -i '/check program container_checker/, /^[ \t]*if status != 0/ { "
+            "/^[ \t]*if status != 0/ { s/^/#/; a\\    if status != 0 "
+            "for 1 times within 1 cycles then alert repeat every 1 cycles\n } } ' "
+            "/etc/monit/conf.d/sonic-host"
+        )
         logger.info("Reduce the monitoring interval of container_checker.")
-        duthost.shell("sudo sed -i '$s/^./#/' /etc/monit/conf.d/sonic-host")
-        duthost.shell("echo '{}' | sudo tee -a /etc/monit/conf.d/sonic-host".format(temp_config_line))
+        duthost.shell(cmd_reduce_container_checker_alert_cycle)
         duthost.shell("sudo sed -i 's/with start delay 300/with start delay 10/' /etc/monit/monitrc")
         duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
         logger.info("Restart the Monit service without delaying to monitor.")
         duthost.shell("sudo systemctl restart monit")
+        is_monit_running = wait_until(MONIT_START_THRESHOLD_SECS, CONTAINER_CHECK_INTERVAL_SECS, 5,
+                                      check_monit_running, duthost)
+        pytest_assert(is_monit_running, "Monit is not running after restart!")
 
     yield
 
@@ -230,7 +244,11 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
         logger.info("Container '{}' is not running ...".format(container_name))
         logger.info("Reload config on DuT as Container is not up '{}' ...".format(duthost.hostname))
         config_reload(duthost, safe_reload=True)
-        time.sleep(300)
+        logger.info("Waiting for Monit to be ready after config reload ...")
+        is_monit_ready = wait_until(MONIT_START_THRESHOLD_SECS,
+                                    CONTAINER_CHECK_INTERVAL_SECS, 30,
+                                    check_monit_running, duthost)
+        pytest_assert(is_monit_ready, "Monit is not running after config reload!")
         sleep_time = 80
     asic.stop_service(service_name)
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
@@ -265,8 +283,12 @@ def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
 
     # Reload config to restore the container
     config_reload(duthost, safe_reload=True)
-    # Monit needs 300 seconds to start monitoring the container
-    time.sleep(300)
+    # Wait for Monit to initialize and start monitoring after config reload
+    logger.info("Waiting for Monit to be ready after config reload ...")
+    is_monit_ready = wait_until(MONIT_START_THRESHOLD_SECS,
+                                CONTAINER_CHECK_INTERVAL_SECS, 30,
+                                check_monit_running, duthost)
+    pytest_assert(is_monit_ready, "Monit is not running after config reload!")
 
     # Enable LogAnalyzer
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name))

@@ -20,6 +20,16 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
 ASIC_NAME_PATH = '/../../../../ansible/group_vars/sonic/variables'
+MARK_CONDITIONS_CONSTANTS = {
+    "QOS_SAI_TOPO": ['t0', 't0-64', 't0-116', 't0-118', 't0-35', 't0-56', 't0-80',
+                     't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256',
+                     'dualtor-56', 'dualtor-120', 'dualtor', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout',
+                     't0-backend', 't0-d18u8s4', 't0-isolated-d96u32s2',
+                     't1-lag', 't1-28-lag', 't1-48-lag', 't1-64-lag', 't1-56-lag',
+                     't1-backend', 't1-isolated-d128', 't1-isolated-d32',
+                     't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic',
+                     'lt2-p32o64', 'lt2-o128', 'ft2-64', 't2_one_hwsku_min', 't2_one_hwsku_max', 't2-single-node-min']
+}
 
 
 def pytest_addoption(parser):
@@ -68,10 +78,10 @@ def load_conditions(session):
     conditions_list = list()
 
     conditions_files = session.config.option.mark_conditions_files
-    for condition in conditions_files:
-        if '*' in condition:
-            conditions_files.remove(condition)
-            files = glob.glob(condition)
+    for condition_file in conditions_files:
+        if '*' in condition_file:
+            conditions_files.remove(condition_file)
+            files = glob.glob(condition_file)
             for file in files:
                 if file not in conditions_files:
                     conditions_files.append(file)
@@ -276,6 +286,10 @@ def load_config_facts(inv_name, dut_name):
                 results['switch_type'] = output_fields['DEVICE_METADATA']['localhost']['switch_type']
             else:
                 results['switch_type'] = ""
+            if 'type' in output_fields['DEVICE_METADATA']['localhost']:
+                results['type'] = output_fields['DEVICE_METADATA']['localhost']['type']
+            else:
+                results['type'] = ""
 
     except Exception as e:
         logger.error('Failed to load config basic facts, exception: {}'.format(repr(e)))
@@ -536,7 +550,7 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
             it will update the skip reason, else will not.
         mark_details (dict): The mark detail infos specified in the mark conditions file.
         condition (str): A raw condition string that can be evaluated using python "eval()" function. The raw condition
-            string may contain issue URLs that need further processing.
+            #string may contain issue URLs that need further processing.
         basic_facts (dict): A one level dict with basic facts. Keys of the dict can be used as variables in the
             condition string evaluation.
         session (obj): Pytest session object, for getting cached data.
@@ -549,7 +563,16 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
 
     condition_str = update_issue_status(condition, session)
     try:
-        condition_result = bool(eval(condition_str, basic_facts))
+        safe_facts = {k: v for k, v in basic_facts.items()}
+        safe_globals = {}
+        safe_globals.update(safe_facts)
+
+        for var in ["asic_type"]:
+            if var not in safe_globals:
+                safe_globals[var] = None
+
+        condition_result = bool(eval(condition_str, safe_globals))
+
         if condition_result and dynamic_update_skip_reason:
             mark_details['reason'].append(condition)
         return condition_result
@@ -620,7 +643,7 @@ def pytest_collection(session):
 
 
 def pytest_collection_modifyitems(session, config, items):
-    """Hook for adding marks to test cases based on conditions defind in a centralized file.
+    """Hook for adding marks to test cases based on conditions defined in a centralized file.
 
     Args:
         session (obj): Pytest session object.
@@ -641,6 +664,7 @@ def pytest_collection_modifyitems(session, config, items):
     logger.info('Available basic facts that can be used in conditional skip:\n{}'.format(
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
+    basic_facts['constants'] = MARK_CONDITIONS_CONSTANTS
     for item in items:
         all_matches = find_all_matches(item.nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 

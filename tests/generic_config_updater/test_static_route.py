@@ -16,6 +16,29 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+    """
+    Ignore expected failures logs during test execution.
+
+    Static route tests can trigger routeCheck failures during teardown/rollback convergence
+    on multi-ASIC devices, but these don't cause harm to DUT.
+
+    Args:
+        duthosts: list of DUTs
+        enum_rand_one_per_hwsku_frontend_hostname: Hostname of a random chosen frontend dut
+        loganalyzer: Loganalyzer utility fixture
+    """
+    ignoreRegex = [
+        r".*ERR monit\[\d+\]: 'routeCheck' status failed \(255\) -- Failure results:.*",
+        r".*ERR.*Data Loading Failed:Invalid value \"fcbb:bbbb:1::\" in \"prefix\" element.",
+    ]
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if loganalyzer and loganalyzer[duthost.hostname]:
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
+
+@pytest.fixture(autouse=True)
 def setup_and_cleanup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     """
     Setup/teardown fixture for STATIC ROUTE config
@@ -59,7 +82,7 @@ def test_static_route_add(duthosts, enum_rand_one_per_hwsku_frontend_hostname, e
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
-                                                 is_asic_specific=True, asic_namespaces=asic_namespace)
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     logger.info("json patch {}".format(json_patch))
 
@@ -96,7 +119,7 @@ def test_static_route_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
-                                                 is_asic_specific=True, asic_namespaces=asic_namespace)
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     logger.info("json patch {}".format(json_patch))
 
@@ -139,7 +162,7 @@ def test_static_route_remove(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
-                                                 is_asic_specific=True, asic_namespaces=asic_namespace)
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     logger.info("json patch {}".format(json_patch))
 
@@ -157,7 +180,8 @@ def test_static_route_remove(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_static_route_add_invalid(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+def test_static_route_add_invalid(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
+                                  loganalyzer):
     """
     Test adding an invalid static route configuration.
     """
@@ -174,7 +198,7 @@ def test_static_route_add_invalid(duthosts, enum_rand_one_per_hwsku_frontend_hos
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
-                                                 is_asic_specific=True, asic_namespaces=asic_namespace)
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     logger.info("json patch {}".format(json_patch))
 

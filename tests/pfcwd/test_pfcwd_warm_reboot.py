@@ -631,6 +631,8 @@ class TestPfcwdWb(SetupPfcwdFunc):
                     except Exception as e:
                         pfcwd_show_status(self.dut, "pfcwd wr: run_test exception")
                         pytest.fail(str(e))
+            wait_until(300, 20, 20, self.dut.critical_services_fully_started), \
+                "All critical services should fully started!"
 
     @pytest.fixture(params=['no_storm', 'storm', 'async_storm'])
     def testcase_action(self, request):

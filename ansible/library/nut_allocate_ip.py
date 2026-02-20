@@ -173,16 +173,18 @@ class IPAllocator():
 class GenerateDeviceConfig():
     """Generate device config for devices in network under test (NUT) testbed."""
 
-    def __init__(self, testbed_facts, device_info, device_port_links):
+    def __init__(self, testbed_facts, device_info, device_port_links, device_port_vrfs):
         self.testbed_facts = testbed_facts
         self.device_info = device_info
         self.device_port_links = device_port_links
+        self.device_port_vrfs = device_port_vrfs
 
         self.device_templates = defaultdict(dict)
         self.device_ipv4_allocators = defaultdict(dict)
         self.device_ipv6_allocators = defaultdict(dict)
 
         self.device_meta = defaultdict(dict)
+        self.device_interfaces = defaultdict(dict)
         self.device_bgp_neighbor_devices = defaultdict(dict)
         self.device_bgp_neighbor_ports = defaultdict(dict)
 
@@ -190,12 +192,12 @@ class GenerateDeviceConfig():
         self._prepare()
         logging.debug("")
 
-        for index, tg in enumerate(self.testbed_facts['duts']):
+        for index, dut in enumerate(self.testbed_facts['duts']):
             logging.debug("=================================================================")
-            logging.debug(f"Start allocating device metadata and IP for {tg} (index={index})")
-            self._set_dut_device_meta(tg)
-            self._allocate_dut_loopback_ip(index, tg)
-            self._allocate_dut_bgp_asn(index, tg)
+            logging.debug(f"Start allocating device metadata and IP for {dut} (index={index})")
+            self._set_dut_device_meta(dut)
+            self._allocate_dut_loopback_ip(index, dut)
+            self._allocate_dut_bgp_asn(index, dut)
         logging.debug("")
 
         for index, tg in enumerate(self.testbed_facts['tgs']):
@@ -212,35 +214,35 @@ class GenerateDeviceConfig():
         logging.debug(f"Preparing device config generation for testbed: {self.testbed_facts['name']}")
 
         # Build device template map
-        for tg in self.testbed_facts['duts']:
+        for dut in self.testbed_facts['duts']:
             for device_template in self.testbed_facts['topo']['properties']['dut_templates']:
-                if re.match(device_template['name'], tg):
-                    self.device_templates[tg] = device_template
-                    logging.debug(f"Found template for DUT {tg}: {device_template}")
+                if re.match(device_template['name'], dut):
+                    self.device_templates[dut] = device_template
+                    logging.debug(f"Found template for DUT {dut}: {device_template}")
                     break
             else:
-                raise ValueError(f"No template found for DUT {tg}")
+                raise ValueError(f"No template found for DUT {dut}")
 
         # Build device IP allocator for P2P links
         p2p_v4_allocator_map = {}
         p2p_v6_allocator_map = {}
-        for tg in self.testbed_facts['duts']:
-            device_template = self.device_templates[tg]
+        for dut in self.testbed_facts['duts']:
+            device_template = self.device_templates[dut]
             if 'p2p_v4' in device_template:
                 p2p_v4_cidr = device_template['p2p_v4']
                 if p2p_v4_cidr not in p2p_v4_allocator_map:
                     p2p_v4_allocator_map[p2p_v4_cidr] = IPAllocator(p2p_v4_cidr, 30)
 
-                self.device_ipv4_allocators[tg] = p2p_v4_allocator_map[p2p_v4_cidr]
-                logging.debug(f"Found P2P v4 allocator for {tg} with CIDR {p2p_v4_cidr}")
+                self.device_ipv4_allocators[dut] = p2p_v4_allocator_map[p2p_v4_cidr]
+                logging.debug(f"Found P2P v4 allocator for {dut} with CIDR {p2p_v4_cidr}")
 
             if 'p2p_v6' in device_template:
                 p2p_v6_cidr = device_template['p2p_v6']
                 if p2p_v6_cidr not in p2p_v6_allocator_map:
                     p2p_v6_allocator_map[p2p_v6_cidr] = IPAllocator(p2p_v6_cidr, 126)
 
-                self.device_ipv6_allocators[tg] = p2p_v6_allocator_map[p2p_v6_cidr]
-                logging.debug(f"Found P2P v6 allocator for {tg} with CIDR {p2p_v6_cidr}")
+                self.device_ipv6_allocators[dut] = p2p_v6_allocator_map[p2p_v6_cidr]
+                logging.debug(f"Found P2P v6 allocator for {dut} with CIDR {p2p_v6_cidr}")
 
         tg_template = self.testbed_facts['topo']['properties']['tg_template']
         for tg in self.testbed_facts['tgs']:
@@ -382,6 +384,16 @@ class GenerateDeviceConfig():
                         f"{peer_device}:{peer_port}"
                     )
 
+                self.device_interfaces[local_device].setdefault(local_port, {
+                    'vrf_name': self.device_port_vrfs[local_device].get(local_port, {}).get('name', ''),
+                    'mac_addr': self.device_port_links[local_device].get(local_port, {}).get('mac', ''),
+                })
+
+                self.device_interfaces[peer_device].setdefault(peer_port, {
+                    'vrf_name': self.device_port_vrfs[peer_device].get(peer_port, {}).get('name', ''),
+                    'mac_addr': self.device_port_links[peer_device].get(peer_port, {}).get('mac', ''),
+                })
+
                 local_device_config = {
                     'peer_device': peer_device,
                     'peer_port': peer_port,
@@ -395,38 +407,67 @@ class GenerateDeviceConfig():
                 p2p_v4_allocator = self.device_ipv4_allocators.get(local_device, None)
                 if p2p_v4_allocator:
                     p2p_v4_subnet = p2p_v4_allocator.allocate()
-                    local_device_config['local_ip_v4'] = str(p2p_v4_subnet[1])
-                    local_device_config['peer_ip_v4'] = str(p2p_v4_subnet[2])
-                    local_device_config['peer_asn'] = self.device_meta[peer_device]['bgp_asn']
-                    local_device_config['p2p_v4_subnet_size'] = str(p2p_v4_subnet.prefixlen)
-                    peer_device_config['local_ip_v4'] = str(p2p_v4_subnet[2])
-                    peer_device_config['peer_ip_v4'] = str(p2p_v4_subnet[1])
-                    peer_device_config['peer_asn'] = self.device_meta[local_device]['bgp_asn']
-                    peer_device_config['p2p_v4_subnet_size'] = str(p2p_v4_subnet.prefixlen)
+
+                    local_device_ip = str(p2p_v4_subnet[1])
+                    peer_device_ip = str(p2p_v4_subnet[2])
+                    p2p_ip_prefix_len = str(p2p_v4_subnet.prefixlen)
+
+                    self.device_interfaces[local_device][local_port]['ip_v4'] = local_device_ip
+                    self.device_interfaces[local_device][local_port]['ip_v4_subnet_size'] = p2p_ip_prefix_len
+                    self.device_interfaces[peer_device][peer_port]['ip_v4'] = peer_device_ip
+                    self.device_interfaces[peer_device][peer_port]['ip_v4_subnet_size'] = p2p_ip_prefix_len
+
                     logging.debug(
                         f"P2P v4 allocated: {local_device}:{local_port} "
-                        f"({local_device_config['local_ip_v4']}/{local_device_config['p2p_v4_subnet_size']}) <-> "
+                        f"({local_device_ip}/{p2p_ip_prefix_len}) <-> "
                         f"{peer_device}:{peer_port} "
-                        f"({peer_device_config['local_ip_v4']}/{peer_device_config['p2p_v4_subnet_size']})"
+                        f"({peer_device_ip}/{p2p_ip_prefix_len})"
                     )
+
+                    local_device_config['local_ip_v4'] = local_device_ip
+                    local_device_config['peer_ip_v4'] = peer_device_ip
+                    local_device_config['peer_asn'] = self.device_meta[peer_device]['bgp_asn']
+                    local_device_config['p2p_v4_subnet_size'] = p2p_ip_prefix_len
+
+                    peer_device_config['local_ip_v4'] = peer_device_ip
+                    peer_device_config['peer_ip_v4'] = local_device_ip
+                    peer_device_config['peer_asn'] = self.device_meta[local_device]['bgp_asn']
+                    peer_device_config['p2p_v4_subnet_size'] = p2p_ip_prefix_len
 
                 p2p_v6_allocator = self.device_ipv6_allocators.get(local_device, None)
                 if p2p_v6_allocator:
                     p2p_v6_subnet = p2p_v6_allocator.allocate()
-                    local_device_config['local_ip_v6'] = str(p2p_v6_subnet[1])
-                    local_device_config['peer_ip_v6'] = str(p2p_v6_subnet[2])
-                    local_device_config['peer_asn'] = self.device_meta[peer_device]['bgp_asn']
-                    local_device_config['p2p_v6_subnet_size'] = str(p2p_v6_subnet.prefixlen)
-                    peer_device_config['local_ip_v6'] = str(p2p_v6_subnet[2])
-                    peer_device_config['peer_ip_v6'] = str(p2p_v6_subnet[1])
-                    peer_device_config['peer_asn'] = self.device_meta[local_device]['bgp_asn']
-                    peer_device_config['p2p_v6_subnet_size'] = str(p2p_v6_subnet.prefixlen)
+
+                    local_device_ip = str(p2p_v6_subnet[1])
+                    peer_device_ip = str(p2p_v6_subnet[2])
+                    p2p_ip_prefix_len = str(p2p_v6_subnet.prefixlen)
+
+                    self.device_interfaces[local_device][local_port]['ip_v6'] = local_device_ip
+                    self.device_interfaces[local_device][local_port]['ip_v6_subnet_size'] = p2p_ip_prefix_len
+                    self.device_interfaces[peer_device][peer_port]['ip_v6'] = peer_device_ip
+                    self.device_interfaces[peer_device][peer_port]['ip_v6_subnet_size'] = p2p_ip_prefix_len
+
                     logging.debug(
                         f"P2P v6 allocated: {local_device}:{local_port} "
-                        f"({local_device_config['local_ip_v6']}/{local_device_config['p2p_v6_subnet_size']}) <-> "
+                        f"({local_device_ip}/{p2p_ip_prefix_len}) <-> "
                         f"{peer_device}:{peer_port} "
-                        f"({peer_device_config['local_ip_v6']}/{peer_device_config['p2p_v6_subnet_size']})"
+                        f"({peer_device_ip}/{p2p_ip_prefix_len})"
                     )
+
+                    local_device_config['local_ip_v6'] = local_device_ip
+                    local_device_config['peer_ip_v6'] = peer_device_ip
+                    local_device_config['peer_asn'] = self.device_meta[peer_device]['bgp_asn']
+                    local_device_config['p2p_v6_subnet_size'] = p2p_ip_prefix_len
+
+                    peer_device_config['local_ip_v6'] = peer_device_ip
+                    peer_device_config['peer_ip_v6'] = local_device_ip
+                    peer_device_config['peer_asn'] = self.device_meta[local_device]['bgp_asn']
+                    peer_device_config['p2p_v6_subnet_size'] = p2p_ip_prefix_len
+
+                # Skip if peer device is the same as local device.
+                # This is used as snake setup and we should never create loopback BGP sessions
+                if link['peerdevice'] == local_device:
+                    continue
 
                 if p2p_v4_allocator or p2p_v6_allocator:
                     self.device_bgp_neighbor_ports[local_device][local_port] = local_device_config
@@ -463,6 +504,7 @@ def main():
             testbed_facts=dict(required=True, default=None, type='dict'),
             device_info=dict(required=True, default=None, type='dict'),
             device_port_links=dict(required=True, default=None, type='dict'),
+            device_port_vrfs=dict(required=False, default=None, type='dict'),
         ),
         supports_check_mode=True
     )
@@ -471,12 +513,14 @@ def main():
     testbed_facts = m_args['testbed_facts']
     device_info = m_args['device_info']
     device_port_links = m_args['device_port_links']
+    device_port_vrfs = m_args['device_port_vrfs']
 
     try:
-        device_config_gen = GenerateDeviceConfig(testbed_facts, device_info, device_port_links)
+        device_config_gen = GenerateDeviceConfig(testbed_facts, device_info, device_port_links, device_port_vrfs)
         device_config_gen.run()
         module.exit_json(ansible_facts={
             'device_meta': device_config_gen.device_meta,
+            'device_interfaces': device_config_gen.device_interfaces,
             'device_bgp_neighbor_devices': device_config_gen.device_bgp_neighbor_devices,
             'device_bgp_neighbor_ports': device_config_gen.device_bgp_neighbor_ports
         })

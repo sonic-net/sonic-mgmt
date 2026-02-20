@@ -62,13 +62,6 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     if config_force_option_supported(duthost):
         assert wait_until(360, 20, 0, config_system_checks_passed, duthost), (
             "System checks did not pass within the allotted time after config reload. "
-            "Hostname: {}\n"
-            "Platform: {}\n"
-            "HWSKU: {}\n"
-        ).format(
-            duthost.hostname,
-            duthost.facts.get("platform"),
-            duthost.facts.get("hwsku")
         )
 
     logging.info("Reload configuration")
@@ -84,16 +77,10 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     assert wait_until(max_wait_time_for_transceivers, 20, 0, check_all_interface_information,
                       duthost, interfaces, xcvr_skip_list), (
         "Not all transceivers detected in {timeout} seconds. "
-        "- Hostname: {hostname}\n"
-        "- Platform: {platform}\n"
-        "- HWSKU: {hwsku}\n"
         "- Interfaces checked: {interfaces}\n"
         "- Max wait time (seconds): {timeout}"
     ).format(
         timeout=max_wait_time_for_transceivers,
-        hostname=duthost.hostname,
-        platform=duthost.facts.get('platform'),
-        hwsku=duthost.facts.get('hwsku'),
         interfaces=list(interfaces.keys())
     )
 
@@ -128,6 +115,30 @@ def check_database_status(duthost):
             if not duthost.is_service_fully_started('database{}'.format(asic.asic_index)):
                 return False
 
+    return True
+
+
+def check_redis_db_is_reachable(duthost, asic_index=None):
+    if asic_index is not None:
+        cmd = f"sonic-db-cli -n asic{asic_index} PING"
+    else:
+        cmd = "sonic-db-cli PING"
+
+    out = duthost.shell(cmd, module_ignore_errors=True)
+    if "PONG" not in out['stdout']:
+        return False
+    return True
+
+
+def check_redis_db_status(duthost):
+    # For multi-asic check each asics database
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            if not check_redis_db_is_reachable(duthost, asic.asic_index):
+                return False
+    else:
+        if not check_redis_db_is_reachable(duthost):
+            return False
     return True
 
 
@@ -183,10 +194,8 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
 
     reboot(duthost, localhost, reboot_type="cold", return_after_reconnect=True)
 
-    # Check if all database containers have started
-    # Some device after reboot may take some longer time to have database container started up
-    # we must give it a little longer or else it may falsely fail the test.
-    wait_until(360, 1, 0, check_database_status, duthost)
+    # check if redis-db is reachable before attempting to run any command.
+    wait_until(360, 1, 0, check_redis_db_status, duthost)
 
     logging.info("Reload configuration check")
 
@@ -204,26 +213,19 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     assert result and "Retry later" in out['stdout'], (
         "The config reload command did not return the expected 'Retry later' message. "
         "Output: '{}'\n"
-        "Hostname: {}\n"
-        "Platform: {}\n"
-        "HWSKU: {}\n"
     ).format(
-        out['stdout'],
-        duthost.hostname,
-        duthost.facts.get("platform"),
-        duthost.facts.get("hwsku")
+        out['stdout']
     )
 
     assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
-        "System checks did not pass within the allotted time after config reload on '{}'. Delayed services: {}"
-    ).format(duthost.hostname, delayed_services)
+        "System checks did not pass within the allotted time after config reload on  Delayed services: {}"
+    ).format(delayed_services)
 
     if not duthost.get_facts().get("modular_chassis"):
         # Check if all containers have started
         assert wait_until(300, 10, 0, check_docker_status, duthost), (
             "Not all Docker containers reached the 'fully started' state within 300 seconds "
-            "after config reload on '{}'."
-        ).format(duthost.hostname)
+        )
 
         # To ensure the system is stable enough, wait for another 30s
         time.sleep(30)
@@ -233,14 +235,8 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     assert result and "Retry later" not in out['stdout'], (
         "The config reload command returned an unexpected 'Retry later' message or failed to execute successfully. "
         "Output: '{}'\n"
-        "Hostname: {}\n"
-        "Platform: {}\n"
-        "HWSKU: {}\n"
     ).format(
-        out['stdout'],
-        duthost.hostname,
-        duthost.facts.get("platform"),
-        duthost.facts.get("hwsku")
+        out['stdout']
     )
 
     # Immediately after one config reload command, another shouldn't execute and wait for system checks
@@ -251,19 +247,13 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     assert result and "Retry later" in out['stdout'], (
         "The config reload command did not return the expected 'Retry later' message. "
         "Output: '{}'\n"
-        "Hostname: {}\n"
-        "Platform: {}\n"
-        "HWSKU: {}\n"
     ).format(
-        out['stdout'],
-        duthost.hostname,
-        duthost.facts.get("platform"),
-        duthost.facts.get("hwsku")
+        out['stdout']
     )
 
     assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
-        "System checks did not pass within the allotted time after config reload on '{}'. Delayed services: {}"
-    ).format(duthost.hostname, delayed_services)
+        "System checks did not pass within the allotted time after config reload on Delayed services: {}"
+    ).format(delayed_services)
 
     # Wait untill all critical processes come up so that it doesnt interfere with swss stop job
     wait_critical_processes(duthost)
@@ -279,14 +269,8 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     assert result and "Retry later" in out['stdout'], (
         "The config reload command did not return the expected 'Retry later' message. "
         "Output: '{}'\n"
-        "Hostname: {}\n"
-        "Platform: {}\n"
-        "HWSKU: {}\n"
     ).format(
-        out['stdout'],
-        duthost.hostname,
-        duthost.facts.get("platform"),
-        duthost.facts.get("hwsku")
+        out['stdout']
     )
 
     # However with force option config reload should proceed
@@ -295,16 +279,10 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     assert "Retry later" not in out['stdout'], (
         "The config reload command returned an unexpected 'Retry later' message or failed to execute successfully. "
         "Output: '{}'\n"
-        "Hostname: {}\n"
-        "Platform: {}\n"
-        "HWSKU: {}\n"
     ).format(
-        out['stdout'],
-        duthost.hostname,
-        duthost.facts.get("platform"),
-        duthost.facts.get("hwsku")
+        out['stdout']
     )
 
     assert wait_until(360, 20, 0, config_system_checks_passed, duthost, delayed_services), (
-        "System checks did not pass within the allotted time after config reload on '{}'. Delayed services: {}"
-    ).format(duthost.hostname, delayed_services)
+        "System checks did not pass within the allotted time after config reload on  Delayed services: {}"
+    ).format(delayed_services)

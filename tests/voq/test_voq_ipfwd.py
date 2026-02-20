@@ -243,7 +243,8 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
                     # No pos interfaces, let see if we have other ethernet ports in this asic
                     if len(eths) != 1:
                         # We have more than 1 eth interface, pick it for port B
-                        intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, eths, version, dutA, asic_index,
+                        left_eths = [eth for eth in eths if eth != intfs_to_test['portA']['port']]
+                        intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, left_eths, version, dutA, asic_index,
                                                                      nbrhosts)
         else:
             # port type is portchannel
@@ -256,7 +257,8 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
                     # No eth interfaces, let see if we have other pc ports in this asic
                     if len(pos) != 1:
                         # We have more than 1 pc interface, pick it for port B
-                        intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, pos, version, dutA, asic_index,
+                        left_pos = [po for po in pos if po != intfs_to_test['portA']['port']]
+                        intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, left_pos, version, dutA, asic_index,
                                                                      nbrhosts)
 
         if 'portA' in intfs_to_test:

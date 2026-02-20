@@ -19,7 +19,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa: F401
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa: F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa: F401
-from tests.common.utilities import is_ipv4_address
+from tests.common.utilities import is_ipv4_address, is_ipv6_only_topology
 
 from tests.common.fixtures.fib_utils import (  # noqa: F401
     single_fib_for_duts,
@@ -168,6 +168,54 @@ def filter_ports(all_port_indices, tbinfo):
     host_ptf_ports_all = list(all_port_indices.keys())
 
     return host_ptf_ports_all
+
+
+def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph_facts,
+                                     upstream_lc, tbinfo):
+    """
+    Get PTF port indices for a port and all its port channel members (if applicable).
+
+    Args:
+        port_name: The DUT port name to check
+        all_port_indices: Dictionary mapping PTF port indices to (asic_id, port_name)
+        duts_minigraph_facts: Minigraph facts containing port channel information
+        upstream_lc: The upstream line card hostname
+
+    Returns:
+        List of PTF port indices for the port and all its port channel members
+    """
+
+    # for T2(except UT2) topologies, no need to append, as we are already filtering out the whole upstream lc ports
+    if tbinfo['topo']['type'] == 't2' and 't2_single_node' not in tbinfo['topo']['name']:
+        return []
+
+    # Search all ASICs for port channel information
+    portchannel_members = [port_name]  # Default is just the single port
+    found_portchannel = False
+
+    for asic_id, asic_data in duts_minigraph_facts[upstream_lc]:
+        mg_facts = asic_data
+        if mg_facts and 'minigraph_portchannels' in mg_facts:
+            for pc_name, pc_info in mg_facts['minigraph_portchannels'].items():
+                if port_name in pc_info.get('members', []):
+                    portchannel_members = pc_info['members']
+                    logging.info("Port {} is a member of port channel {} with {} member(s): {}".format(
+                        port_name, pc_name, len(portchannel_members), portchannel_members))
+                    found_portchannel = True
+                    break
+        if found_portchannel:
+            break
+
+    # Find PTF port indices for all port channel members
+    ptf_ports_to_filter = []
+    for member_port in portchannel_members:
+        for ptf_port, (asic_id, dut_port) in all_port_indices.items():
+            if dut_port == member_port:
+                ptf_ports_to_filter.append(ptf_port)
+                logging.info("Found PTF port {} for port channel member {}".format(ptf_port, member_port))
+                break
+
+    return ptf_ports_to_filter
 
 
 def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, duts_minigraph_facts, tbinfo, request):
@@ -326,7 +374,7 @@ def get_vlan_untag_ports(duthosts, duts_running_config_facts):
 
 
 @pytest.fixture(scope="module")
-def hash_keys(duthost):
+def hash_keys(duthost, tbinfo):
     # Copy from global var to avoid side effects of multiple iterations
     hash_keys = HASH_KEYS[:]
     if 'dst-mac' in hash_keys:
@@ -339,6 +387,11 @@ def hash_keys(duthost):
             hash_keys.remove('src-port')
         if 'dst-port' in hash_keys:
             hash_keys.remove('dst-port')
+    if duthost.facts['asic_type'] in ["vpp"]:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+        if 'ingress-port' in hash_keys:
+            hash_keys.remove('ingress-port')
     if duthost.facts['asic_type'] in ["mellanox"]:
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
@@ -354,6 +407,11 @@ def hash_keys(duthost):
         if 'ingress-port' in hash_keys:
             hash_keys.remove('ingress-port')
     if duthost.facts['asic_type'] in ["marvell-teralynx", "cisco-8000"]:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+    if 'ft2' in tbinfo['topo']['name']:
+        #  Remove ip-proto from hash_keys for FT2 as there is not enough entropy in ip-proto
+        #  to ensure packets are evenly distributed to all 64 egress ports
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
     # remove the ingress port from multi asic platform
@@ -498,6 +556,11 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
     else:
         src_ip_range = SRC_IPV6_RANGE
         dst_ip_range = DST_IPV6_RANGE
+
+    if re.match(r"t0-.*s\d+", updated_tbinfo["topo"]["name"]) and 'ip-proto' in hash_keys:
+        # For t0 topology type with service ports, use ip-proto as hash key cause traffic unbalance issue.
+        hash_keys.remove('ip-proto')
+
     ptf_runner(
         ptfhost,
         "ptftests",
@@ -519,7 +582,8 @@ def test_hash(add_default_route_to_dut, duthosts, tbinfo, setup_vlan,      # noq
             "switch_type": switch_type,
             "is_active_active_dualtor": is_active_active_dualtor,
             "topo_name": updated_tbinfo['topo']['name'],
-            "topo_type": updated_tbinfo['topo']['type']
+            "topo_type": updated_tbinfo['topo']['type'],
+            "is_v6_topo": is_ipv6_only_topology(updated_tbinfo),
         },
         log_file=log_file,
         qlen=PTF_QLEN,
@@ -570,7 +634,8 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts,               
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
                        "ipver": ipver,
-                       "topo_name": tbinfo['topo']['name']
+                       "topo_name": tbinfo['topo']['name'],
+                       "is_v6_topo": is_ipv6_only_topology(tbinfo),
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -616,7 +681,8 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts,           # no
                    "single_fib_for_duts": single_fib_for_duts,
                    "ipver": ipver,
                    "topo_name": tbinfo['topo']['name'],
-                   "topo_type": tbinfo['topo']['type']
+                   "topo_type": tbinfo['topo']['type'],
+                   "is_v6_topo": is_ipv6_only_topology(tbinfo),
                },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -674,7 +740,8 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts,                
                        "single_fib_for_duts": single_fib_for_duts,
                        "ipver": vxlan_ipver,
                        "topo_name": tbinfo['topo']['name'],
-                       "topo_type": tbinfo['topo']['type']
+                       "topo_type": tbinfo['topo']['type'],
+                       "is_v6_topo": is_ipv6_only_topology(tbinfo),
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -706,6 +773,9 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
     if duthost.facts['asic_type'] in ["mellanox"]:
         logging.info("Mellanox: hash-key is src-ip, dst-ip")
         hash_keys = ['src-ip', 'dst-ip']
+    if duthost.facts['asic_type'] in ["marvell-teralynx"]:
+        logging.info("Marvell-Teralynx: hash-key is src-ip, dst-ip")
+        hash_keys = ['src-ip', 'dst-ip']
 
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     log_file = "/tmp/hash_test.NvgreHashTest.{}.{}.log".format(
@@ -734,7 +804,8 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
                        "single_fib_for_duts": single_fib_for_duts,
                        "ipver": nvgre_ipver,
                        "topo_name": tbinfo['topo']['name'],
-                       "topo_type": tbinfo['topo']['type']
+                       "topo_type": tbinfo['topo']['type'],
+                       "is_v6_topo": is_ipv6_only_topology(tbinfo),
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -835,8 +906,14 @@ def test_ecmp_group_member_flap(
     logging.info("Shutting down port {}".format(nh_dut_ports[port_index_to_shut][1]))
     duthosts[0].shell("sudo config interface {} shutdown {}".format(asic_ns, nh_dut_ports[port_index_to_shut][1]))
 
-    time.sleep(10)  # Allow time for the state to stabilize
-    filtered_ports.append(nh_ptf_ports[port_index_to_shut])
+    time.sleep(60)  # Allow time for the state to stabilize
+
+    # Get all PTF ports for the port and its port channel members (if applicable)
+    ptf_ports_to_filter = get_port_and_portchannel_members(
+        nh_dut_ports[port_index_to_shut][1], all_port_indices, duts_minigraph_facts, upstream_lc, tbinfo)
+
+    # Add them to filtered_ports
+    filtered_ports.extend(ptf_ports_to_filter)
 
     # --- Re-run the PTF test after member down ---
     logging.info("Verifying ECMP behavior after member down.")
@@ -880,7 +957,11 @@ def test_ecmp_group_member_flap(
 
     logging.info("Enabling port {}".format(nh_dut_ports[port_index_to_shut][1]))
     duthosts[0].shell("sudo config interface {} startup {}".format(asic_ns, nh_dut_ports[port_index_to_shut][1]))
-    filtered_ports.pop()
+
+    # Remove the PTF ports that were added earlier
+    for ptf_port in ptf_ports_to_filter:
+        if ptf_port in filtered_ports:
+            filtered_ports.remove(ptf_port)
 
     time.sleep(60)  # Allow time for the state to stabilize
 

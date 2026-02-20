@@ -56,7 +56,33 @@ function get_dut_from_testbed_file() {
             IFS=$'+' read -r -a tb_lines <<< $content
             tb_line=${tb_lines[0]}
             DUT_NAME=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(\",\".join(tb[\"dut\"]))")
+
+            topo_name=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('topo', ''))")
+            use_converged_peers=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('use_converged_peers', ''))")
+            converge_topo_if_needed "$topo_name" "$use_converged_peers"
         fi
+    fi
+}
+
+function converge_topo_if_needed
+{
+    topo_name="$1"
+    use_converged_peers="$2"
+    ANSIBLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)/ansible"
+    VARS_DIR="$ANSIBLE_DIR/vars"
+    topo_file="$VARS_DIR/topo_${topo_name}.yml"
+    backup_file="${topo_file}".bak
+    if [[ "$use_converged_peers" == "True" ]]; then
+        echo "use_converged_peers is true, converging topo..."
+
+        if [[ -f "$backup_file" ]];then
+            echo "Backup file exists, recover..."
+            cp "$backup_file" "$topo_file"
+        elif [[ -f "$topo_file" ]]; then
+            echo "Back up topo file"
+            cp "$topo_file" "$backup_file"
+        fi
+        PYTHONPATH="$ANSIBLE_DIR:$PYTHONPATH" python -m ceos_topo_converger "$backup_file" "$topo_file"
     fi
 }
 
@@ -376,6 +402,12 @@ function run_individual_tests()
                 return ${ret_code}
             fi
 
+            # rc 16 means ptfhost is unreachable
+            if [ ${ret_code} -eq 16 ]; then
+                echo "=== ptfhost has exception for $test_script. Skip rest of the scripts if there is any. ==="
+                return ${ret_code}
+            fi
+
             EXIT_CODE=1
             if [[ ${TEST_MAX_FAIL} != 0 ]]; then
                 return ${EXIT_CODE}
@@ -542,6 +574,12 @@ fi
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
     cleanup_dut
+fi
+
+if [[ -f "$backup_file" ]];then
+    echo "Backup exists, restore backup file"
+    rm -f "$topo_file"
+    mv "$backup_file" "$topo_file"
 fi
 
 exit ${RC}

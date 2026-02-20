@@ -107,7 +107,7 @@ def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_
     asic_id = enum_rand_one_frontend_asic_index
 
     if (asic == "broadcom"):
-        if "7060x6_64pe" in platform:
+        if "x86_64-arista_7060x6" in platform:
             # For all TH5 family devices, l3_alpm_template is set in config.bcm
             # * 1 - Combined (By default)
             # * 2 - Parallel
@@ -149,13 +149,13 @@ def ignore_expected_loganalyzer_exceptions(
 
 
 @pytest.fixture(scope="function", autouse=True)
-def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
+def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, loganalyzer):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
     if request.node.rep_call.failed:
         # Issue a config_reload to clear statically added route table and ip addr
         logging.info("Reloading config..")
-        config_reload(duthost)
+        config_reload(duthost, ignore_loganalyzer=loganalyzer)
 
 
 @pytest.fixture(scope="module", autouse=True)
