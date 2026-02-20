@@ -411,16 +411,9 @@ def perform_gnoi_upgrade(
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
 
-def _wait_gnoi_time_ready(ptf_gnoi, metadata, timeout: int, interval: int = 10) -> bool:
-    """Wait until System.Time succeeds for the given target."""
-    def _probe():
-        try:
-            ptf_gnoi.system_time(metadata=metadata)
-            return True
-        except Exception as e:
-            logger.debug("gNOI Time probe failed (expected during reboot): %s", e)
-            return False
-    return wait_until(timeout, interval, 0, _probe)
+def _wait_gnoi_time_ready(ptf_gnoi, metadata, cfg: GnoiUpgradeConfig, timeout=None, interval: int = 10) -> bool:
+    timeout = timeout or cfg.ss_reboot_ready_timeout
+    return wait_until(timeout, interval, 0, ptf_gnoi.system_time, metadata=metadata)
 
 
 def _upgrade_one_dpu_via_gnoi(ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
@@ -447,6 +440,7 @@ def _upgrade_one_dpu_via_gnoi(ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
 
     method = str(cfg.upgrade_type).upper()
     try:
+        ## TODO: switch to use the perform reboot helper once it supports gNOI.
         reboot_resp = ptf_gnoi.system_reboot(
             method=method,
             delay=0,
@@ -460,7 +454,7 @@ def _upgrade_one_dpu_via_gnoi(ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
     if cfg.allow_fail:
         return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
 
-    ok = wait_until(cfg.ss_reboot_ready_timeout, 10, 0, lambda: _probe_time(ptf_gnoi, md))
+    ok = wait_until(cfg.ss_reboot_ready_timeout, 10, 0, ptf_gnoi.system_time, metadata=md)
     pytest_assert(ok, f"gNOI Time not reachable within {cfg.ss_reboot_ready_timeout}s after reboot")
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
