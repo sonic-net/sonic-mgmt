@@ -319,9 +319,7 @@ def harness(duthosts, rand_one_dut_hostname):
     duthost.shell("rm -rf {}".format(HARNESS_DIR), module_ignore_errors=True)
 
 
-CONFIG_DB_JSON = "/etc/sonic/config_db.json"
 CONFIG_DB_BAK = "/etc/sonic/config_db.json.config_setup_test_bak"
-MINIGRAPH_FILE = "/etc/sonic/minigraph.xml"
 
 
 @pytest.fixture(scope="function")
