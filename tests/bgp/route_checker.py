@@ -112,10 +112,10 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
             if multi_vrf_peer:
                 cmd_backup = "{} vrf {}".format(cmd_backup, hostname)
             cmd_backup = "{} | {}".format(cmd_backup, grepCmd)
-        res = host.eos_command(commands=[cmd], module_ignore_errors=True)
+        res = host.eos_command(commands=[cmd], module_ignore_errors=True, verbose=False)
         if res['failed'] and cmd_backup != "":
             res = host.eos_command(
-                commands=[cmd_backup], module_ignore_errors=True)
+                commands=[cmd_backup], module_ignore_errors=True, verbose=False)
         pytest_assert(
             not res['failed'], "Failed to retrieve routes from VM {}".format(hostname))
         routes = {}
@@ -195,7 +195,7 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
                 peer_ip_v6)
 
         host.shell(conf_cmd)
-        res = host.shell(bgp_nbr_cmd)
+        res = host.shell(bgp_nbr_cmd, verbose=False)
         routes_json = json.loads(res['stdout'])['receivedRoutes']
 
         routes = {}
