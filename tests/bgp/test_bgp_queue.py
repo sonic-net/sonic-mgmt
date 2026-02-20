@@ -1,6 +1,7 @@
-import time
 import pytest
 import logging
+from tests.common.utilities import wait_until
+
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,20 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
     duthost = duthosts[enum_frontend_dut_hostname]
     asichost = duthost.asic_instance(enum_asic_index)
     clear_queue_counters(asichost)
-    time.sleep(10)
+
+    def _queue_counters_stable():
+        """Check that queue counters are all zero after clearing."""
+        counters = get_all_ports_queue_counters(
+            asichost, queue_type_prefix="UC")
+        for port, queues in counters.items():
+            for qnum, count in queues.items():
+                if count != 0:
+                    return False
+        return True
+
+    # Wait for BGP keepalives to settle, then clear once more
+    wait_until(30, 5, 5, _queue_counters_stable)
+    clear_queue_counters(asichost)
     bgp_facts = duthost.bgp_facts(instance_id=enum_asic_index)['ansible_facts']
     mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
 
@@ -70,6 +84,9 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
         if (len(items) != 4):
             continue
         ip = items[0]
+        # Skip header/footer lines (e.g., "Total number of entries N")
+        if not ip[0].isdigit():
+            continue
         iface = items[2]
         arp_dict[ip] = iface
     for ndp_entry in show_ndp['stdout_lines']:
@@ -77,6 +94,9 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
         if (len(items) != 5):
             continue
         ip = items[0]
+        # Skip header/footer lines (e.g., "Total number of entries N")
+        if ':' not in ip:
+            continue
         iface = items[2]
         ndp_dict[ip] = iface
 
