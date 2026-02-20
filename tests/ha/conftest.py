@@ -286,8 +286,8 @@ def generate_ha_config_for_dut(switch_id: int):
             "GLOBAL": {
                 "dpu_bfd_probe_interval_in_ms": "1000",
                 "dpu_bfd_probe_multiplier": "3",
-                "cp_data_channel_port": "6000",
-                "dp_channel_dst_port": "7000",
+                "cp_data_channel_port": "11362",
+                "dp_channel_dst_port": "11368",
                 "dp_channel_src_port_min": "7001",
                 "dp_channel_src_port_max": "7010",
                 "dp_channel_probe_interval_ms": "500",
