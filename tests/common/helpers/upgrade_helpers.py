@@ -10,7 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
-from tests.platform_tests.test_reboot import reboot_and_check
+from tests.common.reboot import reboot_and_check
 from tests.common.utilities import wait_until, setup_ferret
 from tests.common.platform.device_utils import check_neighbors
 from typing import Dict, Optional
@@ -32,7 +32,7 @@ class GnoiUpgradeConfig:
     upgrade_type: str
     protocol: str = "HTTP"
     allow_fail: bool = False
-    to_version: Optional[str] = None  # Optional expected version string to validate after upgrade
+    to_version: Optional[str] = None  # Optional expected Version string to validate after upgrade
 
 
 def pytest_runtest_setup(item):
