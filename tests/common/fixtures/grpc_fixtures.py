@@ -253,6 +253,28 @@ def setup_gnoi_tls_server(duthost, ptfhost):
             logger.error(f"Failed to cleanup certificates: {e}")
 
 
+def ensure_gnoi_tls_server(duthost, ptfhost, cert_dir="/tmp/gnoi_certs"):
+    """
+    Ensure gNOI TLS server is configured with certs that have DUT IP in SAN.
+
+    Call this after a cold reboot (e.g. in upgrade path) so the DUT serves
+    certificates that include its management IP in SAN, allowing TLS verification
+    from the PTF client.
+
+    Does not create a checkpoint or rollback; suitable for use mid-test.
+
+    Args:
+        duthost: DUT host instance to configure
+        ptfhost: PTF host instance for client certificates
+        cert_dir: Local directory to generate certificates (default /tmp/gnoi_certs)
+    """
+    _create_gnoi_certs(duthost, ptfhost, cert_dir)
+    _configure_gnoi_tls_server(duthost)
+    _restart_gnoi_server(duthost)
+    _verify_gnoi_tls_connectivity(duthost, ptfhost)
+    logger.info("ensure_gnoi_tls_server completed successfully")
+
+
 def _create_gnoi_certs(duthost, ptfhost, cert_dir):
     """
     Generate and distribute gNOI TLS certificates.
