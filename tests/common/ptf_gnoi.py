@@ -105,6 +105,32 @@ class PtfGnoi:
                 raise FileNotFoundError(f"File not found: {remote_file}") from e
             raise
 
+    def kill_process(self, name: str, restart: bool = False, signal="SIGNAL_TERM") -> Dict:
+        """
+        Kill (and optionally restart) a process/service via gNOI System.KillProcess.
+
+        NOTE:
+        grpcurl JSON->proto mapping is most reliable when enums are passed as
+        their string names (e.g., "SIGNAL_TERM"), not numeric values.
+        """
+        # Normalize TERM representations to the enum name expected by grpcurl mapping.
+        if isinstance(signal, int):
+            # Keep non-1 ints as-is for negative tests, but map 1 => SIGNAL_TERM
+            signal = "SIGNAL_TERM" if signal == 1 else signal
+        elif isinstance(signal, str):
+            low = signal.strip().lower()
+            if low in ("sigterm", "term", "signal_term", "1"):
+                signal = "SIGNAL_TERM"
+
+        logger.debug(
+            "Calling gNOI System.KillProcess: name=%s restart=%s signal=%s",
+            name,
+            restart,
+            signal,
+        )
+        request = {"name": name, "restart": restart, "signal": signal}
+        return self.grpc_client.call_unary("gnoi.system.System", "KillProcess", request)
+
     def __str__(self):
         return f"PtfGnoi(grpc_client={self.grpc_client})"
 
