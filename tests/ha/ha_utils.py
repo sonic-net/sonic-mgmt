@@ -229,7 +229,7 @@ def activate_dash_ha(duthost, scope_key, fields, expected_op_type):
             args=build_dash_ha_scope_args(fields),
         )
 
-    pending_id = get_pending_operation_id(duthost, scope_key, expected_op_type, timeout=60)
+    pending_id = wait_for_pending_operation_id(duthost, scope_key, expected_op_type, timeout=60)
     assert pending_id, (
         f"Timed out waiting for active pending_operation_id "
         f"for scope {scope_key}"
