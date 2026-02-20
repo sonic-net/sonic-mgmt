@@ -416,6 +416,7 @@ class PtfGrpc:
             GrpcTimeoutError: If call times out
         """
         service_method = f"{service}/{method}"
+        # grpcurl does not read stdin unless -d @ is used
         cmd = self._build_grpcurl_cmd(extra_args=["-d", "@"], service_method=service_method)
 
         # Prepare request data
@@ -520,6 +521,7 @@ class PtfGrpc:
             GrpcTimeoutError: If call times out
         """
         service_method = f"{service}/{method}"
+        # grpcurl does not read stdin unless -d @ is used
         cmd = self._build_grpcurl_cmd(extra_args=["-d", "@"], service_method=service_method)
 
         # Prepare multiple requests as newline-delimited JSON
@@ -573,3 +575,4 @@ class PtfGrpc:
 
     def __repr__(self):
         return self.__str__()
+    

@@ -29,48 +29,80 @@ class PtfGnoi:
             grpc_client: PtfGrpc instance for low-level gRPC operations
         """
         self.grpc_client = grpc_client
-        logger.info("Initialized PtfGnoi wrapper with %s", grpc_client)
+        logger.info(f"Initialized PtfGnoi wrapper with {grpc_client}")
 
     def system_time(self) -> Dict:
-        """Get the current system time from the device."""
+        """
+        Get the current system time from the device.
+
+        Returns:
+            Dictionary containing:
+            - time: Nanoseconds since Unix epoch (int)
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+        """
         logger.debug("Getting system time via gNOI System.Time")
+
+        # Make the low-level gRPC call
         response = self.grpc_client.call_unary("gnoi.system.System", "Time")
 
+        # Convert time string to int for consistency
         if "time" in response:
             try:
                 response["time"] = int(response["time"])
-                logger.debug("System time: %s ns", response["time"])
-            except (ValueError, TypeError) as exc:
-                logger.warning("Failed to convert time to int: %s", exc)
+                logger.debug(f"System time: {response['time']} ns")
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Failed to convert time to int: {e}")
 
         return response
 
+    # File service operations
+    # TODO: Add file_get(), file_put(), file_remove() methods
+    # These are left for future implementation when gNOI File service is stable
+
     def file_stat(self, remote_file: str) -> Dict:
-        """Get file statistics from the device."""
-        logger.debug("Getting file stats from device: %s", remote_file)
+        """
+        Get file statistics from the device.
+
+        Args:
+            remote_file: Path to the file on the device
+
+        Returns:
+            File statistics including size, permissions, timestamps
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+            FileNotFoundError: If the file doesn't exist
+        """
+        logger.debug(f"Getting file stats from device: {remote_file}")
+
         request = {"path": remote_file}
 
         try:
             response = self.grpc_client.call_unary("gnoi.file.File", "Stat", request)
 
+            # Convert numeric strings to proper types for consistency
             if "stats" in response and isinstance(response["stats"], list):
                 for stat in response["stats"]:
+                    # Convert numeric fields from strings to integers
                     for field in ["last_modified", "permissions", "size", "umask"]:
                         if field in stat:
                             try:
                                 stat[field] = int(stat[field])
-                            except (ValueError, TypeError) as exc:
-                                logger.warning(
-                                    "Failed to convert %s to int: %s", field, exc
-                                )
+                            except (ValueError, TypeError) as e:
+                                logger.warning(f"Failed to convert {field} to int: {e}")
 
-            logger.info("Successfully got file stats: %s", remote_file)
+            logger.info(f"Successfully got file stats: {remote_file}")
             return response
 
-        except Exception as exc:
-            low = str(exc).lower()
-            if "not found" in low or "no such file" in low:
-                raise FileNotFoundError(f"File not found: {remote_file}") from exc
+        except Exception as e:
+            if "not found" in str(e).lower() or "no such file" in str(e).lower():
+                raise FileNotFoundError(f"File not found: {remote_file}") from e
             raise
 
     def kill_process(self, name: str, restart: bool = False, signal="SIGNAL_TERM") -> Dict:
@@ -300,3 +332,4 @@ class PtfGnoi:
         response = self.grpc_client.call_unary("gnoi.system.System", "Reboot", request)
         logger.info("Reboot request sent: method=%s delay=%s force=%s", method, delay, force)
         return response
+    
