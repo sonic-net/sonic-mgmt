@@ -465,6 +465,29 @@ def cfg_facts(duthosts, rand_one_dut_hostname):
     return get_cfg_facts(duthost)
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    """
+       Ignore expected errors in logs during test execution
+
+       Args:
+           loganalyzer: Loganalyzer utility fixture
+           duthost: DUT host object
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:
+        loganalyzer_ignore_regex = [
+            ".*ERR syncd#syncd: :- addPlugins: Plugin.* already registered.*",
+            ".*ERR lag_keepalive: Failed to send LACPDU packet from interface .*",
+            ".*ERR swss#intfmgrd: :- setIntfIp: Command '/sbin/ip .*address .* failed with rc 2",
+            ".*ERR swss#intfmgrd: :- addLoopbackIntf: Command '/sbin/ip link add Loopback. "
+            "mtu 65536 type dummy' failed with rc 2",
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(loganalyzer_ignore_regex)
+
+    yield
+
+
 def restore_config_db(localhost, duthost, ptfhost):
     # In case something went wrong in previous reboot, wait until the DUT is accessible to ensure that
     # the `mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json` is executed on DUT.
