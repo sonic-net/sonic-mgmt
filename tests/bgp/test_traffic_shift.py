@@ -9,6 +9,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
+from tests.common.utilities import is_ipv6_only_topology
 from tests.bgp.route_checker import assert_only_loopback_routes_announced_to_neighs, parse_routes_on_neighbors, \
     verify_current_routes_announced_to_neighs, check_and_log_routes_diff
 from tests.bgp.traffic_checker import get_traffic_shift_state, check_tsa_persistence_support, \
@@ -70,6 +71,7 @@ def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     if tbinfo['topo']['type'] == 't2':
         initial_tsa_check_before_and_after_test(duthosts)
@@ -89,7 +91,7 @@ def test_TSA(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
                           "Not all routes are announced to bgpmon")
 
         assert_only_loopback_routes_announced_to_neighs(duthosts, duthost, nbrhosts_to_dut, traffic_shift_community,
-                                                        "Failed to verify routes on nbr in TSA")
+                                                        "Failed to verify routes on nbr in TSA", is_v6_topo)
     finally:
         # Recover to Normal state
         duthost.shell("TSB")
@@ -111,8 +113,10 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
     # Ensure that the DUT is not in maintenance already before start of the test
     pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(duthost, "TSC no-stats")),
                   "DUT is not in normal state")
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
     # Get all routes on neighbors before doing TSA
-    orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
+    if not is_v6_topo:
+        orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
     orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
 
     # Shift traffic away using TSA
@@ -131,10 +135,11 @@ def test_TSB(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, nbrho
     cur_v4_routes = {}
     cur_v6_routes = {}
     # Verify that all routes advertised to neighbor at the start of the test
-    if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
-                      duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
-        if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
-            pytest.fail("Not all ipv4 routes are announced to neighbors")
+    if not is_v6_topo:
+        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+                          duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+            if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+                pytest.fail("Not all ipv4 routes are announced to neighbors")
 
     if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
                       duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
@@ -161,9 +166,11 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
     # Ensure that the DUT is not in maintenance already before start of the test
     pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(duthost, "TSC no-stats")),
                   "DUT is not in normal state")
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
     try:
         # Get all routes on neighbors before doing TSA
-        orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
+        if not is_v6_topo:
+            orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
         # Remove the Neighbors for the particular BGP instance
         bgp_neighbors = remove_bgp_neighbors(duthost, asic_index)
@@ -200,10 +207,11 @@ def test_TSA_B_C_with_no_neighbors(duthosts, enum_rand_one_per_hwsku_frontend_ho
         cur_v4_routes = {}
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
-                          duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
-            if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
-                pytest.fail("Not all ipv4 routes are announced to neighbors")
+        if not is_v6_topo:
+            if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+                              duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+                if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+                    pytest.fail("Not all ipv4 routes are announced to neighbors")
 
         if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
@@ -231,10 +239,12 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
                   "DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
 
     try:
         # Get all routes on neighbors before doing TSA
-        orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
+        if not is_v6_topo:
+            orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
         # Issue TSA on DUT
         duthost.shell("TSA")
@@ -249,7 +259,7 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
                                                              bgpmon_setup_teardown['namespace']) == [],
                           "Not all routes are announced to bgpmon")
         assert_only_loopback_routes_announced_to_neighs(duthosts, duthost, nbrhosts_to_dut, traffic_shift_community,
-                                                        "Failed to verify routes on nbr in TSA")
+                                                        "Failed to verify routes on nbr in TSA", is_v6_topo)
     finally:
         """
         Test TSB after config save and config reload
@@ -268,10 +278,11 @@ def test_TSA_TSB_with_config_reload(duthosts, enum_rand_one_per_hwsku_frontend_h
         cur_v4_routes = {}
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
-                          duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
-            if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
-                pytest.fail("Not all ipv4 routes are announced to neighbors")
+        if not is_v6_topo:
+            if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+                              duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+                if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+                    pytest.fail("Not all ipv4 routes are announced to neighbors")
 
         if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
@@ -299,10 +310,12 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
                   "DUT is not in normal state")
     if not check_tsa_persistence_support(duthost):
         pytest.skip("TSA persistence not supported in the image")
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
 
     try:
         # Get all routes on neighbors before doing TSA
-        orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
+        if not is_v6_topo:
+            orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
 
         is_override_config = True if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get(
@@ -320,7 +333,7 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
                           "Not all routes are announced to bgpmon")
 
         assert_only_loopback_routes_announced_to_neighs(duthosts, duthost, nbrhosts_to_dut, traffic_shift_community,
-                                                        "Failed to verify routes on nbr in TSA")
+                                                        "Failed to verify routes on nbr in TSA", is_v6_topo)
     finally:
         """
         Recover with TSB and verify route advertisement
@@ -337,10 +350,11 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         cur_v4_routes = {}
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
-        if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
-                          duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
-            if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
-                pytest.fail("Not all ipv4 routes are announced to neighbors")
+        if not is_v6_topo:
+            if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
+                              duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+                if not check_and_log_routes_diff(duthost, nbrhosts, orig_v4_routes, cur_v4_routes, 4):
+                    pytest.fail("Not all ipv4 routes are announced to neighbors")
 
         if not wait_until(300, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrhosts, orig_v6_routes, cur_v6_routes, 6):
