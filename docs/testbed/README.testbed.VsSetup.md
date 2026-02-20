@@ -552,6 +552,27 @@ If neighbor devices are SONiC
 
 You should see three sets of tests run and pass. You're now set up and ready to use the KVM testbed!
 
+### Running Tests with IPv6-Only Management
+
+If you deployed the DUT with `--ipv6-only-mgmt` (see [IPv6-Only Management Network](#ipv6-only-management-network-optional)), you must run tests with the `-6` flag:
+
+```
+./run_tests.sh -6 -n vms-kvm-t0 -d vlab-01 -c bgp/test_bgp_fact.py -f vtestbed.yaml -i ../ansible/veos_vtb
+```
+
+The `-6` flag tells the test framework to:
+- Use the IPv6 address (`ansible_hostv6`) as the DUT management IP
+- Skip IPv4 management connectivity checks
+- Use `ping6` for reachability tests
+
+Alternatively, you can use pytest directly with the `--ipv6_only_mgmt` option:
+
+```
+pytest --ipv6_only_mgmt --testbed vms-kvm-t0 --testbed_file vtestbed.yaml --inventory ../ansible/veos_vtb --host-pattern vlab-01 bgp/test_bgp_fact.py
+```
+
+For more details, see [IPv6 Management Setup Guide](../ipv6-management-setup.md#running-tests-in-ipv6-only-management-mode).
+
 ## Restore/Remove the testing environment
 If you want to clear your testing environment, you can log into your mgmt docker that you created at step three in section [README.testbed.VsSetup.md#prepare-testbed-host](README.testbed.VsSetup.md#prepare-testbed-host).
 
