@@ -230,36 +230,110 @@ def assert_only_loopback_routes_announced_to_neighs(dut_hosts, duthost, neigh_ho
     )
 
 
+def _parse_advertised_routes_plain(output):
+    """Parse plain text output of 'show bgp neighbors advertised-routes'.
+
+    Returns a set of advertised prefixes.
+    """
+    prefixes = set()
+    for line in output.splitlines():
+        # Match lines starting with *> or * followed by a prefix
+        # e.g. "*> 10.1.0.32/32    0.0.0.0       0  32768  i"
+        fields = line.strip().split()
+        if len(fields) >= 2 and ('*>' in fields[0] or '*' == fields[0]):
+            prefix = (fields[1] if '*' == fields[0]
+                      else fields[0].lstrip('*>= '))
+            if '/' in prefix:
+                prefixes.add(prefix)
+    return prefixes
+
+
 def get_dut_advertised_routes(duthost, ip_ver):
+    """Get advertised routes from the DUT for each BGP neighbor.
+
+    Checks both JSON and plain text output formats. If both succeed,
+    verifies they return consistent results. Reports failures for
+    each format independently.
+
+    Returns a dict: {neighbor_ip: set_of_advertised_prefixes}, or
+    None if both formats fail for any neighbor.
     """
-    Get advertised routes from the DUT's perspective using 'show ip/ipv6 bgp neighbor advertised-routes json'.
-    Returns a dict: {neighbor_ip: set_of_advertised_prefixes}
-    """
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+    mg_facts = duthost.minigraph_facts(
+        host=duthost.hostname)['ansible_facts']
     advertised = {}
     for bgp_neigh in mg_facts['minigraph_bgp']:
-        # In minigraph_bgp, 'addr' is the neighbor's IP and 'peer_addr' is the DUT's own IP
         neigh_addr = bgp_neigh['addr']
         neigh_ver = ipaddress.IPNetwork(neigh_addr).version
         if neigh_ver != ip_ver:
             continue
         if ip_ver == 4:
-            cmd = "sudo vtysh -c 'show ip bgp neighbors {} advertised-routes json'".format(neigh_addr)
+            cmd_json = ("sudo vtysh -c 'show ip bgp neighbors "
+                        "{} advertised-routes json'"
+                        .format(neigh_addr))
+            cmd_plain = ("sudo vtysh -c 'show ip bgp neighbors "
+                         "{} advertised-routes'"
+                         .format(neigh_addr))
         else:
-            cmd = "sudo vtysh -c 'show bgp ipv6 neighbors {} advertised-routes json'".format(neigh_addr)
-        res = duthost.shell(cmd, module_ignore_errors=True, verbose=False)
-        if res['rc'] != 0:
+            cmd_json = ("sudo vtysh -c 'show bgp ipv6 neighbors "
+                        "{} advertised-routes json'"
+                        .format(neigh_addr))
+            cmd_plain = ("sudo vtysh -c 'show bgp ipv6 neighbors "
+                         "{} advertised-routes'"
+                         .format(neigh_addr))
+
+        # Collect results from both JSON and plain text formats
+        json_prefixes = None
+        plain_prefixes = None
+
+        # JSON format
+        res = duthost.shell(
+            cmd_json, module_ignore_errors=True, verbose=False)
+        if res['rc'] == 0:
+            try:
+                routes_json = json.loads(res['stdout'])
+                json_prefixes = set(
+                    routes_json.get('advertisedRoutes', {}).keys())
+            except (ValueError, KeyError) as e:
+                logger.warning(
+                    "Failed to parse JSON advertised routes for "
+                    "neighbor {}: {}".format(neigh_addr, e))
+        else:
             logger.warning(
-                "Failed to get advertised routes for neighbor {}: {}"
-                .format(neigh_addr, res.get('stderr', '')))
+                "JSON advertised-routes command failed for "
+                "neighbor {}: {}".format(
+                    neigh_addr, res.get('stderr', '')))
+
+        # Plain text format
+        res = duthost.shell(
+            cmd_plain, module_ignore_errors=True, verbose=False)
+        if res['rc'] == 0:
+            plain_prefixes = _parse_advertised_routes_plain(
+                res['stdout'])
+        else:
+            logger.warning(
+                "Plain text advertised-routes command failed for "
+                "neighbor {}: {}".format(
+                    neigh_addr, res.get('stderr', '')))
+
+        # Evaluate results
+        if json_prefixes is None and plain_prefixes is None:
+            logger.warning(
+                "Both JSON and plain text advertised-routes "
+                "failed for neighbor {}".format(neigh_addr))
             return None
-        try:
-            routes_json = json.loads(res['stdout'])
-            prefixes = set(routes_json.get('advertisedRoutes', {}).keys())
-            advertised[neigh_addr] = prefixes
-        except (ValueError, KeyError) as e:
-            logger.warning("Failed to parse advertised routes for neighbor {}: {}".format(neigh_addr, e))
-            return None
+
+        if (json_prefixes is not None and plain_prefixes is not None
+                and json_prefixes != plain_prefixes):
+            logger.warning(
+                "JSON and plain text advertised-routes mismatch "
+                "for neighbor {}: json_only={}, plain_only={}"
+                .format(neigh_addr,
+                        json_prefixes - plain_prefixes,
+                        plain_prefixes - json_prefixes))
+
+        # Use JSON if available, otherwise plain text
+        advertised[neigh_addr] = (json_prefixes if json_prefixes
+                                  is not None else plain_prefixes)
     return advertised
 
 
