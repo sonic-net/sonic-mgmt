@@ -408,3 +408,11 @@ def setup_ha_config(duthosts):
         final_cfg[f"DUT{switch_id}"] = cfg
 
     return final_cfg
+
+
+def setup_dash_ha_from_json(duthosts):
+    pass
+
+
+def activate_dash_ha_from_json(duthosts):
+    pass
