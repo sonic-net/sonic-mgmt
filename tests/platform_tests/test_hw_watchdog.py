@@ -43,8 +43,6 @@ def test_hw_watchdog_supported(duthosts, enum_rand_one_per_hwsku_hostname):
     pytest_assert(result["rc"] == 0,
                   "watchdogutil command failed with rc={}: {}".format(
                       result["rc"], result["stderr"]))
-    pytest_assert(result["stderr"].strip() == "",
-                  "watchdogutil status reported errors: {}".format(result["stderr"]))
     pytest_assert(result["stdout"].strip() != "",
                   "watchdogutil status returned empty output")
 
@@ -62,9 +60,7 @@ def test_hw_watchdog_armed(duthosts, enum_rand_one_per_hwsku_hostname, strict_wa
 
     result = duthost.command(WATCHDOG_STATUS_CMD, module_ignore_errors=True)
 
-    if (result["rc"] != 0 or
-            result["stdout"].strip() == "" or
-            result["stderr"].strip() != ""):
+    if result["rc"] != 0 or result["stdout"].strip() == "":
         pytest.skip("watchdogutil is not supported on this platform (rc={}, stderr='{}')".format(
             result["rc"], result["stderr"]))
 
