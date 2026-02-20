@@ -332,4 +332,3 @@ class PtfGnoi:
         response = self.grpc_client.call_unary("gnoi.system.System", "Reboot", request)
         logger.info("Reboot request sent: method=%s delay=%s force=%s", method, delay, force)
         return response
-    
