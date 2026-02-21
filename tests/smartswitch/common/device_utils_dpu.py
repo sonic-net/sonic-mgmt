@@ -494,7 +494,7 @@ def post_test_switch_check(duthost, localhost,
     return
 
 
-def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause):
+def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause, extra_dpu_online_timeout=0):
     """
     Runs all required checks for a given DPU
     Args:
@@ -507,8 +507,9 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause):
     """
 
     logging.info(f"Checking {dpu_name} is UP post test")
+    dpu_online_timeout = DPU_MAX_ONLINE_TIMEOUT + extra_dpu_online_timeout
     pytest_assert(
-        wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_MAX_TIME_INT, 0,
+        wait_until(dpu_online_timeout, DPU_MAX_TIME_INT, 0,
                    check_dpu_module_status, duthost, "on", dpu_name),
         f"DPU {dpu_name} is not operationally UP post the operation"
     )
@@ -533,7 +534,7 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause):
 
 
 def post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
-                         num_dpu_modules, reboot_cause):
+                         num_dpu_modules, reboot_cause, extra_dpu_online_timeout=0):
     """
     Checks DPU OFF/ON and reboot cause status Post Test
     Args:
@@ -551,7 +552,8 @@ def post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
         logging.info("Post test DPUs check in parallel")
         for dpu in dpu_on_list:
             executor.submit(post_test_dpu_check, duthost,
-                            dpuhosts, dpu, reboot_cause)
+                            dpuhosts, dpu, reboot_cause,
+                            extra_dpu_online_timeout)
 
     logging.info("Checking all powered on DPUs connectivity")
     ping_status = check_dpu_ping_status(duthost, ip_address_list)
