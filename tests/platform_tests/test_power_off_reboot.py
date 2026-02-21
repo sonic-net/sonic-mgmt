@@ -6,8 +6,7 @@ from tests.common.reboot import REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS, reboot_ct
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.psu_helpers import get_grouped_pdus_by_psu
-from tests.platform_tests.test_reboot import check_interfaces_and_services, \
-    reboot_and_check
+from tests.common.reboot import check_interfaces_and_services, reboot_and_check
 from tests.common.utilities import get_plt_reboot_ctrl
 
 pytestmark = [

@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, SONIC_SSH_PORT, SONIC_SSH_REGEX, wait_for_startup,\
     REBOOT_TYPE_COLD, REBOOT_TYPE_KERNEL_PANIC, REBOOT_TYPE_SUPERVISOR_HEARTBEAT_LOSS
-from tests.platform_tests.test_reboot import check_interfaces_and_services
+from tests.common.reboot import check_interfaces_and_services
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
