@@ -90,6 +90,7 @@ from ptf import testutils
 from ptf.mask import Mask
 
 from tests.common.telemetry.fixtures import db_reporter, ts_reporter                        # noqa: F401
+from tests.common.helpers.yang_utils import run_yang_validation
 
 
 logger = logging.getLogger(__name__)
@@ -3872,7 +3873,6 @@ def yang_validation_check(request, duthosts):
 
     def run_yang_validation_all(stage):
         """Run YANG validation on all DUTs and return results"""
-        from tests.common.helpers.yang_utils import run_yang_validation
         validation_results = {}
         for duthost in duthosts:
             validation_results[duthost.hostname] = run_yang_validation(duthost, stage)

@@ -27,7 +27,7 @@ def run_yang_validation(duthost, stage="validation"):
             return {'failed': True, 'error': error}
         else:
             logger.info(f"YANG validation passed on {duthost.hostname} ({stage})")
-            return {'failed': False}
+            return {'failed': False, 'error': ''}
 
     except Exception as e:
         logger.error(f"Exception during YANG validation on {duthost.hostname} ({stage}): {str(e)}")
