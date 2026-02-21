@@ -263,7 +263,7 @@ MGMT: #Anukul Verma / Bidipta Das
         - restapi/test_restapi.py
         - snmp/test_snmp_lldp.py
         - ssh/test_ssh_default_password.py
-        - tacacs/test_rw_user.py
+        - tacacs/test_rw_user.py::test_rw_user
         - telemetry/test_telemetry.py
   t2-min:
     sfd:
