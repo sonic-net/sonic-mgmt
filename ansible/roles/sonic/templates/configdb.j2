@@ -114,7 +114,7 @@
 {{ separator() }}
         "{{ dut_name }}": {
                 "hwsku": "SONiC-VM",
-                "mgmt_addr": "{{ hostvars[dut_name]['ansible_host'] }}",
+                "mgmt_addr": "{{ mgmt_ip }}",
                 "type": "TorRouter"
         },
         "exabgp": {
