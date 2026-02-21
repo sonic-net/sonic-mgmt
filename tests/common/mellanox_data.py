@@ -1210,6 +1210,11 @@ def is_mellanox_device(dut):
 
 
 @read_only_cache()
+def is_weak_server_testbed(dut):
+    return "simx" in dut.facts["platform"]
+
+
+@read_only_cache()
 def get_platform_data(dut):
     """
     Get the platform physical data for the given dut object
