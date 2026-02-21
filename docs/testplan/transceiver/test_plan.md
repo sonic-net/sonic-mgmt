@@ -85,18 +85,7 @@ A total of 2 ports of a device with the onboarding transceiver should be connect
                                +-----------------+
     ```
 
-## Test Cases
-
-### 1. Tests not involving traffic
-
-These tests do not require traffic and are standalone, designed to run on a Device Under Test (DUT) with the transceiver plugged into 2 ports, connected by a cable.
-
-**Breakout Cable Assumptions for the Below Tests:**
-
-- All sides of the breakout cable should be connected to the DUT, and each port should be tested individually starting from subport 1 to subport N. The test should be run in reverse order as well i.e. starting from subport N to subport 1.
-- For link toggling tests on a subport, it's crucial to ensure that the link status of remaining subports of the breakout port group remains unaffected.
-
-### Test Prerequisites and Configuration Files
+## Test Prerequisites and Configuration Files
 
 The following configuration files must be present to enable comprehensive transceiver testing.
 
@@ -147,7 +136,7 @@ Prerequisite tests provide early readiness validation before a category's main t
 - Verify link operational status (link-up state)
 - Ensure critical system processes (`xcvrd`, `pmon`, `syncd`, `orchagent`) are running
 
-#### 1. DUT Info Files
+### DUT Info Files
 
 > 📊 **Visual Guide**: See the [File Organization Diagram](diagrams/file_organization.md) for a visual overview of the file structure and relationships.
 
@@ -190,7 +179,7 @@ Example of `dut_info/sonic-device-01.json`:
 }
 ```
 
-##### Normalization Mappings File
+#### Normalization Mappings File
 
 **File location:** `ansible/files/transceiver/inventory/normalization_mappings.json`
 
@@ -198,8 +187,8 @@ Example of `dut_info/sonic-device-01.json`:
 
 **Structure:**
 
-- `vendor_names`: Dictionary mapping raw vendor names to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-- `part_numbers`: Dictionary mapping raw part numbers to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+- `vendor_names`: Dictionary mapping raw vendor names to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#121-cmis-cdb-firmware-binary-management) section.
+- `part_numbers`: Dictionary mapping raw part numbers to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#121-cmis-cdb-firmware-binary-management) section.
 
 Example of `normalization_mappings.json`:
 
@@ -224,7 +213,7 @@ Example of `normalization_mappings.json`:
 }
 ```
 
-##### Per-DUT File Structure
+#### Per-DUT File Structure
 
 **File location:** `ansible/files/transceiver/inventory/dut_info/<dut_hostname>.json`
 
@@ -232,7 +221,7 @@ Example of `normalization_mappings.json`:
 
 **Discovery:** The framework automatically discovers and loads the appropriate DUT file based on the current testbed's DUT hostname.
 
-##### Per-Port Fields
+#### Per-Port Fields
 
 **Mandatory Fields:**
 
@@ -248,7 +237,7 @@ Example of `normalization_mappings.json`:
 - `vendor_rev`: The vendor revision number.
 - `hardware_rev`: The hardware revision number.
 
-##### Field Handling Rules
+#### Field Handling Rules
 
 - **Normalized values are derived automatically**: The framework will look up `vendor_name` and `vendor_pn` in the `normalization_mappings.json` file to get the corresponding normalized values.
 - **Default normalization**: If no mapping is found in `normalization_mappings.json`, the normalized value defaults to the original value.
@@ -304,7 +293,7 @@ Example of `normalization_mappings.json`:
 - Deployment pattern grouping for shared attribute configurations
 - Clear identification of lane usage and deployment topology
 
-##### Port Specification Formats
+#### Port Specification Formats
 
 The framework supports multiple flexible port specification formats to reduce configuration overhead:
 
@@ -320,7 +309,7 @@ The framework supports multiple flexible port specification formats to reduce co
 - Range format follows Python slice convention (start:stop where stop is exclusive)
 - Step size must be > 0 for range with step format
 
-##### Framework Implementation Requirements
+#### Framework Implementation Requirements
 
 The test framework must implement the following core components to process per-DUT files and create a comprehensive `port_attributes_dict` dictionary. All parsed data is stored in `port_attributes_dict["EthernetXX"]["BASE_ATTRIBUTES"]` as the foundation for test operations.
 More details on the `port_attributes_dict` structure and usage are provided in the Test Category Attribute Files section.
@@ -335,7 +324,7 @@ More details on the `port_attributes_dict` structure and usage are provided in t
    - DUT file for current hostname is not found
    - JSON parsing fails
 
-###### 1. Port Expansion Processing
+##### 1. Port Expansion Processing
 
 **Purpose**: Handle various port specification formats and expand them into individual port names.
 
@@ -347,7 +336,7 @@ More details on the `port_attributes_dict` structure and usage are provided in t
 4. **Deferred Validation**: Validate mandatory fields after all applicable port specifications have been merged
 5. **Generate Final Dictionary**: Create the standard per-port attribute dictionary
 
-###### 2. Transceiver Configuration String Parsing
+##### 2. Transceiver Configuration String Parsing
 
 **Purpose**: Extract all components from the `transceiver_configuration` string during base attributes initialization phase.
 
@@ -392,7 +381,7 @@ More details on the `port_attributes_dict` structure and usage are provided in t
         }
 ```
 
-###### 3. Dictionary Management
+##### 3. Dictionary Management
 
 **Purpose**: Create and maintain the comprehensive port attributes dictionary that serves as the source of truth for test cases.
 
@@ -541,14 +530,14 @@ Example of a dictionary created by parsing the above file:
     }
 ```
 
-#### 2. Test Category Attribute Files
+### Test Category Attribute Files
 
 > 🔄 **Process Flow**: See the [Data Flow Architecture Diagram](diagrams/data_flow.md) for a comprehensive view of how these files are processed and merged.
 
 Multiple JSON files based on test category define the metadata and test-specific attributes required for each type of transceiver.  
 **Note:** If a test category attribute file is absent, the corresponding test case will be skipped. This allows for selective test execution and gradual framework adoption.
 
-##### File Organization
+#### File Organization
 
 **Recommended JSON files:**
 
@@ -563,7 +552,7 @@ Multiple JSON files based on test category define the metadata and test-specific
 
 **Location:** `ansible/files/transceiver/inventory/attributes/` directory
 
-##### JSON Schema Structure
+#### JSON Schema Structure
 
 All files follow a consistent schema with these main sections:
 
@@ -616,7 +605,7 @@ All files follow a consistent schema with these main sections:
 }
 ```
 
-##### Schema Components
+#### Schema Components
 
 **Main Sections:**
 
@@ -640,16 +629,15 @@ All files follow a consistent schema with these main sections:
 
 - **No Overlap**: A field should **never** appear in both `mandatory` and `defaults` sections. This creates logical inconsistency because a field cannot simultaneously require explicit specification (mandatory) and have a fallback value (default). The framework would be unable to determine whether to enforce validation or apply defaults when the field is missing.
 - **Validation First**: The framework should first validate that all mandatory fields can be resolved through the priority hierarchy, then apply defaults for any missing optional fields.
-- **Category Isolation**: Each file contains only relevant test domain attributes
-- **Deployment Grouping**: Similar deployment patterns share common attributes via `deployment_configurations`
 - **Category Isolation**: Each category file should only contain attributes relevant to its specific test domain to maintain clear separation of concerns.
+- **Deployment Grouping**: Similar deployment patterns share common attributes via `deployment_configurations`
 - **Backward Compatibility**: Missing optional sections (platform, hwsku, etc.) are silently ignored to support gradual adoption and legacy configurations.
 
-##### Deployment Configurations
+#### Deployment Configurations
 
 The `deployment_configurations` feature eliminates attribute duplication by defining common attributes once per deployment type instead of repeating across vendors. The framework automatically extracts the DEPLOYMENT component from the `BASE_ATTRIBUTES` field in `port_attributes_dict` to determine which deployment configuration to apply.
 
-##### Priority-Based Attribute Resolution
+#### Priority-Based Attribute Resolution
 
 Attributes are resolved using this hierarchy (highest to lowest priority):
 
@@ -664,7 +652,7 @@ Attributes are resolved using this hierarchy (highest to lowest priority):
 
 > **Note:** For platform+HWSKU combinations in `platform_hwsku_overrides`, the key format is `"<PLATFORM_NAME>+<HWSKU_NAME>"` where the platform name and HWSKU name are concatenated with a literal `+` symbol.
 
-##### Example Category File
+#### Example Category File
 
 Example `eeprom.json` file:
 
@@ -703,7 +691,7 @@ Example `eeprom.json` file:
 }
 ```
 
-##### Framework Implementation
+#### Framework Implementation
 
 The test framework loads and merges attributes from all relevant category files for each transceiver, using hierarchical override rules. This enables category-specific test logic to access only needed attributes while supporting platform, HWSKU, and vendor overrides.
 
@@ -757,7 +745,7 @@ The framework builds a `port_attributes_dict` keyed by logical port name, contai
 }
 ```
 
-##### Attribute Merging Process
+#### Attribute Merging Process
 
 The framework builds `port_attributes_dict` using this systematic process:
 
@@ -774,7 +762,7 @@ The framework builds `port_attributes_dict` using this systematic process:
 - Graceful error handling for missing files and invalid JSON
 - The entire `port_attributes_dict` is captured in the log for debugging
 
-##### Usage
+#### Usage
 
 Tests access attributes using: `port_attributes_dict[port_name][category_key][attribute_name]`  
 The `port_attributes_dict` is provided directly as a session-scoped fixture and is also initialized early for logging.
@@ -797,13 +785,13 @@ def test_example(port_attributes_dict):
 
 **Benefits:** Modular design, independent updates per category, conflict prevention, flexible overrides, and performance optimization.
 
-#### 3. Attribute Completeness Validation
+### Attribute Completeness Validation
 
 > **Process Flow**: See the [Validation Flow Diagram](diagrams/validation_flow.md) for a visual overview of the validation process and pytest integration.
 
 Optional post-processing validation ensures comprehensive attribute coverage for transceiver qualification by comparing the populated `port_attributes_dict` against deployment-specific templates.
 
-##### Template Structure
+#### Template Structure
 
 **Location:** `ansible/files/transceiver/inventory/templates/deployment_templates.json`
 
@@ -827,7 +815,7 @@ Optional post-processing validation ensures comprehensive attribute coverage for
 }
 ```
 
-##### Template Components
+#### Template Components
 
 - `deployment_templates`: Root object containing all deployment templates
   - `<DEPLOYMENT_NAME>`: Individual deployment template (e.g., `2x100G_200G_SIDE`)
@@ -835,14 +823,14 @@ Optional post-processing validation ensures comprehensive attribute coverage for
     - `optional_attributes`: Lists of attributes that should be present if available
     - **Note:** Each category (e.g., `BASE_ATTRIBUTES`, `EEPROM_ATTRIBUTES`, `DOM_ATTRIBUTES`) can have its own set of required and optional attributes.
 
-##### Validation Process
+#### Validation Process
 
 1. **Template Selection**: Uses `deployment` field from `BASE_ATTRIBUTES` to select appropriate template
 2. **Attribute Comparison**: Compares actual vs required attributes per category  
 3. **Gap Analysis**: Identifies missing required/optional attributes
 4. **Pytest Integration**: Reports results with standard log levels (INFO/WARNING/ERROR/DEBUG)
 
-##### Configuration Control
+#### Configuration Control
 
 The validation feature can also be controlled via passing a test parameters:
 
@@ -853,7 +841,7 @@ The validation feature can also be controlled via passing a test parameters:
 
 **Note:** Even when validation is skipped, all attributes from category files are still loaded and available for test execution. This parameter only affects the post-processing template validation step.
 
-##### Console Output
+#### Console Output
 
 ```python
 INFO     PASS: Ethernet0 (2x100G_200G_SIDE) - FULLY_COMPLIANT (19/20 attributes)
@@ -862,7 +850,7 @@ ERROR    FAIL: Ethernet8 - Missing required: DOM_ATTRIBUTES.alarm_flags
 INFO     Overall Compliance: 87.5% (21/24 ports fully compliant)
 ```
 
-##### Execution Control
+#### Execution Control
 
 The validation results determine test execution flow:
 
@@ -872,10 +860,9 @@ The validation results determine test execution flow:
 
 **Skipping Validation:**
 
-- Use `--skip_transceiver_template_validation` pytest parameter to completely bypass this validation step
-- See the "Configuration Control" section above for detailed usage information
+See the [Configuration Control](#configuration-control) section above for pytest parameter details.
 
-#### 4. Transceiver Firmware Info File
+### Transceiver Firmware Info File
 
 A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver/inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries (in addition to the gold firmware binary) so that firmware upgrade can be tested. Following should be the format of the file
 
@@ -889,13 +876,13 @@ normalized_vendor_name,normalized_vendor_pn,fw_version,fw_binary_name,md5sum
 
 For each firmware binary, the following metadata should be included:
 
-- `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-- `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+- `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#121-cmis-cdb-firmware-binary-management) section.
+- `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#121-cmis-cdb-firmware-binary-management) section.
 - `fw_version`: The version of the firmware.
 - `fw_binary_name`: The filename of the firmware binary.
 - `md5sum`: The MD5 checksum of the firmware binary.
 
-#### 5. CMIS CDB Firmware Base URL File
+### CMIS CDB Firmware Base URL File
 
 A `cmis_cdb_firmware_base_url.csv` file (located in `ansible/files/transceiver/inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. The file should follow this format:
 
@@ -914,62 +901,43 @@ inv_name,fw_base_url
 lab,http://1.2.3.4/cmis_cdb_firmware/
 ```
 
-#### 1.1 Link related tests
+## Detailed Test Plans
 
-The following tests aim to validate the link status and stability of transceivers under various conditions.
+The following child test plans provide comprehensive, attribute-driven test cases for specific test categories. Each plan defines its own attributes, test cases, and validation procedures:
 
-| Step | Goal | Expected Results |
-|------|------|------------------|
-| Issue CLI command to shutdown a port | Validate link status using CLI configuration | Ensure that the link goes down |
-| Issue CLI command to startup a port | Validate link status using CLI configuration | Ensure that the link is up and the port appears in the LLDP table. |
-| In a loop, issue startup/shutdown command for a port 100 times | Stress test for link status validation | Ensure link status toggles to up/down appropriately with each startup/shutdown command. Verify ports appear in the LLDP table when the link is up |
-| In a loop, issue startup/shutdown command for all ports 100 times | Stress test for link status validation | Ensure link status toggles to up/down appropriately for all relevant ports with each startup/shutdown command. Verify ports appear in the LLDP table when the link is up |
-| Restart `xcvrd` | Test link and xcvrd stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table. Also ensure that xcvrd is up for at least 2 mins |
-| Induce I2C errors and restart `xcvrd` | Test link stability in case of `xcvrd` restart + I2C errors | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table |
-| Modify xcvrd.py to raise an Exception and induce a crash | Test link and xcvrd stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table. Also ensure that xcvrd is up for at least 2 mins |
-| Restart `pmon` | Test link stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table |
-| Restart `swss` | Validate transceiver re-initialization and link status post container restart | Ensure `xcvrd` restarts (for Mellanox platform, ensure pmon restarts) and the expected ports link up again, with port details visible in the LLDP table |
-| Restart `syncd` | Validate transceiver re-initialization and link status post container restart | Ensure `xcvrd` restarts (for Mellanox platform, ensure pmon restarts) and the expected ports link up again, with port details visible in the LLDP table |
-| Perform a config reload | Test transceiver re-initialization and link status | Ensure `xcvrd` restarts and the expected ports link up again, with port details visible in the LLDP table |
-| Execute a cold reboot | Validate transceiver re-initialization and link status post-device reboot | Confirm the expected ports link up again post-reboot, with port details visible in the LLDP table |
-| In a loop, execute cold reboot 100 times | Stress test to validate transceiver re-initialization and link status with cold reboot | Confirm the expected ports link up again post-reboot, with port details visible in the LLDP table |
-| Execute a warm reboot (if platform supports it) | Test link stability through warm reboot | Ensure `xcvrd` restarts and maintains link stability for the interested ports, with their presence confirmed in the LLDP table |
-| Execute a fast reboot (if platform supports it) | Validate transceiver re-initialization and link status post-device reboot | Confirm the expected ports link up again post-reboot, with port details visible in the LLDP table |
+| Test Plan | Description |
+|-----------|-------------|
+| [EEPROM Test Plan](eeprom_test_plan.md) | EEPROM field validation, firmware version checks, hexdump verification, breakout serial number patterns, port speed and FEC configuration validation |
+| [DOM Test Plan](dom_test_plan.md) | Digital Optical Monitoring sensor validation, operational and threshold range checks, data consistency, polling control, and interface state change impact on DOM data |
+| [System Test Plan](system_test_plan.md) | System-level transceiver testing including link behavior, process/service restarts, reboot recovery, transceiver event handling (reset, low power mode, loopback), SI settings, C-CMIS tuning, and stress tests |
 
-#### 1.2 `sfputil` Command Tests
+## Test Cases
 
-The following tests aim to validate various functionalities of the transceiver (transceiver) using the `sfputil` command.
+### 1. Tests not involving traffic
 
-| Step | Goal | Expected Results |
-|------|------|------------------|
-| Verify if transceiver presence works with CLI | Transceiver presence validation | Ensure transceiver presence is detected |
-| Reset the transceiver followed by issuing shutdown and then startup command | Transceiver reset validation | Ensure that the port is linked down after reset and is in low power mode (if transceiver supports it). Also, ensure that the DataPath is in DPDeactivated state and LowPwrAllowRequestHW (page 0h, byte 26.6) is set to 1. The shutdown and startup commands are later issued to re-initialize the port and bring the link up |
-| Put transceiver in low power mode (if transceiver supports it) followed by restoring to high power mode | Transceiver low power mode validation | Ensure transceiver is in high power mode initially. Then put the transceiver in low power mode and ensure that the port is linked down and the DataPath is in DPDeactivated state. Ensure that the port is in low power mode through CLI. Disable low power mode and ensure that the link is up now and transceiver is in high power mode now |
-| Verify EEPROM of the transceiver using CLI | Transceiver specific fields validation from EEPROM | Ensure transceiver specific fields are matching with the values retrieved from the transceiver dictionary created using the csv files |
-| Verify DOM information of the transceiver using CLI when interface is in shutdown and no shutdown state (if transceiver supports DOM) | Basic DOM validation | Ensure the fields are in line with the expectation based on interface shutdown/no shutdown state |
-| Verify EEPROM hexdump of the transceiver using CLI | Transceiver EEPROM hexdump validation | Ensure the output shows Lower Page (0h) and Upper Page (0h) for all 128 bytes on each page. Information from the transceiver dictionary created using the csv files can be used to validate contents of page 0h. Also, ensure that page 11h shows the Data Path state correctly |
-| Verify firmware version of the transceiver using CLI (requires disabling DOM config) | Firmware version validation | Ensure the active and inactive firmware version is in line with the expectation from the transceiver dictionary created using the csv files |
-| Verify different types of loopback | Transceiver loopback validation | Ensure that the various supported types of loopback work on the transceiver. The LLDP neighbor can also be used to verify the data path after enabling loopback (such as host-side input loopback) |
+These tests do not require traffic and are standalone, designed to run on a Device Under Test (DUT) with the transceiver plugged into 2 ports, connected by a cable.
 
-#### 1.3 `sfpshow` Command Tests
+**Breakout Cable Assumptions for the Below Tests:**
+
+- All sides of the breakout cable should be connected to the DUT, and each port should be tested individually starting from subport 1 to subport N. The test should be run in reverse order as well i.e. starting from subport N to subport 1.
+- For link toggling tests on a subport, it's crucial to ensure that the link status of remaining subports of the breakout port group remains unaffected.
+
+#### 1.1 `sfpshow` Command Tests
 
 The following tests aim to validate various functionalities of the transceiver using the `sfpshow` command.
 
 | Step | Goal | Expected Results |
 |------|------|------------------|
-| Verify transceiver specific information through CLI | Validate CLI relying on redis-db | Ensure transceiver specific fields match the values retrieved from transceiver dictionary created using the csv files |
-| Verify DOM data is read correctly and is within an acceptable range (if transceiver supports DOM) | Validate CLI relying on redis-db | Ensure DOM data is read correctly and falls within the acceptable range |
-| Verify transceiver status when the interface is in shutdown and no shutdown state | Validate CLI relying on redis-db | Ensure the fields align with expectations based on the interface being in shutdown or no shutdown state |
 | Verify PM information (for C-CMIS transceivers) | Validate CLI relying on redis-db | Ensure that the PM related fields are populated |
 | Verify VDM information for CMIS cables | Validate CLI relying on redis-db | Ensure that all the Pre-FEC and FERC media and host related VDM related fields are populated. The acceptable values for Pre-FEC fields are from 0 through 1e-4 and the FERC values should be <= 0|
 | Verify transceiver error-status | Validate CLI relying on redis-db | Ensure the relevant port is in an "OK" state |
 | Verify transceiver error-status with hardware verification | Validate CLI relying on transceiver hardware | Ensure the relevant port is in an "OK" state |
 
-#### 1.4 CMIS CDB Firmware Upgrade Testing
+#### 1.2 CMIS CDB Firmware Upgrade Testing
 
-##### 1.4.1 CMIS CDB Firmware Binary Management
+##### 1.2.1 CMIS CDB Firmware Binary Management
 
-###### 1.4.1.1 Firmware Binary Naming Guidelines
+###### 1.2.1.1 Firmware Binary Naming Guidelines
 
 CMIS CDB firmware binaries must follow strict naming conventions to ensure compatibility across different filesystems and automation tools.
 
@@ -984,7 +952,7 @@ CMIS CDB firmware binaries must follow strict naming conventions to ensure compa
 2. **File Extension:**
    - Use `.bin` extension
 
-###### 1.4.1.2 Normalization Rules for Vendor Name and Part Number
+###### 1.2.1.2 Normalization Rules for Vendor Name and Part Number
 
 To ensure compatibility and uniqueness across filesystems and automation tools, the following normalization rules should be applied to vendor names and part numbers:
 
@@ -1054,7 +1022,7 @@ def normalize_vendor_field(field: str) -> str:
     return field.upper()
 ```
 
-###### 1.4.1.3 Firmware Binary Storage on SONiC Device
+###### 1.2.1.3 Firmware Binary Storage on SONiC Device
 
 The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the SONiC device, organized by normalized vendor name and part number.
 
@@ -1071,7 +1039,7 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 
 **Requirements:**
 
-- All directory and file names **must be uppercase** and follow the normalization rules defined in section 1.4.1.2
+- All directory and file names **must be uppercase** and follow the [Normalization Rules for Vendor Name and Part Number](#1212-normalization-rules-for-vendor-name-and-part-number)
 - Use the `GENERIC_N_END` placeholder for cable lengths as described in the normalization rules
 
 **Example Directory Structure:**
@@ -1088,7 +1056,7 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 └── ...
 ```
 
-###### 1.4.1.4 Firmware Binary Storage on Remote Server
+###### 1.2.1.4 Firmware Binary Storage on Remote Server
 
 The CMIS CDB firmware binaries must be stored on a remote server with the following requirements:
 
@@ -1118,7 +1086,7 @@ Firmware binaries are accessed using the following URL pattern:
 http://firmware-server.example.com/cmis_cdb_firmware/ACMECORP/QSFP-100G-AOC-GENERIC_2_ENDM/ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.4.bin
 ```
 
-##### 1.4.2 CMIS CDB Firmware Copy to DUT via sonic-mgmt infrastructure
+##### 1.2.2 CMIS CDB Firmware Copy to DUT via sonic-mgmt infrastructure
 
 This section describes the automated process for copying firmware binaries to the DUT, ensuring only the required firmware versions are present for testing.
 
@@ -1144,7 +1112,7 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 - The firmware binary folder on the DUT (`/tmp/cmis_cdb_firmware/`) will be deleted after the test module run is complete to ensure a clean state for subsequent tests
 - Cleanup includes removing both the directory structure and any temporary files created during the process
 
-##### 1.4.3 CMIS CDB Firmware Upgrade Tests
+##### 1.2.3 CMIS CDB Firmware Upgrade Tests
 
 **Prerequisites:**
 
@@ -1167,7 +1135,7 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 |6 | Firmware download validation post reset | 1. Perform steps in TC #1<br>2. Execute `sfputil reset PORT` and wait for it to finish | All the expectation of test case #1 must be met |
 |7 | Ensure static fields of EEPROM remain unchanged | 1. Perform steps in TC #1<br>2. Perform steps in TC #2 | 1. All the expectations of TC #1 and #2 must be met<br>2. Ensure after each step 1 and 2 that the static fields of EEPROM (e.g., vendor name, part number, serial number, vendor date code, OUI, and hardware revision) remain unchanged |
 
-#### 1.5 Remote Reseat related tests
+#### 1.3 Remote Reseat related tests
 
 The following tests aim to validate the functionality of remote reseating of the transceiver module.
 All the below steps should be executed in a sequential manner.
@@ -1182,25 +1150,16 @@ All the below steps should be executed in a sequential manner.
 |6 | Issue CLI command to startup the port | Remote reseat validation | Ensure that the port is linked up and is seen in the LLDP table |
 |7 | Issue CLI command to enable DOM monitoring for the port | Remote reseat validation | Ensure that the DOM monitoring is enabled for the port |
 
-#### 1.6 Transceiver Specific Capabilities
+#### 1.4 Transceiver Specific Capabilities
 
-##### 1.6.1 General Tests
+##### 1.4.1 General Tests
 
 | Step | Goal | Expected Results |
 |------|------|------------------|
-| Add `"skip_xcvrd": true,` to the `pmon_daemon_control.json` file and reboot the device | Ensure CMIS transceiver is in low power mode upon boot-up | Ensure the transceiver is in low power mode after device reboot. Revert back the file to original after verification |
-| Disable the Tx by directly writing to the EEPROM/or by calling `tx_disable` API | Ensure Tx is disabled within the advertised time for CMIS transceivers | Ensure that the DataPath state changes from DPActivated to a different state within the MaxDurationDPTxTurnOff time (page 1h, byte 168.7:4). Issue shut/no shutdown command to restore the link. This can be a stress test |
 | Adjust FEC mode | Validate FEC mode adjustment for transceivers supporting FEC | Ensure that the FEC mode can be adjusted to different modes and revert to original FEC mode after testing |
 | Validate FEC stats counters | Validate FEC stats counters | Ensure that FEC correctable, uncorrectable and symbol errors have integer values |
 
-##### 1.6.2 C-CMIS specific tests
-
-| Step | Goal | Expected Results |
-|------|------|------------------|
-| Adjust frequency | Validate frequency adjustment for C-CMIS transceivers | Ensure that the frequency can be adjusted to minimum and maximum supported frequency and revert to original frequency after testing |
-| Adjust tx power | Validate tx power adjustment for C-CMIS transceivers | Ensure that the tx power can be adjusted to minimum and maximum supported power and revert to original tx power after testing |
-
-##### 1.6.3 VDM specific tests
+##### 1.4.2 VDM specific tests
 
 **Prerequisites:**
 
@@ -1214,7 +1173,7 @@ All the below steps should be executed in a sequential manner.
 |3 | VDM freeze and unfreeze when 1 or more lanes have Tx disabled   | 1. Shutdown the first lane of the physical port<br>2. Repeat the steps of TC #1<br>3. Repeat the steps of TC #2<br>4. Increase the number of lanes shutdown by 1 until all 8 lanes are disabled | 1. For step 2, follow the expectations of TC #1<br>2. For step 3, follow the expectations of TC #2 |
 |4| VDM freeze and unfreeze with non sequential lanes Tx disabled | 1. Shutdown all the odd-numbered lanes of the physical port<br>2. Repeat the steps of TC #1<br>3. Repeat the steps of TC #2<br>4. Startup all the odd-numbered lanes and shutdown all the even-numbered lanes of the physical port and repeat step #2 and #3 | 1. For step 2, follow the expectations of TC #1<br>2. For step 3, follow the expectations of TC #2 |
 
-#### CLI commands
+## CLI Commands
 
 **Note**
 
@@ -1360,6 +1319,33 @@ Dump EEPROM of the transceiver
 
 ```
 sudo sfputil show eeprom -p <port>
+```
+
+Read/Write specific offset from/to EEPROM
+
+```
+sudo sfputil read-eeprom --help
+  -p, --port <logical_port_name>  Logical port name  [required]
+  -n, --page <page>               EEPROM page number in hex  [required]
+  -o, --offset <offset>           EEPROM offset within the page  [required]
+  -s, --size <size>               Size of byte to be read  [required]
+  --no-format                     Display non formatted data
+  --wire-addr TEXT                Wire address of sff8472
+  --help                          Show this message and exit.
+
+sudo sfputil write-eeprom --help
+Usage: sfputil write-eeprom [OPTIONS]
+
+  Write SFP EEPROM data
+
+Options:
+  -p, --port <logical_port_name>  Logical port name  [required]
+  -n, --page <page>               EEPROM page number in hex  [required]
+  -o, --offset <offset>           EEPROM offset within the page  [required]
+  -d, --data <data>               Hex string EEPROM data  [required]
+  --wire-addr TEXT                Wire address of sff8472
+  --verify                        Verify the data by reading back
+  --help                          Show this message and exit.
 ```
 
 Dump EEPROM DOM information of the transceiver and verify fields based on the below information
