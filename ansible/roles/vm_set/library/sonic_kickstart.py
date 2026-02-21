@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from ansible.module_utils.basic import AnsibleModule
-from telnetlib import Telnet
+from telnetlib import Telnet  # nosemgrep: telnetlib
 import logging
 from ansible.module_utils.debug_utils import config_module_logging
 
