@@ -184,4 +184,9 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_on_dualtor_standby:
     reason: "The test case only tests DHCP relay on the dualtor standby dut"
     conditions:
       - "'dualtor' not in topo_name"
-      
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_monitor_checksum_validation:
+  skip:
+    reason: "Current isc-dhcp-relay do not support dropping packets with unexpected checksum"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24660"
