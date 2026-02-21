@@ -5248,3 +5248,47 @@
   inv_name: ixia
   auto_recover: 'False'
   comment: yatishkoul
+
+- conf-name: vms69-t1-smartswitch-4280-22
+  group-name: vms69-2
+  topo: t1-28-lag
+  ptf_image_name: docker-ptf
+  ptf: vms69-2
+  ptf_ip: 10.64.247.116/26
+  ptf_ipv6: 2a01:111:e210:b000::a40:f774/122
+  server: server_69
+  vm_base: VM69072
+  dut:
+    - str3-nvidia-4280-E04-U22
+    - str3-nvidia-4280-E04-U22-dpu-0
+    - str3-nvidia-4280-E04-U22-dpu-1
+    - str3-nvidia-4280-E04-U22-dpu-2
+    - str3-nvidia-4280-E04-U22-dpu-3
+  inv_name: str3
+  auto_recover: 'True'
+  is_smartswitch: 'True'
+  comment: vvolam
+
+- conf-name: vms69-t1-smartswitch-8102-26
+  group-name: vms69-3
+  topo: t1-28-lag
+  ptf_image_name: docker-ptf
+  ptf: vms69-3
+  ptf_ip: 10.64.247.126/26
+  ptf_ipv6: 2a01:111:e210:b000::a40:f77e/122
+  server: server_69
+  vm_base: VM69096
+  dut:
+    - str3-cisco-8102-E04-U26
+    - str3-cisco-8102-E04-U26-dpu-0
+    - str3-cisco-8102-E04-U26-dpu-1
+    - str3-cisco-8102-E04-U26-dpu-2
+    - str3-cisco-8102-E04-U26-dpu-3
+    - str3-cisco-8102-E04-U26-dpu-4
+    - str3-cisco-8102-E04-U26-dpu-5
+    - str3-cisco-8102-E04-U26-dpu-6
+    - str3-cisco-8102-E04-U26-dpu-7
+  inv_name: str3
+  auto_recover: 'True'
+  is_smartswitch: 'True'
+  comment: vvolam
