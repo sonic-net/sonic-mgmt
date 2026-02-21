@@ -1,4 +1,10 @@
 import functools
+import logging
+import pytest
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.sed_password_helper import SED_Change_Password_General
+
+logger = logging.getLogger(__name__)
 
 
 SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410",
@@ -1257,3 +1263,154 @@ def get_hardware_version(duthost, platform):
 def get_hw_management_version(duthost):
     full_version = duthost.shell('dpkg-query --showformat=\'${Version}\' --show hw-management')['stdout']
     return full_version[len('1.mlnx.'):]
+
+
+class SED_Change_Password_Mellanox(SED_Change_Password_General):
+    PRIMARY_SED_TPM_BANK = '0x81010001'
+    SECONDARY_SED_TPM_BANK = '0x81010002'
+    THIRD_SED_TPM_BANK = '0x81010003'
+    SED_AUTH_PASS = (
+        "$(dd if=/sys/firmware/efi/efivars/TpmSealCtx-36bfcbde-d710-4903-ba2e-c03ec245dcee "
+        "bs=1 skip=4 2>/dev/null | base64 -d)"
+    )
+
+    MINIMAL_PASSWORD_LENGTH = 8
+    MAXIMUM_PASSWORD_LENGTH = 124
+
+    def get_disk_name(self, duthost):
+        """
+        Return The disk device path
+        """
+        result = duthost.shell("sudo sedutil-cli --scan", module_ignore_errors=True)
+        pytest_assert(result['rc'] == 0, f"Failed to scan for SED disks: {result['stderr']}")
+
+        output = result['stdout']
+        if '/dev/' in output:
+            # Find /dev/xxx pattern
+            start = output.find("/dev/")
+            if start != -1:
+                end = output.find(" ", start)
+                if end != -1:
+                    return output[start:end]
+                return output[start:].split()[0]
+
+        pytest_assert(False, "Cannot find SED-enabled disk device")
+
+    def verify_default_pass(self, duthost, localhost, verify_sed_pass_works):
+        """
+        Verify that the default SED password is set correctly.
+        """
+        real_default_pass = self.get_sed_pass_from_tpm_bank(duthost, self.THIRD_SED_TPM_BANK)
+
+        if (not self.verify_pass_saved(duthost, real_default_pass) or
+                not self.verify_sed_pass_works(duthost, real_default_pass)):
+            logger.warning(
+                "TPM banks/SED password mismatch with the default SED password. "
+                "Attempting cold reboot to recover."
+            )
+            from tests.common.reboot import reboot
+            reboot(duthost, localhost, reboot_type='cold', safe_reboot=True)
+            raise Exception("TPM banks/SED password mismatch with the default SED password.")
+
+        return real_default_pass
+
+    def set_sed_pass_in_tpm_bank(self, duthost, tpm_bank, password):
+        """
+        Store a new SED password in the specified TPM bank.
+        """
+        logger.info(f"Setting SED password in TPM bank {tpm_bank}")
+        tpm_create_cmd = (
+            f'echo "{password}" | sudo tpm2_create -g sha256 -u seal.pub -r seal.priv '
+            f'-C prim.ctx -p "{self.SED_AUTH_PASS}" -i - > /dev/null 2>&1'
+        )
+        commands = [
+            'sudo rm -f seal.* prim.ctx',
+            f'sudo tpm2_evictcontrol -C o -c "{tpm_bank}" > /dev/null 2>&1',
+            'sudo tpm2_createprimary -C o --key-algorithm=rsa --key-context=prim.ctx > /dev/null 2>&1',
+            tpm_create_cmd,
+            'sudo tpm2_load -C prim.ctx -u seal.pub -r seal.priv -n seal.name -c seal.ctx',
+            f'sudo tpm2_evictcontrol -C o -c seal.ctx "{tpm_bank}"',
+            'sudo rm -f seal.* prim.ctx',
+        ]
+        for command in commands:
+            result = duthost.shell(command, module_ignore_errors=True)
+            pytest_assert(
+                result['rc'] == 0,
+                f"Failed to execute command: {command}\nError: {result['stderr']}"
+            )
+
+    def get_primary_sed_tpm_bank(self):
+        return self.PRIMARY_SED_TPM_BANK
+
+    def get_sed_pass_from_tpm_bank(self, duthost, tpm_bank):
+        """
+        Retrieve the SED password from the specified TPM bank.
+        """
+        result = duthost.shell(
+            f"sudo tpm2_unseal -c '{tpm_bank}' -p \"{self.SED_AUTH_PASS}\"",
+            module_ignore_errors=True
+        )
+        if result['rc'] == 0:
+            return result['stdout'].strip()
+        logger.warning(
+            f"Failed to get SED password from TPM bank {tpm_bank}: {result['stderr']}"
+        )
+        return None
+
+    def verify_pass_saved(self, duthost, expected_pass):
+        """
+        Verify that both TPM banks (primary and secondary) have the expected password.
+        """
+        logger.info(f"Verifying TPM banks have password: {expected_pass}")
+
+        password_primary = self.get_sed_pass_from_tpm_bank(duthost, self.PRIMARY_SED_TPM_BANK)
+        assert password_primary == expected_pass, (
+            f"Primary TPM bank password mismatch. Expected: '{expected_pass}', "
+            f"Got: '{password_primary}'"
+        )
+
+        password_secondary = self.get_sed_pass_from_tpm_bank(
+            duthost, self.SECONDARY_SED_TPM_BANK
+        )
+        assert password_secondary == expected_pass, (
+            f"Secondary TPM bank password mismatch. Expected: '{expected_pass}', "
+            f"Got: '{password_secondary}'"
+        )
+        return True
+
+    def get_min_and_max_pass_len(self, duthost):
+        """
+        Get the minimal and maximum password length for Mellanox devices.
+        """
+        return (self.MINIMAL_PASSWORD_LENGTH, self.MAXIMUM_PASSWORD_LENGTH)
+
+    def verify_sed_pass_change_feature_enabled(self, duthost):
+        """Verify SED password change feature is enabled.
+            1. Check SED-enabled NVME disk exists
+            2. Check LockingEnabled=Y
+            3. Check both TPM banks configured
+            Skips test if not.
+        """
+        logger.info("Check SED-enabled NVME disk exists")
+        scan = duthost.shell("sedutil-cli --scan | grep -q '/dev/nvme'", module_ignore_errors=True)
+        if scan['rc'] != 0:
+            pytest.skip("No SED-enabled NVME disk found")
+
+        logger.info("Check LockingEnabled=Y")
+        disk = self.get_disk_name(duthost)
+        locking = duthost.shell(f"sedutil-cli --query {disk} | grep 'LockingEnabled = Y'",
+                                module_ignore_errors=True)
+        if locking['rc'] != 0:
+            pytest.skip("SED LockingEnabled is not Y")
+
+        logger.info("Check both TPM banks configured")
+        tpm = duthost.shell("tpm2_getcap handles-persistent", module_ignore_errors=True)
+        if tpm['rc'] != 0:
+            pytest.skip("Failed to query TPM handles")
+
+        if any(bank not in tpm['stdout'] for bank in (
+            self.PRIMARY_SED_TPM_BANK,
+            self.SECONDARY_SED_TPM_BANK,
+            self.THIRD_SED_TPM_BANK
+        )):
+            pytest.skip("Required TPM banks not configured")
