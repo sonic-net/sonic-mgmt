@@ -28,6 +28,7 @@ DUMMY_MAC = "00:11:22:33:44:55"
 PACKET_COUNT = 1000
 BATCH_PACKET_COUNT = 10000
 ECN = 2   # ECN Capable Transport(0), ECT(0)
+PACKET_SIZE_MARGIN = 4
 
 # Buffer configuration constants
 TRIM_QUEUE_PROFILE = "egress_lossy_profile"
