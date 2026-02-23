@@ -205,6 +205,7 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
 
     assert not result_list, "One or more show platform npu commands failed {}".format(result_list)
 
+@pytest.mark.skip(reason="Disabled: broken testcase: MIGSOFTWAR-35140")
 def test_show_platform_npu_udump(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index):
     """
     @summary: Verify output of 'sudo udump --force -t <sw, full>'
