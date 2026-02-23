@@ -81,7 +81,8 @@ def common_setup_teardown(
 
     yield
 
-    config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    for dpuhost in dpuhosts:
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)
     # apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
     # apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index, False)
     # apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index, False)
