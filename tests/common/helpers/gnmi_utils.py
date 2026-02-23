@@ -321,10 +321,13 @@ def verify_tcp_port(localhost, ip, port):
 
 def gnmi_capabilities(duthost, localhost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
+    duthost_mgmt_info = duthost.get_mgmt_ip()
+    ip = duthost_mgmt_info['mgmt_ip']
+    addr = f"[{ip}]" if duthost_mgmt_info['version'] == 'v6' else f"{ip}"
+
     port = env.gnmi_port
     # Run gnmi_cli in gnmi container as workaround
-    cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
+    cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, addr, port)
     cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
     cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
     cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "
