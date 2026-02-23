@@ -26,6 +26,8 @@ This enhancement extends generic hash features to support
   - `SAI_SWITCH_ATTR_LAG_HASH_IPV4_RDMA`
   - `SAI_SWITCH_ATTR_LAG_HASH_IPV6_RDMA`
 
+**Note:** This PR introduces the test plan document only. The actual test case implementation will be submitted in a follow-up PR.
+
 ## 2. Requirements
 
 ### 2.1 The enhanced feature supports:
@@ -74,7 +76,7 @@ show
 ```
 
 #### 3.2.3 Supported packet types
-| **Packet Type** | **Description** |
+| Packet Type | Description |
 |------------------|-----------------|
 | ipv4 | IPv4 packets |
 | ipv6 | IPv6 packets |
@@ -109,7 +111,8 @@ show
 1. show switch-hash global packet-type all
 
 ### 3.4 Supported topology
-The test should support t0 and t1 topologies.
+1. The test plan targets both t0 and t1 topologies.
+1. Tests requiring multi-member LAGs/portchannels and multiple ECMP next-hops will be skipped if the topology does not provide the necessary resources.
 
 ## 4 Test Cases for per packet type hash enhancement
 
@@ -117,19 +120,21 @@ The test should support t0 and t1 topologies.
 
 | No. | Test Name                                    | Purpose                                                               |
 |-----|----------------------------------------------|-----------------------------------------------------------------------|
-| 1   | test_hash_field_distribution_rdma            | Verify RDMA hash field impact on traffic distribution                 |
+| 1   | test_rdma_hash_field_distribution            | Verify RDMA hash field impact on traffic distribution                 |
 | 2   | test_pkt_type_hash_priority_and_override     | Priority/override between default and per-pkt-type hash               |
 | 3   | test_pkt_type_hash_config_persistence_reload | Persistence of pkt_type_hash config after reboot/reload for ECMP/LAG  |
-| 4   | test_pkt_type_lag_hash_warm_boot             | Validate warm boot with packet type hash for ECMP/LAG                 |
-| 5   | test_pkt_type_ecmp_hash_fast_boot            | Validate fast boot with packet type hash for ECMP/LAG                 |
+| 4   | test_pkt_type_hash_warm_boot             | Validate warm boot with packet type hash for ECMP/LAG                 |
+| 5   | test_pkt_type_hash_fast_boot            | Validate fast boot with packet type hash for ECMP/LAG                 |
 
 ### 4.2 Test case descriptions
 
 **Note:-** _Tests will be repeated for different packet types (where supported by the platform)_
 
-#### 1. test_hash_field_distribution_rdma
+#### 1. test_rdma_hash_field_distribution
 ---
 **Purpose:**  Configure RDMA fields (`RDMA_BTH_OPCODE`, `RDMA_BTH_DEST_QP`) for RDMA packet types; send test traffic and verify egress distribution changes per field.
+
+**Note:** Before implementing this test, ensure that the RDMA hash field constants (`RDMA_BTH_OPCODE`, `RDMA_BTH_DEST_QP`) and validation logic are added to the test framework.
 
 **Steps:**
 1. Configure RDMA fields:
@@ -171,7 +176,7 @@ The test should support t0 and t1 topologies.
 
 **Expected Result:**  All per packet-type configs are preserved after reboot.
 
-#### 4. test_pkt_type_warm_boot
+#### 4. test_pkt_type_hash_warm_boot
 ---
 **Purpose:**  Ensure that both ECMP and LAG packet-type hash configurations for selected packet types persist across a warm boot.
 **Steps:**
@@ -183,7 +188,7 @@ The test should support t0 and t1 topologies.
 
 **Expected Result:**   Packet-type hash behavior for ECMP/LAG is preserved for all selected packet types with no traffic loss.
 
-#### 5. test_pkt_type_fast_boot
+#### 5. test_pkt_type_hash_fast_boot
 ---
 **Purpose:**  Ensure that both ECMP and LAG packet-type hash configurations for all supported packet types persist across fast boot.
 
@@ -202,12 +207,4 @@ The test should support t0 and t1 topologies.
 - State DB and config DB values must restore correctly.
 - Hash functionality should match pre-boot state.
 - No unexpected errors in logs.
-
-
-
-
-
-
-
-
 
