@@ -517,28 +517,30 @@ def get_route_programming_metrics_from_sairedis_replay(duthost, start_time, sair
             "Route Events Count": route_events_count, "NextHopGroup Events Count": len(deltas)}
 
 
-def _select_targets_to_flap(bgp_peers_info, all_flap, flapping_count):
-    """Selects flapping_neighbors, injection_neighbor, flapping_ports, injection_port"""
+def _select_targets_to_flap(bgp_peers_info, flapping_count):
+    """Selects flapping_neighbors_ipv6, injection_neighbor, flapping_ports, injection_port"""
     bgp_neighbors = list(bgp_peers_info.keys())
     pytest_assert(len(bgp_neighbors) >= 2, "At least two BGP neighbors required for flap test")
-    if all_flap:
-        flapping_neighbors = list(bgp_neighbors)
+    if flapping_count in ('all', 'all-minus-one'):
         injection_neighbor = random.choice(bgp_neighbors)
-        flapping_neighbors.remove(injection_neighbor)
-        logger.info(f"[FLAP TEST] All - 1 neighbors are flapping: {len(flapping_neighbors)}")
+        flapping_neighbors = [n for n in bgp_neighbors if flapping_count == 'all' or n != injection_neighbor]
+        logger.info(f"[FLAP TEST] {flapping_count} neighbors are flapping: {len(flapping_neighbors)}")
     else:
         flapping_neighbors = random.sample(bgp_neighbors, flapping_count)
-        injection_candidates = [n for n in bgp_neighbors if n not in flapping_neighbors]
-        injection_neighbor = random.choice(injection_candidates)
+        injection_neighbor = random.choice([n for n in bgp_neighbors if n not in flapping_neighbors])
         logger.info(f"[FLAP TEST] Flapping neighbors count: {len(flapping_neighbors)}, "
                     f"Flapping neighbors: {flapping_neighbors}")
+
     flapping_ports = [bgp_peers_info[n][DUT_PORT] for n in flapping_neighbors]
-    injection_dut_port = bgp_peers_info[injection_neighbor][DUT_PORT]
-    injection_port = [info[PTF_PORT] for info in bgp_peers_info.values() if info[DUT_PORT] == injection_dut_port][0]
+    flapping_neighbors_ipv6 = [bgp_peers_info[n][IPV6_KEY] for n in flapping_neighbors]
+    injection_port = bgp_peers_info[injection_neighbor][PTF_PORT]
+
     logger.info(f"Flapping ports: {flapping_ports}")
-    logger.info(f"[FLAP TEST] Injection neighbor: {injection_neighbor}, Injection DUT port: {injection_dut_port}")
+    logger.info(f"Flapping neighbors' ipv6: {flapping_neighbors_ipv6}")
+    logger.info(f"[FLAP TEST] Injection neighbor: {injection_neighbor}, "
+                f"Injection DUT port: {bgp_peers_info[injection_neighbor][DUT_PORT]}")
     logger.info("Injection port: %s", injection_port)
-    return flapping_neighbors, injection_neighbor, flapping_ports, injection_port
+    return flapping_neighbors_ipv6, injection_neighbor, flapping_ports, injection_port
 
 
 def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count, connection_type, action):
@@ -567,7 +569,7 @@ def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count
     pdp.clear_masks()
     pdp.set_qlen(PACKET_QUEUE_LENGTH)
     exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
-    all_flap = (flapping_count == 'all')
+    all_flap = (flapping_count == 'all' or flapping_count == 'all-minus-one')
 
     # Currently treating the shutdown action as a setup mechanism for a startup action to follow.
     # So we only do the selection of flapping and injection neighbors when action is shutdown
@@ -577,11 +579,12 @@ def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count
         pytest_assert(len(bgp_neighbors) >= 2, "At least two BGP neighbors required for flap test")
 
         # Choose target neighbors (to flap) and injection (to keep traffic stable)
-        flapping_neighbors, injection_neighbor, flapping_ports, injection_port = _select_targets_to_flap(
-            bgp_peers_info, all_flap, flapping_count
+        flapping_neighbors_ipv6, injection_neighbor, flapping_ports, injection_port = _select_targets_to_flap(
+            bgp_peers_info, flapping_count
         )
 
-        flapping_connections = {'ports': flapping_ports, 'bgp_sessions': flapping_neighbors}.get(connection_type, [])
+        flapping_connections = {'ports': flapping_ports,
+                                'bgp_sessions': flapping_neighbors_ipv6}.get(connection_type, [])
         # Build expected routes after shutdown
         startup_routes = get_all_bgp_ipv6_routes(duthost, save_snapshot=False)
         neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
@@ -820,7 +823,7 @@ def test_nexthop_group_member_scale(
         pytest.fail("BGP routes are not stable in long time")
 
 
-@pytest.mark.parametrize("flapping_neighbor_count", [1, 10])
+@pytest.mark.parametrize("flapping_neighbor_count", [1, 10, 20, 'all-minus-one', 'all'])
 def test_bgp_admin_flap(
     request,
     duthost,
@@ -848,7 +851,7 @@ def test_bgp_admin_flap(
     flapper(duthost, ptfadapter, None, transient_setup, flapping_neighbor_count, 'bgp_sessions', 'startup')
 
 
-@pytest.mark.parametrize("flapping_port_count", [1, 10, 20, 'all'])
+@pytest.mark.parametrize("flapping_port_count", [1, 10, 20, 'all-minus-one', 'all'])
 def test_sessions_flapping(
     request,
     duthost,

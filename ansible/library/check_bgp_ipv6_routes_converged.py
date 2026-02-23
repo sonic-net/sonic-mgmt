@@ -9,7 +9,6 @@ from ansible.module_utils.debug_utils import config_module_logging
 import gzip
 import base64
 
-
 # Constants
 CONFIG_INTERFACE_COMMAND_TEMPLATE = "sudo config interface {action} {target}"
 CONFIG_BGP_SESSIONS_COMMAND_TEMPLATE = "sudo config bgp {action} {target}"
@@ -23,20 +22,58 @@ def get_bgp_ipv6_routes(module):
     return json.loads(out)
 
 
+def toggle_bgp_neighbors_in_parallel(module, ip_addrs, state, parallelism=100, redis_db=4):
+    """
+    Toggle admin_status of multiple BGP neighbors in parallel using Redis.
+
+    Args:
+        module: Ansible module instance for command execution and error handling.
+        ip_addrs: List of BGP neighbor IP addresses to toggle.
+        state: Target state ('up' or 'down').
+        parallelism: Max concurrent operations (default: 100).
+        redis_db: Redis database number for CONFIG_DB (default: 4).
+    """
+    if state not in ("up", "down"):
+        module.fail_json(msg=f"Invalid state={state}. Expected 'up' or 'down'.")
+    if not isinstance(ip_addrs, list) or not ip_addrs:
+        module.fail_json(msg="ip_addrs must be a non-empty list of neighbor name strings.")
+
+    db = int(redis_db)
+    p = int(parallelism)
+    ip_payload = "".join(f"{n}\n" for n in ip_addrs)
+    logging.info(f"Toggling BGP neighbors in parallel mode: state={state}, parallelism={p}, db={db}, names={ip_addrs}")
+
+    cmd = (
+        "set -euo pipefail\n"
+        "cat <<'EOF_NEIGHBORS' | xargs -r -n 1 -P {p} sh -c '\n"
+        "ip=\"$1\"\n"
+        "key=\"BGP_NEIGHBOR|$ip\"\n"
+        "if [ \"$(redis-cli -n {db} EXISTS \"$key\")\" -eq 1 ]; then\n"
+        "redis-cli -n {db} HSET \"$key\" admin_status {state} >/dev/null\n"
+        "echo \"{state} $key\"\n"
+        "else\n"
+        "echo \"SKIP missing $key\" 1>&2\n"
+        "fi\n"
+        "' sh\n"
+        "{ip_payload}EOF_NEIGHBORS\n"
+    ).format(p=p, db=db, state=state, ip_payload=ip_payload)
+    _execute_command_on_dut(module, cmd)
+
+
 def _perform_action_on_connections(module, action, connection_type, targets, all_neighbors):
     """
     Perform actions (shutdown/startup) on BGP sessions or interfaces.
     """
     # Action on BGP sessions
     if connection_type == "bgp_sessions":
-        if all_neighbors:
-            cmd = CONFIG_BGP_SESSIONS_COMMAND_TEMPLATE.format(action=action, target="all")
-            _execute_command_on_dut(module, cmd)
+        if action == "shutdown":
+            toggle_bgp_neighbors_in_parallel(module, targets, "down")
         else:
-            for session in targets:
-                target_session = "neighbor " + session
-                cmd = CONFIG_BGP_SESSIONS_COMMAND_TEMPLATE.format(action=action, target=target_session)
+            if all_neighbors:
+                cmd = CONFIG_BGP_SESSIONS_COMMAND_TEMPLATE.format(action=action, target="all")
                 _execute_command_on_dut(module, cmd)
+            else:
+                toggle_bgp_neighbors_in_parallel(module, targets, "up")
         logging.info(f"BGP sessions {action} completed.")
     # Action on Interfaces
     elif connection_type == "ports":
