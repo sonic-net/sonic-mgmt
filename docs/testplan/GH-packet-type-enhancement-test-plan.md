@@ -173,15 +173,15 @@ The test should support t0 and t1 topologies.
 
 #### 4. test_pkt_type_warm_boot
 ---
-**Purpose:**  Ensure that both ECMP and LAG packet-type hash configurations persist across a warm boot.
+**Purpose:**  Ensure that both ECMP and LAG packet-type hash configurations for selected packet types persist across a warm boot.
 **Steps:**
-1. Configure ECMP/LAG with global and packet-type-specific hashes (example `ecmp_hash`, `ecmp_hash_ipv4`).
-1. Send relevant traffic continuously.
-1. Trigger a warm boot, after boot, verify:
-    - Packet-type hash behavior for ECMP/LAG is preserved.
+1. Configure ECMP/LAG with global and packet-type-specific hashes for at least two supported packet types (for example: `ecmp_hash_ipv4`, `ecmp_hash_ipv6`, `ecmp_hash_ipv4_rdma`, `ecmp_hash_ipv6_rdma`).
+1. Send relevant traffic continuously for each selected packet type.
+1. Trigger a warm boot, and after boot, verify:
+    - Packet-type hash behavior for ECMP/LAG is preserved for all selected packet types.
     - There should be no traffic loss.
 
-**Expected Result:**   Packet-type hash behavior for ECMP/LAG is preserved with no traffic loss.
+**Expected Result:**   Packet-type hash behavior for ECMP/LAG is preserved for all selected packet types with no traffic loss.
 
 #### 5. test_pkt_type_fast_boot
 ---
