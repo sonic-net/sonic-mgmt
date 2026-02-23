@@ -3429,7 +3429,7 @@ pfcwd/test_pfcwd_.*\[IPv6.*:
    xfail:
      reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21082"
      conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and asic_type in ['mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and asic_type in ['mellanox', 'cisco-8000']"
 
 pfcwd/test_pfcwd_all_port_storm.py:
    skip:
