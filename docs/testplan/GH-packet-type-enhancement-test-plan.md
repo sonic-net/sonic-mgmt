@@ -185,16 +185,16 @@ The test should support t0 and t1 topologies.
 
 #### 5. test_pkt_type_fast_boot
 ---
-**Purpose:**  Ensure that both ECMP and LAG packet-type hash configurations persist across fast boot
+**Purpose:**  Ensure that both ECMP and LAG packet-type hash configurations for all supported packet types persist across fast boot.
 
 **Steps:**
-1. Configure ECMP/LAG with global and packet-type hashes.
-1. Send relevant traffic continuously
-1. Trigger a fast boot, after boot, verify:
-    - Packet-type hash behavior for ECMP/LAG is preserved.
-    - Traffic drop should not be for more than 30 sec
+1. Configure ECMP/LAG with global hash settings and per-packet-type hash configurations for all supported packet types (for example, IPv4, IPv4-in-IPv4, IPv6, and RDMA-related packet types, as applicable on the DUT).
+1. Send continuous traffic for each configured packet type across the ECMP/LAG members.
+1. Trigger a fast boot, then after the device is back online, verify:
+    - For each configured packet type, packet-type hash behavior for ECMP/LAG is preserved.
+    - Traffic drop for each flow should not exceed 30 seconds.
 
-**Expected Result:**   Packet-type hash behavior for ECMP/LAG is preserved with traffic loss less than 30 sec
+**Expected Result:**   For all configured/supported packet types, packet-type hash behavior for ECMP/LAG is preserved across fast boot, with any traffic loss per flow limited to less than 30 seconds.
 
 
 ### General Verification Points
