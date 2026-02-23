@@ -2,8 +2,8 @@
 
 ## Related documents
 
-| Document Name      | Link                                                                                              |
-|--------------------|--------------------------------------------------------------------------------------------------|
+| Document Name | Link |
+| ------------ | ---- |
 | SONiC Generic Hash | [hash-design.md](https://github.com/sonic-net/SONiC/blob/master/doc/hash/hash-design.md)          |
 
 
