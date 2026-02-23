@@ -230,6 +230,210 @@ def assert_only_loopback_routes_announced_to_neighs(dut_hosts, duthost, neigh_ho
     )
 
 
+def _parse_advertised_routes_plain(output):
+    """Parse plain text output of 'show bgp neighbors advertised-routes'.
+
+    Returns a set of advertised prefixes.
+
+    FRR status codes vary (*>, *=, *>i, s>, r>, S, d, h, etc.) and may be
+    concatenated with or separated from the prefix.  Instead of matching
+    specific status strings, find the "Network" column position from the
+    header and extract the prefix at that offset.  Fall back to a regex
+    scan if no header is found.
+    """
+    prefixes = set()
+    lines = output.splitlines()
+
+    # Locate the "Network" column position from the header line
+    net_col = None
+    header_idx = None
+    for idx, line in enumerate(lines):
+        col = line.find('Network')
+        if col >= 0:
+            net_col = col
+            header_idx = idx
+            break
+
+    # IPv4 or IPv6 CIDR pattern
+    cidr_re = re.compile(r'([\da-fA-F.:]+/\d+)')
+
+    for line in lines[header_idx + 1 if header_idx is not None else 0:]:
+        stripped = line.strip()
+        if not stripped or stripped.startswith('Total'):
+            continue
+        # Try column-based extraction first
+        if net_col is not None and len(line) > net_col:
+            token = line[net_col:].split()[0] if line[net_col:].split() else ''
+            m = cidr_re.match(token)
+            if m:
+                prefixes.add(m.group(1))
+                continue
+        # Fallback: find any CIDR prefix on the line
+        m = cidr_re.search(stripped)
+        if m:
+            prefixes.add(m.group(1))
+    return prefixes
+
+
+def get_dut_advertised_routes(duthost, ip_ver, output_format="both"):
+    """Get advertised routes from the DUT for each BGP neighbor.
+
+    Args:
+        duthost: DUT host object.
+        ip_ver: IP version (4 or 6).
+        output_format: Controls how advertised routes are parsed.
+            "json" - parse only JSON output.
+            "plain" - parse only plain text output.
+            "both" - parse both and cross-check for consistency (default).
+
+    Returns a dict: {neighbor_ip: set_of_advertised_prefixes}, or
+    None if all requested formats fail for any neighbor.
+    """
+    mg_facts = duthost.minigraph_facts(
+        host=duthost.hostname)['ansible_facts']
+    advertised = {}
+    for bgp_neigh in mg_facts['minigraph_bgp']:
+        neigh_addr = bgp_neigh['addr']
+        neigh_ver = ipaddress.IPNetwork(neigh_addr).version
+        if neigh_ver != ip_ver:
+            continue
+        if ip_ver == 4:
+            cmd_json = ("sudo vtysh -c 'show ip bgp neighbors "
+                        "{} advertised-routes json'"
+                        .format(neigh_addr))
+            cmd_plain = ("sudo vtysh -c 'show ip bgp neighbors "
+                         "{} advertised-routes'"
+                         .format(neigh_addr))
+        else:
+            cmd_json = ("sudo vtysh -c 'show bgp ipv6 neighbors "
+                        "{} advertised-routes json'"
+                        .format(neigh_addr))
+            cmd_plain = ("sudo vtysh -c 'show bgp ipv6 neighbors "
+                         "{} advertised-routes'"
+                         .format(neigh_addr))
+
+        # Collect results from both JSON and plain text formats
+        json_prefixes = None
+        plain_prefixes = None
+
+        # JSON format
+        if output_format in ("json", "both"):
+            res = duthost.shell(
+                cmd_json, module_ignore_errors=True, verbose=False)
+            if res['rc'] == 0:
+                try:
+                    routes_json = json.loads(res['stdout'])
+                    json_prefixes = set(
+                        routes_json.get('advertisedRoutes', {}).keys())
+                except (ValueError, KeyError) as e:
+                    logger.warning(
+                        "Failed to parse JSON advertised routes for "
+                        "neighbor {}: {}".format(neigh_addr, e))
+            else:
+                logger.warning(
+                    "JSON advertised-routes command failed for "
+                    "neighbor {}: {}".format(
+                        neigh_addr, res.get('stderr', '')))
+
+        # Plain text format
+        if output_format in ("plain", "both"):
+            res = duthost.shell(
+                cmd_plain, module_ignore_errors=True, verbose=False)
+            if res['rc'] == 0:
+                plain_prefixes = _parse_advertised_routes_plain(
+                    res['stdout'])
+            else:
+                logger.warning(
+                    "Plain text advertised-routes command failed for "
+                    "neighbor {}: {}".format(
+                        neigh_addr, res.get('stderr', '')))
+
+        # Evaluate results
+        if json_prefixes is None and plain_prefixes is None:
+            logger.warning(
+                "Both JSON and plain text advertised-routes "
+                "failed for neighbor {}".format(neigh_addr))
+            return None
+
+        if (json_prefixes is not None and plain_prefixes is not None
+                and json_prefixes != plain_prefixes):
+            logger.warning(
+                "JSON and plain text advertised-routes mismatch "
+                "for neighbor {}: json_only={}, plain_only={}"
+                .format(neigh_addr,
+                        json_prefixes - plain_prefixes,
+                        plain_prefixes - json_prefixes))
+
+        # Return both formats so callers can inspect each independently
+        advertised[neigh_addr] = {
+            "json": json_prefixes,
+            "plain": plain_prefixes,
+        }
+    return advertised
+
+
+def verify_only_loopback_routes_in_dut_advertised_routes(dut_hosts, duthost, ip_ver):
+    """
+    Verify from the DUT's perspective that only loopback routes are in the advertised-routes
+    for each BGP neighbor during TSA.
+    """
+    logger.info("Verifying only loopback routes(ipv{}) in DUT advertised-routes".format(ip_ver))
+    device_lo_addr_prefix_set = set()
+    for dut_host in dut_hosts:
+        if dut_host.is_supervisor_node():
+            continue
+        mg_facts = dut_host.minigraph_facts(host=dut_host.hostname)['ansible_facts']
+        for lo_intf in mg_facts['minigraph_lo_interfaces']:
+            addr = lo_intf['addr']
+            if ipaddress.IPNetwork(addr).version == 4:
+                if ip_ver == 4:
+                    device_lo_addr_prefix_set.add(addr + "/32")
+            else:
+                if ip_ver == 6:
+                    # Compare /64 prefix: exploded IPv6 has 4-char groups separated by colons,
+                    # first 20 chars cover the first 4 groups (64 bits), e.g. "fc00:0001:0000:0000"
+                    device_lo_addr_prefix_set.add(ipaddress.IPv6Address(addr).exploded[:20])
+
+    advertised = get_dut_advertised_routes(duthost, ip_ver)
+    if advertised is None:
+        return False
+
+    for peer_addr, route_data in advertised.items():
+        logger.info("Checking DUT advertised-routes to neighbor {} (ipv{})".format(peer_addr, ip_ver))
+
+        # Check each available format independently
+        for fmt in ("json", "plain"):
+            prefixes = route_data.get(fmt)
+            if prefixes is None:
+                continue
+            nbr_prefix_set = set()
+            for prefix in prefixes:
+                if ip_ver == 4:
+                    nbr_prefix_set.add(prefix)
+                else:
+                    nbr_prefix_set.add(ipaddress.IPv6Address(prefix.split('/')[0]).exploded[:20])
+            if nbr_prefix_set != device_lo_addr_prefix_set:
+                logger.warning(
+                    "DUT advertised-routes ({}) to {} mismatch: expected loopback prefixes {}, got {}".format(
+                        fmt, peer_addr, device_lo_addr_prefix_set, nbr_prefix_set))
+                return False
+    return True
+
+
+def assert_only_loopback_routes_in_dut_advertised_routes(dut_hosts, duthost, is_v6_topo=False):
+    """
+    Assert from the DUT's perspective that only loopback routes are advertised to all BGP neighbors.
+    """
+    def _verify():
+        return (is_v6_topo or verify_only_loopback_routes_in_dut_advertised_routes(dut_hosts, duthost, 4)) and \
+            verify_only_loopback_routes_in_dut_advertised_routes(dut_hosts, duthost, 6)
+
+    pytest_assert(
+        wait_until(180, 10, 5, _verify),
+        "DUT advertised-routes contain non-loopback prefixes during TSA"
+    )
+
+
 def parse_routes_on_neighbors(dut_host, neigh_hosts, ip_ver, exp_community=[]):
     if isinstance(list(neigh_hosts.items())[0][1]['host'], EosHost):
         routes_on_all_nbrs = parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community)
