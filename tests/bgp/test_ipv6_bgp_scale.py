@@ -3,6 +3,7 @@ Test plan PR: https://github.com/sonic-net/sonic-mgmt/pull/15702
 '''
 
 import datetime
+import itertools
 import pytest
 import logging
 import json
@@ -47,8 +48,8 @@ STATIC_ROUTES = ['0.0.0.0/0', '::/0']
 WITHDRAW_ROUTE_NUMBER = 1
 PACKET_QUEUE_LENGTH = 1000000
 ICMP_TYPE_MIN = 5
-ICMP_TYPE_MAX = 99
-_global_icmp_type = ICMP_TYPE_MIN - 1
+ICMP_TYPE_MAX = 125
+_icmp_type_generator = itertools.cycle(range(ICMP_TYPE_MIN, ICMP_TYPE_MAX + 1))
 test_results = {}
 current_test = ""
 
@@ -60,11 +61,7 @@ def log_test_results():
 
 
 def _get_icmp_type():
-    global _global_icmp_type
-    _global_icmp_type += 1
-    if _global_icmp_type > ICMP_TYPE_MAX:
-        _global_icmp_type = ICMP_TYPE_MIN
-    return _global_icmp_type
+    return next(_icmp_type_generator)
 
 
 def setup_packet_mask_counters(ptf_dataplane, icmp_type):
