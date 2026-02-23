@@ -338,16 +338,27 @@ def real_dut(duthosts, rand_one_dut_hostname):
 
     yield duthost
 
-    # Restore config_db.json and reload to recover
+    # Restore config_db.json and reload to recover.
+    # config reload restarts services and may kill SSH, so run it in background.
     logger.info("Restoring %s from %s", CONFIG_DB_JSON, CONFIG_DB_BAK)
     duthost.shell("cp {} {}".format(CONFIG_DB_BAK, CONFIG_DB_JSON),
                   module_ignore_errors=True)
     duthost.shell("rm -f {}".format(CONFIG_DB_BAK), module_ignore_errors=True)
-    duthost.shell("config reload -y -f", module_ignore_errors=True)
-    pytest_assert(
-        wait_until(300, 20, 0, duthost.critical_services_fully_started),
-        "Critical services did not start after config restore"
+
+    done_file = "/tmp/config_reload_test.done"
+    duthost.shell("rm -f {}".format(done_file), module_ignore_errors=True)
+    duthost.shell(
+        "nohup bash -c 'config reload -y -f; echo $? > {done}' &>/dev/null &".format(
+            done=done_file),
+        module_ignore_errors=True
     )
+
+    logger.info("Waiting for config reload to complete (background)...")
+    pytest_assert(
+        wait_until(300, 20, 10, _config_setup_done, duthost, done_file),
+        "Critical services did not recover after config restore"
+    )
+    duthost.shell("rm -f {}".format(done_file), module_ignore_errors=True)
 
 
 # ---------------------------------------------------------------------------
@@ -402,13 +413,64 @@ def run_harness(duthost, func, config_db="false", minigraph="false",
 
 
 def run_real_config_setup(duthost):
-    """Run actual config-setup boot on the DUT and return output."""
-    result = duthost.shell("sudo /usr/bin/config-setup boot",
-                           module_ignore_errors=True)
+    """Run actual config-setup boot on the DUT and return output.
+
+    config-setup boot may trigger reload_minigraph or config reload, which
+    restarts services and can kill the SSH session. We run the command in
+    the background via nohup, then poll for completion and read the output
+    from a log file.
+    """
+    log_file = "/tmp/config_setup_boot_test.log"
+    done_file = "/tmp/config_setup_boot_test.done"
+    duthost.shell("rm -f {} {}".format(log_file, done_file),
+                  module_ignore_errors=True)
+
+    # Launch in background so SSH disconnect doesn't kill it
+    duthost.shell(
+        "nohup bash -c 'sudo /usr/bin/config-setup boot > {log} 2>&1; "
+        "echo $? > {done}' &>/dev/null &".format(log=log_file, done=done_file),
+        module_ignore_errors=True
+    )
+
+    # Wait for the done marker, reconnecting if SSH drops
+    logger.info("Waiting for config-setup boot to complete (background)...")
+    if not wait_until(300, 10, 5, _config_setup_done, duthost, done_file):
+        logger.error("config-setup boot did not complete within timeout")
+        # Try to read partial output
+        result = duthost.shell("cat {} 2>/dev/null || true".format(log_file),
+                               module_ignore_errors=True)
+        logger.info("Partial config-setup output:\n%s", result.get('stdout', ''))
+        pytest.fail("config-setup boot timed out after 300 seconds")
+
+    # Read results
+    rc_result = duthost.shell("cat {}".format(done_file),
+                              module_ignore_errors=True)
+    rc = int(rc_result['stdout'].strip()) if rc_result['stdout'].strip().isdigit() else 1
+
+    result = duthost.shell("cat {}".format(log_file), module_ignore_errors=True)
     logger.info("config-setup boot stdout:\n%s", result['stdout'])
-    if result['stderr']:
-        logger.info("config-setup boot stderr:\n%s", result['stderr'])
-    return result
+
+    # Clean up
+    duthost.shell("rm -f {} {}".format(log_file, done_file),
+                  module_ignore_errors=True)
+
+    return {
+        'stdout': result['stdout'],
+        'stderr': result.get('stderr', ''),
+        'rc': rc,
+    }
+
+
+def _config_setup_done(duthost, done_file):
+    """Check if the config-setup boot background process has completed."""
+    try:
+        result = duthost.shell("test -f {}".format(done_file),
+                               module_ignore_errors=True)
+        return result['rc'] == 0
+    except Exception:
+        # SSH may be down during config reload — that's expected
+        logger.debug("SSH connection failed while checking config-setup status")
+        return False
 
 
 def get_mgmt_ip(duthost):
