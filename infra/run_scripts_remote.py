@@ -618,7 +618,11 @@ test_tag={test_tag},
           """)
 
     get_testcases(script_file, test_tag, topo_type, additional_tests, device_type)
-    
+
+    if topo_type == 't2-min-VG' or topo_type == 't2-min-VL':
+        # All LC combinations for SFD T2 min topology use same Sonic-mgmt SIM topology
+        topo_type = 't2-min'
+
     if not os.path.exists(dut_data_file):
         print(f"ERROR! dut data file '{dut_data_file}' does not exist! Exiting")
         return -1
@@ -794,9 +798,7 @@ if __name__ == '__main__':
     dut_data_file = args['dut_data_file']
     add_sim_patches = args['add_sim_patches']
     test_tag = args['test_tag']
-    if topo_type == 't2-min-VG' or topo_type == 't2-min-VL':
-        # All LC combinations for SFD T2 min topology use same Sonic-mgmt SIM topology
-        topo_type = 't2-min'
+
     ret = run_scripts_remote(
         host_address,
         username,
