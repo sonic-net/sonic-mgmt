@@ -337,9 +337,11 @@ def get_dut_advertised_routes(duthost, ip_ver, output_format="both"):
                         json_prefixes - plain_prefixes,
                         plain_prefixes - json_prefixes))
 
-        # Use JSON if available, otherwise plain text
-        advertised[neigh_addr] = (json_prefixes if json_prefixes
-                                  is not None else plain_prefixes)
+        # Return both formats so callers can inspect each independently
+        advertised[neigh_addr] = {
+            "json": json_prefixes,
+            "plain": plain_prefixes,
+        }
     return advertised
 
 
@@ -369,19 +371,25 @@ def verify_only_loopback_routes_in_dut_advertised_routes(dut_hosts, duthost, ip_
     if advertised is None:
         return False
 
-    for peer_addr, prefixes in advertised.items():
+    for peer_addr, route_data in advertised.items():
         logger.info("Checking DUT advertised-routes to neighbor {} (ipv{})".format(peer_addr, ip_ver))
-        nbr_prefix_set = set()
-        for prefix in prefixes:
-            if ip_ver == 4:
-                nbr_prefix_set.add(prefix)
-            else:
-                nbr_prefix_set.add(ipaddress.IPv6Address(prefix.split('/')[0]).exploded[:20])
-        if nbr_prefix_set != device_lo_addr_prefix_set:
-            logger.warning(
-                "DUT advertised-routes to {} mismatch: expected loopback prefixes {}, got {}".format(
-                    peer_addr, device_lo_addr_prefix_set, nbr_prefix_set))
-            return False
+
+        # Check each available format independently
+        for fmt in ("json", "plain"):
+            prefixes = route_data.get(fmt)
+            if prefixes is None:
+                continue
+            nbr_prefix_set = set()
+            for prefix in prefixes:
+                if ip_ver == 4:
+                    nbr_prefix_set.add(prefix)
+                else:
+                    nbr_prefix_set.add(ipaddress.IPv6Address(prefix.split('/')[0]).exploded[:20])
+            if nbr_prefix_set != device_lo_addr_prefix_set:
+                logger.warning(
+                    "DUT advertised-routes ({}) to {} mismatch: expected loopback prefixes {}, got {}".format(
+                        fmt, peer_addr, device_lo_addr_prefix_set, nbr_prefix_set))
+                return False
     return True
 
 
