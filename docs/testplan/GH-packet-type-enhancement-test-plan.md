@@ -78,15 +78,16 @@ show
 |------------------|-----------------|
 | ipv4 | IPv4 packets |
 | ipv6 | IPv6 packets |
-| ipnip | IPv4-in-IPv4 encapsulated packets |
+| ipnip | IPv4-in-IPv4 encapsulated packets (CLI packet type for SAI `IPV4_IN_IPV4`) |
 | ipv4-rdma | RDMA over IPv4 packets |
 | ipv6-rdma | RDMA over IPv6 packets |
 | all | Show all packet type configurations (for show command only) |
 
 
 **Note:-**
-- _pkt-type (Supported values):_
+- _pkt-type (Supported values, CLI names):_
   - _all, ipv4, ipv6, ipnip, ipv4-rdma, ipv6-rdma_
+  - _CLI packet type `ipnip` maps to the SAI packet type `IPV4_IN_IPV4`_
 - _In config command:_
   - _`--packet-type <pkt-type>`: Optional parameter; if omitted, updates global hash_
   - _`--action <add|del>`: Required when `--packet-type` is specified_
