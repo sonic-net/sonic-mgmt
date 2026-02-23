@@ -248,15 +248,19 @@ def _parse_advertised_routes_plain(output):
     return prefixes
 
 
-def get_dut_advertised_routes(duthost, ip_ver):
+def get_dut_advertised_routes(duthost, ip_ver, output_format="both"):
     """Get advertised routes from the DUT for each BGP neighbor.
 
-    Checks both JSON and plain text output formats. If both succeed,
-    verifies they return consistent results. Reports failures for
-    each format independently.
+    Args:
+        duthost: DUT host object.
+        ip_ver: IP version (4 or 6).
+        output_format: Controls how advertised routes are parsed.
+            "json" - parse only JSON output.
+            "plain" - parse only plain text output.
+            "both" - parse both and cross-check for consistency (default).
 
     Returns a dict: {neighbor_ip: set_of_advertised_prefixes}, or
-    None if both formats fail for any neighbor.
+    None if all requested formats fail for any neighbor.
     """
     mg_facts = duthost.minigraph_facts(
         host=duthost.hostname)['ansible_facts']
@@ -286,34 +290,36 @@ def get_dut_advertised_routes(duthost, ip_ver):
         plain_prefixes = None
 
         # JSON format
-        res = duthost.shell(
-            cmd_json, module_ignore_errors=True, verbose=False)
-        if res['rc'] == 0:
-            try:
-                routes_json = json.loads(res['stdout'])
-                json_prefixes = set(
-                    routes_json.get('advertisedRoutes', {}).keys())
-            except (ValueError, KeyError) as e:
+        if output_format in ("json", "both"):
+            res = duthost.shell(
+                cmd_json, module_ignore_errors=True, verbose=False)
+            if res['rc'] == 0:
+                try:
+                    routes_json = json.loads(res['stdout'])
+                    json_prefixes = set(
+                        routes_json.get('advertisedRoutes', {}).keys())
+                except (ValueError, KeyError) as e:
+                    logger.warning(
+                        "Failed to parse JSON advertised routes for "
+                        "neighbor {}: {}".format(neigh_addr, e))
+            else:
                 logger.warning(
-                    "Failed to parse JSON advertised routes for "
-                    "neighbor {}: {}".format(neigh_addr, e))
-        else:
-            logger.warning(
-                "JSON advertised-routes command failed for "
-                "neighbor {}: {}".format(
-                    neigh_addr, res.get('stderr', '')))
+                    "JSON advertised-routes command failed for "
+                    "neighbor {}: {}".format(
+                        neigh_addr, res.get('stderr', '')))
 
         # Plain text format
-        res = duthost.shell(
-            cmd_plain, module_ignore_errors=True, verbose=False)
-        if res['rc'] == 0:
-            plain_prefixes = _parse_advertised_routes_plain(
-                res['stdout'])
-        else:
-            logger.warning(
-                "Plain text advertised-routes command failed for "
-                "neighbor {}: {}".format(
-                    neigh_addr, res.get('stderr', '')))
+        if output_format in ("plain", "both"):
+            res = duthost.shell(
+                cmd_plain, module_ignore_errors=True, verbose=False)
+            if res['rc'] == 0:
+                plain_prefixes = _parse_advertised_routes_plain(
+                    res['stdout'])
+            else:
+                logger.warning(
+                    "Plain text advertised-routes command failed for "
+                    "neighbor {}: {}".format(
+                        neigh_addr, res.get('stderr', '')))
 
         # Evaluate results
         if json_prefixes is None and plain_prefixes is None:
