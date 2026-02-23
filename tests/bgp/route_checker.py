@@ -234,17 +234,44 @@ def _parse_advertised_routes_plain(output):
     """Parse plain text output of 'show bgp neighbors advertised-routes'.
 
     Returns a set of advertised prefixes.
+
+    FRR status codes vary (*>, *=, *>i, s>, r>, S, d, h, etc.) and may be
+    concatenated with or separated from the prefix.  Instead of matching
+    specific status strings, find the "Network" column position from the
+    header and extract the prefix at that offset.  Fall back to a regex
+    scan if no header is found.
     """
     prefixes = set()
-    for line in output.splitlines():
-        # Match lines starting with *> or * followed by a prefix
-        # e.g. "*> 10.1.0.32/32    0.0.0.0       0  32768  i"
-        fields = line.strip().split()
-        if len(fields) >= 2 and ('*>' in fields[0] or '*' == fields[0]):
-            prefix = (fields[1] if '*' == fields[0]
-                      else fields[0].lstrip('*>= '))
-            if '/' in prefix:
-                prefixes.add(prefix)
+    lines = output.splitlines()
+
+    # Locate the "Network" column position from the header line
+    net_col = None
+    header_idx = None
+    for idx, line in enumerate(lines):
+        col = line.find('Network')
+        if col >= 0:
+            net_col = col
+            header_idx = idx
+            break
+
+    # IPv4 or IPv6 CIDR pattern
+    cidr_re = re.compile(r'([\da-fA-F.:]+/\d+)')
+
+    for line in lines[header_idx + 1 if header_idx is not None else 0:]:
+        stripped = line.strip()
+        if not stripped or stripped.startswith('Total'):
+            continue
+        # Try column-based extraction first
+        if net_col is not None and len(line) > net_col:
+            token = line[net_col:].split()[0] if line[net_col:].split() else ''
+            m = cidr_re.match(token)
+            if m:
+                prefixes.add(m.group(1))
+                continue
+        # Fallback: find any CIDR prefix on the line
+        m = cidr_re.search(stripped)
+        if m:
+            prefixes.add(m.group(1))
     return prefixes
 
 
