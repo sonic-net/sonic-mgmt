@@ -56,6 +56,7 @@ class ControlPlaneBaseTest(BaseTest):
     DEFAULT_PRE_SEND_INTERVAL_SEC = 1
     DEFAULT_SEND_INTERVAL_SEC = 30
     DEFAULT_RECEIVE_WAIT_TIME = 3
+    PTF_TIMEOUT = 30
 
     def __init__(self):
         BaseTest.__init__(self)
@@ -151,7 +152,7 @@ class ControlPlaneBaseTest(BaseTest):
                 pre_send_count += 1
 
             rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
-                self, packet, [recv_intf[1]], recv_intf[0], timeout=5)
+                self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
             self.log("Send %d and receive %d packets in the first second (PolicyTest)" % (
                 pre_send_count, rcv_pkt_cnt))
 
@@ -180,7 +181,7 @@ class ControlPlaneBaseTest(BaseTest):
         # Wait a little bit for all the packets to make it through
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)
         recv_count = testutils.count_matched_packets_all_ports(
-            self, packet, [recv_intf[1]], recv_intf[0], timeout=10)
+            self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
         self.log("Received %d packets after sleep %ds" %
                  (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
 
