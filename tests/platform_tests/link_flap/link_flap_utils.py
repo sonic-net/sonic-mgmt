@@ -6,6 +6,7 @@ import random
 import time
 
 from tests.common.platform.device_utils import fanout_switch_port_lookup, __get_dut_if_status
+from tests.common.utilities import get_day_of_week_distributed_ports_from_buckets
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,8 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
 
         if completeness_level == 'debug':
             candidates = random.sample(candidates, 1)
+        elif completeness_level == 'confident':
+            candidates = get_day_of_week_distributed_ports_from_buckets(candidates, 32)
 
     return candidates
 

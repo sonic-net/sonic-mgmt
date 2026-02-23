@@ -60,7 +60,7 @@ class GenerateGoldenConfigDBModule(object):
                                     num_asics=dict(require=False, type='int', default=1),
                                     hwsku=dict(require=False, type='str', default=None),
                                     vm_configuration=dict(require=False, type='dict', default={}),
-                                    is_light_mode=dict(require=False, type='bool', default=True),
+                                    is_lit_mode=dict(require=False, type='bool', default=True),
                                     bgp_confd_asn=dict(require=False, type='str', default=None),
                                     bgp_confd_peers=dict(require=False, type='str', default=None)),
                                     supports_check_mode=True)
@@ -72,7 +72,7 @@ class GenerateGoldenConfigDBModule(object):
         self.platform, _ = device_info.get_platform_and_hwsku()
 
         self.vm_configuration = self.module.params['vm_configuration']
-        self.is_light_mode = self.module.params['is_light_mode']
+        self.is_lit_mode = self.module.params['is_light_mode']
         self.bgp_confd_asn = self.module.params['bgp_confd_asn']
         self.bgp_confd_peers = self.module.params['bgp_confd_peers']
 
@@ -649,7 +649,7 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for mgfx"
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
         elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1", "t1-48-lag"] \
-                and self.is_light_mode:
+                and self.is_lit_mode:
             config = self.generate_smartswitch_golden_config_db()
             module_msg = module_msg + " for smartswitch"
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))

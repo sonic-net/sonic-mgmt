@@ -487,12 +487,13 @@ def get_route_programming_metrics_from_sairedis_replay(duthost, start_time, sair
         try:
             return duthost.shell(f"sudo grep -e '{nhg_pattern}' -e '{route_pattern}' {path}")['stdout'].splitlines()
         except Exception as e:
-            logger.warning("Failed to read %s: %s", path, e)
+            is_rotated_log = path.endswith('.rec.1')
+            log_level = logging.INFO if is_rotated_log else logging.WARNING
+            logger.log(log_level, "Failed to read %s: %s", path, e)
             return []
     lines = read_lines(sairedislog)
-    if not lines:
-        logger.warning("No RP events in %s, trying fallback", sairedislog)
-        lines = read_lines(sairedislog + ".1")
+    log_rotated_lines = read_lines(sairedislog + ".1")
+    lines = log_rotated_lines + lines
     if not lines:
         return {
             "RP Start Time": start_time,
@@ -521,9 +522,10 @@ def _select_targets_to_flap(bgp_peers_info, all_flap, flapping_count):
     bgp_neighbors = list(bgp_peers_info.keys())
     pytest_assert(len(bgp_neighbors) >= 2, "At least two BGP neighbors required for flap test")
     if all_flap:
-        flapping_neighbors = bgp_neighbors
+        flapping_neighbors = list(bgp_neighbors)
         injection_neighbor = random.choice(bgp_neighbors)
-        logger.info(f"[FLAP TEST] All neighbors are flapping: {len(flapping_neighbors)}")
+        flapping_neighbors.remove(injection_neighbor)
+        logger.info(f"[FLAP TEST] All - 1 neighbors are flapping: {len(flapping_neighbors)}")
     else:
         flapping_neighbors = random.sample(bgp_neighbors, flapping_count)
         injection_candidates = [n for n in bgp_neighbors if n not in flapping_neighbors]

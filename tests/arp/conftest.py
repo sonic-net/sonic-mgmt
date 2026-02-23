@@ -24,14 +24,16 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthost):
+def set_polling_interval(duthosts):
     wait_time = 2
-    duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
+    for duthost in duthosts.frontend_nodes:
+        duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
     wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
     yield
 
-    duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
+    for duthost in duthosts.frontend_nodes:
+        duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
     wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
 
