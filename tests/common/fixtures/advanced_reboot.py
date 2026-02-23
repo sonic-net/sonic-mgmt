@@ -650,6 +650,11 @@ class AdvancedReboot:
                     test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
                                                         self.duthost.hostname)
             except Exception:
+                # The duthost may or may not have rebooted/upgraded at the time of exception, hence we may not
+                # have cleared the facts yet and still have a non-existant python interpreter in the cached facts.
+                # Therefore, clear the facts cached here as well to avoid any issues with running commands
+                # on the duthost after an exception is caught.
+                self.duthost.meta("clear_facts")
                 traceback_msg = traceback.format_exc()
                 err_msg = "Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg)
                 logger.error(err_msg)
@@ -749,6 +754,11 @@ class AdvancedReboot:
                 if self.consistency_checker_provider:
                     self.check_asic_and_db_consistency()
             except Exception:
+                # The duthost may or may not have rebooted/upgraded at the time of exception, hence we may not
+                # have cleared the facts yet and still have a non-existant python interpreter in the cached facts.
+                # Therefore, clear the facts cached here as well to avoid any issues with running commands
+                # on the duthost after an exception is caught.
+                self.duthost.meta("clear_facts")
                 traceback_msg = traceback.format_exc()
                 err_msg = "Exception caught while running advanced-reboot test on ptf during upgrade {}: \n{}".format(
                     upgrade_path_str, traceback_msg)
