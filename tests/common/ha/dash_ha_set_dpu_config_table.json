@@ -8,7 +8,7 @@
       "scope": "dpu",
       "pinned_vdpu_bfd_probe_states": ["up", "down"],
       "preferred_vdpu_id": "vdpu0_0",
-      "preferred_standalone_vdpu_index": "0"
+      "preferred_standalone_vdpu_index": 0
     }
   }
 }
