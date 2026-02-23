@@ -158,7 +158,7 @@ The test should support t0 and t1 topologies.
 
 **Expected Result:**  Packet-type 1 traffic follows per packet-type hash and packet-type 2 traffic continues to use the default global hash.
 
-#### 3. test_hash_config_persistence_reload
+#### 3. test_pkt_type_hash_config_persistence_reload
 ---
 **Purpose:**  Configure various packet-type hashes, reload/reboot the switch and ensure configuration and data plane behavior persist.
 
