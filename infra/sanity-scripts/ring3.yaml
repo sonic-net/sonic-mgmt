@@ -431,7 +431,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - console/test_console_availability.py
         - console/test_console_driver.py
         - dns/test_dns_resolv_conf.py
-        - dut_console/test_idle_timeout.py
+        #- dut_console/test_idle_timeout.py //https://github.com/sonic-net/sonic-mgmt/blob/master/tests/common/plugins/conditional_mark/tests_mark_conditions.yaml#L1457
         - generic_config_updater/test_aaa.py
         - generic_config_updater/test_ntp.py
         - gnmi/openconfig/test_openconfig_bgpglobal.py
@@ -454,7 +454,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
         - tacacs/test_authorization.py
-        - tacacs/test_rw_user.py
+        - tacacs/test_rw_user.py::test_rw_user #commenting out IPV6 test
         - telemetry/test_telemetry.py
 
       hw:
@@ -519,9 +519,9 @@ MGMT: #Anukul Verma / Gourav Sharma
         - console/test_console_reversessh.py
         - console/test_console_udevrule.py
         - dns/static_dns/test_static_dns.py
-        - dut_console/test_console_baud_rate.py
-        - dut_console/test_console_chassis_conn.py
-        - dut_console/test_escape_character.py
+        #- dut_console/test_console_baud_rate.py //https://github.com/sonic-net/sonic-mgmt/blob/master/tests/common/plugins/conditional_mark/tests_mark_conditions.yaml#L1457
+        #- dut_console/test_console_chassis_conn.py
+        #- dut_console/test_escape_character.py
         - generic_config_updater/test_bgpl.py
         - generic_config_updater/test_lo_interface.py
         - generic_config_updater/test_syslog.py
@@ -558,7 +558,10 @@ MGMT: #Anukul Verma / Gourav Sharma
         - tacacs/test_accounting.py
         - tacacs/test_jit_user.py
         #- tacacs/test_ro_disk.py //https://github.com/sonic-net/sonic-mgmt/issues/20787
-        - tacacs/test_ro_user.py
+        - tacacs/test_ro_user.py::test_ro_user #commenting out IPV6 test
+        - tacacs/test_ro_user.py::test_ro_user_allowed_command
+        - tacacs/test_ro_user.py::test_ro_user_banned_by_sudoers_command
+        - tacacs/test_ro_user.py::test_ro_user_banned_command
         - telemetry/test_events.py
         - telemetry/test_telemetry_cert_rotation.py
         - telemetry/test_telemetry_poll.py
