@@ -124,7 +124,12 @@ def inbound_pl_packets(
     config, floating_nic=False, inner_packet_type="udp", vxlan_udp_dport=4789, inner_sport=4567, inner_dport=6789,
     vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT, vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK, exp_vni=None
 ):
-    expected_vni = int(exp_vni if exp_vni else pl.ENCAP_VNI)
+    if exp_vni is not None:
+        expected_vni = int(exp_vni)
+    else:
+        # Preserve previous default: for non-floating NICs use VNET1_VNI,
+        # for floating NICs use ENCAP_VNI.
+        expected_vni = int(pl.ENCAP_VNI if floating_nic else pl.VNET1_VNI)
     inner_sip = get_pl_overlay_dip(  # not a typo, inner DIP/SIP are reversed for inbound direction
         pl.PE_CA, pl.PL_OVERLAY_DIP, pl.PL_OVERLAY_DIP_MASK
     )

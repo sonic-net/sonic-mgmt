@@ -28,7 +28,7 @@ Note: It's also necessary for the DPU to learn the neighbor info of the dataplan
 DASH configs are programmed. This should be handled automatically by fixture ordering and does not require
 manual steps.
 
-The neighbor info is learned when appling the default route as orchagent will attempt to resolve the next hop IP.
+The neighbor info is learned when applying the default route as orchagent will attempt to resolve the next hop IP.
 """
 
 
@@ -132,7 +132,7 @@ def test_fnic_tunnel(ptfadapter, dash_pl_config, single_endpoint):
             dash_pl_config, floating_nic=True, outbound_vni=pl.ENCAP_VNI
         )
         exp_dpu_to_vm_pkt.set_do_not_care_packet(scapy.IP, "dst")
-        # Usually `testutils.send` automatically updates the packet payload to include the test nome
+        # Usually `testutils.send` automatically updates the packet payload to include the test name
         # and `testutils.verify_packet*` updates the expected packet payload to match. Since we are polling
         # the dataplane directly for the DPU to VM packet, we need to manually update the payload
         exp_dpu_to_vm_pkt = ptfadapter.update_payload(exp_dpu_to_vm_pkt)
