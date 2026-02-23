@@ -72,7 +72,7 @@ class GenerateGoldenConfigDBModule(object):
         self.platform, _ = device_info.get_platform_and_hwsku()
 
         self.vm_configuration = self.module.params['vm_configuration']
-        self.is_lit_mode = self.module.params['is_light_mode']
+        self.is_lit_mode = self.module.params['is_lit_mode']
         self.bgp_confd_asn = self.module.params['bgp_confd_asn']
         self.bgp_confd_peers = self.module.params['bgp_confd_peers']
 
