@@ -30,6 +30,7 @@ HOST_MAX_COUNT = 126
 TIME_BETWEEN_SUCCESSIVE_TEST_OPER = 420
 PTFRUNNER_QLEN = 1000
 REBOOT_CASE_TIMEOUT = 2100
+PHYSICAL_PORT = "physical_port"
 
 
 class AdvancedReboot:
@@ -41,7 +42,7 @@ class AdvancedReboot:
     Test cases can trigger test start utilizing runRebootTestcase API.
     """
 
-    def __init__(self, request, duthosts, duthost, ptfhost, localhost, tbinfo, creds, **kwargs):
+    def __init__(self, request, duthosts, duthost, ptfhost, localhost, vmhost, tbinfo, creds, **kwargs):
         """
         Class constructor.
         @param request: pytest request object
@@ -86,6 +87,7 @@ class AdvancedReboot:
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.localhost = localhost
+        self.vmhost = vmhost
         self.tbinfo = tbinfo
         self.creds = creds
         self.moduleIgnoreErrors = kwargs["allow_fail"] if "allow_fail" in kwargs else False
@@ -102,6 +104,7 @@ class AdvancedReboot:
         self.lagMemberCnt = 0
         self.vlanMaxCnt = 0
         self.hostMaxCnt = HOST_MAX_COUNT
+        self.packet_capture_location = request.config.getoption("--packet_capture_location")
         if "dualtor" in self.getTestbedType():
             self.dual_tor_mode = True
             peer_duthost = get_peerhost(duthosts, duthost)
@@ -188,6 +191,15 @@ class AdvancedReboot:
             attr['mgmt_addr'] for dev, attr in list(self.mgFacts['minigraph_devices'].items())
             if attr['hwsku'] == 'Arista-VM'
         ]
+        self.rebootData['packet_capture_location'] = self.packet_capture_location
+
+        if self.packet_capture_location == PHYSICAL_PORT:
+            self.rebootData['vmhost_mgmt_ip'] = self.vmhost.mgmt_ip
+            self.rebootData['vmhost_external_port'] = self.vmhost.external_port
+            self.rebootData['vmhost_username'] = \
+                self.duthost.host.options['variable_manager']._hostvars[self.vmhost.hostname]['vm_host_user']
+            self.rebootData['vmhost_password'] = \
+                self.duthost.host.options['variable_manager']._hostvars[self.vmhost.hostname]['vm_host_password']
 
         self.hostMaxLen = len(self.rebootData['arista_vms']) - 1
         self.lagMemberCnt = len(list(self.mgFacts['minigraph_portchannels'].values())[0]['members'])
@@ -638,11 +650,23 @@ class AdvancedReboot:
                 self.ptfhost.shell("pkill -f 'ptftests advanced-reboot.ReloadTest'", module_ignore_errors=True)
                 # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
                 thread.join(timeout=10)
+
+                # The duthost has upgraded at this point and the python interpreter may be different
+                # on this new image. Therefore, clear and refetch any cached facts (which contain the
+                # path to the old python interpreter) to avoid using stale facts that were collected
+                # before the reboot.
+                self.duthost.meta("clear_facts")
+
                 self.__verifyRebootOper(rebootOper)
                 if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
                     test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
                                                         self.duthost.hostname)
             except Exception:
+                # The duthost may or may not have rebooted/upgraded at the time of exception, hence we may not
+                # have cleared the facts yet and still have a non-existant python interpreter in the cached facts.
+                # Therefore, clear the facts cached here as well to avoid any issues with running commands
+                # on the duthost after an exception is caught.
+                self.duthost.meta("clear_facts")
                 traceback_msg = traceback.format_exc()
                 err_msg = "Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg)
                 logger.error(err_msg)
@@ -725,6 +749,12 @@ class AdvancedReboot:
                 # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
                 thread.join(timeout=10)
 
+                # The duthost has upgraded at this point and the python interpreter may be different
+                # on this new image. Therefore, clear and refetch any cached facts (which contain the
+                # path to the old python interpreter) to avoid using stale facts that were collected
+                # before the reboot.
+                self.duthost.meta("clear_facts")
+
                 self.__verifyRebootOper(rebootOper)
                 if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
                     test_results.append(
@@ -736,6 +766,11 @@ class AdvancedReboot:
                 if self.consistency_checker_provider:
                     self.check_asic_and_db_consistency()
             except Exception:
+                # The duthost may or may not have rebooted/upgraded at the time of exception, hence we may not
+                # have cleared the facts yet and still have a non-existant python interpreter in the cached facts.
+                # Therefore, clear the facts cached here as well to avoid any issues with running commands
+                # on the duthost after an exception is caught.
+                self.duthost.meta("clear_facts")
                 traceback_msg = traceback.format_exc()
                 err_msg = "Exception caught while running advanced-reboot test on ptf during upgrade {}: \n{}".format(
                     upgrade_path_str, traceback_msg)
@@ -916,7 +951,16 @@ class AdvancedReboot:
             "neighbor_type": self.neighborType,
             "kvm_support": True,
             "ceos_neighbor_lacp_multiplier": self.ceosNeighLacpMultiplier,
+            "packet_capture_location": self.rebootData['packet_capture_location']
         }
+
+        if self.packet_capture_location == PHYSICAL_PORT:
+            params.update({
+                "vmhost_username": self.rebootData['vmhost_username'],
+                "vmhost_password": self.rebootData['vmhost_password'],
+                "vmhost_mgmt_ip": self.rebootData['vmhost_mgmt_ip'],
+                "vmhost_external_port": self.rebootData['vmhost_external_port']
+            })
 
         if self.dual_tor_mode:
             params.update({
@@ -1058,8 +1102,8 @@ class AdvancedReboot:
 
 
 @pytest.fixture
-def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo,
-                        creds):
+def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, vmhost,
+                        tbinfo, creds):
     """
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
@@ -1067,6 +1111,7 @@ def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_host
         @param ptfhost: PTFHost for interacting with PTF through ansible
         @param localhost: Localhost for interacting with localhost through ansible
         @param tbinfo: fixture provides information about testbed
+        @param vmhost: AnsibleHost instance of the test server
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     instances = []
@@ -1076,7 +1121,7 @@ def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_host
         API that returns instances of AdvancedReboot class
         """
         assert len(instances) == 0, "Only one instance of reboot data is allowed"
-        advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds, **kwargs)
+        advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, vmhost, tbinfo, creds, **kwargs)
         instances.append(advancedReboot)
         return advancedReboot
 

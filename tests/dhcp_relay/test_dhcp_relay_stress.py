@@ -140,7 +140,7 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
             "testing_mode": testing_mode,
             "kvm_support": True
         }
-        count_file = '/tmp/dhcp_stress_test_{}.json'.format(dhcp_type)
+        count_file = '/tmp/dhcp_stress_test_{}'.format(dhcp_type)
 
         def _check_count_file_exists():
             command = 'ls {} > /dev/null 2>&1 && echo exists || echo missing'.format(count_file)

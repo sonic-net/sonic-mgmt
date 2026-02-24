@@ -159,10 +159,8 @@ function pull_sonic_mgmt_docker_image() {
         DOCKER_IMAGES_CMD="docker images --format \"{{.Repository}}:{{.Tag}}\""
         DOCKER_PULL_CMD="docker pull \"${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}\""
 
-        if eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_SONIC_MGMT}:latest$"; then
+        if eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_SONIC_MGMT}$"; then
             IMAGE_ID="${DOCKER_SONIC_MGMT}"
-        elif eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}:latest$"; then
-            IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
         elif log_info "pulling docker image from a registry ..." && eval "${DOCKER_PULL_CMD}"; then
             IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
         else
@@ -371,7 +369,7 @@ function start_local_container() {
         docker start ${CONTAINER_NAME}
     else
         log_info "creating a container: ${CONTAINER_NAME} ..."
-        eval "docker run -d -t ${PUBLISH_PORTS} ${ENV_VARS} -h ${CONTAINER_NAME} \
+        eval "docker run --cap-add=SYS_PTRACE -d -t ${PUBLISH_PORTS} ${ENV_VARS} -h ${CONTAINER_NAME} \
         -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
         --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
         exit_failure "failed to start a container: ${CONTAINER_NAME}"

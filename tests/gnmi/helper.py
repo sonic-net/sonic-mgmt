@@ -230,19 +230,22 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
         ptfhost.shell(f"ping {ip} -c 3", module_ignore_errors=True)
 
     # Health check to make sure the gnmi server is listening on port
-    health_check_cmd = f"sudo ss -ltnp | grep {env.gnmi_port} | grep {env.gnmi_program}"
+    health_check_cmd = f"sudo ss -ltnp | grep {env.gnmi_port} | grep {env.gnmi_process}"
 
     wait_until(120, 1, 5,
                lambda: len(duthost.shell(health_check_cmd, module_ignore_errors=True)['stdout_lines']) > 0)
 
     output = ptfhost.shell(cmd, module_ignore_errors=True)
-    error = "GRPC error\n"
-    if error in output['stdout']:
+
+    stdout = output.get("stdout") or ""
+    stderr = output.get("stderr") or ""
+    rc = output.get("rc", 1)
+    combined = f"{stdout}\n{stderr}"
+
+    if rc != 0 or "GRPC error" in combined or "rpc error" in combined:
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
-        result = output['stdout'].split(error, 1)
-        raise Exception("GRPC error:" + result[1])
-    return
+        raise Exception(f"py_gnmicli failed rc={rc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")
 
 
 def gnmi_get(duthost, ptfhost, path_list):
