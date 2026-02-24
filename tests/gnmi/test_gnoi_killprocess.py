@@ -4,19 +4,13 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
+from tests.common.ptf_gnoi import SIGNAL_TERM, SIGNAL_KILL, SIGNAL_HUP, SIGNAL_ABRT
 from tests.common.platform.processes_utils import wait_critical_processes
 
 pytest_plugins = ["tests.common.fixtures.grpc_fixtures"]  # noqa: F401
 
 
 logger = logging.getLogger(__name__)
-
-# Signal types as defined in gNOI system.proto
-# Reference: https://github.com/openconfig/gnoi/blob/main/system/system.proto#L352
-SIGNAL_TERM = "SIGNAL_TERM"  # enum value: 1
-SIGNAL_KILL = "SIGNAL_KILL"  # enum value: 2
-SIGNAL_HUP = "SIGNAL_HUP"    # enum value: 3
-SIGNAL_ABRT = "SIGNAL_ABRT"  # enum value: 4
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -32,24 +26,7 @@ def _kill_process(ptf_gnoi, name: str, restart: bool = False, signal=SIGNAL_TERM
         ptf_gnoi: gNOI client wrapper
         name: Service name to kill
         restart: Whether to restart the service
-        signal: Signal type to send. Accepts either:
-                - String: "SIGNAL_TERM", "SIGNAL_KILL", "SIGNAL_HUP", "SIGNAL_ABRT"
-                - Integer: 1 (TERM), 2 (KILL), 3 (HUP), 4 (ABRT)
-
-    Signal behavior per gNOI specification:
-        - SIGNAL_TERM (1): Terminate the process gracefully
-        - SIGNAL_KILL (2): Terminate the process immediately
-        - SIGNAL_HUP (3): Reload the process configuration (restart ignored)
-        - SIGNAL_ABRT (4): Terminate immediately and dump core file
-
-    Examples:
-        # Using string signal names
-        _kill_process(gnoi, "snmp", restart=True, signal="SIGNAL_TERM")
-        _kill_process(gnoi, "bgp", restart=False, signal="SIGNAL_KILL")
-
-        # Using integer signal values (equivalent)
-        _kill_process(gnoi, "snmp", restart=True, signal=1)
-        _kill_process(gnoi, "bgp", restart=False, signal=2)
+        signal: Signal type (use SIGNAL_* constants from ptf_gnoi module)
 
     Returns:
         Tuple of (return_code, message)
