@@ -30,13 +30,12 @@ Extensibility (for mock/UT):
 
 Usage:
     Called from test_qos_sai.py via PTF with test_subdir='probe':
-    self.runPtfTest(ptfhost, testCase="headroom_pool_probing.HeadroomPoolProbing", 
+    self.runPtfTest(ptfhost, testCase="headroom_pool_probing.HeadroomPoolProbing",
                     testParams=testParams, test_subdir='probe')
 """
 
 import os
 import sys
-import time
 
 # Add probe directory and py3 directory to Python path
 # IMPORTANT: py3_dir must be FIRST to ensure correct switch.py is found
@@ -50,39 +49,39 @@ if py3_dir not in sys.path:
 if probe_dir not in sys.path:
     sys.path.insert(0, probe_dir)
 
-from probing_base import ProbingBase, ProbeConfig
-from probing_result import ThresholdResult
-from sai_qos_tests import log_message, construct_ip_pkt
-from stream_manager import PortInfo, FlowConfig, StreamManager, determine_traffic_dmac
+from probing_base import ProbingBase, ProbeConfig  # noqa: E402
+from probing_result import ThresholdResult  # noqa: E402
+from sai_qos_tests import log_message, construct_ip_pkt  # noqa: E402
+from stream_manager import PortInfo, FlowConfig, StreamManager, determine_traffic_dmac  # noqa: E402
 
 # Algorithm imports
-from upper_bound_probing_algorithm import UpperBoundProbingAlgorithm
-from lower_bound_probing_algorithm import LowerBoundProbingAlgorithm
-from threshold_range_probing_algorithm import ThresholdRangeProbingAlgorithm
-from threshold_point_probing_algorithm import ThresholdPointProbingAlgorithm
+from upper_bound_probing_algorithm import UpperBoundProbingAlgorithm  # noqa: E402
+from lower_bound_probing_algorithm import LowerBoundProbingAlgorithm  # noqa: E402
+from threshold_range_probing_algorithm import ThresholdRangeProbingAlgorithm  # noqa: E402
+from threshold_point_probing_algorithm import ThresholdPointProbingAlgorithm  # noqa: E402
 
 # Executor: lazy import via ExecutorRegistry (no direct import here)
 # Note: create_executor is inherited from ProbingBase
 
 # Observer imports
-from probing_observer import ProbingObserver
-from observer_config import ObserverConfig
+from probing_observer import ProbingObserver  # noqa: E402
+from observer_config import ObserverConfig  # noqa: E402
 
 
 class HeadroomPoolProbing(ProbingBase):
     """
     Headroom Pool Size Probing Test Case
-    
+
     Traffic Pattern: N src -> 1 dst
     - Multiple source ports, each with its own PG
     - Single destination port receives all traffic
-    
+
     Multi-PG Probing Logic (merged from HeadroomPoolSizeProbingOrchestrator):
     - For each PG: probe PFC XOFF threshold, then Ingress Drop threshold
     - Headroom = Ingress Drop - PFC XOFF
     - Persist buffer state after each PG
     - Detect pool exhaustion when headroom <= 1
-    
+
     Inherits from ProbingBase which provides:
     - setUp(): PTF init + common parse_param
     - runTest(): Template method (calls setup_traffic, probe)
@@ -106,7 +105,7 @@ class HeadroomPoolProbing(ProbingBase):
     def setUp(self):
         """
         HdrmPoolProbe setup.
-        
+
         1. Call super().setUp() for common initialization + parse_param + EXECUTOR_ENV
         2. Parse subclass-specific parameters
         """
@@ -116,7 +115,7 @@ class HeadroomPoolProbing(ProbingBase):
     def parse_param(self):
         """
         Parse HdrmPoolProbe-specific parameters.
-        
+
         Note: Common parameters already parsed by ProbingBase.setUp()
         """
         # Ensure pgs and dscps are lists
@@ -124,7 +123,7 @@ class HeadroomPoolProbing(ProbingBase):
             self.pgs = [self.pgs]
         if not isinstance(self.dscps, list):
             self.dscps = [self.dscps]
-        
+
         # Validate for N src -> 1 dst pattern
         num_src_ports = len(self.probing_port_ids) - 1
         if len(self.pgs) > num_src_ports:
@@ -139,11 +138,11 @@ class HeadroomPoolProbing(ProbingBase):
             thrift_client=self.dst_client,
             asic_type=self.asic_type
         )
-    
+
     def get_expected_threshold(self):
         """
         Get expected headroom pool size from test parameters.
-        
+
         Formula: pkts_num_hdrm_full * (pgs_num - 1) + pkts_num_hdrm_partial
         """
         if hasattr(self, 'pkts_num_hdrm_full') and hasattr(self, 'pgs_num') and hasattr(self, 'pkts_num_hdrm_partial'):
@@ -158,7 +157,7 @@ class HeadroomPoolProbing(ProbingBase):
     def setup_traffic(self):
         """
         Setup traffic streams for N src -> 1 dst pattern.
-        
+
         Uses probing_port_ids:
         - Last port is dst
         - All other ports are src
@@ -175,7 +174,7 @@ class HeadroomPoolProbing(ProbingBase):
         # N src -> 1 dst: Last port is dst, all others are src
         src_port_ids = self.probing_port_ids[:-1]
         dst_port_id = self.probing_port_ids[-1]
-        
+
         # Create single dst port
         dstport = PortInfo(
             dst_port_id,
@@ -183,7 +182,7 @@ class HeadroomPoolProbing(ProbingBase):
             ip=port_ips[dst_port_id]["peer_addr"],
             vlan=port_ips[dst_port_id].get("vlan_id", None)
         )
-        
+
         # Create src ports list
         srcports = []
         for spid in src_port_ids:
@@ -194,7 +193,7 @@ class HeadroomPoolProbing(ProbingBase):
                 vlan=port_ips[spid].get("vlan_id", None)
             )
             srcports.append(srcport)
-        
+
         log_message(f"Setup traffic: src_ports={src_port_ids}, dst_port={dst_port_id}", to_stderr=False)
 
         # Platform-independent: 64-byte packets = 1 cell
@@ -203,42 +202,61 @@ class HeadroomPoolProbing(ProbingBase):
 
         # Log platform info
         original_packet_length = getattr(self, "packet_size", 64)
-        original_cell_occupancy = (original_packet_length + self.cell_size - 1) // self.cell_size if hasattr(self, "cell_size") else 1
-        log_message(f"Platform-specific: packet_length={original_packet_length}, cell_occupancy={original_cell_occupancy}", to_stderr=True)
-        log_message(f"Probing uses: packet_length={packet_length}, cell_occupancy=1", to_stderr=True)
+        original_cell_occupancy = (
+            (original_packet_length + self.cell_size - 1) // self.cell_size
+            if hasattr(self, "cell_size") else 1
+        )
+        log_message(
+            f"Platform-specific: packet_length={original_packet_length}, "
+            f"cell_occupancy={original_cell_occupancy}", to_stderr=True
+        )
+        log_message(
+            f"Probing uses: packet_length={packet_length}, cell_occupancy=1",
+            to_stderr=True
+        )
 
         is_dualtor = getattr(self, "is_dualtor", False)
         def_vlan_mac = getattr(self, "def_vlan_mac", None)
 
         # Initialize stream manager
         self.stream_mgr = StreamManager(
-            packet_constructor=construct_ip_pkt, 
+            packet_constructor=construct_ip_pkt,
             rx_port_resolver=self.get_rx_port
         )
 
         # Create flows: Each src port uses all available PGs
         # Example: 13 src ports × 2 PGs = 26 flows
         flow_count = 0
-        
+
         for src_idx, srcport in enumerate(srcports):
             # Each src port creates flows for all PGs
             for pg_idx, pg in enumerate(self.pgs):
                 # Use same index to get corresponding DSCP
                 dscp = self.dscps[pg_idx]
-                
+
                 self.stream_mgr.add_flow(
                     FlowConfig(
-                        srcport, dstport, 
-                        dmac=determine_traffic_dmac(dstport.mac, self.router_mac, is_dualtor, def_vlan_mac), 
+                        srcport, dstport,
+                        dmac=determine_traffic_dmac(
+                            dstport.mac, self.router_mac, is_dualtor, def_vlan_mac
+                        ),
                         dscp=dscp, ecn=self.ecn, ttl=ttl, length=packet_length
                     ),
                     pg=pg  # traffic_keys to identify flow
                 )
-                log_message(f"Added flow #{flow_count+1}: src={srcport.port_id} (port {src_idx+1}/{len(srcports)}, PG {pg_idx+1}/{len(self.pgs)}) -> dst={dstport.port_id}, dscp={dscp}, pg={pg}", to_stderr=False)
+                log_message(
+                    f"Added flow #{flow_count+1}: src={srcport.port_id} "
+                    f"(port {src_idx+1}/{len(srcports)}, PG {pg_idx+1}/{len(self.pgs)}) "
+                    f"-> dst={dstport.port_id}, dscp={dscp}, pg={pg}", to_stderr=False
+                )
                 flow_count += 1
 
         self.stream_mgr.generate_packets()
-        log_message(f"Traffic setup completed: {len(self.stream_mgr.flows)} flows ({len(srcports)} src ports × {len(self.pgs)} PGs -> 1 dst)", to_stderr=True)
+        log_message(
+            f"Traffic setup completed: {len(self.stream_mgr.flows)} flows "
+            f"({len(srcports)} src ports × {len(self.pgs)} PGs -> 1 dst)",
+            to_stderr=True
+        )
 
     #
     # Abstract Method Implementation: probe
@@ -247,13 +265,13 @@ class HeadroomPoolProbing(ProbingBase):
     def probe(self) -> ThresholdResult:
         """
         Execute Headroom Pool Size probing.
-        
+
         Main loop iterates through each PG flow from stream_mgr:
         - Probe PFC XOFF threshold
-        - Probe Ingress Drop threshold  
+        - Probe Ingress Drop threshold
         - Calculate headroom = Ingress Drop - PFC XOFF
         - Detect pool exhaustion when headroom <= 1
-        
+
         Returns:
             ThresholdResult: Pool size result (point format: lower == upper)
         """
@@ -263,7 +281,7 @@ class HeadroomPoolProbing(ProbingBase):
         # Log probing start
         ProbingObserver.console("=" * 80)
         ProbingObserver.console(f"[{self.PROBE_TARGET}] Starting Headroom Pool Size probing")
-        ProbingObserver.console(f"  Traffic pattern: N src -> 1 dst")
+        ProbingObserver.console("  Traffic pattern: N src -> 1 dst")
         ProbingObserver.console(f"  pool_size={pool_size}")
         ProbingObserver.console(f"  precision_target_ratio={self.PRECISION_TARGET_RATIO}")
         ProbingObserver.console(f"  enable_precise_detection={self.ENABLE_PRECISE_DETECTION}")
@@ -303,14 +321,23 @@ class HeadroomPoolProbing(ProbingBase):
             # =================================================================
             # PFC XOFF Probing
             # =================================================================
-            ProbingObserver.console(f"\n[PFC XOFF] Probing threshold...")
-            
+            ProbingObserver.console("\n[PFC XOFF] Probing threshold...")
+
             # Create PFC XOFF algorithms with independent executors
             pfc_configs = self._get_observer_configs('pfc_xoff', i)
-            pfc_upper_obs = ProbingObserver(name=f"pg{i}_pfc_upper", iteration_prefix=f"{i+1}.1", verbose=True, observer_config=pfc_configs['upper'])
-            pfc_lower_obs = ProbingObserver(name=f"pg{i}_pfc_lower", iteration_prefix=f"{i+1}.2", verbose=True, observer_config=pfc_configs['lower'])
-            pfc_range_obs = ProbingObserver(name=f"pg{i}_pfc_range", iteration_prefix=f"{i+1}.3", verbose=True, observer_config=pfc_configs['range'])
-            
+            pfc_upper_obs = ProbingObserver(
+                name=f"pg{i}_pfc_upper", iteration_prefix=f"{i+1}.1",
+                verbose=True, observer_config=pfc_configs['upper']
+            )
+            pfc_lower_obs = ProbingObserver(
+                name=f"pg{i}_pfc_lower", iteration_prefix=f"{i+1}.2",
+                verbose=True, observer_config=pfc_configs['lower']
+            )
+            pfc_range_obs = ProbingObserver(
+                name=f"pg{i}_pfc_range", iteration_prefix=f"{i+1}.3",
+                verbose=True, observer_config=pfc_configs['range']
+            )
+
             pfc_algos = {
                 'upper': UpperBoundProbingAlgorithm(
                     executor=self.create_executor('pfc_xoff', pfc_upper_obs, f"pg{i}_pfc_upper"),
@@ -320,42 +347,56 @@ class HeadroomPoolProbing(ProbingBase):
                     observer=pfc_lower_obs, verification_attempts=1),
                 'range': ThresholdRangeProbingAlgorithm(
                     executor=self.create_executor('pfc_xoff', pfc_range_obs, f"pg{i}_pfc_range"),
-                    observer=pfc_range_obs, precision_target_ratio=self.PRECISION_TARGET_RATIO,
-                    verification_attempts=2, enable_precise_detection=self.ENABLE_PRECISE_DETECTION,
-                    precise_detection_range_limit=self.PRECISE_DETECTION_RANGE_LIMIT),
+                    observer=pfc_range_obs,
+                    precision_target_ratio=self.PRECISION_TARGET_RATIO,
+                    verification_attempts=2,
+                    enable_precise_detection=self.ENABLE_PRECISE_DETECTION,
+                    precise_detection_range_limit=self.PRECISE_DETECTION_RANGE_LIMIT
+                ),
             }
             if self.ENABLE_PRECISE_DETECTION:
-                pfc_point_obs = ProbingObserver(name=f"pg{i}_pfc_point", iteration_prefix=f"{i+1}.4", verbose=True, observer_config=pfc_configs['point'])
+                pfc_point_obs = ProbingObserver(
+                    name=f"pg{i}_pfc_point", iteration_prefix=f"{i+1}.4",
+                    verbose=True, observer_config=pfc_configs['point']
+                )
                 pfc_algos['point'] = ThresholdPointProbingAlgorithm(
                     executor=self.create_executor('pfc_xoff', pfc_point_obs, f"pg{i}_pfc_point"),
                     observer=pfc_point_obs, verification_attempts=1,
                     step_size=self.POINT_PROBING_STEP_SIZE)
-            
+
             # PFC XOFF: Upper Bound (optimization: use previous PG's threshold)
-            pfc_upper_init = pg_results[-1]['pfc_xoff_threshold'] if pg_results else pool_size
-            pfc_upper, pfc_upper_time = pfc_algos['upper'].run(src_port_id, dst_port_id, pfc_upper_init, **traffic_keys)
+            pfc_upper_init = (
+                pg_results[-1]['pfc_xoff_threshold'] if pg_results else pool_size
+            )
+            pfc_upper, pfc_upper_time = pfc_algos['upper'].run(
+                src_port_id, dst_port_id, pfc_upper_init, **traffic_keys
+            )
             total_time += pfc_upper_time
             if pfc_upper is None:
                 ProbingObserver.console(f"  Skipping PG #{i+1} due to PFC XOFF upper bound failure")
                 continue
             ProbingObserver.console(f"  PFC Upper bound = {pfc_upper}")
-            
+
             # PFC XOFF: Lower Bound
-            pfc_lower, pfc_lower_time = pfc_algos['lower'].run(src_port_id, dst_port_id, pfc_upper, **traffic_keys)
+            pfc_lower, pfc_lower_time = pfc_algos['lower'].run(
+                src_port_id, dst_port_id, pfc_upper, **traffic_keys
+            )
             total_time += pfc_lower_time
             if pfc_lower is None:
                 ProbingObserver.console(f"  Skipping PG #{i+1} due to PFC XOFF lower bound failure")
                 continue
             ProbingObserver.console(f"  PFC Lower bound = {pfc_lower}")
-            
+
             # PFC XOFF: Range Narrowing
-            pfc_range_lower, pfc_range_upper, pfc_range_time = pfc_algos['range'].run(src_port_id, dst_port_id, pfc_lower, pfc_upper, **traffic_keys)
+            pfc_range_lower, pfc_range_upper, pfc_range_time = pfc_algos['range'].run(
+                src_port_id, dst_port_id, pfc_lower, pfc_upper, **traffic_keys
+            )
             total_time += pfc_range_time
             if pfc_range_lower is None:
                 ProbingObserver.console(f"  Skipping PG #{i+1} due to PFC XOFF range failure")
                 continue
             ProbingObserver.console(f"  PFC Range = [{pfc_range_lower}, {pfc_range_upper}]")
-            
+
             # PFC XOFF: Precise Point (if enabled)
             pfc_xoff_threshold = pfc_range_lower
             if self.ENABLE_PRECISE_DETECTION and 'point' in pfc_algos:
@@ -369,67 +410,102 @@ class HeadroomPoolProbing(ProbingBase):
                     if point_lower is not None:
                         pfc_xoff_threshold = point_lower
                         ProbingObserver.console(f"  PFC Precise point = {pfc_xoff_threshold}")
-            
+
             # =================================================================
             # Ingress Drop Probing
             # =================================================================
-            ProbingObserver.console(f"\n[Ingress Drop] Probing threshold...")
-            
+            ProbingObserver.console("\n[Ingress Drop] Probing threshold...")
+
             # Create Ingress Drop algorithms with independent executors
             drop_configs = self._get_observer_configs('ingress_drop', i)
-            drop_upper_obs = ProbingObserver(name=f"pg{i}_drop_upper", iteration_prefix=f"{i+1}.5", verbose=True, observer_config=drop_configs['upper'])
-            drop_lower_obs = ProbingObserver(name=f"pg{i}_drop_lower", iteration_prefix=f"{i+1}.6", verbose=True, observer_config=drop_configs['lower'])
-            drop_range_obs = ProbingObserver(name=f"pg{i}_drop_range", iteration_prefix=f"{i+1}.7", verbose=True, observer_config=drop_configs['range'])
-            
+            drop_upper_obs = ProbingObserver(
+                name=f"pg{i}_drop_upper", iteration_prefix=f"{i+1}.5",
+                verbose=True, observer_config=drop_configs['upper']
+            )
+            drop_lower_obs = ProbingObserver(
+                name=f"pg{i}_drop_lower", iteration_prefix=f"{i+1}.6",
+                verbose=True, observer_config=drop_configs['lower']
+            )
+            drop_range_obs = ProbingObserver(
+                name=f"pg{i}_drop_range", iteration_prefix=f"{i+1}.7",
+                verbose=True, observer_config=drop_configs['range']
+            )
+
             drop_algos = {
                 'upper': UpperBoundProbingAlgorithm(
-                    executor=self.create_executor('ingress_drop', drop_upper_obs, f"pg{i}_drop_upper",
-                                                  use_pg_drop_counter=self.use_pg_drop_counter),
-                    observer=drop_upper_obs, verification_attempts=1),
+                    executor=self.create_executor(
+                        'ingress_drop', drop_upper_obs, f"pg{i}_drop_upper",
+                        use_pg_drop_counter=self.use_pg_drop_counter
+                    ),
+                    observer=drop_upper_obs, verification_attempts=1
+                ),
                 'lower': LowerBoundProbingAlgorithm(
-                    executor=self.create_executor('ingress_drop', drop_lower_obs, f"pg{i}_drop_lower",
-                                                  use_pg_drop_counter=self.use_pg_drop_counter),
-                    observer=drop_lower_obs, verification_attempts=1),
+                    executor=self.create_executor(
+                        'ingress_drop', drop_lower_obs, f"pg{i}_drop_lower",
+                        use_pg_drop_counter=self.use_pg_drop_counter
+                    ),
+                    observer=drop_lower_obs, verification_attempts=1
+                ),
                 'range': ThresholdRangeProbingAlgorithm(
-                    executor=self.create_executor('ingress_drop', drop_range_obs, f"pg{i}_drop_range",
-                                                  use_pg_drop_counter=self.use_pg_drop_counter),
-                    observer=drop_range_obs, precision_target_ratio=self.PRECISION_TARGET_RATIO,
-                    verification_attempts=2, enable_precise_detection=self.ENABLE_PRECISE_DETECTION,
-                    precise_detection_range_limit=self.PRECISE_DETECTION_RANGE_LIMIT),
+                    executor=self.create_executor(
+                        'ingress_drop', drop_range_obs, f"pg{i}_drop_range",
+                        use_pg_drop_counter=self.use_pg_drop_counter
+                    ),
+                    observer=drop_range_obs,
+                    precision_target_ratio=self.PRECISION_TARGET_RATIO,
+                    verification_attempts=2,
+                    enable_precise_detection=self.ENABLE_PRECISE_DETECTION,
+                    precise_detection_range_limit=self.PRECISE_DETECTION_RANGE_LIMIT
+                ),
             }
             if self.ENABLE_PRECISE_DETECTION:
-                drop_point_obs = ProbingObserver(name=f"pg{i}_drop_point", iteration_prefix=f"{i+1}.8", verbose=True, observer_config=drop_configs['point'])
+                drop_point_obs = ProbingObserver(
+                    name=f"pg{i}_drop_point", iteration_prefix=f"{i+1}.8",
+                    verbose=True, observer_config=drop_configs['point']
+                )
                 drop_algos['point'] = ThresholdPointProbingAlgorithm(
-                    executor=self.create_executor('ingress_drop', drop_point_obs, f"pg{i}_drop_point",
-                                                  use_pg_drop_counter=self.use_pg_drop_counter),
+                    executor=self.create_executor(
+                        'ingress_drop', drop_point_obs, f"pg{i}_drop_point",
+                        use_pg_drop_counter=self.use_pg_drop_counter
+                    ),
                     observer=drop_point_obs, verification_attempts=1,
-                    step_size=self.POINT_PROBING_STEP_SIZE)
-            
+                    step_size=self.POINT_PROBING_STEP_SIZE
+                )
+
             # Ingress Drop: Upper Bound (optimization: use previous PG's threshold)
-            drop_upper_init = pg_results[-1]['ingress_drop_threshold'] if pg_results else pool_size
-            drop_upper, drop_upper_time = drop_algos['upper'].run(src_port_id, dst_port_id, drop_upper_init, **traffic_keys)
+            drop_upper_init = (
+                pg_results[-1]['ingress_drop_threshold'] if pg_results else pool_size
+            )
+            drop_upper, drop_upper_time = drop_algos['upper'].run(
+                src_port_id, dst_port_id, drop_upper_init, **traffic_keys
+            )
             total_time += drop_upper_time
             if drop_upper is None:
                 ProbingObserver.console(f"  Skipping PG #{i+1} due to Ingress Drop upper bound failure")
                 continue
             ProbingObserver.console(f"  Drop Upper bound = {drop_upper}")
-            
+
             # Ingress Drop: Lower Bound (optimization: start from PFC XOFF - 1)
-            drop_lower, drop_lower_time = drop_algos['lower'].run(src_port_id, dst_port_id, drop_upper, start_value=pfc_xoff_threshold - 1, **traffic_keys)
+            drop_lower, drop_lower_time = drop_algos['lower'].run(
+                src_port_id, dst_port_id, drop_upper,
+                start_value=pfc_xoff_threshold - 1, **traffic_keys
+            )
             total_time += drop_lower_time
             if drop_lower is None:
                 ProbingObserver.console(f"  Skipping PG #{i+1} due to Ingress Drop lower bound failure")
                 continue
             ProbingObserver.console(f"  Drop Lower bound = {drop_lower}")
-            
+
             # Ingress Drop: Range Narrowing
-            drop_range_lower, drop_range_upper, drop_range_time = drop_algos['range'].run(src_port_id, dst_port_id, drop_lower, drop_upper, **traffic_keys)
+            drop_range_lower, drop_range_upper, drop_range_time = drop_algos['range'].run(
+                src_port_id, dst_port_id, drop_lower, drop_upper, **traffic_keys
+            )
             total_time += drop_range_time
             if drop_range_lower is None:
                 ProbingObserver.console(f"  Skipping PG #{i+1} due to Ingress Drop range failure")
                 continue
             ProbingObserver.console(f"  Drop Range = [{drop_range_lower}, {drop_range_upper}]")
-            
+
             # Ingress Drop: Precise Point (if enabled)
             ingress_drop_threshold = drop_range_lower
             if self.ENABLE_PRECISE_DETECTION and 'point' in drop_algos:
@@ -443,7 +519,7 @@ class HeadroomPoolProbing(ProbingBase):
                     if point_lower is not None:
                         ingress_drop_threshold = point_lower
                         ProbingObserver.console(f"  Drop Precise point = {ingress_drop_threshold}")
-            
+
             # Calculate headroom
             pg_headroom = ingress_drop_threshold - pfc_xoff_threshold
             ProbingObserver.console(f"  Headroom = {ingress_drop_threshold} - {pfc_xoff_threshold} = {pg_headroom}")
@@ -497,21 +573,29 @@ class HeadroomPoolProbing(ProbingBase):
             #     14 | TB-8    |  21 |       14 cells   |  14 | 495 | = step
             #     16 | TB-2    |  22 |       16 cells   |  16 | 493 | = step
             #     16 | TB-8    |  22 |       16 cells   |  16 | 493 | = step
-            # 
+            #
             # Result: 10/12 tests (83%) last PG headroom = step, 2/12 tests < step
             # Conclusion: threshold = step * 1 is optimal (100% coverage, no false negatives)
             exhaustion_threshold = self.POINT_PROBING_STEP_SIZE
             if pg_headroom <= exhaustion_threshold:
-                ProbingObserver.console(f"\n[Pool Exhausted] Headroom = {pg_headroom} cells (<= {exhaustion_threshold})")
-                ProbingObserver.console(f"         Terminating probing")
+                ProbingObserver.console(
+                    f"\n[Pool Exhausted] Headroom = {pg_headroom} cells "
+                    f"(<= {exhaustion_threshold})"
+                )
+                ProbingObserver.console("         Terminating probing")
                 break
 
         # Build and report results (pass exhaustion_threshold for consistent logic)
-        result = self._build_result(pg_results, total_headroom, num_flows, exhaustion_threshold)
-        
+        result = self._build_result(
+            pg_results, total_headroom, num_flows, exhaustion_threshold
+        )
+
         # Report total probing time
-        ProbingObserver.console(f"\nTotal probing time: {total_time/60:.2f} minutes ({total_time:.1f} seconds)")
-        
+        ProbingObserver.console(
+            f"\nTotal probing time: {total_time/60:.2f} minutes "
+            f"({total_time:.1f} seconds)"
+        )
+
         return self._report_results(result)
 
     #
@@ -519,31 +603,43 @@ class HeadroomPoolProbing(ProbingBase):
     #
 
     # Table column mapping shared by all algorithms
-    _UPPER_TABLE_MAPPING = {"lower_bound": None, "upper_bound": "value", "candidate_threshold": None, "range_step": None}
-    _LOWER_TABLE_MAPPING = {"lower_bound": "value", "upper_bound": "window_upper", "candidate_threshold": None, "range_step": None}
-    _RANGE_TABLE_MAPPING = {"lower_bound": "window_lower", "upper_bound": "window_upper", "candidate_threshold": "value", "range_step": "range_step"}
-    _POINT_TABLE_MAPPING = {"lower_bound": "window_lower", "upper_bound": "window_upper", "candidate_threshold": "value", "range_step": None}
+    _UPPER_TABLE_MAPPING = {
+        "lower_bound": None, "upper_bound": "value",
+        "candidate_threshold": None, "range_step": None
+    }
+    _LOWER_TABLE_MAPPING = {
+        "lower_bound": "value", "upper_bound": "window_upper",
+        "candidate_threshold": None, "range_step": None
+    }
+    _RANGE_TABLE_MAPPING = {
+        "lower_bound": "window_lower", "upper_bound": "window_upper",
+        "candidate_threshold": "value", "range_step": "range_step"
+    }
+    _POINT_TABLE_MAPPING = {
+        "lower_bound": "window_lower", "upper_bound": "window_upper",
+        "candidate_threshold": "value", "range_step": None
+    }
 
     def _get_observer_configs(self, probe_target, pg_index):
         """
         Get observer configs for all algorithms of a probe target.
-        
+
         Args:
             probe_target: 'pfc_xoff' or 'ingress_drop'
             pg_index: PG index for naming
-            
+
         Returns:
             dict: {'upper': config, 'lower': config, 'range': config, 'point': config}
         """
-        prefix = f"pg{pg_index}_{'pfc' if probe_target == 'pfc_xoff' else 'drop'}"
-        seq_base = 1 if probe_target == 'pfc_xoff' else 5
-        
+        # prefix = f"pg{pg_index}_{'pfc' if probe_target == 'pfc_xoff' else 'drop'}"
+        # seq_base = 1 if probe_target == 'pfc_xoff' else 5
+
         context_upper = f" [{probe_target} upper: {{window_upper}}]"
         context_range = f" [{probe_target} range: [{{window_lower}}, {{window_upper}}]]"
-        
+
         # Auto-format probe_target to check column title (e.g., pfc_xoff -> PfcXoff, ingress_drop -> IngressDrop)
         check_column_title = ''.join(word.capitalize() for word in probe_target.split('_'))
-        
+
         return {
             'upper': ObserverConfig(
                 probe_target=probe_target, algorithm_name="Upper Bound Probing",
@@ -581,7 +677,7 @@ class HeadroomPoolProbing(ProbingBase):
 
     def _build_result(self, pg_results, total_headroom, num_flows, exhaustion_threshold=1):
         """Build final result dictionary.
-        
+
         Args:
             pg_results: List of PG probing results
             total_headroom: Total accumulated headroom
@@ -619,20 +715,20 @@ class HeadroomPoolProbing(ProbingBase):
 
         if result['success']:
             pool_size = result['total_headroom']
-            ProbingObserver.console(f"Status: SUCCESS - Pool exhaustion detected")
+            ProbingObserver.console("Status: SUCCESS - Pool exhaustion detected")
             ProbingObserver.console(f"Total Headroom Pool Size: {pool_size} cells")
             ProbingObserver.console(f"Detected pg_min: {result.get('pg_min')} cells")
-            
+
             # Create ThresholdResult (pool size as point: lower == upper)
             threshold_result = ThresholdResult.from_bounds(pool_size, pool_size)
         else:
-            ProbingObserver.console(f"Status: INCOMPLETE - Pool not exhausted")
+            ProbingObserver.console("Status: INCOMPLETE - Pool not exhausted")
             ProbingObserver.console(f"Partial headroom: {result.get('partial_headroom')} cells")
-            
+
             # Create failed ThresholdResult
             threshold_result = ThresholdResult.failed()
-        
+
         # Report using Observer's unified method (works for both success and failure)
         ProbingObserver.report_probing_result("Headroom Pool", threshold_result, unit="cells")
-        
+
         return threshold_result
