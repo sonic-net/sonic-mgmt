@@ -8,6 +8,7 @@ Without the weight attribute, weighted ECMP cannot function correctly
 as routes may be added to the ASIC without any weight for their nexthops.
 """
 import logging
+import json
 import pytest
 
 logger = logging.getLogger(__name__)
@@ -16,6 +17,96 @@ pytestmark = [
     pytest.mark.topology('t0', 't1', 't2'),
     pytest.mark.device_type('vs')
 ]
+
+CHECK_SCRIPT = """\
+import json, subprocess, sys
+
+result = subprocess.run(
+    ['sonic-db-cli', 'APPL_DB', 'keys', 'ROUTE_TABLE:*'],
+    capture_output=True, text=True
+)
+all_keys = [k for k in result.stdout.strip().split('\\n') if k]
+
+af = sys.argv[1]  # 'ipv4' or 'ipv6'
+checked = 0
+missing = []
+mismatched = []
+sample = None
+
+for key in all_keys:
+    prefix = key.replace('ROUTE_TABLE:', '')
+    if af == 'ipv4':
+        if ':' in prefix or prefix == '0.0.0.0/0' or prefix.startswith('169.254.'):
+            continue
+    else:
+        if ':' not in prefix or prefix == '::/0' or prefix.lower().startswith('fe80'):
+            continue
+
+    r = subprocess.run(
+        ['sonic-db-cli', 'APPL_DB', 'hgetall', key],
+        capture_output=True, text=True
+    )
+    # Parse the python dict string output
+    try:
+        entry = eval(r.stdout.strip())
+    except Exception:
+        continue
+
+    if entry.get('protocol') != 'bgp':
+        continue
+
+    checked += 1
+    weight = entry.get('weight', '')
+    nexthop = entry.get('nexthop', '')
+
+    if not weight:
+        missing.append(prefix)
+    elif nexthop:
+        nh_count = len(nexthop.split(','))
+        w_count = len(weight.split(','))
+        if nh_count != w_count:
+            mismatched.append({
+                'prefix': prefix,
+                'nh_count': nh_count,
+                'w_count': w_count
+            })
+
+    if sample is None and weight:
+        sample = {'prefix': prefix, 'weight': weight, 'nexthop': nexthop}
+
+    # Check up to 50 BGP routes
+    if checked >= 50:
+        break
+
+print(json.dumps({
+    'checked': checked,
+    'missing': missing[:10],
+    'mismatched': mismatched[:10],
+    'sample': sample
+}))
+"""
+
+
+def _run_weight_check(duthost, asic, address_family):
+    """Run the weight check script on the DUT and return results."""
+    # Write script to DUT and execute
+    asic.shell("cat > /tmp/check_weight.py << 'PYEOF'\n{}\nPYEOF".format(
+        CHECK_SCRIPT))
+    output = asic.shell(
+        "python3 /tmp/check_weight.py {}".format(address_family))['stdout'].strip()
+    asic.shell("rm -f /tmp/check_weight.py")
+
+    result = json.loads(output)
+    logger.info("%s: checked %d BGP routes", address_family, result['checked'])
+
+    if result.get('sample'):
+        logger.info(
+            "Sample route: %s weight=%s nexthop=%s",
+            result['sample']['prefix'],
+            result['sample']['weight'],
+            result['sample']['nexthop'])
+
+    return result
 
 
 def test_bgp_route_weight_ipv4(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -26,75 +117,21 @@ def test_bgp_route_weight_ipv4(duthosts, enum_rand_one_per_hwsku_frontend_hostna
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
 
-    # Get all ROUTE_TABLE keys from APPL_DB
-    route_keys_output = asic.shell(
-        "sonic-db-cli APPL_DB keys 'ROUTE_TABLE:*'")['stdout'].strip()
-    assert route_keys_output, "No routes found in APPL_DB ROUTE_TABLE"
+    result = _run_weight_check(duthost, asic, 'ipv4')
 
-    route_keys = route_keys_output.split('\n')
+    assert result['checked'] > 0, "No IPv4 BGP-learned routes found in APPL_DB ROUTE_TABLE"
 
-    # Filter for IPv4 BGP routes (exclude default, link-local, directly connected)
-    ipv4_bgp_routes = []
-    for key in route_keys:
-        prefix = key.replace('ROUTE_TABLE:', '')
-        # Skip non-IPv4, default route, and link-local
-        if ':' in prefix or prefix == '0.0.0.0/0' or prefix.startswith('169.254.'):
-            continue
-        # Check if this is a BGP-learned route
-        entry = asic.shell(
-            "sonic-db-cli APPL_DB hgetall '{}'".format(key))['stdout']
-        if "'protocol': 'bgp'" in entry:
-            ipv4_bgp_routes.append((key, entry))
-
-    assert ipv4_bgp_routes, "No IPv4 BGP-learned routes found in APPL_DB ROUTE_TABLE"
-    logger.info("Found %d IPv4 BGP routes to check", len(ipv4_bgp_routes))
-
-    # Sample up to 10 routes for detailed checking
-    routes_to_check = ipv4_bgp_routes[:10]
-    missing_weight = []
-
-    for key, entry in routes_to_check:
-        if "'weight'" not in entry:
-            missing_weight.append(key)
-            continue
-
-        # Verify weight has values matching the number of nexthops
-        # Parse weight and nexthop counts from the entry string
-        if "'nexthop':" in entry and "'weight':" in entry:
-            try:
-                # Extract nexthop count
-                nh_start = entry.index("'nexthop': '") + len("'nexthop': '")
-                nh_end = entry.index("'", nh_start)
-                nexthops = entry[nh_start:nh_end]
-                nh_count = len(nexthops.split(',')) if nexthops else 0
-
-                # Extract weight count
-                w_start = entry.index("'weight': '") + len("'weight': '")
-                w_end = entry.index("'", w_start)
-                weights = entry[w_start:w_end]
-                w_count = len(weights.split(',')) if weights else 0
-
-                if nh_count > 0:
-                    assert w_count == nh_count, (
-                        "Weight count ({}) does not match nexthop count ({}) "
-                        "for route {}".format(w_count, nh_count, key)
-                    )
-                    # Verify each weight is a positive integer
-                    for w in weights.split(','):
-                        assert w.strip().isdigit() and int(w.strip()) > 0, (
-                            "Invalid weight value '{}' for route {}".format(w, key)
-                        )
-            except (ValueError, IndexError) as e:
-                logger.warning("Could not parse entry for %s: %s", key, e)
-
-    prefix = routes_to_check[0][0].replace('ROUTE_TABLE:', '')
-    logger.info("Sample route %s entry: %s", prefix, routes_to_check[0][1][:200])
-
-    assert not missing_weight, (
-        "The following IPv4 BGP routes are missing the 'weight' attribute: {}".format(
-            [k.replace('ROUTE_TABLE:', '') for k in missing_weight])
+    assert not result['missing'], (
+        "IPv4 BGP routes missing 'weight' attribute: {}".format(result['missing'])
     )
-    logger.info("All %d sampled IPv4 BGP routes have valid weight attributes", len(routes_to_check))
+
+    assert not result['mismatched'], (
+        "IPv4 BGP routes with weight/nexthop count mismatch: {}".format(
+            result['mismatched'])
+    )
+
+    logger.info("All %d sampled IPv4 BGP routes have valid weight attributes",
+                result['checked'])
 
 
 def test_bgp_route_weight_ipv6(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -105,68 +142,18 @@ def test_bgp_route_weight_ipv6(duthosts, enum_rand_one_per_hwsku_frontend_hostna
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
 
-    # Get all ROUTE_TABLE keys from APPL_DB
-    route_keys_output = asic.shell(
-        "sonic-db-cli APPL_DB keys 'ROUTE_TABLE:*'")['stdout'].strip()
-    assert route_keys_output, "No routes found in APPL_DB ROUTE_TABLE"
+    result = _run_weight_check(duthost, asic, 'ipv6')
 
-    route_keys = route_keys_output.split('\n')
+    assert result['checked'] > 0, "No IPv6 BGP-learned routes found in APPL_DB ROUTE_TABLE"
 
-    # Filter for IPv6 BGP routes (exclude default, link-local)
-    ipv6_bgp_routes = []
-    for key in route_keys:
-        prefix = key.replace('ROUTE_TABLE:', '')
-        # Must contain ':' for IPv6, skip default and link-local
-        if ':' not in prefix or prefix == '::/0' or prefix.startswith('fe80'):
-            continue
-        # Check if this is a BGP-learned route
-        entry = asic.shell(
-            "sonic-db-cli APPL_DB hgetall '{}'".format(key))['stdout']
-        if "'protocol': 'bgp'" in entry:
-            ipv6_bgp_routes.append((key, entry))
-
-    assert ipv6_bgp_routes, "No IPv6 BGP-learned routes found in APPL_DB ROUTE_TABLE"
-    logger.info("Found %d IPv6 BGP routes to check", len(ipv6_bgp_routes))
-
-    # Sample up to 10 routes for detailed checking
-    routes_to_check = ipv6_bgp_routes[:10]
-    missing_weight = []
-
-    for key, entry in routes_to_check:
-        if "'weight'" not in entry:
-            missing_weight.append(key)
-            continue
-
-        # Verify weight has values matching the number of nexthops
-        if "'nexthop':" in entry and "'weight':" in entry:
-            try:
-                nh_start = entry.index("'nexthop': '") + len("'nexthop': '")
-                nh_end = entry.index("'", nh_start)
-                nexthops = entry[nh_start:nh_end]
-                nh_count = len(nexthops.split(',')) if nexthops else 0
-
-                w_start = entry.index("'weight': '") + len("'weight': '")
-                w_end = entry.index("'", w_start)
-                weights = entry[w_start:w_end]
-                w_count = len(weights.split(',')) if weights else 0
-
-                if nh_count > 0:
-                    assert w_count == nh_count, (
-                        "Weight count ({}) does not match nexthop count ({}) "
-                        "for route {}".format(w_count, nh_count, key)
-                    )
-                    for w in weights.split(','):
-                        assert w.strip().isdigit() and int(w.strip()) > 0, (
-                            "Invalid weight value '{}' for route {}".format(w, key)
-                        )
-            except (ValueError, IndexError) as e:
-                logger.warning("Could not parse entry for %s: %s", key, e)
-
-    prefix = routes_to_check[0][0].replace('ROUTE_TABLE:', '')
-    logger.info("Sample route %s entry: %s", prefix, routes_to_check[0][1][:200])
-
-    assert not missing_weight, (
-        "The following IPv6 BGP routes are missing the 'weight' attribute: {}".format(
-            [k.replace('ROUTE_TABLE:', '') for k in missing_weight])
+    assert not result['missing'], (
+        "IPv6 BGP routes missing 'weight' attribute: {}".format(result['missing'])
     )
-    logger.info("All %d sampled IPv6 BGP routes have valid weight attributes", len(routes_to_check))
+
+    assert not result['mismatched'], (
+        "IPv6 BGP routes with weight/nexthop count mismatch: {}".format(
+            result['mismatched'])
+    )
+
+    logger.info("All %d sampled IPv6 BGP routes have valid weight attributes",
+                result['checked'])
