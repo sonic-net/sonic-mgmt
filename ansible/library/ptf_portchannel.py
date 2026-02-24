@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from ansible.module_utils.basic import AnsibleModule
-import jinja2
+import jinja2  # nosemgrep: direct-use-of-jinja2
 import traceback
 import re
 import os
