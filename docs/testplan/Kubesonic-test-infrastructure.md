@@ -8,6 +8,7 @@
 - [3 Scope](#3-scope)
 - [4 Testbed](#4-testbed)
 - [5 Architecture](#5-architecture)
+  - [5.0 System Overview](#50-system-overview)
   - [5.1 Reusable Library (tests/common/kubesonic)](#51-reusable-library-testscommonkubesonic)
   - [5.2 Pytest Fixtures (tests/kubesonic/conftest.py)](#52-pytest-fixtures-testskubesonicconftestpy)
   - [5.3 Test Utilities (tests/kubesonic/kubesonic_utils.py)](#53-test-utilities-testskubesonickubesonic_utilspy)
@@ -26,9 +27,9 @@ This document describes the kubesonic test infrastructure added to `sonic-mgmt` 
 
 The primary deliverables are:
 
-1. A **reusable library** (`tests/common/kubesonic/`) providing Python classes for minikube lifecycle, certificate management, DUT-side K8s configuration, and a Kubernetes API client wrapper.
+1. A **reusable library** (`tests/common/kubesonic/`) providing Python classes for minikube lifecycle management, DUT-side K8s configuration, and a Python Kubernetes API client wrapper.
 2. **Pytest fixtures** (`tests/kubesonic/conftest.py`) that compose these components into module-scoped setup/teardown for test authors.
-3. **Integration tests** (`tests/kubesonic/test_kubesonic.py`) validating cluster join, DaemonSet scheduling, and DUT status.
+3. **Integration tests** (`tests/kubesonic/test_kubesonic.py`) providing basic coverage of cluster join, DaemonSet scheduling, and DUT status — primarily serving as a validation that the infrastructure works end-to-end. The main value of this PR is the infrastructure itself, not these specific tests.
 
 ## 2 Motivation
 
@@ -70,19 +71,17 @@ The Python `KubeClient` wrapper and module-scoped `minikube` fixture introduced 
 
 ## 3 Scope
 
-This infrastructure covers:
+From a test author's perspective, this infrastructure provides:
 
-- Minikube cluster provisioning and teardown on the VM host
-- Certificate extraction from minikube and installation on DUT
-- DUT-side Kubernetes configuration (DNS, STATE_DB, cgroup driver compatibility)
-- Cluster join and disjoin operations
-- DaemonSet deployment and pod lifecycle verification via Python Kubernetes client
-- Compatibility with Debian 13+ (systemd cgroup driver fix)
+- A **Kubernetes control plane** (minikube on VM host) acting as the kube master
+- A **DUT joined as a worker node** to that cluster
+- A **Python Kubernetes client** running in the sonic-mgmt container for programmatic cluster operations (deploy DaemonSets, query pods, label nodes, etc.)
+
+All setup details (minikube provisioning, certificate exchange, DNS configuration, kubelet compatibility fixes) are handled internally by the library and fixtures.
 
 Out of scope (future work):
 - Container image upgrade via DaemonSet (gNOI integration)
 - Sidecar-specific functional tests
-- Multi-DUT cluster join scenarios
 
 ## 4 Testbed
 
@@ -91,6 +90,47 @@ Out of scope (future work):
 - **Tested on:** `vms-kvm-t0` with virtual SONiC DUT
 
 ## 5 Architecture
+
+### 5.0 System Overview
+
+The following diagram shows the three nodes involved in a kubesonic test and how they interact:
+
+```mermaid
+graph TB
+    subgraph sonic-mgmt container
+        fixtures["Pytest Fixtures<br/>(conftest.py)"]
+        client["KubeClient<br/>(Python kubernetes client)"]
+        tests["Test Cases<br/>(test_kubesonic.py)"]
+        tests --> fixtures
+        tests --> client
+    end
+
+    subgraph VM Host
+        minikube["Minikube Cluster<br/>(K8s Control Plane)"]
+        api["API Server :6443"]
+        minikube --- api
+    end
+
+    subgraph DUT - SONiC Device
+        ctrmgrd["ctrmgrd<br/>(container manager)"]
+        kubelet["kubelet"]
+        pods["DaemonSet Pods<br/>(e.g. pause, gnmi)"]
+        ctrmgrd --> kubelet
+        kubelet --> pods
+    end
+
+    fixtures -- "SSH: setup minikube,<br/>extract certs" --> minikube
+    fixtures -- "SSH: install certs,<br/>configure DNS,<br/>config kube server" --> ctrmgrd
+    client -- "HTTPS :6443<br/>K8s API calls" --> api
+    kubelet -- "registers as<br/>worker node" --> api
+    api -- "schedules pods<br/>via DaemonSet" --> kubelet
+```
+
+**Key interactions:**
+- **sonic-mgmt container → VM Host**: SSH (via Ansible) to provision minikube and extract certificates
+- **sonic-mgmt container → K8s API**: Direct HTTPS using Python `kubernetes` client with in-memory kubeconfig
+- **sonic-mgmt container → DUT**: SSH (via Ansible) to configure DUT for cluster join
+- **DUT → K8s API**: kubelet registers with the API server; control plane schedules DaemonSet pods onto the DUT
 
 ### 5.1 Reusable Library (tests/common/kubesonic)
 
@@ -204,7 +244,6 @@ Procedural end-to-end test that exercises join, DaemonSet deploy, DaemonSet dele
 | Composable fixtures | No (single procedural test) | Parametrized by OS version/container | Module-scoped `minikube` + `dut_joined_minikube` |
 | DaemonSet scheduling test | Yes (shell-based) | No | Yes (API-based with label/unlabel) |
 | Sidecar testing support | No | No (docker-only) | Foundation in place (K8s cluster + API client) |
-| Cgroup driver compatibility | No | No | Yes (Debian 13+ systemd fix) |
 | Reusable across test suites | No (inline code) | No | Yes (`tests/common/kubesonic/`) |
 
 ## 8 Future Work
