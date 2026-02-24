@@ -31,6 +31,9 @@ def parse_pdsctl_show_flow_output(output):
             current_table_data = []
         elif re.match(r'^\d+', line):
             elements = list(filter(None, line.split()))
+            if len(elements) != len(keys):
+                logger.warning("Column lenght mismatch")
+                continue
             entry = dict(zip(keys, elements))
             current_table_data.append(entry)
 
@@ -46,7 +49,7 @@ def parse_pdsctl_show_flow_output(output):
 def compare_flow_tables_pdsctl(dpuhost1, dpuhost2):
     if 'pensando' not in dpuhost1.facts['asic_type'] or 'pensando' not in dpuhost2.facts['asic_type']:
         logger.warning("Only Pensando is supported for this function")
-        return None
+        return False
 
     output1 = dpuhost1.shell("pdsctl show flow")["stdout"]
     output2 = dpuhost2.shell("pdsctl show flow")["stdout"]
