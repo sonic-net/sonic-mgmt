@@ -37,7 +37,27 @@ def create_acms_conf(region, cloudtype, duthost, filename):
         pytest.skip("Unsupported cloud type: %s" % cloudtype)
     new_url = "https://%s-%s" % (region, url_pattern)
     text = re.sub("FullHttpsDsmsUrl=.*", "FullHttpsDsmsUrl="+new_url, text)
-    cert_path = "/etc/sonic/credentials/sonic_acms_bootstrap-%s.pfx" % region
+    curr_bootstrap_cert = "/etc/sonic/credentials/sonic_acms_bootstrap-%s.pfx" % region
+    # Mirror start.py logic: call convert_bootstrap_cert_for_openssl3 to get the actual cert path
+    # (may return a converted path under openssl3_conv/ for OpenSSL 3.x compatibility).
+    # If the function does not exist (older image), use curr_bootstrap_cert directly.
+    python_script = "\n".join([
+        "import sys, os",
+        'if os.path.isfile("/usr/local/bin/start.py"):',
+        '    sys.path.insert(0, "/usr/local/bin")',
+        'curr_bootstrap_cert = "%s"' % curr_bootstrap_cert,
+        "try:",
+        "    from start import convert_bootstrap_cert_for_openssl3",
+        "    converted_cert = convert_bootstrap_cert_for_openssl3(curr_bootstrap_cert)",
+        "    print(converted_cert if converted_cert is not None else curr_bootstrap_cert)",
+        "except ImportError:",
+        "    print(curr_bootstrap_cert)",
+    ])
+    dut_command = "docker exec %s python3 -c '%s'" % (container_name, python_script)
+    ret = duthost.shell(dut_command, module_ignore_errors=True)
+    assert ret["rc"] == 0 and ret["stdout"].strip(), \
+        "Failed to get cert path from convert_bootstrap_cert_for_openssl3: %s" % ret["stderr"]
+    cert_path = ret["stdout"].strip()
     text = re.sub("BootstrapCert=.*", "BootstrapCert="+cert_path, text)
     duthost.copy(content=text, dest=filename)
     return
@@ -55,7 +75,7 @@ LastPollSuccess=yes
 
 def generate_pfx_cert(duthost, cert_name, expire=3650):
     """
-    Generate a pfx cert file on the DUT.
+    Generate a pfx cert file on the DUT acms container.
     """
     command = "docker exec acms openssl genrsa -out /tmp/%s.key 2048" % (cert_name)
     duthost.shell(command, module_ignore_errors=True)
@@ -63,5 +83,19 @@ def generate_pfx_cert(duthost, cert_name, expire=3650):
               -subj '/CN=test.server.restapi.sonic' -days %d" % (cert_name, cert_name, expire)
     duthost.shell(command, module_ignore_errors=True)
     command = "docker exec acms openssl pkcs12 -export -out /tmp/%s.pfx -inkey /tmp/%s.key \
+              -in /tmp/%s.crt -password pass:" % (cert_name, cert_name, cert_name)
+    duthost.shell(command, module_ignore_errors=True)
+
+
+def host_generate_pfx_cert(duthost, cert_name, expire=3650):
+    """
+    Generate a pfx cert file on the DUT host.
+    """
+    command = "openssl genrsa -out /tmp/%s.key 2048" % (cert_name)
+    duthost.shell(command, module_ignore_errors=True)
+    command = "openssl req -new -x509 -key /tmp/%s.key -out /tmp/%s.crt \
+              -subj '/CN=test.server.restapi.sonic' -days %d" % (cert_name, cert_name, expire)
+    duthost.shell(command, module_ignore_errors=True)
+    command = "openssl pkcs12 -export -out /tmp/%s.pfx -inkey /tmp/%s.key \
               -in /tmp/%s.crt -password pass:" % (cert_name, cert_name, cert_name)
     duthost.shell(command, module_ignore_errors=True)
