@@ -4719,9 +4719,14 @@ test_vs_chassis_setup.py:
 #######################################
 upgrade_path:
   skip:
-    reason: "Upgrade path test needs base and target image lists, currently do not support on KVM."
+    reason: >
+      Skipped due to one or more unsupported conditions:
+      - Upgrade path test needs base and target image lists, currently do not support on KVM.
+      - Not supported on t1 topology
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
+      - "'t1' in topo_type and asic_type in ['marvell-teralynx']"
 
 upgrade_path/test_multi_hop_upgrade_path.py:
   skip:
