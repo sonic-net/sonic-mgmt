@@ -242,7 +242,7 @@ class TestbedHealthChecker:
         try:
 
             # temporarily skip dpu smartswitch
-            if self.testbed_name in ["vms66-t1-8102-7"]:
+            if self.testbed_name in ["vms66-t1-8102-7", "vms12-t1-smartswitch-4280-02"]:
                 raise SkipCurrentTestbed()
 
             self.init_hosts()
