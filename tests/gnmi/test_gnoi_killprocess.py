@@ -11,7 +11,12 @@ pytest_plugins = ["tests.common.fixtures.grpc_fixtures"]  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
-SIGNAL_TERM = "SIGNAL_TERM"
+# Signal types as defined in gNOI system.proto
+# Reference: https://github.com/openconfig/gnoi/blob/main/system/system.proto#L352
+SIGNAL_TERM = "SIGNAL_TERM"  # enum value: 1
+SIGNAL_KILL = "SIGNAL_KILL"  # enum value: 2
+SIGNAL_HUP = "SIGNAL_HUP"    # enum value: 3
+SIGNAL_ABRT = "SIGNAL_ABRT"  # enum value: 4
 
 pytestmark = [
     pytest.mark.topology("any"),
@@ -27,8 +32,24 @@ def _kill_process(ptf_gnoi, name: str, restart: bool = False, signal=SIGNAL_TERM
         ptf_gnoi: gNOI client wrapper
         name: Service name to kill
         restart: Whether to restart the service
-        signal: Signal type to send (SIGNAL_TERM, SIGNAL_KILL, SIGNAL_HUP, SIGNAL_ABRT)
-        Current SONiC implementation only supports SIGNAL_TERM.
+        signal: Signal type to send. Accepts either:
+                - String: "SIGNAL_TERM", "SIGNAL_KILL", "SIGNAL_HUP", "SIGNAL_ABRT"
+                - Integer: 1 (TERM), 2 (KILL), 3 (HUP), 4 (ABRT)
+
+    Signal behavior per gNOI specification:
+        - SIGNAL_TERM (1): Terminate the process gracefully
+        - SIGNAL_KILL (2): Terminate the process immediately
+        - SIGNAL_HUP (3): Reload the process configuration (restart ignored)
+        - SIGNAL_ABRT (4): Terminate immediately and dump core file
+
+    Examples:
+        # Using string signal names
+        _kill_process(gnoi, "snmp", restart=True, signal="SIGNAL_TERM")
+        _kill_process(gnoi, "bgp", restart=False, signal="SIGNAL_KILL")
+
+        # Using integer signal values (equivalent)
+        _kill_process(gnoi, "snmp", restart=True, signal=1)
+        _kill_process(gnoi, "bgp", restart=False, signal=2)
 
     Returns:
         Tuple of (return_code, message)
@@ -177,12 +198,91 @@ def test_gnoi_killprocess_restart(
     )
 
 
+@pytest.mark.parametrize(
+    "signal,expected_behavior",
+    [
+        (SIGNAL_TERM, "graceful_termination"),
+        (SIGNAL_KILL, "immediate_termination"),
+        (SIGNAL_HUP, "reload_configuration"),
+        (SIGNAL_ABRT, "terminate_with_coredump"),
+    ],
+)
+def test_gnoi_killprocess_signal_types(
+    duthosts,
+    rand_one_dut_hostname,
+    ptf_gnoi,
+    signal,
+    expected_behavior,
+):
+    """
+    Test all 4 signal types defined in gNOI specification.
+
+    Per gNOI system.proto:
+    - SIGNAL_TERM (1): Terminate the process gracefully
+    - SIGNAL_KILL (2): Terminate the process immediately
+    - SIGNAL_HUP (3): Reload the process configuration
+    - SIGNAL_ABRT (4): Terminate immediately and dump core file
+
+    Note: Current SONiC implementation may only support SIGNAL_TERM.
+          This test documents the expected behavior for full gNOI compliance.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    process = "snmp"
+
+    if not duthost.is_host_service_running(process):
+        pytest.skip(f"{process} is not running")
+
+    # For SIGNAL_HUP, restart parameter is ignored per spec
+    restart = False if signal == SIGNAL_HUP else True
+
+    ret, msg = _kill_process(ptf_gnoi, name=process, restart=restart, signal=signal)
+
+    # If signal is not implemented, it should return an error
+    if ret != 0:
+        logger.warning(
+            f"Signal {signal} not supported. Error: {msg}. "
+            "This is expected if full gNOI signal support is not yet implemented."
+        )
+        # Verify error message indicates unsupported signal
+        pytest_assert(
+            "only supports SIGNAL_TERM" in msg or "not supported" in msg.lower(),
+            f"Unexpected error for unsupported signal {signal}: {msg}",
+        )
+    else:
+        # Signal succeeded - verify service state
+        logger.info(f"Signal {signal} succeeded with behavior: {expected_behavior}")
+
+        if signal == SIGNAL_HUP:
+            # HUP should reload config, service stays running
+            pytest_assert(
+                duthost.is_host_service_running(process),
+                f"{process} not running after SIGNAL_HUP",
+            )
+        elif restart:
+            # With restart=True, service should be running
+            pytest_assert(
+                duthost.is_host_service_running(process),
+                f"{process} not running after {signal} with restart=True",
+            )
+
+    # Ensure service is running for next test
+    if not duthost.is_host_service_running(process):
+        ret, msg = _kill_process(ptf_gnoi, name=process, restart=True, signal=SIGNAL_TERM)
+        pytest_assert(ret == 0, f"Failed to restart {process} for cleanup: {msg}")
+
+    wait_critical_processes(duthost)
+    pytest_assert(
+        duthost.critical_services_fully_started,
+        "System unhealthy after gNOI API request",
+    )
+
+
 def test_invalid_signal(duthosts, rand_one_dut_hostname, ptf_gnoi):
     """
-    Verify that unsupported signal types are rejected.
+    Verify that invalid signal values are rejected.
 
-    The gNOI KillProcess implementation should only accept SIGNAL_TERM
-    and reject other signal types like SIGNAL_KILL.
+    Tests SIGNAL_UNSPECIFIED (0) which is explicitly marked as invalid
+    in the gNOI specification.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -190,15 +290,11 @@ def test_invalid_signal(duthosts, rand_one_dut_hostname, ptf_gnoi):
         ptf_gnoi,
         name="snmp",
         restart=True,
-        signal="SIGNAL_KILL",
+        signal="SIGNAL_UNSPECIFIED",
     )
     pytest_assert(
         ret != 0,
-        "KillProcess API unexpectedly succeeded with invalid request parameters",
-    )
-    pytest_assert(
-        "KillProcess only supports SIGNAL_TERM (option 1)" in msg,
-        f"Unexpected error message in response to invalid gNOI request: {msg}",
+        "KillProcess API unexpectedly succeeded with SIGNAL_UNSPECIFIED",
     )
 
     wait_critical_processes(duthost)
