@@ -25,43 +25,43 @@ from enum import Enum
 class IterationOutcome(Enum):
     """
     Outcome of a single probing iteration
-    
+
     This enum represents the complete outcome of an iteration, including:
     1. Cases where executor.check() was called and returned a result
     2. Cases where check was intentionally skipped by the algorithm
-    
+
     Values directly correspond to the 'Check' column in markdown table output.
-    
+
     Mapping from old API:
         REACHED   ← detected=True,  success=True
         UNREACHED ← detected=False, success=True
         FAILED    ← detected=any,   success=False
         SKIPPED   ← detected=None,  success=True  (new: check not executed)
     """
-    
+
     # executor.check() called -> threshold was triggered
     REACHED = "reached"
-    
+
     # executor.check() called -> threshold was NOT triggered
     UNREACHED = "unreached"
-    
+
     # executor.check() called -> verification failed (inconsistent results)
     FAILED = "failed"
-    
+
     # executor.check() NOT called -> precision already satisfied, no probe needed
     SKIPPED = "skipped"
-    
+
     @classmethod
     def from_check_result(cls, detected: bool, success: bool) -> "IterationOutcome":
         """
         Convert legacy (detected, success) parameters to IterationOutcome
-        
+
         This helper method supports gradual migration from the old API.
-        
+
         Args:
             detected: True if threshold was triggered, False if not
             success: True if verification completed without errors
-            
+
         Returns:
             Corresponding IterationOutcome value
         """

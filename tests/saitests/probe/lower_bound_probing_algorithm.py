@@ -37,28 +37,28 @@ from iteration_outcome import IterationOutcome
 class LowerBoundProbingAlgorithm:
     """
     Unified Lower Bound Detection Algorithm
-    
+
     Implements Phase 2: Lower Bound Detection using logarithmic reduction (/2)
     until threshold is dismissed, providing the lower boundary for subsequent phases.
-    
+
     This algorithm works with ANY executor implementing ProbingExecutorProtocol:
     - PfcxoffProbingExecutor
     - IngressDropProbingExecutor
     - MockExecutors
     - Future executor types
-    
+
     Strategy:
     - Start from upper_bound/2
     - Logarithmically reduce (/2) until threshold dismissed
     - Single verification for speed
     - Safety limit to prevent infinite loops
     """
-    
+
     def __init__(self, executor: ProbingExecutorProtocol, observer: ProbingObserver,
                  verification_attempts: int = 1):
         """
         Initialize lower bound probing algorithm
-        
+
         Args:
             executor: Any executor implementing ProbingExecutorProtocol
             observer: Result tracking and reporting (unified ProbingObserver)
@@ -67,11 +67,12 @@ class LowerBoundProbingAlgorithm:
         self.executor = executor
         self.observer = observer
         self.verification_attempts = verification_attempts
-        
-    def run(self, src_port: int, dst_port: int, upper_bound: int, start_value: int = None, **traffic_keys) -> Tuple[Optional[int], float]:
+
+    def run(self, src_port: int, dst_port: int, upper_bound: int,
+            start_value: int = None, **traffic_keys) -> Tuple[Optional[int], float]:
         """
         Run lower bound detection algorithm
-        
+
         Args:
             src_port: Source port for traffic generation
             dst_port: Destination port for threshold detection
@@ -81,14 +82,14 @@ class LowerBoundProbingAlgorithm:
             **traffic_keys: Traffic identification keys (e.g., pg=3, queue=5)
                         Useful when we know a value that definitely won't trigger the threshold.
                         For example, for Ingress Drop, use (pfc_xoff_threshold - 1) since Drop >= XOFF.
-            
+
         Returns:
             Tuple[Optional[int], float]: (lower_bound, phase_time) or (None, 0.0) on failure
         """
         try:
             # Prepare ports for threshold probing
             self.executor.prepare(src_port, dst_port)
-            
+
             # Phase 2: Lower Bound Detection using logarithmic reduction (/2)
             # OPTIMIZATION: Use start_value if provided, otherwise default to upper_bound/2
             if start_value is not None:
@@ -98,39 +99,41 @@ class LowerBoundProbingAlgorithm:
             iteration = 0
             max_iterations = 20  # Safety limit
             phase_time = 0.0  # Track cumulative phase time
-            
+
             while iteration < max_iterations and current >= 1:
                 iteration += 1
-                
+
                 # Add search window information for Phase 2 (no lower bound yet, only upper)
                 self.observer.on_iteration_start(
                     iteration, current, None, upper_bound,
                     "init" if iteration == 1 else "/2"
                 )
-                
+
                 # Phase 2: use a single verification attempt for speed
                 success, detected = self.executor.check(
-                    src_port, dst_port, current, attempts=self.verification_attempts, iteration=iteration, **traffic_keys
+                    src_port, dst_port, current, attempts=self.verification_attempts,
+                    iteration=iteration, **traffic_keys
                 )
-                
+
                 iteration_time, phase_time = self.observer.on_iteration_complete(
                     iteration, current, IterationOutcome.from_check_result(detected, success)
                 )
-                
+
                 if not success:
                     self.observer.on_error(f"Lower bound verification failed at iteration {iteration}")
                     return (None, phase_time)
-                    
+
                 if not detected:
                     # Threshold dismissed - lower bound found
                     return (current, phase_time)
                 else:
                     # Continue logarithmic reduction
                     current = max(current // 2, 1)
-                    
-            self.observer.on_error(f"Lower bound detection exceeded maximum iterations or reached minimum value")
+
+            self.observer.on_error(
+                "Lower bound detection exceeded maximum iterations or reached minimum value")
             return (None, phase_time)
-            
+
         except Exception as e:
             self.observer.on_error(f"Lower bound detection algorithm execution failed: {e}")
             return (None, 0.0)
