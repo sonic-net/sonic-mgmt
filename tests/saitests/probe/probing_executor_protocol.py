@@ -24,41 +24,41 @@ from typing import Protocol, Tuple, runtime_checkable
 class ProbingExecutorProtocol(Protocol):
     """
     Protocol defining the standard executor interface for threshold probing
-    
+
     All probing executors (PfcxoffProbingExecutor, IngressDropProbingExecutor, etc.)
     must implement these methods to be compatible with unified algorithms.
-    
+
     This is a structural protocol - classes don't need to explicitly inherit from it.
     If a class has these methods with matching signatures, it automatically satisfies
     the protocol.
     """
-    
+
     def prepare(self, src_port: int, dst_port: int) -> None:
         """
         Prepare ports for threshold detection
-        
+
         Ensures clean buffer state before probing begins.
         Typically involves draining buffers and setting up congestion conditions.
-        
+
         Args:
             src_port: Source port for traffic generation
             dst_port: Destination port for threshold detection
         """
         ...
-    
-    def check(self, src_port: int, dst_port: int, value: int, 
-              attempts: int = 1, drain_buffer: bool = True, 
+
+    def check(self, src_port: int, dst_port: int, value: int,
+              attempts: int = 1, drain_buffer: bool = True,
               iteration: int = 0, **traffic_keys) -> Tuple[bool, bool]:
         """
         Check if threshold is reached at given value
-        
+
         Standard 5-step verification process:
         1. Port preparation (optional via drain_buffer)
         2. Baseline measurement
         3. Traffic injection
         4. Wait for counter refresh
         5. Threshold detection
-        
+
         Args:
             src_port: Source port for traffic generation
             dst_port: Destination port for threshold detection
@@ -67,7 +67,7 @@ class ProbingExecutorProtocol(Protocol):
             drain_buffer: Whether to drain buffer before testing
             iteration: Current iteration number (for metrics tracking)
             **traffic_keys: Traffic identification keys (e.g., pg=3, queue=5)
-            
+
         Returns:
             Tuple[success, detected]:
                 - success: True if verification completed without errors
