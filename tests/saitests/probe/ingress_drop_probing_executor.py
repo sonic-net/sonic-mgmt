@@ -25,14 +25,14 @@ Architecture Pattern:
 Usage:
     # Physical device (via ExecutorRegistry)
     executor = ExecutorRegistry.create('ingress_drop', 'physical', ptftest=self, ...)
-    
+
     # Mock (via ExecutorRegistry)
     executor = ExecutorRegistry.create('ingress_drop', 'mock', simulated_threshold=13660, ...)
 """
 
 import sys
 import time
-from typing import Dict, Any, Tuple
+from typing import Tuple
 
 from executor_registry import ExecutorRegistry
 
@@ -59,10 +59,13 @@ except ImportError:
     PFC_TRIGGER_DELAY = 2
     INGRESS_DROP = 1
     INGRESS_PORT_BUFFER_DROP = 12
+
     def sai_thrift_read_port_counters(*args):
         return [0] * 20, [0] * 10
+
     def sai_thrift_read_pg_drop_counters(*args):
         return [0] * 8
+
     port_list = {"src": {}}
 
 
@@ -70,24 +73,25 @@ except ImportError:
 class IngressDropProbingExecutor:
     """
     Unified Ingress Drop Probing Executor for All Phases
-    
+
     Generic executor that can be used by any phase (1/2/3).
     Provides consistent Ingress Drop threshold detection logic with:
     - 5-step verification process
     - Configurable verification attempts
     - Result consistency checking
     - Performance statistics tracking per phase
-    
+
     Design Pattern:
     - Mirrors PfcxoffProbingExecutor.py
     - Adapted for Ingress Drop detection counters
     - Uses INGRESS_DROP and INGRESS_PORT_BUFFER_DROP
     """
-    
-    def __init__(self, ptftest, observer=None, verbose: bool = False, name: str = "", use_pg_drop_counter: bool = False):
+
+    def __init__(self, ptftest, observer=None, verbose: bool = False,
+                 name: str = "", use_pg_drop_counter: bool = False):
         """
         Initialize unified Ingress Drop executor
-        
+
         Args:
             ptftest: PTF test instance providing hardware access methods
             observer: Observer instance for logging (optional, for log output)
@@ -101,18 +105,18 @@ class IngressDropProbingExecutor:
         self.observer = observer
         self.verbose = verbose
         self.name = name
-        
+
         # Use counter strategy from parameter (set by ProbingBase.setUp() from env var)
         self.use_pg_drop_counter = use_pg_drop_counter
-        
+
         if self.verbose and self.observer:
             strategy = "PG drop counter" if self.use_pg_drop_counter else "Port ingress drop counter"
             self.observer.trace(f"[Ingress Drop Executor] Using {strategy}")
-    
+
     def prepare(self, src_port: int, dst_port: int) -> None:
         """
         Port preparation for Ingress Drop threshold detection
-        
+
         Ensures clean buffer state before threshold probing begins.
         """
         # Standard preparation cycle using buffer_ctrl
@@ -120,24 +124,25 @@ class IngressDropProbingExecutor:
         time.sleep(PORT_TX_CTRL_DELAY)
         self.ptftest.buffer_ctrl.hold_buffer([dst_port])
         time.sleep(PORT_TX_CTRL_DELAY)
-        
+
         if self.verbose and self.observer:
             self.observer.trace(f"[Ingress Drop Executor] Prepare: src={src_port}, dst={dst_port}")
 
-    def check(self, src_port: int, dst_port: int, value: int, attempts: int = 1, drain_buffer: bool = True, iteration: int = 0, **traffic_keys) -> Tuple[bool, bool]:
+    def check(self, src_port: int, dst_port: int, value: int, attempts: int = 1,
+              drain_buffer: bool = True, iteration: int = 0, **traffic_keys) -> Tuple[bool, bool]:
         """
         Ingress Drop threshold check with configurable verification attempts
-        
+
         Standard 5-step verification process:
         1. Port preparation - ensure clean buffer state (optional via drain_buffer)
         2. Baseline measurement - read Ingress Drop counter before traffic
         3. Traffic injection - send packets to trigger threshold
         4. Wait for counter refresh - allow hardware to update
         5. Ingress Drop detection - compare counter after traffic
-        
+
         Args:
             src_port: Source port for traffic generation
-            dst_port: Destination port for Ingress Drop detection  
+            dst_port: Destination port for Ingress Drop detection
             value: Packet count to test
                    - When drain_buffer=True: total packet count (buffer drained before sending)
                    - When drain_buffer=False: incremental packet count (added to existing buffer)
@@ -147,18 +152,18 @@ class IngressDropProbingExecutor:
                          - False: skip buffer draining, send 'value' packets incrementally
             iteration: Current iteration number (for observer metrics tracking, default 0)
             **traffic_keys: Traffic identification keys (e.g., pg=3, queue=5)
-            
+
         Returns:
-            Tuple[success, detected]: 
+            Tuple[success, detected]:
                 - success: True if verification completed without errors
                 - detected: True if Ingress Drop was triggered at this value
         """
         # Step3.3.6: Require observer for fine-grained timing measurement
         assert self.observer is not None, "Observer is required for Step3.3.6 fine-grained timing"
-        
+
         try:
             results = []
-            
+
             # ===== Step3.3.6: Loop attempts times =====
             for attempt in range(attempts):
                 # ===== Step 1: Port preparation - ensure clean buffer state (optional) =====
@@ -167,7 +172,7 @@ class IngressDropProbingExecutor:
                     time.sleep(PORT_TX_CTRL_DELAY)
                     self.ptftest.buffer_ctrl.hold_buffer([dst_port])     # Simulate congestion condition
                     time.sleep(PORT_TX_CTRL_DELAY)
-                
+
                 # ===== Step 2: Baseline measurement =====
                 if self.use_pg_drop_counter:
                     # Solution 1: Use PG drop counter (supports multi-PG per port)
@@ -196,15 +201,15 @@ class IngressDropProbingExecutor:
                             f"INGRESS_DROP={sport_cnt_base[INGRESS_DROP]}, "
                             f"INGRESS_PORT_BUFFER_DROP={sport_cnt_base[INGRESS_PORT_BUFFER_DROP]}"
                         )
-                
+
                 # ===== Step 3: Traffic injection =====
                 # Convert algorithm value to traffic amount (64-byte packets, 1 packet = 1 cell)
                 if value > 0:
                     self.ptftest.buffer_ctrl.send_traffic(src_port, dst_port, value, **traffic_keys)
-                
+
                 # ===== Step 4: Wait for counter refresh =====
                 time.sleep(PFC_TRIGGER_DELAY)
-                
+
                 # ===== Step 5: Ingress Drop detection =====
                 if self.use_pg_drop_counter:
                     # Solution 1: PG-level drop counter (multi-PG safe)
@@ -216,7 +221,7 @@ class IngressDropProbingExecutor:
                     # cnt_pg_idx = pg + 2 (for PFC counter offset), so pg = cnt_pg_idx - 2
                     pg_num = traffic_keys.get('pg') if traffic_keys else (self.ptftest.cnt_pg_idx - 2)
                     ingress_drop_triggered = pg_drop_curr[pg_num] > pg_drop_base[pg_num]
-                    
+
                     if self.verbose and self.observer:
                         drop_diff = pg_drop_curr[pg_num] - pg_drop_base[pg_num]
                         self.observer.trace(
@@ -241,19 +246,22 @@ class IngressDropProbingExecutor:
                         sport_cnt_curr[INGRESS_DROP] > sport_cnt_base[INGRESS_DROP] or
                         sport_cnt_curr[INGRESS_PORT_BUFFER_DROP] > sport_cnt_base[INGRESS_PORT_BUFFER_DROP]
                     )
-                    
+
                     if self.verbose and self.observer:
                         ing_drop_diff = sport_cnt_curr[INGRESS_DROP] - sport_cnt_base[INGRESS_DROP]
-                        ing_buf_drop_diff = sport_cnt_curr[INGRESS_PORT_BUFFER_DROP] - sport_cnt_base[INGRESS_PORT_BUFFER_DROP]
+                        ing_buf_drop_diff = (sport_cnt_curr[INGRESS_PORT_BUFFER_DROP] -
+                                             sport_cnt_base[INGRESS_PORT_BUFFER_DROP])
                         self.observer.trace(
                             f"[Ingress Drop] Step5-Detection: Port counter: "
-                            f"INGRESS_DROP: base={sport_cnt_base[INGRESS_DROP]}, curr={sport_cnt_curr[INGRESS_DROP]}, diff={ing_drop_diff}, "
-                            f"INGRESS_PORT_BUFFER_DROP: base={sport_cnt_base[INGRESS_PORT_BUFFER_DROP]}, curr={sport_cnt_curr[INGRESS_PORT_BUFFER_DROP]}, diff={ing_buf_drop_diff}, "
-                            f"triggered={ingress_drop_triggered}"
+                            f"INGRESS_DROP: base={sport_cnt_base[INGRESS_DROP]}, "
+                            f"curr={sport_cnt_curr[INGRESS_DROP]}, diff={ing_drop_diff}, "
+                            f"INGRESS_PORT_BUFFER_DROP: base={sport_cnt_base[INGRESS_PORT_BUFFER_DROP]}, "
+                            f"curr={sport_cnt_curr[INGRESS_PORT_BUFFER_DROP]}, "
+                            f"diff={ing_buf_drop_diff}, triggered={ingress_drop_triggered}"
                         )
-                
+
                 results.append(ingress_drop_triggered)
-                
+
                 if self.verbose and self.observer:
                     strategy = "PG drop counter" if self.use_pg_drop_counter else "Port counter"
                     self.observer.trace(
