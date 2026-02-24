@@ -795,7 +795,9 @@ qos_params:
                     dst_port_id: 20
                     ecn: 1
                     margin: 4
-                    pgs: null
+                    pgs:
+                    - 3
+                    - 4
                     pgs_num: 12
                     pkts_num_hdrm_full: 6384
                     pkts_num_hdrm_partial: 6240
