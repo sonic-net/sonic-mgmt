@@ -1,0 +1,8 @@
+{
+    "acms/test_acms_bootstrap.py": 0,
+    "acms/test_acms_bootstrap_monitor.py": 0,
+    "acms/test_acms_cert_converter.py": 0,
+    "acms/test_acms_cert_downloader.py": 0,
+    "acms/test_acms_start.py": 0,
+    "acms/test_acms_sidecar.py": 0
+}
