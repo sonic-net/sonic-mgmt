@@ -24,11 +24,13 @@ Test modes (--config_setup_test_mode):
     real: End-to-end test that deletes config_db.json and runs actual
         config-setup boot. Only safe on VS/KVM where mgmt IP loss is
         recoverable. Backs up and restores config_db.json via fixture.
-    auto (default): Uses 'real' on VS/KVM, 'harness' on physical DUTs.
+    auto (default): Always uses 'harness'. Real mode requires explicit
+        --config_setup_test_mode=real since it is destructive (deletes
+        config_db.json, may lose management connectivity on KVM).
 
-    Harness tests validate decision logic paths (7 test classes, 13 tests).
+    Harness tests validate decision logic paths (7 test classes, 12 tests).
     Real tests validate end-to-end behavior (1 test class, 2 tests).
-    Both run in 'auto' mode on VS/KVM; only harness runs on physical DUTs.
+    Real tests only run with explicit --config_setup_test_mode=real.
 
 Topology: any
 """
@@ -290,15 +292,15 @@ def ztp_image(request):
 def test_mode(request, duthosts, rand_one_dut_hostname):
     """Determine whether to use 'harness' (mock) or 'real' (actual config-setup).
 
-    'auto' (default) selects 'real' on VS/KVM and 'harness' on physical DUTs.
-    Can be overridden with --config_setup_test_mode.
+    'auto' (default) always selects 'harness'. Use --config_setup_test_mode=real
+    to run destructive end-to-end tests (VS/KVM only).
     """
     mode = request.config.getoption("--config_setup_test_mode", default="auto")
     duthost = duthosts[rand_one_dut_hostname]
     is_vs = duthost.facts.get("asic_type", "") == "vs"
 
     if mode == "auto":
-        resolved = "real" if is_vs else "harness"
+        resolved = "harness"
     else:
         resolved = mode
 
@@ -655,11 +657,11 @@ class TestBootConfigMigrationPath:
 class TestRealConfigSetupMinigraphFallback:
     """End-to-end test: config-setup boot uses minigraph when config_db.json is absent.
 
-    Only runs in 'real' mode (default on VS/KVM). This test actually deletes
+    Only runs with explicit --config_setup_test_mode=real. This test actually deletes
     config_db.json and runs config-setup boot, then verifies the management
     IP is preserved. The fixture restores config_db.json afterwards.
 
-    On physical DUTs this is skipped to avoid bricking the device.
+    Skipped by default since it is destructive and may hang on KVM.
     """
 
     def test_real_minigraph_fallback(self, test_mode, real_dut):
