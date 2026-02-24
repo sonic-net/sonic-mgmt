@@ -284,19 +284,25 @@ The above topology is used for Optics tests
 &nbsp;
 &nbsp;
 
-#### Snake Test Topology (topology_id: snake-test)
+#### SNT VRF Test Topology (topology_id: vrf-snake-test)
 
 
-![](./img/topo-snake.png)
+![](./img/topo-vrf-snake.png)
 
-The above topology is used for Snake test
+The above topology is used for Snake test using VRF
 
-* Platforms using this topology: 8122
+* Platforms using this topology: 8201/8101/8122
 
 
 &nbsp;
 &nbsp;
 &nbsp;
+
+#### EDVT L2Vlan Test Topology (topology_id: vlan-snake-test)
+
+![](./img/topo-vlan-snake.png)
+
+* Platforms using this topology: 8201/8101/8122
 
 ### Tortuga Test Topologies
 
