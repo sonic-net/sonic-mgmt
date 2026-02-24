@@ -17,6 +17,18 @@ pytestmark = [
 
 SCRIPT_FILE = "/opt/cisco/silicon-one/res/script.txt"
 
+# List of commands allowed in non-sudo user mode
+npu_cli_dict_usr_mode = {
+        #feature cli keyword : list of options under the cli (for all topologies)
+        "packet-debug": ["capture", "status"],
+        "next-hop": ["usage"],
+        "router": ["entries", "ports"],
+        "event-trap": " ",
+        "trap": " ",
+        "global": " ",
+        "resource": " "
+}
+
 npu_cli_dict_general = {
         #feature cli keyword : list of options under the cli (for all topologies)
         "acl" : ["summary"],
@@ -24,23 +36,18 @@ npu_cli_dict_general = {
         "bfd" : ["summary"],
         "counters": " ",
         "ecmp": " ",
-        "event-trap": " ",
-        "global": " ",
         "hash" : " ",
         "l3-interface": " ",
         "l3-table" : " ",
         "lag": ["entries", "members"],
         #"lpts": " ", # commented out due to known issue with lpts cli in 25.11 SDK
         "multipath": " ",
-        "next-hop": ["entries", "usage"],
-        "packet-debug": ["capture", "status"],
+        "next-hop": ["entries"],
         "port": ["counters", "entries"],
         "rate-check": " ",
-        "resource": " ",
-        "router": ["route-table", "entries", "ports", "details"],
+        "router": ["route-table", "details"],
         "sdk-debug": ["status"],
         "switch": ["entries", "ports"],
-        "trap": " ",
         "trap-list": " ",
         "script": [f"-s {SCRIPT_FILE} -t 60"],
         #"ars": ["info","flows"]
@@ -160,6 +167,7 @@ def test_enable_sdk_debug(duthosts, enum_rand_one_per_hwsku_hostname):
     assert "Enabling sdk-debug on syncd" in result["stdout"], "sdk-debug not enabled on syncd"
     assert "sdk-debug has been enabled on syncd" in result["stdout"], "sdk-debug not enabled on syncd"
 
+
 def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, enum_rand_one_asic_index):
     """
     @summary: Verify output of `show platform npu` , update the npu_cli_dict at the top for new platform npu command check.
@@ -204,6 +212,43 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
         logging.error(result)
 
     assert not result_list, "One or more show platform npu commands failed {}".format(result_list)
+
+
+def test_show_platform_npu_user_mode_cli(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, enum_rand_one_asic_index):
+    """
+    @summary: Verify output of `show platform npu` for user mode CLIs.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    check_dshell_client(duthost)
+
+    result = duthost.shell(f"sudo echo 'dapi.dump_router_ports()' > {SCRIPT_FILE}")
+
+    result_list = []
+    npu_cli_dict = npu_cli_dict_usr_mode.copy()
+    
+    for cli in npu_cli_dict:
+        if duthost.is_multi_asic:
+            asic = enum_rand_one_asic_index
+        else:
+            asic = ''
+        for opt in npu_cli_dict[cli]:
+            result = duthost.shell("show platform npu {} {} {}".format(cli, opt, get_asic_str(duthost, asic)), module_ignore_errors=True)
+            logging.info(result["stdout"])
+            traceback_found = "Traceback" in result["stdout"]
+
+            if traceback_found:
+                result_list.append("Traceback found in show platform npu {} {}".format(cli, opt))
+            elif result is None:
+                result_list.append("No output for this CLI show platform npu {} {}".format(cli, opt))
+            elif result["failed"]:
+                result_list.append("Failed CLI show platform npu {} {}".format(cli, opt))
+
+    for result in result_list:
+        logging.error(result)
+
+    assert not result_list, "One or more show platform npu commands failed {}".format(result_list)
+
 
 @pytest.mark.skip(reason="Disabled: broken testcase: MIGSOFTWAR-35140")
 def test_show_platform_npu_udump(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index):
