@@ -180,6 +180,11 @@ def pytest_addoption(parser):
                      help="Number of routes (tests: route, vxlan)")
 
     ############################
+    # sflow options            #
+    ############################
+    parser.addoption("--enable_sflow_feature", action="store_true", default=False, help="Enable sFlow feature on DUT")
+
+    ############################
     # pfc_asym options         #
     ############################
     parser.addoption("--server_ports_num", action="store", default=20, type=int, help="Number of server ports to use")
