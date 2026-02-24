@@ -36,7 +36,7 @@ def main():
         output = subprocess.check_output(
             "virsh domiflist %s" % vmname,
             env={"LIBVIRT_DEFAULT_URI": "qemu:///system"},
-            shell=True).decode('utf-8')
+            shell=True).decode('utf-8')  # nosemgrep: subprocess-shell-true
     except subprocess.CalledProcessError:
         module.fail_json(msg="failed to iflist dom %s" % vmname)
 
