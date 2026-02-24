@@ -170,7 +170,7 @@ def copy_and_load_minigraph_to_dut(dut, path):
 def prepare_gcu_patches(duthost, full_configs, rsb_configs, gcu_patches="gcu_patches"):
     duthost.shell(f"mkdir {gcu_patches}", module_ignore_errors=True)
     duthost.shell(f'''rm {gcu_patches}/*.json''', module_ignore_errors=True)
-    for asic in range(3):
+    for asic in duthost.get_asic_ids():
         p_file = f"{gcu_patches}/patch{asic}.json"
         cmds = [
             f'''jsondiff --indent 2 {rsb_configs}/config_db{asic}.json {full_configs}/config_db{asic}.json > /tmp/f; mv /tmp/f {p_file}''',   # noqa: E501

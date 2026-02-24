@@ -1026,6 +1026,9 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
                                                                                 port['peer_port'],
                                                                                 dutIp,
                                                                                 prefix_length))
+            # During GCU-testing-enabled run, the startup config and running-golden-config
+            # only have the minimal RSB configs, which means we need to make sure whatever
+            # interfaces we are using have to be brought up again.
             duthost.command(f"sudo config interface startup {port['peer_port']}")
         else:
             duthost.command('sudo config interface -n {} ip {} {} {}/{} \n' .format(
