@@ -1,7 +1,7 @@
 import sys
 import time
 import logging
-from telnetlib import Telnet
+from telnetlib import Telnet  # nosemgrep: telnetlib
 from ansible.module_utils.debug_utils import config_module_logging
 
 config_module_logging('serial_utils')
