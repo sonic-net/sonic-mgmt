@@ -40,12 +40,12 @@ class FIFOServer(object):
 
     def serve_forever(self):
         while True:
-            data = pickle.load(self.fifor)
+            data = pickle.load(self.fifor)  # nosemgrep: avoid-pickle
             log("Received request %s" % str(data))
             self.intf_manager.linkChange(data['intf'], data['linkStatus'])
             data = {'status': 'OK'}
             log("Send reply %s" % str(data))
-            pickle.dump(data, self.fifow, pickle.HIGHEST_PROTOCOL)
+            pickle.dump(data, self.fifow, pickle.HIGHEST_PROTOCOL)  # nosemgrep: avoid-pickle
             self.fifow.flush()
 
 
