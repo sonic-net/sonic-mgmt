@@ -3,13 +3,13 @@ name: NightlyTest_$(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$
 trigger: none
 pr: none
 
-schedules:
-  - cron: "0 5 * * 1,3,5"
-    displayName: Nightly Scheduler
-    branches:
-      include:
-        - internal-202012
-    always: true
+#schedules:
+#  - cron: "0 5 * * 1,3,5"
+#    displayName: Nightly Scheduler
+#    branches:
+#      include:
+#        - internal-202012
+#    always: true
 
 variables:
   - group: SONIC_IMAGE_URLS
