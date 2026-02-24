@@ -1,5 +1,4 @@
 import logging
-from functools import wraps
 
 import pytest
 
@@ -20,48 +19,20 @@ pytestmark = [
 ]
 
 
-def _apply_shell_wrapper() -> None:
-    jinja_literal = "{{.Names}}"
-    safe_replacement = "{% raw %}{{.Names}}{% endraw %}"
-
-    def _wrap_class_shell(cls) -> None:
-        if not cls or getattr(cls, "_gnxi_shell_wrapped", False):
-            return
-
-        orig_shell = getattr(cls, "shell", None)
-        if not callable(orig_shell):
-            return
-
-        @wraps(orig_shell)
-        def wrapped_shell(self, cmd, *args, **kwargs):
-            try:
-                if isinstance(cmd, str) and jinja_literal in cmd:
-                    cmd = cmd.replace(jinja_literal, safe_replacement)
-            except Exception:
-                pass
-            return orig_shell(self, cmd, *args, **kwargs)
-
-        setattr(cls, "shell", wrapped_shell)
-        setattr(cls, "_gnxi_shell_wrapped", True)
-
-    for path in [
-        "tests.common.devices.sonic.MultiAsicSonicHost",
-        "tests.common.devices.sonic.SonicHost",
-        "pytest_ansible.host.Host",
-    ]:
-        try:
-            mod_path, cls_name = path.rsplit(".", 1)
-            mod = __import__(mod_path, fromlist=[cls_name])
-            cls = getattr(mod, cls_name, None)
-            _wrap_class_shell(cls)
-        except Exception:
-            continue
-
-
-_apply_shell_wrapper()
-
-
 def _kill_process(ptf_gnoi, name: str, restart: bool = False, signal=SIGNAL_TERM):
+    """
+    Helper function to invoke gNOI KillProcess.
+
+    Args:
+        ptf_gnoi: gNOI client wrapper
+        name: Service name to kill
+        restart: Whether to restart the service
+        signal: Signal type to send (SIGNAL_TERM, SIGNAL_KILL, SIGNAL_HUP, SIGNAL_ABRT)
+        Current SONiC implementation only supports SIGNAL_TERM.
+
+    Returns:
+        Tuple of (return_code, message)
+    """
     logger.info(
         "gNOI KillProcess request: name=%r restart=%r signal=%r",
         name,
@@ -102,6 +73,12 @@ def test_gnoi_killprocess_then_restart(
     is_valid,
     expected_msg,
 ):
+    """
+    Test gNOI KillProcess on various services.
+
+    Verify that valid services can be stopped and restarted,
+    and that invalid service names are rejected appropriately.
+    """
     duthost = duthosts[rand_one_dut_hostname]
 
     if is_valid and process and not duthost.is_host_service_running(process):
@@ -201,6 +178,12 @@ def test_gnoi_killprocess_restart(
 
 
 def test_invalid_signal(duthosts, rand_one_dut_hostname, ptf_gnoi):
+    """
+    Verify that unsupported signal types are rejected.
+
+    The gNOI KillProcess implementation should only accept SIGNAL_TERM
+    and reject other signal types like SIGNAL_KILL.
+    """
     duthost = duthosts[rand_one_dut_hostname]
 
     ret, msg = _kill_process(
