@@ -24,7 +24,6 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses            
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
 from tests.common.fixtures.ptfhost_utils import iptables_drop_ipv6_tx                       # noqa: F401
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa: F401
-from tests.common.helpers.assertions import pytest_assert
 from .qos_sai_base import QosSaiBase
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
     get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown, fetch_test_logs_ptf   # noqa: F401
@@ -38,7 +37,7 @@ pytestmark = [
 
 class TestQosProbe(QosSaiBase):
     """TestQosProbe contains probe-based buffer threshold detection tests.
-    
+
     These tests use advanced algorithms to automatically detect buffer thresholds:
     - Binary search for PFC XOFF threshold
     - Ingress drop threshold detection
@@ -91,7 +90,9 @@ class TestQosProbe(QosSaiBase):
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
 
         probing_port_ids = [dutConfig["testPorts"]["src_port_id"], dutConfig["testPorts"]["dst_port_id"]]
-        logger.info(f"Simplified probing strategy: using src_port_id={dutConfig['testPorts']['src_port_id']}, dst_port_id={dutConfig['testPorts']['dst_port_id']}")
+        logger.info(f"Simplified probing strategy: using "
+                    f"src_port_id={dutConfig['testPorts']['src_port_id']}, "
+                    f"dst_port_id={dutConfig['testPorts']['dst_port_id']}")
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -144,7 +145,7 @@ class TestQosProbe(QosSaiBase):
         bufferConfig = dutQosConfig["bufferConfig"]
         testParams["ingress_lossless_pool_size"] = bufferConfig["BUFFER_POOL"]["ingress_lossless_pool"]["size"]
         testParams["egress_lossy_pool_size"] = bufferConfig["BUFFER_POOL"]["egress_lossy_pool"]["size"]
-        
+
         # Get cell_size with fallback to sub-layers if not found at top level
         def find_cell_size(config_dict):
             """Recursively find cell_size in config dictionary"""
@@ -156,7 +157,7 @@ class TestQosProbe(QosSaiBase):
                     if result is not None:
                         return result
             return None
-        
+
         cell_size = dutQosConfig["param"].get("cell_size", None)
         if cell_size is None:
             cell_size = find_cell_size(dutQosConfig["param"])
@@ -209,7 +210,9 @@ class TestQosProbe(QosSaiBase):
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
 
         probing_port_ids = [dutConfig["testPorts"]["src_port_id"], dutConfig["testPorts"]["dst_port_id"]]
-        logger.info(f"Simplified probing strategy: using src_port_id={dutConfig['testPorts']['src_port_id']}, dst_port_id={dutConfig['testPorts']['dst_port_id']}")
+        logger.info(f"Simplified probing strategy: using "
+                    f"src_port_id={dutConfig['testPorts']['src_port_id']}, "
+                    f"dst_port_id={dutConfig['testPorts']['dst_port_id']}")
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -289,8 +292,9 @@ class TestQosProbe(QosSaiBase):
         )
 
     def testQosHeadroomPoolProbe(
-        self, duthosts, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLosslessProfile, iptables_drop_ipv6_tx, change_lag_lacp_timer, tbinfo, request):                # noqa: F811
+        self, duthosts, get_src_dst_asic_and_duts, ptfhost, dutTestParams,
+        dutConfig, dutQosConfig, ingressLosslessProfile, iptables_drop_ipv6_tx,
+        change_lag_lacp_timer, tbinfo, request):  # noqa: F811
         # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
             Test QoS Headroom pool size using advanced probing
@@ -365,7 +369,6 @@ class TestQosProbe(QosSaiBase):
                               else None for port in qosConfig["hdrm_pool_size"]["src_port_ids"]]
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig["hdrm_pool_size"])
 
-
         # begin - collect all available test ports for probing
         duthost = get_src_dst_asic_and_duts['src_dut']
         src_dut = get_src_dst_asic_and_duts['src_dut']
@@ -408,7 +411,7 @@ class TestQosProbe(QosSaiBase):
             xpe_to_bcmports['0'] = all_ports
 
         cmd = " | ".join(("show int des",
-                          "grep -E 'Ethernet[0-9]+\s+up\s+up'",
+                          r"grep -E 'Ethernet[0-9]+\s+up\s+up'",
                           " awk ' { print $1 } '"))
         sonicports_in_upstate = [intf for intf in duthost.shell(cmd)['stdout'].strip('"\'"').split("\n") if intf]
 
@@ -453,12 +456,25 @@ class TestQosProbe(QosSaiBase):
                 if sonicport in sonicport_to_testport:
                     xpe_to_testports[xpe].append(sonicport_to_testport[sonicport])
 
-        max_ports_xpe = max(xpe_to_testports.keys(), key=lambda xpe: len(xpe_to_testports[xpe]))
+        max_ports_xpe = max(xpe_to_testports.keys(),
+                            key=lambda xpe: len(xpe_to_testports[xpe]))
         probing_port_ids = xpe_to_testports[max_ports_xpe]
 
-        logger.info(f"sonicport_to_testport {sonicport_to_testport},\nsonicport_to_pc {sonicport_to_pc},\nbcmport_to_sonicport {bcmport_to_sonicport},\nxpe_to_bcmports {xpe_to_bcmports},\nsonicports_in_upstate {sonicports_in_upstate},\nxpe_to_sonicports {xpe_to_sonicports},\nxpe_to_sonicports_in_upstate {xpe_to_sonicports_in_upstate},\nxpe_to_unique_sonicports {xpe_to_unique_sonicports},\nxpe_to_testports {xpe_to_testports},\nprobing_port_ids {probing_port_ids},\ntest_port_ids {dutConfig['testPortIds']},\ntestPortIps {dutConfig['testPortIps']}")
+        logger.info(
+            f"sonicport_to_testport {sonicport_to_testport},\n"
+            f"sonicport_to_pc {sonicport_to_pc},\n"
+            f"bcmport_to_sonicport {bcmport_to_sonicport},\n"
+            f"xpe_to_bcmports {xpe_to_bcmports},\n"
+            f"sonicports_in_upstate {sonicports_in_upstate},\n"
+            f"xpe_to_sonicports {xpe_to_sonicports},\n"
+            f"xpe_to_sonicports_in_upstate {xpe_to_sonicports_in_upstate},\n"
+            f"xpe_to_unique_sonicports {xpe_to_unique_sonicports},\n"
+            f"xpe_to_testports {xpe_to_testports},\n"
+            f"probing_port_ids {probing_port_ids},\n"
+            f"test_port_ids {dutConfig['testPortIds']},\n"
+            f"testPortIps {dutConfig['testPortIps']}"
+        )
         # end
-
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])
@@ -514,7 +530,7 @@ class TestQosProbe(QosSaiBase):
         bufferConfig = dutQosConfig["bufferConfig"]
         testParams["ingress_lossless_pool_size"] = bufferConfig["BUFFER_POOL"]["ingress_lossless_pool"]["size"]
         testParams["egress_lossy_pool_size"] = bufferConfig["BUFFER_POOL"]["egress_lossy_pool"]["size"]
-        
+
         # Get cell_size with fallback to sub-layers if not found at top level
         def find_cell_size(config_dict):
             """Recursively find cell_size in config dictionary"""
@@ -526,7 +542,7 @@ class TestQosProbe(QosSaiBase):
                     if result is not None:
                         return result
             return None
-        
+
         cell_size = dutQosConfig["param"].get("cell_size", None)
         if cell_size is None:
             cell_size = find_cell_size(dutQosConfig["param"])
