@@ -145,7 +145,8 @@ class QosBase:
 
         yield dut_test_params_qos
 
-    def runPtfTest(self, ptfhost, testCase='', testParams={}, relax=False, pdb=False, skip_pcap=False, test_subdir='py3'):
+    def runPtfTest(self, ptfhost, testCase='', testParams={}, relax=False, pdb=False,
+                   skip_pcap=False, test_subdir='py3'):
         """
             Runs QoS SAI test case on PTF host
 
@@ -1977,10 +1978,10 @@ class QosSaiBase(QosBase):
                 portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
-        
+
         # Get buffer config for all devices (not just cisco/broadcom)
         bufferConfig = dutBufferConfig(duthost, dut_asic)
-        
+
         yield {
             "param": qosParams,
             "portSpeedCableLength": portSpeedCableLength,
