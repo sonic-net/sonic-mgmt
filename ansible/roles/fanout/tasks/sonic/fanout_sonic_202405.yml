@@ -153,4 +153,4 @@
     shell: "sysctl -p"
     become: yes
 
-  when: "'mellanox' in fanout_sonic_version.asic_type"
+  when: "fanout_sonic_version.asic_type in ['mellanox', 'broadcom']"
