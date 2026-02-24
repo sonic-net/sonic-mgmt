@@ -1,0 +1,9 @@
+Value IFACE (\S+)
+Value PORT_OID (0x\S+)
+Value QUEUE_OID (0x\S+)
+Value STAT_KEY (\S+)
+Value STAT_VAL (\d+)
+
+Start
+  ^Port ${IFACE} port oid ${PORT_OID} queue oid ${QUEUE_OID} -> Record
+  ^\s*${STAT_KEY}\s*:\s*${STAT_VAL} -> Record

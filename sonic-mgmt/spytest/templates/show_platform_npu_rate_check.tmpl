@@ -1,0 +1,20 @@
+Value LABEL (\S+(?:\s+\S+)*)
+Value METRIC (\w+Rate)
+Value VALUE (\d+(?:\.\d+)?)
+Value UNIT (\[Gbps\]|\[Mpps\]|Gbps|Mpps)
+Value HBM_WRITE_M (\d+(?:\.\d+)?)
+Value HBM_WRITE_G (\d+(?:\.\d+)?)
+Value TOTAL_RX_G (\d+(?:\.\d+)?)
+Value TOTAL_RX_M (\d+(?:\.\d+)?)
+Value TOTAL_TX_G (\d+(?:\.\d+)?)
+Value TOTAL_TX_M (\d+(?:\.\d+)?)
+
+Start
+  ^package_mode\s+${LABEL} -> Continue
+  ^INFO\s+\|.* -> Continue
+  ^INFO\s+${LABEL}\s+${METRIC}=\s+${VALUE}${UNIT} -> Record
+  ^INFO\s+${LABEL}\s+${METRIC}=\s+${VALUE}\s*\(${UNIT}\) -> Record
+  ^INFO\s+HBM\s+Write\s+Rate\s+=\s+${HBM_WRITE_M}\s*\(Mpps\),\s+${HBM_WRITE_G}\s*\(Gbps\) -> Record
+  ^INFO\s+HBM\s+Read\s+Rate\s+=\s+${VALUE}\s*\(${UNIT}\) -> Record
+  ^INFO\s+Total\s+Rx\s+rate\s+=\s+${TOTAL_RX_G}\s*\(Gbps\),\s+${TOTAL_RX_M}\s*\(Mpps\)\s*$$ -> Record
+  ^INFO\s+Total\s+Tx\s+rate\s+=\s+${TOTAL_TX_G}\s*\(Gbps\),\s+${TOTAL_TX_M}\s*\(Mpps\)\s*$$ -> Record

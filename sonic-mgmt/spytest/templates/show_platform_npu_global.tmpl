@@ -1,0 +1,23 @@
+Value KEY (\S+(?:\s+\S+)*)
+Value VAL (\S+)
+Value IFACE (\S+)
+Value SLICE (\d+)
+Value IFG (\d+)
+Value SERDES (\d+)
+Value PORT (\S+)
+Value SAI_LANE (\d+)
+Value P_SLICE (\d+)
+Value P_IFG (\d+)
+Value P_SERDES (\d+)
+Value SYSPORT (\d+)
+Value GID (\d+)
+Value PORT_OID (0x\S+)
+
+Start
+  ^${KEY}\s*:\s*${VAL} -> Record
+  ^Interface\s+Slice\s+IFG\s+Serdes -> Continue
+  ^${IFACE}\s+${SLICE}\s+${IFG}\s+${SERDES} -> Record
+  ^Port\s+sai_lane\s+slice\s+ifg\s+serdes\s+sysport\s+gid\s+port_oid -> Continue
+  ^${PORT}\s+${SAI_LANE}\s+${P_SLICE}\s+${P_IFG}\s+${P_SERDES}\s+${SYSPORT}\s+${GID}\s+${PORT_OID} -> Record
+  ^Device Properties: -> Continue
+  ^\s*${KEY}\s*:\s*${VAL} -> Record

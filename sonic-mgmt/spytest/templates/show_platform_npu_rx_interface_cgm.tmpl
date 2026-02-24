@@ -1,0 +1,42 @@
+Value IFACE (\S+)
+Value SLICE (\d+)
+Value PFC_ENABLED (\S+)
+Value PFC_MASK (\d+)
+Value PORT_SPEED (\d+)
+Value FC_MODE (\S+)
+Value PFC_TIMER (\d+)
+Value PFC_QUANTA (\d+)
+Value SQ_BUF_COUNTER (\d+)
+Value SQ_CONGEST_STATE (Xon|Xoff)
+Value SQ_HDRM_COUNTER (\d+)
+Value TC (\d+)
+Value DROP (\d+)
+Value REASON (\S+(?:/\S+)*)
+Value REASON_DROP (\d+|Not\s+Available)
+Value TC_MAP (\d+)
+Value SQG (\d+)
+
+Start
+  ^Rx CGM is enabled for interface ${IFACE} on slice ${SLICE}\s*$$ -> Record
+  ^PFC enabled ${PFC_ENABLED}, pfc mask ${PFC_MASK}\s*$$ -> Record
+  ^Port speed ${PORT_SPEED}\s*$$ -> Record
+  ^Flow control mode:\s+${FC_MODE}\s*$$ -> Record
+  ^PFC periodic timer in ns ${PFC_TIMER}\s*$$ -> Record
+  ^PFC time quanta ${PFC_QUANTA}\s*$$ -> Record
+
+  # Source queue counters (skip the header; parse only data lines)
+  ^\s*SQ buffer counter ${SQ_BUF_COUNTER}\s*$$ -> Record
+  ^\s*SQ congestion state ${SQ_CONGEST_STATE}\s*$$ -> Record
+  ^\s*SQ headroom counter in (?:bytes|buffers)\s+${SQ_HDRM_COUNTER}\s*$$ -> Record
+
+  # Rx drop counters section
+  ^Rx drop counters \(${IFACE}\):\s*$$ -> Continue
+  ^\s*TC ${TC}:\s+${DROP}\s*$$ -> Record
+
+  # Reason counters
+  ^Rx drop counter reasons:\s*$$ -> Continue
+  ^\s*${REASON}\s+drops:\s+${REASON_DROP}\s*$$ -> Record
+
+  # TC to SQG mapping
+  ^TC to SQG mapping:\s*$$ -> Continue
+  ^\s*TC ${TC_MAP}:\s+SQ \d+:\s+SQG ${SQG}\s*$$ -> Record

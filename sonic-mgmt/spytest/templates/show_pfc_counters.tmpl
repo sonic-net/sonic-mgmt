@@ -1,0 +1,22 @@
+Value PORT (\S+)
+Value PFC0 (\d[\d,]*)
+Value PFC1 (\d[\d,]*)
+Value PFC2 (\d[\d,]*)
+Value PFC3 (\d[\d,]*)
+Value PFC4 (\d[\d,]*)
+Value PFC5 (\d[\d,]*)
+Value PFC6 (\d[\d,]*)
+Value PFC7 (\d[\d,]*)
+Value DIR (Rx|Tx)
+
+Start
+  ^\s*Port\s+Rx.* -> Rx
+  ^\s*Port\s+Tx.* -> Tx
+
+Rx
+  ^-+.* -> Continue
+  ^\s*${PORT}\s+${PFC0}\s+${PFC1}\s+${PFC2}\s+${PFC3}\s+${PFC4}\s+${PFC5}\s+${PFC6}\s+${PFC7}\s*$ -> Record DIR=Rx
+
+Tx
+  ^-+.* -> Continue
+  ^\s*${PORT}\s+${PFC0}\s+${PFC1}\s+${PFC2}\s+${PFC3}\s+${PFC4}\s+${PFC5}\s+${PFC6}\s+${PFC7}\s*$ -> Record DIR=Tx
