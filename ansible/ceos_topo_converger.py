@@ -268,6 +268,9 @@ class SonicTopoConverger:
 def converge_testbed(input_file: str, output_file: str) -> None:
     with open(input_file, "r", encoding="utf-8") as in_file:
         topo = yaml.safe_load(in_file)
+    if topo.get("topo_is_multi_vrf", False):
+        print("Topology already converged, skipping convergence.")
+        return
     converger = SonicTopoConverger(topo, output_file)
     converger.run()
 
