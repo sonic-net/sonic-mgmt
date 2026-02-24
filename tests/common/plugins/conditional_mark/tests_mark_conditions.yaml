@@ -5117,10 +5117,12 @@ vxlan/test_vnet_route_leak.py:
 
 vxlan/test_vnet_vxlan.py:
   skip:
-    reason: "Enable tests only for: mellanox, barefoot, marvell-teralynx and cisco-8000"
+    reason: "1. Enable tests only for: mellanox, barefoot and marvell-teralynx
+             2. Test skipped due to issue #8374"
     conditions_logical_operator: OR
     conditions:
-      - "asic_type not in ['mellanox', 'barefoot', 'vs', 'marvell-teralynx', 'cisco-8000']"
+      - "asic_type not in ['mellanox', 'barefoot', 'vs', 'marvell-teralynx']"
+      - https://github.com/sonic-net/sonic-mgmt/issues/8374
 
 vxlan/test_vxlan_bfd_tsa.py:
   skip:
