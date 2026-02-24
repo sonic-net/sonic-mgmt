@@ -292,9 +292,9 @@ class TestQosProbe(QosSaiBase):
         )
 
     def testQosHeadroomPoolProbe(
-        self, duthosts, get_src_dst_asic_and_duts, ptfhost, dutTestParams,
-        dutConfig, dutQosConfig, ingressLosslessProfile, iptables_drop_ipv6_tx,
-        change_lag_lacp_timer, tbinfo, request):  # noqa: F811
+            self, duthosts, get_src_dst_asic_and_duts, ptfhost, dutTestParams,
+            dutConfig, dutQosConfig, ingressLosslessProfile, iptables_drop_ipv6_tx,  # noqa: F811
+            change_lag_lacp_timer, tbinfo, request):
         # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
             Test QoS Headroom pool size using advanced probing
