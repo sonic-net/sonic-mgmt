@@ -1026,6 +1026,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
                                                                                 port['peer_port'],
                                                                                 dutIp,
                                                                                 prefix_length))
+            duthost.command(f"sudo config interface startup {port['peer_port']}")
         else:
             duthost.command('sudo config interface -n {} ip {} {} {}/{} \n' .format(
                                                                                     port['asic_value'],
@@ -1033,6 +1034,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
                                                                                     port['peer_port'],
                                                                                     dutIp,
                                                                                     prefix_length))
+            duthost.command(f"sudo config interface -n {port['asic_value']} startup {port['peer_port']}")
         if setup:
             gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
         if setup is False:
