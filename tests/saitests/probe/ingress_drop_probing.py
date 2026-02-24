@@ -21,7 +21,7 @@ Extensibility (for mock/UT):
 
 Usage:
     Called from test_qos_sai.py via PTF with test_subdir='probe':
-    self.runPtfTest(ptfhost, testCase="ingress_drop_probing.IngressDropProbing", 
+    self.runPtfTest(ptfhost, testCase="ingress_drop_probing.IngressDropProbing",
                     testParams=testParams, test_subdir='probe')
 """
 
@@ -40,32 +40,32 @@ if py3_dir not in sys.path:
 if probe_dir not in sys.path:
     sys.path.insert(0, probe_dir)
 
-from probing_base import ProbingBase, ProbeConfig
-from probing_result import ThresholdResult
-from sai_qos_tests import log_message, construct_ip_pkt
-from stream_manager import PortInfo, FlowConfig, StreamManager, determine_traffic_dmac
+from probing_base import ProbingBase, ProbeConfig  # noqa: E402
+from probing_result import ThresholdResult  # noqa: E402
+from sai_qos_tests import log_message, construct_ip_pkt  # noqa: E402
+from stream_manager import PortInfo, FlowConfig, StreamManager, determine_traffic_dmac  # noqa: E402
 
 # Algorithm imports
-from upper_bound_probing_algorithm import UpperBoundProbingAlgorithm
-from lower_bound_probing_algorithm import LowerBoundProbingAlgorithm
-from threshold_range_probing_algorithm import ThresholdRangeProbingAlgorithm
-from threshold_point_probing_algorithm import ThresholdPointProbingAlgorithm
+from upper_bound_probing_algorithm import UpperBoundProbingAlgorithm  # noqa: E402
+from lower_bound_probing_algorithm import LowerBoundProbingAlgorithm  # noqa: E402
+from threshold_range_probing_algorithm import ThresholdRangeProbingAlgorithm  # noqa: E402
+from threshold_point_probing_algorithm import ThresholdPointProbingAlgorithm  # noqa: E402
 
 # Executor: lazy import via ExecutorRegistry (no direct import here)
 # Note: create_executor is inherited from ProbingBase
 
 # Observer imports
-from probing_observer import ProbingObserver
-from observer_config import ObserverConfig
+from probing_observer import ProbingObserver  # noqa: E402
+from observer_config import ObserverConfig  # noqa: E402
 
 
 class IngressDropProbing(ProbingBase):
     """
     Ingress Drop Threshold Probing Test Case
-    
+
     Traffic Pattern: 1 src -> N dst
     Probe Target: Detect Ingress Drop threshold by observing packet drops
-    
+
     Inherits from ProbingBase which provides:
     - setUp(): PTF init + common parse_param
     - runTest(): Template method (calls setup_traffic, probe)
@@ -84,14 +84,14 @@ class IngressDropProbing(ProbingBase):
     def setUp(self):
         """
         IngressDropProbe setup.
-        
+
         1. Call super().setUp() for common initialization + parse_param + EXECUTOR_ENV
         2. Parse subclass-specific parameters
         3. Override point probing config from POINT_PROBING_LIMIT env var (for testing)
         """
         super().setUp()
         self.parse_param()
-        
+
         # Override from POINT_PROBING_LIMIT environment variable (for point probing testing)
         # POINT_PROBING_LIMIT=10  -> enable point probing with limit=10
         # POINT_PROBING_LIMIT=0 or unset or invalid -> disable point probing
@@ -104,7 +104,7 @@ class IngressDropProbing(ProbingBase):
     def parse_param(self):
         """
         Parse IngressDropProbe-specific parameters.
-        
+
         Note: Common parameters already parsed by ProbingBase.setUp()
         """
         # PG counter index (starts from index 2 in sai_thrift_read_port_counters)
@@ -117,7 +117,7 @@ class IngressDropProbing(ProbingBase):
             thrift_client=self.dst_client,
             asic_type=self.asic_type
         )
-    
+
     def get_expected_threshold(self):
         """Get expected Ingress Drop threshold from test parameters."""
         value = getattr(self, 'pkts_num_trig_ingr_drp', None)
@@ -130,7 +130,7 @@ class IngressDropProbing(ProbingBase):
     def setup_traffic(self):
         """
         Setup traffic streams for 1 src -> N dst pattern.
-        
+
         Uses probing_port_ids:
         - First port is src
         - Remaining ports are dst
@@ -166,8 +166,14 @@ class IngressDropProbing(ProbingBase):
 
         # Log platform info
         original_packet_length = getattr(self, "packet_size", 64)
-        original_cell_occupancy = (original_packet_length + self.cell_size - 1) // self.cell_size if hasattr(self, "cell_size") else 1
-        log_message(f"Platform-specific: packet_length={original_packet_length}, cell_occupancy={original_cell_occupancy}", to_stderr=True)
+        original_cell_occupancy = (
+            (original_packet_length + self.cell_size - 1) // self.cell_size
+            if hasattr(self, "cell_size") else 1
+        )
+        log_message(
+            f"Platform-specific: packet_length={original_packet_length}, "
+            f"cell_occupancy={original_cell_occupancy}", to_stderr=True
+        )
         log_message(f"Probing uses: packet_length={packet_length}, cell_occupancy=1", to_stderr=True)
 
         is_dualtor = getattr(self, "is_dualtor", False)
@@ -175,14 +181,14 @@ class IngressDropProbing(ProbingBase):
 
         # Initialize stream manager
         self.stream_mgr = StreamManager(
-            packet_constructor=construct_ip_pkt, 
+            packet_constructor=construct_ip_pkt,
             rx_port_resolver=self.get_rx_port
         )
 
         for dstport in dstports:
             self.stream_mgr.add_flow(FlowConfig(
-                srcport, dstport, 
-                dmac=determine_traffic_dmac(dstport.mac, self.router_mac, is_dualtor, def_vlan_mac), 
+                srcport, dstport,
+                dmac=determine_traffic_dmac(dstport.mac, self.router_mac, is_dualtor, def_vlan_mac),
                 dscp=self.dscp, ecn=self.ecn, ttl=ttl, length=packet_length
             ), pg=self.pg)  # Add pg as traffic_key for consistency
 
@@ -195,12 +201,12 @@ class IngressDropProbing(ProbingBase):
     def probe(self) -> ThresholdResult:
         """
         Execute Ingress Drop threshold probing.
-        
+
         Workflow:
         1. create_algorithms(): Create timer, observers, executors, algorithms
         2. run_algorithms(): Execute 4-phase probing (upper->lower->range->point)
         3. Report results
-        
+
         Returns:
             ThresholdResult: Probing result with Ingress Drop threshold
         """
@@ -208,7 +214,7 @@ class IngressDropProbing(ProbingBase):
         pool_size = self.get_pool_size()
         src_port = self.probing_port_ids[0]
         dst_port = self.stream_mgr.get_port_ids("dst")[0]
-        
+
         # Get traffic_keys for this flow (single-PG case: pass pg for consistency)
         traffic_keys = {'pg': self.pg}
 
@@ -233,7 +239,7 @@ class IngressDropProbing(ProbingBase):
 
         # Report results using Observer's unified method
         ProbingObserver.report_probing_result("Ingress Drop", result, unit="pkt")
-        
+
         return result
 
     #
@@ -243,13 +249,13 @@ class IngressDropProbing(ProbingBase):
     def _create_algorithms(self):
         """
         Create 4-phase probing algorithms.
-        
+
         Creates timer, observers, executors, and algorithms for:
         - Phase 1: Upper bound discovery (exponential growth)
         - Phase 2: Lower bound detection (logarithmic reduction)
         - Phase 3: Threshold range narrowing (binary search)
         - Phase 4: Precise point detection (step-by-step scan)
-        
+
         Returns:
             dict: Algorithm instances keyed by phase name
                   {"upper_bound", "lower_bound", "threshold_range", "threshold_point"}
@@ -273,7 +279,7 @@ class IngressDropProbing(ProbingBase):
                 },
             ),
         )
-        
+
         lower_bound_observer = ProbingObserver(
             name="lower_bound", iteration_prefix=2, verbose=verbose,
             observer_config=ObserverConfig(
@@ -290,7 +296,7 @@ class IngressDropProbing(ProbingBase):
                 },
             ),
         )
-        
+
         threshold_range_observer = ProbingObserver(
             name="threshold_range", iteration_prefix=3, verbose=verbose,
             observer_config=ObserverConfig(
@@ -307,12 +313,12 @@ class IngressDropProbing(ProbingBase):
                 },
             ),
         )
-        
+
         # Create 3 executors (via base class factory method)
         upper_bound_executor = self.create_executor(self.PROBE_TARGET, upper_bound_observer, "upper_bound")
         lower_bound_executor = self.create_executor(self.PROBE_TARGET, lower_bound_observer, "lower_bound")
         threshold_range_executor = self.create_executor(self.PROBE_TARGET, threshold_range_observer, "threshold_range")
-        
+
         # Create 3 core algorithms
         algorithms = {
             "upper_bound": UpperBoundProbingAlgorithm(
@@ -334,7 +340,7 @@ class IngressDropProbing(ProbingBase):
                 precise_detection_range_limit=self.PRECISE_DETECTION_RANGE_LIMIT
             ),
         }
-        
+
         # Only create point algorithm if precise detection is enabled
         if self.ENABLE_PRECISE_DETECTION:
             threshold_point_observer = ProbingObserver(
@@ -353,14 +359,16 @@ class IngressDropProbing(ProbingBase):
                     },
                 ),
             )
-            threshold_point_executor = self.create_executor(self.PROBE_TARGET, threshold_point_observer, "threshold_point")
+            threshold_point_executor = self.create_executor(
+                self.PROBE_TARGET, threshold_point_observer, "threshold_point"
+            )
             algorithms["threshold_point"] = ThresholdPointProbingAlgorithm(
                 executor=threshold_point_executor,
                 observer=threshold_point_observer,
                 verification_attempts=1,
                 step_size=self.POINT_PROBING_STEP_SIZE
             )
-        
+
         return algorithms
 
     #
@@ -370,19 +378,19 @@ class IngressDropProbing(ProbingBase):
     def _run_algorithms(self, algorithms, src_port, dst_port, pool_size, **traffic_keys):
         """
         Execute 4-phase probing algorithm sequence.
-        
+
         Phase 1: Upper bound discovery (exponential growth)
         Phase 2: Lower bound detection (logarithmic reduction)
         Phase 3: Threshold range narrowing (binary search)
         Phase 4: Precise point detection (optional, step-by-step scan)
-        
+
         Args:
             algorithms: Dict of algorithm instances from _create_algorithms()
             src_port: Source port ID
             dst_port: Destination port ID
             pool_size: Buffer pool size (upper limit for search)
             **traffic_keys: Traffic identification keys (e.g., pg=3, queue=5)
-            
+
         Returns:
             tuple: (lower_bound, upper_bound) or (None, None) on failure
         """
