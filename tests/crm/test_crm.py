@@ -14,6 +14,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
      EXPECT_CLEAR, THR_VERIFY_CMDS
+from tests.common.helpers.syslog_helpers import disable_swss_rsyslog_rate_limit, restore_swss_rsyslog_rate_limit
 from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa: F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa: F401
 from tests.common.utilities import wait_until, get_data_acl, is_ipv6_only_topology
@@ -246,52 +247,61 @@ def verify_thresholds(duthost, asichost, **kwargs):
             "ASIC/counters DB checks are not applicable in virtual testbeds."
         )
         return
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='crm_test')
-    for key, value in list(THR_VERIFY_CMDS.items()):
-        logger.info("Verifying CRM threshold '{}'".format(key))
-        template = Template(value)
-        if "exceeded" in key:
-            loganalyzer.expect_regex = [EXPECT_EXCEEDED]
-        elif "clear" in key:
-            loganalyzer.expect_regex = [EXPECT_CLEAR]
 
-        if "percentage" in key:
-            if "nexthop_group" in kwargs["crm_cli_res"] and "mellanox" in duthost.facts["asic_type"].lower():
-                # TODO: Fix this. Temporal skip percentage verification for 'test_crm_nexthop_group' test case
-                # Max supported ECMP group values is less then number of entries we need to configure
-                # in order to test percentage threshold (Can't even reach 1 percent)
-                # For test case used 'nexthop_group' need to be configured at least 1 percent from available
-                continue
-            if kwargs["crm_cli_res"] in ["ipv4 neighbor", "ipv6 neighbor"] and \
-                    "cisco-8000" in duthost.facts["asic_type"].lower():
-                # Skip the percentage check for Cisco-8000 devices
-                continue
-            used_percent = get_used_percent(kwargs["crm_used"], kwargs["crm_avail"])
-            if key == "exceeded_percentage":
-                if used_percent < 1:
-                    logger.warning("The used percentage for {} is {} and \
-                                   verification for exceeded_percentage is skipped"
-                                   .format(kwargs["crm_cli_res"], used_percent))
-                    continue
-                kwargs["th_lo"] = used_percent - 1
-                kwargs["th_hi"] = used_percent
+    # Disable rsyslog rate limiting to ensure CRM threshold messages are not dropped
+    edited_containers = disable_swss_rsyslog_rate_limit(duthost)
+
+    try:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='crm_test')
+        for key, value in list(THR_VERIFY_CMDS.items()):
+            logger.info("Verifying CRM threshold '{}'".format(key))
+            template = Template(value)
+            if "exceeded" in key:
                 loganalyzer.expect_regex = [EXPECT_EXCEEDED]
-            elif key == "clear_percentage":
-                if used_percent >= 100 or used_percent < 1:
-                    logger.warning("The used percentage for {} is {} and verification for clear_percentage is skipped"
-                                   .format(kwargs["crm_cli_res"], used_percent))
-                    continue
-                kwargs["th_lo"] = used_percent
-                kwargs["th_hi"] = used_percent + 1
+            elif "clear" in key:
                 loganalyzer.expect_regex = [EXPECT_CLEAR]
 
-        kwargs['crm_used'], kwargs['crm_avail'] = get_crm_stats(kwargs['crm_cmd'], duthost)
-        cmd = template.render(**kwargs)
+            if "percentage" in key:
+                if "nexthop_group" in kwargs["crm_cli_res"] and "mellanox" in duthost.facts["asic_type"].lower():
+                    # TODO: Fix this. Temporal skip percentage verification for 'test_crm_nexthop_group' test case
+                    # Max supported ECMP group values is less then number of entries we need to configure
+                    # in order to test percentage threshold (Can't even reach 1 percent)
+                    # For test case used 'nexthop_group' need to be configured at least 1 percent from available
+                    continue
+                if kwargs["crm_cli_res"] in ["ipv4 neighbor", "ipv6 neighbor"] and \
+                        "cisco-8000" in duthost.facts["asic_type"].lower():
+                    # Skip the percentage check for Cisco-8000 devices
+                    continue
+                used_percent = get_used_percent(kwargs["crm_used"], kwargs["crm_avail"])
+                if key == "exceeded_percentage":
+                    if used_percent < 1:
+                        logger.warning("The used percentage for {} is {} and \
+                                       verification for exceeded_percentage is skipped"
+                                       .format(kwargs["crm_cli_res"], used_percent))
+                        continue
+                    kwargs["th_lo"] = used_percent - 1
+                    kwargs["th_hi"] = used_percent
+                    loganalyzer.expect_regex = [EXPECT_EXCEEDED]
+                elif key == "clear_percentage":
+                    if used_percent >= 100 or used_percent < 1:
+                        logger.warning("The used percentage for {} is {} and \
+                                       verification for clear_percentage is skipped"
+                                       .format(kwargs["crm_cli_res"], used_percent))
+                        continue
+                    kwargs["th_lo"] = used_percent
+                    kwargs["th_hi"] = used_percent + 1
+                    loganalyzer.expect_regex = [EXPECT_CLEAR]
 
-        with loganalyzer:
-            asichost.command(cmd)
-            # Make sure CRM counters updated
-            time.sleep(CRM_UPDATE_TIME)
+            kwargs['crm_used'], kwargs['crm_avail'] = get_crm_stats(kwargs['crm_cmd'], duthost)
+            cmd = template.render(**kwargs)
+
+            with loganalyzer:
+                asichost.command(cmd)
+                # Make sure CRM counters updated
+                time.sleep(CRM_UPDATE_TIME)
+    finally:
+        # Always restore rsyslog config
+        restore_swss_rsyslog_rate_limit(duthost, edited_containers)
 
 
 def get_crm_stats(cmd, duthost):
