@@ -90,6 +90,7 @@ from ptf import testutils
 from ptf.mask import Mask
 
 from tests.common.telemetry.fixtures import db_reporter, ts_reporter                        # noqa: F401
+from tests.common.helpers.yang_utils import run_yang_validation
 
 
 logger = logging.getLogger(__name__)
@@ -163,6 +164,13 @@ def pytest_addoption(parser):
 
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
+
+    # read_mac options
+    parser.addoption('--image1', action='store', type=str, help='1st image to download and install')
+    parser.addoption('--image2', action='store', type=str, help='2nd image to download and install')
+    parser.addoption('--iteration', action='store', type=int, help='Number of image installing iterations')
+    parser.addoption('--minigraph1', action='store', type=str, help='path to the minigraph1')
+    parser.addoption('--minigraph2', action='store', type=str, help='path to the minigraph2')
 
     #####################################
     # dash, vxlan, route shared options #
@@ -3863,40 +3871,15 @@ def yang_validation_check(request, duthosts):
         logger.info("Skipping YANG validation check due to --skip_yang flag")
         return
 
-    def run_yang_validation(stage):
-        """Run YANG validation and return results"""
+    def run_yang_validation_all(stage):
+        """Run YANG validation on all DUTs and return results"""
         validation_results = {}
-
         for duthost in duthosts:
-            logger.info(f"Running YANG validation on {duthost.hostname} ({stage})")
-            try:
-                result = duthost.shell(
-                    'echo "[]" | sudo config apply-patch /dev/stdin',
-                    module_ignore_errors=True
-                )
-
-                if result['rc'] != 0:
-                    validation_results[duthost.hostname] = {
-                        'failed': True,
-                        'error': result.get('stderr', result.get('stdout', 'Unknown error'))
-                    }
-                    logger.error(f"YANG validation failed on {duthost.hostname} ({stage}): "
-                                 f"{validation_results[duthost.hostname]['error']}")
-                else:
-                    validation_results[duthost.hostname] = {'failed': False}
-                    logger.info(f"YANG validation passed on {duthost.hostname} ({stage})")
-
-            except Exception as e:
-                validation_results[duthost.hostname] = {
-                    'failed': True,
-                    'error': str(e)
-                }
-                logger.error(f"Exception during YANG validation on {duthost.hostname} ({stage}): {str(e)}")
-
+            validation_results[duthost.hostname] = run_yang_validation(duthost, stage)
         return validation_results
 
     # pre-test YANG validation
-    pre_results = run_yang_validation("pre-test")
+    pre_results = run_yang_validation_all("pre-test")
 
     # Check if any pre-test validation failed
     pre_failures = {host: result for host, result in pre_results.items() if result['failed']}
@@ -3910,7 +3893,7 @@ def yang_validation_check(request, duthosts):
     yield
 
     # post-test YANG validation
-    post_results = run_yang_validation("post-test")
+    post_results = run_yang_validation_all("post-test")
 
     # Check if any post-test validation failed
     post_failures = {host: result for host, result in post_results.items() if result['failed']}
