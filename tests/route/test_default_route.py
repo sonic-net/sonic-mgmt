@@ -79,6 +79,10 @@ def get_upstream_neigh(tb, device_neigh_metadata, af, nexthops):
     for neigh_name, neigh_cfg in list(topo_cfg_facts.items()):
         if not is_in_neighbor(neigh_types, neigh_name):
             continue
+        if 't0-isolated' in tb['topo']['name'] and "PT" not in neigh_name:
+            # For t0-isolated topology, PT0 default routes will be preferred over T1 neighbors,
+            # so only consider PT neighbors for default route verification
+            continue
         interfaces = neigh_cfg.get('interfaces', {})
         ipv4_addr = None
         ipv6_addr = None
