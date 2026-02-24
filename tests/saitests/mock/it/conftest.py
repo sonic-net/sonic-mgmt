@@ -14,8 +14,10 @@ def mock_observer():
     class MockObserver:
         def __init__(self):
             pass
+
         def on_iteration_start(self, *args, **kwargs):
             pass
+
         def on_iteration_complete(self, *args, **kwargs):
             pass
     return MockObserver()
