@@ -27,7 +27,7 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
-from devutil.devices.factory import init_host, init_localhost, init_testbed_sonichosts, init_sonichosts  # noqa: E402
+from devutil.devices.factory import init_host, init_localhost, init_sonichosts  # noqa: E402
 from devutil.devices.ansible_hosts import HostsUnreachable, RunAnsibleModuleFailed  # noqa: E402
 
 logger = logging.getLogger(__name__)
