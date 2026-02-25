@@ -11,7 +11,7 @@ from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
 from tests.common.config_reload import config_reload
-from ha_utils import set_dead_dash_ha_scope, verify_ha_state, activate_primary_dash_ha
+from ha_utils_planned_shut import set_dead_dash_ha_scope, verify_ha_state, activate_primary_dash_ha
 
 logger = logging.getLogger(__name__)
 
