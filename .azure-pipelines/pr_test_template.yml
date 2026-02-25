@@ -4,6 +4,38 @@ parameters:
   default:
     name: sonic-ubuntu-1c
 
+- name: BUILD_REASON
+  type: string
+  default: "PullRequest"
+
+- name: RETRY_TIMES
+  type: string
+  default: "2"
+
+- name: STOP_ON_FAILURE
+  type: string
+  default: "True"
+
+- name: TEST_PLAN_NUM
+  type: string
+  default: "1"
+
+- name: MAX_RUN_TEST_MINUTES
+  type: number
+  default: 480
+
+- name: MGMT_COMMIT_HASH
+  type: string
+  default: ""
+
+- name: PTF_MODIFIED
+  type: string
+  default: "False"
+
+- name: EXPECTED_RESULT
+  type: string
+  default: ""
+
 - name: TIMEOUT_IN_MINUTES_PR_TEST
   type: number
   default: 640
@@ -21,18 +53,6 @@ parameters:
 - name: IMPACT_AREA_INFO
   type: object
   default: {}
-
-- name: GLOBAL_PARAMS
-  type: object
-  default:
-    BUILD_REASON: "PullRequest"
-    RETRY_TIMES: "2"
-    STOP_ON_FAILURE: "True"
-    TEST_PLAN_NUM: "1"
-    MAX_RUN_TEST_MINUTES: 480
-    MGMT_COMMIT_HASH: ""
-    PTF_MODIFIED: "False"
-    EXPECTED_RESULT: ""
 
 - name: OVERRIDE_PARAMS
   type: object
@@ -76,8 +96,14 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -110,8 +136,14 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -145,8 +177,14 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t1-lag
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -179,8 +217,14 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: dualtor
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -213,8 +257,14 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t0-64-32
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -252,8 +302,14 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: dpu
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -290,8 +346,14 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t1-8-lag
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -326,8 +388,14 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t2
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -340,12 +408,19 @@ jobs:
 
   - job: t1_lag_vpp_elastictest
     displayName: "kvmtest-t1-lag-vpp by Elastictest [OPTIONAL]"
-    timeoutInMinutes: 480
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: true
     pool: sonic-ubuntu-1c
     steps:
       - template: run-test-elastictest-template.yml
         parameters:
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t1-lag-vpp
           MIN_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
           MAX_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
