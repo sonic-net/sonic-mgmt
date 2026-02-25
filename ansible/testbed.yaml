@@ -529,9 +529,9 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms28-t0-8102-03
+- conf-name: vms28-t1-8102-03
   group-name: vms28-2
-  topo: t0-64
+  topo: t1-64-lag
   ptf_image_name: docker-ptf
   ptf: vms28-2
   ptf_ip: 10.64.246.159/25
