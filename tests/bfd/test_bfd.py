@@ -15,8 +15,7 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('t1'),
-    pytest.mark.device_type('physical')
+    pytest.mark.topology('t1')
 ]
 
 BFD_RESPONDER_SCRIPT_SRC_PATH = '../ansible/roles/test/files/helpers/bfd_responder.py'
