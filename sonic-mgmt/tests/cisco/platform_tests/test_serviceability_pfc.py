@@ -44,7 +44,8 @@ def run_around_tests(duthosts, enum_rand_one_per_hwsku_hostname, cached_asic_fac
     for asic in asics:
         if not check_process_status(duthost, "dshell_client", "RUNNING", "syncd"+asic):
             result = duthost.command("docker exec -i syncd%s supervisorctl start dshell_client"%(asic))
-        assert check_process_status(duthost, "dshell_client", "RUNNING", "syncd"+asic), "Failed to enable dshell_client"
+        assert check_process_status(duthost, "dshell_client", "RUNNING", "syncd"+asic), \
+            "Failed to enable dshell_client in container syncd{}".format(asic)
 
 def check_process_status(duthost, process, status="RUNNING", container="syncd"):
     """
@@ -79,7 +80,7 @@ def get_asic_facts(duthost):
         up_ports = asic_ports_dict[asic]['up']
         intf_facts = duthost.interface_facts(up_ports=up_ports)['ansible_facts']
         up_ports = filter(lambda p: p not in intf_facts['ansible_interface_link_down_ports'], up_ports)
-        assert up_ports, "No ports with Admin, Open state UP found"
+        assert up_ports, "No ports with admin_status=up and link state UP found on {}".format(asic)
     return asic_ports_dict
 
 def test_show_platform_npu_tx(duthosts, enum_rand_one_per_hwsku_hostname, request, cached_asic_facts):
@@ -123,18 +124,28 @@ def test_show_platform_npu_tx(duthosts, enum_rand_one_per_hwsku_hostname, reques
 
             logging.info("Checking Up Port{} : ".format("s" if all_ports else ""))
             for port in selected_up_ports:
-                result = duthost.command(show_command.format(option, port, asic_namespace_string))
+                cmd = show_command.format(option, port, asic_namespace_string)
+                result = duthost.command(cmd)
                 traceback_found = "Traceback" in result["stdout"]
-                assert not traceback_found, "Traceback found in show platform npu tx for UP Port"
-                assert result["stdout"], "No output for this CLI"
+                assert not traceback_found, \
+                    "Traceback found in 'npu tx {opt}' for UP port {port} on {asic}.\nCommand: {cmd}\nOutput:\n{out}".format(
+                        opt=option, port=port, asic=asic, cmd=cmd, out=result["stdout"])
+                assert result["stdout"], \
+                    "Empty output for 'npu tx {opt}' on UP port {port}, {asic}.\nCommand: {cmd}".format(
+                        opt=option, port=port, asic=asic, cmd=cmd)
 
             if selected_down_ports:
                 logging.info("Checking Down Port{} : ".format("s" if all_ports else ""))
                 for port in selected_down_ports:
-                    result = duthost.command(show_command.format(option, port, asic_namespace_string))
+                    cmd = show_command.format(option, port, asic_namespace_string)
+                    result = duthost.command(cmd)
                     traceback_found = "Traceback" in result["stdout"]
-                    assert not traceback_found, "Traceback found in show platform npu tx for DOWN Port"
-                    assert result["stdout"], "No output for this CLI"
+                    assert not traceback_found, \
+                        "Traceback found in 'npu tx {opt}' for DOWN port {port} on {asic}.\nCommand: {cmd}\nOutput:\n{out}".format(
+                            opt=option, port=port, asic=asic, cmd=cmd, out=result["stdout"])
+                    assert result["stdout"], \
+                        "Empty output for 'npu tx {opt}' on DOWN port {port}, {asic}.\nCommand: {cmd}".format(
+                            opt=option, port=port, asic=asic, cmd=cmd)
 
 def test_show_platform_npu_rx(enum_rand_one_per_hwsku_hostname, request, cached_asic_facts):
     """
@@ -178,18 +189,28 @@ def test_show_platform_npu_rx(enum_rand_one_per_hwsku_hostname, request, cached_
             for t in range(8):
                 logging.info("Checking Up Port{} : ".format("s" if all_ports else ""))
                 for port in selected_up_ports:
-                    result = duthost.command(show_command.format(option, port, t, asic_namespace_string))
+                    cmd = show_command.format(option, port, t, asic_namespace_string)
+                    result = duthost.command(cmd)
                     traceback_found = "Traceback" in result["stdout"]
-                    assert not traceback_found, "Traceback found in show platform npu rx for UP Port"
-                    assert result["stdout"], "No output for this CLI"
+                    assert not traceback_found, \
+                        "Traceback found in 'npu rx {opt}' for UP port {port} tc {t} on {asic}.\nCommand: {cmd}\nOutput:\n{out}".format(
+                            opt=option, port=port, t=t, asic=asic, cmd=cmd, out=result["stdout"])
+                    assert result["stdout"], \
+                        "Empty output for 'npu rx {opt}' on UP port {port} tc {t}, {asic}.\nCommand: {cmd}".format(
+                            opt=option, port=port, t=t, asic=asic, cmd=cmd)
 
                 if selected_down_ports:
                     logging.info("Checking Down Port{} : ".format("s" if all_ports else ""))
                     for port in selected_down_ports:
-                        result = duthost.command(show_command.format(option, port, t, asic_namespace_string))
+                        cmd = show_command.format(option, port, t, asic_namespace_string)
+                        result = duthost.command(cmd)
                         traceback_found = "Traceback" in result["stdout"]
-                        assert not traceback_found, "Traceback found in show platform npu rx for DOWN Port"
-                        assert result["stdout"], "No output for this CLI"
+                        assert not traceback_found, \
+                            "Traceback found in 'npu rx {opt}' for DOWN port {port} tc {t} on {asic}.\nCommand: {cmd}\nOutput:\n{out}".format(
+                                opt=option, port=port, t=t, asic=asic, cmd=cmd, out=result["stdout"])
+                        assert result["stdout"], \
+                            "Empty output for 'npu rx {opt}' on DOWN port {port} tc {t}, {asic}.\nCommand: {cmd}".format(
+                                opt=option, port=port, t=t, asic=asic, cmd=cmd)
 
 def test_show_platform_npu_voq(duthosts, enum_rand_one_per_hwsku_hostname, request, cached_asic_facts):
     """
@@ -237,18 +258,28 @@ def test_show_platform_npu_voq(duthosts, enum_rand_one_per_hwsku_hostname, reque
             for t in range(8):
                 logging.info("Checking Up Port{} : ".format("s" if all_ports else ""))
                 for port in selected_up_ports:
-                    result = duthost.command(show_command.format(option, port, t, src, asic_namespace_string))
+                    cmd = show_command.format(option, port, t, src, asic_namespace_string)
+                    result = duthost.command(cmd)
                     traceback_found = "Traceback" in result["stdout"]
-                    assert not traceback_found, "Traceback found in show platform npu voq for UP Port"
-                    assert result["stdout"], "No output for this CLI"
+                    assert not traceback_found, \
+                        "Traceback found in 'npu voq {opt}' for UP port {port} tc {t} on {asic}.\nCommand: {cmd}\nOutput:\n{out}".format(
+                            opt=option, port=port, t=t, asic=asic, cmd=cmd, out=result["stdout"])
+                    assert result["stdout"], \
+                        "Empty output for 'npu voq {opt}' on UP port {port} tc {t}, {asic}.\nCommand: {cmd}".format(
+                            opt=option, port=port, t=t, asic=asic, cmd=cmd)
 
                 if selected_down_ports:
                     logging.info("Checking Down Port{} : ".format("s" if all_ports else ""))
                     for port in selected_down_ports:
-                        result = duthost.command(show_command.format(option, port, t, src, asic_namespace_string))
+                        cmd = show_command.format(option, port, t, src, asic_namespace_string)
+                        result = duthost.command(cmd)
                         traceback_found = "Traceback" in result["stdout"]
-                        assert not traceback_found, "Traceback found in show platform npu voq for DOWN Port"
-                        assert result["stdout"], "No output for this CLI"
+                        assert not traceback_found, \
+                            "Traceback found in 'npu voq {opt}' for DOWN port {port} tc {t} on {asic}.\nCommand: {cmd}\nOutput:\n{out}".format(
+                                opt=option, port=port, t=t, asic=asic, cmd=cmd, out=result["stdout"])
+                        assert result["stdout"], \
+                            "Empty output for 'npu voq {opt}' on DOWN port {port} tc {t}, {asic}.\nCommand: {cmd}".format(
+                                opt=option, port=port, t=t, asic=asic, cmd=cmd)
 
 def test_show_platform_npu_global(duthosts, enum_rand_one_per_hwsku_hostname, request):
     """
@@ -259,11 +290,16 @@ def test_show_platform_npu_global(duthosts, enum_rand_one_per_hwsku_hostname, re
     namespace_list = duthost.get_asic_namespace_list() if duthost.is_multi_asic else ['']
     for namespace in  namespace_list:
         show_command = "sudo show platform npu global -n '{}'"
-        result = duthost.command(show_command.format(namespace))
+        cmd = show_command.format(namespace)
+        result = duthost.command(cmd)
         logging.info(result)
         traceback_found = "Traceback" in result["stdout"]
-        assert not traceback_found, "Traceback found in show platform npu global"
-        assert result["stdout"], "No output for this CLI"
+        assert not traceback_found, \
+            "Traceback found in 'npu global' for namespace '{ns}'.\nCommand: {cmd}\nOutput:\n{out}".format(
+                ns=namespace, cmd=cmd, out=result["stdout"])
+        assert result["stdout"], \
+            "Empty output for 'npu global' on namespace '{ns}'.\nCommand: {cmd}".format(
+                ns=namespace, cmd=cmd)
 
 def test_config_platform_cisco_voq_watchdog(duthosts, enum_rand_one_per_hwsku_hostname, request):
     """
@@ -290,5 +326,9 @@ def test_config_platform_cisco_voq_watchdog(duthosts, enum_rand_one_per_hwsku_ho
         config_command = "config platform cisco voq-watchdog {}".format(option)
         result = duthost.command(config_command)
         traceback_found = "Traceback" in result["stdout"]
-        assert not traceback_found, "Traceback found in config platform cisco voq-watchdog"
-        assert "Successfully" in result["stdout"], "Failed at config platform cisco voq-watchdog"
+        assert not traceback_found, \
+            "Traceback found in 'config platform cisco voq-watchdog {opt}'.\nCommand: {cmd}\nOutput:\n{out}".format(
+                opt=option, cmd=config_command, out=result["stdout"])
+        assert "Successfully" in result["stdout"], \
+            "'config platform cisco voq-watchdog {opt}' did not report success.\nCommand: {cmd}\nOutput:\n{out}".format(
+                opt=option, cmd=config_command, out=result["stdout"])
