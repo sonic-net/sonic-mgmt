@@ -16,7 +16,7 @@
 - name: Get host server address
   script: scripts/vmhost_server_address.py --inv-file {{ vm_file }} --server-name {{ testbed_facts['server'] }}
   args:
-    executable: python
+    executable: "{{ ansible_playbook_python }}"
   delegate_to: localhost
   register: vmhost_server_address
 
