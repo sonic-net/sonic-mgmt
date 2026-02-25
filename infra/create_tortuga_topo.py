@@ -515,15 +515,14 @@ def update_controller_test(data, spine_ports, leaf_ports, host_ports):
     os.system("sed -i '0,/LEAF_PORTS=/{{s/.*LEAF_PORTS\=.*/{}/}}' ./tortuga_controller/test.sh".format(leaf_str))
     os.system("sed -i '0,/SPINE_PORTS=/{{s/.*SPINE_PORTS\=.*/{}/}}' ./tortuga_controller/test.sh".format(spine_str))
 
-def start_controller(device_type):
-    test_path = "./tortuga_controller/test.sh"
+def start_controller(device_type, fabric_num):
     cwd = os.getcwd()
     os.chdir('./tortuga_controller')
 
     if device_type == 'laguna':
-        os.system("bash -c './test.sh -no-stp -dup-ok |& tee test_op.log'".format(test_path))
+        os.system("bash -c './test.sh -c {} -no-stp -dup-ok |& tee test_op.log'".format(fabric_num))
     else:
-        os.system("bash -c './test.sh |& tee test_op.log'".format(test_path))
+        os.system("bash -c './test.sh -c {} |& tee test_op.log'".format(fabric_num))
 
     test_output = subprocess.check_output("grep -i 'Completed in' test_op.log | wc -l", shell=True).strip()
 
@@ -725,6 +724,7 @@ def main():
     skip_sanity = args['skip_sanity']
     sim_attach = args['sim_attach']
     fabric_name = args['fabric_name']
+    fabric_num = 1
 
     print("using topo & platform to filename mapping in '{}'".format(TOPO_PLATFORM_FILE_MAP))
     with open(TOPO_PLATFORM_FILE_MAP) as cfg_file:
@@ -740,6 +740,15 @@ def main():
     if 'tortuga-controller' in topo_type:
         replace_fabric_name(topo_type,topo_yaml,fabric_name)
 
+    if 'tortuga-controller-dci1x2-2' in topo_type:
+        fabric_num = 2
+    elif 'tortuga-controller-dci2x2-2' in topo_type:
+        fabric_num = 2
+    elif 'tortuga-controller-dci1x2-3' in topo_type:
+        fabric_num = 3
+    else:
+        fabric_num = 1
+ 
     dut_platform = get_dut_platform(device_type)
 
     vxr_start_begin = datetime.datetime.now()
@@ -808,7 +817,7 @@ def main():
     else:
         leaf_ports, host_ports, spine_ports = print_env_info(data, device_type)
         update_controller_test(data, spine_ports, leaf_ports, host_ports)
-        sanity_success = start_controller(device_type)
+        sanity_success = start_controller(device_type, fabric_num)
         if sanity_success:
             print("Successfully pushed configuration and Traffic Test passed")
             ret = 0

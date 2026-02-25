@@ -9,7 +9,6 @@ simulation:
     partition: regression
     cluster: rch-slurm-m1
 
-
 devices:
   trex1: &host
     data_ports:
