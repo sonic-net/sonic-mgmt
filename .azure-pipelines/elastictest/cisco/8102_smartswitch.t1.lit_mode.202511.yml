@@ -36,7 +36,7 @@ parameters:
 
   - name: DPU_NAME
     type: string
-    default: "str3-8102-07-dpu-0, str3-8102-07-dpu-1, str3-8102-07-dpu-2, str3-8102-07-dpu-3, str3-8102-07-dpu-4, str3-8102-07-dpu-5, str3-8102-07-dpu-6, str3-8102-07-dpu-7"
+    default: "str3-8102-07-dpu-0,str3-8102-07-dpu-1,str3-8102-07-dpu-2,str3-8102-07-dpu-3,str3-8102-07-dpu-4,str3-8102-07-dpu-5,str3-8102-07-dpu-6,str3-8102-07-dpu-7"
     displayName: "DPU Name"
 
   - name: MIN_WORKER
@@ -131,7 +131,7 @@ stages:
         SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
         SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
         FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
-        COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }} --host-pattern ${{ parameters.DUT_NAME }}
+        COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }} --host-pattern "${{ parameters.DUT_NAME }}" --dpu-pattern "${{ parameters.DPU_NAME }}"
         MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
