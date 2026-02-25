@@ -12,7 +12,7 @@ from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until, setup_ferret
 from tests.common.platform.device_utils import check_neighbors
-from typing import Dict, Optional
+from typing import Optional, Sequence, Tuple, Union, Dict
 
 SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
@@ -22,6 +22,11 @@ TMP_VLAN_FILE = '/tmp/vlan_interfaces.json'
 TMP_PORTS_FILE = '/tmp/ports.json'
 TMP_PEER_INFO_FILE = "/tmp/peer_dev_info.json"
 TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
+SS_TARGET_TYPE_HDR = "x-sonic-ss-target-type"
+SS_TARGET_INDEX_HDR = "x-sonic-ss-target-index"
+
+
+GrpcMetadata = Union[Dict[str, str], Sequence[Tuple[str, str]]]
 
 
 @dataclass(frozen=True)
@@ -32,6 +37,18 @@ class GnoiUpgradeConfig:
     protocol: str = "HTTP"
     allow_fail: bool = False
     to_version: Optional[str] = None  # Optional expected version string to validate after upgrade
+    ss_target_type: Optional[str] = None   # e.g. "dpu"
+    ss_target_index: Optional[int] = None  # e.g. 3
+    metadata: Optional[GrpcMetadata] = None
+    ss_reboot_ready_timeout: int = 1200
+    ss_reboot_message: str = "Rebooting DPU for maintenance"
+
+
+def build_smartswitch_metadata(target_type: str, target_index: int):
+    return [
+        (SS_TARGET_TYPE_HDR, str(target_type)),
+        (SS_TARGET_INDEX_HDR, str(target_index)),
+    ]
 
 
 def pytest_runtest_setup(item):
