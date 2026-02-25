@@ -1,7 +1,7 @@
 from __future__ import (absolute_import, division, print_function)
 import os.path
 import yaml
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 
 from ansible.utils.display import Display
 from ansible.plugins.lookup import LookupBase

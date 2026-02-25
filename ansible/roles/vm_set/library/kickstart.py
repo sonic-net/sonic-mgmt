@@ -37,7 +37,7 @@ class SerialSession(object):
     def __init__(self, port):
         self.enabled = False
         logging.debug('Starting')
-        self.tn = Telnet('127.0.0.1', port)
+        self.tn = Telnet('127.0.0.1', port)  # nosemgrep: telnetlib
         self.tn.write(encode('\r\n'))
 
         return
@@ -86,8 +86,7 @@ class SerialSession(object):
                 self.pair(password, [r'>'], 10)
             except EMatchNotFound:
                 # lgtm [py/clear-text-logging-sensitive-data]
-                logging.debug(
-                    'The original password "%s" is not working' % password)
+                logging.debug('The original password is not working')
                 raise EWrongDefaultPassword
 
         return
