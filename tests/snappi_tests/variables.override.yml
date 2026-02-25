@@ -4,7 +4,7 @@ vms-snappi-sonic-multidut:
         rx_ports:
           - hostname: sonic-s6100-dut1
             port_name: Ethernet72
-          - host_name: sonic-s6100-dut2
+          - hostname: sonic-s6100-dut2
             port_name: Ethernet76
         tx_ports:
           - hostname: sonic-s6100-dut2
