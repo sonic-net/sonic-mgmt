@@ -24,7 +24,7 @@ Usage:
         thrift_client=self.dst_client,
         asic_type=self.asic_type
     )
-    
+
     # In Executor/Orchestrator
     ptftest.buffer_ctrl.hold_buffer([dst_port])
     ptftest.buffer_ctrl.send_traffic(src_port, dst_port, count, pg=3)
@@ -33,7 +33,8 @@ Usage:
 
 import logging
 import sys
-from typing import Set, Dict, Callable, Any, Optional, Tuple, FrozenSet
+from typing import Set, Dict, Callable, Any, Tuple, FrozenSet
+
 
 # Local utility for consistent logging (matches sai_qos_tests.py pattern)
 def log_message(message: str, level: str = 'info', to_stderr: bool = False) -> None:
@@ -48,14 +49,15 @@ def log_message(message: str, level: str = 'info', to_stderr: bool = False) -> N
     log_fn = log_funcs.get(level.lower(), logging.info)
     log_fn(message)
 
+
 class BufferOccupancyController:
     """
     Manages buffer occupancy state for probing tests.
-    
+
     Tracks which ports have TX disabled (buffer held) and maintains
     expected vs actual cached packet counts for automatic restoration.
     """
-    
+
     def __init__(
         self,
         hold_buf_fn: Callable,
@@ -68,7 +70,7 @@ class BufferOccupancyController:
     ):
         """
         Initialize BufferOccupancyController.
-        
+
         Args:
             hold_buf_fn: Function to hold buffer (disable port TX)
             drain_buf_fn: Function to drain buffer (enable port TX)
@@ -85,32 +87,32 @@ class BufferOccupancyController:
         self._ptftest_ref = ptftest_ref
         self._thrift_client = thrift_client
         self._asic_type = asic_type
-        
+
         # State tracking
         self._tx_disabled_ports: Set[int] = set()  # Ports with TX disabled (buffer held)
-        self._expected_cached_packets: Dict[Tuple[int, int, FrozenSet], int] = {}  # {(src, dst, frozenset(keys)): count}
-        self._actual_cached_packets: Dict[Tuple[int, int, FrozenSet], int] = {}    # {(src, dst, frozenset(keys)): count}
-    
+        self._expected_cached_packets: Dict[Tuple[int, int, FrozenSet], int] = {}  # Expected
+        self._actual_cached_packets: Dict[Tuple[int, int, FrozenSet], int] = {}  # Actual
+
     # ========== Public API ==========
-    
+
     def hold_buffer(self, port_ids: list) -> None:
         """
         Hold buffer on ports by disabling TX (simulate congestion).
-        
+
         Args:
             port_ids: List of port IDs to hold buffer on
         """
         self._hold_buf_fn(self._thrift_client, self._asic_type, port_ids)
         # Track state: add to disabled set
         self._tx_disabled_ports.update(port_ids)
-    
+
     def drain_buffer(self, port_ids: list, last_port: bool = False) -> None:
         """
         Drain buffer on ports by enabling TX.
-        
+
         Note: Currently implemented via port TX enable. Future implementations
         may use more granular drain APIs (schedule/pg/queue level).
-        
+
         Args:
             port_ids: List of port IDs to drain buffer on
             last_port: Whether this is the last port (passed to drain_buf_fn)
@@ -122,19 +124,19 @@ class BufferOccupancyController:
         for key in list(self._actual_cached_packets.keys()):
             if key[1] in port_ids:  # key[1] is dst_port
                 self._actual_cached_packets[key] = 0
-    
+
     def is_buffer_held(self, port_id: int) -> bool:
         """
         Check if buffer is held on a port (TX disabled).
-        
+
         Args:
             port_id: Port ID to check
-            
+
         Returns:
             bool: True if buffer is held (TX disabled), False otherwise
         """
         return port_id in self._tx_disabled_ports
-    
+
     def send_traffic(
         self,
         src_port_id: int,
@@ -145,14 +147,14 @@ class BufferOccupancyController:
     ) -> None:
         """
         Send traffic from src_port to dst_port with automatic buffer restoration.
-        
+
         Args:
             src_port_id: Source port ID
             dst_port_id: Destination port ID
             count: Number of packets to send
             auto_restore: If True, automatically restore previous buffer states before sending
             **traffic_keys: Traffic identification keys (e.g., pg=3, queue=5)
-        
+
         Workflow:
             1. Auto-restore: Restore gaps between expected and actual cached packets
             2. Send new traffic
@@ -161,21 +163,21 @@ class BufferOccupancyController:
         # Step 1: Auto-restore previous buffer states if enabled
         if auto_restore:
             self._auto_restore_buffers()
-        
+
         # Step 2: Get packet and send new traffic
         pkt = self._stream_mgr.get_packet(src_port_id, dst_port_id, **traffic_keys)
-        
+
         if pkt is None:
             log_message(f"ERROR: Cannot find packet for src={src_port_id}, dst={dst_port_id}, keys={traffic_keys}")
             raise ValueError(f"Packet not found for src={src_port_id}, dst={dst_port_id}, keys={traffic_keys}")
-        
+
         self._send_packet_fn(self._ptftest_ref, src_port_id, pkt, count)
-        
+
         # Step 3: Update actual cached packets if dst_port buffer is held (packets buffered)
         if self.is_buffer_held(dst_port_id):
             key = (src_port_id, dst_port_id, frozenset(traffic_keys.items()))
             self._actual_cached_packets[key] = self._actual_cached_packets.get(key, 0) + count
-    
+
     def persist_buffer_occupancy(
         self,
         src_port_id: int,
@@ -185,23 +187,23 @@ class BufferOccupancyController:
     ) -> None:
         """
         Set expected buffer occupancy for automatic restoration.
-        
+
         Called by Orchestrator after completing a probing phase to declare desired buffer state.
         Only sets expected - actual reflects real send_traffic history and is managed by
         send_traffic/drain_buffer, not by persist.
-        
+
         Args:
             src_port_id: Source port ID
             dst_port_id: Destination port ID
             count: Number of packets to maintain in buffer (will be restored by auto_restore)
             **traffic_keys: Traffic identification (e.g., pg=3)
-        
+
         Design Philosophy (Solution 2):
             - persist sets expected = "what buffer state should be maintained"
             - actual is managed by send_traffic (increments) and drain_buffer (clears)
             - persist does NOT modify actual - that would falsify actual send history
             - Caller must understand: persist after Phase 2 means "maintain this state for next PG"
-        
+
         Example:
             # After Phase 2 finds ingress_drop_threshold = 20500
             buffer_ctrl.persist_buffer_occupancy(src_port_id=11, dst_port_id=1, count=20500, pg=3)
@@ -211,14 +213,15 @@ class BufferOccupancyController:
         self._expected_cached_packets[key] = count
         # Do NOT modify actual - it reflects real send_traffic history
         actual = self._actual_cached_packets.get(key, 0)
-        log_message(f"Persisted buffer: expected={count}, actual={actual} (port {src_port_id}->{dst_port_id}, keys={traffic_keys})")
-    
+        log_message(f"Persisted buffer: expected={count}, actual={actual} "
+                    f"(port {src_port_id}->{dst_port_id}, keys={traffic_keys})")
+
     # ========== Internal Methods ==========
-    
+
     def _auto_restore_buffers(self) -> None:
         """
         Automatically restore buffer gaps between expected and actual cached packets.
-        
+
         For each flow where actual < expected, send additional packets to restore the gap.
         """
         restoration_needed = []
@@ -232,7 +235,7 @@ class BufferOccupancyController:
                     'traffic_keys': dict(key[2]),
                     'count': expected - actual
                 })
-        
+
         if restoration_needed:
             log_message(f"Auto-restore: {len(restoration_needed)} flows need restoration")
             for item in restoration_needed:
@@ -244,13 +247,14 @@ class BufferOccupancyController:
                     log_message(f"  WARNING: Cannot find packet for restoration: "
                                 f"src={item['src_port']}, dst={item['dst_port']}, keys={item['traffic_keys']}")
                     continue
-                
+
                 self._send_packet_fn(self._ptftest_ref, item['src_port'], restore_pkt, item['count'])
-                
+
                 # Update actual to match expected (only if dst_port buffer is held)
                 if self.is_buffer_held(item['dst_port']):
                     self._actual_cached_packets[item['key']] = self._expected_cached_packets[item['key']]
-                    log_message(f"  Restored {item['count']} pkts: port {item['src_port']} -> {item['dst_port']} "
-                                f"(keys={item['traffic_keys']})")
+                    log_message(f"  Restored {item['count']} pkts: port {item['src_port']} -> "
+                                f"{item['dst_port']} (keys={item['traffic_keys']})")
                 else:
-                    log_message(f"  WARNING: Skip recording restoration - port {item['dst_port']} TX is enabled (buffer drained)")
+                    log_message(f"  WARNING: Skip recording restoration - port {item['dst_port']} "
+                                f"TX is enabled (buffer drained)")
