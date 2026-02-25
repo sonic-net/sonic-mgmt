@@ -242,7 +242,8 @@ def test_po_update_io_no_loss(
 
     if len(pcs) < 2:
         pytest.skip(
-            "Skip test due to there is no enough port channel with at least 2 members exists in current topology.")
+            "Skip test as there are not enough port channels with members on asic {} on dut {}"
+            .format(enum_frontend_asic_index, duthost))
 
     # generate out_pc tuples similar to pc tuples, but that are on the same asic as asichost
     out_pcs = [
@@ -253,7 +254,7 @@ def test_po_update_io_no_loss(
 
     if len(out_pcs) < 1:
         pytest.skip(
-            "Skip test as there are no port channels on asic {} on dut {}".format(enum_frontend_asic_index, duthost))
+            "Skip test as there are not enough port channels with at least 2 members in current topology.")
     # Select out pc from the port channels that are on the same asic as asichost
     out_pc = random.sample(out_pcs, k=1)[0]
     selected_pcs = random.sample(pcs, k=2)
