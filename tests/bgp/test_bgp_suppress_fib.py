@@ -1233,7 +1233,7 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
 def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_dut_hostname, enum_upstream_dut_hostname,
                                                     tbinfo, nbrhosts, ptfadapter, localhost, prepare_param,
                                                     restore_bgp_suppress_fib, generate_route_and_traffic_data,
-						    loganalyzer):
+                                                    loganalyzer):
     duthost_down = duthosts[enum_downstream_dut_hostname]
     duthost_up = duthosts[enum_upstream_dut_hostname]
     multi_dut = False
