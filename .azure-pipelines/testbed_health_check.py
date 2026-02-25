@@ -12,6 +12,7 @@
 import argparse
 import logging
 import os
+import re
 import sys
 import json
 from datetime import datetime
@@ -96,6 +97,11 @@ class TestbedHealthChecker:
         self.log_verbosity = log_verbosity
         self.output_file = output_file
 
+        # DPU-related state
+        self.dpu_hosts = []
+        self.npu_hosts = []
+        self.nat_enabled_hosts = []
+
         self.check_result = TestbedCheckResult(code=0, errmsg=[], data={})
 
     def init_hosts(self):
@@ -121,7 +127,171 @@ class TestbedHealthChecker:
         self.is_chassis = self.duts_basic_facts[self.sonichosts[0].hostname][
             "ansible_facts"]["dut_basic_facts"]["is_chassis"]
 
+        # Identify DPU and NPU hosts
+        self._identify_dpu_and_npu_hosts()
+
         logger.info("======================= init_hosts ends =======================")
+
+    def _identify_dpu_and_npu_hosts(self):
+        """
+        Identify DPU and NPU hosts from the sonichosts list.
+        DPU hosts are identified by 'dpu' in the hostname.
+        """
+        logger.info("======================= _identify_dpu_and_npu_hosts starts =======================")
+
+        for sonichost in self.sonichosts:
+            hostname = sonichost.hostname
+
+            if "dpu" in hostname.lower():
+                self.dpu_hosts.append(sonichost)
+                logger.info("Identified DPU host: {}".format(hostname))
+            else:
+                self.npu_hosts.append(sonichost)
+                logger.info("Identified NPU host: {}".format(hostname))
+
+        logger.info("Total DPU hosts: {}, NPU hosts: {}".format(len(self.dpu_hosts), len(self.npu_hosts)))
+        logger.info("======================= _identify_dpu_and_npu_hosts ends =======================")
+
+    def _get_dpu_ssh_port_from_inventory(self, dpu_hostname):
+        """
+        Get the SSH port for a DPU host from the inventory.
+
+        Args:
+            dpu_hostname: (str). DPU hostname.
+
+        Returns:
+            str: SSH port for the DPU host, or None if not found.
+        """
+        try:
+            dpu_host = init_host(self.inventory, dpu_hostname, options={"verbosity": self.log_verbosity})
+            if dpu_host:
+                ssh_port = dpu_host.get_host_visible_var(dpu_hostname, "ansible_ssh_port")
+                return str(ssh_port) if ssh_port else None
+        except Exception as e:
+            logger.warning("Failed to get SSH port for DPU {}: {}".format(dpu_hostname, repr(e)))
+        return None
+
+    def _get_dpu_name_ssh_port_dict(self, npu_host):
+        """
+        Get a dictionary mapping DPU names to SSH ports for DPUs associated with the given NPU host.
+
+        Args:
+            npu_host: SonicHost object for the NPU.
+
+        Returns:
+            dict: Mapping of DPU name (e.g., 'dpu0') to SSH port.
+        """
+        npu_hostname = npu_host.hostname
+        dpu_name_ssh_port_dict = {}
+
+        for dpu_host in self.dpu_hosts:
+            dpu_hostname = dpu_host.hostname
+            # Check if this DPU belongs to this NPU (DPU hostname should contain NPU hostname)
+            if npu_hostname in dpu_hostname:
+                ssh_port = self._get_dpu_ssh_port_from_inventory(dpu_hostname)
+                if ssh_port:
+                    # Extract DPU index from hostname (e.g., 'switch-01-dpu-0' -> 'dpu0')
+                    match = re.search(r"dpu[.-]?(\d+)", dpu_hostname, re.IGNORECASE)
+                    if match:
+                        dpu_index = match.group(1)
+                        dpu_name = "dpu{}".format(dpu_index)
+                        dpu_name_ssh_port_dict[dpu_name] = ssh_port
+                        logger.info("Found DPU {} with SSH port {} for NPU {}".format(
+                            dpu_name, ssh_port, npu_hostname))
+
+        return dpu_name_ssh_port_dict
+
+    def _is_nat_enabled_for_dpu(self, npu_host):
+        """
+        Check if NAT is already enabled for DPU access on the given NPU host.
+
+        Args:
+            npu_host: SonicHost object for the NPU.
+
+        Returns:
+            bool: True if NAT is enabled, False otherwise.
+        """
+        try:
+            nat_iptable_output = npu_host.shell("sudo iptables -t nat -L", module_ignore_errors=True).get("stdout", "")
+            # Pattern to match NAT DNAT rules for DPU SSH access
+            pattern_nat_result = r'.*DNAT.*tcp.*anywhere.*anywhere.*tcp dpt:.* to:169\.254\.200.*22.*'
+            if re.search(pattern_nat_result, nat_iptable_output):
+                logger.info("NAT is already enabled on {}".format(npu_host.hostname))
+                return True
+        except Exception as e:
+            logger.warning("Failed to check NAT status on {}: {}".format(npu_host.hostname, repr(e)))
+        return False
+
+    def enable_nat_for_dpuhosts(self):
+        """
+        Enable NAT on NPU hosts to make DPU hosts reachable.
+        This is similar to the enable_nat_for_dpuhosts fixture in tests/conftest.py.
+        NAT is automatically enabled when DPU hosts are detected.
+        """
+        if not self.dpu_hosts:
+            logger.info("No DPU hosts found. Skipping NAT enablement.")
+            return
+
+        logger.info("======================= enable_nat_for_dpuhosts starts =======================")
+        logger.info("DPU hosts detected. Auto-enabling NAT for DPU reachability.")
+
+        for npu_host in self.npu_hosts:
+            npu_hostname = npu_host.hostname
+
+            # Check if NAT is already enabled
+            if self._is_nat_enabled_for_dpu(npu_host):
+                self.nat_enabled_hosts.append(npu_hostname)
+                continue
+
+            # Get DPU name to SSH port mapping for this NPU
+            dpu_name_ssh_port_dict = self._get_dpu_name_ssh_port_dict(npu_host)
+
+            if not dpu_name_ssh_port_dict:
+                logger.info("No DPUs found for NPU {}. Skipping NAT enablement.".format(npu_hostname))
+                continue
+
+            logger.info("Enabling NAT on {} for DPUs: {}".format(npu_hostname, dpu_name_ssh_port_dict))
+
+            try:
+                # Determine sysctl file based on OS version
+                os_release = npu_host.shell("cat /etc/os-release", module_ignore_errors=True).get("stdout", "")
+                is_bookworm = "bookworm" in os_release
+                sysctl_file = "/etc/sysctl.conf" if is_bookworm else "/usr/lib/sysctl.d/90-sonic.conf"
+
+                # Enable IP forwarding
+                npu_host.shell(
+                    "echo net.ipv4.ip_forward=1 >> {}".format(sysctl_file),
+                    module_attrs={"become": True}
+                )
+                npu_host.shell(
+                    "echo net.ipv4.conf.eth0.forwarding=1 >> {}".format(sysctl_file),
+                    module_attrs={"become": True}
+                )
+                npu_host.shell(
+                    "sysctl -p {}".format(sysctl_file),
+                    module_attrs={"become": True}
+                )
+
+                # Run sonic-dpu-mgmt-traffic.sh to enable NAT
+                dpus_arg = ",".join(dpu_name_ssh_port_dict.keys())
+                ports_arg = ",".join(dpu_name_ssh_port_dict.values())
+                nat_cmd = "sonic-dpu-mgmt-traffic.sh inbound -e --dpus {} --ports {}".format(dpus_arg, ports_arg)
+                npu_host.shell(nat_cmd, module_attrs={"become": True})
+
+                # Save iptables rules
+                npu_host.shell("iptables-save > /etc/iptables/rules.v4", module_attrs={"become": True})
+
+                # Verify NAT is enabled
+                if self._is_nat_enabled_for_dpu(npu_host):
+                    self.nat_enabled_hosts.append(npu_hostname)
+                    logger.info("Successfully enabled NAT on {}".format(npu_hostname))
+                else:
+                    logger.warning("NAT enablement verification failed on {}".format(npu_hostname))
+
+            except Exception as e:
+                logger.error("Failed to enable NAT on {}: {}".format(npu_hostname, repr(e)))
+
+        logger.info("======================= enable_nat_for_dpuhosts ends =======================")
 
     def pre_check(self):
         """
@@ -233,6 +403,9 @@ class TestbedHealthChecker:
         try:
 
             self.init_hosts()
+
+            # Enable NAT for DPU hosts
+            self.enable_nat_for_dpuhosts()
 
             self.pre_check()
 
