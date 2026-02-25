@@ -1,4 +1,3 @@
-import logging
 import pytest
 import logging
 import time
@@ -8,7 +7,6 @@ from pathlib import Path
 from collections import defaultdict
 import os
 
-from tests.common.config_reload import config_reload
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.ha.smartswitch_ha_helper import PtfTcpTestAdapter
 from tests.common.ha.smartswitch_ha_io import SmartSwitchHaTrafficTest
@@ -30,21 +28,6 @@ from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, a
 from tests.common import config_reload
 import configs.privatelink_config as pl
 from tests.common.helpers.assertions import pytest_require as pt_require
-
-logger = logging.getLogger(__name__)
-
-ENABLE_GNMI_API = True
-
-
-@pytest.fixture(scope="module")
-def setup_dash_ha_from_json(duthosts):
-    pass
-
-
-@pytest.fixture(scope="module")
-def activate_dash_ha_from_json(duthosts):
-    pass
-
 from tests.ha.ha_utils import (
 
     build_dash_ha_scope_args,
@@ -54,7 +37,7 @@ from tests.ha.ha_utils import (
     build_dash_ha_set_args,
     proto_utils_hset
 )
-
+ENABLE_GNMI_API = True
 logger = logging.getLogger(__name__)
 
 
