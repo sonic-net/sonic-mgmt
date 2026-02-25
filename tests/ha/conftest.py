@@ -1,19 +1,33 @@
+import logging
 import pytest
-import time
-import json
-
-from tests.common.config_reload import config_reload
 from pathlib import Path
 from collections import defaultdict
+import os
+import json
+import time
+
+from tests.common.config_reload import config_reload
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from common.ha.smartswitch_ha_helper import PtfTcpTestAdapter
-from common.ha.smartswitch_ha_io import SmartSwitchHaTrafficTest
-from common.ha.smartswitch_ha_helper import (
+from tests.common.ha.smartswitch_ha_helper import PtfTcpTestAdapter
+from tests.common.ha.smartswitch_ha_io import SmartSwitchHaTrafficTest
+from tests.common.ha.smartswitch_ha_helper import (
     add_port_to_namespace,
     remove_namespace,
     add_static_route_to_ptf,
     add_static_route_to_dut
 )
+
+from tests.ha.ha_utils import (
+
+    build_dash_ha_scope_args,
+    wait_for_pending_operation_id,
+    build_dash_ha_scope_activate_args,
+    wait_for_ha_state,
+    build_dash_ha_set_args,
+    proto_utils_hset
+)
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
@@ -408,3 +422,127 @@ def setup_ha_config(duthosts):
         final_cfg[f"DUT{switch_id}"] = cfg
 
     return final_cfg
+
+
+@pytest.fixture(scope="module")
+def setup_dash_ha_from_json(duthosts):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(current_dir, "..", "common", "ha")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+
+    with open(ha_set_file) as f:
+        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+
+    # -------------------------------------------------
+    # Step 1: Program HA SET on BOTH DUTs
+    # -------------------------------------------------
+    for duthost in duthosts:
+        for key, fields in ha_set_data.items():
+            proto_utils_hset(
+                duthost,
+                table="DASH_HA_SET_CONFIG_TABLE",
+                key=key,
+                args=build_dash_ha_set_args(fields),
+            )
+
+    # -------------------------------------------------
+    # Step 2: Initial HA SCOPE per DUT
+    # -------------------------------------------------
+    ha_scope_per_dut = [
+        (
+            "vdpu0_0:haset0_0",
+            {
+                "version": "1",
+                "disabled": "true",
+                "desired_ha_state": "active",
+                "ha_set_id": "haset0_0",
+                "owner": "dpu",
+            },
+        ),
+        (
+            "vdpu1_0:haset0_0",
+            {
+                "version": "1",
+                "disabled": "true",
+                "desired_ha_state": "unspecified",
+                "ha_set_id": "haset0_0",
+                "owner": "dpu",
+            },
+        ),
+    ]
+
+    for duthost, (key, fields) in zip(duthosts, ha_scope_per_dut):
+        proto_utils_hset(
+            duthost,
+            table="DASH_HA_SCOPE_CONFIG_TABLE",
+            key=key,
+            args=build_dash_ha_scope_args(fields),
+        )
+
+
+@pytest.fixture(scope="module")
+def activate_dash_ha_from_json(duthosts):
+    # -------------------------------------------------
+    # Step 4: Activate Role (using pending_operation_ids)
+    # -------------------------------------------------
+    activate_scope_per_dut = [
+        (
+            "vdpu0_0:haset0_0",
+            {
+                "version": "1",
+                "disabled": False,
+                "desired_ha_state": "active",
+                "ha_set_id": "haset0_0",
+                "owner": "dpu",
+            },
+        ),
+        (
+            "vdpu1_0:haset0_0",
+            {
+                "version": "1",
+                "disabled": False,
+                "desired_ha_state": "unspecified",
+                "ha_set_id": "haset0_0",
+                "owner": "dpu",
+            },
+        ),
+    ]
+    for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
+        proto_utils_hset(
+            duthost,
+            table="DASH_HA_SCOPE_CONFIG_TABLE",
+            key=key,
+            args=build_dash_ha_scope_args(fields),
+        )
+    for idx, (duthost, (key, fields)) in enumerate(zip(duthosts, activate_scope_per_dut)):
+        pending_id = wait_for_pending_operation_id(
+            duthost,
+            scope_key=key,
+            expected_op_type="activate_role",
+            timeout=120,
+            interval=2
+        )
+        assert pending_id, (
+            f"Timed out waiting for active pending_operation_id "
+            f"for {duthost.hostname} scope {key}"
+        )
+
+        logger.info(f"DASH HA {duthost.hostname} found pending id {pending_id}")
+        proto_utils_hset(
+            duthost,
+            table="DASH_HA_SCOPE_CONFIG_TABLE",
+            key=key,
+            args=build_dash_ha_scope_activate_args(fields, pending_id),
+        )
+        # Verify HA state using fields
+        expected_state = "active" if idx == 0 else "standby"
+        assert wait_for_ha_state(
+            duthost,
+            scope_key=key,
+            expected_state=expected_state,
+            timeout=120,
+            interval=5,
+        ), f"HA did not reach expected state {expected_state} for {key} on {duthost.hostname}"
+        logger.info(f"DASH HA Step-4 Activate Role completed for {duthost.hostname}")
+    logger.info("DASH HA Step-4 Activate Role completed")
+    yield
