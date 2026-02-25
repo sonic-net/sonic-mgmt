@@ -1,3 +1,12 @@
+- name: Create backplane bridge br-b-{{ vm_set_name }}
+  become: yes
+  command: brctl addbr br-b-{{ vm_set_name }}
+  failed_when: false
+
+- name: Bring up backplane bridge br-b-{{ vm_set_name }}
+  become: yes
+  command: ip link set br-b-{{ vm_set_name }} up
+
 - name: Create VMs network
   become: yes
   vm_topology:

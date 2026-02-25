@@ -1,2 +1,12 @@
 - include_tasks: remove_csonic.yml
   with_items: "{{ VM_targets }}"
+
+- name: Bring down backplane bridge br-b-{{ vm_set_name }}
+  become: yes
+  command: ip link set br-b-{{ vm_set_name }} down
+  failed_when: false
+
+- name: Remove backplane bridge br-b-{{ vm_set_name }}
+  become: yes
+  command: brctl delbr br-b-{{ vm_set_name }}
+  failed_when: false

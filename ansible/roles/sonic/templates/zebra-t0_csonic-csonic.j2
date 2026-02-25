@@ -12,7 +12,13 @@ log facility local4
 ! Enable link-detect (default disabled)
 {% for name, iface in host['interfaces'].items() %}
 interface {{ name }}
-link detect
+{% if iface['ipv4'] is defined %}
+ ip address {{ iface['ipv4'] }}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+ ipv6 address {{ iface['ipv6'] }}
+{% endif %}
+ link detect
 !
 {% endfor %}
 {% if host['bp_interface'] is defined %}
