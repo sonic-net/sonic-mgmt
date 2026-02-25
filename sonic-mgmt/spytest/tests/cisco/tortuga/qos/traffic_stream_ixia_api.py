@@ -212,31 +212,31 @@ def config_one_spine_three_leaf_topo(tb_dict):
             cfg_dut2 += cfg_str
             if p2 == 'D1':
                 continue
-            cfg_route_dut1 += 'ip route add {}/24 via {}\n'.format(net, net_map['D2D1P1'])
+            cfg_route_dut1 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D2D1P1'])
             ping_dut1 += 'ping -c 3 {}\n'.format(net_map['D2D1P1'])
-            cfg_route_dut3 += 'ip route add {}/24 via {}\n'.format(net, net_map['D1D3P1'])
+            cfg_route_dut3 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D1D3P1'])
             ping_dut3 += 'ping -c 3 {}\n'.format(net_map['D1D3P1'])
-            cfg_route_dut4 += 'ip route add {}/24 via {}\n'.format(net, net_map['D1D4P1'])
+            cfg_route_dut4 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D1D4P1'])
             ping_dut4 += 'ping -c 3 {}\n'.format(net_map['D1D4P1'])
         elif p1 == 'D3':
             cfg_dut3 += cfg_str
             if p2 == 'D1':
                 continue
-            cfg_route_dut1 += 'ip route add {}/24 via {}\n'.format(net, net_map['D3D1P1'])
+            cfg_route_dut1 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D3D1P1'])
             ping_dut1 += 'ping -c 3 {}\n'.format(net_map['D3D1P1'])
-            cfg_route_dut2 += 'ip route add {}/24 via {}\n'.format(net, net_map['D1D2P1'])
+            cfg_route_dut2 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D1D2P1'])
             ping_dut2 += 'ping -c 3 {}\n'.format(net_map['D1D2P1'])
-            cfg_route_dut4 += 'ip route add {}/24 via {}\n'.format(net, net_map['D1D4P1'])
+            cfg_route_dut4 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D1D4P1'])
             ping_dut4 += 'ping -c 3 {}\n'.format(net_map['D1D4P1'])
         else:
             cfg_dut4 += cfg_str
             if p2 == 'D1':
                 continue
-            cfg_route_dut1 += 'ip route add {}/24 via {}\n'.format(net, net_map['D4D1P1'])
+            cfg_route_dut1 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D4D1P1'])
             ping_dut1 += 'ping -c 3 {}\n'.format(net_map['D4D1P1'])
-            cfg_route_dut2 += 'ip route add {}/24 via {}\n'.format(net, net_map['D1D2P1'])
+            cfg_route_dut2 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D1D2P1'])
             ping_dut2 += 'ping -c 3 {}\n'.format(net_map['D1D2P1'])
-            cfg_route_dut3 += 'ip route add {}/24 via {}\n'.format(net, net_map['D1D3P1'])
+            cfg_route_dut3 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D1D3P1'])
             ping_dut3 += 'ping -c 3 {}\n'.format(net_map['D1D3P1'])
 
     st.config(tb_dict.D1, cfg_dut1, skip_tmpl=True)
@@ -286,21 +286,21 @@ def config_two_spine_two_leaf_topo(tb_dict):
             cfg_dut3 += cfg_str
             if p2 == 'D1' or p2 == 'D2':
                 continue
-            cfg_route_dut1 += 'ip route add {}/24 via {}\n'.format(net, net_map['D3D1P1'])
+            cfg_route_dut1 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D3D1P1'])
             ping_dut1 += 'ping -c 3 {}\n'.format(net_map['D3D1P1'])
-            cfg_route_dut2 += 'ip route add {}/24 via {}\n'.format(net, net_map['D3D2P1'])
+            cfg_route_dut2 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D3D2P1'])
             ping_dut2 += 'ping -c 3 {}\n'.format(net_map['D3D2P1'])
-            cfg_route_dut4 += 'ip route add {}/24 via {}\n'.format(net, net_map['D2D4P1'])
+            cfg_route_dut4 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D2D4P1'])
             ping_dut4 += 'ping -c 3 {}\n'.format(net_map['D2D4P1'])
         else:
             cfg_dut4 += cfg_str
             if p2 == 'D1' or p2 == 'D2':
                 continue
-            cfg_route_dut1 += 'ip route add {}/24 via {}\n'.format(net, net_map['D4D1P1'])
+            cfg_route_dut1 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D4D1P1'])
             ping_dut1 += 'ping -c 3 {}\n'.format(net_map['D4D1P1'])
-            cfg_route_dut2 += 'ip route add {}/24 via {}\n'.format(net, net_map['D4D2P1'])
+            cfg_route_dut2 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D4D2P1'])
             ping_dut2 += 'ping -c 3 {}\n'.format(net_map['D4D2P1'])
-            cfg_route_dut3 += 'ip route add {}/24 via {}\n'.format(net, net_map['D1D3P1'])
+            cfg_route_dut3 += 'config route add prefix {}/24 nexthop {}\n'.format(net, net_map['D1D3P1'])
             ping_dut3 += 'ping -c 3 {}\n'.format(net_map['D1D3P1'])
 
     st.config(tb_dict.D1, cfg_dut1, skip_tmpl=True)
@@ -330,21 +330,16 @@ def config_ixia_links(tb_dict, vars):
     global net_map
 
     # Configure DUT to traffic generator links. This is one time setup
+    # Note: cleanup_ip_interfaces() should be called before this to ensure clean state
     net_map = b2b_ip_map
     cfg_dut1 = ''
     cfg_dut2 = ''
     for key, value in net_map.items():
-        cfg_flush = 'ip route flush dev {}\nip addr flush dev {}\n'\
-                    .format(tb_dict[key], tb_dict[key])
         p1 = key[0:2]
         if p1 == 'D3':
-            cfg_dut1 += cfg_flush +\
-                'config interface ip add {} {}/24\n'.format(tb_dict[key],
-                                                            value)
+            cfg_dut1 += 'config interface ip add {} {}/24\n'.format(tb_dict[key], value)
         else:
-            cfg_dut2 += cfg_flush +\
-                'config interface ip add {} {}/24\n'.format(tb_dict[key],
-                                                            value)
+            cfg_dut2 += 'config interface ip add {} {}/24\n'.format(tb_dict[key], value)
     st.config(tb_dict.D3, cfg_dut1, skip_tmpl=True)
     st.config(tb_dict.D4, cfg_dut2, skip_tmpl=True)
 
@@ -369,8 +364,8 @@ def config_b2b_routes(vars, dut_str):
         if p1 != dut_str:
             continue
         net = ip_to_net(value)
-        cfg_dut += 'ip route add {}/24 via {}\n'.format(net, vars.if_map[i][idx])
-        uncfg = 'ip route del {}/24 via {}\n'.format(net, vars.if_map[i][idx])
+        cfg_dut += 'config route add prefix {}/24 nexthop {}\n'.format(net, vars.if_map[i][idx])
+        uncfg = 'config route del prefix {}/24 nexthop {}\n'.format(net, vars.if_map[i][idx])
         if dut_str == 'D3':
             vars.route_uncfg[1] += uncfg
         else:

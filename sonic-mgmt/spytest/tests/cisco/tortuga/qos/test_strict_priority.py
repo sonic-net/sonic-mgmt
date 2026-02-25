@@ -208,6 +208,7 @@ def setup_topo():
     if test_info['test_tgen'] == 'True':
         tgen_ports_check()
     yield
+    common_util.cleanup_ip_interfaces(test_info['dut'])
 
 '''
 gbps is the total stream rate in gigabits /sec

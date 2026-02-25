@@ -143,6 +143,8 @@ def setup_topo():
     # Now make sure we have the required tgen ports on the router side
     # Sometimes they have to be broken due to previous state of router
     yield
+    for dut in vars.b2b_dut:
+        common_util.cleanup_ip_interfaces(dut)
 
 def mode_to_speed(mode):
     # will accept a string like '1x800G' and return '800G'
@@ -282,11 +284,11 @@ def perform_traffic_test(frame_sz):
 
         dst_net = stream_api.ip_to_net(s1['dst_ip'])
         st.config(vars.b2b_dut[0],
-                  'ip route add {}/24 via {}\n'.format(dst_net, pair[1]),
+                  'config route add prefix {}/24 nexthop {}\n'.format(dst_net, pair[1]),
                   skip_tmpl=True)
         src_net = stream_api.ip_to_net(s1['src_ip'])
         st.config(vars.b2b_dut[1],
-                  'ip route add {}/24 via {}\n'.format(src_net, pair[0]),
+                  'config route add prefix {}/24 nexthop {}\n'.format(src_net, pair[0]),
                   skip_tmpl=True)
         st.wait(1)
 
@@ -313,9 +315,9 @@ def perform_traffic_test(frame_sz):
                 return 'Frame size={}: Stream loss% {:.2f}'.format(frame_sz, loss)
         # All config should now be removed to prepare for next breakout
         st.config(vars.b2b_dut[0],
-                  'ip route del {}/24 via {}\n'.format(dst_net, pair[1]))
+                  'config route del prefix {}/24 nexthop {}\n'.format(dst_net, pair[1]))
         st.config(vars.b2b_dut[1],
-                  'ip route del {}/24 via {}\n'.format(src_net, pair[0]))
+                  'config route del prefix {}/24 nexthop {}\n'.format(src_net, pair[0]))
     return 'OK'
 
 def perform_one_breakout(mode):

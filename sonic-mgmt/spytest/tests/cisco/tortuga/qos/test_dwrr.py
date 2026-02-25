@@ -78,6 +78,7 @@ def setup_topo():
     stream_api.config_one_leaf(tb_dict, test_info)
     st.log("setup topology Done")
     yield
+    common_util.cleanup_ip_interfaces(test_info['dut'])
 
 lossy = [0, 1, 2, 5, 6]
 lossless = [3, 4]

@@ -808,16 +808,56 @@ def convert_tc_to_dscp(dut, tc, asic_str=''):
     return None
 
 def cleanup_ip_interfaces(dut):
-    common_op = '''sonic-clear counters\nsonic-clear dropcounters\n
-        sonic-clear queuecounters\nsonic-clear pfccounters\n'''
-    result = st.show(dut, "show int count | awk '{print $1}' | grep Eth",
-                     skip_tmpl=True)
-    lines = result.splitlines()
-    for i in lines:
-        if 'Eth' not in i:
+    """Clean up IP interfaces - removes static routes and L3 config from CONFIG_DB"""
+    # Clear counters
+    st.config(dut, '''sonic-clear counters
+sonic-clear dropcounters
+sonic-clear queuecounters
+sonic-clear pfccounters''', skip_tmpl=True)
+    
+    skip_interfaces = ['eth0', 'lo', 'docker0', 'Loopback', 'Management']
+    
+    # Clean static routes from CONFIG_DB (handles 'config route add')
+    result = st.show(dut, "redis-cli -n 4 keys 'STATIC_ROUTE|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        line = line.strip()
+        if not line or 'STATIC_ROUTE|' not in line:
             continue
-        common_op += 'ip addr flush dev {}\nip route flush dev {}\n'.format(i, i)
-    st.config(dut, common_op, skip_tmpl=True)
+        # Parse redis-cli format: 1) "STATIC_ROUTE|default|10.0.0.0/24" or "STATIC_ROUTE|Vrf01|10.0.0.0/24"
+        if ')' in line:
+            line = line.split(')', 1)[1].strip()
+        line = line.strip('"')
+        
+        parts = line.replace('STATIC_ROUTE|', '').split('|')
+        if len(parts) == 2:
+            # Format: STATIC_ROUTE|<vrf>|prefix where vrf can be 'default' or actual VRF name
+            vrf, prefix = parts
+            if vrf == 'default':
+                st.config(dut, "sudo config route del prefix {}".format(prefix), skip_tmpl=True)
+            else:
+                st.config(dut, "sudo config route del prefix {} vrf {}".format(prefix, vrf), skip_tmpl=True)
+    
+    # Clean L3 interfaces from CONFIG_DB (IPs and VRF bindings)
+    result = st.show(dut, "redis-cli -n 4 keys 'INTERFACE|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        line = line.strip()
+        if not line or 'INTERFACE|' not in line:
+            continue
+        # Parse redis-cli format: 1) "INTERFACE|Ethernet1_64_2|11.1.1.1/24"
+        if ')' in line:
+            line = line.split(')', 1)[1].strip()
+        line = line.strip('"')
+        
+        parts = line.replace('INTERFACE|', '').split('|')
+        intf = parts[0]
+        
+        if any(skip in intf for skip in skip_interfaces):
+            continue
+            
+        if len(parts) > 1:
+            st.config(dut, "sudo config interface ip remove {} {}".format(intf, parts[1]), skip_tmpl=True)
+        else:
+            st.config(dut, "sudo config interface vrf unbind {}".format(intf), skip_tmpl=True)
 
 def get_pfc_tx_count(dut, if_name, qnum):
     result = st.show(dut, "show pfc counters | grep {}".format(if_name), 
