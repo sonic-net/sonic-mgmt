@@ -186,9 +186,9 @@ arp/test_stress_arp.py::test_ipv4_arp:
 
 arp/test_unknown_mac.py:
   skip:
-    reason: "Behavior on cisco-8000 & (Marvell) platform for unknown MAC is flooding rather than DROP, hence skipping."
+    reason: "Behavior on cisco-8000 platform for unknown MAC is flooding rather than DROP, hence skipping."
     conditions:
-      - "asic_type in ['cisco-8000','marvell-teralynx']"
+      - "asic_type in ['cisco-8000']"
 
 arp/test_unknown_mac.py::TestUnknownMac::test_unknown_mac:
   xfail:
