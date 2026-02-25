@@ -73,6 +73,21 @@ def _wait_until_pc_members_removed(asichost, pc_names):
         pytest.fail("Portchannel members are not removed from {}".format(pc_names))
 
 
+def _check_pc_link(asichost, portchannel, expected):
+    """Check if portchannel link state matches expected value."""
+    int_facts = asichost.interface_facts()['ansible_facts']
+    return int_facts['ansible_interface_facts'][portchannel]['link'] == expected
+
+
+def _check_ip_removed(asichost, portchannel, is_ipv6=False):
+    """Check if IP address is removed from portchannel."""
+    int_facts = asichost.interface_facts()['ansible_facts']
+    if is_ipv6:
+        ipv6_addrs = int_facts['ansible_interface_facts'][portchannel].get('ipv6', [])
+        return all(ipaddress.ip_address(info['address']).is_link_local for info in ipv6_addrs)
+    return not int_facts['ansible_interface_facts'][portchannel].get('ipv4')
+
+
 def has_bgp_neighbors(duthost, portchannel, is_ipv6=False):
     if is_ipv6:
         return duthost.shell("show ipv6 int | grep {} | awk '{{print $4}}'".format(portchannel))['stdout'] != 'N/A'
@@ -152,9 +167,8 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         asichost.config_ip_intf(portchannel, portchannel_ip + "/" + prefix_len, "remove")
         remove_portchannel_ip = True
 
-        time.sleep(30)
-        int_facts = asichost.interface_facts()['ansible_facts']
-        pytest_assert(not int_facts['ansible_interface_facts'][portchannel]['link'])
+        pytest_assert(wait_until(30, 5, 5, _check_pc_link, asichost, portchannel, False),
+                      "Portchannel {} link did not go down".format(portchannel))
         pytest_assert(
             has_bgp_neighbors(duthost, portchannel, is_ipv6) and
             wait_until(120, 10, 0, asichost.check_bgp_statistic, bgp_state_key, 1)
@@ -181,9 +195,8 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['ipv4']['address'] == portchannel_ip)
         add_tmp_portchannel_ip = True
 
-        time.sleep(30)
-        int_facts = asichost.interface_facts()['ansible_facts']
-        pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['link'])
+        pytest_assert(wait_until(30, 5, 5, _check_pc_link, asichost, tmp_portchannel, True),
+                      "Portchannel {} link did not come up".format(tmp_portchannel))
         pytest_assert(
             has_bgp_neighbors(duthost, tmp_portchannel, is_ipv6) and
             wait_until(120, 10, 0, asichost.check_bgp_statistic, bgp_state_key, 0)
@@ -193,7 +206,7 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         if add_tmp_portchannel_ip:
             asichost.config_ip_intf(tmp_portchannel, portchannel_ip + "/" + prefix_len, "remove")
 
-        time.sleep(5)
+        wait_until(10, 2, 2, _check_ip_removed, asichost, tmp_portchannel, is_ipv6)
         if add_tmp_portchannel_members:
             for member in portchannel_members:
                 asichost.config_portchannel_member(tmp_portchannel, member, "del")
@@ -207,7 +220,7 @@ def test_po_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
             for member in portchannel_members:
                 asichost.config_portchannel_member(portchannel, member, "add")
 
-        time.sleep(5)
+        wait_until(30, 5, 5, _check_pc_link, asichost, portchannel, True)
         pytest_assert(
             has_bgp_neighbors(duthost, portchannel, is_ipv6) and
             wait_until(120, 10, 0, asichost.check_bgp_statistic, bgp_state_key, 0)
@@ -292,9 +305,8 @@ def test_po_update_io_no_loss(
         asichost.config_ip_intf(pc, pc_ip + "/31", "remove")
         remove_pc_ip = True
         verify_no_routes_from_nexthop(duthosts, out_peer_ip)
-        time.sleep(15)
-        int_facts = asichost.interface_facts()['ansible_facts']
-        pytest_assert(not int_facts['ansible_interface_facts'][pc]['link'])
+        pytest_assert(wait_until(30, 5, 5, _check_pc_link, asichost, pc, False),
+                      "Portchannel {} link did not go down".format(pc))
         pytest_assert(
             has_bgp_neighbors(duthost, pc) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 1)
             or not wait_until(10, 10, 0, pc_active, asichost, pc))
@@ -315,9 +327,8 @@ def test_po_update_io_no_loss(
         int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(int_facts['ansible_interface_facts'][tmp_pc]['ipv4']['address'] == pc_ip)
 
-        time.sleep(15)
-        int_facts = asichost.interface_facts()['ansible_facts']
-        pytest_assert(int_facts['ansible_interface_facts'][tmp_pc]['link'])
+        pytest_assert(wait_until(30, 5, 5, _check_pc_link, asichost, tmp_pc, True),
+                      "Portchannel {} link did not come up".format(tmp_pc))
         pytest_assert(
             has_bgp_neighbors(duthost, tmp_pc) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
             or wait_until(10, 10, 0, pc_active, asichost, tmp_pc))
@@ -386,11 +397,10 @@ def test_po_update_io_no_loss(
     finally:
         if add_tmp_pc_ip:
             asichost.config_ip_intf(tmp_pc, pc_ip + "/31", "remove")
-            time.sleep(2)
+            wait_until(10, 2, 2, _check_ip_removed, asichost, tmp_pc)
         if add_tmp_pc_members:
             for member in pc_members:
                 asichost.config_portchannel_member(tmp_pc, member, "del")
-            time.sleep(2)
         _wait_until_pc_members_removed(asichost, tmp_pc)
         if create_tmp_pc:
             asichost.config_portchannel(tmp_pc, "del")
@@ -403,7 +413,7 @@ def test_po_update_io_no_loss(
             for member in pc_members:
                 asichost.config_portchannel_member(pc, member, "add")
 
-        time.sleep(5)
+        wait_until(30, 5, 5, _check_pc_link, asichost, pc, True)
         pytest_assert(
             has_bgp_neighbors(duthost, pc) and wait_until(120, 10, 0, asichost.check_bgp_statistic, 'ipv4_idle', 0)
             or wait_until(10, 10, 0, pc_active, asichost, pc))
