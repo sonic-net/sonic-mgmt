@@ -15,6 +15,7 @@ import os
 import re
 import sys
 import json
+import yaml
 from datetime import datetime
 from netaddr import valid_ipv4
 
@@ -26,7 +27,7 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
-from devutil.devices.factory import init_host, init_localhost, init_testbed_sonichosts  # noqa: E402
+from devutil.devices.factory import init_host, init_localhost, init_testbed_sonichosts, init_sonichosts  # noqa: E402
 from devutil.devices.ansible_hosts import HostsUnreachable, RunAnsibleModuleFailed  # noqa: E402
 
 logger = logging.getLogger(__name__)
@@ -104,6 +105,25 @@ class TestbedHealthChecker:
 
         self.check_result = TestbedCheckResult(code=0, errmsg=[], data={})
 
+    def _get_testbed_dut_names(self):
+        """
+        Get the list of DUT hostnames from the testbed file without connecting to them.
+
+        Returns:
+            list: List of DUT hostnames, or empty list if not found.
+        """
+        testbed_file_path = os.path.join(ansible_path, self.testbed_file)
+        try:
+            with open(testbed_file_path) as f:
+                testbeds = yaml.safe_load(f.read())
+
+            for testbed in testbeds:
+                if testbed["conf-name"] == self.testbed_name:
+                    return testbed.get("dut", [])
+        except Exception as e:
+            logger.error("Failed to read testbed file {}: {}".format(testbed_file_path, repr(e)))
+        return []
+
     def init_hosts(self):
 
         logger.info("======================= init_hosts starts =======================")
@@ -113,44 +133,69 @@ class TestbedHealthChecker:
         if not self.localhost:
             raise HostInitFailed("localhost is None. Please check inventory.")
 
-        self.sonichosts = init_testbed_sonichosts(
-            self.inventory, self.testbed_name, testbed_file=self.testbed_file,
+        # Get DUT names from testbed file first (without connecting)
+        all_dut_names = self._get_testbed_dut_names()
+        if not all_dut_names:
+            raise HostInitFailed("No DUTs found in testbed file. Please check testbed name/file.")
+
+        # Separate NPU and DPU hostnames based on 'dpu' in name
+        npu_hostnames = [name for name in all_dut_names if "dpu" not in name.lower()]
+        dpu_hostnames = [name for name in all_dut_names if "dpu" in name.lower()]
+
+        logger.info("NPU hostnames: {}, DPU hostnames: {}".format(npu_hostnames, dpu_hostnames))
+
+        # Initialize NPU hosts first (directly reachable)
+        if npu_hostnames:
+            npu_sonichosts = init_sonichosts(
+                self.inventory, npu_hostnames,
+                options={"verbosity": self.log_verbosity}
+            )
+            if not npu_sonichosts:
+                raise HostInitFailed("Failed to initialize NPU hosts: {}".format(npu_hostnames))
+
+            # Get basic facts from NPU hosts
+            npu_basic_facts = npu_sonichosts.dut_basic_facts()
+            self.duts_basic_facts = npu_basic_facts
+
+            # Store NPU hosts
+            for sonichost in npu_sonichosts:
+                self.npu_hosts.append(sonichost)
+
+            self.is_multi_asic = npu_basic_facts[npu_sonichosts[0].hostname][
+                "ansible_facts"]["dut_basic_facts"]["is_multi_asic"]
+            self.is_chassis = npu_basic_facts[npu_sonichosts[0].hostname][
+                "ansible_facts"]["dut_basic_facts"]["is_chassis"]
+
+        # Enable NAT for DPU hosts if there are any DPUs
+        if dpu_hostnames:
+            logger.info("DPU hosts detected. Enabling NAT before initializing DPU hosts.")
+            self.enable_nat_for_dpuhosts(dpu_hostnames)
+
+            # Now initialize DPU hosts (reachable after NAT enabled)
+            dpu_sonichosts = init_sonichosts(
+                self.inventory, dpu_hostnames,
+                options={"verbosity": self.log_verbosity}
+            )
+            if not dpu_sonichosts:
+                raise HostInitFailed("Failed to initialize DPU hosts: {}".format(dpu_hostnames))
+
+            # Get basic facts from DPU hosts
+            dpu_basic_facts = dpu_sonichosts.dut_basic_facts()
+            self.duts_basic_facts.update(dpu_basic_facts)
+
+            # Store DPU hosts
+            for sonichost in dpu_sonichosts:
+                self.dpu_hosts.append(sonichost)
+
+        # Combine all hosts into sonichosts for compatibility
+        self.sonichosts = init_sonichosts(
+            self.inventory, all_dut_names,
             options={"verbosity": self.log_verbosity}
         )
         if not self.sonichosts:
             raise HostInitFailed("sonichosts is None. Please check testbed name/file/inventory.")
 
-        self.duts_basic_facts = self.sonichosts.dut_basic_facts()
-        self.is_multi_asic = self.duts_basic_facts[self.sonichosts[0].hostname][
-            "ansible_facts"]["dut_basic_facts"]["is_multi_asic"]
-
-        self.is_chassis = self.duts_basic_facts[self.sonichosts[0].hostname][
-            "ansible_facts"]["dut_basic_facts"]["is_chassis"]
-
-        # Identify DPU and NPU hosts
-        self._identify_dpu_and_npu_hosts()
-
         logger.info("======================= init_hosts ends =======================")
-
-    def _identify_dpu_and_npu_hosts(self):
-        """
-        Identify DPU and NPU hosts from the sonichosts list.
-        DPU hosts are identified by 'dpu' in the hostname.
-        """
-        logger.info("======================= _identify_dpu_and_npu_hosts starts =======================")
-
-        for sonichost in self.sonichosts:
-            hostname = sonichost.hostname
-
-            if "dpu" in hostname.lower():
-                self.dpu_hosts.append(sonichost)
-                logger.info("Identified DPU host: {}".format(hostname))
-            else:
-                self.npu_hosts.append(sonichost)
-                logger.info("Identified NPU host: {}".format(hostname))
-
-        logger.info("Total DPU hosts: {}, NPU hosts: {}".format(len(self.dpu_hosts), len(self.npu_hosts)))
-        logger.info("======================= _identify_dpu_and_npu_hosts ends =======================")
 
     def _get_dpu_ssh_port_from_inventory(self, dpu_hostname):
         """
@@ -171,12 +216,13 @@ class TestbedHealthChecker:
             logger.warning("Failed to get SSH port for DPU {}: {}".format(dpu_hostname, repr(e)))
         return None
 
-    def _get_dpu_name_ssh_port_dict(self, npu_host):
+    def _get_dpu_name_ssh_port_dict(self, npu_host, dpu_hostnames):
         """
         Get a dictionary mapping DPU names to SSH ports for DPUs associated with the given NPU host.
 
         Args:
             npu_host: SonicHost object for the NPU.
+            dpu_hostnames: List of DPU hostname strings.
 
         Returns:
             dict: Mapping of DPU name (e.g., 'dpu0') to SSH port.
@@ -184,8 +230,7 @@ class TestbedHealthChecker:
         npu_hostname = npu_host.hostname
         dpu_name_ssh_port_dict = {}
 
-        for dpu_host in self.dpu_hosts:
-            dpu_hostname = dpu_host.hostname
+        for dpu_hostname in dpu_hostnames:
             # Check if this DPU belongs to this NPU (DPU hostname should contain NPU hostname)
             if npu_hostname in dpu_hostname:
                 ssh_port = self._get_dpu_ssh_port_from_inventory(dpu_hostname)
@@ -222,15 +267,22 @@ class TestbedHealthChecker:
             logger.warning("Failed to check NAT status on {}: {}".format(npu_host.hostname, repr(e)))
         return False
 
-    def enable_nat_for_dpuhosts(self):
+    def enable_nat_for_dpuhosts(self, dpu_hostnames=None):
         """
         Enable NAT on NPU hosts to make DPU hosts reachable.
         This is similar to the enable_nat_for_dpuhosts fixture in tests/conftest.py.
         NAT is automatically enabled when DPU hosts are detected.
+
+        Args:
+            dpu_hostnames: List of DPU hostname strings. If None, uses self.dpu_hosts.
         """
-        if not self.dpu_hosts:
+        if not dpu_hostnames and not self.dpu_hosts:
             logger.info("No DPU hosts found. Skipping NAT enablement.")
             return
+
+        # Use provided hostnames or extract from self.dpu_hosts
+        if dpu_hostnames is None:
+            dpu_hostnames = [h.hostname for h in self.dpu_hosts]
 
         logger.info("======================= enable_nat_for_dpuhosts starts =======================")
         logger.info("DPU hosts detected. Auto-enabling NAT for DPU reachability.")
@@ -244,7 +296,7 @@ class TestbedHealthChecker:
                 continue
 
             # Get DPU name to SSH port mapping for this NPU
-            dpu_name_ssh_port_dict = self._get_dpu_name_ssh_port_dict(npu_host)
+            dpu_name_ssh_port_dict = self._get_dpu_name_ssh_port_dict(npu_host, dpu_hostnames)
 
             if not dpu_name_ssh_port_dict:
                 logger.info("No DPUs found for NPU {}. Skipping NAT enablement.".format(npu_hostname))
@@ -403,9 +455,6 @@ class TestbedHealthChecker:
         try:
 
             self.init_hosts()
-
-            # Enable NAT for DPU hosts
-            self.enable_nat_for_dpuhosts()
 
             self.pre_check()
 
