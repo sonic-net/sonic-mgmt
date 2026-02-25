@@ -6,6 +6,8 @@
     "gnmi/test_gnmi.py": 0,
     "gnmi/test_gnmi_configdb.py": 0,
     "gnmi/test_gnmi_appldb.py": 0,
+    "gnxi/test_gnoi_system.py": 0,
+    "gnxi/test_gnoi_file.py": 0,
     "telemetry/test_telemetry.py::test_config_db_parameters": 0,
     "tacacs/test_accounting.py": 3
 }
