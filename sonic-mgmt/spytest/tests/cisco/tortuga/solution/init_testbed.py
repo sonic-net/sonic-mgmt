@@ -230,10 +230,10 @@ class TestReimage():
                 st.log(' - Number of container Up: {}'.format(ret_val[dut]['verify'].get('docker_cnt', 'NA')))
                 st.log(' - Install time : {} secs'.format(int(ret_val[dut]['verify'].get('install_time', '0'))))
                 st.log(' - Containers up time after reboot : {} secs'.format(int(ret_val[dut]['verify'].get('reboot_time', '0'))))
-                ret_val = False
+                ret_val[dut]['result'] = False
                 dut_failed.append(dut)
 
-        if ret_val:
+        if not dut_failed:
             st.banner('Install complete. Pass: {}'.format(dut_passed))
             st.report_pass('test_case_passed')
         else:
@@ -246,7 +246,7 @@ class TestReimage():
         global test_cfg
         try:
             images = dict()
-            img_cntr = 0
+            url_to_idx = dict()
             for rtr in test_cfg['reimage']['routers']:
 
                 if test_cfg['img_path']:
@@ -255,10 +255,9 @@ class TestReimage():
                     img = test_cfg['input'][rtr]['reimage']['url']
                 else:
                     raise Exception('Image path not provided in command line')
-                if img not in images.values():
-                    img_cntr += 1
-                    images[img_cntr] = img
-                test_cfg[rtr]['image_cntr'] = img_cntr
+                idx = url_to_idx.setdefault(img, len(url_to_idx)+1)
+                images[idx] = img
+                test_cfg[rtr]['image_cntr'] = idx
 
             for img_cntr in images.keys( ):
                 local_dir = os.path.join(test_cfg['local_dir'], str(img_cntr))
