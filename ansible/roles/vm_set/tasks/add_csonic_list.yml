@@ -6,15 +6,6 @@
     fp_mtu:       "{{ fp_mtu_size }}"
     max_fp_num:   "{{ max_fp_num }}"
 
-- name: Ensure management bridge {{ mgmt_bridge }} exists
-  become: yes
-  shell: "brctl addbr {{ mgmt_bridge }} 2>/dev/null || true"
-
-- name: Bring up management bridge {{ mgmt_bridge }}
-  become: yes
-  command: "ip link set {{ mgmt_bridge }} up"
-  changed_when: false
-
 - name: Add OVS flow rules for VM bridges
   become: yes
   command: "ovs-ofctl add-flow br-{{ item }}-{{ topology.VMs[item].vm_offset }} action=normal"
