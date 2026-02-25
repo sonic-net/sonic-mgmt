@@ -4,6 +4,7 @@ import random
 import time
 import pytest
 import re
+import json
 
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.helpers.assertions import pytest_require
@@ -109,8 +110,10 @@ def verify_phy_attr_in_config_db(duthost, expected_status, expected_interval=Non
                     pytest_assert('POLL_INTERVAL' in config_data,
                                   "POLL_INTERVAL not found in CONFIG_DB")
                     actual_interval = config_data['POLL_INTERVAL']
-                    pytest_assert(str(expected_interval) == actual_interval,
-                                  "CONFIG_DB interval is '{}', expected '{}'".format(actual_interval, expected_interval))
+                    pytest_assert(
+                        str(expected_interval) == actual_interval,
+                        "CONFIG_DB interval is '{}', expected '{}'".format(
+                            actual_interval, expected_interval))
 
                 logging.info("CONFIG_DB verified: status={}, interval={}".format(
                     actual_status, config_data.get('POLL_INTERVAL', 'N/A')))
@@ -242,64 +245,153 @@ def verify_port_serdes_attribute_list_in_flex_counter_db(duthost, port_serdes_in
 
 def verify_counters_db_port_serdes_data(duthost, port_serdes_info_map):
     """
-    Verify COUNTERS_DB PORT_PHY_ATTR table has all port serdes expected attributes
+    Verify COUNTERS_DB PORT_PHY_ATTR table has port serdes attributes
 
     Validates that for each port_id in the map, the COUNTERS_DB contains:
-    - tx_fir_taps_list: Format '[{tap1:<vals>},{tap2:<vals>},...]' where:
-        - Keys are incremental (tap1,tap2,tap3,...)
-        - Values are comma-separated numbers (can be negative)
-        - Values can be empty (e.g., {tap1:})
-    - rx_vga: Format 'size:<val1>,<val2>,...,<val_size>' where:
-        - size is a number
-        - values are comma-separated matching the size
+    - tx_fir_taps_list: Format '{"0":[{"tap0":v},...], "1":[...]}' where:
+    - rx_vga: Format '{"0": v0, "1": v1, ...}' where:
 
     Args:
         duthost: DUT host object
-        port_serdes_info_map: Dictionary mapping {port_serdes_id: [asic, port_id]}
+        port_serdes_info_map: Dict mapping {port_serdes_id: [asic, port_id]}
     """
 
-    with allure.step("Verifying port serdes expected attributes in COUNTERS_DB PORT_PHY_ATTR table."):
+    with allure.step(
+            "Verifying port serdes attributes in COUNTERS_DB "
+            "PORT_PHY_ATTR table."):
         for port_serdes_oid, (asic, port_id) in port_serdes_info_map.items():
             try:
                 counters_data = SonicDbCli(asic, 'COUNTERS_DB').hget_all(
                     'PORT_PHY_ATTR:{}'.format(port_id))
 
-                # Verify tx_fir_taps_list format: [{tap1:vals},{tap2:vals},...]
-                pytest_assert('tx_fir_taps_list' in counters_data,
-                              "tx_fir_taps_list not found for port {}".format(port_id))
+                # Verify tx_fir_taps_list format
+                pytest_assert(
+                    'tx_fir_taps_list' in counters_data,
+                    "tx_fir_taps_list not found for port {}".format(port_id))
 
                 tx_fir_taps = counters_data['tx_fir_taps_list']
-                # Validate format and extract keys to check they're incremental (tap1, tap2, tap3, ...)
-                pattern = (r'\[\{(tap[0-9]+):(?:-?[0-9]+(?:,-?[0-9]+)*)?\}'
-                           r'(?:,\{(tap[0-9]+):(?:-?[0-9]+(?:,-?[0-9]+)*)?\})*\]')
-                match = re.match(pattern, tx_fir_taps)
-                pytest_assert(match,
-                              "tx_fir_taps_list invalid format for port {}: {}".format(port_id, tx_fir_taps))
 
-                # Check keys are incremental (tap1, tap2, tap3, ...)
-                tap_keys = re.findall(r'\{(tap[0-9]+):', tx_fir_taps)
-                tap_indices = [int(key.replace('tap', '')) for key in tap_keys]
-                pytest_assert(tap_indices == list(range(1, len(tap_indices) + 1)),
-                              "tx_fir_taps_list keys not incremental for port {}: {}".format(port_id, tap_keys))
+                # Parse JSON, tx_fir_taps_list should be in json format
+                try:
+                    tx_fir_json = json.loads(tx_fir_taps)
+                except json.JSONDecodeError as e:
+                    pytest.fail(
+                        "tx_fir_taps_list invalid JSON for port {}: "
+                        "{}".format(port_id, str(e)))
 
-                # Verify rx_vga format: size:val1,val2,...
-                pytest_assert('rx_vga' in counters_data,
-                              "rx_vga not found for port {}".format(port_id))
+                # Verify it's a JSON object
+                pytest_assert(
+                    isinstance(tx_fir_json, dict),
+                    "tx_fir_taps_list should be JSON object for "
+                    "port {}".format(port_id))
+
+                # Verify lane count is non-zero
+                lane_count = len(tx_fir_json)
+                pytest_assert(
+                    lane_count > 0,
+                    "tx_fir_taps_list should have at least one lane "
+                    "for port {}".format(port_id))
+
+                # Verify lane keys are sequential: "0", "1", "2", ...
+                expected_lane_keys = [str(i) for i in range(lane_count)]
+                actual_lane_keys = sorted(tx_fir_json.keys(), key=int)
+                pytest_assert(
+                    actual_lane_keys == expected_lane_keys,
+                    "tx_fir_taps_list lane keys not sequential for "
+                    "port {}: expected {}, got {}".format(
+                        port_id, expected_lane_keys, actual_lane_keys))
+
+                # Verify each lane's structure
+                for lane_key in expected_lane_keys:
+                    lane_taps = tx_fir_json[lane_key]
+
+                    # Verify lane value is an array
+                    pytest_assert(
+                        isinstance(lane_taps, list),
+                        "Lane {} should be array for port {}".format(
+                            lane_key, port_id))
+
+                    # Verify each tap in this lane
+                    for tap_idx, tap_obj in enumerate(lane_taps):
+                        # Verify tap is an object
+                        pytest_assert(
+                            isinstance(tap_obj, dict),
+                            "Lane {} tap at index {} should be object "
+                            "for port {}".format(
+                                lane_key, tap_idx, port_id))
+
+                        # Verify tap has sequential naming
+                        expected_tap_key = "tap{}".format(tap_idx)
+                        pytest_assert(
+                            expected_tap_key in tap_obj,
+                            "Lane {} tap at index {} should have key "
+                            "'{}' for port {}".format(
+                                lane_key, tap_idx, expected_tap_key,
+                                port_id))
+
+                        # Verify tap value is an integer
+                        tap_value = tap_obj[expected_tap_key]
+                        pytest_assert(
+                            isinstance(tap_value, int),
+                            "Lane {} {} value should be integer for "
+                            "port {}".format(
+                                lane_key, expected_tap_key, port_id))
+
+                # Verify rx_vga format: {"0":val, "1":val, ...}
+                pytest_assert(
+                    'rx_vga' in counters_data,
+                    "rx_vga not found for port {}".format(port_id))
 
                 rx_vga = counters_data['rx_vga']
-                size_str, values_str = rx_vga.split(':', 1)
-                pytest_assert(size_str.isdigit(), "rx_vga size not numeric: {}".format(rx_vga))
-                pytest_assert(len(values_str.split(',')) == int(size_str),
-                              "rx_vga size mismatch for port {}: {}".format(port_id, rx_vga))
+
+                # Parse JSON
+                try:
+                    rx_vga_json = json.loads(rx_vga)
+                except json.JSONDecodeError as e:
+                    pytest.fail(
+                        "rx_vga invalid JSON for port {}: {}".format(
+                            port_id, str(e)))
+
+                # Verify it's a JSON object
+                pytest_assert(
+                    isinstance(rx_vga_json, dict),
+                    "rx_vga should be JSON object for port {}".format(
+                        port_id))
+
+                # Verify lane count is non-zero
+                rx_lane_count = len(rx_vga_json)
+                pytest_assert(
+                    rx_lane_count > 0,
+                    "rx_vga should have at least one lane for port "
+                    "{}".format(port_id))
+
+                # Verify lane keys are sequential: "0", "1", "2", ...
+                expected_rx_lane_keys = [str(i) for i in range(rx_lane_count)]
+                actual_rx_lane_keys = sorted(rx_vga_json.keys(), key=int)
+                pytest_assert(
+                    actual_rx_lane_keys == expected_rx_lane_keys,
+                    "rx_vga lane keys not sequential for port {}: "
+                    "expected {}, got {}".format(
+                        port_id, expected_rx_lane_keys,
+                        actual_rx_lane_keys))
+
+                # Verify each lane value is a non-negative integer
+                for lane_key in expected_rx_lane_keys:
+                    vga_value = rx_vga_json[lane_key]
+                    pytest_assert(
+                        isinstance(vga_value, int) and vga_value >= 0,
+                        "rx_vga lane {} value should be non-negative "
+                        "integer for port {}, got {}".format(
+                            lane_key, port_id, vga_value))
 
                 logging.info(
-                    "Port serdes expected attributes in COUNTERS_DB PORT_PHY_ATTR table "
-                    "verified for port {}: tx_fir_taps={}, rx_vga={}".format(
-                        port_id, tx_fir_taps[:50], rx_vga))
+                    "Port serdes attributes in COUNTERS_DB PORT_PHY_ATTR "
+                    "table verified for port {}: tx_fir_taps={}, "
+                    "rx_vga={}".format(port_id, tx_fir_taps, rx_vga))
 
             except SonicDbKeyNotFound:
                 pytest.fail(
-                    "Port serdes expected attributes not found in COUNTERS_DB "
+                    "Port serdes attributes not found in COUNTERS_DB "
                     "PORT_PHY_ATTR table for port {}".format(port_id))
 
 
