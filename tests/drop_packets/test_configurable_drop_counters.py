@@ -10,7 +10,6 @@ Todo:
 
 import logging
 import random
-import time
 import json
 import tempfile
 import re
@@ -123,11 +122,19 @@ def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
     # Set FDB entry
     cmd = "docker exec -i swss swssconfig /fdb.json"
     duthost.command(cmd)
-    time.sleep(3)
 
     cmd = "docker exec -i swss rm -f /fdb.json"
     duthost.command(cmd)
-    time.sleep(5)
+
+    def _check_fdb_applied():
+        if op == "SET":
+            fdb_count = int(duthost.shell(
+                "show mac | grep -i {} | wc -l".format(mac_address))["stdout"])
+            return fdb_count >= 1
+        return True
+
+    if not wait_until(10, 1, 0, _check_fdb_applied):
+        logging.warning("FDB entry may not have been applied yet")
 
 
 def verifyFdbArp(duthost, dst_ip, dst_mac, dst_intf):
@@ -189,7 +196,13 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
                          mock_server['server_dst_intf'], mock_server['server_dst_mac'],
                          "SET", "static")
         mock_server["fanout_neighbor"].shutdown(mock_server["fanout_intf"])
-        time.sleep(3)
+
+        def _check_link_down():
+            result = duthost.command("show interfaces status {}".format(mock_server['server_dst_intf']))
+            return "down" in result['stdout'].lower()
+
+        pytest_assert(wait_until(15, 1, 0, _check_link_down),
+                      "Interface {} did not go down".format(mock_server['server_dst_intf']))
         verifyFdbArp(duthost, mock_server['server_dst_addr'],
                      mock_server['server_dst_mac'], mock_server['server_dst_intf'])
         send_dropped_traffic(counter_type, pkt, rx_port)
@@ -379,7 +392,13 @@ def setup_counters(request, device_capabilities, duthosts, rand_one_dut_hostname
             pytest.skip("Drop reasons not supported on target DUT")
 
         cdc.create_drop_counter(duthost, "TEST", counter_type, drop_reasons)
-        time.sleep(1)
+
+        def _check_counter_exists():
+            result = duthost.command("show dropcounters configuration", module_ignore_errors=True)
+            return "TEST" in result.get('stdout', '')
+
+        pytest_assert(wait_until(10, 1, 0, _check_counter_exists),
+                      "Drop counter TEST was not created successfully")
 
         logging.info("Created counter TEST: type = %s, drop reasons = %s",
                      counter_type, drop_reasons)
@@ -389,7 +408,12 @@ def setup_counters(request, device_capabilities, duthosts, rand_one_dut_hostname
 
     try:
         cdc.delete_drop_counter(duthost, "TEST")
-        time.sleep(1)
+
+        def _check_counter_deleted():
+            result = duthost.command("show dropcounters configuration", module_ignore_errors=True)
+            return "TEST" not in result.get('stdout', '')
+
+        wait_until(10, 1, 0, _check_counter_deleted)
         logging.info("Deleted counter TEST")
     except Exception:
         logging.info("Drop counter does not exist, skipping delete step...")
@@ -494,7 +518,14 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
     # Issue a ping to populate ARP table on DUT
     duthost.command('ping %s -c 3' % server_dst_addr, module_ignore_errors=True)
 
-    time.sleep(5)
+    def _check_arp_populated():
+        if is_ipv4_address(server_dst_addr):
+            result = duthost.command("show arp {}".format(server_dst_addr), module_ignore_errors=True)
+        else:
+            result = duthost.command("show ndp {}".format(server_dst_addr), module_ignore_errors=True)
+        return "Total number of entries 1" in result.get('stdout', '')
+
+    wait_until(15, 1, 0, _check_arp_populated)
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, server_dst_intf)
 
     return {"server_dst_port": server_dst_port,
@@ -572,7 +603,5 @@ def _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
     duthost.command("sonic-clear dropcounters")
 
     ptfadapter.dataplane.flush()
-    time.sleep(1)
 
     testutils.send(ptfadapter, ptf_tx_port_id, pkt, count=count)
-    time.sleep(1)

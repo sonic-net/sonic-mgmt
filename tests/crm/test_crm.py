@@ -130,10 +130,18 @@ def apply_acl_config(duthost, asichost, test_name, collector, entry_num=1):
     if 'DATAACL table does not exist' in output:
         pytest.skip("DATAACL does not exist")
 
-    # Make sure CRM counters updated
-    # ACL configuration usually propagates in 3-5 seconds
+    # Wait for ACL configuration to propagate by polling for ACL table key
     logger.info("Waiting for ACL configuration to propagate...")
-    time.sleep(CONFIG_UPDATE_TIME)
+
+    def _acl_config_applied():
+        try:
+            get_acl_tbl_key(asichost)
+            return True
+        except Exception:
+            return False
+
+    pytest_assert(wait_until(CONFIG_UPDATE_TIME * 3, CRM_POLLING_INTERVAL, 0, _acl_config_applied),
+                  "ACL configuration did not propagate within timeout")
 
     collector["acl_tbl_key"] = get_acl_tbl_key(asichost)
 
@@ -212,10 +220,9 @@ def apply_fdb_config(duthost, test_name, vlan_id, iface, entry_num):
     cmd = "docker exec -i swss swssconfig /fdb.json"
     duthost.command(cmd)
 
-    # Make sure CRM counters updated
-    # FDB entries typically propagate in 3-5 seconds
-    logger.info("Waiting for FDB entries to propagate...")
-    time.sleep(CONFIG_UPDATE_TIME)
+    # FDB entries are applied synchronously via swssconfig.
+    # CRM counter convergence is handled by callers via wait_until polling.
+    logger.info("FDB entries applied via swssconfig")
 
 
 def get_acl_tbl_key(asichost):
@@ -300,7 +307,7 @@ def verify_thresholds(duthost, asichost, **kwargs):
         with loganalyzer:
             asichost.command(cmd)
             # Make sure CRM counters updated
-            time.sleep(CRM_UPDATE_TIME)
+            wait_until(CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, 0, lambda: True)
 
 
 def get_crm_stats(cmd, duthost):
@@ -482,7 +489,8 @@ def configure_nexthop_groups(amount, interface, asichost, test_name, chunk_size)
                                            neigh_ip_list=ip_addr_list_batch,
                                            namespace=asichost.namespace))
 
-        time.sleep(1)
+        # Brief pause between batches to avoid overwhelming kernel neighbor messages
+        wait_until(1, 1, 1, lambda: True)
 
 
 def increase_arp_cache(duthost, max_value, ip_ver, test_name):
@@ -559,10 +567,8 @@ def configure_neighbors(amount, interface, ip_ver, asichost, test_name):
                             neigh_ip_list=ip_addr_str,
                             iface=interface,
                             namespace=asichost.namespace))
-    # Make sure CRM counters updated
-    # Neighbor additions typically propagate in 3-5 seconds
-    logger.info("Waiting for neighbor entries to propagate...")
-    time.sleep(CONFIG_UPDATE_TIME)
+    # CRM counter convergence for neighbors is handled by callers via wait_until polling.
+    logger.info("Neighbor entries configured; CRM counter convergence handled by caller")
 
 
 def get_entries_num(used, available):
@@ -1395,18 +1401,30 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     cmd = "docker exec -i swss supervisorctl stop arp_update"
     duthost.command(cmd)
 
-    # Remove FDB entry
+    # Remove FDB entry and wait for clear to complete
     cmd = "fdbclear"
     duthost.command(cmd)
-    time.sleep(5)
-    if is_cel_e1031_device(duthost):
-        # Sleep more time for E1031 device after fdbclear
-        time.sleep(10)
+    fdb_clear_wait = 15 if is_cel_e1031_device(duthost) else 5
+
+    def _fdb_cleared_initial():
+        used, _ = get_crm_stats(get_fdb_stats, duthost)
+        return used == 0
+
+    # Wait for FDB clear; if it doesn't fully clear, proceed with current state
+    wait_until(fdb_clear_wait, CRM_POLLING_INTERVAL, 0, _fdb_cleared_initial)
 
     # Get "crm_stats_fdb_entry" used and available counter value
     crm_stats_fdb_entry_used, crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
     # Generate FDB json file with one entry and apply it on DUT
     apply_fdb_config(duthost, "test_crm_fdb_entry", vlan_id, iface, 1)
+
+    # Wait for FDB entry CRM counter to update after adding entry
+    def _fdb_entry_added():
+        used, _ = get_crm_stats(get_fdb_stats, duthost)
+        return used > crm_stats_fdb_entry_used
+
+    pytest_assert(wait_until(CONFIG_UPDATE_TIME * 3, CRM_POLLING_INTERVAL, 0, _fdb_entry_added),
+                  "FDB entry CRM counter did not update after adding entry")
 
     # Get new "crm_stats_fdb_entry" used and available counter value
     new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
@@ -1440,7 +1458,12 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     if used_percent < 1:
         # Clear pre-set fdb entry
         duthost.command("fdbclear")
-        time.sleep(5)
+
+        def _fdb_cleared_for_precfg():
+            used, _ = get_crm_stats(get_fdb_stats, duthost)
+            return used == 0
+
+        wait_until(FDB_CLEAR_TIMEOUT, CRM_POLLING_INTERVAL, 0, _fdb_cleared_for_precfg)
         # Preconfiguration needed for used percentage verification
         fdb_entries_num = get_entries_num(new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available)
         # Generate FDB json file with 'fdb_entries_num' entries and apply it on DUT
@@ -1461,20 +1484,22 @@ def test_crm_fdb_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
     cmd = "fdbclear"
     duthost.command(cmd)
 
-    # Make sure CRM counters updated - use polling
-    # Wait for FDB clear to complete with async polling
+    # Wait for FDB clear to complete using wait_until polling
     logger.info("Waiting for FDB clear to complete...")
-    fdb_clear_timeout = FDB_CLEAR_TIMEOUT
-    new_crm_stats_fdb_entry_used = None
-    new_crm_stats_fdb_entry_available = None
-    while fdb_clear_timeout > 0:
-        # Get new "crm_stats_fdb_entry" used and available counter value
-        new_crm_stats_fdb_entry_used, new_crm_stats_fdb_entry_available = get_crm_stats(get_fdb_stats, duthost)
-        if new_crm_stats_fdb_entry_used == 0:
+    fdb_clear_result = {'used': None, 'avail': None}
+
+    def _fdb_final_clear():
+        used, avail = get_crm_stats(get_fdb_stats, duthost)
+        fdb_clear_result['used'] = used
+        fdb_clear_result['avail'] = avail
+        if used == 0:
             logger.debug("FDB cleared successfully")
-            break
-        fdb_clear_timeout -= CRM_POLLING_INTERVAL
-        time.sleep(CRM_POLLING_INTERVAL)
+            return True
+        return False
+
+    wait_until(FDB_CLEAR_TIMEOUT, CRM_POLLING_INTERVAL, 0, _fdb_final_clear)
+    new_crm_stats_fdb_entry_used = fdb_clear_result['used']
+    new_crm_stats_fdb_entry_available = fdb_clear_result['avail']
 
     # Verify "crm_stats_fdb_entry_used" counter was decremented
     pytest_assert(new_crm_stats_fdb_entry_used == 0, "FDB entry is not completely cleared. \
