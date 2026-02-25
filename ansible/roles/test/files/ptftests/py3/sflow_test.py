@@ -231,6 +231,7 @@ class SflowTest(BaseTest):
     # ---------------------------------------------------------------------------
 
     def analyze_flow_sample(self, data, collector):
+        self.assertTrue(data.get('flow_port_count', False), "No packets collected on any interface")
         logging.info("packets collected from interfaces ifindex : %s" %
                      data['flow_port_count'])
         logging.info("Expected number of packets from each port : %s to %s" % (
