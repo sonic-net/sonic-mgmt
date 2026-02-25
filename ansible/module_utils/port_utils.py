@@ -364,7 +364,7 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                        "Arista-7800R3A-36DM2-D36"]:
             for i in range(1, 37):
                 sonic_name = "Ethernet%d" % ((i - 1) * 8)
-                port_alias_to_name_map["Ethernet{}/{}".format(i, 1)] = sonic_name
+                port_alias_to_name_map["etp{}".format(i)] = sonic_name
         elif hwsku in ["Arista-7280R4-32QF-32DF-64O",
                        "Arista-7280R4K-32QF-32DF-64O"]:
             portNum = 0

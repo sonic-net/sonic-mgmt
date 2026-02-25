@@ -60,7 +60,9 @@ class GenerateGoldenConfigDBModule(object):
                                     num_asics=dict(require=False, type='int', default=1),
                                     hwsku=dict(require=False, type='str', default=None),
                                     vm_configuration=dict(require=False, type='dict', default={}),
-                                    is_lit_mode=dict(require=False, type='bool', default=True)),
+                                    is_lit_mode=dict(require=False, type='bool', default=True),
+                                    bgp_confd_asn=dict(require=False, type='str', default=None),
+                                    bgp_confd_peers=dict(require=False, type='str', default=None)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -71,6 +73,8 @@ class GenerateGoldenConfigDBModule(object):
 
         self.vm_configuration = self.module.params['vm_configuration']
         self.is_lit_mode = self.module.params['is_lit_mode']
+        self.bgp_confd_asn = self.module.params['bgp_confd_asn']
+        self.bgp_confd_peers = self.module.params['bgp_confd_peers']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -504,23 +508,59 @@ class GenerateGoldenConfigDBModule(object):
         gold_config_db.update(smartswitch_config_obj)
         return json.dumps(gold_config_db, indent=4)
 
+    def generate_ut2_golden_config_db(self):
+        rendered_json = {}
+        if self.macsec_profile:
+            with open(MACSEC_PROFILE_PATH) as f:
+                macsec_profiles = json.load(f)
+
+                profile = macsec_profiles.get(self.macsec_profile)
+                if profile:
+                    profile['macsec_profile'] = self.macsec_profile
+
+                # Update the profile context with the asic count
+                profile['asic_cnt'] = self.num_asics
+
+                def safe_open_template(template_path):
+                    with open(template_path) as template_file:
+                        return Template(template_file.read())
+
+                # Render the template using the profile
+                rendered_json = safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile)
+
+        if self.num_asics > 1:
+            if "localhost" not in rendered_json:
+                rendered_json["localhost"] = {}
+            for asic in range(0, self.num_asics):
+                namespace = "asic{}".format(asic)
+                if namespace not in rendered_json:
+                    rendered_json[namespace] = {}
+                rendered_json[namespace] = {"BGP_DEVICE_GLOBAL": {"CONFED": {"asn": "65100", "peers": "65300"}}}
+        else:
+            if "BGP_DEVICE_GLOBAL" not in rendered_json:
+                rendered_json["BGP_DEVICE_GLOBAL"] = {}
+            rendered_json["BGP_DEVICE_GLOBAL"]["CONFED"] = {"asn": "65100", "peers": "65300"}
+        return json.dumps(rendered_json, indent=4)
+
     def generate_t2_golden_config_db(self):
-        with open(MACSEC_PROFILE_PATH) as f:
-            macsec_profiles = json.load(f)
+        rendered_json = {}
+        if self.macsec_profile:
+            with open(MACSEC_PROFILE_PATH) as f:
+                macsec_profiles = json.load(f)
 
-            profile = macsec_profiles.get(self.macsec_profile)
-            if profile:
-                profile['macsec_profile'] = self.macsec_profile
+                profile = macsec_profiles.get(self.macsec_profile)
+                if profile:
+                    profile['macsec_profile'] = self.macsec_profile
 
-            # Update the profile context with the asic count
-            profile['asic_cnt'] = self.num_asics
+                # Update the profile context with the asic count
+                profile['asic_cnt'] = self.num_asics
 
-            def safe_open_template(template_path):
-                with open(template_path) as template_file:
-                    return Template(template_file.read())
+                def safe_open_template(template_path):
+                    with open(template_path) as template_file:
+                        return Template(template_file.read())
 
-            # Render the template using the profile
-            rendered_json = safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile)
+                # Render the template using the profile
+                rendered_json = safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile)
 
         return rendered_json
 
@@ -578,21 +618,28 @@ class GenerateGoldenConfigDBModule(object):
 
     def generate_lt2_ft2_golden_config_db(self):
         """
-        Generate golden_config for FT2 to enable FEC.
-        **Only PORT table is updated**.
+        Generate golden_config for FT2 to enable FEC and set BGP confed.
         """
         SUPPORTED_TOPO = ["ft2-64", "lt2-p32o64", "lt2-o128"]
         if self.topo_name not in SUPPORTED_TOPO:
             return "{}"
         SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]
         ori_config = json.loads(self.get_config_from_minigraph())
-        port_config = ori_config.get("PORT", {})
-        for name, config in port_config.items():
+        golden_config = ori_config
+        golden_config["PORT"] = ori_config.get("PORT", {})
+        for _, config in golden_config["PORT"].items():
             # Enable FEC for ports with supported speed
             if config["speed"] in SUPPORTED_PORT_SPEED and "fec" not in config:
                 config["fec"] = "rs"
 
-        return json.dumps({"PORT": port_config}, indent=4)
+        # Add BGP confederation config
+        if self.bgp_confd_asn and self.bgp_confd_peers:
+            golden_config["BGP_DEVICE_GLOBAL"] = ori_config.get("BGP_DEVICE_GLOBAL", {})
+            # Replace space in confg_peers with ; to align with NDM
+            golden_config["BGP_DEVICE_GLOBAL"]["CONFED"] = \
+                {"asn": str(self.bgp_confd_asn), "peers": str(self.bgp_confd_peers).replace(' ', ';')}
+
+        return json.dumps(golden_config, indent=4)
 
     def generate(self):
         module_msg = "Success to generate golden_config_db.json"
@@ -608,7 +655,12 @@ class GenerateGoldenConfigDBModule(object):
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         elif "ft2" in self.topo_name or "lt2" in self.topo_name:
             config = self.generate_lt2_ft2_golden_config_db()
-        elif "t2" in self.topo_name and self.macsec_profile:
+        elif "t2_single_node" in self.topo_name:
+            config = self.generate_ut2_golden_config_db()
+            self.module.run_command("sudo rm -f {}".format(MACSEC_PROFILE_PATH))
+            self.module.run_command("sudo rm -f {}".format(GOLDEN_CONFIG_TEMPLATE_PATH))
+            module_msg = module_msg + " for ut2 device"
+        elif "t2" in self.topo_name:
             config = self.generate_t2_golden_config_db()
             module_msg = module_msg + " for t2"
             self.module.run_command("sudo rm -f {}".format(MACSEC_PROFILE_PATH))

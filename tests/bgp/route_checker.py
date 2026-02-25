@@ -63,7 +63,8 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
     """
     mg_facts = dut_host.minigraph_facts(
         host=dut_host.hostname)['ansible_facts']
-    asn = mg_facts['minigraph_bgp_asn']
+    confed_asn = dut_host.get_bgp_confed_asn()
+
     all_routes = {}
     BGP_ENTRY_HEADING = r"BGP routing table entry for "
     BGP_COMMUNITY_HEADING = r"Community: "
@@ -87,6 +88,10 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
             # get hostname('ARISTA11T0') by VM name('VM0122')
             hostname = host_name_map[node['host'].hostname]
         host = node['host']
+        peer_in_bgp_confed = node['conf']['bgp'].get('peer_in_bgp_confed', False)
+        asn = mg_facts['minigraph_bgp_asn']
+        if peer_in_bgp_confed:
+            asn = confed_asn
         peer_ips = node['conf']['bgp']['peers'][asn]
         for ip in peer_ips:
             if ipaddress.IPNetwork(ip).version == 4:
@@ -165,7 +170,7 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
 def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
     mg_facts = dut_host.minigraph_facts(
         host=dut_host.hostname)['ansible_facts']
-    asn = mg_facts['minigraph_bgp_asn']
+    confed_asn = dut_host.get_bgp_confed_asn()
     all_routes = {}
 
     host_name_map = {}
@@ -175,6 +180,10 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
     def parse_routes_process_vsonic(node=None, results=None):
         hostname = host_name_map[node['host'].hostname]
         host = node['host']
+        peer_in_bgp_confed = node['conf']['bgp'].get('peer_in_bgp_confed', False)
+        asn = mg_facts['minigraph_bgp_asn']
+        if peer_in_bgp_confed:
+            asn = confed_asn
         peer_ips = node['conf']['bgp']['peers'][asn]
 
         for ip in peer_ips:

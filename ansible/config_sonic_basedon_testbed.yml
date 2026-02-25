@@ -572,6 +572,11 @@
       - name: Load variables from topology file for topo_{{ topo }}.yml
         include_vars: "vars/topo_{{ topo }}.yml"
 
+      - name: set BGP confd ASN facts
+        set_fact:
+          bgp_confd_asn: "{{ hostvars[inventory_hostname]['configuration_properties']['common']['dut_confed_asn'] | default(None) }}"
+          bgp_confd_peers: "{{ hostvars[inventory_hostname]['configuration_properties']['common']['dut_confed_peers'] | default(None) }}"
+
       - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
         shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
         become: true
@@ -823,7 +828,11 @@
           hwsku: "{{ hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
+          num_asics: "{{ num_asics }}"
+          bgp_confd_asn: "{{ bgp_confd_asn }}"
+          bgp_confd_peers: "{{ bgp_confd_peers }}"
         become: true
+        when: enable_macsec is not defined
 
       - name: Copy macsec profile json to dut
         copy: src=../tests/common/macsec/profile.json
@@ -842,6 +851,30 @@
           topo_name: "{{ topo }}"
           macsec_profile: "{{ macsec_profile }}"
           num_asics: "{{ num_asics }}"
+          bgp_confd_asn: "{{ bgp_confd_asn }}"
+          bgp_confd_peers: "{{ bgp_confd_peers }}"
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
+
+      - name: Copy macsec profile json to dut
+        copy: src=../tests/common/macsec/profile.json
+              dest=/tmp/profile.json
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
+
+      - name: Copy golden_config_db_t2 template to DUT
+        copy: src=templates/golden_config_db_t2.j2
+              dest=/tmp/golden_config_db_t2.j2
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
+
+      - name: Generate golden_config_db.json for t2
+        generate_golden_config_db:
+          topo_name: "{{ topo }}"
+          macsec_profile: "{{ macsec_profile }}"
+          num_asics: "{{ num_asics }}"
+          bgp_confd_asn: "{{ bgp_confd_asn }}"
+          bgp_confd_peers: "{{ bgp_confd_peers }}"
         become: true
         when: "('t2' in topo) and (macsec_profile is defined)"
 
