@@ -4,6 +4,10 @@ vms69-t2-8800-2-ixia:
         rx_ports:
           - hostname: str3-8800-lc3-1
             port_name: Ethernet128
+          - hostname: sonic-s6100-dut1
+            port_name: Ethernet72
+          - hostname: sonic-s6100-dut2
+            port_name: Ethernet76
         tx_ports:
           - hostname: str3-8800-lc3-1
             port_name: Ethernet136

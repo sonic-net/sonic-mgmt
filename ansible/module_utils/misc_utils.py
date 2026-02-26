@@ -1,7 +1,7 @@
 import time
 
 
-def wait_for_path(ssh, host_ip, path_to_check, empty_ok=False, tries=5, delay=60):
+def wait_for_path(ssh, host_ip, path_to_check, empty_ok=False, tries=1, delay=5):
     with ssh.open_sftp() as sftp:
         for _ in range(tries):
             try:
