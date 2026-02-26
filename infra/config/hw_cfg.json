@@ -2202,6 +2202,39 @@
                 "vms_count": 72
             }
         },
+        "t0-m6-02-10-bolt": {
+            "ucs_host_name": "sonic-m6-02-10",
+            "ucs_host": "172.25.168.48",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "bolt-dut-aal-07",
+            "scp_ip":"5.5.5.3",
+            "installer_mode":"sonic",
+            "ucs_tb": "bolt-dut-aal-07",
+            "telnet_host": ["172.25.168.52"],
+            "telnet_port": ["2004"],
+            "telnet_details": ["172.25.168.52 2004"],
+            "dut_ssh": ["5.5.5.3"],
+            "topology": "t0",
+            "telnet_flag": "False",
+            "docker_prompt": "@sonic-m6-02-10",
+            "run_type_check": "run_tests",
+            "sonic_mgmt_container_202511": "cicd_prod_202511",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url --skip-package-migration",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
+            "skip_tests": "",
+            "skip_folder": "",
+            "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo bolt-t0 ./lab",
+            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo bolt-t0 ./lab",
+            "mtu_hack": {
+                "vms_count": 4
+            }                                  
+	}, 
         "t0-m6-41-titan": {
             "ucs_host_name": "sonic-TTAN-ucs-m6-41",
             "ucs_host": "172.23.107.7",
