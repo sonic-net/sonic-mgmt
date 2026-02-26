@@ -20,12 +20,12 @@ import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import is_container_running
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.device_type('vs'),
 ]
 
 
@@ -45,8 +45,7 @@ def test_pmon_grep_no_kernel_panic(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Step 1 - verify pmon container is running
-    output = duthost.shell("docker ps")["stdout"]
-    if "pmon" not in output:
+    if not is_container_running(duthost, 'pmon'):
         pytest.skip("pmon container is not running on this device")
 
     logger.info("pmon container is running")
@@ -60,27 +59,27 @@ def test_pmon_grep_no_kernel_panic(duthosts, rand_one_dut_hostname):
     result = duthost.shell("docker exec pmon grep -c Linux /proc/version")
     pytest_assert(
         result["stdout"].strip() != "0",
-        "Basic grep inside pmon returned no matches for 'Linux' in /proc/version",
+        "Basic grep inside pmon returned no matches for 'Linux' "
+        "in /proc/version",
     )
     logger.info("Basic grep inside pmon succeeded")
 
     # Step 4 - grep over /sys/kernel/debug if present
     check_debug = duthost.shell(
-        "docker exec pmon test -d /sys/kernel/debug && echo EXISTS || echo MISSING",
+        "docker exec pmon test -d /sys/kernel/debug "
+        "&& echo EXISTS || echo MISSING",
         module_ignore_errors=True,
     )
-    debug_stdout = check_debug.get(
-        "stdout",
-        check_debug.get("stdout_lines", [""])[0]
-        if "stdout_lines" in check_debug else ""
-    )
+    debug_stdout = check_debug["stdout"]
     if "EXISTS" in str(debug_stdout):
-        logger.info("/sys/kernel/debug exists in pmon - running grep with timeout")
+        logger.info(
+            "/sys/kernel/debug exists in pmon - running grep with timeout")
         # Use timeout to prevent indefinite hangs.  Grep for a string
         # that won't match so it scans all files.
         duthost.shell(
             'docker exec pmon bash -c '
-            '"timeout 30 grep -r SONIC_PMON_GREP_TEST_12345 /sys/kernel/debug/ 2>/dev/null; exit 0"',
+            '"timeout 30 grep -r SONIC_PMON_GREP_TEST_12345 '
+            '/sys/kernel/debug/ 2>/dev/null; exit 0"',
             module_ignore_errors=True,
         )
         logger.info("grep over /sys/kernel/debug completed")
@@ -93,7 +92,18 @@ def test_pmon_grep_no_kernel_panic(duthosts, rand_one_dut_hostname):
     # Step 5 - check dmesg for new kernel panic / BUG / Oops
     dmesg_after = duthost.shell("dmesg")["stdout"]
     all_lines = dmesg_after.strip().splitlines()
-    new_lines = all_lines[baseline_lines:]
+
+    # If the dmesg ring buffer wrapped, the number of lines after the
+    # test may be smaller than the baseline.  In that case, scan all
+    # lines to avoid missing panic messages.
+    if baseline_lines <= len(all_lines):
+        new_lines = all_lines[baseline_lines:]
+    else:
+        logger.warning(
+            "dmesg ring buffer appears to have wrapped; "
+            "scanning entire dmesg output"
+        )
+        new_lines = all_lines
 
     panic_patterns = [
         r"Kernel panic",
