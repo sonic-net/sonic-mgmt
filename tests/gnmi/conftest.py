@@ -37,7 +37,9 @@ def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
         yield
         return
 
-    with setup_ntp_context(ptfhost, duthost, False):
+    duthost_mgmt_info = duthost.get_mgmt_ip()
+    use_v6 = duthost_mgmt_info["version"] == "v6"
+    with setup_ntp_context(ptfhost, duthost, use_v6):
         yield
 
 
