@@ -18,8 +18,6 @@ from collections import defaultdict
 
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
-WAIT_TIME = 2
-WAIT_TIME_EXTRA = 5
 
 
 def _check_redis_key_gone(duthost, db_num, key):
@@ -45,6 +43,8 @@ def _check_route_on_dut(duthost, route, prefix_type):
     cmd = f"show ip route {route}" if prefix_type == 'v4' else f"show ipv6 route {route}"
     result = duthost.shell(cmd, module_ignore_errors=True)
     return route in result.get('stdout', '')
+
+
 prefix_offset = 19
 
 # This is the list of encapsulations that will be tested in this script.
@@ -767,14 +767,14 @@ class Test_VNET_BGP_route_Precedence():
 
         # Step 5: remove the VNET route
         self.remove_vnet_route(routes)
-        time.sleep(1)  # Brief pause for route removal
-        py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
+        time.sleep(5)  # Wait for route removal to propagate
+        self.wait_for_route_checks_pass(vnet_check=True)
         # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded.
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
 
         # Step 6: remove the BGP route
         self.remove_bgp_route_from_neighbor_tor(tor, routes, routes_adv)
-        time.sleep(1)  # Brief pause for BGP withdrawal
+        time.sleep(5)  # Wait for BGP withdrawal to propagate
         self.verify_nighbor_doesnt_have_routes(routes, routes_adv, community)
         self.wait_for_route_checks_pass()
 
@@ -860,14 +860,14 @@ class Test_VNET_BGP_route_Precedence():
 
         # Step 5: remove the VNET route
         self.remove_vnet_route(routes)
-        time.sleep(1)  # Brief pause for route removal
-        py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
+        time.sleep(5)  # Wait for route removal to propagate
+        self.wait_for_route_checks_pass(vnet_check=True)
         # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded.
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
 
         # Step 6: remove the BGP route
         self.remove_bgp_route_from_neighbor_tor(tor, routes, routes_adv)
-        time.sleep(1)  # Brief pause for BGP withdrawal
+        time.sleep(5)  # Wait for BGP withdrawal to propagate
         self.verify_nighbor_doesnt_have_routes(routes, routes_adv, community)
         self.wait_for_route_checks_pass()
 
@@ -940,7 +940,7 @@ class Test_VNET_BGP_route_Precedence():
 
         # Step 3: Remove the BGP route
         self.remove_bgp_route_from_neighbor_tor(tor, routes, routes_adv)
-        time.sleep(1)  # Brief pause for BGP withdrawal
+        time.sleep(5)  # Wait for BGP withdrawal to propagate
         if init_nh_state == "initially_up":
             self.verify_nighbor_has_routes(routes, routes_adv, community)
         else:
@@ -963,8 +963,8 @@ class Test_VNET_BGP_route_Precedence():
 
         # Step 6: Remove the VNET route
         self.remove_vnet_route(routes)
-        time.sleep(1)  # Brief pause for route removal
-        py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
+        time.sleep(5)  # Wait for route removal to propagate
+        self.wait_for_route_checks_pass(vnet_check=True)
         # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded.
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
 
@@ -1047,8 +1047,8 @@ class Test_VNET_BGP_route_Precedence():
 
         # Step 7: remove the VNET route
         self.remove_vnet_route(routes)
-        time.sleep(1)  # Brief pause for route removal
-        py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
+        time.sleep(5)  # Wait for route removal to propagate
+        self.wait_for_route_checks_pass(vnet_check=True)
         # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded.
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
 
@@ -1152,14 +1152,14 @@ class Test_VNET_BGP_route_Precedence():
 
         # Step 7: remove the VNET route
         self.remove_vnet_route(routes)
-        time.sleep(1)  # Brief pause for route removal
-        py_assert(self.duthost.shell("sudo vnet_route_check.py")['stdout'] == '', "vnet_route_check.py failed.")
+        time.sleep(5)  # Wait for route removal to propagate
+        self.wait_for_route_checks_pass(vnet_check=True)
         # we expect the route_check not to fail as the vnet route is removed and BGP learnt route is readded.
         py_assert(self.duthost.shell("route_check.py")['stdout'] == '', "route_check.py failed.")
 
         # Step 7: remove the BGP route
         self.remove_bgp_route_from_neighbor_tor(tor, routes, routes_adv)
-        time.sleep(1)  # Brief pause for BGP withdrawal
+        time.sleep(5)  # Wait for BGP withdrawal to propagate
         self.verify_nighbor_doesnt_have_routes(routes, routes_adv, community)
         self.wait_for_route_checks_pass()
 
