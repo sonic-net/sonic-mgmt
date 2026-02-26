@@ -576,6 +576,10 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthosts, enum_rand_one
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if _is_t0(duthost, tbinfo):
         # Original T0 path (unchanged semantics)
+        # Check if fanout connection information is available for PFC pause testing
+        if not conn_graph_facts.get('device_conn', {}).get(duthost.hostname):
+            pytest.skip("Fanout needs to send PFC frames fast enough to completely pause the queue")
+
         test_errors = ""
         setup = pfc_test_setup
         lossless_prios = sorted(lossless_prio_dscp_map.keys())
@@ -873,7 +877,10 @@ def test_pfc_pause(pfc_test_setup, fanouthosts, duthosts, enum_rand_one_per_hwsk
         base = run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts, fanout_graph_facts,
                         traffic, queue_paused=False, send_pause=False, pfc_pause=None, pause_prio=None,
                         max_test_intfs_count=MAX_TEST_INTFS_COUNT)
-        # Pause
+        # Pause - check if fanout connection information is available
+        if not conn_graph_facts.get('device_conn', {}).get(duthost.hostname):
+            pytest.skip("Fanout needs to send PFC frames fast enough to completely pause the queue")
+
         pfc = run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts, fanout_graph_facts,
                        traffic, queue_paused=True, send_pause=True, pfc_pause=True, pause_prio=prio,
                        max_test_intfs_count=MAX_TEST_INTFS_COUNT)
