@@ -443,3 +443,6 @@ r, ".*kernel.*gpio.*Static allocation of GPIO base is deprecated.*"
 
 # Ignore SCD kernel warning about I2C communication ack errors on Arista platforms
 r, ".*WARNING kernel:.*scd.*rsp.*ack_error=1.*"
+
+# CHASSIS_STATE_DB only exists on chassis platforms; gnmi processes log an ERR on non-chassis systems at startup
+r, ".*ERR gnmi#.*getDbInfo: Failed to find CHASSIS_STATE_DB.*"
