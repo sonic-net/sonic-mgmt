@@ -4,6 +4,7 @@
 +file:cisco/tortuga/vxlan/test_udf_qpid_l3vni.py
 
 #Runtime Arguments
++args:--env SPYTEST_TOPOLOGY_STATUS_MAX_WAIT 300
 +args:--device-feature-group=master
 +args:--module-init-max-timeout=9000
 +args:--tc-max-timeout=5400
