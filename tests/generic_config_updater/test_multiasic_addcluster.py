@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import shutil
+import time
 import pytest
 
 from datetime import datetime
@@ -437,6 +438,640 @@ def parse_mirror_acl_bindings(acl_table_output):
     return mirror_bindings
 
 
+# Timeout for waiting for operational status to converge after applying patches
+OPER_STATUS_CONVERGENCE_TIMEOUT = 300
+
+
+def parse_interface_status_output(output, interfaces_to_check=None):
+    """Parse 'show interfaces status' output and extract operational status.
+
+    Extracts the Oper (operational) status column from SONiC's interface status table.
+    The Oper column indicates whether the interface is physically up or down,
+    independent of the Admin (administrative) status configuration.
+
+    Command: show interfaces status [-n <namespace>]
+
+    Example output:
+        Interface    Lanes    Speed    MTU    FEC    Alias    Vlan    Oper    Admin    Type
+        Ethernet0    0,1,2,3  100G     9100   rs     Eth1/1   routed  up      up       QSFP28
+        Ethernet4    4,5,6,7  100G     9100   rs     Eth1/2   routed  down    up       QSFP28
+
+    Args:
+        output: Raw stdout from 'show interfaces status' command.
+        interfaces_to_check: Optional set/list of interface names to filter.
+                             If None, parses all interfaces found.
+
+    Returns:
+        dict: Mapping of interface name to operational status ('up' or 'down').
+              Returns empty dict if parsing fails or no interfaces match.
+
+    Note:
+        Field positions can vary based on SONiC version and enabled features.
+        This parser looks for 'up'/'down' keywords at index >= 7 to avoid
+        matching non-status fields that might contain these strings.
+    """
+    status = {}
+    # Example format:
+    #   Interface    Lanes    Speed    MTU    FEC    Alias    Vlan    Oper    Admin    Type    Asym PFC
+    #   Ethernet0    0,1,2,3  100G     9100   rs     Eth1/1   routed  up      up       QSFP28  off
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) < 9:
+            continue
+
+        interface = fields[0]
+        if interfaces_to_check is not None and interface not in interfaces_to_check:
+            continue
+
+        # Oper status is typically at index 7, but field positions can vary
+        # Look for 'up'/'down' pattern starting from field index 7
+        for i, field in enumerate(fields):
+            if field.lower() in ('up', 'down') and i >= 7:
+                status[interface] = field.lower()
+                break
+
+    return status
+
+
+def parse_portchannel_status_output(output, portchannels_to_check=None):
+    """Parse 'show interfaces portchannel' output and extract LACP operational status.
+
+    Extracts the operational status of port channels by looking for LACP state
+    indicators. Port channels use LACP (Link Aggregation Control Protocol) to
+    manage member port bundling.
+
+    Command: show interfaces portchannel [-n <namespace>]
+
+    Example output:
+        Flags: A - active, I - inactive, Up - up, Dw - Down, N/A - not available
+        No.  Team Dev       Protocol    Ports
+        101  PortChannel101 LACP(A)(Up) Ethernet32(S) Ethernet36(S)
+        102  PortChannel102 LACP(A)(Dw) Ethernet40(D)
+
+    Args:
+        output: Raw stdout from 'show interfaces portchannel' command.
+        portchannels_to_check: Optional set/list of portchannel names to filter.
+                               If None, parses all portchannels found.
+
+    Returns:
+        dict: Mapping of portchannel name to operational status ('up' or 'down').
+              Returns empty dict if parsing fails or no portchannels match.
+
+    Note:
+        Status is determined by LACP state indicators:
+        - 'LACP(A)(Up)' or 'Up' in fields -> 'up'
+        - 'LACP(A)(Dw)' or 'Down' in fields -> 'down'
+    """
+    status = {}
+    for line in output.splitlines():
+        # Find portchannel names in the line
+        for word in line.split():
+            if word.startswith('PortChannel'):
+                pc_name = word
+                if portchannels_to_check is not None and pc_name not in portchannels_to_check:
+                    continue
+                # Look for LACP status indicators
+                if 'LACP(A)(Up)' in line or 'Up' in line.split():
+                    status[pc_name] = 'up'
+                elif 'Down' in line.split() or 'LACP(A)(Dw)' in line:
+                    status[pc_name] = 'down'
+                break
+    return status
+
+
+def parse_bgp_summary_json(output, neighbors_to_check=None):
+    """Parse BGP summary JSON output and extract session states for neighbors.
+
+    Extracts BGP session states from FRRouting's JSON-formatted BGP summary.
+    Session states indicate the current phase of the BGP finite state machine.
+
+    Command: vtysh -c 'show bgp summary json' (or vtysh -n <asic> for multi-ASIC)
+
+    Common BGP session states:
+        - 'Established': Session is up and exchanging routes (operational)
+        - 'Idle': Not attempting to connect
+        - 'Connect': TCP connection in progress
+        - 'Active': Actively trying to establish TCP connection
+        - 'OpenSent': TCP connected, BGP OPEN message sent
+        - 'OpenConfirm': Waiting for KEEPALIVE or NOTIFICATION
+
+    Args:
+        output: Raw stdout from vtysh BGP summary JSON command.
+        neighbors_to_check: Optional set/list of neighbor IPs to filter.
+                            If None, parses all neighbors found.
+
+    Returns:
+        dict: Mapping of neighbor IP to session state string.
+              Returns empty dict if JSON parsing fails or output is empty.
+
+    Note:
+        Parses both ipv4Unicast and ipv6Unicast address families.
+        Only 'Established' state indicates a fully operational BGP session.
+    """
+    states = {}
+    if not output or not output.strip():
+        return states
+
+    try:
+        bgp_summary = json.loads(output)
+        # BGP summary JSON has different structures for IPv4/IPv6
+        for af_key in ['ipv4Unicast', 'ipv6Unicast']:
+            if af_key in bgp_summary:
+                peers = bgp_summary[af_key].get('peers', {})
+                for neighbor_ip, peer_info in peers.items():
+                    if neighbors_to_check is not None and neighbor_ip not in neighbors_to_check:
+                        continue
+                    states[neighbor_ip] = peer_info.get('state', 'Unknown')
+    except json.JSONDecodeError:
+        pass
+
+    return states
+
+
+def parse_acl_table_output(output, acl_tables_to_check=None):
+    """Parse 'show acl table' output and extract ACL table operational status.
+
+    Extracts the Status column from SONiC's ACL table listing. ACL tables can be
+    Active (rules are being enforced) or Inactive (table exists but not applied).
+
+    Command: show acl table [-n <namespace>]
+
+    Example output:
+        Name        Type        Binding          Description    Stage    Status
+        ----------  ----------  ---------------  -------------  -------  --------
+        DATAACL     L3          Ethernet0        Data ACL       ingress  Active
+        EVERFLOW    MIRROR      Ethernet0,Eth4   Everflow       ingress  Active
+        SNMP_ACL    CTRLPLANE   None             SNMP Control   ingress  Inactive
+
+    Args:
+        output: Raw stdout from 'show acl table' command.
+        acl_tables_to_check: Optional set/list of ACL table names to filter.
+                             If None, parses all ACL tables found.
+
+    Returns:
+        dict: Mapping of ACL table name to status ('Active' or 'Inactive').
+              Returns empty dict if parsing fails or no tables match.
+
+    Note:
+        Skips header lines (containing dashes) and empty lines.
+        ACL table names are expected to be the first field in each data row.
+    """
+    status = {}
+    # Example format:
+    #   Name        Type        Binding          Description    Stage    Status
+    #   ----------  ----------  ---------------  -------------  -------  --------
+    #   DATAACL     L3          Ethernet0        Data ACL       ingress  Active
+    #   EVERFLOW    MIRROR      Ethernet0        Everflow       ingress  Active
+    for line in output.splitlines():
+        line_stripped = line.strip()
+        if not line_stripped or line_stripped.startswith('-'):
+            continue
+
+        fields = line.split()
+        if len(fields) < 2:
+            continue
+
+        acl_name = fields[0]
+        if acl_tables_to_check is not None and acl_name not in acl_tables_to_check:
+            continue
+
+        # Status is typically the last field
+        if 'Active' in fields:
+            status[acl_name] = 'Active'
+        elif 'Inactive' in fields:
+            status[acl_name] = 'Inactive'
+
+    return status
+
+
+def get_all_oper_status(duthost, asic_id, items_by_type):
+    """Query operational status for multiple item types from DUT in one call.
+
+    Consolidates status queries for ports, portchannels, BGP neighbors, and ACL
+    tables into a single function. This reduces code duplication and provides
+    a consistent interface for status collection used by both pre-patch snapshot
+    and post-patch verification.
+
+    Supported item types and their operational states:
+        - 'port': 'up' or 'down' (from show interfaces status)
+        - 'portchannel': 'up' or 'down' (from show interfaces portchannel)
+        - 'bgp_neighbor': 'Established', 'Idle', etc. (from vtysh BGP summary)
+        - 'acl_table': 'Active' or 'Inactive' (from show acl table)
+
+    Args:
+        duthost: DUT host object (ansible host connection).
+        asic_id: ASIC namespace identifier (e.g., 'asic0', 'asic1').
+                 Used for multi-ASIC DUTs to query the correct namespace.
+        items_by_type: Dict mapping item type to set of names to query.
+                       Only queries are made for non-empty sets.
+                       Example: {
+                           'port': {'Ethernet0', 'Ethernet4'},
+                           'portchannel': {'PortChannel101'},
+                           'bgp_neighbor': {'10.0.0.1', 'fc00::1'},
+                           'acl_table': {'EVERFLOW', 'DATAACL'}
+                       }
+
+    Returns:
+        dict: Flat mapping of item name to its operational status.
+              Status values vary by type (see supported types above).
+              Items not found in command output will not appear in result.
+
+    Note:
+        Errors during individual queries are logged but do not raise exceptions.
+        Partial results are returned if some queries succeed and others fail.
+    """
+    all_status = {}
+    ns_arg = get_namespace_arg(duthost, asic_id)
+    asic_index = get_asic_index_from_namespace(asic_id)
+
+    # Query interface status for ports (and portchannels may also appear here)
+    ports = items_by_type.get('port', set())
+    if ports:
+        try:
+            result = duthost.shell(f"show interfaces status {ns_arg}", module_ignore_errors=True)
+            if result['rc'] == 0:
+                all_status.update(parse_interface_status_output(result['stdout'], ports))
+        except Exception as e:
+            logger.warning(f"Error querying interface status: {e}")
+
+    # Query portchannel status
+    portchannels = items_by_type.get('portchannel', set())
+    if portchannels:
+        try:
+            result = duthost.shell(f"show interfaces portchannel {ns_arg}", module_ignore_errors=True)
+            if result['rc'] == 0:
+                all_status.update(parse_portchannel_status_output(result['stdout'], portchannels))
+        except Exception as e:
+            logger.warning(f"Error querying portchannel status: {e}")
+
+    # Query BGP neighbor session states
+    bgp_neighbors = items_by_type.get('bgp_neighbor', set())
+    if bgp_neighbors:
+        try:
+            if duthost.is_multi_asic:
+                vtysh_cmd = f"sudo vtysh -n {asic_index} -c 'show bgp summary json'"
+            else:
+                vtysh_cmd = "sudo vtysh -c 'show bgp summary json'"
+
+            result = duthost.shell(vtysh_cmd, module_ignore_errors=True)
+            if result['rc'] == 0:
+                all_status.update(parse_bgp_summary_json(result['stdout'], bgp_neighbors))
+        except Exception as e:
+            logger.warning(f"Error querying BGP status: {e}")
+
+    # Query ACL table status
+    acl_tables = items_by_type.get('acl_table', set())
+    if acl_tables:
+        try:
+            result = duthost.shell(f"show acl table {ns_arg}", module_ignore_errors=True)
+            if result['rc'] == 0:
+                all_status.update(parse_acl_table_output(result['stdout'], acl_tables))
+        except Exception as e:
+            logger.warning(f"Error querying ACL table status: {e}")
+
+    return all_status
+
+
+def collect_oper_status_from_patches(duthost, phase1_patch, phase2_patch, asic_id):
+    """Collect operational status for items referenced in patches that have admin_status.
+
+    This function queries the current operational status of ports, portchannels, and
+    BGP neighbors that are mentioned in the patch files and have admin_status configured.
+    This pre-patch snapshot is used to verify operational status convergence after patches
+    are applied.
+
+    Args:
+        duthost: DUT host object
+        phase1_patch: List of patch operations for phase 1
+        phase2_patch: List of patch operations for phase 2
+        asic_id: ASIC namespace (e.g., 'asic0')
+
+    Returns:
+        dict: Dictionary mapping item names to their pre-patch operational status
+              Format: {
+                  'Ethernet32': {'oper_status': 'up', 'admin_status': 'up', 'type': 'port'},
+                  'PortChannel101': {'oper_status': 'down', 'admin_status': 'up', 'type': 'portchannel'},
+                  '10.0.0.1': {'oper_status': 'Established', 'admin_status': 'up', 'type': 'bgp_neighbor'},
+                  'EVERFLOW': {'oper_status': 'Active', 'admin_status': None, 'type': 'acl_table'},
+              }
+    """
+    items_to_check = {}
+
+    # Extract ports, portchannels, BGP neighbors, and ACL tables from patches
+    for patch in phase1_patch + phase2_patch:
+        path = patch.get('path', '')
+        value = patch.get('value', {})
+
+        if not isinstance(value, dict):
+            continue
+
+        # Extract PORT entries (require admin_status)
+        if f'/{asic_id}/PORT/' in path:
+            admin_status = value.get('admin_status')
+            if admin_status:
+                port = path.split('/')[-1]
+                if is_front_panel_port(port):
+                    items_to_check[port] = {
+                        'admin_status': admin_status,
+                        'type': 'port',
+                        'oper_status': None
+                    }
+
+        # Extract PORTCHANNEL entries (require admin_status)
+        elif f'/{asic_id}/PORTCHANNEL/' in path:
+            admin_status = value.get('admin_status')
+            if admin_status:
+                portchannel = path.split('/')[-1]
+                items_to_check[portchannel] = {
+                    'admin_status': admin_status,
+                    'type': 'portchannel',
+                    'oper_status': None
+                }
+
+        # Extract BGP_NEIGHBOR entries (require admin_status)
+        elif f'/{asic_id}/BGP_NEIGHBOR/' in path:
+            admin_status = value.get('admin_status')
+            if admin_status:
+                neighbor_ip = path.split('/')[-1]
+                items_to_check[neighbor_ip] = {
+                    'admin_status': admin_status,
+                    'type': 'bgp_neighbor',
+                    'oper_status': None  # Will be BGP session state: Established, Idle, Active, etc.
+                }
+
+        # Extract ACL_TABLE entries (no admin_status, but has 'type' field)
+        # ACL tables have operational status (Active/Inactive)
+        elif f'/{asic_id}/ACL_TABLE/' in path or '/ACL_TABLE/' in path:
+            acl_type = value.get('type')
+            if acl_type:  # Valid ACL table entry has a 'type' field
+                acl_name = path.split('/')[-1]
+                # Handle paths like /asic0/ACL_TABLE/EVERFLOW/ports - skip sub-paths
+                if acl_name != 'ports' and not acl_name.startswith('policy'):
+                    items_to_check[acl_name] = {
+                        'admin_status': None,  # ACL tables don't have admin_status
+                        'type': 'acl_table',
+                        'acl_type': acl_type,  # Store ACL type (MIRROR, L3, etc.)
+                        'oper_status': None  # Will be Active/Inactive
+                    }
+
+    if not items_to_check:
+        logger.info("No items found in patches - skipping oper status collection")
+        return {}
+
+    logger.info(f"Collecting pre-patch operational status for {len(items_to_check)} items")
+
+    # Build items_by_type dict for get_all_oper_status
+    items_by_type = {}
+    for name, info in items_to_check.items():
+        item_type = info['type']
+        if item_type not in items_by_type:
+            items_by_type[item_type] = set()
+        items_by_type[item_type].add(name)
+
+    # Query all operational statuses using consolidated helper
+    oper_statuses = get_all_oper_status(duthost, asic_id, items_by_type)
+
+    # Update items_to_check with the retrieved operational statuses
+    for name, status in oper_statuses.items():
+        if name in items_to_check:
+            items_to_check[name]['oper_status'] = status
+            logger.debug(f"Pre-patch oper status for {name}: {status}")
+
+    # Log summary
+    up_count = sum(1 for info in items_to_check.values()
+                   if info['oper_status'] in ('up', 'Established', 'Active'))
+    down_count = sum(1 for info in items_to_check.values()
+                     if info['oper_status'] in ('down', 'Inactive') or
+                     (info['type'] == 'bgp_neighbor' and info['oper_status'] not in (None, 'Established')))
+    unknown_count = sum(1 for info in items_to_check.values() if info['oper_status'] is None)
+    logger.info(f"Pre-patch oper status summary: {up_count} up/Established/Active, "
+               f"{down_count} down/not-established/Inactive, {unknown_count} unknown")
+
+    return items_to_check
+
+
+def verify_oper_status_after_patches(duthost, pre_patch_status, asic_id, timeout=OPER_STATUS_CONVERGENCE_TIMEOUT):
+    """Verify operational status converges correctly after patches are applied.
+
+    This function waits for operational status to stabilize and then verifies:
+    1. Items that were operationally 'up'/'Established' before AND have admin_status='up' should be up after
+    2. Items that were operationally 'down'/not-Established before are checked but only logged (not failed)
+       since external factors (e.g., far-end link down, peer not ready) may prevent them from coming up
+
+    Args:
+        duthost: DUT host object
+        pre_patch_status: Dictionary from collect_oper_status_from_patches()
+        asic_id: ASIC namespace (e.g., 'asic0')
+        timeout: Seconds to wait for status convergence (default: 300)
+
+    Returns:
+        tuple: (success, failures, warnings) where:
+               - success: True if all required items are operationally up/Established
+               - failures: List of items that failed verification
+               - warnings: List of items that were down before and still down
+    """
+    if not pre_patch_status:
+        logger.info("No pre-patch status recorded - skipping oper status verification")
+        return True, [], []
+
+    failures = []
+    warnings = []
+
+    # Helper to check if an item was "up" (handles ports, BGP, and ACL tables)
+    def was_operationally_up(info):
+        if info['type'] == 'bgp_neighbor':
+            return info['oper_status'] == 'Established'
+        elif info['type'] == 'acl_table':
+            return info['oper_status'] == 'Active'
+        else:
+            return info['oper_status'] == 'up'
+
+    # Helper to check if an item was "down" (handles ports, BGP, and ACL tables)
+    def was_operationally_down(info):
+        if info['type'] == 'bgp_neighbor':
+            # BGP states other than Established are considered "down"
+            return info['oper_status'] is not None and info['oper_status'] != 'Established'
+        elif info['type'] == 'acl_table':
+            return info['oper_status'] == 'Inactive'
+        else:
+            return info['oper_status'] == 'down'
+
+    # Items that MUST come up: were 'up'/'Established'/'Active' before
+    # For ports/portchannels: also need admin_status='up'
+    # For ACL tables: no admin_status, just check if was Active
+    # For BGP: need admin_status='up' (from config)
+    must_be_up = {
+        name: info for name, info in pre_patch_status.items()
+        if was_operationally_up(info) and (
+            info['type'] == 'acl_table' or  # ACL tables don't have admin_status
+            info['admin_status'] == 'up'
+        )
+    }
+
+    # Items that MUST be down: configured with admin_status='down' in the patch
+    # These items should be operationally down after patches are applied
+    must_be_down = {
+        name: info for name, info in pre_patch_status.items()
+        if info.get('admin_status') == 'down' and info['type'] != 'acl_table'
+    }
+
+    # Items that were down before - we'll check but only warn
+    # For ACL tables: was Inactive
+    # For ports/portchannels: was down with admin_status='up'
+    # For BGP: was not Established with admin_status='up'
+    was_down = {
+        name: info for name, info in pre_patch_status.items()
+        if was_operationally_down(info) and (
+            info['type'] == 'acl_table' or
+            info['admin_status'] == 'up'
+        )
+    }
+
+    # Categorize by type for logging
+    port_must_up = sum(1 for info in must_be_up.values() if info['type'] == 'port')
+    pc_must_up = sum(1 for info in must_be_up.values() if info['type'] == 'portchannel')
+    bgp_must_up = sum(1 for info in must_be_up.values() if info['type'] == 'bgp_neighbor')
+    acl_must_up = sum(1 for info in must_be_up.values() if info['type'] == 'acl_table')
+
+    port_must_down = sum(1 for info in must_be_down.values() if info['type'] == 'port')
+    pc_must_down = sum(1 for info in must_be_down.values() if info['type'] == 'portchannel')
+
+    logger.info(f"Waiting up to {timeout}s for operational status to converge...")
+    logger.info(f"  - {len(must_be_up)} items must be operationally up/Established/Active "
+               f"(ports: {port_must_up}, portchannels: {pc_must_up}, BGP: {bgp_must_up}, ACL: {acl_must_up})")
+    logger.info(f"  - {len(must_be_down)} items must be operationally down (admin_status='down') "
+               f"(ports: {port_must_down}, portchannels: {pc_must_down})")
+    logger.info(f"  - {len(was_down)} items were down/Inactive before with admin_status='up' (will check but only warn)")
+
+    # Build items_by_type for status queries - include all items we need to check
+    all_items_to_check = set(must_be_up.keys()) | set(must_be_down.keys()) | set(was_down.keys())
+    items_by_type = {}
+    for name in all_items_to_check:
+        info = pre_patch_status.get(name, {})
+        item_type = info.get('type')
+        if item_type:
+            if item_type not in items_by_type:
+                items_by_type[item_type] = set()
+            items_by_type[item_type].add(name)
+
+    # Helper to get expected operational state based on item type
+    def get_expected_state(info):
+        if info['type'] == 'bgp_neighbor':
+            return 'Established'
+        elif info['type'] == 'acl_table':
+            return 'Active'
+        else:
+            return 'up'
+
+    def check_oper_status():
+        """Check if all must_be_up items are up and must_be_down items are down."""
+        current_status = get_all_oper_status(duthost, asic_id, items_by_type)
+
+        # Check if all must_be_up items are up/Established/Active
+        all_up = True
+        for name, info in must_be_up.items():
+            current = current_status.get(name)
+            expected = get_expected_state(info)
+            if current != expected:
+                all_up = False
+
+        # Check if all must_be_down items are down
+        all_down = True
+        for name in must_be_down.keys():
+            if current_status.get(name) != 'down':
+                all_down = False
+
+        if not all_up:
+            not_up = [name for name, info in must_be_up.items()
+                      if current_status.get(name) != get_expected_state(info)]
+            logger.debug(f"Still waiting for {len(not_up)} items to come up: {not_up[:5]}...")
+
+        if not all_down:
+            not_down = [name for name in must_be_down.keys() if current_status.get(name) != 'down']
+            logger.debug(f"Still waiting for {len(not_down)} items to go down: {not_down[:5]}...")
+
+        return all_up and all_down
+
+    # Wait for convergence
+    if must_be_up or must_be_down:
+        converged = wait_until(timeout, 10, 30, check_oper_status)  # Check every 10s, initial delay 30s
+
+        if not converged:
+            logger.error(f"Operational status did not converge within {timeout}s")
+    else:
+        # If nothing must be up or down, just wait a bit for stability
+        logger.info(f"No items required to be up or down - waiting 60s for stability")
+        time.sleep(60)
+        converged = True
+
+    # Final status check and collect results
+    logger.info("Performing final operational status verification...")
+    final_status = get_all_oper_status(duthost, asic_id, items_by_type)
+
+    # Verify must_be_up items
+    for name, info in must_be_up.items():
+        current = final_status.get(name)
+        expected = get_expected_state(info)
+
+        if current != expected:
+            failures.append({
+                'name': name,
+                'type': info['type'],
+                'pre_patch_oper': info['oper_status'],
+                'post_patch_oper': current,
+                'admin_status': info.get('admin_status')  # ACL tables don't have admin_status
+            })
+            admin_info = f"admin_status='{info['admin_status']}', " if info.get('admin_status') else ""
+            logger.error(f"FAIL: {name} ({info['type']}) was operationally '{info['oper_status']}' before patch, "
+                        f"{admin_info}but is now '{current}'")
+        else:
+            logger.info(f"PASS: {name} ({info['type']}) is operationally '{expected}' as expected")
+
+    # Verify must_be_down items (configured with admin_status='down')
+    for name, info in must_be_down.items():
+        current = final_status.get(name)
+
+        if current != 'down':
+            failures.append({
+                'name': name,
+                'type': info['type'],
+                'pre_patch_oper': info['oper_status'],
+                'post_patch_oper': current,
+                'admin_status': 'down'
+            })
+            logger.error(f"FAIL: {name} ({info['type']}) has admin_status='down' in patch, "
+                        f"but oper_status is '{current}' (expected 'down')")
+        else:
+            logger.info(f"PASS: {name} ({info['type']}) is operationally 'down' as expected (admin_status='down')")
+
+    # Check was_down items (warn only)
+    for name, info in was_down.items():
+        current = final_status.get(name)
+        expected = get_expected_state(info)
+        was_state = info['oper_status']
+
+        if current != expected:
+            warnings.append({
+                'name': name,
+                'type': info['type'],
+                'pre_patch_oper': was_state,
+                'post_patch_oper': current,
+                'admin_status': info.get('admin_status')  # ACL tables don't have admin_status
+            })
+            logger.warning(f"INFO: {name} ({info['type']}) was operationally '{was_state}' before patch and "
+                          f"is now '{current}'. This may be due to external factors.")
+        else:
+            logger.info(f"IMPROVED: {name} ({info['type']}) was '{was_state}' before but is now '{expected}'")
+
+    success = len(failures) == 0
+    total_checked = len(must_be_up) + len(must_be_down)
+    logger.info(f"Oper status verification complete: {total_checked - len(failures)}/{total_checked} passed "
+               f"({len(must_be_up)} must-be-up, {len(must_be_down)} must-be-down), "
+               f"{len(warnings)} warnings for previously-down items")
+
+    return success, failures, warnings
+
+
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_front_end_hostname):
     """Setup and teardown fixture using a frontend (linecard) DUT.
@@ -636,6 +1271,21 @@ def test_addcluster_workflow(duthosts, rand_one_dut_front_end_hostname):
     with open(phase1_file) as file:
         phase1_patch = json.load(file)
 
+    # Load Phase 2 patch now as well so we can collect pre-patch operational status
+    with open(phase2_file) as file:
+        phase2_patch = json.load(file)
+
+    # Step 7a: Collect pre-patch operational status for items with admin_status
+    # -------------------------------------------------------------------------
+    # Before applying any patches, record the operational status of ports/portchannels
+    # that have admin_status configured. This allows us to verify that items that
+    # were operationally 'up' before remain 'up' after patches are applied.
+    # -------------------------------------------------------------------------
+    logger.info("Collecting pre-patch operational status for items in patches")
+    pre_patch_oper_status = collect_oper_status_from_patches(
+        duthost, phase1_patch, phase2_patch, asic_id
+    )
+
     # Extract information to check from phase 1 patch
     ports_to_check = set()
     portchannels_to_check = set()
@@ -694,8 +1344,7 @@ def test_addcluster_workflow(duthosts, rand_one_dut_front_end_hostname):
     # This is done separately due to GCU sorter limitation - it cannot handle
     # PORT additions and ACL_TABLE updates referencing those ports in the same batch.
     logger.info("Applying Phase 2 patch (ACL bindings)")
-    with open(phase2_file) as file:
-        phase2_patch = json.load(file)
+    # Note: phase2_patch was already loaded earlier for pre-patch oper status collection
 
     # Extract ACL-bound ports from phase 2 patch for verification
     acl_bound_ports = set()
@@ -723,6 +1372,40 @@ def test_addcluster_workflow(duthosts, rand_one_dut_front_end_hostname):
             delete_tmpfile(duthost, tmpfile)
     else:
         logger.info("Phase 2 patch is empty (no ACL changes) - skipping")
+
+    # Step 8: Verify operational status convergence
+    # -------------------------------------------------------------------------
+    # Wait for operational status to converge and verify that items which were
+    # operationally 'up' before the patches AND have admin_status='up' in config
+    # are also operationally 'up' after the patches are applied.
+    #
+    # For items that were operationally 'down' before patches:
+    # - Only log a warning if still down (don't fail)
+    # - External factors (e.g., far-end link down) may prevent them from coming up
+    # -------------------------------------------------------------------------
+    if pre_patch_oper_status:
+        logger.info("Verifying operational status convergence after patches")
+        oper_success, oper_failures, oper_warnings = verify_oper_status_after_patches(
+            duthost, pre_patch_oper_status, asic_id, timeout=OPER_STATUS_CONVERGENCE_TIMEOUT
+        )
+
+        if not oper_success:
+            failure_details = "\n".join([
+                f"  - {f['name']} ({f['type']}): was '{f['pre_patch_oper']}' -> now '{f['post_patch_oper']}' "
+                f"(admin_status={f['admin_status']})"
+                for f in oper_failures
+            ])
+            pytest.fail(
+                f"Operational status verification failed for {len(oper_failures)} item(s):\n{failure_details}\n"
+                f"These items were operationally 'up' before patches and have admin_status='up', "
+                f"but are not operationally 'up' after patches were applied."
+            )
+
+        if oper_warnings:
+            logger.warning(f"{len(oper_warnings)} item(s) were down before and remain down - "
+                          f"this may be due to external factors")
+    else:
+        logger.info("No pre-patch operational status recorded - skipping oper status verification")
 
     # Capture post-patch CONFIG_DB state
     if CAPTURE_CONFIGS and capture_dir:
