@@ -4337,7 +4337,7 @@ route/test_route_flap.py:
 
 route/test_route_flow_counter.py:
   skip:
-    reason: "Test not supported for cisco-8122 platform / Route flow counter is not supported on vs platform. show flowcnt-route stats not supported on Arista"
+    reason: "Test not supported for cisco-8122 platform / Route flow counter is not supported on vs platform. show flowcnt-route stats not supported on Arista."
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
