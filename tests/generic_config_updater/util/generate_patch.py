@@ -273,9 +273,27 @@ def coalesce_property_patches(patches, full_config, no_leaf_config, tables_to_co
     for (namespace, table_name, key) in entries_to_coalesce:
         full_value = get_entry_from_config(full_config, namespace, table_name, key, multi_asic)
         if full_value:
-            # Use "replace" if entry exists in no_leaf_config, "add" if it's new
-            no_leaf_table = get_table_from_config(no_leaf_config, namespace, table_name, multi_asic)
-            op = "replace" if key in no_leaf_table else "add"
+            # Always use "add" operation for maximum compatibility.
+            #
+            # NOTE: We intentionally use "add" instead of "replace" even for existing entries.
+            # Per RFC 6902, "add" will update if exists or create if not, while "replace" fails
+            # if the target doesn't exist. Using "add" universally loses the following capabilities:
+            #
+            # 1. VALIDATION: "replace" would fail fast if an entry we expected to exist is missing,
+            #    catching bugs where assumptions about the base config are incorrect.
+            #
+            # 2. DEBUGGING: The patch file becomes less self-documenting - we can no longer
+            #    distinguish which entries were updates to existing config vs. new additions
+            #    by inspecting the operation type.
+            #
+            # 3. ERROR LOCALIZATION: When "replace" fails, it points to the exact entry that
+            #    violated assumptions. With "add", silent overwrites may mask configuration
+            #    drift issues that only manifest later as test failures.
+            #
+            # This trade-off was made to avoid GCU patch application failures when the base
+            # configuration state differs slightly from expectations (e.g., after partial
+            # rollbacks or manual interventions).
+            op = "add"
 
             coalesced_patches.append({
                 "op": op,
@@ -379,8 +397,12 @@ def find_acl_table_bindings_for_ports(full_config, no_leaf_config, namespace, po
                 if port not in existing_patch['value']:
                     existing_patch['value'].append(port)
             else:
+                # Use "add" instead of "replace" for ACL_TABLE port bindings.
+                # This field should always exist in a valid ACL_TABLE entry, but using "add"
+                # avoids failures if the 'ports' field is unexpectedly missing. See the
+                # detailed comment in coalesce_property_patches() for trade-offs of this approach.
                 patches.append({
-                    "op": "replace",
+                    "op": "add",
                     "path": ports_path,
                     "value": new_ports_list
                 })
