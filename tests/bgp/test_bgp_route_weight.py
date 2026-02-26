@@ -21,13 +21,16 @@ pytestmark = [
 CHECK_SCRIPT = """\
 import json, subprocess, sys
 
+af = sys.argv[1]  # 'ipv4' or 'ipv6'
+ns = sys.argv[2] if len(sys.argv) > 2 else ''  # ASIC namespace (multi-ASIC)
+
+db_cmd = ['sonic-db-cli', '-n', ns, 'APPL_DB'] if ns else ['sonic-db-cli', 'APPL_DB']
+
 result = subprocess.run(
-    ['sonic-db-cli', 'APPL_DB', 'keys', 'ROUTE_TABLE:*'],
+    db_cmd + ['keys', 'ROUTE_TABLE:*'],
     capture_output=True, text=True
 )
 all_keys = [k for k in result.stdout.strip().split('\\n') if k]
-
-af = sys.argv[1]  # 'ipv4' or 'ipv6'
 checked = 0
 missing = []
 mismatched = []
@@ -43,7 +46,7 @@ for key in all_keys:
             continue
 
     r = subprocess.run(
-        ['sonic-db-cli', 'APPL_DB', 'hgetall', key],
+        db_cmd + ['hgetall', key],
         capture_output=True, text=True
     )
     # Parse the python dict string output
@@ -89,11 +92,13 @@ print(json.dumps({
 
 def _run_weight_check(duthost, asic, address_family):
     """Run the weight check script on the DUT and return results."""
+    namespace = asic.namespace if asic.namespace else ''
     # Write script to DUT and execute
     asic.shell("cat > /tmp/check_weight.py << 'PYEOF'\n{}\nPYEOF".format(
         CHECK_SCRIPT))
     output = asic.shell(
-        "python3 /tmp/check_weight.py {}".format(address_family))['stdout'].strip()
+        "python3 /tmp/check_weight.py {} {}".format(
+            address_family, namespace))['stdout'].strip()
     asic.shell("rm -f /tmp/check_weight.py")
 
     result = json.loads(output)
