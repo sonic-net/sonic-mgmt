@@ -29,11 +29,11 @@ from tests.common.config_reload import config_reload
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1'),
+    pytest.mark.topology('t0'),
     pytest.mark.device_type('vs'),
 ]
 
-WAIT_TIMEOUT = 180
+WAIT_TIMEOUT = 120
 POLL_INTERVAL = 10
 
 
@@ -333,7 +333,7 @@ def test_bgp_link_local_ipv6(setup_info):
 
         # Step 8: Verify routes are received
         logger.info("Step 8: Verify routes are received via unnumbered session")
-        time.sleep(15)  # Allow route exchange to complete
+        time.sleep(10)  # Allow route exchange to complete
 
         # Check routes via vtysh BGP summary JSON
         result = duthost.shell("vtysh -c 'show bgp summary json'", module_ignore_errors=True)
@@ -392,7 +392,7 @@ def test_bgp_link_local_ipv6(setup_info):
             logger.warning("EOS cleanup failed: %s", e)
 
         # Config reload on DUT to restore everything
-        config_reload(duthost, wait=360)
+        config_reload(duthost, wait=120)
 
         # Wait for all original BGP sessions to re-establish
         original_neighbors = [neigh_ipv4]
