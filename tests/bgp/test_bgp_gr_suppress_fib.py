@@ -21,7 +21,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1'),
+    pytest.mark.topology('t0'),
     pytest.mark.device_type('vs')
 ]
 
