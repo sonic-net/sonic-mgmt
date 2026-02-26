@@ -569,6 +569,13 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
 
     ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=VXLAN_UDP_PORT, dutmac=router_mac)
 
+    # Allow time for VXLAN switch config to propagate through swss pipeline
+    def _check_vxlan_switch_config(duthost):
+        result = duthost.shell('redis-cli -n 0 KEYS "SWITCH_TABLE:switch"', module_ignore_errors=True)
+        return "SWITCH_TABLE:switch" in result.get("stdout", "")
+
+    wait_until(10, 2, 2, _check_vxlan_switch_config, duthost)
+
 
 def backup_config(duthost):
     logger.info("Creating configuration backup...")
