@@ -1671,6 +1671,16 @@ class TestVrfDeletion():
                 for ip in ips:
                     duthost.shell(
                         "config interface ip add {} {}".format(intf, ip))
+                    if 'Vlan' in intf:
+                        neigh_ip = ip.ip + 1
+                        if neigh_ip not in ip or neigh_ip == ip.broadcast:
+                            logger.warning(
+                                "Skipping ping to invalid neighbor IP {} for interface {} "
+                                "(broadcast or out of subnet)".format(neigh_ip, intf))
+                            continue
+                        ping_cmd = 'ping' if ip.version == 4 else 'ping6'
+                        duthost.shell("{} -I Vrf1 {} -c 1 -f -W1".format(ping_cmd,
+                                      neigh_ip), module_ignore_errors=True)
 
     @pytest.fixture(scope="class", autouse=True)
     def setup_vrf_deletion(self, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, cfg_facts):
