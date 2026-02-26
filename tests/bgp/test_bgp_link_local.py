@@ -70,8 +70,17 @@ def get_neighbor_portchannel_intf(neigh_host, neigh_ipv4):
 @pytest.fixture(scope='module')
 def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
     """Gather setup information for the link-local BGP test."""
+    # This test uses eos_command/eos_config on the neighbor host, so it
+    # requires EOS/cEOS neighbors.  Skip gracefully for other neighbor types.
+    common_props = tbinfo.get('topo', {}).get('properties', {}).get(
+        'configuration_properties', {}).get('common', {})
+    neighbor_type = common_props.get('neighbor_type', 'eos')
+    if neighbor_type.lower() not in ('eos', 'ceos'):
+        pytest.skip("BGP link-local test requires EOS neighbors; "
+                     "current neighbor_type is '{}'".format(neighbor_type))
+
     duthost = duthosts[rand_one_dut_hostname]
-    dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    dut_asn = common_props['dut_asn']
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
@@ -263,11 +272,14 @@ def configure_unnumbered_bgp(setup_info):
 
     # Remove existing BGP session on EOS neighbor
     logger.info("Remove DUT neighbors on EOS peer")
-    remove_lines = ["no neighbor {}".format(dut_ipv4)]
+    remove_lines = []
+    if dut_ipv4:
+        remove_lines.append("no neighbor {}".format(dut_ipv4))
     if dut_ipv6:
         remove_lines.append("no neighbor {}".format(dut_ipv6))
-    neigh_host.eos_config(lines=remove_lines,
-                          parents="router bgp {}".format(neigh_asn))
+    if remove_lines:
+        neigh_host.eos_config(lines=remove_lines,
+                              parents="router bgp {}".format(neigh_asn))
     time.sleep(3)
 
     # Configure unnumbered BGP on DUT
@@ -328,7 +340,8 @@ def configure_unnumbered_bgp(setup_info):
         original_neighbors.append(neigh_ipv6)
     if not wait_until(WAIT_TIMEOUT, POLL_INTERVAL, 0,
                       duthost.check_bgp_session_state, original_neighbors):
-        logger.error("BGP sessions did not re-establish after config reload")
+        pytest_assert(False,
+                      "BGP sessions did not re-establish after config reload")
     else:
         logger.info("Original configuration restored, all sessions up")
 
