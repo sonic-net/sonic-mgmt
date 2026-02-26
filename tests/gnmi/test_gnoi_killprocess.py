@@ -1,5 +1,4 @@
 import logging
-import time
 
 import pytest
 
@@ -31,6 +30,7 @@ pytestmark = [
         ("restapi", True, ""),
         ("lldp", True, ""),
         ("sshd", True, ""),
+        ("swss", True, ""),
         ("pmon", True, ""),
         ("rsyslog", True, ""),
         ("telemetry", True, ""),
@@ -55,57 +55,21 @@ def test_gnoi_killprocess_then_restart(
     if is_valid and process and not duthost.is_host_service_running(process):
         pytest.skip(f"{process} is not running")
 
-    # Kill the process without restart
-    logger.info("gNOI KillProcess request: name=%r restart=False signal=%r", process, SIGNAL_TERM)
-    try:
-        resp = ptf_gnoi.kill_process(name=process, restart=False, signal=SIGNAL_TERM)
-        logger.info("gNOI KillProcess response: %s", resp)
-        ret = 0
-        msg = str(resp) if resp is not None else ""
-    except Exception as exc:
-        logger.error("gNOI KillProcess error: %s", exc)
-        ret = 1
-        msg = str(exc)
-
     if is_valid:
-        pytest_assert(
-            ret == 0,
-            f"KillProcess API unexpectedly reported failure: {msg}",
-        )
+        ptf_gnoi.kill_process(name=process, restart=False, signal=SIGNAL_TERM)
         pytest_assert(
             not is_container_running(duthost, process),
             f"{process} found running after KillProcess reported success",
         )
 
-        # Restart the process
-        logger.info("gNOI KillProcess request: name=%r restart=True signal=%r", process, SIGNAL_TERM)
-        try:
-            resp = ptf_gnoi.kill_process(name=process, restart=True, signal=SIGNAL_TERM)
-            logger.info("gNOI KillProcess response: %s", resp)
-            ret = 0
-            msg = str(resp) if resp is not None else ""
-        except Exception as exc:
-            logger.error("gNOI KillProcess error: %s", exc)
-            ret = 1
-            msg = str(exc)
-
-        pytest_assert(
-            ret == 0,
-            (
-                "KillProcess API unexpectedly reported failure when "
-                f"attempting to restart {process}: {msg}"
-            ),
-        )
+        ptf_gnoi.kill_process(name=process, restart=True, signal=SIGNAL_TERM)
         pytest_assert(
             duthost.is_host_service_running(process),
             f"{process} not running after KillProcess reported successful restart",
         )
     else:
-        pytest_assert(
-            ret != 0,
-            "KillProcess API unexpectedly succeeded with invalid request parameters",
-        )
-        pytest_assert(expected_msg in msg, f"Unexpected error message: {msg}")
+        with pytest.raises(Exception, match=expected_msg):
+            ptf_gnoi.kill_process(name=process, restart=False, signal=SIGNAL_TERM)
 
     wait_critical_processes(duthost)
     pytest_assert(
@@ -140,26 +104,7 @@ def test_gnoi_killprocess_restart(
     if not duthost.is_host_service_running(process):
         pytest.skip(f"{process} is not running")
 
-    logger.info(
-        "gNOI KillProcess request: name=%r restart=%r signal=%r",
-        process,
-        restart_value,
-        SIGNAL_TERM,
-    )
-    try:
-        resp = ptf_gnoi.kill_process(name=process, restart=restart_value, signal=SIGNAL_TERM)
-        logger.info("gNOI KillProcess response: %s", resp)
-        ret = 0
-        msg = str(resp) if resp is not None else ""
-    except Exception as exc:
-        logger.error("gNOI KillProcess error: %s", exc)
-        ret = 1
-        msg = str(exc)
-
-    pytest_assert(
-        ret == 0,
-        f"KillProcess API unexpectedly reported failure: {msg}",
-    )
+    ptf_gnoi.kill_process(name=process, restart=restart_value, signal=SIGNAL_TERM)
 
     # Check if service state matches expectations based on restart parameter
     is_running = is_container_running(duthost, process)
@@ -171,21 +116,7 @@ def test_gnoi_killprocess_restart(
 
     # If service was stopped, restart it for cleanup
     if not should_be_running_after:
-        logger.info("Restarting %s for cleanup", process)
-        try:
-            resp = ptf_gnoi.kill_process(name=process, restart=True, signal=SIGNAL_TERM)
-            logger.info("gNOI KillProcess response: %s", resp)
-            ret = 0
-            msg = str(resp) if resp is not None else ""
-        except Exception as exc:
-            logger.error("gNOI KillProcess error: %s", exc)
-            ret = 1
-            msg = str(exc)
-
-        pytest_assert(
-            ret == 0,
-            f"Failed to restart {process} for cleanup: {msg}",
-        )
+        ptf_gnoi.kill_process(name=process, restart=True, signal=SIGNAL_TERM)
 
     wait_critical_processes(duthost)
     pytest_assert(
@@ -195,12 +126,12 @@ def test_gnoi_killprocess_restart(
 
 
 @pytest.mark.parametrize(
-    "signal,expected_behavior",
+    "signal",
     [
-        (SIGNAL_TERM, "graceful_termination"),
-        (SIGNAL_KILL, "immediate_termination"),
-        (SIGNAL_HUP, "reload_configuration"),
-        (SIGNAL_ABRT, "terminate_with_coredump"),
+        SIGNAL_TERM,
+        SIGNAL_KILL,
+        SIGNAL_HUP,
+        SIGNAL_ABRT,
     ],
 )
 def test_gnoi_killprocess_signal_types(
@@ -208,7 +139,6 @@ def test_gnoi_killprocess_signal_types(
     rand_one_dut_hostname,
     ptf_gnoi,
     signal,
-    expected_behavior,
 ):
     """
     Test all 4 signal types defined in gNOI specification.
@@ -231,68 +161,30 @@ def test_gnoi_killprocess_signal_types(
     # For SIGNAL_HUP, restart parameter is ignored per spec
     restart = False if signal == SIGNAL_HUP else True
 
-    logger.info("gNOI KillProcess request: name=%r restart=%r signal=%r", process, restart, signal)
-    try:
-        resp = ptf_gnoi.kill_process(name=process, restart=restart, signal=signal)
-        logger.info("gNOI KillProcess response: %s", resp)
-        ret = 0
-        msg = str(resp) if resp is not None else ""
-    except Exception as exc:
-        logger.error("gNOI KillProcess error: %s", exc)
-        ret = 1
-        msg = str(exc)
+    if signal == SIGNAL_TERM:
+        # SIGNAL_TERM is supported - should succeed
+        ptf_gnoi.kill_process(name=process, restart=restart, signal=signal)
 
-    # If signal is not implemented, it should return an error
-    if ret != 0:
-        logger.warning(
-            f"Signal {signal} not supported. Error: {msg}. "
-            "This is expected if full gNOI signal support is not yet implemented."
-        )
-        # Verify error message indicates unsupported signal
-        pytest_assert(
-            "only supports SIGNAL_TERM" in msg or "not supported" in msg.lower(),
-            f"Unexpected error for unsupported signal {signal}: {msg}",
-        )
-    else:
-        # Signal succeeded - verify service state
-        logger.info(f"Signal {signal} succeeded with behavior: {expected_behavior}")
-
-        if signal == SIGNAL_HUP:
-            # HUP should reload config, service stays running
-            pytest_assert(
-                duthost.is_host_service_running(process),
-                f"{process} not running after SIGNAL_HUP",
-            )
-        elif restart:
+        if restart:
             # With restart=True, service should be running
             pytest_assert(
                 duthost.is_host_service_running(process),
                 f"{process} not running after {signal} with restart=True",
             )
+    else:
+        # Other signals are not yet supported - should fail
+        with pytest.raises(Exception, match="only supports SIGNAL_TERM"):
+            ptf_gnoi.kill_process(name=process, restart=restart, signal=signal)
 
     # Ensure service is running for next test
     if not duthost.is_host_service_running(process):
-        logger.info("Restarting %s for cleanup", process)
-        try:
-            resp = ptf_gnoi.kill_process(name=process, restart=True, signal=SIGNAL_TERM)
-            logger.info("gNOI KillProcess response: %s", resp)
-            ret = 0
-            msg = str(resp) if resp is not None else ""
-        except Exception as exc:
-            logger.error("gNOI KillProcess error: %s", exc)
-            ret = 1
-            msg = str(exc)
-
-        pytest_assert(ret == 0, f"Failed to restart {process} for cleanup: {msg}")
+        ptf_gnoi.kill_process(name=process, restart=True, signal=SIGNAL_TERM)
 
     wait_critical_processes(duthost)
     pytest_assert(
         duthost.critical_services_fully_started,
         "System unhealthy after gNOI API request",
     )
-
-    # Allow time for gNOI server to fully stabilize between signal tests
-    time.sleep(3)
 
 
 def test_invalid_signal(duthosts, rand_one_dut_hostname, ptf_gnoi):
@@ -304,21 +196,8 @@ def test_invalid_signal(duthosts, rand_one_dut_hostname, ptf_gnoi):
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    logger.info("gNOI KillProcess request: name='snmp' restart=True signal='SIGNAL_UNSPECIFIED'")
-    try:
-        resp = ptf_gnoi.kill_process(name="snmp", restart=True, signal="SIGNAL_UNSPECIFIED")
-        logger.info("gNOI KillProcess response: %s", resp)
-        ret = 0
-        msg = str(resp) if resp is not None else ""
-    except Exception as exc:
-        logger.error("gNOI KillProcess error: %s", exc)
-        ret = 1
-        msg = str(exc)
-
-    pytest_assert(
-        ret != 0,
-        f"KillProcess API unexpectedly succeeded with SIGNAL_UNSPECIFIED: {msg}",
-    )
+    with pytest.raises(Exception):
+        ptf_gnoi.kill_process(name="snmp", restart=True, signal="SIGNAL_UNSPECIFIED")
 
     wait_critical_processes(duthost)
     pytest_assert(

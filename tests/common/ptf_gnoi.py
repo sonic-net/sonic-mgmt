@@ -146,7 +146,7 @@ class PtfGnoi:
             GrpcTimeoutError: If the call times out
 
         Example:
-            >>> from tests.common.helpers.ptf_gnoi import PtfGnoi, SIGNAL_TERM
+            >>> from tests.common.ptf_gnoi import PtfGnoi, SIGNAL_TERM
             >>> ptf_gnoi = PtfGnoi(grpc_client)
             >>> ptf_gnoi.kill_process("snmp", restart=True, signal=SIGNAL_TERM)
         """
