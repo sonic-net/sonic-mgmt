@@ -142,4 +142,3 @@ def test_invalid_signal(duthosts, rand_one_dut_hostname, ptf_gnoi):
         duthost.critical_services_fully_started,
         "System unhealthy after gNOI API request",
     )
-    
