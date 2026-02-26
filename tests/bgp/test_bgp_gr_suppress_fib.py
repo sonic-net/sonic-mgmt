@@ -33,14 +33,18 @@ def enable_suppress_fib(duthosts, rand_one_dut_hostname):
     """Enable suppress-fib-pending on DUT and restore after test."""
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Check current state
+    # Check current state / capability
     original_enabled = False
     try:
         result = duthost.shell('show suppress-fib-pending', module_ignore_errors=True)
-        if result['rc'] == 0 and 'Enabled' in result['stdout']:
-            original_enabled = True
     except Exception:
-        pass
+        pytest.skip("suppress-fib-pending is not supported or probe command failed")
+
+    if result.get('rc', 1) != 0:
+        pytest.skip("suppress-fib-pending is not supported on this platform")
+
+    if 'Enabled' in result.get('stdout', ''):
+        original_enabled = True
 
     # Enable suppress-fib-pending
     if not original_enabled:
@@ -79,7 +83,10 @@ def _get_bgp_routes_summary(duthost):
 
 
 def _get_neighbor_route_counts(duthost, bgp_neighbors):
-    """Get route counts from each BGP neighbor."""
+    """Get route counts from each BGP neighbor.
+
+    On multi-ASIC platforms, aggregates counts across namespaces for each neighbor.
+    """
     counts = {}
     for neighbor in bgp_neighbors:
         for namespace in (duthost.get_frontend_asic_namespace_list() or ['']):
@@ -91,13 +98,20 @@ def _get_neighbor_route_counts(duthost, bgp_neighbors):
             try:
                 result = json.loads(duthost.shell(cmd, verbose=False)['stdout'])
                 counters = result.get('ribTableWalkCounters', {})
-                counts[neighbor] = {
+                entry = {
                     'all': counters.get('All RIB', 0),
                     'valid': counters.get('Valid', 0),
                     'stale': counters.get('Stale', 0),
                 }
+                if neighbor in counts:
+                    # Aggregate across namespaces
+                    for key in ('all', 'valid', 'stale'):
+                        counts[neighbor][key] += entry[key]
+                else:
+                    counts[neighbor] = entry
             except Exception:
-                pass
+                logger.warning("Failed to get route counts for neighbor %s in namespace '%s'",
+                               neighbor, namespace)
     return counts
 
 
@@ -124,6 +138,13 @@ def _check_all_bgp_sessions_established(duthost, bgp_neighbor_ips):
 def _check_no_stale_routes(duthost, bgp_neighbor_ips):
     """Check that no routes from any neighbor are stale."""
     counts = _get_neighbor_route_counts(duthost, bgp_neighbor_ips)
+
+    # Ensure we collected counts for every neighbor
+    missing_neighbors = [n for n in bgp_neighbor_ips if n not in counts]
+    if missing_neighbors:
+        logger.debug("Failed to collect route counts for neighbors: %s", ",".join(missing_neighbors))
+        return False
+
     for neighbor, count_info in counts.items():
         if count_info.get('stale', 0) > 0:
             logger.debug("Neighbor %s still has %d stale routes", neighbor, count_info['stale'])
@@ -135,14 +156,23 @@ def _check_no_stale_routes(duthost, bgp_neighbor_ips):
 
 
 def _get_routes_in_app_db(duthost):
-    """Get route count from APP_DB ROUTE_TABLE."""
+    """Get route count from APP_DB ROUTE_TABLE.
+
+    Returns None if the query fails so callers can detect errors.
+    """
+    result = duthost.shell(
+        'sonic-db-cli APPL_DB keys "ROUTE_TABLE:*" | wc -l',
+        verbose=False)
+    rc = result.get('rc', 1)
+    stdout = result.get('stdout', '').strip()
+    if rc != 0:
+        logger.warning("Failed to query APP_DB routes (rc=%d)", rc)
+        return None
     try:
-        result = duthost.shell(
-            'sonic-db-cli APPL_DB keys "ROUTE_TABLE:*" | wc -l',
-            verbose=False)
-        return int(result['stdout'].strip())
-    except Exception:
-        return 0
+        return int(stdout)
+    except (TypeError, ValueError):
+        logger.warning("Failed to parse APP_DB route count: '%s'", stdout)
+        return None
 
 
 def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
@@ -157,7 +187,7 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
     1. Enable suppress-fib-pending on DUT
     2. Enable GR on all neighbors
     3. Record routes from all neighbors before restart
-    4. Restart BGP on DUT (docker restart bgp)
+    4. Restart BGP on DUT (systemctl restart bgp)
     5. Verify BGP sessions re-establish
     6. Verify all routes are restored and not stale
     7. Verify routes are present in APP_DB (FIB programmed)
@@ -200,6 +230,7 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
     time.sleep(10)
     routes_before = _get_bgp_routes_summary(duthost)
     app_db_routes_before = _get_routes_in_app_db(duthost)
+    pytest_assert(app_db_routes_before is not None, "Failed to query APP_DB routes before restart")
     logger.info("Before restart: %d BGP routes, %d APP_DB routes", routes_before, app_db_routes_before)
 
     # Step 4: Restart BGP on DUT
@@ -242,6 +273,7 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
 
     # Step 8: Verify routes are programmed in APP_DB (FIB)
     app_db_routes_after = _get_routes_in_app_db(duthost)
+    pytest_assert(app_db_routes_after is not None, "Failed to query APP_DB routes after restart")
     logger.info("APP_DB routes: before=%d after=%d", app_db_routes_before, app_db_routes_after)
     pytest_assert(
         app_db_routes_after >= app_db_routes_before * 0.90,
@@ -265,7 +297,7 @@ def test_bgp_gr_suppress_fib_neighbor_restart(duthosts, rand_one_dut_hostname, n
     2. After neighbor recovers, clear stale routes
     3. suppress-fib-pending should not interfere with GR helper mode
 
-    This is complementary to test_bgp_gr_helper_routes_perserved but with
+    This is complementary to test_bgp_gr_helper_routes_preserved but with
     suppress-fib-pending enabled.
     """
     duthost = duthosts[rand_one_dut_hostname]
