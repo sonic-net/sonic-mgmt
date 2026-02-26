@@ -7,6 +7,7 @@ from ansible.module_utils.misc_utils import wait_for_path
 from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
 
 DPU_HOST_IP_BASE = "169.254.200.{}"
+SRC_DPU_CONFIG_TEMPLATE = "/tmp/dpu_extra_template.json"
 SRC_DPU_CONFIG_FILE = "/tmp/dpu_extra.json"
 DST_DPU_CONFIG_FILE = "/tmp/dpu_extra.json"
 DST_FULL_CONFIG_FILE = "/tmp/dpu_full.json"
@@ -28,6 +29,7 @@ class LoadExtraDpuConfigModule(object):
         self.module = AnsibleModule(
             argument_spec=dict(
                 hwsku=dict(type='str', required=True),
+                hostname=dict(type='str', required=True),
                 host_username=dict(type='str', required=True),
                 host_passwords=dict(type='list', elements='str', required=True, no_log=True)
             ),
@@ -35,6 +37,7 @@ class LoadExtraDpuConfigModule(object):
         )
 
         self.hwsku = self.module.params['hwsku']
+        self.hostname = self.module.params['hostname']
         self.host_username = self.module.params['host_username']
         self.host_passwords = self.module.params['host_passwords']
 
@@ -126,9 +129,16 @@ class LoadExtraDpuConfigModule(object):
         self.module.log("Configuring {} DPUs, requiring at least {} successful configurations".format(
             self.dpu_num, required_success_count))
 
+        # Backup the original template before modifications
+        self.module.run_command("cp {} {}".format(SRC_DPU_CONFIG_FILE, SRC_DPU_CONFIG_TEMPLATE))
+
         for i in range(0, self.dpu_num):
+            # Copy fresh template for each DPU
+            self.module.run_command("cp {} {}".format(SRC_DPU_CONFIG_TEMPLATE, SRC_DPU_CONFIG_FILE))
             # Update the extra dpu config file
             self.module.run_command("sed -i 's/18.*202/18.{}.202/g' {}".format(i, SRC_DPU_CONFIG_FILE))
+            self.module.run_command("sed -i 's/DPU_HOSTNAME_PLACEHOLDER/{}-dpu-{}/g' {}".format(
+                self.hostname, i, SRC_DPU_CONFIG_FILE))
 
             dpu_ip = DPU_HOST_IP_BASE.format(i + 1)
 
@@ -162,6 +172,7 @@ class LoadExtraDpuConfigModule(object):
                 ssh.close()
 
         self.module.run_command("sudo rm -f {}".format(SRC_DPU_CONFIG_FILE))
+        self.module.run_command("sudo rm -f {}".format(SRC_DPU_CONFIG_TEMPLATE))
 
         self.module.log("Configuration completed: {} successful, {} failed out of {} total DPUs".format(
             success_count, failure_count, self.dpu_num))
