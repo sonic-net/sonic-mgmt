@@ -371,6 +371,11 @@ class TestbedHealthChecker:
                 self.check_result.errmsg.append("sonichost {} is unreachable.".format(sonichost.hostname))
                 self.check_result.data[sonichost.hostname] = result
 
+            # Skip fanout connectivity check for DPU hosts - they don't have external connections
+            if "dpu" in sonichost.hostname.lower():
+                logger.info("Skipping fanout check for DPU host: {}".format(sonichost.hostname))
+                continue
+
             dut_device_conn = conn_graph_facts["ansible_facts"]["device_conn"][sonichost.hostname]
 
             peer_devices = [dut_device_conn[port]["peerdevice"] for port in dut_device_conn]
@@ -415,6 +420,11 @@ class TestbedHealthChecker:
 
         for sonichost in self.sonichosts:
 
+            # Skip MGMT_INTERFACE check for DPU hosts - they use midplane IPs, not mgmt interface
+            if "dpu" in sonichost.hostname.lower():
+                logger.info("Skipping MGMT_INTERFACE check for DPU host: {}".format(sonichost.hostname))
+                continue
+
             rst = sonichost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}", module_ignore_errors=True).get("stdout",
                                                                                                            None)
 
@@ -424,8 +434,8 @@ class TestbedHealthChecker:
             if not device_hostname or device_hostname == '"sonic"':
                 raise RuntimeError(f"Device {sonichost.hostname} is not properly configured, "
                                    f"hostname is still: {device_hostname}")
-            # If valid stdout
-            if rst is not None and rst.strip() != "":
+            # If valid stdout (also check for "null" which jq returns when key doesn't exist)
+            if rst is not None and rst.strip() != "" and rst.strip() != "null":
 
                 mgmt_interface = json.loads(rst)
 
@@ -537,6 +547,11 @@ class TestbedHealthChecker:
             if (self.is_chassis and
                     self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]):
                 logger.info("Skip check_bgp_session_state on Supervisor.")
+                continue
+
+            # Skip BGP check for DPU hosts
+            if "dpu" in sonichost.hostname.lower():
+                logger.info("Skip check_bgp_session_state on DPU host: {}".format(sonichost.hostname))
                 continue
 
             hostname = sonichost.hostname
