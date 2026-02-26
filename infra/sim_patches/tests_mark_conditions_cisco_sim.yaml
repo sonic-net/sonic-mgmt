@@ -190,3 +190,11 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_monitor_checksum_validation:
     reason: "Current isc-dhcp-relay do not support dropping packets with unexpected checksum"
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24660"
+
+#######################################
+#####            lldp             #####
+#######################################
+lldp/test_lldp_syncd.py:: test_lldp_entry_table_after_reboot:
+  skip:
+    reason: "Skip reboot cases on sim, reboot takes longer at times and causes inconsistent failures; increasing timeout is not helpful."
+
