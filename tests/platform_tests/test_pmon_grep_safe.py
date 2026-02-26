@@ -76,12 +76,32 @@ def test_pmon_grep_no_kernel_panic(duthosts, rand_one_dut_hostname):
             "/sys/kernel/debug exists in pmon - running grep with timeout")
         # Use timeout to prevent indefinite hangs.  Grep for a string
         # that won't match so it scans all files.
-        duthost.shell(
-            'docker exec pmon bash -c '
-            '"timeout 30 grep -r SONIC_PMON_GREP_TEST_12345 '
-            '/sys/kernel/debug/ 2>/dev/null; exit 0"',
+        # First check if `timeout` command is available in the container.
+        timeout_check = duthost.shell(
+            "docker exec pmon which timeout",
             module_ignore_errors=True,
         )
+        has_timeout = (
+            timeout_check.get("rc", 1) == 0
+            and bool(timeout_check.get("stdout", "").strip())
+        )
+        if has_timeout:
+            grep_cmd = (
+                'docker exec pmon bash -c '
+                '"timeout 30 grep -r SONIC_PMON_GREP_TEST_12345 '
+                '/sys/kernel/debug/ 2>/dev/null; exit 0"'
+            )
+        else:
+            logger.warning(
+                "`timeout` not available in pmon container; "
+                "running grep over /sys/kernel/debug without timeout"
+            )
+            grep_cmd = (
+                'docker exec pmon bash -c '
+                '"grep -r SONIC_PMON_GREP_TEST_12345 '
+                '/sys/kernel/debug/ 2>/dev/null; exit 0"'
+            )
+        duthost.shell(grep_cmd, module_ignore_errors=True)
         logger.info("grep over /sys/kernel/debug completed")
     else:
         logger.info(
