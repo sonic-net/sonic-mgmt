@@ -574,7 +574,8 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
         result = duthost.shell('redis-cli -n 0 KEYS "SWITCH_TABLE:switch"', module_ignore_errors=True)
         return "SWITCH_TABLE:switch" in result.get("stdout", "")
 
-    wait_until(10, 2, 2, _check_vxlan_switch_config, duthost)
+    pytest_assert(wait_until(10, 2, 2, _check_vxlan_switch_config, duthost),
+                  "SWITCH_TABLE:switch not found in APP_DB after configure_vxlan_switch")
 
 
 def backup_config(duthost):
