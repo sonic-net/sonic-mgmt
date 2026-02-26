@@ -49,9 +49,8 @@ stages:
     - template: pr_test_template.yml
       parameters:
         IMPACT_AREA_INFO: ${{ parameters.IMPACT_AREA_INFO }}
-        GLOBAL_PARAMS:
-          BUILD_REASON: ${{ parameters.BUILD_REASON }}
-          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
-          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+        BUILD_REASON: ${{ parameters.BUILD_REASON }}
+        RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+        STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
+        TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+        MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}

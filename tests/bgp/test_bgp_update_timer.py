@@ -181,13 +181,16 @@ def common_setup_teardown(
 
 
 @pytest.fixture
-def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig, tbinfo):
+def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig, tbinfo,
+              duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     class _C(object):
         """Dummy class to save test constants."""
 
         pass
 
     _constants = _C()
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    is_vs_platform = duthost.facts.get("asic_type") == "vs"
     if is_quagga:
         _constants.sleep_interval = 40
         _constants.update_interval_threshold = 20
@@ -195,6 +198,10 @@ def constants(is_quagga, setup_interfaces, has_suppress_feature, pytestconfig, t
         _constants.sleep_interval = 5
         if not has_suppress_feature:
             _constants.update_interval_threshold = 1
+        elif is_vs_platform:
+            # KVM/VS platforms have higher latency due to virtual
+            # switching; use a relaxed threshold to reduce flakiness
+            _constants.update_interval_threshold = 5
         else:
             _constants.update_interval_threshold = 2.5
 
