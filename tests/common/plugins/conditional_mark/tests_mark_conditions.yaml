@@ -1511,6 +1511,10 @@ ecmp/inner_hashing/test_inner_hashing_lag.py:
       - "asic_type not in ['mellanox', 'vs']"
       - "'dualtor' in topo_name"
 
+  xfail:
+    conditions:
+      - https://github.com/Azure/sonic-mgmt/issues/5930
+
 ecmp/inner_hashing/test_wr_inner_hashing.py:
   skip:
     conditions_logical_operator: or
@@ -1521,6 +1525,10 @@ ecmp/inner_hashing/test_wr_inner_hashing.py:
       - "topo_type not in ['t0']"
       - "asic_type not in ['mellanox', 'vs']"
       - "'dualtor' in topo_name"
+
+  xfail:
+    conditions:
+      - https://github.com/Azure/sonic-mgmt/issues/5930
 
 ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
   skip:
@@ -1562,6 +1570,15 @@ ecmp/test_fgnhg.py:
       - "asic_type not in ['mellanox']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/7755"
       - "https://github.com/sonic-net/sonic-mgmt/issues/6558 and 'msn2' in platform"
+
+  xfail:
+    conditions:
+      - https://github.com/Azure/sonic-mgmt/issues/5930
+
+ecmp/test_fgnhg.py:
+  xfail:
+    conditions:
+      - https://github.com/Azure/sonic-mgmt/issues/5930
 
 #######################################
 #####         everflow            #####
