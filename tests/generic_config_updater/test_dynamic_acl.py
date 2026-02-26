@@ -155,22 +155,10 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
     downstream_port_ids = []
     upstream_port_ids = []
 
-    topos_no_portchannels = (
-        't0-isolated-d256u256s2',
-        't0-isolated-d128u128s2',
-        't0-isolated-d96u32s2',
-        't0-isolated-d32u32s2',
-        't0-isolated-d16u16s1',
-        't0-isolated-d16u16s2',
-        't1-isolated-d224u8',
-        't1-isolated-d128',
-        't1-isolated-d56u2',
-        't1-isolated-d28u1',
-        't1-isolated-d28',
-        't0-d18u8s4',
-    )
+    # Dynamically check if portchannels exist in the topology
+    has_portchannels = bool(mg_facts.get('minigraph_portchannels'))
 
-    if topo == "m0_l3" or tbinfo['topo']['name'] in topos_no_portchannels:
+    if topo == "m0_l3" or not has_portchannels:
         upstream_neigh_type = get_all_upstream_neigh_type(topo)
         downstream_neigh_type = get_all_downstream_neigh_type(topo)
         pytest_require(len(upstream_neigh_type) > 0 and len(downstream_neigh_type) > 0,
