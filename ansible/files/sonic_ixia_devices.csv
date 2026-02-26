@@ -37,9 +37,9 @@ str2-7804-lc5-1,10.3.146.34/24,Arista-7800R3A-36DM2-C36,DevSonic,sonic
 str2-7250-sup-1,10.3.146.108/24,Nokia-IXR7250E-SUP-10,DevSonic,sonic
 str2-7250-lc1-1,10.3.146.147/24,Nokia-IXR7250E-36x400G,DevSonic,sonic
 str2-7250-lc2-1,10.3.146.148/24,Nokia-IXR7250E-36x400G,DevSonic,sonic
-str3-8800-lc2-1,10.3.146.109/24,Cisco-88-LC0-36FH-O36,DevSonic,sonic
-str3-8800-lc3-1,10.3.146.105/24,Cisco-88-LC0-36FH-O36,DevSonic,sonic
-str3-8800-sup-2,10.3.146.97/24,Cisco-8800-RP,DevSonic,sonic
+str3-8800-lc2-1,10.3.150.106/27,Cisco-88-LC0-36FH-O36,DevSonic,sonic
+str3-8800-lc3-1,10.3.150.109/27,Cisco-88-LC0-36FH-O36,DevSonic,sonic
+str3-8800-sup-2,10.3.150.104/27,Cisco-8800-RP,DevSonic,sonic
 str-sn5600-I11-U02,10.3.147.53/24,Mellanox-SN5600-C256S1,DevSonic,
 str-sn5600-I11-U04,10.3.147.54/24,Mellanox-SN5600-C256S1,DevSonic,
 str-sn5600-I11-U13,10.3.147.56/24,Mellanox-SN5600-C256S1,DevSonic,

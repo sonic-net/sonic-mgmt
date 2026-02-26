@@ -446,7 +446,7 @@ sonic_str3_cisco_8800_lc:
       slot_num: slot2
       loopback4096_ip: [3.3.3.6/32,3.3.3.7/32,3.3.3.8/32]
       loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::7/128,2603:10e2:400::8/128]
-      ansible_host: 10.3.146.109
+      ansible_host: 10.3.150.106
       ansible_hostv6: 2a01:111:e210:3000::a03:926d
       mgmt_subnet_mask_length: 24
       serial: FOC2648N1J8
@@ -479,7 +479,7 @@ sonic_str3_cisco_8800_lc:
       slot_num: slot5
       loopback4096_ip: [3.3.3.12/32, 3.3.3.13/32, 3.3.3.14/32]
       loopback4096_ipv6: [2603:10e2:400::c/128, 2603:10e2:400::d/128, 2603:10e2:400::e/128]
-      ansible_host: 10.3.146.105
+      ansible_host: 10.3.150.109
       ansible_hostv6: 2a01:111:e210:3000::a03:9269
       mgmt_subnet_mask_length: 24
       serial: FOC2624KGTQ
