@@ -19,6 +19,7 @@ import sys
 import importlib
 import utilities.utils as utils_obj
 import threading
+import math
 
 def get_cfg_file():
     pattern = r'/([^/.]+)\.py'
@@ -278,7 +279,9 @@ def generate_l3vni_config(leaf_data, mode='add'):
             vrf_data[vxlan_id]['bindings'].append(l3vni_item['vrf_id'])
     else:
         #auto gen
-        l2_vlan_id = leaf_data['l2vni']['vlan_start_range']
+        l2_vlan_id = l2_vlan_id_start = leaf_data['l2vni']['vlan_start_range']
+        l2_vlan_count = leaf_data['l2vni']['count']
+        vlans_per_vrf = math.ceil(l2_vlan_count / leaf_data['l3vni']['l3_dummy']['count'])
         for vlan_id in range(leaf_data['l3vni']['l3_dummy']['start_vlan'], 
                           leaf_data['l3vni']['l3_dummy']['start_vlan']+leaf_data['l3vni']['l3_dummy']['count']):
             vxlan_id = vlan_id + vxlan_start_id
@@ -286,9 +289,11 @@ def generate_l3vni_config(leaf_data, mode='add'):
             vrf_data[vxlan_id] = dict()
             vrf_data[vxlan_id]['vrf_id'] = vlan_id 
             vrf_data[vxlan_id]['bindings'] = [vlan_id]
-            vrf_data[vxlan_id]['bindings'].append(l2_vlan_id)
-            vrf_data[vxlan_id]['bindings'].append(l2_vlan_id+1)
-            l2_vlan_id += 2
+            for cntr in range(vlans_per_vrf):
+                if l2_vlan_id >= l2_vlan_id_start + l2_vlan_count:
+                    break
+                vrf_data[vxlan_id]['bindings'].append(l2_vlan_id)
+                l2_vlan_id += 1
 
     # L3VNI configuration
 

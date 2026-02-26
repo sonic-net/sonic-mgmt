@@ -12,6 +12,7 @@ import apis.system.interface as interface_obj
 import apis.system.basic as basic_obj
 import apis.system.reboot as reboot_obj
 from spytest.utils import poll_wait
+from spytest.tgen.tg import get_ixiangpf as ixia_handle
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -755,7 +756,7 @@ class TestVxlanSagTriggers():
             for vlan, dev_grp in values.items():
                 vxlan_obj.delete_device_groups(tg_handle,dev_grp)
         #enable old streams
-        tg_handle.tg_traffic_config(mode = 'enable', stream_id = streams)
+        #tg_handle.tg_traffic_config(mode = 'enable', stream_id = streams)
         if flag:
             st.report_pass("test_case_passed")
         else:
@@ -1666,6 +1667,7 @@ class TestVxlanMacMoveTriggers():
         i = 1
         flag = True
 
+        handle = ixia_handle()
         while i <= 6:
             mac_move = False
             if i % 2 == 1:
@@ -1673,6 +1675,7 @@ class TestVxlanMacMoveTriggers():
                 # Reset device groups every iteration
                 vxlan_obj.delete_device_groups(tg_handle,list(list(list(dst_dev_handle.values())[0].values())[0].values())[0])
                 dst1_dev = vxlan_obj.create_device_groups(my_topo_handle['dst1'],host_info_dict['dst1'])
+                handle.test_control(action="apply_on_the_fly_changes")
                 dst1_dev_handle = dst1_dev[0]
                 vxlan_obj.start_stop_protocols(tg_handle,'stop')
                 st.wait(15)
@@ -1696,11 +1699,12 @@ class TestVxlanMacMoveTriggers():
                 # Reset device groups every iteration
                 vxlan_obj.delete_device_groups(tg_handle,list(list(list(dst1_dev_handle.values())[0].values())[0].values())[0])
                 dst_dev = vxlan_obj.create_device_groups(my_topo_handle['dst'],host_info_dict['dst'])
+                handle.test_control(action="apply_on_the_fly_changes")
                 dst_dev_handle = dst_dev[0]
                 vxlan_obj.start_stop_protocols(tg_handle,'stop')
-                st.wait(5)
+                st.wait(15)
                 vxlan_obj.start_stop_protocols(tg_handle,'start')
-                st.wait(10)
+                st.wait(15)
                 st.banner("MAC move iteration {} on LEAF0".format(i))
 
                 cli_output = st.show('leaf0', "do show bgp l2vpn evpn route type 2\nend\nexit\n", type='vtysh', skip_tmpl=True)
@@ -2145,6 +2149,7 @@ class TestVxlanStaticRoute():
                     if 'P2' in port:
                         my_topo_handle['dst'][node] = {}
                         my_topo_handle['dst'][node][port] = value
+                        my_topo_handle['dst_port']  = value['port_handle']
         tg_handle = topo_handles[leaf_nodes[0]][l2vni_intf_dict[leaf_nodes[0]][0]]['tg_handle']
         src_dev = vxlan_obj.create_device_groups(my_topo_handle['src'],host_info_dict['src'])
         src_dev_handle = src_dev[0]
@@ -2197,6 +2202,8 @@ class TestVxlanStaticRoute():
                         ip_src_addr = host_info_dict['src_ip']
                         )
         new_stream_id = new_raw_stream['stream_id']
+        handle = ixia_handle()
+        handle.test_control(action="apply_on_the_fly_changes")
         vxlan_obj.start_stop_protocols(tg_handle,'start')
         st.wait(10)
         tg_handle.tg_traffic_control(action='run', stream_handle=new_stream_id)
@@ -2318,6 +2325,8 @@ class TestVxlanStaticRoute():
         vxlan_obj.config_dut('leaf0', 'bgp', cmd)
         #create traffic handles
         l2vni_intf_dict = vxlan_obj.get_interfaces(vars, selected_leaf_list,'l2vni')
+        tg_handle = pf.handles["topo_handles"][leaf_nodes[0]][l2vni_intf_dict[leaf_nodes[0]][0]]['tg_handle']
+        vxlan_obj.start_stop_protocols(tg_handle,'stop')
         #{'leaf1': ['T1D6P1', 'T1D6P2'], 'leaf0': ['T1D5P1', 'T1D5P2']}
         topo_handles = vxlan_obj.create_topology_handles(l2vni_intf_dict)
         svi_dict_v4 = {'leaf0':{900:'111.111.111.1'},'leaf1':{900:'111.111.111.1'}}
