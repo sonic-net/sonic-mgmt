@@ -3,7 +3,6 @@
 #   Line 1: list of port indices to monitor
 #   Line 2: list of ip addresses to respond to.
 
-import logging
 import ptf
 import time
 import ptf.packet as scapy
