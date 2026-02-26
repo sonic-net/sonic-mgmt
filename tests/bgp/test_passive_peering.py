@@ -120,14 +120,25 @@ def setup(tbinfo, nbrhosts, duthosts, rand_one_dut_front_end_hostname, request):
     config_reload(duthost, safe_reload=True, wait_for_bgp=True)
 
 
-def check_bgp_neighbor_state(duthost, asic_index, neigh_ip, expected_state):
-    """Check if BGP neighbor has reached the expected state."""
-    bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
-    state = bgp_facts['bgp_neighbors'][neigh_ip]['state']
-    if expected_state == 'established':
+def check_bgp_neighbor_state(duthost, asic_index, neigh_ip, should_be_established=True):
+    """Check if BGP neighbor has reached the expected state.
+
+    Args:
+        duthost: DUT host object
+        asic_index: ASIC instance index
+        neigh_ip: Neighbor IP address
+        should_be_established: True if expecting 'established', False otherwise
+    """
+    try:
+        bgp_facts = duthost.bgp_facts(instance_id=asic_index)['ansible_facts']
+        state = bgp_facts['bgp_neighbors'][neigh_ip]['state']
+    except KeyError:
+        logger.debug("BGP neighbor {} not found in bgp_facts yet".format(neigh_ip))
+        return not should_be_established
+    logger.debug("BGP neighbor {} state: {}".format(neigh_ip, state))
+    if should_be_established:
         return state == 'established'
-    else:
-        return state != 'established'
+    return state != 'established'
 
 
 def test_bgp_passive_peering_ipv4(setup):
@@ -139,7 +150,7 @@ def test_bgp_passive_peering_ipv4(setup):
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
                       check_bgp_neighbor_state, setup['duthost'], setup['asic_index'],
-                      setup['neigh_ip_v4'], 'established'), \
+                      setup['neigh_ip_v4'], True), \
         "BGP IPv4 session not established after configuring passive peering"
 
     # configure password on DUT and ensure the adjacency is not established (IPv4)
@@ -151,7 +162,7 @@ def test_bgp_passive_peering_ipv4(setup):
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
                       check_bgp_neighbor_state, setup['duthost'], setup['asic_index'],
-                      setup['neigh_ip_v4'], 'not_established'), \
+                      setup['neigh_ip_v4'], False), \
         "BGP IPv4 session still established after configuring password mismatch"
 
     logger.info("is_sonic: {}".format(setup['is_sonic']))
@@ -171,7 +182,7 @@ def test_bgp_passive_peering_ipv4(setup):
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
                       check_bgp_neighbor_state, setup['duthost'], setup['asic_index'],
-                      setup['neigh_ip_v4'], 'established'), \
+                      setup['neigh_ip_v4'], True), \
         "BGP IPv4 session not established after configuring matching password"
 
     # configure mismatch password on DUT and ensure the adjacency is not established (IPv4)
@@ -183,7 +194,7 @@ def test_bgp_passive_peering_ipv4(setup):
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
                       check_bgp_neighbor_state, setup['duthost'], setup['asic_index'],
-                      setup['neigh_ip_v4'], 'not_established'), \
+                      setup['neigh_ip_v4'], False), \
         "BGP IPv4 session still established after configuring wrong password"
 
 
@@ -196,7 +207,7 @@ def test_bgp_passive_peering_ipv6(setup):
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
                       check_bgp_neighbor_state, setup['duthost'], setup['asic_index'],
-                      setup['neigh_ip_v6'], 'established'), \
+                      setup['neigh_ip_v6'], True), \
         "BGP IPv6 session not established after configuring passive peering"
 
     # configure password on DUT and ensure the adjacency is not established (IPv6)
@@ -208,7 +219,7 @@ def test_bgp_passive_peering_ipv6(setup):
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
                       check_bgp_neighbor_state, setup['duthost'], setup['asic_index'],
-                      setup['neigh_ip_v6'], 'not_established'), \
+                      setup['neigh_ip_v6'], False), \
         "BGP IPv6 session still established after configuring password mismatch"
 
     # configure password on Neighbor and ensure the adjacency is established (IPv6)
@@ -227,7 +238,7 @@ def test_bgp_passive_peering_ipv6(setup):
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
                       check_bgp_neighbor_state, setup['duthost'], setup['asic_index'],
-                      setup['neigh_ip_v6'], 'established'), \
+                      setup['neigh_ip_v6'], True), \
         "BGP IPv6 session not established after configuring matching password"
 
     # configure mismatch password on DUT and ensure the adjacency is not established (IPv6)
@@ -239,5 +250,5 @@ def test_bgp_passive_peering_ipv6(setup):
 
     assert wait_until(BGP_WAIT_TIMEOUT, BGP_WAIT_INTERVAL, 0,
                       check_bgp_neighbor_state, setup['duthost'], setup['asic_index'],
-                      setup['neigh_ip_v6'], 'not_established'), \
+                      setup['neigh_ip_v6'], False), \
         "BGP IPv6 session still established after configuring wrong password"
