@@ -249,7 +249,7 @@ class PtfGnoi:
         metadata=None,
     ) -> Dict:
         """
-        Reboot the DUT using gNOI System.Reboot.
+        Reboot the DUT using gNOI System.Reboot..
 
         Note:
             Blocking behavior is server/implementation dependent and is NOT
