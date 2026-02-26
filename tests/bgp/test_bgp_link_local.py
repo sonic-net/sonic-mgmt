@@ -372,10 +372,11 @@ def test_bgp_link_local_ipv6(setup_info, configure_unnumbered_bgp):
         except Exception as e:
             logger.error("Could not get EOS BGP summary: %s", e)
 
-        pytest.skip(
-            "Unnumbered BGP session via {} did not establish within {}s "
-            "(neighbor may not support link-local peering)".format(
-                portchannel, WAIT_TIMEOUT))
+        pytest.fail(
+            "Unnumbered BGP session via {} did not establish within {}s. "
+            "This could indicate a neighbor compatibility issue — the peer "
+            "may not support BGP peering over IPv6 link-local addresses."
+            .format(portchannel, WAIT_TIMEOUT))
 
     logger.info("Unnumbered BGP session established!")
 
