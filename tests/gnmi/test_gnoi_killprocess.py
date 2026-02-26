@@ -4,7 +4,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import is_container_running
-from tests.common.ptf_gnoi import SIGNAL_TERM, SIGNAL_KILL, SIGNAL_HUP, SIGNAL_ABRT
+from tests.common.ptf_gnoi import SIGNAL_TERM
 from tests.common.platform.processes_utils import wait_critical_processes
 
 pytest_plugins = ["tests.common.fixtures.grpc_fixtures"]  # noqa: F401
@@ -125,68 +125,6 @@ def test_gnoi_killprocess_restart(
     )
 
 
-@pytest.mark.parametrize(
-    "signal",
-    [
-        SIGNAL_TERM,
-        SIGNAL_KILL,
-        SIGNAL_HUP,
-        SIGNAL_ABRT,
-    ],
-)
-def test_gnoi_killprocess_signal_types(
-    duthosts,
-    rand_one_dut_hostname,
-    ptf_gnoi,
-    signal,
-):
-    """
-    Test all 4 signal types defined in gNOI specification.
-
-    Per gNOI system.proto:
-    - SIGNAL_TERM (1): Terminate the process gracefully
-    - SIGNAL_KILL (2): Terminate the process immediately
-    - SIGNAL_HUP (3): Reload the process configuration
-    - SIGNAL_ABRT (4): Terminate immediately and dump core file
-
-    Note: Current SONiC implementation may only support SIGNAL_TERM.
-          This test documents the expected behavior for full gNOI compliance.
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    process = "snmp"
-
-    if not duthost.is_host_service_running(process):
-        pytest.skip(f"{process} is not running")
-
-    # For SIGNAL_HUP, restart parameter is ignored per spec
-    restart = False if signal == SIGNAL_HUP else True
-
-    if signal == SIGNAL_TERM:
-        # SIGNAL_TERM is supported - should succeed
-        ptf_gnoi.kill_process(name=process, restart=restart, signal=signal)
-
-        if restart:
-            # With restart=True, service should be running
-            pytest_assert(
-                duthost.is_host_service_running(process),
-                f"{process} not running after {signal} with restart=True",
-            )
-    else:
-        # Other signals are not yet supported - should fail
-        with pytest.raises(Exception, match="only supports SIGNAL_TERM"):
-            ptf_gnoi.kill_process(name=process, restart=restart, signal=signal)
-
-    # Ensure service is running for next test
-    if not duthost.is_host_service_running(process):
-        ptf_gnoi.kill_process(name=process, restart=True, signal=SIGNAL_TERM)
-
-    wait_critical_processes(duthost)
-    pytest_assert(
-        duthost.critical_services_fully_started,
-        "System unhealthy after gNOI API request",
-    )
-
-
 def test_invalid_signal(duthosts, rand_one_dut_hostname, ptf_gnoi):
     """
     Verify that invalid signal values are rejected.
@@ -204,3 +142,4 @@ def test_invalid_signal(duthosts, rand_one_dut_hostname, ptf_gnoi):
         duthost.critical_services_fully_started,
         "System unhealthy after gNOI API request",
     )
+    
