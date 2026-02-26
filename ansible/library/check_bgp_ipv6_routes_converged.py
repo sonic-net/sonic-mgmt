@@ -60,7 +60,7 @@ def toggle_bgp_neighbors_in_parallel(module, ip_addrs, state, parallelism=100, r
     _execute_command_on_dut(module, cmd)
 
 
-def _perform_action_on_connections(module, action, connection_type, targets, all_neighbors):
+def _perform_action_on_connections(module, action, connection_type, targets):
     """
     Perform actions (shutdown/startup) on BGP sessions or interfaces.
     """
@@ -69,11 +69,8 @@ def _perform_action_on_connections(module, action, connection_type, targets, all
         if action == "shutdown":
             toggle_bgp_neighbors_in_parallel(module, targets, "down")
         else:
-            if all_neighbors:
-                cmd = CONFIG_BGP_SESSIONS_COMMAND_TEMPLATE.format(action=action, target="all")
-                _execute_command_on_dut(module, cmd)
-            else:
-                toggle_bgp_neighbors_in_parallel(module, targets, "up")
+            cmd = CONFIG_BGP_SESSIONS_COMMAND_TEMPLATE.format(action=action, target="all")
+            _execute_command_on_dut(module, cmd)
         logging.info(f"BGP sessions {action} completed.")
     # Action on Interfaces
     elif connection_type == "ports":
@@ -126,7 +123,6 @@ def main():
             expected_routes=dict(required=True, type='str'),
             shutdown_connections=dict(required=True, type='list', elements='str'),
             connection_type=dict(required=False, type='str', choices=['ports', 'bgp_sessions', 'none'], default='none'),
-            shutdown_all_connections=dict(required=False, type='bool', default=False),
             timeout=dict(required=False, type='int', default=300),
             interval=dict(required=False, type='int', default=1),
             log_path=dict(required=False, type='str', default='/tmp'),
@@ -151,7 +147,6 @@ def main():
 
     shutdown_connections = module.params.get('shutdown_connections', [])
     connection_type = module.params.get('connection_type', 'none')
-    shutdown_all_connections = module.params['shutdown_all_connections']
     timeout = module.params['timeout']
     interval = module.params['interval']
     action = module.params.get('action', 'no_action')
@@ -164,7 +159,7 @@ def main():
         logging.info("No connections or action is 'no_action', skipping interface operation.")
     else:
         # interface operation based on action
-        _perform_action_on_connections(module, action, connection_type, shutdown_connections, shutdown_all_connections)
+        _perform_action_on_connections(module, action, connection_type, shutdown_connections)
 
     # Sleep some time to wait routes to be converged
     time.sleep(4)
