@@ -16,6 +16,7 @@ This test verifies:
 
 import logging
 import re
+import time
 
 import pytest
 
@@ -36,11 +37,13 @@ def test_pmon_grep_no_kernel_panic(duthosts, rand_one_dut_hostname):
 
     Test steps:
     1. Verify pmon container is running.
-    2. Record current dmesg line count as baseline.
+    2. Record current dmesg timestamp as baseline for reliable
+       new-message detection (immune to ring buffer wrap).
     3. Run grep inside pmon as a basic sanity check.
     4. If /sys/kernel/debug exists in pmon, run grep over it with a
-       timeout to catch hangs.
-    5. Check dmesg for new kernel panic / BUG / Oops messages.
+       120s timeout to catch hangs on large debugfs trees.
+    5. Check dmesg for new kernel panic / BUG / Oops messages
+       (excluding non-fatal ``Call Trace:`` from lockdep/soft lockups).
     """
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -50,10 +53,15 @@ def test_pmon_grep_no_kernel_panic(duthosts, rand_one_dut_hostname):
 
     logger.info("pmon container is running")
 
-    # Step 2 - baseline dmesg line count
-    dmesg_baseline = duthost.shell("dmesg | wc -l")["stdout"].strip()
-    baseline_lines = int(dmesg_baseline)
-    logger.info("dmesg baseline: %d lines", baseline_lines)
+    # Step 2 - capture dmesg timestamp as baseline (more robust than line count)
+    dmesg_baseline = duthost.shell(
+        "dmesg --raw | tail -1 | grep -oP '^\\[\\s*\\K[0-9]+\\.[0-9]+'",
+        module_ignore_errors=True,
+    )
+    baseline_timestamp = dmesg_baseline["stdout"].strip() if dmesg_baseline["rc"] == 0 else ""
+    # Also capture monotonic clock as fallback
+    baseline_mono = duthost.shell("cat /proc/uptime")["stdout"].strip().split()[0]
+    logger.info("dmesg baseline timestamp: %s, uptime: %s", baseline_timestamp, baseline_mono)
 
     # Step 3 - basic grep sanity inside pmon
     result = duthost.shell("docker exec pmon grep -c Linux /proc/version")
@@ -88,7 +96,7 @@ def test_pmon_grep_no_kernel_panic(duthosts, rand_one_dut_hostname):
         if has_timeout:
             grep_cmd = (
                 'docker exec pmon bash -c '
-                '"timeout 30 grep -r SONIC_PMON_GREP_TEST_12345 '
+                '"timeout 120 grep -r SONIC_PMON_GREP_TEST_12345 '
                 '/sys/kernel/debug/ 2>/dev/null; exit 0"'
             )
         else:
@@ -110,26 +118,45 @@ def test_pmon_grep_no_kernel_panic(duthosts, rand_one_dut_hostname):
         )
 
     # Step 5 - check dmesg for new kernel panic / BUG / Oops
-    dmesg_after = duthost.shell("dmesg")["stdout"]
-    all_lines = dmesg_after.strip().splitlines()
-
-    # If the dmesg ring buffer wrapped, the number of lines after the
-    # test may be smaller than the baseline.  In that case, scan all
-    # lines to avoid missing panic messages.
-    if baseline_lines <= len(all_lines):
-        new_lines = all_lines[baseline_lines:]
-    else:
-        logger.warning(
-            "dmesg ring buffer appears to have wrapped; "
-            "scanning entire dmesg output"
+    # Brief pause to let any deferred kernel messages flush
+    time.sleep(2)
+    dmesg_after = duthost.shell("dmesg", module_ignore_errors=True)
+    if dmesg_after["rc"] != 0:
+        logger.error(
+            "Failed to collect dmesg after grep test (rc=%d). "
+            "The DUT may be in a bad state — check console/serial logs.",
+            dmesg_after["rc"],
         )
-        new_lines = all_lines
+        pytest.fail(
+            "Could not collect dmesg after grep test — DUT may have "
+            "crashed or become unresponsive. Check debugfs mount in "
+            "pmon container config and review serial/console logs."
+        )
 
+    all_lines = dmesg_after["stdout"].strip().splitlines()
+
+    # Filter to only lines newer than our baseline timestamp
+    new_lines = []
+    if baseline_timestamp:
+        for line in all_lines:
+            ts_match = re.match(r'^\[\s*([0-9]+\.[0-9]+)\]', line)
+            if ts_match and float(ts_match.group(1)) > float(baseline_timestamp):
+                new_lines.append(line)
+    else:
+        # Fallback: use uptime-based filtering
+        logger.warning("No baseline timestamp; using uptime-based filtering")
+        for line in all_lines:
+            ts_match = re.match(r'^\[\s*([0-9]+\.[0-9]+)\]', line)
+            if ts_match and float(ts_match.group(1)) > float(baseline_mono):
+                new_lines.append(line)
+
+    # Only match definitive panic/crash indicators, not bare
+    # "Call Trace:" which can appear in non-fatal warnings (lockdep,
+    # soft lockups, etc.).
     panic_patterns = [
         r"Kernel panic",
         r"BUG:",
         r"Oops:",
-        r"Call Trace:",
         r"general protection fault",
     ]
     panic_found = []
@@ -141,7 +168,10 @@ def test_pmon_grep_no_kernel_panic(duthosts, rand_one_dut_hostname):
 
     pytest_assert(
         len(panic_found) == 0,
-        "Kernel panic or BUG detected in dmesg after grep in pmon: %s"
+        "Kernel panic or BUG detected in dmesg after grep in pmon. "
+        "This may indicate debugfs is unsafely mounted in the pmon "
+        "container. Check the pmon container config for debugfs mounts "
+        "and review /sys/kernel/debug contents. Detected messages: %s"
         % "; ".join(panic_found),
     )
 
