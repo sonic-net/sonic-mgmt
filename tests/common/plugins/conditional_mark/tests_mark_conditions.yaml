@@ -4337,11 +4337,16 @@ route/test_route_flap.py:
 
 route/test_route_flow_counter.py:
   skip:
-    reason: "Test not supported for cisco-8122 platform / Route flow counter is not supported on vs platform."
+    reason: "Test not supported for cisco-8122 platform / Route flow counter is not supported on vs platform. show flowcnt-route stats not supported on Arista"
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs']"
+      - "'arista' in platform"
+  xfail:
+    reason: "xfail for IPv6-only topologies, didn't use IPv6 when should"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19926 and '-v6-' in topo_name"
 
 route/test_route_perf.py:
   skip:
