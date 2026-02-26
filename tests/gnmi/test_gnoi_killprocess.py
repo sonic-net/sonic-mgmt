@@ -78,19 +78,12 @@ def test_gnoi_killprocess_then_restart(
     )
 
 
-@pytest.mark.parametrize(
-    "restart_value,should_be_running_after",
-    [
-        (True, True),
-        (False, False),
-    ],
-)
+@pytest.mark.parametrize("restart", [True, False])
 def test_gnoi_killprocess_restart(
     duthosts,
     rand_one_dut_hostname,
     ptf_gnoi,
-    restart_value,
-    should_be_running_after,
+    restart,
 ):
     """
     Verify the restart parameter behavior in KillProcess API.
@@ -104,18 +97,18 @@ def test_gnoi_killprocess_restart(
     if not duthost.is_host_service_running(process):
         pytest.skip(f"{process} is not running")
 
-    ptf_gnoi.kill_process(name=process, restart=restart_value, signal=SIGNAL_TERM)
+    ptf_gnoi.kill_process(name=process, restart=restart, signal=SIGNAL_TERM)
 
     # Check if service state matches expectations based on restart parameter
     is_running = is_container_running(duthost, process)
     pytest_assert(
-        is_running == should_be_running_after,
-        f"After KillProcess with restart={restart_value}: "
-        f"expected running={should_be_running_after}, got running={is_running}",
+        is_running == restart,  # Simplified: restart directly implies expected state
+        f"After KillProcess with restart={restart}: "
+        f"expected running={restart}, got running={is_running}",
     )
 
     # If service was stopped, restart it for cleanup
-    if not should_be_running_after:
+    if not restart:
         ptf_gnoi.kill_process(name=process, restart=True, signal=SIGNAL_TERM)
 
     wait_critical_processes(duthost)
