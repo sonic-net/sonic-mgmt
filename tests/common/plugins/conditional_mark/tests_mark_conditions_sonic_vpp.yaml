@@ -7,14 +7,6 @@
 #######################################
 #####           ACL               #####
 #######################################
-acl/test_acl.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 acl/test_stress_acl.py::test_acl_add_del_stress:
   skip:
     reason: >

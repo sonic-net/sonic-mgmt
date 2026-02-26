@@ -1,3 +1,4 @@
+from datetime import time
 import ipaddress
 import json
 import pytest
@@ -61,7 +62,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
     recv_cmd_list = []
 
     for ip in peer_device_ip_set:
-        if ipaddress.IPNetwork(ip).version == 4:
+        if ipaddress.ip_network(ip).version == 4:
             bgp_nbr_recv_cmd = "sudo vtysh -c 'show ip bgp neighbors {} received-routes json'".format(
                 ip)
             recv_cmd_list.append(bgp_nbr_recv_cmd)
@@ -157,6 +158,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                 rc.get('stdout', 'N/A')
             )
         )
+        time.sleep(60)
 
         for bgp_nbr_recv_cmd in recv_cmd_list:
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_recv_cmd, peer_device_namespace))
@@ -183,7 +185,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
         for bgp_nbr_adv_cmd in adv_cmd_list:
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_adv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
-            assert routes_json['totalPrefixCounter'] == len(duthosts), (
+            assert routes_json['totalPrefixCounter'] == len(duthosts.frontend_nodes) + 1, (
                 "Mismatch in total advertised route count after AZNG migration rollback. "
                 "Expected totalPrefixCounter to equal the number of DUT hosts ({}), but got {}. "
                 "Command: {}\n"
@@ -214,7 +216,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                 rc.get('stdout', 'N/A')
             )
         )
-
+        time.sleep(60)
         for bgp_nbr_recv_cmd in recv_cmd_list:
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_recv_cmd, peer_device_namespace))
             routes_json = json.loads(res['stdout'])
@@ -271,6 +273,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                 rc.get('stdout', 'N/A')
             )
         )
+        time.sleep(60)
 
         for bgp_nbr_recv_cmd in recv_cmd_list:
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_recv_cmd, peer_device_namespace))
@@ -364,6 +367,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                 rc.get('stdout', 'N/A')
             )
         )
+        time.sleep(60)
 
         for bgp_nbr_recv_cmd in recv_cmd_list:
             res = duthost.shell(duthost.get_vtysh_cmd_for_namespace(bgp_nbr_recv_cmd, peer_device_namespace))
@@ -445,6 +449,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
                 "AZNG Migration Production set failed"
             )
         )
+        time.sleep(60)
 
         success = True
     finally:
