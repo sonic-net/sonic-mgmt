@@ -1,0 +1,38 @@
+name: "PR Auto Review"
+
+# Run daily at 08:00 UTC and allow manual triggering.
+on:
+  schedule:
+    - cron: '0 8 * * *'
+  workflow_dispatch:
+    inputs:
+      days_back:
+        description: "Number of days to look back for new PRs (default: 3)"
+        required: false
+        default: "3"
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  pr_auto_review:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip PyGithub
+
+      - name: Review recent open PRs and post comments
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          DAYS_BACK: ${{ github.event.inputs.days_back || '3' }}
+        run: python .github/scripts/pr_auto_review.py
