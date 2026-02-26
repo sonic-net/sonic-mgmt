@@ -774,7 +774,7 @@ def setup_dash_ha_from_json(duthosts):
         )
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def activate_dash_ha_from_json(duthosts):
     # -------------------------------------------------
     # Step 4: Activate Role (using pending_operation_ids)
