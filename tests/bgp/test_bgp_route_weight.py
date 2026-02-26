@@ -15,11 +15,10 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2'),
-    pytest.mark.device_type('vs')
 ]
 
 CHECK_SCRIPT = """\
-import json, subprocess, sys
+import ast, json, subprocess, sys
 
 af = sys.argv[1]  # 'ipv4' or 'ipv6'
 ns = sys.argv[2] if len(sys.argv) > 2 else ''  # ASIC namespace (multi-ASIC)
@@ -27,13 +26,14 @@ ns = sys.argv[2] if len(sys.argv) > 2 else ''  # ASIC namespace (multi-ASIC)
 db_cmd = ['sonic-db-cli', '-n', ns, 'APPL_DB'] if ns else ['sonic-db-cli', 'APPL_DB']
 
 result = subprocess.run(
-    db_cmd + ['keys', 'ROUTE_TABLE:*'],
+    db_cmd + ['KEYS', 'ROUTE_TABLE:*'],
     capture_output=True, text=True
 )
 all_keys = [k for k in result.stdout.strip().split('\\n') if k]
 checked = 0
 missing = []
 mismatched = []
+invalid_weights = []
 sample = None
 
 for key in all_keys:
@@ -46,12 +46,12 @@ for key in all_keys:
             continue
 
     r = subprocess.run(
-        db_cmd + ['hgetall', key],
+        db_cmd + ['HGETALL', key],
         capture_output=True, text=True
     )
-    # Parse the python dict string output
+    # Parse the python dict string output safely
     try:
-        entry = eval(r.stdout.strip())
+        entry = ast.literal_eval(r.stdout.strip())
     except Exception:
         continue
 
@@ -64,14 +64,32 @@ for key in all_keys:
 
     if not weight:
         missing.append(prefix)
-    elif nexthop:
-        nh_count = len(nexthop.split(','))
-        w_count = len(weight.split(','))
-        if nh_count != w_count:
+    else:
+        # Validate weight values are positive integers
+        weight_parts = weight.split(',')
+        for w in weight_parts:
+            w = w.strip()
+            if not w.isdigit() or int(w) <= 0:
+                invalid_weights.append({'prefix': prefix, 'weight': weight})
+                break
+
+        # Check count matches nexthop count
+        if nexthop:
+            nh_count = len(nexthop.split(','))
+            w_count = len(weight_parts)
+            if nh_count != w_count:
+                mismatched.append({
+                    'prefix': prefix,
+                    'nh_count': nh_count,
+                    'w_count': w_count
+                })
+        else:
+            # Weight exists but no nexthop — flag as mismatch
             mismatched.append({
                 'prefix': prefix,
-                'nh_count': nh_count,
-                'w_count': w_count
+                'nh_count': 0,
+                'w_count': len(weight_parts),
+                'note': 'weight without nexthop'
             })
 
     if sample is None and weight:
@@ -85,6 +103,7 @@ print(json.dumps({
     'checked': checked,
     'missing': missing[:10],
     'mismatched': mismatched[:10],
+    'invalid_weights': invalid_weights[:10],
     'sample': sample
 }))
 """
@@ -96,10 +115,12 @@ def _run_weight_check(duthost, asic, address_family):
     # Write script to DUT and execute
     asic.shell("cat > /tmp/check_weight.py << 'PYEOF'\n{}\nPYEOF".format(
         CHECK_SCRIPT))
-    output = asic.shell(
-        "python3 /tmp/check_weight.py {} {}".format(
-            address_family, namespace))['stdout'].strip()
-    asic.shell("rm -f /tmp/check_weight.py")
+    try:
+        output = asic.shell(
+            "python3 /tmp/check_weight.py {} {}".format(
+                address_family, namespace))['stdout'].strip()
+    finally:
+        asic.shell("rm -f /tmp/check_weight.py")
 
     result = json.loads(output)
     logger.info("%s: checked %d BGP routes", address_family, result['checked'])
@@ -135,6 +156,11 @@ def test_bgp_route_weight_ipv4(duthosts, enum_rand_one_per_hwsku_frontend_hostna
             result['mismatched'])
     )
 
+    assert not result.get('invalid_weights'), (
+        "IPv4 BGP routes with non-positive-integer weight values: {}".format(
+            result['invalid_weights'])
+    )
+
     logger.info("All %d sampled IPv4 BGP routes have valid weight attributes",
                 result['checked'])
 
@@ -158,6 +184,11 @@ def test_bgp_route_weight_ipv6(duthosts, enum_rand_one_per_hwsku_frontend_hostna
     assert not result['mismatched'], (
         "IPv6 BGP routes with weight/nexthop count mismatch: {}".format(
             result['mismatched'])
+    )
+
+    assert not result.get('invalid_weights'), (
+        "IPv6 BGP routes with non-positive-integer weight values: {}".format(
+            result['invalid_weights'])
     )
 
     logger.info("All %d sampled IPv6 BGP routes have valid weight attributes",
