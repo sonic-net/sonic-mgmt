@@ -82,6 +82,7 @@ validators:
       - str4-acs-serv-13          # conflicts with str-acs-serv-13
       - str4-acs-serv-65          # conflicts with ptf1-3
       - str5-acs-serv-65          # conflicts with ptf1-3
+      - str5-acs-serv-110         # conflicts with str3-7280r4-ut2-2
       # E2004 inconsistent IP devices
       - str2-8800-lc2-2           # inconsistent IPs between sources
       - str2-8800-lc1-3           # inconsistent IPs between sources
@@ -90,6 +91,8 @@ validators:
       - str4-acs-serv-74          # inconsistent IPs between sources
       - STR43-7060x6-512-C17-U08  # inconsistent IPs between sources
       - STR43-7060x6-512-C17-U10  # inconsistent IPs between sources
+      - str3-7280r4-ut2-1         # inconsistent IPs between sources
+      - str3-7280r4-ut2-2         # inconsistent IPs between sources
       # E2005 IPv4/IPv6 mismatch devices - explicit device names
       - ptf10-0                   # IPv4/IPv6 mismatch
       - ptf3-0                    # IPv4/IPv6 mismatch
@@ -292,6 +295,11 @@ validators:
       - str4-acs-serv-76          # IPv4/IPv6 mismatch
       - str4-7060x6-64pe-fan-14   # IPv4/IPv6 mismatch
       - str4-7060x6-512-9         # IPv4/IPv6 mismatch
+      - str5-nh5010-ut2-1         # IPv4/IPv6 mismatch
+      - str5-nh5010-ut2-2         # IPv4/IPv6 mismatch
+      - str5-nh5010-ut2-3         # IPv4/IPv6 mismatch
+      - str5-nh5010-ut2-4         # IPv4/IPv6 mismatch
+      - str5-nh5010-ut2-5         # IPv4/IPv6 mismatch
 
 - name: vlan
   enabled: true

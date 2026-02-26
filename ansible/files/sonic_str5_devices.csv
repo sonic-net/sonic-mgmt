@@ -43,6 +43,12 @@ str5-z9332f-01,10.64.247.112/26,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str5-z9332f-02,10.64.247.115/26,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str5-7280dr3-2,10.64.247.74/26,Arista-7280DR3AM-36,DevSonic,,sonic
 str5-7280dr3-3,10.64.247.78/26,Arista-7280DR3AM-36,DevSonic,,sonic
+str5-nh5010-ut2-1,10.3.152.66/26,NH-5010-F-O64,DevSonic,,sonic
+str5-nh5010-ut2-3,10.3.152.68/26,NH-5010-F-O64,DevSonic,,sonic
+str5-nh5010-ut2-4,10.3.152.73/26,NH-5010-F-O64,DevSonic,,sonic
+str5-nh5010-ut2-5,10.3.152.74/26,NH-5010-F-O64,DevSonic,,sonic
+str5-7280r4-ut2-3,10.3.152.71/26,Arista-7280R4K-32QF-32DF,DevSonic,,sonic
+str5-7280r4-ut2-4,10.3.152.72/26,Arista-7280R4K-32QF-32DF,DevSonic,,sonic
 pdu-83,10.3.154.83,ApcRPDU,Pdu,snmp,
 pdu-85,10.3.154.84,ApcRPDU,Pdu,snmp,
 pdu-86,10.3.154.85,ApcRPDU,Pdu,snmp,
@@ -62,6 +68,7 @@ pdu-100,10.3.154.101,Sentry4,Pdu,snmp,
 pdu-101,10.3.154.102,Sentry4,Pdu,snmp,
 pdu-102,10.3.154.103,Sentry4,Pdu,snmp,
 pdu-103,10.3.154.104,Sentry4,Pdu,snmp,
+pdu-104,10.3.154.105,Sentry4,Pdu,snmp,
 pdu-105,10.3.154.106,Sentry4,Pdu,snmp,
 pdu-106,10.3.154.107,Sentry4,Pdu,snmp,
 pdu-107,10.3.154.108,Sentry4,Pdu,snmp,

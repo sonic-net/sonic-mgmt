@@ -269,7 +269,12 @@ all:
         pdu-135:
           ansible_host: 10.3.154.135
           protocol: snmp
-
+        Sentry_6224b9:
+          ansible_host: 10.3.154.75
+          protocol: snmp
+        pdu-137:
+          ansible_host: 10.3.154.76
+          protocol: snmp
 fanout:
   hosts:
     str3-7260cx3-acs-root03:
@@ -492,6 +497,8 @@ sonic:
     sonic_cisco_8102_t0_smartswitch:
     sonic_mlnx_bf_4902_smartswitch_dpu:
     sonic_cisco_8101:
+    sonic_arista_7280r4_400G:
+
 
 sonic_mlnx_4600C:
   vars:
@@ -2753,7 +2760,72 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
         "0x24": "2C:5E:AB:3C:45:F6"
         "0x27": "A2"
         "0xFE": "0xE55E8D19"
+sonic_arista_7280r4_400G:
+  vars:
+    max_cores: 8
+    switch_type: voq
+    num_asics: 1
+    macsec_card: True
+    plt_reboot_dict:
+      cold:
+        timeout: 360
+        wait: 360
+      watchdog:
+        timeout: 360
+        wait: 360
+      platform_tests/test_reload_config.py::test_reload_configuration_checks:
+        timeout: 360
+        wait: 60
+  hosts:
+    str3-7280r4-ut2-1:
+      hwsku:
+      sonic_hwsku: Arista-7280R4K-32QF-32DF
+      sonic_hw_platform: Arista-7280R4K-32QF-32DF
+      mgmt_subnet_mask_length: 25
+      mgmt_subnet_v6_mask_length: 121
+      switchids: [0]
+      serial:
+      base_mac:
+      ansible_host: 10.3.152.69
+      ansible_hostv6:
+      model: 'Arista-7280R4K-32QF-32DF'
+      syseeprom_info:
+        "0x21": "Arista-7280R4K-32QF-32DF"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": ""
+        "0x28": ""
+        "0x2B": ""
+        "0x2D": ""
+        "0x2F": ""
+        "0xFD": ""
+        "0xFE": ""
 
+    str3-7280r4-ut2-2:
+      hwsku: Arista-7280R4K-32QF-32DF
+      sonic_hwsku: Arista-7280R4K-32QF-32DF
+      sonic_hw_platform: Arista-7280R4K-32QF-32DF
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      switchids: [0]
+      serial:
+      base_mac:
+      ansible_host: 10.3.152.70
+      ansible_hostv6:
+      model: 'Arista-7280R4K-32QF-32DF'
+      syseeprom_info:
+        "0x21": "Arista-7280R4K-32QF-32DF"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": ""
+        "0x28": ""
+        "0x2B": ""
+        "0x2D": ""
+        "0x2F": ""
+        "0xFD": ""
+        "0xFE": ""
 server:
   hosts:
     str3-acs-serv-12:

@@ -27,3 +27,15 @@ pdu-131,1,str5-z9332f-01,PSU1
 pdu-129,1,str5-z9332f-01,PSU2
 pdu-131,3,str5-z9332f-02,PSU1
 pdu-129,3,str5-z9332f-02,PSU2
+pdu-104,48,str5-nh5010-ut2-1,PSU1
+pdu-107,48,str5-nh5010-ut2-1,PSU2
+pdu-124,21,str5-nh5010-ut2-3,PSU1
+pdu-124,22,str5-nh5010-ut2-3,PSU2
+pdu-126,48,str5-nh5010-ut2-4,PSU1
+pdu-127,48,str5-nh5010-ut2-4,PSU2
+pdu-126,43,str5-nh5010-ut2-5,PSU1
+pdu-127,43,str5-nh5010-ut2-5,PSU2
+pdu-126,40,str5-7280r4-ut2-3,PSU1
+pdu-127,40,str5-7280r4-ut2-3,PSU2
+pdu-126,46,str5-7280r4-ut2-4,PSU1
+pdu-127,46,str5-7280r4-ut2-4,PSU2

@@ -63,6 +63,12 @@ all:
         vms110-1:
           ansible_host: 10.64.247.26
           ansible_hostv6: 2a01:111:e210:b000::a40:f71a
+        vms96-1:
+          ansible_host: 10.64.247.159
+          ansible_hostv6: 2a01:111:e210:b000::a40:f79f
+        vms96-2:
+          ansible_host: 10.64.247.162
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7a2
 
     pdu:
       hosts:
@@ -278,6 +284,8 @@ sonic:
     sonic_arista_7060x6_512:
     sonic_nvidia_sn5640:
     sonic_arista_7280dr3_400G:
+    sonic_arista_7280r4_400G:
+    sonic_nexthop_ut2:
 
 sonic_arista_7060x6_512:
   hosts:
@@ -670,6 +678,200 @@ sonic_nvidia_sn5640:
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
         "0x2F": "MT2516600JFW"
+sonic_nexthop_ut2:
+  vars:
+    max_cores: 8
+    switch_type: voq
+    num_asics: 1
+    macsec_card: True
+    mgmt_subnet_mask_length: 26
+    mgmt_subnet_v6_mask_length: 122
+    plt_reboot_dict:
+      cold:
+        timeout: 360
+        wait: 360
+      watchdog:
+        timeout: 360
+        wait: 360
+      platform_tests/test_reload_config.py::test_reload_configuration_checks:
+        timeout: 360
+        wait: 60
+  hosts:
+    str5-nh5010-ut2-1:
+      hwsku: NH-5010-F-O64
+      sonic_hwsku: NH-5010-F-O64
+      sonic_hw_platform: x86_64-nexthop_5010-r0
+      switchids: [0]
+      serial: NH-FSJ25350022
+      base_mac: E8:E4:9D:00:C1:A8
+      ansible_host: 10.3.152.66
+      ansible_hostv6: 2a01:111:e210:86::1
+      model: 'NH-5010-F'
+      syseeprom_info:
+        "0x21": "NH-5010-F"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": "0"
+        "0x28": "x86_64-nexthop_5010-r0"
+        "0x2B": "Nexthop Systems Inc"
+        "0x2D": "Nexthop AI"
+        "0x2F": "www.nexthop.ai"
+        "0xFD": ""
+        "0xFE": ""
+    str5-nh5010-ut2-2:
+      hwsku: NH-5010-F-O64
+      sonic_hwsku: NH-5010-F-O64
+      sonic_hw_platform: x86_64-nexthop_5010-r0
+      switchids: [0]
+      serial:
+      base_mac:
+      ansible_host: 10.3.152.67
+      ansible_hostv6: 2a01:111:e210:86::2
+      model: 'NH-5010-F'
+      syseeprom_info:
+        "0x21": "NH-5010-F"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": ""
+        "0x28": "x86_64-nexthop_5010-r0"
+        "0x2B": "Nexthop Systems Inc"
+        "0x2D": "Nexthop AI"
+        "0x2F": "www.nexthop.ai"
+        "0xFD": ""
+        "0xFE": ""
+    str5-nh5010-ut2-3:
+      hwsku: NH-5010-F-O64
+      sonic_hwsku: NH-5010-F-O64
+      sonic_hw_platform: x86_64-nexthop_5010-r0
+      switchids: [0]
+      serial:
+      base_mac:
+      ansible_host: 10.3.152.68
+      ansible_hostv6: 2a01:111:e210:86::3
+      model: 'NH-5010-F'
+      syseeprom_info:
+        "0x21": "NH-5010-F"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": "0"
+        "0x28": "x86_64-nexthop_5010-r0"
+        "0x2B": "Nexthop Systems Inc"
+        "0x2D": "Nexthop AI"
+        "0x2F": "www.nexthop.ai"
+        "0xFD": ""
+        "0xFE": ""
+    str5-nh5010-ut2-4:
+      hwsku: NH-5010-F-O64
+      sonic_hwsku: NH-5010-F-O64
+      sonic_hw_platform: x86_64-nexthop_5010-r0
+      switchids: [0]
+      serial:
+      base_mac:
+      ansible_host: 10.3.152.73
+      ansible_hostv6: 2a01:111:e210:86::89
+      model: 'NH-5010-F'
+      syseeprom_info:
+        "0x21": "NH-5010-F"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": "0"
+        "0x28": "x86_64-nexthop_5010-r0"
+        "0x2B": "Nexthop Systems Inc"
+        "0x2D": "Nexthop AI"
+        "0x2F": "www.nexthop.ai"
+        "0xFD": ""
+        "0xFE": ""
+    str5-nh5010-ut2-5:
+      hwsku: NH-5010-F-O64
+      sonic_hwsku: NH-5010-F-O64
+      sonic_hw_platform: x86_64-nexthop_5010-r0
+      switchids: [0]
+      serial:
+      base_mac:
+      ansible_host: 10.3.152.74
+      ansible_hostv6: 2a01:111:e210:86::8a
+      model: 'NH-5010-F'
+      syseeprom_info:
+        "0x21": "NH-5010-F"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": ""
+        "0x28": "x86_64-nexthop_5010-r0"
+        "0x2B": "Nexthop Systems Inc"
+        "0x2D": "Nexthop AI"
+        "0x2F": "www.nexthop.ai"
+        "0xFD": ""
+        "0xFE": ""
+
+sonic_arista_7280r4_400G:
+  vars:
+    max_cores: 8
+    switch_type: voq
+    num_asics: 1
+    mgmt_subnet_mask_length: 26
+    mgmt_subnet_v6_mask_length: 122
+    macsec_card: True
+    plt_reboot_dict:
+      cold:
+        timeout: 360
+        wait: 360
+      watchdog:
+        timeout: 360
+        wait: 360
+      platform_tests/test_reload_config.py::test_reload_configuration_checks:
+        timeout: 360
+        wait: 60
+  hosts:
+    str5-7280r4-ut2-3:
+      hwsku: Arista-7280R4K-32QF-32DF
+      sonic_hwsku: Arista-7280R4K-32QF-32DF
+      sonic_hw_platform: Arista-7280R4K-32QF-32DF
+      switchids: [0]
+      serial:
+      base_mac:
+      ansible_host: 10.3.152.71
+      ansible_hostv6:
+      model: 'Arista-7280R4K-32QF-32DF'
+      syseeprom_info:
+        "0x21": "Arista-7280R4K-32QF-32DF"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": ""
+        "0x28": ""
+        "0x2B": ""
+        "0x2D": ""
+        "0x2F": ""
+        "0xFD": ""
+        "0xFE": ""
+
+    str5-7280r4-ut2-4:
+      hwsku: Arista-7280R4K-32QF-32DF
+      sonic_hwsku: Arista-7280R4K-32QF-32DF
+      sonic_hw_platform: Arista-7280R4K-32QF-32DF
+      switchids: [0]
+      serial:
+      base_mac:
+      ansible_host: 10.3.152.72
+      ansible_hostv6:
+      model: 'Arista-7280R4K-32QF-32DF'
+      syseeprom_info:
+        "0x21": "Arista-7280R4K-32QF-32DF"
+        "0x22": ""
+        "0x23": ""
+        "0x24": ""
+        "0x26": ""
+        "0x28": ""
+        "0x2B": ""
+        "0x2D": ""
+        "0x2F": ""
+        "0xFD": ""
+        "0xFE": ""
 
 server:
   hosts:
