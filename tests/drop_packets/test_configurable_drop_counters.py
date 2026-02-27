@@ -10,6 +10,7 @@ Todo:
 
 import logging
 import random
+import time
 import json
 import tempfile
 import re
@@ -127,14 +128,15 @@ def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
     duthost.command(cmd)
 
     def _check_fdb_applied():
+        fdb_count = int(duthost.shell(
+            "show mac | grep -i {} | wc -l".format(mac_address))["stdout"])
         if op == "SET":
-            fdb_count = int(duthost.shell(
-                "show mac | grep -i {} | wc -l".format(mac_address))["stdout"])
             return fdb_count >= 1
-        return True
+        else:
+            return fdb_count == 0
 
-    if not wait_until(10, 1, 0, _check_fdb_applied):
-        logging.warning("FDB entry may not have been applied yet")
+    pytest_assert(wait_until(10, 1, 0, _check_fdb_applied),
+                  "FDB {} operation for {} was not applied".format(op, mac_address))
 
 
 def verifyFdbArp(duthost, dst_ip, dst_mac, dst_intf):
@@ -523,9 +525,10 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
             result = duthost.command("show arp {}".format(server_dst_addr), module_ignore_errors=True)
         else:
             result = duthost.command("show ndp {}".format(server_dst_addr), module_ignore_errors=True)
-        return "Total number of entries 1" in result.get('stdout', '')
+        return server_dst_addr in result.get('stdout', '')
 
-    wait_until(15, 1, 0, _check_arp_populated)
+    pytest_assert(wait_until(15, 1, 0, _check_arp_populated),
+                  "ARP/NDP entry for {} was not populated".format(server_dst_addr))
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, server_dst_intf)
 
     return {"server_dst_port": server_dst_port,
@@ -605,3 +608,5 @@ def _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
     ptfadapter.dataplane.flush()
 
     testutils.send(ptfadapter, ptf_tx_port_id, pkt, count=count)
+    # Allow time for the ASIC to process packets and update drop counters
+    time.sleep(1)
