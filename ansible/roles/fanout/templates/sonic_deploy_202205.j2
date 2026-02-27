@@ -16,7 +16,7 @@
             "lanes": "{{ fanout_port_config[port_name]['lanes'] }}",
             "pfc_asym": "off",
             "mtu": "9100",
-    {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
+    {% if fanout_port_config[port_name]['speed'] | default('100000') | int >= 100000 %}
             "fec" : "rs",
     {% endif %}
     {% if 'broadcom' in fanout_sonic_version["asic_type"] or 'marvell' in fanout_sonic_version["asic_type"] %}

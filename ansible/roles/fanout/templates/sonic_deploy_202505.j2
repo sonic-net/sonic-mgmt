@@ -22,7 +22,7 @@
     {% if fanout_hwsku == "Arista-720DT-G48S4" and (fanout_port_config[port_name]['lanes'] | int) <= 24 %}
             "autoneg": "on",
     {% endif %}
-    {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
+    {% if fanout_port_config[port_name]['speed'] | default('100000') | int >= 100000 %}
             "fec" : "rs",
     {% endif %}
     {% if port_name in device_conn[inventory_hostname] %}

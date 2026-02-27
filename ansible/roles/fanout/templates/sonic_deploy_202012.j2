@@ -15,7 +15,7 @@
             "lanes": "{{ fanout_port_config[port_name]['lanes'] }}",
             "pfc_asym": "off",
             "mtu": "9100",
-    {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
+    {% if fanout_port_config[port_name]['speed'] | default('100000') | int >= 100000 %}
             "fec" : "rs",
     {% endif %}
     {% if 'peerdevice' in fanout_port_config[port_name] %}
