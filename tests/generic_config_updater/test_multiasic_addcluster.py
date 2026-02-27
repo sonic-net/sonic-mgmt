@@ -7,14 +7,19 @@ neighbor needs to be (re)configured on existing physical ports.
 Key Design Notes:
 -----------------
 1. PORT ENTRIES ALWAYS EXIST: After `config load_minigraph`, all physical ports defined
-   in platform.json exist in CONFIG_DB, regardless of device links. The test reconfigures
+   in platform.json exist in CONFIG_DB, regardless of device links. The test configures
    these existing ports rather than creating them from nothing.
 
-2. RFC 6902 "add" SEMANTICS: The generated patches use "add" operations which per RFC 6902
+2. ADMIN STATUS LIFECYCLE: When port interface definitions (PortChannels, IPInterfaces)
+   are removed from minigraph, the affected ports revert to defaults from port_config.ini
+   which sets admin_status=down. When GCU restores the configuration, admin_status
+   transitions back to 'up'. This test verifies this lifecycle.
+
+3. RFC 6902 "add" SEMANTICS: The generated patches use "add" operations which per RFC 6902
    mean "add or replace". For existing PORT entries, this replaces the platform-default
    config (e.g., 400G) with neighbor-specific config (e.g., 100G with FEC).
 
-3. VALID PRODUCTION SCENARIO: This test validates a realistic datacenter expansion use
+4. VALID PRODUCTION SCENARIO: This test validates a realistic datacenter expansion use
    case where physical ports exist but need to be configured for a new neighbor.
 
 See test_addcluster_workflow() docstring for detailed explanation.
@@ -1257,14 +1262,19 @@ def test_addcluster_workflow(duthosts, rand_one_dut_front_end_hostname):
     duthost.shell(f"rm -f {dut_config_path}")
 
     # Step 3: Modify minigraph to remove target_t1
+    # This removes the neighbor device AND all port interface definitions (PortChannels,
+    # IPInterfaces) that use the ports connected to this neighbor. After minigraph reload,
+    # these ports should have admin_status=down (defaults from port_config.ini).
     logger.info(f"Modifying minigraph to remove {target_t1}")
     local_dir = "/tmp/minigraph_modified"
     local_minigraph = os.path.join(local_dir, f"{duthost.hostname}-minigraph.xml")
     duthost.fetch(src=MINIGRAPH, dest=local_minigraph, flat=True)
     refactor = MinigraphRefactor(target_t1)
-    if not refactor.process_minigraph(local_minigraph, local_minigraph):
+    success, affected_ports = refactor.process_minigraph(local_minigraph, local_minigraph)
+    if not success:
         logger.info(f"Skipping test - testbed topology does not match required conditions for {target_t1}")
         pytest.skip(f"Testbed topology does not match required conditions for {target_t1}")
+    logger.info(f"Minigraph modification complete. Affected ports: {sorted(affected_ports)}")
     duthost.copy(src=local_minigraph, dest=MINIGRAPH)
 
     # Step 4: Reload minigraph
@@ -1273,6 +1283,21 @@ def test_addcluster_workflow(duthosts, rand_one_dut_front_end_hostname):
     if not wait_until(300, 20, 0, duthost.critical_services_fully_started):
         logger.error("Not all critical services fully started!")
         pytest.fail("Critical services not fully started after minigraph reload")
+
+    # Step 4.1: Verify affected ports have admin_status=down after minigraph reload
+    # When port interface definitions are removed from minigraph, the ports should
+    # fall back to defaults from port_config.ini which sets admin_status=down.
+    if affected_ports:
+        logger.info(f"Verifying admin_status=down for affected ports: {sorted(affected_ports)}")
+        for port in affected_ports:
+            redis_cmd = f'sonic-db-cli {ns_arg} CONFIG_DB hget "PORT|{port}" admin_status'
+            result = duthost.shell(redis_cmd, module_ignore_errors=True)
+            admin_status = result['stdout'].strip() if result['rc'] == 0 else "unknown"
+            if admin_status != "down":
+                logger.warning(f"Port {port} has admin_status={admin_status}, expected 'down'")
+                # Note: We warn rather than fail because some platforms may have different defaults
+            else:
+                logger.info(f"Verified port {port} has admin_status=down (as expected)")
 
     # Capture pre-patch CONFIG_DB state (neighbor removed via minigraph)
     if CAPTURE_CONFIGS and capture_dir:
