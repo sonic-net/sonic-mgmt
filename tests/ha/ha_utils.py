@@ -1,6 +1,4 @@
 import logging
-import re
-import ast
 import json
 
 from tests.common.utilities import wait_until
@@ -76,31 +74,25 @@ def build_dash_ha_set_args(fields):
     )
 
 
-def extract_pending_operations(text):
+def extract_pending_operations(ids_str, types_str):
     """
-    Extract pending_operation_ids and pending_operation_types
-    and return list of (type, id) tuples.
+    Parse pending_operation_ids and pending_operation_types from
+    comma-separated STATE_DB field values and return list of
+    (type, id) tuples.
+
+    Args:
+        ids_str: Comma-separated pending operation IDs
+        types_str: Comma-separated pending operation types
+
+    Returns:
+        list[tuple[str, str]]: List of (op_type, op_id) tuples
     """
-    ids_match = re.search(
-        r'pending_operation_ids\s*\|\s*([^\|\r\n]+)',
-        text,
-        re.DOTALL,
-    )
-    types_match = re.search(
-        r'pending_operation_types\s*\|\s*([^\|\r\n]+)',
-        text,
-        re.DOTALL,
-    )
-    if not ids_match or not types_match:
+    if not ids_str or not types_str:
         return []
 
     try:
-        ids = ast.literal_eval(f"'{ids_match.group(1)}'")
-        id_list = ids.split()
-        ids = id_list[0].split(',')
-        types = ast.literal_eval(f"'{types_match.group(1)}'")
-        type_list = types.split()
-        types = type_list[0].split(',')
+        ids = [x.strip() for x in ids_str.split(',') if x.strip()]
+        types = [x.strip() for x in types_str.split(',') if x.strip()]
     except Exception:
         return []
 
@@ -109,7 +101,7 @@ def extract_pending_operations(text):
 
 def get_pending_operation_id(duthost, scope_key, expected_op_type):
     """
-    Get pending operation ID from HA scope (single query, no retry).
+    Get pending operation ID from STATE_DB DASH_HA_SCOPE_STATE (single query, no retry).
 
     Args:
         duthost: DUT host object
@@ -119,22 +111,26 @@ def get_pending_operation_id(duthost, scope_key, expected_op_type):
     Returns:
         str: Pending operation ID if found, None otherwise
     """
-    cmd = (
-        "docker exec dash-hadpu0 swbus-cli show hamgrd actor "
-        f"/hamgrd/0/ha-scope/{scope_key}"
-    )
+    db_key = f"DASH_HA_SCOPE_STATE|{scope_key}"
 
     try:
-        res = duthost.shell(cmd)
+        ids_res = duthost.shell(
+            f'sonic-db-cli STATE_DB HGET "{db_key}" pending_operation_ids'
+        )
+        types_res = duthost.shell(
+            f'sonic-db-cli STATE_DB HGET "{db_key}" pending_operation_types'
+        )
 
-        if res.get("rc", 0) != 0:
+        if ids_res.get("rc", 0) != 0 or types_res.get("rc", 0) != 0:
             logger.debug(
-                f"{duthost.hostname} Command failed for scope {scope_key}: "
-                f"{res.get('stderr', '')}"
+                f"{duthost.hostname} STATE_DB query failed for scope {scope_key}: "
+                f"ids_rc={ids_res.get('rc')}, types_rc={types_res.get('rc')}"
             )
             return None
 
-        pending_ops = extract_pending_operations(res["stdout"])
+        ids_str = ids_res["stdout"].strip()
+        types_str = types_res["stdout"].strip()
+        pending_ops = extract_pending_operations(ids_str, types_str)
 
         for op_type, op_id in pending_ops:
             if op_type == expected_op_type:
@@ -176,16 +172,15 @@ def verify_ha_state(
     interval=5,
 ):
     """
-    Wait until HA reaches the expected state
+    Wait until HA reaches the expected state by querying STATE_DB.
     """
     def _check_ha_state():
-        cmd = (
-            "docker exec dash-hadpu0 swbus-cli show hamgrd actor "
-            f"/hamgrd/0/ha-scope/{scope_key}"
+        db_key = f"DASH_HA_SCOPE_STATE|{scope_key}"
+        res = duthost.shell(
+            f'sonic-db-cli STATE_DB HGET "{db_key}" local_acked_asic_ha_state'
         )
-        res = duthost.shell(cmd)
-        match = re.search(r'ha_state\s+\|\s+(\w+)', res["stdout"])
-        return match.group(1) == expected_state
+        state = res["stdout"].strip()
+        return state == expected_state
 
     success = wait_until(timeout, interval, 0, _check_ha_state)
 
@@ -285,39 +280,3 @@ def wait_for_pending_operation_id(
 
     return pending_id if success else None
 
-
-def extract_ha_state(text):
-    """
-    Extract ha_state from swbus-cli output
-    """
-    text_str = str(text)
-    match = re.search(r'"ha_role":\s*"(\w+)"', text_str)
-    return match.group(1) if match else None
-
-
-def wait_for_ha_state(
-    duthost,
-    scope_key,
-    expected_state,
-    timeout=120,
-    interval=5,
-):
-    """
-    Wait until HA reaches the expected state
-    """
-    def _check_ha_state():
-        cmd = (
-            "docker exec dash-hadpu0 swbus-cli show hamgrd actor "
-            f"/hamgrd/0/ha-scope/{scope_key}"
-        )
-        res = duthost.shell(cmd)
-        return extract_ha_state(res["stdout"]) == expected_state
-
-    success = wait_until(
-        timeout,
-        interval,
-        0,
-        _check_ha_state
-    )
-
-    return success
