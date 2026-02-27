@@ -481,9 +481,6 @@ class Test_VxLAN():
             "show ipv6 bgp summary"]
         if self.vxlan_test_setup['enable_bfd']:
             cmds.append("show bfd summary")
-            if self.vxlan_test_setup['duthost'].facts["asic_type"] == "vpp":
-                cmds.append("docker exec syncd vppctl show errors")
-
         for cmd in cmds:
             self.vxlan_test_setup['duthost'].shell(cmd)
 
