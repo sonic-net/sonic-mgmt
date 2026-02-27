@@ -677,9 +677,10 @@ class VMTopology(object):
             VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN - len(int_if))
         logging.info('=== For veth pair, add %s to bridge %s, set %s to netns, tmp intf %s' % (
             ext_if, bridge, int_if, tmp_int_if))
-        if VMTopology.intf_not_exists(ext_if):
-            VMTopology.cmd("ip link add %s type veth peer name %s" %
-                           (ext_if, tmp_int_if))
+        if VMTopology.intf_exists(ext_if):
+            VMTopology.cmd("ip link del dev %s" % ext_if)
+        VMTopology.cmd("ip link add %s type veth peer name %s" %
+                        (ext_if, tmp_int_if))
 
         _, if_to_br = VMTopology.brctl_show(bridge)
         if ext_if not in if_to_br:
