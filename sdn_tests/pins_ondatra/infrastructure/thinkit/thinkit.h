@@ -22,6 +22,7 @@
 #include "absl/time/time.h"
 #include "github.com/openconfig/ondatra/proto/testbed.pb.h"
 #include "github.com/openconfig/ondatra/proxy/proto/reservation.pb.h"
+#include "infrastructure/thinkit/thinkit_go_interface.h"
 
 namespace pins_test {
 
@@ -32,6 +33,21 @@ absl::StatusOr<reservation::Reservation> OndatraTestbed();
 
 absl::Status OndatraRelease();
 
+namespace testhelper {
+// Creates a new GO teardown and returns a handler for it.
+int NewTeardownOptions(struct testhelper_TeardownCreateOpts opts);
+
+// Runs the GO teardown for the handler.
+void Teardown(int handler);
+
+// Saves the switch logs.
+void SaveSwitchLogs();
+
+// Associates a test case ID with the test.
+void AddTestCaseID(int handler, char* test_case_id);
+
+}  // namespace testhelper
+
 struct OndatraHooks {
   std::function<absl::Status(const ondatra::Testbed&, absl::Duration,
                              absl::Duration)>
@@ -39,6 +55,13 @@ struct OndatraHooks {
   std::function<absl::StatusOr<reservation::Reservation>()> testbed =
       OndatraTestbed;
   std::function<absl::Status()> release = OndatraRelease;
+
+  std::function<int(struct testhelper_TeardownCreateOpts)>
+      new_teardown_handler = testhelper::NewTeardownOptions;
+  std::function<void(int)> teardown = testhelper::Teardown;
+  std::function<void()> save_switch_logs = testhelper::SaveSwitchLogs;
+  std::function<void(int, char*)> add_test_case_id =
+      testhelper::AddTestCaseID;
 };
 
 }  // namespace pins_test

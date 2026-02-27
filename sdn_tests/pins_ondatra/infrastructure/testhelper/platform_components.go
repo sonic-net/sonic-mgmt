@@ -20,8 +20,8 @@ func SwitchNameRegex() string {
 // ImageVersionRegex returns the regular expressions for the image version of the switch.
 func ImageVersionRegex() []string {
 	return []string{
-		"^pins_daily_(20\\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\\d|3[01])_([0-1]?[0-9]|2[0-3])_RC(\\d{2})$",
-		"^pins_release_(20\\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\\d|3[01])_([0-1]?[0-9]|2[0-3])_(prod|dev)_RC(\\d{2})$",
+		"^pins_daily_(20\\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\\d|3[01])_([0-1]?[0-9]|2[0-3])_.*RC(\\d{2})$",
+		"^pins_release_(20\\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\\d|3[01])_([0-1]?[0-9]|2[0-3])_.*(prod|dev)_RC(\\d{2})$",
 	}
 }
 
@@ -453,6 +453,7 @@ func (p PCIeInfo) GetName() string {
 
 // PcieInfoForDevice returns information about all PCIe devices.
 func PcieInfoForDevice(t *testing.T, d *ondatra.DUTDevice) ([]PCIeInfo, error) {
+
 	info, err := platformInfoForDevice(t, d)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to fetch platform specific information")
