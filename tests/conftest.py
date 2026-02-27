@@ -133,6 +133,8 @@ fix_logging_handler_fork_lock()
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
+    parser.addoption("--ipv6_only_mgmt", action="store_true", default=False,
+                     help="Use IPv6-only management network. DUT mgmt_ip will be set to IPv6 address.")
     parser.addoption("--uhd_config", action="store", help="Enable UHD config mode")
     parser.addoption("--save_uhd_config", action="store_true", help="Save UHD config mode")
     parser.addoption("--npu_dpu_startup", action="store_true", help="Startup NPU and DPUs and install configurations")
@@ -358,6 +360,28 @@ def pytest_configure(config):
             config.pluginmanager.register(MacsecPluginT0())
 
 
+@pytest.fixture(scope="session")
+def ipv6_only_mgmt_enabled(request):
+    """
+    Fixture to check and configure IPv6-only management mode.
+
+    When --ipv6_only_mgmt is passed to pytest (or -6 to run_tests.sh),
+    this enables IPv6-only management mode where DUT mgmt_ip will use
+    the IPv6 address (ansible_hostv6) instead of IPv4 (ansible_host).
+
+    This fixture must be used before duthosts fixture to ensure the
+    mode is configured before SonicHost objects are created.
+
+    Returns:
+        bool: True if IPv6-only management mode is enabled, False otherwise.
+    """
+    from tests.common.devices.base import set_ipv6_only_mgmt
+
+    enabled = request.config.getoption("ipv6_only_mgmt", default=False)
+    set_ipv6_only_mgmt(enabled)
+    return enabled
+
+
 @pytest.fixture(scope="session", autouse=True)
 def enhance_inventory(request, tbinfo):
     """
@@ -531,7 +555,7 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
+def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request, ipv6_only_mgmt_enabled):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param enhance_inventory: fixture to enhance the capability of parsing the value of pytest cli argument
@@ -540,6 +564,7 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     @param request: pytest request object
+    @param ipv6_only_mgmt_enabled: fixture to configure IPv6-only management mode before DUT initialization
     """
     try:
         host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_duts(request),

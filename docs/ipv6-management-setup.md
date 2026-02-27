@@ -268,3 +268,52 @@ To switch back to IPv4 management, simply run `deploy-mg` without the `--ipv6-on
 ```
 
 This will regenerate and deploy a minigraph with IPv4-only management configuration.
+
+## Running Tests in IPv6-Only Management Mode
+
+After deploying the DUT with IPv6-only management, you need to run tests with the `-6` flag to ensure the test framework uses IPv6 for management connectivity.
+
+### Using run_tests.sh
+
+Add the `-6` flag to your `run_tests.sh` command:
+
+```bash
+cd tests/
+
+# Basic test execution with IPv6-only management
+./run_tests.sh -6 -n vms-kvm-t0 -d vlab-01 -c bgp/test_bgp_fact.py -f vtestbed.yaml -i ../ansible/veos_vtb
+
+# With additional options
+./run_tests.sh -6 -n vms-kvm-t0 -d vlab-01 -c platform_tests/test_reboot.py -f vtestbed.yaml -i ../ansible/veos_vtb -m individual -t t0,any
+```
+
+### Using pytest directly
+
+Alternatively, use the `--ipv6_only_mgmt` pytest option:
+
+```bash
+pytest --ipv6_only_mgmt \
+    --testbed vms-kvm-t0 \
+    --testbed_file ../ansible/vtestbed.yaml \
+    --inventory ../ansible/veos_vtb \
+    --host-pattern vlab-01 \
+    bgp/test_bgp_fact.py
+```
+
+### What the `-6` flag does
+
+When IPv6-only management mode is enabled:
+
+1. **Management IP**: `dut.mgmt_ip` returns the IPv6 address (`ansible_hostv6`) instead of IPv4 (`ansible_host`)
+2. **Sanity Checks**: The IPv4 management ping check is skipped when `mgmt_ip` is an IPv6 address
+3. **Reboot Operations**: Ping commands use `ping6` for IPv6 management addresses
+4. **Connection Handling**: All SSH connections use the IPv6 management address
+
+### Verifying IPv6-Only Mode
+
+You can verify tests are running in IPv6-only mode by checking the test logs:
+
+```
+INFO  Using IPv6-only management mode: using fec0::ffff:afa:1 as mgmt_ip for vlab-01
+INFO  vlab-01 is using IPv6 management address (fec0::ffff:afa:1). Skip the ipv4 mgmt reachability check.
+```
