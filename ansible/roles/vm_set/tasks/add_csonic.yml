@@ -21,4 +21,4 @@
     max_fp_num: "{{ max_fp_num }}"
     mgmt_bridge: "{{ mgmt_bridge }}"
     vm_offset:  "{{ topology.VMs[item].vm_offset }}"
-    bp_bridge:  "br-b-{{ vm_set_name }}"
+    sonic_naming: false
