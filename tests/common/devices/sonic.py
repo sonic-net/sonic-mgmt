@@ -1394,22 +1394,47 @@ default nhid 224 proto bgp src fc00:1::32 metric 20 pref medium
 
     def check_default_route(self, ipv4=True, ipv6=True):
         """
-        @summary: return default route status
+        @summary: return default route status with namespace awareness for multi-ASIC
+
+        For multi-ASIC devices, checks default routes in all ASIC namespaces.
+        For single-ASIC devices, checks default routes in the global namespace.
 
         @param ipv4: check ipv4 default
         @param ipv6: check ipv6 default
+        @return: True if default route(s) exist in all required namespaces, False otherwise
         """
-        if ipv4:
-            rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'))
-            if len(rtinfo_v4['nexthops']) == 0:
-                return False
+        if self.is_multi_asic:
+            # For multi-ASIC, check default routes in each ASIC namespace
+            for asic_index in range(self.facts['num_asic']):
+                # Construct namespace option like "-n asic0", "-n asic1", etc.
+                ns_option = "-n asic{}".format(asic_index)
 
-        if ipv6:
-            rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network('::/0'))
-            if len(rtinfo_v6['nexthops']) == 0:
-                return False
+                if ipv4:
+                    rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'), ns=ns_option)
+                    if len(rtinfo_v4['nexthops']) == 0:
+                        logger.info("ASIC{}: No IPv4 default route".format(asic_index))
+                        return False
 
-        return True
+                if ipv6:
+                    rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network('::/0'), ns=ns_option)
+                    if len(rtinfo_v6['nexthops']) == 0:
+                        logger.info("ASIC{}: No IPv6 default route".format(asic_index))
+                        return False
+
+            return True
+        else:
+            # For single ASIC, check default routes in global namespace
+            if ipv4:
+                rtinfo_v4 = self.get_ip_route_info(ipaddress.ip_network('0.0.0.0/0'))
+                if len(rtinfo_v4['nexthops']) == 0:
+                    return False
+
+            if ipv6:
+                rtinfo_v6 = self.get_ip_route_info(ipaddress.ip_network('::/0'))
+                if len(rtinfo_v6['nexthops']) == 0:
+                    return False
+
+            return True
 
     def check_intf_link_state(self, interface_name):
         intf_status = self.show_interface(command="status", interfaces=[interface_name])["ansible_facts"]['int_status']
@@ -2230,7 +2255,9 @@ Totals               6450                 6449
         Returns:
             True or False
         """
-        bgp_summary = self.command("show ip bgp summary")["stdout_lines"]
+        bgp_summary_v4 = self.command("show ip bgp summary")["stdout_lines"]
+        bgp_summary_v6 = self.command("show ipv6 bgp summary")["stdout_lines"]
+        bgp_summary = bgp_summary_v4 + bgp_summary_v6
 
         idle_count = 0
         expected_idle_count = 0
@@ -2241,7 +2268,7 @@ Totals               6450                 6449
 
             if "Total number of neighbors" in line:
                 tokens = line.split()
-                expected_idle_count = int(tokens[-1])
+                expected_idle_count += int(tokens[-1])
 
             if "BGPMonitor" in line:
                 bgp_monitor_count += 1
@@ -3007,10 +3034,10 @@ Totals               6450                 6449
         Get the serial device prefix for the platform.
 
         Returns:
-            str: The device prefix (e.g., "/dev/C0-", "/dev/ttyUSB-")
+            str: The device prefix (e.g., "/dev/C0-", "/dev/ttyUSB")
         """
         # Reads udevprefix.conf from the platform directory to determine the correct device prefix
-        # Falls back to /dev/ttyUSB- if the config file doesn't exist
+        # Falls back to /dev/ttyUSB if the config file doesn't exist
         script = '''
 from sonic_py_common import device_info
 import os
@@ -3030,8 +3057,8 @@ print(device_prefix)
         res: ShellResult = self.shell(cmd, module_ignore_errors=True)
 
         if res['rc'] != 0 or not res['stdout'].strip():
-            logging.warning("Failed to get serial device prefix, using default /dev/ttyUSB-")
-            device_prefix = "/dev/ttyUSB-"
+            logging.warning("Failed to get serial device prefix, using default /dev/ttyUSB")
+            device_prefix = "/dev/ttyUSB"
         else:
             device_prefix = res['stdout'].strip()
 
@@ -3045,7 +3072,7 @@ print(device_prefix)
             port: Port number (e.g., 1, 2)
 
         Returns:
-            str: The full device path (e.g., "/dev/C0-1", "/dev/ttyUSB-1")
+            str: The full device path (e.g., "/dev/C0-1", "/dev/ttyUSB1")
         """
         device_prefix = self._get_serial_device_prefix()
         return f"{device_prefix}{port}"
@@ -3339,6 +3366,28 @@ print(device_prefix)
             raise RuntimeError(error_msg)
 
         logging.info("Successfully cleaned up all console sessions")
+
+    def get_mgmt_ip(self):
+        """
+        Gets the management IP address (v4 or v6) on eth0.
+        Defaults to IPv4 on a dual stack configuration.
+        """
+        ipv4_regex = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/\d+")
+        ipv6_regex = re.compile(r"([a-fA-F0-9:]+)/\d+")
+
+        mgmt_interface = self.shell("show ip interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+        if mgmt_interface:
+            match = ipv4_regex.search(mgmt_interface)
+            if match:
+                return {"mgmt_ip": match.group(1), "version": "v4"}
+
+        mgmt_interface = self.shell("show ipv6 interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+        if mgmt_interface:
+            match = ipv6_regex.search(mgmt_interface)
+            if match:
+                return {"mgmt_ip": match.group(1), "version": "v6"}
+
+        assert False, "Failed to find duthost mgmt ip"  # noqa: F631
 
 
 def assert_exit_non_zero(shell_output):

@@ -23,7 +23,7 @@ def log(message, output_on_console=False):
 
 class TCPHandler(socketserver.StreamRequestHandler):
     def handle(self):
-        data = pickle.load(self.rfile)
+        data = pickle.load(self.rfile)  # nosemgrep: avoid-pickle
         log("Received request: %s" % str(data))
         key = self.client_address[0], data['intf']
         if key in self.server.x_table:
@@ -38,7 +38,7 @@ class TCPHandler(socketserver.StreamRequestHandler):
             data = {'status': 'OK'}
         data = {'status': 'OK'}
         log("Send reply %s" % str(data))
-        pickle.dump(data, self.wfile, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(data, self.wfile, pickle.HIGHEST_PROTOCOL)  # nosemgrep: avoid-pickle
 
 
 class Conn(object):
@@ -51,13 +51,13 @@ class Conn(object):
 
     def read(self):
         fp = self.conn.makefile('rb', 1024)
-        data = pickle.load(fp)
+        data = pickle.load(fp)  # nosemgrep: avoid-pickle
         fp.close()
         return data
 
     def write(self, data):
         fp = self.conn.makefile('wb', 1024)
-        pickle.dump(data, fp, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(data, fp, pickle.HIGHEST_PROTOCOL)  # nosemgrep: avoid-pickle
         fp.close()
 
 

@@ -3,6 +3,7 @@ Test plan PR: https://github.com/sonic-net/sonic-mgmt/pull/15702
 '''
 
 import datetime
+import itertools
 import pytest
 import logging
 import json
@@ -46,7 +47,9 @@ MASK_COUNTER_WAIT_TIME = 10  # wait some seconds for mask counters processing pa
 STATIC_ROUTES = ['0.0.0.0/0', '::/0']
 WITHDRAW_ROUTE_NUMBER = 1
 PACKET_QUEUE_LENGTH = 1000000
-global_icmp_type = 123
+ICMP_TYPE_MIN = 5
+ICMP_TYPE_MAX = 125
+_icmp_type_generator = itertools.cycle(range(ICMP_TYPE_MIN, ICMP_TYPE_MAX + 1))
 test_results = {}
 current_test = ""
 
@@ -55,6 +58,10 @@ current_test = ""
 def log_test_results():
     yield
     logger.info("test_results: %s", test_results)
+
+
+def _get_icmp_type():
+    return next(_icmp_type_generator)
 
 
 def setup_packet_mask_counters(ptf_dataplane, icmp_type):
@@ -87,6 +94,14 @@ def bgp_peers_info(tbinfo, duthost):
     bgp_info = {}
     topo_name = tbinfo['topo']['name']
 
+    topo_is_multi_vrf = tbinfo['topo']['properties'].get('topo_is_multi_vrf', False)
+    multi_vrf_data = {}
+    multi_vrf_map = {}
+    if topo_is_multi_vrf:
+        multi_vrf_data = tbinfo['topo']['properties']['convergence_data']
+        for primary, vrfs in multi_vrf_data['convergence_mapping'].items():
+            for vrf in vrfs:
+                multi_vrf_map[vrf] = primary
     logger.info("Waiting for BGP sessions are established")
     while True:
         down_neighbors = get_down_bgp_sessions_neighbors(duthost)
@@ -104,8 +119,16 @@ def bgp_peers_info(tbinfo, duthost):
             or ('t1' in topo_name and 'T0' not in hostname) \
                 or (hostname in down_neighbors):
             continue
+
+        if topo_is_multi_vrf:
+            topo = tbinfo['topo']['properties']['topology']
+            primary = multi_vrf_map[hostname]
+            intf_offset = multi_vrf_data['converged_peers'][primary]['intf_mapping'][hostname]['offset']
+            ptf_port = topo['VMs'][primary]['vlans'][intf_offset]
+        else:
+            ptf_port = tbinfo['topo']['properties']['topology']['VMs'][hostname]['vlans'][0]
+
         bgp_info[hostname] = {}
-        ptf_port = tbinfo['topo']['properties']['topology']['VMs'][hostname]['vlans'][0]
         bgp_info[hostname][PTF_PORT] = ptf_port
         bgp_info[hostname][DUT_PORT] = alias[ptf_port]['name']
 
@@ -183,7 +206,7 @@ def get_all_bgp_ipv6_routes(duthost, save_snapshot=False):
     return json.loads(routes_str)
 
 
-def generate_packets(prefixes, dut_mac, src_mac):
+def generate_packets(prefixes, dut_mac, src_mac, icmp_type):
     pkts = []
     for prefix in prefixes:
         network = ipaddress.ip_network(prefix)
@@ -192,7 +215,7 @@ def generate_packets(prefixes, dut_mac, src_mac):
             eth_dst=dut_mac,
             eth_src=src_mac,
             ipv6_dst=addr,
-            icmp_type=global_icmp_type
+            icmp_type=icmp_type
         )
         pkts.append(bytes(pkt))
 
@@ -471,12 +494,13 @@ def get_route_programming_metrics_from_sairedis_replay(duthost, start_time, sair
         try:
             return duthost.shell(f"sudo grep -e '{nhg_pattern}' -e '{route_pattern}' {path}")['stdout'].splitlines()
         except Exception as e:
-            logger.warning("Failed to read %s: %s", path, e)
+            is_rotated_log = path.endswith('.rec.1')
+            log_level = logging.INFO if is_rotated_log else logging.WARNING
+            logger.log(log_level, "Failed to read %s: %s", path, e)
             return []
     lines = read_lines(sairedislog)
-    if not lines:
-        logger.warning("No RP events in %s, trying fallback", sairedislog)
-        lines = read_lines(sairedislog + ".1")
+    log_rotated_lines = read_lines(sairedislog + ".1")
+    lines = log_rotated_lines + lines
     if not lines:
         return {
             "RP Start Time": start_time,
@@ -505,9 +529,10 @@ def _select_targets_to_flap(bgp_peers_info, all_flap, flapping_count):
     bgp_neighbors = list(bgp_peers_info.keys())
     pytest_assert(len(bgp_neighbors) >= 2, "At least two BGP neighbors required for flap test")
     if all_flap:
-        flapping_neighbors = bgp_neighbors
+        flapping_neighbors = list(bgp_neighbors)
         injection_neighbor = random.choice(bgp_neighbors)
-        logger.info(f"[FLAP TEST] All neighbors are flapping: {len(flapping_neighbors)}")
+        flapping_neighbors.remove(injection_neighbor)
+        logger.info(f"[FLAP TEST] All - 1 neighbors are flapping: {len(flapping_neighbors)}")
     else:
         flapping_neighbors = random.sample(bgp_neighbors, flapping_count)
         injection_candidates = [n for n in bgp_neighbors if n not in flapping_neighbors]
@@ -542,13 +567,13 @@ def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count
         For shutdown phase: dict with flapping_connections, injection_port, compressed_startup_routes, prefixes.
         For startup phase: empty dict.
     """
-    global global_icmp_type, current_test, test_results
+    global current_test, test_results
     current_test = f"flapper_{action}_{connection_type}_count_{flapping_count}"
-    global_icmp_type += 1
+    icmp_type = _get_icmp_type()
     pdp = ptfadapter.dataplane
     pdp.clear_masks()
     pdp.set_qlen(PACKET_QUEUE_LENGTH)
-    exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
+    exp_mask = setup_packet_mask_counters(pdp, icmp_type)
     all_flap = (flapping_count == 'all')
 
     # Currently treating the shutdown action as a setup mechanism for a startup action to follow.
@@ -584,7 +609,8 @@ def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count
     pkts = generate_packets(
         prefixes,
         duthost.facts['router_mac'],
-        pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
+        pdp.get_mac(pdp.port_to_device(injection_port), injection_port),
+        icmp_type
     )
     # Downtime ratio is calculated by dividing the number of flapping neighbors by 5, from test data
     downtime_ratio = len(flapping_connections) / 5
@@ -673,12 +699,11 @@ def test_nexthop_group_member_scale(
     current_test = request.node.name + "_withdraw"
     servers_dut_interfaces = setup_routes_before_test
     topo_name = tbinfo['topo']['name']
-    global global_icmp_type
-    global_icmp_type += 1
+    icmp_type = _get_icmp_type()
     pdp = ptfadapter.dataplane
     pdp.clear_masks()
     pdp.set_qlen(PACKET_QUEUE_LENGTH)
-    exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
+    exp_mask = setup_packet_mask_counters(pdp, icmp_type)
     injection_bgp_neighbor = random.choice(list(bgp_peers_info.keys()))
     injection_dut_port = bgp_peers_info[injection_bgp_neighbor][DUT_PORT]
     injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
@@ -690,7 +715,8 @@ def test_nexthop_group_member_scale(
     pkts = generate_packets(
         neighbor_ecmp_routes[injection_bgp_neighbor],
         duthost.facts['router_mac'],
-        pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
+        pdp.get_mac(pdp.port_to_device(injection_port), injection_port),
+        icmp_type
     )
     nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
     peers_routes_to_change = {}
@@ -762,13 +788,14 @@ def test_nexthop_group_member_scale(
         pass
     # ------------announce routes and test ------------ #
     current_test = request.node.name + "_announce"
-    global_icmp_type += 1
+    icmp_type = _get_icmp_type()
     pdp.clear_masks()
-    exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
+    exp_mask = setup_packet_mask_counters(pdp, icmp_type)
     pkts = generate_packets(
         neighbor_ecmp_routes[injection_bgp_neighbor],
         duthost.facts['router_mac'],
-        pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
+        pdp.get_mac(pdp.port_to_device(injection_port), injection_port),
+        icmp_type
     )
     terminated = Event()
     traffic_thread = Thread(

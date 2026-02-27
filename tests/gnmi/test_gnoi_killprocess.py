@@ -5,7 +5,9 @@ from tests.common.helpers.dut_utils import is_container_running
 from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
+                            "setup_gnmi_rotated_server", "check_dut_timestamp")
 ]
 
 

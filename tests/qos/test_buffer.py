@@ -1,5 +1,4 @@
 import logging
-import time
 import re
 import json
 import math
@@ -39,6 +38,7 @@ NUMBER_OF_LANES = None
 PORTS_WITH_8LANES = None
 ASIC_TYPE = None
 
+PLATFORM_SUPPORTED_SPEEDS_TO_TEST = None
 TESTPARAM_HEADROOM_OVERRIDE = None
 TESTPARAM_LOSSLESS_PG = None
 TESTPARAM_SHARED_HEADROOM_POOL = None
@@ -227,6 +227,7 @@ def load_test_parameters(duthost):
     global TESTPARAM_ADMIN_DOWN
     global ASIC_TYPE
     global MAX_SPEED_8LANE_PORT
+    global PLATFORM_SUPPORTED_SPEEDS_TO_TEST
 
     param_file_name = "qos/files/dynamic_buffer_param.json"
     with open(param_file_name) as file:
@@ -234,6 +235,7 @@ def load_test_parameters(duthost):
         logging.info("Loaded test parameters {} from {}".format(
             params, param_file_name))
         ASIC_TYPE = duthost.facts['asic_type']
+        platform = duthost.facts['platform']
         vendor_specific_param = params[ASIC_TYPE]
         DEFAULT_CABLE_LENGTH_LIST = vendor_specific_param['default_cable_length']
         TESTPARAM_HEADROOM_OVERRIDE = vendor_specific_param['headroom-override']
@@ -241,8 +243,17 @@ def load_test_parameters(duthost):
         TESTPARAM_SHARED_HEADROOM_POOL = vendor_specific_param['shared-headroom-pool']
         TESTPARAM_EXTRA_OVERHEAD = vendor_specific_param['extra_overhead']
         TESTPARAM_ADMIN_DOWN = vendor_specific_param['admin-down']
-        MAX_SPEED_8LANE_PORT = vendor_specific_param['max_speed_8lane_platform'].get(
-            duthost.facts['platform'])
+        MAX_SPEED_8LANE_PORT = vendor_specific_param['max_speed_8lane_platform'].get(platform)
+        if buffer_queue_table := TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'].get(platform):    # noqa: F841
+            TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'] = buffer_queue_table
+        else:
+            TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'] = TESTPARAM_ADMIN_DOWN['BUFFER_QUEUE_TABLE'].get('default')
+        if platform_extra_overhead := TESTPARAM_EXTRA_OVERHEAD.get(platform):
+            TESTPARAM_EXTRA_OVERHEAD['default'] = platform_extra_overhead
+        if platform_supported_speeds_to_test := vendor_specific_param['supported_speeds_to_test'].get(platform):
+            PLATFORM_SUPPORTED_SPEEDS_TO_TEST = platform_supported_speeds_to_test
+        else:
+            PLATFORM_SUPPORTED_SPEEDS_TO_TEST = vendor_specific_param['supported_speeds_to_test'].get('default')
 
         # For ingress profile list, we need to check whether the ingress lossy profile exists
         ingress_lossy_pool = duthost.shell(
@@ -305,7 +316,15 @@ def configure_shared_headroom_pool(duthost, enable):
         duthost.shell(
             "config buffer shared-headroom-pool over-subscribe-ratio 0")
 
-    time.sleep(20)
+    expected_ratio = '2' if enable else '0'
+
+    def _check_shp_ratio_configured(duthost, expected_ratio):
+        ratio = duthost.shell(
+            'redis-cli -n 4 hget "BUFFER_POOL|ingress_lossless_pool" over_subscribe_ratio')['stdout']
+        return ratio == expected_ratio
+
+    pytest_assert(wait_until(30, 2, 0, _check_shp_ratio_configured, duthost, expected_ratio),
+                  "Shared headroom pool over-subscribe-ratio not updated to {} in time".format(expected_ratio))
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -341,7 +360,20 @@ def setup_module(duthosts, rand_one_dut_hostname, request, is_buffer_model_dynam
         duthost.shell('config bgp shutdown all')
         logging.info(
             "Shutting down BGP neighbors and waiting for all routing entries withdrawn")
-        time.sleep(60)
+
+        def _bgp_neighbors_all_down(duthost):
+            statuses = duthost.shell(
+                'sonic-db-cli STATE_DB keys "NEIGH_STATE_TABLE|*"')['stdout']
+            if not statuses.strip():
+                return True
+            for line in statuses.strip().splitlines():
+                state = duthost.shell(
+                    'sonic-db-cli STATE_DB hget "{}" state'.format(line))['stdout']
+                if state.lower() == 'established':
+                    return False
+            return True
+
+        wait_until(90, 5, 10, _bgp_neighbors_all_down, duthost)
 
     enable_shared_headroom_pool = request.config.getoption(
         "--enable_shared_headroom_pool")
@@ -380,7 +412,18 @@ def setup_module(duthosts, rand_one_dut_hostname, request, is_buffer_model_dynam
 
     if bgp_neighbors:
         duthost.shell("config bgp startup all")
-        time.sleep(60)
+
+        def _bgp_neighbors_all_established(duthost):
+            neighbors = json.loads(duthost.shell(
+                'show ip bgp summary json')['stdout'])
+            if not neighbors:
+                return True
+            for neighbor, info in neighbors.get('ipv4Unicast', {}).get('peers', {}).items():
+                if info.get('state') != 'Established':
+                    return False
+            return True
+
+        wait_until(90, 5, 10, _bgp_neighbors_all_established, duthost)
 
 
 def init_log_analyzer(duthost, marker, expected, ignored=None, request=None):
@@ -850,7 +893,7 @@ def make_expected_profile_name(speed, cable_length, **kwargs):
     return expected_profile
 
 
-@pytest.fixture(params=['50000', '10000'])
+@pytest.fixture(params=['50000', '10000', '100000'])
 def speed_to_test(request):
     """Used to parametrized test cases for speeds
 
@@ -860,6 +903,11 @@ def speed_to_test(request):
     Return:
         speed_to_test
     """
+    global PLATFORM_SUPPORTED_SPEEDS_TO_TEST
+    if not PLATFORM_SUPPORTED_SPEEDS_TO_TEST:
+        pytest.skip("buffer is not dynamic - PLATFORM_SUPPORTED_SPEEDS_TO_TEST wasn't set")
+    if request.param not in PLATFORM_SUPPORTED_SPEEDS_TO_TEST:
+        pytest.skip(f"Skipping case for speed {request.param} because it is not tested by the platform")
     return request.param
 
 
@@ -998,7 +1046,7 @@ def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts,  
     """
     duthost = duthosts[rand_one_dut_hostname]
     supported_speeds = duthost.shell(
-        'redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout']
+        'redis-cli -n 6 hget "PORT_TABLE|{}" supported_speeds'.format(port_to_test))['stdout'].split(',')
     if supported_speeds and speed_to_test not in supported_speeds:
         pytest.skip('Speed is not supported by the port, skip')
     original_speed = duthost.shell(
@@ -1544,7 +1592,9 @@ def test_shared_headroom_pool_configure(duthosts,
         duthost.shell(
             'config interface cable-length {} 10m'.format(port_to_test))
         expected_profile = make_expected_profile_name(original_speed, '10m')
-        time.sleep(20)
+        pytest_assert(wait_until(30, 2, 0, lambda: duthost.shell(
+            'redis-cli hgetall "BUFFER_PROFILE_TABLE:{}"'.format(expected_profile))['stdout'] != ''),
+            "Buffer profile {} not created in time".format(expected_profile))
         profile_oid, pool_oid = check_buffer_profile_details(
             duthost, initial_asic_db_profiles, expected_profile, None, None, port_to_test)
         logging.info(
@@ -1552,7 +1602,10 @@ def test_shared_headroom_pool_configure(duthosts,
         # Restore the cable length
         duthost.shell(
             'config interface cable-length {} {}'.format(port_to_test, original_cable_len))
-        time.sleep(20)
+        restored_profile = make_expected_profile_name(original_speed, original_cable_len)
+        pytest_assert(wait_until(30, 2, 0, lambda: duthost.shell(
+            'redis-cli hgetall "BUFFER_PROFILE_TABLE:{}"'.format(restored_profile))['stdout'] != ''),
+            "Buffer profile {} not restored in time".format(restored_profile))
 
         if original_over_subscribe_ratio != '2':
             duthost.shell(
@@ -1561,7 +1614,13 @@ def test_shared_headroom_pool_configure(duthosts,
             duthost.shell('config buffer shared-headroom-pool size 0')
 
         # Make sure the shared headroom pool configuration has been deployed
-        time.sleep(30)
+        def _check_shp_config_deployed(duthost):
+            pool_info = duthost.shell(
+                'redis-cli hget BUFFER_POOL_TABLE:ingress_lossless_pool xoff')['stdout']
+            return pool_info != ''
+
+        pytest_assert(wait_until(45, 2, 5, _check_shp_config_deployed, duthost),
+                      "Shared headroom pool configuration not deployed in time")
 
         # Check whether the buffer profile for lossless PGs are correct
         check_buffer_profiles_for_shp(duthost)
@@ -2093,7 +2152,13 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
             logging.info('Shut down port {}'.format(port_to_test))
             duthost.shell('config interface shutdown {}'.format(port_to_test))
             # Make sure there isn't any PG on the port or zero profile configured for PGs
-            time.sleep(10)
+
+            def _check_port_admin_down_buffer(duthost, port_to_test):
+                pgs = duthost.shell(
+                    'redis-cli keys "BUFFER_PG_TABLE:{}:3-4"'.format(port_to_test))['stdout']
+                return not pgs.strip()
+
+            wait_until(20, 2, 2, _check_port_admin_down_buffer, duthost, port_to_test)
             logging.info(
                 'Check whether all PGs are removed from port {}'.format(port_to_test))
             expected_pgs = TESTPARAM_ADMIN_DOWN.get('BUFFER_PG_TABLE')
@@ -2156,7 +2221,13 @@ def test_port_admin_down(duthosts, rand_one_dut_hostname, conn_graph_facts, port
                     duthost, 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test), expected_profile_in_appldb)
             else:
                 logging.info('Check whether profile in PG has been removed')
-                time.sleep(10)
+
+                def _check_pgs_removed(duthost, port_to_test):
+                    pgs = duthost.shell(
+                        'redis-cli keys "BUFFER_PG_TABLE:{}:3-4"'.format(port_to_test))['stdout']
+                    return not pgs.strip()
+
+                wait_until(20, 2, 2, _check_pgs_removed, duthost, port_to_test)
                 pgs_in_appl_db = duthost.shell(
                     'redis-cli keys "BUFFER_PG_TABLE:{}:3-4"'.format(port_to_test))['stdout']
                 pytest_assert(
@@ -2596,12 +2667,19 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname,
                 f'config buffer profile set test-headroom --{param_name} {int(maximum_profile[param_name]) * 2}')
 
             # This should make it exceed the limit, so the profile should not applied to the APPL_DB
-            time.sleep(20)
+            def _check_profile_not_updated(duthost, param_name, expected_value):
+                size_in_appldb = duthost.shell(
+                    f'redis-cli hget "BUFFER_PROFILE_TABLE: test-headroom" {param_name}')['stdout']
+                return size_in_appldb == expected_value
+
+            pytest_assert(wait_until(30, 2, 2, _check_profile_not_updated,
+                          duthost, param_name, maximum_profile[param_name]),
+                          'The profile with a large size was applied to APPL_DB, which can make headroom exceeding.')
             size_in_appldb = duthost.shell(
-                f'redis-cli hget "BUFFER_PROFILE_TABLE:test-headroom" {param_name}')['stdout']
+                f'redis-cli hget "BUFFER_PROFILE_TABLE: test-headroom" {param_name}')['stdout']
             pytest_assert(size_in_appldb == maximum_profile[param_name],
-                          f'The profile with a large size was applied to APPL_DB, which can make headroom exceeding. '
-                          f'size_in_appldb:{size_in_appldb}, '
+                          'The profile with a large size was applied to APPL_DB, which can make headroom exceeding. '
+                          f'size_in_appldb: {size_in_appldb}, '
                           f'maximum_profile_{param_name}: {maximum_profile[param_name]}')
 
         param_name = "size" if disable_shp else "xoff"
@@ -2631,10 +2709,12 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname,
         expected_profile = make_expected_profile_name(
             original_speed, '{}m'.format(violating_cable_length))
 
-        time.sleep(20)
-        # Make sure the profile isn't updated
-        # This pg table for the violating cable length doesn't exist in app db
+        # Wait for buffermgrd to process the config and verify the profile isn't applied
+        def _check_violating_profile_not_applied(duthost, excepted_pg_table, expected_profile):
+            return not check_pg_profile(duthost, excepted_pg_table, expected_profile, fail_test=False)
+
         excepted_pg_table = 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test)
+        wait_until(30, 2, 5, _check_violating_profile_not_applied, duthost, excepted_pg_table, expected_profile)
         pg_table_in_app_db = check_pg_profile(
             duthost, excepted_pg_table, expected_profile, fail_test=False)
         assert not pg_table_in_app_db, f"{expected_profile} should not exist in {excepted_pg_table} in app db"
