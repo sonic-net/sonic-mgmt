@@ -54,6 +54,8 @@ def _create_parser():
                       required=False,default="mth32")
     parser.add_argument('-tt', '--topo_type', type=str, help='topo type',
                       required=True,default='t1-64-lag')
+    parser.add_argument('--testcase_topo_type', type=str, help='topology key used for testcase selection',
+                      required=False, default=None)
     parser.add_argument('-t', '--tstamp', type=str, help='Time stamp',
                       required=False,default=None)
     parser.add_argument('-n', '--dut_name', type=str, help='DUT name specified to run tests',
@@ -359,6 +361,7 @@ def run_scripts(
         log_dir,
         dut_name,
         topo_type,
+        testcase_topo_type,
         topo_name,
         tstamp,
         build_id,
@@ -378,6 +381,7 @@ def run_scripts(
                  log_dir: {log_dir}
                  dut_name: {dut_name}
                  topo_type: {topo_type}
+                 testcase_topo_type: {testcase_topo_type}
                  topo_name: {topo_name}
                  tstamp: {tstamp}
                  build_id: {build_id}
@@ -408,7 +412,10 @@ def run_scripts(
     mark_conditions_file_opt=process_conditions_files(mark_conditions_files)
     current_result_file = open(filename, 'w')
     report_file = open('full_report.txt', 'w')
-    test_cases_list = get_testcases(script_file,test_tag,topo_type,additional_tests, device_type)
+    selection_topo_type = (testcase_topo_type or topo_type)
+    selection_topo_type = selection_topo_type.strip().lower() if selection_topo_type else selection_topo_type
+    normalized_device_type = device_type.strip().lower() if device_type else device_type
+    test_cases_list = get_testcases(script_file, test_tag, selection_topo_type, additional_tests, normalized_device_type)
     total_passed = 0
     total_failed = 0
     total_skipped = 0
@@ -552,6 +559,7 @@ def main():
     only_parse = args['only_parse']
     device_type = args['device_type']
     topo_type = args['topo_type']
+    testcase_topo_type = args['testcase_topo_type']
     tstamp = args['tstamp']
     dut_name = args['dut_name']
     topo_name = args['topo_name']
@@ -592,6 +600,7 @@ def main():
         log_dir,
         dut_name,
         topo_type,
+        testcase_topo_type,
         topo_name,
         tstamp,
         build_id,

@@ -125,7 +125,8 @@ def get_build_project_name():
     return build_project_name
 
 def trigger_run_scripts(host, username, password, script_file,drop_version,log_dir,device_type,topo_type,create_allure_report, additional_tests='', ssh_port=22,
-            topo_name='docker-ptf', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_data_file=None, apply_sim_patches=False, test_tag=None):
+            topo_name='docker-ptf', docker_mgmt_container='docker-sonic-mgmt', skip_sanity=False, dut_data_file=None, apply_sim_patches=False, test_tag=None,
+            testcase_topo_type=None):
     print("starting run_scripts, params: ", host, username, password, script_file,drop_version,log_dir,device_type,create_allure_report,
             ssh_port, topo_name, docker_mgmt_container, skip_sanity, dut_data_file)
     ssh = paramiko.SSHClient()
@@ -188,6 +189,8 @@ def trigger_run_scripts(host, username, password, script_file,drop_version,log_d
         additional_params += " --additional_tests={} ".format(additional_tests)
     if skip_sanity:
         additional_params += " -k "
+    if testcase_topo_type:
+        additional_params += f" --testcase_topo_type={testcase_topo_type} "
 
     ## apply patches specefic to sim
     if apply_sim_patches:
@@ -617,10 +620,14 @@ add_sim_patches={add_sim_patches},
 test_tag={test_tag},
           """)
 
-    get_testcases(script_file, test_tag, topo_type, additional_tests, device_type)
+    testcase_topo_type = None
+    normalized_topo_type = topo_type.strip().lower() if topo_type else topo_type
+    normalized_device_type = device_type.strip().lower() if device_type else device_type
+    get_testcases(script_file, test_tag, normalized_topo_type, additional_tests, normalized_device_type)
 
-    if topo_type == 't2-min-VG' or topo_type == 't2-min-VL':
-        # All LC combinations for SFD T2 min topology use same Sonic-mgmt SIM topology
+    if topo_type in ['t2-min-VG', 't2-min-VL']:
+        # Keep execution topology as t2-min while allowing testcase selection from variant topology.
+        testcase_topo_type = normalized_topo_type
         topo_type = 't2-min'
 
     if not os.path.exists(dut_data_file):
@@ -699,7 +706,8 @@ test_tag={test_tag},
             skip_sanity,
             dut_data_file,
             add_sim_patches,
-            test_tag
+            test_tag,
+            testcase_topo_type
         )
     except Exception as e:
         print(f"Caught exception while running run_scripts.py! error: {e}")
