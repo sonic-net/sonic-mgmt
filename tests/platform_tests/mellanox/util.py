@@ -1,6 +1,5 @@
 import re
 import logging
-import ast
 
 
 def check_sfp_eeprom_info(duthost, sfp_eeprom_info, is_support_dom, show_eeprom_cmd, is_flat_memory):
@@ -142,48 +141,6 @@ def check_dom_monitor_key_and_data_format(expected_keys_and_pattern_dict, dom_mo
                 key, dom_monitor_data[key], pattern)
 
 
-def is_support_dom(duthost, port_index, pic_cr0_path):
-    """
-    This method is to check if cable support dom
-    1. For 202012 branch(It not support mlxlink tool, so use get_transceiver_bulk_status to judge if it support dom)
-      1) Get get transceiver bulk status
-      2) Return True, When any one value for all parameters including power, bias,temperature and voltage is not in
-         ['N/A', '0.0', 0.0, '0.0000mA', '-inf'], else False.
-    2. For other branches apart from 202012
-      1) Get the pci_cro info by mlxlink tool
-      2) Return false, when all values of 5 fields
-       (Temperature|Voltage|Bias Current|Rx Power Current|Tx Power Current) are N/A, else True
-    """
-    if duthost.sonic_release in ["202012"]:
-        bulk_status_str = get_transceiver_bulk_status(duthost, port_index)
-        bulk_status_str = bulk_status_str.replace('-inf', '\'-inf\'')
-        bulk_status_dict = ast.literal_eval(bulk_status_str)
-        for k, v in list(bulk_status_dict.items()):
-            if "power" in k or "bias" in k or "temperature" in k or "voltage" in k:
-                if v not in ['N/A', '0.0', 0.0, '0.0000mA', '-inf']:
-                    logging.info("Port {} support dom".format(port_index))
-                    return True
-        logging.info("Port {} doesn't support dom".format(port_index))
-        return False
-    else:
-        pattern_for_dom_check = r'^(Temperature|Voltage|Bias Current|Rx Power Current|Tx Power Current).*: N\/A.*'
-        pci_cr0 = get_mlxlink_pci_cr0(duthost, pic_cr0_path, port_index)
-
-        check_support_dom_filed_number = 5
-        not_support_dom_field_counter = 0
-        for line in pci_cr0.split("\n"):
-            res = re.match(pattern_for_dom_check, line)
-            if res:
-                not_support_dom_field_counter += 1
-                logging.info(
-                    "Find {} Value is N/A: {}".format(not_support_dom_field_counter, line))
-            if not_support_dom_field_counter >= check_support_dom_filed_number:
-                logging.info("Port {} doesn't support dom".format(port_index))
-                return False
-        logging.info("Port {} support dom".format(port_index))
-        return True
-
-
 def get_transceiver_bulk_status(duthost, port_index):
     """
     This method is to get transceiver bulk status
@@ -197,25 +154,3 @@ EOF
 """.format(port_index)
     duthost.shell(cmd)
     return duthost.command("python3 get_transceiver_bulk_status.py")["stdout"]
-
-
-def get_mlxlink_pci_cr0(duthost, pci_cr0_path, port_index):
-    """
-    This method is to get the info of /dev/mst/*_pci_cr0
-    """
-    cmd = "sudo mlxlink -d {} -p {} -m".format(pci_cr0_path, port_index)
-    return duthost.command(cmd)["stdout"]
-
-
-def get_pci_cr0_path(duthost):
-    """
-    This method is to get path for /dev/mst/*_pci_cr0
-    """
-    return duthost.shell('ls /dev/mst/*_pci_cr0')['stdout'].strip()
-
-
-def get_pciconf0_path(duthost):
-    """
-    This method is to get path for /dev/mst/*_pciconf0
-    """
-    return duthost.shell('ls /dev/mst/*_pciconf0')['stdout'].strip()
