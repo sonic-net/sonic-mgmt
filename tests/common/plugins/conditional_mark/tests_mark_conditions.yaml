@@ -480,6 +480,12 @@ bgp/test_bgp_vnet.py:
     conditions:
       - "asic_type not in ['vs', 'cisco-8000', 'mellanox']"
 
+bgp/test_bgp_vnet.py:
+  skip:
+    reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms"
+    conditions:
+      - "asic_type not in ['vs', 'cisco-8000', 'mellanox']"
+
 bgp/test_bgpmon.py:
   skip:
     reason: "Not supported on T2 topology or topology backend"
