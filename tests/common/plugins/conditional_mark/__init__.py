@@ -19,7 +19,7 @@ from tests.common.utilities import get_duts_from_host_pattern
 logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
-ASIC_NAME_PATH = '/../../../../ansible/group_vars/sonic/variables'
+GROUP_VARS_PATH = '/../../../../ansible/group_vars/sonic/variables'
 MARK_CONDITIONS_CONSTANTS = {
     "QOS_SAI_TOPO": ['t0', 't0-64', 't0-116', 't0-118', 't0-35', 't0-56', 't0-80',
                      't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256',
@@ -119,7 +119,7 @@ def read_asic_name(hwsku):
         str or None: Return the asic generation name or None if something went wrong or nothing found in the file.
 
     '''
-    asic_name_file = os.path.dirname(__file__) + ASIC_NAME_PATH
+    asic_name_file = os.path.dirname(__file__) + GROUP_VARS_PATH
     try:
         with open(asic_name_file) as f:
             asic_name = yaml.safe_load(f)
@@ -136,6 +136,24 @@ def read_asic_name(hwsku):
 
     except IOError:
         return None
+
+
+def load_group_vars():
+    '''
+    Load group vars from the ansible file.
+
+    Returns:
+        dict: Return the group_vars dict.
+    '''
+    results = {}
+    logger.info('Loading group_vars')
+    group_vars_file = os.path.dirname(__file__) + GROUP_VARS_PATH
+    try:
+        with open(group_vars_file) as f:
+            results = yaml.safe_load(f)
+    except IOError:
+        pass
+    return results
 
 
 def load_dut_basic_facts(inv_name, dut_name):
@@ -419,6 +437,9 @@ def load_basic_facts(dut_name, session):
 
     # Check if the testrun has enable_macsec parameter set
     results['macsec_en'] = session.config.getoption("--enable_macsec", False)
+
+    # Load group_vars so they can be used in condition evaluation
+    results['group_vars'] = load_group_vars()
 
     return results
 
