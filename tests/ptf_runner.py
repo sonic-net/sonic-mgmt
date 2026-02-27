@@ -234,6 +234,19 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     except Exception:
         if log_file:
             ptf_collect(host, log_file, dst_dir=ptf_collect_dir)
+            # Dump the tail of the PTF log so the actual error is visible in CI output.
+            # PTF test exceptions are written to the log file but not to stdout/stderr,
+            # making failures opaque without this (see issue #22662).
+            try:
+                ptf_log_tail = host.shell(
+                    "tail -50 {}".format(log_file),
+                    module_ignore_errors=True
+                )
+                if ptf_log_tail and ptf_log_tail.get("rc") == 0 and ptf_log_tail.get("stdout"):
+                    logger.error("PTF log tail for %s:\n%s", testname, ptf_log_tail["stdout"])
+                    allure.attach(ptf_log_tail["stdout"], 'ptf_log_tail', allure.attachment_type.TEXT)
+            except Exception:
+                logger.debug("Failed to fetch PTF log tail for diagnostics")
         traceback_msg = traceback.format_exc()
         allure.attach(traceback_msg, 'ptf_runner_exception_traceback', allure.attachment_type.TEXT)
         logger.error("Exception caught while executing case: {}. Error message: {}".format(testname, traceback_msg))
