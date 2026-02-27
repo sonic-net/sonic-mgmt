@@ -205,6 +205,62 @@ def get_exabgp_ptf_ports(duthost, nbrhosts, tbinfo, completeness_level, request)
                                                                                     ptf_recv_port_list_v6)]
 
 
+@pytest.fixture(scope="function", autouse=True)
+def reset_exabgp(ptfhost, localhost, tbinfo, nbrhosts):
+    """
+    Reset exabgp state by restarting exabgp processes and re-announcing topology routes.
+    This clears any stale routes from previous tests that could cause ECMP issues.
+    Runs automatically before each test function.
+    """
+    neighbor_number = len(nbrhosts)
+
+    def _check_exabgp():
+        """Verify exabgp processes are running and sockets are listening"""
+        exabgp_pids = []
+        output = ptfhost.shell("ps aux | grep exabgp/http_api | grep -v grep | awk '{print $2}'",
+                               module_ignore_errors=True)
+        if output['rc'] != 0:
+            logger.warning("cmd to fetch exabgp pid returned with error: {}".format(output["stderr"]))
+            return False
+        for line in output["stdout_lines"]:
+            if len(line.strip()) == 0:
+                continue
+            exabgp_pids.append(line.strip())
+        # Each bgp neighbor has 2 exabgp processes, one for v4 and one for v6
+        if len(exabgp_pids) != neighbor_number * 2:
+            logger.info("pids number for exabgp processes is incorrect, expected: {}, actual: {}"
+                        .format(neighbor_number * 2, len(exabgp_pids)))
+            return False
+        # Check whether all sockets for exabgp are created
+        output = ptfhost.shell("ss -nltp | grep -E \"{}\""
+                               .format("|".join(["pid={}".format(pid) for pid in exabgp_pids])),
+                               module_ignore_errors=True)
+        return output["rc"] == 0 and len(output["stdout_lines"]) == neighbor_number * 2
+
+    def _announce_routes():
+        """Announce topology routes"""
+        try:
+            localhost.announce_routes(topo_name=tbinfo["topo"]["name"],
+                                      ptf_ip=tbinfo["ptf_ip"],
+                                      action="announce",
+                                      path="../ansible/")
+            time.sleep(5)
+        except Exception as e:
+            logger.error("Failed to announce routes with error: {}".format(e))
+
+    logger.info("Resetting exabgp state - restarting processes and re-announcing topology routes")
+    ptfhost.shell("supervisorctl restart exabgpv4:*", module_ignore_errors=True)
+    ptfhost.shell("supervisorctl restart exabgpv6:*", module_ignore_errors=True)
+
+    # Wait for exabgp to be ready
+    if not wait_until(120, 5, 0, _check_exabgp):
+        logger.error("Not all exabgp processes are running after restart")
+
+    # Re-announce topology routes
+    _announce_routes()
+    logger.info("Exabgp reset complete")
+
+
 @pytest.fixture(scope="function")
 def prepare_param(duthost, tbinfo, get_exabgp_ptf_ports):
     """
