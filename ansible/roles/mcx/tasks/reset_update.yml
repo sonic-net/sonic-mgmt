@@ -22,5 +22,5 @@
 - name: Generate new config_db.json with sonic-cfggen
   shell: sonic-cfggen -H -k {{ HwSku }} -j /tmp/base_config.json --print-data > /etc/sonic/config_db.json
 
-- name: Config
+- name: Config reload
   shell: config reload -y
