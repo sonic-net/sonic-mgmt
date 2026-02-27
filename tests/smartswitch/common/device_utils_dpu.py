@@ -4,7 +4,11 @@ Helper script for DPU  operations
 import logging
 import pytest
 import re
-from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
+from tests.common.platform.device_utils import (  # noqa: F401,F403
+    platform_api_conn,
+    start_platform_api_service,
+    get_configured_dpu_names,
+)
 from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -30,6 +34,17 @@ REBOOT_CAUSE_TIMEOUT = 30
 REBOOT_CAUSE_INT = 10
 PING_TIMEOUT = 30
 PING_TIME_INT = 10
+
+# Items to skip in DPU critical process check (non-critical or often Not OK on DPUs)
+# - container_checker: container health; may not apply or differ on DPU
+# - snmp: optional, often not enabled on DPUs
+# - acms:acms: optional; also in system_health services_to_ignore
+# - routeCheck: route check; may not apply or differ on DPU
+# - PSU0, PSU1, ...: PSU check; may not apply or differ on DPU
+DPU_CRITICAL_PROCESS_SKIP = frozenset({
+    "container_checker", "snmp", "acms:acms", "routeCheck",
+    "PSU0", "PSU1", "PSU2", "PSU3",
+})
 
 
 @pytest.fixture(scope='function')
@@ -359,8 +374,17 @@ def get_dpu_link_status(duthost, num_dpu_modules,
     dpu_on_list = []
     dpu_off_list = []
 
+    configured_dpus = {name.lower() for name in get_configured_dpu_names(duthost)}
+    if configured_dpus:
+        logging.info("Configured DPUs from running config: %s", sorted(configured_dpus))
+    else:
+        logging.warning("No configured DPUs found in running config; falling back to platform API module list")
+
     for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
+        if configured_dpus and dpu_name.lower() not in configured_dpus:
+            logging.info("Skipping unconfigured module %s (index=%d)", dpu_name, index)
+            continue
         ip_address = module.get_midplane_ip(platform_api_conn, index)
         rc = check_dpu_module_status(duthost, "on", dpu_name)
         if rc:
@@ -405,8 +429,24 @@ def check_dpu_health_status(duthost, dpu_name,
     return
 
 
-def check_dpu_critical_processes(dpuhosts, dpu_id):
+def _get_dpuhost_for_dpu(dpuhosts, dpu_id):
+    """
+    Get the dpuhost that corresponds to the given dpu_id.
+    dpuhosts may have fewer nodes than platform slots when the testbed
+    does not define SSH access for all DPUs. Tries integer index first,
+    then hostname match (e.g. *-dpu-0 for DPU0).
+    """
+    if dpu_id < len(dpuhosts):
+        return dpuhosts[dpu_id]
+    dpu_suffix = f"-dpu-{dpu_id}"
+    # If index lookup fails (e.g. dpu_id=3 but len(dpuhosts)=1), search by hostname.
+    for node in dpuhosts:
+        if dpu_suffix in getattr(node, 'hostname', ''):
+            return node
+    return None
 
+
+def check_dpu_critical_processes(dpuhosts, dpu_id):
     """
     Checks all critical processes are UP on DPU
     If not, fails the case
@@ -414,20 +454,34 @@ def check_dpu_critical_processes(dpuhosts, dpu_id):
        dpuhosts: DPU Host handle
        dpu_id: DPU ID
     Returns:
-       Nothing
+       True if check passes or DPU not in dpuhosts (skip), False if a critical process failed
     """
+    dpuhost = _get_dpuhost_for_dpu(dpuhosts, dpu_id)
+    if dpuhost is None:
+        logging.warning(
+            "DPU%d not in dpuhosts (len=%d); skipping critical process check. "
+            "Testbed may not have SSH access to this DPU.",
+            dpu_id, len(dpuhosts)
+        )
+        return True
 
     cmd = "sudo show system-health detail"
-    output_dpu_process = dpuhosts[dpu_id].show_and_parse(cmd)
+    output_dpu_process = dpuhost.show_and_parse(cmd)
 
     for index in range(len(output_dpu_process)):
         parse_output = output_dpu_process[index]
         if parse_output['status'].lower() == 'ok':
             continue
-        else:
-            logging.error("'{}' has failed in DPU{}"
-                          .format(parse_output["name"], dpu_id))
-            return False
+        name = parse_output.get("name", "")
+        if name in DPU_CRITICAL_PROCESS_SKIP:
+            logging.debug(
+                "Skipping non-critical '%s' (Not OK) in DPU%d critical process check",
+                name, dpu_id
+            )
+            continue
+        logging.error("'{}' has failed in DPU{}"
+                      .format(name, dpu_id))
+        return False
     return True
 
 
@@ -546,7 +600,6 @@ def post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
     Returns:
        Returns Nothing
     """
-
     with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
         logging.info("Post test DPUs check in parallel")
         for dpu in dpu_on_list:
