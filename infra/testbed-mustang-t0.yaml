@@ -22,7 +22,7 @@ device_groups:
     - mustang-01
     vars:
       hwsku: Cisco-8223-64EF-MO
-      iface_speed: '400000'
+      iface_speed: '800000'
 devices:
   docker-ptf:
     ansible:
