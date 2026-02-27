@@ -1,0 +1,49 @@
+---
+# LED configuration per platform
+# [ONIE platform]:
+#   hwsku:
+#     [HWSKU]:
+#       [PARAMETER]: [VALUE]
+#   default:
+#     [PARAMETER]: [VALUE]
+#
+# This configuration file supports matching a platform string and HWSKU string using regular expressions.
+# NOTE: more specific regular expression must be defined after less specific.
+#
+# If a platform is not configured, tests will be skipped (default is null)
+
+default: null
+
+# Nexthop platforms
+x86_64-nexthop_.*:
+  default:
+    PSU_LED:
+      colors: ["green", "red", "amber", "off"]
+      service: "system-ledd.service"
+      multiple: false
+    FAN_LED:
+      colors: ["green", "red", "amber", "off"]
+      service: "system-ledd.service"
+      multiple: false
+    SYS_LED:
+      colors: ["green", "red", "amber", "green_blink", "off"]
+      service: "system-ledd.service"
+      multiple: false
+    LOC_LED:
+      colors: ["blue", "blue_blink", "off"]
+      service: "system-ledd.service"
+      multiple: false
+    PORT_LED:
+      colors: ["green", "yellow", "off"]
+      service: "port-ledd.service"
+      multiple: true
+      name_template: "PORT_LED_{}"
+      count_function: "get_num_sfps"
+      index_start: 1
+    FANTRAY_LED:
+      colors: ["green", "red", "off"]
+      service: "system-ledd.service"
+      multiple: true
+      name_template: "FANTRAY{}_LED"
+      count_function: "get_num_fan_drawers"
+      index_start: 1

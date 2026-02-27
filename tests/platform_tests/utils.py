@@ -1,4 +1,5 @@
 import logging
+import yaml
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -21,6 +22,23 @@ def get_max_to_reboot(duthost, test_name):
         max_time_to_reboot = plt_reboot_ctrl.get('timeout', 120)
 
     return max_time_to_reboot
+
+
+def get_config_from_yaml(file_path):
+    """
+    Load configuration from a YAML file.
+
+    Python 3.7+ maintains dictionary insertion order by default,
+    so no need for OrderedDict.
+
+    Args:
+        file_path (str): Path to the YAML file to load
+
+    Returns:
+        dict: The loaded configuration
+    """
+    with open(file_path) as stream:
+        return yaml.safe_load(stream)
 
 
 def fanout_hosts_and_ports(fanouthosts, duts_and_ports):
