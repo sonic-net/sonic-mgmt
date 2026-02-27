@@ -57,3 +57,5 @@
     bgp_neighbor_devices: "{{ device_bgp_neighbor_devices[inventory_hostname] }}"
     bgp_neighbor_ports: "{{ device_bgp_neighbor_ports[inventory_hostname] }}"
     features: "{{ device_feature_settings }}"
+    cert_telemetry: "{{ device_cert_telemetry }}"
+    cert_restapi: "{{ device_cert_restapi }}"
