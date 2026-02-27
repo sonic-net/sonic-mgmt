@@ -124,11 +124,18 @@ def setup_duthost_intervals(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     DEFAULT_INTERVALS = [10.0, 9.0, 8.0]
     PLATFORM_INTERVALS = {
         'mellanox': [4.0, 3.5, 3.0],
-        'arista': [5.0, 4.5, 4.0]
+        'arista': [5.0, 4.5, 4.0],
+        'vpp': [60.0, 60.0, 60.0]
     }
     dut_platform = duthost.facts["platform"]
+    dut_asic_type = duthost.facts.get("asic_type", "").lower()
 
     for platform, intervals in PLATFORM_INTERVALS.items():
+        if platform == "vpp":
+            if dut_asic_type != "vpp":
+                continue
+            logger.info(f"'vpp' asic type found, intervals {intervals} selected")
+            return intervals
         if dut_platform not in platform:
             continue
         logger.info(f"'{platform}' found in platform {dut_platform}, intervals {intervals} selected")
