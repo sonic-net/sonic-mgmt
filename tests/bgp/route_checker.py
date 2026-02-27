@@ -64,6 +64,7 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
     mg_facts = dut_host.minigraph_facts(
         host=dut_host.hostname)['ansible_facts']
     asn = mg_facts['minigraph_bgp_asn']
+    confed_asn = dut_host.get_bgp_confed_asn()
     all_routes = {}
     BGP_ENTRY_HEADING = r"BGP routing table entry for "
     BGP_COMMUNITY_HEADING = r"Community: "
@@ -87,7 +88,15 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
             # get hostname('ARISTA11T0') by VM name('VM0122')
             hostname = host_name_map[node['host'].hostname]
         host = node['host']
-        peer_ips = node['conf']['bgp']['peers'][asn]
+        peer_in_bgp_confed = node['conf']['bgp'].get('peer_in_bgp_confed', False)
+        try:
+            peer_ips = node['conf']['bgp']['peers'][asn]
+        except KeyError as e:
+            if peer_in_bgp_confed:
+                peer_ips = node['conf']['bgp']['peers'][int(confed_asn)]
+            else:
+                raise e
+
         for ip in peer_ips:
             if ipaddress.IPNetwork(ip).version == 4:
                 peer_ip_v4 = ip
