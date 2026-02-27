@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import subprocess
 import shlex
 import traceback
@@ -295,6 +296,9 @@ class CsonicNetwork(object):
 
         # Connect backplane to bridge if specified
         if self.bp_bridge:
+            if not os.path.exists('/sys/class/net/%s' % self.bp_bridge):
+                CsonicNetwork.cmd('brctl addbr %s' % self.bp_bridge)
+                CsonicNetwork.cmd('ip link set %s up' % self.bp_bridge)
             self.add_if_to_bridge(bp_name, self.bp_bridge)
 
     def add_veth_if_to_docker(self, ext_if, t_int_if, int_if):
