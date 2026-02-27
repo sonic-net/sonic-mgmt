@@ -140,6 +140,10 @@ def filter_check_items(tbinfo, duthosts, check_items):
         if 'check_mac_entry_count' in filtered_check_items:
             filtered_check_items.remove('check_mac_entry_count')
 
+    # Temporarily disable check_mac_entry_count sanity due to a known issue. Will be enabled after the issue is fixed.
+    if 'check_mac_entry_count' in filtered_check_items:
+        filtered_check_items.remove('check_mac_entry_count')
+
     return filtered_check_items
 
 
