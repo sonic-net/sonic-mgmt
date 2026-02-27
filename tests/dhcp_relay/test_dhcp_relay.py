@@ -19,7 +19,8 @@ from tests.common.utilities import skip_release
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.dhcp_relay.dhcp_relay_utils import check_routes_to_dhcp_server, restart_dhcp_service
+from tests.common.dhcp_relay_utils import check_routes_to_dhcp_server
+from tests.common.dhcp_relay_utils import restart_dhcp_service
 from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
 
 pytestmark = [
