@@ -8,7 +8,7 @@ from tests.common.storage_backend.backend_utils import skip_test_module_over_bac
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.arp_utils import setupFerret, teardownRouteToPtfhost, setupRouteToPtfhost, \
-    PTFRUNNER_QLEN, VXLAN_CONFIG_FILE, DEFAULT_TEST_DURATION, testWrArp
+    PTFRUNNER_QLEN, VXLAN_CONFIG_FILE, DEFAULT_TEST_DURATION, wrArp
 
 logger = logging.getLogger(__name__)
 
@@ -84,7 +84,7 @@ def test_wr_arp(request, duthost, ptfhost, creds):
         Returns:
             None
     '''
-    testWrArp(request, duthost, ptfhost, creds)
+    wrArp(request, duthost, ptfhost, creds)
 
 
 def test_wr_arp_advance(request, duthost, ptfhost, creds):
