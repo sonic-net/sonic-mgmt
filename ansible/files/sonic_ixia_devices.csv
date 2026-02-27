@@ -37,9 +37,9 @@ str2-7804-lc5-1,10.3.146.34/24,Arista-7800R3A-36DM2-C36,DevSonic,sonic
 str2-7250-sup-1,10.3.146.108/24,Nokia-IXR7250E-SUP-10,DevSonic,sonic
 str2-7250-lc1-1,10.3.146.147/24,Nokia-IXR7250E-36x400G,DevSonic,sonic
 str2-7250-lc2-1,10.3.146.148/24,Nokia-IXR7250E-36x400G,DevSonic,sonic
-str3-8800-lc2-1,10.3.146.109/24,Cisco-88-LC0-36FH-O36,DevSonic,sonic
-str3-8800-lc3-1,10.3.146.105/24,Cisco-88-LC0-36FH-O36,DevSonic,sonic
-str3-8800-sup-2,10.3.146.97/24,Cisco-8800-RP,DevSonic,sonic
+str3-8800-lc2-1,10.3.150.106/27,Cisco-88-LC0-36FH-O36,DevSonic,sonic
+str3-8800-lc3-1,10.3.150.109/27,Cisco-88-LC0-36FH-O36,DevSonic,sonic
+str3-8800-sup-2,10.3.150.104/27,Cisco-8800-RP,DevSonic,sonic
 str-sn5600-I11-U02,10.3.147.53/24,Mellanox-SN5600-C256S1,DevSonic,
 str-sn5600-I11-U04,10.3.147.54/24,Mellanox-SN5600-C256S1,DevSonic,
 str-sn5600-I11-U13,10.3.147.56/24,Mellanox-SN5600-C256S1,DevSonic,
@@ -72,12 +72,13 @@ str-ocs-dlx64-acs-14,10.64.246.81/25,DLXA64B64HNLA1MS,FanoutL1Sonic,
 str-ocs-dlx64-acs-15,10.64.246.85/25,DLXA64B64HNLA1MS,FanoutL1Sonic,
 str-7060x6-moby-512-snake-1,10.64.247.3/26,Arista-7060X6-16PE-384C-O128S2,DevSonic,sonic
 str-7060x6-moby-512-snake-2,10.64.247.6/26,Arista-7060X6-16PE-384C-O128S2,DevSonic,sonic
+str-nh5010-ut2-2,10.3.152.67/26,NH-5010-F-O64,DevSonic,sonic
 console-185,10.3.145.185,Cisco,ConsoleServer,ssh
 console-194,10.3.145.194,Cisco,ConsoleServer,ssh
 console-201,10.3.145.201,Cisco,ConsoleServer,ssh
 pdu-85,10.3.154.84,ApcRPDU,Pdu,snmp
 pdu-86,10.3.154.85,ApcRPDU,Pdu,snmp
-pdu-88,10.3.154.86,Sentry,Pdu,snmp
+pdu-88,10.3.154.86,ApcRPDU,Pdu,snmp
 pdu-89,10.3.154.87,ApcRPDU,Pdu,snmp
 pdu-90,10.3.154.88,ApcRPDU,Pdu,snmp
 pdu-91,10.3.154.89,ApcRPDU,Pdu,snmp

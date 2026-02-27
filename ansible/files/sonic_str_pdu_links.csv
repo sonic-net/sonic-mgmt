@@ -58,5 +58,9 @@ pdu-97,38,str-msn4700-fanout-02,PSU1
 pdu-96,38,str-msn4700-fanout-02,PSU2
 Sentry_6224b9,18,str-dcs-7060x6-64pe-b-ehw-f-c09-u27,PSU1
 Sentry_6224b9,43,str-dcs-7060x6-64pe-b-ehw-f-c09-u29,PSU1
-pdu-99,29,str-8101-D04-U36,PSU1
-pdu-100,29,str-8101-D04-U36,PSU2
+pdu-99,29,str-8101-d04-u36,PSU1
+pdu-100,29,str-8101-d04-u36,PSU2
+pdu-98,11,str-4700-d04-u09,PSU1
+pdu-99,11,str-4700-d04-u09,PSU2
+pdu-98,12,str-4700-d04-u10,PSU1
+pdu-99,12,str-4700-d04-u10,PSU2

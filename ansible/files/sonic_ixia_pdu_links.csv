@@ -55,3 +55,5 @@ pdu-226,8,str-sn5600-I11-U19,PSU1
 pdu-229,8,str-sn5600-I11-U19,PSU2
 pdu-108,39,str2-7260cx3-d10-u42,PSU1
 pdu-111,47,str2-7260cx3-d10-u42,PSU2
+pdu-126,21,str-nh5010-ut2-2,PSU1
+pdu-127,21,str-nh5010-ut2-2,PSU2

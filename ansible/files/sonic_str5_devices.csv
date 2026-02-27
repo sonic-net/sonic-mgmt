@@ -9,6 +9,7 @@ str5-acs-serv-95,10.64.247.195/25,TestServ,Server,,
 str5-acs-serv-96,10.64.247.196/25,TestServ,Server,,
 str5-acs-serv-98,10.64.247.198/25,TestServ,Server,,
 str5-acs-serv-99,10.64.247.199/25,TestServ,Server,,
+str5-acs-serv-110,10.64.247.2/26,TestServ,Server,,
 str5-7060x6-64pe-shared-fan-1,10.64.247.25/26,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
 str5-7060x6-512-3,10.64.247.131/25,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic
 str5-7060x6-512-fan-3,10.64.247.132/25,Arista-7060X6-64PE-B-C512S2,FanoutLeafSonic,,sonic
@@ -42,10 +43,16 @@ str5-z9332f-01,10.64.247.112/26,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str5-z9332f-02,10.64.247.115/26,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str5-7280dr3-2,10.64.247.74/26,Arista-7280DR3AM-36,DevSonic,,sonic
 str5-7280dr3-3,10.64.247.78/26,Arista-7280DR3AM-36,DevSonic,,sonic
+str5-nh5010-ut2-1,10.3.152.66/26,NH-5010-F-O64,DevSonic,,sonic
+str5-nh5010-ut2-3,10.3.152.68/26,NH-5010-F-O64,DevSonic,,sonic
+str5-nh5010-ut2-4,10.3.152.73/26,NH-5010-F-O64,DevSonic,,sonic
+str5-nh5010-ut2-5,10.3.152.74/26,NH-5010-F-O64,DevSonic,,sonic
+str5-7280r4-ut2-3,10.3.152.71/26,Arista-7280R4K-32QF-32DF,DevSonic,,sonic
+str5-7280r4-ut2-4,10.3.152.72/26,Arista-7280R4K-32QF-32DF,DevSonic,,sonic
 pdu-83,10.3.154.83,ApcRPDU,Pdu,snmp,
 pdu-85,10.3.154.84,ApcRPDU,Pdu,snmp,
 pdu-86,10.3.154.85,ApcRPDU,Pdu,snmp,
-pdu-88,10.3.154.86,Sentry,Pdu,snmp,
+pdu-88,10.3.154.86,ApcRPDU,Pdu,snmp,
 pdu-89,10.3.154.87,ApcRPDU,Pdu,snmp,
 pdu-90,10.3.154.88,ApcRPDU,Pdu,snmp,
 pdu-91,10.3.154.89,ApcRPDU,Pdu,snmp,
@@ -61,6 +68,7 @@ pdu-100,10.3.154.101,Sentry4,Pdu,snmp,
 pdu-101,10.3.154.102,Sentry4,Pdu,snmp,
 pdu-102,10.3.154.103,Sentry4,Pdu,snmp,
 pdu-103,10.3.154.104,Sentry4,Pdu,snmp,
+pdu-104,10.3.154.105,Sentry4,Pdu,snmp,
 pdu-105,10.3.154.106,Sentry4,Pdu,snmp,
 pdu-106,10.3.154.107,Sentry4,Pdu,snmp,
 pdu-107,10.3.154.108,Sentry4,Pdu,snmp,
@@ -88,7 +96,6 @@ console-184,10.3.145.184,Cisco,ConsoleServer,ssh,
 console-194,10.3.145.194,Cisco,ConsoleServer,ssh,
 console-196,10.3.145.196,Cisco,ConsoleServer,ssh,
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh,
-console-199,10.3.145.199,Cisco,ConsoleServer,ssh,
 console-175,10.3.145.175,Cisco,ConsoleServer,ssh,
 console-176,10.3.145.176,Cisco,ConsoleServer,ssh,
 console-188,10.3.145.188,Cisco,ConsoleServer,ssh,
