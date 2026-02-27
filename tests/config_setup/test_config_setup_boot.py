@@ -289,7 +289,7 @@ def ztp_image(request):
 
 
 @pytest.fixture(scope="module")
-def test_mode(request, duthosts, rand_one_dut_hostname):
+def resolve_test_mode(request, duthosts, rand_one_dut_hostname):
     """Determine whether to use 'harness' (mock) or 'real' (actual config-setup).
 
     'auto' (default) always selects 'harness'. Use --config_setup_test_mode=real
@@ -323,7 +323,7 @@ def harness(duthosts, rand_one_dut_hostname):
     duthost.shell("rm -rf {}".format(HARNESS_DIR), module_ignore_errors=True)
 
 
-CONFIG_DB_BAK = "/etc/sonic/config_db.json.config_setup_test_bak"
+REAL_CONFIG_DB_BAK = "/etc/sonic/config_db.json.config_setup_test_bak"
 
 
 @pytest.fixture(scope="function")
@@ -335,16 +335,16 @@ def real_dut(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    logger.info("Backing up %s to %s", CONFIG_DB_JSON, CONFIG_DB_BAK)
-    duthost.shell("cp {} {}".format(CONFIG_DB_JSON, CONFIG_DB_BAK))
+    logger.info("Backing up %s to %s", CONFIG_DB_JSON, REAL_CONFIG_DB_BAK)
+    duthost.shell("cp {} {}".format(CONFIG_DB_JSON, REAL_CONFIG_DB_BAK))
 
     yield duthost
 
     # Restore config_db.json and reload to recover
-    logger.info("Restoring %s from %s", CONFIG_DB_JSON, CONFIG_DB_BAK)
-    duthost.shell("cp {} {}".format(CONFIG_DB_BAK, CONFIG_DB_JSON),
+    logger.info("Restoring %s from %s", CONFIG_DB_JSON, REAL_CONFIG_DB_BAK)
+    duthost.shell("cp {} {}".format(REAL_CONFIG_DB_BAK, CONFIG_DB_JSON),
                   module_ignore_errors=True)
-    duthost.shell("rm -f {}".format(CONFIG_DB_BAK), module_ignore_errors=True)
+    duthost.shell("rm -f {}".format(REAL_CONFIG_DB_BAK), module_ignore_errors=True)
     duthost.shell("config reload -y -f", module_ignore_errors=True)
     pytest_assert(
         wait_until(300, 20, 0, duthost.critical_services_fully_started),
@@ -664,10 +664,10 @@ class TestRealConfigSetupMinigraphFallback:
     Skipped by default since it is destructive and may hang on KVM.
     """
 
-    def test_real_minigraph_fallback(self, test_mode, real_dut):
+    def test_real_minigraph_fallback(self, resolve_test_mode, real_dut):
         """Delete config_db.json, run config-setup boot, verify minigraph used."""
-        if test_mode != "real":
-            pytest.skip("Skipping real-mode test (mode={})".format(test_mode))
+        if resolve_test_mode != "real":
+            pytest.skip("Skipping real-mode test (mode={})".format(resolve_test_mode))
 
         duthost = real_dut
 
@@ -716,10 +716,10 @@ class TestRealConfigSetupMinigraphFallback:
                 mgmt_ip_before, mgmt_ip_after)
         )
 
-    def test_real_warm_boot_skips_init(self, test_mode, real_dut):
+    def test_real_warm_boot_skips_init(self, resolve_test_mode, real_dut):
         """Simulate warm boot, delete config_db.json, verify init skipped."""
-        if test_mode != "real":
-            pytest.skip("Skipping real-mode test (mode={})".format(test_mode))
+        if resolve_test_mode != "real":
+            pytest.skip("Skipping real-mode test (mode={})".format(resolve_test_mode))
 
         duthost = real_dut
         mgmt_ip_before = get_mgmt_ip(duthost)
