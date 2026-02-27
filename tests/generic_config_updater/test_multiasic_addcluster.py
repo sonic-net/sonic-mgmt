@@ -1,3 +1,25 @@
+"""Test adding a T1 neighbor cluster to multi-ASIC SONiC via Generic Config Updater (GCU).
+
+This module tests the ability to add/configure a downstream T1 neighbor cluster on a
+multi-ASIC chassis using GCU JSON patches. The test simulates a scenario where a T1
+neighbor needs to be (re)configured on existing physical ports.
+
+Key Design Notes:
+-----------------
+1. PORT ENTRIES ALWAYS EXIST: After `config load_minigraph`, all physical ports defined
+   in platform.json exist in CONFIG_DB, regardless of device links. The test reconfigures
+   these existing ports rather than creating them from nothing.
+
+2. RFC 6902 "add" SEMANTICS: The generated patches use "add" operations which per RFC 6902
+   mean "add or replace". For existing PORT entries, this replaces the platform-default
+   config (e.g., 400G) with neighbor-specific config (e.g., 100G with FEC).
+
+3. VALID PRODUCTION SCENARIO: This test validates a realistic datacenter expansion use
+   case where physical ports exist but need to be configured for a new neighbor.
+
+See test_addcluster_workflow() docstring for detailed explanation.
+"""
+
 import json
 import logging
 import os
@@ -1123,8 +1145,33 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname):
 def test_addcluster_workflow(duthosts, rand_one_dut_front_end_hostname):
     """Test adding a downstream T1 neighbor cluster via GCU.
 
-    This test validates that a T1 neighbor can be added to a multi-ASIC 
+    This test validates that a T1 neighbor can be added to a multi-ASIC
     SONiC device using GCU JSON patches.
+
+    Test Approach - Port Configuration vs Port Creation
+    ---------------------------------------------------
+    This test validates RECONFIGURING existing ports, not creating ports from nothing.
+    After `config load_minigraph`, physical ports ALWAYS exist in CONFIG_DB because
+    the minigraph parser generates PORT entries from platform.json/hwsku.json for ALL
+    physical ports, regardless of whether they have device links defined.
+
+    When the target neighbor is removed from the minigraph:
+    - PORT entries remain (at platform defaults: e.g., 400G, 8-lane, admin_status=up)
+    - DEVICE_NEIGHBOR entries are removed
+    - BGP_NEIGHBOR entries are removed
+    - PORT_QOS_MAP, PFC_WD entries are removed
+
+    The generated patch uses RFC 6902 "add" operations which means "add or replace":
+    - For PORT: Replaces existing 400G/8-lane config with neighbor-specific config (e.g., 100G/4-lane)
+    - For other tables: Creates new entries that didn't exist
+
+    This represents a valid production scenario: "Configuring existing but unused ports
+    for a new T1 neighbor" - typical for datacenter expansion where physical ports exist
+    but aren't yet configured for any neighbor.
+
+    Note: True "add ports from nothing" would only apply to Dynamic Port Breakout (DPB)
+    scenarios where ports are dynamically created/deleted, which requires different
+    test design and DPB-capable platforms.
 
     The test:
     1. Uses a frontend/linecard DUT (rand_one_dut_front_end_hostname)
