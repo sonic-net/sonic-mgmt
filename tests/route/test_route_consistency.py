@@ -146,7 +146,6 @@ class TestRouteConsistency():
 
     def test_route_withdraw_advertise(self, duthosts, tbinfo, localhost):
 
-
         # withdraw the routes
         ptf_ip = tbinfo["ptf_ip"]
         topo_name = tbinfo["topo"]["name"]
