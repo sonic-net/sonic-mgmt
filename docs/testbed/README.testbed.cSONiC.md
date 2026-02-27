@@ -1,6 +1,31 @@
 # Transitioning Neighbor Devices to cSONiC in SONiC Testbed
 This document outlines how to replace neighbor containers(cEOS, vEOS, vSONIC) in the SONiC community testbed with cSONiC containers, enabling a SONiC-to-SONiC test environment and the required design changes.
 
+## Prerequisites
+
+### Download docker-sonic-vs Image
+
+The cSONiC testbed uses the `docker-sonic-vs` image as neighbor devices. This image is not available in public registries and must be downloaded manually from Azure Pipelines artifacts.
+
+1. Download the image from Azure Pipelines:
+   - Go to [SONiC Azure Pipelines](https://sonic-build.azurewebsites.net/ui/sonic/pipelines)
+   - Find a recent successful build of `Azure.sonic-buildimage.official.vs`
+   - Download the `sonic-vs.tar.gz` artifact
+
+2. Transfer and load the image on the testbed server:
+   ```bash
+   # Transfer the downloaded file to the testbed server
+   scp sonic-vs.tar.gz user@testbed-server:/var/tmp/
+
+   # Load the image into Docker
+   gunzip -c /var/tmp/sonic-vs.tar.gz | docker load
+
+   # Verify the image is loaded
+   docker images | grep docker-sonic-vs
+   ```
+
+3. The image should appear as `docker-sonic-vs:latest`.
+
 # Implementation Plan: Adding cSONiC Support in Testbed
 To integrate cSONiC as a supported neighbor device in the SONiC testbed, several scripts and ansible roles must be updated to recognize and handle vm_type="csonic".
 
@@ -62,6 +87,22 @@ Then we include add_cnet.yml to attach each VM from VM_targets to its correspond
 
 Run the following commands to deploy the T0 topology:
 
+```bash
+cd /data/sonic-mgmt/ansible
 
-        cd /data/sonic-mgmt/ansible
-        ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k csonic add-topo vms-kvm-t0 password.txt
+# Add topology (creates cSONiC containers and network)
+./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k csonic add-topo vms-kvm-t0-csonic password.txt
+
+# Deploy minigraph to configure BGP and interfaces
+./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k csonic deploy-mg vms-kvm-t0-csonic veos_vtb password.txt
+
+# Verify BGP sessions are established
+ssh admin@vlab-01 "show ip bgp summary"
+```
+
+### Removing Topology
+
+```bash
+cd /data/sonic-mgmt/ansible
+./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k csonic remove-topo vms-kvm-t0-csonic password.txt
+```
