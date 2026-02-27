@@ -119,6 +119,9 @@
   - include_tasks: remove_ceos_list.yml
     when: vm_type is defined and vm_type == "ceos"
 
+  - include_tasks: remove_csonic_list.yml
+    when: vm_type is defined and vm_type == "csonic"
+
   - name: Remove duts ports
     include_tasks: remove_dut_port.yml
     when: external_port is defined
