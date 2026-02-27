@@ -652,6 +652,11 @@ class IPinIPHashTest(HashTest):
     for IPinIP packet.
     '''
 
+    def setUp(self):
+        HashTest.setUp(self)
+        self.ecmp_inner_header_hash_supported = self.test_params.get(
+            'ecmp_inner_header_hash_supported', False)
+
     def send_and_verify_packets(self, src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False, logs=[]):
         """
         @summary: Send an IPinIP encapsulated packet and verify it is received on expected ports.
@@ -827,8 +832,10 @@ class IPinIPHashTest(HashTest):
                     matched_index, 0) + 1
             logging.info("hash_key={}, hit count map: {}".format(
                 hash_key, hit_count_map))
-            for next_hop in next_hops:
-                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
+
+            if self.ecmp_inner_header_hash_supported:
+                for next_hop in next_hops:
+                    self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
 
 
 class VxlanHashTest(HashTest):
@@ -1019,6 +1026,11 @@ class NvgreHashTest(HashTest):
     The src_ip, dst_ip, src_port and dst_port of inner frame are expected to be hash keys
     for NvGRE packet.
     '''
+
+    def setUp(self):
+        HashTest.setUp(self)
+        self.ecmp_inner_header_hash_supported = self.test_params.get(
+            'ecmp_inner_header_hash_supported', False)
 
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
@@ -1215,5 +1227,7 @@ class NvgreHashTest(HashTest):
                 matched_index, 0) + 1
         logging.info("hash_key={}, hit count map: {}".format(
             hash_key, hit_count_map))
-        for next_hop in next_hops:
-            self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
+
+        if self.ecmp_inner_header_hash_supported:
+            for next_hop in next_hops:
+                self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
