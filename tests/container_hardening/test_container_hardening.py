@@ -20,6 +20,7 @@ PRIVILEGED_CONTAINERS = [
     # gnmi is temporarily in privileged mode, remove when
     # https://github.com/sonic-net/sonic-buildimage/issues/24542 is closed
     "gnmi",
+    "otel",
 ]
 
 

@@ -168,6 +168,13 @@ class GenerateGoldenConfigDBModule(object):
             return True
         return True
 
+    def has_otel_image(self):
+        rc, out, _ = self.module.run_command("docker images --format '{{.Repository}}'")
+        if rc != 0:
+            return False
+        repos = [line.strip().lower() for line in out.splitlines() if line.strip()]
+        return "docker-sonic-otel" in repos
+
     def get_config_from_minigraph(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
@@ -636,6 +643,13 @@ class GenerateGoldenConfigDBModule(object):
             else:
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
+
+        # Enable otel feature when docker-sonic-otel image exists
+        if self.has_otel_image():
+            if multi_asic.is_multi_asic():
+                config = self.overwrite_feature_golden_config_db_multiasic(config, "otel", "enabled", "enabled")
+            else:
+                config = self.overwrite_feature_golden_config_db_singleasic(config, "otel", "enabled", "enabled")
 
         # Disable dash-ha feature for all multi-asic platforms
         if multi_asic.is_multi_asic():
