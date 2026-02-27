@@ -1,6 +1,5 @@
 import pytest
 
-import time
 import logging
 import ipaddress
 import json
@@ -10,6 +9,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.utilities import wait_until
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
@@ -183,11 +183,43 @@ def create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_por
     ptfhost.copy(content=json.dumps(fg_ecmp, indent=2), dest=FG_ECMP_CFG)
 
 
+def check_route_present(duthost, prefix):
+    """Check if a route is present in the routing table."""
+    if ':' in prefix:
+        result = duthost.shell("show ipv6 route {}".format(prefix), module_ignore_errors=True)
+    else:
+        result = duthost.shell("show ip route {}".format(prefix), module_ignore_errors=True)
+    return prefix.split('/')[0] in result.get('stdout', '')
+
+
+def check_interface_status(duthost, interface, expected_status):
+    """Check if an interface has the expected oper status."""
+    result = duthost.shell("show interfaces status {}".format(interface), module_ignore_errors=True)
+    stdout = result.get('stdout', '')
+    if expected_status == "up":
+        return "up" in stdout.lower().split(interface)[-1] if interface in stdout else False
+    else:
+        return "down" in stdout.lower().split(interface)[-1] if interface in stdout else False
+
+
+def wait_for_arp_convergence(duthost, ip_to_port):
+    """Wait for ARP/neighbor entries to converge."""
+    for ip in ip_to_port:
+        if ':' in ip:
+            result = duthost.shell("show ndp {}".format(ip), module_ignore_errors=True)
+        else:
+            result = duthost.shell("show arp {}".format(ip), module_ignore_errors=True)
+        if ip not in result.get('stdout', ''):
+            return False
+    return True
+
+
 def setup_test_config(duthost, ptfhost, cfg_facts, router_mac, net_ports, vlan_ip):
     port_list, ip_to_port, bank_0_port, bank_1_port = configure_interfaces(cfg_facts, duthost, ptfhost, vlan_ip)
     generate_fgnhg_config(duthost, ip_to_port, bank_0_port, bank_1_port)
     setup_arpresponder(ptfhost, ip_to_port)
-    time.sleep(60)
+    pytest_assert(wait_until(60, 5, 5, wait_for_arp_convergence, duthost, ip_to_port),
+                  "ARP/neighbor entries did not converge")
     create_fg_ptf_config(ptfhost, ip_to_port, port_list, bank_0_port, bank_1_port, router_mac, net_ports)
     return port_list, ip_to_port, bank_0_port, bank_1_port
 
@@ -291,7 +323,8 @@ def link_startup(duthost, ip_to_port, prefix_list, shutdown_link):
         if port == shutdown_link:
             setup_static_neighbor_entry(duthost, nexthop, ptf_to_dut_mac_map[port], prefix_list)
 
-    time.sleep(30)
+    pytest_assert(wait_until(30, 5, 5, check_interface_status, duthost, dut_if_shutdown, "up"),
+                  "Interface {} did not come up".format(dut_if_shutdown))
 
 
 def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank_0_port, bank_1_port, prefix_list):
@@ -316,7 +349,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
                 "we start in a state where link " + dut_if_shutdown + " is down")
 
     configure_dut(duthost, "config interface shutdown " + dut_if_shutdown)
-    time.sleep(30)
+    pytest_assert(wait_until(30, 5, 5, check_interface_status, duthost, dut_if_shutdown, "down"),
+                  "Interface {} did not go down".format(dut_if_shutdown))
 
     # Now add the route and nhs
     for prefix in prefix_list:
@@ -325,7 +359,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
             cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
         configure_dut(duthost, cmd)
 
-    time.sleep(3)
+    pytest_assert(wait_until(30, 3, 1, check_route_present, duthost, prefix_list[0]),
+                  "Route {} did not appear".format(prefix_list[0]))
 
     # Calculate expected flow counts per port to verify in ptf host
     exp_flow_count = {}
@@ -381,7 +416,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         if port == withdraw_nh_port:
             cmd = cmd + " -c 'no {} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
-    time.sleep(3)
+    pytest_assert(wait_until(30, 3, 1, check_route_present, duthost, prefix),
+                  "Route {} not updated after nh withdraw".format(prefix))
 
     flows_for_withdrawn_nh_bank = (NUM_FLOWS/2)/(len(bank_0_port) - 1)
     for port in bank_0_port:
@@ -405,7 +441,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
                 "the flow hash redistribution")
 
     configure_dut(duthost, "config interface shutdown " + dut_if_shutdown)
-    time.sleep(30)
+    pytest_assert(wait_until(30, 5, 5, check_interface_status, duthost, dut_if_shutdown, "down"),
+                  "Interface {} did not go down".format(dut_if_shutdown))
 
     flows_for_shutdown_links_bank = (NUM_FLOWS/2)/(len(bank_0_port) - 2)
     for port in bank_0_port:
@@ -442,7 +479,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         if port == withdraw_nh_port:
             cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
-    time.sleep(3)
+    pytest_assert(wait_until(30, 3, 1, check_route_present, duthost, prefix),
+                  "Route {} not updated after config change".format(prefix))
 
     exp_flow_count = {}
     flows_per_nh = NUM_FLOWS/len(port_list)
@@ -467,7 +505,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
     cmd = cmd + " done;"
 
     configure_dut(duthost, cmd)
-    time.sleep(30)
+    pytest_assert(wait_until(30, 5, 5, check_route_present, duthost, prefix),
+                  "Route {} not present after flap test".format(prefix))
 
     result = duthost.shell(argv=["pgrep", "orchagent"])
     pytest_assert(int(result["stdout"]) > 0, "Orchagent is not running")
@@ -485,7 +524,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         if port in withdraw_nh_bank:
             cmd = cmd + " -c 'no {} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
-    time.sleep(3)
+    pytest_assert(wait_until(30, 3, 1, check_route_present, duthost, prefix),
+                  "Route {} not updated after config change".format(prefix))
 
     exp_flow_count = {}
     flows_per_nh = NUM_FLOWS/len(bank_1_port)
@@ -506,7 +546,8 @@ def fg_ecmp(ptfhost, duthost, router_mac, net_ports, port_list, ip_to_port, bank
         if port == first_nh:
             cmd = cmd + " -c '{} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
-    time.sleep(3)
+    pytest_assert(wait_until(30, 3, 1, check_route_present, duthost, prefix),
+                  "Route {} not updated after config change".format(prefix))
 
     exp_flow_count = {}
     flows_per_nh = (NUM_FLOWS/2)/(len(bank_1_port))
@@ -564,7 +605,8 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
     for nexthop in list(ip_to_port.keys()):
         cmd = cmd + " -c 'no {} {} {}'".format(ipcmd, prefix, nexthop)
     configure_dut(duthost, cmd)
-    time.sleep(3)
+    pytest_assert(wait_until(30, 3, 1, check_route_present, duthost, prefix),
+                  "Route {} not updated after config change".format(prefix))
 
     exp_flow_count = {}
     flows_per_nh = (NUM_FLOWS)/(len(net_ports))
@@ -592,7 +634,8 @@ def fg_ecmp_to_regular_ecmp_transitions(ptfhost, duthost, router_mac, net_ports,
     for ip in pc_ips:
         cmd = cmd + " -c 'no {} {} {}'".format(ipcmd, prefix, ip)
     configure_dut(duthost, cmd)
-    time.sleep(3)
+    pytest_assert(wait_until(30, 3, 1, check_route_present, duthost, prefix),
+                  "Route {} not updated after config change".format(prefix))
 
     partial_ptf_runner(ptfhost, 'create_flows', dst_ip, exp_flow_count)
 
