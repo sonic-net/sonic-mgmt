@@ -11,7 +11,7 @@ from tests.common.configlet.helpers import set_log_prefix_msg, get_prefix_lvl, s
 from tests.common.configlet.utils import base_dir, data_dir, orig_db_dir, no_t0_db_dir, clet_db_dir, managed_files,\
                    patch_add_t0_dir, patch_rm_t0_dir, files_dir, tor_data, init_data, \
                    RELOAD_WAIT_TIME, PAUSE_INTF_DOWN, PAUSE_INTF_UP, PAUSE_CLET_APPLY, DB_COMP_WAIT_TIME,\
-                   do_pause, db_comp, chk_bgp_session, chk_for_pfc_wd, report_error, take_DB_dumps, init_global_data
+                   do_pause, db_comp, chk_any_bgp_session, chk_for_pfc_wd, report_error, take_DB_dumps, init_global_data
 
 
 if os.path.exists("/etc/sonic/sonic-environment"):
@@ -207,12 +207,7 @@ def apply_clet(duthost, skip_test=False):
         "DB compare failed after apply-clet"
 
     # Ensure BGP session is up
-    if len(tor_data.get("ip", []).get("remote", [])):
-        chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-clet test")
-    elif len(tor_data.get("ipv6", []).get("remote", [])):
-        chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "post-clet test")
-    else:
-        report_error("No neighbors detected")
+    chk_any_bgp_session(duthost, "post-clet test")
 
     log_info("AddRack by template succeeded")
 
@@ -272,12 +267,7 @@ def do_test_add_rack(duthost, is_storage_backend=False, skip_load=False,
                      is_storage_backend=is_storage_backend)
 
         # Ensure BGP session is up before we apply stripped minigraph
-        if len(tor_data.get("ip", []).get("remote", [])):
-            chk_bgp_session(duthost, tor_data["ip"]["remote"], "pre-clet test")
-        elif len(tor_data.get("ipv6", []).get("remote", [])):
-            chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "pre-clet test")
-        else:
-            report_error("No neighbors detected")
+        chk_any_bgp_session(duthost, "pre-clet test")
 
         set_log_prefix_msg("test prepare")
         prepare_for_test(duthost)
