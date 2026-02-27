@@ -14,8 +14,27 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
+    pytest.mark.disable_memory_utilization,
     pytest.mark.topology('any')
 ]
+
+@pytest.fixture(autouse=True, scope="module")
+def enable_syslog_rate_limit_feature(rand_selected_dut):
+    output = rand_selected_dut.command('config syslog --help', module_ignore_errors=True)['stdout']
+    feature_supported = 'rate-limit-feature' in output
+    
+    if feature_supported:
+        logger.info("Enabling syslog rate-limit-feature before tests")
+        # in 202305, the feature is disabled by default for warmboot/fastboot
+        # performance, need manually enable it via command
+        rand_selected_dut.command('config syslog rate-limit-feature enable')
+        time.sleep(5)  
+    
+    yield
+    
+    if feature_supported:
+        logger.info("Disabling syslog rate-limit-feature after tests")
+        rand_selected_dut.command('config syslog rate-limit-feature disable', module_ignore_errors=True)
 
 def check_for_syncd(duthost):
     """
@@ -63,7 +82,7 @@ def test_containercfgd(duthosts, enum_rand_one_per_hwsku_hostname):
         check = False
         attempt = 1
         while not check and attempt <= 2:
-            logging.info("Restarting syncd container ..")
+            logging.info("Restarting syncd container: %s (attempt %d)", container, attempt)
             result = duthost.command("docker restart %s" % (container))
             time.sleep(120)
             check = check_for_syncd(duthost)
@@ -71,12 +90,13 @@ def test_containercfgd(duthosts, enum_rand_one_per_hwsku_hostname):
         assert check, "Unable to start syncd, test cannot be run"
         time.sleep(30)
         try:
-            running_processes = duthost.command("docker exec -i syncd supervisorctl status containercfgd ")["stdout"]
-        except:
+            running_processes = duthost.command("docker exec -i %s supervisorctl status containercfgd" % container)["stdout"]
+            logging.info("containercfgd status in %s: %s", container, running_processes)
+        except Exception as e:
             running_processes = ""
-        logging.info(result)
-        logging.info(running_processes)
-        assert "RUNNING" in running_processes, "containercfgd has not been started in %s"%(container)
+            logging.error("Exception while checking containercfgd in %s: %s", container, str(e))
+        
+        assert "RUNNING" in running_processes, "containercfgd has not been started in %s" % (container)
 
 def test_syslog_rate_limit(rand_selected_dut):
     """
@@ -87,21 +107,23 @@ def test_syslog_rate_limit(rand_selected_dut):
 
     # Copy tests/syslog/log_generator.py to DUT
     rand_selected_dut.copy(src=LOCAL_LOG_GENERATOR_FILE, dest=REMOTE_LOG_GENERATOR_FILE)
-    skip_container_list = rand_selected_dut.command(r'docker ps --format \{\{.Names\}\}')["stdout_lines"]
+    
+    feature_data = rand_selected_dut.show_and_parse('show feature status')
+    all_features = [item['feature'] for item in feature_data]
+    
+    skip_feature_list = []
     if rand_selected_dut.is_multi_asic:
-        for container in skip_container_list:
-            if container.startswith("syncd"):
-                skip_container_list.remove(container)
+        skip_feature_list = [f for f in all_features if not f.startswith("syncd")]
     else:
-        skip_container_list.remove("syncd")
-    verify_container_rate_limit(rand_selected_dut, skip_container_list)
+        skip_feature_list = [f for f in all_features if f != "syncd"]
+    
+    verify_container_rate_limit(rand_selected_dut, skip_feature_list)
     verify_host_rate_limit(rand_selected_dut)
-
-    # Save configuration and reload, verify the configuration can be loaded
-    logger.info('Persist syslog rate limit configuration to DB and do config reload')
     rand_selected_dut.command('config save -y')
     config_reload(rand_selected_dut)
+    rand_selected_dut.command('config syslog rate-limit-feature enable', module_ignore_errors=True)
+    time.sleep(5)
 
     # database does not support syslog rate limit configuration persist
-    verify_container_rate_limit(rand_selected_dut, skip_container_list)
+    verify_container_rate_limit(rand_selected_dut, skip_feature_list)
     verify_host_rate_limit(rand_selected_dut)
