@@ -1,5 +1,6 @@
 import pytest
 import time
+import shlex
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import check_output
 from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry, check_tacacs  # noqa: F401
@@ -59,10 +60,11 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
         # Wait for tacacs to finish configuration from hostcfgd
         logger.info("Check if hostcfgd started and configured tacac attempt = {}".format(current_attempt))
         time.sleep(SLEEP_TIME)
+        cmd_quoted = shlex.quote(cmd)
         output = localhost.shell(
             "sshpass -p {} ssh "
             "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-            "{}@{} {}".format(password, username, remote_ip, cmd), module_ignore_errors=True)['stdout_lines']
+            "{}@{} {}".format(password, username, remote_ip, cmd_quoted), module_ignore_errors=True)['stdout_lines']
         if "active (running)" in str(output):
             return
         else:
