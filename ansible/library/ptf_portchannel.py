@@ -102,7 +102,7 @@ def create_teamd_conf(module, teamd_config):
     t = jinja2.Template(portchannel_conf_tmpl)
     for conf in teamd_config:
         with open(os.path.join(portchannel_conf_path, "{}.conf".format(conf["name"])), 'w') as fd:
-            fd.write(t.render(conf))
+            fd.write(t.render(conf))  # nosemgrep: direct-use-of-jinja2
 
 
 def remove_teamd_conf(module, teamd_config):
@@ -118,7 +118,7 @@ def create_supervisor_conf(module, teamd_config):
     t = jinja2.Template(portchannel_supervisord_conf_tmpl)
     for conf in teamd_config:
         with open(os.path.join(portchannel_supervisord_path, "portchannel-{}.conf".format(conf["name"])), 'w') as fd:
-            fd.write(t.render(conf))
+            fd.write(t.render(conf))  # nosemgrep: direct-use-of-jinja2
     refresh_supervisord(module)
 
 

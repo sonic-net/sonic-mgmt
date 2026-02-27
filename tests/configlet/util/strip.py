@@ -2,7 +2,7 @@
 
 import json
 import sys
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 
 from tests.common.configlet.helpers import log_info, log_debug
 from tests.common.configlet.utils import tor_data, config_db_data_orig, managed_files, report_error   # noqa F401
