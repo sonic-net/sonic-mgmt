@@ -1,6 +1,7 @@
 import logging
 import pytest
 
+from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig,\
@@ -145,6 +146,7 @@ def get_dhcp_relay_info_from_all_vlans(duthost):
 @pytest.fixture(autouse=True)
 def setup_vlan(duthosts, rand_one_dut_hostname, vlan_intfs_dict, first_avai_vlan_port, cfg_facts, vlan_intfs_list):
     duthost = duthosts[rand_one_dut_hostname]
+    config_reload(duthost, config_source="minigraph", safe_reload=True)
     create_checkpoint(duthost)
 
     # --------------------- Setup -----------------------
@@ -250,7 +252,13 @@ def expect_res_success_by_vlanid(duthost, vlanid, expected_content_list, unexpec
 
 
 # DHCP_RELAY TEST
-def test_dhcp_relay_tc1_rm_nonexist(rand_selected_dut, vlan_intfs_list):
+def test_dhcp_relay_suite(rand_selected_dut, vlan_intfs_list):
+    dhcp_relay_tc1_rm_nonexist(rand_selected_dut, vlan_intfs_list)
+    dhcp_relay_tc2_add_exist(rand_selected_dut, vlan_intfs_list)
+    dhcp_relay_tc3_add_and_rm(rand_selected_dut, vlan_intfs_list)
+    dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list)
+
+def dhcp_relay_tc1_rm_nonexist(rand_selected_dut, vlan_intfs_list):
     """Test remove nonexisted dhcp server on default setup
     """
     dhcp_rm_nonexist_json = [
@@ -272,7 +280,7 @@ def test_dhcp_relay_tc1_rm_nonexist(rand_selected_dut, vlan_intfs_list):
         delete_tmpfile(rand_selected_dut, tmpfile)
 
 
-def test_dhcp_relay_tc2_add_exist(rand_selected_dut, vlan_intfs_list):
+def dhcp_relay_tc2_add_exist(rand_selected_dut, vlan_intfs_list):
     """Test add existed dhcp server on default setup
     """
     dhcp_add_exist_json = [
@@ -293,7 +301,7 @@ def test_dhcp_relay_tc2_add_exist(rand_selected_dut, vlan_intfs_list):
         delete_tmpfile(rand_selected_dut, tmpfile)
 
 
-def test_dhcp_relay_tc3_add_and_rm(rand_selected_dut, vlan_intfs_list):
+def dhcp_relay_tc3_add_and_rm(rand_selected_dut, vlan_intfs_list):
     """Test mixed add and rm ops for dhcp server on default setup
 
     This VLAN detail should show below after test
@@ -342,7 +350,7 @@ def test_dhcp_relay_tc3_add_and_rm(rand_selected_dut, vlan_intfs_list):
         delete_tmpfile(rand_selected_dut, tmpfile)
 
 
-def test_dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list):
+def dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list):
     """Test replace dhcp server on default setup
 
     This VLAN detail should show below after test
@@ -352,12 +360,12 @@ def test_dhcp_relay_tc4_replace(rand_selected_dut, vlan_intfs_list):
     |       108 | 192.168.108.1/24 | Ethernet4 | tagged         | disabled    | 192.0.108.2           |
     |           |                  |           |                |             | 192.0.108.3           |
     |           |                  |           |                |             | 192.0.108.4           |
+    |           |                  |           |                |             | 192.0.108.5           |
     |           |                  |           |                |             | 192.0.108.8           |
     +-----------+------------------+-----------+----------------+-------------+-----------------------+
     |       109 | 192.168.109.1/24 | Ethernet4 | tagged         | disabled    | 192.0.109.1           |
     |           |                  |           |                |             | 192.0.109.2           |
     |           |                  |           |                |             | 192.0.109.3           |
-    |           |                  |           |                |             | 192.0.109.4           |
     +-----------+------------------+-----------+----------------+-------------+-----------------------+
     """
     dhcp_replace_json = [
