@@ -41,7 +41,7 @@ class PtfGrpc:
     to install gRPC libraries in the test environment.
     """
 
-    def __init__(self, ptfhost, target_or_env, plaintext=None, duthost=None):
+    def __init__(self, ptfhost, target_or_env, plaintext=None, duthost=None, insecure=False):
         """
         Initialize PtfGrpc client.
 
@@ -50,9 +50,10 @@ class PtfGrpc:
             target_or_env: Either target string (host:port) or GNMIEnvironment instance
             plaintext: Force plaintext mode (True/False), auto-detected if None
             duthost: DUT host instance (required for GNMIEnvironment auto-config)
+            insecure: Whether to skip TLS verification (if TLS is used)
         """
         self.ptfhost = ptfhost
-
+        self.insecure = insecure  # Whether to skip TLS verification (if TLS is used)
         # TLS certificate configuration
         self.ca_cert = None
         self.client_cert = None
@@ -80,7 +81,7 @@ class PtfGrpc:
             logger.info(f"Manual PtfGrpc configuration: target={self.target}, plaintext={self.plaintext}")
 
         # Connection configuration
-        self.timeout = 10.0  # seconds as float, configurable
+        self.timeout = 100.0  # seconds as float, configurable
         self.max_msg_size = 100 * 1024 * 1024  # 100MB in bytes
         self.headers = {}  # Custom headers
         self.verbose = False  # Enable verbose grpcurl output
@@ -102,6 +103,8 @@ class PtfGrpc:
         if self.plaintext:
             cmd.append("-plaintext")
         else:
+            if self.insecure:
+                cmd.append("-insecure")  # Use TLS but skip verification (if certificates not configured)
             # TLS mode - add certificate arguments if configured
             if self.ca_cert:
                 cmd.extend(["-cacert", self.ca_cert])
@@ -110,10 +113,11 @@ class PtfGrpc:
             if self.client_key:
                 cmd.extend(["-key", self.client_key])
 
+        timeout_arg = str(int(self.timeout))
         # Standard options (avoid unsupported flags like -max-msg-sz)
         cmd.extend([
-            "-connect-timeout", str(self.timeout),
-            "-format", "json"
+            "-connect-timeout", timeout_arg,
+            "-format", "json",
         ])
 
         # Add per-call metadata headers (higher priority than self.headers)
@@ -165,41 +169,54 @@ class PtfGrpc:
         """
         # Use ansible command module for robust execution
         # Join command parts into a single command string
-        cmd_str = ' '.join(cmd)
 
         if input_data:
-            logger.debug(f"Executing: {cmd_str} (with stdin data)")
-            result = self.ptfhost.command(cmd_str, stdin=input_data, module_ignore_errors=True)
+            logger.debug("Executing grpcurl argv=%r (with stdin data)", cmd)
+            result = self.ptfhost.command(argv=cmd, stdin=input_data, module_ignore_errors=True)
         else:
-            logger.debug(f"Executing: {cmd_str}")
-            result = self.ptfhost.command(cmd_str, module_ignore_errors=True)
+            logger.debug("Executing grpcurl argv=%r", cmd)
+            result = self.ptfhost.command(argv=cmd, module_ignore_errors=True)
 
-        # Analyze errors and provide specific exceptions
         if result['rc'] != 0:
-            stderr = result['stderr']
+            stderr = (result.get('stderr') or "").strip()
+            stdout = (result.get('stdout') or "").strip()
+            msg = (result.get('msg') or "").strip()
+            err_text = stderr or stdout or msg
 
             # Connection-related errors
-            if any(term in stderr.lower() for term in [
+            if any(term in err_text.lower() for term in [
                 'connection refused', 'no such host', 'network is unreachable',
                 'connect: connection refused', 'dial tcp', 'connection failed'
             ]):
-                raise GrpcConnectionError(f"Connection failed to {self.target}: {stderr}")
+                raise GrpcConnectionError(
+                    f"Connection failed to {self.target}: {err_text}"
+                )
 
             # Timeout-related errors
-            if any(term in stderr.lower() for term in [
+            if any(term in err_text.lower() for term in [
                 'timeout', 'deadline exceeded', 'context deadline exceeded'
             ]):
-                raise GrpcTimeoutError(f"Operation timed out after {self.timeout}s: {stderr}")
+                raise GrpcTimeoutError(
+                    f"Operation timed out after {self.timeout}s: {err_text}"
+                )
 
             # Service/method not found
-            if any(term in stderr.lower() for term in [
+            if any(term in err_text.lower() for term in [
                 'unknown service', 'unknown method', 'not found',
                 'unimplemented', 'service not found'
             ]):
-                raise GrpcCallError(f"Service or method not found: {stderr}")
+                raise GrpcCallError(f"Service or method not found: {err_text}")
 
             # Generic error
-            raise PtfGrpcError(f"grpcurl failed: {stderr}")
+            raise PtfGrpcError(
+                "grpcurl failed: rc={} stdout='{}' stderr='{}' msg='{}' cmd={}".format(
+                    result.get('rc'),
+                    stdout,
+                    stderr,
+                    msg,
+                    cmd,
+                )
+            )
 
         return result
 
@@ -392,14 +409,17 @@ class PtfGrpc:
 
         # Prepare request data
         request_data = "{}"  # Default empty JSON
-        extra_args = ["-d", "@"]
         if request:
             if isinstance(request, dict):
                 request_data = json.dumps(request)
             else:
                 request_data = str(request)
+
+        # Pass JSON inline instead of stdin
+        extra_args = ["-d", request_data]
+
         cmd = self._build_grpcurl_cmd(extra_args=extra_args, service_method=service_method, metadata=metadata)
-        result = self._execute_grpcurl(cmd, request_data)
+        result = self._execute_grpcurl(cmd, None)
 
         try:
             response = json.loads(result['stdout'].strip())
@@ -471,7 +491,7 @@ class PtfGrpc:
         logger.info(f"Received {len(responses)} responses from streaming call {service_method}")
         return responses
 
-    def call_client_streaming(self, service: str, method: str, requests: List[Union[Dict, str]]) -> Dict:
+    def call_client_streaming(self, service: str, method: str, requests: List[Union[Dict, str]], metadata=None) -> Dict:
         """
         Make a client streaming gRPC call (multiple requests, single response).
 
@@ -479,6 +499,7 @@ class PtfGrpc:
             service: Service name
             method: Method name
             requests: List of request payloads
+            metadata: Metadata for the gRPC call
 
         Returns:
             Response dictionary
@@ -489,7 +510,7 @@ class PtfGrpc:
             GrpcTimeoutError: If call times out
         """
         service_method = f"{service}/{method}"
-        cmd = self._build_grpcurl_cmd(extra_args=["-d", "@"], service_method=service_method)
+        cmd = self._build_grpcurl_cmd(extra_args=["-d", "@"], service_method=service_method, metadata=metadata)
 
         # Prepare multiple requests as newline-delimited JSON
         if not requests:

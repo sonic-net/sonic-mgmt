@@ -2,7 +2,7 @@ import logging
 import pytest
 
 from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
-    ptf_gnoi, ptf_grpc
+    ptf_grpc, ptf_gnoi, setup_gnoi_tls_server
 )
 from tests.common.helpers.upgrade_helpers import (
     GnoiUpgradeConfig,
@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('smartswitch'),
     pytest.mark.disable_loganalyzer,
+    pytest.mark.usefixtures("setup_gnoi_tls_server"),
 ]
 
 
@@ -46,15 +47,14 @@ def smartswitch_gnoi_upgrade_lists(request):
 
     ss_target_index = request.config.getoption("ss_target_index")          # int
     ss_target_indices = request.config.getoption("ss_target_indices")      # "0,1,2,3"
-    ss_dut_image_path = request.config.getoption("ss_dut_image_path")      # /var/tmp/...
-    ss_reboot_ready_timeout = request.config.getoption("ss_reboot_ready_timeout")
+    ss_reboot_ready_timeout = 600
     ss_max_workers = request.config.getoption("ss_max_workers")
 
+    ss_dut_image_path = "/var/tmp/sonic_image.bin"
+
     # defaults
-    if ss_target_index is None:
-        ss_target_index = 3
-    if not ss_dut_image_path:
-        ss_dut_image_path = "/var/tmp/sonic_image.bin"
+    if ss_target_index in (None, ""):
+        ss_target_index = 0
     if not ss_reboot_ready_timeout:
         ss_reboot_ready_timeout = 1200
 
@@ -115,6 +115,8 @@ def test_upgrade_one_dpu_via_gnoi(
     )
 
     perform_gnoi_upgrade_smartswitch_dpu(
+        duthost=duthost,
+        tbinfo=tbinfo,
         ptf_gnoi=ptf_gnoi,
         cfg=cfg,
     )
@@ -166,6 +168,8 @@ def test_upgrade_multiple_dpus_via_gnoi_parallel(
         ))
 
     perform_gnoi_upgrade_smartswitch_dpus_parallel(
+        duthost=duthost,
+        tbinfo=tbinfo,
         ptf_gnoi=ptf_gnoi,
         cfgs=cfgs,
         max_workers=workers,

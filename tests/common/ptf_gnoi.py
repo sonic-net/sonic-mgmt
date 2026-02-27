@@ -183,8 +183,8 @@ class PtfGnoi:
             remote_download["credentials"] = credentials
 
         request = {
-            "localPath": local_path,
-            "remoteDownload": remote_download,
+            "local_path": local_path,
+            "remote_download": remote_download,
         }
 
         response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request, metadata=metadata)

@@ -416,7 +416,7 @@ def _wait_gnoi_time_ready(ptf_gnoi, metadata, cfg: GnoiUpgradeConfig, timeout=No
     return wait_until(timeout, interval, 0, ptf_gnoi.system_time, metadata=metadata)
 
 
-def _upgrade_one_dpu_via_gnoi(ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
+def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
     if not cfg.metadata:
         raise ValueError("cfg.metadata must be provided for SmartSwitch DPU upgrade")
 
@@ -438,11 +438,11 @@ def _upgrade_one_dpu_via_gnoi(ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
         metadata=md,
     )
 
-    method = str(cfg.upgrade_type).upper()
+    # method = str(cfg.upgrade_type).upper()
     try:
         ## TODO: switch to use the perform reboot helper once it supports gNOI.
         reboot_resp = ptf_gnoi.system_reboot(
-            method=method,
+            method=cfg.upgrade_type,
             delay=0,
             message=cfg.ss_reboot_message,
             metadata=md,
@@ -454,17 +454,21 @@ def _upgrade_one_dpu_via_gnoi(ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
     if cfg.allow_fail:
         return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
 
-    ok = wait_until(cfg.ss_reboot_ready_timeout, 10, 0, ptf_gnoi.system_time, metadata=md)
+    ok = _wait_gnoi_time_ready(ptf_gnoi, md, cfg)
     pytest_assert(ok, f"gNOI Time not reachable within {cfg.ss_reboot_ready_timeout}s after reboot")
+    check_services(duthost, tbinfo)
+    check_neighbors(duthost, tbinfo)
+    check_copp_config(duthost)
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
 
 
-def perform_gnoi_upgrade_smartswitch_dpu(ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
-    return _upgrade_one_dpu_via_gnoi(ptf_gnoi, cfg)
+def perform_gnoi_upgrade_smartswitch_dpu(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
+    return _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg)
 
 
 def perform_gnoi_upgrade_smartswitch_dpus_parallel(
+    duthost, tbinfo,
     ptf_gnoi,
     cfgs: Sequence[GnoiUpgradeConfig],
     max_workers: Optional[int] = None,
@@ -478,10 +482,9 @@ def perform_gnoi_upgrade_smartswitch_dpus_parallel(
     with SafeThreadPoolExecutor(max_workers=workers) as executor:
         futs = {}
         for i, cfg in enumerate(cfgs):
-            futs[i] = executor.submit(_upgrade_one_dpu_via_gnoi, ptf_gnoi, cfg)
+            futs[i] = executor.submit(_upgrade_one_dpu_via_gnoi, duthost, tbinfo, ptf_gnoi, cfg)
 
         for i, fut in futs.items():
             results[i] = fut.result()
 
     return results
-
