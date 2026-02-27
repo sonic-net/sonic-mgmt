@@ -374,10 +374,13 @@ def partial_ptf_runner(request, ptfhost, tbinfo):
     return _partial_ptf_runner
 
 
-def check_sflow_traffic(duthost, partial_ptf_runner, enabled_sflow_interfaces="[]",
-                        active_collectors="[]", agent_id=None, polling_int=None):
-    kwargs = {'enabled_sflow_interfaces': enabled_sflow_interfaces,
-              'active_collectors': active_collectors}
+def check_sflow_traffic(duthost, partial_ptf_runner, enabled_sflow_interfaces=None,
+                        active_collectors=None, agent_id=None, polling_int=None):
+    kwargs = {}
+    if enabled_sflow_interfaces is not None:
+        kwargs['enabled_sflow_interfaces'] = enabled_sflow_interfaces
+    if active_collectors is not None:
+        kwargs['active_collectors'] = active_collectors
     if agent_id is not None:
         kwargs['agent_id'] = agent_id
     if polling_int is not None:
@@ -691,6 +694,7 @@ class TestAgentId():
         verify_show_sflow(duthost, status='up', agent_id='default')
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
         # Verify  whether the samples are received with previously configured agent ip
+        agent_ip = get_default_agent(duthost)
         assert check_sflow_traffic(duthost, partial_ptf_runner,
                                    polling_int=20,
                                    agent_id=agent_ip,

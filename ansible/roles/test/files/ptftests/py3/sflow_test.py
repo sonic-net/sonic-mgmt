@@ -51,10 +51,16 @@ class SflowTest(BaseTest):
         self.router_mac = self.test_params['router_mac']
         self.dst_port = self.test_params['dst_port']
 
+        self.enabled_intf = []
         if 'enabled_sflow_interfaces' in self.test_params:
-            self.enabled_intf = self.test_params['enabled_sflow_interfaces']
+            intf_param = self.test_params['enabled_sflow_interfaces']
+            self.enabled_intf = ast.literal_eval(intf_param) if isinstance(intf_param, str) else intf_param
         self.agent_id = self.test_params['agent_id']
-        self.active_col = ast.literal_eval(self.test_params['active_collectors'])
+        if 'active_collectors' in self.test_params:
+            col_param = self.test_params['active_collectors']
+            self.active_col = ast.literal_eval(col_param) if isinstance(col_param, str) else col_param
+        else:
+            self.active_col = []
         self.sflow_interfaces = []
         self.sflow_ports_file = self.test_params['sflow_ports_file']
         if 'polling_int' in self.test_params:
@@ -70,11 +76,8 @@ class SflowTest(BaseTest):
         self.collectors = ['collector0', 'collector1']
         for param, value in self.test_params.items():
             logging.info("%s : %s" % (param, value))
-        samples_per_collector = 0
-        if 'enabled_sflow_interfaces' in self.test_params:
-            samples_per_collector = EXPECTED_FLOW_SAMPLES_PER_INTF * len(self.enabled_intf)
-        else:
-            samples_per_collector = EXPECTED_FLOW_SAMPLES_PER_INTF * len(self.interfaces)
+
+        samples_per_collector = NUM_SAMPLES * len(self.enabled_intf)
         self.total_expected_flow_samples = samples_per_collector * len(self.active_col)
 
     def tearDown(self):
