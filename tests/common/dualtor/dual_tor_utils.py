@@ -885,7 +885,7 @@ def mux_cable_server_ip(dut):
 def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip,
                          standby_tor_ip, selected_port, target_server_ip,
                          target_server_ipv6, target_server_port, ptf_portchannel_indices,
-                         completeness_level, check_ipv6=False):
+                         completeness_level, check_ipv6=False, pktlen=None, hash_keys=None):
     """
     Function for testing traffic distribution among all avtive T1.
     A test script will be running on ptf to generate traffic to standby interface, and the traffic will be forwarded to
@@ -903,7 +903,8 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip,
     Returns:
         None.
     """
-    HASH_KEYS = ["src-port", "dst-port", "src-ip"]
+    if hash_keys is None:
+        hash_keys = ["src-port", "dst-port", "src-ip"]
     params = {
         "server_ip": target_server_ip,
         "server_port": target_server_port,
@@ -912,11 +913,13 @@ def check_tunnel_balance(ptfhost, standby_tor_mac, vlan_mac, active_tor_ip,
         "active_tor_ip": active_tor_ip,
         "standby_tor_ip": standby_tor_ip,
         "ptf_portchannel_indices": ptf_portchannel_indices,
-        "hash_key_list": HASH_KEYS,
+        "hash_key_list": hash_keys,
         "completeness_level": completeness_level
     }
     if check_ipv6:
         params["server_ip"] = target_server_ipv6
+    if pktlen is not None:
+        params["pktlen"] = pktlen
 
     logging.info("run ptf test for verifying IPinIP tunnel balance")
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
