@@ -104,11 +104,6 @@ class TestbedHealthChecker:
         self.npu_hosts = []
         self.nat_enabled_hosts = []
 
-        # DPU-related state
-        self.dpu_hosts = []
-        self.npu_hosts = []
-        self.nat_enabled_hosts = []
-
         self.check_result = TestbedCheckResult(code=0, errmsg=[], data={})
 
     def _get_testbed_dut_names(self):
