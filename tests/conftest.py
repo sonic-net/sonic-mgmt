@@ -1833,7 +1833,7 @@ def generate_dut_feature_list(request, duts_selected, asics_selected):
     if meta is None:
         return tuple_list
 
-    skip_feature_list = ['database', 'database-chassis', 'gbsyncd']
+    skip_feature_list = ['gbsyncd']
 
     for a_dut_index, a_dut in enumerate(duts_selected):
         if len(asics_selected):
