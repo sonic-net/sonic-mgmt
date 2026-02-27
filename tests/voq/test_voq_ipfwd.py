@@ -757,6 +757,9 @@ class TestVoqIPFwd(object):
         logger.info("Pinging neighbor interfaces for ip: {ipv}, ttl: {ttl}, size: {size}".format(ipv=version, ttl=ttl,
 
                                                                                                  size=size))
+        if 'portC' not in ports or 'portD' not in ports:
+            pytest.skip("Did not find ports in the DUTs (linecards) connected to T3 VM's")
+
         remote_port = 'portD'
         if 'portC' in ports:
             remote_port = 'portC'
