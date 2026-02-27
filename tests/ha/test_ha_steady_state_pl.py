@@ -21,7 +21,7 @@ Test prerequisites:
 """
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest.fixture(autouse=True, scope="module")
 def common_setup_teardown(
     localhost,
     duthosts,

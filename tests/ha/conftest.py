@@ -204,7 +204,7 @@ def use_underlay_route(request):
     return request.param == "with-underlay-route"
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def dash_pl_config(duthosts, dpuhosts, dpu_index, duts_minigraph_facts):
     dash_info = [{
         LOCAL_CA_IP: "10.2.2.2",
@@ -276,7 +276,7 @@ def apply_config(localhost, duthost, ptfhost, skip_config, skip_cleanup):
             _apply_config(config_info)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def setup_gnmi_server(duthosts, localhost, ptfhost, skip_cert_cleanup):
     if not ENABLE_GNMI_API:
         yield
@@ -337,7 +337,7 @@ def vxlan_udp_dport(request, duthost):
     config_vxlan_udp_dport(duthost, 4789)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
     """
     Configure VXLAN UDP source port range in dpu configuration.
@@ -362,6 +362,7 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
         logger.warning("Applying Pensando DPU VXLAN sport workaround")
         dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
     yield
+
     if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
         config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
@@ -371,7 +372,7 @@ def dpu_index(request):
     return request.config.getoption("--dpu_index")
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def dpu_setup(duthosts, dpuhosts, dpu_index, skip_config):
     if skip_config:
         return
@@ -392,7 +393,7 @@ def dpu_setup(duthosts, dpuhosts, dpu_index, skip_config):
             dpu_cmds.append(f"config int ip add Loopback0 {pl.APPLIANCE_VIP}/32")
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def add_npu_static_routes(
     duthosts, dash_pl_config, skip_config, skip_cleanup, dpu_index, dpuhosts
 ):
@@ -433,7 +434,7 @@ def add_npu_static_routes(
             duthost.shell_cmds(cmds=cmds)
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture(scope="module")
 def setup_npu_dpu(dpu_setup, add_npu_static_routes):
     yield
 ###############################################################################
@@ -687,7 +688,7 @@ def setup_ha_config(duthosts):
 
     final_cfg = {}
 
-    logger.info("HA: setup config")
+    logger.info("HA: setup config for Primary and Standby")
     for switch_id in (0, 1):
         dut = duthosts[switch_id]
         cfg = generate_ha_config_for_dut(switch_id)
@@ -726,7 +727,7 @@ def setup_dash_ha_from_json(duthosts):
     base_dir = os.path.join(current_dir, "..", "common", "ha")
     ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
 
-    logger.info("HA: setup from json")
+    logger.info("HA: setup from json for Primary and Standby")
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
 
@@ -775,6 +776,7 @@ def setup_dash_ha_from_json(duthosts):
             key=key,
             args=build_dash_ha_scope_args(fields),
         )
+    yield
 
 
 @pytest.fixture(scope="function")
@@ -804,43 +806,51 @@ def activate_dash_ha_from_json(duthosts):
             },
         ),
     ]
-    logger.info("HA: activate")
+    logger.info("HA: activate Primary and Standby")
     for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
-        proto_utils_hset(
-            duthost,
-            table="DASH_HA_SCOPE_CONFIG_TABLE",
-            key=key,
-            args=build_dash_ha_scope_args(fields),
-        )
-    for idx, (duthost, (key, fields)) in enumerate(zip(duthosts, activate_scope_per_dut)):
-        pending_id = wait_for_pending_operation_id(
-            duthost,
-            scope_key=key,
-            expected_op_type="activate_role",
-            timeout=120,
-            interval=2
-        )
-        assert pending_id, (
-            f"Timed out waiting for active pending_operation_id "
-            f"for {duthost.hostname} scope {key}"
-        )
+        is_active = wait_for_ha_state(duthost, scope_key=key, expected_state="active", timeout=120, interval=5)
+        if not is_active:
+            break
 
-        logger.info(f"DASH HA {duthost.hostname} found pending id {pending_id}")
-        proto_utils_hset(
-            duthost,
-            table="DASH_HA_SCOPE_CONFIG_TABLE",
-            key=key,
-            args=build_dash_ha_scope_activate_args(fields, pending_id),
-        )
-        # Verify HA state using fields
-        expected_state = "active" if idx == 0 else "standby"
-        assert wait_for_ha_state(
-            duthost,
-            scope_key=key,
-            expected_state=expected_state,
-            timeout=120,
-            interval=5,
-        ), f"HA did not reach expected state {expected_state} for {key} on {duthost.hostname}"
-        logger.info(f"DASH HA Step-4 Activate Role completed for {duthost.hostname}")
-    logger.info("DASH HA Step-4 Activate Role completed")
+    if is_active:
+        logger.info("HA: Primary and Standby already active")
+    else:
+        for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
+            proto_utils_hset(
+                duthost,
+                table="DASH_HA_SCOPE_CONFIG_TABLE",
+                key=key,
+                args=build_dash_ha_scope_args(fields),
+            )
+        for idx, (duthost, (key, fields)) in enumerate(zip(duthosts, activate_scope_per_dut)):
+            pending_id = wait_for_pending_operation_id(
+                duthost,
+                scope_key=key,
+                expected_op_type="activate_role",
+                timeout=120,
+                interval=2
+            )
+            assert pending_id, (
+                f"Timed out waiting for active pending_operation_id "
+                f"for {duthost.hostname} scope {key}"
+            )
+
+            logger.info(f"DASH HA {duthost.hostname} found pending id {pending_id}")
+            proto_utils_hset(
+                duthost,
+                table="DASH_HA_SCOPE_CONFIG_TABLE",
+                key=key,
+                args=build_dash_ha_scope_activate_args(fields, pending_id),
+            )
+            # Verify HA state using fields
+            expected_state = "active"
+            assert wait_for_ha_state(
+                duthost,
+                scope_key=key,
+                expected_state=expected_state,
+                timeout=120,
+                interval=5,
+            ), f"HA did not reach expected state {expected_state} for {key} on {duthost.hostname}"
+            logger.info(f"Activate completed for {duthost.hostname}")
+        logger.info("HA: activate completed for Primary and Standby")
     yield
