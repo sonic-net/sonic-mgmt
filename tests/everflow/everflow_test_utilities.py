@@ -1078,9 +1078,9 @@ class BaseEverflowTest(object):
         src_port_metadata_map = {}
 
         if 't2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo']:
+            src_port_set.add(src_port)
+            src_port_metadata_map[src_port] = (None, 1)
             if valid_across_namespace is True:
-                src_port_set.add(src_port)
-                src_port_metadata_map[src_port] = (None, 1)
                 # Add the dest_port to src_port_set only in non MACSEC testbed scenarios
                 if not MACSEC_INFO:
                     if duthost.facts['switch_type'] == "voq":
