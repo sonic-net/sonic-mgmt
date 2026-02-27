@@ -20,6 +20,7 @@
 #include <string>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -128,8 +129,21 @@ void OndatraMirrorTestbedFixture::SetUp() {
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<thinkit::Switch> control,
                        CreateSwitchFromDevice(*control_device));
 
-  mirror_testbed_ = std::make_unique<OndatraMirrorTestbed>(std::move(sut),
-                                                           std::move(control));
+  // Setup testhelper teardown.
+  teardown_handler_id_ = ondatra_hooks_.new_teardown_handler(/*opts=*/{
+      .with_config_restorer = false,
+  });
+  auto set_test_case_ids =
+      [this](const std::vector<std::string>& test_case_ids) {
+        for (const std::string& test_case_id : test_case_ids) {
+          std::string test_case_id_go_str = test_case_id;
+          this->ondatra_hooks_.add_test_case_id(this->teardown_handler_id_,
+                                                test_case_id_go_str.data());
+        }
+      };
+
+  mirror_testbed_ = std::make_unique<OndatraMirrorTestbed>(
+      std::move(sut), std::move(control), set_test_case_ids);
 }
 
 thinkit::MirrorTestbed& OndatraMirrorTestbedFixture::GetMirrorTestbed() {
