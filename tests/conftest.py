@@ -16,6 +16,7 @@ import threading
 import pathlib
 import importlib
 import inspect
+import concurrent.futures.thread as cft
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -113,6 +114,11 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
                   'tests.common.fixtures.duthost_utils')
+
+
+# NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
+if sys.version_info < (3, 12, 8):
+    os.register_at_fork(after_in_child=cft._threads_queues.clear)
 
 
 patch_ansible_worker_process()
