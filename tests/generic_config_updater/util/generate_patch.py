@@ -601,7 +601,15 @@ def generate_config_patch(full_config_path, no_leaf_config_path):
 
     # Filter out backplane ports from coalesced patches
     coalesced_port_only = [p for p in coalesced_port_patches if '/PORT/' in p['path'] and is_front_panel_patch(p)]
-    coalesced_acl_table = [p for p in coalesced_port_patches if '/ACL_TABLE/' in p['path']]
+    # Filter ACL_TABLE patches, excluding localhost namespace (multi-ASIC cross-namespace issue)
+    # On multi-ASIC chassis, localhost ACL_TABLE entries reference ports only in ASIC namespaces
+    coalesced_acl_table = [p for p in coalesced_port_patches
+                          if '/ACL_TABLE/' in p['path'] and not p['path'].startswith('/localhost/')]
+    localhost_acl_count = sum(1 for p in coalesced_port_patches
+                              if '/ACL_TABLE/' in p['path'] and p['path'].startswith('/localhost/'))
+    if localhost_acl_count > 0:
+        logger.info("Filtered out %d localhost ACL_TABLE patches (multi-ASIC cross-namespace issue)",
+                    localhost_acl_count)
     coalesced_interface = [p for p in coalesced_port_patches if '/INTERFACE/' in p['path'] and is_front_panel_patch(p)]
     coalesced_bgp_neighbor = [p for p in coalesced_port_patches if '/BGP_NEIGHBOR/' in p['path']]
 
@@ -643,6 +651,9 @@ def generate_config_patch(full_config_path, no_leaf_config_path):
     # Generate ACL_TABLE binding patches for ports being added
     acl_binding_patches = []
     for namespace, ports in ports_being_added.items():
+        # Skip localhost namespace - ACL bindings should be per-ASIC namespace
+        if namespace == 'localhost':
+            continue
         acl_patches = find_acl_table_bindings_for_ports(
             full_config, no_leaf_config, namespace, ports, is_multi_asic
         )
