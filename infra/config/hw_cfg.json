@@ -208,8 +208,8 @@
                 "sudo reboot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
-            "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo 400g-t1 password.txt",
-            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo 400g-t1 password.txt",
+            "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo 400g-t1 ./lab -e 'root_fanout_connect=false'",
+            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo 400g-t1 ./lab -e 'root_fanout_connect=false'",
             "mtu_hack": {
                 "vms_count": 24
             }
