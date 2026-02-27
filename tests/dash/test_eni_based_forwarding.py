@@ -9,7 +9,7 @@ import ptf.testutils as testutils
 import ptf.packet as scapy
 
 from ptf.mask import Mask
-from dash_utils import render_template_to_host, apply_swssconfig_file
+from tests.common.dash_utils import render_template_to_host, apply_swssconfig_file
 from tests.dash.conftest import get_interface_ip
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until

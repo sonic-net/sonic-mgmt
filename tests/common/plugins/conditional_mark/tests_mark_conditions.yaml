@@ -2783,6 +2783,17 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "'f2' in topo_name"
 
 #######################################
+#####           ha              #####
+#######################################
+ha/test_ha_steady_state_pl.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+
+#######################################
 #####           hash              #####
 #######################################
 hash/test_generic_hash.py:
