@@ -902,22 +902,6 @@ sonic_nexus_3132GX_40:
 
 sonic_nexus_3164:
   hosts:
-    strtk5-n3164-01:
-      ansible_host: 10.212.70.6
-      ansible_hostv6: 2603:10e2:140:3000::1c6
-      model: 73-16477-04
-      serial: FDO22101QN0
-      base_mac: 70:79:b3:07:60:50
-      num_asics: 6
-      frontend_asics: [0, 1, 2, 3]
-    strtk5-n3164-acs-2:
-      ansible_host: 10.212.69.115
-      ansible_hostv6: 2603:10e2:140:3000::93
-      num_asics: 6
-      model: 73-16477-04
-      serial: FDO215109NN
-      base_mac: 00:be:75:3a:ef:50
-      frontend_asics: [0, 1, 2, 3]
     strtk5-n3164-03:
       ansible_host: 10.212.70.5
       ansible_hostv6: 2603:10e2:140:3000::1c5

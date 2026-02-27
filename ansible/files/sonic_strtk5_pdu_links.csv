@@ -57,8 +57,6 @@ pdu-228,42,strtk5-s6000-09,PSU1
 pdu-229,44,strtk5-s6000-09,PSU2
 pdu-229,9,strtk5-7260-fanout-16,PSU1
 pdu-230,8,strtk5-7260-fanout-16,PSU2
-pdu-229,11,strtk5-n3164-acs-2,PSU1
-pdu-230,10,strtk5-n3164-acs-2,PSU2
 pdu-229,13,strtk5-a7050-acs-3,PSU1
 pdu-230,12,strtk5-a7050-acs-3,PSU2
 pdu-229,15,strtk5-7260-fanout-15,PSU1
@@ -204,7 +202,6 @@ pdu-234,33,strtk5-n3164-03,PSU1
 pdu-234,34,strtk5-n3164-03,PSU2
 pdu-234,31,strtk5-7260-fanout-28,PSU1
 pdu-234,32,strtk5-7260-fanout-28,PSU2
-pdu-234,29,strtk5-n3164-01,PSU1
 pdu-234,35,strtk5-7260-fanout-32,PSU1
 pdu-234,36,strtk5-7260-fanout-32,PSU2
 pdu-234,2,strtk5-8101-02,PSU1

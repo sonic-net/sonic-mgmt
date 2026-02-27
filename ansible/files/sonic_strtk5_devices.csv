@@ -79,7 +79,6 @@ strtk5-s6000-14,10.212.69.102/27,Force10-S6000,DevSonic,,sonic
 strtk5-sn3800-01,10.212.69.126/27,ACS-MSN3800,DevSonic,,sonic
 strtk5-e1031-acs-3,10.212.69.137/27,Celestica-E1031-T48S4,DevSonic,,sonic
 strtk5-a7170-acs-1,10.212.69.123/27,Arista-7170-64C,DevSonic,,sonic
-strtk5-n3164-acs-2,10.212.69.115/27,Nexus-3164,DevSonic,,sonic
 strtk5-s6000-12,10.212.69.106/27,Force10-S6000,DevSonic,,sonic
 strtk5-s6000-02,10.212.69.135/27,Force10-S6000,DevSonic,,sonic
 strtk5-7808-sup-1,10.212.69.41/27,Arista-7808R3A-FM,DevSonic,,sonic
@@ -102,7 +101,6 @@ strtk5-7050cx3-02,10.212.69.47/27,Arista-7050CX3-32S-C32,DevSonic,,sonic
 strtk5-dx010-06,10.212.69.149/27,Celestica-DX010-C32,DevSonic,,sonic
 strtk5-dx010-07,10.212.70.4/27,Celestica-DX010-C32,DevSonic,,sonic
 strtk5-e1031-01,10.212.69.145/27,Celestica-E1031-T48S4,DevSonic,,sonic
-strtk5-n3164-01,10.212.70.6/27,Nexus-3164,DevSonic,,sonic
 strtk5-n3164-03,10.212.70.5/27,Nexus-3164,DevSonic,,sonic
 strtk5-n3164-04,10.212.69.150/27,Nexus-3164,DevSonic,,sonic
 strtk5-4600c-07,10.212.70.10/27,ACS-MSN4600C,DevSonic,,sonic
