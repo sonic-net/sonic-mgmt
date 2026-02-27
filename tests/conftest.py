@@ -2297,6 +2297,30 @@ def generate_skeleton_port_info(request):
     return list(flattened_list)
 
 
+def pytest_runtest_setup(item):
+    # HACK: ensure fixture core_dump_and_config_check runs before any
+    # other module level fixtures in setup to collect configurations
+    # without modification from test fixtures.
+    fixtureinfo = item._fixtureinfo
+    for fixturedef in fixtureinfo.name2fixturedefs.values():
+        fixturedef = fixturedef[0]
+        if fixturedef.argname == "core_dump_and_config_check":
+            fixtureinfo.names_closure.remove("core_dump_and_config_check")
+            fixtureinfo.names_closure.insert(0, "core_dump_and_config_check")
+
+
+def pytest_runtest_teardown(item, nextitem):    # noqa F811
+    # HACK: ensure fixture core_dump_and_config_check runs after any
+    # other module level fixtures in teardown, so other fixtures could
+    # restore the configruation before running core_dump_and_config_check.
+    fixtureinfo = item._fixtureinfo
+    for fixturedef in fixtureinfo.name2fixturedefs.values():
+        fixturedef = fixturedef[0]
+        if fixturedef.argname == "core_dump_and_config_check":
+            fixtureinfo.names_closure.remove("core_dump_and_config_check")
+            fixtureinfo.names_closure.append("core_dump_and_config_check")
+
+
 def get_autoneg_tests_data():
     folder = 'metadata'
     filepath = os.path.join(folder, 'autoneg-test-params.json')
