@@ -18,8 +18,14 @@
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
           <Priority>0</Priority>
-{% set intf = port_name[index] %}
-{% if subtype is defined and subtype == 'SmartSwitch' and intf[8:]|int >= 224 %}
+{% set alias = port_alias[index] %}
+{% if alias in port_alias_map %}
+{% set eth = port_alias_map[alias] %}
+{% set eth_num = eth | regex_replace('^Ethernet', '') | int %}
+{% else %}
+{% set eth_num = -1 %}
+{% endif %}
+{% if subtype is defined and subtype == 'SmartSwitch' and eth_num >= 224 %}
           <role>Dpc</role>
 {% endif %}
 {% if port_speed[port_alias[index]] is defined %}
