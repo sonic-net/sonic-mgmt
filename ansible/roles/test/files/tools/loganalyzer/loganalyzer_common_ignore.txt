@@ -297,6 +297,8 @@ r, ".* WARNING kernel:.*pcieport.*device.*error.*status/mask=.*"
 r, ".* ERR syncd\d*#syncd:.* -E-HLD-0- Trap.* is not supported.*"
 r, ".* ERR pmon#xcvrd:.*CMIS:.*no suitable app for the port appl.*"
 r, ".* ERR kernel:.*ltc2497.*i2c transfer failed: -EFAULT"
+r, ".* ERR swss#orchagent: :- removeVlan: Failed to remove non-empty VLAN*"
+r, ".* ERR swss#orchagent: :- removeVlan: Failed to remove ref count \d+ VLAN*"
 
 # Ignore ACL EGRESS feature unavailable error on fabric cards
 r, ".* ERR syncd\d*#syncd:.* SAI_API_SWITCH:brcm_sai_get_switch_attribute.* Get switch attrib 37 failed with error Feature unavailable.*"
