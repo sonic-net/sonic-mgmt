@@ -3,7 +3,7 @@
         "parameters": ""
     },
     "docker-sonic-gnmi": {
-        "parameters": "--net=host -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro -v /etc/fips/fips_enable:/etc/fips/fips_enable:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -v /var/run/dbus:/var/run/dbus:rw -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-chassis:/var/run/redis-chassis:ro --env RUNTIME_OWNER=local"
+        "parameters": "--net=host --pid=host --userns=host --uts=host --cap-add=SYS_ADMIN --cap-add=SYS_BOOT --cap-add=SYS_PTRACE --cap-add=NET_ADMIN --cap-add=DAC_OVERRIDE --security-opt apparmor=unconfined --security-opt seccomp=unconfined -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro -v /etc/fips/fips_enable:/etc/fips/fips_enable:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -v /var/run/dbus:/var/run/dbus:rw -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-chassis:/var/run/redis-chassis:ro --env RUNTIME_OWNER=local"
     },
     "docker-gnmi-watchdog": {
         "parameters": "--pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"

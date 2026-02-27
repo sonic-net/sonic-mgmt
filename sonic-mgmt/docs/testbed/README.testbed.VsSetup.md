@@ -139,20 +139,22 @@ wget "https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=maste
 
 Follow the instructions from [sonic-platform-vpp](https://github.com/sonic-net/sonic-platform-vpp?tab=readme-ov-file#building-a-kvm-vm-image) and build a **kvm** vm image.
 
-__Note: make sure you rename the vpp image to `sonic-vs.img`.__
-
-```
-mv sonic-vpp.img.gz sonic-vs.img.gz
-```
-
 ### 2. Unzip the image and copy it into `~/sonic-vm/images/` and also `~/veos-vm/images`
-
+* vs image
 ```
 gzip -d sonic-vs.img.gz
 mkdir -p ~/sonic-vm/images
 cp sonic-vs.img ~/sonic-vm/images
 mkdir -p ~/veos-vm/images
 mv sonic-vs.img ~/veos-vm/images
+```
+* vpp image
+```
+gzip -d sonic-vpp.img.gz
+mkdir -p ~/sonic-vm/images
+cp sonic-vpp.img ~/sonic-vm/images
+mkdir -p ~/veos-vm/images
+mv sonic-vpp.img ~/veos-vm/images
 ```
 
 ## Setup sonic-mgmt docker

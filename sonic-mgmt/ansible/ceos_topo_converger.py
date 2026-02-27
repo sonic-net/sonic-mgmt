@@ -163,6 +163,9 @@ class SonicTopoConverger:
                         continue
                     eth_intf = f"Ethernet{eth_intf_index}"
                     vrf[eth_intf] = deepcopy(peer_intfs[intf])
+                    # Update lacp channel-group to match the new Port-Channel index
+                    if "lacp" in vrf[eth_intf] and "Port-Channel1" in peer_intfs:
+                        vrf[eth_intf]["lacp"] = intf_index
                     orig_intf_map[intf] = eth_intf
                     eth_intf_index += 1
 
@@ -265,6 +268,9 @@ class SonicTopoConverger:
 def converge_testbed(input_file: str, output_file: str) -> None:
     with open(input_file, "r", encoding="utf-8") as in_file:
         topo = yaml.safe_load(in_file)
+    if topo.get("topo_is_multi_vrf", False):
+        print("Topology already converged, skipping convergence.")
+        return
     converger = SonicTopoConverger(topo, output_file)
     converger.run()
 

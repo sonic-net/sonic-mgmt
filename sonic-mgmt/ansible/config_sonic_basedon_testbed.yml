@@ -148,10 +148,9 @@
         topo: "{{ testbed_facts['topo'] }}"
       tags: always
 
-    - name: set default light mode
+    - name: set lit mode
       set_fact:
-        is_light_mode: true
-      when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode is not defined
+        is_lit_mode: "{{ testbed_facts.get('is_lit_mode', topo in ['t1-smartswitch-ha', 't1-28-lag', 'smartswitch-t1', 't1-48-lag']) }}"
       tags: always
 
     - name: set ptf image name
@@ -768,7 +767,7 @@
               dest=/tmp/smartswitch.json
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
 
       - name: Create dns config
         template: src=templates/dns_config.j2
@@ -823,7 +822,7 @@
           port_index_map: "{{ port_index_map | default({}) }}"
           hwsku: "{{ hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
-          is_light_mode: "{{ is_light_mode | default(true) }}"
+          is_lit_mode: "{{ is_lit_mode | default(true) }}"
         become: true
 
       - name: Copy macsec profile json to dut
@@ -1034,17 +1033,18 @@
               dest=/tmp/dpu_extra.json
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
         tags: [ dpu_config ]
 
       - name: Load DPU config in smartswitch
         load_extra_dpu_config:
           hwsku: "{{ hwsku }}"
+          hostname: "{{ inventory_hostname }}"
           host_username: "{{ sonic_login }}"
           host_passwords: "{{ sonic_default_passwords }}"
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
         tags: [ dpu_config ]
 
       - name: Configure TACACS

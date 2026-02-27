@@ -58,7 +58,7 @@ def apply_cert_config(duthost):
     dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
     output = duthost.shell(dut_command, module_ignore_errors=True)
     if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
-        is_time_synced = wait_until(60, 3, 0, check_system_time_sync, duthost)
+        is_time_synced = wait_until(80, 3, 0, check_system_time_sync, duthost)
         assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
     if env.gnmi_process not in output['stdout']:
         # Dump tcp port status and gnmi log
@@ -236,13 +236,16 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
                lambda: len(duthost.shell(health_check_cmd, module_ignore_errors=True)['stdout_lines']) > 0)
 
     output = ptfhost.shell(cmd, module_ignore_errors=True)
-    error = "GRPC error\n"
-    if error in output['stdout']:
+
+    stdout = output.get("stdout") or ""
+    stderr = output.get("stderr") or ""
+    rc = output.get("rc", 1)
+    combined = f"{stdout}\n{stderr}"
+
+    if rc != 0 or "GRPC error" in combined or "rpc error" in combined:
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
-        result = output['stdout'].split(error, 1)
-        raise Exception("GRPC error:" + result[1])
-    return
+        raise Exception(f"py_gnmicli failed rc={rc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")
 
 
 def gnmi_get(duthost, ptfhost, path_list):
