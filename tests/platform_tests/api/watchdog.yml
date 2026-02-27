@@ -211,6 +211,18 @@ x86_64-8102_28fh_dpu_o-r0:
     greater_timeout: 6553
     too_big_timeout: 6554
 
+x86_64-8223_64e_mo-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-8223_64ef_mo-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
 # Nexthop watchdog
 x86_64-nexthop_.*:
   default:
