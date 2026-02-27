@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import ast
 from shutil import copyfile
 import yaml
 import datetime
@@ -802,77 +803,169 @@ def makeLabYAML(data, devices, testbed, outfile):
     fanoutDict = dict()
     ptfDict = dict()
     dutDict = dict()
-    serverDict = dict()
+    varsDict = dict()
+    start_switchid = 0
+    ptfGroup = next((key for key in deviceGroup if key.startswith('ptf')), None)
 
     if "sonic" in deviceGroup['lab']['children']:
         for group in deviceGroup['sonic']['children']:
-            sonicDict[group] = {'vars': {'iface_speed': deviceGroup[group].get(
-                "vars").get("iface_speed")}, 'hosts': {}}
+            sonicDict[group] = {'vars': {'iface_speed': int(deviceGroup[group].get(
+                "vars").get("iface_speed"))}, 'hosts': {}}
             for dut in deviceGroup[group]['host']:
                 if dut in devices:
-                    dutDict.update({dut:
-                                    {'ansible_host': devices[dut].get("ansible").get("ansible_host"),
-                                     'ansible_hostv6': devices[dut].get("ansible").get("ansible_hostv6"),
-                                     'ansible_ssh_user': devices[dut].get("ansible").get("ansible_ssh_user"),
-                                     'ansible_ssh_pass': devices[dut].get("ansible").get("ansible_ssh_pass"),
-                                     'hwsku': devices[dut].get("hwsku"),
-                                     'snmp_rocommunity': devices[dut].get("snmp_rocommunity"),
-                                     'sonic_version': devices[dut].get("sonic_version"),
-                                     'sonic_hwsku': devices[dut].get("sonic_hwsku"),
-                                     'base_mac': devices[dut].get("base_mac"),
-                                     'device_type': devices[dut].get("device_type"),
-                                     'ptf_host': devices[dut].get("ptf_host"),
-                                     'serial': devices[dut].get("serial"),
-                                     'os': devices[dut].get("os"),
-                                     'model': devices[dut].get("model"),
-                                     'asic_type': devices[dut].get("asic_type")
-                                     }
-                                    })
-                    if devices[dut].get("syseeprom_info"):
-                        dutDict[dut].update({'syseeprom_info': {field: devices[dut]["syseeprom_info"][field]
-                                                                for field in devices[dut]["syseeprom_info"]}})
+                    dut_data = dict()
+                    # Attributes under 'ansible' key
+                    ansible_attrs = ["ansible_host", "ansible_hostv6", "ansible_ssh_user", "ansible_ssh_pass"]
+                    for attr in ansible_attrs:
+                        try:
+                            value = devices[dut].get("ansible", {}).get(attr)
+                            if value is not None:
+                                if attr in ["ansible_host", "ansible_hostv6"]:
+                                    value = value.split("/")[0]
+                                dut_data[attr] = value
+                        except AttributeError:
+                            print("\t\t" + dut + ": {} not found".format(attr))
+
+                    # Direct attributes
+                    direct_attrs = [
+                        "hwsku", "card_type", "type", "num_fabric_asics", "num_asics",
+                        "frontend_asics", "asics_host_ip", "asics_host_ipv6", "switch_type",
+                        "slot_num", "os", "model", "base_mac", "serial", "asic_type"
+                    ]
+                    for attr in direct_attrs:
+                        try:
+                            value = devices[dut].get(attr, None)
+                            if (value is not None) and (value != 'None'):
+                                if attr == "num_fabric_asics" or attr == "num_asics":
+                                    value = int(value)
+                                elif attr == "frontend_asics":
+                                    value = ast.literal_eval(value)
+                                dut_data[attr] = value
+                        except AttributeError:
+                            print("\t\t" + dut + ": {} not found".format(attr))
+
+                    # Retrieve values from dut_data for subsequent logic
+                    card_type = dut_data.get('card_type', None)
+                    num_asics = dut_data.get('num_asics', 1)
+                    switch_type = dut_data.get('switch_type', None)
+
+                    if card_type and card_type != 'supervisor':
+                        dut_data['start_switchid'] = start_switchid
+                        start_switchid += num_asics
+
+                    if switch_type == 'fabric' and card_type == 'supervisor':
+                        switchids = devices[dut].get("switchids")
+                        if switchids is not None:
+                            dut_data['switchids'] = switchids
+
+                    # VOQ specific fields
+                    if switch_type == 'voq' and card_type != 'supervisor':
+                        if num_asics is None:
+                            num_asics = 1
+                        # num_asics is already int from generic retrieval
+
+                        # Consolidate VOQ attribute retrieval
+                        voq_attrs = [
+                            "switchids", "voq_inband_ip", "voq_inband_ipv6",
+                            "voq_inband_intf", "voq_inband_type", "max_cores", "num_cores_per_asic"
+                        ]
+                        for attr in voq_attrs:
+                            value = devices[dut].get(attr)
+                            if attr == "max_cores":
+                                if value is None:
+                                    dut_data[attr] = 48
+                                else:
+                                    dut_data[attr] = int(value)
+                            else:
+                                if value is not None:
+                                    dut_data[attr] = value
+
+                        # Handle default values for switchids, loopback4096_ip, loopback4096_ipv6
+                        current_switchids = dut_data.get('switchids')
+                        current_loopback4096_ip = dut_data.get('loopback4096_ip')
+                        current_loopback4096_ipv6 = dut_data.get('loopback4096_ipv6')
+                        current_num_cores_per_asic = dut_data.get('num_cores_per_asic', 1)
+
+                        if current_switchids is None:
+                            dut_data['switchids'] = [
+                                start_switchid + (asic_id * current_num_cores_per_asic) for asic_id in range(num_asics)]
+
+                        if current_loopback4096_ip is None:
+                            dut_data['loopback4096_ip'] = [
+                                "8.0.0.{}/32".format(start_switchid + asic_id) for asic_id in range(num_asics)]
+
+                        if current_loopback4096_ipv6 is None:
+                            dut_data['loopback4096_ipv6'] = [
+                                "2603:10e2:400::{}/128".format(start_switchid + asic_id) for asic_id in range(num_asics)
+                            ]
+
+                        start_switchid += (num_asics * current_num_cores_per_asic)
+
+                    dutDict.update({dut: dut_data})
                     sonicDict[group]['hosts'].update(dutDict)
+
     if "fanout" in deviceGroup['lab']['children']:
-        for fanoutType in deviceGroup['fanout']['children']:
-            for fanout in deviceGroup[fanoutType]['host']:
-                if fanout in devices:
-                    fanoutDict.update({fanout:
-                                       {'ansible_host': devices[fanout].get("ansible").get("ansible_host"),
-                                        'ansible_ssh_user': devices[fanout].get("ansible").get("ansible_ssh_user"),
-                                        'ansible_ssh_pass': devices[fanout].get("ansible").get("ansible_ssh_pass"),
-                                        'os': devices[fanout].get("os"),
-                                           'device_type': devices[fanout].get("device_type")
-                                        }
-                                       })
-    for server in deviceGroup['servers']['host']:
-        if server in devices:
-            serverDict.update({server:
-                               {'ansible_host': devices[server].get("ansible").get("ansible_host"),
-                                'ansible_ssh_user': devices[server].get("ansible").get("ansible_ssh_user"),
-                                'ansible_ssh_pass': devices[server].get("ansible").get("ansible_ssh_pass"),
-                                'device_type': devices[server].get("device_type")
-                                }})
-    if 'ptf' in deviceGroup:
-        for ptfhost in deviceGroup['ptf']['host']:
-            if ptfhost in testbed:
-                ptfDict.update({ptfhost:
-                                {'ansible_host': testbed[ptfhost].get("ansible").get("ansible_host"),
-                                 'ansible_hostv6': testbed[ptfhost].get("ansible").get("ansible_hostv6"),
-                                 'ansible_ssh_user': testbed[ptfhost].get("ansible").get("ansible_ssh_user"),
-                                 'ansible_ssh_pass': testbed[ptfhost].get("ansible").get("ansible_ssh_pass")
-                                 }
-                                })
+        for fanout in deviceGroup['fanout']['host']:
+            if fanout in devices:
+                fanout_data = dict()
+                # Attributes under 'ansible' key
+                ansible_attrs = ["ansible_host", "ansible_ssh_user", "ansible_ssh_pass"]
+                for attr in ansible_attrs:
+                    try:
+                        value = devices[fanout].get("ansible", {}).get(attr)
+                        if value is not None:
+                            if attr == "ansible_host":
+                                value = value.split("/")[0]
+                            fanout_data[attr] = value
+                    except AttributeError:
+                        print("\t\t" + fanout + ": {} not found".format(attr))
+
+                # Direct attributes
+                try:
+                    hwsku = devices[fanout].get("hwsku")
+                    if hwsku is not None:
+                        fanout_data['hwsku'] = hwsku
+                except AttributeError:
+                    print("\t\t" + fanout + ": hwsku not found")
+
+                fanout_data['start_switchid'] = start_switchid
+                fanoutDict.update({fanout: fanout_data})
+                start_switchid += 1
+    if ptfGroup:
+        for ptfhost in deviceGroup[ptfGroup]['host']:
+            if ptfhost in devices:
+                ptf_data = dict()
+                ansible_attrs = ["ansible_host", "ansible_hostv6", "ansible_ssh_user", "ansible_ssh_pass"]
+                for attr in ansible_attrs:
+                    try:
+                        value = devices[ptfhost].get("ansible", {}).get(attr)
+                        if value is not None:
+                            if attr in ["ansible_host", "ansible_hostv6"]:
+                                value = value.split("/")[0]
+                            ptf_data[attr] = value
+                    except AttributeError:
+                        print("\t\t" + ptfhost + ": {} not found".format(attr))
+                ptfDict.update({ptfhost: ptf_data})
+
+    if 'vars' in deviceGroup['lab']:
+        for field in deviceGroup['lab']['vars']:
+            if field == 'mgmt_subnet_mask_length':
+                varsDict[field] = int(deviceGroup['lab']['vars'][field])
+            elif field == 'forced_mgmt_routes':
+                varsDict[field] = yaml.safe_load(deviceGroup['lab']['vars'][field])
+            else:
+                varsDict[field] = deviceGroup['lab']['vars'][field]
+
     result.update({'all':
                    {'children':
                     {'lab':
-                     {'vars': deviceGroup['lab']['vars'],
+                     {'vars': varsDict,
                       'children':
                       {'sonic': {'children': sonicDict},
                        'fanout': {'hosts': fanoutDict}
                        }
                       },
-                     'ptf': {'hosts': ptfDict},
-                     'server': {'hosts': serverDict}
+                     ptfGroup: {'hosts': ptfDict},
                      }
                     }
                    })
@@ -966,7 +1059,7 @@ def makeVeosYAML(data, veos, devices, outfile):
             result.update({vm_host:
                            {'hosts':
                             {server: {'ansible_host': devices[server.lower()].get(
-                                "ansible").get("ansible_host")}}
+                                "ansible").get("ansible_host").split("/")[0]}}
                             }
                            })
     if 'eos' in group:
