@@ -443,3 +443,6 @@ r, ".*kernel.*gpio.*Static allocation of GPIO base is deprecated.*"
 
 # Ignore SCD kernel warning about I2C communication ack errors on Arista platforms
 r, ".*WARNING kernel:.*scd.*rsp.*ack_error=1.*"
+
+# Ignore SAI_STATUS_INVALID_PARAMETER error for SAI_API_QUEUE get stats until it's resolved
+r, ".*ERR swss#orchagent:.*SAI_API_QUEUE, status: SAI_STATUS_INVALID_PARAMETER.*"
