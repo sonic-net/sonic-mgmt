@@ -2281,10 +2281,12 @@ generic_config_updater/test_dynamic_acl.py::test_gcu_acl_forward_rule_removal:
 
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
-    reason: "This test is not run on this asic type, topology, or version currently"
+    # Cisco-8800-LC-48H-C48 (PAC ASIC) and Cisco-8122 (GR2 ASIC) platforms are skipped because
+    # dynamic WRED configuration updates are not yet implemented in the SAI layer for these ASICs.
+    reason: "WRED dynamic config updates not implemented in SAI for PAC/GR2 ASICs"
     conditions_logical_operator: "OR"
     conditions:
-      - "hwsku in ['Cisco-8800-LC-48H-C48']"
+      - "hwsku in ['Cisco-8800-LC-48H-C48', 'Cisco-8122-O128S2'] or hwsku.startswith('Cisco-8122-O64')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
   xfail:
