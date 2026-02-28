@@ -16,6 +16,7 @@ class TcpdumpSniffHelper(object):
         self._out_direct_ifaces = []
         self._in_direct_ifaces = []
         self._bi_direct_ifaces = []
+        self._asic_ifaces = []
         self._total_ifaces = []
 
     @property
@@ -32,7 +33,7 @@ class TcpdumpSniffHelper(object):
 
     @out_direct_ifaces.setter
     def out_direct_ifaces(self, value):
-        self._out_direct_ifaces = list(set(value))
+        self._out_direct_ifaces = value
 
     @property
     def in_direct_ifaces(self):
@@ -40,7 +41,7 @@ class TcpdumpSniffHelper(object):
 
     @in_direct_ifaces.setter
     def in_direct_ifaces(self, value):
-        self._in_direct_ifaces = list(set(value))
+        self._in_direct_ifaces = value
 
     @property
     def bi_direct_ifaces(self):
@@ -51,13 +52,30 @@ class TcpdumpSniffHelper(object):
         self._bi_direct_ifaces = list(set(value))
 
     @property
+    def asic_ifaces(self):
+        return self._asic_ifaces
+
+    @asic_ifaces.setter
+    def asic_ifaces(self, value):
+        self._asic_ifaces = list(value)
+
+    @property
     def pcap_path(self):
         return self._pcap_path
 
     def update_total_ifaces(self):
-        self._total_ifaces = list(set(self._out_direct_ifaces + self._in_direct_ifaces + self._bi_direct_ifaces))
+        temp_total = self._out_direct_ifaces + self._in_direct_ifaces + self._bi_direct_ifaces
+        if isinstance(temp_total, list):
+            if all(isinstance(item, dict) for item in temp_total):
+                seen_keys = set()
+                self._total_ifaces = [d for d in temp_total if
+                                      (next(iter(d.keys())),) not in seen_keys and not seen_keys.add(
+                                          (next(iter(d.keys())),))]
+            else:
+                self._total_ifaces = list(
+                    set(self._out_direct_ifaces + self._in_direct_ifaces + self._bi_direct_ifaces))
 
-    def start_dump_process(self, host, iface, direction="inout"):
+    def start_dump_process(self, host, iface, direction="inout", asic_ns=None):
         """
         Start tcpdump on specific interface and save data to pcap file
         """
@@ -69,6 +87,9 @@ class TcpdumpSniffHelper(object):
         logging.info('Tcpdump sniffer starting on iface: {} direction: {}'.format(iface, direction))
         if host is self.duthost:
             cmd = "sudo " + cmd
+            if host.sonichost.facts['num_asic'] > 1:
+                ns_arg = next(asic.ns_arg for asic in host.asics if asic_ns == asic.namespace)
+                cmd = "{} {}".format(ns_arg, cmd)
         host.shell(self.run_background_cmd(cmd))
         pytest_assert(wait_until(10, 1, 0, self.check_pcap_file_exist, host, iface_pcap_path))
 
@@ -81,20 +102,28 @@ class TcpdumpSniffHelper(object):
     def run_background_cmd(self, command):
         return "nohup " + command + " &"
 
-    def start_sniffer(self, host='ptf'):
+    def start_sniffer(self, host='ptf', asic_ns="None"):
         """
         Start tcpdump sniffer
         """
         host = self.ptfhost if host == 'ptf' else self.duthost
         logging.info("Tcpdump sniffer starting")
         for iface in self.out_direct_ifaces:
-            self.start_dump_process(host, iface, "out")
+            if isinstance(iface, dict):
+                for eth, asic_ns in iface.items():
+                    self.start_dump_process(host, eth, "out", asic_ns)
+            else:
+                self.start_dump_process(host, iface, "out")
         for iface in self.in_direct_ifaces:
-            self.start_dump_process(host, iface, "in")
+            if isinstance(iface, dict):
+                for eth, asic_ns in iface.items():
+                    self.start_dump_process(host, eth, "in", asic_ns)
+            else:
+                self.start_dump_process(host, iface, "in")
         for iface in self.bi_direct_ifaces:
-            self.start_dump_process(host, iface)
+            self.start_dump_process(host, iface, asic_ns)
 
-    def stop_sniffer(self, host='ptf'):
+    def stop_sniffer(self, host='ptf', kill=True):
         """
         Stop tcpdump sniffer
         """
@@ -104,10 +133,12 @@ class TcpdumpSniffHelper(object):
         logging.info("Tcpdump sniffer stopping")
         logging.info("Killed all tcpdump processes by SIGINT")
         if host is self.duthost:
-            host.shell('sudo ' + cmd)
+            if kill:
+                host.shell('sudo ' + cmd)
             self.copy_pcaps_to_ptf()
         else:
-            host.shell(cmd)
+            if kill:
+                host.shell(cmd)
         self.create_single_pcap()
         logging.info("Copy {} from ptf docker to ngts docker".format(self.pcap_path))
         self.ptfhost.shell("chmod 777 {}".format(self.pcap_path))
@@ -117,7 +148,11 @@ class TcpdumpSniffHelper(object):
     def copy_pcaps_to_ptf(self):
         self.update_total_ifaces()
         for iface in self._total_ifaces:
-            iface_pcap_path = '{}_{}'.format(self.pcap_path, iface)
+            if isinstance(iface, dict):
+                for eth, asic_ns in iface.items():
+                    iface_pcap_path = '{}_{}'.format(self.pcap_path, eth)
+            else:
+                iface_pcap_path = '{}_{}'.format(self.pcap_path, iface)
             logging.info("Copy {} from switch to ptf docker to do further operation".format(iface_pcap_path))
             self.duthost.fetch(src=iface_pcap_path, dest=iface_pcap_path, flat=True)
             self.ptfhost.copy(src=iface_pcap_path, dest=iface_pcap_path)
@@ -157,7 +192,12 @@ class TcpdumpSniffHelper(object):
         ifaces_pcap_files_list = []
         self.update_total_ifaces()
         for iface in self._total_ifaces:
-            pcap_file_path = '{}_{}'.format(self.pcap_path, iface)
+            if isinstance(iface, dict):
+                for eth, asic_ns in iface.items():
+                    pcap_file_path = '{}_{}'.format(self.pcap_path, eth)
+            else:
+                pcap_file_path = '{}_{}'.format(self.pcap_path, iface)
+
             res = self.ptfhost.shell("ls -l {}".format(pcap_file_path), module_ignore_errors=True)
             if res["rc"] == 0:
                 cmd += ' ' + (pcap_file_path)

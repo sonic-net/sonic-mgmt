@@ -13,7 +13,7 @@ from natsort import natsorted
 import ipaddr as ipaddress
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP, DEFAULT_NAMESPACE, \
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP, DEFAULT_NAMESPACE, \
     DEFAULT_ASIC_ID
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel import reset_ansible_local_tmp
@@ -64,6 +64,7 @@ ANNOUNCE = 'announce'
 DEFAULT = "default"
 IP_VER = 4
 QUEUED = "queued"
+EMPTY = "empty"
 ACTION_IN = "in"
 ACTION_NOT_IN = "not"
 ACTION_STOP = "stop"
@@ -291,9 +292,10 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     setup_info = {}
 
     upstream_type = UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
-    downstream_type = DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper()
+    downstream_type = [t.upper() for t in DOWNSTREAM_ALL_NEIGHBOR_MAP[tbinfo["topo"]["type"]]]
     downstream_neighbors = \
-        natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(downstream_type)])
+        natsorted(
+            [neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(tuple(downstream_type))])
     downstream = downstream_neighbors[0]
     upstream_neighbors = natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith(upstream_type)])
     other_neighbors = downstream_neighbors[1:3]    # Only check a few neighbors to save time
@@ -593,7 +595,7 @@ def get_default_action():
     return DEFAULT_ACTION
 
 
-def restart_bgp_session(duthost, neighbor=None):
+def restart_bgp_session(duthost, neighbor=None, asic_namespace=None):
     """
     Restart bgp session. If neighbor is specified, only restart that specific neighbor's session.
     Otherwise restart all BGP sessions.
@@ -604,10 +606,19 @@ def restart_bgp_session(duthost, neighbor=None):
     """
     if neighbor:
         logging.info(f"Restart BGP session with neighbor {neighbor}")
-        duthost.shell(f'vtysh -c "clear bgp {neighbor}"')
+        bgp_neigh_cmd = f'vtysh -c "clear bgp {neighbor}"'
+        cmd = duthost.get_vtysh_cmd_for_namespace(bgp_neigh_cmd, asic_namespace)
+        duthost.shell(cmd)
     else:
+        if asic_namespace:
+            asic_list = [asic_namespace]
+        else:
+            asic_list = duthost.get_frontend_asic_namespace_list()
         logging.info("Restart all BGP sessions")
-        duthost.shell('vtysh -c "clear bgp *"')
+        bgp_cmd = "vtysh -c 'clear bgp *'"
+        for namespace in asic_list:
+            cmd = duthost.get_vtysh_cmd_for_namespace(bgp_cmd, namespace)
+            duthost.shell(cmd)
 
 
 def get_ptf_recv_port(duthost, vm_name, tbinfo, multi_vrf_topo=False):
@@ -637,14 +648,16 @@ def get_ptf_recv_port(duthost, vm_name, tbinfo, multi_vrf_topo=False):
 
 def get_eth_port(duthost, tbinfo):
     """
-    Get ethernet port that connects to T0 VM
+    Get ethernet port that connects to DOWNSTREAM VM
     """
+    ds_type = [dt.upper() for dt in DOWNSTREAM_ALL_NEIGHBOR_MAP[tbinfo["topo"]["type"]]]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    t0_vm = [vm_name for vm_name in mg_facts['minigraph_devices'].keys() if vm_name.endswith('T0')][0]
+    vm = [vm_name for vm_name in mg_facts['minigraph_devices'].keys() if vm_name.endswith(tuple(ds_type))][0]
     if is_ipv6_only_topology(tbinfo):
-        port = duthost.shell("show ipv6 interface | grep -w {} | awk '{{print $1}}'".format(t0_vm))['stdout']
+        port = duthost.shell("show ipv6 interface | grep -w {} | awk '{{print $1}}'".format(vm))['stdout']
     else:
-        port = duthost.shell("show ip interface | grep -w {} | awk '{{print $1}}'".format(t0_vm))['stdout']
+        port = duthost.shell("show ip interface | grep -w {} | awk '{{print $1}}'".format(vm))['stdout']
+
     return port
 
 
@@ -653,8 +666,9 @@ def get_vm_offset(duthost, nbrhosts, tbinfo, is_random=True):
     Get ports offset of exabgp and ptf receive port
     """
     multi_vrf_topo = tbinfo["topo"]["properties"].get("topo_is_multi_vrf", False)
+    ds_type = [dt.upper() for dt in DOWNSTREAM_ALL_NEIGHBOR_MAP[tbinfo["topo"]["type"]]]
     port_offset_ptf_recv_port_list = []
-    vm_name_list = [vm_name for vm_name in nbrhosts.keys() if vm_name.endswith('T0')]
+    vm_name_list = [vm_name for vm_name in nbrhosts.keys() if vm_name.endswith(tuple(ds_type))]
     logging.info("get_vm_offset ---------")
     if is_random:
         vm_name_list = [random.choice(vm_name_list)]
@@ -693,17 +707,18 @@ def get_vm_name_list(tbinfo, vm_level='T2'):
     return vm_name_list
 
 
-def get_t2_ptf_intfs(mg_facts):
+def get_upstream_ptf_intfs(mg_facts, tbinfo):
     """
     Get ptf interface list that connect with T2 VMs
     """
-    t2_ethernets = []
+    upstream_type = UPSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]].upper()
+    upstream_ethernets = []
     for k, v in mg_facts["minigraph_neighbors"].items():
-        if v['name'][-2:] == 'T2':
-            t2_ethernets.append(k)
+        if v['name'][-2:] == upstream_type:
+            upstream_ethernets.append(k)
 
     ptf_interfaces = []
-    for port in t2_ethernets:
+    for port in upstream_ethernets:
         ptf_interfaces.append(mg_facts['minigraph_ptf_indices'][port])
     return ptf_interfaces
 
@@ -740,30 +755,32 @@ def get_bgp_neighbor_ip(duthost, vm_name, vrf=DEFAULT):
     return bgp_neighbor_ip, bgp_neighbor_ipv6
 
 
-def get_vrf_route_json(duthost, route, vrf=DEFAULT, ip_ver=IP_VER):
+def get_vrf_route_json(duthost, route, vrf=DEFAULT, ip_ver=IP_VER, asic_namespace=None):
     """
     Get output of 'show ip route vrf xxx xxx json' or 'show ipv6 route vrf xxx xxx json'
     """
     if ip_ver == IP_VER:
-        logging.info('Execute command - vtysh -c "show ip route vrf {} {} json"'.format(vrf, route))
-        out = json.loads(duthost.shell('vtysh -c "show ip route vrf {} {} json"'.
-                                       format(vrf, route), verbose=False)['stdout'])
+        route_cmd = 'vtysh -c "show ip route vrf {} {} json"'
     else:
-        logging.info('Execute command - vtysh -c "show ipv6 route vrf {} {} json"'.format(vrf, route))
-        out = json.loads(duthost.shell('vtysh -c "show ipv6 route vrf {} {} json"'.
-                                       format(vrf, route), verbose=False)['stdout'])
-
+        route_cmd = 'vtysh -c "show ipv6 route vrf {} {} json"'
+    cmd = duthost.get_vtysh_cmd_for_namespace(route_cmd, asic_namespace)
+    logging.info('Execute command - ' + str(cmd.format(vrf, route)))
+    out = json.loads(duthost.shell(cmd.format(vrf, route), verbose=False)['stdout'])
     logging.info('Command output:\n {}'.format(out))
     return out
 
 
-def check_route_status(duthost, route, check_field, vrf=DEFAULT, ip_ver=IP_VER, expect_status=True):
+def check_route_status(duthost, route, check_field, vrf=DEFAULT, ip_ver=IP_VER, expect_status=True,
+                       asic_namespace=None):
     """
     Get 'offloaded' or 'queu' value of specific route
     """
-    out = get_vrf_route_json(duthost, route, vrf, ip_ver)
-    if out == '{}':
-        return False
+    out = get_vrf_route_json(duthost, route, vrf, ip_ver, asic_namespace)
+    if not out:
+        if check_field == EMPTY:
+            return False is expect_status
+        else:
+            return False
     check_field_status = out[route][0].get(check_field, None)
     if check_field_status:
         logging.info("Route:{} - {} status:{} - expect status:{}"
@@ -774,23 +791,28 @@ def check_route_status(duthost, route, check_field, vrf=DEFAULT, ip_ver=IP_VER, 
         return False is expect_status
 
 
-def check_route_install_status(duthost, route, vrf=DEFAULT, ip_ver=IP_VER, check_point=QUEUED, action=ACTION_IN):
+def check_route_install_status(duthost, route, vrf=DEFAULT, ip_ver=IP_VER, check_point=QUEUED, action=ACTION_IN,
+                               asic_namespace=None):
     """
     Verify route install status
     """
     if check_point == QUEUED:
         if action == ACTION_IN:
-            pytest_assert(wait_until(60, 2, 0, check_route_status, duthost, route, check_point, vrf, ip_ver),
+            pytest_assert(wait_until(120, 2, 0, check_route_status, duthost, route, check_point, vrf, ip_ver,
+                                     asic_namespace=asic_namespace),
                           "Vrf:{} - route:{} is not in {} state".format(vrf, route, check_point))
         else:
-            pytest_assert(wait_until(60, 2, 0, check_route_status, duthost, route, check_point, vrf, ip_ver, False),
+            pytest_assert(wait_until(120, 2, 0, check_route_status, duthost, route, check_point, vrf, ip_ver, False,
+                                     asic_namespace=asic_namespace),
                           "Vrf:{} - route:{} is in {} state".format(vrf, route, check_point))
     else:
         if action == ACTION_IN:
-            pytest_assert(wait_until(60, 2, 0, check_route_status, duthost, route, check_point, vrf, ip_ver),
+            pytest_assert(wait_until(60, 2, 0, check_route_status, duthost, route, check_point, vrf, ip_ver,
+                                     asic_namespace=asic_namespace),
                           "Vrf:{} - route:{} is not installed into FIB".format(vrf, route))
         else:
-            pytest_assert(wait_until(60, 2, 0, check_route_status, duthost, route, check_point, vrf, ip_ver, False),
+            pytest_assert(wait_until(60, 2, 0, check_route_status, duthost, route, check_point, vrf, ip_ver, False,
+                                     asic_namespace=asic_namespace),
                           "Vrf:{} - route:{} is installed into FIB".format(vrf, route))
 
 
@@ -804,12 +826,20 @@ def check_propagate_route(vmhost, route_list, bgp_neighbor, ip_ver=IP_VER, actio
 
     if ip_ver == IP_VER:
         logging.info('Execute EOS command - "show ip bgp neighbors {} routes vrf {}"'.format(bgp_neighbor, vrf))
-        out = vmhost['host'].eos_command(
+        if vmhost['type'] == 'eos':
+            out = vmhost['host'].eos_command(
                 commands=['show ip bgp neighbors {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
+        elif vmhost['type'] == 'sonic':
+            out = vmhost['host'].shell('show ip bgp vrf {} neighbor {} routes'.format(bgp_neighbor, vrf),
+                                       module_ignore_errors=True)['stdout']
     else:
         logging.info('Execute EOS command - "show ipv6 bgp peers {} routes vrf {}"'.format(bgp_neighbor, vrf))
-        out = vmhost['host'].eos_command(
+        if vmhost['type'] == 'eos':
+            out = vmhost['host'].eos_command(
                 commands=['show ipv6 bgp peers {} routes vrf {}'.format(bgp_neighbor, vrf)])['stdout'][0]
+        elif vmhost['type'] == 'sonic':
+            out = vmhost['host'].shell('show ipv6 bgp vrf {} neighbor {} routes'.format(bgp_neighbor, vrf),
+                                       module_ignore_errors=True)['stdout']
     logging.debug('Command output:\n {}'.format(out))
 
     if action == ACTION_IN:
@@ -841,11 +871,11 @@ def validate_route_propagate_status(vmhost, route_list, bgp_neighbor, vrf=DEFAUL
     """
     if exist:
         pytest_assert(wait_until(30, 2, 0, check_propagate_route, vmhost, route_list, bgp_neighbor, ip_ver),
-                      "Vrf:{} - route:{} is not propagated to T2 VM {}".format(vrf, route_list, vmhost))
+                      "Vrf:{} - route:{} is not propagated to Upstream VM {}".format(vrf, route_list, vmhost))
     else:
         pytest_assert(
             wait_until(30, 2, 0, check_propagate_route, vmhost, route_list, bgp_neighbor, ip_ver, ACTION_NOT_IN),
-            "Vrf:{} - route:{} is propagated to T2 VM {}".format(vrf, route_list, vmhost))
+            "Vrf:{} - route:{} is propagated to Upstream VM {}".format(vrf, route_list, vmhost))
 
 
 def check_fib_route(duthost, route_list, ip_ver=IP_VER):
@@ -853,10 +883,14 @@ def check_fib_route(duthost, route_list, ip_ver=IP_VER):
     Verify ipv4 or ipv6 routes are installed into fib
     """
     fib_type = 'ip' if ip_ver == IP_VER else 'ipv6'
-    logging.info(f"Execute command - show {fib_type} fib")
-    out = duthost.shell(f"show {fib_type} fib")
+    cmd = "show {} fib".format(fib_type)
+    out = ""
+    for asichost in duthost.asics:
+        asic_cmd = "{} {}".format(asichost.ns_arg, cmd)
+        out = out + " " + asichost.shell(asic_cmd)['stdout']
+
     for route in route_list:
-        if route in out['stdout']:
+        if route in out:
             logging.debug(f"Route:{route} installed into fib")
         else:
             logging.info(f"Route:{route} not found in fib")
