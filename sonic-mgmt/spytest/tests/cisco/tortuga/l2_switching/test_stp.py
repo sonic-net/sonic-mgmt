@@ -236,7 +236,7 @@ def test_vlan_params(setup_teardown_stp):
     st.log("Check STP parameters on non-root node gets updated with changes in Root node")
     bridge_identifier = (hex(int(data_glob.vlan[0]))[2:]).zfill(4) + ''.join(data_glob.mac_add['spine0'].split(':'))
     expected_dict = {
-        'vlan': data_glob.vlan[0],'iface' : vars.D1D3P1,
+        'vlan': data_glob.vlan[0],'iface' : vars.D3D1P1,
         'rootport': vars.D3D1P1, 'rootbridge_identifier' : bridge_identifier,
         'bridge_fwddly': '15', 'bridge_maxage': '20', 'bridge_hellotime': '2',
         'rootbridge_fwddly': '20', 'rootbridge_maxage': '25','rootbridge_hellotime': '5'
