@@ -699,8 +699,15 @@ class BaseEverflowTest(object):
             # Skip if the ASIC does not support bidirectional port mirroring (issue #22661).
             # The CLI defaults to direction='both' when no direction is specified,
             # which requires both PORT_INGRESS_MIRROR_CAPABLE and PORT_EGRESS_MIRROR_CAPABLE.
+            # Default to "false" when keys are absent — this matches the CLI behavior in
+            # sonic-utilities (config/main.py is_port_mirror_capability_supported) which
+            # reads STATE_DB directly and rejects when keys are missing.
             if config_method == CONFIG_MODE_CLI:
-                switch_caps = duthost.switch_capabilities_facts()["ansible_facts"]["switch_capabilities"]["switch"]
+                facts = duthost.switch_capabilities_facts()
+                switch_caps = (facts
+                               .get("ansible_facts", {})
+                               .get("switch_capabilities", {})
+                               .get("switch", {}))
                 ingress_capable = switch_caps.get("PORT_INGRESS_MIRROR_CAPABLE", "false")
                 egress_capable = switch_caps.get("PORT_EGRESS_MIRROR_CAPABLE", "false")
                 if ingress_capable != "true" or egress_capable != "true":
@@ -739,7 +746,11 @@ class BaseEverflowTest(object):
 
             # Skip if the ASIC does not support bidirectional port mirroring (issue #22661).
             if config_method == CONFIG_MODE_CLI:
-                switch_caps = duthost.switch_capabilities_facts()["ansible_facts"]["switch_capabilities"]["switch"]
+                facts = duthost.switch_capabilities_facts()
+                switch_caps = (facts
+                               .get("ansible_facts", {})
+                               .get("switch_capabilities", {})
+                               .get("switch", {}))
                 ingress_capable = switch_caps.get("PORT_INGRESS_MIRROR_CAPABLE", "false")
                 egress_capable = switch_caps.get("PORT_EGRESS_MIRROR_CAPABLE", "false")
                 if ingress_capable != "true" or egress_capable != "true":
