@@ -72,6 +72,36 @@ class GenerateGoldenConfigDBModule(object):
         self.vm_configuration = self.module.params['vm_configuration']
         self.is_lit_mode = self.module.params['is_lit_mode']
 
+    def get_frr_version(self):
+        try:
+            frr_version_output = subprocess.check_output(["vtysh", "-c", "show version"]).decode("utf-8")
+            frr_version_match = re.search(r"FRRouting (\d+\.\d+\.\d+)", frr_version_output)
+            if frr_version_match:
+                return frr_version_match.group(1)
+            else:
+                return None
+        except subprocess.CalledProcessError as e:
+            return None
+
+    def compare_frr_version(self, version1, version2):
+        v1 = list(map(int, version1.split('.')))
+        v2 = list(map(int, version2.split('.')))
+        for i in range(max(len(v1), len(v2))):
+            v1_val = v1[i] if i < len(v1) else 0
+            v2_val = v2[i] if i < len(v2) else 0
+            if v1_val > v2_val:
+                return 1
+            elif v1_val < v2_val:
+                return -1
+        return 0
+
+    def generate_frr_config_mode_golden_config_db(self,config):
+        frr_version = self.get_frr_version()
+        if frr_version and self.compare_frr_version(frr_version, "8.5.0") >= 0:
+            return True
+        else
+            return False
+
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
@@ -626,6 +656,13 @@ class GenerateGoldenConfigDBModule(object):
 
         # update dns config
         config = self.update_dns_config(config)
+
+        # update router_config_mode
+        if self.generate_frr_config_mode_golden_config_db() is True:
+            if ("DEVICE_METADATA" in config and
+                "localhost" in config["DEVICE_METADATA"]):
+                if config["DEVICE_METADATA"]["localhost"].get("docker_routing_config_mode") != "unified":
+                    config["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
 
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
