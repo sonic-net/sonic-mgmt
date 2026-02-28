@@ -11,6 +11,19 @@ index 4d431d1..0ff43a4 100644
  	opb "github.com/openconfig/ondatra/proto"
  	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
  )
+diff --git a/fakebind/fakebind.go b/fakebind/fakebind.go
+index 7dd0538..800a272 100644
+--- a/fakebind/fakebind.go
++++ b/fakebind/fakebind.go
+@@ -28,7 +28,7 @@ import (
+ 	"google.golang.org/grpc"
+ 
+ 	gpb "github.com/openconfig/gnmi/proto/gnmi"
+-	grpb "github.com/openconfig/gribi/v1/proto/service"
++	grpb "github.com/openconfig/gribi/proto/service"
+ 	opb "github.com/openconfig/ondatra/proto"
+ 	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+ )
 diff --git a/binding/binding.go b/binding/binding.go
 index 2a4d7ae..96229b5 100644
 --- a/binding/binding.go
