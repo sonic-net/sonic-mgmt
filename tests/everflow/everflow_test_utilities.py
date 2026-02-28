@@ -706,11 +706,13 @@ class BaseEverflowTest(object):
                 switch_caps = everflow_capabilities.get(duthost.hostname, {})
                 ingress_capable = switch_caps.get("PORT_INGRESS_MIRROR_CAPABLE", "false")
                 egress_capable = switch_caps.get("PORT_EGRESS_MIRROR_CAPABLE", "false")
-                if ingress_capable != "true" or egress_capable != "true":
-                    pytest.skip(
-                        "ASIC does not support bidirectional port mirroring "
-                        "(ingress={}, egress={})".format(ingress_capable, egress_capable)
-                    )
+                mirror_type = self.mirror_type()
+                if mirror_type == "ingress" and ingress_capable != "true":
+                    pytest.skip("ASIC does not support ingress port mirroring")
+                elif mirror_type == "egress" and egress_capable != "true":
+                    pytest.skip("ASIC does not support egress port mirroring")
+                elif mirror_type == "both" and (ingress_capable != "true" or egress_capable != "true"):
+                    pytest.skip("ASIC does not support bidirectional port mirroring")
 
             BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, erspan_ip_ver=erspan_ip_ver)
 
