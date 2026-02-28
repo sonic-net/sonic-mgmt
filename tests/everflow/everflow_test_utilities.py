@@ -714,7 +714,7 @@ class BaseEverflowTest(object):
                 elif mirror_type == "both" and (ingress_capable != "true" or egress_capable != "true"):
                     pytest.skip("ASIC does not support bidirectional port mirroring")
 
-            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, erspan_ip_ver=erspan_ip_ver)
+            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, erspan_ip_ver=erspan_ip_ver, direction=self.mirror_type())
 
         yield session_info
 
@@ -760,7 +760,7 @@ class BaseEverflowTest(object):
             # Create a policer that allows 100 packets/sec through
             self.apply_policer_config(duthost, policer, config_method)
             BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, policer=policer,
-                                                 erspan_ip_ver=erspan_ip_ver)
+                                                 erspan_ip_ver=erspan_ip_ver, direction=self.mirror_type())
 
         yield session_info
 
@@ -771,7 +771,7 @@ class BaseEverflowTest(object):
 
     @staticmethod
     def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None,
-                            erspan_ip_ver=4, queue_num=None):
+                            erspan_ip_ver=4, queue_num=None, direction=None):
         commands_list = list()
         if config_method == CONFIG_MODE_CLI:
             if erspan_ip_ver == 4:
@@ -781,6 +781,8 @@ class BaseEverflowTest(object):
                             {session_info['session_gre']}"
                 if queue_num:
                     command += f" {queue_num}"
+                if direction:
+                    command += f" --direction {direction}"
                 if policer:
                     command += f" --policer {policer}"
                 commands_list.append(command)
@@ -802,6 +804,8 @@ class BaseEverflowTest(object):
                     )
                     if queue_num:
                         command += f" 'queue' {queue_num}"
+                    if direction:
+                        command += f" 'direction' '{direction}'"
                     if policer:
                         command += f" 'policer' {policer}"
                     commands_list.append(command)
