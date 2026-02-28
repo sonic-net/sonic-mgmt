@@ -16,6 +16,7 @@ import time
 from copy import deepcopy
 from threading import Thread, Event
 from tests.common.helpers.assertions import pytest_assert
+import ptf
 import ptf.packet as scapy
 from ptf.testutils import simple_icmpv6_packet
 from ptf.mask import Mask
@@ -276,10 +277,19 @@ def validate_dut_routes(duthost, tbinfo, expected_routes):
     return identical
 
 
+def _get_backplane_ports():
+    """Identify backplane ports from PTF port_map config so they can be excluded from rx counters."""
+    return {k for k, v in ptf.config.get('port_map', {}).items() if v == 'backplane'}
+
+
 def calculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt):
     logger.warning("Waiting %d seconds for mask counters to be updated", MASK_COUNTER_WAIT_TIME)
     time.sleep(MASK_COUNTER_WAIT_TIME)
-    rx_total = sum(list(ptf_dp.mask_rx_cnt[masked_exp_pkt].values())[:-1])  # Exclude the backplane
+    backplane_ports = _get_backplane_ports()
+    rx_total = sum(
+        cnt for port_key, cnt in ptf_dp.mask_rx_cnt[masked_exp_pkt].items()
+        if port_key not in backplane_ports
+    )
     tx_total = sum(ptf_dp.mask_tx_cnt[masked_exp_pkt].values())
     if tx_total == 0:
         logger.warning("No packets are sent")
@@ -315,7 +325,7 @@ def calculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt):
 
 def validate_rx_tx_counters(ptf_dp, end_time, start_time, masked_exp_pkt, downtime_threshold=10):
     downtime = calculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt)
-    return downtime < downtime_threshold
+    return downtime < downtime_threshold, downtime
 
 
 def flush_counters(ptf_dp, masked_exp_pkt):
@@ -638,11 +648,16 @@ def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count
         terminated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
-        acceptable_downtime = validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, downtime_threshold)
+        acceptable_downtime, actual_downtime = validate_rx_tx_counters(
+            pdp, end_time, start_time, exp_mask, downtime_threshold
+        )
         if not acceptable_downtime:
             if action == 'shutdown':
                 _restore(duthost, connection_type, flapping_connections, all_flap)
-            pytest.fail(f"Dataplane downtime is too high, threshold is {downtime_threshold} seconds")
+            pytest.fail(
+                f"Dataplane downtime is too high: actual {actual_downtime:.4f} seconds, "
+                f"threshold is {downtime_threshold} seconds"
+            )
         if not result.get("converged"):
             pytest.fail("BGP routes are not stable in long time")
     finally:
@@ -774,14 +789,17 @@ def test_nexthop_group_member_scale(
         terminated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
-        acceptable_downtime = validate_rx_tx_counters(pdp, end_time, start_time, exp_mask,
-                                                      _get_max_time('dataplane_downtime', 1))
+        acceptable_downtime, actual_downtime = validate_rx_tx_counters(
+            pdp, end_time, start_time, exp_mask, _get_max_time('dataplane_downtime', 1)
+        )
         if not acceptable_downtime:
             for ptfhost in ptfhosts:
                 ptf_ip = ptfhost.mgmt_ip
                 announce_routes(localhost, tbinfo, ptf_ip, servers_dut_interfaces.get(ptf_ip, ''))
-            pytest.fail(f"Dataplane downtime is too high, threshold is "
-                        f"{_get_max_time('dataplane_downtime', 1)} seconds")
+            pytest.fail(
+                f"Dataplane downtime is too high: actual {actual_downtime:.4f} seconds, "
+                f"threshold is {_get_max_time('dataplane_downtime', 1)} seconds"
+            )
         if not result.get("converged"):
             pytest.fail("BGP routes are not stable in long time")
     finally:
@@ -821,10 +839,14 @@ def test_nexthop_group_member_scale(
     terminated.set()
     traffic_thread.join()
     end_time = datetime.datetime.now()
-    acceptable_downtime = validate_rx_tx_counters(pdp, end_time, start_time, exp_mask,
-                                                  _get_max_time('dataplane_downtime', 1))
+    acceptable_downtime, actual_downtime = validate_rx_tx_counters(
+        pdp, end_time, start_time, exp_mask, _get_max_time('dataplane_downtime', 1)
+    )
     if not acceptable_downtime:
-        pytest.fail(f"Dataplane downtime is too high, threshold is {_get_max_time('dataplane_downtime', 1)} seconds")
+        pytest.fail(
+            f"Dataplane downtime is too high: actual {actual_downtime:.4f} seconds, "
+            f"threshold is {_get_max_time('dataplane_downtime', 1)} seconds"
+        )
     if not result.get("converged"):
         pytest.fail("BGP routes are not stable in long time")
 
