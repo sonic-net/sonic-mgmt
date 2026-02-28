@@ -774,7 +774,8 @@ class BaseEverflowTest(object):
     @staticmethod
     def _build_erspan_cli_command(session_info, queue_num=None,
                                   direction=None, policer=None,
-                                  use_erspan_subcmd=False):
+                                  use_erspan_subcmd=False,
+                                  erspan_ip_ver=4):
         """Build the CLI command string for adding an ERSPAN mirror session.
 
         Args:
@@ -785,32 +786,33 @@ class BaseEverflowTest(object):
             use_erspan_subcmd: If True, use 'config mirror_session erspan add'
                 (supports direction as positional arg). If False, use the
                 legacy 'config mirror_session add'.
+            erspan_ip_ver: IP version (4 or 6).
 
         Returns:
             str: The CLI command string.
         """
+        src_ip = session_info['session_src_ip'] if erspan_ip_ver == 4 \
+            else session_info['session_src_ipv6']
+        dst_ip = session_info['session_dst_ip'] if erspan_ip_ver == 4 \
+            else session_info['session_dst_ipv6']
+
         if use_erspan_subcmd:
             # New syntax: config mirror_session erspan add <name> <src> <dst>
             #     <dscp> <ttl> [gre_type] [queue] [src_port] [direction]
-            # direction is a positional arg, not an option.
             command = (
                 f"config mirror_session erspan add"
                 f" {session_info['session_name']}"
-                f" {session_info['session_src_ip']}"
-                f" {session_info['session_dst_ip']}"
+                f" {src_ip} {dst_ip}"
                 f" {session_info['session_dscp']}"
                 f" {session_info['session_ttl']}"
                 f" {session_info['session_gre']}"
             )
-            # queue is positional — must come before src_port/direction
             if queue_num:
                 command += f" {queue_num}"
             else:
-                # Need placeholder for positional args that follow
                 command += " ''"
             # src_port placeholder (not used for ERSPAN without SPAN src)
             command += " ''"
-            # direction as positional arg
             if direction:
                 command += f" {direction}"
             if policer:
@@ -822,8 +824,7 @@ class BaseEverflowTest(object):
             command = (
                 f"config mirror_session add"
                 f" {session_info['session_name']}"
-                f" {session_info['session_src_ip']}"
-                f" {session_info['session_dst_ip']}"
+                f" {src_ip} {dst_ip}"
                 f" {session_info['session_dscp']}"
                 f" {session_info['session_ttl']}"
                 f" {session_info['session_gre']}"
@@ -837,80 +838,56 @@ class BaseEverflowTest(object):
     @staticmethod
     def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None,
                             erspan_ip_ver=4, queue_num=None, direction=None):
-        commands_list = list()
         if config_method == CONFIG_MODE_CLI:
-            if erspan_ip_ver == 4:
-                if direction:
-                    # Try legacy command first (without direction since it
-                    # does not support it), then fall back to erspan subcmd.
-                    # sonic-utilities PR #4089 added capability checks but
-                    # missed adding --direction to the legacy 'add' command.
-                    legacy_cmd = BaseEverflowTest._build_erspan_cli_command(
-                        session_info, queue_num=queue_num,
-                        policer=policer, use_erspan_subcmd=False
+            if direction:
+                # Try legacy command first (without direction since it
+                # does not support it), then fall back to erspan subcmd.
+                # sonic-utilities PR #4089 added capability checks but
+                # missed adding --direction to the legacy 'add' command
+                # (sonic-net/sonic-utilities#4318).
+                legacy_cmd = BaseEverflowTest._build_erspan_cli_command(
+                    session_info, queue_num=queue_num,
+                    policer=policer, use_erspan_subcmd=False,
+                    erspan_ip_ver=erspan_ip_ver
+                )
+                result = duthost.command(legacy_cmd, module_ignore_errors=True)
+                if result["rc"] != 0:
+                    logger.warning(
+                        "Legacy 'config mirror_session add' failed: %s. "
+                        "Trying 'config mirror_session erspan add' with "
+                        "direction=%s.",
+                        result.get("stderr", "").strip(), direction
                     )
-                    result = duthost.command(legacy_cmd, module_ignore_errors=True)
-                    if result["rc"] != 0:
-                        logger.warning(
-                            "Legacy 'config mirror_session add' failed: %s. "
-                            "Trying 'config mirror_session erspan add' with "
-                            "direction=%s.",
-                            result.get("stderr", "").strip(), direction
-                        )
-                        erspan_cmd = BaseEverflowTest._build_erspan_cli_command(
-                            session_info, queue_num=queue_num,
-                            direction=direction, policer=policer,
-                            use_erspan_subcmd=True
-                        )
-                        result2 = duthost.command(
-                            erspan_cmd, module_ignore_errors=True
-                        )
-                        if result2["rc"] != 0:
-                            pytest.skip(
-                                "Cannot create mirror session: both "
-                                "legacy and erspan CLI commands failed. "
-                                "Legacy error: {}. ERSPAN error: {}. "
-                                "Image may not support directional "
-                                "mirroring.".format(
-                                    result.get("stderr", "").strip(),
-                                    result2.get("stderr", "").strip()
-                                )
+                    erspan_cmd = BaseEverflowTest._build_erspan_cli_command(
+                        session_info, queue_num=queue_num,
+                        direction=direction, policer=policer,
+                        use_erspan_subcmd=True,
+                        erspan_ip_ver=erspan_ip_ver
+                    )
+                    result2 = duthost.command(
+                        erspan_cmd, module_ignore_errors=True
+                    )
+                    if result2["rc"] != 0:
+                        pytest.skip(
+                            "Cannot create mirror session: both "
+                            "legacy and erspan CLI commands failed. "
+                            "Legacy error: {}. ERSPAN error: {}. "
+                            "Image may not support directional "
+                            "mirroring.".format(
+                                result.get("stderr", "").strip(),
+                                result2.get("stderr", "").strip()
                             )
-                else:
-                    command = BaseEverflowTest._build_erspan_cli_command(
-                        session_info, queue_num=queue_num,
-                        policer=policer, use_erspan_subcmd=False
-                    )
-                    commands_list.append(command)
+                        )
             else:
-                for asic_index in duthost.get_frontend_asic_ids():
-                    # Adding IPv6 ERSPAN sessions for each asic, from the CLI is currently not supported.
-                    if asic_index is not None:
-                        command = f"sonic-db-cli -n asic{asic_index} "
-                    else:
-                        command = "sonic-db-cli "
-                    command += (
-                        f"CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' "
-                        f"'dscp' '{session_info['session_dscp']}' "
-                        f"'dst_ip' '{session_info['session_dst_ipv6']}' "
-                        f"'gre_type' '{session_info['session_gre']}' "
-                        f"'type' '{session_info['session_type']}' "
-                        f"'src_ip' '{session_info['session_src_ipv6']}' "
-                        f"'ttl' '{session_info['session_ttl']}'"
-                    )
-                    if queue_num:
-                        command += f" 'queue' {queue_num}"
-                    if direction:
-                        command += f" 'direction' '{direction}'"
-                    if policer:
-                        command += f" 'policer' {policer}"
-                    commands_list.append(command)
+                command = BaseEverflowTest._build_erspan_cli_command(
+                    session_info, queue_num=queue_num,
+                    policer=policer, use_erspan_subcmd=False,
+                    erspan_ip_ver=erspan_ip_ver
+                )
+                duthost.command(command)
 
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
-
-        for command in commands_list:
-            duthost.command(command)
 
     @staticmethod
     def remove_mirror_config(duthost, session_name, config_method=CONFIG_MODE_CLI):
