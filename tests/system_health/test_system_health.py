@@ -63,6 +63,11 @@ EXPECT_PSU_NO_POWER = '{} is out of power'
 EXPECT_PSU_HOT = '{} temperature is too hot'
 EXPECT_PSU_INVALID_VOLTAGE = '{} voltage is out of range'
 
+DEFAULT_LED_CONFIG = {
+    'fault': 'red',
+    'normal': 'green',
+    'booting': 'red'
+}
 
 @pytest.fixture(autouse=True, scope="module")
 def check_image_version(duthost):
@@ -516,12 +521,18 @@ def check_system_health_led_info(duthost):
     status_dict = {name: status for name, status in status_data}
     logger.info(f"Status dict is {status_dict}")
 
+    led_cfg = get_system_health_config(duthost, "led_color", DEFAULT_LED_CONFIG)
+
+    system_status_lower = system_led_status.lower()
     if all(status == "OK" for status in status_dict.values()):
-        assert system_led_status.lower() == 'green', \
-            f"System status LED is not green, but it is {system_led_status}"
+        # Logic for healthy system: must match the 'normal' key value
+        expected_normal = led_cfg["normal"].lower()
+        assert system_status_lower == expected_normal, \
+            f"System status LED is not the configured 'normal' color ({expected_normal}), but it is {system_led_status}"
     else:
-        assert system_led_status.lower() in ["yellow", "amber", "red"], \
-            f"System status LED is not yellow, amber, or red, but it is {system_led_status}"
+        # Logic for faulted system: Iterate through led_cfg to find a match among non-normal keys
+        not_normal = {color for key, color in led_cfg.items() if key != "normal"}
+        assert system_status_lower in not_normal, f"System status LED '{system_led_status}' does not match any non-normal colors defined in config: {not_normal}"
 
     return True
 
