@@ -486,13 +486,55 @@ def validate_mirror_session_up(duthost, session_name):
     return False
 
 
+def validate_vids_to_rids(duthost, vid_list):
+    """
+    Validate that all VIDs in the list have corresponding RIDs in the VIDTORID hash table.
+
+    Args:
+        duthost: DUT host object
+        vid_list: List of Virtual IDs to look up
+
+    Returns:
+        bool: True if all VIDs have non-None RID mappings, False otherwise
+    """
+    asicdb = AsicDbCli(duthost)
+    vidtorid_table = asicdb.dump("VIDTORID")["VIDTORID"]["value"]
+
+    for vid in vid_list:
+        vid = "oid:" + vid
+        if vid not in vidtorid_table or vidtorid_table[vid] is None:
+            return False
+    return True
+
+
+def validate_acl_rule_rids(duthost):
+    """
+    Validate that the ACL rule RIDs are not empty.
+    """
+    asicdb = AsicDbCli(duthost)
+    acl_entry_table = asicdb.dump("ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY")
+    entry_vids = []
+    for key, value in acl_entry_table.items():
+        if 'SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_INGRESS' in value['value'] or \
+           'SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_EGRESS' in value['value']:
+            # Extract OID from key format "ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:oid:0x8000000000abe"
+            oid = key.split(":")[-1] if "oid:" in key else None
+            if oid is not None:
+                entry_vids.append(oid)
+    return validate_vids_to_rids(duthost, entry_vids)
+
+
 def validate_acl_rules_in_asic_db(duthost):
     """
-    Validate the number of ACL rules in ASIC DB is the same as the number of ACL rules in CONFIG DB.
+    Validate that the number of ACL rules in ASIC DB is the same as the number of ACL rules in CONFIG DB.
+    Also check that the ACL rule RIDs are not empty.
     """
     config_rules = duthost.shell("sonic-db-cli CONFIG_DB KEYS *ACL_RULE*")['stdout_lines']
     asic_rules = duthost.shell("sonic-db-cli ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*")['stdout_lines']
-    return len(config_rules) == len(asic_rules)
+    if len(config_rules) != len(asic_rules):
+        return False
+
+    return validate_acl_rule_rids(duthost)
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.
