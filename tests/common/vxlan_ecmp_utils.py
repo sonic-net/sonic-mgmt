@@ -410,6 +410,12 @@ class Ecmp_Utils(object):
             filename = name + "-" + str(time.time()) + ".json"
 
         duthost.copy(content=config, dest="/tmp/{}".format(filename))
+
+        cmd = "cat /tmp/{}".format(filename)
+        cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+        Logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+   
+
         duthost.shell(
             'docker exec -i swss swssconfig /dev/stdin < /tmp/{}'.format(
                 filename))
@@ -655,6 +661,10 @@ class Ecmp_Utils(object):
                     adv_pfx_mask=adv_pfx_mask))
 
         full_config = '[' + "\n,".join(config_list) + '\n]'
+
+        Logger.info("##### apply_config_in_swss")
+        Logger.info("##### full_config {}".format(full_config))
+        Logger.info("##### operation: {}_routes".format(op))
         self.apply_config_in_swss(duthost, full_config, op+"_routes")
 
     def get_t2_ports(self, duthost, minigraph_data):

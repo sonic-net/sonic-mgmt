@@ -111,12 +111,17 @@ def fixture_setUp(duthosts,
         data['duthost'].get_extended_minigraph_facts(tbinfo)
     data['dut_mac'] = data['duthost'].facts['router_mac']
     time.sleep(WAIT_TIME)
+    Logger.info("###### sleep 30 after get_extended_minigraph_facts")
+    time.sleep(30)
 
     ecmp_utils.configure_vxlan_switch(
         data['duthost'],
         vxlan_port=4789,
         dutmac=data['dut_mac'])
     data['active_routes'] = {}
+
+    Logger.info("###### sleep 30 after configure_vxlan_switch")
+    time.sleep(30)
 
     outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
     encap_type_data = {}
@@ -236,6 +241,8 @@ class Test_VxLAN_route_Advertisement():
                                      bfd=False,
                                      mask=prefix_mask,
                                      profile=profile)
+        Logger.info("###### sleep 30 after add_unmonitored_vnet_route")
+        time.sleep(30)
 
     def remove_unmonitored_vnet_route(self, routes):
         if self.prefix_type == 'v4':
@@ -249,6 +256,8 @@ class Test_VxLAN_route_Advertisement():
                                      'DEL',
                                      bfd=False,
                                      mask=prefix_mask)
+        Logger.info("###### sleep 30 after remove_unmonitored_vnet_route")
+        time.sleep(30)
 
     def verify_nighbor_has_routes(self, routes, community=""):
         if self.prefix_type == 'v4':
@@ -339,19 +348,40 @@ class Test_VxLAN_route_Advertisement():
         Create a tunnel route and advertise the tunnel route to all neighbor without community id
         Result: All BGP neighbors can recieve the advertised BGP routes
         '''
+        time.sleep(60)
         self.vxlan_test_setup = setUp
         self.duthost = duthost
         if encap_type == 'v4_in_v4':
             self.prefix_type = 'v4'
         else:
             self.prefix_type = 'v6'
+
+
+        Logger.info("###### gnenrate_vnet_routes")
         routes = self.gnenrate_vnet_routes(encap_type, 1)
+        
+        
+        Logger.info("###### add_unmonitored_vnet_route")
+        time.sleep(60)
         self.add_unmonitored_vnet_route(routes, "")
+
+
+        Logger.info("###### verify_nighbor_has_routes")
+        time.sleep(15)
         time.sleep(WAIT_TIME)
         self.verify_nighbor_has_routes(routes, "")
+
+
+        Logger.info("###### remove_unmonitored_vnet_route")
+        time.sleep(15)
         self.remove_unmonitored_vnet_route(routes)
+        time.sleep(15)
         time.sleep(WAIT_TIME)
+
+
+        Logger.info("###### verify_nighbor_doesnt_have_routes")
         self.verify_nighbor_doesnt_have_routes(routes, "")
+        time.sleep(60)
         return
 
     def test_basic_route_advertisement_with_community(self, setUp, encap_type, duthost):  # noqa: F811
