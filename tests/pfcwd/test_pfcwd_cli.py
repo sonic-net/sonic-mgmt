@@ -584,4 +584,4 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.storm_hndle.stop_storm()
                 logger.info("--- Stop PFC WD ---")
                 self.dut.command("pfcwd stop")
-                self.__restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links)
+        self.__restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links)
