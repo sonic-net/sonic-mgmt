@@ -1,0 +1,155 @@
+# Test conditions file with skip_categories for unit testing
+# Developers can edit this file to test different category configurations
+
+skip_categories:
+  permanent:
+    description: "Permanent skips that don't require expiry dates"
+    requires_expiry_date: false
+    allowed_reasons:
+      - "ASIC_NOT_SUPPORTED"
+      - "TOPO_NOT_SUPPORTED"
+      - "FEATURE_NOT_APPLICABLE"
+      - "HARDWARE_LIMITATION"
+
+  temporary:
+    description: "Temporary skips that require expiry dates"
+    requires_expiry_date: true
+    max_expiry_days: 180
+    allowed_reasons:
+      - "BUG_FIX_IN_PROGRESS"
+      - "NEW_FEATURE_UNDER_DEVELOPMENT"
+      - "INFRASTRUCTURE_ISSUE"
+      - "KNOWN_FLAKY_TEST"
+
+# Test cases demonstrating category usage
+# These are loaded by unit tests to verify the plugin works correctly
+
+# Valid permanent skip - no expiry needed
+test_valid_permanent.py::test_asic_not_supported:
+  skip:
+    reason: "This ASIC does not support the feature"
+    category: "ASIC_NOT_SUPPORTED"
+    conditions:
+      - "asic_type in ['vs']"
+
+test_valid_permanent.py::test_topo_not_supported:
+  skip:
+    reason: "This topology is not supported"
+    category: "TOPO_NOT_SUPPORTED"
+    conditions:
+      - "topology in ['t0']"
+
+# Valid temporary skip - expiry required
+test_valid_temporary.py::test_bug_fix:
+  skip:
+    reason: "Bug #12345 being fixed"
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2026-06-15"
+    conditions:
+      - "True"
+
+test_valid_temporary.py::test_new_feature:
+  skip:
+    reason: "New feature under development"
+    category: "NEW_FEATURE_UNDER_DEVELOPMENT"
+    expiry_date: "2026-03-01"
+    conditions:
+      - "True"
+
+# Expired temporary skip - should not be applied (default behavior)
+test_expired.py::test_expired_bug:
+  skip:
+    reason: "Bug should be fixed by now"
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2024-12-01"
+    conditions:
+      - "True"
+
+# Expired with expiry_action: fail - fail test run to force addressing the issue
+test_expired_action_fail.py::test_case:
+  skip:
+    reason: "Bug fix was supposed to be done"
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2024-12-01"
+    expiry_action: "fail"
+    conditions:
+      - "True"
+
+# Expired with expiry_action: warn - log warning and run test
+test_expired_action_warn.py::test_case:
+  skip:
+    reason: "Infrastructure should be fixed"
+    category: "INFRASTRUCTURE_ISSUE"
+    expiry_date: "2024-11-15"
+    expiry_action: "warn"
+    conditions:
+      - "True"
+
+# Expired with expiry_action: run - silently run test
+test_expired_action_run.py::test_case:
+  skip:
+    reason: "Feature should be ready"
+    category: "NEW_FEATURE_UNDER_DEVELOPMENT"
+    expiry_date: "2024-10-01"
+    expiry_action: "run"
+    conditions:
+      - "True"
+
+# Invalid: permanent with expiry_date
+test_invalid_permanent_with_expiry.py::test_case:
+  skip:
+    reason: "This should fail validation"
+    category: "ASIC_NOT_SUPPORTED"
+    expiry_date: "2026-06-15"
+    conditions:
+      - "True"
+
+# Invalid: temporary without expiry_date
+test_invalid_temporary_without_expiry.py::test_case:
+  skip:
+    reason: "This should fail validation"
+    category: "BUG_FIX_IN_PROGRESS"
+    conditions:
+      - "True"
+
+# Invalid: unknown category
+test_invalid_category.py::test_case:
+  skip:
+    reason: "This should fail validation"
+    category: "UNKNOWN_CATEGORY"
+    conditions:
+      - "True"
+
+# Invalid: expiry date too far in future
+test_invalid_expiry_too_far.py::test_case:
+  skip:
+    reason: "This should fail validation"
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2027-12-31"
+    conditions:
+      - "True"
+
+# Invalid: wrong date format
+test_invalid_date_format.py::test_case:
+  skip:
+    reason: "This should fail validation"
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "12/31/2026"
+    conditions:
+      - "True"
+
+# Backward compatibility: no category
+test_backward_compat.py::test_old_format:
+  skip:
+    reason: "Old format without category - should still work"
+    conditions:
+      - "True"
+
+# Boundary test: expiry at exactly 180 days
+test_boundary_180_days.py::test_case:
+  skip:
+    reason: "Expiry at max boundary"
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2026-06-17"  # Adjust this to be exactly 180 days from today
+    conditions:
+      - "True"
