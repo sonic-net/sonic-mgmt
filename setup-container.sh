@@ -442,7 +442,7 @@ set -- "${ARGS[@]}"
 #
 # Script --------------------------------------------------------------------------------------------------------------
 #
-
+exit_failure "Force failure"
 if [[ $# -eq 0 ]]; then
     show_help_and_exit "${EXIT_SUCCESS}"
 fi
