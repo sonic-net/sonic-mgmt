@@ -728,7 +728,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
     remaining_packets = fill_packet_count % BATCH_PACKET_COUNT
 
     total_sent_packets = 0
-    max_retries = 10  # Maximum number of retries per batch
+    max_retries = 3  # Maximum number of retries per batch
 
     # Send packets in batches
     logger.info(f"Sending packets in batches of {BATCH_PACKET_COUNT} packets each")
