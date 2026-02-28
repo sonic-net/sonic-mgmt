@@ -1,16 +1,20 @@
+from contextlib import contextmanager
 from netaddr import IPNetwork
 from .qos_fixtures import lossless_prio_dscp_map, leaf_fanouts      # noqa: F401
+from tests.common.cisco_data import is_cisco_device, copy_set_voq_watchdog_script_cisco_8000, run_dshell_command
 import re
 import os
 import json
 import logging
+import requests
 
 logger = logging.getLogger(__name__)
-
 
 PFC_GEN_FILE = 'pfc_gen.py'
 PFC_GEN_LOCAL_PATH = '../../ansible/roles/test/files/helpers/pfc_gen.py'
 PFC_GEN_REMOTE_PATH = '~/pfc_gen.py'
+WITHDRAW = 'withdraw'
+ANNOUNCE = 'announce'
 
 
 def atoi(text):
@@ -32,41 +36,6 @@ def ansible_stdout_to_str(ansible_stdout):
     for x in ansible_stdout:
         result += x
     return result
-
-
-def eos_to_linux_intf(eos_intf_name, hwsku=None):
-    """
-    @Summary: Map EOS's interface name to Linux's interface name
-    @param eos_intf_name: Interface name in EOS
-    @return: Return the interface name in Linux
-    """
-    if hwsku == "MLNX-OS":
-        linux_intf_name = eos_intf_name.replace(
-            "ernet 1/", "sl1p").replace("/", "sp")
-    elif hwsku and "Nokia" in hwsku:
-        linux_intf_name = eos_intf_name
-    else:
-        linux_intf_name = eos_intf_name.replace(
-            'Ethernet', 'et').replace('/', '_')
-    return linux_intf_name
-
-
-def nxos_to_linux_intf(nxos_intf_name):
-    """
-        @Summary: Map NxOS's interface name to Linux's interface name
-        @param nxos_intf_name: Interface name in NXOS
-        @return: Return the interface name in Linux
-    """
-    return nxos_intf_name.replace('Ethernet', 'Eth').replace('/', '-')
-
-
-def sonic_to_linux_intf(sonic_intf_name):
-    """
-    @Summary: Map SONiC's interface name to Linux's interface name
-    @param sonic_intf_name: Interface name in SONiC
-    @return: Return the interface name in Linux
-    """
-    return sonic_intf_name
 
 
 def get_phy_intfs(host_ans):
@@ -259,3 +228,109 @@ def dutBufferConfig(duthost, dut_asic=None):
     except Exception as err:
         logger.info(err)
     return bufferConfig
+
+
+def voq_watchdog_enabled(get_src_dst_asic_and_duts):
+    dst_dut = get_src_dst_asic_and_duts['dst_dut']
+    if not is_cisco_device(dst_dut):
+        return False
+    namespace_option = "-n asic0" if dst_dut.facts.get("modular_chassis") else ""
+    show_command = "show platform npu global {}".format(namespace_option)
+    result = run_dshell_command(dst_dut, show_command)
+    pattern = r"voq_watchdog_enabled +: +True"
+    match = re.search(pattern, result["stdout"])
+    return match
+
+
+def modify_voq_watchdog(duthosts, get_src_dst_asic_and_duts, enable):
+    # Skip if voq watchdog is not enabled.
+    if not voq_watchdog_enabled(get_src_dst_asic_and_duts):
+        logger.info("voq_watchdog is not enabled, skipping modify voq watchdog")
+        return
+
+    dst_dut = get_src_dst_asic_and_duts['dst_dut']
+    dst_asic = get_src_dst_asic_and_duts['dst_asic']
+    dut_list = [dst_dut]
+    asic_index_list = [dst_asic.asic_index]
+
+    if not get_src_dst_asic_and_duts["single_asic_test"]:
+        src_dut = get_src_dst_asic_and_duts['src_dut']
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        dut_list.append(src_dut)
+        asic_index_list.append(src_asic.asic_index)
+        # fabric card asics
+        for rp_dut in duthosts.supervisor_nodes:
+            for asic in rp_dut.asics:
+                dut_list.append(rp_dut)
+                asic_index_list.append(asic.asic_index)
+
+    # Modify voq watchdog.
+    for (dut, asic_index) in zip(dut_list, asic_index_list):
+        copy_set_voq_watchdog_script_cisco_8000(
+            dut=dut,
+            asic=asic_index,
+            enable=enable)
+        cmd_opt = "-n asic{}".format(asic_index)
+        if not dst_dut.sonichost.is_multi_asic:
+            cmd_opt = ""
+        dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
+
+
+@contextmanager
+def disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts):
+    # Disable voq watchdog.
+    modify_voq_watchdog(duthosts, get_src_dst_asic_and_duts, enable=False)
+    yield
+    # Enable voq watchdog.
+    modify_voq_watchdog(duthosts, get_src_dst_asic_and_duts, enable=True)
+
+
+def get_upstream_vm_offset(nbrhosts, tbinfo):
+    """
+    Get ports offset of exabgp port
+    """
+    port_offset_list = []
+    if 't0' in tbinfo['topo']['type']:
+        vm_filter = 'T1'
+    elif 't1' in tbinfo['topo']['type']:
+        vm_filter = 'T2'
+    vm_name_list = [vm_name for vm_name in nbrhosts.keys() if vm_name.endswith(vm_filter)]
+    for vm_name in vm_name_list:
+        if nbrhosts[vm_name].get('is_multi_vrf_peer', False):
+            port_offset = nbrhosts[vm_name]['multi_vrf_data']['vm_offset_mapping']
+        else:
+            port_offset = tbinfo['topo']['properties']['topology']['VMs'][vm_name]['vm_offset']
+        port_offset_list.append((port_offset))
+    return port_offset_list
+
+
+def get_upstream_exabgp_port(nbrhosts, tbinfo, exabgp_base_port):
+    """
+    Get exabgp port and ptf receive port
+    """
+    port_offset_list = get_upstream_vm_offset(nbrhosts, tbinfo)
+    return [_ + exabgp_base_port for _ in port_offset_list]
+
+
+def install_route_from_exabgp(operation, ptfip, route, port):
+    """
+    Install or withdraw ip route by exabgp
+    """
+    route_data = [route]
+    url = "http://{}:{}".format(ptfip, port)
+    command = "{} attribute next-hop self nlri {}".format(operation, ' '.join(route_data))
+    data = {"command": command}
+    logger.info("url: {}".format(url))
+    logger.info("command: {}".format(data))
+    r = requests.post(url, data=data, timeout=90)
+    assert r.status_code == 200
+
+
+def announce_route(ptfip, route, port, action=ANNOUNCE):
+    """
+    Announce or withdraw ipv4 or ipv6 route
+    """
+    logger.info("\n========================== announce_route -- {} ==========================".format(action))
+    logger.info(" action:{}\n ptfip:{}\n route:{}\n port:{}".format(action, ptfip, route, port))
+    install_route_from_exabgp(action, ptfip, route, port)
+    logger.info("\n--------------------------------------------------------------------------------")

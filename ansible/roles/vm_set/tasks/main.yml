@@ -26,6 +26,10 @@
     package_installation: true
   when: package_installation is not defined or package_installation == ''
 
+- name: Initialize async flag
+  set_fact:
+    enable_async: "{{ enable_async | default(false) | bool }}"
+
 - name: get host distribution
   shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
   register: host_distribution
@@ -114,6 +118,7 @@
         pkg:
         - python3-libvirt
         - python3-pip
+        - python3-lxml
         - libvirt-daemon-system
         - qemu-system-x86
       become: yes
@@ -268,6 +273,13 @@
     sysctl_set: yes
   become: yes
 
+- name: Increase fs limitation
+  sysctl:
+    name: "fs.inotify.max_user_instances"
+    value: "62800"
+    sysctl_set: yes
+  become: yes
+
 - name: Setup external front port
   include_tasks: external_port.yml
   when: external_port is defined
@@ -348,6 +360,11 @@
   set_fact:
     vm_type: "ceos"
   when: vm_type is not defined
+
+- name: Set default value for topo_is_multi_vrf
+  set_fact:
+    topo_is_multi_vrf: False
+  when: topo_is_multi_vrf is not defined
 
 - name: Check VM type
   fail:

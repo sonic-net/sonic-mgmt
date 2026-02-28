@@ -28,6 +28,12 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
         ntp_conf_path = '/etc/ntp.conf'
         ntp_service_name = 'ntp'
 
+    if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
+        # Limit listening to the mgmt interface, to prevent socket allocation
+        # exhaustion
+        ptfhost.lineinfile(path=ntp_conf_path, line="interface ignore wildcard")
+        ptfhost.lineinfile(path=ntp_conf_path, line="interface listen mgmt")
+
     ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
     # Comment out the default pool configuration
@@ -39,6 +45,12 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
         path=ntp_conf_path, line="#pool 2.debian.pool.ntp.org iburst", regexp="^pool.*2.debian.*pool.*ntp.*org.*")
     ptfhost.lineinfile(
         path=ntp_conf_path, line="#pool 3.debian.pool.ntp.org iburst", regexp="^pool.*3.debian.*pool.*ntp.*org.*")
+
+    # Comment out the tos minclock minsane option line
+    # Having this option enabled can cause the NTP server to not synchronize
+    # with the PTF host, which can lead to test failures.
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="#tos minclock 4 minsane 3", regexp="^tos.*minclock.*minsane.*")
 
     ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
@@ -87,6 +99,10 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
         path=ntp_conf_path, line="pool 3.debian.pool.ntp.org iburst", regexp="#pool.*3.debian.*pool.*ntp.*org.*")
 
     ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^server.*127.127.1.0.*prefer")
+
+    if ntp_daemon_type in (NtpDaemon.NTPSEC, NtpDaemon.NTP):
+        ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.ignore.wildcard")
+        ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^interface.listen.mgmt")
 
     # reset ntp client configuration
     duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))

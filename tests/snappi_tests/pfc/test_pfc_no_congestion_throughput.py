@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
-port_map = [[1, 100, 1, 100]]
+port_map = [[1, 100, 1, 100], [1, 400, 1, 400]]
 
 # Testplan: docs/testplan/PFC_Snappi_Additional_Testcases.md
 # This test-script covers testcase#01-non-congestion(normal).
@@ -116,7 +116,7 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Single_Ingress_Egress_diff_dist_'+str(port_map[1])+'Gbps',
+                'test_type': 'logs/snappi_tests/pfc/Single_Ingress_Egress_diff_dist_'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': True,
@@ -260,7 +260,7 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Single_Ingress_Egress_uni_dist_'+str(port_map[1])+'Gbps',
+                'test_type': 'logs/snappi_tests/pfc/Single_Ingress_Egress_uni_dist_'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': True,
@@ -404,7 +404,7 @@ def test_single_lossless_prio(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Single_Ingress_Egress_1Prio_linerate_'+str(port_map[1])+'Gbps',
+                'test_type': 'logs/snappi_tests/pfc/Single_Ingress_Egress_1Prio_linerate_'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': True,

@@ -41,10 +41,15 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
 
     # Make Sure Orch CPU < orch_cpu_threshold before starting test.
     logger.info("Make Sure orchagent CPU utilization is less that %d before link flap", orch_cpu_threshold)
-    pytest_assert(wait_until(100, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                  "Orch CPU utilization {} > orch cpu threshold {} before link flap"
-                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                          orch_cpu_threshold))
+    pytest_assert(
+        wait_until(100, 2, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        (
+            "Orch CPU utilization {} > orch cpu threshold {} before link flap."
+        ).format(
+            duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+            orch_cpu_threshold
+        )
+    )
 
     loop_times = get_loop_times
 
@@ -75,12 +80,16 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
     logging.info("Redis Memory at end: %f M", end_time_redis_memory)
 
     result = validate_redis_memory_increase(tbinfo, start_time_redis_memory, end_time_redis_memory)
-    pytest_assert(result, "Redis Memory increases more than expected: start {}, end {}"
-                  .format(start_time_redis_memory, end_time_redis_memory))
+    pytest_assert(result, (
+        "Redis Memory increases more than expected: start {}, end {}. "
+    ).format(start_time_redis_memory, end_time_redis_memory))
 
     # Orchagent CPU should consume < orch_cpu_threshold at last.
     logger.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
-    pytest_assert(wait_until(900, 20, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-                  "Orch CPU utilization {} > orch cpu threshold {} before link flap"
-                  .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-                          orch_cpu_threshold))
+    pytest_assert(
+        wait_until(900, 20, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        "Orch CPU utilization {} > orch cpu threshold {} before link flap. ".format(
+            duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+            orch_cpu_threshold
+        )
+    )

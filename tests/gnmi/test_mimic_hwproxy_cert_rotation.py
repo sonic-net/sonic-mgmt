@@ -4,15 +4,16 @@ import logging
 from tests.gnmi.conftest import setup_gnmi_rotated_server
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from .helper import gnmi_capabilities
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_capabilities
 from tests.common.utilities import get_image_type
 
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
+                            "setup_gnmi_rotated_server", "check_dut_timestamp")
 ]
 
 
@@ -35,7 +36,7 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
 
     # Use bash -c to run the pipeline properly
     cmd_feature = (
-        'bash -c \'show feature status | awk "$1==\\"gnmi\\" || $1==\\"telemetry\\" {print $1, $2}"\''
+        'bash -c "show feature status | awk \'$1==\\"gnmi\\" || $1==\\"telemetry\\" {print $1, $2}\'"'
     )
     logging.debug("show feature status command is: {}".format(cmd_feature))
 

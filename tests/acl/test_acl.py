@@ -26,7 +26,7 @@ from tests.common.fixtures.ptfhost_utils import \
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr     # noqa: F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until, check_msg_in_syslog
-from tests.common.utilities import get_all_upstream_neigh_type, get_downstream_neigh_type
+from tests.common.utilities import get_all_upstream_neigh_type, get_all_downstream_neigh_type
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
@@ -34,8 +34,9 @@ from tests.common.utilities import get_iface_ip
 from tests.common.sai_validation.sonic_db import start_db_monitor, wait_for_n_keys, stop_db_monitor
 from tests.common.validation.sai.acl_validation import validate_acl_asicdb_entries
 from tests.common.utilities import is_ipv4_address
-from tests.common.mellanox_data import is_mellanox_device
+from tests.common.utilities import is_ipv6_only_topology
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
+from tests.common.fixtures.duthost_utils import is_multi_binding_acl_enabled  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -95,6 +96,21 @@ DOWNSTREAM_IP_TO_ALLOW = {
 DOWNSTREAM_IP_TO_BLOCK = {
     "ipv4": "192.168.0.251",
     "ipv6": "20c0:a800::11ac:d765:2523:e5e4"
+}
+
+# Below T1 V6 topo IPs are announced to DUT by annouce_route.py
+# IPv4 addrs are placeholders only
+DOWNSTREAM_DST_IP_V6_TOPO = {
+    "ipv4": "192.168.0.253",
+    "ipv6": "2064:100:0::C0A8:0000:14"
+}
+DOWNSTREAM_IP_TO_ALLOW_V6_TOPO = {
+    "ipv4": "192.168.0.252",
+    "ipv6": "2064:100:0::C0A8:0000:1"
+}
+DOWNSTREAM_IP_TO_BLOCK_V6_TOPO = {
+    "ipv4": "192.168.0.251",
+    "ipv6": "2064:100:0::C0A8:0000:9"
 }
 
 # Below M0_L3 IPs are announced to DUT by annouce_route.py, it point to neighbor mx
@@ -188,7 +204,14 @@ def remove_dataacl_table(duthosts):
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         # Recover DUT by reloading minigraph
         for duthost in duthosts:
-            executor.submit(config_reload, duthost, config_source="minigraph", safe_reload=True, override_config=True)
+            executor.submit(
+                config_reload,
+                duthost,
+                config_source="minigraph",
+                safe_reload=True,
+                override_config=True,
+                check_intf_up_ports=True
+            )
 
 
 def remove_dataacl_table_single_dut(table_name, duthost):
@@ -343,6 +366,15 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_M0_L3
         DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_M0_L3
         DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_M0_L3
+    elif is_ipv6_only_topology(tbinfo):
+        if tbinfo['topo']['type'] in ['t0']:
+            DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_VLAN
+            DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_VLAN
+            DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_VLAN
+        else:
+            DOWNSTREAM_DST_IP = DOWNSTREAM_DST_IP_V6_TOPO
+            DOWNSTREAM_IP_TO_ALLOW = DOWNSTREAM_IP_TO_ALLOW_V6_TOPO
+            DOWNSTREAM_IP_TO_BLOCK = DOWNSTREAM_IP_TO_BLOCK_V6_TOPO
     elif tbinfo['topo']['type'] in ['t0']:
         try:
             vlan_config = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']['default_vlan_config']
@@ -384,8 +416,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         upstream_port_id_to_router_mac_map = t2_info['upstream_port_id_to_router_mac_map']
     else:
         upstream_neigh_types = get_all_upstream_neigh_type(topo)
-        downstream_neigh_type = get_downstream_neigh_type(topo)
-        pytest_require(len(upstream_neigh_types) > 0 and downstream_neigh_type is not None,
+        downstream_neigh_types = get_all_downstream_neigh_type(topo)
+        pytest_require(len(upstream_neigh_types) > 0 and len(downstream_neigh_types) > 0,
                        "Cannot get neighbor type for unsupported topo: {}".format(topo))
         mg_vlans = mg_facts["minigraph_vlans"]
         if tbinfo["topo"]["name"] in ("t1-isolated-d32", "t1-isolated-d128"):
@@ -404,17 +436,18 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         else:
             for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
                 port_id = mg_facts["minigraph_ptf_indices"][interface]
-                if downstream_neigh_type in neighbor["name"].upper():
-                    if topo in ["t0", "mx", "m0_vlan"]:
-                        if interface not in mg_vlans[vlan_name]["members"]:
-                            continue
+                for neigh_type in downstream_neigh_types:
+                    if neigh_type in neighbor["name"].upper():
+                        if topo in ["t0", "mx", "m0_vlan"]:
+                            if interface not in mg_vlans[vlan_name]["members"]:
+                                continue
 
-                    downstream_ports[neighbor['namespace']].append(interface)
-                    downstream_port_ids.append(port_id)
-                    # Duplicate all ports to upstream port list for FT2
-                    if topo == "ft2":
-                        upstream_port_ids.append(port_id)
-                    downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
+                        downstream_ports[neighbor['namespace']].append(interface)
+                        downstream_port_ids.append(port_id)
+                        # Duplicate all ports to upstream port list for FT2
+                        if topo == "ft2":
+                            upstream_port_ids.append(port_id)
+                        downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
                 for neigh_type in upstream_neigh_types:
                     if neigh_type in neighbor["name"].upper():
                         upstream_ports[neighbor['namespace']].append(interface)
@@ -465,7 +498,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             topo in ["t0", "m0_vlan", "m0_l3"]
             or tbinfo["topo"]["name"] in (
                 "t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                "t1-56-lag", "t1-28-lag", "t1-32-lag", "t1-48-lag"
+                "t1-56-lag", "t1-28-lag", "t1-32-lag", "t1-48-lag",
+                "t1-f2-d10u8"
             )
             or 't1-isolated' in tbinfo["topo"]["name"]
         )
@@ -535,8 +569,13 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
 
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])
 def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
-    if tbinfo["topo"]["type"] in ["t0"] and request.param == "ipv6":
-        pytest.skip("IPV6 ACL test not currently supported on t0 testbeds")
+    v6topo = "isolated-v6" in tbinfo["topo"]["name"]
+    if request.param == "ipv4":
+        if v6topo:
+            pytest.skip("IPV4 ACL test not supported on isolated-v6 testbeds")
+    else:       # ipv6
+        if tbinfo["topo"]["type"] in ["t0"] and not v6topo:
+            pytest.skip("IPV6 ACL test not currently supported on t0 testbeds")
 
     return request.param
 
@@ -705,32 +744,6 @@ def multi_binding_acl_table_type(duthosts, rand_selected_dut):
         yield
 
 
-def is_sai_profile_multi_binding_enabled(duthost):
-    """
-    Check if SAI_ACL_MULTI_BINDING_ENABLED is enabled in syncd docker's sai.profile
-
-    Args:
-        duthost: DUT host object
-
-    Returns:
-        bool: True if SAI_ACL_MULTI_BINDING_ENABLED=1 exists in sai.profile, False otherwise
-    """
-    try:
-        # Check if sai.profile exists in syncd docker
-        result = duthost.shell(
-            "docker exec syncd ls /tmp/sai.profile", module_ignore_errors=True)
-        if result['rc'] != 0:
-            return False
-
-        # Check if SAI_ACL_MULTI_BINDING_ENABLED=1 exists in the file
-        result = duthost.shell(
-            "docker exec syncd grep 'SAI_ACL_MULTI_BINDING_ENABLED=1' /tmp/sai.profile", module_ignore_errors=True)
-        return result['rc'] == 0
-    except Exception as e:
-        logger.error("Failed to check sai.profile: %s", str(e))
-        return False
-
-
 def create_or_remove_acl_table(duthost, acl_table_config, setup, op, topo):
     for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
         namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else ''
@@ -779,12 +792,6 @@ def acl_table(duthosts, rand_selected_dut, rand_one_dut_hostname, setup, stage, 
     if is_multi_binding_acl():
         if stage == "egress":
             pytest.skip("Not applicable for multi binding ACL")
-        for duthost in duthosts:
-            if not is_sai_profile_multi_binding_enabled(duthost):
-                if is_mellanox_device(duthost) and 'dualtor' in tbinfo['topo']['name']:
-                    pytest.fail(
-                        "No multi-binding ACL supported on this platform, please check the sai.profile")
-                pytest.skip("No multi-binding ACL supported on this platform")
         table_name = f"MULTI_BINDING_{stage.upper()}_{ip_version.upper()}_TEST"
         table_type = "MULTI_BINDING_ACL"
         duthosts = [rand_selected_dut]
@@ -1082,7 +1089,7 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
             return True
 
         logger.info('Wait all rule counters are ready')
-        return wait_until(60, 2, 0, self.check_rule_counters_internal, duthost)
+        return wait_until(120, 2, 0, self.check_rule_counters_internal, duthost)
 
     def check_rule_counters_internal(self, duthost):
         for asic_id in duthost.get_frontend_asic_ids():
@@ -1284,6 +1291,11 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 33 if vlan_name == "Vlan1000" else 2
                 logging.info("topo: {} vlan_config: {} vlan_name: {} rule_id: {} ".format(
                     setup["topo"], setup["vlan_config"], vlan_name, rule_id))
+            elif "-v6-" in setup["topo_name"]:
+                if setup["topo"] in ['t0']:
+                    rule_id = 34
+                else:
+                    rule_id = 38
             else:
                 rule_id = 2
         else:
@@ -1312,6 +1324,11 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                     rule_id = 32 if vlan_name == "Vlan1000" else 15
                 logging.info("topo: {} vlan_config: {} vlan_name: {} rule_id: {} ".format(
                     setup["topo"], setup["vlan_config"], vlan_name, rule_id))
+            elif "-v6-" in setup["topo_name"]:
+                if setup["topo"] in ['t0']:
+                    rule_id = 35
+                else:
+                    rule_id = 39
             else:
                 rule_id = 15
         else:
@@ -1664,10 +1681,37 @@ class TestAclWithReboot(TestBasicAcl):
             return
         TestAclWithReboot.dut_rebooted = True
         dut.command("config save -y")
+
+        # Get the original number of eBGP v4 and v6 routes on the DUT.
+        sumv4, sumv6 = dut.get_ip_route_summary()
+        v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
+        v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
+        logging.info("eBGP v4 routes: {}, eBGP v6 routes: {}".format(v4_routes_count, v6_routes_count))
+        # Dictionary mapping route thresholds to convergence delays
+        # e.g. if route_delay_map = {10000: 60, 50000: 120}
+        # routes = 0-9999 -> delay = 60s, 10000-49999 -> 120s, 50000+ -> 180s
+        route_delay_map = {10000: 60, 25000: 90, 50000: 120, 75000: 150}
+        max_routes = max(v4_routes_count, v6_routes_count)
+
+        route_convergence_delay = 180  # Default for 75000+ routes
+        for threshold, delay in sorted(route_delay_map.items()):
+            if max_routes < threshold:
+                route_convergence_delay = delay
+                break
+
+        logger.info("Route count: {}, setting convergence delay to: {}".format(max_routes, route_convergence_delay))
+
         reboot(dut, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
         # We need some additional delay on e1031
         if dut.facts["platform"] == "x86_64-cel_e1031-r0":
-            time.sleep(240)
+            route_convergence_delay = 240
+        elif dut.get_facts().get("modular_chassis") and dut.facts["asic_type"] == "cisco-8000":
+            # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
+            # We observe flakiness failure on chassis devices
+            # Suspect it's because the route is not programmed into hardware
+            # Add external sleep to make sure route is in hardware
+            route_convergence_delay = 180
+
         # We need additional delay and make sure ports are up for Nokia-IXR7250E-36x400G
         if dut.facts["hwsku"] == "Nokia-IXR7250E-36x400G":
             interfaces = conn_graph_facts["device_conn"][dut.hostname]
@@ -1680,16 +1724,8 @@ class TestAclWithReboot(TestBasicAcl):
             assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
                 MAX_WAIT_TIME_FOR_INTERFACES)
 
-        # Delay 10 seconds for route convergence
-        time.sleep(10)
-
-        # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
-        # We observe flakiness failure on chassis devices
-        # Suspect it's because the route is not programmed into hardware
-        # Add external sleep to make sure route is in hardware
-        if dut.get_facts().get("modular_chassis") and dut.facts["asic_type"] == "cisco-8000":
-            logger.info("Sleep 180s on Cisco chassis")
-            time.sleep(180)
+        # Delay for route convergence
+        time.sleep(route_convergence_delay)
 
         populate_vlan_arp_entries()
 
@@ -1716,26 +1752,49 @@ class TestAclWithPortToggle(TestBasicAcl):
         if TestAclWithPortToggle.dut_port_toggled:
             return
         TestAclWithPortToggle.dut_port_toggled = True
+
+        # Get the original number of eBGP v4 and v6 routes on the DUT.
+        sumv4, sumv6 = dut.get_ip_route_summary()
+        v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
+        v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
+        logging.info("eBGP v4 routes: {}, eBGP v6 routes: {}".format(v4_routes_count, v6_routes_count))
+        # Dictionary mapping route thresholds to convergence delays
+        # e.g. if route_delay_map = {10000: 60, 50000: 120}
+        # routes = 0-9999 -> delay = 60s, 10000-49999 -> 120s, 50000+ -> 180s
+        route_delay_map = {10000: 60, 25000: 90, 50000: 120, 75000: 150}
+        max_routes = max(v4_routes_count, v6_routes_count)
+
+        route_convergence_delay = 180  # Default for 75000+ routes
+        for threshold, delay in sorted(route_delay_map.items()):
+            if max_routes < threshold:
+                route_convergence_delay = delay
+                break
+
+        asic_type = dut.facts["asic_type"]
+        if asic_type in ["vpp"]:
+            route_convergence_delay += 60
+
+        logger.info("Route count: {}, setting convergence delay to: {}".format(max_routes, route_convergence_delay))
+
         # todo: remove the extra sleep on chassis device after bgp suppress fib pending feature is enabled
         # We observe flakiness failure on chassis devices
         # Suspect it's because the route is not programmed into hardware
         # Add external sleep to make sure route is in hardware
         if dut.get_facts().get("modular_chassis"):
-            port_toggle(dut, tbinfo, wait_after_ports_up=180)
-        else:
-            port_toggle(dut, tbinfo)
+            route_convergence_delay = 180
+
+        port_toggle(dut, tbinfo, wait_after_ports_up=route_convergence_delay)
         populate_vlan_arp_entries()
 
 
 @pytest.mark.multi_binding_acl
-@pytest.mark.usefixtures("setup_standby_ports_on_rand_unselected_tor_class_scope", "restore_duthosts")
+@pytest.mark.usefixtures("setup_standby_ports_on_rand_unselected_tor_class_scope",
+                         "restore_duthosts", "is_multi_binding_acl_enabled")
 class TestMultiBindingAcl(TestBasicAcl):
     """Test ACL rule functionality with multi-binding ACL table."""
 
     def setup_rules(self, dut, acl_table, ip_version, tbinfo, gnmi_connection):
         """Setup ACL rules for multi-binding ACL testing."""
-        if 'dualtor' not in tbinfo['topo']['name']:
-            pytest.skip("Not a dual-tor testbed")
 
         dut.host.options["variable_manager"].extra_vars.update(
             {"dualtor": True})

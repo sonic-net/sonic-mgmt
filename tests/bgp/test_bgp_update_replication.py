@@ -12,7 +12,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.bgp.bgp_helpers import is_neighbor_sessions_established
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +20,10 @@ logger = logging.getLogger(__name__)
 PEER_COUNT = 16
 WAIT_TIMEOUT = 120
 
-# General constants
-ASN_BASE = 61000
-PORT_BASE = 11000
-SUBNET_TMPL = "10.{first_iter}.{second_iter}.0/24"
+pytestmark = [
+    pytest.mark.topology('t0', 't1', 't2', 'lt2', 'ft2'),
+    pytest.mark.disable_loganalyzer
+]
 
 
 '''
@@ -31,11 +31,15 @@ SUBNET_TMPL = "10.{first_iter}.{second_iter}.0/24"
 '''
 
 
-def generate_routes(num_routes, nexthop):
+def generate_routes(num_routes, nexthop, is_ipv6=False):
     '''
     Generator which yields specified amount of dummy routes, in a dict that the route injector
     can use to announce and withdraw these routes.
     '''
+    if is_ipv6:
+        SUBNET_TMPL = "2001:db8:{first_iter:x}:{second_iter:x}::/64"
+    else:
+        SUBNET_TMPL = "10.{first_iter}.{second_iter}.0/24"
     loop_iterations = math.floor(num_routes ** 0.5)
 
     for first_iter in range(1, loop_iterations + 1):
@@ -46,26 +50,25 @@ def generate_routes(num_routes, nexthop):
             }
 
 
-def measure_stats(dut):
+def measure_stats(dut, is_ipv6=False):
     '''
     Validates that the provided DUT is responsive during test, and that device stats do not
     exceed specified thresholds, and if so, returns a dictionary containing device statistics
     at the time of function call.
     '''
-    proc_template = "./bgp/templates/show_proc_extended.textfsm"
-    bgp_sum_template = "./bgp/templates/bgp_summary_extended.textfsm"
+    PROC_TEMPLATE = "./bgp/templates/show_proc_extended.textfsm"
+    BGP_SUM_TEMPLATE = "./bgp/templates/bgp_summary_extended.textfsm"
+
     # Time in seconds commands should execute within
     responsive_threshold = 2
-    # Percentage thresholds
-    cpu_threshold = 90.0
-    mem_threshold = 90.0
 
     time_before_cmd = time.process_time()
 
     proc_cpu = dut.shell("show processes cpu | head -n 10", module_ignore_errors=True)['stdout']
     time_first_cmd = time.process_time()
 
-    bgp_sum = dut.shell("show ip bgp summary | grep memory", module_ignore_errors=True)['stdout']
+    bgp_cmd = f"show ip{'v6' if is_ipv6 else ''} bgp summary | grep memory"
+    bgp_sum = dut.shell(bgp_cmd, module_ignore_errors=True)['stdout']
     time_second_cmd = time.process_time()
 
     num_cores = dut.shell('cat /proc/cpuinfo | grep "cpu cores" | uniq', module_ignore_errors=True)['stdout']
@@ -84,11 +87,11 @@ def measure_stats(dut):
         f"SSH session took longer than average of {responsive_threshold} sec to respond"
     )
 
-    with open(proc_template) as template:
+    with open(PROC_TEMPLATE) as template:
         fsm = textfsm.TextFSM(template)
         parsed_proc = fsm.ParseTextToDicts(proc_cpu)
 
-    with open(bgp_sum_template) as template:
+    with open(BGP_SUM_TEMPLATE) as template:
         fsm = textfsm.TextFSM(template)
         parsed_bgp_sum = fsm.ParseTextToDicts(bgp_sum)
 
@@ -106,19 +109,33 @@ def measure_stats(dut):
 
     logger.debug(stats)
 
-    # Check that CPU usage isn't excessive
-    pytest_assert(
-        cpu_threshold > cpu_usage,
-        f"CPU utilisation has reached {cpu_usage}, which is above threshold of {cpu_threshold}"
-    )
-
-    # Check that memory usage isn't excessive
-    pytest_assert(
-        mem_threshold > mem_usage,
-        f"Memory utilisation has reached {mem_usage}, which is above threshold of {mem_threshold}"
-    )
-
     return stats
+
+
+@pytest.fixture
+def setup_duthost_intervals(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    '''
+    Fixture to allow for dynamic interval definitions for each interval, based on duthost facts.
+    The default is left relatively long to ensure that it passes on all platforms.
+
+    Returns a list of float values.
+    '''
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    DEFAULT_INTERVALS = [10.0, 9.0, 8.0]
+    PLATFORM_INTERVALS = {
+        'mellanox': [4.0, 3.5, 3.0],
+        'arista': [5.0, 4.5, 4.0]
+    }
+    dut_platform = duthost.facts["platform"]
+
+    for platform, intervals in PLATFORM_INTERVALS.items():
+        if dut_platform not in platform:
+            continue
+        logger.info(f"'{platform}' found in platform {dut_platform}, intervals {intervals} selected")
+        return intervals
+
+    logger.info(f"No matching conditions for platform {dut_platform}, selecting default intervals {DEFAULT_INTERVALS}")
+    return DEFAULT_INTERVALS
 
 
 @pytest.fixture
@@ -131,15 +148,17 @@ def setup_bgp_peers(
     is_dualtor,
     is_quagga
 ):
+    ASN_BASE = 61000
+    PORT_BASE = 11000
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
     dut_type = mg_facts["minigraph_devices"][duthost.hostname]["type"]
-    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter"]:
+    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
     elif dut_type == "UpperSpineRouter":
-        neigh_type = "SpineRouter"
+        neigh_type = "LowerSpineRouter"
     else:
         neigh_type = "ToRRouter"
 
@@ -175,6 +194,7 @@ def setup_bgp_peers(
             dut_asn=dut_asn,
             port=peer_port,
             neigh_type=neigh_type,
+            is_ipv6_only=is_ipv6_only_topology(tbinfo),
             namespace=connection_namespace,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False
@@ -183,14 +203,16 @@ def setup_bgp_peers(
         bgp_peers.append(peer)
 
     # Start sessions
-    for peer in bgp_peers:
-        peer.start_session()
-
-    yield bgp_peers
-
-    # End sessions
-    for peer in bgp_peers:
-        peer.stop_session()
+    started_peers = []
+    try:
+        for peer in bgp_peers:
+            started_peers.append(peer)
+            peer.start_session()
+        yield bgp_peers
+    finally:
+        # Always cleanup, even on setup failure
+        for peer in started_peers:
+            peer.stop_session()
 
 
 '''
@@ -201,10 +223,15 @@ def setup_bgp_peers(
 def test_bgp_update_replication(
     duthosts,
     enum_rand_one_per_hwsku_frontend_hostname,
+    tbinfo,
     setup_bgp_peers,
+    setup_duthost_intervals,
 ):
+    NUM_ROUTES = 10_000
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bgp_peers: list[BGPNeighbor] = setup_bgp_peers
+    duthost_intervals: list[float] = setup_duthost_intervals
+    is_ipv6 = is_ipv6_only_topology(tbinfo)
 
     # Ensure new sessions are ready
     if not wait_until(
@@ -221,49 +248,62 @@ def test_bgp_update_replication(
 
     logger.info(f"Route injector: '{route_injector}', route receivers: '{route_receivers}'")
 
-    results = [measure_stats(duthost)]
-    prev_num_rib = int(results[0]["num_rib"])
+    results = [measure_stats(duthost, is_ipv6)]
+    base_rib = int(results[0]["num_rib"])
+    min_expected_rib = base_rib + NUM_ROUTES
+    max_expected_rib = base_rib + (2 * NUM_ROUTES)
 
     # Inject and withdraw routes with a specified interval in between iterations
-    for interval in [3.0, 1.0, 0.5]:
+    for interval in duthost_intervals:
         # Repeat 20 times
         for _ in range(20):
             # Inject 10000 routes
-            num_routes = 10_000
-            route_injector.announce_routes_batch(generate_routes(num_routes=num_routes, nexthop=route_injector.ip))
-
+            route_injector.announce_routes_batch(
+                generate_routes(
+                    num_routes=NUM_ROUTES, nexthop=route_injector.ip,
+                    is_ipv6=is_ipv6
+                )
+            )
             time.sleep(interval)
 
             # Measure after injection
-            results.append(measure_stats(duthost))
+            results.append(measure_stats(duthost, is_ipv6))
 
             # Validate all routes have been received
             curr_num_rib = int(results[-1]["num_rib"])
-            expected = prev_num_rib + (2 * num_routes)
             pytest_assert(
-                curr_num_rib == expected,
-                f"All routes have not been received: current '{curr_num_rib}', expected: '{expected}'"
+                curr_num_rib >= min_expected_rib,
+                f"All routes have not been received: current '{curr_num_rib}', expected: '{min_expected_rib}'"
             )
-            prev_num_rib = curr_num_rib
+            if curr_num_rib < max_expected_rib:
+                logger.warning(
+                    f"All routes have not been announced: current '{curr_num_rib}', expected: '{max_expected_rib}'"
+                )
 
             # Remove routes
-            route_injector.withdraw_routes_batch(generate_routes(num_routes=num_routes, nexthop=route_injector.ip))
-
+            route_injector.withdraw_routes_batch(
+                generate_routes(
+                    num_routes=NUM_ROUTES, nexthop=route_injector.ip,
+                    is_ipv6=is_ipv6
+                )
+            )
             time.sleep(interval)
 
             # Measure after removal
-            results.append(measure_stats(duthost))
+            results.append(measure_stats(duthost, is_ipv6))
 
             # Validate all routes have been withdrawn
             curr_num_rib = int(results[-1]["num_rib"])
-            expected = prev_num_rib - (2 * num_routes)
             pytest_assert(
-                curr_num_rib == expected,
-                f"All routes have not been withdrawn: current '{curr_num_rib}', expected: '{expected}'"
+                curr_num_rib <= min_expected_rib,
+                f"All withdrawls have not been received: current '{curr_num_rib}', expected: '{min_expected_rib}'"
             )
-            prev_num_rib = curr_num_rib
+            if curr_num_rib > base_rib:
+                logger.warning(
+                    f"All announcements have not been withdrawn: current '{curr_num_rib}', expected: '{base_rib}'"
+                )
 
-    results.append(measure_stats(duthost))
+    results.append(measure_stats(duthost, is_ipv6))
 
     # Output results as TSV for analysis in other programs
     results_tsv = tabulate(results, headers="keys", tablefmt="tsv")

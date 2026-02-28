@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
 from ansible.module_utils.basic import AnsibleModule
-from telnetlib import Telnet
+from telnetlib import Telnet  # nosemgrep: telnetlib
 import logging
 from ansible.module_utils.debug_utils import config_module_logging
 
@@ -92,8 +92,9 @@ def session(new_params):
     seq.extend([
         ('pkill dhclient', [r'#']),
         ('hostname %s' % str(new_params['hostname']), [r'#']),
-        ('sed -i s:sonic:%s: /etc/hosts' %
-         str(new_params['hostname']), [r'#']),
+        ('if grep -q "sonic" /etc/hosts; then sed -i s:sonic:%s: /etc/hosts; \
+            else echo "127.0.0.1 %s" >> /etc/hosts; fi' %
+            (str(new_params['hostname']), str(new_params['hostname'])), [r'#']),
         ('ifconfig eth0 %s' % str(new_params['mgmt_ip']), [r'#']),
         ('ifconfig eth0', [r'#']),
         ('ip route add 0.0.0.0/0 via %s table default' %

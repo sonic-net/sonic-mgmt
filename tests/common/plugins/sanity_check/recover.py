@@ -2,6 +2,7 @@ import json
 import logging
 import time
 
+from pytest_ansible.results import ModuleResult
 from tests.common import config_reload
 from tests.common.devices.sonic import SonicHost
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
@@ -13,6 +14,21 @@ from . import constants
 from ...helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 logger = logging.getLogger(__name__)
+
+
+def _make_results_serializable(obj):
+    """Recursively convert objects to JSON-serializable form."""
+    if isinstance(obj, ModuleResult):
+        return _make_results_serializable(dict(obj))
+    if isinstance(obj, dict):
+        return {k: _make_results_serializable(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_make_results_serializable(x) for x in obj]
+    if isinstance(obj, (str, int, float, bool, type(None))):
+        return obj
+    if obj is None:
+        return None
+    return str(obj)
 
 
 def reboot_dut(dut, localhost, cmd, reboot_with_running_golden_config=False):
@@ -139,7 +155,9 @@ def neighbor_vm_restore(duthost, nbrhosts, tbinfo, result=None):
                 logger.debug('Results of restoring neighbor VMs: {}'.format(unhealthy_nbrs))
         else:
             results = parallel_run(_neighbor_vm_recover_bgpd, (), {}, list(nbrhosts.values()), timeout=300)
-            logger.debug('Results of restoring neighbor VMs: {}'.format(json.dumps(dict(results))))
+            logger.debug(
+                'Results of restoring neighbor VMs: {}'.format(
+                    json.dumps(_make_results_serializable(dict(results)))))
     return 'config_reload'  # May still need to do a config reload
 
 
@@ -229,7 +247,13 @@ def adaptive_recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, che
         method = constants.RECOVER_METHODS[outstanding_action]
         wait_time = method['recover_wait']
         if method["reload"]:
-            config_reload(dut, config_source='running_golden_config',
+            running_golden_config_file_check = dut.shell("[ -f /etc/sonic/running_golden_config.json ]",
+                                                         module_ignore_errors=True)
+            if running_golden_config_file_check.get('rc') == 0:
+                config_source = 'running_golden_config'
+            else:
+                config_source = 'config_db'
+            config_reload(dut, config_source=config_source,
                           safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
         elif method["reboot"]:
             reboot_dut(dut, localhost, method["cmd"], reboot_with_running_golden_config=True)
@@ -245,7 +269,13 @@ def recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, check_result
     if method["adaptive"]:
         adaptive_recover(ptfhost, dut, localhost, fanouthosts, nbrhosts, tbinfo, check_results, wait_time)
     elif method["reload"]:
-        config_reload(dut, config_source='running_golden_config',
+        running_golden_config_file_check = dut.shell("[ -f /etc/sonic/running_golden_config.json ]",
+                                                     module_ignore_errors=True)
+        if running_golden_config_file_check.get('rc') == 0:
+            config_source = 'running_golden_config'
+        else:
+            config_source = 'config_db'
+        config_reload(dut, config_source=config_source,
                       safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
     elif method["reboot"]:
         reboot_dut(dut, localhost, method["cmd"])
@@ -257,6 +287,12 @@ def recover_chassis(duthosts):
     logger.warning(f"Try to recover chassis {[dut.hostname for dut in duthosts]} using config reload")
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts:
-            executor.submit(config_reload, duthost, config_source='running_golden_config',
-                            safe_reload=True,
+            running_golden_config_file_check = duthost.shell("[ -f /etc/sonic/running_golden_config.json ]",
+                                                             module_ignore_errors=True)
+            if running_golden_config_file_check.get('rc') == 0:
+                config_source = 'running_golden_config'
+            else:
+                config_source = 'minigraph'
+            executor.submit(config_reload, duthost, config_source=config_source,
+                            safe_reload=True, override_config=True,
                             check_intf_up_ports=True, wait_for_bgp=True)

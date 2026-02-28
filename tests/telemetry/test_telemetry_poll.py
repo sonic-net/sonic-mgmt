@@ -3,7 +3,7 @@ import pytest
 import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from telemetry_utils import generate_client_cli, check_gnmi_cli_running
+from telemetry_utils import generate_client_cli, check_gnmi_cli_running, invoke_py_cli_from_ptf
 from tests.common.utilities import InterruptableThread
 
 pytestmark = [
@@ -23,12 +23,6 @@ def verify_route_table_status(duthost, namespace, expected_status="1"):  # statu
     cmd = cmd_prefix + " APPL_DB exists \"ROUTE_TABLE:0.0.0.0/0\""
     status = duthost.shell(cmd)["stdout"]
     return status == expected_status
-
-
-def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
-    ret = ptfhost.shell(cmd)
-    assert ret["rc"] == 0, "PTF docker did not get a response"
-    callback(ret["stdout"])
 
 
 def modify_fake_appdb_table(duthost, add=True, entries=1):
@@ -52,10 +46,13 @@ def test_poll_mode_no_table_or_key(duthosts, enum_rand_one_per_hwsku_hostname, p
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info('Start telemetry poll mode testing')
+    namespace = ""
+    if duthost.is_multi_asic:
+        namespace = "asic0"
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=5,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=5, update_count=0, timeout=30)
+                              max_sync_count=5, update_count=0, timeout=30, namespace=namespace)
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
     show_gnmi_out = ptf_result['stdout']
@@ -75,10 +72,13 @@ def test_poll_mode_present_table_delayed_key(duthosts, enum_rand_one_per_hwsku_h
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info('Start telemetry poll mode testing')
+    namespace = ""
+    if duthost.is_multi_asic:
+        namespace = "asic0"
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=-1, update_count=5, timeout=30)
+                              max_sync_count=-1, update_count=5, timeout=30, namespace=namespace)
     modify_fake_appdb_table(duthost)  # Add first table data
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
@@ -92,7 +92,7 @@ def test_poll_mode_present_table_delayed_key(duthosts, enum_rand_one_per_hwsku_h
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=1,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=-1, update_count=10, timeout=30)
+                              max_sync_count=-1, update_count=10, timeout=30, namespace=namespace)
 
     def callback(show_gnmi_out):
         result = str(show_gnmi_out)
@@ -103,7 +103,7 @@ def test_poll_mode_present_table_delayed_key(duthosts, enum_rand_one_per_hwsku_h
     client_thread = InterruptableThread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
     client_thread.start()
 
-    wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
+    wait_until(5, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
 
     modify_fake_appdb_table(duthost, True, 2)  # Add second table data
     client_thread.join(30)
@@ -120,10 +120,13 @@ def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     logger.info('Start telemetry poll mode testing')
+    namespace = ""
+    if duthost.is_multi_asic:
+        namespace = "asic0"
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=1,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=-1, update_count=10, timeout=30)
+                              max_sync_count=-1, update_count=10, timeout=30, namespace=namespace)
     modify_fake_appdb_table(duthost, True, 2)  # Add both tables data
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
@@ -137,7 +140,7 @@ def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=6, update_count=0, timeout=30)
+                              max_sync_count=6, update_count=0, timeout=30, namespace=namespace)
 
     def callback(show_gnmi_out):
         result = str(show_gnmi_out)
@@ -148,22 +151,28 @@ def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     client_thread = InterruptableThread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
     client_thread.start()
 
-    wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
+    wait_until(5, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
 
     modify_fake_appdb_table(duthost, False, 2)  # Remove all added tables
     client_thread.join(30)
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
-def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
+def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, enum_upstream_dut_hostname,
                                  setup_streaming_telemetry, gnxi_path):
     """
     Test poll mode from APPL_DB and query an existing table and no default route, ensure no errors and present data
     Test query again and add default route and ensure data comes.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    upstream_lc = duthosts[enum_upstream_dut_hostname]
+
     if duthost.is_supervisor_node():
         pytest.skip("Skipping for supervisor node since there is no default route")
+
+    if upstream_lc != duthost:
+        pytest.skip("Skipping for {}. This is not valid for downstream node".format(duthost))
+
     namespace = ""
     if duthost.is_multi_asic:
         namespace = "asic0"
@@ -189,9 +198,9 @@ def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptf
     pytest_assert(len(update_responses_match) == 5, "Missing update responses")
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
+                              subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=10,
                               xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"",  # noqa: W605
-                              target="APPL_DB", max_sync_count=-1, update_count=10, timeout=60, namespace=namespace)
+                              target="APPL_DB", max_sync_count=-1, update_count=10, timeout=120, namespace=namespace)
 
     def callback(show_gnmi_out):
         result = str(show_gnmi_out)
@@ -202,14 +211,15 @@ def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptf
     client_thread = InterruptableThread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
     client_thread.start()
 
-    wait_until(5, 1, 0, check_gnmi_cli_running, ptfhost)
+    wait_until(5, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
 
     # Add back default route
     duthost.shell("config bgp startup all")
     pytest_assert(wait_until(60, 5, 0, verify_route_table_status, duthost, namespace, "1"),
                   "ROUTE_TABLE default route missing")
 
-    client_thread.join(60)
+    # Give 60 seconds for client to connect to server and then 60 for default route to populate after bgp session start
+    client_thread.join(120)
 
     modify_fake_appdb_table(duthost, False, 1)  # Remove all added tables
 
@@ -224,10 +234,13 @@ def test_poll_mode_default_route_supervisor(duthosts, enum_rand_one_per_hwsku_ho
     if not duthost.is_supervisor_node():
         pytest.skip("Testing only for supervisor node")
     logger.info('Start telemetry poll mode testing')
+    namespace = ""
+    if duthost.is_multi_asic:
+        namespace = "asic0"
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
                               xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"",  # noqa: W605
-                              target="APPL_DB", max_sync_count=-1, update_count=5, timeout=30)
+                              target="APPL_DB", max_sync_count=-1, update_count=5, timeout=30, namespace=namespace)
     modify_fake_appdb_table(duthost)  # Add first table data
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))

@@ -1,13 +1,13 @@
 import ipaddr as ipaddress
 import json
 import pytest
-import time
 import logging
 from tests.common import config_reload
 from ptf.mask import Mask
 import ptf.packet as scapy
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -69,12 +69,15 @@ def build_pkt(dest_mac, ip_addr, ttl):
     return pkt, exp_packet
 
 
-def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptfadapter):
+def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptfadapter,
+                                       loganalyzer):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
     if not len(lag_facts['lags'].keys()):
         pytest.skip("No Lag found in this topology")
+    if len(lag_facts['lags'].keys()) == 1:
+        pytest.skip("Only one Lag found in this topology, skipping test")
     portchannel_name = list(lag_facts['lags'].keys())[0]
     portchannel_dest_name = None
     recv_port = []
@@ -176,14 +179,18 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
                 "Failed to apply lag member configuration file: {}".format(result["stderr"])
             )
 
+        if duthost.facts['asic_type'] == "vs":
+            # VS SAI stores LAG member EGRESS/INGRESS_DISABLE attributes in ASIC_DB
+            # but the Linux kernel teamdev doesn't enforce them, so packets still flow.
+            # Skip all forwarding/BGP verification on VS.
+            logger.info("KVM/VS SAI does not enforce LAG member disable in dataplane, "
+                        "skip forwarding and BGP verify steps.")
+            return
+
         # Make sure data forwarding starts to fail
         if peer_device_dest_ip:
             ptfadapter.dataplane.flush()
             built_and_send_tcp_ip_packet(False)
-
-        if duthost.facts['asic_type'] == "vs":
-            logger.info("KVM could not perform actual asic actions, skip following verify steps.")
-            return
 
         # make sure ping should fail
         for ip in peer_device_ip_set:
@@ -193,14 +200,23 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
                 rc = asichost.ping_v6(ip)
 
             if rc:
-                pytest.fail("Ping is still working on lag disable member for neighbor {}", ip)
+                pytest.fail("Ping is still working on lag disable member for neighbor {}".format(ip))
 
-        time.sleep(holdtime/1000)
-        # Make sure BGP goes down
-        bgp_fact_info = asichost.bgp_facts()
-        for ip in peer_device_ip_set:
-            if bgp_fact_info['ansible_facts']['bgp_neighbors'][ip]['state'] == 'established':
-                pytest.fail("BGP is still enable on lag disable member for neighbor {}", ip)
+        def check_bgp_sessions_down():
+            """Check if all BGP sessions for the disabled LAG member are down."""
+            bgp_info = asichost.bgp_facts()
+            for neighbor_ip in peer_device_ip_set:
+                if bgp_info['ansible_facts']['bgp_neighbors'][neighbor_ip]['state'] == 'established':
+                    return False
+            return True
+
+        holdtime_sec = holdtime / 1000
+        pytest_assert(
+            wait_until(holdtime_sec + 30, 10, 0, check_bgp_sessions_down),
+            "BGP sessions are still established after disabling LAG members. "
+            "Expected all sessions in {} to go down within {}s.".format(
+                peer_device_ip_set, holdtime_sec)
+        )
     finally:
         duthost.shell('rm -f {}'.format(lag_member_file_dir))
-        config_reload(duthost, config_source='config_db')
+        config_reload(duthost, config_source='config_db', ignore_loganalyzer=loganalyzer)

@@ -220,8 +220,10 @@ def send_recv_eth(duthost, ptfadapter, source_ports, source_mac,                
     else:
         result = duthost.command("show mac", module_ignore_errors=True)
         logger.info("Dest MAC is {}, show mac results {}".format(dest_mac, result['stdout']))
-        pytest_assert(False, "Expected packet was not received on ports {}"
-                             .format(dest_ports))
+        pytest_assert(
+            False,
+            "Expected packet was not received on ports {}.".format(dest_ports)
+        )
 
 
 def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
@@ -233,7 +235,9 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
 
     fdb = {}
 
-    assert pkt_type in PKT_TYPES
+    assert pkt_type in PKT_TYPES, (
+        "Invalid packet type '{}'. Expected one of the following types: {}."
+    ).format(pkt_type, PKT_TYPES)
 
     for vlan in vlan_table:
         for member in vlan_table[vlan]:
@@ -400,20 +404,37 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
     dummy_mac_count = 0
     total_mac_count = 0
     for k, vl in list(fdb_fact.items()):
-        assert validate_mac(k) is True
+        assert validate_mac(k) is True, (
+            "FDB entry key '{}' is not a valid MAC address format"
+        ).format(k)
+
         for v in vl:
-            assert v['port'] in interface_table
-            assert v['vlan'] in interface_table[v['port']]
-            assert v['type'] in ['Dynamic', 'Static']
+            assert v['port'] in interface_table, (
+                "FDB entry port '{}' not found in interface_table.\n"
+                "Available ports: {}\n"
+            ).format(v['port'], list(interface_table.keys()))
+
+            assert v['vlan'] in interface_table[v['port']], (
+                "FDB entry vlan '{}' not found for port '{}'.\n"
+                "Available vlans: {}\n"
+            ).format(v['vlan'], v['port'], list(interface_table[v['port']]))
+
+            assert v['type'] in ['Dynamic', 'Static'], (
+                "FDB entry type '{}' is invalid. Expected one of ['Dynamic', 'Static']. "
+            ).format(v['type'])
             if DUMMY_MAC_PREFIX in k.lower():
                 dummy_mac_count += 1
             if "dynamic" in v['type'].lower():
                 total_mac_count += 1
 
-    assert vlan_member_count > 0
+    assert vlan_member_count > 0, (
+        "VLAN member count is 0. Expected at least one VLAN member. Count: {}"
+    ).format(vlan_member_count)
 
     # Verify that the number of dummy MAC entries is expected
-    assert dummy_mac_count == configured_dummay_mac_count * vlan_member_count
+    assert dummy_mac_count == configured_dummay_mac_count * vlan_member_count, (
+        "Dummy MAC count mismatch. Expected {} dummy MACs for each of {} VLAN members, but got {}."
+    ).format(configured_dummay_mac_count, vlan_member_count, dummy_mac_count)
 
 
 def test_self_mac_not_learnt(ptfadapter, rand_selected_dut, pkt_type,
@@ -442,4 +463,7 @@ def test_self_mac_not_learnt(ptfadapter, rand_selected_dut, pkt_type,
     time.sleep(5)
     # Verify that self mac is not learnt
     fdb_facts = rand_selected_dut.fdb_facts()['ansible_facts']
-    pytest_assert(self_mac not in fdb_facts, "Self-mac {} is not supposed to be learnt".format(self_mac))
+    pytest_assert(self_mac not in fdb_facts, (
+        "Self-mac {} is not supposed to be learnt. "
+        "FDB facts: {}"
+    ).format(self_mac, fdb_facts))

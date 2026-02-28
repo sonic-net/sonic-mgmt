@@ -208,6 +208,11 @@ FROM {{ IMAGE_ID }}
 
 USER root
 
+# Remove possible default ubuntu user of Ubuntu 24.04
+RUN if getent passwd ubuntu; \
+then userdel -r ubuntu; \
+fi
+
 # Group configuration
 RUN if getent group {{ GROUP_NAME }}; \
 then groupmod -o -g {{ GROUP_ID }} {{ GROUP_NAME }}; \
@@ -269,9 +274,11 @@ WORKDIR ${HOME}
 # 2. The user is not AzDevOps. By default python3 virtual env is installed for AzDevOps user.
 #    No need to install it again when current user is AzDevOps.
 # 3. The python3 virtual env is not installed for AzDevOps. Then, it is not required for other users either.
-RUN if ! pip3 list | grep -c pytest >/dev/null && \
-[ '{{ USER_NAME }}' != 'AzDevOps' ] && \
-[ -d /var/AzDevOps/env-python3 ]; then \
+# As of 2025, python3 is installed globally in the docker-sonic-mgmt image. So, this step is not really required.
+# Adjust the conditions to fail faster to skip this step.
+RUN if [ -d /var/AzDevOps/env-python3 ] \
+ && [ '{{ USER_NAME }}' != 'AzDevOps' ] \
+ && ! pip3 list | grep -c pytest >/dev/null; then \
 /bin/bash -c 'python3 -m venv ${HOME}/env-python3'; \
 /bin/bash -c '${HOME}/env-python3/bin/pip install pip --upgrade'; \
 /bin/bash -c '${HOME}/env-python3/bin/pip install wheel'; \
@@ -364,7 +371,7 @@ function start_local_container() {
         docker start ${CONTAINER_NAME}
     else
         log_info "creating a container: ${CONTAINER_NAME} ..."
-        eval "docker run -d -t ${PUBLISH_PORTS} ${ENV_VARS} -h ${CONTAINER_NAME} \
+        eval "docker run --cap-add=SYS_PTRACE -d -t ${PUBLISH_PORTS} ${ENV_VARS} -h ${CONTAINER_NAME} \
         -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
         --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
         exit_failure "failed to start a container: ${CONTAINER_NAME}"

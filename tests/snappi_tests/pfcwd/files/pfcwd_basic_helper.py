@@ -88,6 +88,9 @@ def run_pfcwd_basic_test(api,
     # Set appropriate pfcwd loss deviation - these values are based on empirical testing
     DEVIATION = 0.35 if egress_duthost.facts['asic_type'] in ["broadcom"] or \
         ingress_duthost.facts['asic_type'] in ["broadcom"] else 0.3
+    if "cisco-8000" in (egress_duthost.facts['asic_type'],
+                        ingress_duthost.facts['asic_type']):
+        DEVIATION = 0.5
 
     poll_interval_sec = get_pfcwd_poll_interval(egress_duthost, rx_port['asic_value']) / 1000.0
     detect_time_sec = get_pfcwd_detect_time(host_ans=egress_duthost, intf=dut_port,

@@ -9,11 +9,22 @@ from datetime import timedelta
 from enum import IntEnum
 from concurrent.futures import ThreadPoolExecutor
 
-import tests.common.sai_validation.sonic_internal as sonic_internal
-import tests.common.sai_validation.gnmi_client as gnmi_client
-
 logger = logging.getLogger(__name__)
 ORIGIN = 'sonic-db'
+
+# Lazy imports for modules that depend on generated code
+_sonic_internal = None
+_gnmi_client = None
+
+
+def _ensure_imports():
+    """Lazy import of modules that depend on generated code."""
+    global _sonic_internal, _gnmi_client
+    if _sonic_internal is None:
+        import tests.common.sai_validation.sonic_internal as sonic_internal
+        import tests.common.sai_validation.gnmi_client as gnmi_client
+        _sonic_internal = sonic_internal
+        _gnmi_client = gnmi_client
 
 
 class GnmiSubscriptionMode(IntEnum):
@@ -45,12 +56,13 @@ def start_db_monitor(executor: ThreadPoolExecutor,
         logger.debug("gNMI connection is None, disabling SAI validation.")
         return MonitorContext(None, None, None, None, None, disabled=True)
 
+    _ensure_imports()
     logger.debug(f"Starting gNMI subscribe for path: {path}")
-    call = gnmi_client.new_subscribe_call(gnmi_conn, [path], GnmiSubscriptionMode.STREAM)
+    call = _gnmi_client.new_subscribe_call(gnmi_conn, [path], GnmiSubscriptionMode.STREAM)
     stop_event = threading.Event()
-    subscription_thread = executor.submit(sonic_internal.run_subscription,
+    subscription_thread = executor.submit(_sonic_internal.run_subscription,
                                           call, stop_event, event_queue)
-    cancel_thread = executor.submit(sonic_internal.cancel_on_event, call, stop_event)
+    cancel_thread = executor.submit(_sonic_internal.cancel_on_event, call, stop_event)
     logger.debug("DB monitor started successfully.")
     ctx = MonitorContext(path, gnmi_conn, stop_event, subscription_thread, cancel_thread)
     return ctx
@@ -64,6 +76,7 @@ def stop_db_monitor(ctx: MonitorContext):
     if ctx.sai_validation_disabled:
         logger.debug("SAI validation is disabled")
         return
+    _ensure_imports()
     logger.debug("Stopping DB monitor.")
     ctx.stop_event.set()
     logger.debug("Stop event set for DB monitor.")
@@ -71,7 +84,7 @@ def stop_db_monitor(ctx: MonitorContext):
         ctx.cancel_thread: "cancel_thread",
         ctx.subscription_thread: "subscription_thread"
     }
-    sonic_internal.wait_for_all_futures(futures, timeout=timedelta(seconds=5))
+    _sonic_internal.wait_for_all_futures(futures, timeout=timedelta(seconds=5))
     logger.debug("DB monitor stopped successfully.")
 
 
@@ -186,8 +199,9 @@ def wait_until_condition(ctx: MonitorContext,
     if ctx.sai_validation_disabled:
         logger.debug("SAI validation is disabled, skipping wait until condition.")
         return True, 0.0
+    _ensure_imports()
     executor = ThreadPoolExecutor(max_workers=3)
-    future = executor.submit(sonic_internal._wait_until_condition,
+    future = executor.submit(_sonic_internal._wait_until_condition,
                              event_queue=event_queue,
                              prefix=prefix,
                              keys=keys,
@@ -243,8 +257,9 @@ def wait_until_keys_match(ctx: MonitorContext,
     if ctx.sai_validation_disabled:
         logger.debug("SAI validation is disabled, skipping wait until keys match.")
         return True, 0.0
+    _ensure_imports()
     executor = ThreadPoolExecutor(max_workers=3)
-    future = executor.submit(sonic_internal._wait_until_keys_match,
+    future = executor.submit(_sonic_internal._wait_until_keys_match,
                              event_queue,
                              prefix,
                              hashes,
@@ -273,10 +288,11 @@ def get_key(gnmi_connection, path):
     if gnmi_connection is None:
         logger.debug("gNMI connection is None, cannot get key.")
         return None
+    _ensure_imports()
     logger.debug(f"Getting value for path {path}")
     try:
-        gnmi_path = gnmi_client.get_gnmi_path(path)
-        response = gnmi_client.get_request(gnmi_connection, gnmi_path)
+        gnmi_path = _gnmi_client.get_gnmi_path(path)
+        response = _gnmi_client.get_request(gnmi_connection, gnmi_path)
         logger.debug(f"Response from gNMI get request: {response}")
         return response
     except Exception as e:

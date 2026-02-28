@@ -29,7 +29,8 @@ from .tunnel_qos_remap_base import build_testing_packet, check_queue_counter,\
     dut_config, qos_config, tunnel_qos_maps, run_ptf_test, toggle_mux_to_host,\
     setup_module, update_docker_services, swap_syncd, counter_poll_config                               # noqa: F401
 from .tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, \
-    stop_pfc_storm, get_queue_counter, get_queue_watermark, disable_packet_aging                        # noqa: F401
+    stop_pfc_storm, get_queue_counter, get_queue_watermark, disable_packet_aging, \
+    disable_voq_watchdog_dualtor  # noqa: F401
 from ptf import testutils
 from ptf.testutils import simple_tcp_packet
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
@@ -69,7 +70,7 @@ def check_running_condition(tbinfo, duthost):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def disable_pfcwd(duthosts):
+def disable_pfcwd(duthosts, swap_syncd):  # noqa: F811
     pfcwd_value = {}
     for duthost in duthosts:
         pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
@@ -592,9 +593,10 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
                                             outer_dscp=outer_dscp,
                                             ecn=1)
         # Ingress packet from uplink port
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, src_port, pkt, 1)
         # Get the actual egress port
-        result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
+        result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports, timeout=5)
         actual_port = dst_ports[result[0]]
         # Get the port name from mgfacts
         for port_name, idx in mg_facts['minigraph_ptf_indices'].items():
@@ -675,7 +677,6 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
     src_port = _last_port_in_last_lag(t1_ports)
     active_tor_mac = rand_selected_dut.facts['router_mac']
     mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
-    ptfadapter.dataplane.flush()
     failures = []
     for inner_dscp, outer_dscp, prio, queue in TEST_DATA:
         pkt, tunnel_pkt = build_testing_packet(src_ip=DUMMY_IP,
@@ -687,6 +688,7 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
                                                inner_dscp=inner_dscp,
                                                outer_dscp=outer_dscp,
                                                ecn=1)
+        ptfadapter.dataplane.flush()
         # Ingress packet from uplink port
         testutils.send(ptfadapter, src_port, tunnel_pkt.exp_pkt, 1)
         pkt.ttl -= 2  # TTL is decreased by 1 at tunnel forward and decap

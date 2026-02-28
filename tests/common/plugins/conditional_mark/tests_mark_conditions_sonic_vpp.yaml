@@ -7,14 +7,6 @@
 #######################################
 #####           ACL               #####
 #######################################
-acl/test_acl.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 acl/test_stress_acl.py::test_acl_add_del_stress:
   skip:
     reason: >
@@ -50,13 +42,13 @@ arp/test_arpall.py::test_arp_unicast_reply:
     conditions:
       - "asic_type in ['vpp']"
 
-arp/test_neighbor_mac.py::TestNeighborMac::testNeighborMac[1]:
+arp/test_neighbor_mac.py:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Failed/Errored: https://github.com/sonic-net/sonic-sairedis/issues/1662 / Race condition between setting ip on Ethernet0 and remove Ethernet0 from portchannel
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and https://github.com/sonic-net/sonic-sairedis/issues/1662"
 
 arp/test_neighbor_mac_noptf.py::TestNeighborMacNoPtf::testNeighborMacNoPtf:
   skip:
@@ -177,30 +169,6 @@ bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown:
       - "asic_type in ['vpp']"
 
 bgp/test_bgp_port_disable.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_session.py::test_bgp_session_interface_down:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_session_flap.py::test_bgp_multiple_session_flaps:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_session_flap.py::test_bgp_single_session_flaps:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -449,18 +417,10 @@ fib/test_fib.py::test_ecmp_group_member_flap:
     conditions:
       - "asic_type in ['vpp']"
 
-fib/test_fib.py::test_hash:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 fib/test_fib.py::test_ipinip_hash:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Unsupported
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -468,7 +428,7 @@ fib/test_fib.py::test_ipinip_hash:
 fib/test_fib.py::test_nvgre_hash:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Unsupported
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -476,7 +436,7 @@ fib/test_fib.py::test_nvgre_hash:
 fib/test_fib.py::test_vxlan_hash:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Unsupported
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -551,14 +511,6 @@ gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
 #######################################
 #####          GNMI               #####
 #######################################
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
   skip:
     reason: >
@@ -753,7 +705,7 @@ ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
 #######################################
 #####         LLDP                #####
 #######################################
-lldp/test_lldp.py::test_lldp_neighbor_post_orchagent_reboot:
+lldp/test_lldp.py::test_lldp_neighbor_post_swss_reboot:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -1154,6 +1106,14 @@ platform_tests/test_idle_driver.py:
       - "asic_type in ['vpp']"
 
 platform_tests/test_link_down.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+platform_tests/test_link_down_sup.py:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -1632,7 +1592,7 @@ vxlan/test_vxlan_ecmp.py::Test_VxLAN_entropy:
     conditions:
       - "asic_type in ['vpp']"
 
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_underlay_ecmp:
+vxlan/test_vxlan_underlay_ecmp.py::Test_VxLAN_underlay_ecmp:
   skip:
     reason: >
             Failed/Errored: To be included

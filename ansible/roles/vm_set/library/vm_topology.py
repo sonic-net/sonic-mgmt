@@ -39,7 +39,6 @@ if sys.version_info.major == 2:
 else:
     from concurrent.futures import ThreadPoolExecutor as ThreadPool
 
-
 DOCUMENTATION = '''
 ---
 module: vm_topology
@@ -233,9 +232,10 @@ def adaptive_temporary_interface(vm_set_name, interface_name, reserved_space=0):
 
 class VMTopology(object):
 
-    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker,
+    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker, current_vm_name=None,
                  is_dpu=False, is_vs_chassis=False, dut_interfaces=None):
         self.vm_names = vm_names
+        self.current_vm_name = current_vm_name
         self.vm_properties = vm_properties
         self.fp_mtu = fp_mtu
         self.max_fp_num = max_fp_num
@@ -270,9 +270,17 @@ class VMTopology(object):
                 if self.dut_interfaces:
                     topo_vms = MultiServersUtils.get_vms_by_dut_interfaces(topo_vms, self.dut_interfaces)
 
-                for k, v in topo_vms.items():
-                    if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
-                        self.VMs[k] = v
+                # This parameter is used for parallel
+                if self.current_vm_name:
+                    for k, v in topo_vms.items():
+                        expected_vm_name = self.vm_names[self.vm_base_index + v['vm_offset']]
+                        if expected_vm_name == self.current_vm_name:
+                            self.VMs[k] = v
+                            break
+                else:
+                    for k, v in topo_vms.items():
+                        if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
+                            self.VMs[k] = v
         else:
             if 'DPUs' in self.topo and len(self.topo['DPUs']) > 0:
                 self.vm_base = vm_base
@@ -286,13 +294,14 @@ class VMTopology(object):
                         self.VMs[k] = v
 
         if check_bridge:
+            intf_names = os.listdir('/sys/class/net')
             for hostname, attrs in self.VMs.items():
-                vmname = self.vm_names[self.vm_base_index +
-                                       attrs['vm_offset']]
-                vm_bridges = self.get_vm_bridges(vmname)
-                if len(attrs['vlans']) > len(vm_bridges):
+                vmname = self.vm_names[self.vm_base_index + attrs['vm_offset']]
+                vm_bridge_regx = OVS_FP_BRIDGE_REGEX % vmname
+                num_intfs = len([intf for intf in intf_names if re.search(vm_bridge_regx, intf)])
+                if len(attrs['vlans']) > num_intfs:
                     raise Exception("Wrong vlans parameter for hostname %s, vm %s. Too many vlans. Maximum is %d"
-                                    % (hostname, vmname, len(vm_bridges)))
+                                    % (hostname, vmname, num_intfs))
 
         self.VM_LINKs = {}
         if 'VM_LINKs' in self.topo:
@@ -486,27 +495,55 @@ class VMTopology(object):
         VMTopology.cmd('ifconfig %s up' % bridge_name)
 
     def destroy_bridges(self):
+        bridge_count = 0
         for vm in self.vm_names:
             for fp_num in range(self.max_fp_num):
                 fp_br_name = adaptive_name(OVS_FP_BRIDGE_TEMPLATE, vm, fp_num)
+                bridge_count += 1
                 self.destroy_ovs_bridge(fp_br_name)
 
     def destroy_ovs_bridge(self, bridge_name):
         logging.info('=== Destroy bridge %s ===' % bridge_name)
         VMTopology.cmd('ovs-vsctl --if-exists del-br %s' % bridge_name)
 
-    def get_vm_bridges(self, vmname):
-        brs = []
-        vm_bridge_regx = OVS_FP_BRIDGE_REGEX % vmname
-        # Use ip link instead of ifconfig to speed up
-        out = VMTopology.cmd(
-            'ip link', grep_cmd='grep -E %s' % vm_bridge_regx, retry=3)
-        for row in out.split('\n'):
-            fields = row.split(':')
-            if len(fields) >= 2:
-                brs.append(fields[1].strip())
+    def wait_for_bridges_cleanup(self, bridge_count):
+        """
+        Wait the bridges to be cleaned up.
+        """
+        if bridge_count == 0:
+            logging.info('No bridges to clean up')
+            return
 
-        return brs
+        max_wait = bridge_count * 2
+        check_interval = 5
+        elapsed = 0
+
+        while elapsed < max_wait:
+            # Get remaining bridges
+            out = VMTopology.cmd('ovs-vsctl list-br', ignore_errors=True)
+            all_bridges = [br.strip() for br in out.split('\n') if br.strip()]
+
+            remaining_bridges = []
+            for vm in self.vm_names:
+                vm_bridge_pattern = OVS_FP_BRIDGE_REGEX % vm
+                for br in all_bridges:
+                    if re.match(vm_bridge_pattern, br):
+                        remaining_bridges.append(br)
+
+            remaining_count = len(remaining_bridges)
+
+            if remaining_count == 0:
+                logging.info('All bridges cleaned up successfully in %d seconds' % elapsed)
+                return
+
+            # Log progress every check interval
+            logging.info('Progress: Total %d bridges, %d remaining' % (bridge_count, remaining_count))
+
+            time.sleep(check_interval)
+            elapsed += check_interval
+
+        # Timeout
+        logging.error('Timeout after %d seconds, %d bridges may still exist' % (max_wait, remaining_count))
 
     def add_injected_fp_ports_to_docker(self):
         """
@@ -570,10 +607,51 @@ class VMTopology(object):
         self.add_ip_to_docker_if(BP_PORT_NAME, mgmt_ip, mgmt_ipv6)
         VMTopology.iface_disable_txoff(BP_PORT_NAME, self.pid)
 
+    def add_bp_port_with_vlans_to_docker(self, vlan_data, vrf_map, multi_vrf_config):
+        rev_vrf_map = {}
+        for peer, vrfs in vrf_map.items():
+            for vrf in vrfs:
+                rev_vrf_map[vrf] = peer
+
+        self.add_br_if_to_docker(
+            self.bp_bridge, PTF_BP_IF_TEMPLATE % self.vm_set_name, BP_PORT_NAME)
+
+        for vrf, data in vlan_data.items():
+            vlan_id = data.get("vlan")
+            addr = data.get("ipv4")
+            addr6 = data.get("ipv6")
+
+            if vlan_id:
+                peer = rev_vrf_map[vrf]
+                vlan_intf_name = "%s.%d" % (BP_PORT_NAME, vlan_id)
+
+                if VMTopology.intf_exists(vlan_intf_name,  pid=self.pid):
+                    VMTopology.cmd("nsenter -t %s -n ip addr flush dev %s" % (self.pid, vlan_intf_name))
+                else:
+                    VMTopology.cmd("nsenter -t %s -n ip link add link %s name %s type vlan id %d" %
+                                   (self.pid, BP_PORT_NAME, vlan_intf_name, vlan_id))
+                if addr:
+                    VMTopology.cmd(
+                        "nsenter -t %s -n ip address add %s dev %s" % (self.pid, addr, vlan_intf_name))
+                if addr6:
+                    VMTopology.cmd(
+                        "nsenter -t %s -n ip -6 address add %s dev %s" % (self.pid, addr6, vlan_intf_name))
+
+                VMTopology.iface_up(vlan_intf_name, pid=self.pid)
+
+        VMTopology.iface_disable_txoff(BP_PORT_NAME, self.pid)
+
+    def remove_bp_vlans_from_docker(self, vlan_data):
+        for _, data in vlan_data.items():
+            vlan_id = data.get("vlan")
+            if vlan_id:
+                vlan_intf_name = "%s.%d" % (BP_PORT_NAME, vlan_id)
+                VMTopology.cmd("nsenter -t %s -n ip link del %s" % (self.pid, vlan_intf_name))
+
     def add_br_if_to_docker(self, bridge, ext_if, int_if):
         # add unique suffix to int_if to support multiple tasks run concurrently
         tmp_int_if = int_if + \
-            VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(int_if))
+            VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN - len(int_if))
         logging.info('=== For veth pair, add %s to bridge %s, set %s to PTF docker, tmp intf %s' % (
             ext_if, bridge, int_if, tmp_int_if))
         if VMTopology.intf_not_exists(ext_if):
@@ -596,7 +674,7 @@ class VMTopology(object):
         """Create a veth pair to connect the netns to the bridge."""
         # add unique suffix to int_if to support multiple tasks run concurrently
         tmp_int_if = int_if + \
-            VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(int_if))
+            VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN - len(int_if))
         logging.info('=== For veth pair, add %s to bridge %s, set %s to netns, tmp intf %s' % (
             ext_if, bridge, int_if, tmp_int_if))
         if VMTopology.intf_not_exists(ext_if):
@@ -624,12 +702,12 @@ class VMTopology(object):
         if VMTopology.intf_exists(int_if, pid=self.pid):
             VMTopology.cmd("nsenter -t %s -n ip addr flush dev %s" %
                            (self.pid, int_if))
-            VMTopology.cmd("nsenter -t %s -n ip addr add %s dev %s" %
+            VMTopology.cmd("nsenter -t %s -n ip addr replace %s dev %s" %
                            (self.pid, mgmt_ip_addr, int_if))
             if extra_mgmt_ip_addr is not None:
                 for ip_addr in extra_mgmt_ip_addr:
                     if ip_addr != "":
-                        VMTopology.cmd("nsenter -t %s -n ip addr add %s dev %s" %
+                        VMTopology.cmd("nsenter -t %s -n ip addr replace %s dev %s" %
                                        (self.pid, ip_addr, int_if))
             if mgmt_gw:
                 if api_server_pid:
@@ -640,7 +718,7 @@ class VMTopology(object):
             if mgmt_ipv6_addr:
                 VMTopology.cmd(
                     "nsenter -t %s -n ip -6 addr flush dev %s" % (self.pid, int_if))
-                VMTopology.cmd("nsenter -t %s -n ip -6 addr add %s dev %s" %
+                VMTopology.cmd("nsenter -t %s -n ip -6 addr replace %s dev %s" %
                                (self.pid, mgmt_ipv6_addr, int_if))
             if mgmt_ipv6_addr and mgmt_gw_v6:
                 VMTopology.cmd(
@@ -663,7 +741,7 @@ class VMTopology(object):
             if ipv6_addr:
                 VMTopology.cmd(
                     "ip netns exec %s ip -6 addr flush dev %s" % (self.netns, int_if))
-                VMTopology.cmd("ip netns exec %s ip -6 addr add %s dev %s" %
+                VMTopology.cmd("ip netns exec %s ip -6 addr replace %s dev %s" %
                                (self.netns, ipv6_addr, int_if))
                 if default_gw_v6:
                     VMTopology.cmd(
@@ -888,9 +966,9 @@ class VMTopology(object):
     def bind_devices_interconnect_ports(self, br_name, vlan1_iface, vlan2_iface):
         ports = VMTopology.get_ovs_br_ports(br_name)
         if vlan1_iface not in ports:
-            VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, vlan1_iface))
+            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, vlan1_iface))
         if vlan2_iface not in ports:
-            VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, vlan2_iface))
+            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, vlan2_iface))
         bindings = VMTopology.get_ovs_port_bindings(br_name)
         vlan1_iface_id = bindings[vlan1_iface]
         vlan2_iface_id = bindings[vlan2_iface]
@@ -901,7 +979,7 @@ class VMTopology(object):
         VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" %
                        (br_name, vlan2_iface_id, vlan1_iface_id))
 
-    def bind_fp_ports(self, disconnect_vm=False, batch_mode=False):
+    def bind_fp_ports(self, disconnect_vm=False):
         """
         bind dut front panel ports to VMs
 
@@ -933,12 +1011,9 @@ class VMTopology(object):
                     (br_name, self.duts_fp_ports[self.duts_name[dut_index]][str(vlan_index)],
                      injected_iface, vm_iface, disconnect_vm)
                 )
-        if batch_mode:
-            with VMTopologyWorker.safe_subprocess_manager() as [processes, tmpdir]:
-                self.worker.map(lambda args: self.bind_ovs_ports(*args, processes=processes,
-                                                                 tmpdir=tmpdir), bind_ovs_ports_args)
-        else:
-            self.worker.map(lambda args: self.bind_ovs_ports(*args), bind_ovs_ports_args)
+        with VMTopologyWorker.safe_subprocess_manager() as [processes, tmpdir]:
+            self.worker.map(lambda args: self.bind_ovs_ports(*args, processes=processes,
+                                                             tmpdir=tmpdir), bind_ovs_ports_args)
 
         for k, attr in self.VM_LINKs.items():
             logging.info("Create VM links for {} : {}".format(k, attr))
@@ -972,7 +1047,7 @@ class VMTopology(object):
                 injected_iface = adaptive_name(INJECTED_INTERFACES_TEMPLATE, self.vm_set_name, ptf_index)
                 self.bind_ovs_ports(br_name, port1, injected_iface, port2, disconnect_vm)
 
-    def unbind_fp_ports(self, batch_mode=False):
+    def unbind_fp_ports(self):
         logging.info("=== unbind front panel ports ===")
         unbind_ovs_ports_args = []
         for attr in self.VMs.values():
@@ -983,11 +1058,8 @@ class VMTopology(object):
                     self.vm_names[self.vm_base_index + attr['vm_offset']], vlan_num)
                 unbind_ovs_ports_args.append((br_name, vm_iface))
 
-        if batch_mode:
-            with VMTopologyWorker.safe_subprocess_manager() as [processes, _]:
-                self.worker.map(lambda args: self.unbind_ovs_ports(*args, processes=processes), unbind_ovs_ports_args)
-        else:
-            self.worker.map(lambda args: self.unbind_ovs_ports(*args), unbind_ovs_ports_args)
+        with VMTopologyWorker.safe_subprocess_manager() as [processes, _]:
+            self.worker.map(lambda args: self.unbind_ovs_ports(*args, processes=processes), unbind_ovs_ports_args)
 
         for k, attr in self.VM_LINKs.items():
             logging.info("Remove VM links for {} : {}".format(k, attr))
@@ -1043,11 +1115,11 @@ class VMTopology(object):
         # Remove port from ovs bridge
         br = VMTopology.get_ovs_bridge_by_port(port1)
         if br is not None:
-            VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, port1))
+            VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br, port1))
 
         br = VMTopology.get_ovs_bridge_by_port(port2)
         if br is not None:
-            VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, port2))
+            VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br, port2))
 
         m_to_ifs, _ = VMTopology.brctl_show()
         if port1 not in m_to_ifs[br_name]:
@@ -1112,10 +1184,10 @@ class VMTopology(object):
         for port in dut_ports:
             br = VMTopology.get_ovs_bridge_by_port(port)
             if br is not None and br != br_name:
-                VMTopology.cmd('ovs-vsctl del-port {} {}'.format(br, port))
+                VMTopology.cmd('ovs-vsctl --if-exists del-port {} {}'.format(br, port))
 
             if port not in br_ports:
-                VMTopology.cmd('ovs-vsctl add-port {} {}'.format(br_name, port))
+                VMTopology.cmd('ovs-vsctl --may-exist add-port {} {}'.format(br_name, port))
 
     def unbind_vs_dut_ports(self, br_name, dut_name, dut_ports):
         """unbind all ports except the vm port from an ovs bridge"""
@@ -1123,7 +1195,7 @@ class VMTopology(object):
             br_ports = VMTopology.get_ovs_br_ports(br_name)
             for port in dut_ports:
                 if port in br_ports:
-                    VMTopology.cmd('ovs-vsctl del-port {} {}'.format(br_name, port))
+                    VMTopology.cmd('ovs-vsctl --if-exists del-port {} {}'.format(br_name, port))
 
     def bind_ovs_ports(self, br_name, dut_iface, injected_iface, vm_iface, disconnect_vm=False, **kwargs):
         """
@@ -1137,26 +1209,26 @@ class VMTopology(object):
         """
         br = VMTopology.get_ovs_bridge_by_port(injected_iface)
         if br is not None and br != br_name:
-            VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, injected_iface))
+            VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br, injected_iface))
 
         br = VMTopology.get_ovs_bridge_by_port(dut_iface)
         if br is not None and br != br_name:
-            VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, dut_iface))
+            VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br, dut_iface))
 
         br = VMTopology.get_ovs_bridge_by_port(vm_iface)
         if br is not None and br != br_name:
-            VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, vm_iface))
+            VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br, vm_iface))
 
         ports = VMTopology.get_ovs_br_ports(br_name)
         if injected_iface not in ports:
-            VMTopology.cmd('ovs-vsctl add-port %s %s' %
+            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' %
                            (br_name, injected_iface))
 
         if dut_iface not in ports:
-            VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, dut_iface))
+            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, dut_iface))
 
         if vm_iface not in ports:
-            VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, vm_iface))
+            VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, vm_iface))
 
         bindings = VMTopology.get_ovs_port_bindings(br_name, [dut_iface])
         dut_iface_id = bindings[dut_iface]
@@ -1180,13 +1252,9 @@ class VMTopology(object):
             VMTopology.cmd("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" %
                            (br_name, dut_iface_id, injected_iface_id))
         else:
-            bind_helper = VMTopology.cmd
-            is_batch_mode = "processes" in kwargs
             all_cmds = []
-
-            if is_batch_mode:
-                bind_helper = lambda cmd: \
-                    all_cmds.append(cmd.split()[-1])  # noqa: E731
+            bind_helper = lambda cmd: \
+                all_cmds.append(cmd.split()[-1])  # noqa: E731
 
             # Add flow from external iface to a VM and a ptf container
             # Allow BGP, IPinIP, fragmented packets, ICMP, SNMP packets and layer2 packets from DUT to neighbors
@@ -1236,27 +1304,36 @@ class VMTopology(object):
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=10,ipv6,in_port=%s,nw_proto=89,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            # added ovs rules for HA
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,udp_src=11364,action=output:%s,%s" %
+                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,tcp_src=11362,action=output:%s,%s" %
+                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,udp_dst=11364,action=output:%s" %
+                        (br_name, vm_iface_id, dut_iface_id))
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,tcp_dst=11362,action=output:%s" %
+                        (br_name, vm_iface_id, dut_iface_id))
 
         # Add flow for BFD Control packets (UDP port 3784)
-            bind_helper("ovs-ofctl add-flow %s 'table=0,priority=10,udp,in_port=%s,\
-                        udp_dst=3784,action=output:%s,%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,"
+                        "udp_dst=3784,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
-            bind_helper("ovs-ofctl add-flow %s 'table=0,priority=10,udp6,in_port=%s,\
-                        udp_dst=3784,action=output:%s,%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp6,in_port=%s,"
+                        "udp_dst=3784,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             # Add flow for BFD Control packets (UDP port 3784)
-            bind_helper("ovs-ofctl add-flow %s 'table=0,priority=10,udp,in_port=%s,\
-                        udp_src=49152,udp_dst=3784,action=output:%s,%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,"
+                        "udp_src=49152,udp_dst=3784,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
-            bind_helper("ovs-ofctl add-flow %s 'table=0,priority=10,udp6,in_port=%s,\
-                        udp_src=49152,udp_dst=3784,action=output:%s,%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp6,in_port=%s,"
+                        "udp_src=49152,udp_dst=3784,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
 
         # Add flow from a ptf container to an external iface
-            bind_helper("ovs-ofctl add-flow %s 'table=0,in_port=%s,action=output:%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" %
                         (br_name, injected_iface_id, dut_iface_id))
 
-            if is_batch_mode and all_cmds:
+            if all_cmds:
                 processes = kwargs.get("processes")
                 tmpdir = kwargs.get("tmpdir")
                 with tempfile.NamedTemporaryFile("w", dir=tmpdir, delete=False) as f:
@@ -1269,21 +1346,15 @@ class VMTopology(object):
         """unbind all ports except the vm port from an ovs bridge"""
         if VMTopology.intf_exists(br_name):
             ports = VMTopology.get_ovs_br_ports(br_name)
-
-            bind_helper = VMTopology.cmd
-            is_batch_mode = "processes" in kwargs
-
             all_cmds = []
-
-            if is_batch_mode:
-                bind_helper = lambda cmd: \
-                    all_cmds.append(cmd[len("ovs-vsctl "):])  # noqa: E731
+            bind_helper = lambda cmd: \
+                all_cmds.append(cmd[len("ovs-vsctl "):])  # noqa: E731
 
             for port in ports:
                 if port != vm_port:
-                    bind_helper('ovs-vsctl del-port %s %s' % (br_name, port))
+                    bind_helper('ovs-vsctl --if-exists del-port %s %s' % (br_name, port))
 
-            if is_batch_mode and all_cmds:
+            if all_cmds:
                 processes = kwargs.get("processes")
                 batch_cmd = 'ovs-vsctl -- %s' % (' -- '.join(all_cmds))
                 processes.append(VMTopology.fire_and_forget(batch_cmd))
@@ -1294,7 +1365,7 @@ class VMTopology(object):
             ports = VMTopology.get_ovs_br_ports(br_name)
 
             if port in ports:
-                VMTopology.cmd('ovs-vsctl del-port %s %s' % (br_name, port))
+                VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br_name, port))
 
     def create_dualtor_cable(self, host_ifindex, host_if, upper_if, lower_if, active_if_index=0, nic_if=None):
         """
@@ -1324,7 +1395,7 @@ class VMTopology(object):
         for intf in [host_if, upper_if, lower_if]:
             br = VMTopology.get_ovs_bridge_by_port(intf)
             if br is not None and br != br_name:
-                VMTopology.cmd('ovs-vsctl del-port %s %s' % (br, intf))
+                VMTopology.cmd('ovs-vsctl --if-exists del-port %s %s' % (br, intf))
 
         ports = VMTopology.get_ovs_br_ports(br_name)
         ports_to_be_attached = [host_if, upper_if, lower_if]
@@ -1332,7 +1403,7 @@ class VMTopology(object):
             ports_to_be_attached.append(nic_if)
         for intf in ports_to_be_attached:
             if intf not in ports:
-                VMTopology.cmd('ovs-vsctl add-port %s %s' % (br_name, intf))
+                VMTopology.cmd('ovs-vsctl --may-exist add-port %s %s' % (br_name, intf))
 
         bridge_ports = [upper_if, lower_if]
         if nic_if is not None:
@@ -1564,12 +1635,12 @@ class VMTopology(object):
 
     def remove_ptf_mgmt_port(self):
         ext_if = PTF_MGMT_IF_TEMPLATE % self.vm_set_name
-        tmp_name = MGMT_PORT_NAME + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(MGMT_PORT_NAME))
+        tmp_name = MGMT_PORT_NAME + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN - len(MGMT_PORT_NAME))
         self.remove_veth_if_from_docker(ext_if, MGMT_PORT_NAME, tmp_name)
 
     def remove_ptf_backplane_port(self):
         ext_if = PTF_BP_IF_TEMPLATE % self.vm_set_name
-        tmp_name = BP_PORT_NAME + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(BP_PORT_NAME))
+        tmp_name = BP_PORT_NAME + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN - len(BP_PORT_NAME))
         self.remove_veth_if_from_docker(ext_if, BP_PORT_NAME, tmp_name)
 
     def remove_injected_fp_ports_from_docker(self):
@@ -1582,7 +1653,7 @@ class VMTopology(object):
                 create_vlan_subintf = properties.get('device_type') in (
                     BACKEND_TOR_TYPE, BACKEND_LEAF_TYPE)
                 if not create_vlan_subintf:
-                    tmp_name = int_if + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN-len(int_if))
+                    tmp_name = int_if + VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN - len(int_if))
                     self.remove_veth_if_from_docker(ext_if, int_if, tmp_name)
 
     @staticmethod
@@ -1720,7 +1791,7 @@ class VMTopology(object):
         grep_cmd_ori = grep_cmd
         for attempt in range(retry):
             logging.debug('*** CMD: %s, grep: %s, attempt: %d' %
-                          (cmdline, grep_cmd, attempt+1))
+                          (cmdline, grep_cmd, attempt + 1))
             if split_cmd:
                 cmdline = shlex.split(cmdline_ori)
             process = subprocess.Popen(
@@ -1813,7 +1884,7 @@ class VMTopology(object):
             # Check if we have vlan_iface populated
             if len(vlan_iface) == 0 or all([intf in result for intf in vlan_iface]):
                 return result
-            time.sleep(2*retries+1)
+            time.sleep(2 * retries + 1)
         # Flow reaches here when vlan_iface not present in result
         raise Exception("Can't find vlan_iface_id")
 
@@ -1825,7 +1896,13 @@ class VMTopology(object):
         except Exception:
             return None
 
-        return ctn.attrs['State']['Pid']
+        if ctn.attrs['State']['Running']:
+            # If the container is running, return its PID
+            return ctn.attrs['State']['Pid']
+        else:
+            # If the container is not running, return None
+            logging.error('!!! Container %s is not running' % ptf_name)
+            return None
 
     @staticmethod
     def brctl_show(bridge=None):
@@ -2081,8 +2158,10 @@ class VMTopologyWorker(object):
             self.thread_pool = ThreadPool(thread_worker_count)
             self._map_helper = self.thread_pool.map
             if hasattr(self.thread_pool, "shutdown"):
-                self._shutdown_helper = \
-                    lambda: self.thread_pool.shutdown(wait=True, cancel_futures=True)
+                if sys.version_info >= (3, 9):
+                    self._shutdown_helper = lambda: self.thread_pool.shutdown(wait=True, cancel_futures=True)
+                else:
+                    self._shutdown_helper = lambda: self.thread_pool.shutdown(wait=True)
             else:
                 self._shutdown_helper = \
                     lambda: self.thread_pool.terminate()
@@ -2188,6 +2267,7 @@ def main():
             vm_set_name=dict(required=False, type='str'),
             topo=dict(required=False, type='dict'),
             vm_names=dict(required=True, type='list'),
+            current_vm_name=dict(required=False, type='str'),
             vm_base=dict(required=False, type='str'),
             vm_type=dict(required=False, type='str'),
             vm_properties=dict(required=False, type='dict', default={}),
@@ -2215,13 +2295,16 @@ def main():
             thread_worker_count=dict(required=False, type='int',
                                      default=max(MIN_THREAD_WORKER_COUNT,
                                                  multiprocessing.cpu_count() // 8)),
-            batch_mode=dict(required=False, type='bool', default=False)
+            multi_vrf=dict(required=False, type='bool', default=False),
+            multi_vrf_data=dict(required=False, type='dict', default={}),
+            topo_config=dict(required=False, type='dict', default={})
         ),
         supports_check_mode=False)
 
     cmd = module.params['cmd']
     vm_set_name = module.params['vm_set_name']
     vm_names = module.params['vm_names']
+    current_vm_name = module.params['current_vm_name']
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
     vm_properties = module.params['vm_properties']
@@ -2230,7 +2313,6 @@ def main():
     dut_interfaces = module.params['dut_interfaces']
     use_thread_worker = module.params['use_thread_worker']
     thread_worker_count = module.params['thread_worker_count']
-    batch_mode = module.params['batch_mode']
 
     config_module_logging(construct_log_filename(cmd, vm_set_name))
 
@@ -2240,7 +2322,7 @@ def main():
     try:
         topo = module.params['topo']
         worker = VMTopologyWorker(use_thread_worker, thread_worker_count)
-        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker,
+        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker, current_vm_name,
                          is_dpu, is_vs_chassis, dut_interfaces)
 
         if cmd == 'create':
@@ -2258,7 +2340,10 @@ def main():
                                   'ptf_bp_ip_addr',
                                   'ptf_bp_ipv6_addr',
                                   'mgmt_bridge',
-                                  'duts_fp_ports'], cmd)
+                                  'duts_fp_ports',
+                                  'multi_vrf',
+                                  'multi_vrf_data',
+                                  'topo_config'], cmd)
 
             vm_set_name = module.params['vm_set_name']
             duts_fp_ports = module.params['duts_fp_ports']
@@ -2266,6 +2351,8 @@ def main():
             duts_inband_ports = module.params['duts_inband_ports']
             duts_name = module.params['duts_name']
             is_multi_duts = True if len(duts_name) > 1 else False
+            is_multi_vrf = module.params['multi_vrf']
+            multi_vrf_data = module.params['multi_vrf_data']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (
@@ -2307,9 +2394,15 @@ def main():
             if vms_exists:
                 net.add_injected_fp_ports_to_docker()
                 net.add_injected_VM_ports_to_docker()
-                net.bind_fp_ports(batch_mode=batch_mode)
+                net.bind_fp_ports()
                 net.bind_vm_backplane()
-                net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
+                if is_multi_vrf:
+                    vlan_data = multi_vrf_data.get("ptf_backplane_addrs", {})
+                    vrf_map = multi_vrf_data.get("convergence_mapping", {})
+                    multi_vrf_config = multi_vrf_data.get("converged_peers", {})
+                    net.add_bp_port_with_vlans_to_docker(vlan_data, vrf_map, multi_vrf_config)
+                else:
+                    net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
                 if is_vs_chassis:
                     net.bind_vs_chassis_ports(duts_midplane_ports, duts_inband_ports)
 
@@ -2353,7 +2446,10 @@ def main():
         elif cmd == 'unbind':
             check_params(module, ['vm_set_name',
                                   'topo',
-                                  'duts_fp_ports'], cmd)
+                                  'duts_fp_ports',
+                                  'multi_vrf',
+                                  'multi_vrf_data',
+                                  ], cmd)
 
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
@@ -2362,6 +2458,8 @@ def main():
             duts_inband_ports = module.params['duts_inband_ports']
             duts_name = module.params['duts_name']
             is_multi_duts = True if len(duts_name) > 1 else False
+            is_multi_vrf = module.params['multi_vrf']
+            multi_vrf_data = module.params['multi_vrf_data']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (
@@ -2387,10 +2485,14 @@ def main():
 
             if vms_exists:
                 net.unbind_vm_backplane()
-                net.unbind_fp_ports(batch_mode=batch_mode)
+                net.unbind_fp_ports()
                 net.remove_injected_fp_ports_from_docker()
                 if is_vs_chassis:
                     net.unbind_vs_chassis_ports(duts_midplane_ports, duts_inband_ports)
+
+                if is_multi_vrf:
+                    vlan_data = multi_vrf_data.get("ptf_backplane_addrs", {})
+                    net.remove_bp_vlans_from_docker(vlan_data)
 
             if hostif_exists:
                 net.remove_host_ports()
@@ -2416,13 +2518,19 @@ def main():
                                   'ptf_bp_ip_addr',
                                   'ptf_bp_ipv6_addr',
                                   'mgmt_bridge',
-                                  'duts_fp_ports'], cmd)
+                                  'duts_fp_ports',
+                                  'multi_vrf',
+                                  'multi_vrf_data'], cmd)
 
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
             duts_fp_ports = module.params['duts_fp_ports']
+            duts_midplane_ports = module.params['duts_midplane_ports']
+            duts_inband_ports = module.params['duts_inband_ports']
             duts_name = module.params['duts_name']
             is_multi_duts = True if len(duts_name) > 1 else False
+            is_multi_vrf = module.params['multi_vrf']
+            multi_vrf_data = module.params['multi_vrf_data']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (
@@ -2459,14 +2567,22 @@ def main():
                 net.delete_network_namespace()
 
             if vms_exists:
-                net.unbind_fp_ports(batch_mode=batch_mode)
+                net.unbind_fp_ports()
                 if is_vs_chassis:
                     net.unbind_vs_chassis_ports(duts_midplane_ports, duts_inband_ports)
                 net.add_injected_fp_ports_to_docker()
                 net.add_injected_VM_ports_to_docker()
-                net.bind_fp_ports(batch_mode=batch_mode)
+                net.bind_fp_ports()
                 net.bind_vm_backplane()
-                net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
+
+                if is_multi_vrf:
+                    vlan_data = multi_vrf_data.get("ptf_backplane_addrs", {})
+                    vrf_map = multi_vrf_data.get("convergence_mapping", {})
+                    multi_vrf_config = multi_vrf_data.get("converged_peers", {})
+                    net.add_bp_port_with_vlans_to_docker(vlan_data, vrf_map, multi_vrf_config)
+                else:
+                    net.add_bp_port_to_docker(ptf_bp_ip_addr, ptf_bp_ipv6_addr)
+
                 if is_vs_chassis:
                     net.bind_vs_chassis_ports(duts_midplane_ports, duts_inband_ports)
 

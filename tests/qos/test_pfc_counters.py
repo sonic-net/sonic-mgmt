@@ -1,6 +1,6 @@
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, enum_fanout_graph_facts     # noqa: F401
 from .qos_fixtures import leaf_fanouts      # noqa: F401
-from .qos_helpers import eos_to_linux_intf, nxos_to_linux_intf, sonic_to_linux_intf
+from tests.common.platform.device_utils import eos_to_linux_intf, nxos_to_linux_intf, sonic_to_linux_intf
 import os
 import time
 import pytest
@@ -85,11 +85,12 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
     onyx_pfc_container_name = 'storm'
     int_status = asic.show_interface(command="status")[
         'ansible_facts']['int_status']
-    """ We only test active physical interfaces """
+    """ We only test active physical interfaces that have connection graph entries """
     active_phy_intfs = [intf for intf in int_status if
                         intf.startswith('Ethernet') and
                         int_status[intf]['admin_state'] == 'up' and
-                        int_status[intf]['oper_state'] == 'up']
+                        int_status[intf]['oper_state'] == 'up' and
+                        intf in conn_facts]
     only_lossless_rx_counters = "Cisco-8122" in asic.sonichost.facts["hwsku"]
     no_xon_counters = "Cisco-8122" in asic.sonichost.facts["hwsku"]
     if only_lossless_rx_counters and asic_type != 'vs':
@@ -161,7 +162,10 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
         if asic_type != 'vs':
             for failure in failures:
                 logger.error("Got {}, expected {}".format(*failure))
-            assert len(failures) == 0, "PFC RX counter increment not matching expected for above logged cases."
+            assert len(failures) == 0, (
+                "PFC RX counter increment not matching expected for above logged cases. "
+                "Number of failures: {}"
+            ).format(len(failures))
 
     else:
         for intf in active_phy_intfs:
@@ -204,13 +208,24 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                     method="get")['ansible_facts']
                 if asic_type != 'vs':
                     """check pfc Rx frame count on particular priority are increased"""
-                    assert pfc_rx[intf]['Rx'][priority] == str(PKT_COUNT)
+                    assert pfc_rx[intf]['Rx'][priority] == str(PKT_COUNT), (
+                        "PFC RX counter value mismatch for interface {} and priority {}. "
+                        "Expected value: {}, but got {}."
+                    ).format(intf, priority, PKT_COUNT, pfc_rx[intf]['Rx'][priority])
+
                     """check LHS priorities are 0 count"""
                     for i in range(priority):
-                        assert pfc_rx[intf]['Rx'][i] == '0'
+                        assert pfc_rx[intf]['Rx'][i] == '0', (
+                            "PFC RX counter value is not zero for interface {} and priority {}. "
+                            "Expected value: 0, but got {}."
+                        ).format(intf, i, pfc_rx[intf]['Rx'][i])
+
                     """check RHS priorities are 0 count"""
                     for i in range(priority+1, PRIO_COUNT):
-                        assert pfc_rx[intf]['Rx'][i] == '0'
+                        assert pfc_rx[intf]['Rx'][i] == '0', (
+                            "PFC RX counter value is not zero for interface {} and priority {}. "
+                            "Expected value: 0, but got {}."
+                        ).format(intf, i, pfc_rx[intf]['Rx'][i])
 
 
 def test_pfc_pause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,

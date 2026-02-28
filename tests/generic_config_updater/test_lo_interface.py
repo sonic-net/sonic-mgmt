@@ -28,7 +28,7 @@ REPLACE_IP = "10.1.0.210/32"
 REPLACE_IPV6 = "FC00:1::210/128"
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', 'm1'),
+    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,7 @@ def lo_intf(cfg_facts):
     def _is_ipv4_address(ip_addr):
         return ipaddress.ip_address(ip_addr).version == 4
 
-    loopback = cfg_facts["LOOPBACK_INTERFACE"].get(DEFAULT_LOOPBACK, {})
+    loopback = cfg_facts.get("LOOPBACK_INTERFACE", {}).get(DEFAULT_LOOPBACK, {})
     if not loopback:
         pytest.skip("Skipping as Loopback0 does not existed...")
     lo_intf = {}
@@ -52,16 +52,16 @@ def lo_intf(cfg_facts):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname, lo_intf):
+def setup_env(duthosts, rand_one_dut_front_end_hostname, lo_intf):
     """
     Setup/teardown fixture for each loopback interface test.
     rollback to check if it goes back to starting config without vrf set
 
     Args:
         duthosts: list of DUTs.
-        rand_selected_dut: The fixture returns a randomly selected DuT.
+        rand_one_dut_front_end_hostname: Randomly selected frontend DUT.
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     create_checkpoint(duthost)
 
     yield
@@ -77,12 +77,19 @@ def setup_env(duthosts, rand_one_dut_hostname, lo_intf):
             [lo_intf["ipv6"].lower()], ["Vrf"], is_ipv4=False)
 
         # Loopback interface removal will impact default route. Restart bgp to recover routes.
-        duthost.shell("sudo systemctl restart bgp")
+        if duthost.is_multi_asic:
+            for asic_index in range(0, duthost.facts.get('num_asic')):
+                duthost.shell("sudo systemctl restart bgp@{}".format(asic_index))
+        else:
+            duthost.shell("sudo systemctl restart bgp")
+
+        # Wait for default routes to recover (namespace-aware check in SonicHost.check_default_route)
         if not wait_until(240, 10, 0, duthost.check_default_route):
             logger.warning(
                 "Default routes not recovered after restart bgp, restoring with `config_reload`"
             )
-            config_reload(duthost)
+            config_reload(duthost, safe_reload=True, check_intf_up_ports=True, exec_tsb=True)
+
     finally:
         delete_checkpoint(duthost)
 
@@ -122,7 +129,7 @@ def lo_interface_tc1_add_init(duthost, lo_intf):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -168,7 +175,7 @@ def lo_interface_tc1_add_duplicate(duthost, lo_intf):
             "value": {}
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -218,7 +225,7 @@ def lo_interface_tc1_xfail(duthost, lo_intf):
                 "value": {}
             }
         ]
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -272,7 +279,7 @@ def lo_interface_tc1_replace(duthost, lo_intf):
             "value": {}
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -298,7 +305,7 @@ def lo_interface_tc1_remove(duthost, lo_intf):
             "path": "/LOOPBACK_INTERFACE"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -341,7 +348,7 @@ def setup_vrf_config(duthost, lo_intf):
             "value": "Vrf_01"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -365,16 +372,18 @@ def setup_vrf_config(duthost, lo_intf):
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_lo_interface_tc1_suite(rand_selected_dut, cfg_facts, lo_intf):
-    cleanup_lo_interface_config(rand_selected_dut, cfg_facts)
-    lo_interface_tc1_add_init(rand_selected_dut, lo_intf)
-    lo_interface_tc1_add_duplicate(rand_selected_dut, lo_intf)
-    lo_interface_tc1_xfail(rand_selected_dut, lo_intf)
-    lo_interface_tc1_replace(rand_selected_dut, lo_intf)
-    lo_interface_tc1_remove(rand_selected_dut, lo_intf)
+@pytest.mark.topology('t0', 'm0', 'mx', 't2')
+def test_lo_interface_tc1_suite(duthosts, rand_one_dut_front_end_hostname, cfg_facts, lo_intf):
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    cleanup_lo_interface_config(duthost, cfg_facts)
+    lo_interface_tc1_add_init(duthost, lo_intf)
+    lo_interface_tc1_add_duplicate(duthost, lo_intf)
+    lo_interface_tc1_xfail(duthost, lo_intf)
+    lo_interface_tc1_replace(duthost, lo_intf)
+    lo_interface_tc1_remove(duthost, lo_intf)
 
 
-def test_lo_interface_tc2_vrf_change(rand_selected_dut, lo_intf):
+def test_lo_interface_tc2_vrf_change(duthosts, rand_one_dut_front_end_hostname, lo_intf):
     """ Replace lo interface vrf
 
     admin@vlab-01:~$ show ip interfaces | grep Loopback0
@@ -386,7 +395,8 @@ def test_lo_interface_tc2_vrf_change(rand_selected_dut, lo_intf):
     VRF Vrf_02:
     C>* 10.1.0.32/32 is directly connected, Loopback0, 00:00:17
     """
-    setup_vrf_config(rand_selected_dut, lo_intf)
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    setup_vrf_config(duthost, lo_intf)
     json_patch = [
         {
             "op": "replace",
@@ -394,25 +404,25 @@ def test_lo_interface_tc2_vrf_change(rand_selected_dut, lo_intf):
             "value": "Vrf_02"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=json_patch, is_host_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
 
-    tmpfile = generate_tmpfile(rand_selected_dut)
+    tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
     try:
-        output = apply_patch(rand_selected_dut, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(rand_selected_dut, output)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
 
         check_show_ip_intf(
-            rand_selected_dut, DEFAULT_LOOPBACK,
+            duthost, DEFAULT_LOOPBACK,
             [lo_intf["ip"], "Vrf_02"], [], is_ipv4=True)
         check_show_ip_intf(
-            rand_selected_dut, DEFAULT_LOOPBACK,
+            duthost, DEFAULT_LOOPBACK,
             [lo_intf["ipv6"].lower(), "Vrf_02"], [], is_ipv4=False)
 
         check_vrf_route_for_intf(
-            rand_selected_dut, "Vrf_02", DEFAULT_LOOPBACK, is_ipv4=True)
+            duthost, "Vrf_02", DEFAULT_LOOPBACK, is_ipv4=True)
         check_vrf_route_for_intf(
-            rand_selected_dut, "Vrf_02", DEFAULT_LOOPBACK, is_ipv4=False)
+            duthost, "Vrf_02", DEFAULT_LOOPBACK, is_ipv4=False)
     finally:
-        delete_tmpfile(rand_selected_dut, tmpfile)
+        delete_tmpfile(duthost, tmpfile)

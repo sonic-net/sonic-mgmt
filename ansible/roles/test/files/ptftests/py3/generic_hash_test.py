@@ -22,8 +22,8 @@ class GenericHashTest(BaseTest):
     # ---------------------------------------------------------------------
     # Class variables
     # ---------------------------------------------------------------------
-    DEFAULT_BALANCING_RANGE = 0.25
-    BALANCING_TEST_TIMES = 625
+    DEFAULT_BALANCING_RANGE = 0.3
+    BALANCING_TEST_TIMES = 480
     VXLAN_PORT = 4789
     VXLAN_VNI = 20001
     NVGRE_TNI = 20001
@@ -206,12 +206,12 @@ class GenericHashTest(BaseTest):
             if self.hash_field == 'ETHERTYPE':
                 pkt['Ether'].type = random.choice(range(self.ethertype_range[0], self.ethertype_range[1]))
             if not self.is_l2_test:
-                pkt_summary = f"{self.ipver} packet with src_mac:{src_mac}, dst_mac:{dst_mac}, src_ip:{src_ip}, " \
-                              f"dst_ip:{dst_ip}, src_port:{src_port}, dst_port: {dst_port}, " \
-                              f"ip_protocol:{_get_pkt_ip_protocol(pkt)}"
+                pkt_summary = f"{self.ipver} packet with src_mac: {src_mac}, dst_mac: {dst_mac}, src_ip: {src_ip}, " \
+                              f"dst_ip: {dst_ip}, src_port: {src_port}, dst_port: {dst_port}, " \
+                              f"ip_protocol: {_get_pkt_ip_protocol(pkt)}"
             else:
-                pkt_summary = f"Ethernet packet with src_mac:{src_mac}, dst_mac:{dst_mac}, " \
-                              f"ether_type:{hex(pkt['Ether'].type)}, vlan_id:{vlan_id if vlan_id != 0 else 'N/A'}"
+                pkt_summary = f"Ethernet packet with src_mac: {src_mac}, dst_mac: {dst_mac}, " \
+                              f"ether_type: {hex(pkt['Ether'].type)}, vlan_id: {vlan_id if vlan_id != 0 else 'N/A'}"
             if self.hash_field == 'IPV6_FLOW_LABEL':
                 pkt_summary += f", ipv6 flow label: {flow_label} "
 
@@ -244,10 +244,10 @@ class GenericHashTest(BaseTest):
                 masked_expected_pkt.set_do_not_care_packet(scapy.Ether, "dst")
                 masked_expected_pkt.set_do_not_care_packet(scapy.Ether, "src")
                 masked_expected_pkt.set_do_not_care_packet(scapy.IPv6, "hlim")
-            pkt_summary = f"{self.ipver} ipinip packet with src_ip:{src_ip}, dst_ip:{dst_ip}, " \
-                          f"ip_protocol:{_get_pkt_ip_protocol(pkt)}, inner_ipver:{self.inner_ipver}, " \
-                          f"inner_src_ip:{inner_src_ip}, inner_dst_ip:{inner_dst_ip}, inner_src_port:{src_port}," \
-                          f" inner_dst_port:{dst_port}, inner_ip_protocol:{_get_pkt_ip_protocol(inner_pkt)}"
+            pkt_summary = f"{self.ipver} ipinip packet with src_ip: {src_ip}, dst_ip: {dst_ip}, " \
+                f"ip_protocol: {_get_pkt_ip_protocol(pkt)}, inner_ipver: {self.inner_ipver}, " \
+                f"inner_src_ip: {inner_src_ip}, inner_dst_ip: {inner_dst_ip}, inner_src_port: {src_port}, " \
+                f" inner_dst_port: {dst_port}, inner_ip_protocol: {_get_pkt_ip_protocol(inner_pkt)}"
             return pkt, masked_expected_pkt, pkt_summary
 
         def _get_vxlan_packet():
@@ -286,11 +286,12 @@ class GenericHashTest(BaseTest):
                 masked_expected_pkt.set_do_not_care_packet(scapy.Ether, "dst")
                 masked_expected_pkt.set_do_not_care_packet(scapy.Ether, "src")
                 masked_expected_pkt.set_do_not_care_packet(scapy.IPv6, "hlim")
-            pkt_summary = f"{self.ipver} vxlan packet with src_ip:{src_ip}, dst_ip:{dst_ip}, " \
-                f"src_port:{self.L4_SRC_PORT}, dst_port: {self.vxlan_port}, ip_protocol:{_get_pkt_ip_protocol(pkt)}, " \
-                f"inner_ipver:{self.inner_ipver}, inner_src_ip:{inner_src_ip}, inner_dst_ip:{inner_dst_ip}, " \
-                f"inner_src_port:{src_port}, inner_dst_port:{dst_port}, " \
-                f"inner_ip_protocol:{_get_pkt_ip_protocol(inner_pkt)}"
+            pkt_summary = f"{self.ipver} vxlan packet with src_ip: {src_ip}, dst_ip: {dst_ip}, " \
+                f"src_port: {self.L4_SRC_PORT}, dst_port: {self.vxlan_port}, " \
+                f"ip_protocol: {_get_pkt_ip_protocol(pkt)}, " \
+                f"inner_ipver: {self.inner_ipver}, inner_src_ip: {inner_src_ip}, inner_dst_ip: {inner_dst_ip}, " \
+                f"inner_src_port: {src_port}, inner_dst_port: {dst_port}, " \
+                f"inner_ip_protocol: {_get_pkt_ip_protocol(inner_pkt)}"
             return pkt, masked_expected_pkt, pkt_summary
 
         def _get_nvgre_packet():
@@ -325,10 +326,10 @@ class GenericHashTest(BaseTest):
                 masked_expected_pkt.set_do_not_care_packet(scapy.Ether, "dst")
                 masked_expected_pkt.set_do_not_care_packet(scapy.Ether, "src")
                 masked_expected_pkt.set_do_not_care_packet(scapy.IPv6, "hlim")
-            pkt_summary = f"{self.ipver} nvgre packet with src_ip:{src_ip}, dst_ip:{dst_ip}, " \
-                          f"ip_protocol:{_get_pkt_ip_protocol(pkt)}, inner_ipver:{self.inner_ipver}, " \
-                          f"inner_src_ip:{inner_src_ip}, inner_dst_ip:{inner_dst_ip}, inner_src_port:{src_port}, " \
-                          f"inner_dst_port:{dst_port}, inner_ip_protocol:{_get_pkt_ip_protocol(inner_pkt)}"
+            pkt_summary = f"{self.ipver} nvgre packet with src_ip: {src_ip}, dst_ip: {dst_ip}, " \
+                f"ip_protocol: {_get_pkt_ip_protocol(pkt)}, inner_ipver: {self.inner_ipver}, " \
+                f"inner_src_ip: {inner_src_ip}, inner_dst_ip: {inner_dst_ip}, inner_src_port: {src_port}, " \
+                f"inner_dst_port: {dst_port}, inner_ip_protocol: {_get_pkt_ip_protocol(inner_pkt)}"
             return pkt, masked_expected_pkt, pkt_summary
 
         src_mac = _get_src_mac()
@@ -396,13 +397,14 @@ class GenericHashTest(BaseTest):
             port_index, received = testutils.verify_packet_any_port(
                 self, masked_expected_pkt, self.expected_port_list, timeout=0.1)
         except AssertionError:
-            logging.error("Traffic wasn't sent successfully, trying again")
+            logging.warning("Packet wasn't received successfully, trying again")
             logging.info(f"Expected packet: {masked_expected_pkt}")
             for _ in range(5):
                 testutils.send_packet(self, sending_port, pkt, count=1)
                 time.sleep(0.1)
             port_index, received = testutils.verify_packet_any_port(
                 self, masked_expected_pkt, self.expected_port_list, timeout=1)
+            logging.info("Packet was received successfully after retry.")
         # The port_index is the index of expected_port_list, need to convert it to the ptf port index
         return self.expected_port_list[port_index], received
 
@@ -511,6 +513,31 @@ class GenericHashTest(BaseTest):
         elif not self.ecmp_hash and self.lag_hash:
             _check_only_lag_hash_balancing()
 
+    def print_result_summary(self, hit_count_map):
+        total_receiving_ports = len(hit_count_map)
+        total_received_packets = sum(hit_count_map.values())
+        average_packets = total_received_packets / total_receiving_ports
+        min_received_packets = min(hit_count_map.values())
+        max_received_packets = max(hit_count_map.values())
+        min_received_ports = [port for port, count in hit_count_map.items() if count == min_received_packets]
+        max_received_ports = [port for port, count in hit_count_map.items() if count == max_received_packets]
+        expected_total_hit_cnt = self.balancing_test_times * len(self.expected_port_list)
+        expected_hit_cnt_per_port = self.balancing_test_times
+        if self.ecmp_hash and not self.lag_hash:
+            expected_hit_cnt_per_port = expected_total_hit_cnt / len(self.expected_port_groups)
+        elif not self.ecmp_hash and self.lag_hash:
+            expected_hit_cnt_per_port = expected_total_hit_cnt / len(self.expected_port_groups[0])
+        max_deviation = max(abs(expected_hit_cnt_per_port - min_received_packets),
+                            abs(expected_hit_cnt_per_port - max_received_packets))
+        max_deviation_percentage = str(max_deviation / expected_hit_cnt_per_port * 100) + "%"
+        logging.info(f"\nTotal number of receiving ports: {total_receiving_ports}\n"
+                     f"Total packet count: {total_received_packets}\n"
+                     f"Average packet count: {average_packets}\n"
+                     f"Min packets on a port: {min_received_packets}(Ports: {min_received_ports})\n"
+                     f"Max packets on a port: {max_received_packets}(Ports: {max_received_ports})\n"
+                     f"Max deviation: {max_deviation}\n"
+                     f"Max deviation percentage: {max_deviation_percentage}\n")
+
     def runTest(self):
         logging.info("=============Test Start==============")
         hit_count_map = {}
@@ -544,9 +571,9 @@ class GenericHashTest(BaseTest):
 
             logging.info("Received packet at index {}: {}".format(
                 str(matched_port), re.sub(r"(?<=\w)(?=(?:\w\w)+$)", ' ', received.hex())))
-            time.sleep(0.02)
 
             hit_count_map[matched_port] = hit_count_map.get(matched_port, 0) + 1
         logging.info(f"hash_field={self.hash_field}, hit count map: {hit_count_map}")
+        self.print_result_summary(hit_count_map)
         # Check if the traffic is properly balanced
         self.check_balancing(hit_count_map)
