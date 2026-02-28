@@ -701,8 +701,8 @@ class BaseEverflowTest(object):
             # which requires both PORT_INGRESS_MIRROR_CAPABLE and PORT_EGRESS_MIRROR_CAPABLE.
             if config_method == CONFIG_MODE_CLI:
                 switch_caps = duthost.switch_capabilities_facts()["ansible_facts"]["switch_capabilities"]["switch"]
-                ingress_capable = switch_caps.get("PORT_INGRESS_MIRROR_CAPABLE", "true")
-                egress_capable = switch_caps.get("PORT_EGRESS_MIRROR_CAPABLE", "true")
+                ingress_capable = switch_caps.get("PORT_INGRESS_MIRROR_CAPABLE", "false")
+                egress_capable = switch_caps.get("PORT_EGRESS_MIRROR_CAPABLE", "false")
                 if ingress_capable != "true" or egress_capable != "true":
                     pytest.skip(
                         "ASIC does not support bidirectional port mirroring "
@@ -740,8 +740,8 @@ class BaseEverflowTest(object):
             # Skip if the ASIC does not support bidirectional port mirroring (issue #22661).
             if config_method == CONFIG_MODE_CLI:
                 switch_caps = duthost.switch_capabilities_facts()["ansible_facts"]["switch_capabilities"]["switch"]
-                ingress_capable = switch_caps.get("PORT_INGRESS_MIRROR_CAPABLE", "true")
-                egress_capable = switch_caps.get("PORT_EGRESS_MIRROR_CAPABLE", "true")
+                ingress_capable = switch_caps.get("PORT_INGRESS_MIRROR_CAPABLE", "false")
+                egress_capable = switch_caps.get("PORT_EGRESS_MIRROR_CAPABLE", "false")
                 if ingress_capable != "true" or egress_capable != "true":
                     pytest.skip(
                         "ASIC does not support bidirectional port mirroring "
