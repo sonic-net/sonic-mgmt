@@ -3,8 +3,6 @@ from collections import defaultdict
 import os
 import logging
 import random
-
-logger = logging.getLogger(__name__)
 import time
 import ipaddr
 import binascii
@@ -29,6 +27,8 @@ from tests.common.macsec.macsec_helper import MACSEC_INFO
 from tests.common.dualtor.dual_tor_common import mux_config              # noqa: F401
 from tests.common.helpers.sonic_db import AsicDbCli
 import json
+
+logger = logging.getLogger(__name__)
 
 # TODO: Add suport for CONFIGLET mode
 CONFIG_MODE_CLI = "cli"
