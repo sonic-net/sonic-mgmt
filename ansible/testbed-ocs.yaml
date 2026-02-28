@@ -1,0 +1,15 @@
+---
+
+- conf-name: ocs-testbed-demo
+  group-name: ocs_topo
+  topo: ocs
+  ptf_image_name: docker-ptf
+  ptf: ptf
+  ptf_ip: 10.11.12.15
+  ptf_ipv6:
+  server: test_station
+  dut:
+    - device_ocs
+  inv_name: ocs
+  comment: For building up ocs testbed on sonic-mgmt
+
