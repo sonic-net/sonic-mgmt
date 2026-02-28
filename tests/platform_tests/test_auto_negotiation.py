@@ -333,7 +333,9 @@ def test_force_speed(enum_speed_per_dutport_fixture):
         50000: 'fc',
         100000: 'rs',
         200000: 'rs',
-        400000: 'rs'
+        400000: 'rs',
+        800000: 'rs',
+        1600000: 'rs'
     }
 
     fec_mode = FEC_FOR_SPEED.get(int(speed))
