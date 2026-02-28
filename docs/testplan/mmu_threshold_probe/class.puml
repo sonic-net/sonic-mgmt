@@ -1,0 +1,78 @@
+@startuml MmuThresholdProbingClassDiagram
+!theme plain
+
+' === Core Interfaces and Base Classes ===
+
+' Base executor interface - shared by all phases
+interface IThresholdProbingExecutor {
+    +verify_threshold(candidate_threshold: int, attempts: int): bool
+}
+
+' Base observer interface - shared by all phases  
+interface IThresholdProbingObserver {
+    +on_execution_start(phase: int, **kwargs): void
+    +on_iteration_start(**kwargs): void
+    +on_iteration_complete(action: str, **kwargs): void
+    +on_execution_complete(**kwargs): void
+}
+
+' Base algorithm interface - implemented by each phase
+interface IThresholdProbingAlgorithm {
+    +probe(**kwargs): dict
+}
+
+' === Shared Executor Implementation ===
+
+class PfcXoffThresholdProbingExecutor {
+    +__init__(ptftest: object, port_config: dict)
+    +verify_threshold(candidate_threshold: int, attempts: int): bool
+}
+
+' === Shared Observer Implementation ===
+
+class DefaultThresholdProbingObserver {
+    +__init__(verbose: bool = True)
+    +on_execution_start(phase: int, **kwargs): void
+    +on_iteration_start(**kwargs): void
+    +on_iteration_complete(action: str, **kwargs): void
+    +on_execution_complete(**kwargs): void
+}
+
+' === Phase-Specific Algorithm Implementation (Example) ===
+
+class ThresholdRangeProbingAlgorithm {
+    -executor: IThresholdProbingExecutor
+    -observer: IThresholdProbingObserver
+    +__init__(executor: IThresholdProbingExecutor, observer: IThresholdProbingObserver)
+    +probe(lower_bound: int, upper_bound: int): dict
+}
+
+' === Orchestration Class ===
+
+class MmuThresholdProbingOrchestrator {
+    -phase3_algorithm: ThresholdRangeProbingAlgorithm
+    -executor: PfcXoffThresholdProbingExecutor
+    -observer: DefaultThresholdProbingObserver
+    
+    +__init__(ptftest: object, port_config: dict, verbose: bool = True)
+    +probe(buffer_pool_size: int): dict
+}
+
+' === Relationships ===
+
+' Interface implementations
+PfcXoffThresholdProbingExecutor ..|> IThresholdProbingExecutor : implements
+DefaultThresholdProbingObserver ..|> IThresholdProbingObserver : implements
+
+ThresholdRangeProbingAlgorithm ..|> IThresholdProbingAlgorithm : implements
+
+' Composition relationships
+ThresholdRangeProbingAlgorithm --> IThresholdProbingExecutor : uses
+ThresholdRangeProbingAlgorithm --> IThresholdProbingObserver : notifies
+
+' Orchestrator relationships
+MmuThresholdProbingOrchestrator --> ThresholdRangeProbingAlgorithm : manages
+MmuThresholdProbingOrchestrator --> PfcXoffThresholdProbingExecutor : creates
+MmuThresholdProbingOrchestrator --> DefaultThresholdProbingObserver : creates
+
+@enduml
