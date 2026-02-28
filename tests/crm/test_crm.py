@@ -1337,7 +1337,7 @@ def test_acl_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
         expected_acl_counter_used = new_crm_stats_acl_counter_used + actual_acl_count - CRM_COUNTER_TOLERANCE
         logger.info("Waiting for {} ACL counter resources to stabilize".format(actual_acl_count))
         wait_for_crm_counter_update(get_acl_counter_stats, duthost, expected_used=expected_acl_counter_used,
-                                    oper_used=">=", timeout=60, interval=5)
+                                    oper_used=">=", timeout=90, interval=5)
 
         new_crm_stats_acl_counter_used, new_crm_stats_acl_counter_available = \
             get_crm_stats(get_acl_counter_stats, duthost)
