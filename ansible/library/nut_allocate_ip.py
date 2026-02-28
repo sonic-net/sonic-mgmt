@@ -230,16 +230,18 @@ class GenerateDeviceConfig():
             device_template = self.device_templates[dut]
             if 'p2p_v4' in device_template:
                 p2p_v4_cidr = device_template['p2p_v4']
+                p2p_v4_subnet_len = device_template.get('p2p_v4_subnet_len', 30)
                 if p2p_v4_cidr not in p2p_v4_allocator_map:
-                    p2p_v4_allocator_map[p2p_v4_cidr] = IPAllocator(p2p_v4_cidr, 30)
+                    p2p_v4_allocator_map[p2p_v4_cidr] = IPAllocator(p2p_v4_cidr, p2p_v4_subnet_len)
 
                 self.device_ipv4_allocators[dut] = p2p_v4_allocator_map[p2p_v4_cidr]
                 logging.debug(f"Found P2P v4 allocator for {dut} with CIDR {p2p_v4_cidr}")
 
             if 'p2p_v6' in device_template:
                 p2p_v6_cidr = device_template['p2p_v6']
+                p2p_v6_subnet_len = device_template.get('p2p_v6_subnet_len', 126)
                 if p2p_v6_cidr not in p2p_v6_allocator_map:
-                    p2p_v6_allocator_map[p2p_v6_cidr] = IPAllocator(p2p_v6_cidr, 126)
+                    p2p_v6_allocator_map[p2p_v6_cidr] = IPAllocator(p2p_v6_cidr, p2p_v6_subnet_len)
 
                 self.device_ipv6_allocators[dut] = p2p_v6_allocator_map[p2p_v6_cidr]
                 logging.debug(f"Found P2P v6 allocator for {dut} with CIDR {p2p_v6_cidr}")
@@ -248,16 +250,18 @@ class GenerateDeviceConfig():
         for tg in self.testbed_facts['tgs']:
             if 'p2p_v4' in tg_template:
                 p2p_v4_cidr = tg_template['p2p_v4']
+                p2p_v4_subnet_len = tg_template.get('p2p_v4_subnet_len', 30)
                 if p2p_v4_cidr not in p2p_v4_allocator_map:
-                    p2p_v4_allocator_map[p2p_v4_cidr] = IPAllocator(p2p_v4_cidr, 30)
+                    p2p_v4_allocator_map[p2p_v4_cidr] = IPAllocator(p2p_v4_cidr, p2p_v4_subnet_len)
 
                 self.device_ipv4_allocators[tg] = p2p_v4_allocator_map[p2p_v4_cidr]
                 logging.debug(f"Found P2P v4 allocator for {tg} with CIDR {p2p_v4_cidr}")
 
             if 'p2p_v6' in tg_template:
                 p2p_v6_cidr = tg_template['p2p_v6']
+                p2p_v6_subnet_len = tg_template.get('p2p_v6_subnet_len', 126)
                 if p2p_v6_cidr not in p2p_v6_allocator_map:
-                    p2p_v6_allocator_map[p2p_v6_cidr] = IPAllocator(p2p_v6_cidr, 126)
+                    p2p_v6_allocator_map[p2p_v6_cidr] = IPAllocator(p2p_v6_cidr, p2p_v6_subnet_len)
 
                 self.device_ipv6_allocators[tg] = p2p_v6_allocator_map[p2p_v6_cidr]
                 logging.debug(f"Found P2P v6 allocator for {tg} with CIDR {p2p_v6_cidr}")
@@ -408,8 +412,8 @@ class GenerateDeviceConfig():
                 if p2p_v4_allocator:
                     p2p_v4_subnet = p2p_v4_allocator.allocate()
 
-                    local_device_ip = str(p2p_v4_subnet[1])
-                    peer_device_ip = str(p2p_v4_subnet[2])
+                    local_device_ip = str(p2p_v4_subnet[1] if p2p_v4_subnet.prefixlen < 31 else p2p_v4_subnet[0])
+                    peer_device_ip = str(p2p_v4_subnet[2] if p2p_v4_subnet.prefixlen < 31 else p2p_v4_subnet[1])
                     p2p_ip_prefix_len = str(p2p_v4_subnet.prefixlen)
 
                     self.device_interfaces[local_device][local_port]['ip_v4'] = local_device_ip
@@ -438,8 +442,8 @@ class GenerateDeviceConfig():
                 if p2p_v6_allocator:
                     p2p_v6_subnet = p2p_v6_allocator.allocate()
 
-                    local_device_ip = str(p2p_v6_subnet[1])
-                    peer_device_ip = str(p2p_v6_subnet[2])
+                    local_device_ip = str(p2p_v6_subnet[1] if p2p_v6_subnet.prefixlen < 127 else p2p_v6_subnet[0])
+                    peer_device_ip = str(p2p_v6_subnet[2] if p2p_v6_subnet.prefixlen < 127 else p2p_v6_subnet[1])
                     p2p_ip_prefix_len = str(p2p_v6_subnet.prefixlen)
 
                     self.device_interfaces[local_device][local_port]['ip_v6'] = local_device_ip
