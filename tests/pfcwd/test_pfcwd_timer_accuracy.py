@@ -271,6 +271,22 @@ class TestPfcwdAllTimer(object):
                     )
                     break
 
+        # Validate that we have enough samples before accessing list by index
+        # If more than half of iterations failed to collect timestamps, fail with a clear message
+        required_samples = check_point + 1
+        detect_count = len(self.all_detect_time)
+        restore_count = len(self.all_restore_time)
+        if detect_count < required_samples or restore_count < required_samples:
+            detect_failures = ITERATION_NUM - detect_count
+            restore_failures = ITERATION_NUM - restore_count
+            pytest.fail(
+                "Too many iterations failed to collect PFCWD timestamps. "
+                "Detect time samples: {}/{} (failures: {}), Restore time samples: {}/{} (failures: {}). "
+                "Required at least {} samples. This may indicate environment or timing issues.".format(
+                    detect_count, ITERATION_NUM, detect_failures,
+                    restore_count, ITERATION_NUM, restore_failures,
+                    required_samples))
+
         err_msg = ("Real detection time is greater than configured: Real detect time: {} "
                    "Expected: {} (wd_detect_time + wd_poll_time)".format(self.all_detect_time[check_point],
                                                                          config_detect_time))
