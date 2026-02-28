@@ -12,7 +12,7 @@ from tests.common.reboot import wait_for_startup,\
                                 wait_for_shutdown,\
                                 sync_reboot_history_queue_with_dut,\
                                 REBOOT_TYPE_HISTOYR_QUEUE
-from tests.platform_tests.test_reboot import check_interfaces_and_services
+from tests.common.reboot import check_interfaces_and_services
 
 
 pytestmark = [

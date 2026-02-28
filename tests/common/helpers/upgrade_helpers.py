@@ -10,6 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
+from tests.common.reboot import reboot_and_check
 from tests.common.utilities import wait_until, setup_ferret
 from tests.common.platform.device_utils import check_neighbors
 from typing import Dict, Optional
@@ -31,7 +32,7 @@ class GnoiUpgradeConfig:
     upgrade_type: str
     protocol: str = "HTTP"
     allow_fail: bool = False
-    to_version: Optional[str] = None  # Optional expected version string to validate after upgrade
+    to_version: Optional[str] = None  # Optional expected Version string to validate after upgrade
 
 
 def pytest_runtest_setup(item):
@@ -301,6 +302,10 @@ def perform_gnoi_upgrade(
     tbinfo,
     cfg: GnoiUpgradeConfig,
     cold_reboot_setup=None,
+    localhost=None,
+    conn_graph_facts=None,
+    xcvr_skip_list=None,
+    duthosts=None,
 ):
     """
     gNOI-based upgrade helper using PtfGnoi high-level APIs (no raw call_unary in tests).
@@ -337,6 +342,10 @@ def perform_gnoi_upgrade(
         # advance-reboot test (on ptf) does not support cold reboot yet
         if cold_reboot_setup:
             cold_reboot_setup()
+        # Re-apply TLS so server cert has DUT IP in SAN after reboot.
+        from tests.common.fixtures.grpc_fixtures import ensure_gnoi_tls_server
+        ptfhost = ptf_gnoi.grpc_client.ptfhost
+        ensure_gnoi_tls_server(duthost, ptfhost)
     # ---- 2) TransferToRemote (via wrapper) ----
     transfer_resp = ptf_gnoi.file_transfer_to_remote(
         url=cfg.to_image,
@@ -360,14 +369,22 @@ def perform_gnoi_upgrade(
     pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
 
     pytest_assert(cfg.to_version, "cfg.to_version must be provided for validation")
-    # ---- 4) Reboot (via wrapper) ----
-    try:
-        reboot_resp = ptf_gnoi.system_reboot(method=str(cfg.upgrade_type).upper())
-        logger.info("Reboot response: %s", reboot_resp)
-        pytest_assert(isinstance(reboot_resp, dict), "Reboot did not return a JSON object")
-    except Exception as e:
-        # Common/expected: connection drops during reboot
-        logger.info("Caught exception during gNOI Reboot call (often expected): %s", str(e))
+    # ---- 4) Reboot (via reboot_and_check) ----
+    pytest_assert(localhost is not None, "localhost must be provided for reboot_and_check")
+    pytest_assert(conn_graph_facts is not None, "conn_graph_facts must be provided for reboot_and_check")
+    pytest_assert(xcvr_skip_list is not None, "xcvr_skip_list must be provided for reboot_and_check")
+
+    interfaces = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
+    reboot_and_check(
+        localhost,
+        duthost,
+        interfaces,
+        xcvr_skip_list,
+        reboot_type=cfg.upgrade_type,
+        duthosts=duthosts,
+        invocation_type="gnoi_based",
+        ptf_gnoi=ptf_gnoi,
+    )
 
     if cfg.allow_fail:
         logger.warning("allow_fail=True: skipping reboot-cause/health/version validations")

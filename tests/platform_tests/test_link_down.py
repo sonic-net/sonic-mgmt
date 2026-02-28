@@ -15,7 +15,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.reboot import wait_for_startup
 from tests.conftest import get_hosts_per_hwsku
-from tests.platform_tests.test_reboot import check_interfaces_and_services
+from tests.common.reboot import check_interfaces_and_services
 from tests.platform_tests.utils import get_max_to_reboot, fanout_hosts_and_ports, link_status_on_host
 
 

@@ -4,7 +4,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import get_plt_reboot_ctrl, wait_until
-from tests.platform_tests.test_reboot import check_interfaces_and_services
+from tests.common.reboot import check_interfaces_and_services
 
 
 logger = logging.getLogger(__name__)

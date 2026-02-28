@@ -1,3 +1,4 @@
+import importlib
 import threading
 import time
 import re
@@ -10,8 +11,10 @@ from collections import deque
 
 from .helpers.assertions import pytest_assert
 from .helpers.parallel_utils import synchronized_reboot
-from .platform.interface_utils import check_interface_status_of_up_ports
+from .platform.interface_utils import check_interface_status_of_up_ports, check_all_interface_information, get_port_map
 from .platform.processes_utils import wait_critical_processes
+from .platform.transceiver_utils import check_transceiver_basic
+from .platform.daemon_utils import check_pmon_daemon_status
 from .plugins.loganalyzer.utils import support_ignore_loganalyzer
 from .utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut
@@ -174,6 +177,9 @@ reboot_ss_ctrl_dict = {
 MAX_NUM_REBOOT_CAUSE_HISTORY = 10
 REBOOT_TYPE_HISTOYR_QUEUE = deque([], MAX_NUM_REBOOT_CAUSE_HISTORY)
 REBOOT_CAUSE_HISTORY_TITLE = ["name", "cause", "time", "user", "comment"]
+
+MAX_WAIT_TIME_FOR_INTERFACES = 300
+MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
 
 # Retry logic config
 MAX_RETRIES = 3
@@ -819,3 +825,119 @@ def collect_mgmt_config_by_console(duthost, localhost):
         logger.info('End: collect mgmt config by  console  ...')
     else:
         logger.warning("dut console is not ready, we can get mgmt config by console")
+
+
+def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
+                     reboot_type="cold", reboot_helper=None,
+                     reboot_kwargs=None, duthosts=None, invocation_type="cli_based", ptf_gnoi=None):
+    """
+    Perform the specified type of reboot and check platform status.
+    @param localhost: The Localhost object.
+    @param dut: The AnsibleHost object of DUT.
+    @param interfaces: DUT's interfaces defined by minigraph
+    @param xcvr_skip_list: list of DUT's interfaces for which transeiver checks are skipped
+    @param reboot_type: The reboot type, pre-defined const that has name convention of REBOOT_TYPE_XXX.
+    @param reboot_helper: The helper function used only by power off reboot
+    @param reboot_kwargs: The argument used by reboot_helper
+    """
+    logger.info(
+        "Sync reboot cause history queue with DUT reboot cause history queue")
+    sync_reboot_history_queue_with_dut(dut)
+
+    logger.info("Run %s reboot on DUT" % reboot_type)
+    reboot(dut, localhost, reboot_type=reboot_type,
+           reboot_helper=reboot_helper, reboot_kwargs=reboot_kwargs, invocation_type=invocation_type,
+           ptf_gnoi=ptf_gnoi)
+
+    logger.info("Append the latest reboot type to the queue")
+    REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
+
+    check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type=reboot_type)
+    if dut.is_supervisor_node():
+        for lc in duthosts.frontend_nodes:
+            wait_for_startup(lc, localhost, delay=10, timeout=600)
+            check_interfaces_and_services(lc, interfaces, xcvr_skip_list)
+
+
+def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
+                                  interfaces_wait_time=None, reboot_type=None):
+    """
+    Perform a further check after reboot-cause, including transceiver status, interface status.
+    @param dut: The AnsibleHost object of DUT.
+    @param interfaces: DUT's interfaces defined by minigraph
+    @param xcvr_skip_list: list of DUT's interfaces for which transeiver checks are skipped
+    @param interfaces_wait_time: Optional override for max wait time for interfaces
+    @param reboot_type: Optional reboot type for reboot cause verification
+    """
+    logger.info("Wait until all critical services are fully started")
+    wait_critical_processes(dut)
+
+    if interfaces_wait_time is None:
+        interfaces_wait_time = MAX_WAIT_TIME_FOR_INTERFACES
+
+    # Interface bring up time is longer for FORCE10-S6000 platform
+    if "6000" in dut.facts['hwsku']:
+        interfaces_wait_time = MAX_WAIT_TIME_FOR_INTERFACES * 8
+
+    if dut.is_supervisor_node():
+        logger.info("skipping interfaces related check for supervisor")
+    else:
+        logger.info("Wait {} seconds for all the transceivers to be detected".format(
+            interfaces_wait_time))
+        result = wait_until(interfaces_wait_time, 20, 0, check_all_interface_information, dut, interfaces,
+                            xcvr_skip_list)
+        assert result, "Not all transceivers are detected or interfaces are up in {} seconds".format(
+            interfaces_wait_time)
+
+        logger.info("Check transceiver status")
+        for asic_index in dut.get_frontend_asic_ids():
+            interface_list = get_port_map(dut, asic_index)
+            interfaces_per_asic = {k: v for k, v in list(
+                interface_list.items()) if k in interfaces}
+            check_transceiver_basic(
+                dut, asic_index, interfaces_per_asic, xcvr_skip_list)
+
+        logger.info("Check pmon daemon status")
+        if dut.facts["platform"] == "x86_64-cel_e1031-r0":
+            result = wait_until(300, 20, 0, check_pmon_daemon_status, dut)
+        else:
+            result = check_pmon_daemon_status(dut)
+        assert result, "Not all pmon daemons running."
+
+    if dut.facts["asic_type"] in ["mellanox"]:
+        check_hw_mgmt = importlib.import_module(
+            "tests.platform_tests.mellanox.check_hw_mgmt_service"
+        )
+        check_sysfs_mod = importlib.import_module(
+            "tests.platform_tests.mellanox.check_sysfs"
+        )
+        logger.info("Check the hw-management service")
+        check_hw_mgmt.check_hw_management_service(dut)
+        logger.info("Check sysfs")
+        check_sysfs_mod.check_sysfs(dut)
+
+    if reboot_type is not None:
+        logger.info("Check the determine-reboot-cause service")
+        os_version = dut.os_version.split(".")[0]
+        if os_version < "202106":
+            logger.info("DUT has OS version {}, skip the check determine-reboot-cause service \
+                    for release before 202106".format(os_version))
+        else:
+            check_determine_reboot_cause_service(dut)
+
+        logger.info("Check reboot cause")
+        assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 30, check_reboot_cause, dut, reboot_type), \
+            "got reboot-cause failed after rebooted by %s" % reboot_type
+
+        if "201811" in dut.os_version or "201911" in dut.os_version:
+            logger.info(
+                "Skip check reboot-cause history for version before 202012")
+        else:
+            logger.info("Check reboot-cause history")
+            assert wait_until(MAX_WAIT_TIME_FOR_REBOOT_CAUSE, 20, 0, check_reboot_cause_history, dut,
+                              REBOOT_TYPE_HISTOYR_QUEUE), \
+                "Check reboot-cause history failed after rebooted by %s" % reboot_type
+        if reboot_ctrl_dict[reboot_type]["test_reboot_cause_only"]:
+            logger.info(
+                "Further checking skipped for %s test which intends to verify reboot-cause only" % reboot_type)
+            return

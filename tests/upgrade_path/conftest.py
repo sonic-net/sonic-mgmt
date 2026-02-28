@@ -1,6 +1,12 @@
 import pytest
 
 
+@pytest.fixture(scope="module")
+def xcvr_skip_list(duthosts):
+    """Return empty transceiver skip list per DUT for upgrade path tests."""
+    return {dut.hostname: [] for dut in duthosts}
+
+
 def pytest_runtest_setup(item):
     from_list = item.config.getoption('base_image_list')
     to_list = item.config.getoption('target_image_list')
