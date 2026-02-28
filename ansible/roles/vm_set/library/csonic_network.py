@@ -243,59 +243,49 @@ class CsonicNetwork(object):
     def init_network(self):
         """Create SONiC network interfaces
 
-        This creates:
-        - One management interface (eth0)
-        - ONE front panel interface based on vm_offset (not all interfaces)
-        - One backplane interface (eth_bp)
+        This creates veth pairs injected into the container:
+        - eth0: management interface, connected to mgmt bridge
+        - eth1: front panel interface, connected to OVS bridge
+        - eth2: backplane interface, for PTF/ExaBGP connectivity
+
+        The sonic-vs start.sh maps eth1 -> Ethernet0 via lanemap.ini.
+        Each cSONiC VM represents one neighbor with a single front panel port.
         """
-        # Create management link (same as cEOS - eth0)
+        # Create management link (eth0)
         mp_name = MGMT_TAP_TEMPLATE % (self.vm_name)
         self.add_veth_if_to_docker(mp_name, TMP_TAP_TEMPLATE % (
             self.vm_name, 0), INT_TAP_TEMPLATE % 0)
         self.add_if_to_bridge(mp_name, self.mgmt_br_name)
 
-        for fp_idx in range(self.max_fp_num):
-            fp_name = FP_TAP_TEMPLATE % (self.vm_name, fp_idx)
-            fp_br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_name, fp_idx)
+        # Create front panel link (Ethernet0)
+        # Each cSONiC VM has Ethernet0 as its front panel port, connected to
+        # the OVS bridge br-<vm_name>-0 which links to the corresponding DUT port
+        fp_name = FP_TAP_TEMPLATE % (self.vm_name, 0)  # VM0100-t0
+        fp_br_name = OVS_FP_BRIDGE_TEMPLATE % (self.vm_name, 0)  # br-VM0100-0
 
-            if self.sonic_naming:
-                int_if_name = SONIC_INT_TEMPLATE % ((self.vm_offset * 4) + fp_idx * 4)
-            else:
-                int_if_name = INT_TAP_TEMPLATE % (fp_idx + 1)
-
-            self.add_veth_if_to_docker(
-                fp_name,
-                TMP_TAP_TEMPLATE % (self.vm_name, 1 + fp_idx),
-                int_if_name
-            )
-
-            self.add_if_to_ovs_bridge(fp_name, fp_br_name)
-
-        # Determine internal interface name
         if self.sonic_naming:
-            # SONiC expects: Ethernet0, Ethernet4, Ethernet8, Ethernet12
-            # Use vm_offset to determine which Ethernet port to create
-            int_if_name = SONIC_INT_TEMPLATE % (self.vm_offset * 4)
+            int_if_name = SONIC_INT_TEMPLATE % 0  # Always Ethernet0
         else:
-            # Fallback to eth1, eth2, eth3, eth4 (like cEOS)
-            int_if_name = INT_TAP_TEMPLATE % (fp_idx + 1)
+            int_if_name = INT_TAP_TEMPLATE % 1  # eth1
 
-        self.add_veth_if_to_docker(fp_name, TMP_TAP_TEMPLATE % (
-            self.vm_name, 1), int_if_name)
+        self.add_veth_if_to_docker(
+            fp_name,
+            TMP_TAP_TEMPLATE % (self.vm_name, 1),
+            int_if_name
+        )
         self.add_if_to_ovs_bridge(fp_name, fp_br_name)
 
-        # Create backplane link
-        # Always use index 2 for backplane (management=0, fp=1, bp=2)
-        bp_int_name = SONIC_BP_TEMPLATE if self.sonic_naming else INT_TAP_TEMPLATE % (self.max_fp_num + 1)
+        # Create backplane link (eth_bp)
+        bp_int_name = SONIC_BP_TEMPLATE if self.sonic_naming else INT_TAP_TEMPLATE % 2
         bp_name = BP_TAP_TEMPLATE % (self.vm_name)
         self.add_veth_if_to_docker(
             bp_name,
             TMP_TAP_TEMPLATE % (self.vm_name, 2),
             bp_int_name)
 
-        # Connect backplane to bridge if specified
-        if self.bp_bridge:
-            self.add_if_to_bridge(bp_name, self.bp_bridge)
+        # Note: Backplane bridge connection is handled by vm_topology.py
+        # during the 'bind' phase, similar to cEOS. Do not connect here
+        # as the bridge may not exist yet.
 
     def add_veth_if_to_docker(self, ext_if, t_int_if, int_if):
         """Create a pair of veth interfaces and add one of them to namespace of docker.
