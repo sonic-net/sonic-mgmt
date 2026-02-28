@@ -3933,6 +3933,30 @@ qos/test_qos_masic.py:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "asic_type in ['vs']"
 
+qos/test_qos_probe.py:
+  skip:
+    reason: "Buffer threshold probing tests need platform-specific validation. Tracked by per-ASIC GitHub issues."
+    conditions_logical_operator: or
+    conditions:
+      # Virtual Switch support
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/22599"
+      # Cisco-8000 GB series (8102/8101 GB SKUs)
+      - "hwsku in ['Cisco-8102-C64', 'Cisco-8101-O8C48', 'Cisco-8102-28FH-DPU-O'] and https://github.com/sonic-net/sonic-mgmt/issues/22601"
+      # Cisco-8000 GR/GR2 series (8101 GR/GR2 SKUs)
+      - "hwsku in ['Cisco-8101-O32', 'Cisco-8101-O8V48'] and https://github.com/sonic-net/sonic-mgmt/issues/22602"
+      # Broadcom TD3 (Trident 3)
+      - "hwsku in ['Arista-7050CX3-32C-C32', 'Arista-7050CX3-32S-C32'] and https://github.com/sonic-net/sonic-mgmt/issues/22603"
+      # Broadcom TH (Tomahawk)
+      - "hwsku in ['Arista-7060CX-32S-C32', 'Arista-7060CX-32S-Q32'] and https://github.com/sonic-net/sonic-mgmt/issues/22604"
+      # Broadcom TH2 (Tomahawk 2)
+      - "hwsku in ['Arista-7260CX3-C64', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10'] and https://github.com/sonic-net/sonic-mgmt/issues/22605"
+      # Broadcom TH5 (Tomahawk 5)
+      - "hwsku in ['Arista-7060X6-16PE-384C-B-O128S2', 'Arista-7060X6-64PE-B-O128'] and https://github.com/sonic-net/sonic-mgmt/issues/22606"
+      # Mellanox SPC1 (Spectrum 1)
+      - "hwsku in ['Mellanox-SN2700'] and https://github.com/sonic-net/sonic-mgmt/issues/22607"
+      # Mellanox SPC3 (Spectrum 3)
+      - "hwsku in ['Mellanox-SN4600C-C64'] and https://github.com/sonic-net/sonic-mgmt/issues/22608"
+
 qos/test_qos_sai.py:
   skip:
     reason: "qos_sai tests not supported on t1 topo / M* topo does not support qos and It is skipped for '202412' for now"

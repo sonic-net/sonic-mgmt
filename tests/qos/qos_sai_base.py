@@ -138,7 +138,8 @@ class QosBase:
 
         yield dut_test_params_qos
 
-    def runPtfTest(self, ptfhost, testCase='', testParams={}, relax=False, pdb=False, skip_pcap=False):
+    def runPtfTest(self, ptfhost, testCase='', testParams={}, relax=False, pdb=False,
+                   skip_pcap=False, test_subdir='py3'):
         """
             Runs QoS SAI test case on PTF host
 
@@ -179,7 +180,8 @@ class QosBase:
             timeout=1850,
             socket_recv_size=16384,
             custom_options=custom_options,
-            pdb=pdb
+            pdb=pdb,
+            test_subdir=test_subdir
         )
 
 
@@ -623,6 +625,97 @@ class QosSaiBase(QosBase):
 
         return dutPortIps
 
+    def replaceNonExistentPortId(self, availablePortIds, portIds):
+        '''
+        if port id of availablePortIds/dst_port_ids is not existing in availablePortIds
+        replace it with correct one, make sure all port id is valid
+        e.g.
+            Given below parameter:
+                availablePortIds: [0, 2, 4, 6, 8, 10, 16, 18, 20, 22, 24, 26,
+                                   28, 30, 32, 34, 36, 38, 44, 46, 48, 50, 52, 54]
+                portIds: [1, 2, 3, 4, 5, 6, 7, 8, 9]
+            get result:
+                portIds: [0, 2, 16, 4, 18, 6, 20, 8, 22]
+        '''
+        if len(portIds) > len(availablePortIds):
+            logger.info('no enough ports for test')
+            return False
+
+        # cache available as free port pool
+        freePorts = [pid for pid in availablePortIds]
+
+        # record invaild port
+        # and remove valid port from free port pool
+        invalid = []
+        for idx, pid in enumerate(portIds):
+            if pid not in freePorts:
+                invalid.append(idx)
+            else:
+                freePorts.remove(pid)
+
+        # replace invalid port from free port pool
+        for idx in invalid:
+            portIds[idx] = freePorts.pop(0)
+
+        return True
+
+    def updateTestPortIdIp(self, dutConfig, get_src_dst_asic_and_duts, qosParams=None):
+        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+        dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
+        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+        src_testPortIds = dutConfig["testPortIds"][src_dut_index][src_asic_index]
+        dst_testPortIds = dutConfig["testPortIds"][dst_dut_index][dst_asic_index]
+        testPortIds = src_testPortIds + list(set(dst_testPortIds) - set(src_testPortIds))
+
+        portIdNames = []
+        portIds = []
+
+        for idName in dutConfig["testPorts"]:
+            if re.match(r'(?:src|dst)_port\S+id', idName):
+                portIdNames.append(idName)
+                ipName = idName.replace('id', 'ip')
+                pytest_assert(
+                    ipName in dutConfig["testPorts"], 'Not find {} for {} in dutConfig'.format(ipName, idName))
+                portIds.append(dutConfig["testPorts"][idName])
+        pytest_assert(self.replaceNonExistentPortId(testPortIds, set(portIds)), "No enough test ports")
+        for idx, idName in enumerate(portIdNames):
+            dutConfig["testPorts"][idName] = portIds[idx]
+            ipName = idName.replace('id', 'ip')
+            if 'src' in ipName:
+                testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+            else:
+                testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+            dutConfig["testPorts"][ipName] = testPortIps[portIds[idx]]['peer_addr']
+
+        if qosParams is not None:
+            portIdNames = []
+            portNumbers = []
+            portIds = []
+            for idName in qosParams.keys():
+                if re.match(r'(?:src|dst)_port\S+ids?', idName):
+                    portIdNames.append(idName)
+                    ids = qosParams[idName]
+                    if isinstance(ids, list):
+                        portIds += ids
+                        # if it's port list, record number of pots
+                        portNumbers.append(len(ids))
+                    else:
+                        portIds.append(ids)
+                        # record None to indicate it's just one port
+                        portNumbers.append(None)
+            pytest_assert(self.replaceNonExistentPortId(testPortIds, portIds), "No enough test ports")
+            startPos = 0
+            for idx, idName in enumerate(portIdNames):
+                if portNumbers[idx] is not None:    # port list
+                    qosParams[idName] = [
+                        portId for portId in portIds[startPos:startPos + portNumbers[idx]]]
+                    startPos += portNumbers[idx]
+                else:   # not list, just one port
+                    qosParams[idName] = portIds[startPos]
+                    startPos += 1
+        logger.debug('updateTestPortIdIp dutConfig["testPorts"]: {}'.format(dutConfig["testPorts"]))
+
     @pytest.fixture(scope='module')
     def swapSyncd_on_selected_duts(self, request, duthosts, creds, tbinfo, lower_tor_host,  # noqa: F811
                                    core_dump_and_config_check):  # noqa: F811
@@ -999,7 +1092,6 @@ class QosSaiBase(QosBase):
         downlinkPortIps = []
         downlinkPortNames = []
         sysPortMap = {}
-
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
         src_dut = get_src_dst_asic_and_duts['src_dut']
@@ -1863,9 +1955,14 @@ class QosSaiBase(QosBase):
                 portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         else:
             qosParams = qosConfigs['qos_params'][dutAsic][dutTopo]
+
+        # Get buffer config for all devices (not just cisco/broadcom)
+        bufferConfig = dutBufferConfig(duthost, dut_asic)
+
         yield {
             "param": qosParams,
             "portSpeedCableLength": portSpeedCableLength,
+            "bufferConfig": bufferConfig,
         }
 
     @pytest.fixture(scope='class')
