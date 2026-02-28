@@ -557,8 +557,15 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     PY_PATH = "/usr/lib/python3/dist-packages/"
     SRC_PATH = PY_PATH + "saithrift-0.9-py3.11.egg/switch_sai_thrift"
     DST_PATH = PY_PATH + "switch_sai_thrift"
-    if ptfhost.stat(path=SRC_PATH)['stat']['exists'] and not ptfhost.stat(path=DST_PATH)['stat']['exists']:
+    # Always remove the destination path if it exist
+    if ptfhost.stat(path=DST_PATH)['stat']['exists']:
+        ptfhost.shell("rm -rf {}".format(DST_PATH))
+
+    # Copy SRC_PATH to DST_PATH regardless of its current state
+    if ptfhost.stat(path=SRC_PATH)['stat']['exists']:
         ptfhost.copy(src=SRC_PATH, dest=PY_PATH, remote_src=True)
+    else:
+        pytest.skip("Python saithrift package installation failed")
     logging.info("Python saithrift package installed successfully")
 
 
