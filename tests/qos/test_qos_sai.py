@@ -28,8 +28,8 @@ import re
 from tabulate import tabulate
 
 from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts, get_graph_facts    # noqa: F401
-from tests.common.fixtures.duthost_utils import dut_qos_maps, \
-    separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map                                 # noqa: F401
+from tests.common.fixtures.duthost_utils import (dut_qos_maps,  # noqa: F401
+                                                 separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map)
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa: F401
@@ -42,8 +42,9 @@ from tests.common.helpers.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from tests.common.platform.device_utils import list_dut_fanout_connections
 from tests.common.utilities import wait_until
 from .qos_sai_base import QosSaiBase
-from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
-    get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown, fetch_test_logs_ptf   # noqa: F401
+from tests.common.helpers.ptf_tests_helper import (downstream_links, upstream_links, select_random_link,  # noqa: F401
+                                                   get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown,
+                                                   fetch_test_logs_ptf)
 from tests.common.utilities import get_ipv4_loopback_ip
 from tests.common.helpers.base_helper import read_logs
 
@@ -378,6 +379,39 @@ class TestQosSai(QosSaiBase):
                     qosParams[idName] = portIds[startPos]
                     startPos += 1
         logger.debug('updateTestPortIdIp dutConfig["testPorts"]: {}'.format(dutConfig["testPorts"]))
+
+    def check_and_set_ecn_status(self, duthost, qosConfig, expected_status='on'):
+        ecn_status = ''
+        if duthost.sonichost.is_multi_asic:
+            status = []
+            for asic in duthost.asics:
+                cmd_output = duthost.shell("sudo ecnconfig -n asic{} -q {}".format(
+                    asic.asic_index, qosConfig["dscp"]), module_ignore_errors=True)
+                if cmd_output['rc'] != 0:
+                    pytest.skip("command failed for ecnconfig on/off status")
+                else:
+                    ecn_status = cmd_output['stdout_lines'][1].split(':')[1].strip()
+                    if ecn_status != expected_status:
+                        duthost.shell("sudo ecnconfig -n asic{} -q {} {}".format(
+                            asic.asic_index, qosConfig["dscp"], expected_status), module_ignore_errors=True)
+                cmd_output = duthost.shell("sudo ecnconfig -n asic{} -q {}".format(
+                    asic.asic_index, qosConfig["dscp"]), module_ignore_errors=True)
+                status.append(cmd_output['stdout_lines'][1].split(':')[1].strip())
+            ecn_status = 'on' if all("on" in status for status in status) else 'off'
+
+        else:
+            cmd_output = duthost.shell("sudo ecnconfig -q {}".format(qosConfig["dscp"]), module_ignore_errors=True)
+            if cmd_output['rc'] != 0:
+                pytest.skip("command failed for ecnconfig on/off status")
+            else:
+                ecn_status = cmd_output['stdout_lines'][1].split(':')[1].strip()
+                if ecn_status != expected_status:
+                    duthost.shell("sudo ecnconfig -q {} {}".format(qosConfig["dscp"], expected_status),
+                                  module_ignore_errors=True)
+                cmd_output = duthost.shell("sudo ecnconfig -q {}".format(qosConfig["dscp"]), module_ignore_errors=True)
+            ecn_status = 'on' if "on" in cmd_output['stdout_lines'][1].split(':')[1].strip() else 'off'
+
+        return ecn_status
 
     def testParameter(
         self, duthosts, get_src_dst_asic_and_duts, dutConfig, dutQosConfig, ingressLosslessProfile,
@@ -2675,3 +2709,73 @@ class TestQosSai(QosSaiBase):
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.XonHysteresisTest",
             testParams=test_params)
+
+    @pytest.mark.parametrize("ecn", ["ecn_1", "ecn_2", "ecn_3", "ecn_4", "ecn_5"])
+    def testQosSaiDscpEcn(
+        self, ecn, duthosts, get_src_dst_asic_and_duts,
+        ptfhost, dutTestParams, dutConfig, dutQosConfig, ecnLosslessProfile, enableECN,
+        change_lag_lacp_timer
+    ):
+        """
+            Test QoS SAI ECN CONFIG
+
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                ecnLosslessProfile (Fxiture): Map of ecn marking for lossless queue
+                enable_ecn (Fixture): enables the ecnconfig on each asic
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        duthost = dutConfig["dstDutInstance"]
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        else:
+            qosConfig = dutQosConfig["param"][ecn]
+
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
+        testParams.update({
+            "dscp": qosConfig["dscp"],
+            "ecn": qosConfig["ecn"],
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "num_of_pkts": qosConfig["num_of_pkts"],
+            "limit": qosConfig["limit"],
+            "min_limit": qosConfig["min_limit"],
+            "cell_size": qosConfig["cell_size"],
+            "hwsku": dutTestParams['hwsku']
+        })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+            testParams["ecn_queue_status"] = self.check_and_set_ecn_status(duthost, qosConfig)
+        else:
+            testParams["platform_asic"] = None
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.DscpEcnSend", testParams=testParams
+        )
+        # Run ecn_3 scenario with ecn_status off
+        if ecn == "ecn_3":
+            testParams["ecn_queue_status"] = self.check_and_set_ecn_status(duthost, qosConfig, 'off')
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.DscpEcnSend", testParams=testParams
+            )
+            self.check_and_set_ecn_status(duthost, qosConfig, 'on')
+        elif ecn == "ecn_5":
+            self.check_and_set_ecn_status(duthost, qosConfig, 'off')
