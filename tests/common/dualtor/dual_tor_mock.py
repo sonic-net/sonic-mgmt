@@ -68,9 +68,12 @@ def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):         # noqa: 
     """
     Helper function for setting active/standby state to orchagent
     """
-    def check_config_applied(num_tor_mux_intfs):
-        out = dut.shell('redis-cli -n 0 keys "MUX_CABLE_TABLE:*" | wc -l')
-        return out['stdout_lines'][0] == str(num_tor_mux_intfs)
+    def check_config_applied():
+        for intf in tor_mux_intfs:
+            out = dut.shell('redis-cli -n 0 HGET "MUX_CABLE_TABLE:{}" "state"'.format(intf))
+            if out['stdout_lines'][0] != state:
+                return False
+        return True
     logger.info("Applying {} state to orchagent".format(state))
 
     intf_configs = []
@@ -101,7 +104,7 @@ def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):         # noqa: 
     logger.debug('SWSS config string is {}'.format(swss_config_str))
     swss_filename = '/mux{}.json'.format(state)
     _apply_config_to_swss(dut, swss_config_str, swss_filename)
-    wait_until(120, 5, 5, check_config_applied, len(tor_mux_intfs))
+    wait_until(120, 10, 5, check_config_applied)
 
 
 def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):       # noqa: F811
