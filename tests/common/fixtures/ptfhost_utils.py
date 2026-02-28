@@ -708,6 +708,6 @@ def skip_traffic_test(request):
 
 @pytest.fixture(scope='function')
 def iptables_drop_ipv6_tx(ptfhost):
-    ptfhost.shell("ip6tables -P OUTPUT DROP")
+    ptfhost.shell("ip6tables -P OUTPUT DROP || true")
     yield
-    ptfhost.shell("ip6tables -P OUTPUT ACCEPT")
+    ptfhost.shell("ip6tables -P OUTPUT ACCEPT || true")
