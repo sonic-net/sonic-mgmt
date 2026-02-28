@@ -52,14 +52,20 @@ class DHCPStressTest(DHCPTest):
         self.packets_send_duration = self.test_params["packets_send_duration"]
         self.client_packets_per_sec = self.test_params["client_packets_per_sec"]
 
-    # Simulate client coming on VLAN and broadcasting a DHCPDISCOVER message
     def client_send_packet_stress(self):
-        server_ports = "|".join(["eth{}".format(idx) for idx in self.receive_port_indices])
-        tcpdump_cmd = (
-            "tcpdump -i any -n -q -l 'inbound and udp and (port 67 or port 68) and (udp[249:2] = 0x01{})' "
-            "| grep -w -E '{}' > /tmp/dhcp_stress_test_{}.log"
-        ).format(self.packet_type_hex, server_ports, self.packet_type)
-        tcpdump_proc = subprocess.Popen(tcpdump_cmd, shell=True)
+        # Start tcpdump on each receive-port interface individually to avoid
+        # issues with '-i any' cooked capture (SLL/SLLv2), deep BPF offsets
+        # (udp[249:2]), and grep-based interface filtering.
+        log_files = []
+        for idx in self.receive_port_indices:
+            log_file = "/tmp/dhcp_stress_{}_{}.log".format(self.packet_type, idx)
+            log_files.append(log_file)
+            cmd = "tcpdump -i eth{} -n -q -l 'udp and (port 67 or port 68)' > {} 2>/dev/null".format(
+                idx, log_file)
+            subprocess.Popen(cmd, shell=True)
+
+        time.sleep(1)
+
         if self.packet_type == "discover" or self.packet_type == "request":
             dhcp_packet = self.create_packet(self.dest_mac_address, self.client_udp_src_port)
         else:
@@ -67,7 +73,6 @@ class DHCPStressTest(DHCPTest):
         end_time = time.time() + self.packets_send_duration
         xid = 0
         while time.time() < end_time:
-            # Set a unique transaction ID for each DHCPOFFER packet for making sure no packet miss
             dhcp_packet[scapy.BOOTP].xid = xid
             xid += 1
             testutils.send_packet(self, self.send_port_indices[0], dhcp_packet)
@@ -75,16 +80,28 @@ class DHCPStressTest(DHCPTest):
 
         time.sleep(15)
 
-        pids = subprocess.check_output("pgrep tcpdump", shell=True).split()
-        for pid in pids:
-            os.kill(int(pid), signal.SIGINT)
-        tcpdump_proc.wait()
+        try:
+            pids = subprocess.check_output("pgrep tcpdump", shell=True).split()
+            for pid in pids:
+                os.kill(int(pid), signal.SIGINT)
+        except subprocess.CalledProcessError:
+            pass
+        time.sleep(2)
 
-        wc_cmd = f"wc -l /tmp/dhcp_stress_test_{self.packet_type}.log"
-        wc_output = subprocess.check_output(wc_cmd, shell=True)
-        line_cnt = wc_output.decode().split()[0]
-        os.remove("/tmp/dhcp_stress_test_{}.log".format(self.packet_type))
-        subprocess.check_output("echo {} > /tmp/dhcp_stress_test_{}".format(line_cnt, self.packet_type), shell=True)
+        total_count = 0
+        for log_file in log_files:
+            try:
+                wc_output = subprocess.check_output("wc -l < {}".format(log_file), shell=True)
+                total_count += int(wc_output.decode().strip())
+            except (subprocess.CalledProcessError, ValueError):
+                pass
+            try:
+                os.remove(log_file)
+            except OSError:
+                pass
+
+        subprocess.check_output(
+            "echo {} > /tmp/dhcp_stress_test_{}".format(total_count, self.packet_type), shell=True)
 
     def runTest(self):
         self.client_send_packet_stress()

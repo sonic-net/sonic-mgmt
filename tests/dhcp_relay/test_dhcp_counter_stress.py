@@ -11,10 +11,12 @@ from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
 from tests.common.dhcp_relay_utils import check_dhcp_stress_status
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
+from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
-    pytest.mark.device_type('physical')
+    pytest.mark.device_type('physical'),
+    pytest.mark.parametrize("relay_agent", ["isc-relay-agent", "sonic-relay-agent"]),
 ]
 
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
@@ -41,12 +43,14 @@ def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
     yield
 
 
+@pytest.mark.disable_memory_utilization
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
 def test_dhcpmon_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist,
                                        testing_config, setup_standby_ports_on_rand_unselected_tor,
                                        toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
                                        dhcp_type, clean_processes_after_stress_test,
-                                       rand_unselected_dut, request):
+                                       rand_unselected_dut, request,
+                                       enable_sonic_dhcpv4_relay_agent,relay_agent):
     '''
     Test DHCP relay counters functionality can handle the maximum load within 0.01% miss.
     '''
@@ -84,9 +88,11 @@ def test_dhcpmon_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
             "packets_send_duration": packets_send_duration,
             "client_packets_per_sec": client_packets_per_sec,
             "testing_mode": testing_mode,
+            "downlink_vlan_iface_name": str(dhcp_relay['downlink_vlan_iface']['name']),
+            "relay_agent": relay_agent,
             "kvm_support": True
         }
-        count_file = '/tmp/dhcp_stress_test_{}.json'.format(dhcp_type)
+        count_file = '/tmp/dhcp_stress_test_{}'.format(dhcp_type)
 
         def _check_count_file_exists():
             command = 'ls {} > /dev/null 2>&1 && echo exists || echo missing'.format(count_file)
@@ -135,3 +141,4 @@ def test_dhcpmon_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
             pytest_assert(wait_until(600, 2, 0, _check_count_file_exists), "{} is missing".format(count_file))
             ptfhost.shell('rm -f {}'.format(count_file))
             interface_dict = get_ip_link_result(duthost)
+
