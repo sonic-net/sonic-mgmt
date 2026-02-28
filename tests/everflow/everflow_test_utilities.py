@@ -714,7 +714,9 @@ class BaseEverflowTest(object):
                 elif mirror_type == "both" and (ingress_capable != "true" or egress_capable != "true"):
                     pytest.skip("ASIC does not support bidirectional port mirroring")
 
-            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, erspan_ip_ver=erspan_ip_ver, direction=self.mirror_type())
+            BaseEverflowTest.apply_mirror_config(
+                duthost, session_info, config_method,
+                erspan_ip_ver=erspan_ip_ver, direction=self.mirror_type())
 
         yield session_info
 
