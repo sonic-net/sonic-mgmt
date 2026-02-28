@@ -2324,6 +2324,19 @@ Totals               6450                 6449
         supported_speeds = self.shell(cmd)['stdout'].strip()
         return None if not supported_speeds else supported_speeds.split(',')
 
+    def get_supported_fecs(self, interface_name):
+        """Get supported fecs for a given interface
+
+        Args:
+            interface_name (str): Interface name
+
+        Returns:
+            list: A list of supported fec strings or None
+        """
+        cmd = 'sonic-db-cli STATE_DB HGET \"PORT_TABLE|{}\" \"{}\"'.format(interface_name, 'supported_fecs')
+        supported_fecs = self.shell(cmd)['stdout'].strip()
+        return None if not supported_fecs else supported_fecs.split(',')
+
     def set_auto_negotiation_mode(self, interface_name, mode):
         """Set auto negotiation mode for a given interface
 
