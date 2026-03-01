@@ -11,7 +11,7 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
     pre_test_check, post_test_switch_check, post_test_dpus_check,\
-    dpus_shutdown_and_check, dpus_startup_and_check,\
+    dpus_shutdown_and_check, dpus_startup_and_check, check_dpus_module_status,\
     num_dpu_modules, check_dpus_are_not_pingable, check_dpus_reboot_cause  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.smartswitch.common.reboot import perform_reboot
@@ -216,6 +216,9 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
 
         logging.info("Starting UP the DPUs")
         dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
+    else:
+        logging.info("Check DPUs are offline")
+        check_dpus_module_status(duthost, dpu_on_list, "off")
 
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts,
@@ -267,6 +270,9 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
 
         logging.info("Starting UP the DPUs")
         dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
+    else:
+        logging.info("Check DPUs are offline")
+        check_dpus_module_status(duthost, dpu_on_list, "off")
 
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
