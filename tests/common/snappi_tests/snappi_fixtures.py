@@ -1613,13 +1613,11 @@ def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
 
 
 def is_snappi_multidut(duthosts):
-    if duthosts is None or len(duthosts) == 0:
+    if not duthosts[-1].get_facts().get("modular_chassis") and len(duthosts) == 1:
         return False
-    if len(duthosts) == 1:
-        return False
-    if len(duthosts) > 1:
+    if not duthosts[-1].get_facts().get("modular_chassis") and len(duthosts) > 1:
         return True
-    return duthosts[0].get_facts().get("modular_chassis")
+    return duthosts[-1].get_facts().get("modular_chassis")
 
 
 @pytest.fixture(scope="module")
