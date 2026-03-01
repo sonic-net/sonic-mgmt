@@ -92,7 +92,7 @@ class QosBase:
 
     @pytest.fixture(scope='class', autouse=True)
     def dutTestParams(self, duthosts, dut_test_params_qos, tbinfo, get_src_dst_asic_and_duts,
-                      lossy_queue_traffic_direction):
+                      lossy_queue_traffic_direction, request):
         """
             Prepares DUT host test params
             Returns:
@@ -100,33 +100,40 @@ class QosBase:
         """
         # update router mac
         duthost = get_src_dst_asic_and_duts['src_dut']
+        dualTor = request.config.getoption("--qos_dual_tor")
+        dut_mac = duthost.shell('sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" mac')['stdout']
         if "t0-backend" in dut_test_params_qos["topo"]:
             dut_test_params_qos["basicParams"]["router_mac"] = duthost.shell(
                     'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" mac')['stdout']
 
         elif dut_test_params_qos["topo"] in self.SUPPORTED_T0_TOPOS:
             if lossy_queue_traffic_direction in ["src_uplink_dst_downlink", "src_downlink_dst_uplink"]:
-                dut_test_params_qos["basicParams"]["router_mac"] = duthost.shell(
-                    'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" mac')['stdout']
+                dut_test_params_qos["basicParams"]["router_mac"] = dut_mac
             else:
                 dut_test_params_qos["basicParams"]["router_mac"] = ''
 
             if "dualtor" in tbinfo["topo"]["name"]:
-                # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
-                # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
-                dut_test_params_qos["basicParams"]["is_dualtor"] = True
+                if dualTor:
+                    # If dualTor is True, the source port is the uplink port with additional lossless PGs.
+                    # The router mac is the dut mac
+                    dut_test_params_qos["basicParams"]["router_mac"] = dut_mac
+                else:
+                    # If dualTor is False, the source port is the vlan port, need update the mac.
+                    # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
+                    # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
+                    dut_test_params_qos["basicParams"]["is_dualtor"] = True
 
-                vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
-                if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
-                    default_vlan_name = vlan_cfgs['default_vlan_config']
-                    if default_vlan_name:
-                        for vlan in vlan_cfgs[default_vlan_name].values():
-                            if 'mac' in vlan and vlan['mac']:
-                                dut_test_params_qos["basicParams"]["def_vlan_mac"] = vlan['mac']
-                                break
+                    vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
+                    if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
+                        default_vlan_name = vlan_cfgs['default_vlan_config']
+                        if default_vlan_name:
+                            for vlan in vlan_cfgs[default_vlan_name].values():
+                                if 'mac' in vlan and vlan['mac']:
+                                    dut_test_params_qos["basicParams"]["def_vlan_mac"] = vlan['mac']
+                                    break
 
-                pytest_assert(dut_test_params_qos["basicParams"]["def_vlan_mac"] is not None,
-                              "Dual-TOR miss default VLAN MAC address")
+                    pytest_assert(dut_test_params_qos["basicParams"]["def_vlan_mac"] is not None,
+                                  "Dual-TOR miss default VLAN MAC address")
         else:
             try:
                 asic = duthost.asic_instance().asic_index
@@ -871,6 +878,14 @@ class QosSaiBase(QosBase):
                 srcPorts = [random.choice(src_port_ids)]
             else:
                 srcPorts = [1]
+                for dstPortIndex in dstPorts:
+                    if dst_test_port_ips[dst_test_port_ids[dstPortIndex]]['peer_addr'] == \
+                            src_test_port_ips[src_test_port_ids[srcPorts[0]]]['peer_addr']:
+                        # this means the src port and the dst port are the members of the same portchannel
+                        # we try to avoid this as much as possible
+                        srcPorts = [len(src_test_port_ids) - 1]
+                        break
+
         if (get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"]
                 in ["Cisco-8101-O8C48", "Cisco-8101-O8V48", "Cisco-8102-28FH-DPU-O-T1", "Cisco-8102-28FH-DPU-O"]):
             srcPorts = [testPortIds[0][0].index(uplinkPortIds[0])]
@@ -1027,6 +1042,8 @@ class QosSaiBase(QosBase):
         ip_version = 6 if ip_type == "ipv6" else 4
         vlan_info = {}
 
+        dualTor = request.config.getoption("--qos_dual_tor")
+
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
         if topo in self.SUPPORTED_T0_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and isMellanoxDevice(src_dut)):
             # Only single asic is supported for this scenario, so use src_dut and src_asic - which will be the same
@@ -1055,9 +1072,15 @@ class QosSaiBase(QosBase):
                                                              for port in src_mgFacts["minigraph_ports"].keys())
             testPortIds[src_dut_index][src_asic_index] -= set(dutLagInterfaces)
             testPortIds[src_dut_index][src_asic_index] -= set(low_speed_portIds)
+
             if isMellanoxDevice(src_dut):
+                if dualTor:
+                    # We need the uplink lag ports for dualtor scenario
+                    testPortIds[src_dut_index][src_asic_index] = \
+                        testPortIds[src_dut_index][src_asic_index].union(set(dutLagInterfaces))
                 # The last port is used for up link from DUT switch
                 testPortIds[src_dut_index][src_asic_index] -= {len(src_mgFacts["minigraph_ptf_indices"]) - 1}
+
             testPortIds[src_dut_index][src_asic_index] = sorted(testPortIds[src_dut_index][src_asic_index])
             pytest_require(len(testPortIds[src_dut_index][src_asic_index]) != 0,
                            "Skip test since no ports are available for testing")
@@ -1084,19 +1107,6 @@ class QosSaiBase(QosBase):
                         dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
                         if intf in dualtor_ports_for_duts:
                             dualTorPortIndexes[src_dut_index][src_asic_index].append(portIndex)
-                    # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
-                    # we also need to test them separately
-                    # for mellanox device, we run it on t1 topo mocked by ptf32 topo
-                    if use_separated_upkink_dscp_tc_map and isMellanoxDevice(src_dut):
-                        neighName = src_mgFacts["minigraph_neighbors"].get(intf, {}).get("name", "").lower()
-                        if 't0' in neighName:
-                            downlinkPortIds.append(portIndex)
-                            downlinkPortIps.append(portConfig["peer_addr"])
-                            downlinkPortNames.append(intf)
-                        elif 't2' in neighName:
-                            uplinkPortIds.append(portIndex)
-                            uplinkPortIps.append(portConfig["peer_addr"])
-                            uplinkPortNames.append(intf)
                     if is_supported_per_dir:
                         neighName = src_mgFacts["minigraph_neighbors"].get(intf, {}).get("name", "").lower()
                         if 't1' in neighName:
@@ -1104,8 +1114,19 @@ class QosSaiBase(QosBase):
                             uplinkPortIps.append(portConfig["peer_addr"])
                             uplinkPortNames.append(intf)
 
+            # We need the IPs for portchannels in the dualtor scenario
+            src_asic = get_src_dst_asic_and_duts['src_asic']
+            if isMellanoxDevice(src_dut) and dualTor:
+                for iface, addr in src_asic.get_active_ip_interfaces(tbinfo, ip_type=ip_type).items():
+                    if iface.startswith("PortChannel"):
+                        for member in src_mgFacts["minigraph_portchannels"][iface]["members"]:
+                            portIndex = src_mgFacts["minigraph_ptf_indices"][member]
+                            portIpMap = {'peer_addr': addr[bgp_peer_ip_key]}
+                            dutPortIps[src_dut_index][src_asic_index].update({portIndex: portIpMap})
+
             if isMellanoxDevice(src_dut) and not is_supported_per_dir:
-                dualtor_dut_ports = dualtor_ports_for_duts if topo in self.SUPPORTED_PTF_TOPOS else None
+                # We always select the dualtor ports as source ports for dualtor scenario
+                dualtor_dut_ports = dualtor_ports_for_duts if dualTor else None
                 testPortIds[src_dut_index][src_asic_index] = self.select_port_ids_for_mellnaox_device(
                     src_dut, src_mgFacts, testPortIds[src_dut_index][src_asic_index], dualtor_dut_ports)
                 dualTorPortIndexes = testPortIds
@@ -1175,10 +1196,11 @@ class QosSaiBase(QosBase):
                     dutPortIps[src_dut_index][dut_asic.asic_index].keys())
 
                 if isMellanoxDevice(src_dut) and not is_supported_per_dir:
-                    # For T1 in dualtor scenario, we always select the dualtor ports as source ports
-                    dualtor_dut_ports = dualtor_ports_for_duts if 't1' in tbinfo['topo']['type'] else None
+                    # We always select the dualtor ports as source ports for mock dualtor t1
+                    dualtor_dut_ports = dualtor_ports_for_duts if dualTor else None
                     testPortIds[src_dut_index][dut_asic.asic_index] = self.select_port_ids_for_mellnaox_device(
                         src_dut, src_mgFacts, testPortIds[src_dut_index][dut_asic.asic_index], dualtor_dut_ports)
+                    dualTorPortIndexes = testPortIds
 
             # Need to fix this
             testPortIps[src_dut_index] = {}
@@ -1363,7 +1385,6 @@ class QosSaiBase(QosBase):
         except KeyError:
             pass
 
-        dualTor = request.config.getoption("--qos_dual_tor")
         if dualTor:
             testPortIds = dualTorPortIndexes
         testPorts = self.__buildTestPorts(request, testPortIds, testPortIps, src_port_ids, dst_port_ids,
@@ -1408,7 +1429,7 @@ class QosSaiBase(QosBase):
             "dutTopo": dutTopo,
             "srcDutInstance": src_dut,
             "dstDutInstance": dst_dut,
-            "dualTor": request.config.getoption("--qos_dual_tor"),
+            "dualTor": dualTor,
             "dualTorScenario": len(dualtor_ports_for_duts) != 0 and "dualtor" not in tbinfo["topo"]["name"],
             "ip_type": ip_type,
             "vlan_info": vlan_info
@@ -1709,7 +1730,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
-        self, duthosts, get_src_dst_asic_and_duts,
+        self, request, duthosts, get_src_dst_asic_and_duts,
         dutConfig, ingressLosslessProfile, ingressLossyProfile,
         egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize,
         tbinfo, lower_tor_host  # noqa: F811
@@ -1755,12 +1776,9 @@ class QosSaiBase(QosBase):
             sub_folder_dir = os.path.join(current_file_dir, "files/mellanox/")
             if sub_folder_dir not in sys.path:
                 sys.path.append(sub_folder_dir)
-            # For Mellanox T1, if tunnel qos remap is enabled, we need to enable dualTor flag to cover
-            # T1 in dualTor scenario
-            if is_tunnel_qos_remap_enabled(duthost) and 't1' in tbinfo["topo"]["name"]:
-                dualTor = True
-            else:
-                dualTor = dutConfig["dualTor"]
+
+            dualTor = request.config.getoption("--qos_dual_tor")
+
             import qos_param_generator
             dut_top = dutTopo if dutTopo in qosConfigs['qos_params']['mellanox'] else "topo-any"
             qpm = qos_param_generator.QosParamMellanox(qosConfigs['qos_params']['mellanox'][dut_top], dutAsic,
