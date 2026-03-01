@@ -5075,6 +5075,10 @@ vlan/test_vlan_ping.py:
     reason: "Skip on dualtor topo https://github.com/sonic-net/sonic-mgmt/issues/15061"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15061 and 'dualtor-aa' in topo_name"
+  xfail:
+    reason: "xfail due to issue https://github.com/sonic-net/sonic-mgmt/issues/22461"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/22461"
 
 #######################################
 #####             voq             #####
