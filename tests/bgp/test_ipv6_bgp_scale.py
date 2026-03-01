@@ -193,13 +193,15 @@ def announce_routes(localhost, tbinfo, ptf_ip, dut_interfaces):
         log_path="/tmp",
         dut_interfaces=dut_interfaces,
         upstream_neighbor_groups=tbinfo['upstream_neighbor_groups'] if 'upstream_neighbor_groups' in tbinfo else 0,
-        downstream_neighbor_groups=tbinfo['downstream_neighbor_groups'] if 'downstream_neighbor_groups' in tbinfo else 0
+        downstream_neighbor_groups=tbinfo['downstream_neighbor_groups'] if 'downstream_neighbor_groups' in tbinfo
+        else 0,
+        verbose=False
     )
 
 
 def get_all_bgp_ipv6_routes(duthost, save_snapshot=False):
     logger.info("Getting ipv6 routes")
-    routes_str = duthost.shell("docker exec bgp vtysh -c 'show ipv6 route bgp json'")['stdout']
+    routes_str = duthost.shell("docker exec bgp vtysh -c 'show ipv6 route bgp json'", verbose=False)['stdout']
     if save_snapshot:
         with open("/tmp/bgp_ipv6_routes_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.json', "w") as f:
             f.write(routes_str)
@@ -231,7 +233,8 @@ def change_routes_on_peers(localhost, ptf_ip, topo_name, peers_routes_to_change,
         peers_routes_to_change=peers_routes_to_change,
         path="../ansible/",
         log_path="/tmp",
-        dut_interfaces=dut_interfaces
+        dut_interfaces=dut_interfaces,
+        verbose=False
     )
 
 
@@ -416,6 +419,7 @@ def check_bgp_routes_converged(duthost, expected_routes, shutdown_connections=No
         interval=interval,
         log_path=log_path,
         compressed=compressed,
+        verbose=False,
         action=action
     )
 
