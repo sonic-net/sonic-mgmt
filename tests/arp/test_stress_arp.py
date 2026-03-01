@@ -104,7 +104,7 @@ def add_arp(ptf_intf_ipv4_addr, intf1_index, ptfadapter):
                                           hw_tgt='ff:ff:ff:ff:ff:ff'
                                           )
         # Add a short delay to avoid packet loss
-        time.sleep(0.001)
+        time.sleep(0.01)
         testutils.send_packet(ptfadapter, intf1_index, pkt)
     logger.info("Sending {} arp entries".format(ip_num))
 
