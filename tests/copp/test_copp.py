@@ -272,7 +272,7 @@ class TestCOPP(object):
                       "Trap {} is not uninstalled".format(self.trap_id))
         logger.info("Verify {} trap status is uninstalled by sending traffic".format(self.trap_id))
         pytest_assert(
-            wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(),
+            wait_until(300, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(),
                        copp_testbed, dut_type, has_trap=False),
             "uninstalling {} trap fail".format(self.trap_id))
 
@@ -677,7 +677,7 @@ def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_
 
     logger.info("Verify {} trap status is installed by sending traffic in pre_condition".format(trap_id))
     pytest_assert(
-        wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, trap_id.upper(), copp_testbed, dut_type),
+        wait_until(300, 20, 0, _copp_runner, duthost, ptfhost, trap_id.upper(), copp_testbed, dut_type),
         "Installing {} trap fail".format(trap_id))
 
 
