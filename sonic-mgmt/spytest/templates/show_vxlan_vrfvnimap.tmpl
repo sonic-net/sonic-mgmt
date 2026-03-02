@@ -1,14 +1,20 @@
+Value VTEP (\S+)
 Value Required VRF (\S+)
 Value Required VNI (\d+)
  
 Start
-  ^\+\-+\+\-+\+ -> Begin
+  ^\+\-+ -> Begin
  
 Begin
-  ^\| VRF\s*\|\s*VNI \|\s*$$ -> Capture
+  ^\| VTEP\s*\|\s*VRF\s*\|\s*VNI \|\s*$$ -> Capture3Col
+  ^\| VRF\s*\|\s*VNI \|\s*$$ -> Capture2Col
  
-Capture
-  ^\| ${VRF}\s*\|\s*${VNI}\s*\|\s*$$ -> Record
+Capture3Col
+  ^\| ${VTEP}\s*\|\s*${VRF}\s*\|\s*${VNI}\s*\|\s*$$ -> Record
   ^Total count -> End
  
+Capture2Col
+  ^\| ${VRF}\s*\|\s*${VNI}\s*\|\s*$$ -> Record
+  ^Total count -> End
+
 End
