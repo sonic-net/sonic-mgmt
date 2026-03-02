@@ -15,14 +15,12 @@ import requests
 # src/data/Network/ServiceConfigurations/FUSE/FUSCo/UpgradePathDefinitions/UpgradePathDefinition_SONiC.yaml
 BASE_UPGRADE_PATH = {
     "SONiC-Arista-7060-ToRRouter": [
-        ("IMAGE_BRCM_ABOOT_201811", 105),
         ("IMAGE_BRCM_ABOOT_202012_SLIM", 97),
         ("IMAGE_BRCM_ABOOT_202305_SLIM", 22),
         ("IMAGE_BRCM_ABOOT_202311_SLIM", 30),
         ("IMAGE_BRCM_ABOOT_202405_SLIM", 25),
     ],
     "SONiC-Arista-7260CX364-ToRRouter": [
-        ("IMAGE_BRCM_ABOOT_201811", 105),
         ("IMAGE_BRCM_ABOOT_202012", 97),
         ("IMAGE_BRCM_ABOOT_202305", 22),
         ("IMAGE_BRCM_ABOOT_202311", 30),
