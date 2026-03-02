@@ -198,7 +198,7 @@ function converge_topo_if_needed
             sudo cp "$topo_file" "$backup_file"
         fi
 
-        python -m ceos_topo_converger "$backup_file" "$topo_file"
+        sudo python -m ceos_topo_converger "$backup_file" "$topo_file"
     fi
 }
 
@@ -1167,6 +1167,6 @@ esac
 
 if [[ -f "$backup_file" ]];then
     echo "Backup exists, restore backup file"
-    rm -f "$topo_file"
-    mv "$backup_file" "$topo_file"
+    sudo rm -f "$topo_file"
+    sudo mv "$backup_file" "$topo_file"
 fi
