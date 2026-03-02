@@ -11,7 +11,7 @@ from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
 from tests.common.config_reload import config_reload
-from ha_utils_planned_shut import set_dead_dash_ha_scope, verify_ha_state, activate_primary_dash_ha
+from tests.ha.ha_utils import activate_primary_dash_ha, verify_ha_state, proto_utils_hset, build_dash_ha_scope_args
 
 logger = logging.getLogger(__name__)
 
@@ -20,10 +20,26 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 
-"""
-Test prerequisites:
-- Assign IPs to DPU-NPU dataplane interfaces
-"""
+
+def set_ha_scope_dead(duthost, scope_key):
+    """
+    Set DASH_HA_SCOPE_CONFIG_TABLE entry to "dead" state
+    scope_key example: vdpu0_0:haset0_0
+    """
+
+    fields = {
+                "version": "1",
+                "disabled": "true",
+                "desired_ha_state": "dead",
+                "ha_set_id": "haset0_0",
+                "owner": "dpu",
+            }
+    proto_utils_hset(
+            duthost,
+            table="DASH_HA_SCOPE_CONFIG_TABLE",
+            key=scope_key,
+            args=build_dash_ha_scope_args(fields),
+    )
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -44,7 +60,6 @@ def common_setup_teardown(
         return
 
     for i in range(len(duthosts)):
-        breakpoint()
         duthost = duthosts[i]
         dpuhost = dpuhosts[i]
         base_config_messages = {
@@ -107,7 +122,6 @@ def test_ha_planned_shutdown(
     delay = 1.0 / rate_pps
 
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
-    breakpoint()
 
     packet_sending_flag = queue.Queue(1)
 
@@ -116,7 +130,7 @@ def test_ha_planned_shutdown(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("Set primary to dead")
-        set_dead_dash_ha_scope(duthosts[0], "vdpu0_0:haset0_0")
+        set_ha_scope_dead(duthosts[0], "vdpu0_0:haset0_0")
         pytest_assert(verify_ha_state(duthosts[0], "vdpu0_0:haset0_0", "dead"),
                       "Primary HA state is not dead")
         pytest_assert(verify_ha_state(duthosts[1], "vdpu1_0:haset0_0", "standalone"),
@@ -163,7 +177,7 @@ def test_ha_planned_shutdown(
             time.sleep(0.2)
         logging.info("Set standby to dead")
 
-        set_dead_dash_ha_scope(duthosts[1], "vdpu1_0:haset0_0")
+        set_ha_scope_dead(duthosts[1], "vdpu1_0:haset0_0")
         pytest_assert(verify_ha_state(duthosts[1], "vdpu1_0:haset0_0", "dead"),
                       "Secondary HA state is not dead")
         pytest_assert(verify_ha_state(duthosts[0], "vdpu0_0:haset0_0", "standalone"),
