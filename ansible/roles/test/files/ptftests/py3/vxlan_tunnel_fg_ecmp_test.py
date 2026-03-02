@@ -5,13 +5,12 @@ Test cases:
 - create_flows: Send NUM_FLOWS flows with varying (sport, dport) and record
   flow_key -> outer_dst_ip (endpoint) mapping. Validates even distribution.
 - verify_consistent_hash: Replay same flows; assert every flow hits the same
-  endpoint as before (100% match required).
+  endpoint as before
 - withdraw_endpoint: Replay flows after one endpoint is removed. Asserts that
-  no flow hits the withdrawn endpoint, and that flows previously going to OTHER
-  endpoints are completely undisturbed (key FG ECMP property).
+  no flow hits the withdrawn endpoint, and that flows previously going to other
+  endpoints are completely undisturbed
 - add_endpoint: Replay flows after a new endpoint is added. Asserts that at
-  most 15% of flows migrate to the new endpoint (consistent hashing minimises
-  disruption vs ~50% for standard ECMP).
+  most 15% of flows migrate to the new endpoint
 """
 
 import logging
@@ -50,12 +49,9 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         self.exp_flow_count = params.get("exp_flow_count", {})
         self.persist_map = params.get("persist_map", "/tmp/vxlan_tunnel_fg_ecmp_persist_map.json")
 
-        # Test-case-specific parameters
         self.withdraw_endpoint = params.get("withdraw_endpoint") if self.test_case == "withdraw_endpoint" else None
         self.add_endpoint = params.get("add_endpoint") if self.test_case == "add_endpoint" else None
 
-        # Starting TCP port values — reset here and at the top of runTest so
-        # that every phase generates the exact same (sport, dport) sequence.
         self.tcp_sport = 1234
         self.tcp_dport = 5000
 
@@ -75,16 +71,11 @@ class VxlanTunnelFgEcmpTest(BaseTest):
     # ------------------------------------------------------------------
 
     def _next_ports(self):
-        """Advance and return the next (sport, dport) pair."""
         self.tcp_sport = (self.tcp_sport % 65534) + 1
         self.tcp_dport = (self.tcp_dport % 65534) + 1
         return self.tcp_sport, self.tcp_dport
 
     def _send_and_capture_endpoint(self, sport, dport):
-        """
-        Send one inner TCP packet and return the VXLAN outer dst IP
-        (i.e. the endpoint the DUT chose), or None if no response was captured.
-        """
         src_mac = self.dataplane.get_mac(0, self.send_port)
         pkt = simple_tcp_packet(
             eth_dst=self.router_mac,
@@ -126,10 +117,6 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         return None
 
     def _check_distribution(self, hit_count_map):
-        """
-        Return the maximum per-endpoint deviation from the expected count.
-        deviation = |1 - actual/expected|
-        """
         deviation_max = 0.0
         for endpoint, exp_flows in self.exp_flow_count.items():
             actual = hit_count_map.get(endpoint, 0)
@@ -228,9 +215,8 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         """
         After the withdrawn endpoint is removed from the DUT config:
         - No flow may hit the withdrawn endpoint.
-        - Flows that previously went to OTHER endpoints must stay on the
-          exact same endpoint (zero collateral disruption — this is the
-          key FG ECMP property).
+        - Flows that previously went to other endpoints must stay on the
+          exact same endpoint
         - Flows that previously went to the withdrawn endpoint may go
           anywhere else.
         """
@@ -272,7 +258,7 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         - At most ADD_ENDPOINT_MAX_DISRUPTION (15%) of flows may move to
           the new endpoint.
         - Flows that do not move to the new endpoint must stay on their
-          current endpoint (no unrelated churn).
+          current endpoint
         """
         assert self.add_endpoint, "add_endpoint param is required"
 
@@ -314,11 +300,10 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         )
 
     # ------------------------------------------------------------------
-    # Entry point
+    # Run Test
     # ------------------------------------------------------------------
 
     def runTest(self):
-        # Load existing mapping for non-create_flows phases
         if self.test_case == "create_flows":
             flow_map = {}
         else:
