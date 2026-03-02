@@ -1,4 +1,8 @@
 steps:
+- script: |
+    username=$(id -un)
+    sudo chown -R ${username}.${username} .
+  displayName: 'Cleanup'
 
 - script: |
     sudo apt-get -o DPkg::Lock::Timeout=180 update
@@ -23,9 +27,9 @@ steps:
 - script: |
     set -x
 
-    sudo docker pull sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest
-    sudo docker rm -f sonic-mgmt-collect || true
-    sudo docker run --rm -dt --name sonic-mgmt-collect \
+    docker pull sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest
+    docker rm -f sonic-mgmt-collect || true
+    docker run --rm -dt --name sonic-mgmt-collect \
       -v $(System.DefaultWorkingDirectory):/var/src/sonic-mgmt \
       sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest \
       /bin/bash
@@ -39,7 +43,7 @@ steps:
       git checkout -b ${{ parameters.MGMT_BRANCH }} origin/${{ parameters.MGMT_BRANCH }}
     fi
 
-    sudo docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
+    docker exec -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect \
       python3 -m pytest --inventory ../ansible/veos_vtb --host-pattern all \
       --testbed_file vtestbed.yaml --testbed vms-kvm-t0 \
       --ignore saitests --ignore ptftests --ignore acstests \
