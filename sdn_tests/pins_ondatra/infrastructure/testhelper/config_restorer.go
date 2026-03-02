@@ -93,10 +93,16 @@ func NewConfigRestorerWithIgnorePaths(t *testing.T, ignorePaths []string) *Confi
 		t.Fatalf("config_restorer creation failed, errors: %v", err)
 	}
 
-        // Register a cleanup to restore the configs on test end.
-	t.Cleanup(func() {
-		cr.RestoreConfigsAndClose(t)
-	})
+	// Cleanup is only registered if running in a go test.
+	// As the cleanup callback would not be called otherwise.
+	if testing.Testing() { // True if running in a go test.
+		// Register a cleanup to restore the configs on test end.
+		log.InfoContextf(ctx, "Registering config_restorer for cleanup tasks.")
+		t.Cleanup(func() {
+			cr.RestoreConfigsAndClose(t)
+		})
+	}
+
 	return cr
 }
 
@@ -238,12 +244,10 @@ func (cr *ConfigRestorer) restoreConfigOnDiff(ctx context.Context, t *testing.T,
 
 // restoreReservedDevices tries to restore the config of the reserved devices
 // if the config differs from the saved config.
-func (cr *ConfigRestorer) restoreReservedDevices(t *testing.T) {
-        t.Helper()
+func (cr *ConfigRestorer) restoreReservedDevices(t *testing.T) error {
 	ctx := context.Background()
 	if cr.savedConfigs == nil {
-		log.InfoContextf(ctx, "configRestorer.savedConfigs is not initialized.")
-		return
+		return fmt.Errorf("savedConfigs are not initialized")
 	}
 
         wg := sync.WaitGroup{}
@@ -268,16 +272,24 @@ func (cr *ConfigRestorer) restoreReservedDevices(t *testing.T) {
 
         // Collect all the errors and fail the test on error.
 	if err := collectErrors(errCh); err != nil {
-		t.Fatalf("failed to restore config, errors: %v", err)
+		return fmt.Errorf("failed to restore config, errors: %v", err)
 	}
         log.InfoContextf(ctx, "Config restored for all the reserved devices.")
+        return nil
+}
+
+// RestoreConfigs restores the config of reserved devices.s
+func (cr *ConfigRestorer) RestoreConfigs(t *testing.T) error {
+	return cr.restoreReservedDevices(t)
 }
 
 // RestoreConfigsAndClose restores the config of reserved devices
 // and closes the configRestorer object.
 func (cr *ConfigRestorer) RestoreConfigsAndClose(t *testing.T) {
         t.Helper()
-	cr.restoreReservedDevices(t)
+	if err := cr.RestoreConfigs(t); err != nil {
+		t.Fatalf("config_restorer failed, errors: %v", err)
+	}
 	cr.savedConfigs = nil
 	cr.ignorePaths = nil
 }
