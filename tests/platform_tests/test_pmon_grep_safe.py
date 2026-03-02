@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.slow,
 ]
 
 
@@ -55,7 +56,7 @@ def test_pmon_grep_no_kernel_panic(duthosts, rand_one_dut_hostname):
 
     # Step 2 - capture dmesg timestamp as baseline (more robust than line count)
     dmesg_baseline = duthost.shell(
-        "dmesg --raw | tail -1 | grep -oP '^\\[\\s*\\K[0-9]+\\.[0-9]+'",
+        "dmesg | tail -1 | grep -oP '\\[\\s*\\K[0-9]+\\.[0-9]+'",
         module_ignore_errors=True,
     )
     baseline_timestamp = dmesg_baseline["stdout"].strip() if dmesg_baseline["rc"] == 0 else ""
@@ -64,7 +65,15 @@ def test_pmon_grep_no_kernel_panic(duthosts, rand_one_dut_hostname):
     logger.info("dmesg baseline timestamp: %s, uptime: %s", baseline_timestamp, baseline_mono)
 
     # Step 3 - basic grep sanity inside pmon
-    result = duthost.shell("docker exec pmon grep -c Linux /proc/version")
+    result = duthost.shell(
+        "docker exec pmon grep -c Linux /proc/version",
+        module_ignore_errors=True,
+    )
+    if result["rc"] != 0:
+        pytest.fail(
+            "Failed to run grep inside pmon container (rc={}): {}".format(
+                result["rc"], result.get("stderr", ""))
+        )
     pytest_assert(
         result["stdout"].strip() != "0",
         "Basic grep inside pmon returned no matches for 'Linux' "
