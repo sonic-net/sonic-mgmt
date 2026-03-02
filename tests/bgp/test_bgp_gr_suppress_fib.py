@@ -22,6 +22,8 @@ from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t0'),
+    # Restricted to virtual switch: GR timing (300s restart, 120s stale check)
+    # is tuned for KVM; physical testbeds may need different timeouts.
     pytest.mark.device_type('vs')
 ]
 
@@ -77,8 +79,9 @@ def _get_bgp_routes_summary(duthost):
                 peers = result.get(af_key, result).get('peers', {})
                 for peer_info in peers.values():
                     total_routes += peer_info.get('pfxRcd', 0)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.warning("Failed to get BGP routes for %s in namespace '%s': %s",
+                               af, namespace, e)
     return total_routes
 
 
@@ -116,7 +119,12 @@ def _get_neighbor_route_counts(duthost, bgp_neighbors):
 
 
 def _check_all_bgp_sessions_established(duthost, bgp_neighbor_ips):
-    """Check that all BGP sessions are established."""
+    """Check that all BGP sessions are established.
+
+    Returns False if any expected neighbor is missing from BGP summary
+    or not in Established state.
+    """
+    found_neighbors = set()
     for namespace in (duthost.get_frontend_asic_namespace_list() or ['']):
         cmd = duthost.get_vtysh_cmd_for_namespace(
             "vtysh -c 'show bgp summary json'", namespace)
@@ -127,11 +135,17 @@ def _check_all_bgp_sessions_established(duthost, bgp_neighbor_ips):
                 peers = af.get('peers', {})
                 for neighbor_ip in bgp_neighbor_ips:
                     if neighbor_ip in peers:
+                        found_neighbors.add(neighbor_ip)
                         state = peers[neighbor_ip].get('state', '')
                         if state != 'Established':
                             return False
         except Exception:
             return False
+    # Verify all expected neighbors were found in at least one namespace
+    missing = set(bgp_neighbor_ips) - found_neighbors
+    if missing:
+        logger.debug("BGP neighbors not found in summary: %s", ", ".join(missing))
+        return False
     return True
 
 
@@ -226,7 +240,9 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
         wait_until(120, 10, 0, lambda: _get_bgp_routes_summary(duthost) > 0),
         "No BGP routes received after sessions established"
     )
-    # Take a stable snapshot
+    # Take a stable snapshot — allow route counts to settle after sessions converge.
+    # Using a short sleep rather than wait_until because we need two consecutive stable
+    # readings, and the routes_summary already showed >0 routes above.
     time.sleep(10)
     routes_before = _get_bgp_routes_summary(duthost)
     app_db_routes_before = _get_routes_in_app_db(duthost)
@@ -255,10 +271,10 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
         "EOR may have been sent prematurely before routes were programmed"
     )
 
-    # Step 7: Wait for routes to converge, then verify
+    # Step 7: Wait for routes to fully converge, then verify
     pytest_assert(
-        wait_until(180, 10, 0, lambda: _get_bgp_routes_summary(duthost) >= routes_before * 0.50),
-        "Routes did not recover to at least 50%% of pre-restart count (%d) "
+        wait_until(180, 10, 0, lambda: _get_bgp_routes_summary(duthost) >= routes_before),
+        "Routes did not fully recover to pre-restart count (%d) "
         "after BGP restart with suppress-fib-pending" % routes_before
     )
     routes_after = _get_bgp_routes_summary(duthost)
@@ -334,7 +350,9 @@ def test_bgp_gr_suppress_fib_neighbor_restart(duthosts, rand_one_dut_hostname, n
         "BGP sessions to %s not established before test" % test_neighbor_name
     )
 
-    # Get routes from this neighbor before GR
+    # Get routes from this neighbor before GR.
+    # Using dict.update() for unique-prefix counting: if the same prefix appears
+    # in multiple namespaces, we count it once (unique prefix semantics).
     routes_before = {}
     for neighbor_ip in test_bgp_neighbor_ips:
         for namespace in (duthost.get_frontend_asic_namespace_list() or ['']):
@@ -400,7 +418,29 @@ def test_bgp_gr_suppress_fib_neighbor_restart(duthosts, rand_one_dut_hostname, n
         "Stale routes remain after neighbor GR with suppress-fib-pending enabled"
     )
 
-    # Verify route count restored
+    # Verify route count restored using wait_until for convergence
+    def _routes_restored():
+        routes_after = {}
+        for neighbor_ip in test_bgp_neighbor_ips:
+            for namespace in (duthost.get_frontend_asic_namespace_list() or ['']):
+                if '.' in neighbor_ip:
+                    cmd = "vtysh -c 'show bgp ipv4 neighbor %s routes json'" % neighbor_ip
+                else:
+                    cmd = "vtysh -c 'show bgp ipv6 neighbor %s routes json'" % neighbor_ip
+                cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
+                try:
+                    result = json.loads(duthost.shell(cmd, verbose=False)['stdout'])
+                    routes_after.update(result.get('routes', {}))
+                except Exception:
+                    pass
+        return len(routes_after) >= len(routes_before)
+
+    pytest_assert(
+        wait_until(120, 10, 0, _routes_restored),
+        "Routes not fully restored after neighbor GR with suppress-fib-pending"
+    )
+
+    # Final snapshot for logging
     routes_after = {}
     for neighbor_ip in test_bgp_neighbor_ips:
         for namespace in (duthost.get_frontend_asic_namespace_list() or ['']):
@@ -416,10 +456,5 @@ def test_bgp_gr_suppress_fib_neighbor_restart(duthosts, rand_one_dut_hostname, n
                 pass
 
     logger.info("After GR: %d routes (before: %d)", len(routes_after), len(routes_before))
-    pytest_assert(
-        len(routes_after) >= len(routes_before) * 0.95,
-        "Routes lost after neighbor GR with suppress-fib-pending: before=%d after=%d" %
-        (len(routes_before), len(routes_after))
-    )
 
     logger.info("Neighbor GR with suppress-fib-pending completed successfully")
