@@ -18,11 +18,13 @@ from collections import defaultdict
 
 import pytest
 import ptf.testutils as testutils
-from netaddr import IPNetwork, EUI
+import ipaddress
+from netaddr import EUI
 
 from . import configurable_drop_counters as cdc
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.utilities import is_ipv6_only_topology
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa: F401
@@ -42,7 +44,9 @@ VLAN_HOSTS = 100
 VLAN_BASE_MAC_PATTERN = "72060001{:04}"
 
 MOCK_DEST_IP = "2.2.2.2"
-LINK_LOCAL_IP = "169.254.0.1"
+MOCK_DEST_IP_V6 = "2001:db8::2"
+LINK_LOCAL_IP = "169.254.0.1"  # 169.254.0.0/16
+LINK_LOCAL_IP_V6 = "fe81::1"  # fe80::/10
 
 
 # For dualtor
@@ -119,11 +123,20 @@ def apply_fdb_config(duthost, vlan_id, iface, mac_address, op, type):
     # Set FDB entry
     cmd = "docker exec -i swss swssconfig /fdb.json"
     duthost.command(cmd)
-    time.sleep(3)
 
     cmd = "docker exec -i swss rm -f /fdb.json"
     duthost.command(cmd)
-    time.sleep(5)
+
+    def _check_fdb_applied():
+        fdb_count = int(duthost.shell(
+            "show mac | grep -i {} | wc -l".format(mac_address))["stdout"])
+        if op == "SET":
+            return fdb_count >= 1
+        else:
+            return fdb_count == 0
+
+    pytest_assert(wait_until(10, 1, 0, _check_fdb_applied),
+                  "FDB {} operation for {} was not applied".format(op, mac_address))
 
 
 def verifyFdbArp(duthost, dst_ip, dst_mac, dst_intf):
@@ -131,7 +144,10 @@ def verifyFdbArp(duthost, dst_ip, dst_mac, dst_intf):
     Check if the ARP and FDB entry is present
     """
     logging.info("Verify if the ARP and FDB entry is present for {}".format(dst_ip))
-    result = duthost.command("show arp {}".format(dst_ip))
+    if is_ipv4_address(dst_ip):
+        result = duthost.command("show arp {}".format(dst_ip))
+    else:
+        result = duthost.command("show ndp {}".format(dst_ip))
     pytest_assert("Total number of entries 1" in result['stdout'],
                   "ARP entry for {} missing in ASIC".format(dst_ip))
     result = duthost.shell("ip neigh show {}".format(dst_ip))
@@ -170,7 +186,10 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
                              if port != mock_server["server_dst_port"]])
     logging.info("Selected port %s to send traffic", rx_port)
 
-    src_ip = MOCK_DEST_IP
+    if is_ipv6_only_topology(tbinfo):
+        src_ip = MOCK_DEST_IP_V6
+    else:
+        src_ip = MOCK_DEST_IP
     pkt = generate_dropped_packet(rx_port, src_ip, mock_server["server_dst_addr"])
 
     try:
@@ -179,7 +198,13 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
                          mock_server['server_dst_intf'], mock_server['server_dst_mac'],
                          "SET", "static")
         mock_server["fanout_neighbor"].shutdown(mock_server["fanout_intf"])
-        time.sleep(3)
+
+        def _check_link_down():
+            result = duthost.command("show interfaces status {}".format(mock_server['server_dst_intf']))
+            return "down" in result['stdout'].lower()
+
+        pytest_assert(wait_until(15, 1, 0, _check_link_down),
+                      "Interface {} did not go down".format(mock_server['server_dst_intf']))
         verifyFdbArp(duthost, mock_server['server_dst_addr'],
                      mock_server['server_dst_mac'], mock_server['server_dst_intf'])
         send_dropped_traffic(counter_type, pkt, rx_port)
@@ -198,7 +223,7 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
 
 
 @pytest.mark.parametrize("drop_reason", ["DIP_LINK_LOCAL"])
-def test_dip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
+def test_dip_link_local(testbed_params, setup_counters, duthosts, tbinfo, rand_one_dut_hostname,
                         toggle_all_simulator_ports_to_rand_selected_tor_m,                      # noqa: F811
                         setup_standby_ports_on_rand_unselected_tor,                             # noqa: F811
                         send_dropped_traffic, drop_reason, add_default_route_to_dut, generate_dropped_packet):
@@ -214,8 +239,13 @@ def test_dip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_h
     rx_port = random.choice(list(testbed_params["physical_port_map"].keys()))
     logging.info("Selected port %s to send traffic", rx_port)
 
-    src_ip = "10.10.10.10"
-    pkt = generate_dropped_packet(rx_port, src_ip, LINK_LOCAL_IP)
+    if is_ipv6_only_topology(tbinfo):
+        src_ip = "2001:db8::10:10"
+        dst_ip = LINK_LOCAL_IP_V6
+    else:
+        src_ip = "10.10.10.10"
+        dst_ip = LINK_LOCAL_IP
+    pkt = generate_dropped_packet(rx_port, src_ip, dst_ip)
 
     try:
         send_dropped_traffic(counter_type, pkt, rx_port)
@@ -225,7 +255,7 @@ def test_dip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_h
 
 
 @pytest.mark.parametrize("drop_reason", ["SIP_LINK_LOCAL"])
-def test_sip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
+def test_sip_link_local(testbed_params, setup_counters, duthosts, tbinfo, rand_one_dut_hostname,
                         toggle_all_simulator_ports_to_rand_selected_tor_m,                      # noqa: F811
                         setup_standby_ports_on_rand_unselected_tor,                             # noqa: F811
                         send_dropped_traffic, drop_reason, add_default_route_to_dut, generate_dropped_packet):
@@ -241,8 +271,13 @@ def test_sip_link_local(testbed_params, setup_counters, duthosts, rand_one_dut_h
     rx_port = random.choice(list(testbed_params["physical_port_map"].keys()))
     logging.info("Selected port %s to send traffic", rx_port)
 
-    dst_ip = "10.10.10.10"
-    pkt = generate_dropped_packet(rx_port, LINK_LOCAL_IP, dst_ip)
+    if is_ipv6_only_topology(tbinfo):
+        src_ip = LINK_LOCAL_IP_V6
+        dst_ip = "2001:db8::10:10"
+    else:
+        src_ip = LINK_LOCAL_IP
+        dst_ip = "10.10.10.10"
+    pkt = generate_dropped_packet(rx_port, src_ip, dst_ip)
 
     try:
         send_dropped_traffic(counter_type, pkt, rx_port)
@@ -359,7 +394,13 @@ def setup_counters(request, device_capabilities, duthosts, rand_one_dut_hostname
             pytest.skip("Drop reasons not supported on target DUT")
 
         cdc.create_drop_counter(duthost, "TEST", counter_type, drop_reasons)
-        time.sleep(1)
+
+        def _check_counter_exists():
+            result = duthost.command("show dropcounters configuration", module_ignore_errors=True)
+            return "TEST" in result.get('stdout', '')
+
+        pytest_assert(wait_until(10, 1, 0, _check_counter_exists),
+                      "Drop counter TEST was not created successfully")
 
         logging.info("Created counter TEST: type = %s, drop reasons = %s",
                      counter_type, drop_reasons)
@@ -369,7 +410,12 @@ def setup_counters(request, device_capabilities, duthosts, rand_one_dut_hostname
 
     try:
         cdc.delete_drop_counter(duthost, "TEST")
-        time.sleep(1)
+
+        def _check_counter_deleted():
+            result = duthost.command("show dropcounters configuration", module_ignore_errors=True)
+            return "TEST" not in result.get('stdout', '')
+
+        wait_until(10, 1, 0, _check_counter_deleted)
         logging.info("Deleted counter TEST")
     except Exception:
         logging.info("Drop counter does not exist, skipping delete step...")
@@ -474,7 +520,15 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
     # Issue a ping to populate ARP table on DUT
     duthost.command('ping %s -c 3' % server_dst_addr, module_ignore_errors=True)
 
-    time.sleep(5)
+    def _check_arp_populated():
+        if is_ipv4_address(server_dst_addr):
+            result = duthost.command("show arp {}".format(server_dst_addr), module_ignore_errors=True)
+        else:
+            result = duthost.command("show ndp {}".format(server_dst_addr), module_ignore_errors=True)
+        return server_dst_addr in result.get('stdout', '')
+
+    pytest_assert(wait_until(15, 1, 0, _check_arp_populated),
+                  "ARP/NDP entry for {} was not populated".format(server_dst_addr))
     fanout_neighbor, fanout_intf = fanout_switch_port_lookup(fanouthosts, duthost.hostname, server_dst_intf)
 
     return {"server_dst_port": server_dst_port,
@@ -486,7 +540,7 @@ def mock_server(fanouthosts, testbed_params, arp_responder, ptfadapter, duthosts
 
 
 @pytest.fixture
-def generate_dropped_packet(duthosts, rand_one_dut_hostname, testbed_params, vlan_mac):
+def generate_dropped_packet(duthosts, tbinfo, rand_one_dut_hostname, testbed_params, vlan_mac):
 
     def _get_simple_ip_packet(rx_port, src_ip, dst_ip):
         dst_mac = vlan_mac if rx_port in testbed_params["vlan_ports"] \
@@ -494,16 +548,26 @@ def generate_dropped_packet(duthosts, rand_one_dut_hostname, testbed_params, vla
         src_mac = "DE:AD:BE:EF:12:34"
         # send tagged packet for t0-backend whose vlan mode is tagged
         enable_vlan = rx_port in testbed_params["vlan_ports"] and testbed_params["vlan_interface"]["type"] == "tagged"
-        packet_params = dict(
-            eth_src=src_mac,
-            eth_dst=dst_mac,
-            ip_src=src_ip,
-            ip_dst=dst_ip
-        )
+        if is_ipv6_only_topology(tbinfo):
+            packet_params = dict(
+                eth_src=src_mac,
+                eth_dst=dst_mac,
+                ipv6_src=src_ip,
+                ipv6_dst=dst_ip
+            )
+            pkt_func = testutils.simple_ipv6ip_packet
+        else:
+            packet_params = dict(
+                eth_src=src_mac,
+                eth_dst=dst_mac,
+                ip_src=src_ip,
+                ip_dst=dst_ip
+            )
+            pkt_func = testutils.simple_ip_packet
         if enable_vlan:
             packet_params["dl_vlan_enable"] = enable_vlan
             packet_params["vlan_vid"] = int(testbed_params["vlan_interface"]["attachto"].lstrip("Vlan"))
-        pkt = testutils.simple_ip_packet(**packet_params)
+        pkt = pkt_func(**packet_params)
 
         logging.info("Generated simple IP packet (SMAC=%s, DMAC=%s, SIP=%s, DIP=%s)",
                      src_mac, dst_mac, src_ip, dst_ip)
@@ -522,13 +586,15 @@ def _generate_vlan_servers(vlan_network, vlan_ports):
     # - MACs are generated sequentially as offsets from VLAN_BASE_MAC_PATTERN
     # - IP addresses are randomly selected from the given VLAN network
     # - "Hosts" (IP/MAC pairs) are distributed evenly amongst the ports in the VLAN
-    addr_list = list(IPNetwork(vlan_network))
+    network = ipaddress.ip_network(vlan_network, strict=False)
+    # Limit range size to avoid len error in random.sample with large IPv6 networks in Python < 3.9
+    max_range = min(network.num_addresses - 1, VLAN_HOSTS * 1000)
+    offsets = random.sample(range(1, max_range + 1), VLAN_HOSTS)
+
     for counter, i in enumerate(range(2, VLAN_HOSTS + 2)):
         mac = VLAN_BASE_MAC_PATTERN.format(counter)
         port = vlan_ports[i % len(vlan_ports)]
-        addr = random.choice(addr_list)
-        # Ensure that we won't get a duplicate ip address
-        addr_list.remove(addr)
+        addr = network.network_address + offsets[counter]
 
         vlan_host_map[port][str(addr)] = mac
 
@@ -540,7 +606,7 @@ def _send_packets(duthost, ptfadapter, pkt, ptf_tx_port_id,
     duthost.command("sonic-clear dropcounters")
 
     ptfadapter.dataplane.flush()
-    time.sleep(1)
 
     testutils.send(ptfadapter, ptf_tx_port_id, pkt, count=count)
+    # Allow time for the ASIC to process packets and update drop counters
     time.sleep(1)

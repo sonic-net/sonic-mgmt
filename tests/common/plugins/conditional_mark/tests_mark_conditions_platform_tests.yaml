@@ -1038,6 +1038,12 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
       - "release in ['201911']"
       - "asic_type in ['vs']"
 
+platform_tests/daemon/test_pcied.py:
+  skip:
+    reason: "Not supported, AMD DPU Pcie link bringup sequence is handled differently"
+    conditions:
+      - "platform in ['arm64-elba-asic-flash128-r0']"
+
 #######################################
 #####    fwutil/test_fwutil.py    #####
 #######################################
@@ -1083,6 +1089,7 @@ platform_tests/mellanox/test_check_sfp_eeprom.py:
     reason: "202405 and 202411 not support command like 'mlxlink -d /dev/mst/mt53104_pci_cr0 -p 1 -m' on mellanox spc3 devices when software control is enabled"
     conditions_logical_operator: or
     conditions:
+      - "asic_type not in ['mellanox', 'nvidia-bluefield']"
       - "'SN4' in hwsku and (release in ['202405', '202411'])"
       - "'SN5' in hwsku and (release in ['202405', '202411'])"
 

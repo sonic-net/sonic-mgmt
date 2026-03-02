@@ -635,6 +635,7 @@ t1-lag:
 
 
 t1-lag-vpp:
+  - acl/test_acl.py
   - arp/test_neighbor_mac_noptf.py
   - arp/test_arpall.py
   - arp/test_arp_update.py
