@@ -28,6 +28,7 @@ SS_TARGET_INDEX_HDR = "x-sonic-ss-target-index"
 
 GrpcMetadata = Union[Dict[str, str], Sequence[Tuple[str, str]]]
 
+
 @dataclass(frozen=True)
 class GnoiUpgradeConfig:
     to_image: str
@@ -41,12 +42,6 @@ class GnoiUpgradeConfig:
     metadata: Optional[GrpcMetadata] = None
     ss_reboot_ready_timeout: int = 1200
     ss_reboot_message: str = "Rebooting DPU for maintenance"
-
-def build_smartswitch_metadata(target_type: str, target_index: int):
-    return [
-        (SS_TARGET_TYPE_HDR, str(target_type)),
-        (SS_TARGET_INDEX_HDR, str(target_index)),
-    ]
 
 
 def pytest_runtest_setup(item):
@@ -411,6 +406,7 @@ def perform_gnoi_upgrade(
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
 
+
 def _wait_gnoi_time_ready(ptf_gnoi, metadata, cfg: GnoiUpgradeConfig, timeout=None, interval: int = 10) -> bool:
     timeout = timeout or cfg.ss_reboot_ready_timeout
     return wait_until(timeout, interval, 0, ptf_gnoi.system_time, metadata=metadata)
@@ -440,7 +436,6 @@ def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig)
 
     # method = str(cfg.upgrade_type).upper()
     try:
-        ## TODO: switch to use the perform reboot helper once it supports gNOI.
         reboot_resp = ptf_gnoi.system_reboot(
             method=cfg.upgrade_type,
             delay=0,
