@@ -1039,6 +1039,7 @@
       - name: Load DPU config in smartswitch
         load_extra_dpu_config:
           hwsku: "{{ hwsku }}"
+          hostname: "{{ inventory_hostname }}"
           host_username: "{{ sonic_login }}"
           host_passwords: "{{ sonic_default_passwords }}"
         become: true

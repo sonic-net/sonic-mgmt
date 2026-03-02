@@ -2,9 +2,9 @@
 package testhelper
 
 import (
+	"fmt"
 	"crypto/rand"
 	"math/big"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -218,8 +218,8 @@ type TearDownOptions struct {
 }
 
 // NewTearDownOptions creates the TearDownOptions structure with default values.
-func NewTearDownOptions(t *testing.T) TearDownOptions {
-	return TearDownOptions{
+func NewTearDownOptions(t *testing.T) *TearDownOptions {
+	return &TearDownOptions{
 		StartTime:         time.Now(),
 		DUTName:           teardownDUTNameGet(t),
 		DUTDeviceInfo:     teardownDUTDeviceInfoGet(t),
@@ -228,13 +228,13 @@ func NewTearDownOptions(t *testing.T) TearDownOptions {
 }
 
 // WithID attaches an ID to the test.
-func (o TearDownOptions) WithID(id string) TearDownOptions {
+func (o *TearDownOptions) WithID(id string) *TearDownOptions {
 	o.IDs = append(o.IDs, id)
 	return o
 }
 
 // WithIDs attaches a list of IDs to the test.
-func (o TearDownOptions) WithIDs(ids []string) TearDownOptions {
+func (o *TearDownOptions) WithIDs(ids []string) *TearDownOptions {
 	for _, id := range ids {
 		o.IDs = append(o.IDs, id)
 	}
@@ -245,9 +245,17 @@ func (o TearDownOptions) WithIDs(ids []string) TearDownOptions {
 // of the reserved devices on teardown.
 // Accepts a list of paths to ignore while checking for config changes.
 // The test will fail if the config is not restored.
-func (o TearDownOptions) WithConfigRestorer(t *testing.T, ignorePaths []string) TearDownOptions {
+func (o *TearDownOptions) WithConfigRestorer(t *testing.T, ignorePaths []string) *TearDownOptions {
 	o.configRestorer = NewConfigRestorerWithIgnorePaths(t, ignorePaths)
 	return o
+}
+
+// RestoreConfigs restores the configs of the reserved devices.
+func (o *TearDownOptions) RestoreConfigs(t *testing.T) error {
+	if o.configRestorer == nil {
+		return fmt.Errorf("configRestorer was not initialized")
+	}
+	return o.configRestorer.RestoreConfigs(t)
 }
 
 // TearDown provides an interface to implement the teardown routine.
