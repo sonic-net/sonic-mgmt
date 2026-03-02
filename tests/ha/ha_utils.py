@@ -111,7 +111,7 @@ def get_pending_operation_id(duthost, scope_key, expected_op_type):
     Returns:
         str: Pending operation ID if found, None otherwise
     """
-    db_key = f"DASH_HA_SCOPE_STATE|{scope_key}"
+    db_key = "DASH_HA_SCOPE_STATE|" + scope_key.replace(":", "|")
 
     try:
         ids_res = duthost.shell(
@@ -175,7 +175,7 @@ def verify_ha_state(
     Wait until HA reaches the expected state by querying STATE_DB.
     """
     def _check_ha_state():
-        db_key = f"DASH_HA_SCOPE_STATE|{scope_key}"
+        db_key = "DASH_HA_SCOPE_STATE|" + scope_key.replace(":", "|")
         res = duthost.shell(
             f'sonic-db-cli STATE_DB HGET "{db_key}" local_acked_asic_ha_state'
         )
