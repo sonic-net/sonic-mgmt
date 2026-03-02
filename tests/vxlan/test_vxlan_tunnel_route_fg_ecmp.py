@@ -34,7 +34,6 @@ ecmp_utils = Ecmp_Utils()
 
 
 def generate_endpoint_list(base_ip=ENDPOINT_BASE_IP, count=NUM_INITIAL_ENDPOINTS):
-    """Generate list of endpoint IP addresses."""
     return [f"{base_ip}{i}" for i in range(count)]
 
 
@@ -55,13 +54,7 @@ def apply_chunk(duthost, payload, name):
 def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
     """
     Return (vlan_id, available_ports) from the first VLAN that has
-    enough administratively up ports.
-
-    Args:
-        cfg_facts: DUT config facts (from source="running")
-        num_ports_needed: number of up ports required
-    Returns:
-        (vlan_id, list_of_port_names)
+    enough admin up ports.
     """
     port_status = cfg_facts["PORT"]
     pytest_require("VLAN_MEMBER" in cfg_facts, "Can't get vlan member")
@@ -84,11 +77,6 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
 
 
 def set_route_tunnel(duthost, endpoints):
-    """
-    Program the initial VNET_ROUTE_TUNNEL entry with fine-grained ECMP.
-    Uses sonic-cfggen --write-to-db (writes the full entry including
-    consistent_hashing_buckets).
-    """
     logger.info(f"Programming route {PREFIX} -> {','.join(endpoints)}")
     vni_str = ",".join([str(VNI)] * len(endpoints))
     apply_chunk(
@@ -105,27 +93,7 @@ def set_route_tunnel(duthost, endpoints):
     time.sleep(3)
 
 
-# def update_route_tunnel(duthost, endpoints):
-#     """
-#     Update the endpoint list on an existing VNET_ROUTE_TUNNEL entry and
-#     wait for route convergence.
-
-#     Uses sonic-db-cli hmset so that existing fields (including
-#     consistent_hashing_buckets) are preserved; only 'endpoint' and 'vni'
-#     are overwritten.
-#     """
-#     logger.info(f"Updating route {PREFIX} -> {len(endpoints)} endpoints")
-#     ep_str = ",".join(endpoints)
-#     vni_str = ",".join([str(VNI)] * len(endpoints))
-#     duthost.shell(
-#         f"sonic-db-cli CONFIG_DB hmset 'VNET_ROUTE_TUNNEL|{VNET_NAME}|{PREFIX}' "
-#         f"endpoint '{ep_str}' vni '{vni_str}'"
-#     )
-#     time.sleep(3)
-
-
 def cleanup(duthost, ptfhost, ptf_port_name):
-    logger.debug("cleanup: restoring config_db backup")
     duthost.shell(f"mv {CONFIG_DB_PATH}.bak {CONFIG_DB_PATH}")
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
     for f in [PERSIST_MAP_FILE, PTF_PARAMS_FILE, PTF_LOG_FILE]:
@@ -231,27 +199,13 @@ def common_setup_teardown(
 
 
 def run_vxlan_ptf_test(ptfhost, endpoints, params, test_case, num_packets, **kwargs):
-    """
-    Invoke the PTF fine-grained ECMP test.
-
-    Args:
-        ptfhost: PTF host object
-        endpoints: list of endpoint IP strings active for this phase
-        params: setup_params dict from the fixture
-        test_case: one of 'create_flows', 'verify_consistent_hash',
-                   'withdraw_endpoint', 'add_endpoint'
-        num_packets: number of flows to send
-        **kwargs: additional per-test-case params (e.g. withdraw_endpoint,
-                  add_endpoint)
-    """
     logger.info(f"PTF test: test_case={test_case}, endpoints={len(endpoints)}, flows={num_packets}")
 
     flows_per_nh = NUM_FLOWS / len(endpoints)
     exp_flow_count = {ep: flows_per_nh for ep in endpoints}
 
     ptf_params = params.copy()
-    # # Remove ptf_port_name — it's an orchestration detail, not needed by PTF test
-    # ptf_params.pop("ptf_port_name", None)
+
     ptf_params.update({
         "endpoints": endpoints,
         "test_case": test_case,
@@ -279,20 +233,15 @@ def test_vxlan_fg_ecmp(ptfhost, common_setup_teardown):
     logger.info("Running test_vxlan_fg_ecmp")
     setup, duthost, _ = common_setup_teardown
 
-    endpoints = generate_endpoint_list()  # 100.0.1.0 .. 100.0.1.9 (10 endpoints)
+    endpoints = generate_endpoint_list()
 
-    # Phase 1: Create flow-to-endpoint mapping (1000 unique flows)
-    logger.info("Phase 1: create_flows — send 1000 flows, record endpoint distribution")
     run_vxlan_ptf_test(ptfhost, endpoints, setup, "create_flows", num_packets=NUM_FLOWS)
 
-    # Phase 2: Verify consistent hashing — same flow must hit same endpoint
-    logger.info("Phase 2: verify_consistent_hash — replay flows, assert 100% match")
     run_vxlan_ptf_test(ptfhost, endpoints, setup, "verify_consistent_hash", num_packets=NUM_FLOWS)
 
-    # Phase 3: Withdraw one endpoint; only its ~100 flows should redistribute
-    withdrawn_endpoint = endpoints[-1]  # 100.0.1.9
+    # Withdraw one endpoint; only its ~100 flows should redistribute
+    withdrawn_endpoint = endpoints[-1]
     remaining_endpoints = endpoints[:-1]
-    logger.info(f"Phase 3: withdraw_endpoint {withdrawn_endpoint} (9 remaining)")
     set_route_tunnel(duthost, remaining_endpoints)
     run_vxlan_ptf_test(
         ptfhost, remaining_endpoints, setup, "withdraw_endpoint",
@@ -302,19 +251,8 @@ def test_vxlan_fg_ecmp(ptfhost, common_setup_teardown):
     # Phase 4: Add a new endpoint; only ~10% of flows should move back
     new_endpoint = f"{ENDPOINT_BASE_IP}{NUM_INITIAL_ENDPOINTS}"  # 100.0.1.10
     readded_endpoints = remaining_endpoints + [new_endpoint]
-    logger.info(f"Phase 4a: add_endpoint — add {new_endpoint} (back to 10 endpoints)")
     set_route_tunnel(duthost, readded_endpoints)
     run_vxlan_ptf_test(
         ptfhost, readded_endpoints, setup, "add_endpoint",
         num_packets=NUM_FLOWS, add_endpoint=new_endpoint,
     )
-
-    # # Phase 4b: Add a brand-new endpoint; only ~9% of flows should move to it
-    # new_endpoint = f"{ENDPOINT_BASE_IP}{NUM_INITIAL_ENDPOINTS}"  # 100.0.1.10
-    # all_endpoints = readded_endpoints + [new_endpoint]
-    # logger.info(f"Phase 4b: add_endpoint — new endpoint {new_endpoint} (11 total)")
-    # update_route_tunnel(duthost, all_endpoints)
-    # run_vxlan_ptf_test(
-    #     ptfhost, all_endpoints, setup, "add_endpoint",
-    #     num_packets=NUM_FLOWS, add_endpoint=new_endpoint,
-    # )
