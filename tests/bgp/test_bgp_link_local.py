@@ -77,17 +77,18 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
     neighbor_type = common_props.get('neighbor_type', 'eos')
     if neighbor_type.lower() not in ('eos', 'ceos'):
         pytest.skip("BGP link-local test requires EOS neighbors; "
-                     "current neighbor_type is '{}'".format(neighbor_type))
+                    "current neighbor_type is '{}'".format(neighbor_type))
 
     duthost = duthosts[rand_one_dut_hostname]
-    dut_asn = common_props['dut_asn']
+    dut_asn = common_props.get('dut_asn')
+    if not dut_asn:
+        pytest.skip("dut_asn not found in testbed configuration_properties")
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
     portchannels = config_facts.get('PORTCHANNEL', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
     portchannel_members = config_facts.get('PORTCHANNEL_MEMBER', {})
-    pc_intfs = config_facts.get('PORTCHANNEL_INTERFACE', {})
 
     # Build map: neighbor name -> PortChannel
     pc_to_neighbor = {}
@@ -131,7 +132,7 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
     # Get DUT's addresses on this PortChannel
     dut_ipv4 = None
     dut_ipv6 = None
-    for addr_key in pc_intfs.get(selected['pc'], {}):
+    for addr_key in config_facts.get('PORTCHANNEL_INTERFACE', {}).get(selected['pc'], {}):
         addr = addr_key.split('/')[0] if '/' in addr_key else addr_key
         if ':' in addr:
             dut_ipv6 = addr
@@ -208,8 +209,7 @@ def bgp_unnumbered_established(duthost, portchannel):
             for peer_key, peer_data in peers.items():
                 if peer_data.get('state') != 'Established':
                     continue
-                if (portchannel.lower() in peer_key.lower()
-                        or 'fe80' in peer_key.lower()):
+                if (portchannel.lower() in peer_key.lower()):
                     logger.info(
                         "Unnumbered peer found: %s (AF=%s, pfxRcd=%s)",
                         peer_key, af, peer_data.get('pfxRcd', 0))
@@ -329,7 +329,12 @@ def configure_unnumbered_bgp(setup_info):
         neigh_host.eos_config(lines=cleanup_lines,
                               parents="router bgp {}".format(neigh_asn))
     except Exception as e:
-        logger.warning("EOS cleanup failed: %s", e)
+        logger.error("EOS cleanup failed: %s", e)
+        # Still proceed to config_reload below, but fail the teardown afterward
+        # so the error is visible rather than silently swallowed.
+        eos_cleanup_failed = True
+    else:
+        eos_cleanup_failed = False
 
     # Config reload on DUT to restore everything
     config_reload(duthost, wait=120)
@@ -344,6 +349,10 @@ def configure_unnumbered_bgp(setup_info):
                       "BGP sessions did not re-establish after config reload")
     else:
         logger.info("Original configuration restored, all sessions up")
+
+    if eos_cleanup_failed:
+        pytest.fail("EOS cleanup failed during teardown - neighbor may still "
+                    "have stale link-local configuration")
 
 
 @pytest.mark.disable_loganalyzer
@@ -395,6 +404,7 @@ def test_bgp_link_local_ipv6(setup_info, configure_unnumbered_bgp):
 
     # Verify routes are received
     logger.info("Verify routes are received via unnumbered session")
+    # Allow time for route convergence after session establishment
     time.sleep(10)
 
     result = duthost.shell("vtysh -c 'show bgp summary json'",
@@ -406,8 +416,7 @@ def test_bgp_link_local_ipv6(setup_info, configure_unnumbered_bgp):
             for af in ['ipv4Unicast', 'ipv6Unicast']:
                 for peer, data in bgp_summary.get(af, {}).get(
                         'peers', {}).items():
-                    if (portchannel.lower() in peer.lower()
-                            or 'fe80' in peer.lower()):
+                    if portchannel.lower() in peer.lower():
                         pfx = data.get('pfxRcd', 0)
                         if pfx > 0:
                             route_count = pfx
