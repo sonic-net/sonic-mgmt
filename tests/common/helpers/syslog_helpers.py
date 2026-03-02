@@ -230,20 +230,29 @@ def disable_swss_rsyslog_rate_limit(duthost):
                 "cp -f /etc/rsyslog.conf /etc/rsyslog.conf.orig.bak; fi'"
             )
             duthost.shell(backup_cmd, module_ignore_errors=True)
-            # Append directives to disable system log rate-limiting using printf (robust across shells)
-            cmd_body = (
-                'printf "\\n%s\\n" '
-                '"\\$SystemLogRateLimitInterval 0" '
-                '"\\$SystemLogRateLimitBurst 0" '
-                '>> /etc/rsyslog.conf'
+
+            # Check if directives already exist to avoid duplicates
+            check_cmd = (
+                f"docker exec -i {c} bash -lc "
+                "'grep -q \"^\\$SystemLogRateLimitInterval 0\" /etc/rsyslog.conf'"
             )
-            append_cmd = f"docker exec -i {c} bash -lc '{cmd_body}'"
-            duthost.shell(append_cmd)
-            # Restart rsyslogd to apply
-            duthost.shell(
-                f"docker exec -i {c} bash -lc 'supervisorctl restart rsyslogd'",
-                module_ignore_errors=True
-            )
+            check_result = duthost.shell(check_cmd, module_ignore_errors=True)
+
+            if check_result['rc'] != 0:
+                # Append directives to disable system log rate-limiting using printf (robust across shells)
+                cmd_body = (
+                    'printf "\\n%s\\n" '
+                    '"\\$SystemLogRateLimitInterval 0" '
+                    '"\\$SystemLogRateLimitBurst 0" '
+                    '>> /etc/rsyslog.conf'
+                )
+                append_cmd = f"docker exec -i {c} bash -lc '{cmd_body}'"
+                duthost.shell(append_cmd)
+                # Restart rsyslogd to apply
+                duthost.shell(
+                    f"docker exec -i {c} bash -lc 'supervisorctl restart rsyslogd'",
+                    module_ignore_errors=True
+                )
             edited_containers.append(c)
         except Exception as e:
             logger.warning('Failed to disable rsyslog rate limit in container %s: %s', c, repr(e))
