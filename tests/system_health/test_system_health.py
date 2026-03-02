@@ -69,6 +69,7 @@ DEFAULT_LED_CONFIG = {
     'booting': 'red'
 }
 
+
 @pytest.fixture(autouse=True, scope="module")
 def check_image_version(duthost):
     """Skip the test for unsupported images."""
@@ -532,7 +533,8 @@ def check_system_health_led_info(duthost):
     else:
         # Logic for faulted system: Iterate through led_cfg to find a match among non-normal keys
         not_normal = {color for key, color in led_cfg.items() if key != "normal"}
-        assert system_status_lower in not_normal, f"System status LED '{system_led_status}' does not match any non-normal colors defined in config: {not_normal}"
+        assert system_status_lower in not_normal, \
+            f"System status LED '{system_led_status}' does not match any colors defined in config: {not_normal}"
 
     return True
 
