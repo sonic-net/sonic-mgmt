@@ -241,7 +241,7 @@ def test_poll_mode_default_route_supervisor(duthosts, enum_rand_one_per_hwsku_ho
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
                               xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"",  # noqa: W605
                               target="APPL_DB", max_sync_count=-1, update_count=5, timeout=30, namespace=namespace)
-    modify_fake_appdb_table(duthost)  # Add first table data
+    modify_fake_appdb_table(duthost, namespace=namespace)  # Add first table data
     ptf_result = ptfhost.shell(cmd)
     pytest_assert(ptf_result['rc'] == 0, "ptf cmd command {} failed".format(cmd))
     show_gnmi_out = ptf_result['stdout']
@@ -250,4 +250,4 @@ def test_poll_mode_default_route_supervisor(duthosts, enum_rand_one_per_hwsku_ho
     result = str(show_gnmi_out)
     update_responses_match = re.findall("json_ietf_val", result)
     pytest_assert(len(update_responses_match) == 5, "Missing update responses")
-    modify_fake_appdb_table(duthost, False, 1)  # Remove added table
+    modify_fake_appdb_table(duthost, False, 1, namespace)  # Remove added table
