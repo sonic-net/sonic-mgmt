@@ -25,10 +25,11 @@ PRE_DEFINED_PR_TEST_PIPELINE_ID = 3320
 BASE_URL = "https://dev.azure.com/"
 ORGANIZATION = "mssonic"
 PROJECT = "build"
+MGMT_REPO = "sonic-net/sonic-mgmt"
 
 
 def execute_binary_search(client: AzureDevOpsClient, result_json: dict, max_parallel: int,
-                          test_pipeline_id: int, build_pipeline_id: int):
+                          test_pipeline_id: int, build_cache: dict = None):
     repo = result_json['repo']
     branch = result_json['branch']
     test_scripts = result_json['test_scripts']
@@ -49,29 +50,27 @@ def execute_binary_search(client: AzureDevOpsClient, result_json: dict, max_para
         test_commits = test_plan['tests']
         logger.info(f"Round {round_number} testing commits: {test_commits}")
 
-        # Build pipelines for non-mgmt repos
-        build_results = {}
-        build_runs = []
-        if repo != "sonic-net/sonic-mgmt":
-            for commit in test_commits:
-                params = BuildPipelineParameters(
-                    SUBMODULE=repo.split("/")[-1],
-                    COMMIT_ID=commit,
-                )
-                run = trigger_pipeline(client, branch, commit, "build", build_pipeline_id, params)
-                build_runs.append(run)
-
-            build_results = client.poll_pipeline_results(build_runs)
-            for commit, is_bad in build_results.items():
-                logger.info(f"Build result for {commit}: {'Failed' if is_bad else 'Succeeded'}")
+        round_results = {}
 
         # Test pipelines
         test_runs = []
         for commit in test_commits:
-            # Skip bad builds
-            if repo != "sonic-net/sonic-mgmt" and build_results.get(commit) is True:
-                logger.info(f"Skipping tests for {commit} due to failed build")
-                continue
+            if repo != MGMT_REPO:
+                commit_build = (build_cache or {}).get(commit)
+                run_id = commit_build.get("run_id") if commit_build else None
+                if not commit_build:
+                    logger.error(f"No prebuild mapping for {commit}, cannot run buildimage binary search safely")
+                    round_results[commit] = None
+                    continue
+
+                if commit_build.get("is_bad") is True:
+                    logger.info(f"Skipping tests for {commit} due to failed build run={run_id}")
+                    round_results[commit] = True
+                    continue
+                if commit_build.get("is_bad") is None:
+                    logger.warning(f"Skipping tests for {commit} due to unknown build result run={run_id}")
+                    round_results[commit] = None
+                    continue
 
             params = TestPipelineParameters(
                 BUILD_REASON=BUILD_REASON,
@@ -85,7 +84,6 @@ def execute_binary_search(client: AzureDevOpsClient, result_json: dict, max_para
             run = trigger_pipeline(client, branch, commit, "test", test_pipeline_id, params)
             test_runs.append(run)
 
-        round_results = {}
         # Poll test_runs and update searcher
         test_results = client.poll_pipeline_results(test_runs)
         for commit, is_bad in test_results.items():
@@ -126,42 +124,163 @@ def parse_failure_info(failure_info_file):
         return json.load(f)
 
 
+def _trigger_build_for_commit(client, repo, branch, build_pipeline_id, commit):
+    params = BuildPipelineParameters(
+        SUBMODULE=repo.split("/")[-1],
+        COMMIT_ID=commit,
+    )
+    run = trigger_pipeline(client, branch, commit, "build", build_pipeline_id, params)
+    return run
+
+
+def prebuild_commits_for_repo(
+    client: AzureDevOpsClient,
+    repo: str,
+    branch: str,
+    commit_ids: list,
+    build_pipeline_id: int,
+    build_queue_parallel: int,
+):
+    unique_commits = list(dict.fromkeys(commit_ids))
+    logger.info(f"Prebuild start for {repo}@{branch}, total commits={len(unique_commits)}")
+
+    build_runs = []
+    build_map = {}
+
+    with ThreadPoolExecutor(max_workers=max(1, min(build_queue_parallel, len(unique_commits)))) as executor:
+        futures = {
+            executor.submit(_trigger_build_for_commit, client, repo, branch, build_pipeline_id, commit): commit
+            for commit in unique_commits
+        }
+        for future in as_completed(futures):
+            commit = futures[future]
+            try:
+                build_runs.append(future.result())
+            except Exception as e:
+                logger.error(f"Queue build failed for {commit}: {e}")
+                build_map[commit] = {
+                    "is_bad": None,
+                    "run_id": None,
+                    "run_url": None,
+                    "status": "queue_error",
+                    "result": str(e),
+                }
+
+    polled_details = client.poll_pipeline_details(build_runs)
+    build_map.update(polled_details)
+    logger.info(f"Prebuild done for {repo}@{branch}, completed builds={len(polled_details)}")
+    return build_map
+
+
+def write_build_map(build_cache, output_file):
+    if not output_file:
+        return
+    serializable = {}
+    for key, commit_map in build_cache.items():
+        if isinstance(key, tuple) and len(key) == 2:
+            repo, branch = key
+            serializable[f"{repo}@{branch}"] = commit_map
+        else:
+            serializable[str(key)] = commit_map
+    with open(output_file, "w") as f:
+        json.dump(serializable, f, indent=2)
+    logger.info(f"Build commit mapping written to {output_file}")
+
+
+def process_failure_entry(
+    client: AzureDevOpsClient,
+    result_json: dict,
+    entry_key: str,
+    max_parallel: int,
+    test_pipeline_id: int,
+    build_pipeline_id: int,
+    build_queue_parallel: int,
+):
+    repo = result_json.get("repo")
+    branch = result_json.get("branch")
+    build_map = None
+
+    if repo != MGMT_REPO:
+        commit_ids = [commit.get("sha") for commit in result_json.get("commits", []) if commit.get("sha")]
+        build_map = prebuild_commits_for_repo(
+            client=client,
+            repo=repo,
+            branch=branch,
+            commit_ids=commit_ids,
+            build_pipeline_id=build_pipeline_id,
+            build_queue_parallel=build_queue_parallel,
+        )
+
+    result = execute_binary_search(
+        client=client,
+        result_json=result_json,
+        max_parallel=max_parallel,
+        test_pipeline_id=test_pipeline_id,
+        build_cache=build_map,
+    )
+    return entry_key, result, build_map
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--failure_info_file", required=True)
     parser.add_argument("--max_parallel", type=int, default=5)
+    parser.add_argument("--build_queue_parallel", type=int, default=10)
+    parser.add_argument("--build_map_output_file", type=str, default="build_commit_map.json")
+    parser.add_argument("--no_prebuild_buildimage", action="store_true")
     args = parser.parse_args()
 
     failure_info = parse_failure_info(args.failure_info_file)
     if not failure_info:
         logger.error("No failure info found")
         return
+    if not MSSONIC_TOKEN:
+        logger.error("MSSONIC_TOKEN is empty, cannot trigger Azure DevOps pipelines.")
+        return
 
     client = AzureDevOpsClient(BASE_URL, ORGANIZATION, PROJECT, token=MSSONIC_TOKEN)
 
-    # Execute binary search in parallel
+    has_buildimage_targets = any(item.get("repo") != MGMT_REPO for item in failure_info)
+    if args.no_prebuild_buildimage and has_buildimage_targets:
+        logger.error("Buildimage targets detected but prebuild is disabled. "
+                     "Use prebuild mode so all VS images are built once before binary search.")
+        return
+
+    # Execute each failure entry in parallel. Buildimage entries prebuild first, mgmt entries test directly.
     results = {}
-    max_workers = len(failure_info)
+    build_maps_by_entry = {}
+    max_workers = max(1, len(failure_info))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        future_to_repo = {
-            executor.submit(
-                execute_binary_search,
+        future_to_repo = {}
+        for idx, result_json in enumerate(failure_info):
+            repo = result_json.get("repo")
+            branch = result_json.get("branch")
+            entry_key = f"{repo}@{branch}#{idx}"
+
+            future = executor.submit(
+                process_failure_entry,
                 client,
                 result_json,
+                entry_key,
                 args.max_parallel,
-                test_pipeline_id=PRE_DEFINED_PR_TEST_PIPELINE_ID,
-                build_pipeline_id=BUILD_VS_IMAGE_PIPELINE_ID,
-            ): result_json
-            for result_json in failure_info
-        }
+                PRE_DEFINED_PR_TEST_PIPELINE_ID,
+                BUILD_VS_IMAGE_PIPELINE_ID,
+                args.build_queue_parallel,
+            )
+            future_to_repo[future] = entry_key
 
         for future in as_completed(future_to_repo):
-            repo = future_to_repo[future]
+            entry_key = future_to_repo[future]
             try:
-                results[repo] = future.result()
+                finished_entry_key, search_result, build_map = future.result()
+                results[finished_entry_key] = search_result
+                if build_map is not None:
+                    build_maps_by_entry[finished_entry_key] = build_map
             except Exception as e:
-                logger.error(f"{repo} binary search failed: {e}")
-                results[repo] = None
+                logger.error(f"{entry_key} binary search failed: {e}")
+                results[entry_key] = None
+
+    write_build_map(build_maps_by_entry, args.build_map_output_file)
 
     logger.info("Final Results:")
     for repo, res in results.items():

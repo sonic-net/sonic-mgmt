@@ -32,7 +32,9 @@ TOTAL_COUNT_THRESHOLD = os.environ.get("TOTAL_TEST_COUNT_THRESHOLD", 10)
 PREVIOUS_SUCCESS_THRESHOLD = os.environ.get("PREVIOUS_SUCCESS_THRESHOLD", 0.7)
 PR_LOW_SUCCESS_THRESHOLD = os.environ.get("PR_LOW_SUCCESS_THRESHOLD", 0.5)
 BASELINE_LOW_SUCCESS_THRESHOLD = os.environ.get("BASELINE_LOW_SUCCESS_THRESHOLD", 0.5)
-QUERY_DAYS_RANGE = os.environ.get("QUERY_DAYS_RANGE", 7)
+QUERY_DAYS_RANGE = int(os.environ.get("QUERY_DAYS_RANGE", 7))
+FAILURE_WINDOW_BUFFER_HOURS = int(os.environ.get("FAILURE_WINDOW_BUFFER_HOURS", 6))
+FAILURE_WINDOW_FALLBACK_HOURS = int(os.environ.get("FAILURE_WINDOW_FALLBACK_HOURS", 24))
 SUPPORTED_PUBLIC_REPOS = ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage"]
 
 
@@ -82,13 +84,19 @@ def get_all_commits_info(failure_details):
     Falls back to listing commits on the branch with since/until. Requires GITHUB_TOKEN.
     """
     all_commit_info = []
+    commit_cache = {}
     for detail in failure_details:
         repo = detail["repo"]
         branch = detail["branch"]
         start_time = detail["start_time"]
         end_time = detail["end_time"]
         test_scripts = {detail["checker"]: [detail["file_path"]]}
-        commits = get_github_commits(repo, branch, start_time, end_time)
+        cache_key = (repo, branch, start_time, end_time)
+        if cache_key in commit_cache:
+            commits = commit_cache[cache_key]
+        else:
+            commits = get_github_commits(repo, branch, start_time, end_time)
+            commit_cache[cache_key] = commits
         if len(commits) > 0:
             commit_info = {
                 "repo": repo,
@@ -136,11 +144,11 @@ def get_pr_result_summary(kusto, start, end):
     return baseline_failures, pr_failures
 
 
-def get_failure_details(kusto, failure_details, failures, trigger_type):
+def get_failure_details(kusto, failure_details, failures, trigger_type, query_start, query_end):
     for row in failures:
         query_time_range = f'''
         {PR_SUMMARY_TABLE}
-        | where RunDate >= ago(7d)
+        | where RunDate between (datetime({isoformat_kusto(query_start)}) .. datetime({isoformat_kusto(query_end)}))
         | where TriggerType == "{trigger_type}"
         | where SourceRepo == "{row['SourceRepo']}"
         | where Branch == "{row['Branch']}"
@@ -155,22 +163,43 @@ def get_failure_details(kusto, failure_details, failures, trigger_type):
             Success, Failure, Error, Skip, Total
         | where Total != Skip and Total > 0
         | extend SuccessRate = todouble(Success) / todouble(Success + Failure + Error)
-        | where SuccessRate < {PREVIOUS_SUCCESS_THRESHOLD}
-        | summarize EarliestTime = min(RunDate), LatestTime = max(RunDate)
+        | project RunDate, SuccessRate
+        | order by RunDate asc
         '''
-        query_time_range = kusto.execute_query(DATABASE, query_time_range).primary_results[0].to_dict()['data']
-        if len(query_time_range) == 0:
+        history_rows = kusto.execute_query(DATABASE, query_time_range).primary_results[0].to_dict()['data']
+        if len(history_rows) == 0:
             logger.info(f"No failure time range found for {row['TestCase']}, skipping.")
             continue
-        start_time = query_time_range[0].get('EarliestTime', None)
-        end_time = query_time_range[0].get('LatestTime', None)
-        if not start_time or not end_time:
-            logger.info(f"No valid failure time range found for {row['TestCase']}, skipping.")
-            continue
-        start_time = start_time - timedelta(days=1)  # 1 day before the first failure
-        logger.info(f"Found failure time range for {row['TestCase']}: {start_time} - {end_time}")
 
-        # Use 1 day before the first failing time as start_time to fetch commits
+        first_bad_time = None
+        for item in history_rows:
+            if float(item["SuccessRate"]) < float(PREVIOUS_SUCCESS_THRESHOLD):
+                first_bad_time = item["RunDate"]
+                break
+        if not first_bad_time:
+            logger.info(f"No first bad point found for {row['TestCase']}, skipping.")
+            continue
+
+        last_good_time = None
+        for item in history_rows:
+            run_time = item["RunDate"]
+            if run_time >= first_bad_time:
+                break
+            if float(item["SuccessRate"]) >= float(PREVIOUS_SUCCESS_THRESHOLD):
+                last_good_time = run_time
+
+        if last_good_time:
+            start_time = last_good_time - timedelta(hours=FAILURE_WINDOW_BUFFER_HOURS)
+        else:
+            # If no historical healthy point in lookback window, keep fallback minimal window.
+            start_time = first_bad_time - timedelta(hours=FAILURE_WINDOW_FALLBACK_HOURS)
+        end_time = first_bad_time + timedelta(hours=FAILURE_WINDOW_BUFFER_HOURS)
+        logger.info(
+            f"Found narrowed failure window for {row['TestCase']}: "
+            f"first_bad={first_bad_time}, last_good={last_good_time}, "
+            f"window=({start_time} - {end_time})")
+
+        # Use narrowed change window to fetch commits close to the regression boundary.
         failure_details.append({
             "repo": row['SourceRepo'],
             "branch": row['Branch'],
@@ -179,8 +208,10 @@ def get_failure_details(kusto, failure_details, failures, trigger_type):
             "file_path": row['FilePath'],
             "module_path": row['ModulePath'],
             "trigger_type": trigger_type,
-            "start_time": str(start_time),
-            "end_time": str(end_time)
+            "start_time": isoformat_kusto(start_time),
+            "end_time": isoformat_kusto(end_time),
+            "first_bad_time": isoformat_kusto(first_bad_time),
+            "last_good_time": isoformat_kusto(last_good_time) if last_good_time else None,
         })
 
     return failure_details
@@ -201,6 +232,14 @@ def remove_duplicates_failures(failure_details):
                 existing["start_time"] = detail["start_time"]
             if detail["end_time"] > existing["end_time"]:
                 existing["end_time"] = detail["end_time"]
+            if detail.get("first_bad_time") and (
+                not existing.get("first_bad_time") or detail["first_bad_time"] < existing["first_bad_time"]
+            ):
+                existing["first_bad_time"] = detail["first_bad_time"]
+            if detail.get("last_good_time") and (
+                not existing.get("last_good_time") or detail["last_good_time"] > existing["last_good_time"]
+            ):
+                existing["last_good_time"] = detail["last_good_time"]
     return list(unique_failures.values())
 
 
@@ -213,10 +252,10 @@ def analyze_candidates(kusto, lookback_days, failure_info_file):
     baseline_failures, pr_failures = get_pr_result_summary(kusto, start, end)
     if len(baseline_failures) > 0:
         logger.info(f"Total BaselineTest failures found: {baseline_failures}")
-        failure_details = get_failure_details(kusto, failure_details, baseline_failures, "BaselineTest")
+        failure_details = get_failure_details(kusto, failure_details, baseline_failures, "BaselineTest", start, end)
     if len(pr_failures) > 0:
         logger.info(f"Total PRTest failures found: {pr_failures}")
-        failure_details = get_failure_details(kusto, failure_details, pr_failures, "PRTest")
+        failure_details = get_failure_details(kusto, failure_details, pr_failures, "PRTest", start, end)
 
     failure_details = remove_duplicates_failures(failure_details)
     logger.info(f"Total unique failure details to analyze: {failure_details}")

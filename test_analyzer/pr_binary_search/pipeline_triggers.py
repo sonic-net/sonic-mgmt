@@ -14,6 +14,8 @@ logger = logging.getLogger(__name__)
 
 class AzureDevOpsClient:
     def __init__(self, base_url: str, organization: str, project: str, token: str):
+        if not token:
+            raise ValueError("MSSONIC_TOKEN is empty. Azure DevOps PAT is required.")
         self.base_url = base_url.rstrip("/")
         self.organization = organization
         self.project = project
@@ -124,6 +126,78 @@ class AzureDevOpsClient:
         pipeline_runs.clear()
         return results
 
+    def poll_pipeline_details(
+        self, pipeline_runs, timeout=21600, check_interval=60
+    ) -> dict:
+        """
+        Poll multiple pipeline runs until completion.
+
+        Returns a dict mapping commit -> detail:
+        {
+            "is_bad": bool | None,
+            "run_id": int,
+            "run_url": str,
+            "status": str,
+            "result": str
+        }
+        """
+        details = {}
+        start_time = time.time()
+
+        while time.time() - start_time < timeout and pipeline_runs:
+            pending_runs = []
+            for pipeline_run in pipeline_runs:
+                logger.info(f"Polling pipeline detail for commit {pipeline_run.commit}, run ID {pipeline_run.run_id}")
+                try:
+                    status_data = self.get_pipeline_status(pipeline_run.run_id)
+                    if status_data is None:
+                        pending_runs.append(pipeline_run)
+                        continue
+
+                    status = status_data.get('status', 'unknown')
+                    result = status_data.get('result', 'unknown')
+                    is_final = status.lower() in ['completed', 'canceled', 'cancelled'] or result.lower() in [
+                        'succeeded', 'failed', 'canceled', 'partiallySucceeded']
+
+                    if is_final:
+                        is_bad = result.lower() not in ['succeeded', 'partiallySucceeded']
+                        details[pipeline_run.commit] = {
+                            "is_bad": is_bad,
+                            "run_id": pipeline_run.run_id,
+                            "run_url": pipeline_run.run_url,
+                            "status": status,
+                            "result": result,
+                        }
+                    else:
+                        pending_runs.append(pipeline_run)
+
+                except Exception as e:
+                    logger.error(f"Error polling pipeline detail for {pipeline_run.commit}: {str(e)}")
+                    details[pipeline_run.commit] = {
+                        "is_bad": None,
+                        "run_id": pipeline_run.run_id,
+                        "run_url": pipeline_run.run_url,
+                        "status": "error",
+                        "result": str(e),
+                    }
+
+            pipeline_runs[:] = pending_runs
+            if pipeline_runs:
+                time.sleep(check_interval)
+
+        for pipeline_run in pipeline_runs:
+            details[pipeline_run.commit] = {
+                "is_bad": None,
+                "run_id": pipeline_run.run_id,
+                "run_url": pipeline_run.run_url,
+                "status": "timeout",
+                "result": "timeout",
+            }
+            logger.error(f"Pipeline timeout for {pipeline_run.commit}")
+
+        pipeline_runs.clear()
+        return details
+
 
 def build_queue_payload(branch: str, commit: str, stage: str, parameters) -> dict:
     """Prepare payload for triggering a pipeline run"""
@@ -168,7 +242,7 @@ def trigger_pipeline(
     if "id" not in response:
         raise RuntimeError(f"Pipeline trigger failed for commit {commit}, response: {response}")
 
-    run_id = response.get["id"]
+    run_id = response.get("id")
     run_url = response.get("_links", {}).get("web", {}).get("href")
 
     return PipelineRunParameters(
