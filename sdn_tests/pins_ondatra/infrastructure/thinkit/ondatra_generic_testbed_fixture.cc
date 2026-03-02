@@ -183,6 +183,7 @@ GetSutInterfaceInfoFromReservation(
 }  // namespace
 
 void OndatraGenericTestbedFixture::TearDown() {
+  ondatra_hooks_.teardown(teardown_handler_id_);
   EXPECT_OK(ondatra_hooks_.release());
 }
 
@@ -197,6 +198,19 @@ OndatraGenericTestbedFixture::GetTestbedWithRequirements(
   ASSIGN_OR_RETURN(reservation::Reservation reservation,
                    ondatra_hooks_.testbed());
 
+  // Setup testhelper teardown.
+  teardown_handler_id_ = ondatra_hooks_.new_teardown_handler(/*opts=*/{
+      .with_config_restorer = false,
+  });
+  auto set_test_case_ids =
+      [this](const std::vector<std::string>& test_case_ids) {
+        for (const std::string& test_case_id : test_case_ids) {
+          std::string test_case_id_go_str = test_case_id;
+          ondatra_hooks_.add_test_case_id(teardown_handler_id_,
+                                          test_case_id_go_str.data());
+        }
+      };
+
   ASSIGN_OR_RETURN(auto sut_interface_info, GetSutInterfaceInfoFromReservation(
                                                 testbed_request, reservation));
   ASSIGN_OR_RETURN(const reservation::ResolvedDevice* dut,
@@ -209,7 +223,7 @@ OndatraGenericTestbedFixture::GetTestbedWithRequirements(
   if (!control.ok()) {
     return std::make_unique<pins_test::OndatraGenericTestbed>(
         std::move(sut), /*control_device=*/nullptr,
-        std::move(sut_interface_info));
+        std::move(sut_interface_info), set_test_case_ids);
   }
 
   ASSIGN_OR_RETURN(auto control_switch, CreateSwitchFromDevice(*(*control)));
@@ -224,9 +238,10 @@ OndatraGenericTestbedFixture::GetTestbedWithRequirements(
           std::move(*response.mutable_config()->mutable_p4info())));
   auto control_device_pointer =
       std::make_unique<pins_test::PinsControlDevice>(std::move(control_device));
+
   return std::make_unique<pins_test::OndatraGenericTestbed>(
       std::move(sut), std::move(control_device_pointer),
-      std::move(sut_interface_info));
+      std::move(sut_interface_info), set_test_case_ids);
 }
 
 }  // namespace pins_test

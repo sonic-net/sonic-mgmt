@@ -1,5 +1,10 @@
 load("@io_bazel_rules_go//go:def.bzl", "go_library")
 
+def_visibility = [
+    "//platforms/networking/gpins/testing:__subpackages__",
+    "//third_party/pins_infra:__subpackages__",
+]
+
 package(
     default_visibility = ["//visibility:public"],
     licenses = ["notice"],
