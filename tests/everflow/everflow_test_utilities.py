@@ -28,6 +28,8 @@ from tests.common.dualtor.dual_tor_common import mux_config              # noqa:
 from tests.common.helpers.sonic_db import AsicDbCli
 import json
 
+logger = logging.getLogger(__name__)
+
 # TODO: Add suport for CONFIGLET mode
 CONFIG_MODE_CLI = "cli"
 CONFIG_MODE_CONFIGLET = "configlet"
@@ -674,7 +676,7 @@ class BaseEverflowTest(object):
         return duthost_set
 
     @pytest.fixture(scope="class")
-    def setup_mirror_session(self, config_method, setup_info, erspan_ip_ver):
+    def setup_mirror_session(self, config_method, setup_info, erspan_ip_ver, everflow_capabilities):
         """
         Set up a mirror session for Everflow.
 
@@ -695,6 +697,24 @@ class BaseEverflowTest(object):
             if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s') and erspan_ip_ver == 6: # noqa E501
                 pytest.skip("Skip IPv6 mirror session on unsupported platforms")
 
+            # Skip if the ASIC does not support bidirectional port mirroring (issue #22661).
+            # The CLI defaults to direction='both' when no direction is specified,
+            # which requires both PORT_INGRESS_MIRROR_CAPABLE and PORT_EGRESS_MIRROR_CAPABLE.
+            # Default to "false" when keys are absent — this matches the CLI behavior in
+            # sonic-utilities (config/main.py is_port_mirror_capability_supported) which
+            # reads STATE_DB directly and rejects when keys are missing.
+            if config_method == CONFIG_MODE_CLI:
+                switch_caps = everflow_capabilities.get(duthost.hostname, {})
+                ingress_capable = switch_caps.get("PORT_INGRESS_MIRROR_CAPABLE", "false")
+                egress_capable = switch_caps.get("PORT_EGRESS_MIRROR_CAPABLE", "false")
+                mirror_type = self.mirror_type()
+                if mirror_type == "ingress" and ingress_capable != "true":
+                    pytest.skip("ASIC does not support ingress port mirroring")
+                elif mirror_type == "egress" and egress_capable != "true":
+                    pytest.skip("ASIC does not support egress port mirroring")
+                elif mirror_type == "both" and (ingress_capable != "true" or egress_capable != "true"):
+                    pytest.skip("ASIC does not support bidirectional port mirroring")
+
             BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, erspan_ip_ver=erspan_ip_ver)
 
         yield session_info
@@ -703,7 +723,7 @@ class BaseEverflowTest(object):
             BaseEverflowTest.remove_mirror_config(duthost, session_info["session_name"], config_method)
 
     @pytest.fixture(scope="class")
-    def policer_mirror_session(self, config_method, setup_info, erspan_ip_ver):
+    def policer_mirror_session(self, config_method, setup_info, erspan_ip_ver, everflow_capabilities):
         """
         Set up a mirror session with a policer for Everflow.
 
@@ -722,6 +742,20 @@ class BaseEverflowTest(object):
         for duthost in duthost_set:
             if not session_info:
                 session_info = BaseEverflowTest.mirror_session_info("TEST_POLICER_SESSION", duthost.facts["asic_type"])
+
+            # Skip if the ASIC does not support bidirectional port mirroring (issue #22661).
+            if config_method == CONFIG_MODE_CLI:
+                switch_caps = everflow_capabilities.get(duthost.hostname, {})
+                ingress_capable = switch_caps.get("PORT_INGRESS_MIRROR_CAPABLE", "false")
+                egress_capable = switch_caps.get("PORT_EGRESS_MIRROR_CAPABLE", "false")
+                mirror_type = self.mirror_type()
+                if mirror_type == "ingress" and ingress_capable != "true":
+                    pytest.skip("ASIC does not support ingress port mirroring")
+                elif mirror_type == "egress" and egress_capable != "true":
+                    pytest.skip("ASIC does not support egress port mirroring")
+                elif mirror_type == "both" and (ingress_capable != "true" or egress_capable != "true"):
+                    pytest.skip("ASIC does not support bidirectional port mirroring")
+
             # Create a policer that allows 100 packets/sec through
             self.apply_policer_config(duthost, policer, config_method)
             BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, policer=policer,
