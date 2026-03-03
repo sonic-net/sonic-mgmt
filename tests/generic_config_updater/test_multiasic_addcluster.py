@@ -1100,11 +1100,11 @@ def verify_oper_status_after_patches(duthost, pre_patch_status, asic_id, timeout
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_front_end_hostname):
-    """Setup and teardown fixture using a frontend (linecard) DUT.
+def setup_env(duthosts, enum_downstream_dut_hostname):
+    """Setup and teardown fixture using a downstream-connected linecard DUT.
 
-    Uses rand_one_dut_front_end_hostname to ensure we get a linecard in T2 topology,
-    which is where downstream T1 neighbors are connected.
+    Uses enum_downstream_dut_hostname to ensure we get a linecard that has downstream
+    T1 neighbors connected, which is required for this test.
 
     Teardown Strategy:
     ------------------
@@ -1127,7 +1127,7 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname):
     Note: This test validates GCU apply_patch functionality, not rollback. Rollback
     is tested separately in other GCU test modules.
     """
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_downstream_dut_hostname]
     create_checkpoint(duthost)
     yield
     try:
@@ -1147,7 +1147,7 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname):
         delete_checkpoint(duthost)
 
 
-def test_addcluster_workflow(duthosts, rand_one_dut_front_end_hostname):
+def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname):
     """Test adding a downstream T1 neighbor cluster via GCU.
 
     This test validates that a T1 neighbor can be added to a multi-ASIC
@@ -1179,15 +1179,15 @@ def test_addcluster_workflow(duthosts, rand_one_dut_front_end_hostname):
     test design and DPB-capable platforms.
 
     The test:
-    1. Uses a frontend/linecard DUT (rand_one_dut_front_end_hostname)
+    1. Uses a downstream-connected linecard DUT (enum_downstream_dut_hostname)
     2. Dynamically discovers a T1 neighbor from minigraph facts
     3. Tests on the specific ASIC where the T1 neighbor is connected
 
     Args:
         duthosts: DUT hosts fixture
-        rand_one_dut_front_end_hostname: Fixture that provides a frontend DUT hostname
+        enum_downstream_dut_hostname: Fixture providing a linecard with downstream neighbors
     """
-    duthost = duthosts[rand_one_dut_front_end_hostname]
+    duthost = duthosts[enum_downstream_dut_hostname]
 
     # Dynamically discover a downstream T1 neighbor
     asic_id, target_t1 = get_downstream_t1_neighbor(duthost)
