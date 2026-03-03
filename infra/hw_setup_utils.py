@@ -221,7 +221,7 @@ def checkSpace(p, testbed):
 def scpUtil(thread, scpCommand, password):
     thread.sendline(scpCommand)
     while True:
-        i = thread.expect([first_login, lower_pass_prompt, "scp: Connection closed"])
+        i = thread.expect([first_login, lower_pass_prompt, "scp: Connection closed"], timeout=600)
         log.debug(thread.before)
         log.debug(thread.after)
         if i == 0:
@@ -238,7 +238,7 @@ def copyDockerFileToDut(testbed, image_id):
     testbed_info_dict = getTestbedInfoDict(testbed)
     local_ucs = testbed_info_dict['ucs_host_name']
     try:
-        p2 = sshUtil(testbed_info_dict['ucs_username'], testbed_info_dict['ucs_host'], testbed_info_dict['ucs_password'], None)
+        p2 = sshUtil(testbed_info_dict['ucs_username'], testbed_info_dict['ucs_host'], testbed_info_dict['ucs_password'], 600)
         p2.sendline("docker ps -a")
         p2.expect(local_ucs)
         image_ucs = getImageUCS(testbed)
@@ -284,7 +284,12 @@ def sshDUTUtil(p1, dut_ssh_host, prodImage=False):
     time.sleep(5)
 
     while True:
-        i = p1.expect([first_login, lower_pass_prompt, "Last login: "])
+        i = p1.expect([first_login,
+                       lower_pass_prompt,
+                       "Last login: ",
+                       "use are subject to monitoring",
+                       "Open Networking in the Cloud",
+                       ])
         if i == 0:
             p1.sendline("yes")
         elif i == 1:
