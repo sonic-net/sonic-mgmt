@@ -302,3 +302,292 @@ def print_result_summary(results):
         logging.info(res)
 
 
+RP_LC_ADMIN_PASSWORD = "password"
+
+def prepare_lc_command_for_admin_user(duthost, command_str, admin_password=RP_LC_ADMIN_PASSWORD):
+    """
+    For admin user sessions, feed default password for interactive centralized CLI auth.
+    """
+    try:
+        inventory_host = duthost.host.options['inventory_manager'].get_host(duthost.hostname)
+        ansible_user = inventory_host.vars.get('ansible_user') or inventory_host.vars.get('ansible_ssh_user')
+    except Exception:
+        ansible_user = None
+
+    if ansible_user == "admin":
+        return f"printf '{admin_password}\\n' | {command_str}"
+    return command_str
+
+
+def find_lc_last_up_interface_via_rp_rexec(duthost, lc_target=None, active_lc_list=None, admin_password=RP_LC_ADMIN_PASSWORD):
+    """
+    RP-LC case: run rexec on RP and parse LC blocks to find the last UP Ethernet interface.
+    Returns (lc_name, interface_name) or (None, None) if not found.
+    """
+    log_tag = "[FIND_INTERFACE_RP_LC]"
+    rexec_cmd = 'rexec all -u admin -c "show int status"'
+    exec_rexec_cmd = prepare_lc_command_for_admin_user(duthost, rexec_cmd, admin_password=admin_password)
+    result = duthost.shell(exec_rexec_cmd, module_ignore_errors=True)
+
+    if result.get("rc", 1) != 0 and not result.get("stdout", "").strip():
+        logging.warning(f"{log_tag} Failed to run rexec command: {rexec_cmd}")
+        return None, None
+
+    current_lc = None
+    selected_lc = None
+    selected_interface = None
+
+    for line in result.get("stdout_lines", []):
+        stripped_line = line.strip()
+        section_match = re.match(r'^=+\s+([^|\s]+)\|.*output:\s+=+$', stripped_line)
+        if section_match:
+            current_lc = section_match.group(1)
+            continue
+
+        if not current_lc:
+            continue
+        if lc_target and lc_target != "all" and current_lc != lc_target:
+            continue
+        if active_lc_list and current_lc not in active_lc_list:
+            continue
+        if not stripped_line or "Interface" in stripped_line or "---" in stripped_line:
+            continue
+
+        parts = stripped_line.split()
+        if len(parts) < 8:
+            continue
+
+        interface_name = parts[0]
+        oper_status = parts[7].lower()
+        if not interface_name.startswith("Ethernet") or oper_status != "up":
+            continue
+
+        selected_lc = current_lc
+        selected_interface = interface_name
+
+    if selected_lc and selected_interface:
+        logging.info(f"{log_tag} Selected LC/interface from rexec output: {selected_lc}/{selected_interface}")
+        return selected_lc, selected_interface
+
+    logging.warning(f"{log_tag} No UP Ethernet interface found from RP rexec output")
+    return None, None
+
+
+def find_last_up_ethernet_interface(duthost, cli_case=None, lc_target=None, active_lc_list=None, admin_password=RP_LC_ADMIN_PASSWORD, return_lc_info=False):
+    """
+    Function to find the last UP Ethernet interface for 3 CLI cases:
+    - RP: RP local command
+    - LC: LC local command
+    - RP-LC: RP command targeting LC via centralized CLI
+    """
+    resolved_cli_case = cli_case
+    if not resolved_cli_case:
+        resolved_cli_case = "RP" if duthost.is_supervisor_node() else "LC"
+
+    if resolved_cli_case == "RP-LC":
+        selected_lc, interface = find_lc_last_up_interface_via_rp_rexec(
+            duthost,
+            lc_target=lc_target,
+            active_lc_list=active_lc_list,
+            admin_password=admin_password
+        )
+        if return_lc_info:
+            return selected_lc, interface
+        return interface
+
+    LOG_TAG = f"[FIND_INTERFACE_{resolved_cli_case}]"
+
+    try:
+        interface_prefix = "Ethernet"
+
+        if resolved_cli_case == "RP":
+            command = "show interface status -d all"
+            logging.info(f"{LOG_TAG} Searching for last UP Ethernet interface on RP node...")
+        else:
+            command = "show interface status"
+            logging.info(f"{LOG_TAG} Searching for last UP Ethernet interface on LC node...")
+
+        result = duthost.command(command, module_ignore_errors=True)
+
+        if result["rc"] != 0:
+            logging.error(f"{LOG_TAG} Failed to execute '{command}' command")
+            if return_lc_info:
+                return None, None
+            return None
+
+        output_lines = result["stdout_lines"]
+        selected_interface = None
+
+        for line in output_lines:
+            if not line.strip() or "Interface" in line or "---" in line:
+                continue
+
+            parts = line.strip().split()
+            if len(parts) >= 8:
+                interface_name = parts[0]
+
+                oper_status = parts[7] if len(parts) > 7 else None
+
+                if not oper_status:
+                    continue
+
+                if interface_name.startswith(interface_prefix) and oper_status.lower() == "up":
+                    selected_interface = interface_name
+
+        if selected_interface:
+            logging.info(f"{LOG_TAG} Found last UP Ethernet interface on {resolved_cli_case}: {selected_interface}")
+            if return_lc_info:
+                return None, selected_interface
+            return selected_interface
+
+        logging.warning(f"{LOG_TAG} No UP {interface_prefix} interfaces found")
+        if return_lc_info:
+            return None, None
+        return None
+
+    except Exception as e:
+        logging.error(f"{LOG_TAG} Exception while finding UP {interface_prefix} interface: {str(e)}")
+        if return_lc_info:
+            return None, None
+        return None
+
+
+def parse_additional_parameters(tc_dict):
+    """
+    Parse additional parameters from testcase config.
+    Supports key: additional_parameters
+    Returns a normalized set of parameter tokens.
+    """
+    params = set()
+
+    value = tc_dict.get("additional_parameters", [])
+    if not value:
+        return params
+
+    if not isinstance(value, list):
+        logging.warning(
+            "[PARSE_ADDITIONAL_PARAMETERS] additional_parameters must be a list, "
+            f"got {type(value).__name__}. Ignoring value: {value}"
+        )
+        return params
+
+    allowed_parameters = {"interface_option1", "interface_option2", "active_asic"}
+
+    for raw_value in value:
+        normalized = str(raw_value).strip().lower()
+        if normalized in allowed_parameters:
+            params.add(normalized)
+        else:
+            logging.warning(f"[PARSE_ADDITIONAL_PARAMETERS] Unsupported additional parameter ignored: '{normalized}'")
+
+    return params
+
+
+def reformat_clicmd(duthost, tc_dict, results, cli_case=None, lc_target=None, active_lc_list=None, admin_password=RP_LC_ADMIN_PASSWORD):
+    """
+    Function to reformat CLI commands with interface parameters if needed
+    Supports explicit 3 CLI cases: LC, RP, RP-LC.
+    Returns True if successful, False if should skip/fail test
+    """
+    resolved_cli_case = cli_case
+    if not resolved_cli_case:
+        resolved_cli_case = "RP" if duthost.is_supervisor_node() else "LC"
+
+    LOG_TAG = f"[REFORMAT_CLICMD_{resolved_cli_case}]"
+    logging.info(f"{LOG_TAG} Reformating CLI command for {resolved_cli_case} case: {tc_dict['command']}")
+    
+    # For tests that need interface selection, dynamically find and append interface
+    additional_parameters = parse_additional_parameters(tc_dict)
+
+    if any(p.startswith('interface_option') for p in additional_parameters):
+        logging.info(
+            f"{LOG_TAG} Interface selection required for {resolved_cli_case} case - "
+            f"additional_parameters: '{additional_parameters}'"
+        )
+
+        selected_lc = None
+        interface = None
+        if resolved_cli_case == "LC":
+            _, interface = find_last_up_ethernet_interface(
+                duthost,
+                cli_case="LC",
+                return_lc_info=True
+            )
+        elif resolved_cli_case == "RP":
+            _, interface = find_last_up_ethernet_interface(
+                duthost,
+                cli_case="RP",
+                return_lc_info=True
+            )
+        elif resolved_cli_case == "RP-LC":
+            selected_lc, interface = find_lc_last_up_interface_via_rp_rexec(
+                duthost,
+                lc_target=lc_target,
+                active_lc_list=active_lc_list,
+                admin_password=admin_password
+            )
+        else:
+            error_msg = f"{LOG_TAG} Unsupported cli_case '{resolved_cli_case}', expected one of LC/RP/RP-LC"
+            logging.error(error_msg)
+            update_results(results, tc_dict["tcname"], "FAILED", error_msg)
+            return False
+
+        if resolved_cli_case == "RP-LC":
+            tc_dict['resolved_lc_target'] = selected_lc
+            tc_dict['resolved_lc_interface'] = interface
+
+        if not interface:
+            logging.info(f"{LOG_TAG} No UP Ethernet interfaces found for {resolved_cli_case} case - skipping test as PASS")
+            update_results(results, tc_dict["tcname"], "PASSED", f"SKIPPED - No UP Ethernet interfaces found for {resolved_cli_case}")
+            return False
+        
+        if 'interface_option1' in additional_parameters:
+            original_command = tc_dict['command']
+            if 'interface' in original_command:
+                tc_dict['command'] = original_command.replace('interface', f'interface {interface}')
+                logging.info(f"{LOG_TAG} Applied interface option1 on {resolved_cli_case} case: {tc_dict['command']}")
+            else:
+                error_msg = f"{LOG_TAG} Command does not contain 'interface' keyword for option 1 in {resolved_cli_case} case: {original_command}"
+                logging.error(error_msg)
+                update_results(results, tc_dict["tcname"], "FAILED", error_msg)
+                return False
+                
+        elif 'interface_option2' in additional_parameters:
+            tc_dict['command'] = tc_dict['command'] + f" -i {interface}"
+            logging.info(f"{LOG_TAG} Applied interface option2 on {resolved_cli_case} case: {tc_dict['command']}")
+        else:
+            error_msg = (
+                f"{LOG_TAG} Interface option detected but no specific option1 or option2 found "
+                f"in additional_parameters='{additional_parameters}'"
+            )
+            logging.error(error_msg)
+            update_results(results, tc_dict["tcname"], "FAILED", error_msg)
+            return False
+    else:
+        logging.info(f"{LOG_TAG} No interface parameter needed for {resolved_cli_case} case command: {tc_dict['command']}")
+    
+    return True
+
+
+def parse_invalid_linecard_all_option_error(result):
+    """
+    Parse command output and detect the expected centralized CLI validation error
+    when '-l all' is used for commands that require a specific line-card.
+    """
+    stdout = result.get('stdout', '') or ''
+    stderr = result.get('stderr', '') or ''
+    stdout_lines = result.get('stdout_lines', []) or []
+    stderr_lines = result.get('stderr_lines', []) or []
+
+    stdout_text = "\n".join(stdout_lines) if stdout_lines else stdout
+    stderr_text = "\n".join(stderr_lines) if stderr_lines else stderr
+    combined_output = f"{stdout_text}\n{stderr_text}".strip()
+
+    has_linecard_hint = re.search(
+        r"Please\s+specify\s+a\s+specific\s+LINE-CARD",
+        combined_output,
+        re.IGNORECASE
+    )
+
+    return bool(has_linecard_hint)
+
