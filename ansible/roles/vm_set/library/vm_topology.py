@@ -1305,13 +1305,17 @@ class VMTopology(object):
             bind_helper("ovs-ofctl add-flow %s table=0,priority=10,ipv6,in_port=%s,nw_proto=89,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             # added ovs rules for HA
-            # cp_data_channel_port: 11362, dp_channel_dst_port: 11368
-            # Match only dst ports, for both TCP and UDP
-            for ha_port in [11362, 11368]:
-                for proto in ['tcp', 'udp']:
+            # cp_data_channel_port: 11362, dp_channel_dst_port: 11364
+            # Match dst and src ports, for both TCP and UDP
+            for ha_port in [11362, 11364]:
+                for proto in ['tcp', 'udp', 'tcp6', 'udp6']:
                     bind_helper("ovs-ofctl add-flow %s table=0,priority=10,%s,in_port=%s,tp_dst=%d,action=output:%s,%s" %  # noqa: E501
                                 (br_name, proto, dut_iface_id, ha_port, vm_iface_id, injected_iface_id))
+                    bind_helper("ovs-ofctl add-flow %s table=0,priority=10,%s,in_port=%s,tp_src=%d,action=output:%s,%s" %  # noqa: E501
+                                (br_name, proto, dut_iface_id, ha_port, vm_iface_id, injected_iface_id))
                     bind_helper("ovs-ofctl add-flow %s table=0,priority=10,%s,in_port=%s,tp_dst=%d,action=output:%s" %
+                                (br_name, proto, vm_iface_id, ha_port, dut_iface_id))
+                    bind_helper("ovs-ofctl add-flow %s table=0,priority=10,%s,in_port=%s,tp_src=%d,action=output:%s" %
                                 (br_name, proto, vm_iface_id, ha_port, dut_iface_id))
 
         # Add flow for BFD Control packets (UDP port 3784)
