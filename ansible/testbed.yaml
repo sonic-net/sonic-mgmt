@@ -5219,13 +5219,43 @@
   auto_recover: 'False'
   comment: yatishkoul
 
+- conf-name: ptp-7060x6-64-3
+  group-name:
+  topo: ptp-64
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str-7060x6-c09-u25
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-shankam
+
+- conf-name: ptp-7060x6-64-4
+  group-name:
+  topo: ptp-64
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str43-7060x6-64pe-b-ehw-f-c09-u39
+  inv_name: Str
+  auto_recover: 'True'
+  comment: v-shankam
+
 - conf-name: vms69-t1-smartswitch-4280-22
   group-name: vms69-2
   topo: t1-28-lag
   ptf_image_name: docker-ptf
   ptf: vms69-2
-  ptf_ip: 10.64.247.116/26
-  ptf_ipv6: 2a01:111:e210:b000::a40:f774/122
+  ptf_ip: 10.64.247.103/26
+  ptf_ipv6: 2a01:111:e210:b000::a40:f767/122
   server: server_69
   vm_base: VM69072
   dut:

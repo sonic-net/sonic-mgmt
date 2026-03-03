@@ -64,3 +64,7 @@ pdu-98,11,str-4700-d04-u09,PSU1
 pdu-99,11,str-4700-d04-u09,PSU2
 pdu-98,12,str-4700-d04-u10,PSU1
 pdu-99,12,str-4700-d04-u10,PSU2
+Sentry_6224b9,41,str-7060x6-c09-u25,PSU2
+pdu-79,24,str-7060x6-c09-u25,PSU1
+Sentry_6224b9,21,str43-7060x6-64pe-b-ehw-f-c09-u39,PSU1
+Sentry_6224b9,23,str43-7060x6-64pe-b-ehw-f-c09-u39,PSU2
