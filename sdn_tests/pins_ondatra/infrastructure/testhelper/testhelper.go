@@ -101,10 +101,9 @@ var (
 
 	teardownDUTDeviceInfoGet = func(t *testing.T) DUTInfo {
 		dut := ondatra.DUT(t, "DUT")
-		return DUTInfo{
-			name:   dut.Name(),
-			vendor: dut.Vendor(),
-		}
+		dutName := dut.Name()
+		d := DUTInfo{name: dutName, vendor: dut.Vendor()}
+		return d
 	}
 
 	teardownDUTPeerDeviceInfoGet = func(t *testing.T) DUTInfo {
@@ -113,13 +112,13 @@ var (
 			return DUTInfo{}
 		}
 
-		if peer, ok := duts["CONTROL"]; ok {
-			return DUTInfo{
-				name:   peer.Name(),
-				vendor: peer.Vendor(),
-			}
+		peer, ok := duts["CONTROL"]
+		if !ok {
+			return DUTInfo{}
 		}
-		return DUTInfo{}
+		controlName := peer.Name()
+		d := DUTInfo{name: controlName, vendor: peer.Vendor()}
+		return d
 	}
 
 	teardownDUTHealthzGet = func(t *testing.T) healthzpb.HealthzClient {
@@ -157,6 +156,26 @@ var (
 
 	testhelperTransceiverEmpty = func(t *testing.T, d *ondatra.DUTDevice, port string) bool {
 		return gnmi.Get(t, d, gnmi.OC().Component(port).Empty().State())
+	}
+
+	testhelperHoldTimeUpLookup = func(t *testing.T, d *ondatra.DUTDevice, port string) (uint32, bool) {
+		resp, present := gnmi.Lookup(t, d, gnmi.OC().Interface(port).HoldTime().State()).Val()
+		if !present || resp == nil || resp.Up == nil {
+			return 0, false
+		}
+		return *resp.Up, true
+	}
+
+	testhelperPenaltyBasedAiedLookup = func(t *testing.T, d *ondatra.DUTDevice, port string) (*oc.Interface_PenaltyBasedAied, bool) {
+		return gnmi.Lookup(t, d, gnmi.OC().Interface(port).PenaltyBasedAied().State()).Val()
+	}
+
+	testhelperReplaceUint32 = func(t *testing.T, d *ondatra.DUTDevice, path ygnmi.ConfigQuery[uint32], value uint32) *ygnmi.Result {
+		return gnmi.Replace(t, d, path, value)
+	}
+
+	testhelperAwaitUint32 = func(t *testing.T, d *ondatra.DUTDevice, path ygnmi.SingletonQuery[uint32], timeout time.Duration, value uint32) *ygnmi.Value[uint32] {
+		return gnmi.Await(t, d, path, timeout, value)
 	}
 )
 
@@ -219,12 +238,13 @@ type TearDownOptions struct {
 
 // NewTearDownOptions creates the TearDownOptions structure with default values.
 func NewTearDownOptions(t *testing.T) *TearDownOptions {
-	return &TearDownOptions{
+	o := &TearDownOptions{
 		StartTime:         time.Now(),
 		DUTName:           teardownDUTNameGet(t),
 		DUTDeviceInfo:     teardownDUTDeviceInfoGet(t),
 		DUTPeerDeviceInfo: teardownDUTPeerDeviceInfoGet(t),
 	}
+        return o
 }
 
 // WithID attaches an ID to the test.
