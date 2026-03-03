@@ -45,6 +45,9 @@ str-dcs-7060x6-64pe-b-ehw-f-c09-u27,10.64.247.91/26,Arista-7060X6-64PE-B-P64,Dev
 str-dcs-7060x6-64pe-b-ehw-f-c09-u29,10.64.247.92/26,Arista-7060X6-64PE-B-P64,DevSonic,,sonic
 str-4700-d04-u10,10.64.246.46/25,Mellanox-SN4700-O8V48,DevSonic,,sonic
 str-4700-d04-u09,10.64.247.94/26,Mellanox-SN4700-O8V48,DevSonic,,sonic
+str-7060x6-c09-u25,10.64.247.228/25,Arista-7060X6-64PE-B-P64,DevSonic,,sonic
+str43-7060x6-64pe-b-ehw-f-c09-u39,10.64.247.116/26,Arista-7060X6-64PE-B-P64,DevSonic,,sonic
+pdu-79,10.3.154.79,Sentry4,Pdu,snmp,
 pdu-96,10.3.155.96,Sentry4,Pdu,snmp,
 pdu-97,10.3.154.98,Sentry4,Pdu,snmp,
 pdu-98,10.3.154.99,Sentry4,Pdu,snmp,

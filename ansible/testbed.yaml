@@ -2399,21 +2399,6 @@
   auto_recover: 'True'
   comment: tbtk5-7260-7
 
-- conf-name: tbtk5-t1-n3164-2
-  group-name: tk5-3-8
-  topo: t1-64-lag
-  ptf_image_name: docker-ptf
-  ptf: ptf3-8
-  ptf_ip: 10.212.65.58/24
-  ptf_ipv6: 2603:10e2:140:3000::129/122
-  server: server_tk5_3
-  vm_base: VM53048
-  dut:
-  - strtk5-n3164-acs-2
-  inv_name: strtk5
-  auto_recover: 'True'
-  comment: tbtk5-n3164-2
-
 - conf-name: tbtk5-t1-s6100-5
   group-name: tk5-3-9
   topo: t1-64-lag
@@ -2863,21 +2848,6 @@
   inv_name: strtk5
   auto_recover: 'True'
   comment: tbtk5-t1-n3164-3
-
-- conf-name: tbtk5-t1-n3164-1
-  group-name: tk5-7-1
-  topo: t1-64-lag
-  ptf_image_name: docker-ptf
-  ptf: ptf7-1
-  ptf_ip: 10.212.65.91/24
-  ptf_ipv6: 2603:10e2:140:3000::11b/122
-  server: server_tk5_7
-  vm_base: VM80024
-  dut:
-  - strtk5-n3164-01
-  inv_name: strtk5
-  auto_recover: 'True'
-  comment: tbtk5-t1-n3164-1
 
 - conf-name: tbtk5-t1-8101-2
   group-name: tk5-7-2
@@ -5249,13 +5219,43 @@
   auto_recover: 'False'
   comment: yatishkoul
 
+- conf-name: ptp-7060x6-64-3
+  group-name:
+  topo: ptp-64
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str-7060x6-c09-u25
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-shankam
+
+- conf-name: ptp-7060x6-64-4
+  group-name:
+  topo: ptp-64
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str43-7060x6-64pe-b-ehw-f-c09-u39
+  inv_name: Str
+  auto_recover: 'True'
+  comment: v-shankam
+
 - conf-name: vms69-t1-smartswitch-4280-22
   group-name: vms69-2
   topo: t1-28-lag
   ptf_image_name: docker-ptf
   ptf: vms69-2
-  ptf_ip: 10.64.247.116/26
-  ptf_ipv6: 2a01:111:e210:b000::a40:f774/122
+  ptf_ip: 10.64.247.103/26
+  ptf_ipv6: 2a01:111:e210:b000::a40:f767/122
   server: server_69
   vm_base: VM69072
   dut:
