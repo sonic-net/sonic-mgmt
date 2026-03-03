@@ -174,26 +174,6 @@ func CompareConfigAndStateValues(ctx context.Context, t *testing.T, dut *ondatra
 	return r.String(), nil
 }
 
-// pollFunc returns true if the condition is met.
-type pollFunc func() bool
-
-// poll polls the condition until it is met or the context is done.
-func poll(ctx context.Context, t *testing.T, interval time.Duration, pf pollFunc) error {
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("polling for condition failed, err: %v", ctx.Err())
-		case <-ticker.C:
-			if pf() {
-				log.InfoContextf(ctx, "polling done")
-				return nil
-			}
-		}
-	}
-}
-
 // WaitForConfigConvergence checks for differences between config and state.
 // Polls till configConvergenceTimeout,
 // returns error if the difference still exists.
@@ -208,18 +188,18 @@ func WaitForConfigConvergence(ctx context.Context, t *testing.T, dut *ondatra.DU
 	defer cancel()
 	dutName := dut.Name()
 	// Poll until the config and state are similar.
-	return poll(ctx, t, configConvergencePollInterval, func() bool {
+	return poll(ctx, configConvergencePollInterval, func() pollStatus {
 		diff, err := CompareConfigAndStateValues(ctx, t, dut, config)
 		if err != nil {
 			log.InfoContextf(ctx, "Comparing config and state failed for dut: %v, err: %v", dutName, err)
-			return false
+			return continuePoll
 		}
 		if diff == "" {
 			log.InfoContextf(ctx, "Config and state converged for dut: %v", dutName)
-			return true
+			return exitPoll
 		}
 		log.InfoContextf(ctx, "diff in config and state found for dut: %v\ndiff_begin:\n%v\ndiff_end\n", dutName, diff)
-		return false
+		return continuePoll
 	})
 }
 
@@ -369,30 +349,30 @@ func WaitForSwitchState(ctx context.Context, t *testing.T, dut *ondatra.DUTDevic
 	defer cancel()
 
 	// Poll until the switch is ready or the context is done.
-	err := poll(ctx, t, switchStatePollInterval, func() bool {
+	err := poll(ctx, switchStatePollInterval, func() pollStatus {
 		switch s := switchState; s {
 		case down:
 			if err := GNOIAble(t, dut); err != nil {
 				log.InfoContextf(ctx, "GNOIAble(dut=%v) failed, err: %v", dutName, err)
-				return false
+				return continuePoll
 			}
 			switchState++
 		case gnoiAble:
 			if err := GNMIAble(t, dut); err != nil {
 				log.InfoContextf(ctx, "GNMIAble(dut=%v) failed, err: %v", dutName, err)
-				return false
+				return continuePoll
 			}
 			switchState++
 		case gnmiAble:
 			if err := WaitForAllPortsUp(ctx, t, dut); err != nil {
 				log.InfoContextf(ctx, "WaitForAllPortsUp(dut=%v) failed, err: %v", dutName, err)
-				return false
+				return continuePoll
 			}
 			switchState++
 		case portsUp:
-			return true
+			return exitPoll
 		}
-		return false
+		return continuePoll
 	})
 
 	if err == nil {
