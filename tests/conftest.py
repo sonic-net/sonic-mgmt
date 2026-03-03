@@ -271,6 +271,9 @@ def pytest_addoption(parser):
     parser.addoption(
         "--skip_postupgrade_actions", action="store_true", default=False, help="Don't run post upgrade actions"
     )
+    parser.addoption(
+        "--skip_bgp_neighbor", action="store_true", default=False, help="Don't run bgp neighbor"
+    )
 
     #####################################
     # SONiC Upgrade test with tcam hole #

@@ -84,14 +84,15 @@ def run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_p
     duthost.command("rm -rf /tmp/anpscripts", module_ignore_errors=True)
 
 
-def run_bgp_neighbor(duthost, localhost, tbinfo, metadata_process,
+def run_bgp_neighbor(duthost, localhost, tbinfo, metadata_process, skip_bgp_neighbor,
                      check_failed=True, check_stderr=True):
 
     # Temp disregard this stderr for deprecation warning
     SONIC_INSTALLER_STDERR = ["Warning: 'sonic_installer' command is deprecated and will be removed in the future",
                               "Please use 'sonic-installer' instead"]
 
-    if not metadata_process:
+    if not metadata_process or skip_bgp_neighbor:
+        logger.info("Skipping bgp_neighbor")
         duthost.shell("config bgp startup all")
         return
     base_path = os.path.dirname(__file__)

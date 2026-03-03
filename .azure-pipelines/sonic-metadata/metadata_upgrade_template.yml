@@ -24,6 +24,10 @@ parameters:
   default: true
   type: boolean
   displayName: "Skip post upgrade actions"
+- name: SKIP_BGP_NEIGHBOR
+  default: true
+  type: boolean
+  displayName: "Skip bgp neighbor script after upgrade (T2 only)"
 - name: RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER
   default: true
   type: boolean
@@ -314,6 +318,7 @@ stages:
         MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS }}
         MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS }}
         SKIP_POSTUPGRADE_ACTIONS: ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }}
+        SKIP_BGP_NEIGHBOR: ${{ parameters.SKIP_BGP_NEIGHBOR }}
         RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: ${{ parameters.RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER }}
         METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
         RUN_REBOOT_CASE: ${{ parameters.RUN_REBOOT_CASE }}
@@ -391,6 +396,7 @@ stages:
           TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
           TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
           SKIP_POSTUPGRADE_ACTIONS: ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }}
+          SKIP_BGP_NEIGHBOR: ${{ parameters.SKIP_BGP_NEIGHBOR }}
           RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: ${{ parameters.RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER }}
           METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
           RUN_REBOOT_CASE: "test_double_upgrade_path"
@@ -429,6 +435,7 @@ stages:
           MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS }}
           MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS }}
           SKIP_POSTUPGRADE_ACTIONS: ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }}
+          SKIP_BGP_NEIGHBOR: ${{ parameters.SKIP_BGP_NEIGHBOR }}
           RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: ${{ parameters.RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER }}
           METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
           RUN_REBOOT_CASE: "test_multi_hop_upgrade_path"

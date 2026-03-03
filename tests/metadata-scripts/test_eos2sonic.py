@@ -236,7 +236,7 @@ def run_post_conversion_scripts(duthost, localhost):
                             tbinfo=None, metadata_process=True, skip_postupgrade_actions=False,
                             check_stderr=False)
     run_bgp_neighbor(duthost=duthost, localhost=localhost,
-                     tbinfo=None, metadata_process=True,
+                     tbinfo=None, metadata_process=True, skip_bgp_neighbor=False,
                      check_stderr=False)
 
 

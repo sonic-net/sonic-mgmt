@@ -50,6 +50,11 @@ parameters:
   type: boolean
   displayName: "Skip post upgrade actions"
 
+- name: SKIP_BGP_NEIGHBOR
+  default: false
+  type: boolean
+  displayName: "Skip bgp neighbor script after upgrade (T2 only)"
+
 - name: RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER
   default: true
   type: boolean
@@ -373,6 +378,7 @@ stages:
     UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
     VM_TYPE: ${{ parameters.VM_TYPE }}
     SKIP_POSTUPGRADE_ACTIONS: ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }}
+    SKIP_BGP_NEIGHBOR: ${{ parameters.SKIP_BGP_NEIGHBOR }}
     RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: ${{ parameters.RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER }}
     METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
     FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}

@@ -210,6 +210,7 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
     upgrade_type = REBOOT_TYPE_COLD
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
+    skip_bgp_neighbor = request.config.getoption('skip_bgp_neighbor')
 
     # Boot whole chassis into base image first
     for duthost in duthosts:
@@ -222,7 +223,7 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
 
     def upgrade_path_postboot_setup(dut):
         run_postupgrade_actions(dut, localhost, tbinfo, metadata_process, skip_postupgrade_actions)
-        run_bgp_neighbor(dut, localhost, tbinfo, metadata_process)
+        run_bgp_neighbor(dut, localhost, tbinfo, metadata_process, skip_bgp_neighbor)
         patch_rsyslog(dut)
 
     suphost = duthosts.supervisor_nodes[0]

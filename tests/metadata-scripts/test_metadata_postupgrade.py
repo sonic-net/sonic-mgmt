@@ -31,4 +31,4 @@ def test_postupgrade_actions(duthosts, localhost, rand_one_dut_hostname, tbinfo)
 
 def test_bgp_neighbors(duthosts, localhost, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
-    run_bgp_neighbor(duthost, localhost, tbinfo, True)
+    run_bgp_neighbor(duthost, localhost, tbinfo, True, False)
