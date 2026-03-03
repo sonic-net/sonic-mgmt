@@ -103,11 +103,6 @@ def common_setup_teardown(
     yield
 
     config_reload(dpuhost, safe_reload=True, yang_validate=False)
-    # apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
 
 
 def test_ha_planned_shutdown(
@@ -211,6 +206,3 @@ def test_ha_planned_shutdown(
         "Packets lost during secondary shutdown, "
         f"send_count: {send_count}, match_count: {match_count}"
     )
-# pytest_assert(match_count == send_count,  # noqa: E122
-#                  "Packets lost during secondary shutdown, send_count: {}, match_count: {}".format(
-#                  send_count, match_count))
