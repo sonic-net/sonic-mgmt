@@ -48,7 +48,7 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
 
 
 @pytest.fixture(scope='module')
-def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, lower_tor_host):   # noqa: F811
+def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, lower_tor_host, request):   # noqa: F811
     """
     Setup:      Collecting vm_host_info, ptfhost_info
     Teardown:   Removing all added ipv4 and ipv6 neighbors
@@ -65,6 +65,8 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
 
     py_assert(vm_name is not None, "Can't get neighbor vm")
 
+    neighbor_type = request.config.getoption("--neighbor_type")
+
     # Determine which interface to use
     if topo_type == "mx":
         interface_name = 'Ethernet1'
@@ -72,10 +74,10 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
     else:
         if 'Port-Channel1' in vm_info['conf']['interfaces']:
             interface_name = 'Port-Channel1'
-            dev_name = 'po1'
+            dev_name = 'PortChannel1' if neighbor_type == 'csonic' else 'po1'
         else:
             interface_name = 'Ethernet1'
-            dev_name = 'eth1'
+            dev_name = 'Ethernet0' if neighbor_type == 'csonic' else 'eth1'
         # in case of lower tor host we need to use the next portchannel
         if "dualtor-aa" in tbinfo["topo"]["name"] and rand_one_dut_hostname == lower_tor_host.hostname:
             interface_name = 'Port-Channel2'
