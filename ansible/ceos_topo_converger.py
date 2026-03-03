@@ -8,6 +8,7 @@ from copy import deepcopy
 from ipaddress import ip_address
 from typing import Dict, List, Union
 import yaml
+import sys
 
 CEOSLAB_INTF_LIMIT = 127  # 128, minus one for backplane interface
 BASE_VLAN_ID = 2000
@@ -162,6 +163,9 @@ class SonicTopoConverger:
                         continue
                     eth_intf = f"Ethernet{eth_intf_index}"
                     vrf[eth_intf] = deepcopy(peer_intfs[intf])
+                    # Update lacp channel-group to match the new Port-Channel index
+                    if "lacp" in vrf[eth_intf] and "Port-Channel1" in peer_intfs:
+                        vrf[eth_intf]["lacp"] = intf_index
                     orig_intf_map[intf] = eth_intf
                     eth_intf_index += 1
 
@@ -264,5 +268,15 @@ class SonicTopoConverger:
 def converge_testbed(input_file: str, output_file: str) -> None:
     with open(input_file, "r", encoding="utf-8") as in_file:
         topo = yaml.safe_load(in_file)
+    if topo.get("topo_is_multi_vrf", False):
+        print("Topology already converged, skipping convergence.")
+        return
     converger = SonicTopoConverger(topo, output_file)
     converger.run()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print("Usage: python -m ceos_topo_converger <input_topo> <output_topo>")
+        sys.exit(1)
+    converge_testbed(sys.argv[1], sys.argv[2])
