@@ -652,6 +652,8 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'
         ftp_client.put('../sonic-mgmt/ansible/module_utils/port_utils.py','golden-code/sonic-test/sonic-mgmt/ansible/module_utils/port_utils.py')
     elif device_type == 'superbolt':
         ftp_client.put('../sonic-mgmt/ansible/module_utils/port_utils.py','golden-code/sonic-test/sonic-mgmt/ansible/module_utils/port_utils.py')
+    elif device_type == 'titan':
+        ftp_client.put('../sonic-mgmt/ansible/module_utils/port_utils.py','golden-code/sonic-test/sonic-mgmt/ansible/module_utils/port_utils.py')
     elif device_type == 'dualtor_mth64':
         ftp_client.put('lab_connection_graph_dualtor_mth64.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
     elif device_type == 'churchill-mono':

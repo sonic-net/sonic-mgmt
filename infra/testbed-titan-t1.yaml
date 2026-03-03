@@ -51,15 +51,15 @@ devices:
   str-acs-serv-01:
     alias: null
     ansible:
-      ansible_become_pass: cisco123
+      ansible_become_pass: password
       ansible_host: 172.17.0.1/23
-      ansible_ssh_pass: cisco123
+      ansible_ssh_pass: password
       ansible_ssh_user: vxr
-      sonicadmin_initial_password: cisco123
-      sonicadmin_password: cisco123
-      sonicadmin_user: cisco
+      sonicadmin_initial_password: password
+      sonicadmin_password: password
+      sonicadmin_user: admin
     credentials:
-      password: cisco123
+      password: password
       username: vxr
     device_type: server
     hwsku: TestServ

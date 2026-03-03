@@ -120,6 +120,9 @@ FWD:
         - ip/test_ip_packet.py
         - ipfwd/test_dip_sip.py
         - ipfwd/test_dir_bcast.py
+    titan:
+      sim:
+        - acl/test_acl.py
   t1-64-lag:
     mth64:
       hw:

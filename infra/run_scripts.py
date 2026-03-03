@@ -37,7 +37,8 @@ DEVICE_TYPE_TO_DUT_NAME_MAP = {
     'siren':            'siren-01',
     'crocodile':        'crocodile-01',
     'mustang':          'mustang-01',
-    'mth64':            'mathilda-01'
+    'mth64':            'mathilda-01',
+    'titan':            'titan-01'
 }
 
 def _create_parser():
