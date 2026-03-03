@@ -788,7 +788,7 @@
   ptf_image_name: docker-keysight-api-server
   ptf_imagetag: 10.25.2405.106
   ptf: vms69-ixia-2
-  ptf_ip: 10.64.247.111/26
+  ptf_ip: 10.64.246.127/26
   ptf_ipv6:
   server: server_69
   vm_base:
@@ -806,7 +806,7 @@
   ptf_image_name: docker-keysight-api-server
   ptf_imagetag: 10.25.2405.106
   ptf: vms69-ixia-2
-  ptf_ip: 10.64.247.111/26
+  ptf_ip: 10.64.247.127/26
   ptf_ipv6:
   server: server_69
   vm_base:
