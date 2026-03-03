@@ -60,7 +60,7 @@ def simulate_small_var_log_partition(rand_selected_dut, localhost):
         duthost.shell('sudo mkfs.ext4 /dev/loop2')
         duthost.shell('sudo mount /dev/loop2 /var/log')
 
-        config_reload(duthost, safe_reload=True)
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         logger.info('Start logrotate-config service')
         duthost.shell('sudo service logrotate-config restart')
