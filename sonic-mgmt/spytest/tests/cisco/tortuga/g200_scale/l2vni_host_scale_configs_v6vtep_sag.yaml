@@ -1,0 +1,484 @@
+spine1:
+    sonic:
+      config: |
+        sudo config interface ipv6 enable use-link-local-only D1D2P1
+        sudo config interface ipv6 enable use-link-local-only D1D3P1
+        sudo config loopback add Loopback0
+        sudo config interface ip add Loopback0 1001:1::1/128
+        sudo config interface startup Loopback0
+        sudo config interface startup D1D2P1
+        sudo config interface startup D1D3P1
+      deconfig: |
+      
+    bgp:
+      config: |
+        router bgp 65100
+        bgp router-id 10.200.200.100
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        #neighbor TRANSIT bfd
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor D1D2P1 interface peer-group TRANSIT
+        neighbor D1D3P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+      deconfig: |
+        no router bgp 65100
+
+leaf0:
+    sonic:
+      config: |
+        sudo counterpoll tunnel enable
+        sudo config interface ipv6 enable use-link-local-only D2D1P1
+        sudo config interface startup D2D1P1
+        sudo config loopback add Loopback0
+        sudo config interface ip add Loopback0 2001:1::1/128
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:55
+        sudo config vxlan add VXLAN 2001:1::1
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vlan add 501
+        sudo config vlan add 502
+        sudo config vlan add 503
+        sudo config vlan add 504
+        sudo config vlan add 505
+        sudo config vlan add 506
+        sudo config vlan add 507
+        sudo config vlan add 508
+        sudo config vlan add 509
+        sudo config vlan add 510
+        sudo config vlan add 511
+        sudo config vlan add 512
+        sudo config vlan add 513
+        sudo config vlan add 514
+        sudo config vlan add 515
+        sudo config vlan add 516
+        sudo config vxlan map add VXLAN 501 5501
+        sudo config vxlan map add VXLAN 502 5502
+        sudo config vxlan map add VXLAN 503 5503
+        sudo config vxlan map add VXLAN 504 5504
+        sudo config vxlan map add VXLAN 505 5505
+        sudo config vxlan map add VXLAN 506 5506
+        sudo config vxlan map add VXLAN 507 5507
+        sudo config vxlan map add VXLAN 508 5508
+        sudo config vxlan map add VXLAN 509 5509
+        sudo config vxlan map add VXLAN 510 5510
+        sudo config vxlan map add VXLAN 511 5511
+        sudo config vxlan map add VXLAN 512 5512
+        sudo config vxlan map add VXLAN 513 5513
+        sudo config vxlan map add VXLAN 514 5514
+        sudo config vxlan map add VXLAN 515 5515
+        sudo config vxlan map add VXLAN 516 5516
+      
+        sudo config vlan member add 501 D2T1P1
+        sudo config vlan member add 502 D2T1P1
+        sudo config vlan member add 503 D2T1P1
+        sudo config vlan member add 504 D2T1P1
+        sudo config vlan member add 505 D2T1P1
+        sudo config vlan member add 506 D2T1P1
+        sudo config vlan member add 507 D2T1P1
+        sudo config vlan member add 508 D2T1P1
+        sudo config vlan member add 509 D2T1P1
+        sudo config vlan member add 510 D2T1P1
+        sudo config vlan member add 511 D2T1P1
+        sudo config vlan member add 512 D2T1P1
+        sudo config vlan member add 513 D2T1P1
+        sudo config vlan member add 514 D2T1P1
+        sudo config vlan member add 515 D2T1P1
+        sudo config vlan member add 516 D2T1P1
+
+        sudo config interface ip add Vlan501 2.1.100.1/20
+        sudo config interface ip add Vlan502 3.1.100.1/20
+        sudo config interface ip add Vlan503 4.1.100.1/20
+        sudo config interface ip add Vlan504 5.1.100.1/20
+        sudo config interface ip add Vlan505 6.1.100.1/20
+        sudo config interface ip add Vlan506 7.1.100.1/20
+        sudo config interface ip add Vlan507 8.1.100.1/20
+        sudo config interface ip add Vlan508 9.1.100.1/20
+        sudo config interface ip add Vlan509 10.1.100.1/20
+        sudo config interface ip add Vlan510 11.1.100.1/20
+        sudo config interface ip add Vlan511 12.1.100.1/20
+        sudo config interface ip add Vlan512 13.1.100.1/20
+        sudo config interface ip add Vlan513 14.1.100.1/20
+        sudo config interface ip add Vlan514 15.1.100.1/20
+        sudo config interface ip add Vlan515 16.1.100.1/20
+        sudo config interface ip add Vlan516 17.1.100.1/20
+
+
+        sudo config vlan static-anycast-gateway enable 501
+        sudo config vlan static-anycast-gateway enable 502
+        sudo config vlan static-anycast-gateway enable 503
+        sudo config vlan static-anycast-gateway enable 504
+        sudo config vlan static-anycast-gateway enable 505
+        sudo config vlan static-anycast-gateway enable 506
+        sudo config vlan static-anycast-gateway enable 507
+        sudo config vlan static-anycast-gateway enable 508
+        sudo config vlan static-anycast-gateway enable 509
+        sudo config vlan static-anycast-gateway enable 510
+        sudo config vlan static-anycast-gateway enable 511
+        sudo config vlan static-anycast-gateway enable 512
+        sudo config vlan static-anycast-gateway enable 513
+        sudo config vlan static-anycast-gateway enable 514
+        sudo config vlan static-anycast-gateway enable 515
+        sudo config vlan static-anycast-gateway enable 516
+
+      deconfig: |
+        sudo config vlan static-anycast-gateway disable 501
+        sudo config vlan static-anycast-gateway disable 502
+        sudo config vlan static-anycast-gateway disable 503
+        sudo config vlan static-anycast-gateway disable 504
+        sudo config vlan static-anycast-gateway disable 505
+        sudo config vlan static-anycast-gateway disable 506
+        sudo config vlan static-anycast-gateway disable 507
+        sudo config vlan static-anycast-gateway disable 508
+        sudo config vlan static-anycast-gateway disable 509
+        sudo config vlan static-anycast-gateway disable 510
+        sudo config vlan static-anycast-gateway disable 511
+        sudo config vlan static-anycast-gateway disable 512
+        sudo config vlan static-anycast-gateway disable 513
+        sudo config vlan static-anycast-gateway disable 514
+        sudo config vlan static-anycast-gateway disable 515
+        sudo config vlan static-anycast-gateway disable 516
+        sudo config static-anycast-gateway mac_address del
+
+        sudo config interface ip rem Vlan501 2.1.100.1/20
+        sudo config interface ip rem Vlan502 3.1.100.1/20
+        sudo config interface ip rem Vlan503 4.1.100.1/20
+        sudo config interface ip rem Vlan504 5.1.100.1/20
+        sudo config interface ip rem Vlan505 6.1.100.1/20
+        sudo config interface ip rem Vlan506 7.1.100.1/20
+        sudo config interface ip rem Vlan507 8.1.100.1/20
+        sudo config interface ip rem Vlan508 9.1.100.1/20
+        sudo config interface ip rem Vlan509 10.1.100.1/20
+        sudo config interface ip rem Vlan510 11.1.100.1/20
+        sudo config interface ip rem Vlan511 12.1.100.1/20
+        sudo config interface ip rem Vlan512 13.1.100.1/20
+        sudo config interface ip rem Vlan513 14.1.100.1/20
+        sudo config interface ip rem Vlan514 15.1.100.1/20
+        sudo config interface ip rem Vlan515 16.1.100.1/20
+        sudo config interface ip rem Vlan516 17.1.100.1/20
+
+
+        sudo config vxlan map del VXLAN 501 5501
+        sudo config vxlan map del VXLAN 502 5502
+        sudo config vxlan map del VXLAN 503 5503
+        sudo config vxlan map del VXLAN 504 5504
+        sudo config vxlan map del VXLAN 505 5505
+        sudo config vxlan map del VXLAN 506 5506
+        sudo config vxlan map del VXLAN 507 5507
+        sudo config vxlan map del VXLAN 508 5508
+        sudo config vxlan map del VXLAN 509 5509
+        sudo config vxlan map del VXLAN 510 5510
+        sudo config vxlan map del VXLAN 511 5511
+        sudo config vxlan map del VXLAN 512 5512
+        sudo config vxlan map del VXLAN 513 5513
+        sudo config vxlan map del VXLAN 514 5514
+        sudo config vxlan map del VXLAN 515 5515
+        sudo config vxlan map del VXLAN 516 5516
+        sudo config vxlan evpn_nvo del NVO
+        sudo config vxlan del VXLAN
+        sudo config vlan member del 501 D2T1P1
+        sudo config vlan member del 502 D2T1P1
+        sudo config vlan member del 503 D2T1P1
+        sudo config vlan member del 504 D2T1P1
+        sudo config vlan member del 505 D2T1P1
+        sudo config vlan member del 506 D2T1P1
+        sudo config vlan member del 507 D2T1P1
+        sudo config vlan member del 508 D2T1P1
+        sudo config vlan member del 509 D2T1P1
+        sudo config vlan member del 510 D2T1P1
+        sudo config vlan member del 511 D2T1P1
+        sudo config vlan member del 512 D2T1P1
+        sudo config vlan member del 513 D2T1P1
+        sudo config vlan member del 514 D2T1P1
+        sudo config vlan member del 515 D2T1P1
+        sudo config vlan member del 516 D2T1P1
+
+        sudo config vlan del 501
+        sudo config vlan del 502
+        sudo config vlan del 503
+        sudo config vlan del 504
+        sudo config vlan del 505
+        sudo config vlan del 506
+        sudo config vlan del 507
+        sudo config vlan del 508
+        sudo config vlan del 509
+        sudo config vlan del 510
+        sudo config vlan del 511
+        sudo config vlan del 512
+        sudo config vlan del 513
+        sudo config vlan del 514
+        sudo config vlan del 515
+        sudo config vlan del 516
+
+
+    bgp:
+      config: |
+        router bgp 65102
+        bgp router-id 10.200.200.200
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        #neighbor TRANSIT bfd
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor 2001:1::2 peer-group OVERLAY
+        neighbor D2D1P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+      deconfig: |
+        no router bgp 65102
+
+leaf1:
+    sonic:
+      config: |
+        sudo counterpoll tunnel enable
+        sudo config interface ipv6 enable use-link-local-only D3D1P1
+        sudo config interface startup D3D1P1
+        sudo config loopback add Loopback0
+        sudo config interface ip add Loopback0 2001:1::2/128
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:55
+        sudo config vxlan add VXLAN 2001:1::2
+        sudo config vxlan evpn_nvo add NVO VXLAN
+         
+        sudo config vlan add 501
+        sudo config vlan add 502
+        sudo config vlan add 503    
+        sudo config vlan add 504
+        sudo config vlan add 505
+        sudo config vlan add 506
+        sudo config vlan add 507
+        sudo config vlan add 508
+        sudo config vlan add 509
+        sudo config vlan add 510
+        sudo config vlan add 511
+        sudo config vlan add 512
+        sudo config vlan add 513
+        sudo config vlan add 514
+        sudo config vlan add 515
+        sudo config vlan add 516
+        
+        sudo config vxlan map add VXLAN 501 5501
+        sudo config vxlan map add VXLAN 502 5502
+        sudo config vxlan map add VXLAN 503 5503
+        sudo config vxlan map add VXLAN 504 5504
+        sudo config vxlan map add VXLAN 505 5505
+        sudo config vxlan map add VXLAN 506 5506
+        sudo config vxlan map add VXLAN 507 5507
+        sudo config vxlan map add VXLAN 508 5508
+        sudo config vxlan map add VXLAN 509 5509
+        sudo config vxlan map add VXLAN 510 5510
+        sudo config vxlan map add VXLAN 511 5511
+        sudo config vxlan map add VXLAN 512 5512
+        sudo config vxlan map add VXLAN 513 5513
+        sudo config vxlan map add VXLAN 514 5514
+        sudo config vxlan map add VXLAN 515 5515
+        sudo config vxlan map add VXLAN 516 5516
+        
+        sudo config vlan member add 501 D3T1P2
+        sudo config vlan member add 502 D3T1P2
+        sudo config vlan member add 503 D3T1P2
+        sudo config vlan member add 504 D3T1P2
+        sudo config vlan member add 505 D3T1P2
+        sudo config vlan member add 506 D3T1P2
+        sudo config vlan member add 507 D3T1P2
+        sudo config vlan member add 508 D3T1P2
+        sudo config vlan member add 509 D3T1P2
+        sudo config vlan member add 510 D3T1P2
+        sudo config vlan member add 511 D3T1P2
+        sudo config vlan member add 512 D3T1P2
+        sudo config vlan member add 513 D3T1P2
+        sudo config vlan member add 514 D3T1P2
+        sudo config vlan member add 515 D3T1P2
+        sudo config vlan member add 516 D3T1P2
+
+        sudo config interface ip add Vlan501 2.1.100.1/20
+        sudo config interface ip add Vlan502 3.1.100.1/20
+        sudo config interface ip add Vlan503 4.1.100.1/20
+        sudo config interface ip add Vlan504 5.1.100.1/20
+        sudo config interface ip add Vlan505 6.1.100.1/20
+        sudo config interface ip add Vlan506 7.1.100.1/20
+        sudo config interface ip add Vlan507 8.1.100.1/20
+        sudo config interface ip add Vlan508 9.1.100.1/20
+        sudo config interface ip add Vlan509 10.1.100.1/20
+        sudo config interface ip add Vlan510 11.1.100.1/20
+        sudo config interface ip add Vlan511 12.1.100.1/20
+        sudo config interface ip add Vlan512 13.1.100.1/20
+        sudo config interface ip add Vlan513 14.1.100.1/20
+        sudo config interface ip add Vlan514 15.1.100.1/20
+        sudo config interface ip add Vlan515 16.1.100.1/20
+        sudo config interface ip add Vlan516 17.1.100.1/20
+
+
+        sudo config vlan static-anycast-gateway enable 501
+        sudo config vlan static-anycast-gateway enable 502
+        sudo config vlan static-anycast-gateway enable 503
+        sudo config vlan static-anycast-gateway enable 504
+        sudo config vlan static-anycast-gateway enable 505
+        sudo config vlan static-anycast-gateway enable 506
+        sudo config vlan static-anycast-gateway enable 507
+        sudo config vlan static-anycast-gateway enable 508
+        sudo config vlan static-anycast-gateway enable 509
+        sudo config vlan static-anycast-gateway enable 510
+        sudo config vlan static-anycast-gateway enable 511
+        sudo config vlan static-anycast-gateway enable 512
+        sudo config vlan static-anycast-gateway enable 513
+        sudo config vlan static-anycast-gateway enable 514
+        sudo config vlan static-anycast-gateway enable 515
+        sudo config vlan static-anycast-gateway enable 516
+
+ 
+      deconfig: |
+
+        sudo config vlan static-anycast-gateway disable 501
+        sudo config vlan static-anycast-gateway disable 502
+        sudo config vlan static-anycast-gateway disable 503
+        sudo config vlan static-anycast-gateway disable 504
+        sudo config vlan static-anycast-gateway disable 505
+        sudo config vlan static-anycast-gateway disable 506
+        sudo config vlan static-anycast-gateway disable 507
+        sudo config vlan static-anycast-gateway disable 508
+        sudo config vlan static-anycast-gateway disable 509
+        sudo config vlan static-anycast-gateway disable 510
+        sudo config vlan static-anycast-gateway disable 511
+        sudo config vlan static-anycast-gateway disable 512
+        sudo config vlan static-anycast-gateway disable 513
+        sudo config vlan static-anycast-gateway disable 514
+        sudo config vlan static-anycast-gateway disable 515
+        sudo config vlan static-anycast-gateway disable 516
+        sudo config static-anycast-gateway mac_address del
+
+
+        sudo config interface ip rem Vlan501 2.1.100.1/20
+        sudo config interface ip rem Vlan502 3.1.100.1/20
+        sudo config interface ip rem Vlan503 4.1.100.1/20
+        sudo config interface ip rem Vlan504 5.1.100.1/20
+        sudo config interface ip rem Vlan505 6.1.100.1/20
+        sudo config interface ip rem Vlan506 7.1.100.1/20
+        sudo config interface ip rem Vlan507 8.1.100.1/20
+        sudo config interface ip rem Vlan508 9.1.100.1/20
+        sudo config interface ip rem Vlan509 10.1.100.1/20
+        sudo config interface ip rem Vlan510 11.1.100.1/20
+        sudo config interface ip rem Vlan511 12.1.100.1/20
+        sudo config interface ip rem Vlan512 13.1.100.1/20
+        sudo config interface ip rem Vlan513 14.1.100.1/20
+        sudo config interface ip rem Vlan514 15.1.100.1/20
+        sudo config interface ip rem Vlan515 16.1.100.1/20
+        sudo config interface ip rem Vlan516 17.1.100.1/20
+
+
+        sudo config vxlan map del VXLAN 501 5501
+        sudo config vxlan map del VXLAN 502 5502
+        sudo config vxlan map del VXLAN 503 5503
+        sudo config vxlan map del VXLAN 504 5504
+        sudo config vxlan map del VXLAN 505 5505
+        sudo config vxlan map del VXLAN 506 5506
+        sudo config vxlan map del VXLAN 507 5507
+        sudo config vxlan map del VXLAN 508 5508
+        sudo config vxlan map del VXLAN 509 5509
+        sudo config vxlan map del VXLAN 510 5510
+        sudo config vxlan map del VXLAN 511 5511
+        sudo config vxlan map del VXLAN 512 5512
+        sudo config vxlan map del VXLAN 513 5513
+        sudo config vxlan map del VXLAN 514 5514
+        sudo config vxlan map del VXLAN 515 5515
+        sudo config vxlan map del VXLAN 516 5516
+        sudo config vxlan evpn_nvo del NVO
+        sudo config vxlan del VXLAN
+        sudo config vlan member del 501 D3T1P2
+        sudo config vlan member del 502 D3T1P2
+        sudo config vlan member del 503 D3T1P2
+        sudo config vlan member del 504 D3T1P2
+        sudo config vlan member del 505 D3T1P2
+        sudo config vlan member del 506 D3T1P2
+        sudo config vlan member del 507 D3T1P2
+        sudo config vlan member del 508 D3T1P2
+        sudo config vlan member del 509 D3T1P2
+        sudo config vlan member del 510 D3T1P2
+        sudo config vlan member del 511 D3T1P2
+        sudo config vlan member del 512 D3T1P2
+        sudo config vlan member del 513 D3T1P2
+        sudo config vlan member del 514 D3T1P2
+        sudo config vlan member del 515 D3T1P2
+        sudo config vlan member del 516 D3T1P2
+
+        sudo config vlan del 501
+        sudo config vlan del 502
+        sudo config vlan del 503
+        sudo config vlan del 504
+        sudo config vlan del 505
+        sudo config vlan del 506
+        sudo config vlan del 507
+        sudo config vlan del 508
+        sudo config vlan del 509
+        sudo config vlan del 510
+        sudo config vlan del 511
+        sudo config vlan del 512
+        sudo config vlan del 513
+        sudo config vlan del 514
+        sudo config vlan del 515
+        sudo config vlan del 516
+    
+    bgp:
+      config: |
+        router bgp 65103
+        bgp router-id 10.200.200.201
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        #neighbor TRANSIT bfd
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor 2001:1::1 peer-group OVERLAY
+        neighbor D3D1P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+      deconfig: |
+        no router bgp 65103

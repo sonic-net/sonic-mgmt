@@ -1,0 +1,222 @@
+spine1:
+    sonic:
+      config: |
+        sudo config interface ipv6 enable use-link-local-only D1D2P1
+        sudo config interface ipv6 enable use-link-local-only D1D3P1
+        sudo config loopback add Loopback0
+        sudo config interface ip add Loopback0 10.200.200.100/32
+        sudo config interface startup Loopback0
+        sudo config interface startup D1D2P1
+        sudo config interface startup D1D3P1
+      deconfig: |
+    bgp:
+      config: |
+        router bgp 65100
+        bgp router-id 10.200.200.100
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        #neighbor TRANSIT bfd
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor D1D2P1 interface peer-group TRANSIT
+        neighbor D1D3P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+      deconfig: |
+        no router bgp 65100
+leaf0:
+  sonic:
+    config: |
+      sudo counterpoll tunnel enable
+      sudo config interface ipv6 enable use-link-local-only D2D1P1
+      sudo config interface startup D2D1P1
+      sudo config loopback add Loopback0
+      sudo config interface ip add Loopback0 10.200.200.200/32
+      sudo config vxlan add VXLAN 10.200.200.200
+      sudo config vxlan evpn_nvo add NVO VXLAN
+      sudo config vlan add 2
+      sudo config vxlan map add VXLAN 2 5002
+      sudo config vlan member add  2 D2T1P1
+      sudo config vlan add 1221
+      sudo config vrf add Vrf1221
+      sudo config interface vrf bind Vlan1221 Vrf1221
+      sudo config interface vrf bind Vlan2 Vrf1221
+      sudo config vxlan map add VXLAN 1221 5221
+      sudo config vrf add_vrf_vni_map Vrf1221 5221
+      sudo config interface ip add Vlan2 2:1:100::1/64
+    deconfig: |
+      sudo config vrf del_vrf_vni_map Vrf1221
+      sudo config vxlan map del VXLAN 1221 5221
+      sudo config vxlan map del VXLAN 2 5002
+      sudo config interface vrf unbind Vlan2
+      sudo config interface vrf unbind Vlan1221
+      sudo config vrf del Vrf1221
+      sudo config vlan del 1221
+      sudo config vxlan evpn_nvo del NVO
+      sudo config vxlan del VXLAN
+      sudo config vlan member del 2 D2T1P1
+      sudo config vlan del 2
+  bgp:
+    config: |
+      router bgp 65102
+      bgp router-id 10.200.200.200
+      no bgp ebgp-requires-policy
+      no bgp default ipv4-unicast
+      bgp disable-ebgp-connected-route-check
+      bgp bestpath as-path multipath-relax
+      neighbor OVERLAY peer-group
+      neighbor OVERLAY remote-as external
+      neighbor OVERLAY disable-connected-check
+      neighbor OVERLAY ebgp-multihop 255
+      neighbor OVERLAY update-source Loopback0
+      neighbor TRANSIT peer-group
+      #neighbor TRANSIT bfd
+      neighbor TRANSIT remote-as external
+      neighbor TRANSIT ebgp-multihop 1
+      neighbor 10.200.200.201  peer-group OVERLAY
+      neighbor D2D1P1 interface peer-group TRANSIT
+      address-family ipv4 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      address-family ipv6 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      address-family l2vpn evpn
+      neighbor OVERLAY activate
+      advertise-all-vni
+      advertise ipv4 unicast
+      advertise ipv6 unicast
+      exit-address-family
+      exit
+      router bgp 65102 vrf Vrf1221
+      address-family ipv4 unicast
+      redistribute connected
+      exit-address-family
+      router bgp 65102 vrf Vrf1221
+      address-family ipv6 unicast
+      redistribute connected
+      exit-address-family
+      address-family l2vpn evpn
+      advertise ipv4 unicast
+      advertise ipv6 unicast
+      exit-address-family
+      exit
+      vrf Vrf1221
+      vni 5221
+      exit
+      exit
+    deconfig: |
+      vrf Vrf1221
+      no vni 5221
+      exit
+      no router bgp 65102 vrf Vrf1221
+      no router bgp 65102
+      exit
+leaf1:
+  sonic:
+    config: |
+      sudo counterpoll tunnel enable
+      sudo config interface ipv6 enable use-link-local-only D3D1P1
+      sudo config interface startup D3D1P1
+      sudo config loopback add Loopback0
+      sudo config interface ip add Loopback0 10.200.200.201/32
+      sudo config vxlan add VXLAN 10.200.200.201
+      sudo config vxlan evpn_nvo add NVO VXLAN
+      sudo config vlan add 2
+      sudo config vxlan map add VXLAN 2 5002
+      sudo config vlan add 402
+      sudo config vxlan map add VXLAN 402 5402
+      sudo config vlan member add  402 D3T1P2
+      sudo config vlan add 1221
+      sudo config vrf add Vrf1221
+      sudo config interface vrf bind Vlan402 Vrf1221
+      sudo config interface vrf bind Vlan1221 Vrf1221
+
+      sudo config vxlan map add VXLAN 1221 5221
+      sudo config vrf add_vrf_vni_map Vrf1221 5221
+      sudo config interface ip add Vlan402 2:2:100::1/64
+    deconfig: |
+      sudo config vrf del_vrf_vni_map Vrf1221
+      sudo config vxlan map del VXLAN 1221 5221
+      sudo config vxlan map del VXLAN 402 5402
+      sudo config interface vrf unbind Vlan402
+      sudo config vxlan map del VXLAN 2 5002
+      sudo config interface vrf unbind Vlan2      
+      sudo config interface vrf unbind Vlan1221
+      sudo config vrf del Vrf1221
+      sudo config vlan del 1221
+      sudo config vxlan evpn_nvo del NVO
+      sudo config vxlan del VXLAN
+      sudo config vlan member del 402 D3T1P2
+      sudo config vlan del 402
+      sudo config vlan del 2
+  bgp:
+    config: |
+      router bgp 65103
+      bgp router-id 10.200.200.201
+      no bgp ebgp-requires-policy
+      no bgp default ipv4-unicast
+      bgp disable-ebgp-connected-route-check
+      bgp bestpath as-path multipath-relax
+      neighbor OVERLAY peer-group
+      neighbor OVERLAY remote-as external
+      neighbor OVERLAY disable-connected-check
+      neighbor OVERLAY ebgp-multihop 255
+      neighbor OVERLAY update-source Loopback0
+      neighbor TRANSIT peer-group
+      #neighbor TRANSIT bfd
+      neighbor TRANSIT remote-as external
+      neighbor TRANSIT ebgp-multihop 1
+      neighbor 10.200.200.200 peer-group OVERLAY
+      neighbor D3D1P1 interface peer-group TRANSIT
+      address-family ipv4 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      address-family ipv6 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      address-family l2vpn evpn
+      neighbor OVERLAY activate
+      advertise-all-vni
+      advertise ipv4 unicast
+      advertise ipv6 unicast
+      exit-address-family
+      exit
+      router bgp 65103 vrf Vrf1221
+      address-family ipv4 unicast
+      redistribute connected
+      exit-address-family
+      router bgp 65103 vrf Vrf1221
+      address-family ipv6 unicast
+      redistribute connected
+      exit-address-family
+      address-family l2vpn evpn
+      advertise ipv4 unicast
+      advertise ipv6 unicast
+      exit-address-family
+      exit
+      vrf Vrf1221
+      vni 5221
+      exit
+      exit
+    deconfig: |
+      vrf Vrf1221
+      no vni 5221
+      exit
+      no router bgp 65103 vrf Vrf1221
+      no router bgp 65103
+      exit
+
