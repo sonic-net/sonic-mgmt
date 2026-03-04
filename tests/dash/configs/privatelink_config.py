@@ -323,7 +323,8 @@ ROUTING_TYPE_VNET_CONFIG = {
         "items": [
             {
                 "action_name": "action1",
-                "action_type": ActionType.ACTION_TYPE_MAPROUTING,
+                "action_type": ActionType.ACTION_TYPE_STATICENCAP,
+                "encap_type": EncapType.ENCAP_TYPE_VXLAN,
             },
         ]
     }
