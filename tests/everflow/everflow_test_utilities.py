@@ -28,6 +28,8 @@ from tests.common.dualtor.dual_tor_common import mux_config              # noqa:
 from tests.common.helpers.sonic_db import AsicDbCli
 import json
 
+logger = logging.getLogger(__name__)
+
 # TODO: Add suport for CONFIGLET mode
 CONFIG_MODE_CLI = "cli"
 CONFIG_MODE_CONFIGLET = "configlet"
@@ -654,10 +656,11 @@ def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_sessi
     # Number of packets to send
     packet_count = {"iteration-1": 10, "iteration-2": 50, "iteration-3": 100}
     for iteration, count in list(packet_count.items()):
+        pkts_sent = 0
         clear_queue_counters(duthost, asic_ns)
         for i in range(1, count + 1):
             logging.info("Sending packet {} to DUT for {}".format(i, iteration))
-            self.send_and_check_mirror_packets(
+            pkts_sent += self.send_and_check_mirror_packets(
                 setup,
                 mirror_session,
                 ptfadapter,
@@ -675,7 +678,7 @@ def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_sessi
         # Make sure mirrored packets are sent via specific queue configured
         for q in range(1, 8):
             if str(q) == queue:
-                assert wait_until(30, 1, 0, check_queue_counters, duthost, asic_ns, recircle_port, q, count), \
+                assert wait_until(30, 1, 0, check_queue_counters, duthost, asic_ns, recircle_port, q, pkts_sent), \
                     "Recircle port {} queue{} counter value is not same as packets sent".format(recircle_port, q)
             else:
                 assert (get_queue_counters(duthost, asic_ns, recircle_port, q) == 0)
@@ -726,7 +729,7 @@ class BaseEverflowTest(object):
         return duthost_set
 
     @pytest.fixture(scope="class")
-    def setup_mirror_session(self, config_method, setup_info, erspan_ip_ver):
+    def setup_mirror_session(self, config_method, setup_info, erspan_ip_ver, everflow_capabilities):
         """
         Set up a mirror session for Everflow.
 
@@ -743,7 +746,31 @@ class BaseEverflowTest(object):
         for duthost in duthost_set:
             if not session_info:
                 session_info = BaseEverflowTest.mirror_session_info("test_session_1", duthost.facts["asic_type"])
-            BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, erspan_ip_ver=erspan_ip_ver)
+            # Skip IPv6 mirror session due to issue #19096
+            if duthost.facts['platform'] in ('x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s') and erspan_ip_ver == 6: # noqa E501
+                pytest.skip("Skip IPv6 mirror session on unsupported platforms")
+
+            # Skip if the ASIC does not support bidirectional port mirroring (issue #22661).
+            # The CLI defaults to direction='both' when no direction is specified,
+            # which requires both PORT_INGRESS_MIRROR_CAPABLE and PORT_EGRESS_MIRROR_CAPABLE.
+            # Default to "false" when keys are absent — this matches the CLI behavior in
+            # sonic-utilities (config/main.py is_port_mirror_capability_supported) which
+            # reads STATE_DB directly and rejects when keys are missing.
+            if config_method == CONFIG_MODE_CLI:
+                switch_caps = everflow_capabilities.get(duthost.hostname, {})
+                ingress_capable = switch_caps.get("PORT_INGRESS_MIRROR_CAPABLE", "false")
+                egress_capable = switch_caps.get("PORT_EGRESS_MIRROR_CAPABLE", "false")
+                mirror_type = self.mirror_type()
+                if mirror_type == "ingress" and ingress_capable != "true":
+                    pytest.skip("ASIC does not support ingress port mirroring")
+                elif mirror_type == "egress" and egress_capable != "true":
+                    pytest.skip("ASIC does not support egress port mirroring")
+                elif mirror_type == "both" and (ingress_capable != "true" or egress_capable != "true"):
+                    pytest.skip("ASIC does not support bidirectional port mirroring")
+
+            BaseEverflowTest.apply_mirror_config(
+                duthost, session_info, config_method,
+                erspan_ip_ver=erspan_ip_ver, direction=self.mirror_type())
 
         yield session_info
 
@@ -751,7 +778,7 @@ class BaseEverflowTest(object):
             BaseEverflowTest.remove_mirror_config(duthost, session_info["session_name"], config_method)
 
     @pytest.fixture(scope="class")
-    def policer_mirror_session(self, config_method, setup_info, erspan_ip_ver):
+    def policer_mirror_session(self, config_method, setup_info, erspan_ip_ver, everflow_capabilities):
         """
         Set up a mirror session with a policer for Everflow.
 
@@ -770,10 +797,24 @@ class BaseEverflowTest(object):
         for duthost in duthost_set:
             if not session_info:
                 session_info = BaseEverflowTest.mirror_session_info("TEST_POLICER_SESSION", duthost.facts["asic_type"])
+
+            # Skip if the ASIC does not support bidirectional port mirroring (issue #22661).
+            if config_method == CONFIG_MODE_CLI:
+                switch_caps = everflow_capabilities.get(duthost.hostname, {})
+                ingress_capable = switch_caps.get("PORT_INGRESS_MIRROR_CAPABLE", "false")
+                egress_capable = switch_caps.get("PORT_EGRESS_MIRROR_CAPABLE", "false")
+                mirror_type = self.mirror_type()
+                if mirror_type == "ingress" and ingress_capable != "true":
+                    pytest.skip("ASIC does not support ingress port mirroring")
+                elif mirror_type == "egress" and egress_capable != "true":
+                    pytest.skip("ASIC does not support egress port mirroring")
+                elif mirror_type == "both" and (ingress_capable != "true" or egress_capable != "true"):
+                    pytest.skip("ASIC does not support bidirectional port mirroring")
+
             # Create a policer that allows 100 packets/sec through
             self.apply_policer_config(duthost, policer, config_method)
             BaseEverflowTest.apply_mirror_config(duthost, session_info, config_method, policer=policer,
-                                                 erspan_ip_ver=erspan_ip_ver)
+                                                 erspan_ip_ver=erspan_ip_ver, direction=self.mirror_type())
 
         yield session_info
 
@@ -783,47 +824,122 @@ class BaseEverflowTest(object):
             self.remove_policer_config(duthost, policer, config_method)
 
     @staticmethod
-    def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None,
-                            erspan_ip_ver=4, queue_num=None):
-        commands_list = list()
-        if config_method == CONFIG_MODE_CLI:
-            if erspan_ip_ver == 4:
-                command = f"config mirror_session add {session_info['session_name']} \
-                            {session_info['session_src_ip']} {session_info['session_dst_ip']} \
-                            {session_info['session_dscp']} {session_info['session_ttl']} \
-                            {session_info['session_gre']}"
-                if queue_num:
-                    command += f" {queue_num}"
-                if policer:
-                    command += f" --policer {policer}"
-                commands_list.append(command)
+    def _build_erspan_cli_command(session_info, queue_num=None,
+                                  direction=None, policer=None,
+                                  use_erspan_subcmd=False,
+                                  erspan_ip_ver=4):
+        """Build the CLI command string for adding an ERSPAN mirror session.
+
+        Args:
+            session_info: Mirror session parameters dict.
+            queue_num: Optional queue number.
+            direction: Optional mirror direction (ingress/egress/both).
+            policer: Optional policer name.
+            use_erspan_subcmd: If True, use 'config mirror_session erspan add'
+                (supports direction as positional arg). If False, use the
+                legacy 'config mirror_session add'.
+            erspan_ip_ver: IP version (4 or 6).
+
+        Returns:
+            str: The CLI command string.
+        """
+        src_ip = session_info['session_src_ip'] if erspan_ip_ver == 4 \
+            else session_info['session_src_ipv6']
+        dst_ip = session_info['session_dst_ip'] if erspan_ip_ver == 4 \
+            else session_info['session_dst_ipv6']
+
+        if use_erspan_subcmd:
+            # New syntax: config mirror_session erspan add <name> <src> <dst>
+            #     <dscp> <ttl> [gre_type] [queue] [src_port] [direction]
+            command = (
+                f"config mirror_session erspan add"
+                f" {session_info['session_name']}"
+                f" {src_ip} {dst_ip}"
+                f" {session_info['session_dscp']}"
+                f" {session_info['session_ttl']}"
+                f" {session_info['session_gre']}"
+            )
+            if queue_num:
+                command += f" {queue_num}"
             else:
-                for asic_index in duthost.get_frontend_asic_ids():
-                    # Adding IPv6 ERSPAN sessions for each asic, from the CLI is currently not supported.
-                    if asic_index is not None:
-                        command = f"sonic-db-cli -n asic{asic_index} "
-                    else:
-                        command = "sonic-db-cli "
-                    command += (
-                        f"CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' "
-                        f"'dscp' '{session_info['session_dscp']}' "
-                        f"'dst_ip' '{session_info['session_dst_ipv6']}' "
-                        f"'gre_type' '{session_info['session_gre']}' "
-                        f"'type' '{session_info['session_type']}' "
-                        f"'src_ip' '{session_info['session_src_ipv6']}' "
-                        f"'ttl' '{session_info['session_ttl']}'"
+                command += " ''"
+            # src_port placeholder (not used for ERSPAN without SPAN src)
+            command += " ''"
+            if direction:
+                command += f" {direction}"
+            if policer:
+                command += f" --policer {policer}"
+        else:
+            # Legacy syntax: config mirror_session add <name> <src> <dst>
+            #     <dscp> <ttl> [gre_type] [queue]
+            # No direction support in this command.
+            command = (
+                f"config mirror_session add"
+                f" {session_info['session_name']}"
+                f" {src_ip} {dst_ip}"
+                f" {session_info['session_dscp']}"
+                f" {session_info['session_ttl']}"
+                f" {session_info['session_gre']}"
+            )
+            if queue_num:
+                command += f" {queue_num}"
+            if policer:
+                command += f" --policer {policer}"
+        return command
+
+    @staticmethod
+    def apply_mirror_config(duthost, session_info, config_method=CONFIG_MODE_CLI, policer=None,
+                            erspan_ip_ver=4, queue_num=None, direction=None):
+        if config_method == CONFIG_MODE_CLI:
+            if direction:
+                # Try legacy command first (without direction since it
+                # does not support it), then fall back to erspan subcmd.
+                # sonic-utilities PR #4089 added capability checks but
+                # missed adding --direction to the legacy 'add' command
+                # (sonic-net/sonic-utilities#4318).
+                legacy_cmd = BaseEverflowTest._build_erspan_cli_command(
+                    session_info, queue_num=queue_num,
+                    policer=policer, use_erspan_subcmd=False,
+                    erspan_ip_ver=erspan_ip_ver
+                )
+                result = duthost.command(legacy_cmd, module_ignore_errors=True)
+                if result["rc"] != 0:
+                    logger.warning(
+                        "Legacy 'config mirror_session add' failed: %s. "
+                        "Trying 'config mirror_session erspan add' with "
+                        "direction=%s.",
+                        result.get("stderr", "").strip(), direction
                     )
-                    if queue_num:
-                        command += f" 'queue' {queue_num}"
-                    if policer:
-                        command += f" 'policer' {policer}"
-                    commands_list.append(command)
+                    erspan_cmd = BaseEverflowTest._build_erspan_cli_command(
+                        session_info, queue_num=queue_num,
+                        direction=direction, policer=policer,
+                        use_erspan_subcmd=True,
+                        erspan_ip_ver=erspan_ip_ver
+                    )
+                    result2 = duthost.command(
+                        erspan_cmd, module_ignore_errors=True
+                    )
+                    if result2["rc"] != 0:
+                        pytest.skip(
+                            "Cannot create mirror session: both "
+                            "legacy and erspan CLI commands failed. "
+                            "Legacy error: {}. ERSPAN error: {}. "
+                            "Image may not support directional "
+                            "mirroring.".format(
+                                result.get("stderr", "").strip(),
+                                result2.get("stderr", "").strip()
+                            )
+                        )
+            else:
+                command = BaseEverflowTest._build_erspan_cli_command(
+                    session_info, queue_num=queue_num,
+                    policer=policer, use_erspan_subcmd=False,
+                    erspan_ip_ver=erspan_ip_ver
+                )
+                duthost.command(command)
 
         elif config_method == CONFIG_MODE_CONFIGLET:
             pass
-
-        for command in commands_list:
-            duthost.command(command)
 
     @staticmethod
     def remove_mirror_config(duthost, session_name, config_method=CONFIG_MODE_CLI):
@@ -1043,8 +1159,15 @@ class BaseEverflowTest(object):
         for line in res[2:]:
             if len(line) < status_index:
                 continue
-            if line[status_index:] != 'Active':
-                return False
+            if duthost.is_multi_asic:
+                st = eval(line[status_index:])
+                namespace_list = duthost.get_asic_namespace_list()
+                for namespace in namespace_list:
+                    if st[namespace] != 'Active':
+                        return False
+            else:
+                if line[status_index:] != 'Active':
+                    return False
         return True
 
     def apply_non_openconfig_acl_rule(self, duthost, extra_vars, rule_file, table_name):
@@ -1061,10 +1184,15 @@ class BaseEverflowTest(object):
         duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
         duthost.file(path=dest_path, state='absent')
         duthost.template(src=os.path.join(FILE_DIR, rule_file), dest=dest_path)
-        duthost.shell("config load -y {}".format(dest_path))
+        dest_paths = dest_path
+        if duthost.is_multi_asic:
+            num_asics = duthost.facts['num_asic']
+            for num_asic in range(num_asics):
+                dest_paths = dest_paths + "," + dest_path
+        duthost.shell("config load -y {}".format(dest_paths))
 
-        if duthost.facts['asic_type'] != 'vs':
-            pytest_assert(wait_until(60, 2, 0, self.check_rule_active, duthost, table_name),
+        if duthost.facts['asic_type'] not in ['vs', 'broadcom']:
+            pytest_assert(wait_until(150, 2, 0, self.check_rule_active, duthost, table_name),
                           "Acl rule counters are not ready")
 
     def apply_ip_type_rule(self, duthost, ip_version):
@@ -1140,6 +1268,7 @@ class BaseEverflowTest(object):
                 src_port_metadata_map[dest_ports[0]] = (None, 2)
 
         # Loop through Source Port Set and send traffic on each source port of the set
+        num_pkts_sent = 0
         for src_port in src_port_set:
             expected_mirror_packet = BaseEverflowTest.get_expected_mirror_packet(mirror_session,
                                                                                  setup,
@@ -1154,6 +1283,7 @@ class BaseEverflowTest(object):
             if src_port_metadata_map[src_port][0]:
                 mirror_packet_sent[packet.Ether].dst = src_port_metadata_map[src_port][0]
             ptfadapter.dataplane.flush()
+            num_pkts_sent += 1
             testutils.send(ptfadapter, src_port, mirror_packet_sent)
 
             if expect_recv:
@@ -1164,7 +1294,7 @@ class BaseEverflowTest(object):
 
                 if isinstance(result, bool):
                     logging.info("Using dummy testutils to skip traffic test, skip following checks")
-                    return
+                    return num_pkts_sent
 
                 _, received_packet = result
                 logging.info("Received packet: %s", packet.Ether(received_packet).summary())
@@ -1213,6 +1343,8 @@ class BaseEverflowTest(object):
                               "Mirror payload does not match received packet")
             else:
                 testutils.verify_no_packet_any(ptfadapter, expected_mirror_packet, dest_ports)
+
+        return num_pkts_sent
 
     @staticmethod
     def copy_and_pad(pkt, asic_type, platform_asic, hwsku, multi_binding_acl=False):

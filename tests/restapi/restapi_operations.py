@@ -220,14 +220,17 @@ class Restapi:
             logger.error("Malformed URL for "+path+"!")
 
     # Basic operations
-    def heartbeat(self, construct_url):
+    def heartbeat(self, construct_url, assert_success=True):
         path = API_VERSION+"/state/heartbeat"
         url = construct_url(path)
         if url:
             r = self.request(GET, url)
-            pytest_assert(r.status_code == 200)
+            if assert_success:
+                pytest_assert(r.status_code == 200)
+            return r.status_code
         else:
             logger.error("Malformed URL for "+path+"!")
+            return -1
 
     def post_config_tunnel_decap(self, construct_url, params):
         path = API_VERSION+'/config/tunnel/decap/vxlan'
