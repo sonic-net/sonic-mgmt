@@ -8,6 +8,7 @@ logger = logging.getLogger(__name__)
 TGEN_AS_NUM = 65200
 DUT_AS_NUM = 65100
 TIMEOUT = 30
+WAIT_INTERVAL = 30
 BGP_TYPE = 'ebgp'
 temp_tg_port = dict()
 NG_LIST = []
@@ -114,7 +115,9 @@ def run_rib_in_convergence_test(snappi_api,
                                 iteration,
                                 multipath,
                                 number_of_routes,
-                                route_type,):
+                                route_type,
+                                timeout=None,
+                                skip_cleanup=None):
     """
     Run RIB-IN Convergence test
 
@@ -126,6 +129,7 @@ def run_rib_in_convergence_test(snappi_api,
         multipath: ecmp value for BGP config
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
+        timeout: optional timeout in seconds for convergence steps (default: TIMEOUT)
     """
     port_count = multipath+1
 
@@ -150,10 +154,12 @@ def run_rib_in_convergence_test(snappi_api,
                            iteration,
                            multipath,
                            number_of_routes,
-                           route_type,)
+                           route_type,
+                           timeout,)
 
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
+    if not skip_cleanup:
+        """ Cleanup the dut configs after getting the convergence numbers """
+        cleanup_config(duthost)
 
 
 def run_RIB_IN_capacity_test(snappi_api,
@@ -411,19 +417,104 @@ def __tgen_bgp_config(snappi_api,
             rx_flow_name.append(route_range.name)
         return rx_flow_name
 
+    def create_v4v6_topo():
+        """Create topology with 125k IPv4 and 125k IPv6 routes (250k total)."""
+        num_v4 = number_of_routes // 2
+        num_v6 = number_of_routes - num_v4
+        eth = config.devices[0].ethernets.add()
+        eth.connection.port_name = config.lags[0].name
+        eth.name = 'Ethernet 1'
+        eth.mac = "00:00:00:00:00:01"
+        ipv4 = eth.ipv4_addresses.add()
+        ipv4.name = 'IPv4 1'
+        ipv4.address = temp_tg_port[0]['ip']
+        ipv4.gateway = temp_tg_port[0]['peer_ip']
+        ipv4.prefix = int(temp_tg_port[0]['prefix'])
+        ipv6 = eth.ipv6_addresses.add()
+        ipv6.name = 'IPv6 1'
+        ipv6.address = temp_tg_port[0]['ipv6']
+        ipv6.gateway = temp_tg_port[0]['peer_ipv6']
+        ipv6.prefix = int(temp_tg_port[0]['ipv6_prefix'])
+        v4_rx_flow_name = [ipv4.name]
+        v6_rx_flow_name = [ipv6.name]
+        for i in range(2, port_count+1):
+            NG_LIST.append('Network_Group_v4_%s' % i)
+            if len(str(hex(i).split('0x')[1])) == 1:
+                m = '0'+hex(i).split('0x')[1]
+            else:
+                m = hex(i).split('0x')[1]
+            ethernet_stack = config.devices[i-1].ethernets.add()
+            ethernet_stack.connection.port_name = config.lags[i-1].name
+            ethernet_stack.name = 'Ethernet %d' % i
+            ethernet_stack.mac = "00:00:00:00:00:%s" % m
+            ipv4_stack = ethernet_stack.ipv4_addresses.add()
+            ipv4_stack.name = 'IPv4 %d' % i
+            ipv4_stack.address = temp_tg_port[i-1]['ip']
+            ipv4_stack.gateway = temp_tg_port[i-1]['peer_ip']
+            ipv4_stack.prefix = int(temp_tg_port[i-1]['prefix'])
+            ipv6_stack = ethernet_stack.ipv6_addresses.add()
+            ipv6_stack.name = 'IPv6 %d' % i
+            ipv6_stack.address = temp_tg_port[i-1]['ipv6']
+            ipv6_stack.gateway = temp_tg_port[i-1]['peer_ipv6']
+            ipv6_stack.prefix = int(temp_tg_port[i-1]['ipv6_prefix'])
+            bgpv4 = config.devices[i-1].bgp
+            bgpv4.router_id = temp_tg_port[i-1]['peer_ip']
+            bgpv4_int = bgpv4.ipv4_interfaces.add()
+            bgpv4_int.ipv4_name = ipv4_stack.name
+            bgpv4_peer = bgpv4_int.peers.add()
+            bgpv4_peer.name = 'BGP %d' % i
+            bgpv4_peer.as_type = BGP_TYPE
+            bgpv4_peer.peer_address = temp_tg_port[i-1]['peer_ip']
+            bgpv4_peer.as_number = int(TGEN_AS_NUM)
+            route_range_v4 = bgpv4_peer.v4_routes.add(name=NG_LIST[-1])
+            route_range_v4.addresses.add(
+                address='200.1.0.1', prefix=32, count=num_v4)
+            as_path_v4 = route_range_v4.as_path
+            as_path_segment_v4 = as_path_v4.segments.add()
+            as_path_segment_v4.type = as_path_segment_v4.AS_SEQ
+            as_path_segment_v4.as_numbers = aspaths
+            v4_rx_flow_name.append(route_range_v4.name)
+
+            NG_LIST.append('Network_Group_v6_%s' % i)
+            bgpv6 = config.devices[i-1].bgp
+            bgpv6_int = bgpv6.ipv6_interfaces.add()
+            bgpv6_int.ipv6_name = ipv6_stack.name
+            bgpv6_peer = bgpv6_int.peers.add()
+            bgpv6_peer.name = 'BGP+_%d' % i
+            bgpv6_peer.as_type = BGP_TYPE
+            bgpv6_peer.peer_address = temp_tg_port[i-1]['peer_ipv6']
+            bgpv6_peer.as_number = int(TGEN_AS_NUM)
+            route_range_v6 = bgpv6_peer.v6_routes.add(name=NG_LIST[-1])
+            route_range_v6.addresses.add(
+                address='3000::1', prefix=64, count=num_v6)
+            as_path_v6 = route_range_v6.as_path
+            as_path_segment_v6 = as_path_v6.segments.add()
+            as_path_segment_v6.type = as_path_segment_v6.AS_SEQ
+            as_path_segment_v6.as_numbers = aspaths
+            v6_rx_flow_name.append(route_range_v6.name)
+        return (v4_rx_flow_name, v6_rx_flow_name)
+
+    def createTrafficItem(traffic_name, src, dest, rate):
+        flow1 = config.flows.flow(name=str(traffic_name))[-1]
+        flow1.tx_rx.device.tx_names = [src]
+        flow1.tx_rx.device.rx_names = [dest]
+        flow1.size.fixed = 1024
+        flow1.rate.percentage = rate
+        flow1.metrics.enable = True
+        flow1.metrics.loss = True
+
     if route_type == 'IPv4':
         rx_flows = create_v4_topo()
-        flow = config.flows.flow(name='IPv4 Traffic')[-1]
+        createTrafficItem("IPv4 Traffic", rx_flows[0], rx_flows[1], 100)
     elif route_type == 'IPv6':
         rx_flows = create_v6_topo()
-        flow = config.flows.flow(name='IPv6 Traffic')[-1]
+        createTrafficItem("IPv6 Traffic", rx_flows[0], rx_flows[1], 100)
+    elif route_type == 'IPv4v6':
+        v4_rx_flows, v6_rx_flows = create_v4v6_topo()
+        createTrafficItem("IPv4 Traffic", v4_rx_flows[0], v4_rx_flows[1], 50)
+        createTrafficItem("IPv6 Traffic", v6_rx_flows[0], v6_rx_flows[1], 50)
     else:
         raise Exception('Invalid route type given')
-    flow.tx_rx.device.tx_names = [config.devices[0].name]
-    flow.tx_rx.device.rx_names = rx_flows
-    flow.size.fixed = 1024
-    flow.rate.percentage = 100
-    flow.metrics.enable = True
     return config
 
 
@@ -649,7 +740,8 @@ def get_rib_in_convergence(snappi_api,
                            iteration,
                            multipath,
                            number_of_routes,
-                           route_type,):
+                           route_type,
+                           timeout=None):
     """
     Args:
         snappi_api (pytest fixture): snappi API
@@ -658,8 +750,14 @@ def get_rib_in_convergence(snappi_api,
         iteration: number of iterations for running convergence test on a port
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
+        timeout: timeout for route withdraw and advertisement.
     """
+    if timeout is not None:
+        TIMEOUT = timeout
+
+    global NG_LIST
     route_names = NG_LIST
+    logger.info('Route list:{}'.format(route_names))
     bgp_config.events.cp_events.enable = True
     bgp_config.events.dp_events.enable = True
     bgp_config.events.dp_events.rx_rate_threshold = 90/multipath
@@ -680,13 +778,13 @@ def get_rib_in_convergence(snappi_api,
         cs = snappi_api.control_state()
         cs.protocol.all.state = cs.protocol.all.START
         snappi_api.set_control_state(cs)
-        wait(TIMEOUT, "For Protocols To start")
+        wait(WAIT_INTERVAL, "For Protocols To start")
         """ Start Traffic """
         logger.info('Starting Traffic')
         cs = snappi_api.control_state()
         cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
         snappi_api.set_control_state(cs)
-        wait(TIMEOUT, "For Traffic To start")
+        wait(WAIT_INTERVAL, "For Traffic To start")
         flow_stats = get_flow_stats(snappi_api)
         tx_frame_rate = flow_stats[0].frames_tx_rate
         rx_frame_rate = flow_stats[0].frames_rx_rate
@@ -723,13 +821,13 @@ def get_rib_in_convergence(snappi_api,
         cs = snappi_api.control_state()
         cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
         snappi_api.set_control_state(cs)
-        wait(TIMEOUT-20, "For Traffic To stop")
+        wait(WAIT_INTERVAL, "For Traffic To stop")
         """ Stopping Protocols """
         logger.info("Stopping all protocols ...")
         cs = snappi_api.control_state()
         cs.protocol.all.state = cs.protocol.all.STOP
         snappi_api.set_control_state(cs)
-        wait(TIMEOUT-20, "For Protocols To STOP")
+        wait(WAIT_INTERVAL, "For Protocols To STOP")
     table.append('Advertise All BGP Routes')
     table.append(route_type)
     table.append(number_of_routes)
