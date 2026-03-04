@@ -142,8 +142,8 @@ sonic_ocs:
 server_1:
   hosts:
     svt:
-      ansible_host: 10.192.196.188
-      ansible_ssh_user: svt
+      ansible_host: 10.250.0.189
+      ansible_ssh_user: hong
       ansible_ssh_pass: 123456
 
 vm_host:
