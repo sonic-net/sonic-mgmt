@@ -52,10 +52,11 @@ def get_interfaces(duthost, tbinfo):
             return [interface], interface
         else:
             mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-            if interface not in mg_facts["minigraph_portchannels"].keys():
+            if interface not in mg_facts["minigraph_portchannels"].keys() or \
+               not mg_facts["minigraph_portchannels"][interface]['members']:
                 continue
             return mg_facts["minigraph_portchannels"][interface]['members'], interface
-    pytest.skip("No RIF interfaces nor Portchannels, skiping the test")
+    pytest.skip("No RIF interfaces nor PortChannels, skipping the test")
 
 
 def get_oid_for_interface(duthost, table_name, interface_name):
