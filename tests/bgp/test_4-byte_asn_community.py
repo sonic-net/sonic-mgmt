@@ -183,6 +183,15 @@ def check_bgp_neighbor(duthost, bgp_neighbors):
     )
 
 
+def dut_bgp_routes_table_body(output):
+    """Return only the route table body (lines after 'Network ... Path' header)"""
+    lines = output.split('\n')
+    for i, line in enumerate(lines):
+        if 'Network' in line and 'Path' in line:
+            return '\n'.join(lines[i + 1:])
+    return output
+
+
 def setup_ceos(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_frontend_asic_index, request):
     duthost = duthosts[enum_frontend_dut_hostname]
     asic_index = enum_rand_one_frontend_asic_index
@@ -493,14 +502,12 @@ def run_bgp_4_byte_asn_community_sonic(setup):
     output = setup['duthost'].shell("show ipv6 bgp summary | grep {}".format(setup['neigh_ip_v6'].lower()))['stdout']
     assert str(neighbor_4byte_asn) in output.split()[2]
     output = setup['duthost'].shell("show ip bgp neighbors {} routes".format(setup['neigh_ip_v4']))['stdout']
-    assert str(neighbor_4byte_asn) in str(output.split('\n')[9].split()[5])
+    assert str(neighbor_4byte_asn) in dut_bgp_routes_table_body(output), \
+        ("ASN {} not found in routes table".format(neighbor_4byte_asn))
     output = setup['duthost'].shell("show ipv6 bgp neighbors {} routes".format(setup['neigh_ip_v6'].lower()))['stdout']
-    # Command output 'show ipv6 bgp neighbors <xxx> routes'  may split into two lines, hence checking both the lines
-    #    Network          Next Hop             Metric LocPrf Weight Path
-    # *> 2064:100::1/128  fe80::4cc2:44ff:feee:73ff
-    #                                                       0 400001 i
-    assert (str(neighbor_4byte_asn) in str(output.split('\n')[9]) or
-            str(neighbor_4byte_asn) in str(output.split('\n')[10]))
+    # Path column may wrap to next line; assert ASN in table body only (avoids matching 'local AS' in header)
+    assert str(neighbor_4byte_asn) in dut_bgp_routes_table_body(output), \
+        ("ASN {} not found in routes table".format(neighbor_4byte_asn))
 
     output = setup['neighhost'].shell("show ip bgp summary | grep {}".format(setup['dut_ip_v4']))['stdout']
     assert str(dut_4byte_asn) in output.split()[2]
@@ -550,14 +557,11 @@ def run_bgp_4_byte_asn_community_eos(setup):
     output = setup['duthost'].shell("show ipv6 bgp summary | grep {}".format(setup['neigh_ip_v6'].lower()))['stdout']
     assert str(neighbor_4byte_asn) in output.split()[2]
     output = setup['duthost'].shell("show ip bgp neighbors {} routes".format(setup['neigh_ip_v4']))['stdout']
-    assert str(neighbor_4byte_asn) in str(output.split('\n')[9])
+    assert str(neighbor_4byte_asn) in dut_bgp_routes_table_body(output), \
+        ("ASN {} not found in routes table".format(neighbor_4byte_asn))
     output = setup['duthost'].shell("show ipv6 bgp neighbors {} routes".format(setup['neigh_ip_v6'].lower()))['stdout']
-    # show ipv6 bgp neighbors <xxx> routes  may split into two lines, hence checking both lines
-    #     Network          Next Hop            Metric LocPrf Weight Path
-    # *> 2064:100::1d/128 fe80::4059:38ff:feaa:82db
-    #                                                       0 400001 i
-    assert (str(neighbor_4byte_asn) in str(output.split('\n')[9]) or
-           str(neighbor_4byte_asn) in str(output.split('\n')[10]))
+    assert str(neighbor_4byte_asn) in dut_bgp_routes_table_body(output), (
+        "ASN {} not found in routes table".format(neighbor_4byte_asn))
 
     output = bgp_neigh.get_command_output("show ip bgp summary | include {}".format(setup['dut_ip_v4']))
     assert str(dut_4byte_asn) in output.split()[3]
