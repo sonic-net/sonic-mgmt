@@ -58,6 +58,7 @@ go_library(
 	"@com_github_p4lang_golang_p4runtime//go/p4/v1:p4",
 	"@com_github_pkg_errors//:errors",
 	"@com_github_pkg_sftp//:go_default_library",
+	"@io_bazel_rules_go//go/tools/bazel:go_default_library",
 	"@org_golang_google_grpc//:go_default_library",
 	"@org_golang_google_grpc//codes",
 	"@org_golang_google_grpc//status",
