@@ -26,6 +26,9 @@ SUPPORTED_SPEEDS = [
     "50G", "100G", "200G", "400G", "800G", "1600G"
 ]
 
+INTF_STATUS_SNAPSHOTS = []
+INTF_FEC_HISTOGRAM_SNAPSHOTS = []
+
 
 @pytest.fixture(autouse=True)
 def is_supported_platform(duthost):
@@ -123,7 +126,65 @@ def get_interface_speed(duthost, interface_name):
     return speed
 
 
-def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def get_interface_snapshots(duthost, interfaces, fec_error_polling_interval, fec_error_polling_number):
+    """
+    @Summary: Sample the FEC counters by provided polling interval and number of
+    pollings. This is useful to determine whether a link has been stable and handle
+    the stale transient FEC errors introduced during interface state transition.
+
+    Note this polls both FEC stats and FEC histograms, so the snapshots can by used
+    by multiple different tests to save time.
+    """
+
+    # Only set interval to 10 seconds by default in case there are no FEC errors,
+    # this can speed up tests.
+    sleep_time = 10
+
+    intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
+    INTF_STATUS_SNAPSHOTS.append({d["iface"]: d for d in intf_status})
+    for intf in intf_status:
+        intf_name = intf['iface']
+        if intf_name not in interfaces:
+            continue
+        fec_uncorr = intf.get('fec_uncorr', '').replace(',', '').lower()
+        try:
+            fec_uncorr_int = int(fec_uncorr)
+        except ValueError:
+            pytest.fail("FEC stat counters are not valid integers for interface {}, \
+                        fec_uncorr: {}"
+                        .format(intf_name, fec_uncorr_int))
+        if fec_uncorr_int > 0:
+            logging.info(f"Update test sleep time to {fec_error_polling_interval} seconds"
+                         f" due to FEC uncorrected errors in the initial snapshot for {intf_name}")
+            sleep_time = fec_error_polling_interval
+
+    intf_fec_histogram = {}
+    for intf_name in interfaces:
+        valid, fec_hist = validate_fec_histogram(duthost, intf_name, True)
+        if not valid:
+            sleep_time = fec_error_polling_interval
+            logging.info(f"Update test sleep time to {fec_error_polling_interval} seconds"
+                         f" due to FEC histogram bin errors in the initial snapshot for {intf_name}")
+        intf_fec_histogram[intf_name] = fec_hist
+    INTF_FEC_HISTOGRAM_SNAPSHOTS.append(intf_fec_histogram)
+
+    # Ensure we always poll once after taking the initial snapshot.
+    fec_error_polling_number = max(fec_error_polling_number, 1)
+    logging.info(f"Polling FEC error counters {fec_error_polling_number} times")
+    for _ in range(fec_error_polling_number):
+        time.sleep(sleep_time)
+
+        intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
+        INTF_STATUS_SNAPSHOTS.append({d["iface"]: d for d in intf_status})
+
+        intf_fec_histogram = {}
+        for intf_name in interfaces:
+            intf_fec_histogram[intf_name] = get_fec_histogram(duthost, intf_name)
+        INTF_FEC_HISTOGRAM_SNAPSHOTS.append(intf_fec_histogram)
+
+
+def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                   fec_error_polling_interval, fec_error_polling_number):
     """
     @Summary: Verify the FEC stats counters are valid
     Also, check for any uncorrectable FEC errors
@@ -137,7 +198,9 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         pytest.skip("Skipping this test as there is no fec eligible interface")
 
     logging.info("Get output of 'show interfaces counters fec-stats'")
-    intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
+    if not INTF_STATUS_SNAPSHOTS:
+        get_interface_snapshots(duthost, interfaces, fec_error_polling_interval, fec_error_polling_number)
+    intf_status = list(INTF_STATUS_SNAPSHOTS[-1].values())
 
     def skip_ber_counters_test(intf_status: dict) -> bool:
         """
@@ -152,13 +215,7 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
     for intf in intf_status:
         intf_name = intf['iface']
-        speed = duthost.get_speed(intf_name)
-        # Speed is a empty string if the port isn't up
-        if speed == '':
-            continue
-        # Convert the speed to gbps format
-        speed_gbps = f"{int(speed) // 1000}G"
-        if speed_gbps not in SUPPORTED_SPEEDS:
+        if intf_name not in interfaces:
             continue
 
         # Removes commas from "show interfaces counters fec-stats" (i.e. 12,354 --> 12354) to allow int conversion
@@ -175,10 +232,22 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
                         fec_corr: {} fec_uncorr: {} fec_symbol_err: {}"
                         .format(intf_name, fec_corr, fec_uncorr, fec_symbol_err))
 
-        # Check for non-zero FEC uncorrectable errors
+        # Check the link is stable by
+        #   1. zero FEC uncorrectable errors, or
+        #   2. zero FEC uncorrectable errors incremented over some periods.
         if fec_uncorr_int > 0:
-            pytest.fail("FEC uncorrectable errors are non-zero for interface {}: {}"
-                        .format(intf_name, fec_uncorr_int))
+            initial_intf = INTF_STATUS_SNAPSHOTS[0][intf_name]
+            initial_fec_uncorr = initial_intf.get('fec_uncorr', '').replace(',', '').lower()
+            try:
+                initial_fec_uncorr_int = int(initial_fec_uncorr)
+            except ValueError:
+                pytest.fail("FEC stat counters are not valid integers for interface {}, \
+                            fec_uncorr: {}"
+                            .format(intf_name, initial_fec_uncorr_int))
+
+            if fec_uncorr_int - initial_fec_uncorr_int > 0:
+                pytest.fail("FEC uncorrectable errors are non-zero for interface {}: {}"
+                            .format(intf_name, fec_uncorr_int))
 
         # FEC correctable codeword errors should always be less than actual FEC symbol errors, check it
         if fec_corr_int > 0 and fec_corr_int > fec_symbol_err_int:
@@ -256,7 +325,8 @@ def validate_fec_histogram(duthost, intf_name, init, prev=None):
     return True, fec_hist
 
 
-def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                              fec_error_polling_interval, fec_error_polling_number):
     """
     @Summary: Verify the FEC histogram is valid and check for errors
     """
@@ -278,20 +348,11 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     # it will increase the waiting time for the next read and compare any
     # changes in the critical bins between 2 snapshots. For a stable link, no
     # increments in these critical bins are expected.
-    snapshots = {}
-    sleep_time = 10
-    for intf_name in interfaces:
-        valid, fec_hist = validate_fec_histogram(duthost, intf_name, True)
-        if not valid:
-            logging.info("Update test sleep time to 10 min due to bin errors in the initial snapshot")
-            sleep_time = 10 * 60
-        snapshots[intf_name] = fec_hist
+    if not INTF_FEC_HISTOGRAM_SNAPSHOTS:
+        get_interface_snapshots(duthost, interfaces, fec_error_polling_interval, fec_error_polling_number)
 
-    for _ in range(2):
-        time.sleep(sleep_time)
-        for intf_name in interfaces:
-            prev_fec_hist = snapshots[intf_name]
-            valid, fec_hist = validate_fec_histogram(duthost, intf_name, False, prev_fec_hist)
-            if not valid:
-                pytest.fail("FEC histogram validation failed for interface {}".format(intf_name))
-            snapshots[intf_name] = fec_hist
+    for intf_name in interfaces:
+        inital_fec_hist = INTF_FEC_HISTOGRAM_SNAPSHOTS[0][intf_name]
+        valid, _ = validate_fec_histogram(duthost, intf_name, False, inital_fec_hist)
+        if not valid:
+            pytest.fail("FEC histogram validation failed for interface {}".format(intf_name))

@@ -327,3 +327,19 @@ def extract_fw_data(fw_pkg_path):
             fw_data = json.load(fw)
 
     return fw_data
+
+
+@pytest.fixture(scope="module")
+def fec_error_polling_interval(request):
+    """
+    Retrieve the value of the --fec_error_polling_interval command line option for the test session.
+    """
+    return request.config.getoption("--fec_error_polling_interval")
+
+
+@pytest.fixture(scope="module")
+def fec_error_polling_number(request):
+    """
+    Retrieve the value of the --fec_error_polling_number command line option for the test session.
+    """
+    return request.config.getoption("--fec_error_polling_number")

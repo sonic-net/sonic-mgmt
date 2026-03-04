@@ -172,6 +172,12 @@ def pytest_addoption(parser):
     parser.addoption('--minigraph1', action='store', type=str, help='path to the minigraph1')
     parser.addoption('--minigraph2', action='store', type=str, help='path to the minigraph2')
 
+    # FEC test options
+    parser.addoption("--fec_error_polling_interval", action="store", default=600, type=int,
+                     help="Polling interval of FEC error counters in FEC tests")
+    parser.addoption("--fec_error_polling_number", action="store", default=2, type=int,
+                     help="Number of times polling FEC error counters in FEC tests")
+
     #####################################
     # dash, vxlan, route shared options #
     #####################################
