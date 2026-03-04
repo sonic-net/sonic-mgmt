@@ -20,8 +20,6 @@ import (
 
 var pph portPmdHandler
 
-var dutModelName string
-
 // Function pointers that interact with the switch. They enable unit testing
 // of methods that interact with the switch.
 var (

@@ -536,6 +536,10 @@ func interfaceConfigForPort(t *testing.T, d *ondatra.DUTDevice, intfName string,
 	return interfaceConfig, nil
 }
 
+func isInterfaceSkippable(t *testing.T, dut *ondatra.DUTDevice, intf string, breakoutMode string) bool {
+	return true
+}
+
 // ConfigFromBreakoutMode returns config with component and interface paths for given breakout mode.
 // Breakout mode is in the format "numBreakouts1 x breakoutSpeed1 + numBreakouts2 x breakoutSpeed2 + ...
 // Eg: "1x400G", 2x100G(4) + 1x200G(4)"
@@ -628,36 +632,48 @@ func ConfigFromBreakoutModeWithSkipLane(t *testing.T, dut *ondatra.DUTDevice, br
 		}
 
 		if includeNewSkippedPorts {
+			skippablePorts := []string{}
+			for _, intf := range allInterfaces {
+				if !isInterfaceSkippable(t, dut, intf, breakoutMode) {
+					continue
+				}
+				skippablePorts = append(skippablePorts, intf)
+			}
+
+			if len(skippablePorts) != 0 {
 			// Prepare interfaces to be removed from config.
 			var randomLen int
 			// TODO: allow not skipping any ports when LED color is correctly set.
 			for {
 				n, err := crand.Int(crand.Reader,big.NewInt(int64(len(allInterfaces) + 1)))
 				if err != nil {
-                                        return nil, nil, err
+                                	return nil, nil, err
                                 }
                                 randomLen = int(n.Int64())
-                                if randomLen > 0 {
+                        	if randomLen > 0 {
 					break
 				}
 			}
 
 			randomIndex := make([]int, len(allInterfaces))
                         for i := range randomIndex {
-                            randomIndex[i] = i
+                        	randomIndex[i] = i
                         }
                         for i := len(randomIndex) - 1; i > 0; i-- {
-                            jBig, err := crand.Int(crand.Reader, big.NewInt(int64(i+1)))
-                            if err != nil {
-                                return nil, nil, err
-                            }
-                            j := int(jBig.Int64())
-                            randomIndex[i], randomIndex[j] = randomIndex[j], randomIndex[i]
+                        	jBig, err := crand.Int(crand.Reader, big.NewInt(int64(i+1)))
+                        	if err != nil {
+                        	return nil, nil, err
+                       		}
+                        	j := int(jBig.Int64())
+                        	randomIndex[i], randomIndex[j] = randomIndex[j], randomIndex[i]
                         }
                         slices.Sort(randomIndex[:randomLen])
                         for _, index := range randomIndex[:randomLen] {
-                                skippedPorts = append(skippedPorts, allInterfaces[index])
+                        	skippedPorts = append(skippedPorts, allInterfaces[index])
                         }
+                        slices.Sort(skippedPorts)
+                        }
+			t.Logf("Skippable ports: %v\nChosen ports to skip: %v", skippablePorts, skippedPorts)
 		}
 
 		// Get the interface config for all interfaces corresponding to current breakout group.

@@ -7,7 +7,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -198,6 +200,20 @@ func (p *P4RTClient) PushP4Info() error {
 	config := &p4pb.ForwardingPipelineConfig{
 		P4Info: p.p4Info,
 	}
+	// Save the config to artifacts.
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		dn := testhelperDUTNameGet(p.dut)
+		artifactName := fmt.Sprintf("p4_push_%v.txt", time.Now().UnixNano())
+		fp := path.Join(dn, artifactName)
+		log.Infof("Saving P4Info to artifacts at path: %v", fp)
+		if err := SaveToArtifact(prototext.Format(p.p4Info), fp); err != nil {
+			log.Warningf("Failed to save P4Info for dut: %v to artifacts, err: %v", dn, err)
+		}
+	}()
+	defer wg.Wait()
 	req := &p4pb.SetForwardingPipelineConfigRequest{
 		DeviceId:   p.deviceID,
 		ElectionId: p.electionID,

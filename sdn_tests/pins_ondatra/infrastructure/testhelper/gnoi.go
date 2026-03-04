@@ -128,7 +128,8 @@ func Reboot(t *testing.T, d *ondatra.DUTDevice, params *RebootParams) error {
 		return errors.New("invalid reboot request (valid parameters are RebootRequest protobuf and RebootMethod)")
 	}
 
-	log.Infof("Rebooting %v switch", testhelperDUTNameGet(d))
+	dutName := testhelperDUTNameGet(d)
+	log.Infof("Rebooting %v switch", dutName)
 	timeBeforeReboot := time.Now().UnixNano()
 	systemClient := gnoiSystemClientGet(t, d)
 
@@ -153,40 +154,40 @@ func Reboot(t *testing.T, d *ondatra.DUTDevice, params *RebootParams) error {
 		err := GNOIAble(t, d)
 		timeElapsed := (time.Now().UnixNano() - timeBeforeReboot) / int64(time.Second)
 		if err == nil {
-			log.Infof("gNOI server is still up after %v seconds", timeElapsed)
+			log.Infof("%v: gNOI server is still up after %v seconds", dutName, timeElapsed)
 			return continuePoll
 		}
-		log.Infof("gNOI server is down after %v seconds, got error while checking gNOI server reachability: %v as expected", timeElapsed, err)
+		log.Infof("%v: gNOI server is down after %v seconds, got error while checking gNOI server reachability: %v as expected", dutName, timeElapsed, err)
 		return exitPoll
 	})
 	if pollErr != nil {
-		log.WarningContextf(ctx, "Polling gNOI server to be down within time: %v failed: %v", rebootRequestTimeout, pollErr)
-		log.InfoContextf(ctx, "Continue to check if the switch has rebooted")
+		log.WarningContextf(ctx, "%v: Polling gNOI server to be down within time: %v failed: %v", dutName, rebootRequestTimeout, pollErr)
+		log.InfoContextf(ctx, "%v: Continue to check if the switch has rebooted", dutName)
 	}
 
-	log.InfoContextf(ctx, "Polling gNOI server reachability in %v intervals for max duration of %v", params.checkInterval, params.waitTime)
+	log.InfoContextf(ctx, "%v: Polling gNOI server reachability in %v intervals for max duration of %v", dutName, params.checkInterval, params.waitTime)
 	for timeout := time.Now().Add(params.waitTime); time.Now().Before(timeout); {
 		time.Sleep(params.checkInterval)
 		doneTime := time.Now()
 		timeElapsed := (doneTime.UnixNano() - timeBeforeReboot) / int64(time.Second)
 
 		if err := GNOIAble(t, d); err != nil {
-			log.InfoContextf(ctx, "gNOI server not up after %v seconds", timeElapsed)
+			log.InfoContextf(ctx, "%v: gNOI server not up after %v seconds", dutName, timeElapsed)
 			continue
 		}
-		log.InfoContextf(ctx, "gNOI server up after %v seconds", timeElapsed)
+		log.InfoContextf(ctx, "%v: gNOI server up after %v seconds", dutName, timeElapsed)
 
 		// An extra check to ensure that the system has rebooted.
 		if bootTime := gnmiSystemBootTimeGet(t, d); bootTime < uint64(timeBeforeReboot) {
-			log.InfoContextf(ctx, "Switch has not rebooted after %v seconds", timeElapsed)
+			log.InfoContextf(ctx, "%v: Switch has not rebooted after %v seconds", dutName, timeElapsed)
 			continue
 		}
 
-		log.InfoContextf(ctx, "Switch rebooted after %v seconds", timeElapsed)
+		log.InfoContextf(ctx, "%v: Switch rebooted after %v seconds", dutName, timeElapsed)
 		return nil
 	}
 
-	err := errors.Errorf("failed to reboot %v", testhelperDUTNameGet(d))
+	err := errors.Errorf("%v: failed to reboot", dutName)
 
 	return err
 }
