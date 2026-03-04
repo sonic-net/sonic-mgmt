@@ -409,7 +409,6 @@ def add_npu_static_routes(
             pt_require(vm_nexthop_ip, "VM nexthop interface does not have an IP address")
             pt_require(pe_nexthop_ip, "PE nexthop interface does not have an IP address")
 
-            cmds.append(f"ip route replace {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
             cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
 
             cmds.append(f"ip route replace {pl.PE_PA}/32 via {pe_nexthop_ip}")
@@ -427,7 +426,6 @@ def add_npu_static_routes(
             vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[i][LOCAL_DUT_INTF]).ip + 1
             pe_nexthop_ip = get_interface_ip(duthost, dash_pl_config[i][REMOTE_DUT_INTF]).ip + 1
 
-            cmds.append(f"ip route del {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
             cmds.append(f"ip route del {pl.VM1_PA}/32 via {vm_nexthop_ip}")
             cmds.append(f"ip route del {pl.PE_PA}/32 via {pe_nexthop_ip}")
             logger.info(f"Removing static routes: {cmds} from {duthost}")
