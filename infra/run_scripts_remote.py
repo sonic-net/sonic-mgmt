@@ -666,21 +666,21 @@ test_tag={test_tag},
     sonic_test_dir = out.split("/sonic-test")[0]
     print("sonic-test dir is: ", sonic_test_dir)
 
-    #send additional test files to sim
-    ftp_client=ssh.open_sftp()
-    if additional_tests:
-        for additional_test in additional_tests.split(","):
-            additional_test = additional_test.strip()
-            print(f"uploading additional testcase {additional_test} to sonic-mgmt from '../sonic-mgmt/tests/{additional_test}' to '{sonic_test_dir}/sonic-test/sonic-mgmt/tests/{additional_test}'")
+    # #send additional test files to sim
+    # ftp_client=ssh.open_sftp()
+    # if additional_tests:
+    #     for additional_test in additional_tests.split(","):
+    #         additional_test = additional_test.strip()
+    #         print(f"uploading additional testcase {additional_test} to sonic-mgmt from '../sonic-mgmt/tests/{additional_test}' to '{sonic_test_dir}/sonic-test/sonic-mgmt/tests/{additional_test}'")
 
-            chan = ssh.invoke_shell()
-            chan.send(f"mkdir -p {sonic_test_dir}/sonic-test/sonic-mgmt/tests/{additional_test.rsplit('/',1)[0]} \n")
+    #         chan = ssh.invoke_shell()
+    #         chan.send(f"mkdir -p {sonic_test_dir}/sonic-test/sonic-mgmt/tests/{additional_test.rsplit('/',1)[0]} \n")
 
-            try:
-                ftp_client.put(f"../sonic-mgmt/tests/{additional_test}",f"{sonic_test_dir}/sonic-test/sonic-mgmt/tests/{additional_test}")
-            except Exception as e:
-                print(f"caught error while uploading file {additional_test}! e: {e}")
-                return 1
+    #         try:
+    #             ftp_client.put(f"../sonic-mgmt/tests/{additional_test}",f"{sonic_test_dir}/sonic-test/sonic-mgmt/tests/{additional_test}")
+    #         except Exception as e:
+    #             print(f"caught error while uploading file {additional_test}! e: {e}")
+    #             return 1
 
 
     uploaded_script_files = upload_sanity_file(host, username, password, script_file, sonic_test_dir, ssh_port)
