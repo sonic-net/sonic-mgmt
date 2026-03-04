@@ -47,6 +47,10 @@ var (
 		return gnmi.Get(t, d, gnmi.OC().Interface(port).Ethernet().AggregateId().Config())
 	}
 
+        testhelperConfigIntfAggregateIDLookup = func(t *testing.T, d *ondatra.DUTDevice, port string) (string, bool) {
+		return gnmi.Lookup(t, d, gnmi.OC().Interface(port).Ethernet().AggregateId().Config()).Val()
+	}
+
 	testhelperIntfAggregateIDReplace = func(t *testing.T, d *ondatra.DUTDevice, port string, ID string) {
 		gnmi.Replace(t, d, gnmi.OC().Interface(port).Ethernet().AggregateId().Config(), ID)
 	}
@@ -119,12 +123,13 @@ var (
 		return d
 	}
 
-	teardownDUTHealthzGet = func(t *testing.T) healthzpb.HealthzClient {
-		return ondatra.DUT(t, "DUT").RawAPIs().GNOI(t).Healthz()
-	}
-
-	teardownDUTPeerHealthzGet = func(t *testing.T) healthzpb.HealthzClient {
-		return ondatra.DUT(t, "CONTROL").RawAPIs().GNOI(t).Healthz()
+	teardownHealthzGet = func(t *testing.T, dut *ondatra.DUTDevice) (healthzpb.HealthzClient, error) {
+		dutName := dut.Name()
+		g, err := gnoiClientGet(t, dut)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get gNOI client for DUT: %v, err: %v", dutName, err)
+		}
+		return g.Healthz(), nil
 	}
 
 	testhelperBreakoutModeGet = func(t *testing.T, d *ondatra.DUTDevice, physicalPort string) *oc.Component_Port_BreakoutMode {
