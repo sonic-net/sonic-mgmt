@@ -28,6 +28,7 @@ from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_
 from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings, create_front_panel_ports, \
     create_connections, create_uhdIp_list, create_arp_bypass, create_profiles
 logger = logging.getLogger(__name__)
+_next_system_id = 1
 
 macsec_enabled_port = {}
 macsec_profile_name = ""
@@ -320,6 +321,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
     """
     Generate Snappi configuration of PortChannel (LAG) member and LAG interfaces (IPv4 + IPv6).
     """
+    global _next_system_id
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     if 'minigraph_portchannels' not in mg_facts:
         return True
@@ -348,11 +350,14 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
             for m in members
             if ((sp['peer_port'] == m) and (sp['peer_device'] == duthost.hostname))]
 
+        member_port_ids = [int(sp['port_id']) for sp in (snappi_ports) for m in members if
+                           ((sp['peer_port'] == m) and (sp['peer_device'] == duthost.hostname))]
+
         if not member_port_ids:
             continue
-
+        last_byte = _next_system_id & 0xFF
         lag = config.lags.lag(name='Lag {}'.format(pc))[-1]
-        lag.protocol.lacp.actor_system_id = '00:00:00:00:00:01'
+        lag.protocol.lacp.actor_system_id = f"00:00:00:00:00:{last_byte:02x}"
         lag.protocol.lacp.actor_system_priority = 1
         lag.protocol.lacp.actor_key = 1
 
@@ -421,6 +426,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
             ip6_stack.gateway = v6_entry['addr']
 
         pc_id += 1
+        _next_system_id += 1
 
     return True
 
@@ -2097,20 +2103,24 @@ def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_sn
                 rx_port_count,
                 testbed
             )
+        testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
+            duthosts, snappi_ports, snappi_api, setup=True)
+        yield (testbed_config, port_config_list, snappi_ports)
+        logger.info('Snappi cleanup after test')
+        setup_dut_ports(False, duthosts, testbed_config, port_config_list, snappi_ports)
+    else:
+        flatten_skeleton_parameter = request.param
+        speed, category = flatten_skeleton_parameter.split("-")
+
+        if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
+            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+
+        snappi_ports = snappi_port_selection[float(speed)][category]
+
+        if not snappi_ports:
+            pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+
         return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
-
-    flatten_skeleton_parameter = request.param
-    speed, category = flatten_skeleton_parameter.split("-")
-
-    if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
-        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
-
-    snappi_ports = snappi_port_selection[float(speed)][category]
-
-    if not snappi_ports:
-        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
-
-    return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
 
 
 def flatten_list(lst):

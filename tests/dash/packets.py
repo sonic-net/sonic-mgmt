@@ -127,9 +127,8 @@ def inbound_pl_packets(
     if exp_vni is not None:
         expected_vni = int(exp_vni)
     else:
-        # Preserve previous default: for non-floating NICs use VNET1_VNI,
-        # for floating NICs use ENCAP_VNI.
-        expected_vni = int(pl.ENCAP_VNI if floating_nic else pl.VNET1_VNI)
+        expected_vni = int(pl.ENCAP_VNI if floating_nic else pl.VM_VNI)
+
     inner_sip = get_pl_overlay_dip(  # not a typo, inner DIP/SIP are reversed for inbound direction
         pl.PE_CA, pl.PL_OVERLAY_DIP, pl.PL_OVERLAY_DIP_MASK
     )
@@ -268,7 +267,7 @@ def outbound_pl_packets(
             ip_src=pl.VM1_PA,
             ip_dst=pl.APPLIANCE_VIP,
             gre_key_present=True,
-            gre_key=(outer_vni << 8) if floating_nic else (int(pl.VNET1_VNI) << 8),
+            gre_key=(outer_vni << 8) if floating_nic else (int(pl.VM_VNI) << 8),
             inner_frame=inner_packet,
         )
     else:
@@ -434,7 +433,7 @@ def verify_each_packet_on_each_port(exp_pkts, received_pkts_res, ports):
     """
     Verify each packet can be received on the corresponding port
     """
-    logger.info(f"Checking pkts on ports :{ports}")
+    logger.info(f"Checking pkts on ports: {ports}")
     for port, exp_pkt in zip(ports, exp_pkts):
         if port in received_pkts_res:
             find_matched_ptk = False
