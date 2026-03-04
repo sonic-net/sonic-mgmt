@@ -539,6 +539,7 @@ def add_npu_static_routes(
     duthost, dash_pl_config, skip_config, skip_cleanup, dpu_index, dpuhosts
 ):
     dpuhost = dpuhosts[dpu_index]
+    cleanup_cmds = []
     if not skip_config:
         cmds = []
         vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[LOCAL_DUT_INTF]).ip + 1
@@ -561,17 +562,12 @@ def add_npu_static_routes(
         logger.info(f"Adding static routes: {cmds}")
         duthost.shell_cmds(cmds=cmds)
 
+        cleanup_cmds = [cmd.replace("add", "del") for cmd in cmds]
+
     yield
 
     if not skip_config and not skip_cleanup:
-        cmds = []
-        cmds.append(f"config route del prefix {pl.APPLIANCE_VIP}/32 nexthop {dpuhost.dpu_data_port_ip}")
-        cmds.append(f"config route del prefix {pl.VM1_PA}/32 nexthop {vm_nexthop_ip}")
-        for tunnel_ip in return_tunnel_endpoints:
-            cmds.append(f"config route del prefix {tunnel_ip}/32 nexthop {vm_nexthop_ip}")
-        cmds.append(f"config route del prefix {pl.PE_PA}/32 nexthop {pe_nexthop_ip}")
-        logger.info(f"Removing static routes: {cmds}")
-        duthost.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True)
+        duthost.shell_cmds(cmds=cleanup_cmds, continue_on_fail=True, module_ignore_errors=True)
 
 
 @pytest.fixture(scope="function")
