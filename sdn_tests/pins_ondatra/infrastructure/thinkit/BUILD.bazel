@@ -61,6 +61,7 @@ cc_library(
     testonly = True,
     srcs = ["thinkit.cc"],
     hdrs = ["thinkit.h"],
+    linkopts = ["-lresolv"],
     deps = [
         ":thinkit_cgo.cc",
         ":thinkit_go_hdr",  # keep
