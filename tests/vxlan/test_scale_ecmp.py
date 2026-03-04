@@ -5,6 +5,7 @@ from ipaddress import IPv4Address
 import pytest
 import logging
 import traceback
+import random
 from tests.common.config_reload import config_reload
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa:F401
@@ -45,13 +46,20 @@ def apply_chunk(duthost, payload, name):
     duthost.shell(f"sonic-cfggen -j {dest} --write-to-db")
 
 
-def _update_vxlan_endpoints(duthost, vnet, prefix, endpoints, vni):
-    logger.info(f"Updating VNET_ROUTE_TUNNEL {vnet}|{prefix} with {len(endpoints)} endpoints")
+def _update_vxlan_endpoints(duthost, vnet, prefix, endpoints, vni, mac_address=None):
     ep_str = ",".join(endpoints)
-    duthost.shell(
+    logger.info(
+        f"Updating VNET_ROUTE_TUNNEL {vnet}|{prefix} "
+        f"with {len(endpoints)} endpoints, vni={vni}, mac={mac_address}"
+    )
+    cmd = (
         f"sonic-db-cli CONFIG_DB hmset 'VNET_ROUTE_TUNNEL|{vnet}|{prefix}' "
         f"endpoint '{ep_str}' vni '{vni}'"
     )
+    if mac_address:
+        cmd += f" mac_address '{mac_address}'"
+
+    duthost.shell(cmd)
     time.sleep(3)
 
 
@@ -174,7 +182,7 @@ def one_vnet_setup_teardown(
         dut_indx = duts_map[duthost.hostname]
         vxlan_port = request.config.option.vxlan_port
 
-        num_endpoints = scaled_vnet_params.get("num_endpoints", 128) or 128
+        num_endpoints = scaled_vnet_params.get("num_endpoints", 511) or 511
         setup_params = vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
                                             config_facts, dut_indx, vxlan_port)
         setup_params["num_endpoints"] = int(num_endpoints)
@@ -191,7 +199,7 @@ def one_vnet_setup_teardown(
 
 
 # ---------- PTF runner helper ----------
-def run_vxlan_ptf_test(ptfhost, endpoints, params, num_packets):
+def run_vxlan_ptf_test(ptfhost, endpoints, params, num_packets, mac_list=None):
     logger.info(f"Calling VXLAN ECMP PTF test: {len(endpoints)} endpoints, {num_packets} packets")
 
     endpoints_file = "/tmp/ptf_endpoints.json"
@@ -201,6 +209,12 @@ def run_vxlan_ptf_test(ptfhost, endpoints, params, num_packets):
         "endpoints_file": endpoints_file,
         "num_packets": num_packets
     })
+    if mac_list:
+        macs_file = "/tmp/ptf_macs.json"
+        ptfhost.copy(content=json.dumps(mac_list), dest=macs_file)
+        ptf_params.update({
+            "macs_file": macs_file,
+        })
     params_path = "/tmp/ptf_params.json"
     ptfhost.copy(content=json.dumps(ptf_params), dest=params_path)
 
@@ -254,4 +268,214 @@ def test_ecmp_scale(ptfhost, one_vnet_setup_teardown):
         endpoints,
         setup,
         num_packets=num_packets,
+    )
+
+
+def test_vxlan_mac_vni(ptfhost, one_vnet_setup_teardown):
+    """
+    Validate that endpoint[i] → mac_address[i] mapping is honored
+    for a single prefix with multiple endpoints.
+    """
+
+    setup, duthost, _ = one_vnet_setup_teardown
+    num_endpoints = setup["num_endpoints"]
+
+    logger.info(f"Running MAC+VNI multi-endpoint scale test with {num_endpoints} endpoints")
+
+    # --- Build endpoints list ---
+    base_ip = int(IPv4Address("100.0.50.1"))
+    endpoints = [str(IPv4Address(base_ip + i)) for i in range(num_endpoints)]
+
+    # --- Build deterministic MAC list ---
+    # 52:54:00:00:xx:yy (unique per endpoint)
+    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:aa" for i in range(num_endpoints)]
+    mac_list_str = ",".join(mac_list)
+    updated_vni = 5001
+
+    logger.info(f"Generated {len(endpoints)} endpoints + {len(mac_list)} MACs")
+    logger.info(f"MAC list: {mac_list_str}")
+
+    # --- Program into VNET_ROUTE_TUNNEL table ---
+    _update_vxlan_endpoints(
+        duthost,
+        VNET_NAME,
+        PREFIX,
+        endpoints,
+        updated_vni,
+        mac_address=mac_list_str
+    )
+
+    # --- Prepare PTF params ---
+    num_packets = num_endpoints * PACKET_MULTIPLIER
+    ptf_params = setup.copy()
+    ptf_params.update({
+        "mac_vni_verify": "yes",
+        "vni": updated_vni,
+    })
+
+    logger.info("Calling PTF for MAC+VNI multi-endpoint validation...")
+
+    run_vxlan_ptf_test(
+        ptfhost,
+        endpoints,
+        ptf_params,
+        num_packets=num_packets,
+        mac_list=mac_list
+    )
+
+    logger.info("MAC+VNI multi-endpoint scale test completed successfully")
+
+
+def test_ecmp_scale_add_endpoint(ptfhost, one_vnet_setup_teardown):
+    setup, duthost, _ = one_vnet_setup_teardown
+    num = setup["num_endpoints"]
+
+    base_ip = int(IPv4Address("100.0.10.1"))
+
+    # Step 1 — Program initial endpoints
+    initial_endpoints = [str(IPv4Address(base_ip + i)) for i in range(num)]
+    _update_vxlan_endpoints(duthost, VNET_NAME, PREFIX, initial_endpoints, VNI)
+    time.sleep(5)
+
+    # Step 2 — Modify: add one endpoint
+    new_endpoint = str(IPv4Address(base_ip + num))
+    logger.info(f"Adding new endpoint: {new_endpoint}")
+    modified_endpoints = initial_endpoints + [new_endpoint]
+
+    _update_vxlan_endpoints(duthost, VNET_NAME, PREFIX, modified_endpoints, VNI)
+    time.sleep(5)
+    logger.info(f"Updated endpoint list programmed, total now = {len(modified_endpoints)}")
+
+    num_packets = len(modified_endpoints) * PACKET_MULTIPLIER
+
+    run_vxlan_ptf_test(
+        ptfhost,
+        modified_endpoints,
+        setup,
+        num_packets=num_packets,
+    )
+
+
+def test_ecmp_scale_delete_endpoint(ptfhost, one_vnet_setup_teardown):
+    setup, duthost, _ = one_vnet_setup_teardown
+    num = setup["num_endpoints"]
+
+    base_ip = int(IPv4Address("100.0.10.1"))
+
+    # Step 1 — Initial endpoints
+    endpoints = [str(IPv4Address(base_ip + i)) for i in range(num)]
+    _update_vxlan_endpoints(duthost, VNET_NAME, PREFIX, endpoints, VNI)
+    time.sleep(5)
+
+    # Step 2 — Random endpoint delete
+    del_idx = random.randint(0, num - 1)
+    deleted_ep = endpoints[del_idx]
+    logger.info(f"Deleting endpoint at index {del_idx}: {deleted_ep}")
+    modified_endpoints = endpoints[:del_idx] + endpoints[del_idx + 1:]
+
+    _update_vxlan_endpoints(duthost, VNET_NAME, PREFIX, modified_endpoints, VNI)
+    time.sleep(10)
+    logger.info(f"Updated endpoint list programmed, remaining endpoints = {len(modified_endpoints)}")
+
+    ptf_params = {
+        **setup,
+        "deleted_endpoints": [deleted_ep]
+    }
+
+    num_packets = len(modified_endpoints) * PACKET_MULTIPLIER
+
+    run_vxlan_ptf_test(
+        ptfhost,
+        modified_endpoints,
+        ptf_params,
+        num_packets=num_packets,
+    )
+
+
+def test_ecmp_scale_modify_endpoint(ptfhost, one_vnet_setup_teardown):
+    setup, duthost, _ = one_vnet_setup_teardown
+    num = setup["num_endpoints"]
+
+    base_ip = int(IPv4Address("100.0.10.1"))
+
+    # Step 1 — Initial endpoints
+    endpoints = [str(IPv4Address(base_ip + i)) for i in range(num)]
+    _update_vxlan_endpoints(duthost, VNET_NAME, PREFIX, endpoints, VNI)
+    time.sleep(5)
+
+    # Step 2 — Random index choose to remove
+    mod_idx = random.randint(0, num - 1)
+    removed_ep = endpoints[mod_idx]
+
+    # Create a new endpoint that is NOT in the list
+    new_ep = str(IPv4Address(base_ip + num + 100))
+    logger.info(f"Replacing endpoint at index {mod_idx}: {removed_ep} → {new_ep}")
+    modified_endpoints = endpoints[:mod_idx] + [new_ep] + endpoints[mod_idx + 1:]
+
+    _update_vxlan_endpoints(duthost, VNET_NAME, PREFIX, modified_endpoints, VNI)
+    time.sleep(5)
+    logger.info(f"Modified endpoint list programmed, total endpoints = {len(modified_endpoints)}")
+    ptf_params = {
+        **setup,
+        "deleted_endpoints": [removed_ep]
+    }
+
+    num_packets = len(modified_endpoints) * PACKET_MULTIPLIER
+
+    run_vxlan_ptf_test(
+        ptfhost,
+        modified_endpoints,
+        ptf_params,
+        num_packets=num_packets,
+    )
+
+
+def test_ecmp_scale_modify_mac(ptfhost, one_vnet_setup_teardown):
+    setup, duthost, _ = one_vnet_setup_teardown
+    num = setup["num_endpoints"]
+
+    base_ip = int(IPv4Address("100.0.10.1"))
+
+    # Step 1 — Initial endpoints
+    endpoints = [str(IPv4Address(base_ip + i)) for i in range(num)]
+    _update_vxlan_endpoints(duthost, VNET_NAME, PREFIX, endpoints, VNI)
+    time.sleep(5)
+
+    # Step 2 — Initial MAC list
+    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:aa" for i in range(num)]
+    mac_string = ",".join(mac_list)
+
+    # Push initial MAC list
+    _update_vxlan_endpoints(duthost, VNET_NAME, PREFIX, endpoints, VNI, mac_address=mac_string)
+    time.sleep(5)
+
+    # Step 3 — Random index to modify
+    mod_idx = random.randint(0, num - 1)
+    new_mac = f"52:54:99:{mod_idx//256:02x}:{mod_idx%256:02x}:cc"
+    logger.info(f"Modifying MAC for endpoint index {mod_idx}: new MAC = {new_mac}")
+
+    # Update the list
+    mac_list[mod_idx] = new_mac
+    mac_string2 = ",".join(mac_list)
+
+    # Push modified MAC list
+    _update_vxlan_endpoints(duthost, VNET_NAME, PREFIX, endpoints, VNI, mac_address=mac_string2)
+    time.sleep(10)
+
+    ptf_params = {
+        **setup,
+        "mac_vni_verify": "yes",
+        "modified_mac_index": mod_idx,
+        "modified_mac_value": new_mac,
+        "vni": VNI,
+    }
+
+    num_packets = num * PACKET_MULTIPLIER
+
+    run_vxlan_ptf_test(
+        ptfhost,
+        endpoints,
+        ptf_params,
+        num_packets=num_packets,
+        mac_list=mac_list
     )
