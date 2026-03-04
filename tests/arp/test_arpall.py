@@ -74,8 +74,8 @@ def test_arp_no_reply_other_intf(common_setup_teardown, intfs_for_test, enum_fro
         'port': intf2_indice,
         'kvm_support': True
     }
-    log_file = "/tmp/arptest.SrcOutRangeNoReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
-    ptf_runner(ptfhost, 'ptftests', "arptest.SrcOutRangeNoReply", '/root/ptftests',
+    log_file = "/tmp/arptest.WrongIntNoReply.{0}.log".format(datetime.now().strftime("%Y-%m-%d-%H:%M:%S"))
+    ptf_runner(ptfhost, 'ptftests', "arptest.WrongIntNoReply", '/root/ptftests',
                params=intf2_params, log_file=log_file, is_python3=True)
 
     switch_arptable = asichost.switch_arptable()['ansible_facts']
