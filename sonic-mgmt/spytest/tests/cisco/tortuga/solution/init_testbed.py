@@ -283,10 +283,15 @@ class TestReimage():
                                             stdout=subprocess.PIPE)
                     out, err = sub_proc.communicate()
 
-                    if err:
-                        raise Exception('Error when untaring tar ball: {}'.format(err))
+                    if sub_proc.returncode != 0:
+                        out_str = (out or b'').decode('utf-8', errors='replace')
+                        raise Exception('Error when untaring tar ball (exit {}): {}'.format(
+                            sub_proc.returncode, out_str))
 
-                    for line in out.split('\n'):
+                    # In Python 3, subprocess returns bytes; decode before string operations
+                    out_str = (out or b'').decode('utf-8', errors='replace')
+                    for line in out_str.split('\n'):
+                        line = line.strip()
                         if line.endswith('.bin') and not line.endswith('dev.bin'):
                             test_cfg['local_img_paths'][img_cntr] = os.path.join(local_dir, line)
                             break
