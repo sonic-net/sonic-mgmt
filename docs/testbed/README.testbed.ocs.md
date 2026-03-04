@@ -109,7 +109,7 @@ all:
             sonic_ocs:
         servers:
           children:
-            vm_host:           
+            server_1:           
     ptf:
       vars:
         ansible_ssh_user: root
@@ -139,12 +139,16 @@ sonic_ocs:
       ansible_ssh_user: admin
       ansible_ssh_pass: Changeit@123
       
-vm_host:
+server_1:
   hosts:
     svt:
-      ansible_host: 10.192.225.188
+      ansible_host: 10.192.196.188
       ansible_ssh_user: svt
       ansible_ssh_pass: 123456
+
+vm_host:
+  children:
+    server_1:
 servers:
   vars:
      topologies:
