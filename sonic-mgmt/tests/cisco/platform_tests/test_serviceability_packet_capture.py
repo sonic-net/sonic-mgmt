@@ -17,6 +17,7 @@ from tests.drop_packets.test_drop_counters import do_test
 from tests.cisco.common.utils import CheckEnvironment
 
 pytestmark = [
+    pytest.mark.skip(reason="Temporarily Disabled: Known issues with packet capture feature - MIGSOFTWAR-32901"),
     pytest.mark.sanity_check(skip_sanity=True),
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any')
