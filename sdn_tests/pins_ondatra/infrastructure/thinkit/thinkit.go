@@ -32,6 +32,7 @@ import (
 	"unsafe"
 
 	log "github.com/golang/glog"
+
 	"github.com/openconfig/gnmi/errlist"
 
 	"github.com/openconfig/ondatra/binding"
