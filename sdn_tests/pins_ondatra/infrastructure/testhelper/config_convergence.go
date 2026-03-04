@@ -180,7 +180,6 @@ func WaitForConfigConvergence(ctx context.Context, t *testing.T, dut *ondatra.DU
 	if config == nil {
 		return errors.New("nil config passed to WaitForConfigConvergence()")
 	}
-
 	dutName := dut.Name()
 	diff := ""
 	var err error
