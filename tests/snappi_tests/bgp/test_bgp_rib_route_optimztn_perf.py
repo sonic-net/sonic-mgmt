@@ -51,6 +51,7 @@ def _load_bk_pairs():
         return data['pairs']
     return list(zip(data['bulk_values'], data['batch_values']))
 
+
 # To load fine-tuning parameters from files/fine-tunings.yml file.
 try:
     _FINE_TUNINGS = _load_fine_tunings() or {}
@@ -208,8 +209,8 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
             continue
         if name == 'free':
             if 'used' in memory_params:
-                memory_params['used']['memory_increase_threshold'] = {"type": "percentage", "value": "30%"}  # or another limit
-            continue 
+                memory_params['used']['memory_increase_threshold'] = {"type": "percentage", "value": "30%"}
+            continue
 
     logger.info('Profile=%s, bulk_value=%s, batch_value=%s, route_type=%s',
                 profile_name, bulk_value, batch_value, route_type)
