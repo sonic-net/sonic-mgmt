@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
 
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 )
 
@@ -135,7 +136,11 @@ func GNMIAble(t *testing.T, d *ondatra.DUTDevice) error {
 
 // ConfigGet returns a full config for the given DUT.
 func (d GNMIConfigDUT) ConfigGet(t *testing.T) ([]byte, error) {
-	return os.ReadFile("ondatra/data/config.json")
+	file, err := bazel.Runfile("ondatra/data/config.json")
+	if err != nil {
+		t.Errorf("When reading file %s got error %s", file, err)
+	}
+	return os.ReadFile(file)
 }
 
 // ConfigPush pushes the given config onto the DUT. If nil is passed in for config,
