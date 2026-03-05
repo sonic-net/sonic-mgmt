@@ -621,9 +621,8 @@ class GenerateGoldenConfigDBModule(object):
         else:
             config = self.generate_default_init_config_db()
 
-        # update ZMQ config (not applicable for VPP)
-        if "vpp" not in self.topo_name:
-            config = self.update_zmq_config(config)
+        # update ZMQ config
+        config = self.update_zmq_config(config)
 
         # update dns config
         config = self.update_dns_config(config)

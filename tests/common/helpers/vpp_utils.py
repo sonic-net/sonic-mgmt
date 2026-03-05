@@ -58,9 +58,18 @@ def wait_for_vpp_route_programming(
 
     prev_output = None
     deadline = time.time() + timeout
+    poll_count = 0
 
     while time.time() < deadline:
         current_output = get_vpp_fib_summary(duthost, ipv6=ipv6)
+        poll_count += 1
+
+        # Capture top snapshot every 3 iterations for CPU contention analysis
+        if poll_count % 3 == 0:
+            duthost.shell(
+                "top -bn1 -w 200 -o %CPU | head -35",
+                module_ignore_errors=True,
+            )
 
         if prev_output is not None and current_output == prev_output:
             logger.info(
