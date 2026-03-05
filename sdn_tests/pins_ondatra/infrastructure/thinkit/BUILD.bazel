@@ -20,17 +20,26 @@ package(
     licenses = ["notice"],
 )
 
+cc_library(
+    name = "thinkit_go_hdr",
+    testonly = True,
+    hdrs = ["thinkit_go_interface.h"],
+)
+
 go_library(
     name = "thinkit",
     testonly = True,
     srcs = ["thinkit.go"],
+    cdeps = [":thinkit_go_hdr"],
     cgo = True,
     importpath = "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/thinkit/thinkit",
     deps = [
         "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
         "@com_github_golang_glog//:glog",
         "@com_github_openconfig_gnmi//errlist",
         "@com_github_openconfig_ondatra//binding",
+        "@com_github_openconfig_ondatra//fakebind",
         "@com_github_openconfig_ondatra//proto:go_default_library",
         "@com_github_openconfig_ondatra//proxy",
         "@com_github_openconfig_ondatra//proxy/proto/reservation:go_default_library",
@@ -52,15 +61,19 @@ cc_library(
     testonly = True,
     srcs = ["thinkit.cc"],
     hdrs = ["thinkit.h"],
+    linkopts = ["-lresolv"],
     deps = [
         ":thinkit_cgo.cc",
+        ":thinkit_go_hdr",  # keep
         "@com_github_sonic_net_sonic_pins//gutil/gutil:status",
         "@com_github_openconfig_ondatra//proto:ondatra_cc_proto",
         "@com_github_openconfig_ondatra//proxy/proto:reservation_cc_proto",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings:string_view",
         "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest",
         "@com_google_protobuf//:protobuf",
     ],
 )
@@ -117,6 +130,7 @@ cc_test(
     deps = [
         ":cthinkit",
         ":ondatra_generic_testbed_fixture",
+        ":thinkit_go_hdr",
         "@com_github_sonic_net_sonic_pins//gutil/gutil:proto_matchers",
         "@com_github_sonic_net_sonic_pins//gutil/gutil:status",
         "@com_github_sonic_net_sonic_pins//gutil/gutil:status_matchers",
@@ -125,7 +139,7 @@ cc_test(
         "@com_github_sonic_net_sonic_pins//thinkit/proto:generic_testbed_cc_proto",
         "@com_github_gnmi//proto/gnmi:gnmi_cc_grpc_proto",
         "@com_github_gnmi//proto/gnmi:gnmi_cc_proto",
-        "@com_github_grpc_grpc//:grpc++_public_hdrs",
+        "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc_security_base",
         "@com_github_openconfig_ondatra//proto:ondatra_cc_proto",
         "@com_github_openconfig_ondatra//proxy/proto:reservation_cc_proto",

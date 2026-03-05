@@ -9,6 +9,7 @@ import time
 
 from scapy.all import sniff, IP, IPv6
 from scapy.contrib import bgp
+from scapy.config import conf
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from copy import deepcopy
@@ -63,9 +64,22 @@ BULK_ROUTE_COUNT = 512  # 512 ipv4 route and 512 ipv6 route
 FUNCTION = "function"
 STRESS = "stress"
 TRAFFIC_WAIT_TIME = 0.1
-BULK_TRAFFIC_WAIT_TIME = 0.004
+BULK_TRAFFIC_WAIT_TIME = 0.01
 BGP_ROUTE_FLAP_TIMES = 5
 UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
+
+
+@pytest.fixture(autouse=True, scope="module")
+def scapy_max_list_count():
+    """
+    Scapy 2.6.0+ uses conf.max_list_count (default 100) as global size limit for PacketListField/FieldListField
+    scapy.contrib.bgp overrides it with max_count=20000 for nlri, but not for withdrawn_routes
+    Set conf.max_list_count to 20000 to parse BGP update packets with 100+ withdrawn routes
+    """
+    original = conf.max_list_count
+    conf.max_list_count = 20000
+    yield
+    conf.max_list_count = original
 
 
 # Returns True if the topology has a spine layer, else returns False
@@ -135,7 +149,8 @@ def ignore_expected_loganalyzer_errors(duthosts, rand_one_dut_hostname, loganaly
             "\\(.* minutes\\).*",
             r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
             r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*",
-            r".*ERR teamd#teamsyncd: :- readData: netlink reports an error=.*"
+            r".*ERR teamd#teamsyncd: :- readData: netlink reports an error=.*",
+            r".*ERR bgp#fpmsyncd: .*zmq send failed.*zmqerrno: 11:Resource temporarily unavailable.*"
         ]
         loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
 
@@ -456,9 +471,9 @@ def send_and_verify_packet(ptfadapter, pkt_list, exp_pkt_list, tx_port, rx_ports
         rx_port = rx_ports[ip_ver] if ip_ver else rx_ports
         testutils.send(ptfadapter, pkt=pkt, port_id=tx_port)
         if exp_action == FORWARD:
-            testutils.verify_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=TRAFFIC_WAIT_TIME)
+            testutils.verify_packet_any_port(ptfadapter, pkt=exp_pkt, ports=rx_port, timeout=TRAFFIC_WAIT_TIME)
         else:
-            testutils.verify_no_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=TRAFFIC_WAIT_TIME)
+            testutils.verify_no_packet_any(ptfadapter, pkt=exp_pkt, ports=rx_port, timeout=TRAFFIC_WAIT_TIME)
 
 
 def send_and_verify_loopback_packets(ptfadapter, pkt_list, exp_pkt_list, tx_port, rx_ports, exp_action_list):
@@ -478,7 +493,8 @@ def send_and_verify_bulk_traffic(tcpdump_helper, ptfadapter, ip_ver_list, pkt_li
     """
     Send packet with ptfadapter and verify if packet is forwarded or dropped as expected
     """
-    tcpdump_helper.in_direct_ifaces = rx_ports if isinstance(rx_ports, list) else rx_ports.values()
+    tcpdump_helper.in_direct_ifaces = rx_ports if isinstance(rx_ports, list) else \
+        [port for port_list in rx_ports.values() for port in port_list]
     tcpdump_helper.start_sniffer()
     logger.info("Start sending traffic")
     ptfadapter.dataplane.flush()
@@ -537,10 +553,14 @@ def parse_time_stamp(bgp_packets, ipv4_route_list, ipv6_route_list):
                 layer = bgp_updates[i].getlayer(bgp.BGPUpdate, nb=layer_index)
                 if layer.nlri:
                     for route in layer.nlri:
+                        if not hasattr(route, 'prefix'):  # skip malformed/segmented routes
+                            continue
                         if route.prefix in ipv4_route_list:
                             update_time_stamp(announce_prefix_time_stamp, route.prefix, bgp_packets[i].time)
                 if layer.withdrawn_routes:
                     for route in layer.withdrawn_routes:
+                        if not hasattr(route, 'prefix'):  # skip malformed/segmented routes
+                            continue
                         if route.prefix in ipv4_route_list:
                             update_time_stamp(withdraw_prefix_time_stamp, route.prefix, bgp_packets[i].time)
                 layer_index += 1
@@ -835,7 +855,8 @@ def bgp_route_flap_with_stress(duthost, tbinfo, nbrhosts, ptf_ip, ipv4_route_lis
 
 def perf_sniffer_prepare(tcpdump_sniffer, duthost, tbinfo, nbrhosts, mg_facts, recv_port):
     eths_to_t2_vm = get_port_connected_with_vm(duthost, tbinfo, nbrhosts, vm_type='T2')
-    eths_to_t0_vm = get_eth_name_from_ptf_port(mg_facts, [port for port in recv_port.values()])
+    eths_to_t0_vm = get_eth_name_from_ptf_port(mg_facts, [port for port_list in recv_port.values()
+                                                          for port in port_list])
     tcpdump_sniffer.out_direct_ifaces = [random.choice(eths_to_t2_vm)]
     tcpdump_sniffer.in_direct_ifaces = eths_to_t0_vm
     tcpdump_sniffer.tcpdump_filter = BGP_FILTER
@@ -978,7 +999,8 @@ def test_bgp_route_without_suppress(duthost, tbinfo, nbrhosts, ptfadapter, prepa
 
 
 def test_bgp_route_with_suppress_negative_operation(duthost, tbinfo, nbrhosts, ptfadapter, localhost, prepare_param,
-                                                    restore_bgp_suppress_fib, generate_route_and_traffic_data):
+                                                    restore_bgp_suppress_fib, generate_route_and_traffic_data,
+                                                    loganalyzer):
     is_v6_topo = is_ipv6_only_topology(tbinfo)
     try:
         with allure.step("Prepare needed parameters"):

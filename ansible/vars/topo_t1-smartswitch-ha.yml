@@ -367,15 +367,11 @@ configuration:
         ipv4: 100.1.0.17/32
         ipv6: 2064:100::11/128
       Ethernet1:
-        lacp: 1
         dut_index: 0
-      Ethernet2:
-        lacp: 2
-        dut_index: 1
-      Port-Channel1:
         ipv4: 10.0.0.33/31
         ipv6: fc00::42/126
-      Port-Channel2:
+      Ethernet2:
+        dut_index: 1
         ipv4: 10.0.1.33/31
         ipv6: fc00::1:42/126
     bp_interface:
@@ -405,15 +401,11 @@ configuration:
         ipv4: 100.1.0.18/32
         ipv6: 2064:100::12/128
       Ethernet1:
-        lacp: 1
         dut_index: 0
-      Ethernet2:
-        lacp: 2
-        dut_index: 1
-      Port-Channel1:
         ipv4: 10.0.0.35/31
         ipv6: fc00::46/126
-      Port-Channel2:
+      Ethernet2:
+        dut_index: 1
         ipv4: 10.0.1.35/31
         ipv6: fc00::1:46/126
     bp_interface:
@@ -443,15 +435,11 @@ configuration:
         ipv4: 100.1.0.19/32
         ipv6: 2064:100::13/128
       Ethernet1:
-        lacp: 1
         dut_index: 0
-      Ethernet2:
-        lacp: 2
-        dut_index: 1
-      Port-Channel1:
         ipv4: 10.0.0.37/31
         ipv6: fc00::4a/126
-      Port-Channel2:
+      Ethernet2:
+        dut_index: 1
         ipv4: 10.0.1.37/31
         ipv6: fc00::1:4a/126
     bp_interface:
@@ -481,15 +469,11 @@ configuration:
         ipv4: 100.1.0.20/32
         ipv6: 2064:100::14/128
       Ethernet1:
-        lacp: 1
         dut_index: 0
-      Ethernet2:
-        lacp: 2
-        dut_index: 1
-      Port-Channel1:
         ipv4: 10.0.0.39/31
         ipv6: fc00::4e/126
-      Port-Channel2:
+      Ethernet2:
+        dut_index: 1
         ipv4: 10.0.1.39/31
         ipv6: fc00::1:4e/126
     bp_interface:
