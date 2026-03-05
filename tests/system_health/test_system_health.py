@@ -63,6 +63,12 @@ EXPECT_PSU_NO_POWER = '{} is out of power'
 EXPECT_PSU_HOT = '{} temperature is too hot'
 EXPECT_PSU_INVALID_VOLTAGE = '{} voltage is out of range'
 
+DEFAULT_LED_CONFIG = {
+    'fault': 'red',
+    'normal': 'green',
+    'booting': 'red'
+}
+
 
 @pytest.fixture(autouse=True, scope="module")
 def check_image_version(duthost):
@@ -383,11 +389,12 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
             mock_result = device_mocker.mock_asic_temperature(False)
             expect_value = EXPECT_ASIC_HOT
             if mock_result:
-                time.sleep(THERMAL_CHECK_INTERVAL)
-                value = redis_get_field_value(
-                    duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
-                assert not value or expect_value not in value, 'ASIC check is still performed after it ' \
-                                                               'is configured to be ignored'
+                def _check_asic_is_ignored(duthost):
+                    value = redis_get_field_value(
+                        duthost, STATE_DB, HEALTH_TABLE_NAME, 'ASIC')
+                    return not value or expect_value not in value
+                assert wait_until(DEFAULT_INTERVAL, FAST_INTERVAL, 0, _check_asic_is_ignored, duthost), \
+                    'ASIC check is still performed after it is configured to be ignored'
 
     logger.info(
         'Ignore PSU check, verify there is no error information about psu')
@@ -397,10 +404,12 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
             mock_result, psu_name = device_mocker.mock_psu_presence(False)
             expect_value = EXPECT_PSU_MISSING.format(psu_name)
             if mock_result:
-                time.sleep(PSU_CHECK_INTERVAL)
-                value = redis_get_field_value(
-                    duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
-                assert not value or expect_value != value, \
+                def _check_psu_is_ignored(duthost, psu_name):
+                    value = redis_get_field_value(
+                        duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
+                    return not value or expect_value != value
+
+                assert wait_until(DEFAULT_INTERVAL, FAST_INTERVAL, 0, _check_psu_is_ignored, duthost, psu_name), \
                     'PSU check is still performed after it is configured to be ignored'
 
 
@@ -513,12 +522,19 @@ def check_system_health_led_info(duthost):
     status_dict = {name: status for name, status in status_data}
     logger.info(f"Status dict is {status_dict}")
 
+    led_cfg = get_system_health_config(duthost, "led_color", DEFAULT_LED_CONFIG)
+
+    system_status_lower = system_led_status.lower()
     if all(status == "OK" for status in status_dict.values()):
-        assert system_led_status.lower() == 'green', \
-            f"System status LED is not green, but it is {system_led_status}"
+        # Logic for healthy system: must match the 'normal' key value
+        expected_normal = led_cfg["normal"].lower()
+        assert system_status_lower == expected_normal, \
+            f"System status LED is not the configured 'normal' color ({expected_normal}), but it is {system_led_status}"
     else:
-        assert system_led_status.lower() in ["yellow", "amber", "red"], \
-            f"System status LED is not yellow, amber, or red, but it is {system_led_status}"
+        # Logic for faulted system: Iterate through led_cfg to find a match among non-normal keys
+        not_normal = {color for key, color in led_cfg.items() if key != "normal"}
+        assert system_status_lower in not_normal, \
+            f"System status LED '{system_led_status}' does not match any colors defined in config: {not_normal}"
 
     return True
 
@@ -542,13 +558,26 @@ class ConfigFileContext:
 
     def __enter__(self):
         """
-        Back up original system health config file and replace it with the given one.
+        Back up original system health config and merge updates from source file.
+        This should preserve platform-specific settings like led_color.
         :return:
         """
         self.dut.command(
             'mv -f {} {}'.format(self.origin_config, self.backup_config))
-        self.dut.copy(src=os.path.join(FILES_DIR, self.src),
-                      dest=self.origin_config)
+
+        output = self.dut.command('cat {}'.format(self.backup_config))
+        origin = json.loads(output['stdout'])
+
+        with open(self.src, 'r') as f:
+            updates = json.load(f)
+
+        # Preserve platform-specific settings if it exists in the original config
+        if 'led_color' in origin:
+            updates.pop('led_color', None)
+
+        origin.update(updates)
+
+        self.dut.copy(content=json.dumps(origin, indent=4), dest=self.origin_config)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         """

@@ -20,7 +20,6 @@ from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHE
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
 from tests.common.devices.duthosts import DutHosts
 from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa: F401
-from tests.common.fixtures.duthost_utils import duthost_mgmt_ip  # noqa: F401
 
 """
 Helper script for fanout switch operations
@@ -128,6 +127,41 @@ def list_dut_fanout_connections(dut, fanouthosts):
             candidates.append((dut_port, fanout, fanout_port))
 
     return candidates
+
+
+def eos_to_linux_intf(eos_intf_name, hwsku=None):
+    """
+    @Summary: Map EOS's interface name to Linux's interface name
+    @param eos_intf_name: Interface name in EOS
+    @return: Return the interface name in Linux
+    """
+    if hwsku == "MLNX-OS":
+        linux_intf_name = eos_intf_name.replace(
+            "ernet 1/", "sl1p").replace("/", "sp")
+    elif hwsku and "Nokia" in hwsku:
+        linux_intf_name = eos_intf_name
+    else:
+        linux_intf_name = eos_intf_name.replace(
+            'Ethernet', 'et').replace('/', '_')
+    return linux_intf_name
+
+
+def nxos_to_linux_intf(nxos_intf_name):
+    """
+        @Summary: Map NxOS's interface name to Linux's interface name
+        @param nxos_intf_name: Interface name in NXOS
+        @return: Return the interface name in Linux
+    """
+    return nxos_intf_name.replace('Ethernet', 'Eth').replace('/', '-')
+
+
+def sonic_to_linux_intf(sonic_intf_name):
+    """
+    @Summary: Map SONiC's interface name to Linux's interface name
+    @param sonic_intf_name: Interface name in SONiC
+    @return: Return the interface name in Linux
+    """
+    return sonic_intf_name
 
 
 def watch_system_status(dut):
@@ -1081,10 +1115,12 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
 
 
 @pytest.fixture(scope='function')
-def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, duthost_mgmt_ip,  # noqa: F811
+def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname,
                                localhost, request):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dut_ip = duthost_mgmt_ip['mgmt_ip']
+    duthost_mgmt_info = duthost.get_mgmt_ip()
+    dut_ip = duthost_mgmt_info['mgmt_ip']
+    dut_mgmt_ver = duthost_mgmt_info['version']
 
     res = localhost.wait_for(host=dut_ip,
                              port=SERVER_PORT,
@@ -1102,7 +1138,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, dutho
             'command=/usr/bin/python{} /opt/platform_api_server.py --port {} {}'.format(
                 '3' if py3_platform_api_available else '2',
                 SERVER_PORT,
-                '--ipv6' if duthost_mgmt_ip['version'] == 'v6' else ''),
+                '--ipv6' if dut_mgmt_ver == 'v6' else ''),
             'autostart=True',
             'autorestart=True',
             'stdout_logfile=syslog',
@@ -1121,7 +1157,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, dutho
         duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
 
         # Prepend an iptables rule to allow incoming traffic to the HTTP server
-        if duthost_mgmt_ip['version'] == 'v6':
+        if dut_mgmt_ver == 'v6':
             duthost.command(IP6TABLES_PREPEND_RULE_CMD)
         else:
             duthost.command(IPTABLES_PREPEND_RULE_CMD)
@@ -1135,8 +1171,9 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, dutho
 
 
 @pytest.fixture(scope='function')
-def platform_api_conn(duthost_mgmt_ip, start_platform_api_service):  # noqa: F811
-    dut_ip = duthost_mgmt_ip['mgmt_ip']
+def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dut_ip = duthost.get_mgmt_ip()["mgmt_ip"]
 
     conn = http.client.HTTPConnection(dut_ip, 8000)
     try:
