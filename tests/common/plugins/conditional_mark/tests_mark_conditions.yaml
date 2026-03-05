@@ -186,9 +186,9 @@ arp/test_stress_arp.py::test_ipv4_arp:
 
 arp/test_unknown_mac.py:
   skip:
-    reason: "Behavior on cisco-8000 & (Marvell) platform for unknown MAC is flooding rather than DROP, hence skipping."
+    reason: "Behavior on cisco-8000 platform for unknown MAC is flooding rather than DROP, hence skipping."
     conditions:
-      - "asic_type in ['cisco-8000','marvell-teralynx']"
+      - "asic_type in ['cisco-8000']"
 
 arp/test_unknown_mac.py::TestUnknownMac::test_unknown_mac:
   xfail:
@@ -206,6 +206,7 @@ arp/test_wr_arp.py:
       - "is_mgmt_ipv6_only==True" # Does not support ipv6 mgmt ip on dut, specially the ferret server
       - "'isolated' in topo_name"
       - "topo_type not in ['t0']"
+      - "'f2' in topo_name"
 
 #######################################
 #####            bfd              #####
@@ -276,10 +277,6 @@ bgp/test_bgp_allow_list.py:
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
-  xfail:
-    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20217 and '-v6-' in topo_name"
 
 bgp/test_bgp_bbr.py:
   skip:
@@ -339,12 +336,6 @@ bgp/test_bgp_operation_in_ro.py:
     reason: "Feature is reverted and pending enhancement"
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23462"
-
-bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown:
-  xfail:
-    reason: "xfail for IPv6-only topologies, is with it parse everthing as IPv4"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19907 and '-v6-' in topo_name"
 
 bgp/test_bgp_port_disable.py:
   skip:
@@ -435,6 +426,7 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56'] and https://github.com/sonic-net/sonic-mgmt/issues/9201"
       - "'backend' in topo_name or 'mgmttor' in topo_name or 'isolated' in topo_name"
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
+      - "'f2' in topo_name"
 
 bgp/test_bgp_speaker.py:
   skip:
@@ -484,17 +476,11 @@ bgp/test_bgp_update_replication.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21110 and 'dualtor-aa' in topo_name"
 
-bgp/test_bgp_update_timer.py::test_bgp_update_timer_session_down:
-  xfail:
-    reason: "xfail for IPv6-only topologies, issue caused by _is_ipv4_address check"
+bgp/test_bgp_vnet.py:
+  skip:
+    reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19918 and '-v6-' in topo_name"
-
-bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route:
-  xfail:
-    reason: "xfail for IPv6-only topologies, issue caused by _is_ipv4_address check"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19918 and '-v6-' in topo_name"
+      - "asic_type not in ['vs', 'cisco-8000', 'mellanox']"
 
 bgp/test_bgp_vnet.py:
   skip:
@@ -535,12 +521,6 @@ bgp/test_startup_tsa_tsb_service.py::test_user_init_tsb_on_sup_while_service_run
     reason: "Not supported on T2 single node topology"
     conditions:
       - "'t2_single_node' in topo_name"
-
-bgp/test_traffic_shift.py:
-  xfail:
-    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20194 and '-v6-' in topo_name"
 
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
@@ -1079,13 +1059,6 @@ drop_packets:
     reason: "M0/MX topo does not support drop_packets"
     conditions:
       - "topo_type in ['m0', 'mx']"
-
-drop_packets/test_configurable_drop_counters.py::test_neighbor_link_down:
-  xfail:
-    reason: "xfail for IPv6-only topologies, issue with python max size"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19920 and '-v6-' in topo_name"
-
 
 drop_packets/test_drop_counters.py:
   xfail:
@@ -1942,11 +1915,11 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
-    reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms and Broadcom DNX platforms."
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8122 platforms and Broadcom DNX platforms."
     conditions_logical_operator: "OR"
     conditions:
-      - "asic_type in ['cisco-8000']"
       - "asic_subtype in ['broadcom-dnx']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -2322,6 +2295,11 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "hwsku in ['Cisco-8800-LC-48H-C48']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
+  xfail:
+    reason: "This test will be reworked following changes to GCU validators"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "release in ['master', '202511'] and https://github.com/sonic-net/sonic-mgmt/issues/22333"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -2606,6 +2584,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "'isolated' in topo_name"
       - "release in ['202412']"
+      - "'f2' in topo_name"
 
 #######################################
 #####           hash              #####
@@ -2627,25 +2606,25 @@ hash/test_generic_hash.py:
 
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
-    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
+    reason: "This is a new test cases and doesn't work for platform other than Mellanox and Marvell-Teralynx, xfail them before the issue is addressed"
     conditions:
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'marvell-teralynx']"
       - https://github.com/sonic-net/sonic-mgmt/issues/14109
 
 hash/test_generic_hash.py::test_backend_error_messages:
   xfail:
-    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
+    reason: "This is a new test cases and doesn't work for platform other than Mellanox and Marvell-Teralynx, xfail them before the issue is addressed"
     conditions:
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'marvell-teralynx']"
       - https://github.com/sonic-net/sonic-mgmt/issues/14109
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI and Cisco 8000'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
     conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1'"
-      - "asic_type in ['broadcom', 'cisco-8000']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx']"
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -2675,9 +2654,9 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
 
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
-    reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000'
+    reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx']"
   xfail:
     reason: 'ECMP hash skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/18304 Or xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20733'
     conditions_logical_operator: or
@@ -2699,16 +2678,16 @@ hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_IP_PROTOCOL:
 
 hash/test_generic_hash.py::test_hash_capability:
   xfail:
-    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
+    reason: "This is a new test cases and doesn't work for platform other than Mellanox and Marvell-Teralynx, xfail them before the issue is addressed"
     conditions:
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'marvell-teralynx']"
       - https://github.com/sonic-net/sonic-mgmt/issues/14109
 
 hash/test_generic_hash.py::test_lag_hash:
   skip:
-    reason: 'LAG hash not supported in broadcom SAI and Cisco 8000'
+    reason: 'LAG hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx']"
   xfail:
     reason: 'xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20733'
     conditions:
@@ -2758,11 +2737,11 @@ hash/test_generic_hash.py::test_lag_hash[CRC_CCITT-VLAN_ID:
 
 hash/test_generic_hash.py::test_lag_member_flap:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, LAG hash not supported in broadcom SAI. For other platforms, skipping due to missing object in SonicHost'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG. For other platforms, skipping due to missing object in SonicHost'
     conditions_logical_operator: "OR"
     conditions:
       - "asic_gen == 'spc1'"
-      - "asic_type in ['broadcom']"
+      - "asic_type in ['broadcom', 'marvell-teralynx']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
   xfail:
     reason: 'xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20733'
@@ -2808,11 +2787,11 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IP_PROTOCOL-ipv4:
 
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, LAG hash not supported in broadcom SAI. For other platforms, skipping due to missing object in SonicHost'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG. For other platforms, skipping due to missing object in SonicHost'
     conditions_logical_operator: "OR"
     conditions:
       - "asic_gen == 'spc1'"
-      - "asic_type in ['broadcom']"
+      - "asic_type in ['broadcom', 'marvell-teralynx']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
   xfail:
     reason: 'xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20733'
@@ -2858,11 +2837,11 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IP_PROTOCOL-ipv4
 
 hash/test_generic_hash.py::test_nexthop_flap:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI. For other platforms, skipping due to missing object in SonicHost'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG. For other platforms, skipping due to missing object in SonicHost'
     conditions_logical_operator: "OR"
     conditions:
       - "asic_gen == 'spc1'"
-      - "asic_type in ['broadcom']"
+      - "asic_type in ['broadcom', 'marvell-teralynx']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
   xfail:
     reason: "Flaky hashing behavior using specific combination of hash field and algorithm."
@@ -2902,11 +2881,11 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IP_PROTOCOL-ipv4-None-Non
 
 hash/test_generic_hash.py::test_reboot:
   skip:
-    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI'
+    reason: 'On Mellanox SPC1 platforms, due to HW limitation, it would not support CRC_CCITT algorithm. For broadcom, ECMP/LAG hash not supported in broadcom SAI. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
     conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1'"
-      - "asic_type in ['broadcom']"
+      - "asic_type in ['broadcom', 'marvell-teralynx']"
 
 hash/test_generic_hash.py::test_reboot[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -3346,6 +3325,18 @@ packet_trimming:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name"
 
+packet_trimming/test_packet_trimming_asymmetric.py::TestPacketTrimmingAsymmetric::test_trimming_counters_with_feature_toggle:
+  skip:
+    reason: "TH5 clears trim counters when packet trimming is turned off, skipping until trim counter persistance is supported."
+    conditions:
+      - "asic_gen in ['th5']"
+
+packet_trimming/test_packet_trimming_symmetric.py::TestPacketTrimmingSymmetric::test_trimming_counters_with_feature_toggle:
+  skip:
+    reason: "TH5 clears trim counters when packet trimming is turned off, skipping until trim counter persistance is supported."
+    conditions:
+      - "asic_gen in ['th5']"
+
 #######################################
 #####           pc               #####
 #######################################
@@ -3386,10 +3377,6 @@ pc/test_po_update.py::test_po_update:
     reason: "Skip test due to there is no portchannel or no portchannel member exists in current topology."
     conditions:
       - "len(minigraph_portchannels) == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0"
-  xfail:
-    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20729"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20729 and '-v6-' in topo_name"
 
 pc/test_po_update.py::test_po_update_io_no_loss:
   skip:
@@ -3459,7 +3446,7 @@ pfcwd/test_pfcwd_.*\[IPv6.*:
    xfail:
      reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21082"
      conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and asic_type in ['mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and asic_type in ['mellanox', 'cisco-8000']"
 
 pfcwd/test_pfcwd_all_port_storm.py:
    skip:
@@ -3507,6 +3494,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
      conditions:
         - "'t2' in topo_name"
         - "'standalone' in topo_name"
+        - "'f2' in topo_name"
         - "topo_type in ['m0', 'mx', 'm1']"
         - *lossyTopos
         - "asic_type in ['cisco-8000']"
@@ -3540,6 +3528,7 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv6-async_storm:
         - *lossyTopos
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17803"
         - "release in ['202412']"
+        - "'f2' in topo_name"
 
 #######################################
 #####     platform_tests          #####
@@ -3576,6 +3565,7 @@ process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat
     conditions:
       - "'t1' in topo_name"
       - "release in ['202412']"
+      - "is_smartswitch==True" # t0 and t1 should all be skipped on smartswitch
 
 #######################################
 #####     ptftests      #####
@@ -4772,7 +4762,7 @@ vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
   skip:
     reason: "Unsupported platform."
     conditions:
-      - "asic_type not in ['mellanox', 'barefoot', 'cisco-8000']"
+      - "asic_type not in ['mellanox', 'barefoot', 'cisco-8000', 'marvell-teralynx']"
 
 vlan/test_vlan_ping.py:
   skip:

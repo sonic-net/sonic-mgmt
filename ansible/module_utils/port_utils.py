@@ -364,6 +364,15 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
             for i in range(1, 37):
                 sonic_name = "Ethernet%d" % ((i - 1) * 8)
                 port_alias_to_name_map["Ethernet{}/{}".format(i, 1)] = sonic_name
+        elif hwsku in ["Arista-7280R4-32QF-32DF-64O",
+                       "Arista-7280R4K-32QF-32DF-64O"]:
+            portNum = 0
+            for i in range(1, 65):
+                port_alias_to_name_map["Ethernet{}/{}".format(i, 1)] = "Ethernet%d" % portNum
+                if i > 16 and i < 49:
+                    portNum += 4
+                else:
+                    portNum += 8
         elif hwsku == "Arista-7800R3A-36DM2-C72" or\
                 hwsku == "Arista-7800R3A-36D-C72" or\
                 hwsku == "Arista-7800R3A-36P-C72" or\
@@ -510,11 +519,17 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku == "RA-B6920-4S":
             for i in range(1, 129):
                 port_alias_to_name_map["hundredGigE%d" % i] = "Ethernet%d" % i
-        elif hwsku in ["Wistron_sw_to3200k_32x100", "Wistron_sw_to3200k"]:
+        elif hwsku in ["Wistron_sw_to3200k"]:
             for i in range(0, 256, 8):
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+        elif hwsku in ["Wistron_sw_to3200k_32x100"]:
+            for i in range(0, 252, 4):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
         elif hwsku in ["dbmvtx9180_64x100G"]:
             for i in range(0, 505, 8):
+                port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
+        elif hwsku in ["dbmvtx9180_64osfp_128x400G_lab"]:
+            for i in range(0, 509, 4):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
         elif hwsku == "Arista-720DT-48S" or hwsku == "Arista-720DT-G48S4":
             for i in range(1, 53):

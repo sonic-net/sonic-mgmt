@@ -996,7 +996,7 @@ class BaseEverflowTest(object):
         duthost.template(src=os.path.join(FILE_DIR, rule_file), dest=dest_path)
         duthost.shell("config load -y {}".format(dest_path))
 
-        if duthost.facts['asic_type'] != 'vs':
+        if duthost.facts['asic_type'] not in ['vs', 'broadcom']:
             pytest_assert(wait_until(60, 2, 0, self.check_rule_active, duthost, table_name),
                           "Acl rule counters are not ready")
 

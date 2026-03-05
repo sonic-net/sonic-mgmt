@@ -9,6 +9,7 @@ import time
 
 from scapy.all import sniff, IP, IPv6
 from scapy.contrib import bgp
+from scapy.config import conf
 import ptf.testutils as testutils
 import ptf.packet as scapy
 from copy import deepcopy
@@ -64,6 +65,19 @@ TRAFFIC_WAIT_TIME = 0.1
 BULK_TRAFFIC_WAIT_TIME = 0.01
 BGP_ROUTE_FLAP_TIMES = 5
 UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
+
+
+@pytest.fixture(autouse=True, scope="module")
+def scapy_max_list_count():
+    """
+    Scapy 2.6.0+ uses conf.max_list_count (default 100) as global size limit for PacketListField/FieldListField
+    scapy.contrib.bgp overrides it with max_count=20000 for nlri, but not for withdrawn_routes
+    Set conf.max_list_count to 20000 to parse BGP update packets with 100+ withdrawn routes
+    """
+    original = conf.max_list_count
+    conf.max_list_count = 20000
+    yield
+    conf.max_list_count = original
 
 
 # Returns True if the topology has a spine layer, else returns False

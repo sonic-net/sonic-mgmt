@@ -142,7 +142,7 @@ function read_yaml
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers upstream_neighbor_groups downstream_neighbor_groups;
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers upstream_neighbor_groups downstream_neighbor_groups use_converged_peers;
   do
     value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
@@ -168,8 +168,36 @@ function read_yaml
   servers=${line_arr[15]}
   upstream_neighbor_groups=${line_arr[16]}
   downstream_neighbor_groups=${line_arr[17]}
+  use_converged_peers=${line_arr[18]}
   # Remove the dpu duts by the keyword 'dpu' in the dut name
   duts=$(echo $duts | sed "s/,[^,]*dpu[^,]*//g")
+
+  converge_topo_if_needed "$topo" "$use_converged_peers"
+}
+
+function converge_topo_if_needed
+{
+    topo="$1"
+    use_converged_peers="$2"
+
+    ANSIBLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    VARS_DIR="$ANSIBLE_DIR/vars"
+    topo_file="$VARS_DIR/topo_${topo}.yml"
+    backup_file="${topo_file}".bak
+
+    if [[ "$use_converged_peers" == "True" ]]; then
+        echo "use_converged_peers is true, converging topo..."
+
+        if [[ -f "$backup_file" ]];then
+            echo "Backup file exists, recover..."
+            cp "$backup_file" "$topo_file"
+        elif [[ -f "$topo_file" ]]; then
+            echo "Back up topo file"
+            cp "$topo_file" "$backup_file"
+        fi
+
+        python -m ceos_topo_converger "$backup_file" "$topo_file"
+    fi
 }
 
 function read_file
@@ -384,6 +412,7 @@ function add_topo
           -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
           -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" \
           -e upstream_neighbor_groups="$upstream_neighbor_groups" -e downstream_neighbor_groups="$downstream_neighbor_groups" \
+          -e use_converged_peers="$use_converged_peers" \
           $ansible_options $@
 
     if [ $i -eq 0 ]; then
@@ -1081,3 +1110,9 @@ case "${subcmd}" in
   *)           usage
                ;;
 esac
+
+if [[ -f "$backup_file" ]];then
+    echo "Backup exists, restore backup file"
+    rm -f "$topo_file"
+    mv "$backup_file" "$topo_file"
+fi
