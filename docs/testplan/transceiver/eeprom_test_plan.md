@@ -14,7 +14,7 @@ The scope of this test plan includes the following:
 
 ## Optics Scope
 
-All the optics covered in the parent [transceiver onboarding test plan](test_plan.md#scope)
+All the optics covered in the parent [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#scope)
 
 ## Testbed Topology
 
@@ -27,7 +27,7 @@ Before executing the EEPROM tests, ensure the following pre-requisites are met:
 ### Setup Requirements
 
 - The testbed is set up according to the [Testbed Topology](test_plan.md#testbed-topology)
-- All the pre-requisites mentioned in [Transceiver Onboarding Test Plan](test_plan.md#test-prerequisites-and-configuration-files) must be met
+- All the pre-requisites mentioned in [Transceiver Onboarding Test Infrastructure and Framework](test_plan.md#test-prerequisites-and-configuration-files) must be met
 
 ### Environment Validation
 
@@ -66,7 +66,7 @@ The following table summarizes the key attributes used in EEPROM testing. This t
 
 ## CLI Commands Reference
 
-For detailed CLI commands used in the test cases below, please refer to the [CLI Commands section](test_plan.md#cli-commands) in the transceiver onboarding test plan. This section provides comprehensive examples of all relevant commands
+For detailed CLI commands used in the test cases below, please refer to the [CLI Commands section](test_plan.md#cli-commands) in the Transceiver Onboarding Test Infrastructure and Framework. This section provides comprehensive examples of all relevant commands
 
 ## Test Cases
 

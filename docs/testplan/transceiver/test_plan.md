@@ -1,8 +1,12 @@
-# Transceiver Onboarding Test Plan
+# Transceiver Onboarding Test Infrastructure and Framework
 
 ## Scope
 
-This test plan outlines a comprehensive framework for ensuring feature parity for new transceivers being onboarded to SONiC. The goal is to automate all tests listed in this document, covering the following areas:
+This document defines the attribute-driven test infrastructure and framework for transceiver onboarding validation in SONiC. It specifies configuration file formats, hierarchical attribute resolution, normalization rules, and shared test utilities that underpin all transceiver test categories.
+
+> **Note:** Scenario-based test cases (shut/noshut sequences, reboot flows, failure injection, etc.) will be documented in a dedicated **Scenario Test Plan** in the future. The [Test Cases (Interim)](#test-cases-interim) section in this document contains test cases that will migrate to that plan.
+
+The overall test coverage spans the following areas:
 
 - **Link Behavior**: Test link behavior using shut/no shut commands and under process crash and device reboot scenarios.
 - **Transceiver Information Fields**: Verify transceiver specific fields (Vendor name, part number, serial number) via CLI commands, ensuring values match expectations.
@@ -911,7 +915,13 @@ The following child test plans provide comprehensive, attribute-driven test case
 | [DOM Test Plan](dom_test_plan.md) | Digital Optical Monitoring sensor validation, operational and threshold range checks, data consistency, polling control, and interface state change impact on DOM data |
 | [System Test Plan](system_test_plan.md) | System-level transceiver testing including link behavior, process/service restarts, reboot recovery, transceiver event handling (reset, low power mode, loopback), SI settings, C-CMIS tuning, and stress tests |
 
-## Test Cases
+### Document Relationships
+
+This repository uses three types of test documentation:
+
+- **This document (Infrastructure & Framework)**: Defines configuration file formats, attribute resolution, normalization rules, validation templates, and shared CLI reference. All other test plans reference this document for infrastructure details.
+- **Child attribute plans** (EEPROM, DOM, System, VDM, PM, CMIS Firmware upgrade, Transceiver OIR): Define *what* to validate per test category — specific attributes, expected values, and category-scoped test cases.
+- **Scenario test plan** (future): Will define *how* to exercise the system — end-to-end test sequences (shut/noshut, reboot, failure injection) that compose and orchestrate tests from the per-category child plans above for scenario-driven validation.
 
 ### 1. Tests not involving traffic
 
