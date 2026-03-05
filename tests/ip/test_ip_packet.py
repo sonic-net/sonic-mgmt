@@ -310,9 +310,9 @@ class TestIPPacket(object):
         ptfadapter.dataplane.flush()
 
         testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
-        # Wait for port counters to update (non-asserting, real checks follow below)
-        if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
-            logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
+        # Drop test: on some platforms packets are dropped at L2 so rx_ok never reaches PKT_NUM_MIN.
+        # Use a short fixed sleep instead of wait_until to avoid a 30s timeout regression.
+        time.sleep(5)
         match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
@@ -656,9 +656,9 @@ class TestIPPacket(object):
         ptfadapter.dataplane.flush()
 
         testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
-        # Wait for port counters to update (non-asserting, real checks follow below)
-        if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
-            logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
+        # Drop test: on some platforms packets are dropped at L2 so rx_ok never reaches PKT_NUM_MIN.
+        # Use a short fixed sleep instead of wait_until to avoid a 30s timeout regression.
+        time.sleep(5)
 
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         if rif_support:
