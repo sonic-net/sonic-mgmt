@@ -2877,6 +2877,23 @@ def compare_counters(counter1, counter2, keys_to_compare):
     logger.info("All specified counters match")
 
 
+def has_non_zero_trim_counters(duthost, port):
+    """
+    Checks if port level trim counters are non-zero.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. "Ethernet96"
+
+    Returns:
+        True if the counters are non-zero, otherwise False
+    """
+    port_trim_packets = get_port_trim_counters_json(duthost, port)
+    if 'TRIM_PKTS' not in port_trim_packets:
+        return False
+    return int(port_trim_packets['TRIM_PKTS']) > 0
+
+
 def verify_queue_and_port_trim_counter_consistency(duthost, port):
     """
     Verify the consistency of the trim counter on the queue and the port level.
