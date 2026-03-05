@@ -379,7 +379,7 @@ class BasePacketTrimming:
 
         trim_queue = PacketTrimmingConfig.get_trim_queue(duthost)
 
-        with allure.step("Verify TrimDrop counters on switch level"):
+        with allure.step("Verify TrimDrop counters on port level"):
             original_schedulers = {}
             try:
                 # Block the trimmed queue
@@ -394,10 +394,13 @@ class BasePacketTrimming:
                 counter_kwargs.update({'expect_packets': False})
                 verify_trimmed_packet(**counter_kwargs)
 
-                # Get the TrimDrop counters on switch level
-                switch_trim_drop_value = get_switch_trim_counters_json(duthost)['trim_drop']
-                logger.info(f"switch_trim_drop_value: {switch_trim_drop_value}")
-                pytest_assert(switch_trim_drop_value > 0, "Trim drop counter on switch level is not greater than 0")
+                # Get the TrimDrop counters on port level
+                for egress_port in trim_counter_params['egress_ports']:
+                    for port in egress_port['dut_members']:
+                        port_trim_drop_value = get_port_trim_counters_json(duthost, port)['TRIM_DRP_PKTS']
+                        logger.info(f"port: {port}, port_trim_drop_value: {port_trim_drop_value}")
+                        pytest_assert(port_trim_drop_value > 0,
+                                      f"Trim drop counter on port {port} is not greater than 0")
 
             finally:
                 # Enable the trimmed queue with original scheduler
