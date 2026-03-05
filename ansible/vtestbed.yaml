@@ -17,7 +17,7 @@
 
 - conf-name: vms-kvm-t0-csonic
   group-name: vms6-1
-  topo: t0_csonic
+  topo: t0
   ptf_image_name: docker-ptf
   ptf: ptf-01
   ptf_ip: 10.250.0.102/24

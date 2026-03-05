@@ -1,3 +1,13 @@
+- name: Build VM name to topo VM name mapping
+  set_fact:
+    vm_inv_to_topo: >-
+      {{ vm_inv_to_topo | default({}) | combine({
+           VM_hosts[VM_hosts.index(VM_base) + item.value.vm_offset]: item.key
+         }) }}
+  loop: "{{ topology.VMs | dict2items }}"
+  loop_control:
+    loop_var: item
+
 - name: Create VMs network
   become: yes
   vm_topology:
@@ -8,9 +18,13 @@
 
 - name: Add OVS flow rules for VM bridges
   become: yes
-  command: "ovs-ofctl add-flow br-{{ item }}-{{ topology.VMs[item].vm_offset }} action=normal"
-  with_items: "{{ VM_targets }}"
+  command: "ovs-ofctl add-flow br-{{ vm_item }}-{{ topology.VMs[vm_inv_to_topo[vm_item]].vm_offset }} action=normal"
+  loop: "{{ VM_targets }}"
+  loop_control:
+    loop_var: vm_item
   failed_when: false
 
 - include_tasks: add_csonic.yml
-  with_items: "{{ VM_targets }}"
+  loop: "{{ VM_targets }}"
+  loop_control:
+    loop_var: vm_item
