@@ -54,6 +54,16 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.command("pfcwd start_default")
 
 
+@pytest.fixture(scope='function')
+def restore_original_config():
+    """Ensures LAG config restoration even if test fails."""
+    data = {}
+    yield data
+    if data:
+        data['self']._TestPfcwdFunc__restore_original_config(
+            data['dut'], data['port'], data['vm'], data['po'], data['links'])
+
+
 class SetupPfcwdFunc(object):
     def parse_test_port_info(self):
         """
@@ -509,7 +519,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                              setup_dut_test_params, enum_fanout_graph_facts, ptfhost,  # noqa: F811
                              duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
                              setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,
-                             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m):  # noqa: F811
+                             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa: F811
+                             restore_original_config):
         """
         PFCwd CLI show pfcwd stats test
 
@@ -548,10 +559,11 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             pytest.skip("Test skipped: No neighbors detected as 'rx_port' is None for selected test ports,"
                         " which is necessary for PFCwd test setup.")
 
-        # for idx, port in enumerate(self.ports):
         port = list(self.ports.keys())[0]
 
         vm_host, neigh_port_channel, min_links = self.__shutdown_lag_members(duthost, port, tbinfo, nbrhosts)
+        restore_original_config.update({'self': self, 'dut': duthost, 'port': port,
+                                        'vm': vm_host, 'po': neigh_port_channel, 'links': min_links})
 
         logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
         self.setup_test_params(port, setup_info['vlan'], init=True, ip_version=ip_version)
@@ -584,4 +596,3 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.storm_hndle.stop_storm()
                 logger.info("--- Stop PFC WD ---")
                 self.dut.command("pfcwd stop")
-        self.__restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links)
