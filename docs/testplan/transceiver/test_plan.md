@@ -89,6 +89,8 @@ A total of 2 ports of a device with the onboarding transceiver should be connect
                                +-----------------+
     ```
 
+> **Note:** Certain test categories require specific topologies. Each child test plan specifies its required topology in its own pre-requisites section if applicable.
+
 ## Test Prerequisites and Configuration Files
 
 The following configuration files must be present to enable comprehensive transceiver testing.
