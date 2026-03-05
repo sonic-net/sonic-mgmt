@@ -1,7 +1,9 @@
 import pytest
 import random
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from tests.common.helpers.console_helper import assert_expect_text, create_ssh_client, ensure_console_session_up
-from tests.common.helpers.console_helper import generate_random_string
+from tests.common.helpers.console_helper import generate_random_string, check_target_line_status
 
 pytestmark = [
     pytest.mark.topology('c0', 'c0-lo')
@@ -36,7 +38,7 @@ def test_console_loopback_echo(setup_c0, creds, target_line, baud_rate):
     dutuser = creds['sonicadmin_user']
     dutpass = creds['sonicadmin_password']
 
-    packet_size = 1024
+    packet_size = 64
 
     # Estimate a reasonable data transfer time based on configured baud rate
     timeout_sec = (packet_size * 10) * delay_factor / int(baud_rate)
@@ -51,10 +53,14 @@ def test_console_loopback_echo(setup_c0, creds, target_line, baud_rate):
         client.sendline(text)
         assert_expect_text(client, text, target_line, timeout_sec)
 
-        client.sendcontrol('a')
-        client.sendcontrol('x')
     except Exception as e:
         pytest.fail("Not able to communicate DUT via reverse SSH: {}".format(e))
+    finally:
+        client.sendcontrol('a')
+        client.sendcontrol('x')
+        pytest_assert(
+            wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "IDLE"),
+            "Target line {} is busy after exited reverse SSH session".format(target_line))
 
     if duthost.hostname != console_fanout.hostname:
         console_fanout.unset_loopback(target_line)
@@ -91,11 +97,18 @@ def test_console_loopback_pingpong(setup_c0, creds, src_line, dst_line, baud_rat
         receiver.sendline('pong')
         assert_expect_text(sender, 'pong', src_line, timeout_sec=1)
 
+    except Exception:
+        pytest.fail("Not able to communicate DUT via reverse SSH")
+    finally:
         sender.sendcontrol('a')
         sender.sendcontrol('x')
         receiver.sendcontrol('a')
         receiver.sendcontrol('x')
-    except Exception:
-        pytest.fail("Not able to communicate DUT via reverse SSH")
+        pytest_assert(
+            wait_until(10, 1, 0, check_target_line_status, duthost, src_line, "IDLE"),
+            "Target line {} of dut is busy after exited reverse SSH session".format(src_line))
+        pytest_assert(
+            wait_until(10, 1, 0, check_target_line_status, console_fanout, dst_line, "IDLE"),
+            "Target line {} of fanout is busy after exited reverse SSH session".format(dst_line))
 
     console_fanout.unbridge(src_line, dst_line)

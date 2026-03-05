@@ -5,6 +5,8 @@ import random
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
+from tests.common.helpers.console_helper import check_target_line_status
+
 pytestmark = [
     pytest.mark.topology('c0', 'c0-lo')
 ]
@@ -60,11 +62,12 @@ def test_console_reversessh_connectivity(duthost, creds, target_line):
             check_target_line_status(duthost, target_line, "BUSY"),
             "Target line {} is idle while reverse SSH session is up".format(target_line))
 
+    except Exception as e:
+        pytest.fail("Not able to do reverse SSH to remote host via DUT: {}".format(e))
+    finally:
         # Send escape sequence to exit reverse SSH session
         client.sendcontrol('a')
         client.sendcontrol('x')
-    except Exception as e:
-        pytest.fail("Not able to do reverse SSH to remote host via DUT: {}".format(e))
 
     pytest_assert(
         wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "IDLE"),
@@ -162,8 +165,3 @@ def test_console_reversessh_custom_escape_character(duthost, creds, target_line,
     pytest_assert(
         wait_until(10, 1, 0, check_target_line_status, duthost, target_line, "IDLE"),
         "Target line {} is busy after exited reverse SSH session with custom escape keys".format(target_line))
-
-
-def check_target_line_status(duthost, line, expect_status):
-    console_facts = duthost.console_facts()['ansible_facts']['console_facts']
-    return console_facts['lines'][line]['state'] == expect_status

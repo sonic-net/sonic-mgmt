@@ -1,6 +1,7 @@
 import pytest
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.console_helper import assert_expect_text, create_ssh_client, ensure_console_session_up
-from tests.common.helpers.console_helper import generate_random_string
+from tests.common.helpers.console_helper import generate_random_string, check_target_line_status
 
 pytestmark = [
     pytest.mark.topology('c0')
@@ -31,7 +32,7 @@ def test_console_link_wiring(setup_c0, creds, target_line):
     fanoutuser = creds['sonicadmin_user']
     fanoutpass = creds['sonicadmin_password']
 
-    packet_size = 1024
+    packet_size = 64
     delay_factor = 3.2
 
     # Estimate a reasonable data transfer time based on configured baud rate
@@ -51,9 +52,16 @@ def test_console_link_wiring(setup_c0, creds, target_line):
         dut_client.sendline(text)
         assert_expect_text(fanout_client, text, target_line, timeout_sec)
 
+    except Exception as e:
+        pytest.fail("Not able to communicate DUT via reverse SSH: {}".format(e))
+    finally:
         dut_client.sendcontrol('a')
         dut_client.sendcontrol('x')
         fanout_client.sendcontrol('a')
         fanout_client.sendcontrol('x')
-    except Exception as e:
-        pytest.fail("Not able to communicate DUT via reverse SSH: {}".format(e))
+        pytest_assert(
+            check_target_line_status(duthost, target_line, "IDLE"),
+            "Target line {} of dut is busy after exited reverse SSH session".format(target_line))
+        pytest_assert(
+            check_target_line_status(console_fanout, target_line, "IDLE"),
+            "Target line {} of fanout is busy after exited reverse SSH session".format(target_line))
