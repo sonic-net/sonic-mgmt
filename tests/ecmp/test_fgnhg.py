@@ -193,24 +193,29 @@ def check_route_present(duthost, prefix):
 
 
 def check_interface_status(duthost, interface, expected_status):
-    """Check if an interface has the expected oper status."""
-    result = duthost.shell("show interfaces status {}".format(interface), module_ignore_errors=True)
-    stdout = result.get('stdout', '')
+    """Check if an interface has the expected oper status using interface_facts."""
+    int_facts = duthost.interface_facts()['ansible_facts']
+    intf_info = int_facts.get('ansible_interface_facts', {}).get(interface, {})
+    link_state = intf_info.get('link', False)
     if expected_status == "up":
-        return "up" in stdout.lower().split(interface)[-1] if interface in stdout else False
+        return link_state is True
     else:
-        return "down" in stdout.lower().split(interface)[-1] if interface in stdout else False
+        return link_state is False
 
 
 def wait_for_arp_convergence(duthost, ip_to_port):
-    """Wait for ARP/neighbor entries to converge."""
+    """Wait for ARP/neighbor entries to converge using batched show arp/ndp."""
+    arp_result = duthost.shell("show arp", module_ignore_errors=True)
+    ndp_result = duthost.shell("show ndp", module_ignore_errors=True)
+    arp_stdout = arp_result.get('stdout', '')
+    ndp_stdout = ndp_result.get('stdout', '')
     for ip in ip_to_port:
         if ':' in ip:
-            result = duthost.shell("show ndp {}".format(ip), module_ignore_errors=True)
+            if ip not in ndp_stdout:
+                return False
         else:
-            result = duthost.shell("show arp {}".format(ip), module_ignore_errors=True)
-        if ip not in result.get('stdout', ''):
-            return False
+            if ip not in arp_stdout:
+                return False
     return True
 
 
