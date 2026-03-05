@@ -323,7 +323,7 @@ def _restart_gnoi_server(duthost):
     result = duthost.shell("docker exec gnmi supervisorctl restart gnmi-native", module_ignore_errors=True)
 
     if result['rc'] != 0:
-         raise Exception(f"Failed to restart gnmi-native: {result.get('stderr', result.get('msg', 'Unknown error'))}")
+        raise Exception(f"Failed to restart gnmi-native: {result.get('stderr', result.get('msg', 'Unknown error'))}")
 
     # Verify process is running
     import time
