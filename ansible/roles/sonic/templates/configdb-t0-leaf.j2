@@ -1,41 +1,164 @@
 {% set host = configuration[hostname] %}
 {
+    "PORT": {
+{% set port_comma = joiner(",") %}
 {% for name, iface in host['interfaces'].items() %}
-{% if name.startswith('Port-Channel') %}
-    "PORTCHANNEL": {
-        "{{ name | replace("-", "") }}": {
+{% if name.startswith('Ethernet') %}
+{{ port_comma() }}
+        "{{ name }}": {
             "admin_status": "up",
-            "mtu": "9100"
+            "alias": "fortyGigE0/{{ (name | replace('Ethernet','') | int - 1) * 4 }}",
+            "lanes": "{{ (name | replace('Ethernet','') | int - 1) * 4 + 25 }},{{ (name | replace('Ethernet','') | int - 1) * 4 + 26 }},{{ (name | replace('Ethernet','') | int - 1) * 4 + 27 }},{{ (name | replace('Ethernet','') | int - 1) * 4 + 28 }}",
+            "mtu": "9100",
+            "speed": "40000"
+        }
+{% endif %}
+{% endfor %}
+{% if host['bp_interface'] is defined %}
+,
+        "Ethernet2": {
+            "admin_status": "up",
+            "alias": "fortyGigE0/4",
+            "lanes": "29,30,31,32",
+            "mtu": "9100",
+            "speed": "40000"
+        }
+{% endif %}
+    },
+    "DEVICE_METADATA": {
+        "localhost": {
+            "bgp_asn": "{{ host['bgp']['asn'] }}",
+            "hostname": "{{ hostname }}",
+            "type": "LeafRouter",
+            "hwsku": "SONiC-VM",
+            "platform": "x86_64-kvm_x86_64-r0"
         }
     },
-    "PORTCHANNEL_INTERFACE": {
-        "{{ name | replace("-", "") }}": {},
-{% if iface['ipv4'] is defined %}
-        "{{ name | replace("-", "") }}|{{ iface['ipv4'] }}": {},
-{% endif %}
-{% if iface['ipv6'] is defined %}
-        "{{ name | replace("-", "") }}|{{ iface['ipv6'] }}": {}
-{% endif %}
-    },
-{% endif %}
-{% if iface['lacp'] is defined %}
-    "PORTCHANNEL_MEMBER": {
-{% set index = name | replace("Ethernet", "") | int - 1 %}
-        "PortChannel{{ iface['lacp'] }}|Ethernet{{ index * 4}}": {}{% set host = configuration[hostname] %}
-    },
-{% endif %}
-{% endfor %}
+    "LOOPBACK_INTERFACE": {
+{% set loopback_comma = joiner(",") %}
 {% for name, iface in host['interfaces'].items() %}
 {% if name.startswith('Loopback') %}
-    "LOOPBACK_INTERFACE": {
-        "{{ name }}": {},
+{{ loopback_comma() }}
+        "{{ name }}": {}
 {% if iface['ipv4'] is defined %}
-        "{{ name }}|{{ iface['ipv4'] }}": {},
+{{ loopback_comma() }}
+        "{{ name }}|{{ iface['ipv4'] }}": {}
 {% endif %}
 {% if iface['ipv6'] is defined %}
+{{ loopback_comma() }}
         "{{ name }}|{{ iface['ipv6'] }}": {}
 {% endif %}
- 	}
 {% endif %}
 {% endfor %}
+    },
+{% set has_portchannel = [] %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Port-Channel') %}
+{% if has_portchannel.append(1) %}{% endif %}
+{% endif %}
+{% endfor %}
+{% if has_portchannel %}
+    "PORTCHANNEL": {
+{% set pc_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Port-Channel') %}
+{% set pc_name = 'PortChannel' ~ name.split('Port-Channel')[1] %}
+{{ pc_comma() }}
+        "{{ pc_name }}": {
+            "admin_status": "up",
+            "mtu": "9100",
+            "min_links": "1",
+            "lacp_key": "auto"
+        }
+{% endif %}
+{% endfor %}
+    },
+    "PORTCHANNEL_MEMBER": {
+{% set pcm_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Ethernet') and iface is mapping and iface.get('lacp') is defined %}
+{% set pc_name = 'PortChannel' ~ iface['lacp'] %}
+{{ pcm_comma() }}
+        "{{ pc_name }}|{{ name }}": {}
+{% endif %}
+{% endfor %}
+    },
+    "PORTCHANNEL_INTERFACE": {
+{% set pci_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Port-Channel') %}
+{% set pc_name = 'PortChannel' ~ name.split('Port-Channel')[1] %}
+{{ pci_comma() }}
+        "{{ pc_name }}": {}
+{% if iface['ipv4'] is defined %}
+{{ pci_comma() }}
+        "{{ pc_name }}|{{ iface['ipv4'] }}": {}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+{{ pci_comma() }}
+        "{{ pc_name }}|{{ iface['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+    },
+{% endif %}
+    "INTERFACE": {
+{% set iface_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Ethernet') and (iface is not mapping or iface.get('lacp') is not defined) %}
+{{ iface_comma() }}
+        "{{ name }}": {}
+{% if iface['ipv4'] is defined %}
+{{ iface_comma() }}
+        "{{ name }}|{{ iface['ipv4'] }}": {}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+{{ iface_comma() }}
+        "{{ name }}|{{ iface['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if host['bp_interface'] is defined %}
+{{ iface_comma() }}
+        "Ethernet2": {}
+{% if host['bp_interface']['ipv4'] is defined %}
+{{ iface_comma() }}
+        "Ethernet2|{{ host['bp_interface']['ipv4'] }}": {}
+{% endif %}
+{% if host['bp_interface']['ipv6'] is defined %}
+{{ iface_comma() }}
+        "Ethernet2|{{ host['bp_interface']['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+    },
+    "BGP_NEIGHBOR": {
+{% set bgp_comma = joiner(",") %}
+{% for asn, remote_ips in host['bgp']['peers'].items() %}
+{% for remote_ip in remote_ips %}
+{{ bgp_comma() }}
+        "{{ remote_ip }}": {
+            "asn": "{{ asn }}",
+            "name": "{{ asn }}",
+            "admin_status": "up",
+            "holdtime": "10",
+            "keepalive": "3"
+        }
+{% endfor %}
+{% endfor %}
+{{ bgp_comma() }}
+        "{{ props.nhipv4 }}": {
+            "asn": "{{ host['bgp']['asn'] }}",
+            "name": "exabgp_v4",
+            "admin_status": "up",
+            "holdtime": "10",
+            "keepalive": "3"
+        },
+        "{{ props.nhipv6 }}": {
+            "asn": "{{ host['bgp']['asn'] }}",
+            "name": "exabgp_v6",
+            "admin_status": "up",
+            "holdtime": "10",
+            "keepalive": "3"
+        }
+    }
 }
