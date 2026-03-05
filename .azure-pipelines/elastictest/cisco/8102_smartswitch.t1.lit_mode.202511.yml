@@ -88,7 +88,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202511)"
+    default: "--topology t1,smartswitch,any --py_saithrift_url=$(SAITHRIFT_BRCM_202511)"
     displayName: "Common test parameters"
 
   # Test timeout
