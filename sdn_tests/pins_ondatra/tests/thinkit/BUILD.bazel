@@ -106,15 +106,60 @@ cc_test(
         "notap",
     ],
     deps = [
+
+        "//infrastructure/thinkit:ondatra_params",
         "@com_github_sonic_net_sonic_pins//dvaas:test_vector_cc_proto",
         "@com_github_sonic_net_sonic_pins//gutil/gutil:testing",
-        "//infrastructure/thinkit:ondatra_params",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_github_sonic_net_sonic_pins//tests/forwarding:arriba_test",
         "@com_github_sonic_net_sonic_pins//thinkit:mirror_testbed_fixture",
-        "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/log",
         "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
     ],
     linkopts = ["-lresolv"],
+)
+
+cc_test(
+    name = "l3_admit_test",
+    srcs = ["l3_admit_test.cc"],
+    tags = [
+        "exclusive",
+        "external",
+        "guitar",
+        "manual",
+        "notap",
+    ],
+    deps = [
+        ":util",
+        "//infrastructure/thinkit:ondatra_params",
+        "@com_github_sonic_net_sonic_pins//tests/forwarding:l3_admit_test",
+        "@com_github_sonic_net_sonic_pins//thinkit:mirror_testbed_fixture",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "smoke_test",
+    srcs = ["smoke_test.cc"],
+    tags = [
+        "exclusive",
+        "external",
+        "guitar",
+        "manual",
+        "notap",
+    ],
+    deps = [
+        ":util",
+        "//infrastructure/thinkit:ondatra_params",
+        "@com_github_sonic_net_sonic_pins//tests/forwarding:smoke_test",
+        "@com_github_sonic_net_sonic_pins//thinkit:mirror_testbed_fixture",
+        "@com_google_googletest//:gtest_main",
+    ],
 )

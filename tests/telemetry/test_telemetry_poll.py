@@ -5,6 +5,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from telemetry_utils import generate_client_cli, check_gnmi_cli_running, invoke_py_cli_from_ptf
 from tests.common.utilities import InterruptableThread
+from tests.common.utilities import is_ipv6_only_topology
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -16,11 +17,15 @@ METHOD_SUBSCRIBE = "subscribe"
 SUBSCRIBE_MODE_POLL = 2
 
 
-def verify_route_table_status(duthost, namespace, expected_status="1"):  # status 0 for down, 1 for up
+def verify_route_table_status(duthost, namespace, expected_status="1", is_ipv6_only=False):
+    # status 0 for down, 1 for up
     cmd_prefix = "sonic-db-cli"
     if duthost.is_multi_asic:
         cmd_prefix = "sonic-db-cli -n {}".format(namespace)
-    cmd = cmd_prefix + " APPL_DB exists \"ROUTE_TABLE:0.0.0.0/0\""
+    if is_ipv6_only:
+        cmd = cmd_prefix + " APPL_DB exists \"ROUTE_TABLE:::/0\""
+    else:
+        cmd = cmd_prefix + " APPL_DB exists \"ROUTE_TABLE:0.0.0.0/0\""
     status = duthost.shell(cmd)["stdout"]
     return status == expected_status
 
@@ -159,12 +164,13 @@ def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, enum_upstream_dut_hostname,
-                                 setup_streaming_telemetry, gnxi_path):
+                                 tbinfo, setup_streaming_telemetry, gnxi_path):
     """
     Test poll mode from APPL_DB and query an existing table and no default route, ensure no errors and present data
     Test query again and add default route and ensure data comes.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
     upstream_lc = duthosts[enum_upstream_dut_hostname]
 
     if duthost.is_supervisor_node():
@@ -176,16 +182,21 @@ def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptf
     namespace = ""
     if duthost.is_multi_asic:
         namespace = "asic0"
+    if is_ipv6_only:
+        xpath = "\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/::\\/0\""
+    else:
+        xpath = "\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\\/0\""
+
     logger.info('Start telemetry poll mode testing')
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
-                              xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"",  # noqa: W605
+                              xpath=xpath,
                               target="APPL_DB", max_sync_count=-1, update_count=5, timeout=30, namespace=namespace)
     modify_fake_appdb_table(duthost)  # Add first table data
 
     # Remove default route and wait till there is no entry
     duthost.shell("config bgp shutdown all")
-    pytest_assert(wait_until(60, 5, 0, verify_route_table_status, duthost, namespace, "0"),
+    pytest_assert(wait_until(60, 5, 0, verify_route_table_status, duthost, namespace, "0", is_ipv6_only),
                   "ROUTE_TABLE default route not missing")
 
     ptf_result = ptfhost.shell(cmd)
@@ -199,7 +210,7 @@ def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptf
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=10,
-                              xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"",  # noqa: W605
+                              xpath=xpath,
                               target="APPL_DB", max_sync_count=-1, update_count=10, timeout=120, namespace=namespace)
 
     def callback(show_gnmi_out):
@@ -215,7 +226,7 @@ def test_poll_mode_default_route(duthosts, enum_rand_one_per_hwsku_hostname, ptf
 
     # Add back default route
     duthost.shell("config bgp startup all")
-    pytest_assert(wait_until(60, 5, 0, verify_route_table_status, duthost, namespace, "1"),
+    pytest_assert(wait_until(60, 5, 0, verify_route_table_status, duthost, namespace, "1", is_ipv6_only),
                   "ROUTE_TABLE default route missing")
 
     # Give 60 seconds for client to connect to server and then 60 for default route to populate after bgp session start

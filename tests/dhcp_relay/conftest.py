@@ -4,7 +4,7 @@ import logging
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert as py_assert
-from tests.dhcp_relay.dhcp_relay_utils import check_routes_to_dhcp_server
+from tests.common.dhcp_relay_utils import check_routes_to_dhcp_server
 
 logger = logging.getLogger(__name__)
 

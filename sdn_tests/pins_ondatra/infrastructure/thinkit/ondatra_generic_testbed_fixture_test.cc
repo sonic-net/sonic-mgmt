@@ -40,6 +40,7 @@
 #include "gutil/gutil/status_matchers.h"
 #include "gutil/gutil/testing.h"
 #include "infrastructure/thinkit/thinkit.h"
+#include "infrastructure/thinkit/thinkit_go_interface.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
@@ -165,6 +166,9 @@ TEST_P(OndatraGenericTestbedFixtureTest, Test) {
               Call(EqualsProto(GetParam().expected_testbed_request), _, _))
       .WillOnce(Return(absl::OkStatus()));
   MockFunction<absl::StatusOr<reservation::Reservation>()> mock_testbed;
+  MockFunction<int(struct testhelper_TeardownCreateOpts)>
+      mock_new_teardown_handler;
+  MockFunction<void(int)> mock_teardown;
   std::list<FakeSwitch> fake_switches;
   if (GetParam().returned_reservation.ok()) {
     reservation::Reservation reservation = *GetParam().returned_reservation;
@@ -180,6 +184,8 @@ TEST_P(OndatraGenericTestbedFixtureTest, Test) {
           absl::StrCat("[::]:", fake_switch.GetPort()));
     }
     EXPECT_CALL(mock_testbed, Call).WillOnce(Return(reservation));
+    EXPECT_CALL(mock_new_teardown_handler, Call(_)).WillOnce(Return(0));
+    EXPECT_CALL(mock_teardown, Call(_)).WillOnce(Return());
   } else {
     EXPECT_CALL(mock_testbed, Call)
         .WillOnce(Return(GetParam().returned_reservation));
@@ -187,10 +193,12 @@ TEST_P(OndatraGenericTestbedFixtureTest, Test) {
   MockFunction<absl::Status()> mock_release;
   EXPECT_CALL(mock_release, Call).WillOnce(Return(absl::OkStatus()));
 
-  OndatraGenericTestbedFixture fixture(
-      OndatraHooks{.init = mock_init.AsStdFunction(),
-                   .testbed = mock_testbed.AsStdFunction(),
-                   .release = mock_release.AsStdFunction()});
+  OndatraGenericTestbedFixture fixture(OndatraHooks{
+      .init = mock_init.AsStdFunction(),
+      .testbed = mock_testbed.AsStdFunction(),
+      .release = mock_release.AsStdFunction(),
+      .new_teardown_handler = mock_new_teardown_handler.AsStdFunction(),
+      .teardown = mock_teardown.AsStdFunction()});
 
   fixture.SetUp();
   if (GetParam().expected_sut_interface_info.ok()) {

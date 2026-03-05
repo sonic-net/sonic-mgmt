@@ -15,8 +15,10 @@
 #include "infrastructure/thinkit/thinkit.h"
 
 #include <cstddef>
+#include <cstdlib>
 #include <string>
 
+#include "absl/log/log.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -24,8 +26,12 @@
 #include "github.com/openconfig/ondatra/proto/testbed.pb.h"
 #include "github.com/openconfig/ondatra/proxy/proto/reservation.pb.h"
 #include "google/protobuf/message.h"
+#include "google/protobuf/struct.pb.h"
+#include "google/protobuf/util/json_util.h"
+#include "gtest/gtest.h"
 #include "gutil/gutil/status.h"
 #include "infrastructure/thinkit/thinkit_cgo.h"
+#include "infrastructure/thinkit/thinkit_go_interface.h"
 
 namespace pins_test {
 namespace {
@@ -88,4 +94,18 @@ absl::Status OndatraRelease() {
   return FromErrorMessage(error_message);
 }
 
+namespace testhelper {
+
+int NewTeardownOptions(struct testhelper_TeardownCreateOpts opts) {
+  return testhelperNewTearDownOptions(opts);
+}
+
+void AddTestCaseID(int handler, char* test_case_id) {
+  testhelperAddTestCaseID(handler, test_case_id);
+}
+
+void Teardown(int handler) { testhelperTeardown(handler); }
+
+void SaveSwitchLogs() { testhelperSaveSwitchLogs(); }
+}  // namespace testhelper
 }  // namespace pins_test

@@ -6,6 +6,7 @@ import time
 import crypt
 import re
 import json
+import shlex
 from tests.common.utilities import wait_until, check_skip_release, delete_running_config
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.errors import RunAnsibleModuleFail
@@ -345,9 +346,10 @@ def start_tacacs_server(ptfhost):
 
 
 def ssh_remote_run(localhost, remote_ip, username, password, cmd):
+    cmd_quoted = shlex.quote(cmd)
     res = localhost.shell("sshpass -p {} ssh "
                           "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-                          "{}@{} {}".format(password, username, remote_ip, cmd), module_ignore_errors=True)
+                          "{}@{} {}".format(password, username, remote_ip, cmd_quoted), module_ignore_errors=True)
     return res
 
 

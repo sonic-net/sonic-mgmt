@@ -225,6 +225,24 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
             return False
 
 
+def check_dpus_module_status(duthost, dpu_list, power_status, wait_timeout=30):
+    """
+    Check module status of given DPU list
+    Args:
+        duthost : Host handle
+        dpu_list: List of DPUs to be checked
+        power_status: status to be checked (on/off)
+        wait_timeout: timeout for the check
+    """
+    logging.info("Check module status of DPUs")
+    wait_interval = 10 if wait_timeout > 20 else wait_timeout // 3
+    for dpu_name in dpu_list:
+        pytest_assert(wait_until(wait_timeout, wait_interval, 0,
+                                 check_dpu_module_status, duthost,
+                                 power_status, dpu_name),
+                      f"DPU {dpu_name} is not {power_status}")
+
+
 def check_dpu_reboot_cause(duthost, dpu_name, reason):
     """
     Check reboot cause of all DPU modules
