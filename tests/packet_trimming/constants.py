@@ -141,6 +141,9 @@ SRV6_MY_SID_LIST = [
     [SRV6_MY_LOCATOR_LIST[9][0], SRV6_MY_LOCATOR_LIST[9][1], SRV6_UN, 'default']
 ]
 
+# Static route prefix for SRv6 packets
+SRV6_ROUTE_PREFIX = '2001::/16'
+
 # Drop counter
 SWITCH_INTERVAL = 1000
 PORT_INTERVAL = 100
