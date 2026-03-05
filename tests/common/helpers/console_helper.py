@@ -67,3 +67,8 @@ def handle_pexpect_exceptions(target_line):
 def generate_random_string(length):
     letters = string.ascii_lowercase
     return ''.join(random.choice(letters) for i in range(length))
+
+
+def check_target_line_status(duthost, line, expect_status):
+    console_facts = duthost.console_facts()['ansible_facts']['console_facts']
+    return console_facts['lines'][line]['state'] == expect_status
