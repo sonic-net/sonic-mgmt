@@ -27,6 +27,7 @@ from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.fanout import FanoutHost
 from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
@@ -155,7 +156,8 @@ def pytest_addoption(parser):
                      help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
 
     # neighbor device type
-    parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic", "cisco"],
+    parser.addoption("--neighbor_type", action="store", default="eos", type=str,
+                     choices=["eos", "sonic", "cisco", "csonic"],
                      help="Neighbor devices type")
 
     # ceos neighbor lacp multiplier
@@ -930,6 +932,15 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
+        elif neighbor_type == "csonic":
+            vm_set_name = tbinfo.get('group-name', '')
+            container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
+            device = NeighborDevice(
+                {
+                    'host': CsonicHost(container_name),
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                }
+            )
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
         devices[neighbor_name] = device
@@ -1351,7 +1362,7 @@ def collect_techsupport_all_duts(request, duthosts):
 @pytest.fixture
 def collect_techsupport_all_nbrs(request, nbrhosts):
     yield
-    if request.config.getoption("neighbor_type") == "sonic":
+    if request.config.getoption("neighbor_type") in ("sonic", "csonic"):
         [collect_techsupport_on_dut(request, nbrhosts[nbrhost]['host']) for nbrhost in nbrhosts]
 
 
