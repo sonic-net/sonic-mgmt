@@ -29,6 +29,18 @@ PACKET_RATE_PER_SEC_MAP = {
 DEFAULT_PACKET_RATE_PER_SEC = 25
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(rand_one_dut_hostname, loganalyzer):
+    """Ignore expected failures logs during test execution."""
+    if loganalyzer:
+        ignoreRegex = [
+            r".*ERR memory_threshold_check: Free memory [.\d]+ is less then free memory threshold [.\d]+",
+        ]
+        loganalyzer[rand_one_dut_hostname].ignore_regex.extend(ignoreRegex)
+
+    yield
+
+
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
 def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist,
                                        testing_config, setup_standby_ports_on_rand_unselected_tor,
