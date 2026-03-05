@@ -395,12 +395,11 @@ def dpu_setup(duthosts, dpuhosts, dpu_index, skip_config):
 
 @pytest.fixture(scope="module")
 def add_npu_static_routes(
-    duthosts, dash_pl_config, skip_config, skip_cleanup, dpu_index, dpuhosts
+    duthosts, dash_pl_config, skip_config, skip_cleanup, dpu_index
 ):
     if not skip_config:
         for i in range(len(duthosts)):
             duthost = duthosts[i]
-            dpuhost = dpuhosts[i]
 
             cmds = []
             vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[i][LOCAL_DUT_INTF]).ip + 1
@@ -420,7 +419,6 @@ def add_npu_static_routes(
     if not skip_config and not skip_cleanup:
         for i in range(len(duthosts)):
             duthost = duthosts[i]
-            dpuhost = dpuhosts[i]
 
             cmds = []
             vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[i][LOCAL_DUT_INTF]).ip + 1
