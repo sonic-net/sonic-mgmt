@@ -4347,9 +4347,24 @@
   auto_recover: 'True'
   comment: arizzubair
 
+- conf-name: ptp-8101-1
+  group-name:
+  topo: ptp-32
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str-8101-d04-u36
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-ryannikan
+
 - conf-name: ptp-sn4700-1
   group-name:
-  topo: ptp-56
+  topo: ptp-32
   ptf_image_name: ''
   ptf: ''
   ptf_ip: ''
@@ -4373,6 +4388,36 @@
   vm_base: ''
   dut:
   - str-4700-d04-u09
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-ryannikan
+
+- conf-name: ptp-sn4700-3
+  group-name:
+  topo: ptp-56
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str-4700-d04-u43
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-ryannikan
+
+- conf-name: ptp-sn4700-4
+  group-name:
+  topo: ptp-56
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str43-msn4700-d05-u23
   inv_name: str
   auto_recover: 'True'
   comment: v-ryannikan
