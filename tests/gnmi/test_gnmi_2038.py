@@ -4,6 +4,9 @@ import re
 from datetime import datetime, timezone
 from dateutil import parser
 
+from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
+    setup_gnoi_tls_server, ptf_grpc
+)
 from tests.common.helpers.gnmi_utils import gnmi_capabilities, prepare_root_cert, prepare_server_cert, \
     prepare_client_cert, copy_certificate_to_dut, copy_certificate_to_ptf
 from .helper import apply_cert_config
@@ -13,8 +16,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
-                            "setup_gnmi_rotated_server", "check_dut_timestamp")
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnoi_tls_server",
+                            "setup_legacy_cert_paths", "check_dut_timestamp")
 ]
 
 ROOT_CERT_DAYS = 4850

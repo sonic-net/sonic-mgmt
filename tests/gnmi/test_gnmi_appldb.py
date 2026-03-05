@@ -1,6 +1,9 @@
 import logging
 import pytest
 
+from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
+    setup_gnoi_tls_server, ptf_grpc
+)
 from .helper import gnmi_set, gnmi_get
 
 logger = logging.getLogger(__name__)
@@ -8,8 +11,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
-                            "setup_gnmi_rotated_server", "check_dut_timestamp")
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnoi_tls_server",
+                            "setup_legacy_cert_paths", "check_dut_timestamp")
 ]
 
 
