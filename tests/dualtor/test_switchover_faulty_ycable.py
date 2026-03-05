@@ -44,6 +44,7 @@ def simulated_good_side(rand_selected_dut):
 @contextlib.contextmanager
 def setup_faulted_y_cable_driver(duthost, simulate_probe_unknown=False, simulate_peer_link_down=False):
     """Setup the faulted Y cable driver on the active ToR."""
+    y_cable_simulated_path = None
     try:
         extra_vars = {
             "SIMULATE_PROBE_UNKNOWN": simulate_probe_unknown,
@@ -74,11 +75,12 @@ def setup_faulted_y_cable_driver(duthost, simulate_probe_unknown=False, simulate
         time.sleep(10)
         yield
     finally:
-        duthost.shell(
-            "docker exec pmon mv {path}/y_cable_simulated.py.orig {path}/y_cable_simulated.py".format(
-                path=y_cable_simulated_path
+        if y_cable_simulated_path:
+            duthost.shell(
+                "docker exec pmon mv {path}/y_cable_simulated.py.orig {path}/y_cable_simulated.py".format(
+                    path=y_cable_simulated_path
+                )
             )
-        )
         duthost.shell(
             "docker exec pmon supervisorctl restart ycabled")
         # Sleep 10 seconds for ycabled restart
