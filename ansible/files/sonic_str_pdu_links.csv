@@ -34,8 +34,8 @@ pdu-109,41,str-7060cx-32s-18,PSU1
 pdu-110,41,str-7060cx-32s-18,PSU2
 pdu-102,35,str-7260-08,PSU1
 pdu-103,35,str-7260-08,PSU2
-pdu-102,24,str-7260-24,PSU1
-pdu-103,24,str-7260-24,PSU2
+pdu-102,5,str-7260-24,PSU1
+pdu-103,5,str-7260-24,PSU2
 pdu-107,10,str-7260cx3-fan-06,PSU1
 pdu-101,27,str-acs-serv-01,PSU1
 pdu-101,25,str-acs-serv-02,PSU1
@@ -60,11 +60,10 @@ Sentry_6224b9,18,str-dcs-7060x6-64pe-b-ehw-f-c09-u27,PSU1
 Sentry_6224b9,43,str-dcs-7060x6-64pe-b-ehw-f-c09-u29,PSU1
 pdu-99,29,str-8101-d04-u36,PSU1
 pdu-100,29,str-8101-d04-u36,PSU2
-pdu-98,11,str-4700-d04-u09,PSU1
-pdu-99,11,str-4700-d04-u09,PSU2
+pdu-99,11,str-4700-d04-u09,PSU1
+pdu-100,11,str-4700-d04-u09,PSU2
 pdu-98,12,str-4700-d04-u10,PSU1
 pdu-99,12,str-4700-d04-u10,PSU2
-Sentry_6224b9,41,str-7060x6-c09-u25,PSU2
-pdu-79,24,str-7060x6-c09-u25,PSU1
-Sentry_6224b9,21,str43-7060x6-64pe-b-ehw-f-c09-u39,PSU1
-Sentry_6224b9,23,str43-7060x6-64pe-b-ehw-f-c09-u39,PSU2
+pdu-99,30,str-4700-d04-u43,PSU1
+pdu-100,30,str-4700-d04-u43,PSU2
+pdu-102,24,str43-msn4700-d05-u23,PSU1
