@@ -646,10 +646,7 @@ class GenerateGoldenConfigDBModule(object):
 
         # Enable otel feature when docker-sonic-otel image exists
         if self.has_otel_image():
-            if multi_asic.is_multi_asic():
-                config = self.overwrite_feature_golden_config_db_multiasic(config, "otel", "enabled", "enabled")
-            else:
-                config = self.overwrite_feature_golden_config_db_singleasic(config, "otel", "enabled", "enabled")
+            config = self.overwrite_feature_golden_config_db_singleasic(config, "otel", "enabled", "enabled")
 
         # Disable dash-ha feature for all multi-asic platforms
         if multi_asic.is_multi_asic():
