@@ -76,7 +76,8 @@ def _wait_until_pc_members_removed(asichost, pc_names):
 def _check_pc_link(asichost, portchannel, expected):
     """Check if portchannel link state matches expected value."""
     int_facts = asichost.interface_facts()['ansible_facts']
-    return int_facts['ansible_interface_facts'][portchannel]['link'] == expected
+    intf_info = int_facts.get('ansible_interface_facts', {}).get(portchannel, {})
+    return intf_info.get('link') == expected
 
 
 def _check_ip_removed(asichost, portchannel, is_ipv6=False):
