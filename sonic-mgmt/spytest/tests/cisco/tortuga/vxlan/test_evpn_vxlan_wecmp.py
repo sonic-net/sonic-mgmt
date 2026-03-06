@@ -43,6 +43,47 @@ def initial_setup():
         data.frame_size = "1000"
     yield
 
+@pytest.fixture(scope="module", autouse=True)
+def check_platform_compatibility():
+    """Check if platform supports WECMP- current support is for G200 with native UCMP dev property enabled"""
+    vars = st.get_testbed_vars()
+    
+    if not is_g200_asic(vars.D3):
+        pytest.skip("WECMP tests only supported on G200 ASIC", allow_module_level=True)
+    
+    if not has_native_ucmp_support(vars.D3):
+        pytest.skip("WECMP tests require support_native_ucmp to be enabled", allow_module_level=True)
+
+def is_g200_asic(node):
+    try:
+        result = st.show(node, "show platform ver", skip_tmpl=True, skip_error_check=True)
+        st.log("Platform version output: {}".format(result))
+        
+        if re.search(r'G200', result, re.IGNORECASE):
+            return True
+        else:
+            st.log("Platform is not G200")
+            return False
+    except Exception as e:
+        st.log("Exception while determining platform type: {}".format(e))
+        return False
+
+def has_native_ucmp_support(node):
+    cmd = "sudo show platform npu global"
+    try:
+        output = st.show(node, cmd, skip_tmpl=True, skip_error_check=True)
+        match = re.search(r'support_native_ucmp\s*:\s*(\w+)', output, re.IGNORECASE)
+        if match:
+            ucmp_value = match.group(1).lower()
+            st.log("support_native_ucmp value: {}".format(ucmp_value))
+            return ucmp_value == 'true'
+        else:
+            st.log("support_native_ucmp property not found in device properties")
+            return False
+    except Exception as e:
+        st.log("Exception while checking native UCMP support: {}".format(e))
+        return False
+
 def config_node(node, config, type=''):
     if type:
         st.config(node, config, type=type, skip_error_check=False, conf=True)
@@ -333,7 +374,137 @@ def test_v6_lb_link_down():
     if load_balance:
         st.report_pass("test_case_passed", "EVPN fabric wecmp link-down load-balancing for IPv6 traffic passed")
     else:
-        st.report_fail("test_case_failed", "EVPN fabric wecmp link-down load-balancing for IPv6 traffic failed") 
+        st.report_fail("test_case_failed", "EVPN fabric wecmp link-down load-balancing for IPv6 traffic failed")
+
+def setup_ip_fabric():
+    st.banner("Setting up IP Fabric configuration")
+    vars = st.get_testbed_vars()
+    
+    st.config(vars.D3, "sudo config interface ip rem {} 60.60.60.1/24".format(vars.D3T1P1))
+    st.config(vars.D3, "sudo config interface ip rem {} 6000::1/64".format(vars.D3T1P1))
+    st.config(vars.D4, "sudo config interface ip rem {} 70.70.70.1/24".format(vars.D4T1P1))
+    st.config(vars.D4, "sudo config interface ip rem {} 7000::1/64".format(vars.D4T1P1))
+    st.wait(3)
+    
+    st.config(vars.D3, "sudo config interface vrf unbind {}".format(vars.D3T1P1))
+    st.config(vars.D4, "sudo config interface vrf unbind {}".format(vars.D4T1P1))
+    st.wait(5)
+    
+    st.log("Adding IP fabric addresses: 30.30.30.1, 3000::1, 50.50.50.1, 5000::1")
+    st.config(vars.D3, "sudo config interface ip add {} 30.30.30.1/24".format(vars.D3T1P1))
+    st.config(vars.D3, "sudo config interface ip add {} 3000::1/64".format(vars.D3T1P1))
+    st.config(vars.D4, "sudo config interface ip add {} 50.50.50.1/24".format(vars.D4T1P1))
+    st.config(vars.D4, "sudo config interface ip add {} 5000::1/64".format(vars.D4T1P1))
+    st.wait(10)
+    st.log("IP Fabric configuration completed")
+
+def test_v4_ip_fabric_ucmp():
+    st.banner("Start to test load balancing with IP Fabric config with IPv4 traffic")
+    time.sleep(60) #sleep 60 sec for config to load
+    get_cli_out()
+
+    data.d3t1_ip_addr = "30.30.30.1"    #gateway
+    data.t1d3_ip_addr = "30.30.30.2"  #source ip
+    data.t1d3_mac_addr = "00:11:01:00:00:01" 
+
+    data.d4t1_ip_addr = "50.50.50.1" #gateway
+    data.t1d4_ip_addr = "50.50.50.2" #source ip
+    data.t1d4_mac_addr = "00:12:01:00:00:01"
+    
+    #setup traffic
+    data.circuit_endpoint_type = "ipv4"
+    vars = st.get_testbed_vars()
+    setup_ip_fabric()
+    st.log(st.config(vars.D3, "show ip int"))
+    int_dict = {"T1D3P1": {"host_ip": data.t1d3_ip_addr, "gateway": data.d3t1_ip_addr, "mac" : data.t1d3_mac_addr },"T1D4P1": {"host_ip": data.t1d4_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4_mac_addr}}
+    handles = vxlan_obj.config_tgen_interface(int_dict, "ipv4")
+    stream_list = {"src_endpoint": {"port" : "T1D3P1", "host_ip": data.t1d3_ip_addr, "gateway": data.d3t1_ip_addr, "mac" : data.t1d3_mac_addr },"dst_endpoint" : {"port" : "T1D4P1","host_ip": data.t1d4_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4_mac_addr }}
+    
+    vxlan_obj.create_udp_traffic_stream(handles, data, stream_list,timeout=30)
+    src_port = stream_list['src_endpoint']['port']
+    dst_port = stream_list['dst_endpoint']['port']
+    receive = handles[src_port]["tg_handle"].tg_traffic_config(mode='create', transmit_mode=data.transmit_mode,pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,circuit_endpoint_type=data.circuit_endpoint_type,frame_size=data.frame_size,emulation_src_handle=handles[src_port]["int_handle"],emulation_dst_handle=handles[dst_port]["int_handle"],track_by = 'trackingenabled0',l4_protocol='udp',udp_dst_port_mode='incr',udp_dst_port_count=1000,udp_dst_port_step=1,udp_src_port_mode='incr',udp_src_port_count=1000,udp_src_port_step=10)
+    stream_id = receive["stream_id"]
+
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+    nodes['leaf1'] = vars.D3
+    nodes['leaf2'] = vars.D4
+
+    st.config(vars.D3, "sonic-clear counters")
+    vxlan_obj.send_udp_traffic(handles, data, stream_list, stream_id, timeout=680)
+    counter_info = st.config(vars.D3, "show int counters")
+    route_info = st.config(vars.D3, "ip route show")
+ 
+    rx_pkts = get_rx(counter_info)
+    tx_pkts = get_tx(counter_info)
+    weight_dict = get_weights(route_info,"50.50.50.0")
+    pkts_received = rx_pkts["ingress_rx_ok"]
+    load_balance = check_load_balancing(weight_dict,tx_pkts,pkts_received)
+
+    st.log("Received ingress RX_OK packets")
+    st.log(rx_pkts)
+    st.log("Received egress TX_OK packets")
+    st.log(tx_pkts)
+
+    if load_balance:
+        st.report_pass("test_case_passed", "IP fabric wecmp load-balancing for IPv4 traffic passed")
+    else:
+        st.report_fail("test_case_failed", "IP fabric wecmp load-balancing for IPv4 traffic failed")
+
+def test_v6_ip_fabric_ucmp():
+    st.banner("Start to test load balancing with IP Fabric config with IPv6 traffic")
+    time.sleep(60) #sleep 60 sec for config to load
+    get_cli_out()
+
+    data.circuit_endpoint_type = "ipv6"
+    data.d3t1_ip_addr = "3000::1"    #gateway
+    data.t1d3_ip_addr = "3000::2"  #source ip
+    data.t1d3_mac_addr = "00:11:01:00:00:01" 
+
+    data.d4t1_ip_addr = "5000::1" #gateway
+    data.t1d4_ip_addr = "5000::2" #source ip
+    data.t1d4_mac_addr = "00:12:01:00:00:01"
+
+    #setup traffic
+    vars = st.get_testbed_vars()
+    setup_ip_fabric()
+    st.log(st.config(vars.D3, "show ip int"))
+    int_dict = {"T1D3P1": {"host_ip": data.t1d3_ip_addr, "gateway": data.d3t1_ip_addr, "mac" : data.t1d3_mac_addr },"T1D4P1": {"host_ip": data.t1d4_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4_mac_addr}}
+    handles = vxlan_obj.config_tgen_interface(int_dict, "ipv6")
+    stream_list = {"src_endpoint": {"port" : "T1D3P1", "host_ip": data.t1d3_ip_addr, "gateway": data.d3t1_ip_addr, "mac" : data.t1d3_mac_addr },"dst_endpoint" : {"port" : "T1D4P1","host_ip": data.t1d4_ip_addr, "gateway": data.d4t1_ip_addr, "mac" : data.t1d4_mac_addr }}
+    
+    vxlan_obj.create_udp_traffic_stream(handles, data, stream_list,timeout=30)
+    src_port = stream_list['src_endpoint']['port']
+    dst_port = stream_list['dst_endpoint']['port']
+    receive = handles[src_port]["tg_handle"].tg_traffic_config(mode='create', transmit_mode=data.transmit_mode,pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,circuit_endpoint_type=data.circuit_endpoint_type,frame_size=data.frame_size,emulation_src_handle=handles[src_port]["int_handle"],emulation_dst_handle=handles[dst_port]["int_handle"],track_by = 'trackingenabled0',l4_protocol='udp',udp_dst_port_mode='incr',udp_dst_port_count=1000,udp_dst_port_step=1,udp_src_port_mode='incr',udp_src_port_count=1000,udp_src_port_step=10)
+    stream_id = receive["stream_id"]
+
+    nodes = {}
+    nodes['spine0'] = vars.D1
+    nodes['spine1'] = vars.D2
+    nodes['leaf1'] = vars.D3
+    nodes['leaf2'] = vars.D4
+
+    st.config(vars.D3, "sonic-clear counters")
+    vxlan_obj.send_udp_traffic(handles, data, stream_list, stream_id, timeout=680)
+    counter_info = st.config(vars.D3, "show int counters")
+    route_info = st.config(vars.D3, "ip -6 route show")
+    rx_pkts = get_rx(counter_info)
+    tx_pkts = get_tx(counter_info)
+    weight_dict = get_weights(route_info,"5000::")
+    pkts_received = rx_pkts["ingress_rx_ok"]
+    load_balance = check_load_balancing(weight_dict,tx_pkts,pkts_received)
+    st.log("Received ingress RX_OK packets")
+    st.log(rx_pkts)
+    st.log("Received egress TX_OK packets")
+    st.log(tx_pkts)
+
+    if load_balance:
+        st.report_pass("test_case_passed", "IP fabric wecmp load-balancing for IPv6 traffic passed")
+    else:
+        st.report_fail("test_case_failed", "IP fabric wecmp load-balancing for IPv6 traffic failed") 
 
 
 #HELPER FUNCTIONS

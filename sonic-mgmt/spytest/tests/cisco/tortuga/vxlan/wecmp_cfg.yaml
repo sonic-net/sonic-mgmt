@@ -125,7 +125,6 @@ leaf0:
       sudo config interface vrf unbind Loopback0
       sudo config interface ip rem Loopback0 2.2.2.2/32
       sudo config interface ip rem Loopback27 27.1.1.1/32
-      sudo config interface ip rem D2D4P2 30.30.30.1/24
       sudo config interface ip rem D3T1P1 60.60.60.1/24
       sudo config interface ip rem D3T1P1 6000::1/64
       sudo config interface ipv6 disable use-link-local-only D3D1P1
@@ -233,7 +232,6 @@ leaf1:
       sudo config interface vrf unbind Loopback0
       sudo config interface ip rem Loopback0 3.3.3.3/32
       sudo config interface ip rem Loopback27 28.1.1.1/32
-      sudo config interface ip rem D4T1P1 50.50.50.1/24
       sudo config interface ip rem D4T1P1 70.70.70.1/24
       sudo config interface ip rem D4T1P1 7000::1/64
       sudo config interface ipv6 disable use-link-local-only D4D1P2
