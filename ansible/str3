@@ -2550,8 +2550,8 @@ sonic_mlnx_4280_smartswitch:
     iface_speed: 400000
   hosts:
     str3-msn4280-02:
-      ansible_host: 10.3.146.230
-      ansible_hostv6: 2a01:111:e210:3000::a03:92e6
+      ansible_host: 10.3.152.109
+      ansible_hostv6: 2a01:111:e210:86::9b
       mgmt_subnet_mask_length: 24
       hwsku: Mellanox-SN4280-O28
       model: MSN4280-WS2RXOS
@@ -2649,8 +2649,8 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
     iface_speed: 400000
   hosts:
     str3-msn4280-02-dpu-0:
-      ansible_host: 10.3.146.230
-      ansible_hostv6: 2a01:111:e210:3000::a03:92e6
+      ansible_host: 10.3.152.109
+      ansible_hostv6: 2a01:111:e210:86::9b
       ansible_ssh_port: 5021
       model: SA004902
       serial: MT2428XZ0JWT
@@ -2663,8 +2663,8 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
         "0x27": "A4"
         "0xFE": "0x7A77A951"
     str3-msn4280-02-dpu-1:
-      ansible_host: 10.3.146.230
-      ansible_hostv6: 2a01:111:e210:3000::a03:92e6
+      ansible_host: 10.3.152.109
+      ansible_hostv6: 2a01:111:e210:86::9b
       ansible_ssh_port: 5022
       model: SA004902
       serial: MT2428XZ0JWL
@@ -2677,8 +2677,8 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
         "0x27": "A4"
         "0xFE": "0x6A1011AC"
     str3-msn4280-02-dpu-2:
-      ansible_host: 10.3.146.230
-      ansible_hostv6: 2a01:111:e210:3000::a03:92e6
+      ansible_host: 10.3.152.109
+      ansible_hostv6: 2a01:111:e210:86::9b
       ansible_ssh_port: 5023
       model: SA004902
       serial: MT2428XZ0JWK
@@ -2691,8 +2691,8 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
         "0x27": "A4"
         "0xFE": "0xC2FE50D1"
     str3-msn4280-02-dpu-3:
-      ansible_host: 10.3.146.230
-      ansible_hostv6: 2a01:111:e210:3000::a03:92e6
+      ansible_host: 10.3.152.109
+      ansible_hostv6: 2a01:111:e210:86::9b
       ansible_ssh_port: 5024
       model: SA004902
       serial: MT2428XZ0JVN

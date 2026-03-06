@@ -149,11 +149,11 @@ str3-8101-fanout-09,10.3.146.12/24,Cisco-8101-O8V48,FanoutLeafSonic,,sonic
 str3-msn4700-fanout-04,10.3.146.131/24,Mellanox-SN4700-O32,FanoutLeafSonic,,sonic
 str3-msn4700-fanout-10,10.3.146.175/24,Mellanox-SN4700-O8C48,FanoutLeafSonic,,sonic
 str3-msn4280-01,10.3.146.202/24,Mellanox-SN4280-O8C40,DevSonic,,sonic
-str3-msn4280-02,10.3.146.230/24,Mellanox-SN4280-O28,DevSonic,,sonic
-str3-msn4280-02-dpu-0,10.3.146.230/24,Nvidia-bf3-com-dpu,DevSonic,,sonic
-str3-msn4280-02-dpu-1,10.3.146.230/24,Nvidia-bf3-com-dpu,DevSonic,,sonic
-str3-msn4280-02-dpu-2,10.3.146.230/24,Nvidia-bf3-com-dpu,DevSonic,,sonic
-str3-msn4280-02-dpu-3,10.3.146.230/24,Nvidia-bf3-com-dpu,DevSonic,,sonic
+str3-msn4280-02,10.3.152.109/24,Mellanox-SN4280-O28,DevSonic,,sonic
+str3-msn4280-02-dpu-0,10.3.152.109/24,Nvidia-bf3-com-dpu,DevSonic,,sonic
+str3-msn4280-02-dpu-1,10.3.152.109/24,Nvidia-bf3-com-dpu,DevSonic,,sonic
+str3-msn4280-02-dpu-2,10.3.152.109/24,Nvidia-bf3-com-dpu,DevSonic,,sonic
+str3-msn4280-02-dpu-3,10.3.152.109/24,Nvidia-bf3-com-dpu,DevSonic,,sonic
 str3-7060x6-64pe-1,10.64.246.2/25,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
 str3-7060x6-64pe-fan-1,10.64.246.3/25,Arista-7060X6-64PE-256x200G,FanoutLeafSonic,,sonic
 str3-7060x6-64pe-3,10.64.246.20/25,Arista-7060X6-64PE-256x200G,DevSonic,,sonic
@@ -188,6 +188,7 @@ str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh,
 str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
 str43-0101-0501-02c0,10.3.152.39,Cisco,ConsoleServer,ssh,
+str43-0101-0400-10m0,10.3.152.32,Cisco,MgmtSwitch,ssh,
 str3-arista-7260-E04-fan-01,10.3.156.100/27,Arista-7260CX3,FanoutLeaf,,
 str3-nvidia-4280-E04-U22,10.3.156.98/27,Mellanox-SN4280-O28,DevSonic,,sonic
 str3-nvidia-4280-E04-U22-dpu-0,10.3.156.98/27,Nvidia-bf3-com-dpu,DevSonic,,sonic

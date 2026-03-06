@@ -160,6 +160,7 @@ validators:
       - str3-arista-7260-E04-fan-01  # IPv4/IPv6 mismatch
       - str3-nvidia-4280-E04-U22  # IPv4/IPv6 mismatch
       - str3-cisco-8102-E04-U26   # IPv4/IPv6 mismatch
+      - str3-msn4280-02            # IPv4/IPv6 mismatch
       - str-7250x3b-1             # IPv4/IPv6 mismatch
       - str-7250x3b-2             # IPv4/IPv6 mismatch
       - str-7280dr3-1             # IPv4/IPv6 mismatch
