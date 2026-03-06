@@ -204,7 +204,7 @@ def checkTestbedAvailability(testbed):
 
 def cleanUpImageFolder(thread, prompt):
     thread.sendline(DELETE_CMD)
-    thread.expect(prompt)
+    thread.expect(prompt, timeout=60*10)
     return thread
 
 
@@ -302,7 +302,14 @@ def getSonicMgmtContainterName(stream, testbed):
     testbed_info_dict = getTestbedInfoDict(testbed)
     branch = getBranchFromStream(stream)
 
-    return testbed_info_dict[f"sonic_mgmt_container_{branch}"]
+    if f"sonic_mgmt_container_{branch}" in testbed_info_dict:
+        container_name = testbed_info_dict[f"sonic_mgmt_container_{branch}"]
+    else:
+        container_name = f"cicd_prod_{branch}"
+        log.warning(f"Container name for testbed={testbed} and stream={stream} isn't specified in {HW_CONFIG_FILE}. "
+                    f"Assuming it's `{container_name}` according to the convention.")
+
+    return container_name
 
 def getSonicMgmtFolder(stream, testbed):
     testbed_info_dict = getTestbedInfoDict(testbed)
@@ -429,16 +436,6 @@ def checkForDockers(p):
         return -1
     else:
         log.info("All dockers are up and running")
-        return
-
-def checkForMGFailures(p):
-    log.info("Check if mini graph has any failures")
-    i = p.expect_exact(["failed=1", "unreachable=1" , "Done"])
-    if i == 0 or i == 1:
-        log.error("Deploy minigraph caused unreachable or failed")
-        return -1
-    else:
-        log.info("Deploy minigraph successful.")
         return
 
 def checkTelnetconnection(p, host, port):

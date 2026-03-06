@@ -13,7 +13,7 @@ from hw_setup_utils import log, lower_pass_prompt, sshUtil, sshDUTUtil, extractF
     cleanUpImageFolder, removeImageDir, checkSpace, getTestbedInfoDict, checkProdImage, telnetConnection, telnetLoginUtil, checklldpCount, \
     login_prompt, passwd_prompt, cisco_prompt, pre_sonic_prompt, sonic_login_prompt, admin_prompt, pre_admin_prompt, first_login, onie_prompt, \
     DUT_PASSWORD, DUT_USERNAME, BIN_FILE, telnet_escape_prompt, grub_selection, KEY_DOWN, newline_prompt, KEY_UP, checkForDockers, \
-    scpUtil, sonic_prompt, getDockerExecCommand, checkForMGFailures, copyDockerFileToDut, getSonicMgmtContainterName, get_container_local_mount_dir, \
+    scpUtil, sonic_prompt, getDockerExecCommand, copyDockerFileToDut, getSonicMgmtContainterName, get_container_local_mount_dir, \
     default_info, getSonicMgmtFolder, MAX_RETRIES, MAX_RETRIES_TIMEOUT, ALLURE_CONFIG_FILE_NAME, checkStreamCompatibility, checkTestbedAvailability, \
     channelConnection, checkTortugaImage, CISCO_PASSWORD, CISCO_USERNAME, getBranchFromStream
 from utils import _run_cmd_in_ssh
@@ -25,6 +25,7 @@ DEFAULT_IMAGES_FOLDER = "IMAGES/"
 
 REMOVE_TOPO_TIMEOUT_SEC = 60*20
 ADD_TOPO_TIMEOUT_SEC = 60*20
+DEPLOY_MG_TIMEOUT = 60*20
 
 DATA_ANSIBLE_PROMPT = r".*\:\/data\/ansible\$"
 
@@ -573,6 +574,9 @@ def remove_topo(args):
                                                               suffix=f'-c "cd /data/ansible; {remove_topo_cmd}"')
         log.info(f"One-liner to remove topo from outside sonic-mgmt docker container:\n{remove_topo_outside_docker_cmd}")
         _, _, rc = _run_cmd_in_ssh(client, remove_topo_outside_docker_cmd, timeout=REMOVE_TOPO_TIMEOUT_SEC)
+        if rc:
+            raise RuntimeError("remove-topo returned non-zero return code. Please check logs.")
+
     return 0
 
 def load_docker_ptf_image(stream, docker_ptf_url=None):
@@ -655,7 +659,9 @@ def add_topo(args):
                                                            suffix=f'-c "cd /data/ansible; {add_topo_cmd}"')
         log.info(f"One-liner to add topo from outside sonic-mgmt docker container:\n{add_topo_outside_docker_cmd}")
         _, _, rc = _run_cmd_in_ssh(client, add_topo_outside_docker_cmd, timeout=ADD_TOPO_TIMEOUT_SEC)
-        #todo handle rc: MIGSOFTWAR-32271
+        if rc:
+            raise RuntimeError("add-topo returned non-zero return code. Please check logs.")
+
 
     # install python-saithrift_1.13.0_amd64.deb inside docker ptf container
     SAITHRIFT_DEB_FILENAME = "python-saithrift_1.13.0_amd64.deb"
@@ -731,38 +737,31 @@ def deploy_mg(args):
     testbed = args.testbed.strip()
     full_link = args.full_link.strip()
     [image, image_id, stream] = extractFromImageName(full_link)
-    docker_exec_cmd = getDockerExecCommand(stream, testbed)
     testbed_info_dict = getTestbedInfoDict(testbed)
-    local_ucs = testbed_info_dict['ucs_host_name']
     install_mode = args.install_mode.strip()
     if "ucs_tb" not in testbed_info_dict or 'deploy_flag' in testbed_info_dict and testbed_info_dict['deploy_flag'] == 'False':
         log.debug("Deploy minigraph not needed or parameter missing.")
         return  
     if install_mode == "default" or install_mode == None:
         install_mode = testbed_info_dict["installer_mode"] if "installer_mode" in testbed_info_dict else "onie"
-    
-    tb = testbed_info_dict["ucs_tb"]
 
-    
-    p2 = sshUtil(testbed_info_dict['ucs_username'], testbed_info_dict['ucs_host'], testbed_info_dict['ucs_password'], None)
-    p2.expect(local_ucs)
+    deploy_mg_cmd = f'./testbed-cli.sh deploy-mg {testbed_info_dict["ucs_tb"]} ./lab ./password.txt'
 
-    p2.sendline("docker ps -a")
-    p2.expect(local_ucs)
-    p2.sendline(docker_exec_cmd)
-    docker_prompt = testbed_info_dict['docker_prompt']
-    p2.expect(docker_prompt)
-    p2.sendline("cd /data/ansible")
-    p2.expect(":/data/ansible")
-    
-    p2.sendline(f"./testbed-cli.sh deploy-mg {tb} ./lab ./password.txt")
-    if checkForMGFailures(p2) == -1:
-        return -1
-    log.debug(p2.after)
-    
-    time.sleep(20)
-    p2.sendline("exit")
-    p2.close()
+    with paramiko.SSHClient() as client:
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(
+            hostname=testbed_info_dict['ucs_host'],
+            username=testbed_info_dict['ucs_username'],
+            password=testbed_info_dict['ucs_password']
+        )
+        deploy_mg_outside_docker_cmd = getDockerExecCommand(stream,
+                                                            testbed,
+                                                            flags='',
+                                                            suffix=f'-c "cd /data/ansible; {deploy_mg_cmd}"')
+        log.info(f"One-liner to deploy-mg from outside sonic-mgmt docker container:\n{deploy_mg_outside_docker_cmd}")
+        _, _, rc = _run_cmd_in_ssh(client, deploy_mg_outside_docker_cmd, timeout=DEPLOY_MG_TIMEOUT)
+        if rc:
+            raise RuntimeError("deploy-mg returned non-zero return code. Please check logs.")
 
     log.debug("Timeout after deploy_mg")
     time.sleep(200)
