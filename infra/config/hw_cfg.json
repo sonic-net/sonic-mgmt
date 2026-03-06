@@ -381,6 +381,47 @@
                 ]
             }
     },
+        "t0-m6-16-MtFuji": { 
+            "_comment": "topo2",
+            "ucs_host_name":"sonic-ucs-m6-16",
+            "ucs_host":"10.194.89.125",
+            "ucs_username": "sonic", 
+            "ucs_password": "roZes@123", 
+            "mth_tb": "MtFuji-dut",
+            "ucs_tb": "cmono_t1", 
+            "scp_ip": "1.2.24.104",
+            "onie_ip": "1.2.24.104",
+            "telnet_host": ["10.194.89.57"], 
+            "telnet_port": ["2023"], 
+            "telnet_details": ["10.194.89.57 2021"],
+            "dut_ssh": ["1.2.24.105"],
+            "installer_mode": "sonic",
+            "admin_cmd_prompt": "admin@MtFuji-dut:", 
+            "pre_selection": "root@MtFuji-dut:/home/admin# ",
+            "dut_ssh_prompt": "admin@1.2.24.105",
+            "ucs_ssh_prompt": "sonic@sonic-ucs-m6-16",
+            "docker_prompt":"@sonic-ucs-m6-16", 
+            "topology": "t0",
+            "telnet_flag": "True",
+            "sonic_mgmt_container_202505": "cicd_prod_202505",
+            "sonic_mgmt_container_202511": "cicd_prod_202511",
+            "sonic_mgmt_container_master": "cicd_prod_master",
+            "skip_folder": "cisco mvrf vrf dash",
+            "run_type_check": "run_tests",
+            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py qos/test_qos_sai.py acl/test_acl.py",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url --skip-package-migration",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
+            "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo cmono_t1 ./lab",
+            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo cmono_t1 ./lab",
+            "mtu_hack": {
+                "vms_count": 4
+            }
+    },
         "t1-dsf": { 
             "ucs_host_name":"sonic-ucs-m6-5", 
             "ucs_host": "172.27.147.210", 
@@ -2391,6 +2432,7 @@
     "testbed-streams" : {
         "t1-m6-22-m64": "None",
         "t1-m5-5-cmono": "None",
+        "t0-m6-16-MtFuji": "None",
         "t1-m6-18-MtFuji": [
             "azure.202311.smartswitch",
             "cisco.202311.smartswitch",
@@ -2603,7 +2645,7 @@
         ]
     },
     "testbeds": {
-        "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64", "t0-m6-33-laguna", "cmono-t0-2", "t0-m6-41-titan"],
+        "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-16-MtFuji", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64", "t0-m6-33-laguna", "cmono-t0-2", "t0-m6-41-titan"],
         "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m6-27-m64", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning", "t1-m5-11-hbm", "t1-m6-26-cmono"],
         "t2" : ["aaa14-t2", "t2-m6-30-titan"],
         "dualtor" : ["dualtor-m6-30-tornado", "dualtor-m6-31-tornado", "mathilda-dualtor-t0-1", "mathilda-dualtor-m5-6"],
@@ -2613,6 +2655,7 @@
         "t1-m6-22-m64":"ucs_m6_22",
         "t0-m5-3-m64":"ucs_m3_1",
         "t1-m5-5-cmono":"ucs_m5_5",
+        "t0-m6-16-MtFuji":"ucs_m6_16",
         "t1-m6-18-MtFuji":"ucs_m6_18",
         "t1-topo5":"ucs_m6_19",
         "t0-m6-2-m64": "ucs_m6_2",
@@ -2725,6 +2768,15 @@
             "ip" : "7.7.7.2",
             "scp_prompt" : "sonic@7.7.7.2:/home/sonic/images/",
             "images_folder" : "/home/sonic/images",
+            "wget" : "wget"
+        },
+        "ucs_m6_16": {
+            "host" : "sonic-ucs-m6-16",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "1.2.24.104",
+            "scp_prompt" : "sonic@1.2.24.104:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
             "wget" : "wget"
         },
         "ucs_m6_18": {
