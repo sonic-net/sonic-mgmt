@@ -8,6 +8,8 @@ import paramiko
 import os
 import yaml
 import urllib.parse
+import posixpath
+import shlex
 from collections import namedtuple
 from hw_setup_utils import log, lower_pass_prompt, sshUtil, sshDUTUtil, extractFromImageName, getImageUCS, \
     cleanUpImageFolder, removeImageDir, checkSpace, getTestbedInfoDict, checkProdImage, telnetConnection, telnetLoginUtil, checklldpCount, \
@@ -249,6 +251,11 @@ def image_install(args):
     testbed_info_dict = getTestbedInfoDict(testbed)
     install_mode = args.install_mode.strip()
 
+    image_ucs = getImageUCS(testbed)
+    host = image_ucs['host']
+    image_folder = image_ucs['images_folder']
+    build_id = os.getenv('BUILD_ID')
+
     if install_mode == "default" or install_mode == None:
         install_mode = testbed_info_dict["installer_mode"] if "installer_mode" in testbed_info_dict else "onie"
     if len(testbed_info_dict['dut_ssh']) >= 1:
@@ -280,7 +287,36 @@ def image_install(args):
                 return -1
             checklldpCount(p, testbed_info_dict)
     log.debug("Image loaded and checked")
-    return
+
+    # add validation for build_id to make sure there arn't directory traversal characters in it, to prevent accidental deletion of wrong directories in the cleanup step
+    if ".." in build_id or "/" in build_id or "\\" in build_id:
+        log.error("Invalid build_id detected, potential directory traversal attempt")
+        return -1
+
+    remote_build_dir = posixpath.join(str(image_folder).rstrip("/"), str(build_id))
+    image_remove_cmd = f"rm -rf {shlex.quote(remote_build_dir)}"
+
+    # ssh to server
+    user = image_ucs.get('username')
+    pswd = image_ucs.get('password')
+    
+    log.info(f"SSH to server {host}, {user}/***")
+    with paramiko.SSHClient() as ssh:
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(hostname=host, port=22, username=user, password=pswd)
+
+        try:
+            log.info(f"Removing remote image folder: {remote_build_dir}")
+            stdout, stderr, status_code = _run_cmd_in_ssh(ssh, image_remove_cmd, timeout=60 * 10)
+            if status_code != 0:
+                log.error(f"Failed to cleanup remote image folder. rc={status_code}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")
+                return -1
+            log.info("Remote image folder cleanup completed")
+        except Exception as e:
+            log.error(f"An error occurred while removing the remote image folder. Exception:{e}")
+            raise
+
+    return 0
 
 def run_sonic_post_install_commands(p, testbed_info_dict, index):
     if 'sonic_post_install_commands' not in testbed_info_dict:
