@@ -15,7 +15,6 @@ routes are programmed into the forwarding plane (FIB). This test verifies:
 import pytest
 import logging
 import json
-import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -230,20 +229,28 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
 
     # Step 3: Wait for routes to stabilize (all sessions fully converged)
     # After setup_bgp_graceful_restart configures neighbors, sessions may flap.
-    # Wait until route count stabilizes (two consecutive reads match).
-    time.sleep(30)  # Allow sessions to settle after GR config
+    # Wait until all sessions re-establish and route count stabilizes.
     pytest_assert(
-        wait_until(120, 10, 0, _check_all_bgp_sessions_established, duthost, bgp_neighbor_ips),
+        wait_until(180, 10, 30, _check_all_bgp_sessions_established, duthost, bgp_neighbor_ips),
         "BGP sessions not re-established after GR config"
     )
     pytest_assert(
         wait_until(120, 10, 0, lambda: _get_bgp_routes_summary(duthost) > 0),
         "No BGP routes received after sessions established"
     )
-    # Take a stable snapshot — allow route counts to settle after sessions converge.
-    # Using a short sleep rather than wait_until because we need two consecutive stable
-    # readings, and the routes_summary already showed >0 routes above.
-    time.sleep(10)
+
+    # Wait for route count to stabilize: two consecutive reads must match
+    def _routes_stabilized():
+        count1 = _get_bgp_routes_summary(duthost)
+        import time as _time
+        _time.sleep(5)
+        count2 = _get_bgp_routes_summary(duthost)
+        return count1 == count2 and count1 > 0
+
+    pytest_assert(
+        wait_until(60, 10, 0, _routes_stabilized),
+        "BGP route count did not stabilize after sessions established"
+    )
     routes_before = _get_bgp_routes_summary(duthost)
     app_db_routes_before = _get_routes_in_app_db(duthost)
     pytest_assert(app_db_routes_before is not None, "Failed to query APP_DB routes before restart")
@@ -288,15 +295,17 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
             neighbor, counts['all'], counts['valid'], counts['stale'])
 
     # Step 8: Verify routes are programmed in APP_DB (FIB)
-    app_db_routes_after = _get_routes_in_app_db(duthost)
-    pytest_assert(app_db_routes_after is not None, "Failed to query APP_DB routes after restart")
-    logger.info("APP_DB routes: before=%d after=%d", app_db_routes_before, app_db_routes_after)
+    def _app_db_routes_restored():
+        count = _get_routes_in_app_db(duthost)
+        return count is not None and count >= app_db_routes_before
+
     pytest_assert(
-        app_db_routes_after >= app_db_routes_before * 0.90,
-        "APP_DB route count dropped significantly: before=%d after=%d. "
-        "Routes may not have been programmed into FIB." %
-        (app_db_routes_before, app_db_routes_after)
+        wait_until(120, 10, 0, _app_db_routes_restored),
+        "APP_DB route count did not recover to pre-restart level (%d). "
+        "Routes may not have been programmed into FIB." % app_db_routes_before
     )
+    app_db_routes_after = _get_routes_in_app_db(duthost)
+    logger.info("APP_DB routes: before=%d after=%d", app_db_routes_before, app_db_routes_after)
 
     logger.info("BGP GR with suppress-fib-pending completed successfully. "
                 "All routes restored and programmed in FIB.")
