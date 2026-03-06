@@ -37,7 +37,7 @@ class AttributeManager:
     def _list_category_files(self):
         attributes_dir = os.path.join(self.repo_root, ATTRIBUTES_REL_DIR)
         if not os.path.isdir(attributes_dir):
-            logging.info("Attributes directory %s not present; no category attributes loaded", attributes_dir)
+            logging.info(f"Attributes directory {attributes_dir} not present; no category attributes loaded")
             return []
         json_files = [f for f in os.listdir(attributes_dir) if f.endswith('.json')]
         return [os.path.join(attributes_dir, f) for f in json_files]

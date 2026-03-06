@@ -1,5 +1,8 @@
+import logging
 import pytest
 from tests.transceiver.utils.cli_parser_helper import parse_eeprom
+
+logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('ptp-256')
@@ -20,6 +23,9 @@ EEPROM_EXPECTED_CLI_KEY_TO_TRANSCEIVER_INV_KEY_MAPPING = {
     "Vendor Name": "vendor_name",
 }
 
+# Default return code indicating command failure (used when 'rc' key is missing)
+RC_FAILURE = 1
+
 
 def test_eeprom_content_verification_via_show_cli(duthost, port_attributes_dict):
     """Verify EEPROM content via 'show interfaces transceiver info' CLI.
@@ -33,7 +39,7 @@ def test_eeprom_content_verification_via_show_cli(duthost, port_attributes_dict)
     all_failures = []
 
     result = duthost.command(CMD_SFP_EEPROM, module_ignore_errors=True)
-    if result.get('rc', 1) != 0:
+    if result.get('rc', RC_FAILURE) != 0:
         pytest.fail(f"CLI failed with rc={result.get('rc')}, stderr: {result.get('stderr', '')}")
 
     stdout_lines = result.get('stdout_lines', [])
@@ -44,6 +50,7 @@ def test_eeprom_content_verification_via_show_cli(duthost, port_attributes_dict)
 
     for port, port_attrs in port_attributes_dict.items():
         if not port_attrs:
+            logger.debug("Port %s has no attributes, skipping", port)
             continue
 
         cli_port_fields = cli_eeprom_by_port.get(port, {})
