@@ -135,6 +135,12 @@ hw_port_cfg = {
                              'peer_ports': [],
                              'skip_ports': [13, 16, 17, 44, 45, 48, 49],
                              "panel_port_step": 1},
+    'o256-u32d224lt2':  {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': PortList(*list(range(45, 61))),
+                         'peer_ports': [],
+                         'skip_ports': PortList(126，127),
+                         'continuous_vms': True,
+                         "panel_port_step": 1},                             
     'o128lt2':          {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(45, 46, 47, 48, 49, 50, 51, 52),
                          'peer_ports': [],
@@ -182,6 +188,7 @@ overwrite_file_name = {
     'lt2': {
         'p32o64': "lt2-p32o64",
         'o128': "lt2-o128",
+        'o256-u32d224': "lt2-o256-u32d224",
     },
     't0': {
         'f2': "t0-f2-d40u8"
