@@ -195,27 +195,6 @@ Below are the details of the Smartswitch variations:
 &nbsp;
 &nbsp;
 
-![](./img/topo-t1-28-lag.png)
-
-* Platforms using this Topology: Mt.Fuji
-* Topo File: https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/vars/topo_t1-28-lag.yml
-
-
-&nbsp;
-&nbsp;
-&nbsp;
-
-![](./img/topo-t1-48-lag.png)
-
-* Platforms using this Topology: Mt.Fuji
-* Topo File: https://github.com/sonic-net/sonic-mgmt/blob/master/ansible/vars/topo_t1-48-lag.yml
-
-
-&nbsp;
-&nbsp;
-&nbsp;
-
-
 ### SONiC B2B(Back-to-Back) type Topology
 
 #### SONiC Tests: B2B Topology (topology_id: sonic-tests-b2b)
