@@ -4,6 +4,9 @@ package testhelper
 
 import (
 	"fmt"
+	crand"crypto/rand"
+	"math/big"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -11,8 +14,11 @@ import (
 	"math"
 
 	log "github.com/golang/glog"
+	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ondatra"
+	"github.com/openconfig/ondatra/gnmi"
 	"github.com/openconfig/ondatra/gnmi/oc"
+	"github.com/openconfig/ygnmi/ygnmi"
 	"github.com/pkg/errors"
 )
 
@@ -113,6 +119,34 @@ type RandomPortWithSupportedBreakoutModesParams struct {
 	SpeedChangeOnlyPortCount int          // number of ports that are required to change in speed only on breakout
 	PortList                 []string     // List of ports from which a random port can be selected
 }
+
+// LinkDampingConfig contains the link damping config for a given interface.
+type LinkDampingConfig struct {
+	// The maximum amount of time an interface can remain damped since the last
+	// link down event. A value of 0 disables link damping. A value of -1
+	// indicates that penalty-based-aied is used instead.
+	HoldTime int32
+
+	// Maximum time an interface can remain damped since the last link down event
+	// (in milliseconds).
+	MaxSuppressTime uint32
+	// The amount of time after which an interface’s penalty is decreased by half
+	// (in milliseconds).
+	DecayHalfLife uint32
+	// The accumulated penalty that triggers the damping of an interface. A value
+	// of 0 disables link damping.
+	SuppressThreshold uint32
+	// When the accumulated penalty decreases to this reuse threshold, the
+	// interface is not damped anymore. A value of 0 disables link damping.
+	ReuseThreshold uint32
+	// A penalty that each down event costs. A value of 0 disables link damping.
+	FlapPenalty uint32
+}
+
+const (
+	linkDampingPayload = "{\"config\": {\"max-suppress-time\": %d, \"decay-half-life\": %d, \"suppress-threshold\": %d, \"reuse-threshold\": %d, \"flap-penalty\": %d}}"
+	configTimeout      = 5 * time.Second // Maximum allowed time for a config to get programmed.
+)
 
 // Uint16ListToString returns comma separate string representation of list of uint16.
 func Uint16ListToString(a []uint16) string {
@@ -502,35 +536,48 @@ func interfaceConfigForPort(t *testing.T, d *ondatra.DUTDevice, intfName string,
 	return interfaceConfig, nil
 }
 
+func isInterfaceSkippable(t *testing.T, dut *ondatra.DUTDevice, intf string, breakoutMode string) bool {
+	return true
+}
+
 // ConfigFromBreakoutMode returns config with component and interface paths for given breakout mode.
 // Breakout mode is in the format "numBreakouts1 x breakoutSpeed1 + numBreakouts2 x breakoutSpeed2 + ...
 // Eg: "1x400G", 2x100G(4) + 1x200G(4)"
 func ConfigFromBreakoutMode(t *testing.T, dut *ondatra.DUTDevice, breakoutMode, port string) (*oc.Root, error) {
+    deviceConfig, _, err := ConfigFromBreakoutModeWithSkipLane(t, dut, breakoutMode, port, nil, false)
+	return deviceConfig, err
+}
+
+// ConfigFromBreakoutModeWithSkipLane returns config with component and interface paths for given
+// breakout mode. Interface paths allow missing for some ports.
+// Breakout mode is in the format "numBreakouts1 x breakoutSpeed1 + numBreakouts2 x breakoutSpeed2 + ...
+// Eg: "1x400G", 2x100G(4) + 1x200G(4)"
+func ConfigFromBreakoutModeWithSkipLane(t *testing.T, dut *ondatra.DUTDevice, breakoutMode, port string, prevSkippedPorts []string, includeNewSkippedPorts bool) (*oc.Root, []string, error) {
 	if len(breakoutMode) == 0 {
-		return nil, errors.Errorf("found empty breakout mode")
+		return nil, nil, errors.Errorf("found empty breakout mode")
 	}
 
 	// Check if requested port is a parent port. Breakout is applicable to parent port only.
 	isParent, err := IsParentPort(t, dut, port)
 	if err != nil {
-		return nil, errors.Wrap(err, "IsParentPort() failed")
+		return nil, nil, errors.Wrap(err, "IsParentPort() failed")
 	}
 	if !isParent {
-		return nil, errors.Errorf("port: %v is not a parent port", port)
+		return nil, nil, errors.Errorf("port: %v is not a parent port", port)
 	}
 	// Get lane number for port.
 	slotPortLane, err := slotPortLaneForPort(port)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	currLaneNumber, err := strconv.Atoi(slotPortLane[laneIndex])
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to convert lane number (%v) to int", currLaneNumber)
+		return nil, nil, errors.Wrapf(err, "failed to convert lane number (%v) to int", currLaneNumber)
 	}
 
 	maxLanes, err := MaxLanesPerPort(t, dut)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to fetch max lanes")
+		return nil, nil, errors.Wrap(err, "failed to fetch max lanes")
 	}
 
 	// For a mixed breakout mode, get "+" separated breakout groups.
@@ -541,24 +588,25 @@ func ConfigFromBreakoutMode(t *testing.T, dut *ondatra.DUTDevice, breakoutMode, 
 	index := 0
 	breakoutGroups := make(map[uint8]*oc.Component_Port_BreakoutMode_Group)
 	interfaceConfig := make(map[string]*oc.Interface)
+        var skippedPorts []string
 
 	// For each breakout group, get numBreakouts and breakoutSpeed. Breakout group is in the format "numBreakouts x breakoutSpeed(numPhysicalChannels)"
 	// Eg. 2x100G(4)
 	for _, mode := range modes {
 		values := strings.Split(mode, "x")
 		if len(values) != 2 {
-			return nil, errors.Errorf("invalid breakout format (%v)", mode)
+			return nil, nil, errors.Errorf("invalid breakout format (%v)", mode)
 		}
 		numBreakouts, err := portStringToUint8(values[0])
 		if err != nil {
-			return nil, errors.Wrapf(err, "error parsing numBreakouts for breakout mode %v", mode)
+			return nil, nil, errors.Wrapf(err, "error parsing numBreakouts for breakout mode %v", mode)
 		}
 	        u8numBreakouts := numBreakouts
 		// Extract speed from breakout_speed(num_physical_channels) eg:100G(4)
 		speed := strings.Split(values[1], "(")
 		breakoutSpeed, ok := stringToEnumSpeedMap[speed[0]]
 		if !ok {
-			return nil, errors.Errorf("found invalid breakout speed (%v) when parsing breakout mode %v", values[1], mode)
+			return nil, nil, errors.Errorf("found invalid breakout speed (%v) when parsing breakout mode %v", values[1], mode)
 		}
 		// Physical channels per breakout group are equally divided amongst breakouts in the group.
 		numPhysicalChannels := maxChannelsInGroup / numBreakouts
@@ -574,12 +622,68 @@ func ConfigFromBreakoutMode(t *testing.T, dut *ondatra.DUTDevice, breakoutMode, 
 		// Index is strictly ordered staring from 0.
 		breakoutGroups[currIndex] = &group
 
+		var allInterfaces []string
+		scanCurrentLaneNumer := currLaneNumber
+		for i := 1; i <= int(numBreakouts); i++ {
+			intfName := fmt.Sprintf("%s%s/%s/%d", FrontPanelPortPrefix, slotPortLane[slotIndex], slotPortLane[portIndex], scanCurrentLaneNumer)
+			allInterfaces = append(allInterfaces, intfName)
+			offset := int(maxChannelsInGroup) / int(numBreakouts)
+			scanCurrentLaneNumer += offset
+		}
+
+		if includeNewSkippedPorts {
+			skippablePorts := []string{}
+			for _, intf := range allInterfaces {
+				if !isInterfaceSkippable(t, dut, intf, breakoutMode) {
+					continue
+				}
+				skippablePorts = append(skippablePorts, intf)
+			}
+
+			if len(skippablePorts) != 0 {
+			// Prepare interfaces to be removed from config.
+			var randomLen int
+			// TODO: allow not skipping any ports when LED color is correctly set.
+			for {
+				n, err := crand.Int(crand.Reader,big.NewInt(int64(len(allInterfaces) + 1)))
+				if err != nil {
+                                	return nil, nil, err
+                                }
+                                randomLen = int(n.Int64())
+                        	if randomLen > 0 {
+					break
+				}
+			}
+
+			randomIndex := make([]int, len(allInterfaces))
+                        for i := range randomIndex {
+                        	randomIndex[i] = i
+                        }
+                        for i := len(randomIndex) - 1; i > 0; i-- {
+                        	jBig, err := crand.Int(crand.Reader, big.NewInt(int64(i+1)))
+                        	if err != nil {
+                        	return nil, nil, err
+                       		}
+                        	j := int(jBig.Int64())
+                        	randomIndex[i], randomIndex[j] = randomIndex[j], randomIndex[i]
+                        }
+                        slices.Sort(randomIndex[:randomLen])
+                        for _, index := range randomIndex[:randomLen] {
+                        	skippedPorts = append(skippedPorts, allInterfaces[index])
+                        }
+                        slices.Sort(skippedPorts)
+                        }
+			t.Logf("Skippable ports: %v\nChosen ports to skip: %v", skippablePorts, skippedPorts)
+		}
+
 		// Get the interface config for all interfaces corresponding to current breakout group.
 		for i := 1; i <= int(numBreakouts); i++ {
 			intfName := fmt.Sprintf("%s%s/%s/%d", FrontPanelPortPrefix, slotPortLane[slotIndex], slotPortLane[portIndex], currLaneNumber)
-			interfaceConfig[intfName], err = interfaceConfigForPort(t, dut, intfName, breakoutSpeed, fecMode(breakoutSpeed, numPhysicalChannels))
-			if err != nil {
-				return nil, err
+			if !slices.Contains(skippedPorts, intfName) {
+				interfaceConfig[intfName], err = interfaceConfigForPort(t, dut, intfName, breakoutSpeed, fecMode(breakoutSpeed, numPhysicalChannels))
+				if err != nil {
+					return nil, nil, err
+				}
 			}
 			offset := int(maxChannelsInGroup) / int(numBreakouts)
 			currLaneNumber += offset
@@ -590,12 +694,22 @@ func ConfigFromBreakoutMode(t *testing.T, dut *ondatra.DUTDevice, breakoutMode, 
 	// Get port ID.
 	frontPanelPortToIndexMap, err := FrontPanelPortToIndexMappingForDevice(t, dut)
 	if err != nil {
-		return nil, errors.Errorf("failed to fetch front panel port to index mapping from device %v", testhelperDUTNameGet(dut))
+		return nil, nil, errors.Errorf("failed to fetch front panel port to index mapping from device %v", testhelperDUTNameGet(dut))
 	}
-	if _, ok := frontPanelPortToIndexMap[port]; !ok {
-		return nil, errors.Errorf("port %v not found in list of front panel port", port)
+	var portIndex int
+	if slices.Contains(skippedPorts, port) || slices.Contains(prevSkippedPorts, port) {
+		xcvrStr := strings.ReplaceAll(port, "Ethernet", "")
+		portIndexStr := xcvrStr[2 : len(xcvrStr)-2]
+		portIndex, err = strconv.Atoi(portIndexStr)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "failed to convert port index (%v) to int", portIndexStr)
+		}
+	} else {
+		if _, ok := frontPanelPortToIndexMap[port]; !ok {
+			return nil, nil, errors.Errorf("port %v not found in list of front panel port", port)
+		}
+		portIndex = frontPanelPortToIndexMap[port]
 	}
-	portIndex := frontPanelPortToIndexMap[port]
 
 	// Construct component path config from created breakout groups.
 	componentName := "1/" + strconv.Itoa(portIndex)
@@ -613,7 +727,7 @@ func ConfigFromBreakoutMode(t *testing.T, dut *ondatra.DUTDevice, breakoutMode, 
 		Interface: interfaceConfig,
 		Component: componentConfig,
 	}
-	return deviceConfig, nil
+	return deviceConfig, skippedPorts, nil
 }
 
 // SpeedChangeOnlyPorts returns
@@ -840,6 +954,7 @@ func BreakoutStateInfoForPort(t *testing.T, dut *ondatra.DUTDevice, port string,
 	if portInfo == nil {
 		return nil, errors.Errorf("got empty port information for breakout mode %v for port %v", currBreakoutMode, port)
 	}
+	FilterSkippedPorts(t, dut, port, portInfo)
 	// Get physical channels and operational statuses for list of ports in given breakout mode.
 	for p := range portInfo {
 		physicalChannels := testhelperIntfPhysicalChannelsGet(t, dut, p)
@@ -848,6 +963,32 @@ func BreakoutStateInfoForPort(t *testing.T, dut *ondatra.DUTDevice, port string,
 		portInfo[p] = &PortBreakoutInfo{physicalChannels, operStatus, portSpeed}
 	}
 	return portInfo, nil
+}
+
+// FilterSkippedPorts filters out ports that are skipped from the portInfo map.
+func FilterSkippedPorts(t *testing.T, dut *ondatra.DUTDevice, port string,
+	portInfo map[string]*PortBreakoutInfo) {
+	if dut == nil {
+		return
+	}
+	for p, pInfo := range portInfo {
+		if testhelperIntfLookup(t, dut, p).IsPresent() {
+			physicalChannels := testhelperIntfPhysicalChannelsGet(t, dut, p)
+			if !slices.Equal(physicalChannels, pInfo.PhysicalChannels) {
+				t.Fatalf("physical channels mismatch for port on switch, get: %v, want: %v",
+					physicalChannels, pInfo.PhysicalChannels)
+			}
+			portSpeed := testhelperStatePortSpeedGet(t, dut, p)
+			if portSpeed != pInfo.PortSpeed {
+				t.Fatalf("port speed mismatch for port on switch, get: %v, want: %v",
+					portSpeed, pInfo.PortSpeed)
+			}
+		} else {
+			// Filter out skipped
+			delete(portInfo, p)
+			t.Logf("Port %v skipped, port Info: %v", p, pInfo)
+		}
+	}
 }
 
 // WaitForInterfaceState polls interface oper-status until it matches the expected oper-status.
@@ -914,6 +1055,90 @@ func ParentPortNumber(port string) (string, error) {
 // PortPMDFromModel returns the port pmdtype from the model.
 func PortPMDFromModel(t *testing.T, dut *ondatra.DUTDevice, port string) (string, error) {
 	return testhelperPortPmdTypeGet(t, dut, port)
+}
+
+// SetLinkEventDampingConfig sets the link event damping config on the DUT to the given config.
+// penalty-based-aied is used if holdTime is -1.
+func SetLinkEventDampingConfig(t *testing.T, dut *ondatra.DUTDevice, intf string, linkDampingConfig LinkDampingConfig) {
+	t.Helper()
+	// Configure the link event damping config.
+	if linkDampingConfig.HoldTime >= 0 {
+		// Use hold-time.
+		testhelperReplaceUint32(t, dut, gnmi.OC().Interface(intf).HoldTime().Up().Config(), uint32(linkDampingConfig.HoldTime))
+		testhelperAwaitUint32(t, dut, gnmi.OC().Interface(intf).HoldTime().Up().State(), configTimeout, uint32(linkDampingConfig.HoldTime))
+		return
+	}
+
+	// Use penalty-based-aied.
+	penaltyBasedAiedPath, _, err := ygnmi.ResolvePath(gnmi.OC().Interface(intf).PenaltyBasedAied().Config().PathStruct())
+	if err != nil {
+		t.Errorf("Failed to resolve penalty-based-aied path: %v", err)
+		return
+	}
+	setRequest := &gpb.SetRequest{
+		Prefix: &gpb.Path{Origin: "openconfig", Target: testhelperDUTNameGet(dut)},
+		Update: []*gpb.Update{{
+			Path: penaltyBasedAiedPath,
+			Val: &gpb.TypedValue{
+				Value: &gpb.TypedValue_JsonIetfVal{
+					JsonIetfVal: []byte(fmt.Sprintf(linkDampingPayload, linkDampingConfig.MaxSuppressTime, linkDampingConfig.DecayHalfLife, linkDampingConfig.SuppressThreshold, linkDampingConfig.ReuseThreshold, linkDampingConfig.FlapPenalty)),
+				},
+			},
+		}},
+	}
+	gnmiSet(t, dut, setRequest)
+	testhelperAwaitUint32(t, dut, gnmi.OC().Interface(intf).PenaltyBasedAied().MaxSuppressTime().State(), configTimeout, linkDampingConfig.MaxSuppressTime)
+	testhelperAwaitUint32(t, dut, gnmi.OC().Interface(intf).PenaltyBasedAied().DecayHalfLife().State(), configTimeout, linkDampingConfig.DecayHalfLife)
+	testhelperAwaitUint32(t, dut, gnmi.OC().Interface(intf).PenaltyBasedAied().SuppressThreshold().State(), configTimeout, linkDampingConfig.SuppressThreshold)
+	testhelperAwaitUint32(t, dut, gnmi.OC().Interface(intf).PenaltyBasedAied().ReuseThreshold().State(), configTimeout, linkDampingConfig.ReuseThreshold)
+	testhelperAwaitUint32(t, dut, gnmi.OC().Interface(intf).PenaltyBasedAied().FlapPenalty().State(), configTimeout, linkDampingConfig.FlapPenalty)
+}
+
+// DisableLinkEventDampingConfig disables the link event damping config on the DUT.
+func DisableLinkEventDampingConfig(t *testing.T, dut *ondatra.DUTDevice, intf string) {
+	t.Helper()
+	initialConfig := FetchLinkEventDampingState(t, dut, intf)
+	if initialConfig.HoldTime >= 0 {
+		// Use hold-time.
+		SetLinkEventDampingConfig(t, dut, intf, LinkDampingConfig{HoldTime: 0})
+	} else {
+		// Use penalty-based-aied.
+		SetLinkEventDampingConfig(t, dut, intf, LinkDampingConfig{HoldTime: -1, MaxSuppressTime: 0, DecayHalfLife: 0, SuppressThreshold: 0, ReuseThreshold: 0, FlapPenalty: 0})
+	}
+}
+
+// FetchLinkEventDampingState fetches the link event damping state from the DUT.
+func FetchLinkEventDampingState(t *testing.T, dut *ondatra.DUTDevice, intf string) LinkDampingConfig {
+	t.Helper()
+	config := LinkDampingConfig{}
+	// Lookup the hold time UP state value.
+	holdTimeUp, present := testhelperHoldTimeUpLookup(t, dut, intf)
+	if present {
+		config.HoldTime = int32(holdTimeUp)
+		return config
+	}
+	config.HoldTime = -1
+
+	// Hold time UP is not present, lookup the penalty-based-aied state values.
+	penaltyBasedAied, present := testhelperPenaltyBasedAiedLookup(t, dut, intf)
+	if present {
+		if penaltyBasedAied.MaxSuppressTime != nil {
+			config.MaxSuppressTime = *penaltyBasedAied.MaxSuppressTime
+		}
+		if penaltyBasedAied.DecayHalfLife != nil {
+			config.DecayHalfLife = *penaltyBasedAied.DecayHalfLife
+		}
+		if penaltyBasedAied.SuppressThreshold != nil {
+			config.SuppressThreshold = *penaltyBasedAied.SuppressThreshold
+		}
+		if penaltyBasedAied.ReuseThreshold != nil {
+			config.ReuseThreshold = *penaltyBasedAied.ReuseThreshold
+		}
+		if penaltyBasedAied.FlapPenalty != nil {
+			config.FlapPenalty = *penaltyBasedAied.FlapPenalty
+		}
+	}
+	return config
 }
 
 //Adding function to manually convert string to uint32
