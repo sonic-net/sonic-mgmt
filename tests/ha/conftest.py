@@ -391,6 +391,7 @@ def dpu_setup(duthosts, dpuhosts, dpu_index, skip_config):
         if "Loopback0" not in intfs:
             dpu_cmds.append("config loopback add Loopback0")
             dpu_cmds.append(f"config int ip add Loopback0 {pl.APPLIANCE_VIP}/32")
+            dpuhost.shell_cmds(cmds=dpu_cmds)
 
 
 @pytest.fixture(scope="module")
