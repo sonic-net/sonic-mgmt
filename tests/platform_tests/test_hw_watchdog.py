@@ -40,6 +40,24 @@ WATCHDOG_MIN_TIMEOUT = 30
 WATCHDOG_MAX_TIMEOUT = 300
 
 
+def _is_watchdog_armed(output):
+    """Check if watchdogutil status output indicates the watchdog is armed.
+
+    Matches 'Status: Armed' explicitly to avoid substring confusion
+    ('armed' is a substring of 'unarmed').
+
+    Args:
+        output: stdout from 'watchdogutil status'
+
+    Returns:
+        bool: True if armed, False otherwise
+    """
+    for line in output.strip().splitlines():
+        if line.strip().lower() == "status: armed":
+            return True
+    return False
+
+
 @pytest.fixture(scope="module")
 def strict_watchdog(request):
     return request.config.getoption("--strict_watchdog")
@@ -60,8 +78,8 @@ def ensure_watchdog_armed(duthosts, enum_rand_one_per_hwsku_hostname):
         pytest.skip("watchdogutil is not supported on this platform (rc={}, stderr='{}')".format(
             result["rc"], result["stderr"]))
 
-    status_output = result["stdout"].strip().lower()
-    was_armed = "armed" in status_output and "unarmed" not in status_output
+    status_output = result["stdout"].strip()
+    was_armed = _is_watchdog_armed(status_output)
 
     if not was_armed:
         logger.info("Watchdog is unarmed on '{}', arming for test".format(duthost.hostname))
@@ -108,9 +126,9 @@ def test_hw_watchdog_armed(duthosts, enum_rand_one_per_hwsku_hostname, strict_wa
         pytest.skip("watchdogutil is not supported on this platform (rc={}, stderr='{}')".format(
             result["rc"], result["stderr"]))
 
-    status_output = result["stdout"].strip().lower()
+    status_output = result["stdout"].strip()
 
-    if "unarmed" in status_output or "armed" not in status_output:
+    if not _is_watchdog_armed(status_output):
         msg = ("Hardware watchdog is not armed on '{}'. "
                "SONiC requires the hardware watchdog to be enabled. "
                "Output: {}".format(duthost.hostname, result["stdout"]))
