@@ -20,7 +20,6 @@ Addresses issue: https://github.com/sonic-net/sonic-mgmt/issues/18431
 import json
 import logging
 import pytest
-import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -280,7 +279,13 @@ def configure_unnumbered_bgp(setup_info):
     if remove_lines:
         neigh_host.eos_config(lines=remove_lines,
                               parents="router bgp {}".format(neigh_asn))
-    time.sleep(3)
+
+    # Wait for old neighbor to be removed from DUT BGP before proceeding
+    def old_neighbor_removed():
+        facts = duthost.bgp_facts()['ansible_facts']
+        return neigh_ipv4 not in facts.get('bgp_neighbors', {})
+
+    wait_until(30, 3, 0, old_neighbor_removed)
 
     # Configure unnumbered BGP on DUT
     logger.info("Configure unnumbered BGP on DUT via %s", portchannel)
@@ -404,9 +409,32 @@ def test_bgp_link_local_ipv6(setup_info, configure_unnumbered_bgp):
 
     # Verify routes are received
     logger.info("Verify routes are received via unnumbered session")
-    # Allow time for route convergence after session establishment
-    time.sleep(10)
 
+    def routes_received_via_unnumbered(duthost, portchannel):
+        """Check if any routes are received via the unnumbered BGP peer."""
+        result = duthost.shell("vtysh -c 'show bgp summary json'",
+                               module_ignore_errors=True)
+        if result['rc'] != 0:
+            return False
+        try:
+            bgp_summary = json.loads(result['stdout'])
+            for af in ['ipv4Unicast', 'ipv6Unicast']:
+                for peer, data in bgp_summary.get(af, {}).get(
+                        'peers', {}).items():
+                    if (portchannel.lower() in peer.lower()
+                            and data.get('pfxRcd', 0) > 0):
+                        return True
+        except (json.JSONDecodeError, KeyError):
+            pass
+        return False
+
+    pytest_assert(
+        wait_until(30, 5, 0, routes_received_via_unnumbered,
+                   duthost, portchannel),
+        "No routes received via unnumbered BGP session on "
+        "{}".format(portchannel))
+
+    # Get the actual route count for logging
     result = duthost.shell("vtysh -c 'show bgp summary json'",
                            module_ignore_errors=True)
     route_count = 0
@@ -427,10 +455,6 @@ def test_bgp_link_local_ipv6(setup_info, configure_unnumbered_bgp):
                     break
         except (json.JSONDecodeError, KeyError) as e:
             logger.warning("Could not parse BGP summary JSON: %s", e)
-
-    pytest_assert(route_count > 0,
-                  "No routes received via unnumbered BGP session on "
-                  "{}".format(portchannel))
     logger.info("Received %d routes via unnumbered BGP (was %d via "
                 "global IP)", route_count, initial_prefixes)
 
