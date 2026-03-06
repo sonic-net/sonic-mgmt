@@ -177,6 +177,21 @@
             <a:Value>{{ max_cores }}</a:Value>
           </a:DeviceProperty>
 {% endif %}
+{% set t0_exception_hwskus = [
+] %}
+{% set t1_exception_hwskus = [
+] %}
+{% set zebra_nexthop_value = 'enabled' %}
+{% if 'ToRRouter' in vm_topo_config['dut_type'] and hwsku not in t0_exception_hwskus %}
+{% set zebra_nexthop_value = 'disabled' %}
+{% elif 'LeafRouter' in vm_topo_config['dut_type'] and hwsku not in t1_exception_hwskus %}
+{% set zebra_nexthop_value = 'disabled' %}
+{% endif %}
+          <a:DeviceProperty>
+            <a:Name>ZebraNexthop</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ zebra_nexthop_value }}</a:Value>
+          </a:DeviceProperty>
         </a:Properties>
       </a:DeviceMetadata>
 {% if num_asics > 1 and switch_type is defined and switch_type == 'voq' %}
