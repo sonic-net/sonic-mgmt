@@ -564,7 +564,11 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
     console_device = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerdevice']
 
     console_type = f"console_{console_type}"
-    console_menu_type = f"{console_type}_{console_menu_type}"
+
+    if console_menu_type and console_menu_type.lower() != "n/a":
+        console_menu_type = f"{console_type}_{console_menu_type}"
+    else:
+        console_menu_type = console_type
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
