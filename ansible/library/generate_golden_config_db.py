@@ -99,7 +99,7 @@ class GenerateGoldenConfigDBModule(object):
         frr_version = self.get_frr_version()
         if frr_version and self.compare_frr_version(frr_version, "8.5.0") >= 0:
             return True
-        else
+        else:
             return False
 
     def generate_mgfx_golden_config_db(self):
