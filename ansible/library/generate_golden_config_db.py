@@ -463,11 +463,18 @@ class GenerateGoldenConfigDBModule(object):
 
         # For t1-smartswitch-ha, ports not connected to VMs or DPUs should be admin-down
         if self.topo_name == "t1-smartswitch-ha":
+            # Build alias-to-port-name mapping since PORTCHANNEL_MEMBER may use aliases (e.g. etp1)
+            alias_to_port = {
+                port_data.get("alias", ""): port_name
+                for port_name, port_data in ori_config_db.get("PORT", {}).items()
+                if port_data.get("alias")
+            }
             connected_ports = set()
             for key in ori_config_db.get("INTERFACE", {}):
                 connected_ports.add(key.split("|")[0])
             for key in ori_config_db.get("PORTCHANNEL_MEMBER", {}):
-                connected_ports.add(key.split("|")[1])
+                member = key.split("|")[1]
+                connected_ports.add(alias_to_port.get(member, member))
             dpu_ports = set()
             for i in range(hwsku_config["dpu_num"]):
                 port_idx = hwsku_config["base"] + i * hwsku_config["step"] \
