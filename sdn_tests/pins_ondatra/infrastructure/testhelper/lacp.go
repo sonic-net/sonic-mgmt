@@ -1,13 +1,12 @@
 package testhelper
 
 import (
-	"testing"
-	"time"
-
 	log "github.com/golang/glog"
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/pkg/errors"
+	"testing"
+	"time"
 )
 
 // PeerPorts holds the name of 2 Ethernet interfaces. These interfaces will be on separate machines,
