@@ -109,11 +109,22 @@ class LogAnalyzer:
         """
         @summary: Add stop marker into syslog on the DUT.
 
+        Always pass --logs /var/log/syslog so that the marker is written
+        directly to the file via place_marker_to_file(), in addition to
+        the normal syslog-socket path (place_marker_to_syslog()).
+
+        When the system is under heavy load (e.g. config_reload with CPU
+        stress), the host rsyslogd UDP receive buffer can overflow and
+        silently drop messages sent through /dev/log.  Writing the marker
+        directly to /var/log/syslog guarantees that wait_for_marker() will
+        always find it, regardless of system load.
+
         @return: True for successful execution False otherwise
         """
         self.ansible_host.copy(src=ANSIBLE_LOGANALYZER_MODULE, dest=os.path.join(self.dut_run_dir, "loganalyzer.py"))
 
-        cmd = "python {run_dir}/loganalyzer.py --action add_end_marker --run_id {marker}"\
+        cmd = "python {run_dir}/loganalyzer.py --action add_end_marker --run_id {marker}" \
+              " --logs /var/log/syslog"\
             .format(run_dir=self.dut_run_dir, marker=marker)
 
         logging.debug("Adding end marker '{}'".format(marker))
@@ -325,13 +336,23 @@ class LogAnalyzer:
 
     def _setup_marker(self, log_files=None):
         """
-        Adds the marker to the log files
+        Adds the marker to the log files.
+
+        Always include /var/log/syslog in --logs so the start marker is
+        written directly to the file via place_marker_to_file(), not only
+        through the syslog UDP socket.  Under heavy system load the host
+        rsyslogd may drop UDP messages, causing markers sent solely via
+        /dev/log to be silently lost.  Direct file writes are immune to
+        this.  See also: _add_end_marker().
         """
         start_marker = ".".join((self.marker_prefix, time.strftime("%Y-%m-%d-%H:%M:%S", time.gmtime())))
         cmd = "python {run_dir}/loganalyzer.py --action init --run_id {start_marker}"\
             .format(run_dir=self.dut_run_dir, start_marker=start_marker)
-        if log_files:
-            cmd += " --logs {}".format(','.join(log_files))
+        if not log_files:
+            log_files = []
+        if '/var/log/syslog' not in log_files:
+            log_files.append('/var/log/syslog')
+        cmd += " --logs {}".format(','.join(log_files))
 
         logging.debug("Adding start marker '{}'".format(start_marker))
         self.ansible_host.command(cmd)

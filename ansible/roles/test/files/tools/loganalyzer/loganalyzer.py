@@ -236,15 +236,23 @@ class AnsibleLogAnalyzer:
 
     def place_marker(self, log_file_list, marker, wait_for_marker=False):
         '''
-        @summary: Place marker into '/dev/log' and each log file specified.
+        @summary: Place marker directly into each log file specified.
         @param log_file_list : List of file paths, to be applied with marker.
+                               Must include /var/log/syslog (callers are
+                               responsible for ensuring this).
         @param marker:         Marker to be placed into log files.
+
+        Markers are written directly to log files via place_marker_to_file()
+        (open + append + flush).  The previous implementation also wrote
+        markers through the syslog UDP socket (/dev/log), but under heavy
+        system load the host rsyslogd UDP receive buffer can overflow and
+        silently drop the message, causing wait_for_marker() to time out.
+        Direct file writes are immune to this problem.
         '''
 
         for log_file in log_file_list:
             self.place_marker_to_file(log_file, marker)
 
-        self.place_marker_to_syslog(marker)
         if wait_for_marker:
             if self.wait_for_marker(marker) is False:
                 raise RuntimeError(
