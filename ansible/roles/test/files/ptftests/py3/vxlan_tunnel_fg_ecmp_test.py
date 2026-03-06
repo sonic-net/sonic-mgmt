@@ -11,6 +11,10 @@ Test cases:
   endpoints are completely undisturbed
 - add_endpoint: Replay flows after a new endpoint is added. Asserts that at
   most 15% of flows migrate to the new endpoint
+- dual_vnet_isolation: Send flows from two separate VNET ingress ports that both
+  have the same destination prefix but different VNIs. Asserts that Vnet1 flows
+  reach only Vnet1 endpoints and Vnet2 flows reach only Vnet2 endpoints, with
+  no cross-VNET contamination.
 """
 
 import logging
@@ -52,6 +56,11 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         self.withdraw_endpoint = params.get("withdraw_endpoint") if self.test_case == "withdraw_endpoint" else None
         self.add_endpoint = params.get("add_endpoint") if self.test_case == "add_endpoint" else None
 
+        self.vnet2_endpoints = params.get("vnet2_endpoints")
+        _port2 = params.get("ptf_ingress_port_vnet2")
+        self.ptf_ingress_port_vnet2 = int(_port2) if _port2 is not None else None
+        self.ptf_src_ip_vnet2 = params.get("ptf_src_ip_vnet2")
+
         self.tcp_sport = 1234
         self.tcp_dport = 5000
 
@@ -75,20 +84,24 @@ class VxlanTunnelFgEcmpTest(BaseTest):
         self.tcp_dport = (self.tcp_dport % 65534) + 1
         return self.tcp_sport, self.tcp_dport
 
-    def _send_and_capture_endpoint(self, sport, dport):
-        src_mac = self.dataplane.get_mac(0, self.send_port)
+    def _send_and_capture_endpoint(self, sport, dport, send_port=None, src_ip=None, valid_endpoints=None):
+        send_port = self.send_port if send_port is None else send_port
+        src_ip = self.src_ip if src_ip is None else src_ip
+        valid_endpoints = self.endpoints if valid_endpoints is None else valid_endpoints
+
+        src_mac = self.dataplane.get_mac(0, send_port)
         pkt = simple_tcp_packet(
             eth_dst=self.router_mac,
             eth_src=src_mac,
             ip_dst=self.dst_ip,
-            ip_src=self.src_ip,
+            ip_src=src_ip,
             ip_id=105,
             ip_ttl=64,
             tcp_sport=sport,
             tcp_dport=dport,
             pktlen=100,
         )
-        send_packet(self, self.send_port, pkt)
+        send_packet(self, send_port, pkt)
 
         deadline = time.time() + 2.0
         while time.time() < deadline:
@@ -112,7 +125,7 @@ class VxlanTunnelFgEcmpTest(BaseTest):
                 continue
 
             outer_dst = ether[scapy.IP].dst
-            return outer_dst if outer_dst in self.endpoints else None
+            return outer_dst if outer_dst in valid_endpoints else None
 
         return None
 
@@ -299,11 +312,70 @@ class VxlanTunnelFgEcmpTest(BaseTest):
             f"(threshold: {ADD_ENDPOINT_MAX_DISRUPTION:.0%})"
         )
 
+    def _dual_vnet_isolation(self):
+        """
+        Send flows from each VNET's ingress port and verify that:
+        - All Vnet1 flows reach only Vnet1 endpoints
+        - All Vnet2 flows reach only Vnet2 endpoints
+        - No cross-VNET contamination
+        """
+        assert self.vnet2_endpoints, "vnet2_endpoints param required"
+        assert self.ptf_ingress_port_vnet2 is not None, "ptf_ingress_port_vnet2 required"
+
+        all_endpoints = self.endpoints + self.vnet2_endpoints
+
+        vnet1_misses = []
+        self.tcp_sport, self.tcp_dport = 1234, 5000
+        for _ in range(self.num_packets):
+            sport, dport = self._next_ports()
+            endpoint = self._send_and_capture_endpoint(
+                sport, dport,
+                send_port=self.send_port,
+                src_ip=self.src_ip,
+                valid_endpoints=all_endpoints,
+            )
+            if endpoint is None:
+                continue
+            if endpoint not in self.endpoints:
+                vnet1_misses.append((sport, dport, endpoint))
+
+        vnet2_misses = []
+        self.tcp_sport, self.tcp_dport = 1234, 5000
+        for _ in range(self.num_packets):
+            sport, dport = self._next_ports()
+            endpoint = self._send_and_capture_endpoint(
+                sport, dport,
+                send_port=self.ptf_ingress_port_vnet2,
+                src_ip=self.ptf_src_ip_vnet2,
+                valid_endpoints=all_endpoints,
+            )
+            if endpoint is None:
+                continue
+            if endpoint not in self.vnet2_endpoints:
+                vnet2_misses.append((sport, dport, endpoint))
+
+        assert not vnet1_misses, (
+            f"Vnet1 flows reached wrong endpoints (expected only {self.endpoints}): "
+            f"{vnet1_misses[:5]}"
+        )
+        assert not vnet2_misses, (
+            f"Vnet2 flows reached wrong endpoints (expected only {self.vnet2_endpoints}): "
+            f"{vnet2_misses[:5]}"
+        )
+        logger.info(
+            f"Isolation verified: {self.num_packets} Vnet1 flows reached only Vnet1 endpoints, "
+            f"{self.num_packets} Vnet2 flows reached only Vnet2 endpoints."
+        )
+
     # ------------------------------------------------------------------
     # Run Test
     # ------------------------------------------------------------------
 
     def runTest(self):
+        if self.test_case == "dual_vnet_isolation":
+            self._dual_vnet_isolation()
+            return
+
         if self.test_case == "create_flows":
             flow_map = {}
         else:
