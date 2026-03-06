@@ -4,15 +4,6 @@ package testhelper
 
 import (
 	"fmt"
-	crand"crypto/rand"
-	"math/big"
-	"slices"
-	"strconv"
-	"strings"
-	"testing"
-	"time"
-	"math"
-
 	log "github.com/golang/glog"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ondatra"
@@ -20,6 +11,14 @@ import (
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/openconfig/ygnmi/ygnmi"
 	"github.com/pkg/errors"
+	crand"crypto/rand"
+	"math/big"
+	"math"
+	"slices"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
 )
 
 type speedEnumInfo struct {

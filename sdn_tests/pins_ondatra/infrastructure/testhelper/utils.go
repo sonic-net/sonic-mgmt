@@ -3,9 +3,8 @@ package testhelper
 import (
 	"context"
 	"fmt"
-	"time"
-
 	log "github.com/golang/glog"
+	"time"
 )
 
 type pollStatus bool
