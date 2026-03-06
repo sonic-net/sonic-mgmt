@@ -6,6 +6,33 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from .bug_handler_helper import get_bughandler_instance
 
+def _cleanup_orphaned_ansible_processes(timed_out_duts):
+    """Kill orphaned ansible processes on DUTs whose analyze_logs did not complete.
+
+    When parallel_run kills the local controller process on timeout, the remote
+    ansible module (e.g. slurp) keeps running on the DUT, consuming memory.
+    The orphan process tree looks like:
+      sh -c sudo ... 'echo BECOME-SUCCESS-xxx ; /usr/bin/python3'  (has BECOME-SUCCESS)
+        -> sudo ...                                                 (has BECOME-SUCCESS)
+          -> /usr/bin/python3                                       (no distinguishing args)
+    We match BECOME-SUCCESS on the parent to get the PGID, then kill the entire
+    process group. etimes > 60 avoids killing the current cleanup session itself.
+    """
+    kill_cmd = (
+        "ps -eo pgid,etimes,args --no-headers"
+        " | awk '$2 > 60 && $1 > 1 && (/AnsiballZ/ || /BECOME-SUCCESS/) {print $1}'"
+        " | sort -un"
+        " | xargs -r -I{} kill -9 -{} 2>/dev/null;"
+        " true"
+    )
+
+    for duthost in timed_out_duts:
+        try:
+            duthost.shell(kill_cmd, module_ignore_errors=True)
+            logging.info("Cleaned up orphaned ansible processes on %s", duthost.hostname)
+        except Exception:
+            logging.warning("Failed to clean up orphaned ansible processes on %s", duthost.hostname)
+
 
 def pytest_addoption(parser):
     parser.addoption("--disable_loganalyzer", action="store_true", default=False,
@@ -109,6 +136,14 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
         duthosts,
         timeout=240
     )
+
+    timed_out_duts = [dut for dut in duthosts if dut.hostname not in la_results]
+    if timed_out_duts:
+        logging.warning(
+            "analyze_logs did not complete for: %s, cleaning up orphaned ansible processes",
+            [dut.hostname for dut in timed_out_duts])
+        _cleanup_orphaned_ansible_processes(timed_out_duts)
+
     consolidated_bughandler = get_bughandler_instance({"type": "consolidated"})
     consolidated_bughandler.bug_handler_wrapper(analyzers, duthosts, la_results)
 
