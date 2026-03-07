@@ -1233,6 +1233,13 @@ platform_tests/test_intf_fec.py::test_verify_fec_histogram:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
+  xfail:
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/13627
+      - "neighbor_type!='eos'"
+
+
 #######################################
 ####        test_kdump.py         #####
 #######################################
