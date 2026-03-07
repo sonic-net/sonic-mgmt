@@ -403,6 +403,17 @@ def chk_bgp_session(duthost, ip, msg):
         "{}: BGP session for {} = {}; expect established".format(msg, ip, bgp_state)
 
 
+def chk_any_bgp_session(duthost, msg):
+    v4_remote = tor_data.get("ip", {}).get("remote")
+    v6_remote = tor_data.get("ipv6", {}).get("remote")
+    if v4_remote:
+        chk_bgp_session(duthost, v4_remote, msg)
+    elif v6_remote:
+        chk_bgp_session(duthost, v6_remote.lower(), msg)
+    else:
+        report_error("{}: No neighbors detected".format(msg))
+
+
 def main():
     set_print()
     print("Calling compare dumps")
