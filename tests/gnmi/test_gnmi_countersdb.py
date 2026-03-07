@@ -169,7 +169,7 @@ def test_gnmi_counterdb_streaming_sample_01(duthosts, rand_one_dut_hostname, ptf
         pytest.skip("Skipping test as no Ethernet0 frontpanel port on supervisor")
     exp_cnt = 3
     path_list = [test_data["path"]]
-    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt, origin="sonic-db")
     assert msg.count("oid") >= exp_cnt, (
         "Expected count of 'oid' not met. "
         "Expected count: {}"
@@ -198,7 +198,7 @@ def test_gnmi_counterdb_streaming_sample_02(duthosts, rand_one_dut_hostname, ptf
 
     # Subscribe table field
     path_list = ["/sonic-db:COUNTERS_DB/localhost/COUNTERS/" + counter_key + "/SAI_PORT_STAT_IF_IN_ERRORS"]
-    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt)
+    msg, _ = gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, 0, exp_cnt, origin="sonic-db")
     assert msg.count("SAI_PORT_STAT_IF_IN_ERRORS") >= exp_cnt, (
         "Expected count of 'SAI_PORT_STAT_IF_IN_ERRORS' not met. "
         "Expected count: {}"
