@@ -255,10 +255,16 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
 def acl_rule_loaded(rand_selected_dut, acl_rule_list):
     acl_rule_infos = rand_selected_dut.show_and_parse("show acl rule")
     acl_id_list = []
+    inactive_rules = []
     for acl_info in acl_rule_infos:
         acl_id = int(acl_info['rule'][len('RULE_'):])
         acl_id_list.append(acl_id)
+        if acl_info.get('status', '').lower() != 'active':
+            inactive_rules.append(acl_id)
     if sorted(acl_id_list) != sorted(acl_rule_list):
+        return False
+    if inactive_rules:
+        logger.debug("ACL rules not yet active: {}".format(inactive_rules))
         return False
     return True
 
