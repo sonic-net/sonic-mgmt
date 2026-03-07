@@ -2219,6 +2219,36 @@
   auto_recover: 'True'
   comment: patelmi
 
+- conf-name: ptp-7060x6-5
+  group-name: ''
+  topo: ptp-512
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str43-7060x6-512-c17-u08
+  inv_name: str4
+  auto_recover: 'True'
+  comment: v-ryannikan
+
+- conf-name: ptp-7060x6-6
+  group-name: ''
+  topo: ptp-512
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str43-7060x6-512-c17-u10
+  inv_name: str4
+  auto_recover: 'True'
+  comment: v-ryannikan
+
 - conf-name: ptp-7060x6-moby-1
   group-name: ''
   topo: ptp-130
