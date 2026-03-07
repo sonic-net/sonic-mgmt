@@ -934,8 +934,6 @@
 /tests/gnmi_e2e/:
   hdwhdw: 11
   opcoder0: 2
-/tests/gnxi/:
-  hdwhdw: 51
 /tests/golden_config_infra/:
   yutongzhang-microsoft: 2
 /tests/ha/:
