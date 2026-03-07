@@ -3367,6 +3367,15 @@ print(device_prefix)
 
         logging.info("Successfully cleaned up all console sessions")
 
+    def get_bgp_confed_asn(self):
+        """
+        Get BGP confederation ASN from running config
+        Return None if not configured
+        """
+        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
+        bgp_confed_asn = config_facts.get('BGP_DEVICE_GLOBAL', {}).get('CONFED', {}).get('asn', None)
+        return bgp_confed_asn
+
     def get_mgmt_ip(self):
         """
         Gets the management IP address (v4 or v6) on eth0.
