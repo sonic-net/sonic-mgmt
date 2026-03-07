@@ -19,9 +19,9 @@ class DutHosts(object):
     """
     class _Nodes(list):
         """ Internal class representing a list of MultiAsicSonicHosts """
-        def _run_on_nodes(self, *module_args, **complex_args):
+        def _run_on_nodes(self, module, *module_args, **complex_args):
             """ Delegate the call to each of the nodes, return the results in a dict."""
-            return {node.hostname: getattr(node, self.attr)(*module_args, **complex_args) for node in self}
+            return {node.hostname: getattr(node, module)(*module_args, **complex_args) for node in self}
 
         def __getattr__(self, attr):
             """ To support calling ansible modules on a list of MultiAsicSonicHost
@@ -32,8 +32,9 @@ class DutHosts(object):
                a dictionary with key being the MultiAsicSonicHost's hostname,
                and value being the output of ansible module on that MultiAsicSonicHost
             """
-            self.attr = attr
-            return self._run_on_nodes
+            def _run_on_nodes_wrapper(*module_args, **complex_args):
+                return self._run_on_nodes(attr, *module_args, **complex_args)
+            return _run_on_nodes_wrapper
 
         def __eq__(self, o):
             """ To support eq operator on the DUTs (nodes) in the testbed """
@@ -62,6 +63,12 @@ class DutHosts(object):
         self.request = request
         self.duts = duts
         self.is_parallel_run = target_hostname is not None
+        # Initialize _nodes to None to avoid recursion in __getattr__
+        self._nodes = None
+        self._nodes_for_parallel = None
+        self._supervisor_nodes = None
+        self._frontend_nodes = None
+
         # TODO: Initialize the nodes in parallel using multi-threads?
         if self.is_parallel_run:
             self.parallel_run_stage = NON_INITIAL_CHECKS_STAGE
