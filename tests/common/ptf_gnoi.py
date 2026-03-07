@@ -12,6 +12,14 @@ from urllib.parse import urlparse
 logger = logging.getLogger(__name__)
 
 
+# Signal types as defined in gNOI system.proto
+# https://github.com/openconfig/gnoi/blob/main/system/system.proto#L352
+SIGNAL_TERM = "SIGNAL_TERM"  # Terminate the process gracefully
+SIGNAL_KILL = "SIGNAL_KILL"  # Terminate the process immediately
+SIGNAL_HUP = "SIGNAL_HUP"    # Reload the process configuration
+SIGNAL_ABRT = "SIGNAL_ABRT"  # Terminate immediately and dump core
+
+
 class PtfGnoi:
     """
     High-level gNOI client wrapper.
@@ -104,6 +112,61 @@ class PtfGnoi:
             if "not found" in str(e).lower() or "no such file" in str(e).lower():
                 raise FileNotFoundError(f"File not found: {remote_file}") from e
             raise
+
+    def kill_process(self, name: str, restart: bool = False, signal=SIGNAL_TERM) -> Dict:
+        """
+        Kill (and optionally restart) a process/service via gNOI System.KillProcess.
+
+        Signal types (as defined in gNOI system.proto):
+            - SIGNAL_TERM: Terminate the process gracefully (default)
+            - SIGNAL_KILL: Terminate the process immediately
+            - SIGNAL_HUP: Reload the process configuration
+            - SIGNAL_ABRT: Terminate immediately and dump a core file
+
+        NOTE:
+            Current SONiC implementation only supports SIGNAL_TERM. Other signal
+            types will be rejected with an error. Use the module-level constants
+            (SIGNAL_TERM, SIGNAL_KILL, SIGNAL_HUP, SIGNAL_ABRT) for signal values.
+
+        Technical note:
+            grpcurl JSON->proto mapping is most reliable when enums are passed as
+            their string names (e.g., "SIGNAL_TERM"), not numeric values.
+
+        Args:
+            name: Process/service name to kill
+            restart: Whether to restart the process after killing
+            signal: Signal type (use SIGNAL_* constants from this module)
+
+        Returns:
+            Dictionary response from gNOI server (typically empty on success)
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails (e.g., unsupported signal)
+            GrpcTimeoutError: If the call times out
+
+        Example:
+            >>> from tests.common.ptf_gnoi import PtfGnoi, SIGNAL_TERM
+            >>> ptf_gnoi = PtfGnoi(grpc_client)
+            >>> ptf_gnoi.kill_process("snmp", restart=True, signal=SIGNAL_TERM)
+        """
+        # Normalize TERM representations to the enum name expected by grpcurl mapping.
+        if isinstance(signal, int):
+            # Keep non-1 ints as-is for negative tests, but map 1 => SIGNAL_TERM
+            signal = "SIGNAL_TERM" if signal == 1 else signal
+        elif isinstance(signal, str):
+            low = signal.strip().lower()
+            if low in ("sigterm", "term", "signal_term", "1"):
+                signal = "SIGNAL_TERM"
+
+        logger.debug(
+            "Calling gNOI System.KillProcess: name=%s restart=%s signal=%s",
+            name,
+            restart,
+            signal,
+        )
+        request = {"name": name, "restart": restart, "signal": signal}
+        return self.grpc_client.call_unary("gnoi.system.System", "KillProcess", request)
 
     def __str__(self):
         return f"PtfGnoi(grpc_client={self.grpc_client})"
