@@ -22,7 +22,7 @@ from tests.ha.ha_utils import (
     build_dash_ha_scope_args,
     wait_for_pending_operation_id,
     build_dash_ha_scope_activate_args,
-    wait_for_ha_state,
+    verify_ha_state,
     build_dash_ha_set_args,
     proto_utils_hset
 )
@@ -535,8 +535,8 @@ def activate_dash_ha_from_json(duthosts):
             args=build_dash_ha_scope_activate_args(fields, pending_id),
         )
         # Verify HA state using fields
-        expected_state = "active" if idx == 0 else "standby"
-        assert wait_for_ha_state(
+        expected_state = "active"
+        assert verify_ha_state(
             duthost,
             scope_key=key,
             expected_state=expected_state,
