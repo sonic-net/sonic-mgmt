@@ -3874,7 +3874,9 @@ def yang_validation_check(request, duthosts):
     skip_yang = request.config.getoption("--skip_yang")
 
     if skip_yang:
-        logger.info("Skipping YANG validation check due to --skip_yang flag")
+        logger.info("Skipping YANG validation pre-check due to --skip_yang flag")
+        yield
+        logger.info("Skipping YANG validation post-check due to --skip_yang flag")
         return
 
     def run_yang_validation_all(stage):
