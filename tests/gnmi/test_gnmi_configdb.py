@@ -5,6 +5,9 @@ import pytest
 import re
 import time
 
+from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
+    setup_gnoi_tls_server, ptf_grpc
+)
 from .helper import gnmi_set, gnmi_get
 from .helper import gnmi_subscribe_polling
 from .helper import gnmi_subscribe_streaming_sample, gnmi_subscribe_streaming_onchange
@@ -19,8 +22,8 @@ allure.logger = logger
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
-                            "setup_gnmi_rotated_server", "check_dut_timestamp")
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnoi_tls_server",
+                            "setup_legacy_cert_paths", "check_dut_timestamp")
 ]
 
 

@@ -16,6 +16,7 @@ from tests.common.helpers.gnmi_utils import GNMIEnvironment, create_revoked_cert
     delete_gnmi_certs, prepare_root_cert, prepare_server_cert, prepare_client_cert, copy_certificate_to_dut, \
     copy_certificate_to_ptf
 from tests.common.helpers.ntp_helper import setup_ntp_context
+from tests.common.grpc_config import grpc_config
 
 
 logger = logging.getLogger(__name__)
@@ -108,6 +109,32 @@ def check_dut_timestamp(duthosts, rand_one_dut_hostname, localhost):
     time_diff = local_time - dut_time
     if time_diff >= GNMI_SERVER_START_WAIT_TIME:
         logger.warning("DUT time is wrong (%d), please check NTP" % (-time_diff))
+
+
+@pytest.fixture(scope="module")
+def setup_legacy_cert_paths(ptfhost):
+    """
+    Create symlinks from new TLS fixture cert paths to legacy paths.
+
+    The new setup_gnoi_tls_server fixture places certs at /etc/ssl/certs/gnmi*.cer,
+    but the legacy gnmi helpers (py_gnmicli) expect /root/gnmiCA.pem,
+    /root/gnmiclient.crt, /root/gnmiclient.key.
+
+    Use this fixture alongside setup_gnoi_tls_server to bridge the gap when
+    migrating tests from the old fixture to the new one.
+    """
+    links = [
+        (grpc_config.get_ptf_cert_paths()['ca_cert'], "/root/gnmiCA.pem"),
+        (grpc_config.get_ptf_cert_paths()['client_cert'], "/root/gnmiclient.crt"),
+        (grpc_config.get_ptf_cert_paths()['client_key'], "/root/gnmiclient.key"),
+    ]
+    for src, dst in links:
+        ptfhost.shell("ln -sf %s %s" % (src, dst), module_ignore_errors=True)
+
+    yield
+
+    for _, dst in links:
+        ptfhost.shell("rm -f %s" % dst, module_ignore_errors=True)
 
 
 def compile_protos(proto_files, proto_root):
