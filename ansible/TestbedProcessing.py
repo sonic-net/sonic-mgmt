@@ -8,8 +8,6 @@ import argparse
 from collections import OrderedDict
 import copy
 
-from ceos_topo_converger import converge_testbed
-
 """"
 Testbed Processing
 
@@ -1097,19 +1095,6 @@ def main():
     print("\tCREATING TEST BED: " + args.basedir + testbed_file)
     # Generate testbed.yaml (TESTBED)
     makeTestbed(testbed, args.basedir + testbed_file)
-    # If specified the testbed, overwrite the topology file the testbed will use with
-    # one which uses the fewest number of ceoslab peers possible.
-    for data in testbed.values():
-        topo = data.get("topo", "")
-        if topo and data.get("use_converged_peers", False):
-            topofile = os.path.join("vars", "topo_{}.yml".format(topo))
-            if os.path.exists(os.path.join(args.basedir, topofile)):
-                print("\tCONVERGING PEER INSTANCES: {}".format(topofile))
-                copyfile(topofile,
-                         os.path.join("/tmp/", "topo_{}.yml.orig".format(topo)))
-                converge_testbed(topofile, topofile)  # overwrites contents of topofile
-            else:
-                print("Error: could not locate original topo file at " + topofile)
     print("\tCREATING VM_HOST/CREDS: " + args.basedir + vmHostCreds_file)
     # Generate vm_host\creds.yml (CREDS)
     makeVMHostCreds(veos, args.basedir + vmHostCreds_file)
