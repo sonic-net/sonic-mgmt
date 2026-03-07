@@ -1,12 +1,40 @@
 import logging
+import time
 import pytest
 from tests.common.plugins.memory_utilization.memory_utilization import MemoryMonitor
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+ROUTECHECK_WAIT_TIMEOUT = 120  # Max seconds to wait for routeCheck to finish
+ROUTECHECK_POLL_INTERVAL = 5   # Seconds between polls
+
 # Add this to store memory errors per test
 _memory_errors_by_test = {}
+
+
+def _wait_for_routecheck_to_finish(duthost, timeout=ROUTECHECK_WAIT_TIMEOUT, interval=ROUTECHECK_POLL_INTERVAL):
+    """Wait for any running routeCheck process to finish before collecting memory measurements.
+
+    The routeCheck process runs every 5 minutes and can cause significant temporary memory
+    spikes in zebra (e.g., 34 MB -> 102 MB), leading to false memory utilization alarms.
+    See https://github.com/sonic-net/sonic-mgmt/issues/22548
+    """
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            result = duthost.shell("pgrep -f routeCheck", module_ignore_errors=True)
+            if result["rc"] != 0:
+                # routeCheck is not running
+                return True
+            logger.info("routeCheck is running on {}, waiting {}s...".format(duthost.hostname, interval))
+            time.sleep(interval)
+        except Exception as e:
+            logger.warning("Error checking routeCheck status on {}: {}".format(duthost.hostname, e))
+            return True  # Proceed if we can't check
+    logger.warning("routeCheck still running on {} after {}s timeout, proceeding anyway".format(
+        duthost.hostname, timeout))
+    return False
 
 
 def pytest_addoption(parser):
@@ -52,6 +80,9 @@ def pytest_runtest_setup(item):
         if duthost.topo_type == 't2':
             continue
 
+        # Wait for routeCheck to finish to avoid memory spikes affecting measurements
+        _wait_for_routecheck_to_finish(duthost)
+
         # Initial memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
             try:
@@ -90,6 +121,9 @@ def pytest_runtest_teardown(item, nextitem):
     for duthost in duthosts:
         if duthost.topo_type == 't2':
             continue
+
+        # Wait for routeCheck to finish to avoid memory spikes affecting measurements
+        _wait_for_routecheck_to_finish(duthost)
 
         # memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
