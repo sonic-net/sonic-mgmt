@@ -247,6 +247,8 @@ def test_ft_vlan_delete_with_member():
             if not vlan.delete_vlan(vars.D1, sc_data.vlan_id):
                 st.report_fail("vlan_delete_fail", sc_data.vlan_id)
         else:
+            #if not vlan.delete_vlan_member(vars.D1, sc_data.vlan_id, sc_data.free_port, tagging_mode=True):
+            #    st.report_fail("vlan_tagged_member_fail", sc_data.free_port, sc_data.vlan_id)
             if not vlan.delete_vlan(vars.D1, sc_data.vlan_id):
                 st.report_fail("vlan_delete_fail", sc_data.vlan_id)
     else:
