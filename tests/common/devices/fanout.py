@@ -161,6 +161,9 @@ class FanoutHost(object):
         Returns:
             list: A list of supported speed strings or None
         """
+        if not hasattr(self.host, 'get_supported_speeds'):
+            logger.info("Host of type {} does not support 'get_supported_speeds'".format(type(self.host).__name__))
+            return None
         return self.host.get_supported_speeds(interface_name)
 
     def set_auto_negotiation_mode(self, interface_name, mode):
