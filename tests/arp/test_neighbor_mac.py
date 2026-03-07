@@ -187,6 +187,7 @@ class TestNeighborMac:
         time.sleep(2)
 
         yield
+        ptfhost.shell("ip addr del {}/24 dev {}".format(self.PTF_HOST_IP, self.PTF_HOST_IF))
 
     @pytest.fixture
     def redisNeighborMac(self, duthosts, rand_one_dut_hostname, ptfhost, macIndex, configureNeighborIpAndPing):
