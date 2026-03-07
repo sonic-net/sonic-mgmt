@@ -126,7 +126,7 @@ All testbed configuration steps and tests are run from a `sonic-mgmt` docker con
 You can enter your sonic-mgmt container with the following command:
 
    ```
-   docker exec -it <container name> bash
+   docker exec --user $USER -it <container name> bash
    ```
 
 You will find your sonic-mgmt directory mounted at `/data/sonic-mgmt`:
