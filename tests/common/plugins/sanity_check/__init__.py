@@ -143,11 +143,20 @@ def filter_check_items(tbinfo, duthosts, check_items):
     return filtered_check_items
 
 
-def do_checks(request, check_items, *args, **kwargs):
+def do_checks(parallel_manager, request, check_items, *args, **kwargs):
     check_results = []
+    futures = []
     for item in check_items:
         check_fixture = request.getfixturevalue(item)
-        results = check_fixture(*args, **kwargs)
+        check_fixture.__name__ = f"sanity_check:{item}"
+        future = parallel_manager.submit_setup_task(
+            parallel_manager.current_scope,
+            check_fixture, *args, **kwargs
+        )
+        futures.append(future)
+
+    for future in futures:
+        results = future.result()
         logger.debug("check results of each item {}".format(results))
         if results and isinstance(results, list):
             check_results.extend(results)
@@ -212,7 +221,8 @@ def prepare_parallel_run(request, parallel_run_context):
 
 
 @pytest.fixture(scope="module")
-def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, request, fanouthosts, tbinfo):
+def sanity_check_full(parallel_manager, ptfhost, prepare_parallel_run, localhost, duthosts, request,
+                      fanouthosts, tbinfo):
     logger.info("Prepare sanity check")
     should_skip_sanity = prepare_parallel_run
     if should_skip_sanity:
@@ -325,7 +335,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         dual_tor = 'dualtor' in tbinfo['topo']['name']
         print_logs(duthosts, ptfhost, print_dual_tor_logs=dual_tor)
 
-        check_results = do_checks(request, pre_check_items, stage=STAGE_PRE_TEST)
+        check_results = do_checks(parallel_manager, request, pre_check_items, stage=STAGE_PRE_TEST)
         logger.debug("Pre-test sanity check results:\n%s" %
                      json.dumps(check_results, indent=4, default=fallback_serializer))
 
@@ -352,7 +362,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
     else:
         if post_check_items:
             logger.info("Start post-test sanity check")
-            post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
+            post_check_results = do_checks(parallel_manager, request, post_check_items, stage=STAGE_POST_TEST)
             logger.debug("Post-test sanity check results:\n%s" %
                          json.dumps(post_check_results, indent=4, default=fallback_serializer))
 
@@ -368,7 +378,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
                     nbr_hosts = request.getfixturevalue('nbrhosts')
                 recover_on_sanity_check_failure(ptfhost, duthosts, post_failed_results, fanouthosts, localhost,
                                                 nbr_hosts, post_check_items, recover_method, request, tbinfo,
-                                                STAGE_POST_TEST)
+                                                STAGE_POST_TEST, parallel_manager=parallel_manager)
 
             logger.info("Done post-test sanity check")
         else:
@@ -376,7 +386,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
 
 
 def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbrhosts, check_items,
-                                    recover_method, request, tbinfo, sanity_check_stage: str):
+                                    recover_method, request, tbinfo, sanity_check_stage: str, parallel_manager=None):
     sanity_failed_cache_key = "pre_sanity_check_failed"
     recovery_failed_cache_key = "pre_sanity_recovery_failed"
     if sanity_check_stage == STAGE_POST_TEST:
@@ -419,7 +429,8 @@ def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthos
             f"Exception: {repr(e)}"
         )
     logger.info("Run sanity check again after recovery")
-    new_check_results = do_checks(request, check_items, stage=sanity_check_stage, after_recovery=True)
+    new_check_results = do_checks(parallel_manager, request, check_items,
+                                  stage=sanity_check_stage, after_recovery=True)
     logger.debug(f"{sanity_check_stage} sanity check after recovery results: \n%s" %
                  json.dumps(new_check_results, indent=4, default=fallback_serializer))
     new_failed_results = [result for result in new_check_results if result['failed']]
