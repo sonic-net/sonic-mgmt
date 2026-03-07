@@ -3460,15 +3460,29 @@ def setup_pfc_test(
         if expected_vlan_ifaces:
             mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
 
-        # gather all vlan specific info
-        ip_index = 0 if ip_version == "IPv4" else 1
-        vlan_addr = mg_facts['minigraph_vlan_interfaces'][ip_index]['addr']
-        vlan_prefix = mg_facts['minigraph_vlan_interfaces'][ip_index]['prefixlen']
-        vlan_dev = mg_facts['minigraph_vlan_interfaces'][ip_index]['attachto']
+        # Select the VLAN interface matching the requested IP version.
+        expected_ip_ver = 4 if ip_version == "IPv4" else 6
+        vlan_iface = next(
+            (iface for iface in mg_facts['minigraph_vlan_interfaces']
+             if ip_interface(str(iface['addr'])).version == expected_ip_ver),
+            None
+        )
+        if vlan_iface is None:
+            msg = "No {} VLAN interface found in minigraph_vlan_interfaces: {}".format(
+                ip_version, mg_facts['minigraph_vlan_interfaces'])
+            logger.error(msg)
+            pytest.fail(msg)
+        vlan_addr = vlan_iface['addr']
+        vlan_prefix = vlan_iface['prefixlen']
+        vlan_dev = vlan_iface['attachto']
         vlan_ips = duthost.get_ip_in_range(
             num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix),
             exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
         vlan_nw = vlan_ips[0].split('/')[0]
+        logger.debug(
+            "setup_pfc_test: ip_version={} vlan_addr={} vlan_prefix={} "
+            "vlan_dev={} vlan_ips={} vlan_nw={}".format(
+                ip_version, vlan_addr, vlan_prefix, vlan_dev, vlan_ips, vlan_nw))
 
     topo = tbinfo["topo"]["name"]
     # build the port list for the test
