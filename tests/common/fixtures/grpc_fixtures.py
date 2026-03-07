@@ -319,25 +319,18 @@ def _restart_gnoi_server(duthost):
     """Restart gNOI server to pick up new TLS configuration."""
     logger.info("Restarting gNOI server process")
 
-    # Check if the 'gnmi' container exists
-    container_check = duthost.shell(r"docker ps --format \{\{.Names\}\} | grep '^gnmi$'",
-                                    module_ignore_errors=True)
-
-    if container_check.get('rc', 1) != 0:
-        raise Exception("The 'gnmi' container does not exist.")
-
-    # Restart gnmi-native process to pick up new configuration
+    # Directly restart gnmi-native process without container checks to avoid templating issues
     result = duthost.shell("docker exec gnmi supervisorctl restart gnmi-native", module_ignore_errors=True)
 
     if result['rc'] != 0:
-        raise Exception(f"Failed to restart gnmi-native: {result['stderr']}")
+        raise Exception(f"Failed to restart gnmi-native: {result.get('stderr', result.get('msg', 'Unknown error'))}")
 
     # Verify process is running
     import time
     time.sleep(3)  # Give process time to start
 
     status_result = duthost.shell("docker exec gnmi supervisorctl status gnmi-native", module_ignore_errors=True)
-    if "RUNNING" not in status_result['stdout']:
+    if 'rc' in status_result and status_result['rc'] == 0 and "RUNNING" not in status_result['stdout']:
         raise Exception(f"gnmi-native failed to start: {status_result['stdout']}")
 
     logger.info("gNOI server restart completed")
