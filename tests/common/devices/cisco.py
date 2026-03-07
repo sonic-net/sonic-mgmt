@@ -6,6 +6,7 @@ import functools
 import time
 from paramiko import SSHClient, AutoAddPolicy
 from tests.common.devices.base import AnsibleHostBase
+from tests.common.helpers.interactive_ssh import exec_interactive_ssh
 from ansible.utils.unsafe_proxy import AnsibleUnsafeText
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
@@ -91,7 +92,13 @@ class CiscoHost(AnsibleHostBase):
         self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
 
     def __getattr__(self, module_name):
+        # List of standard Ansible modules allowed for Cisco devices
+        allowed_modules = ['copy', 'shell', 'command', 'file', 'fetch', 'stat', 'template']
+        # Network modules that work with network_cli connection
+        network_modules = ['net_put', 'net_get']
+        
         if module_name.startswith('iosxr_'):
+            # IOS XR specific modules - use network_cli connection
             evars = {
                 'ansible_connection': 'network_cli',
                 'ansible_network_os': module_name.split('_', 1)[0],
@@ -100,6 +107,30 @@ class CiscoHost(AnsibleHostBase):
                 'ansible_ssh_user': self.ansible_user,
                 'ansible_ssh_pass': self.ansible_passwd,
             }
+            self.host.options['variable_manager'].extra_vars.update(evars)
+            return super(CiscoHost, self).__getattr__(module_name)
+        elif module_name in network_modules:
+            # Network file transfer modules - use network_cli connection
+            evars = {
+                'ansible_connection': 'network_cli',
+                'ansible_network_os': 'iosxr',
+                'ansible_user': self.ansible_user,
+                'ansible_password': self.ansible_passwd,
+                'ansible_ssh_user': self.ansible_user,
+                'ansible_ssh_pass': self.ansible_passwd,
+            }
+            self.host.options['variable_manager'].extra_vars.update(evars)
+            return super(CiscoHost, self).__getattr__(module_name)
+        elif module_name in allowed_modules:
+            # Standard Ansible modules - use default SSH connection
+            evars = {
+                'ansible_user': self.ansible_user,
+                'ansible_password': self.ansible_passwd,
+                'ansible_ssh_user': self.ansible_user,
+                'ansible_ssh_pass': self.ansible_passwd,
+            }
+            self.host.options['variable_manager'].extra_vars.update(evars)
+            return super(CiscoHost, self).__getattr__(module_name)
         else:
             raise Exception("Does not have module: {}".format(module_name))
         self.host.options['variable_manager'].extra_vars.update(evars)
@@ -1365,3 +1396,184 @@ class CiscoHost(AnsibleHostBase):
             return False, output
         except Exception as e:
             return False, "Failed to reboot the device {}. due to {}".format(self.hostname, str(e))
+
+    def copy(self, src=None, dest=None, content=None, **kwargs):
+        """
+        Copy file to Cisco IOS XR device using SFTP (Paramiko).
+        
+        IOS XR devices don't support standard Ansible copy/net_put properly,
+        so we use Paramiko's SFTP to transfer files directly to the device.
+        
+        Args:
+            src (str): Local file path to copy to device
+            dest (str): Destination path on the device (e.g., 'disk0:/filename' or 'harddisk:/filename')
+            content (str): Content to write to file (will create temp file first)
+            **kwargs: Additional arguments
+            
+        Returns:
+            dict: Result dictionary with 'changed', 'failed', etc.
+            
+        Examples:
+            # Copy file from local to device
+            result = ciscohost.copy(src='/tmp/config.txt', dest='disk0:/config.txt')
+            
+            # Write content to file
+            result = ciscohost.copy(content='test data', dest='harddisk:/test.txt')
+        """
+        import tempfile
+        import os
+        
+        # Prepare source file
+        temp_file_created = False
+        if content is not None:
+            # Create a temporary file with the content
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.txt') as temp_file:
+                temp_file.write(content)
+                src_file = temp_file.name
+            temp_file_created = True
+        elif src is not None:
+            src_file = src
+        else:
+            raise ValueError("Either 'src' or 'content' must be specified")
+        
+        if dest is None:
+            raise ValueError("'dest' must be specified")
+        
+        ssh_client = None
+        try:
+            # Use Paramiko SFTP to transfer the file
+            ssh_client = SSHClient()
+            ssh_client.set_missing_host_key_policy(AutoAddPolicy())
+            ssh_client.connect(
+                self.mgmt_ip,
+                username=self.ansible_user,
+                password=self.ansible_passwd,
+                look_for_keys=False,
+                allow_agent=False
+            )
+            
+            sftp = ssh_client.open_sftp()
+            sftp.put(src_file, dest)
+            sftp.close()
+            
+            return {
+                'failed': False,
+                'changed': True,
+                'dest': dest,
+                'src': src_file,
+                'rc': 0,
+                'stdout': '',
+                'stderr': ''
+            }
+            
+        except Exception as e:
+            error_msg = f'SFTP transfer failed: {str(e)}'
+            logger.error(f"Failed to copy file to {self.hostname}: {error_msg}")
+            return {
+                'failed': True,
+                'changed': False,
+                'dest': dest,
+                'src': src_file,
+                'rc': 1,
+                'stdout': '',
+                'stderr': error_msg
+            }
+        finally:
+            # Close SSH connection
+            if ssh_client:
+                try:
+                    ssh_client.close()
+                except Exception:
+                    pass
+            
+            # Clean up temp file if we created one
+            if temp_file_created:
+                try:
+                    os.unlink(src_file)
+                except Exception:
+                    pass
+
+    def exec_interactive(self, command, expect_pattern=None, response="", timeout=30, read_delay=1):
+        """
+        Execute an interactive command on Cisco IOS XR device using Paramiko shell.
+        
+        This method handles interactive commands that require user confirmation or input.
+        It can wait for a specific pattern (regex) and send an automated response.
+        
+        Args:
+            command (str): Command to execute (e.g., 'delete /harddisk:/file.txt')
+            expect_pattern (str, optional): Regex pattern to wait for before sending response.
+                                           If None, just executes command without waiting.
+                                           Common patterns:
+                                           - r'\[confirm\]' - for delete/reload commands
+                                           - r'\(yes/no\)' - for confirmation prompts
+                                           - r'Password:' - for password prompts
+            response (str): Response to send when pattern is matched (default: "" = Enter key)
+            timeout (int): Maximum seconds to wait for pattern (default: 30)
+            read_delay (float): Delay in seconds between command/response and reading output (default: 1)
+            
+        Returns:
+            dict: Result dictionary with 'failed', 'rc', 'stdout', 'stderr'
+            
+        Examples:
+            # Delete a file (wait for [confirm] and press Enter)
+            result = ciscohost.exec_interactive(
+                'delete /harddisk:/test.txt',
+                expect_pattern=r'\[confirm\]',
+                response=''
+            )
+            
+            # Reload device (wait for confirmation and respond 'yes')
+            result = ciscohost.exec_interactive(
+                'reload',
+                expect_pattern=r'Proceed with reload\? \[confirm\]',
+                response='yes\n'
+            )
+            
+            # Copy file with prompts
+            result = ciscohost.exec_interactive(
+                'copy tftp://1.2.3.4/file.bin /harddisk:/',
+                expect_pattern=r'Destination filename',
+                response='file.bin\n'
+            )
+            
+            # Just execute command without waiting for pattern
+            result = ciscohost.exec_interactive('show version')
+        """
+        return exec_interactive_ssh(
+            ssh_host=self.mgmt_ip,
+            username=self.ansible_user,
+            password=self.ansible_passwd,
+            command=command,
+            expect_pattern=expect_pattern,
+            response=response,
+            timeout=timeout,
+            read_delay=read_delay,
+            logger=logger,
+            host_for_error=self.hostname,
+            debug=True,
+        )
+
+    def delete_file(self, filepath):
+        """
+        Delete a file on Cisco IOS XR device using interactive shell.
+        
+        IOS XR 'delete' command requires confirmation even with 'noprompt',
+        so we use exec_interactive to handle the interactive prompt.
+        
+        Args:
+            filepath (str): Full path to file on device (e.g., '/harddisk:/filename')
+            
+        Returns:
+            dict: Result dictionary with 'failed', 'rc', 'stdout', 'stderr'
+            
+        Example:
+            result = ciscohost.delete_file('/harddisk:/test.txt')
+        """
+        logger.info(f"Deleting file: {filepath}")
+        return self.exec_interactive(
+            command=f"delete {filepath}",
+            expect_pattern=r'\[confirm\]',
+            response='',  # Just press Enter to confirm
+            timeout=10
+        )
