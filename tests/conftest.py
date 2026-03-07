@@ -531,7 +531,7 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
+def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request, parallel_manager):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param enhance_inventory: fixture to enhance the capability of parsing the value of pytest cli argument
@@ -542,8 +542,8 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
     @param request: pytest request object
     """
     try:
-        host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_duts(request),
-                        target_hostname=get_target_hostname(request), is_parallel_leader=is_parallel_leader(request))
+        host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_duts(request), target_hostname=get_target_hostname(request),
+                        is_parallel_leader=is_parallel_leader(request), parallel_manager=parallel_manager)
         return host
     except BaseException as e:
         logger.error("Failed to initialize duthosts.")
