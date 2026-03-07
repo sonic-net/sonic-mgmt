@@ -290,7 +290,25 @@
           ],
           "memory_high_threshold": {
             "type": "value",
-            "value": 384
+            "value": 420
+          }
+        }
+      },
+      "memory_check": "parse_frr_memory_output"
+    },
+    {
+      "name": "frr_zebra",
+      "cmd": "vtysh -c \"show memory zebra\"",
+      "memory_params": {
+        "used": {
+          "memory_increase_threshold": [
+            {"type": "percentage", "value": "50%"},
+            {"type": "value", "value": 64},
+            {"type": "comparison", "value": "max"}
+          ],
+          "memory_high_threshold": {
+            "type": "value",
+            "value": 134
           }
         }
       },
