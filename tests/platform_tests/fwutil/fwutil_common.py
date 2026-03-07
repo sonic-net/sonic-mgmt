@@ -95,24 +95,35 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, au
         else:
             # For auto reboot scenario, it takes some time in ONIE to update the firmware
             logger.info("Waiting on switch to shutdown after auto reboot...")
-            if 'CPLD' in component or 'FPGA' in component:
-                # For CPLD/FPGA update, most time is spend before the reboot
-                pre_reboot_timeout = timeout
-                post_reboot_timeout = COMMON_REBOOT_TIMEOUT
+            if 'FPGA' in component:
+                # For FPGA update, no reboot is needed.
+                logger.info("Waiting for switch update result...")
+                res.get(timeout)
+                if res._value['failed']:
+                    pytest.fail(f"The component installation is not successful: {res._value}")
+                logger.info("FPGA update is successful")
             else:
-                # For BIOS/ONIE, most time is spend after the reboot in ONIE
-                pre_reboot_timeout = 120
-                post_reboot_timeout = timeout
-            localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=pre_reboot_timeout)
-            # Wait for 30s in case there is ssh flap
-            time.sleep(30)
-            logger.info("Waiting on switch to come up in SONiC....")
-            localhost.wait_for(
-                host=hn, port=22, state='started', search_regex=SONIC_SSH_REGEX, delay=10, timeout=post_reboot_timeout)
+                if 'CPLD' in component:
+                    # For CPLD update, most time is spend before the reboot
+                    pre_reboot_timeout = timeout
+                    post_reboot_timeout = COMMON_REBOOT_TIMEOUT
+                else:
+                    # For BIOS/ONIE, most time is spend after the reboot in ONIE
+                    pre_reboot_timeout = 120
+                    post_reboot_timeout = timeout
+                localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=pre_reboot_timeout)
+                # Wait for 30s in case there is ssh flap
+                time.sleep(30)
+                logger.info("Waiting on switch to come up in SONiC....")
+                localhost.wait_for(
+                    host=hn, port=22, state='started', search_regex=SONIC_SSH_REGEX, delay=10,
+                    timeout=post_reboot_timeout)
 
-        logger.info("Waiting on critical systems to come online...")
-        wait_until(300, 30, 0, duthost.critical_services_fully_started)
-        time.sleep(60)
+        # Only wait for critical systems when a reboot actually occurred (FPGA update does not reboot).
+        if (not auto_reboot) or ('FPGA' not in component):
+            logger.info("Waiting on critical systems to come online...")
+            wait_until(300, 30, 0, duthost.critical_services_fully_started)
+            time.sleep(60)
 
         # Reboot back into original image if neccesary
         if next_image and auto_reboot:
