@@ -1,103 +1,150 @@
-- name: Check if cEOS docker image exists or not
+- name: Check if cEOS docker image exists locally
   docker_image_info:
     name:
       - "{{ ceos_image }}"
   become: yes
-  register: ceos_docker_image_stat
+  register: ceos_local_image_stat
+
+- name: Check if cEOS docker image from registry is already cached locally
+  docker_image_info:
+    name:
+      - "{{ ceos_registry }}/{{ ceos_image }}"
+  become: yes
+  register: ceos_registry_cached_image_stat
+  when: ceos_registry is defined
+
+- name: Set fact for whether ceos_image is already available
+  set_fact:
+    # When registry is defined, only the registry-prefixed image is considered "found" - using
+    # a local image in that case would bypass the registry requirement (e.g. Microsoft ACR/MCR).
+    # When registry is not defined, only the locally-named image is considered.
+    ceos_image_found: >-
+      {{ (ceos_registry is not defined and ceos_local_image_stat.images | length > 0) or
+         (ceos_registry is defined and ceos_registry_cached_image_stat.images | length > 0) }}
 
 - name: Prepare ceos_image if it does not exist
   block:
 
-    - name: Check if ceos_image_orig exists or not
-      docker_image_info:
-        name:
-          - "{{ ceos_image_orig }}"
-      become: yes
-      register: ceos_image_orig_stat
-
-    - name: Prepare ceos_image_orig if it does not exist
+    - name: Try to get ceos_image from registry
       block:
-        - name: Check if local ceos image file exists or not
-          stat:
-            path: "{{ root_path }}/images/{{ ceos_image_filename }}"
-          register: ceos_image_file_stat
 
-        - name: Download cEOS image file if no local ceos image file exists
-          block:
-            - name: Fail if skip_ceos_image_downloading is true
-              fail:
-                msg: [
-                  "Failed, no ceos docker image, no ceos image file and skip_ceos_image_downloading is true",
-                  "Please manually put cEOS image to {{ root_path }}/images/{{ ceos_image_filename }}"
-                ]
-              when: skip_ceos_image_downloading == true
-
-            - name: Init ceos_image_urls when ceos_image_url value type is string
-              set_fact:
-                ceos_image_urls:
-                  - "{{ ceos_image_url }}"
-              when: ceos_image_url | type_debug == 'string'
-
-            - name: Init ceos_image_urls when ceos_image_url value type is list
-              set_fact:
-                ceos_image_urls: "{{ ceos_image_url }}"
-              when: ceos_image_url | type_debug == 'list'
-
-            - name: Init working_image_urls list
-              set_fact:
-                working_image_urls: []
-
-            - name: Loop ceos_image_urls to find out working URLs
-              include_tasks: probe_image_url.yml
-              loop: "{{ ceos_image_urls }}"
-
-            - name: Fail if no working ceos image download url is found
-              fail:
-                msg: [
-                  "Failed, no working ceos image download URL is found. There are 2 options to fix it:",
-                  "  1. Fix ceos_image_url defined in ansible/group_vars/vm_host/ceos.yml",
-                  "  2. Manually put cEOS image to {{ root_path }}/images/{{ ceos_image_filename }}",
-                ]
-              when: working_image_urls | length == 0
-
-            - name: Ensure {{ root_path }}/images exists
-              file: path={{ root_path }}/images state=directory
-
-            - name: Download cEOS image file from working ceos_image_urls using the first working URL
-              get_url:
-                url: "{{ working_image_urls[0] }}"
-                dest: "{{ root_path }}/images/{{ ceos_image_filename }}"
-              environment: "{{ proxy_env | default({}) }}"
-              register: ceos_image_download_result
-
-          when: ceos_image_file_stat.stat.exists == false
-
-        - name: Import ceos_image_orig docker image
+        - name: Login to ceos registry if credentials are defined
           become: yes
-          shell: "docker import {{ root_path }}/images/{{ ceos_image_filename }} {{ ceos_image_orig }}"
+          docker_login:
+            registry_url: "{{ ceos_registry }}"
+            username: "{{ ceos_registry_username }}"
+            password: "{{ ceos_registry_password }}"
+          when: >
+            ceos_registry_username is defined and
+            ceos_registry_password is defined
 
-      when: ceos_image_orig_stat.images | length == 0
+        - name: Pull ceos_image from registry
+          become: yes
+          docker_image:
+            name: "{{ ceos_registry }}/{{ ceos_image }}"
+            source: pull
+          register: ceos_registry_pull_result
+          ignore_errors: yes
 
-    - name: Create directory for building ceos docker image
-      become: yes
-      file:
-        path: "/tmp/ceosimage"
-        state: directory
+      when: ceos_registry is defined
 
-    - name: Copy the ceos image template
-      become: yes
-      template: src=ceos_dockerfile.j2 dest=/tmp/ceosimage/Dockerfile mode=0644
+    - name: Prepare ceos_image via download and build if registry pull failed or registry not defined
+      block:
 
-    - name: Build the ceos image with increasing inotify limit
-      become: yes
-      docker_image:
-        name: "{{ ceos_image }}"
-        build:
-          path: "/tmp/ceosimage"
-          pull: no
-        source: build
+        - name: Check if ceos_image_orig exists or not
+          docker_image_info:
+            name:
+              - "{{ ceos_image_orig }}"
+          become: yes
+          register: ceos_image_orig_stat
 
-  when: ceos_docker_image_stat.images | length == 0
+        - name: Prepare ceos_image_orig if it does not exist
+          block:
+            - name: Check if local ceos image file exists or not
+              stat:
+                path: "{{ root_path }}/images/{{ ceos_image_filename }}"
+              register: ceos_image_file_stat
+
+            - name: Download cEOS image file if no local ceos image file exists
+              block:
+                - name: Fail if skip_ceos_image_downloading is true
+                  fail:
+                    msg: [
+                      "Failed, no ceos docker image, no ceos image file and skip_ceos_image_downloading is true",
+                      "Please manually put cEOS image to {{ root_path }}/images/{{ ceos_image_filename }}"
+                    ]
+                  when: skip_ceos_image_downloading == true
+
+                - name: Init ceos_image_urls when ceos_image_url value type is string
+                  set_fact:
+                    ceos_image_urls:
+                      - "{{ ceos_image_url }}"
+                  when: ceos_image_url | type_debug == 'string'
+
+                - name: Init ceos_image_urls when ceos_image_url value type is list
+                  set_fact:
+                    ceos_image_urls: "{{ ceos_image_url }}"
+                  when: ceos_image_url | type_debug == 'list'
+
+                - name: Init working_image_urls list
+                  set_fact:
+                    working_image_urls: []
+
+                - name: Loop ceos_image_urls to find out working URLs
+                  include_tasks: probe_image_url.yml
+                  loop: "{{ ceos_image_urls }}"
+
+                - name: Fail if no working ceos image download url is found
+                  fail:
+                    msg: [
+                      "Failed, no working ceos image download URL is found. There are 2 options to fix it:",
+                      "  1. Fix ceos_image_url defined in ansible/group_vars/vm_host/ceos.yml",
+                      "  2. Manually put cEOS image to {{ root_path }}/images/{{ ceos_image_filename }}",
+                    ]
+                  when: working_image_urls | length == 0
+
+                - name: Ensure {{ root_path }}/images exists
+                  file: path={{ root_path }}/images state=directory
+
+                - name: Download cEOS image file from working ceos_image_urls using the first working URL
+                  get_url:
+                    url: "{{ working_image_urls[0] }}"
+                    dest: "{{ root_path }}/images/{{ ceos_image_filename }}"
+                  environment: "{{ proxy_env | default({}) }}"
+                  register: ceos_image_download_result
+
+              when: ceos_image_file_stat.stat.exists == false
+
+            - name: Import ceos_image_orig docker image
+              become: yes
+              shell: "docker import {{ root_path }}/images/{{ ceos_image_filename }} {{ ceos_image_orig }}"
+
+          when: ceos_image_orig_stat.images | length == 0
+
+        - name: Create directory for building ceos docker image
+          become: yes
+          file:
+            path: "/tmp/ceosimage"
+            state: directory
+
+        - name: Copy the ceos image template
+          become: yes
+          template: src=ceos_dockerfile.j2 dest=/tmp/ceosimage/Dockerfile mode=0644
+
+        - name: Build the ceos image with increasing inotify limit
+          become: yes
+          docker_image:
+            name: "{{ ceos_image }}"
+            build:
+              path: "/tmp/ceosimage"
+              pull: no
+            source: build
+
+      when: >
+        ceos_registry is not defined or
+        (ceos_registry_pull_result is defined and ceos_registry_pull_result is failed)
+
+  when: not ceos_image_found
 
 - name: Create VMs network
   become: yes
