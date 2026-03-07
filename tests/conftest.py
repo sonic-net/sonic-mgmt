@@ -228,6 +228,10 @@ def pytest_addoption(parser):
     parser.addoption("--py_saithrift_url", action="store", default=None, type=str,
                      help="Specify the url of the saithrift package to be installed on the ptf "
                           "(should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
+    parser.addoption("--enable_qos_ptf_pdb", action="store_true", default=False,
+                     help="Enable QoS PTF test debugging mode with pdb breakpoint")
+    parser.addoption("--ingress_drop_probing", action="store_true", default=False,
+                     help="Enable ingress drop threshold probing instead of PFC xoff probing")
 
     #########################
     #   post-test options   #
