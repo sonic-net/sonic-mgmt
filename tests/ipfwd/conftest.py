@@ -4,6 +4,7 @@ import logging
 import json
 import time
 from tests.common import constants
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -190,3 +191,31 @@ def gather_facts(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname, en
     logger.info("gathered_new_facts={}".format(json.dumps(facts, indent=2)))
 
     yield facts
+
+
+@pytest.fixture(scope='function')
+def enable_debug_shell(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.facts["asic_type"] == "cisco-8000":
+        def get_npu_routes():
+            npu_route_list = duthost.shell("sudo show platform npu router route-table")["stdout_lines"]
+            return npu_route_list
+
+        def is_debug_shell_enabled():
+            routes = get_npu_routes()
+            if routes:
+                return True
+            else:
+                return False
+        original_dshell_status = duthost.shell("docker exec -it syncd supervisorctl status dshell_client | \
+                                                grep \"dshell_client.*RUNNING\"",
+                                               module_ignore_errors=True)["stdout_lines"]
+        if 'RUNNING' not in original_dshell_status:
+            debug_shell_enable = duthost.shell("sudo config platform cisco sdk-debug enable", module_ignore_errors=True)
+            logging.info(debug_shell_enable)
+            wait_until(360, 5, 0, is_debug_shell_enabled)
+        yield
+        if 'RUNNING' not in original_dshell_status:
+            debug_shell_disable = duthost.shell("sudo config platform cisco sdk-debug disable",
+                                                module_ignore_errors=True)
+            logging.info(debug_shell_disable)
