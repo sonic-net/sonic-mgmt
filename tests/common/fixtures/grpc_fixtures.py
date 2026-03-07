@@ -37,7 +37,7 @@ def ptf_grpc(ptfhost, duthost):
 
     # Auto-configure using GNMIEnvironment
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    client = PtfGrpc(ptfhost, env, duthost=duthost)
+    client = PtfGrpc(ptfhost, env, duthost=duthost, insecure=True)  # Use insecure=True to skip TLS verification if TLS is detected but certs not configured
 
     logger.info(f"Created auto-configured gRPC client: {client}")
     return client
@@ -298,6 +298,7 @@ def _configure_gnoi_tls_server(duthost):
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" port 50052')
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" client_auth true')
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" log_level 2')
+    duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" user_auth cert')
 
     # Configure certificate paths using centralized config
     config_db_settings = grpc_config.get_config_db_cert_settings()
