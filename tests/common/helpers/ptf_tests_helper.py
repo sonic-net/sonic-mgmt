@@ -13,6 +13,48 @@ from tests.common.config_reload import config_reload
 logger = logging.getLogger(__name__)
 
 
+def get_dut_to_ptf_port_mapping(duthost, tbinfo):
+    """
+    Get mapping of DUT interfaces to PTF ports.
+    Args:
+        duthost: DUT host object
+        tbinfo: Testbed info
+    Returns:
+        dict: Mapping of DUT interface names to PTF port indices
+    """
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    return mg_facts.get('minigraph_ptf_indices', {})
+
+
+def select_test_interface_and_ptf_port(duthost, tbinfo):
+    """
+    Select a random test interface and find corresponding PTF port.
+    Args:
+        duthost: DUT host object
+        tbinfo: Testbed info
+    Returns:
+        tuple: (interface_name, ptf_port_index) or (None, None) if not found
+    """
+    try:
+        # Get DUT to PTF port mapping
+        dut_to_ptf_mapping = get_dut_to_ptf_port_mapping(duthost, tbinfo)
+
+        if not dut_to_ptf_mapping:
+            logger.warning("No DUT to PTF port mapping available")
+            return None, None
+
+        # Use a random available interface/port pair
+        interface_name = random.choice(list(dut_to_ptf_mapping.keys()))
+        ptf_port_index = dut_to_ptf_mapping[interface_name]
+
+        logger.info("Selected interface: {} (PTF port: {})".format(interface_name, ptf_port_index))
+        return interface_name, ptf_port_index
+
+    except Exception as e:
+        logger.error("Failed to select test interface and PTF port: {}".format(str(e)))
+        return None, None
+
+
 @pytest.fixture(scope="module")
 def downstream_links(rand_selected_dut, tbinfo, nbrhosts):
     """
