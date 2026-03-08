@@ -800,6 +800,7 @@ dash/test_dash_smartswitch_vnet.py:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/25147 and asic_type in ['mellanox', 'nvidia']"
 
 dash/test_dash_vnet.py:
   skip:
@@ -993,6 +994,10 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_monitor_checksum_validation:
     reason: "Current isc-dhcp-relay do not support dropping packets with unexpected checksum"
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24660"
+  xfail:
+    reason: "xfail due to GitHub issue https://github.com/sonic-net/sonic-buildimage/issues/24402"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24402 and asic_type in ['mellanox', 'nvidia']"
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_on_dualtor_standby:
   skip:
