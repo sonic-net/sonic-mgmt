@@ -921,8 +921,9 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t0']"
-      - "asic_type not in ['vs', 'mellanox'] and asic_gen not in ['td3']"
+      - "asic_type not in ['vs', 'mellanox', 'cisco-8000'] and asic_gen not in ['td3']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/21090"
+      - "asic_type in ['cisco-8000'] and release in ['202012', '202205', '202305', '202311', '202405']"
       - "release in ['202012', '202205', '202305', '202311']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
 
