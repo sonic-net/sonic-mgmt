@@ -67,8 +67,15 @@
   failed_when: false
 
 - name: Wait for bgpcfgd to configure FRR from ConfigDB
-  pause:
-    seconds: 10
+  become: yes
+  command: >
+    docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+    vtysh -c "show running-config"
+  delegate_to: "{{ VM_host[0] }}"
+  register: frr_config
+  until: frr_config.stdout is search("router bgp")
+  retries: 30
+  delay: 2
 
 - name: Check FRR daemon status
   become: yes
