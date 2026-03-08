@@ -1908,6 +1908,18 @@ Totals               6450                 6449
                     return asic
         return UNKNOWN_ASIC
 
+    def _try_get_mrvl_asic_name(self, output):
+        prestera_devices = {
+            "Device 8400",  # Falcon
+            "Device 9400",  # AlleyCat5P
+        }
+
+        for search_term in prestera_devices:
+            if search_term in output:
+                return "marvell-prestera"
+
+        return "marvell-teralynx"
+
     def get_asic_name(self):
         asic = UNKNOWN_ASIC
         output = self.shell("lspci", module_ignore_errors=True)["stdout"]
@@ -1918,7 +1930,7 @@ Totals               6450                 6449
         elif "Mellanox Technologies" in output:
             asic = "spc"
         elif "Marvell Technology" in output:
-            asic = "marvell-teralynx"
+            asic = self._try_get_mrvl_asic_name(output)
 
         logger.info("asic: {}".format(asic))
 
