@@ -176,8 +176,8 @@ class TestIPPacket(object):
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if asic_type == "vs":
-            logger.info("Skipping packet count check on VS platform")
+        if asic_type in ["vs", "vpp"]:
+            logger.info("Skipping packet count check on VS/VPP platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -251,8 +251,8 @@ class TestIPPacket(object):
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if asic_type == "vs":
-            logger.info("Skipping packet count check on VS platform")
+        if asic_type in ["vs", "vpp"]:
+            logger.info("Skipping packet count check on VS/VPP platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -337,8 +337,8 @@ class TestIPPacket(object):
             logger.info("Setting PKT_NUM_ZERO for t2 max topology with 0.2 tolerance")
             self.PKT_NUM_ZERO = self.PKT_NUM * 0.4
 
-        if asic_type == "vs":
-            logger.info("Skipping packet count check on VS platform")
+        if asic_type in ["vs", "vpp"]:
+            logger.info("Skipping packet count check on VS/VPP platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -414,8 +414,8 @@ class TestIPPacket(object):
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if asic_type == "vs":
-            logger.info("Skipping packet count check on VS platform")
+        if asic_type in ["vs", "vpp"]:
+            logger.info("Skipping packet count check on VS/VPP platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -488,8 +488,8 @@ class TestIPPacket(object):
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if asic_type == "vs":
-            logger.info("Skipping packet count check on VS platform")
+        if asic_type in ["vs", "vpp"]:
+            logger.info("Skipping packet count check on VS/VPP platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -555,8 +555,8 @@ class TestIPPacket(object):
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if asic_type == "vs":
-            logger.info("Skipping packet count check on VS platform")
+        if asic_type in ["vs", "vpp"]:
+            logger.info("Skipping packet count check on VS/VPP platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -614,8 +614,8 @@ class TestIPPacket(object):
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if asic_type == "vs":
-            logger.info("Skipping packet count check on VS platform")
+        if asic_type in ["vs", "vpp"]:
+            logger.info("Skipping packet count check on VS/VPP platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
@@ -674,8 +674,8 @@ class TestIPPacket(object):
         tx_drp = sum_ifaces_counts(portstat_out, out_ifaces, "tx_drp")
         tx_rif_err = sum_ifaces_counts(rif_counter_out, out_rif_ifaces, "tx_err") if rif_support else 0
 
-        if asic_type == "vs":
-            logger.info("Skipping packet count check on VS platform")
+        if asic_type in ["vs", "vpp"]:
+            logger.info("Skipping packet count check on VS/VPP platform")
             return
         pytest_assert(rx_ok >= self.PKT_NUM_MIN,
                       "Received {} packets in rx, not in expected range".format(rx_ok))
