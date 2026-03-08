@@ -71,6 +71,8 @@ graph LR
 - Dotted lines (loopback) = external loopback cables
 - Arrows from/to TG = traffic ingress/egress
 
+**Note:** VLANs are numbered per-chain: chain 0 receives VLAN IDs `vlan_base` through `vlan_base + hops_per_chain - 1`, then chain 1 receives the next block, and so on. This keeps VLAN numbering contiguous within each chain.
+
 ## 4. Data Model
 
 ### 4.1. Input Data
@@ -123,12 +125,15 @@ The `type` field drives which allocator strategy is used. No `dut_templates`, no
 
 ## 5. Chain Tracing Algorithm
 
-All chains are traced **in lockstep** (one hop per round, all chains advance together) to prevent one chain from greedily consuming ports meant for another.
+All chains are traced **in lockstep** (one hop per round, all chains advance together) to prevent one chain from greedily consuming ports meant for another. VLAN IDs are assigned **per-chain** after tracing completes — all VLANs for chain 0 are numbered first, then chain 1, etc.
+
+**Assumption:** Loopback cables must connect ports such that the snake progresses in natsorted order. That is, each loopback peer must be reachable by scanning forward from the current position in the natsorted port list.
 
 ```
 Input:
   device_port_links[dut]  — port → link info dict
   tgs                     — list of TGen device names
+  vlan_base               — starting VLAN ID (from topo YAML)
 
 Steps:
 
@@ -144,19 +149,28 @@ Steps:
 
 4. Initialize:
    - used = set(all TX ports ∪ all RX ports)   # reserve TGen ports
-   - For each chain k: chain[k].current = TX[k]
+   - For each chain k: chain[k].current = TX[k], chain[k].pairs = []
 
 5. Lockstep tracing (repeat until all chains complete):
    For each active chain k (in order k = 0..T/2-1):
-       partner = next port in all_linked_ports after chain[k].current, not in used
+       partner = next port in all_linked_ports after chain[k].current's position
+                 in the natsorted list, scanning forward (wrapping is an error),
+                 that is not in used
        used.add(partner)
-       Create VLAN pair: (chain[k].current, partner)
+       Record port pair: chain[k].pairs.append((chain[k].current, partner))
 
        if partner ∈ RX ports → mark chain k complete
        elif partner ∈ loopback_ports →
            chain[k].current = loopback_ports[partner]
            used.add(chain[k].current)
        else → error: dead end
+
+6. Assign VLAN IDs per-chain:
+   vlan_id = vlan_base
+   For each chain k in order:
+       For each pair in chain[k].pairs:
+           pair.vlan_id = vlan_id
+           vlan_id += 1
 ```
 
 ### 5.1. Worked Example
@@ -175,21 +189,37 @@ Given the data in section 4.1 (T=4, T/2=2):
 
 **Round 1:**
 ```
-Chain 0: current=Ethernet0  → next unused after Ethernet0  = Ethernet16 → VLAN1001(Ethernet0, Ethernet16)  → loopback → current=Ethernet24
-Chain 1: current=Ethernet4  → next unused after Ethernet4  = Ethernet20 → VLAN1002(Ethernet4, Ethernet20)  → loopback → current=Ethernet28
+Chain 0: current=Ethernet0  → next unused after Ethernet0's position  = Ethernet16 → pair(Ethernet0, Ethernet16)  → loopback → current=Ethernet24
+Chain 1: current=Ethernet4  → next unused after Ethernet4's position  = Ethernet20 → pair(Ethernet4, Ethernet20)  → loopback → current=Ethernet28
 ```
 
 **Round 2:**
 ```
-Chain 0: current=Ethernet24 → next unused after Ethernet24 = Ethernet32 → VLAN1003(Ethernet24, Ethernet32) → loopback → current=Ethernet40
-Chain 1: current=Ethernet28 → next unused after Ethernet28 = Ethernet36 → VLAN1004(Ethernet28, Ethernet36) → loopback → current=Ethernet44
+Chain 0: current=Ethernet24 → next unused after Ethernet24's position = Ethernet32 → pair(Ethernet24, Ethernet32) → loopback → current=Ethernet40
+Chain 1: current=Ethernet28 → next unused after Ethernet28's position = Ethernet36 → pair(Ethernet28, Ethernet36) → loopback → current=Ethernet44
 ```
 
 **Round 3:**
 ```
-Chain 0: current=Ethernet40 → next unused after Ethernet40 = Ethernet48 (RX!) → VLAN1005(Ethernet40, Ethernet48) → complete
-Chain 1: current=Ethernet44 → next unused after Ethernet44 = Ethernet52 (RX!) → VLAN1006(Ethernet44, Ethernet52) → complete
+Chain 0: current=Ethernet40 → next unused after Ethernet40's position = Ethernet48 (RX!) → pair(Ethernet40, Ethernet48) → complete
+Chain 1: current=Ethernet44 → next unused after Ethernet44's position = Ethernet52 (RX!) → pair(Ethernet44, Ethernet52) → complete
 ```
+
+**VLAN assignment (per-chain):**
+- Chain 0: pair(Ethernet0, Ethernet16) → VLAN 1001, pair(Ethernet24, Ethernet32) → VLAN 1002, pair(Ethernet40, Ethernet48) → VLAN 1003
+- Chain 1: pair(Ethernet4, Ethernet20) → VLAN 1004, pair(Ethernet28, Ethernet36) → VLAN 1005, pair(Ethernet44, Ethernet52) → VLAN 1006
+
+### 5.2. Validation & Error Handling
+
+The allocator must validate the following before proceeding:
+
+1. **Odd TG port count:** If the number of TG-connected ports (`T`) is odd, raise an error. L2 snake requires an even number of TG ports to form TX/RX pairs.
+
+2. **Incomplete loopback wiring:** After tracing, if any chain reaches a port that is neither an RX port nor has a loopback peer, raise an error with an actionable message identifying which chain and which port has missing wiring. Example: `"Chain 1 dead end at Ethernet36: no loopback cable and not an RX port."`
+
+3. **VLAN ID exhaustion:** Before assigning VLAN IDs, verify that `vlan_base + total_vlan_count - 1 ≤ 4094`. If exceeded, raise an error: `"VLAN range overflow: need VLANs {vlan_base}–{vlan_base + total - 1}, but max VLAN ID is 4094."`
+
+4. **Single VLAN per port:** Each DUT port must belong to exactly one VLAN. If the tracing algorithm attempts to assign a port to a second VLAN (indicating a wiring or classification error), raise an error identifying the duplicate port.
 
 ## 6. Implementation: Strategy Pattern in `nut_allocate_ip.py`
 
@@ -220,6 +250,8 @@ class DeviceConfigAllocator:
     def run(self):
         return self.strategy.run()
 ```
+
+**Backwards compatibility:** The existing `GenerateDeviceConfig` class remains untouched. `L2SnakeVlanAllocator` is purely additive — it is a new class that only activates for `l2-snake` topologies. The strategy dispatch reads `testbed_facts["topo"]["properties"].get("type", "nut")`. Existing topologies have no `type` field in their `properties` dict, so they default to `"nut"` and continue using the existing `L3IpAllocator` (i.e., the current `GenerateDeviceConfig` logic) unchanged. Note the indirection: the `type` field lives under `topo.properties.type` (as loaded from the topo YAML), not `topo.type` — `topo.type` is the testbed-level type, while `properties` holds topo-specific parameters.
 
 ### 6.1. L2SnakeVlanAllocator Output
 
@@ -275,6 +307,8 @@ class DeviceConfigAllocator:
 
 ### 7.1. Config Patch Example
 
+Each snake port belongs to exactly one VLAN with `untagged` mode. No port appears in multiple VLANs.
+
 ```json
 [
   { "op": "add", "path": "/VLAN/Vlan1001", "value": { "vlanid": "1001" } },
@@ -286,6 +320,8 @@ class DeviceConfigAllocator:
 ]
 ```
 
+**STP note:** STP (Spanning Tree Protocol) must be disabled on all snake VLANs. The L2 snake is a linear topology with no loops — STP is unnecessary and would interfere with traffic forwarding by potentially blocking ports.
+
 ## 8. Traffic Generator Setup
 
 During the pretest fixture:
@@ -294,6 +330,7 @@ During the pretest fixture:
 2. Configure TG RX ports to receive and measure.
 3. No BGP sessions needed on TG side — pure L2 traffic.
 4. MAC addresses can be auto-generated or test-defined.
+5. **Each chain must use distinct source/destination MAC addresses** to prevent MAC flapping across VLANs. If multiple chains share the same MAC, the DUT's MAC table will oscillate as the same address is learned on different ports/VLANs, causing packet loss.
 
 ## 9. Validation
 
