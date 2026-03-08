@@ -1,7 +1,7 @@
 import logging
-import time
 import pytest
 from tests.common.plugins.memory_utilization.memory_utilization import MemoryMonitor
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -13,28 +13,32 @@ ROUTECHECK_POLL_INTERVAL = 5   # Seconds between polls
 _memory_errors_by_test = {}
 
 
-def _wait_for_routecheck_to_finish(duthost, timeout=ROUTECHECK_WAIT_TIMEOUT, interval=ROUTECHECK_POLL_INTERVAL):
-    """Wait for any running routeCheck process to finish before collecting memory measurements.
+def _is_routecheck_not_running(duthost):
+    """Check if route_check.py is not currently running on the DUT.
 
-    The routeCheck process runs every 5 minutes and can cause significant temporary memory
-    spikes in zebra (e.g., 34 MB -> 102 MB), leading to false memory utilization alarms.
+    Uses 'pgrep -f route_check.py -l | grep -v bash' to avoid false positives
+    from the bash wrapper process that Ansible's shell module creates (bash -c "pgrep ..."),
+    which contains the search pattern in its own cmdline.
+
+    Returns:
+        True if route_check.py is not running, False if it is still running.
+    """
+    result = duthost.shell("pgrep -f route_check.py -l | grep -v bash", module_ignore_errors=True)
+    return result["rc"] != 0
+
+
+def _wait_for_routecheck_to_finish(duthost, timeout=ROUTECHECK_WAIT_TIMEOUT, interval=ROUTECHECK_POLL_INTERVAL):
+    """Wait for any running route_check.py process to finish before collecting memory measurements.
+
+    The route_check.py script runs every 5 minutes (via monit) and can cause significant temporary
+    memory spikes in zebra (e.g., 34 MB -> 102 MB), leading to false memory utilization alarms.
     See https://github.com/sonic-net/sonic-mgmt/issues/22548
     """
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        try:
-            result = duthost.shell("pgrep -f routeCheck", module_ignore_errors=True)
-            if result["rc"] != 0:
-                # routeCheck is not running
-                return True
-            logger.info("routeCheck is running on {}, waiting {}s...".format(duthost.hostname, interval))
-            time.sleep(interval)
-        except Exception as e:
-            logger.warning("Error checking routeCheck status on {}: {}".format(duthost.hostname, e))
-            return True  # Proceed if we can't check
-    logger.warning("routeCheck still running on {} after {}s timeout, proceeding anyway".format(
-        duthost.hostname, timeout))
-    return False
+    if not wait_until(timeout, interval, 0, _is_routecheck_not_running, duthost):
+        logger.warning("route_check.py still running on {} after {}s timeout, proceeding anyway".format(
+            duthost.hostname, timeout))
+        return False
+    return True
 
 
 def pytest_addoption(parser):
