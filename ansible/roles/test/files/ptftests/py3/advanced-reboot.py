@@ -19,7 +19,8 @@
 #
 # This test checks that DUT is able to make FastReboot procedure
 #
-# This test supposes that fast-reboot/warm-reboot initiates by running /usr/bin/{fast,warm}-reboot command.
+# This test supposes that fast-reboot/express-reboot/warm-reboot initiates by
+# running /usr/bin/{fast,warm}-reboot command.
 #
 # The test uses "pings". The "pings" are packets which are sent through dataplane in two directions
 # 1. From one of vlan interfaces to T1 device. The source ip, source interface,
@@ -171,11 +172,11 @@ class ReloadTest(BaseTest):
         self.check_param('warm_up_timeout_secs', 300, required=False)
         self.check_param('dut_stabilize_secs', 30, required=False)
         self.check_param('preboot_files', None, required=False)
-        # preboot sad path to inject before warm-reboot
+        # preboot sad path to inject before warm-reboot/express-reboot
         self.check_param('preboot_oper', None, required=False)
-        # sad path to inject during warm-reboot
+        # sad path to inject during warm-reboot/express-reboot
         self.check_param('inboot_oper', None, required=False)
-        # nexthops for the routes that will be added during warm-reboot
+        # nexthops for the routes that will be added during warm-reboot/express-reboot
         self.check_param('nexthop_ips', [], required=False)
         self.check_param('allow_vlan_flooding', False, required=False)
         self.check_param('allow_mac_jumping', False, required=False)
@@ -747,7 +748,7 @@ class ReloadTest(BaseTest):
         self.generate_arp_ping_packet()
         self.generate_arp_vlan_gw_packets()
 
-        if 'warm-reboot' in self.reboot_type:
+        if 'warm-reboot' in self.reboot_type or 'express-reboot' in self.reboot_type:
             self.log(self.get_sad_info())
 
         self.dataplane = ptf.dataplane_instance
@@ -1240,7 +1241,7 @@ class ReloadTest(BaseTest):
             self.fails['dut'].add("Total downtime period must be less then %s seconds. It was %s"
                                   % (str(self.limit), str(self.total_disrupt_time)))
 
-        if 'warm-reboot' in self.reboot_type:
+        if 'warm-reboot' in self.reboot_type or 'express-reboot' in self.reboot_type:
             # after the data plane is up, check for routing changes
             if self.test_params['inboot_oper'] and self.sad_handle:
                 self.check_inboot_sad_status()
@@ -1457,7 +1458,8 @@ class ReloadTest(BaseTest):
             else:
                 self.wait_until_service_restart()
 
-            if 'warm-reboot' in self.reboot_type or 'fast-reboot' in self.reboot_type:
+            if 'warm-reboot' in self.reboot_type or 'fast-reboot' in self.reboot_type or \
+                    'express-reboot' in self.reboot_type:
                 finalizer_timeout = 60 + \
                     self.test_params['reboot_limit_in_seconds']
                 thr = threading.Thread(target=self.check_warmboot_finalizer,
@@ -1473,7 +1475,8 @@ class ReloadTest(BaseTest):
                 self.handle_advanced_reboot_health_check()
                 self.handle_post_reboot_health_check()
 
-            if 'warm-reboot' in self.reboot_type or 'fast-reboot' in self.reboot_type:
+            if 'warm-reboot' in self.reboot_type or 'fast-reboot' in self.reboot_type or \
+                    'express-reboot' in self.reboot_type:
                 total_timeout = finalizer_timeout + \
                     self.test_params['warm_up_timeout_secs']
                 start_time = datetime.datetime.now()
@@ -1659,7 +1662,7 @@ class ReloadTest(BaseTest):
             return
 
         if not self.kvm_test and\
-                (self.reboot_type == 'fast-reboot' or 'warm-reboot' in
+                (self.reboot_type == 'fast-reboot' or self.reboot_type == 'express-reboot' or 'warm-reboot' in
                  self.reboot_type or 'service-warm-restart' in self.reboot_type):
             # Event for the sniff_in_background status.
             self.sniffer_started = threading.Event()
@@ -1808,7 +1811,7 @@ class ReloadTest(BaseTest):
                     max_lacp_session_wait = lacp_session_wait
                 prev_time = new_time
 
-        if 'warm-reboot' in self.reboot_type:
+        if 'warm-reboot' in self.reboot_type or 'express-reboot' in self.reboot_type:
             if max_lacp_session_wait and max_lacp_session_wait >= max_allowed_lacp_session_wait and not self.kvm_test:
                 self.fails['dut'].add("LACP session likely terminated by neighbor ({})".format(ip) +
                                       " post-reboot lacpdu came after {}s of lacpdu pre-boot"
