@@ -72,28 +72,29 @@ def config_force_option_supported(duthost):
     return False
 
 
-def _check_dpu_module_status(sonic_host, expected_status, dpu_name):
+def _check_all_dpu_module_states(sonic_host, dpu_expected_states):
     """
-    Check if a DPU module has reached the expected status.
+    Check if all DPU modules have reached their expected states.
     Args:
         sonic_host: SONiC host object
-        expected_status: "on" or "off"
-        dpu_name: name of the DPU module
+        dpu_expected_states: dict mapping dpu_name to expected status ("on" or "off")
     Returns:
-        True if the DPU is in the expected status, False otherwise
+        True if all DPUs are in their expected states, False otherwise
     """
-    output = sonic_host.shell(
-        'show chassis module status | grep %s' % dpu_name,
-        module_ignore_errors=True
-    )
-    if output['rc'] != 0:
-        return False
+    for dpu_name, expected_status in dpu_expected_states.items():
+        output = sonic_host.shell(
+            'show chassis module status | grep %s' % dpu_name,
+            module_ignore_errors=True
+        )
+        if output['rc'] != 0:
+            return False
 
-    is_offline = "offline" in output["stdout"].lower()
-    if expected_status == "off":
-        return is_offline
-    else:
-        return not is_offline
+        is_offline = "offline" in output["stdout"].lower()
+        if expected_status == "off" and not is_offline:
+            return False
+        if expected_status != "off" and is_offline:
+            return False
+    return True
 
 
 def _wait_for_smartswitch_dpu_states(sonic_host):
@@ -135,12 +136,10 @@ def _wait_for_smartswitch_dpu_states(sonic_host):
 
     logger.info("Waiting for smartswitch DPU states: %s", dpu_expected_states)
 
-    for dpu_name, expected_status in dpu_expected_states.items():
-        if not wait_until(DPU_STATE_TIMEOUT, DPU_STATE_INTERVAL, 0,
-                          _check_dpu_module_status, sonic_host,
-                          expected_status, dpu_name):
-            logger.warning("DPU %s did not reach expected state '%s' within timeout",
-                           dpu_name, expected_status)
+    if not wait_until(DPU_STATE_TIMEOUT, DPU_STATE_INTERVAL, 0,
+                      _check_all_dpu_module_states, sonic_host,
+                      dpu_expected_states):
+        pytest_assert(False, "Not all DPUs reached expected states %s within timeout" % dpu_expected_states)
 
     logger.info("Smartswitch DPU state wait completed")
 
