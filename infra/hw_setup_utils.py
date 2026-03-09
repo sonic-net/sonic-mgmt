@@ -11,6 +11,9 @@ import logging
 import paramiko
 import yaml
 from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container, copy_logfiles
+from typing import Tuple
+import stat
+import argparse
 
 HW_CONFIG_FILE = "config/hw_cfg.json"
 FORWARDING_TESTCASES = ['reporting/suites/tortuga-mh', 'reporting/suites/tortuga', 'reporting/suites/tortuga_parallel']
@@ -1331,3 +1334,96 @@ def nested_ssh_connection(bastion_host, bastion_user, bastion_key, target_host, 
     log.debug("Second ssh done. Execute commands...")
 
     return [target_client, bastion_client]
+
+
+
+# ============================
+# Simple UCS Remote Executor
+# ============================
+
+def _get_ucs_info_from_testbed(testbed: str) -> Tuple[str, int, str, str]:
+    info = getTestbedInfoDict(testbed)
+    if not info:
+        raise KeyError(f"Testbed '{testbed}' not found in hw_cfg.json")
+    host = info.get("ucs_host") or info.get("ucs_host_name")
+    user = info.get("ucs_username")
+    password = info.get("ucs_password")
+    port = int(info.get("ucs_port", 22))
+    if not host or not user or not password:
+        raise ValueError(f"Incomplete UCS credentials for '{testbed}' in hw_cfg.json")
+    return host, port, user, password
+
+
+def run_commands_in_ucs(testbed: str, workspace: str, commands: str, timeout: int = 3600):
+    """
+    SSH to UCS resolved by 'testbed', ensure 'workspace' exists, then run provided commands.
+
+    Args:
+        testbed: Testbed name in hw_cfg.json -> resolves UCS host/user/pass/port
+        workspace: Absolute or home-relative path on UCS to execute in
+        commands: Multiline shell commands to execute in order
+        timeout: Overall execution timeout for the remote script
+
+    Returns:
+        (stdout, stderr, exit_status)
+    """
+    host, port, user, password = _get_ucs_info_from_testbed(testbed)
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    ssh.connect(hostname=host, port=port, username=user, password=password)
+
+    remote_script = f"/tmp/run_cmds_{int(time.time())}.sh"
+    try:
+        # Ensure workspace
+        mkdir_cmd = f"mkdir -p {workspace}"
+        out, err, code = _run_cmd_in_ssh(ssh, mkdir_cmd)
+        if code != 0:
+            raise RuntimeError(f"Failed to create workspace '{workspace}' on UCS '{host}': exit={code}\nstdout:\n{out}\nstderr:\n{err}")
+
+        # Upload script
+        sftp = ssh.open_sftp()
+        with sftp.file(remote_script, 'w') as f:
+            f.write("#!/usr/bin/env bash\nset -euo pipefail\n")
+            f.write(f"cd {workspace}\n")
+            f.write(commands)
+            f.write("\n")
+        sftp.chmod(remote_script, stat.S_IRUSR | stat.S_IWUSR | stat.S_IXUSR)
+        sftp.close()
+
+        # Execute script via helper for consistent logging/behavior
+        out, err, code = _run_cmd_in_ssh(ssh, f"bash -l {remote_script}", timeout=timeout)
+        log.info(f"UCS run finished: exit={code}\nstdout:\n{out}\nstderr:\n{err}")
+        return out, err, code
+    finally:
+        try:
+            ssh.exec_command(f"rm -f {remote_script}")
+        except Exception:
+            pass
+        try:
+            ssh.close()
+        except Exception:
+            pass
+
+
+def _parse_cli_and_run():
+    parser = argparse.ArgumentParser(description="Infra utils CLI")
+    sub = parser.add_subparsers(dest="cmd")
+
+    p = sub.add_parser("run-commands-in-ucs", help="Run shell commands on UCS host resolved by testbed")
+    p.add_argument("--testbed", required=True, help="Testbed name present in hw_cfg.json")
+    p.add_argument("--workspace", required=True, help="Workspace dir on UCS to run in")
+    p.add_argument("--commands", required=True, help="Multiline shell commands to execute")
+
+    args = parser.parse_args()
+    if args.cmd == "run-commands-in-ucs":
+        out, err, code = run_commands_in_ucs(args.testbed, args.workspace, args.commands)
+        # Print to stdout/stderr for Jenkins consumption
+        if out:
+            print(out)
+        if err:
+            print(err, file=sys.stderr)
+        sys.exit(code)
+
+
+if __name__ == "__main__":
+    _parse_cli_and_run()
