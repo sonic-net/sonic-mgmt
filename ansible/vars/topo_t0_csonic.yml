@@ -153,7 +153,7 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.30/32
         ipv6: 2064:100::1e/128
-      Ethernet4:
+      Ethernet0:
         ipv4: 10.0.0.59/31
         ipv6: fc00::76/126
     bp_interface:
@@ -173,7 +173,7 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.31/32
         ipv6: 2064:100::1f/128
-      Ethernet8:
+      Ethernet0:
         ipv4: 10.0.0.61/31
         ipv6: fc00::7a/126
     bp_interface:
@@ -193,7 +193,7 @@ configuration:
       Loopback0:
         ipv4: 100.1.0.32/32
         ipv6: 2064:100::20/128
-      Ethernet12:
+      Ethernet0:
         ipv4: 10.0.0.63/31
         ipv6: fc00::7e/126
     bp_interface:

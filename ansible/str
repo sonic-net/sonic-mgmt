@@ -1,9 +1,5 @@
 all:
   children:
-    docker_registry:
-      hosts:
-        acs-devrepo.corp.microsoft.com:
-
     str:
       children:
         sonic:
@@ -271,7 +267,7 @@ sonic_cisco_8101:
         "0x22": "477691"
         "0x23": "FLM28230CH8"
         "0x24": "9c:09:8b:b7:04:00"
-        "0x26": "12"
+        "0x26": "2"
         "0x28": "x86_64-8101_32fh_o-r0"
         "0x2D": "Cisco"
         "0xFE": "0x4F48A22C"
@@ -676,7 +672,7 @@ sonic_mlnx_4700:
       ansible_hostv6: 2a01:111:e210:b000::a40:f62e
       mgmt_subnet_mask_length: 25
       mgmt_subnet_v6_mask_length: 121
-      hwsku: Mellanox-SN4700-O8V48
+      hwsku: Mellanox-SN4700-O32
       iface_speed: 400000
       model: MSN4700-WS2ROS
       serial: MT2417XZ01AN
@@ -709,6 +705,46 @@ sonic_mlnx_4700:
         "0x25": "04/25/2024 09:17:12"
         "0x26": "18"
         "0x28": "x86_64-mlnx_msn4700-r0"
+        "0x29": "2022.08-5.3.0010-9600"
+        "0x2B": "Mellanox"
+    str-4700-d04-u43:
+      ansible_host: 10.64.246.98
+      ansible_hostv6: 2a01:111:e210:b000::a40:f662
+      mgmt_subnet_mask_length: 25
+      mgmt_subnet_v6_mask_length: 121
+      hwsku: Mellanox-SN4700-O8V48
+      iface_speed:
+      model: MSN4700-WS2ROS
+      serial: MT2417XZ01AJ
+      base_mac: B0:CF:0E:0B:B4:00
+      syseeprom_info:
+        "0x21": "MSN4700"
+        "0x22": "MSN4700-WS2ROS"
+        "0x23": "MT2417XZ01AJ"
+        "0x24": "B0:CF:0E:0B:B4:00"
+        "0x25": "04/25/2024 09:19:04"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn4700-r0"
+        "0x29": "2022.08-5.3.0010-9600"
+        "0x2B": "Mellanox"
+    str43-msn4700-d05-u23:
+      ansible_host: 10.64.246.204
+      ansible_hostv6: 2a01:111:e210:b000::a40:f6cc
+      mgmt_subnet_mask_length: 25
+      mgmt_subnet_v6_mask_length: 121
+      hwsku: Mellanox-SN4700-O8V48
+      iface_speed:
+      model: MSN4700-WS2ROS
+      serial: T2414J000YK
+      base_mac: B0:CF:0E:09:19:00
+      syseeprom_info:
+        "0x21": "MSN4700"
+        "0x22": "MSN4700-WS2ROS"
+        "0x23": "MT2414J000YK"
+        "0x24": "B0:CF:0E:09:19:00"
+        "0x25": "04/03/2024 22:59:22"
+        "0x26": "18"
+        "0x28": "64 x86_64-mlnx_msn4700-r0"
         "0x29": "2022.08-5.3.0010-9600"
         "0x2B": "Mellanox"
 
