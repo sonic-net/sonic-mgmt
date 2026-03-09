@@ -736,6 +736,15 @@ copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
       - "(topo_name not in ['t0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't0-isolated-d16u16s1', 't0-isolated-d32u32s2'])"
 
 #######################################
+#####         cpu_shaper          #####
+#######################################
+cpu_shaper/test_cpu_shaper.py:
+  skip:
+    reason: "shaper on queue 7 is not applied correctly, issue fixed in SAI 14.3"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/22731"
+
+#######################################
 #####            crm              #####
 #######################################
 crm/test_crm.py :
