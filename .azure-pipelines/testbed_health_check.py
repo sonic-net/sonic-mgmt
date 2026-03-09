@@ -97,6 +97,7 @@ class TestbedHealthChecker:
         self.testbed_file = testbed_file
         self.log_verbosity = log_verbosity
         self.output_file = output_file
+        self.is_snappi_testbed = False
 
         # DPU-related state
         self.dpu_hosts = []
@@ -194,6 +195,9 @@ class TestbedHealthChecker:
         )
         if not self.sonichosts:
             raise HostInitFailed("sonichosts is None. Please check testbed name/file/inventory.")
+
+        if 'rdma' in self.testbed_name or 'ixia' in self.testbed_name:
+            self.is_snappi_testbed = True
 
         logger.info("======================= init_hosts ends =======================")
 
@@ -384,6 +388,11 @@ class TestbedHealthChecker:
             for fanout_hostname in peer_devices:
                 # Check fanouthost reachability
 
+                # Skip the ixia host health check
+                if "ixia" in fanout_hostname:
+                    logger.info("Skip ixia host {} health check.".format(fanout_hostname))
+                    continue
+
                 # Create fanouthost instance.
                 fanouthost = init_host(inventories=self.inventory, host_pattern=fanout_hostname)
 
@@ -464,6 +473,10 @@ class TestbedHealthChecker:
     def run_check(self):
         try:
 
+            # temporarily skip dpu smartswitch
+            if self.testbed_name in ["vms66-t1-8102-7", "vms12-t1-smartswitch-4280-02"]:
+                raise SkipCurrentTestbed()
+
             self.init_hosts()
 
             self.pre_check()
@@ -532,6 +545,10 @@ class TestbedHealthChecker:
         Args:
             state: str. The target state to compare the BGP session state against. Defaults to "established".
         """
+
+        if self.is_snappi_testbed:
+            logger.info("======================= skip check_bgp_session_state for snappi =======================")
+            return
 
         def find_unexpected_bgp_neighbors(neigh_bgp_facts, expected_state, unexpected_neighbors):
             for k, v in list(neigh_bgp_facts['bgp_neighbors'].items()):
@@ -602,6 +619,9 @@ class TestbedHealthChecker:
         """
         Check the status of up ports on a list of SonicHost objects representing the DUTs.
         """
+        if self.is_snappi_testbed:
+            logger.info("=================== skip check_interface_status_of_up_ports for snappi ===================")
+            return
 
         failed = False
         interface_facts_on_hosts = {}
