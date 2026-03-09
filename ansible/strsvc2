@@ -1,9 +1,5 @@
 all:
   children:
-    docker_registry:
-      hosts:
-        acs-devrepo.corp.microsoft.com:
-        acs-repo.corp.microsoft.com:
     strsvc2:
       children:
         sonic:
