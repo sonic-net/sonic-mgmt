@@ -14,6 +14,7 @@ from functools import lru_cache
 from tests.common.connections.console_host import ConsoleHost
 from paramiko.ssh_exception import AuthenticationException
 from constants import RC_SSH_FAILED, RC_PASSWORD_FAILED
+from tests.common.utilities import update_console_creds
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
 base_path = os.path.realpath(os.path.join(_self_dir, "../.."))
@@ -71,6 +72,8 @@ def creds_on_dut(sonichost):
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
 
+    creds["console_login_options"] = hostvars.get("console_login_options", {})
+
     if "console_login" not in list(hostvars.keys()):
         console_login_creds = {}
     else:
@@ -86,10 +89,11 @@ def creds_on_dut(sonichost):
 
 def get_console_info(sonichost, conn_graph_facts):
     console_host = conn_graph_facts['device_console_info'][sonichost.hostname]['ManagementIp']
+    auth_type = conn_graph_facts['device_console_info'][sonichost.hostname].get('AuthType', "")
     console_port = conn_graph_facts['device_console_link'][sonichost.hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][sonichost.hostname]['ConsolePort']['type']
 
-    return console_host, console_port, console_type
+    return console_host, console_port, console_type, auth_type
 
 
 def get_ssh_info(sonichost):
@@ -103,7 +107,7 @@ def get_ssh_info(sonichost):
 
 
 def duthost_console(sonichost, conn_graph_facts):
-    console_host, console_port, console_type = get_console_info(sonichost, conn_graph_facts)
+    console_host, console_port, console_type, auth_type = get_console_info(sonichost, conn_graph_facts)
     console_type = "console_" + console_type
     if "/" in console_host:
         console_host = console_host.split("/")[0]
@@ -112,6 +116,7 @@ def duthost_console(sonichost, conn_graph_facts):
     sonicadmin_alt_password = sonichost.vm.get_vars(
         host=sonichost.im.get_hosts(pattern='sonic')[0]).get("ansible_altpassword")
     creds = creds_on_dut(sonichost)
+    update_console_creds(creds, auth_type)
 
     host = ConsoleHost(console_type=console_type,
                        console_host=console_host,
