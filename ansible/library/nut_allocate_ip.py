@@ -6,7 +6,16 @@ import traceback
 from ipaddress import ip_network
 import logging
 from collections import defaultdict
-from natsort import natsorted
+try:
+    from natsort import natsorted
+except ImportError:
+    import re as _re
+
+    def natsorted(seq, key=None):
+        def _key(s):
+            s = key(s) if key else s
+            return [int(c) if c.isdigit() else c.lower() for c in _re.split(r'(\d+)', str(s))]
+        return sorted(seq, key=_key)
 
 try:
     from ansible.module_utils.debug_utils import config_module_logging
@@ -526,7 +535,9 @@ class L2SnakeVlanAllocator():
 
     def run(self):
         topo_props = self.testbed_facts['topo']['properties']
-        vlan_base = topo_props['vlan_base']
+        vlan_base = topo_props.get('vlan_base')
+        if vlan_base is None:
+            raise ValueError("L2 snake topo YAML must specify 'vlan_base'.")
         duts = self.testbed_facts['duts']
         tgs = self.testbed_facts['tgs']
         tg_set = set(tgs)
@@ -569,18 +580,21 @@ class L2SnakeVlanAllocator():
                 f"L2 snake requires an even number of TG-connected ports, but found {t} on {dut}."
             )
 
+        if t == 0:
+            raise ValueError(f"L2 snake requires at least 2 TG-connected ports, but found 0 on {dut}.")
+
         half = t // 2
         tx_ports = tgen_ports[:half]
         rx_ports = tgen_ports[half:]
         rx_set = set(rx_ports)
 
-        # Step 3: Build all linked ports sorted
+        # Step 2: Build all linked ports sorted
         all_linked_ports = natsorted(links.keys())
 
         # Build index lookup for scanning forward
         port_index = {p: i for i, p in enumerate(all_linked_ports)}
 
-        # Step 4: Initialize chains
+        # Step 3: Initialize chains
         used = set(tgen_ports)  # reserve all TGen ports
         chains = []
         for k in range(half):
@@ -592,7 +606,7 @@ class L2SnakeVlanAllocator():
                 'rx_port': None,
             })
 
-        # Step 5: Lockstep tracing
+        # Step 4: Lockstep tracing
         port_vlan_assignment = {}  # port -> vlan tracking for single-VLAN-per-port validation
         max_rounds = len(all_linked_ports)  # safety bound
 
@@ -606,7 +620,8 @@ class L2SnakeVlanAllocator():
                 current = chain['current']
                 current_idx = port_index[current]
 
-                # Find next unused port scanning forward
+                # Forward-only scan: partner must appear after current port
+                # in natsorted order (HLD Section 5 assumption)
                 partner = None
                 for i in range(current_idx + 1, len(all_linked_ports)):
                     candidate = all_linked_ports[i]
@@ -646,7 +661,7 @@ class L2SnakeVlanAllocator():
             if not chain['complete']:
                 raise ValueError(f"Chain {k} did not reach an RX port.")
 
-        # Step 6: Assign VLAN IDs per-chain
+        # Step 5: Assign VLAN IDs per-chain
         total_vlans = sum(len(c['pairs']) for c in chains)
         if vlan_base + total_vlans - 1 > 4094:
             raise ValueError(
@@ -668,7 +683,8 @@ class L2SnakeVlanAllocator():
             }
 
             for port_a, port_b in chain['pairs']:
-                # Single-VLAN-per-port validation
+                # Defense-in-depth: should never trigger given chain tracing
+                # guarantees, but guards against future refactors
                 for p in (port_a, port_b):
                     if p in port_vlan_assignment:
                         raise ValueError(

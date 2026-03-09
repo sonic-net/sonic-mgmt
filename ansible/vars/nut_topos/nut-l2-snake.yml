@@ -1,2 +1,4 @@
+# type: drives strategy dispatch in nut_allocate_ip.py (default is 'nut' for L3)
 type: l2-snake
+# vlan_base: starting VLAN ID for snake chains (above default VLAN 1 to avoid conflicts)
 vlan_base: 1001
