@@ -102,7 +102,7 @@ class MultiAsicSonicHost(object):
         if is_dpu and 'snmp' in service_list:
             service_list.remove('snmp')
 
-        if config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu' and 'lldp' in service_list:
+        if is_dpu and 'lldp' in service_list:
             service_list.remove('lldp')
 
         # Update the asic service based on feature table state and asic flag
@@ -111,7 +111,7 @@ class MultiAsicSonicHost(object):
                 logger.info("Removing teamd from default services for switch_type DPU")
                 self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                 continue
-            if service == 'lldp' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+            if service == 'lldp'and is_dpu:
                 logger.info("Removing lldp from default services for switch_type DPU")
                 self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                 continue
