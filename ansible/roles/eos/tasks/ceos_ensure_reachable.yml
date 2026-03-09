@@ -1,3 +1,11 @@
+- name: Set ceos_effective_image fallback if not already defined
+  # ceos_effective_image is normally set by the caller (ceos.yml in the eos role) before this
+  # file is included. This task provides a safe fallback in case this file is invoked
+  # independently, so it does not fail with an undefined variable error.
+  set_fact:
+    ceos_effective_image: "{{ ceos_image }}"
+  when: ceos_effective_image is not defined
+
 - block:
   - name: set time out threshold
     set_fact:

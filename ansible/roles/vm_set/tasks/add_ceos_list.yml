@@ -18,9 +18,10 @@
     # When registry is defined, only the registry-prefixed image is considered "found" - using
     # a local image in that case would bypass the registry requirement (e.g. Microsoft ACR/MCR).
     # When registry is not defined, only the locally-named image is considered.
-    ceos_image_found: >-
-      {{ (ceos_registry is not defined and ceos_local_image_stat.images | length > 0) or
-         (ceos_registry is defined and ceos_registry_cached_image_stat.images | length > 0) }}
+    # The | bool filter ensures this is stored as a Python boolean, not the string "True"/"False",
+    # so that "when: not ceos_image_found" evaluates correctly.
+    ceos_image_found: "{{ ((ceos_registry is not defined and ceos_local_image_stat.images | length > 0) or
+                           (ceos_registry is defined and ceos_registry_cached_image_stat.images | length > 0)) | bool }}"
 
 - name: Prepare ceos_image if it does not exist
   block:
@@ -45,6 +46,13 @@
             source: pull
           register: ceos_registry_pull_result
           ignore_errors: yes
+
+        - name: Warn that registry pull failed, will fall back to download and build
+          debug:
+            msg: >-
+              WARNING: Failed to pull {{ ceos_registry }}/{{ ceos_image }} from registry.
+              Will fall back to the download-and-build path. Check ceos_registry and credentials.
+          when: ceos_registry_pull_result is failed
 
       when: ceos_registry is defined
 
