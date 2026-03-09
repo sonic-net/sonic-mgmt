@@ -2,7 +2,7 @@ parameters:
 - name: AGENT_POOL
   type: object
   default:
-    name: sonic-ubuntu-1c
+    name: sonic-ubuntu-1c-2
 
 - name: BUILD_REASON
   type: string
@@ -410,7 +410,7 @@ jobs:
     displayName: "kvmtest-t1-lag-vpp by Elastictest [OPTIONAL]"
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: true
-    pool: sonic-ubuntu-1c
+    pool: sonic-ubuntu-1c-2
     steps:
       - template: run-test-elastictest-template.yml
         parameters:
