@@ -13,7 +13,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from collections import defaultdict
 from tests.common.connections.console_host import ConsoleHost, CONSOLE_LINECARD
 from tests.common.connections.linecard_console_conn import UnsupportedPlatformError
-from tests.common.utilities import get_dut_current_passwd
+from tests.common.utilities import get_dut_current_passwd, update_console_creds
 from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_CISCO_CONFIG,
     CONSOLE_SSH_DIGI_CONFIG,
@@ -559,12 +559,18 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
         console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
+    console_auth_type = conn_graph_facts['device_console_info'][dut_hostname].get('AuthType', "")
     console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
     console_device = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerdevice']
 
     console_type = f"console_{console_type}"
-    console_menu_type = f"{console_type}_{console_menu_type}"
+    update_console_creds(creds, console_auth_type)
+
+    if console_menu_type and console_menu_type.lower() != "n/a":
+        console_menu_type = f"{console_type}_{console_menu_type}"
+    else:
+        console_menu_type = console_type
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
@@ -651,7 +657,10 @@ def creds_on_dut(duthost):
     for cred_var in cred_vars:
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
-    # load creds for console
+
+    creds["console_login_options"] = hostvars.get("console_login_options", {})
+
+    # load default creds for console
     if "console_login" not in list(hostvars.keys()):
         console_login_creds = {}
     else:
