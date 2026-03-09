@@ -1,44 +1,12 @@
 import logging
 import pytest
 from tests.common.plugins.memory_utilization.memory_utilization import MemoryMonitor
-from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-ROUTECHECK_WAIT_TIMEOUT = 120  # Max seconds to wait for routeCheck to finish
-ROUTECHECK_POLL_INTERVAL = 5   # Seconds between polls
-
 # Add this to store memory errors per test
 _memory_errors_by_test = {}
-
-
-def _is_routecheck_not_running(duthost):
-    """Check if route_check.py is not currently running on the DUT.
-
-    Uses 'pgrep -f route_check.py -l | grep -v bash' to avoid false positives
-    from the bash wrapper process that Ansible's shell module creates (bash -c "pgrep ..."),
-    which contains the search pattern in its own cmdline.
-
-    Returns:
-        True if route_check.py is not running, False if it is still running.
-    """
-    result = duthost.shell("pgrep -f route_check.py -l | grep -v bash", module_ignore_errors=True)
-    return result["rc"] != 0
-
-
-def _wait_for_routecheck_to_finish(duthost, timeout=ROUTECHECK_WAIT_TIMEOUT, interval=ROUTECHECK_POLL_INTERVAL):
-    """Wait for any running route_check.py process to finish before collecting memory measurements.
-
-    The route_check.py script runs every 5 minutes (via monit) and can cause significant temporary
-    memory spikes in zebra (e.g., 34 MB -> 102 MB), leading to false memory utilization alarms.
-    See https://github.com/sonic-net/sonic-mgmt/issues/22548
-    """
-    if not wait_until(timeout, interval, 0, _is_routecheck_not_running, duthost):
-        logger.warning("route_check.py still running on {} after {}s timeout, proceeding anyway".format(
-            duthost.hostname, timeout))
-        return False
-    return True
 
 
 def pytest_addoption(parser):
@@ -84,9 +52,6 @@ def pytest_runtest_setup(item):
         if duthost.topo_type == 't2':
             continue
 
-        # Wait for routeCheck to finish to avoid memory spikes affecting measurements
-        _wait_for_routecheck_to_finish(duthost)
-
         # Initial memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
             try:
@@ -125,9 +90,6 @@ def pytest_runtest_teardown(item, nextitem):
     for duthost in duthosts:
         if duthost.topo_type == 't2':
             continue
-
-        # Wait for routeCheck to finish to avoid memory spikes affecting measurements
-        _wait_for_routecheck_to_finish(duthost)
 
         # memory check for all registered commands
         for name, cmd, memory_params, memory_check in memory_monitors[duthost.hostname].commands:
