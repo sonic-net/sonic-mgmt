@@ -1,0 +1,34 @@
+{
+    "mandatory": ["sff8024_identifier", "dual_bank_supported"],
+    "defaults": {
+        "vdm_supported": false,
+        "is_non_dac_and_cmis": false,
+        "sfputil_eeprom_dump_time": 5
+    },
+    "transceivers": {
+        "deployment_configurations": {
+            "8x100G_DR8": {
+                "vdm_supported": true,
+                "dual_bank_supported": true
+            }
+        },
+        "vendors": {
+            "PINEWAVE": {
+                "part_numbers": {
+                    "T-OH8CNT-NMT": {
+                        "is_non_dac_and_cmis": true,
+                        "sff8024_identifier": 25,
+                        "gold_firmware_version": "36.229.0",
+                        "inactive_firmware_version": "36.241.0",
+                        "cmis_revision": "5.2",
+                        "platform_hwsku_overrides": {
+                            "x86_64-nvidia_sn5640-r0+Mellanox-SN5640-C512S2": {
+                                "sfputil_eeprom_dump_time": 2
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
