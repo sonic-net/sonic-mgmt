@@ -1,8 +1,5 @@
 all:
   children:
-    docker_registry:
-      hosts:
-        acs-devrepo.corp.microsoft.com:
     str5:
       children:
         sonic:

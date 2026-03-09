@@ -1,0 +1,39 @@
+.create-merge table PRBinarySearchFailureInfo (
+    AnalyzerRunId: string,
+    TriggerType: string,
+    SourceRepo: string,
+    Branch: string,
+    CheckerType: string,
+    FilePath: string,
+    ModulePath: string,
+    TestCase: string,
+    FirstBadTime: datetime,
+    LastGoodTime: datetime,
+    FailureWindowStart: datetime,
+    FailureWindowEnd: datetime,
+    LikelyIssueClose: bool,
+    CommitCount: long,
+    Commits: dynamic,
+    RawFailureInfo: dynamic,
+    UploadTime: datetime
+)
+
+.create-or-alter table PRBinarySearchFailureInfo ingestion json mapping "PRBinarySearchFailureInfoMappingV1" @'['
+  '{"column":"AnalyzerRunId","Properties":{"path":"$.AnalyzerRunId"}},'
+  '{"column":"TriggerType","Properties":{"path":"$.TriggerType"}},'
+  '{"column":"SourceRepo","Properties":{"path":"$.SourceRepo"}},'
+  '{"column":"Branch","Properties":{"path":"$.Branch"}},'
+  '{"column":"CheckerType","Properties":{"path":"$.CheckerType"}},'
+  '{"column":"FilePath","Properties":{"path":"$.FilePath"}},'
+  '{"column":"ModulePath","Properties":{"path":"$.ModulePath"}},'
+  '{"column":"TestCase","Properties":{"path":"$.TestCase"}},'
+  '{"column":"FirstBadTime","Properties":{"path":"$.FirstBadTime"}},'
+  '{"column":"LastGoodTime","Properties":{"path":"$.LastGoodTime"}},'
+  '{"column":"FailureWindowStart","Properties":{"path":"$.FailureWindowStart"}},'
+  '{"column":"FailureWindowEnd","Properties":{"path":"$.FailureWindowEnd"}},'
+  '{"column":"LikelyIssueClose","Properties":{"path":"$.LikelyIssueClose"}},'
+  '{"column":"CommitCount","Properties":{"path":"$.CommitCount"}},'
+  '{"column":"Commits","Properties":{"path":"$.Commits"}},'
+  '{"column":"RawFailureInfo","Properties":{"path":"$.RawFailureInfo"}},'
+  '{"column":"UploadTime","Properties":{"path":"$.UploadTime"}}'
+']'

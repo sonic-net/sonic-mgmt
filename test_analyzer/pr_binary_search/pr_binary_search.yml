@@ -66,6 +66,8 @@ stages:
                 cd pr_binary_search
 
                 python pr_failure_analyzer.py --lookback_days ${{ parameters.LOOKBACK_DAYS }} --failure_info_file ${{ parameters.FAILURE_INFO_FILE }}
+
+                python pr_failure_info_kusto_uploader.py --input_file ${{ parameters.FAILURE_INFO_FILE }}
             env:
               KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
               GIT_API_TOKEN: $(GIT_API_TOKEN)

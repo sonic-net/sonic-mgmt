@@ -121,7 +121,64 @@ def execute_binary_search(client: AzureDevOpsClient, result_json: dict, max_para
 
 def parse_failure_info(failure_info_file):
     with open(failure_info_file, "r") as f:
-        return json.load(f)
+        records = json.load(f)
+
+    if not isinstance(records, list):
+        logger.error(f"Invalid failure info format in {failure_info_file}: expecting list")
+        return []
+
+    parsed = []
+    skipped_issue_close = 0
+    skipped_no_commits = 0
+    skipped_invalid = 0
+
+    for item in records:
+        # Legacy format (already binary-search ready)
+        if all(k in item for k in ("repo", "branch", "test_scripts", "commits")):
+            if not item.get("commits"):
+                skipped_no_commits += 1
+                continue
+            parsed.append(item)
+            continue
+
+        # New unified format (Kusto schema)
+        if "SourceRepo" in item and "Branch" in item:
+            if item.get("LikelyIssueClose") is True:
+                skipped_issue_close += 1
+                continue
+
+            commits = item.get("Commits") or []
+            if not commits:
+                skipped_no_commits += 1
+                continue
+
+            raw = item.get("RawFailureInfo") or {}
+            test_scripts = raw.get("test_scripts")
+            if not test_scripts:
+                checker = item.get("CheckerType")
+                file_path = item.get("FilePath")
+                if checker and file_path:
+                    test_scripts = {checker: [file_path]}
+                else:
+                    skipped_invalid += 1
+                    continue
+
+            parsed.append({
+                "repo": item.get("SourceRepo"),
+                "branch": item.get("Branch"),
+                "test_scripts": test_scripts,
+                "commits": commits,
+            })
+            continue
+
+        skipped_invalid += 1
+
+    logger.info(
+        f"Parsed failure entries from {failure_info_file}: selected={len(parsed)}, "
+        f"skipped_issue_close={skipped_issue_close}, skipped_no_commits={skipped_no_commits}, "
+        f"skipped_invalid={skipped_invalid}"
+    )
+    return parsed
 
 
 def _trigger_build_for_commit(client, repo, branch, build_pipeline_id, commit):
