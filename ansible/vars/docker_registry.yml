@@ -2,3 +2,5 @@ docker_registry_host: "{{ secret_vars['docker_registry']['docker_registry_host']
 
 docker_registry_username: "{{ secret_vars['docker_registry']['docker_registry_username'] }}"
 docker_registry_password: "{{ secret_vars['docker_registry']['docker_registry_password'] }}"
+
+debian_docker_registry_host: publicmirror.azurecr.io:443

@@ -4,11 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
-	"strconv"
-	"strings"
-	"testing"
-	"time"
 
 	log "github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"
@@ -20,6 +15,11 @@ import (
 	"github.com/openconfig/ygot/ygot"
 	"github.com/openconfig/ygot/ytypes"
 	"google.golang.org/grpc"
+	"reflect"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
 )
 
 const (

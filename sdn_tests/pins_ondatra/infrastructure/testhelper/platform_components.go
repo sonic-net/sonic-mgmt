@@ -2,12 +2,11 @@ package testhelper
 
 import (
 	"fmt"
+	"github.com/openconfig/ondatra"
+	"github.com/pkg/errors"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/openconfig/ondatra"
-	"github.com/pkg/errors"
 )
 
 // Software Component APIs.
