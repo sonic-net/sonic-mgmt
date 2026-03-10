@@ -15,6 +15,7 @@ pytestmark = [
 console_lines = list(map(str, range(1, 49)))
 
 
+@pytest.fixture(scope="function")
 def custom_escape_char(duthost):
     """
     Fixture to set custom escape character and clear it after test
