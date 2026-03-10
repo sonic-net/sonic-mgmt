@@ -223,7 +223,7 @@ class LoadExtraDpuConfigModule(object):
         for line in out.split("\n"):
             if "up" in line and "dpu_midplane_link_state" in line:
                 dpu_midplane_up_count += 1
-            if line.startswith("DPU") and "Online" in line and "Partial" not in line:
+            if line.startswith("DPU") and "Online" in line:
                 dpu_online_count += 1
         return dpu_online_count, dpu_midplane_up_count
 
