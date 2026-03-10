@@ -410,7 +410,7 @@ jobs:
     displayName: "kvmtest-t1-lag-vpp by Elastictest [OPTIONAL]"
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: true
-    pool: sonic-ubuntu-1c-2
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - template: run-test-elastictest-template.yml
         parameters:
