@@ -142,6 +142,41 @@ def collect_dut_info(dut, metadata):
     metadata[dut.hostname] = dut_info
 
 
+def update_testbed_metadata(metadata, tbname, filepath):
+    """Update or create testbed metadata JSON file.
+
+    Reads existing metadata file (if present), updates or adds testbed metadata,
+    and writes back to file. Handles missing files and JSON decode errors gracefully.
+
+    Args:
+        metadata: Dictionary containing DUT metadata to be stored.
+        tbname: Testbed name used as key in the metadata file.
+        filepath: Path to the metadata JSON file.
+
+    Returns:
+        None.
+    """
+    try:
+        with open(filepath, 'r') as yf:
+            info = json.load(yf)
+        try:
+            info[tbname].update(metadata)
+        except KeyError:
+            logger.info(f"The testbed '{tbname}' is not in the file '{filepath}', adding it.")
+            info[tbname] = metadata
+    except FileNotFoundError:
+        logger.info(f"The testbed metadata file '{filepath}' was not found, creating new file.")
+        info = {tbname: metadata}
+    except json.JSONDecodeError as e:
+        logger.warning(f"Error: Failed to decode JSON from the file '{filepath}': {e}, recreating the file.")
+        info = {tbname: metadata}
+    try:
+        with open(filepath, 'w') as yf:
+            json.dump(info, yf, indent=4)
+    except IOError as e:
+        logger.warning('Unable to create file {}: {}'.format(filepath, e))
+
+
 def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
     metadata = {}
     tbname = tbinfo['conf-name']
@@ -151,17 +186,11 @@ def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
         for duthost in duthosts:
             executor.submit(collect_dut_info, duthost, metadata)
 
-    info = {tbname: metadata}
     folder = 'metadata'
+    if not os.path.exists(folder):
+        os.mkdir(folder)
     filepath = os.path.join(folder, tbname + '.json')
-    try:
-        if not os.path.exists(folder):
-            os.mkdir(folder)
-        with open(filepath, 'w') as yf:
-            json.dump(info, yf, indent=4)
-    except IOError as e:
-        logger.warning('Unable to create file {}: {}'.format(filepath, e))
-
+    update_testbed_metadata(metadata, tbname, filepath)
     prepare_autonegtest_params(duthosts, fanouthosts)
 
 

@@ -21,6 +21,45 @@ def _write_variable_from_j2_to_configdb(duthost, template_file, **kwargs):
         duthost.file(path=save_dest_path, state="absent")
 
 
+def _config_bgp_neighbor_with_vtysh(duthost, peer_addr, peer_asn, dut_addr, dut_asn):
+    """Configure BGP neighbor using vtysh command"""
+    cmd = (
+        "vtysh "
+        "-c 'configure terminal' "
+        "-c 'router bgp {dut_asn}' "
+        "-c 'neighbor {peer_addr} remote-as {peer_asn}' "
+        "-c 'neighbor {peer_addr} activate' "
+    )
+    duthost.shell(cmd.format(peer_addr=peer_addr,
+                             peer_asn=peer_asn,
+                             dut_addr=dut_addr,
+                             dut_asn=dut_asn))
+
+
+def _remove_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn):
+    """Remove BGP neighbor using vtysh command"""
+    cmd = (
+        "vtysh "
+        "-c 'configure terminal' "
+        "-c 'router bgp {dut_asn}' "
+        "-c 'no neighbor {peer_addr}' "
+    )
+    duthost.shell(cmd.format(peer_addr=peer_addr,
+                             dut_asn=dut_asn))
+
+
+def _shutdown_bgp_neighbor_with_vtysh(duthost, peer_addr, dut_asn):
+    """Shutdown BGP neighbor using vtysh command"""
+    cmd = (
+        "vtysh "
+        "-c 'configure terminal' "
+        "-c 'router bgp {dut_asn}' "
+        "-c 'neighbor {peer_addr} shutdown' "
+    )
+    duthost.shell(cmd.format(peer_addr=peer_addr,
+                             dut_asn=dut_asn))
+
+
 def run_bgp_facts(duthost, enum_asic_index):
     """compare the bgp facts between observed states and target state"""
 
@@ -90,7 +129,9 @@ class BGPNeighbor(object):
     def __init__(self, duthost, ptfhost, name,
                  neighbor_ip, neighbor_asn,
                  dut_ip, dut_asn, port, neigh_type=None,
-                 namespace=None, is_multihop=False, is_passive=False, debug=False):
+                 namespace=None, is_multihop=False, is_passive=False, debug=False,
+                 is_ipv6_only=False, router_id=None, confed_asn=None, use_vtysh=False):
+
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.ptfip = ptfhost.mgmt_ip
@@ -105,12 +146,30 @@ class BGPNeighbor(object):
         self.is_passive = is_passive
         self.is_multihop = not is_passive and is_multihop
         self.debug = debug
+        self.is_ipv6_neighbor = is_ipv6_only
+        if not self.is_ipv6_neighbor:
+            self.router_id = router_id or self.ip
+        else:
+            # Generate router ID by combining 20.0.0.0 base with last 3 bytes of IPv6 addr
+            router_id_base = ipaddress.IPv4Address("20.0.0.0")
+            ipv6_addr = ipaddress.IPv6Address(self.ip)
+            self.router_id = router_id or str(ipaddress.IPv4Address(int(router_id_base) | int(ipv6_addr) & 0xFFFFFF))
+        self.use_vtysh = use_vtysh
+        self.confed_asn = confed_asn
 
     def start_session(self):
         """Start the BGP session."""
         logging.debug("start bgp session %s", self.name)
 
-        if not self.is_passive:
+        if self.use_vtysh:
+            _config_bgp_neighbor_with_vtysh(
+                self.duthost,
+                peer_addr=self.ip,
+                peer_asn=self.asn,
+                dut_addr=self.peer_ip,
+                dut_asn=self.peer_asn
+            )
+        elif not self.is_passive:
             _write_variable_from_j2_to_configdb(
                 self.duthost,
                 "bgp/templates/neighbor_metadata_template.j2",
@@ -135,22 +194,14 @@ class BGPNeighbor(object):
                 peer_name=self.name
             )
 
-        if ipaddress.ip_address(self.ip).version == 4:
-            router_id = self.ip
-        else:
-            # Generate router ID by combining 20.0.0.0 base with last 3 bytes of IPv6 addr
-            router_id_base = ipaddress.IPv4Address("20.0.0.0")
-            ipv6_addr = ipaddress.IPv6Address(self.ip)
-            router_id = str(ipaddress.IPv4Address(int(router_id_base) | int(ipv6_addr) & 0xFFFFFF))
-
         self.ptfhost.exabgp(
             name=self.name,
-            state="started",
+            state="restarted" if self.is_ipv6_neighbor else "started",
             local_ip=self.ip,
-            router_id=router_id,
+            router_id=self.router_id,
             peer_ip=self.peer_ip,
             local_asn=self.asn,
-            peer_asn=self.peer_asn,
+            peer_asn=self.confed_asn if self.confed_asn is not None else self.peer_asn,
             port=self.port,
             debug=self.debug
         )
@@ -170,10 +221,18 @@ class BGPNeighbor(object):
     def stop_session(self):
         """Stop the BGP session."""
         logging.debug("stop bgp session %s", self.name)
-        if not self.is_passive:
+
+        if self.use_vtysh:
+            _remove_bgp_neighbor_with_vtysh(
+                self.duthost,
+                peer_addr=self.ip,
+                dut_asn=self.peer_asn
+            )
+        elif not self.is_passive:
             for asichost in self.duthost.asics:
                 asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_NEIGHBOR|{}'".format(self.ip))
                 asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'".format(self.name))
+
         self.ptfhost.exabgp(name=self.name, state="absent")
 
     def teardown_session(self):
@@ -191,7 +250,14 @@ class BGPNeighbor(object):
         )
 
         self.ptfhost.exabgp(name=self.name, state="stopped")
-        if not self.is_passive:
+
+        if self.use_vtysh:
+            _shutdown_bgp_neighbor_with_vtysh(
+                self.duthost,
+                peer_addr=self.ip,
+                dut_asn=self.peer_asn
+            )
+        elif not self.is_passive:
             for asichost in self.duthost.asics:
                 if asichost.namespace == self.namespace:
                     logging.debug("update CONFIG_DB admin_status to down on {}".format(asichost.namespace))
