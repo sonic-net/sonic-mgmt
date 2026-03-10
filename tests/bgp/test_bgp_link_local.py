@@ -105,11 +105,17 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
                 pc_to_neighbor[pc_name] = dev_nbrs[member_intf]['name']
                 break
 
-    # Find a PortChannel with an IPv4 BGP neighbor
+    # Find a PortChannel with an established IPv4 BGP neighbor
+    bgp_facts = duthost.bgp_facts()['ansible_facts']
     selected = None
     for neigh_ip, neigh_info in bgp_neighbors.items():
         if ':' in neigh_ip:
             continue  # Skip IPv6 entries, find IPv4 first
+        # Only select neighbors with established BGP sessions
+        bgp_state = bgp_facts.get('bgp_neighbors', {}).get(
+            neigh_ip, {}).get('state', '')
+        if bgp_state != 'established':
+            continue
         neigh_name = neigh_info.get('name', '')
         neigh_asn = neigh_info.get('asn', '')
         for pc_name, pc_neigh_name in pc_to_neighbor.items():
@@ -125,7 +131,7 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
             break
 
     if not selected:
-        pytest.skip("No suitable PortChannel BGP neighbor found")
+        pytest.skip("No PortChannel BGP neighbor with established session found")
 
     # Find IPv6 address for the same neighbor
     neigh_ipv6 = None
@@ -252,15 +258,10 @@ def configure_unnumbered_bgp(setup_info):
 
     # --- Setup ---
 
-    # Verify existing BGP session is up
-    logger.info("Verify existing BGP session to %s is established",
+    # Session is already verified as established by setup_info fixture
+    logger.info("Existing BGP session to %s is established (verified by setup_info)",
                 neigh_ipv4)
     bgp_facts = duthost.bgp_facts()['ansible_facts']
-    pytest_assert(
-        bgp_facts['bgp_neighbors'].get(neigh_ipv4, {}).get(
-            'state') == 'established',
-        "Existing IPv4 BGP session to {} not established".format(neigh_ipv4))
-
     initial_prefixes = int(
         bgp_facts['bgp_neighbors'][neigh_ipv4].get('accepted prefixes', 0))
     logger.info("Initial prefix count from %s: %d", neigh_ipv4,
