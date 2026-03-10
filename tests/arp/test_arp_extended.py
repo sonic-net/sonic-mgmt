@@ -11,7 +11,7 @@ from tests.common.utilities import increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 
 pytestmark = [
-    pytest.mark.topology('t0', 'dualtor', 'c0')
+    pytest.mark.topology('t0', 'dualtor')
 ]
 
 logger = logging.getLogger(__name__)

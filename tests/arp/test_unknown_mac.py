@@ -22,7 +22,7 @@ from tests.common.utilities import get_intf_by_sub_intf, wait_until
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology("t0", "c0")]
+pytestmark = [pytest.mark.topology("t0")]
 
 TEST_PKT_CNT = 10
 
