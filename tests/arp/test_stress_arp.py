@@ -57,7 +57,8 @@ def ignore_errors_for_non_selected_dualtor_hosts(
 
 
 @pytest.fixture(autouse=True)
-def arp_cache_fdb_cleanup(duthosts, tbinfo):
+def arp_cache_fdb_cleanup(setup_dualtor_mux_ports, duthosts, tbinfo):
+    """ The fixture order guarantees mux state transition before cleanup to prevent misidentified Standby-phase errors. """
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
     try:
         for dut in duthosts:
