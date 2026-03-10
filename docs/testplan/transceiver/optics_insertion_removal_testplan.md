@@ -17,7 +17,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 
 1. All the pre-requisites mentioned in [Transceiver Onboarding Test Plan](./test_plan.md#test-cases) must be met.
 
-2. `physical_oir.json` located in `ansible/files/transceiver/inventory` directory should be present to define the attributes for the physical OIR tests. The schema is defined in [Transceiver Onboarding Test Plan](./test_plan.md#test-cases). Following attributes are applicable here:
+2. `physical_oir.json` located in `ansible/files/transceiver/inventory/attributes` directory should be present to define the attributes for the physical OIR tests. The schema is defined in [Transceiver Onboarding Test Plan](./test_plan.md#test-cases). Following attributes are applicable here:
 
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
@@ -30,7 +30,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 | link_flap_monitor_timeout_sec | Int | 10 | No | transceivers | The duration in seconds to monitor for link flaps after OIR operations. |
 
 
-3. `remote_reseat.json` located in `ansible/files/transceiver/inventory` directory should be present to define the attributes for the remote reseat tests. The schema is defined in [Transceiver Onboarding Test Plan](./test_plan.md#test-cases).
+3. `remote_reseat.json` located in `ansible/files/transceiver/inventory/attributes` directory should be present to define the attributes for the remote reseat tests. The schema is defined in [Transceiver Onboarding Test Plan](./test_plan.md#test-cases).
 
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
