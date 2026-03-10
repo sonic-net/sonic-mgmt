@@ -11,6 +11,7 @@ import logging
 import json
 import re
 import ipaddress
+import subprocess
 
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info, multi_asic
@@ -95,26 +96,32 @@ class GenerateGoldenConfigDBModule(object):
                 return -1
         return 0
 
-    def generate_frr_config_mode_golden_config_db(self):
+    def generate_frr_config_mode_golden_config_db(self, config):
         frr_version = self.get_frr_version()
-        if frr_version and self.compare_frr_version(frr_version, "8.5.0") >= 0:
-            rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
-            if rc != 0:
-                self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+        
+        if not (frr_version and self.compare_frr_version(frr_version, "8.5.0") >= 0):
+            return config
 
-            # Generate config table from init_cfg.ini
-            ori_config_db = json.loads(out)
+        if not isinstance(config, str):
+            return config
 
-            golden_config_db = {}
-            if "DEVICE_METADATA" in ori_config_db:
-                golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
-                if ("localhost" in golden_config_db["DEVICE_METADATA"] and
-                   "docker_routing_config_mode" in golden_config_db["DEVICE_METADATA"]["localhost"]):
-                    golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "unified"
+        config_obj = json.loads(config)
 
-            return json.dumps(golden_config_db, indent=4)
+        if multi_asic.is_multi_asic():
+            for _, ns_data in config_obj.items():
+                device_metadata = ns_data.get("DEVICE_METADATA", {})
+                localhost_md = device_metadata.get("localhost")
+                if isinstance(localhost_md, dict) and \
+                   localhost_md.get("docker_routing_config_mode") != "unified":
+                    localhost_md["docker_routing_config_mode"] = "unified"
         else:
-            return json.dumps({})
+            device_metadata = config_obj.get("DEVICE_METADATA", {})
+            localhost_md = device_metadata.get("localhost")
+            if isinstance(localhost_md, dict) and \
+               localhost_md.get("docker_routing_config_mode") != "unified":
+                localhost_md["docker_routing_config_mode"] = "unified"
+
+        return json.dumps(config_obj, indent=4)
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -672,7 +679,12 @@ class GenerateGoldenConfigDBModule(object):
         config = self.update_dns_config(config)
 
         # update router_config_mode
-        config = self.generate_frr_config_mode_golden_config_db(config)
+        if self.generate_frr_config_mode_golden_config_db() is True:
+            if ("DEVICE_METADATA" in config and
+                "localhost" in config["DEVICE_METADATA"]):
+                if config["DEVICE_METADATA"]["localhost"].get("docker_routing_config_mode") != "unified":
+                    config["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
+
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
         if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
