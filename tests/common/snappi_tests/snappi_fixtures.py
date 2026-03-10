@@ -881,7 +881,7 @@ def setup_dut_ports(
                                port_config_list=port_config_list,
                                duthost=duthost,
                                snappi_ports=snappi_ports)
-            pytest_assert(config_result is True, 'Failed to configure via {fn.__name__}')
+            pytest_assert(config_result is True, 'Failed to configure ports via {}'.format(fn.__name__))
         return found_ports()
 
     def config_port_setup(fn):
@@ -891,7 +891,8 @@ def setup_dut_ports(
                                duthost=duthost,
                                snappi_ports=snappi_ports,
                                setup=setup)
-            pytest_assert(config_result is True, 'Failed to configure via {fn.__name__}')
+            pytest_assert(config_result is True, 'Failed to configure ports via {}'.format(fn.__name__))
+        return found_ports()
 
     ptype = "--snappi_macsec" in sys.argv
 
@@ -904,13 +905,16 @@ def setup_dut_ports(
             logger.info('Found relevant portchannel interfaces')
             return config, port_config_list, snappi_ports
 
-        config_port_setup(__l3_intf_config)
-        if found_ports():
+        if config_port_setup(__l3_intf_config):
             logger.info('Found relevant router interfaces')
             return config, port_config_list, snappi_ports
 
-        config_port_setup(__intf_config_multidut)
-        pytest_assert(found_ports(), 'Failed to configure DUT ports')
+        # If no ports found above, empty port_config_list for p2p IPs.
+        port_config_list = []
+        if config_port_setup(__intf_config_multidut):
+            logger.info('Found relevant p2p interfaces')
+            return config, port_config_list, snappi_ports
+        pytest_assert(found_ports(), 'Failed to find and configure DUT ports')
     # if MACSEC, then configure or remove the MACSec ports.
     elif ptype:
         config_port_setup(__intf_config_macsec)
@@ -919,12 +923,16 @@ def setup_dut_ports(
             return config, port_config_list, snappi_ports
         pytest_assert(found_ports(), 'Failed to configure MACSec ports')
     # if not MACSEC, and setup=False, then proceed to remove intf config.
-    elif (str(port_config_list[-1].type) == 'SnappiPortType.RtrInterface'):
-        config_port_setup(__l3_intf_config)
-        return None
-    elif (str(port_config_list[-1].type) == 'SnappiPortType.IPInterface'):
-        config_port_setup(__intf_config_multidut)
-        return None
+    else:
+        for port_config in port_config_list:
+            if port_config.type == SnappiPortType.RtrInterface:
+                logger.info('Cleanup for router interfaces...')
+                config_port_setup(__l3_intf_config)
+                return None
+            if port_config.type == SnappiPortType.IPInterface:
+                logger.info('Cleanup for p2p ip interfaces...')
+                config_port_setup(__intf_config_multidut)
+                return None
 
 
 def get_tgen_peer_ports(snappi_ports, hostname):
