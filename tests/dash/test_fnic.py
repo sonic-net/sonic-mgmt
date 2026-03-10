@@ -9,7 +9,7 @@ from packets import rand_udp_port_packets
 from tests.common.helpers.assertions import pytest_assert
 from configs.privatelink_config import TUNNEL1_ENDPOINT_IPS, TUNNEL2_ENDPOINT_IPS
 from tests.common import config_reload
-from tests.dash.dash_utils import verify_tunnel_packets
+from tests.common.dash_utils import verify_tunnel_packets
 
 logger = logging.getLogger(__name__)
 
