@@ -173,11 +173,17 @@ def pytest_addoption(parser):
     parser.addoption('--minigraph2', action='store', type=str, help='path to the minigraph2')
 
     #####################################
-    # dash, vxlan, route shared options #
+    # ha, dash, vxlan, route shared options #
     #####################################
     parser.addoption("--skip_cleanup", action="store_true", help="Skip config cleanup after test (tests: dash, vxlan)")
     parser.addoption("--num_routes", action="store", default=None, type=int,
                      help="Number of routes (tests: route, vxlan)")
+    parser.addoption("--skip_cert_cleanup", action="store_true", help="Skip certificates cleanup after test")
+    parser.addoption("--skip_config", action="store_true", help="Don't apply configurations on DUT")
+    parser.addoption("--vxlan_udp_dport", action="store", default="random",
+                     help="The vxlan udp dst port used in the test")
+    parser.addoption("--dpu_index", action="store", default=0, type=int,
+                     help="The default dpu used for the test")
 
     ############################
     # sflow options            #

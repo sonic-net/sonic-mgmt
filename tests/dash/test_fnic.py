@@ -7,6 +7,7 @@ from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
 from packets import rand_udp_port_packets
 from tests.common import config_reload
+from tests.common.dash_utils import verify_tunnel_packets
 
 logger = logging.getLogger(__name__)
 
