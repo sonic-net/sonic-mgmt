@@ -3145,6 +3145,7 @@
   auto_recover: 'True'
   is_smartswitch: 'True'
   is_lit_mode: 'True'
+  comment: vvolam - Reserved for litmode nightly test
 
 - conf-name: testbed-bjw2-can-t1-8101-1
   group-name: bjw2-2-9
@@ -3342,7 +3343,7 @@
   auto_recover: 'True'
   is_smartswitch: 'True'
   is_lit_mode: 'True'
-  comment: paravind
+  comment: vvolam - Reserved for litmode nightly test
 
 - conf-name: vms68-t0-smartswitch-8102-01
   group-name: vms68-6
