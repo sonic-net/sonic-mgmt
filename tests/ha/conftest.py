@@ -271,26 +271,29 @@ def generate_remote_dpu_config_for_dut(
 # UNIFIED FULL CONFIG GENERATOR (DUT01 + DUT02)
 ###############################################################################
 
-def generate_ha_config_for_dut(switch_id: int):
+def generate_ha_config_for_dut(switch_id: int, duthost, tbinfo):
     """
     switch_id 0 FOR  DUT01
     switch_id 1 FOR  DUT02
+
+    duthost: the DUT host object, used to retrieve hostname.
+    tbinfo:  testbed info, used to retrieve loopback IPs from topology.
     """
+
+    # Get hostname from duthost
+    hostname = duthost.hostname
+
+    # Get loopback IPs from topology
+    topo_dut = tbinfo["topo"]["properties"]["topology"]["DUT"]
+    loopback_ip = topo_dut["loopback"]["ipv4"][switch_id]
+    loopback_v6 = topo_dut["loopback"]["ipv6"][switch_id]
 
     # VLAN SVI per DUT
     svi_ip = "20.0.200.14/28" if switch_id == 0 else "20.0.201.14/28"
     vlan, vlan_intf, vlan_member = generate_vlan_config(svi_ip)
 
-    # Loopbacks per DUT
-    loopback_ip = "10.1.0.32/32" if switch_id == 0 else "10.1.1.32/32"
-    loopback_v6 = "FC00:1::32/128"
-
-    # VXLAN source IP per DUT
-    vxlan_src_ip = "10.1.0.32" if switch_id == 0 else "10.1.1.32"
-    if switch_id == 0:
-        hostname = "swicth1"
-    else:
-        hostname = "switch2"
+    # VXLAN source IP is loopback IPv4 without mask
+    vxlan_src_ip = loopback_ip.split("/")[0]
 
     return {
         "DPU": generate_local_dpu_config(switch_id),
@@ -383,7 +386,7 @@ def remove_loopback_ips(dut):
 ###############################################################################
 
 @pytest.fixture(scope="module")
-def setup_ha_config(duthosts):
+def setup_ha_config(duthosts, tbinfo):
     """
     Load unified DASH-HA config onto BOTH DUT01 and DUT02 using:
         config load -y <file>
@@ -394,7 +397,7 @@ def setup_ha_config(duthosts):
 
     for switch_id in (0, 1):
         dut = duthosts[switch_id]
-        cfg = generate_ha_config_for_dut(switch_id)
+        cfg = generate_ha_config_for_dut(switch_id, dut, tbinfo)
         tmpfile = f"/tmp/dut{switch_id}_ha_config.json"
 
         # Copy JSON
