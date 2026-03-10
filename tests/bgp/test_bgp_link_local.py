@@ -81,7 +81,13 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     dut_asn = common_props.get('dut_asn')
     if not dut_asn:
-        pytest.skip("dut_asn not found in testbed configuration_properties")
+        # Fallback: get ASN from running config
+        config_facts_tmp = duthost.config_facts(
+            host=duthost.hostname, source="running")['ansible_facts']
+        device_metadata = config_facts_tmp.get('DEVICE_METADATA', {}).get('localhost', {})
+        dut_asn = device_metadata.get('bgp_asn')
+        if not dut_asn:
+            pytest.skip("dut_asn not found in testbed configuration_properties or DEVICE_METADATA")
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
@@ -411,7 +417,11 @@ def test_bgp_link_local_ipv6(setup_info, configure_unnumbered_bgp):
     logger.info("Verify routes are received via unnumbered session")
 
     def routes_received_via_unnumbered(duthost, portchannel):
-        """Check if any routes are received via the unnumbered BGP peer."""
+        """Check if any routes are received via the unnumbered BGP peer.
+
+        Only matches peers identified by the specific PortChannel interface
+        name, not any arbitrary fe80 peer.
+        """
         result = duthost.shell("vtysh -c 'show bgp summary json'",
                                module_ignore_errors=True)
         if result['rc'] != 0:
@@ -458,11 +468,36 @@ def test_bgp_link_local_ipv6(setup_info, configure_unnumbered_bgp):
     logger.info("Received %d routes via unnumbered BGP (was %d via "
                 "global IP)", route_count, initial_prefixes)
 
-    # Verify session details
+    # Verify session details using JSON output for robustness across FRR versions
     logger.info("Verify session details")
-    detail = duthost.shell(
-        "vtysh -c 'show bgp neighbors {}'".format(portchannel),
+    detail_json = duthost.shell(
+        "vtysh -c 'show bgp neighbors {} json'".format(portchannel),
         module_ignore_errors=True)
-    pytest_assert('Established' in detail.get('stdout', ''),
-                  "BGP neighbor detail does not show Established state")
-    logger.info("Session detail confirmed: Established via %s", portchannel)
+    if detail_json['rc'] == 0:
+        try:
+            nbr_data = json.loads(detail_json['stdout'])
+            session_established = False
+            for nbr_key, nbr_info in nbr_data.items():
+                state = nbr_info.get('bgpState', '')
+                if state == 'Established':
+                    session_established = True
+                    logger.info("Session detail confirmed: %s is Established via %s",
+                                nbr_key, portchannel)
+                    break
+            pytest_assert(session_established,
+                          "BGP neighbor detail does not show Established state for {}".format(portchannel))
+        except (json.JSONDecodeError, KeyError) as e:
+            logger.warning("Failed to parse neighbor JSON, falling back to text check: %s", e)
+            detail = duthost.shell(
+                "vtysh -c 'show bgp neighbors {}'".format(portchannel),
+                module_ignore_errors=True)
+            pytest_assert('Established' in detail.get('stdout', ''),
+                          "BGP neighbor detail does not show Established state")
+    else:
+        # JSON form not available, fall back to text
+        detail = duthost.shell(
+            "vtysh -c 'show bgp neighbors {}'".format(portchannel),
+            module_ignore_errors=True)
+        pytest_assert('Established' in detail.get('stdout', ''),
+                      "BGP neighbor detail does not show Established state")
+        logger.info("Session detail confirmed: Established via %s", portchannel)
