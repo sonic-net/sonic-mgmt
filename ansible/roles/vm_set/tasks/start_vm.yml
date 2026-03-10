@@ -1,0 +1,101 @@
+# Define respin_vm to override the test for VM existence.
+# Any VM defined in the list will be destroyed and restarted.
+# This provides a manual method to respin some VMs when they
+# are down.
+#
+# I encountered VM down when deploying topology. Without a
+# method to respin these VMs, the other way is to reboot/cleanup
+# server and restart all VMs. The later method disrupts all
+# topologies on the server.
+#
+# After respining individual VMs, the affected topology needs to
+# be removed and deployed again.
+
+- set_fact:
+    disk_image_name: "{{ vm_type }}_{{ vm_name }}_hdd.vmdk"
+    vm_xml_template: "arista.xml.j2"
+  when: (vm_type | lower) == "veos"
+
+- set_fact:
+    disk_image_name: "{{ vm_type }}_{{ vm_name }}.img"
+    vm_xml_template: "sonic_vm.xml.j2"
+  when: (vm_type | lower) == "vsonic"
+
+- set_fact:
+    disk_image_name: "{{ vm_type }}_{{ vm_name }}.img"
+    vm_xml_template: "cisco.xml.j2"
+  when: (vm_type | lower) == "vcisco"
+
+- set_fact:
+    disk_image: "{{ disk_image_dir }}/{{ disk_image_name }}"
+
+- set_fact:
+    respin_vms: []
+  when: respin_vms is not defined
+
+- set_fact:
+    hwsku: ""
+    hname: ""
+
+- name: Find current server group
+  set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
+
+- name: Extract VM names from the inventory
+  set_fact: VM_list={{ groups[current_server] | filter_by_prefix('VM') | sort }}
+
+- name: Generate hostname for target VM
+  set_fact: hname={{ VM_list | extract_hostname(topology['VMs'], VM_base, hostname) }}
+  when: topology['VMs'] is defined
+
+- set_fact:
+      hwsku: "{{ configuration[hname].hwsku }}"
+  when: configuration is defined and hname in configuration and configuration[hname]['hwsku'] is defined
+
+- name: Device debug output
+  debug: msg="hostname = {{ hostname }} host internal name = {{ hname }} sonic_password = {{ sonic_password }} vm_type = {{ vm_type }} serial port = {{ serial_port }} ip = {{ mgmt_ip_address }} hwsku = {{ hwsku }}"
+
+- name: Check destination file existance
+  stat: path={{ disk_image }}
+  register: file_stat
+
+- name: Copy {{ vm_type }} disk image for {{ hostname }}
+  copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
+  when: not file_stat.stat.exists
+
+- name: Define vm {{ vm_name }}, hwsku {{ hwsku }}
+  virt: name={{ vm_name }}
+        command=define
+        xml="{{ lookup('template', 'templates/{{ vm_xml_template }}') }}"
+        uri=qemu:///system
+  when: vm_name not in vm_list_defined.list_vms
+  become: yes
+
+- name: Destroy vm {{ vm_name }} if it requires fix
+  virt: name={{ vm_name }}
+        command=destroy
+        uri=qemu:///system
+  when: vm_name in respin_vms
+  become: yes
+  ignore_errors: true
+
+- name: Start vm {{ vm_name }}
+  virt: name={{ vm_name }}
+        state=running
+        uri=qemu:///system
+  when: vm_name not in vm_list_running.list_vms or vm_name in respin_vms
+  become: yes
+
+# Some testbed may have issue of starting multiple VMs in parallel, this pause is a workaround for this issue
+# A better solution should have been used. But the current used ansible v2.0 has issue with nested loops:
+# https://github.com/ansible/ansible/issues/14146 So, we can only use this simple workaround for the parallel
+# VM starting issue.
+
+- name: Find out VM index
+  set_fact:
+    vm_index: "{{ VM_hosts.index(vm_name)|int + 1 }}"
+
+- name: "Pause after started every {{ batch_size }} VMs"
+  pause: seconds="{{ interval }}"
+  when:
+    - (vm_index|int % batch_size|int) == 0
+    - interval|int > 0

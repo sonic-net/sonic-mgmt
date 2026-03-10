@@ -1,0 +1,10 @@
+[
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_test_rule_invalid_2": {
+                "priority" : "55",
+                "PACKET_ACTION" : "FORWARD",
+                "L4_SRC_PORT_RANGE" : "5770-1010"
+        },
+        "OP": "SET"
+    }
+]

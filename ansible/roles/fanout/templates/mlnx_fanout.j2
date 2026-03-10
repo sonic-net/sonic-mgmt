@@ -1,0 +1,179 @@
+{% set management_interface = 'mgmt0' %}
+{% set ofpvid_present = 4096 %}
+{% set vlanid_offset = 100 %}
+{% set vlan_range = '101-132' %}
+{% set open_flow_tableid = '0' %}
+{% set flowid_offset = 160 %}
+{% set last_flowid = '193' %}
+{% set server_to_dut_flow_priority = '100' %}
+{% set dut_to_server_flow_priority = '101' %}
+{% set low_priority = '1' %}
+{% set eth_typ_lldp = '0x88CC' %}
+{% set eth_typ_slow = '0x8809' %}
+{% set eth_typ_arp = '0x0806' %}
+{% set eth_typ_vlan = '0x8100' %}
+{% set eth_typ_test = '0x1234' %}
+{% set MTU = '9216' %}
+{% set trunk_port = '1/32' %}
+
+{# ----------------------------Start of default port configuration------------------------ #}
+
+{% set default_eth_ports = ['ERR', '1/1', '1/2', '1/3', '1/4', '1/5', '1/6', '1/7', '1/8', '1/9', '1/10', '1/11', '1/12', '1/13', '1/14', '1/15', '1/16', '1/17', '1/18', '1/19', '1/20', '1/21', '1/22', '1/23', '1/24', '1/25', '1/26', '1/27', '1/28', '1/29', '1/30', '1/31/1', '1/31/2', '1/32'] %}
+{% set default_of_ports = [-1, 125, 127, 121, 123, 117, 119, 113, 115, 109, 111, 105, 107, 101, 103, 97, 99, 65, 67, 69, 71, 73, 75, 77, 79, 81, 83, 85, 87, 89, 91, 93, 94, 95] -%}
+{% set uplink_port_id = 33 %}
+
+{# ----------------------------End of default port configuration-------------------------- #}
+
+{# ----------------------------Start of port speed configuration-------------------------- #}
+
+{% set mellanox-fanout_port_speed = [] %}
+
+{# -----------------------------End of speed configuration-------------------------------- #}
+
+{# -----------------------------Start of params dictionary-------------------------------- #}
+
+{% set qsfp_split_2_dict = {'mellanox-fanout':['1/31']} %}
+
+{% set qsfp_split_4_dict = {'mellanox-fanout':['1/9', '1/11', '1/13', '1/15', '1/17', '1/19', '1/21', '1/23']} %}
+
+{% set eth_ports_dict = {'mellanox-fanout':default_eth_ports} %}
+
+{% set of_ports_dict = {'mellanox-fanout':default_of_ports} %}
+
+{% set port_speed_dict = {'mellanox-fanout':mellanox-fanout_port_speed} %}
+
+{% set qsfp_split_2 = qsfp_split_2_dict[inventory_hostname] %}
+{% set qsfp_split_4 = qsfp_split_4_dict[inventory_hostname] %}
+{% set eth_ports = eth_ports_dict[inventory_hostname] %}
+{% set of_ports = of_ports_dict[inventory_hostname] %}
+{% set port_speed = port_speed_dict[inventory_hostname] %}
+
+{# ------------------------------End of params dictionary-------------------------------------- #}
+
+{# ------------------------------Start of fanout deploy function ------------------------------ #}
+
+{% macro fanout_deploy() %}
+conf t
+
+{# Disable CLI paging #}
+no cli default paging enable
+
+no lldp
+no spanning-tree
+ip routing
+interface {{ management_interface }} dhcp
+hostname {{ inventory_hostname }}
+no fae trap-group TRAP_GROUP_LLDP policer bind
+no fae trap-group TRAP_GROUP_OF_CONTROLLER policer bind
+
+{% for i in range(0, qsfp_split_2|length) %}
+interface ethernet {{ qsfp_split_2[i] }} module-type qsfp-split-2 force
+{% endfor %}
+
+{% for i in range(0, qsfp_split_4|length) %}
+interface ethernet {{ qsfp_split_4[i] }} module-type qsfp-split-4 force
+{% endfor %}
+
+{% for i in range(1, port_speed|length) %}
+interface ethernet {{ eth_ports[i] }} speed {{ port_speed[i] }} force
+fae interface ethernet {{ eth_ports[i] }} speed {{ port_speed[i] }} no-autoneg
+{% endfor %}
+
+{% for i in range(1, eth_ports|length) %}
+interface ethernet {{ eth_ports[i] }} shutdown
+interface ethernet {{ eth_ports[i] }} mtu {{ MTU }}
+interface ethernet {{ eth_ports[i] }} no shutdown
+{% endfor %}
+
+interface ethernet {{ trunk_port }} switchport mode trunk
+vlan {{ vlan_range }}
+ex
+interface ethernet {{ trunk_port }} switchport trunk allowed-vlan none
+
+{% for i in range(1,eth_ports|length-1) %}
+{% set vlanid = (vlanid_offset + i)|string %}
+interface ethernet {{ eth_ports[i] }} switchport mode dot1q-tunnel
+interface ethernet {{ eth_ports[i] }} switchport access vlan {{ vlanid }}
+{% endfor %}
+
+interface ethernet {{ trunk_port }} switchport trunk allowed-vlan add {{ vlan_range }}
+interface ethernet {{ trunk_port }} switchport trunk allowed-vlan remove 1
+
+protocol openflow
+
+{% for i in range(1, eth_ports|length) %}
+interface ethernet {{ eth_ports[i] }} openflow mode hybrid
+
+# Disable mac learning to avoid issue when VM MAC address appears on DUT port during SONiC port flap or restart and also issue in FDB reload test for which rules matching 0x1234 ethertype were introduces.
+# The idea is that forwarding is controlled by openflow rules.
+# For normal openflow rule since there are only two ports in same vlan (one access port connected to DUT, one trunk port connected to server)
+# - one is always a source port and one is always a destination port, so no flooding actually occurs.
+interface ethernet {{ eth_ports[i] }} mac-learning disable
+{% endfor %}
+
+{% set of_counter = 0 -%}
+
+{% for i in range(1, eth_ports|length-1) %}
+{% set vlanid = (vlanid_offset + i)|string %}
+openflow add-flows {{ of_counter  + i }} table={{ open_flow_tableid }},priority={{ server_to_dut_flow_priority }},dl_type={{ eth_typ_lldp }},in_port={{ of_ports[uplink_port_id] }},dl_vlan={{ vlanid }},actions=strip_vlan,output:{{ of_ports[i] }}
+{% endfor %}
+
+{% set of_counter = of_counter + eth_ports|length-2 -%}
+
+{% for i in range(1, eth_ports|length-1) %}
+{% set vlanid = (ofpvid_present + vlanid_offset + i)|string %}
+openflow add-flows {{ of_counter + i }} table={{ open_flow_tableid }},priority={{ dut_to_server_flow_priority }},dl_type={{ eth_typ_lldp }},in_port={{ of_ports[i] }},actions=push_vlan:{{ eth_typ_vlan }},set_field:{{ vlanid }}->vlan_vid,output:{{ of_ports[uplink_port_id] }}
+{% endfor %}
+
+{% set of_counter = of_counter + eth_ports|length-2 -%}
+
+{% for i in range(1, eth_ports|length-1) %}
+{% set vlanid = (vlanid_offset + i)|string %}
+openflow add-flows {{ of_counter + i }} table={{ open_flow_tableid }},priority={{ server_to_dut_flow_priority }},dl_type={{ eth_typ_slow }},in_port={{ of_ports[uplink_port_id] }},dl_vlan={{ vlanid }},actions=strip_vlan,output:{{ of_ports[i] }}
+{% endfor %}
+
+{% set of_counter = of_counter + eth_ports|length-2 -%}
+
+{% for i in range(1, eth_ports|length-1) %}
+{% set vlanid = (ofpvid_present + vlanid_offset + i)|string %}
+openflow add-flows {{ of_counter + i }} table={{ open_flow_tableid }},priority={{ dut_to_server_flow_priority }},dl_type={{ eth_typ_slow }},in_port={{ of_ports[i] }},actions=push_vlan:{{ eth_typ_vlan }},set_field:{{ vlanid }}->vlan_vid,output:{{ of_ports[uplink_port_id] }}
+{% endfor %}
+
+{% set of_counter = of_counter + eth_ports|length-2 -%}
+
+{% for i in range(1, eth_ports|length-1) %}
+{% set vlanid = (vlanid_offset + i)|string %}
+openflow add-flows {{ of_counter + i }} table={{ open_flow_tableid }},priority={{ server_to_dut_flow_priority }},dl_type={{ eth_typ_arp }},in_port={{ of_ports[uplink_port_id] }},dl_vlan={{ vlanid }},actions=output:{{ of_ports[i] }}
+{% endfor %}
+
+{% set of_counter = of_counter + eth_ports|length-2 -%}
+
+{% for i in range(1, eth_ports|length-1) %}
+{% set vlanid = (vlanid_offset + i)|string %}
+openflow add-flows {{ of_counter + i }} table={{ open_flow_tableid }},priority={{ dut_to_server_flow_priority }},dl_type={{ eth_typ_arp }},in_port={{ of_ports[i] }},actions=output:{{ of_ports[uplink_port_id] }}
+{% endfor %}
+
+{% set of_counter = of_counter + eth_ports|length-2 -%}
+
+{% for i in range(1, eth_ports|length-1) %}
+{% set vlanid = (vlanid_offset + i)|string %}
+openflow add-flows {{ of_counter + i }} table={{ open_flow_tableid }},priority={{ dut_to_server_flow_priority }},dl_type={{ eth_typ_test }},in_port={{ of_ports[i] }},actions=output:{{ of_ports[uplink_port_id] }}
+{% endfor %}
+
+{% set of_counter = of_counter + eth_ports|length-2 -%}
+
+# apply normal openflow rule
+openflow add-flows {{ of_counter + 1 }} table={{ open_flow_tableid }},priority={{ low_priority }},actions=normal
+
+docker vrf mgmt
+no shutdown
+exit
+write memory
+
+{% endmacro %}
+
+{# ------------------------------End of fanout deploy function -------------------------------- #}
+
+{% if action_variable == "deploy" %}
+    {{ fanout_deploy() }}
+{% endif %}

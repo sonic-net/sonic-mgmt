@@ -1,0 +1,20 @@
+- name: Load topo variables
+  include_vars: "vars/topo_{{ topo }}.yml"
+  when: topo is defined
+
+- name: Filter VMs for specified topology
+  set_fact: VM_hosts={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base) | sort }}
+  when: topology['VMs'] is defined and VM_base is defined
+
+- name: Remove VMs.
+  include_tasks: stop_vm.yml
+  vars:
+    vm_name: "{{ item }}"
+    disk_image_dir: "{{ root_path }}/disks"
+  with_items: "{{ VM_hosts }}"
+
+- name: Destroy VMs network
+  vm_topology:
+    cmd: 'destroy'
+    vm_names:     "{{ VM_hosts }}"
+  become: yes

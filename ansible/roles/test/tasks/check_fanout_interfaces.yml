@@ -1,0 +1,18 @@
+- block:
+  - name: Gathering lab graph facts about the device
+    conn_graph_facts: host={{ inventory_hostname }}
+    delegate_to: localhost
+
+  - name: Fanout hostname
+    set_fact: fanout_switch={{ device_conn[inventory_hostname]['Ethernet0']['peerdevice'] }}
+
+  - name: Check Fanout interfaces
+    local_action: shell ansible-playbook -i lab fanout.yml -l {{ fanout_switch }} --tags check_interfaces_status
+    ignore_errors: yes
+    register: fanout_interfaces_status
+
+  - name: Debug Fanout interfaces
+    debug: msg={{ fanout_interfaces_status }}
+    when: fanout_interfaces_status is defined
+
+  when: check_fanout is defined

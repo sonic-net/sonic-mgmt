@@ -1,0 +1,13 @@
+#! /bin/bash
+
+{% for vrf_idx in random_vrf_list %}
+{% set vid = src_base_vid + vrf_idx %}
+{% set vid2 = dst_base_vid + vrf_idx %}
+{% set sub_if_name1 = sub_if_name_tpl.format(ptf_port1, vid) %}
+{% set sub_if_name2 = sub_if_name_tpl.format(ptf_port2, vid2) %}
+
+ip link del {{sub_if_name1}}
+ip link del {{sub_if_name2}}
+sleep 0.05
+
+{% endfor %}

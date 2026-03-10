@@ -1,0 +1,15 @@
+{
+    "VLAN": {
+{% for vrf_idx in range(1, 1+vrf_count) %}
+{% set vid = src_base_vid + vrf_idx %}
+{% set vid2 = dst_base_vid + vrf_idx %}
+{% if op_code == 'add' %}
+        "Vlan{{vid}}": {"vlanid": "{{vid}}"},
+        "Vlan{{vid2}}": {"vlanid": "{{vid2}}"}{{ ',' if not loop.last else '' }}
+{% else %}
+        "Vlan{{vid}}": null,
+        "Vlan{{vid2}}": null{{ ',' if not loop.last else '' }}
+{% endif %}
+{% endfor %}
+    }
+}

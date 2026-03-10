@@ -1,0 +1,48 @@
+##############################################################################################
+### playbook to deploy the fanout switch
+### Use this playbook to deploy the VLAN configurations of fanout switch in SONiC testbed
+### This playbook will run based on hardware platform. Each fanout switch hardware type has its
+### own unique feature and configuration command or format. Unless you use the hardware switch
+### specified in this playbook, you would need to come up with your own fanout switch deployment
+### playbook
+################################################################################################
+- name: Gathering lab graph facts about the device
+  conn_graph_facts: host={{ inventory_hostname }}
+  delegate_to: localhost
+  tags: always
+
+- set_fact: sw_type="{{ device_info[inventory_hostname]['Type'] }}"
+
+# fanout_tacacs_user can override fanout_tacacs_sonic_user,
+# fanout_tacacs_sonic_user can override fanout_sonic_user
+- name: set login info if fanout_tacacs_user and fanout_tacacs_password is defined
+  set_fact: ansible_ssh_user={{ fanout_tacacs_user }} ansible_ssh_pass={{ fanout_tacacs_password }}
+  when: fanout_tacacs_user is defined and fanout_tacacs_password is defined
+  tags: always
+
+- set_fact: os='eos'
+  when: os is not defined
+  tags: always
+
+- fail: msg="non sonic does not support incremental update and dry run"
+  when: os != 'sonic' and (incremental is defined or dry_run is defined)
+
+- import_tasks: fanout_eos.yml
+  when: os == 'eos'
+
+- import_tasks: fanout_sonic.yml
+  when: os == 'sonic'
+
+- import_tasks: fanout_mlnx.yml
+  when: os == 'mellanox'
+
+- block:
+  - set_fact:
+      leaf_name: "{{ inventory_hostname }}"
+      leaf: "{{ ansible_host }}"
+
+  - import_tasks: rootfanout_connect.yml
+    vars:
+      deploy_leaf: true
+  when: '"FanoutLeaf" in sw_type and dry_run is not defined'
+  tags: always

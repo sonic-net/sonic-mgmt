@@ -1,0 +1,1205 @@
+# This Playbook run time generate matching configuration file for SONiC switch(Minigraph) based on a specific testbed topology specified in testbed.csv
+# When user call testbed-cli to deploy a testbed topology, use this playbook to generate matching SONiC minigraph file and deploy it into SONiC switch under test.
+# Or when you know your topology name, you may use this playbook alone to generate a minigraph matching your topology name without deploy it.
+#
+# VM Topologies are defined inside of vars/ directory in files vars/topo_{{ topology_name}}.yml
+#  Every topology should have a name to distinct one topology from another on the server
+#  Every topology contains a ptf container which will be used as placeholder for the injected interfaces from VMs, or direct connections to PTF host
+# VMs inventory file is also required to have all VMs ready for generating the minigraph file
+# VMs inventory is in file 'veos'
+#
+# Template files for generating minigraph.xml are defined in template/topo directory
+#
+# To generate and deploy minigraph for SONiC switch matching the VM topology please use following command
+# ansible-playbook -i lab config_sonic_basedon_testbed.yml -l sonic_dut_name -e vm_base=VM0300 -e topo=t0 [-e deploy=true -e save=true]
+# ansible-playbook -i lab config_sonic_basedon_testbed.yml -l sonic_dut_name -e testbed_name=vms1-1 [-e deploy=true -e save=true]
+
+# Parameters
+# -l str-msn2700-01          - the sonic_dut_name you are going to generate minigraph for
+# -e vm_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
+# -e topo=t0                 - the name of topology to generate minigraph file
+# -e testbed_name=vms1-1     - the testbed name specified in testbed.csv file
+#                              (if you give 'testbed_name' option, will use info from testbed and ignore topo and vm_base options)
+# -e vm_file=veos            - the virtual machine file name
+# -e deploy=True             - if deploy the newly generated minigraph to the target DUT, default is false if not defined
+# -e save=True               - if save the newly generated minigraph to the target DUT as startup-config, default is false if not defined
+#
+# After minigraph.xml is generated, the playbook will replace the original minigraph file under ansible/minigraph/ with the newly generated minigraph file for the SONiC device.
+# The playbook will based on deploy=True or False to decide if load the SONiC device with new minigraph or not.
+# If deploy=true, the playbook will apply the newly generated minigraph to the SONiC switch
+# If save=true, the playbook will save the newly generated minigraph to SONiC switch as startup-config
+#
+####################################################################################################################################################################################
+
+- hosts: sonic
+  gather_facts: no
+  tasks:
+
+  # Auto-detect if DUT is IPv6-only by trying to connect
+  # This must run BEFORE any task that connects to the DUT
+  # Save original IPv4 address before potentially switching
+  - name: Save original IPv4 address from inventory
+    set_fact:
+      original_ipv4_address: "{{ ansible_host }}"
+    when:
+      - ansible_host is defined
+      - "':' not in ansible_host"
+
+  - name: Try to connect using IPv4 address (pre-task check)
+    wait_for:
+      host: "{{ ansible_host }}"
+      port: 22
+      timeout: 10
+    delegate_to: localhost
+    ignore_errors: true
+    register: ipv4_reachable_precheck
+    when:
+      - "':' not in ansible_host"
+
+  - name: Switch to IPv6 if IPv4 is not reachable and IPv6 is available (pre-task)
+    set_fact:
+      ansible_host: "{{ ansible_hostv6 }}"
+      dut_was_ipv6_only: true
+    when:
+      - ipv4_reachable_precheck is defined
+      - ipv4_reachable_precheck.failed|default(false)
+      - ansible_hostv6 is defined
+      - ansible_hostv6 != ''
+
+  - block:
+    - name: set default testbed file
+      set_fact:
+        testbed_file: testbed.yaml
+      when: testbed_file is not defined
+      tags: always
+
+    - name: Gathering testbed information
+      test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
+      delegate_to: localhost
+      tags: always
+
+    - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
+      when: inventory_hostname not in testbed_facts['duts']
+      tags: always
+
+    - name: Debug connection mode
+      debug:
+        msg: "Connecting to {{ inventory_hostname }} via {{ ansible_host }} (was IPv6-only: {{ dut_was_ipv6_only|default(false) }}, original IPv4: {{ original_ipv4_address|default('N/A') }})"
+
+    # IPv6-only management network configuration loading
+    - name: Load IPv6 management configuration
+      include_vars: "group_vars/{{ group_names[1] }}/ipv6.yml"
+      when:
+        - use_ipv6_mgmt is defined
+        - use_ipv6_mgmt|bool == true
+        - group_names|length > 1
+      ignore_errors: true
+
+    - name: Override management service configurations for IPv6-only mode
+      set_fact:
+        ntp_servers: "{{ ntp_servers_ipv6 | default(ntp_servers) }}"
+        dns_servers: "{{ dns_servers_ipv6 | default(dns_servers) }}"
+        syslog_servers: "{{ syslog_servers_ipv6 | default(syslog_servers) }}"
+        # Note: tacacs_servers will be overridden later to use PTF IPv6 if use_ptf_tacacs_server is true
+        tacacs_servers: "{{ tacacs_servers_ipv6 | default(tacacs_servers) }}"
+        snmp_servers: "{{ snmp_servers_ipv6 | default(snmp_servers) }}"
+        forced_mgmt_routes: "{{ forced_mgmt_routes_ipv6 | default(forced_mgmt_routes) }}"
+        tacacs_group: "{{ tacacs_group_ipv6 | default(tacacs_group) }}"
+        tacacs_passkey: "{{ tacacs_passkey_ipv6 | default(tacacs_passkey) }}"
+        tacacs_enabled_by_default: "{{ tacacs_enabled_by_default_ipv6 | default(tacacs_enabled_by_default) }}"
+      when:
+        - use_ipv6_mgmt is defined
+        - use_ipv6_mgmt|bool == true
+
+    # DO NOT override ansible_host here - we need to use IPv4 to connect initially
+    # The DUT will be configured with IPv6 management through the minigraph
+    - name: Set management IP configuration for IPv6-only mode
+      set_fact:
+        target_mgmt_ip: "{{ ansible_hostv6 }}"
+        mgmt_subnet_mask_length: 64
+      when:
+        - use_ipv6_mgmt is defined
+        - use_ipv6_mgmt|bool == true
+        - ansible_hostv6 is defined
+
+    - name: Debug IPv6-only management configuration
+      debug:
+        msg: |
+          IPv6-only management mode enabled for {{ inventory_hostname }}
+          Management IP: {{ ansible_host }}
+          NTP servers: {{ ntp_servers | join(', ') }}
+          DNS servers: {{ dns_servers | join(', ') }}
+          TACACS servers: {{ tacacs_servers | join(', ') }}
+      when:
+        - use_ipv6_mgmt is defined
+        - use_ipv6_mgmt|bool == true
+
+    - name: Set default num_asic
+      set_fact:
+        num_asics: 1
+      when: num_asics is not defined
+
+    - name: Set default dut index
+      set_fact:
+        dut_index: "{{ testbed_facts['duts_map'][inventory_hostname]|int }}"
+
+    - name: set testbed_type
+      set_fact:
+        topo: "{{ testbed_facts['topo'] }}"
+      tags: always
+
+    - name: set lit mode
+      set_fact:
+        is_lit_mode: "{{ testbed_facts.get('is_lit_mode', topo in ['t1-smartswitch-ha', 't1-28-lag', 'smartswitch-t1', 't1-48-lag']) }}"
+      tags: always
+
+    - name: set ptf image name
+      set_fact:
+        ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
+
+    - name: check if testbed is an ixia testbed
+      set_fact:
+        is_ixia_testbed: "{{ true if ptf_image == 'docker-keysight-api-server' else false }}"
+
+    - block:
+        - name: Set L1 connection script path
+          set_fact:
+            script_path: "{{ playbook_dir }}/l1_port_mapper.py"
+            csv_dir: "{{ playbook_dir }}/files"
+
+        - name: Configure L1 switches
+          include_tasks: config_l1_testbed.yml
+          vars:
+            num_ports: "{{ num_ports_to_connect | default(3) }}"
+            target_sonic_host: "{{ sonic_hostname }}"
+          loop: "{{ groups['l1_switch'] }}"
+          loop_control:
+            loop_var: target_l1_switch
+          when:
+            - is_ixia_testbed is defined
+            - is_ixia_testbed | bool
+            - configure_l1 | default(false) | bool
+      when:
+        - is_ixia_testbed is defined
+        - is_ixia_testbed | bool
+        - configure_l1 | default(false) | bool
+
+    - name: set vm
+      set_fact:
+        vm_base: "{% if 'vm_base' in testbed_facts and testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
+    when: testbed_name is defined
+
+  - name: find supervisor dut of testbed
+    set_fact:
+      sup_dut: "{{ item | default(None) }}"
+    when: hostvars[item]['card_type'] is defined and hostvars[item]['card_type'] == 'supervisor'
+    loop: "{{ testbed_facts['duts'] }}"
+
+  - name: Get asics_present of supervisor dut
+    set_fact:
+      asics_present: "{{ hostvars[sup_dut]['asics_present'] | default([]) }}"
+    when: sup_dut is defined and hostvars[sup_dut]['asics_present'] is defined
+
+  - topo_facts: topo={{ topo }} hwsku={{ hwsku }} testbed_name={{ testbed_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
+    delegate_to: localhost
+
+  - name: override group_file for route-conv
+    set_fact:
+      conn_graph_group: "{{ testbed_facts['inv_name'] }}"
+    when: is_ixia_testbed
+
+  - name: get connection graph if defined for dut (ignore any errors)
+    conn_graph_facts:
+      host: "{{ inventory_hostname }}"
+      group: "{{ conn_graph_group if conn_graph_group is defined else omit }}"
+      ignore_errors: true
+      forced_mgmt_routes: "{{ forced_mgmt_routes | default([]) }}"
+    delegate_to: localhost
+    ignore_errors: true
+
+  - set_fact:
+      type: "unknown"
+    when: hostvars[inventory_hostname].type is not defined
+
+  - name: determine whether to sort port_alias by index
+    set_fact:
+      sort_by_index: false
+    when: switch_type is defined and switch_type == "voq" and type == "kvm"
+
+  - name: find interface name mapping and individual interface speed if defined from dut
+    port_alias:
+      hwsku: "{{ hwsku }}"
+      card_type: "{{ card_type | default('fixed') }}"
+      hostname: "{{ inventory_hostname | default('') }}"
+      switchids: "{{ switchids | default([]) }}"
+      num_asic: "{{ num_asics }}"
+      sort_by_index: "{{ sort_by_index | default(true) }}"
+    when: deploy is defined and deploy|bool == true
+
+  - name: find interface name mapping and individual interface speed if defined with local data
+    port_alias:
+      hwsku: "{{ hwsku }}"
+      num_asic: "{{ num_asics }}"
+      card_type: "{{ card_type | default('fixed') }}"
+      hostname: "{{ inventory_hostname | default('') }}"
+      switchids: "{{ switchids | default([]) }}"
+      slotid: "{{ slot_num | default(None) }}"
+      sort_by_index: "{{ sort_by_index | default(true) }}"
+    delegate_to: localhost
+    when: deploy is not defined or deploy|bool == false
+
+  - name: find and generate fabric ASIC information
+    fabric_info:
+      num_fabric_asic: "{{ num_fabric_asics | default(0) }}"
+      asics_host_basepfx: "{{ asics_host_ip | default(None) }}"
+      asics_host_basepfx6: "{{ asics_host_ipv6 | default(None) }}"
+    delegate_to: localhost
+
+  - name: set all VoQ system ports information
+    set_fact:
+      all_sysports: "{{ all_sysports | default( [] ) + hostvars[item]['sysports'] }}"
+    when: hostvars[item]['sysports'] is defined
+    loop: "{{ ansible_play_batch }}"
+
+  - name: set all v4 Inband Ip information for iBGP chassis voq
+    set_fact:
+      all_inbands: "{{ all_inbands | default( {} ) | combine( { item : hostvars[item]['voq_inband_ip']}) }}"
+    when: hostvars[item]['voq_inband_ip'] is defined
+    loop: "{{ ansible_play_batch }}"
+
+  - name: set all v6 Inband Ip information for iBGP chassis voq
+    set_fact:
+      all_inbands_ipv6: "{{ all_inbands_ipv6 | default( {} ) | combine( { item : hostvars[item]['voq_inband_ipv6']}) }}"
+    when: hostvars[item]['voq_inband_ipv6'] is defined
+    loop: "{{ ansible_play_batch }}"
+
+  - name: set all Loopback4096 information for iBGP chassis
+    set_fact:
+      all_loopback4096: "{{ all_loopback4096 | default( {} ) | combine( { item : hostvars[item]['loopback4096_ip']}) }}"
+    when: hostvars[item]['loopback4096_ip'] is defined
+    loop: "{{ ansible_play_batch }}"
+
+  - name: set all Loopback4096 ipv6 information for iBGP chassis
+    set_fact:
+      all_loopback4096_ipv6: "{{ all_loopback4096_ipv6 | default( {} ) | combine( { item : hostvars[item]['loopback4096_ipv6']}) }}"
+    when: hostvars[item]['loopback4096_ipv6'] is defined
+    loop: "{{ ansible_play_batch }}"
+
+  - name: set all slot information for chassis
+    set_fact:
+      all_slots: "{{ all_slots | default( {} ) | combine( { item : hostvars[item]['slot_num']}) }}"
+    when: hostvars[item]['slot_num'] is defined
+    loop: "{{ ansible_play_batch }}"
+
+  - name: find all enabled host_interfaces
+    set_fact:
+      host_if_indexes: "{{ vm_topo_config['host_interfaces_by_dut'][dut_index|int] | difference(vm_topo_config['disabled_host_interfaces_by_dut'][dut_index|int]) }}"
+
+  - name: find all vlan interface names for T0 topology
+    set_fact:
+      vlan_intfs: "{{ vlan_intfs|default([]) + [port_alias[item]] }}"
+    with_items: "{{ host_if_indexes }}"
+    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
+  - name: set default dualtor facts
+    set_fact:
+      dual_tor_facts: {}
+      mux_cable_facts: {}
+    when: "'dualtor' not in topo"
+
+  - name: gather dual ToR information
+    dual_tor_facts:
+      hostname: "{{ inventory_hostname }}"
+      testbed_facts: "{{ testbed_facts }}"
+      hostvars: "{{ hostvars }}"
+      vm_config: "{{ vm_topo_config }}"
+      port_alias: "{{ port_alias }}"
+      vlan_intfs: "{{ vlan_intfs }}"
+      vlan_config: "{{ vlan_config | default(None) }}"
+    delegate_to: localhost
+    when: "'dualtor' in topo or 'cable' in topo"
+
+  - name: gather mux cable information
+    mux_cable_facts:
+      topo_name: "{{ topo }}"
+      vlan_config: "{{ vlan_config | default(None) }}"
+    delegate_to: localhost
+    when: "'dualtor' in topo"
+
+  - name: generate y_cable simulator driver
+    include_tasks: dualtor/config_simulated_y_cable.yml
+    vars:
+      restart_pmon: no
+    when: "'dualtor' in topo"
+
+  - name: gather hwsku for LeafRouter that supports dualtor deployment
+    set_fact:
+      hwsku_list_dualtor_t1: "['ACS-MSN4600C', 'Arista-7260CX3-C64']"
+
+  - name: enable tunnel_qos_remap for T1 in dualtor deployment
+    set_fact:
+      enable_tunnel_qos_remap: true
+    when: "(('leafrouter' == (vm_topo_config['dut_type'] | lower)) or ('backendleafrouter' == (vm_topo_config['dut_type'] | lower))) and (hwsku in hwsku_list_dualtor_t1) and not (is_ixia_testbed)"
+
+  - name: gather hwsku that supports ComputeAI deployment
+    set_fact:
+      hwsku_list_compute_ai: "['Cisco-8111-O64', 'Cisco-8111-O32', 'Cisco-8122-O64', 'Cisco-8122-O64S2', 'Cisco-8122-O128']"
+
+  - name: enable ComputeAI deployment
+    set_fact:
+      enable_compute_ai_deployment: true
+    when: "(hwsku in hwsku_list_compute_ai) and not (is_ixia_testbed) and 'isolated' in topo"
+
+  - name: set default vm file path
+    set_fact:
+      vm_file: veos
+    when: vm_file is not defined
+
+  - set_fact:
+      VM_topo: "{% if 'ptf' in topo %}False{% else %}True{% endif %}"
+      remote_dut: "{{ ansible_ssh_host }}"
+
+  - name: gather testbed VM information
+    testbed_vm_info: base_vm={{ testbed_facts['vm_base'] if 'vm_base' in testbed_facts else "" }} topo={{ testbed_facts['topo'] }} vm_file={{ vm_file }} servers_info={{ testbed_facts['servers'] | default({}) }}
+    delegate_to: localhost
+    when: "(VM_topo | bool) and ('cable' not in topo)"
+
+  - name: find all vlan configurations for T0 topology
+    vlan_config:
+      vm_topo_config: "{{ vm_topo_config }}"
+      port_alias: "{{ port_alias }}"
+      vlan_config: "{{ vlan_config | default(None) }}"
+    delegate_to: localhost
+    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
+  - name: find downlink portchannel configuration for T0 topology
+    set_fact:
+      portchannel_config: "{{ vm_topo_config['DUT']['portchannel_config'] | default({})}}"
+    delegate_to: localhost
+    when: "('host_interfaces_by_dut' in vm_topo_config) and ('tor' in vm_topo_config['dut_type'] | lower)"
+
+  - name: find any tunnel configurations
+    tunnel_config:
+      vm_topo_config: "{{ vm_topo_config }}"
+      tunnel_config: "{{ tunnel_config | default(None) }}"
+    delegate_to: localhost
+
+  - name: find all interface indexes mapping connecting to VM
+    set_fact:
+      interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
+    with_dict: "{{ vm_topo_config['vm'] }}"
+    when: "'cable' not in topo"
+
+  - name: find all interface indexes connecting to VM
+    set_fact:
+      ifindex_to_vms: "{{ ifindex_to_vms|default([]) + item.value['interface_indexes'][dut_index|int] }}"
+    with_dict: "{{ vm_topo_config['vm'] }}"
+    when: "'cable' not in topo"
+
+  - name: find all interface names
+    set_fact:
+      intf_names: "{{ intf_names | default({}) | combine({item.0.name:  intf_names[item.0.name]|default([]) + [ port_alias[item.1]] }) }}"
+    with_subelements:
+      - "{{ interface_to_vms | default([]) }}"
+      - "ports"
+    when: "'cable' not in topo"
+
+  # create map of VM to asic interface names
+  - name: find all interface asic names
+    set_fact:
+      vm_asic_ifnames: "{{ vm_asic_ifnames | default({}) | combine({item.0.name: vm_asic_ifnames[item.0.name]|default([]) + [ front_panel_asic_ifnames[item.1]] }) }}"
+      vm_asic_ids: "{{ vm_asic_ids | default({}) | combine({item.0.name: vm_asic_ids[item.0.name]|default([]) + [ front_panel_asic_ifs_asic_id[item.1]] }) }}"
+    with_subelements:
+      - "{{ interface_to_vms | default([]) }}"
+      - "ports"
+    when: front_panel_asic_ifnames != []
+
+  - block:
+      - name: Create new dictionary for my slot
+        set_fact:
+          new_asic_topo_config : "{{ new_asic_topo_config | default( { slot_num  : asic_topo_config.slot0 }) }}"
+
+      - name: set asic_topo_config to new dictionary
+        set_fact:
+          asic_topo_config: "{{ new_asic_topo_config }}"
+
+    when: switch_type is defined and switch_type == 'voq' and slot_num is defined and asic_topo_config|length > 0
+
+  - name: set default voq_chassis
+    set_fact:
+      voq_chassis: false
+
+  - name: set voq_chassis
+    set_fact:
+      voq_chassis: true
+    when: switch_type is defined and switch_type == 'voq' and voq_inband_ip is defined
+
+  - name: create minigraph file in ansible minigraph folder
+    template: src=templates/minigraph_template.j2
+              dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
+    delegate_to: localhost
+    when: local_minigraph is defined and local_minigraph|bool == true
+
+  - block:
+    - name: Init telemetry keys
+      set_fact:
+        server_key_t: ""
+        server_cer_t: ""
+        dsmsroot_key_t: ""
+        dsmsroot_cer_t: ""
+        dir_path_t: ""
+        subject_server: ""
+        subject_client: ""
+
+    - name: read server key
+      set_fact:
+        server_key_t: "{{ telemetry_certs['server_key'] }}"
+      when: telemetry_certs['server_key'] is defined
+
+    - name: read server cer
+      set_fact:
+        server_cer_t: "{{ telemetry_certs['server_cer'] }}"
+      when: telemetry_certs['server_cer'] is defined
+
+    - name: read dsmsroot key
+      set_fact:
+        dsmsroot_key_t: "{{ telemetry_certs['dsmsroot_key'] }}"
+      when: telemetry_certs['dsmsroot_key'] is defined
+
+    - name: read dsmsroot cer
+      set_fact:
+        dsmsroot_cer_t: "{{ telemetry_certs['dsmsroot_cer'] }}"
+      when: telemetry_certs['dsmsroot_cer'] is defined
+
+    - name: read directory path
+      set_fact:
+        dir_path_t: "{{ telemetry_certs['dir_path'] }}"
+      when: telemetry_certs['dir_path'] is defined
+
+    - name: read server subject
+      set_fact:
+        subject_server: "{{ telemetry_certs['subject_server'] }}"
+      when: telemetry_certs['subject_server'] is defined
+
+    - name: read client subject
+      set_fact:
+        subject_client: "{{ telemetry_certs['subject_client'] }}"
+      when: telemetry_certs['subject_client'] is defined
+
+    - include_tasks: deploy_certs.yml
+      vars:
+        dir_path: "{{ dir_path_t }}"
+        server_crt: "{{ server_cer_t }}"
+        server_key: "{{ server_key_t }}"
+        dsmsroot_cer: "{{ dsmsroot_cer_t }}"
+        dsmsroot_key: "{{ dsmsroot_key_t }}"
+        cert_subject: "{{ subject_server }}"
+        root_subject: "{{ subject_client }}"
+
+    when: deploy is defined and deploy|bool == true
+
+  - block:
+    - name: Init restapi keys
+      set_fact:
+        server_key_t: ""
+        server_crt_t: ""
+        dir_path_t: ""
+        subject_t: ""
+
+    - name: read server key
+      set_fact:
+        server_key_t: "{{ restapi_certs['server_key'] }}"
+      when: restapi_certs['server_key'] is defined
+
+    - name: read server crt
+      set_fact:
+        server_crt_t: "{{ restapi_certs['server_crt'] }}"
+      when: restapi_certs['server_crt'] is defined
+
+    - name: read subject
+      set_fact:
+        subject_t: "{{ restapi_certs['subject'] }}"
+      when: restapi_certs['subject'] is defined
+
+    - name: read directory path
+      set_fact:
+        dir_path_t: "{{ restapi_certs['dir_path'] }}"
+      when: restapi_certs['dir_path'] is defined
+
+    - include_tasks: deploy_certs.yml
+      vars:
+        dir_path: "{{ dir_path_t }}"
+        server_crt: "{{ server_crt_t }}"
+        server_key: "{{ server_key_t }}"
+        cert_subject: "{{ subject_t }}"
+    when: deploy is defined and deploy|bool == true
+
+  - name: Set docker proxy
+    block:
+      - name: Ensures /etc/systemd/system/docker.service.d dir exists
+        file:
+          path: /etc/systemd/system/docker.service.d
+          state: directory
+          recurse: yes
+
+      - name: Render docker proxy config
+        template:
+          src: 'templates/docker_http_proxy.j2'
+          dest: '/etc/systemd/system/docker.service.d/http-proxy.conf'
+          force: yes
+
+      - name: restart docker service, let docker proxy takes effect
+        systemd:
+          state: restarted
+          daemon_reload: yes
+          name: docker
+
+      - name: Wait 60s for docker containers to restart
+        pause:
+          seconds: 60
+    become: true
+    when: proxy_env is defined and deploy is defined and deploy|bool == true
+
+  - name: Enable PTF tacacs server by default
+    set_fact:
+        use_ptf_tacacs_server: true
+        tacacs_enabled_by_default: true
+    when: use_ptf_tacacs_server is not defined
+
+  - debug: msg="use_ptf_tacacs_server {{ use_ptf_tacacs_server }}"
+
+  - block:
+      - name: Load variables from topology file for topo_{{ topo }}.yml
+        include_vars: "vars/topo_{{ topo }}.yml"
+
+      - name: saved original minigraph file in SONiC DUT(ignore errors when file does not exist)
+        shell: mv /etc/sonic/minigraph.xml /etc/sonic/minigraph.xml.orig
+        become: true
+        ignore_errors: true
+        when: init_cfg_profile is not defined
+
+      - name: Determine if configuring IPv6-only management (based on use_ipv6_mgmt flag, not current ansible_host)
+        set_fact:
+            sonic_mgmt_ipv6: "{{ use_ipv6_mgmt is defined and use_ipv6_mgmt|bool == true }}"
+
+      - name: Update TACACS server address to PTF IP (IPv4)
+        set_fact:
+            tacacs_servers: ["{{ testbed_facts['multi_servers_tacacs_ip'] if 'multi_servers_tacacs_ip' in testbed_facts else testbed_facts['ptf_ip'] }}"]
+        when:
+          - use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+          - not sonic_mgmt_ipv6|bool
+
+      - name: Validate IPv6 TACACS configuration for IPv6-only management mode
+        fail:
+            msg: "IPv6-only management mode requested for {{ inventory_hostname }} but ptf_ipv6 is not configured in testbed file"
+        when:
+          - use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+          - sonic_mgmt_ipv6|bool
+          - testbed_facts.get('ptf_ipv6', '') == ''
+
+      - name: Update TACACS server address to PTF IP (IPv6) for IPv6-only management mode
+        set_fact:
+            tacacs_servers: ["{{ testbed_facts['ptf_ipv6'] | regex_replace('/.*$', '') }}"]
+        when:
+          - use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+          - sonic_mgmt_ipv6|bool
+          - testbed_facts['ptf_ipv6'] is defined and testbed_facts['ptf_ipv6'] != ""
+
+      - debug: msg="Configuring IPv6-only management mode={{ sonic_mgmt_ipv6|default(false) }}"
+        when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+
+      - debug: msg="tacacs_servers {{ tacacs_servers }}"
+
+      - name: create new minigraph file for SONiC device
+        template: src=templates/minigraph_template.j2
+                  dest=/etc/sonic/minigraph.xml
+        become: true
+        when: init_cfg_profile is not defined
+
+      - block:
+        - name: Load variables from vars/init_cfg_profiles.yml
+          include_vars: "vars/init_cfg_profiles.yml"
+        - name: set cfg_profile to {{ init_cfg_profile }}
+          set_fact:
+            cfg_profile: "{{ init_cfg_profile }}"
+        - name: Set actual configuration value based on cfg_profile key
+          set_fact:
+            actual_config: "{{ lookup('vars', cfg_profile) }}"
+        - name: Debug actual configuration value
+          debug:
+            msg: "The actual configuration value is: {{ actual_config }}"
+        - name: Copy over config_db.json from file system for {{ cfg_profile }}
+          copy :
+            src: "{{ actual_config }}"
+            dest: /tmp/config_db.json
+          when: cfg_profile is defined
+        - name: Overwrite config_db.json
+          shell: cat /tmp/config_db.json > /etc/sonic/config_db.json
+          become: yes
+        when: init_cfg_profile is defined
+
+      - name: Test if configlet script exist
+        stat:
+            path: vars/configlet/{{ topo }}/apply_clet.sh
+        register: stat_result
+        delegate_to: localhost
+
+      - name: debug print stat_result
+        debug:
+          msg: Stat result is {{ stat_result }}
+
+      - name: Copy corresponding configlet files if exist
+        copy: src=vars/configlet/{{ topo }}/
+              dest=/etc/sonic/
+        become: true
+        when: stat_result.stat.exists is defined and stat_result.stat.exists
+
+      - name: Init account key and proxy
+        set_fact:
+            core_key: ""
+            core_proxy: ""
+
+      - name: Test if core_analyzer.rc.json exists
+        stat:
+            path: /etc/sonic/core_analyzer.rc.json
+        register: rc_stat
+
+      - name: read account key
+        set_fact:
+            core_key: "{{ corefile_uploader['azure_sonic_core_storage']['account_key'] }}"
+        when: rc_stat.stat.exists is defined and rc_stat.stat.exists and corefile_uploader['azure_sonic_core_storage']['account_key'] is defined
+
+      - name: read https proxy
+        set_fact:
+            core_proxy: "{{ corefile_uploader['env']['https_proxy'] }}"
+        when: rc_stat.stat.exists is defined and rc_stat.stat.exists and corefile_uploader['env']['https_proxy'] is defined
+
+      - name: Put secret in core_analyzer.rc.json
+        lineinfile:
+            name: /etc/sonic/core_analyzer.rc.json
+            regexp: '(^.*)account_key'
+            line: '\1account_key": "{{ core_key }}",'
+            backrefs: yes
+        become: true
+        when: core_key != ""
+
+      - name: Put https-proxy in core_analyzer.rc.json
+        lineinfile:
+            name: /etc/sonic/core_analyzer.rc.json
+            regexp: '(^.*)https_proxy'
+            line: '\1https_proxy": "{{ core_proxy }}"'
+            backrefs: yes
+        become: true
+        when: core_proxy != ""
+
+      - name: enable core uploader service
+        become: true
+        command: systemctl enable core_uploader.service
+        when: core_key != ""
+
+      - name: start core uploader service
+        become: true
+        command: systemctl start core_uploader.service
+        when: core_key != ""
+
+      - name: Replace snmp community string
+        lineinfile:
+            name: /etc/sonic/snmp.yml
+            regexp: '^snmp_rocommunity:'
+            line: 'snmp_rocommunity: {{ snmp_rocommunity }}'
+        become: true
+        when: init_cfg_profile is not defined
+
+      - name: docker status
+        shell: docker ps
+        register: docker_status
+
+      - debug: msg={{ docker_status.stdout_lines }}
+
+      - name: start topology service for multi-asic platform
+        become: true
+        shell: systemctl start topology.service
+        when: start_topo_service is defined and start_topo_service|bool == true
+        register: result
+        retries: 3
+        delay: 10
+        until: result is not failed
+
+      - name: Cleanup /etc/sonic folder before loading new minigraph
+        block:
+        - name: Ensure /etc/sonic/acl.json is deleted
+          become: true
+          file:
+            path: /etc/sonic/acl.json
+            state: absent
+        - name: Ensure /etc/sonic/port_config.json is deleted
+          become: true
+          file:
+            path: /etc/sonic/port_config.json
+            state: absent
+
+      - name: find interface name mapping
+        port_alias:
+          hwsku: "{{ hwsku }}"
+        when: topo == "mx"
+
+      - name: Preload minigraph to flush config_db for Virtual Chassis and Multi-ASIC platforms
+        shell: config load_minigraph -y && config save -y
+        become: true
+        when: "('t2' in topo or num_asics > 1) and type == 'kvm'"
+
+      - name: Wait for essential services to start
+        shell: systemctl is-active --quiet pmon
+        register: pmon_status
+        retries: 30
+        delay: 10
+        until: pmon_status.rc == 0
+        when: "('t2' in topo or num_asics > 1) and type == 'kvm'"
+
+      - name: Copy dhcp_server config hwsku {{ hwsku }}
+        copy: src=golden_config_db/dhcp_server_mx.json
+              dest=/tmp/dhcp_server.json
+        become: true
+        when: topo == "mx"
+
+      - name: Copy smartswitch config
+        copy: src=golden_config_db/smartswitch_t1.json
+              dest=/tmp/smartswitch.json
+        become: true
+        # t1-28-lag is smartswitch topo only
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
+
+      - name: Create dns config
+        template: src=templates/dns_config.j2
+                  dest=/tmp/dns_config.json
+        become: true
+
+      - name: Adjust BCM DNX soc properties to set STAN_ALN mode correctly
+        block:
+          - name: Get active fabric links
+            block:
+            - name: Get online fabric cards
+              shell: show chassis module status | grep "FABRIC-CARD" | grep "Online" | wc -l
+              register: active_fabric_cards
+
+            - name: Set fabric links based on active fabric cards
+              set_fact:
+                fabric_links: "{{ active_fabric_cards.stdout | int * 24 }}"
+
+            when: inventory_hostname == sup_dut
+
+          - name: Adjust SOC properties if appl_param_active_links_thr_high is greater than fabric links
+            block:
+              - name: Set SOC properties locations
+                set_fact:
+                  device_config_path: "/usr/share/sonic/device/{{ sonic_hw_platform }}/{{ hwsku }}/*"
+
+              - name: Get appl_param_active_links_thr_high
+                shell: grep -ir appl_param_active_links_thr_high {{ device_config_path }} | sed -n 's/.*appl_param_active_links_thr_high=\([0-9]*\).*/\1/p'
+                register: high_active_links_grep
+
+              - name: Get highest appl_param_active_links_thr_high value
+                set_fact:
+                  high_active_links: "{{ high_active_links_grep.stdout_lines | map('int') | max }}"
+
+              - name: Set new appl_param_active_links_thr_high value
+                set_fact:
+                  new_active_links: "{{ ((2/3)*(hostvars[sup_dut]['fabric_links'] | int)) | int }}"
+
+              - name: Adjust appl_param_active_links_thr_high to match active fabric links
+                shell: grep -rl appl_param_active_links_thr_high {{ device_config_path }} | xargs sudo sed -i 's/appl_param_active_links_thr_high=.*/appl_param_active_links_thr_high={{ new_active_links }}/g'
+                when: high_active_links | int > hostvars[sup_dut]['fabric_links'] | int
+                # Needs to be followed by config reload to take affect
+
+            when: inventory_hostname != sup_dut
+        when: ("t2" in topo) and (switch_type is defined and (switch_type == "voq" or switch_type == "fabric")) and (hwsku is defined and 'Nokia-IXR7250' in hwsku)
+        rescue:
+          - debug: msg="SOC properties may not be defined in the device config file. Skipping adjustment of SOC properties."
+
+      - name: Generate golden_config_db.json
+        generate_golden_config_db:
+          topo_name: "{{ topo }}"
+          port_index_map: "{{ port_index_map | default({}) }}"
+          hwsku: "{{ hwsku }}"
+          vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
+          is_lit_mode: "{{ is_lit_mode | default(true) }}"
+        become: true
+
+      - name: Copy macsec profile json to dut
+        copy: src=../tests/common/macsec/profile.json
+              dest=/tmp/profile.json
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
+
+      - name: Copy golden_config_db_t2 template to DUT
+        copy: src=templates/golden_config_db_t2.j2
+              dest=/tmp/golden_config_db_t2.j2
+        become: true
+        when: "('t2' in topo) and (enable_macsec is defined)"
+
+      - name: Generate golden_config_db.json for t2
+        generate_golden_config_db:
+          topo_name: "{{ topo }}"
+          macsec_profile: "{{ macsec_profile }}"
+          num_asics: "{{ num_asics }}"
+        become: true
+        when: "('t2' in topo) and (macsec_profile is defined)"
+
+      - name: Use minigraph case
+        block:
+        - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph
+          become: true
+          shell: config load_minigraph --override_config -y
+          register: load_minigraph_result
+          failed_when:
+            - load_minigraph_result.rc != 0
+            - "'no such option: --override_config' not in load_minigraph_result.stderr"
+          # When switching to IPv6-only, the management IP changes and connection may drop
+          # Use async to prevent SSH connection timeout from failing the task
+          async: "{{ 300 if (use_ipv6_mgmt|default(false)|bool) else 0 }}"
+          poll: "{{ 0 if (use_ipv6_mgmt|default(false)|bool) else 15 }}"
+          when: not (use_ipv6_mgmt|default(false)|bool)
+
+        - name: execute cli "config load_minigraph --override_config -y" to apply new minigraph (IPv6 transition)
+          become: true
+          shell: config load_minigraph --override_config -y
+          register: load_minigraph_result_ipv6
+          async: 300
+          poll: 0
+          ignore_errors: true
+          when: use_ipv6_mgmt|default(false)|bool
+
+        - name: Pause briefly to allow minigraph load to start (IPv6 transition)
+          pause:
+            seconds: 5
+          when: use_ipv6_mgmt|default(false)|bool
+
+        - name: execute cli "config load_minigraph -y" to apply new minigraph
+          become: true
+          shell: config load_minigraph -y
+          when:
+            - not (use_ipv6_mgmt|default(false)|bool)
+            - "'no such option: --override_config' in load_minigraph_result.stderr"
+
+        - name: remove DSCP_TO_TC_MAP for {{ hwsku }}. Some platform doesn't support this configuration
+          become: true
+          shell: redis-cli -n 4 del "DSCP_TO_TC_MAP|AZURE"
+          when:
+          - hwsku is defined
+          - hwsku == 'cisco-8101-p4-32x100-vs'
+          - not (use_ipv6_mgmt|default(false)|bool)
+        when: init_cfg_profile is not defined
+
+      - name: SONiC config reload to pick up config_db.json
+        command: config reload -y
+        become: yes
+        when: init_cfg_profile is defined
+
+      - name: Wait for switch to become reachable again
+        become: false
+        local_action: wait_for
+        args:
+          # When use_ipv6_mgmt is true, wait on IPv6 address
+          # When use_ipv6_mgmt is false/undefined, wait on IPv4 (original_ipv4_address if we auto-switched to IPv6, otherwise ansible_host)
+          host: "{{ ansible_hostv6 if (use_ipv6_mgmt|default(false)|bool and ansible_hostv6 is defined and ansible_hostv6 != '') else (original_ipv4_address if original_ipv4_address is defined else ansible_host) }}"
+          port: 22
+          state: started
+          search_regex: "OpenSSH_[\\w\\.]+ Debian"
+          delay: 10
+          timeout: 600
+        changed_when: false
+
+      - name: Switch ansible_host to IPv6 after minigraph load (for subsequent tasks)
+        set_fact:
+          ansible_host: "{{ ansible_hostv6 }}"
+        when:
+          - use_ipv6_mgmt|default(false)|bool
+          - ansible_hostv6 is defined
+          - ansible_hostv6 != ''
+
+      - name: Check if chrony exists
+        service: name=chrony
+        register: chrony_service
+
+      - name: Sync DUT system time with NTP server with ntpd
+        block:
+          - name: Check if "TimeoutSec=" exists in the file
+            command: grep -q 'TimeoutSec=' /lib/systemd/system/ntpsec.service
+            register: timeoutsec_check
+            ignore_errors: yes
+            changed_when: false
+
+          - name: Add the TimeoutSec for ntp.service on DUT
+            become: true
+            shell: sed -i '/^\[Service\]/a TimeoutSec=600' /lib/systemd/system/ntpsec.service
+            when: "'t2' in topo and type == 'kvm' and timeoutsec_check.rc != 0"
+
+          - name: Reload systemd daemon
+            become: true
+            command: systemctl daemon-reload
+            when: "'t2' in topo and type == 'kvm'"
+
+          - name: Wait for ntp.service restart after reload minigraph
+            become: true
+            service: name=ntp state=started
+
+          - name: Stop ntp.service on DUT
+            become: true
+            service: name=ntp state=stopped
+
+          - name: Sync DUT system time with NTP server
+            become: true
+            command: ntpd -gq
+            ignore_errors: true
+            async: 60
+            poll: 10
+
+          - name: Set the RTC from the system time
+            become: true
+            command: hwclock --systohc
+            ignore_errors: true
+
+          - name: Start ntp.service on DUT
+            become: true
+            service: name=ntp state=restarted enabled=true
+        when: chrony_service.status.LoadState == "not-found"
+
+      - name: Remove specific PortChannel IPs from running CONFIG_DB
+        become: true
+        shell: |
+          for pc in PortChannel1 PortChannel3 PortChannel4 PortChannel6; do
+            for ip in $(redis-cli -n 4 keys "PORTCHANNEL_INTERFACE|$pc|*" | cut -d'|' -f3); do
+              echo "Removing $pc $ip"
+              config interface ip remove $pc $ip || true
+            done
+          done
+        when: topo == "t1-filterleaf-lag"
+
+      - name: Sync DUT system time with NTP server with chrony
+        block:
+          - name: Wait for chrony.service restart after reload minigraph
+            become: true
+            service: name=chrony state=started
+
+          - name: Stop chrony.service on DUT
+            become: true
+            service: name=chrony state=stopped
+
+          - name: Sync DUT system time with NTP server
+            become: true
+            command: chronyd -F 1 -q
+            ignore_errors: true
+            async: 60
+            poll: 10
+
+          - name: Start chrony.service on DUT
+            become: true
+            service: name=chrony state=restarted enabled=true
+        when: chrony_service.status.LoadState != "not-found"
+
+      - name: Check if "config bmp" is supported
+        shell: "config -h | grep 'BMP-related configuration'"
+        register: bmp_support_check
+        ignore_errors: true
+        changed_when: false
+        failed_when: false
+
+      - name: Enable bmp relevant config dump
+        block:
+          - name: execute cli "config bmp enable bgp-neighbor-table" to enable bgp-neighbor-table
+            command: sudo config bmp enable bgp-neighbor-table
+
+          - name: execute cli "config bmp enable bgp-rib-in-table" to enable bgp-rib-in-table
+            command: sudo config bmp enable bgp-rib-in-table
+
+          - name: execute cli "config bmp enable bgp-rib-out-table" to enable bgp-rib-out-table
+            command: sudo config bmp enable bgp-rib-out-table
+        when: bmp_support_check.rc == 0
+
+      - name: config static route for trex traffic passthrough
+        become: true
+        command: "{{ item }}"
+        with_items:
+          - config route add prefix 48.0.0.0/8 nexthop 10.0.0.59
+          - config route add prefix 16.0.0.0/8 nexthop 10.0.0.57
+        when: topo == "wan-3link-tg"
+
+      - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
+        become: true
+        shell: config bgp startup all
+
+      - name: Copy smartswitch dpu config
+        copy: src=golden_config_db/smartswitch_dpu_extra.json
+              dest=/tmp/dpu_extra.json
+        become: true
+        # t1-28-lag is smartswitch topo only
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
+        tags: [ dpu_config ]
+
+      - name: Load DPU config in smartswitch
+        load_extra_dpu_config:
+          hwsku: "{{ hwsku }}"
+          hostname: "{{ inventory_hostname }}"
+          host_username: "{{ sonic_login }}"
+          host_passwords: "{{ sonic_default_passwords }}"
+        become: true
+        # t1-28-lag is smartswitch topo only
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
+        tags: [ dpu_config ]
+
+      - name: Configure TACACS
+        become: true
+        shell: "{{ tacacs_config_cmd }}"
+        loop:
+          - config tacacs passkey {{ tacacs_passkey }}
+          - config tacacs authtype pap
+          - config aaa authentication login tacacs+
+        loop_control:
+          loop_var: tacacs_config_cmd
+        ignore_errors: true
+        when: tacacs_enabled_by_default is defined and tacacs_enabled_by_default|bool == true
+
+      - block:
+          - name: Configure TACACS with PTF TACACS server
+            become: true
+            shell: "{{ tacacs_config_cmd }}"
+            loop:
+              - config tacacs authtype login
+              - config aaa authorization tacacs+
+              - config aaa accounting "tacacs+ local"
+            loop_control:
+              loop_var: tacacs_config_cmd
+            ignore_errors: true
+
+          - name: Configure TACACS with PTF TACACS server for MX
+            become: true
+            shell: config aaa authorization "tacacs+ local"
+            when: topo == "mx"
+        when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+
+      - name: execute configlet application script, which applies configlets in strict order.
+        become: true
+        shell: bash "/etc/sonic/apply_clet.sh"
+        when: stat_result.stat.exists is defined and stat_result.stat.exists
+
+      - block:
+         - name: create isis config file for SONiC device
+           template: src=templates/isis_config.j2
+                     dest=/etc/sonic/isis_config.json
+           become: true
+
+         - name: active isis config
+           become: true
+           shell: sonic-cfggen -j /etc/sonic/isis_config.json -w
+
+         #will remove below task, after isisd issue got fixed
+         - name: restart bgp container
+           become: true
+           shell: docker restart bgp
+        when: topo == "wan-ecmp" or topo == "wan-pub-isis"
+
+      - block:
+        - name: set the default grpc credential file path
+          set_fact:
+            grpc_credential_file: /etc/sonic/grpc_secrets.json
+
+        - name: check if grpc credential file exists
+          stat:
+            path: "{{ grpc_credential_file }}"
+          register: stat_result
+
+        - block:
+          - name: collect initial grpc credentials
+            slurp:
+              path: "{{ grpc_credential_file }}"
+            register: grpc_credential_content
+
+          - name: parse initial grpc credentials
+            set_fact:
+              grpc_secrets_before: "{{ grpc_credential_content.content | b64decode | from_json }}"
+
+          - name: use insecure grpc for testing
+            shell: "sed -E -i 's/\"type\": \"secure\"/\"type\": \"insecure\"/' {{ grpc_credential_file }}"
+            become: true
+
+          - name: collect current grpc credentials
+            slurp:
+              path: "{{ grpc_credential_file }}"
+            register: grpc_credential_content
+
+          - name: parse current grpc credentials
+            set_fact:
+              grpc_secrets_after: "{{ grpc_credential_content.content | b64decode | from_json }}"
+
+          - name: show original grpc setting
+            debug:
+              var: grpc_secrets_before
+
+          - name: show new grpc setting
+            debug:
+              var: grpc_secrets_after
+
+          - name: restart the pmon service
+            block:
+              - name: attempt to restart pmon service
+                service:
+                  name: pmon
+                  state: restarted
+                become: true
+            rescue:
+              - name: reset failed state for pmon service
+                command: systemctl reset-failed pmon.service
+                become: true
+
+              - name: start pmon service after reset
+                service:
+                  name: pmon
+                  state: started
+                become: true
+
+          when: stat_result.stat.exists
+
+        when: "'dualtor-mixed' in topo or 'dualtor-aa' in topo"
+
+      - name: execute "TSB" on T2 DUTs
+        become: True
+        shell: "TSB"
+        when: "'t2' in topo"
+
+      - name: execute cli "config save -y" to save current minigraph as startup-config
+        become: true
+        shell: config save -y
+        when: save is defined and save|bool == true
+
+      - name: remove running golden config file if exists
+        become: True
+        file: path=/etc/sonic/running_golden_config.json
+              state=absent
+
+      - name: remove running golden config files for all the asics if exists
+        become: True
+        file: path=/etc/sonic/running_golden_config{{ item }}.json
+              state=absent
+        with_sequence: start=0 end={{ num_asics - 1 }}
+        when: num_asics > 1
+
+      - name: cleanup all cached facts
+        shell: python ../tests/common/cache/facts_cache.py
+        delegate_to: localhost
+        ignore_errors: true
+
+      # In pr https://github.com/sonic-net/sonic-buildimage/pull/12109, it decrease the sshd timeout
+      # which may cause timeout when executing `generate_dump -s yesterday`.
+      # Increase this time during deploying minigraph
+      - name: Reset sshd timeout
+        become: True
+        shell: sed -i "s/^ClientAliveInterval [0-9].*/ClientAliveInterval 900/g" /etc/ssh/sshd_config && systemctl restart sshd
+
+      - name: enable IPv6 on device
+        become: true
+        ansible.builtin.sysctl:
+          name: net.ipv6.conf.all.disable_ipv6
+          value: 0
+          sysctl_set: true
+
+    when: deploy is defined and deploy|bool == true

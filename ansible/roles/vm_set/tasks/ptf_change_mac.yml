@@ -1,0 +1,29 @@
+---
+- name: Set ptf host
+  set_fact:
+    ptf_host: "{{ ptf_ip.split('/')[0] }}"
+    ptf_host_ip: "{{ ptf_ip.split('/')[0] }}"
+
+- name: Add ptf host
+  add_host:
+    name: "{{ ptf_host }}"
+    groups:
+      - ptf
+
+- name: Send GARP to update neighbor's the ARP table for reachability
+  command: docker exec -i ptf_{{ vm_set_name }} arping -c 2 -A {{ ptf_host_ip }}
+  become: yes
+  ignore_errors: yes
+
+- name: wait until ptf is reachable
+  wait_for:
+    port: 22
+    host: "{{ ptf_host_ip }}"
+    state: started
+    delay: 0
+    timeout: 300
+  delegate_to: "localhost"
+
+- name: Change PTF interface MAC addresses
+  script: change_mac.sh
+  delegate_to: "{{ ptf_host }}"

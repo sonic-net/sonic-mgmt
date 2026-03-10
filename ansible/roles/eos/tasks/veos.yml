@@ -1,0 +1,32 @@
+- name: Set ansible login user name and password
+  set_fact: ansible_user="root" ansible_password={{ eos_root_password }}
+
+- name: Get VM front panel interface number
+  shell: virsh domiflist {{ inventory_hostname }} | grep -E "^\s*{{ inventory_hostname }}-t" | wc -l
+  register: fp_num
+  delegate_to: "{{ VM_host[0] }}"
+  become: yes
+
+- name: Set EOS backplane port name
+  set_fact: bp_ifname="Ethernet{{ fp_num.stdout|int + 1 }}"
+
+- name: copy rc.eos
+  copy: src=rc.eos
+        dest=/mnt/flash/rc.eos
+  when: hostname in configuration
+  notify:
+    - Update VM state
+
+- name: copy boot-config
+  copy: src=boot-config
+        dest=/mnt/flash/boot-config
+  when: hostname in configuration
+  notify:
+    - Update VM state
+
+- name: update startup-config
+  template: src="{{ topo }}-{{ props.swrole }}.j2"
+            dest=/mnt/flash/startup-config
+  when: hostname in configuration
+  notify:
+    - Update VM state

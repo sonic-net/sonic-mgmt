@@ -1,0 +1,13 @@
+#! /bin/bash -ex
+
+{% for vrf_idx in random_vrf_list %}
+{% set vrf_name = vrf_name_tpl.format(vrf_idx) %}
+{% set vlan_ip1 = ip1.next(vrf_idx - 1) %}
+{% set vlan_ip2 = ip2.next(vrf_idx - 1) %}
+
+echo 'ping vrf {{vrf_name}}...'
+ping {{vlan_ip1[-1]}} -I {{vrf_name}} -c {{count|default(3)}} -f -W {{timeout|default(2)}}
+ping {{vlan_ip2[-1]}} -I {{vrf_name}} -c {{count|default(3)}} -f -W {{timeout|default(2)}}
+echo 'done'
+
+{% endfor %}

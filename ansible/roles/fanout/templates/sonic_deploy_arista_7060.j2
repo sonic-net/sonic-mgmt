@@ -1,0 +1,292 @@
+{
+
+"DEVICE_METADATA": {
+    "localhost": {
+        "hwsku": "{{ device_info[inventory_hostname]["HwSku"] }}",
+        "hostname": "{{ inventory_hostname }}"
+    }
+},
+
+"PORT": {
+{% for alias in device_conn[inventory_hostname] %}
+    "{{ alias }}": {
+        "admin_status": "up",
+        "speed": "100000",
+        "fec": "rs"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+},
+
+"VLAN": {
+{% for vlanid in device_vlan_list[inventory_hostname] | unique %}
+    "Vlan{{ vlanid }}": {
+        "vlanid": "{{ vlanid }}"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+},
+
+{% set ns = {'firstPrinted': False} %}
+"VLAN_MEMBER": {
+{% for alias in device_port_vlans[inventory_hostname] %}
+{% if device_port_vlans[inventory_hostname][alias]['mode'] == 'Access' %}
+{% if ns.firstPrinted %},{% endif %}
+    "Vlan{{ device_port_vlans[inventory_hostname][alias]['vlanids'] }}|{{ alias }}": {
+        "tagging_mode" : "untagged"
+    }
+{% if ns.update({'firstPrinted': True}) %} {% endif %}
+{% elif device_port_vlans[inventory_hostname][alias]['mode'] == 'Trunk' %}
+  {% for vlanid in device_port_vlans[inventory_hostname][alias]['vlanlist'] %}
+{% if ns.firstPrinted %},{% endif %}
+    "Vlan{{ vlanid }}|{{ alias }}": {
+        "tagging_mode" : "tagged"
+    }
+{% if ns.update({'firstPrinted': True}) %} {% endif %}
+  {% endfor %}
+{% endif %}
+{% endfor %}
+},
+
+"MGMT_INTERFACE": {
+    "eth0|{{ device_info[inventory_hostname]["ManagementIp"] }}": {
+        "gwaddr": "{{ device_info[inventory_hostname]["ManagementGw"] }}"
+    }
+},
+
+"FLEX_COUNTER_TABLE": {
+    "PFCWD": {
+        "FLEX_COUNTER_STATUS": "enable"
+    },
+    "PORT": {
+        "FLEX_COUNTER_STATUS": "enable"
+    },
+    "QUEUE": {
+        "FLEX_COUNTER_STATUS": "enable"
+    }
+},
+"QUEUE": {
+{% if sonic_qos_db_fv_reference_with_table == 'true' %}
+{% for alias in device_conn[inventory_hostname] %}
+    "{{ alias }}|0": {
+        "scheduler": "[SCHEDULER|scheduler.0]"
+    },
+    "{{ alias }}|1": {
+        "scheduler": "[SCHEDULER|scheduler.0]"
+    },
+    "{{ alias }}|2": {
+        "scheduler": "[SCHEDULER|scheduler.0]"
+    },
+    "{{ alias }}|3": {
+        "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
+        "scheduler": "[SCHEDULER|scheduler.1]"
+    },
+    "{{ alias }}|4": {
+        "wred_profile": "[WRED_PROFILE|AZURE_LOSSLESS]",
+        "scheduler": "[SCHEDULER|scheduler.1]"
+    },
+    "{{ alias }}|5": {
+        "scheduler": "[SCHEDULER|scheduler.0]"
+    },
+    "{{ alias }}|6": {
+        "scheduler": "[SCHEDULER|scheduler.0]"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+{% else %}
+{% for alias in device_conn[inventory_hostname] %}
+    "{{ alias }}|0": {
+        "scheduler": "scheduler.0"
+    },
+    "{{ alias }}|1": {
+        "scheduler": "scheduler.0"
+    },
+    "{{ alias }}|2": {
+        "scheduler": "scheduler.0"
+    },
+    "{{ alias }}|3": {
+        "wred_profile": "AZURE_LOSSLESS",
+        "scheduler": "scheduler.1"
+    },
+    "{{ alias }}|4": {
+        "wred_profile": "AZURE_LOSSLESS",
+        "scheduler": "scheduler.1"
+    },
+    "{{ alias }}|5": {
+        "scheduler": "scheduler.0"
+    },
+    "{{ alias }}|6": {
+        "scheduler": "scheduler.0"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+{% endif %}
+},
+
+"BUFFER_QUEUE": {
+{% if sonic_qos_db_fv_reference_with_table == 'true' %}
+{% for alias in device_conn[inventory_hostname] %}
+    "{{ alias }}|0-2": {
+        "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
+    },
+    "{{ alias }}|3-4": {
+        "profile": "[BUFFER_PROFILE|egress_lossless_profile]"
+    },
+    "{{ alias }}|5-6": {
+        "profile": "[BUFFER_PROFILE|egress_lossy_profile]"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+{% else %}
+{% for alias in device_conn[inventory_hostname] %}
+    "{{ alias }}|0-2": {
+        "profile": "egress_lossy_profile"
+    },
+    "{{ alias }}|3-4": {
+        "profile": "egress_lossless_profile"
+    },
+    "{{ alias }}|5-6": {
+        "profile": "egress_lossy_profile"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+{% endif %}
+},
+
+"BUFFER_PG": {
+{% if sonic_qos_db_fv_reference_with_table == 'true' %}
+{% for alias in device_conn[inventory_hostname] %}
+    "{{ alias }}|0": {
+        "profile": "[BUFFER_PROFILE|ingress_lossy_profile]"
+    },
+    "{{ alias }}|3-4": {
+        "profile": "[BUFFER_PROFILE|pg_lossless_100000_300m_profile]"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+{% else %}
+{% for alias in device_conn[inventory_hostname] %}
+    "{{ alias }}|0": {
+        "profile": "ingress_lossy_profile"
+    },
+    "{{ alias }}|3-4": {
+        "profile": "pg_lossless_100000_300m_profile"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+{% endif %}
+},
+
+"CABLE_LENGTH": {
+    "AZURE": {
+{% for alias in device_conn[inventory_hostname] %}
+    "{{ alias }}": "300m"{% if not loop.last %},{% endif %}
+{% endfor %}
+    }
+},
+
+"VERSIONS": {
+    "DATABASE": {
+        "VERSION": "version_1_0_1"
+    }
+},
+
+"PFC_WD": {
+    "GLOBAL": {
+        "POLL_INTERVAL": "200"
+    }
+},
+
+"WRED_PROFILE": {
+    "AZURE_LOSSLESS": {
+        "red_max_threshold": "2097152",
+        "red_drop_probability": "5",
+        "wred_green_enable": "true",
+        "ecn": "ecn_all",
+        "green_min_threshold": "250000",
+        "red_min_threshold": "1048576",
+        "wred_yellow_enable": "true",
+        "yellow_min_threshold": "1048576",
+        "green_max_threshold": "2097152",
+        "green_drop_probability": "5",
+        "yellow_max_threshold": "2097152",
+        "yellow_drop_probability": "5",
+        "wred_red_enable": "true"
+    }
+},
+
+"SCHEDULER": {
+    "scheduler.0": {
+        "type": "DWRR",
+        "weight": "14"
+    },
+    "scheduler.1": {
+        "type": "DWRR",
+        "weight": "15"
+    }
+},
+
+"BUFFER_POOL": {
+    "egress_lossless_pool": {
+        "type": "egress",
+        "mode": "static",
+        "size": "15982720"
+    },
+    "egress_lossy_pool": {
+        "type": "egress",
+        "mode": "dynamic",
+        "size": "9243812"
+    },
+    "ingress_lossless_pool": {
+        "xoff": "4194112",
+        "type": "ingress",
+        "mode": "dynamic",
+        "size": "10875072"
+    }
+},
+
+"BUFFER_PROFILE": {
+{% if sonic_qos_db_fv_reference_with_table == 'true' %}
+    "egress_lossless_profile": {
+        "static_th": "15982720",
+        "pool": "[BUFFER_POOL|egress_lossless_pool]",
+        "size": "1518"
+    },
+    "egress_lossy_profile": {
+        "dynamic_th": "3",
+        "pool": "[BUFFER_POOL|egress_lossy_pool]",
+        "size": "1518"
+    },
+    "ingress_lossy_profile": {
+        "dynamic_th": "3",
+        "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+        "size": "0"
+    },
+    "pg_lossless_100000_300m_profile": {
+        "xon_offset": "2288",
+        "dynamic_th": "0",
+        "xon": "2288",
+        "xoff": "268736",
+        "pool": "[BUFFER_POOL|ingress_lossless_pool]",
+        "size": "1248"
+    }
+{% else %}
+    "egress_lossless_profile": {
+        "static_th": "15982720",
+        "pool": "egress_lossless_pool",
+        "size": "1518"
+    },
+    "egress_lossy_profile": {
+        "dynamic_th": "3",
+        "pool": "egress_lossy_pool",
+        "size": "1518"
+    },
+    "ingress_lossy_profile": {
+        "dynamic_th": "3",
+        "pool": "ingress_lossless_pool",
+        "size": "0"
+    },
+    "pg_lossless_100000_300m_profile": {
+        "xon_offset": "2288",
+        "dynamic_th": "0",
+        "xon": "2288",
+        "xoff": "268736",
+        "pool": "ingress_lossless_pool",
+        "size": "1248"
+    }
+{% endif %}
+}
+
+}

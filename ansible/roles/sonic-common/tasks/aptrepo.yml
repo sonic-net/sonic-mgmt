@@ -1,0 +1,26 @@
+# Apt Sources Setup
+- name: Purge apt sources.list File.
+  become: true
+  copy: src=apt/sources.list
+        dest=/etc/apt/sources.list
+
+# Adding deb mirror so switch can download packages
+- name: Add internal Apt Package Mirror
+  apt_repository: repo='deb {{ apt_repo }} jessie main contrib non-free'
+       update_cache=yes
+       state=present
+
+- name: Add apt-key for SONiC Specific Apt Repo
+  become: true
+  apt_key: data="{{ lookup('file', 'apt/sonic-dev.gpg.key') }}" state=present
+
+- name: Add SONiC Specific Apt Repo
+  become: true
+  apt_repository: repo='deb [arch=amd64] {{ sonic_apt_repo }} jessie main'
+       update_cache=yes
+       state=present
+
+# Force apt cache update if the repos are already present but cache is stale
+- name: Update Cache if stale
+  become: true
+  apt: update_cache=yes

@@ -1,0 +1,24 @@
+---
+- name: Set pip_executable
+  set_fact:
+    pip_executable: pip3
+
+- name: Start connection database
+  include_tasks: start_db.yml
+  args:
+    apply:
+      delegate_to: "{{ connection_db_host }}"
+      become: True
+  when: action == 'start_db'
+
+- name: Stop connection database
+  include_tasks: stop_db.yml
+  args:
+    apply:
+      delegate_to: "{{ connection_db_host }}"
+      become: True
+  when: action == 'stop_db'
+
+- name: Start db provision
+  include_tasks: provision_db.yml
+  when: action == 'provision_db'

@@ -1,0 +1,3 @@
+# snmp community strings
+snmp_rocommunity: public
+snmp_rwcommunity: private

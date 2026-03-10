@@ -1,0 +1,10 @@
+Value server (.\d+.\d+.\d+.\d+.)
+Value stratum (\d+)
+Value time (\d+)
+Value poll (\d+)
+
+Start
+  ^.*\s+${server}\s+.*${stratum}
+  ^.*\s+${time}\s+ms
+  ^.*\s+${poll}\s+s
+  ^.*$$ -> Record

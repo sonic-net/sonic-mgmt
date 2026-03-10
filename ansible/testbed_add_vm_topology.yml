@@ -1,0 +1,200 @@
+# This Playbook add a topology to a server
+#
+# Topologies are defined inside of vars/ directorie in files vars/topo_{{ topology_name}}.yml
+# This file contains three structures:
+#  - topology
+#  - configuration property
+#  - configuration
+#
+#  topology key contains a dictionary of hostnames with 'vm_offset' and 'vlans' keys in it.
+#  'vm_offset' is used to map current hostname vm_set VM to server VM (like ARISTA01T0 -> VM0300).
+#  This offset is used on VM_base
+#  'vlans' is a list of vlan offsets which helps us to calculate vlan numbers which will be connected to Eth1/1..Eth1/8 interfaces.
+#  These offsets are used with vlan_base
+#
+#  Every topology should have a name to distinct one topology from another on the server
+#  Every topology contains a ptf container which will be used as placeholder for the injected interfaces from VMs, or direct connections to PTF host
+#
+# To add a topology please use following command
+# ANSIBLE_SCP_IF_SSH=y ansible-playbook -i veos testbed_add_vm_topology.yml --vault-password-file=~/.password -l server_3 -e vm_set_name=first -e dut_name=str-msn2700-01 -e VM_base=VM0300 -e ptf_ip=10.255.0.255/23 -e topo=t0 -e ptf_imagename="docker_ptf"
+#
+# Parameters
+# -l server_3                - this playbook have to be limited to run only on one server
+# -e vm_set_name=first       - the name of vm_set
+# -e duts_name=str-msn2700-01 - the name of target duts
+# -e VM_base=VM0300          - the VM name which is used to as base to calculate VM name for this set
+# -e ptf_ip=10.255.0.255/23 - the ip address and prefix of ptf container mgmt interface
+# -e ptf_ipv6=fec0::ffff:afa:1/64 - the ipv6 address and prefix of ptf container mgmt interface
+# -e topo=t0                 - the name of removed topo
+# -e ptf_imagename=docker-ptf - name of a docker-image which will be used for the ptf docker container
+# -e vm_type=veos|ceos|vsonic
+# -e netns_mgmt_ip=10.255.0.254/23 - the ip address and prefix of netns mgmt interface, only for dualtor topo with ports in active-active cable type
+
+- hosts: servers:&vm_host
+  gather_facts: no
+  pre_tasks:
+  - set_fact: ansible_user="{{ vm_host_user }}"
+    when:
+      - vm_host_user is defined
+      - vm_host_user != 'use_own_value'
+
+  - set_fact: ansible_password="{{ vm_host_password }}"
+    when:
+      - vm_host_password is defined
+      - vm_host_password != 'use_own_value'
+
+  - set_fact: ansible_become_password="{{ vm_host_become_password }}"
+    when:
+      - vm_host_become_password is defined
+      - vm_host_become_password != 'use_own_value'
+
+  - name: Check for a single host
+    fail: msg="Please use -l server_X to limit this playbook to one host"
+    when: play_hosts|length != 1
+
+  - name: Check that variable testbed_name is defined
+    fail: msg="Define testbed_name variable with -e testbed_name=something"
+    when: testbed_name is not defined
+
+  - name: Check that variable vm_set_name is defined
+    fail: msg="Define vm_set_name variable with -e vm_set_name=something"
+    when: vm_set_name is not defined
+
+  - name: Check that variable duts_name is defined
+    fail: msg="Define duts_name variable with -e duts_name=something"
+    when: duts_name is not defined
+
+  - name: Check that variable VM_base is defined
+    fail: msg="Define VM_base variable with -e VM_base=something"
+    when: VM_base is not defined
+
+  - name: Check that variable ptf_ip is defined
+    fail: msg="Define ptf ip variable with -e ptf_ip=something"
+    when: ptf_ip is not defined
+
+  - name: Check that variable ptf_ipv6 is defined
+    fail: msg="Define ptf ipv6 variable with -e ptf_ipv6=something"
+    when: ptf_ipv6 is not defined
+
+  - name: Check that variable topo is defined
+    fail: msg="Define topo variable with -e topo=something"
+    when: topo is not defined
+
+  - name: Set ptf_imagetag
+    set_fact:
+      ptf_imagetag: >-
+        {{ (lookup('file', "testbed.yaml")|from_yaml)
+        | selectattr('conf-name', 'equalto', testbed_name)
+        | map(attribute='ptf_imagetag')
+        | first }}
+    when: >-
+      (lookup('file', "testbed.yaml")|from_yaml)
+      | selectattr('conf-name', 'equalto', testbed_name)
+      | map(attribute='ptf_imagetag')
+      | first is defined
+
+  - set_fact:
+      base_topo: "{{ topo.split('_') | first }}"
+
+  - name: Check that topo is a known topology
+    fail: msg="Unknown topology {{ topo }}"
+    when: base_topo not in topologies
+
+  - name: Check that variable ptf_imagename is defined
+    fail: msg="Define ptf_imagename variable with -e ptf_imagename=something"
+    when: ptf_imagename is not defined
+
+  - name: Load docker variables
+    include_vars: "vars/docker_registry.yml"
+
+  - name: Load topo variables
+    include_vars: "vars/topo_{{ topo }}.yml"
+
+  - name: Read duts minigraph
+    conn_graph_facts:
+      host: "{{ duts_name }}"
+    delegate_to: localhost
+    when: duts_name.split(',')|length == 1
+
+  - name: Read duts minigraph
+    conn_graph_facts:
+      hosts: "{{ duts_name.split(',') }}"
+    delegate_to: localhost
+    when: duts_name.split(',')|length > 1
+
+  - name: Determine if the testbed is a VS testbed
+    set_fact:
+      is_vs_testbed: true
+    when: hostvars[item].type is defined and hostvars[item].type == 'kvm'
+    loop: "{{ duts_name.split(',') }}"
+
+  - name: Determine if the testbed is a VS chassis testbed
+    set_fact:
+      is_vs_chassis: true
+    when: base_topo == "t2" and (is_vs_testbed | default(false))
+
+  roles:
+    - { role: vm_set, action: 'stop_sonic_vm', when force_stop_sonic_vm is defined }
+    - { role: vm_set, action: 'start_sonic_vm' }
+    - { role: vm_set, action: 'start_sid' }
+    - { role: vm_set, action: 'start_8000e_sonic' }
+    - { role: vm_set, action: 'add_topo' }
+
+- hosts: servers:&eos
+  gather_facts: no
+  serial: "{{ eos_batch_size | default(0) | int }}"
+  pre_tasks:
+    - block:
+        - name: Check that variable topo is defined
+          fail: msg="Define topo variable with -e topo=something"
+          when: topo is not defined
+
+        - set_fact:
+            base_topo: "{{ topo.split('_') | first }}"
+
+        - name: Require VMs as CEOS by default
+          set_fact:
+            vm_type: "ceos"
+          when: vm_type is not defined
+
+        - name: Check if it is a known topology
+          fail: msg="Unknown topology {{ topo }}"
+          when: base_topo not in topologies
+
+        - name: Check that variable VM_base is defined
+          fail: msg="Define VM_base variable with -e VM_base=something"
+          when: VM_base is not defined
+
+        - name: Load topo variables
+          include_vars: "vars/topo_{{ topo }}.yml"
+
+        - name: Set default value for topo_is_multi_vrf
+          set_fact: topo_is_multi_vrf=False
+          when: topo_is_multi_vrf is not defined
+
+        - name: Find current server group
+          set_fact: current_server={{ group_names | extract_by_prefix('server_') }}
+
+        - name: Extract VM names from the inventory
+          set_fact: VM_hosts={{ groups[current_server] | filter_by_prefix('VM') | sort }}
+          when: VM_base|length > 0
+
+        - name: Generate vm list of target VMs
+          set_fact: VM_targets={{ VM_hosts | filter_vm_targets(topology['VMs'], VM_base, dut_interfaces | default("")) }}
+          when:
+            - topology['VMs'] is defined
+            - VM_base|length > 0
+      run_once: True
+      delegate_to: localhost
+
+  roles:
+    - { role: eos, when: topology.VMs is defined and VM_targets is defined and inventory_hostname in VM_targets and (vm_type == "veos" or vm_type == "ceos" ) } # If the vm_type is eos based, role eos will be executed in any case, and when will evaluate with every task
+    - { role: sonic, when: topology.VMs is defined and VM_targets is defined and inventory_hostname in VM_targets and (vm_type == "vsonic" or vm_type == "csonic") } # If the vm_type is sonic based, role sonic will be executed in any case, and when will evaluate with every task
+    - { role: cisco, when: topology.VMs is defined and VM_targets is defined and inventory_hostname in VM_targets and (vm_type == "vcisco" ) } # If the vm_type is cisco based, role cisco will be executed in any case, and when will evaluate with every task
+
+- hosts: servers:&vm_host
+  gather_facts: no
+  tasks:
+  - name: Integrated traffic generator
+    include_tasks: testbed_integrate_traffic_generator.yml
+    when: topo == "wan-3link-tg"

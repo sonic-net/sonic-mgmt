@@ -1,0 +1,59 @@
+- name: Get netbase container info
+  docker_container_info:
+    name: net_{{ vm_set_name }}_{{ inventory_hostname }}
+  register: ctninfo
+  delegate_to: "{{ VM_host[0] }}"
+  become: yes
+
+- debug: msg="{{ ctninfo.container.State.Pid }}"
+
+- name: Get front panel port in netbase container
+  shell: nsenter -t {{ ctninfo.container.State.Pid }} -n ip link show | grep -E eth[0-9]+ | wc -l
+  register: fp_num
+  delegate_to: "{{ VM_host[0] }}"
+  become: yes
+
+- debug: msg="{{ fp_num }}"
+
+- name: Set EOS backplane port name
+  set_fact: bp_ifname="Ethernet{{ fp_num.stdout|int - 1}}"
+
+- name: cleanup previous ceos mount dir
+  become: yes
+  command: rm -rf /{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: create directory for ceos config
+  become: yes
+  file:
+    path: "/{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/"
+    state: directory
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: Copy macsec profile json to dut
+  copy: src=../../../../tests/common/macsec/profile.json
+        dest=/tmp/profile.json
+  become: true
+  when: "'t2' == base_topo and enable_macsec is defined"
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: Get the macsec profile data from profile_name
+  get_macsec_profile:
+    macsec_profile: "{{ macsec_profile }}"
+    vm_type: "{{ vm_type }}"
+  register: profile_raw
+  become: true
+  when: "'t2' == base_topo and enable_macsec is defined"
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: Flatten profile data into a flat structure
+  set_fact:
+    profile: "{{ profile_raw.profile }}"
+  when: "'t2' == base_topo and enable_macsec is defined"
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: update startup-config
+  become: yes
+  template: src="{{ base_topo }}-{{ props.swrole }}.j2"
+            dest="/{{ ceos_image_mount_dir }}/ceos_{{ vm_set_name }}_{{ inventory_hostname }}/startup-config"
+  delegate_to: "{{ VM_host[0] }}"

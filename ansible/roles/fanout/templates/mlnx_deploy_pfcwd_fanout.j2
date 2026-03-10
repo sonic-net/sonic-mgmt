@@ -1,0 +1,10 @@
+config t
+
+docker no shutdown
+ping -c 5 8.8.8.8
+docker label storm
+docker no start storm
+docker remove image pfc_storm latest
+docker load pfc_storm.tgz
+docker start pfc_storm latest storm init label storm privileged network sdk
+docker start pfc_storm latest storm now label storm privileged network sdk

@@ -1,0 +1,12 @@
+- name: Create run_dir
+  file: path="{{ run_dir }}" state=directory
+
+- name: Copy JSON configs onto switch.
+  copy: src={{ tests_location }}/{{ testname }}/{{ item }} dest={{ run_dir }}/{{ item }}
+  with_items:
+      - "{{ config_files }}"
+
+- name: Copy JSON configs from switch into docker filesystem.
+  command: docker cp {{ run_dir }}/{{ item }} swss:{{ docker_testdir }}/{{ item }}
+  with_items:
+      - "{{ config_files }}"

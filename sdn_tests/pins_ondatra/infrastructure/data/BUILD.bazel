@@ -1,0 +1,14 @@
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
+
+filegroup(
+    name = "data",
+    srcs = glob(["**"]),
+)
+
+filegroup(
+    name = "testbed",
+    srcs = ["testbeds.textproto"],
+)

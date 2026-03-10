@@ -1,0 +1,115 @@
+# Clear all watermarks before each watermark test
+# because of the clear on read polling mode
+- name: Toggle watermark polling
+  shell: bash -c 'counterpoll watermark enable; sleep 20; counterpoll watermark disable'
+
+# buffer pool watermark test
+- include_tasks: qos_sai_ptf.yml
+  vars:
+    test_name: Ingress buffer pool watermark test, lossless traffic
+    test_path: sai_qos_tests.BufferPoolWatermarkTest
+    test_params:
+    - dscp='{{qp.wm_buf_pool_lossless.dscp}}'
+    - ecn='{{qp.wm_buf_pool_lossless.ecn}}'
+    - pg='{{qp.wm_buf_pool_lossless.pg}}'
+    - queue=''
+    - dst_port_id='{{dst_port_id}}'
+    - dst_port_ip='{{dst_port_ip}}'
+    - src_port_id='{{src_port_id}}'
+    - src_port_ip='{{src_port_ip}}'
+    - pkts_num_leak_out='{{qp.wm_buf_pool_lossless.pkts_num_leak_out}}'
+    - pkts_num_fill_min='{{qp.wm_buf_pool_lossless.pkts_num_fill_ingr_min}}'
+    - pkts_num_fill_shared='{{qp.wm_buf_pool_lossless.pkts_num_trig_pfc}}'
+    - cell_size='{{qp.wm_buf_pool_lossless.cell_size}}'
+    - buf_pool_roid='{{lossless_ingr_buf_pool_roid}}'
+  when: minigraph_hwsku is defined and
+        (minigraph_hwsku != 'Arista-7050-QX-32S')
+- debug:
+    var: out.stdout_lines
+  when: minigraph_hwsku is defined and
+        (minigraph_hwsku != 'Arista-7050-QX-32S')
+
+# Clear all watermarks before each watermark test
+# because of the clear on read polling mode
+- name: Toggle watermark polling
+  shell: bash -c 'counterpoll watermark enable; sleep 20; counterpoll watermark disable'
+
+# buffer pool watermark test
+- include_tasks: qos_sai_ptf.yml
+  vars:
+    test_name: Egress buffer pool watermark test, lossless traffic
+    test_path: sai_qos_tests.BufferPoolWatermarkTest
+    test_params:
+    - dscp='{{qp.wm_buf_pool_lossless.dscp}}'
+    - ecn='{{qp.wm_buf_pool_lossless.ecn}}'
+    - pg=''
+    - queue='{{qp.wm_buf_pool_lossless.queue}}'
+    - dst_port_id='{{dst_port_id}}'
+    - dst_port_ip='{{dst_port_ip}}'
+    - src_port_id='{{src_port_id}}'
+    - src_port_ip='{{src_port_ip}}'
+    - pkts_num_leak_out='{{qp.wm_buf_pool_lossless.pkts_num_leak_out}}'
+    - pkts_num_fill_min='{{qp.wm_buf_pool_lossless.pkts_num_fill_egr_min}}'
+    - pkts_num_fill_shared='{{qp.wm_buf_pool_lossless.pkts_num_trig_ingr_drp|int - 1}}'
+    - cell_size='{{qp.wm_buf_pool_lossless.cell_size}}'
+    - buf_pool_roid='{{lossless_egr_buf_pool_roid}}'
+- debug:
+    var: out.stdout_lines
+
+# Clear all watermarks before each watermark test
+# because of the clear on read polling mode
+- name: Toggle watermark polling
+  shell: bash -c 'counterpoll watermark enable; sleep 20; counterpoll watermark disable'
+
+# buffer pool watermark test
+- include_tasks: qos_sai_ptf.yml
+  vars:
+    test_name: Ingress buffer pool watermark test, lossy traffic
+    test_path: sai_qos_tests.BufferPoolWatermarkTest
+    test_params:
+    - dscp='{{qp.wm_buf_pool_lossy.dscp}}'
+    - ecn='{{qp.wm_buf_pool_lossy.ecn}}'
+    - pg='{{qp.wm_buf_pool_lossy.pg}}'
+    - queue=''
+    - dst_port_id='{{dst_port_id}}'
+    - dst_port_ip='{{dst_port_ip}}'
+    - src_port_id='{{src_port_id}}'
+    - src_port_ip='{{src_port_ip}}'
+    - pkts_num_leak_out='{{qp.wm_buf_pool_lossy.pkts_num_leak_out}}'
+    - pkts_num_fill_min='{{qp.wm_buf_pool_lossy.pkts_num_fill_ingr_min}}'
+    - pkts_num_fill_shared='{{qp.wm_buf_pool_lossy.pkts_num_trig_egr_drp|int - 1}}'
+    - cell_size='{{qp.wm_buf_pool_lossy.cell_size}}'
+    - buf_pool_roid='{{lossy_ingr_buf_pool_roid}}'
+  when: minigraph_hwsku is defined and
+        (minigraph_hwsku != 'Arista-7050-QX-32S')
+- debug:
+    var: out.stdout_lines
+  when: minigraph_hwsku is defined and
+        (minigraph_hwsku != 'Arista-7050-QX-32S')
+
+# Clear all watermarks before each watermark test
+# because of the clear on read polling mode
+- name: Toggle watermark polling
+  shell: bash -c 'counterpoll watermark enable; sleep 20; counterpoll watermark disable'
+
+# buffer pool watermark test
+- include_tasks: qos_sai_ptf.yml
+  vars:
+    test_name: Egress buffer pool watermark test, lossy traffic
+    test_path: sai_qos_tests.BufferPoolWatermarkTest
+    test_params:
+    - dscp='{{qp.wm_buf_pool_lossy.dscp}}'
+    - ecn='{{qp.wm_buf_pool_lossy.ecn}}'
+    - pg=''
+    - queue='{{qp.wm_buf_pool_lossy.queue}}'
+    - dst_port_id='{{dst_port_id}}'
+    - dst_port_ip='{{dst_port_ip}}'
+    - src_port_id='{{src_port_id}}'
+    - src_port_ip='{{src_port_ip}}'
+    - pkts_num_leak_out='{{qp.wm_buf_pool_lossy.pkts_num_leak_out}}'
+    - pkts_num_fill_min='{{qp.wm_buf_pool_lossy.pkts_num_fill_egr_min}}'
+    - pkts_num_fill_shared='{{qp.wm_buf_pool_lossy.pkts_num_trig_egr_drp|int - 1}}'
+    - cell_size='{{qp.wm_buf_pool_lossy.cell_size}}'
+    - buf_pool_roid='{{lossy_egr_buf_pool_roid}}'
+- debug:
+    var: out.stdout_lines

@@ -1,0 +1,45 @@
+- debug: msg="running interface"
+
+- set_fact:
+    rx_port: "{{item['attachto']}}"
+    used: true
+  when: rx_port is not defined
+
+- set_fact:
+    test_port: "{{item['attachto']}}"
+    first_pair: true
+    used: true
+  when: not used and test_port is not defined
+
+- set_fact:
+    test_port: "{{item['attachto']}}"
+  when: not used
+
+- set_fact:
+    pfc_wd_test_port: "{{test_port}}"
+    pfc_wd_rx_port: "{{rx_port}}"
+  when: rx_port is defined and test_port is defined
+
+- set_fact:
+    pfc_wd_test_port_addr: "{%for p in minigraph_interfaces%}{%if p['attachto']==pfc_wd_test_port and p['addr']|ipv4%}{{p['addr']}}{%endif %}{%endfor%}"
+    pfc_wd_rx_port_addr: "{%for p in minigraph_interfaces%}{%if p['attachto']==pfc_wd_rx_port and p['addr']|ipv4%}{{p['addr']}}{%endif %}{%endfor%}"
+  when: rx_port is defined and test_port is defined
+
+- set_fact:
+    pfc_wd_test_neighbor_addr: "{%for p in minigraph_bgp%}{%if p['peer_addr']==pfc_wd_test_port_addr and p['addr']|ipv4%}{{p['addr']}}{%endif %}{%endfor%}"
+    pfc_wd_rx_neighbor_addr: "{%for p in minigraph_bgp%}{%if p['peer_addr']==pfc_wd_rx_port_addr and p['addr']|ipv4%}{{p['addr']}}{%endif %}{%endfor%}"
+    pfc_wd_rx_port_id: "{{minigraph_port_indices[pfc_wd_rx_port]}}"
+    pfc_wd_test_port_id: "{{minigraph_port_indices[pfc_wd_test_port]}}"
+  when: rx_port is defined and test_port is defined
+
+- set_fact:
+    test_ports: "{{ test_ports | combine( {pfc_wd_test_port:{'test_neighbor_addr':pfc_wd_test_neighbor_addr, 'rx_port': [pfc_wd_rx_port], 'rx_neighbor_addr': pfc_wd_rx_neighbor_addr, 'peer_device':neighbors[pfc_wd_test_port]['peerdevice'], 'test_port_id': pfc_wd_test_port_id, 'rx_port_id':[pfc_wd_rx_port_id], 'test_port_type':'interface' }})  }}"
+  when: rx_port is defined and test_port is defined
+
+- set_fact:
+    test_ports: "{{ test_ports | combine( {pfc_wd_rx_port:{'test_neighbor_addr':pfc_wd_rx_neighbor_addr, 'rx_port': [pfc_wd_test_port], 'rx_neighbor_addr': pfc_wd_test_neighbor_addr, 'peer_device':neighbors[pfc_wd_rx_port]['peerdevice'], 'test_port_id': pfc_wd_rx_port_id, 'rx_port_id':[pfc_wd_test_port_id], 'test_port_type':'interface' }})  }}"
+  when: first_pair
+
+- set_fact:
+    used: false
+    first_pair: false

@@ -1,0 +1,42 @@
+- block:
+    - name: Start SONiC VM
+      include_tasks: start_sonic_vm.yml
+      when: action == 'start_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
+
+    - name: Stop SONiC VM
+      include_tasks: stop_sonic_vm.yml
+      when: action == 'stop_sonic_vm' and hostvars[dut_name]['type'] == 'kvm'
+
+    - name: Start SID
+      include_tasks: start_sid.yml
+      when: action == 'start_sid' and hostvars[dut_name]['type'] == 'simx'
+
+    - name: Stop SID
+      include_tasks: stop_sid.yml
+      when: action == 'stop_sid' and hostvars[dut_name]['type'] == 'simx'
+
+    - name: Start 8000e-sonic sim
+      include_tasks: start_8000e_sonic.yml
+      when: action == 'start_8000e_sonic' and hostvars[dut_name]['type'] == '8000e'
+
+    - name: Stop 8000e-sonic sim
+      include_tasks: stop_8000e_sonic.yml
+      when: action == 'stop_8000e_sonic' and hostvars[dut_name]['type'] == '8000e'
+
+  when:
+    - hostvars[dut_name] is defined
+    - hostvars[dut_name].type is defined
+
+- block:
+    - name: Start SONiC DPU VM
+      include_tasks: start_dpu_vm.yml
+      when: action == 'start_sonic_vm'
+
+    - name: Stop SONiC VM
+      include_tasks: stop_vsonic_dpu_vm.yml
+      vars:
+        dpu_name: "{{ item }}"
+      with_items: "{{ dpu_targets }}"
+      when: action == 'stop_sonic_vm'
+
+  when: dpu_targets is defined and dpu_targets | length > 0

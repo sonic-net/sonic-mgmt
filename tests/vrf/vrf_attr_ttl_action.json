@@ -1,0 +1,10 @@
+{
+    "VRF": {
+        "Vrf1": {
+            "ttl_action": "drop"
+        },
+        "Vrf2": {
+            "ttl_action": "forward"
+        }
+    }
+}

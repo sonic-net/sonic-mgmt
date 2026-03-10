@@ -1,0 +1,34 @@
+{
+    {% if pfc_generate_buffer_profile == 'True' %}
+    "BUFFER_PROFILE": {
+        "pg_lossless_PFC_TEST_profile": {
+            "xon": "{{ buffer_xon.stdout }}",
+            "dynamic_th": "-8",
+            "xoff": "{{ buffer_xoff.stdout }}",
+{% if sonic_qos_db_fv_reference_with_table == 'true' %}
+            "pool": "[{{ buffer_pool_id }}]",
+{% else %}
+            "pool": "{{ buffer_pool_id }}",
+{% endif %}
+            "size": "{{ buffer_headroom.stdout }}"
+        }
+    },
+    {% endif %}
+    "BUFFER_PG": {
+        "{{ dut_switch_ports[src_port_id|int] }}|3-4": {
+{% if sonic_qos_db_fv_reference_with_table == 'true' %}
+            {% if pfc_generate_buffer_profile == 'True' %}
+            "profile": "[BUFFER_PROFILE|pg_lossless_PFC_TEST_profile]"
+            {% else %}
+            "profile": "[{{ buffer_profile }}]"
+            {% endif %}
+{% else %}
+            {% if pfc_generate_buffer_profile == 'True' %}
+            "profile": "pg_lossless_PFC_TEST_profile"
+            {% else %}
+            "profile": "{{ buffer_profile }}"
+            {% endif %}
+{% endif %}
+        }
+    }
+}

@@ -1,0 +1,51 @@
+
+common: !include common.yaml
+accton-as5712-54x: !include accton-as5712-54x.yaml
+accton-as7326-56x: !include accton-as7326-56x.yaml
+accton-as7712-32x: !include accton-as7712-32x.yaml
+accton-as7726-32x: !include accton-as7726-32x.yaml
+accton-as7816-64x: !include accton-as7816-64x.yaml
+accton-as9716-32d: !include accton-as9716-32d.yaml
+accton-as4630-54pe: ! include accton-as4630-54pe.yaml
+dellemc-s5232f-c32: !include dellemc-s5232f-c32.yaml
+dellemc-s5232f-p-10g: !include dellemc-s5232f-p-10g.yaml
+dellemc-s5232f-p-25g: !include dellemc-s5232f-p-25g.yaml
+dellemc-s5232f-p-100g: !include dellemc-s5232f-p-100g.yaml
+dellemc-z9332f-o32: !include dellemc-z9332f-o32.yaml
+dellemc-z9264f-c64: !include dellemc-z9264f-c64.yaml
+delta-ag9032v1: !include delta-ag9032v1.yaml
+quanta-ix1b-32x: !include quanta-ix1b-32x.yaml
+quanta-ix4-64x: !include quanta-ix4-64x.yaml
+quanta-ix8-56x: !include quanta-ix8-56x.yaml
+quanta-ix8a-bwde-56x: !include quanta-ix8a-bwde-56x.yaml
+quanta-ix9-32x: !include quanta-ix9-32x.yaml
+quanta-ix7-32x: !include quanta-ix7-32x.yaml
+quanta-ix7-bwde-32x: !include quanta-ix7-bwde-32x.yaml
+quanta-ix9-c64o16: !include quanta-ix9-c64o16.yaml
+accton-as5835-54x: !include accton-as5835-54x.yaml
+
+constants:
+  default: [common]
+  accton-as5712-54x: [common, accton-as5712-54x]
+  accton-as7326-56x: [common, accton-as7326-56x]
+  accton-as7712-32x: [common, accton-as7712-32x]
+  accton-as7726-32x: [common, accton-as7726-32x]
+  accton-as7816-64x: [common, accton-as7816-64x]
+  accton-as9716-32d: [common, accton-as9716-32d]
+  accton-as4630-54pe: [common, accton-as4630-54pe]
+  dellemc-s5232f-c32: [common, dellemc-s5232f-c32]
+  dellemc-s5232f-p-10g: [common, dellemc-s5232f-p-10g]
+  dellemc-s5232f-p-25g: [common, dellemc-s5232f-p-25g]
+  dellemc-s5232f-p-100g: [common, dellemc-s5232f-p-100g]
+  dellemc-z9332f-o32: [common, dellemc-z9332f-o32]
+  dellemc-z9264f-c64: [common, dellemc-z9264f-c64]
+  delta-ag9032v1: [common, delta-ag9032v1]
+  quanta-ix1b-32x: [common, quanta-ix1b-32x]
+  quanta-ix4-64x: [common, quanta-ix4-64x]
+  quanta-ix8-56x: [common, quanta-ix8-56x]
+  quanta-ix8a-bwde-56x: [common, quanta-ix8a-bwde-56x]
+  quanta-ix9-32x: [common, quanta-ix9-32x]
+  quanta-ix7-32x: [common, quanta-ix7-32x]
+  quanta-ix7-bwde-32x: [common, quanta-ix7-bwde-32x]
+  quanta-ix9-c64o16: [common, quanta-ix9-c64o16]
+  accton-as5835-54x: [common, accton-as5835-54x]

@@ -1,0 +1,14 @@
+{
+    "TUNNEL": {
+{% for ip in tunnel_addr_list %}
+        "{{ "MuxTunnel" + loop.index|string }}": {
+            "dst_ip" : "{{ ip }}",
+            "ttl_mode": "pipe",
+            "ecn_mode": "copy_from_outer",
+            "dscp_mode": "pipe",
+            "tunnel_type": "IPINIP"
+        }{% if not loop.last %},{% endif %}
+
+{% endfor %}
+    }
+}

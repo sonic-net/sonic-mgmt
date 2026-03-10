@@ -1,0 +1,29 @@
+[Unit]
+Description=syncd container
+Requires=database.service
+After=database.service swss.service
+
+[Service]
+User=root
+{% if sonic_hwsku == 'ACS-MSN2700' %}
+ExecStartPre=/etc/init.d/sxdkernel start
+ExecStartPre=/usr/bin/mst start
+ExecStartPre=/etc/mlnx/msn2700 start
+{% elif sonic_hwsku == 'AS7512' %}
+ExecStartPre=-/etc/init.d/xpnet.sh stop
+ExecStartPre=/etc/init.d/xpnet.sh start
+{% endif %}
+ExecStart=/usr/bin/docker start -a syncd
+ExecStop=/usr/bin/docker stop syncd
+{% if sonic_hwsku == 'ACS-MSN2700' %}
+ExecStopPost=/etc/mlnx/msn2700 stop
+ExecStopPost=/etc/init.d/sxdkernel stop
+ExecStopPost=/usr/bin/mst stop
+{% elif sonic_hwsku == 'AS7512' %}
+ExecStopPost=/etc/init.d/xpnet.sh stop
+ExecStopPost=/etc/init.d/xpnet.sh start
+{% endif %}
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

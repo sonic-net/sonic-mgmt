@@ -1,0 +1,12 @@
+- fail: msg="supervisor_host is not defined"
+  when: "supervisor_host is not defined"
+
+- name: "Reread supervisor configuration"
+  shell: "supervisorctl reread"
+  become: "yes"
+  delegate_to: "{{ supervisor_host }}"
+
+- name: "Update supervisor configuration"
+  shell: "supervisorctl update"
+  become: "yes"
+  delegate_to: "{{ supervisor_host }}"

@@ -1,0 +1,8 @@
+# Ensure Platform Modules for S6000 are installed
+- name: Confirm Platform Modules are installed
+  become: true
+  apt: pkg={{ platform_modules_s6000.name }}={{ platform_modules_s6000.version }}
+       state=present
+       default_release={{ apt_default_release }}
+       force=yes
+  register: platform_module_install

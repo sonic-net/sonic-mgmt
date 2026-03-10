@@ -1,0 +1,84 @@
+<domain type='kvm'>
+  <name>{{ vm_name }}</name>
+  <memory unit='MB'>16384</memory>
+  <currentMemory unit='MB'>16384</currentMemory>
+  <vcpu placement='static'>4</vcpu>
+  <resource>
+    <partition>/machine</partition>
+  </resource>
+  <os>
+    <type arch='x86_64' machine='pc-i440fx-1.5'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+    <pae/>
+  </features>
+  <cpu mode='custom' match='exact'>
+    <model fallback='allow'>Westmere</model>
+    <feature policy='require' name='vmx'/>
+  </cpu>
+  <clock offset='utc'/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
+  <devices>
+    <emulator>/usr/bin/qemu-system-x86_64</emulator>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2' cache='writeback'/>
+      <source file='{{ disk_image }}'/>
+      <target dev='vda' bus='virtio'/>
+    </disk>
+
+    <!-- HostInterfaceSection (order: mgmt/ha/development) -->
+
+    <!-- Host Interface 1 -->
+    <interface type='bridge'>
+      <source bridge='{{ mgmt_bridge }}'/>
+      <target dev='{{ mgmt_tap }}'/>
+      <model type='virtio'/>
+      <driver name='qemu'>
+      </driver>
+    </interface>
+
+    <!-- Host Interface 2 -->
+    <interface type='ethernet'>
+      <model type='virtio'/>
+      <target dev='intfLx-{{ vm_name }}-2'/>
+    </interface>
+
+    <!-- Host Interface 3 -->
+    <interface type='ethernet'>
+      <model type='virtio'/>
+      <target dev='intfLx-{{ vm_name }}-3'/>
+    </interface>
+
+    <!-- DataInterfaceSection (order: GIGE0, GIGE1 .. etc) -->
+
+    <!-- Skip below interface GIGE0, to be compliant with sonic and arista which start index is 1 -->
+    <interface type='ethernet'>
+      <model type='e1000'/>
+      <target dev='intfXr-{{ vm_name }}-1'/>
+    </interface>
+
+{% for fp_num in range(0, max_fp_num) %}
+    <interface type='bridge'>
+      <model type='e1000'/>
+      <source bridge='br-{{ vm_name }}-{{ fp_num }}'/>
+      <target dev='{{ vm_name }}-t{{ fp_num }}'/>
+      <virtualport type='openvswitch'/>
+    </interface>
+{% endfor %}
+    <interface type='ethernet'>
+      <model type='e1000'/>
+      <target dev='{{ backplane_tap }}'/>
+    </interface>
+    <serial type='tcp'>
+      <source mode='bind' host='127.0.0.1' service='{{ serial_port }}'/>
+      <protocol type='telnet'/>
+      <target port='0'/>
+    </serial>
+   </devices>
+  <seclabel type='none'/>
+</domain>

@@ -1,0 +1,46 @@
+#-----------------------------------------
+# Run all the acl tests.
+#-----------------------------------------
+
+- set_fact:
+    vars_files_location: vars/acl
+
+- include_vars: "{{ vars_files_location }}/acl_vars.yml"
+
+- name: Create run_dir
+  file: path="{{ run_dir }}" state=directory
+
+ #****************************************#
+ #           Start tests                  #
+ #****************************************#
+
+- block:
+    - name: Test file input.
+      include_tasks: "{{ tests_location }}/acl_input_test/acl_input_test.yml"
+      when: tests_location is defined
+
+    - name: Test port bind configuration.
+      include_tasks: "{{ tests_location }}/acl_port_bind_test/acl_port_bind_test.yml"
+      when: tests_location is defined
+
+    - name: Test orchagent logic.
+      include_tasks: "{{ tests_location }}/acl_orchagent_logic_test/acl_orchagent_logic_test.yml"
+      when: tests_location is defined
+
+    - name: Test traffic.
+      include_tasks: "{{ tests_location }}/acl_traffic_test/acl_traffic_test.yml"
+      when: tests_location is defined
+
+    - name: Test counters traffic.
+      include_tasks: "{{ tests_location }}/acl_counter_traffic_test/acl_counter_traffic_test.yml"
+      when: tests_location is defined
+
+    - name: Test L4 port range.
+      include_tasks: "{{ tests_location }}/acl_port_range_test/acl_port_range_test.yml"
+      when: tests_location is defined
+
+  always:
+    - name: General cleanup.
+      file: path="{{ item }}" state=absent
+      with_items:
+        - "{{ run_dir }}/loganalyzer.py"

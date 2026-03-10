@@ -1,0 +1,5 @@
+network:
+    version: 2
+    bridges:
+        br1:
+            addresses: [ 10.250.0.1/24 ]

@@ -1,0 +1,63 @@
+
+- hosts: sonic
+  gather_facts: no
+  tasks:
+
+  - name: Generate initial l2 mode config
+    shell: sonic-cfggen -H -k {{ hwsku }} -p --preset l2 > /tmp/init_l2_config.json
+
+  - name: Read the initial l2 config json content
+    shell: cat /tmp/init_l2_config.json
+    register: output
+
+  - name: Parse the initial l2 config json content to dict
+    set_fact:
+      l2_config: "{{ output.stdout | from_json }}"
+
+  - set_fact:
+      mgmt_addr: "{{ ansible_ssh_host + '/' + mgmt_subnet_mask_length | string }}"
+
+  - name: Prepare extra l2 configs
+    set_fact:
+      metadata: "{{ {'DEVICE_METADATA': {'localhost': {'type': 'ToRRouter', 'hostname': inventory_hostname}}} }}"
+      mgmt_interface: "{{ {'MGMT_INTERFACE': {'eth0|' + mgmt_addr: {'gwaddr': mgmt_addr | first_ip_of_subnet}}} }}"
+      mgmt_port: "{{ {'MGMT_PORT': {'eth0': {'admin_status': 'up', 'alias': 'eth0'}}} }}"
+
+  - name: Update l2 config with more configurations
+    set_fact:
+      l2_config: "{{ l2_config | combine(metadata, mgmt_interface, mgmt_port, recursive=True) }}"
+
+  - name: Backup the normal config_db.json file
+    shell: if [ ! -f /etc/sonic/config_db.json.normal ]; then cp /etc/sonic/config_db.json /etc/sonic/config_db.json.normal; fi
+    become: yes
+
+  - name: Dump the l2_config to /etc/sonic/config_db.json
+    copy:
+      content: "{{ l2_config | to_nice_json(indent=4) }}"
+      dest: /etc/sonic/config_db.json
+    become: yes
+
+  - name: Execute cli "config reload -y" to apply new config_db.json
+    shell: config reload -y
+    become: yes
+
+  - name: Wait for switch to become reachable again
+    local_action: wait_for
+    args:
+      host: "{{ ansible_host }}"
+      port: 22
+      state: started
+      search_regex: "OpenSSH_[\\w\\.]+ Debian"
+      delay: 10
+      timeout: 600
+    changed_when: false
+
+  - name: Wait some time for switch to stabilize
+    pause:
+      seconds: 60
+
+  - name: Check the new vlan config
+    shell: show vlan config
+
+  - name: Check interface status
+    shell: show int status

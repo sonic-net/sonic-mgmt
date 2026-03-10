@@ -1,0 +1,25 @@
+#!/bin/sh
+
+dir=$(dirname $0)
+dir=$(cd $dir;pwd -P)
+ddir=$(cd $dir/..;pwd -P)
+
+# source environment
+. $dir/env
+
+VER=$($SPYTEST_PYTHON --version 2>&1 | cut -d . -f1)
+if [ "$VER" != "Python 3" ]; then
+   PYTHONPATH=$($SPYTEST_PYTHON -c 'import site; print(site.getsitepackages()[0])')
+fi
+
+NEW_PYTHONPATH=$ddir
+if [ -n "$SPYLINT_PYTHONPATH" ]; then
+  NEW_PYTHONPATH=$NEW_PYTHONPATH:$SPYLINT_PYTHONPATH
+fi
+if [ -n "$PYTHONPATH" ]; then
+  NEW_PYTHONPATH=$NEW_PYTHONPATH:$PYTHONPATH
+fi
+export PYTHONPATH=$NEW_PYTHONPATH
+export PATH=$dir:$PATH
+
+exec $SPYTEST_PYTHON "$@"

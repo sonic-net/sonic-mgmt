@@ -1,0 +1,3 @@
+ExternalCategory
+ExternalService:Service is not working
+ExternalDevice:Device is broken

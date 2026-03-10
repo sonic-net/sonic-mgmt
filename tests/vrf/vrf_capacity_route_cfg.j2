@@ -1,0 +1,11 @@
+#! /bin/bash
+
+{% for vrf_idx in range(1, 1+vrf_count) %}
+{% set vrf_name = vrf_name_tpl.format(loop.index) %}
+{% set vlan_ip2 = ip2.next(vrf_idx - 1) %}
+
+vtysh -c 'config terminal' -c '{{ 'no' if op_code == 'del' else '' }} ip route {{route_prefix}} {{vlan_ip2[-1]}} vrf {{vrf_name}}'
+
+{% endfor %}
+
+sleep 5

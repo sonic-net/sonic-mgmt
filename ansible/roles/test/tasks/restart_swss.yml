@@ -1,0 +1,25 @@
+- name: Restart swss service
+  become: true
+  service:
+    name: swss
+    state: restarted
+
+- name: wait for 2 minutes for swss service to recover
+  pause:
+    seconds: 120
+
+- name: check basic sanity of the device
+  include_tasks: base_sanity.yml
+  vars:
+     recover: false
+
+- name: validate all interfaces are up
+  include_tasks: interface.yml
+  vars:
+     recover: false
+
+- name: Restart dhcp_relay service
+  become: true
+  service:
+    name: dhcp_relay
+    state: restarted

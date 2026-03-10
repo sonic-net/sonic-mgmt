@@ -1,0 +1,6 @@
+- name: Remove vlan port for vlan tunnel
+  vlan_port:
+    external_port: "{{ external_port }}"
+    vlan_ids: "{{ device_vlan_map_list[dut_name] }}"
+    cmd: "remove"
+  become: yes

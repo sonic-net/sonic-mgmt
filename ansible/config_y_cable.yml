@@ -1,0 +1,21 @@
+
+- hosts: sonic
+  gather_facts: no
+  tasks:
+
+  - name: Gathering testbed information
+    test_facts: testbed_name="{{ testbed_name }}" testbed_file="{{ testbed_file }}"
+    delegate_to: localhost
+
+  - fail: msg="The DUT you are trying to run test does not belongs to this testbed"
+    when: inventory_hostname not in testbed_facts['duts']
+
+  - name: set testbed_type
+    set_fact:
+      topo: "{{ testbed_facts['topo'] }}"
+
+  - name: config simulated y_cable
+    include_tasks: dualtor/config_simulated_y_cable.yml
+    vars:
+      restart_pmon: yes
+    when: "'dualtor' in topo"

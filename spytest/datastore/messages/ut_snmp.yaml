@@ -1,0 +1,60 @@
+##COMMON
+
+
+## SNMP UT
+ut_snmp_init_pass : UT SNMP initialization passed
+ut_snmp_init_fail : UT SNMP initialization failed
+ut_snmp_strings_pass : UT SNMP strings passed
+ut_snmp_strings_fail : UT SNMP strings failed
+ut_snmp_group_pass : UT SNMP group passed
+ut_snmp_group_fail : UT SNMP group failed
+ut_snmp_host_v2_pass : UT SNMP host v2 passed
+ut_snmp_host_v2_fail : UT SNMP host v2 failed
+ut_snmp_host_v3_pass : UT SNMP host v3 passed
+ut_snmp_host_v3_fail : UT SNMP host v3 failed
+ut_snmp_user_pass : UT SNMP user passed
+ut_snmp_user_fail : UT SNMP user failed
+ut_snmp_view_numeric_pass : UT SNMP view (numeric) passed
+ut_snmp_view_numeric_fail : UT SNMP view (numeric) failed
+ut_snmp_view_symbolic_pass : UT SNMP view (symbolic) passed
+ut_snmp_view_symbolic_fail : UT SNMP view (symbolic) failed
+ut_snmp_pid_snmpd_pass : UT SNMP snmpd pid check passed
+ut_snmp_pid_snmpd_fail : UT SNMP snmpd pid check failed
+ut_snmp_md5_snmpd_conf_pass : UT SNMP /etc/snmp/snmpd.conf md5sum check passed
+ut_snmp_md5_snmpd_conf_fail : UT SNMP /etc/snmp/snmpd.conf md5sum check failed
+ut_snmp_community_pass : UT SNMP Community test passed
+ut_snmp_community_fail : UT SNMP Community test failed
+ut_snmp_engineid_pass : UT SNMP Engine ID passed
+ut_snmp_engineid_fail : UT SNMP Engine ID failed
+ut_snmp_agentaddress_ipv4_pass : UT SNMP agent address IPv4 passed
+ut_snmp_agentaddress_ipv4_fail : UT SNMP agent address IPv4 failed
+ut_snmp_agentaddress_bad_ipv4_pass : UT SNMP agent IPv4 with bad address passed
+ut_snmp_agentaddress_bad_ipv4_fail : UT SNMP agent IPv4 with bad address failed
+ut_snmp_agentaddress_ipv6_pass : UT SNMP agent address IPv6 passed
+ut_snmp_agentaddress_ipv6_fail : UT SNMP agent address IPv6 failed
+ut_snmp_agentaddress_bad_ipv6_pass : UT SNMP agent IPv6 with bad address passed
+ut_snmp_agentaddress_bad_ipv6_fail : UT SNMP agent IPv6 with bad address failed
+ut_snmp_trap_v2c_pass : UT SNMP trap v2c passed
+ut_snmp_trap_v2c_fail : UT SNMP trap v2c failed
+ut_snmp_trap_extended_pass : UT SNMP trap extended passed
+ut_snmp_trap_extended_fail : UT SNMP trap extended failed
+ut_snmp_group_v2_view_pass : UT SNMP v2c Group/View test passed
+ut_snmp_group_v2_view_fail : UT SNMP v2c Group/View test failed
+ut_snmp_group_v3_view_pass : UT SNMP v3 Group/View test passed
+ut_snmp_group_v3_view_fail : UT SNMP v3 Group/View test failed
+ut_snmp_user_noauth_pass : UT SNMP v3 User (no-auth-no-priv) test passed
+ut_snmp_user_noauth_fail : UT SNMP v3 User (no-auth-no-priv) test failed
+ut_snmp_v3_user_authSha_pass : UT SNMP v3 User (auth-no-priv, SHA) test passed
+ut_snmp_v3_user_authSha_fail : UT SNMP v3 User (auth-no-priv, SHA) test failed
+ut_snmp_v3_user_authMd5_pass : UT SNMP v3 User (auth-no-priv, MD5) test passed
+ut_snmp_v3_user_authMd5_fail : UT SNMP v3 User (auth-no-priv, MD5) test failed
+ut_snmp_v3_user_authMd5_privAes_pass : UT SNMP v3 User (auth-priv, MD5, AES) test passed
+ut_snmp_v3_user_authMd5_privAes_fail : UT SNMP v3 User (auth-priv, MD5, AES) test failed
+ut_snmp_v3_user_authMd5_privDes_pass : UT SNMP v3 User (auth-priv, MD5, DES) test passed
+ut_snmp_v3_user_authMd5_privDes_fail : UT SNMP v3 User (auth-priv, MD5, DES) test failed
+ut_snmp_v3_user_authSha_privAes_pass : UT SNMP v3 User (auth-priv, SHA, AES) test passed
+ut_snmp_v3_user_authSha_privAes_fail : UT SNMP v3 User (auth-priv, SHA, AES) test failed
+ut_snmp_v3_user_authSha_privDes_pass : UT SNMP v3 User (auth-priv, SHA, DES) test passed
+ut_snmp_v3_user_authSha_privDes_fail : UT SNMP v3 User (auth-priv, SHA, DES) test failed
+ut_snmp_config_clean_pass : UT SNMP Config Clean passed
+ut_snmp_config_clean_fail : UT SNMP Config Clean failed

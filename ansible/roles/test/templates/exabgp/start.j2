@@ -1,0 +1,17 @@
+ifconfig eth{{ '%d' % (minigraph_port_indices[minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0]])}} {{item.phy_ip}}
+ifconfig eth{{ '%d' % (minigraph_port_indices[minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0]])}}:0 {{item.logical_ip_1}}
+ifconfig eth{{ '%d' % (minigraph_port_indices[minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][0]])}}:1 {{item.logical_ip_2}}
+
+{% set intf = 'eth%d' % (minigraph_port_indices[minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][1]]) %}
+ifconfig {{intf}} {% if item.addr_family=='ipv6' %} inet6 add {% endif %} {{item.mux_ip_1}}
+i=0; until [ $i -eq 10 ] || ping {{minigraph_vlan_interfaces[0]['addr']}} -I {{intf}} -c 1 >/dev/null 2>&1; do i=`expr $i + 1`; done &
+
+{% set intf = 'eth%d' % (minigraph_port_indices[minigraph_vlans[minigraph_vlan_interfaces[0]['attachto']]['members'][2]]) %}
+ifconfig {{intf}} {% if item.addr_family=='ipv6' %} inet6 add {% endif %} {{item.mux_ip_2}}
+i=0; until [ $i -eq 10 ] || ping {{minigraph_vlan_interfaces[0]['addr']}} -I {{intf}} -c 1 >/dev/null 2>&1; do i=`expr $i + 1`; done &
+
+ip route flush {{minigraph_lo_interfaces[0]['addr']}}/{{minigraph_lo_interfaces[0]['prefixlen']}}
+ip route add {{minigraph_lo_interfaces[0]['addr']}}/{{minigraph_lo_interfaces[0]['prefixlen']}} via {{ minigraph_vlan_interfaces[0]['addr']}}
+env exabgp.daemon.user=root exabgp {{exabgp_dir}}/{{item.config_file_1}} >/dev/null 2>&1 &
+env exabgp.daemon.user=root exabgp {{exabgp_dir}}/{{item.config_file_2}} >/dev/null 2>&1 &
+env exabgp.daemon.user=root exabgp {{exabgp_dir}}/{{item.config_file_3}} >/dev/null 2>&1 &

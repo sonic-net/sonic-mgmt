@@ -1,0 +1,24 @@
+- block:
+    - name: Get temporary filename
+      set_fact:
+        filename: "/tmp/tmp_{{ image_url | to_uuid }}"
+
+    - name: Download image file
+      get_url:
+        url: "{{ image_url }}"
+        dest: "{{ filename }}"
+        force: yes
+      run_once: True
+      delegate_to: localhost
+
+    - name: Copy the downloaded image to fanout
+      include_tasks: scp_copy.yml
+      vars:
+        src: "{{ filename }}"
+        dest: "{{ fanout_dest }}"
+  always:
+    - name: Remove the downloaded image from local host
+      file:
+        path: "{{ filename }}"
+        state: absent
+      delegate_to: localhost

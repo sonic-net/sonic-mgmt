@@ -1,0 +1,20 @@
+[
+    {
+        "LABEL_ROUTE_TABLE:1000001": {
+            "nexthop": "{{ dst_peer_addr }}",
+            "ifname": "{{ dst_port }}",
+            "mpls_pop": "1",
+            "weight": "1"
+        },
+        "OP": "SET"
+    },
+    {
+        "LABEL_ROUTE_TABLE:1000003": {
+            "nexthop": "{{ src_peer_addr }}",
+            "ifname": "{{ src_port }}",
+            "mpls_pop": "1",
+            "weight": "1"
+        },
+        "OP": "SET"
+    }
+]

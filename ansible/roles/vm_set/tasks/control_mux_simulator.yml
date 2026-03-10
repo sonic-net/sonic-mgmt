@@ -1,0 +1,106 @@
+
+- name: Get absolute path of {{ root_path }}
+  command: "realpath {{ root_path }}"
+  register: real_root_path
+
+- name: Set variable abs_root_path
+  set_fact:
+    abs_root_path: "{{ real_root_path.stdout }}"
+    mux_simulator_port: "{{ mux_simulator_http_port[testbed_name] }}"
+
+- name: Start mux simulator
+  block:
+
+  - name: Set default Flask version
+    set_fact:
+      flask_version: "1.1.2"
+      werkzeug_version: "1.0.1"
+      python_command: "python"
+
+  - name: Use newer Flask and Werkzeug version for pip3
+    set_fact:
+      flask_version: "2.3.3"
+      werkzeug_version: "2.3.7"
+      python_command: "python3"
+    when: pip_executable == "pip3"
+
+  - name: Run python3 in a virtualenv
+    set_fact:
+      python_command: "/tmp/sonic-mgmt-virtualenv/bin/python3"
+    when: host_distribution_version.stdout >= "24.04"
+
+  - name: Install Flask and Werkzeug
+    block:
+    - name: Install blinker
+      pip: name=blinker executable={{ pip_executable }} extra_args="--ignore-installed"
+      become: yes
+      environment: "{{ proxy_env | default({}) }}"
+
+    - name: Install flask
+      pip: name=flask version={{ flask_version }} executable={{ pip_executable }}
+      become: yes
+      environment: "{{ proxy_env | default({}) }}"
+
+    - name: Install werkzeug
+      pip: name=werkzeug version={{ werkzeug_version }} state=forcereinstall executable={{ pip_executable }}
+      become: yes
+      environment: "{{ proxy_env | default({}) }}"
+    when: host_distribution_version.stdout < "24.04"
+
+  - name: Install Flask and Werkzeug
+    block:
+    - name: Install flask
+      pip: name=flask version={{ flask_version }} state=forcereinstall virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true
+      become: yes
+      environment: "{{ proxy_env | default({}) }}"
+
+    - name: Install werkzeug
+      pip: name=werkzeug version={{ werkzeug_version }} state=forcereinstall virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true
+      become: yes
+      environment: "{{ proxy_env | default({}) }}"
+    when: host_distribution_version.stdout >= "24.04"
+
+  - name: Copy the mux simulator to test server
+    copy:
+      src: mux_simulator.py
+      dest: "{{ abs_root_path }}/mux_simulator_{{ mux_simulator_port }}.py"
+      mode: 0755
+
+  - name: Generate mux-simulator systemd service file
+    template:
+      src: mux-simulator.service.j2
+      dest: /etc/systemd/system/mux-simulator-{{ mux_simulator_port }}.service
+    become: yes
+
+  - name: Start the mux-simulator service for testbed {{ testbed_name }}
+    systemd:
+      name: mux-simulator-{{ mux_simulator_port }}
+      state: started
+      daemon_reload: yes
+    become: yes
+
+  - name: wait for mux-simulator service to fully start for {{ testbed_name }}
+    pause: seconds=1
+
+  - name: Get the mux-simulator service for testbed {{ testbed_name }}
+    systemd:
+      name: mux-simulator-{{ mux_simulator_port }}
+    register: mux_simulator_status
+
+  - name: Fail if the mux-simulator service has exited for testbed {{ testbed_name }}
+    fail: msg="Mux simulator service is not running for {{ testbed_name }}"
+    when: mux_simulator_status.status.ActiveState != "active"
+
+  when: mux_simulator_action == "start"
+
+- name: Stop mux simulator
+  block:
+
+  - name: Stop the mux-simulator service for testbed {{ testbed_name }}
+    systemd:
+      name: mux-simulator-{{ mux_simulator_port }}
+      state: stopped
+    become: yes
+    ignore_errors: yes
+
+  when: mux_simulator_action == "stop"

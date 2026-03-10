@@ -1,0 +1,166 @@
+topology:
+  # 4 DUTs - 3 linecards (dut 0,1,2) and 1 Supervisor card (dut 2).
+  #
+  #  - two ports(port32,port33) on dut0 asic2 connected to Ixia  - both routed port
+  #  - two ports(port34,port35) on dut1 asic2 connected to Ixia  - both routed port
+  #
+  # One ptf port on dut2 to avoid empty minigraph being generated for dut2
+
+  dut_num: 4
+  VMs:
+    Ixia-Port1:
+      vlans:
+        - 0.32@0
+      vm_offset: 0
+    Ixia-Port2:
+      vlans:
+        - 0.33@1
+      vm_offset: 1
+    Ixia-Port3:
+      vlans:
+        - 1.34@2
+      vm_offset: 2
+    Ixia-Port4:
+      vlans:
+        - 1.35@3
+      vm_offset: 3
+    ARISTA64T1:
+      vlans:
+        - 2.31@95
+      vm_offset: 71
+  DUT:
+    loopback:
+      ipv4:
+        - 10.1.0.1/32
+        - 10.1.0.2/32
+        - 10.1.0.3/32
+      ipv6:
+        - FC00:10::1/128
+        - FC00:11::1/128
+        - FC00:12::1/128
+
+configuration_properties:
+  common:
+    podset_number: 400
+    tor_number: 16
+    tor_subnet_number: 8
+    max_tor_subnet_number: 32
+    tor_subnet_size: 128
+    dut_asn: 65100
+    dut_type: SpineRouter
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+  core:
+    swrole: core
+  leaf:
+    swrole: leaf
+
+configuration:
+  Ixia-Port1:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.1.1.0
+          - FC00:1::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.1/32
+        ipv6: 2064:100::1/128
+      Ethernet1:
+        ipv4: 10.1.1.1/31
+        ipv6: FC00:1::2/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.1/24
+      ipv6: fc0a::2/64
+
+  Ixia-Port2:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.1.2.0
+          - FC00:2::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.3/32
+        ipv6: 2064:100::3/128
+      Ethernet1:
+        ipv4: 10.1.2.1/31
+        ipv6: FC00:2::2/126
+        dut_index: 0
+    bp_interface:
+      ipv4: 10.10.246.3/24
+      ipv6: fc0a::6/64
+
+  Ixia-Port3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.1.3.0
+          - FC00:3::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.4/32
+        ipv6: 2064:100::4/128
+      Ethernet1:
+        ipv4: 10.1.3.1/31
+        ipv6: FC00:3::2/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.4/24
+      ipv6: fc0a::9/64
+
+  Ixia-Port4:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 10.1.4.0
+          - FC00:4::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.6/32
+        ipv6: 2064:100::6/128
+      Ethernet1:
+        ipv4: 10.1.4.1/31
+        ipv6: FC00:4::2/126
+        dut_index: 1
+    bp_interface:
+      ipv4: 10.10.246.6/24
+      ipv6: fc0a::d/64
+  ARISTA64T1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65048
+      peers:
+        65100:
+          - 10.0.0.190
+          - FC00::17d
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.96/32
+        ipv6: 2064:100::60/128
+      Ethernet1:
+        ipv4: 10.0.0.191/31
+        ipv6: FC00::17e/126
+        dut_index: 2
+    bp_interface:
+      ipv4: 10.10.246.96/24
+      ipv6: fc0a::c0/64

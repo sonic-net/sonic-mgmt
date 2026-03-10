@@ -1,0 +1,71 @@
+#------------------------------------------------
+# Copy loganalyzer logs from switch to PTF host
+#------------------------------------------------
+
+- set_fact:
+    result_file:  result.loganalysis.{{ testname_unique }}.log
+    summary_file:  summary.loganalysis.{{ testname_unique }}.log
+    test_fetch_dir: test/{{ inventory_hostname }}
+
+# Output content of result files to ansible console
+- shell: cat {{ test_out_dir }}/{{ result_file }} {{ test_out_dir }}/{{ summary_file }}
+  register: out
+- debug: var=out.stdout_lines
+
+- name: Check if loganalyzer found any error
+  shell: grep "TOTAL MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL MATCHES:[[:space:]]*//p"
+  register: errors_found
+
+- name: Check if loganalyzer missed expected messages
+  shell: grep "TOTAL EXPECTED MISSING MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL EXPECTED MISSING MATCHES:[[:space:]]*//p"
+  register: expected_missing_matches
+
+- debug: msg={{expected_missing_matches}}
+
+- name: Check if loganalyzer gets the exact number of expected messages
+  shell: grep "TOTAL EXPECTED MATCHES" "{{ test_out_dir }}/{{ summary_file }}" | sed -n "s/TOTAL EXPECTED MATCHES:[[:space:]]*//p"
+  register: expected_matches
+  when: expected_matches_target is defined and expected_matches_target != ""
+
+- debug: msg={{expected_matches}}
+  when: expected_matches_target is defined and expected_matches_target != ""
+
+- set_fact:
+    fail_in_logs: "{{ errors_found.stdout  != \"0\" or expected_missing_matches.stdout != \"0\" }}"
+  when: expected_matches_target is not defined or expected_matches_target == ""
+
+- set_fact:
+    fail_in_logs: "{{ errors_found.stdout  != \"0\" or expected_missing_matches.stdout != \"0\" or expected_matches.stdout != expected_matches_target|string }}"
+  when: expected_matches_target is defined and expected_matches_target != ""
+
+- set_fact:
+    dump_since: '1 hour ago'
+  when: dump_since is not defined
+
+- name: Generate system dump
+  command: "generate_dump -s '{{ dump_since }}'"
+  become: true
+  register: generate_dump
+  when: fail_in_logs
+
+- name : Fetch result files from switch to ansible machine
+  fetch:
+    src: "{{ item }}"
+    dest: "{{ test_fetch_dir }}/{{ item | basename }}"
+    flat: yes
+  with_items:
+    - "{{ test_out_dir }}/{{result_file}}"
+    - "{{ test_out_dir }}/{{summary_file}}"
+    - "{{ generate_dump.stdout | default(omit) }}"
+  when: fail_in_logs
+
+- debug: msg="File {{ item }} saved to {{ test_fetch_dir }}"
+  with_items:
+    - "{{result_file}}"
+    - "{{summary_file}}"
+    - "{{ generate_dump.stdout | default(omit) }}"
+  when: fail_in_logs
+
+- name: Fail due to errors in logs
+  fail:
+  when: fail_in_logs

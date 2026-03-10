@@ -1,0 +1,173 @@
+#----------------------------------------------------
+#  @ COUNTER TRAFFIC TEST.
+#  @ Checks if counters have got proper value after some packets ran.
+#----------------------------------------------------
+
+- fail: msg="Please set ptf_host variable"
+  when: ptf_host is not defined
+
+- fail: msg="Please set ptf_host_if variable (interface that host is connected to switch)"
+  when: ptf_host_if is not defined
+
+- include_vars: "{{ vars_files_location }}/acl_counter_traffic_test_vars.yml"
+
+- name: Copy JSON configs onto switch.
+  copy: src={{ tests_location }}/{{ testname }}/{{ item }} dest={{ run_dir }}/{{ item }}
+  with_items:
+      - "{{ config_files }}"
+
+- name: Copy JSON configs from switch into docker filesystem.
+  shell: docker cp {{ run_dir }}/{{ item }} {{ orchagent }}:{{ docker_testdir }}/{{ item }}
+  with_items:
+      - "{{ config_files }}"
+
+- block:
+
+#----------------------------------------
+# L3 TRAFFIC TESTING.
+#----------------------------------------
+    - name: Create an ACL L3 table.
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_l3 }}
+
+    - name: Create a rule within L3 table.
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_rule }}
+
+    - name: Check if {{ rule_name}} data is written into DBs.
+      vars:
+        table_name_check: "{{ table_name }}"
+        rule_name_check: "{{ rule_name }}"
+        expect_data: true
+        expected_counter_value: 0
+      include_tasks: "{{ acl_check_db }}"
+
+    - name: Read initial counters value (before ping).
+      shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_name }}" Packets
+      register: counters_value_initial
+    - debug: var="counters_value_initial|int"
+
+    - name: Ping switch from host.
+      shell: ping -c {{ packets_sent|int }} {{ switch_if1_ip }}
+      delegate_to: "{{ ptf_host }}"
+      register: ping_result
+      failed_when: ping_result.rc != 0
+
+    - name: Wait for counters to update (it updates every 10 sec) ...
+      pause:
+          seconds: 10
+
+    - name: Read result counters value (after ping).
+      shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_name }}" Packets
+      register: counters_value_result
+    - debug: var="counters_value_result|int"
+
+    - fail: msg="Counters value is not equal to number of packets transmitted"
+      when: (counters_value_result.stdout|int - counters_value_initial.stdout|int) != packets_sent|int
+
+      # Use another dst address and make sure counter doesn't increase.
+    - name: Ping switch from host to another interface.
+      shell: ping -c {{ packets_sent|int }} {{ switch_if2_ip }} -I {{ ptf_host_if }}
+      delegate_to: "{{ ptf_host }}"
+      register: ping_result
+      failed_when: ping_result.rc == 0
+
+    - name: Wait for counters to update (it updates every 10 sec) ...
+      pause:
+          seconds: 10
+
+    - name: Read counters value.
+      shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ table_name }}:{{ rule_name }}" Packets
+      register: counters_value_result
+
+    - fail: msg="Counters value is not equal to number of packets transmitted. Used {{ table_name}} / {{ rule_name }}"
+      when: (counters_value_result.stdout|int - counters_value_initial.stdout|int) != packets_sent|int
+
+      # Delete rule and check if config is deleted as well
+    - name: Delete L3-rule.
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_rule_delete }}
+
+    - name: Check if {{ rule_name}} data is removed from DBs.
+      vars:
+        table_name_check: "{{ table_name }}"
+        rule_name_check: "{{ rule_name }}"
+        expect_data: false
+        expected_counter_value: 0
+      include_tasks: "{{ acl_check_db }}"
+
+#--------------------
+# MIRROR TRAFFIC TESTING.
+#--------------------
+
+    - name: Create a mirror session.
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_mirror_session }}
+
+    - name: Create a mirror table.
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_table_type_mirror }}
+
+    - name: Add neighbor.
+      shell: ip neigh replace {{ neighbor2_ip }} lladdr 0e:9c:37:42:43:67 dev Ethernet0
+
+    - name: Add route.
+      shell: ip route add {{ dst_mirror_subnet }} via {{ neighbor2_ip }}
+
+    - name: Create a rule within mirror table.
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_rule_mirror }}
+
+    - name: Check that {{ mirror_rule_name }} data is written into DBs.
+      vars:
+        table_name_check: "{{ mirror_table_name }}"
+        rule_name_check: "{{ mirror_rule_name }}"
+        expect_data: true
+        expected_counter_value: 0
+      include_tasks: "{{ acl_check_db }}"
+
+    - name: Read initial counters value (before ping).
+      shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ mirror_table_name }}:{{ mirror_rule_name }}" Packets
+      register: counters_value_initial
+
+    - name: Ping switch from host to check counters of mirror rule.
+      shell: ping -c {{ packets_sent|int }} {{ switch_if1_ip }}
+      delegate_to: "{{ ptf_host }}"
+      register: ping_result
+      failed_when: ping_result.rc != 0
+
+    - name: Wait for counters to update (it updates every 10 sec) ...
+      pause:
+          seconds: 10
+
+    - name: Read result counters value (after ping).
+      shell: docker exec -i database redis-cli -n 2 HGET "COUNTERS:{{ mirror_table_name }}:{{ mirror_rule_name }}" Packets
+      register: counters_value_result
+
+    - fail: msg="Counters value is not equal to number of packets transmitted"
+      when: (counters_value_result.stdout|int - counters_value_initial.stdout|int) != packets_sent|int
+
+    - name: Delete mirror-rule.
+      shell: docker exec -i {{ orchagent }} swssconfig {{ docker_testdir }}/{{ config_rule_mirror_delete }}
+
+    - name: Check that {{ mirror_rule_name }} data is removed from DBs.
+      vars:
+        table_name_check: "{{ mirror_table_name }}"
+        rule_name_check: "{{ mirror_rule_name }}"
+        expect_data: false
+        expected_counter_value: 0
+      include_tasks: "{{ acl_check_db }}"
+
+      # CLEANUP.
+    - name: Run config cleanup after {{ testname}}
+      include_tasks: "{{ run_config_cleanup }}"
+
+- block:
+    - name: Delete neighbor.
+      shell: ip neigh del {{ neighbor2_ip }} dev Ethernet0
+      ignore_errors: yes
+
+    - name: Delete route.
+      shell: ip route del {{ dst_mirror_subnet }}
+      ignore_errors: yes
+
+    - name: Remove all the temporary files created by the test.
+      file: path="{{ run_dir }}/{{ item }}" state=absent
+      with_items:
+          - "{{ config_files }}"
+  tags:
+  - always

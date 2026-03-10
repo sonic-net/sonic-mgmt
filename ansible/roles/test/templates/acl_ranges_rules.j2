@@ -1,0 +1,14 @@
+[
+{% for tor in range(ranges_number | int) %}
+    {
+        "ACL_RULE_TABLE:ACL_Testbed_Range_Test_Table:Rule{{ loop.index }}_port_range_test": {
+            "priority" : "50",
+            "l4_dst_port_range" : "{{ 1024 + loop.index * 16 }}-{{ 1024 + loop.index * 16 + 10 }}",
+            "packet_action" : "forward"
+        },
+        "OP": "SET"
+    }{% if not loop.last %},
+{% endif %}
+{% endfor %}
+
+]

@@ -1,0 +1,10 @@
+[
+    {
+        "ACL_RULE_TABLE:acl_test_table:acl_test_rule_invalid_2": {
+		    "priority" : "55",
+			"PACKET_ACTION" : "100",
+			"SRC_IP" : "20.0.4.5/24"
+        },
+        "OP": "SET"
+    }
+]

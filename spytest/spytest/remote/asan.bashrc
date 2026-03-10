@@ -1,0 +1,12 @@
+export ASAN_OPTIONS="color=never"
+export ASAN_OPTIONS="$ASAN_OPTIONS:halt_on_error=0"
+export ASAN_OPTIONS="$ASAN_OPTIONS:abort_on_error=0"
+export ASAN_OPTIONS="$ASAN_OPTIONS:keep_going=1"
+export ASAN_OPTIONS="$ASAN_OPTIONS:symbolize=1"
+export ASAN_OPTIONS="$ASAN_OPTIONS:verbosity=0"
+export ASAN_OPTIONS="$ASAN_OPTIONS:log_exe_name=1"
+export ASAN_OPTIONS="$ASAN_OPTIONS:detect_leaks=1"
+export ASAN_OPTIONS="$ASAN_OPTIONS:detect_odr_violation=0"
+export ASAN_OPTIONS="$ASAN_OPTIONS:log_path=/var/log/asan"
+export LD_PRELOAD="/usr/lib/x86_64-linux-gnu/libasan.so.3.0.0"
+

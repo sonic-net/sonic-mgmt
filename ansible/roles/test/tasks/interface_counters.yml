@@ -1,0 +1,24 @@
+- name: Wait for counters to become enabled
+  counter_facts:
+    flex_counters:
+  until: "{{ 'PORT_STAT' in flex_counters and flex_counters['PORT_STAT']['Status'] == 'enable' }}"
+  delay: 10
+  retries: 30
+
+- name: Wait for data to be written into Counters DB ...
+  pause:
+    seconds: 10
+
+- name: Get interfaces counters
+  counter_facts:
+    interfaces_counters:
+
+- name: Verify interface counters do not contain "N/A"
+  assert:
+    that:
+      - interfaces_counters[item]['RX_BPS'] != 'N/A'
+      - interfaces_counters[item]['TX_BPS'] != 'N/A'
+      - interfaces_counters[item]['RX_UTIL'] != 'N/A'
+      - interfaces_counters[item]['TX_UTIL'] != 'N/A'
+    msg: "'N/A' observed in interface counters"
+  with_items: "{{ interfaces_counters.keys() }}"

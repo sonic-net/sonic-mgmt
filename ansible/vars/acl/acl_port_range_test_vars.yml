@@ -1,0 +1,57 @@
+---
+
+testname: acl_port_range_test
+
+# configuration-test settings
+config_table_type_l3: config_table_type_l3.json
+config_mirror_session: config_mirror_session.json
+config_table_type_mirror: config_table_type_mirror.json
+config_l4_port_range_1_on_l3_table: config_l4_port_range_1_on_l3_table.json
+config_l4_port_range_2_on_l3_table: config_l4_port_range_2_on_l3_table.json
+config_l4_port_range_on_mirror_table: config_l4_port_range_on_mirror_table.json
+config_l4_full_port_range: config_l4_full_port_range.json
+config_l4_limited_port_range: config_l4_limited_port_range.json
+config_delete_limited_port_range: config_delete_limited_port_range.json
+config_delete_different_port_range: config_delete_different_port_range.json
+config_l4_port_range_invalid_1: config_l4_port_range_invalid_1.json
+config_l4_port_range_invalid_2: config_l4_port_range_invalid_2.json
+config_l4_port_range_invalid_3: config_l4_port_range_invalid_3.json
+config_l4_port_range_invalid_4: config_l4_port_range_invalid_4.json
+config_l4_port_range_invalid_5: config_l4_port_range_invalid_5.json
+config_l4_port_range_invalid_6: config_l4_port_range_invalid_6.json
+config_l4_port_range_invalid_7: config_l4_port_range_invalid_7.json
+config_l4_port_range_invalid_8: config_l4_port_range_invalid_8.json
+
+config_l4_port_range_expect: config_l4_port_range_expect_file
+config_empty_expect: config_empty_expect_file
+host_testdir: /tmp/ptf_tests
+
+# traffic-test settings
+table_name: acl_test_table
+rule_limited_port_range_name: acl_rule_limited_range
+packets_sent: 3
+
+# mirror-testing settings
+switch_if_ip: 10.0.0.0
+ptf_host_if_ip: 10.0.0.1
+dst_mirror_subnet: 2.0.0.0/24
+
+config_files:
+  - "{{ config_table_type_l3 }}"
+  - "{{ config_mirror_session }}"
+  - "{{ config_table_type_mirror }}"
+  - "{{ config_l4_port_range_1_on_l3_table }}"
+  - "{{ config_l4_port_range_2_on_l3_table }}"
+  - "{{ config_l4_port_range_on_mirror_table }}"
+  - "{{ config_l4_full_port_range }}"
+  - "{{ config_l4_limited_port_range }}"
+  - "{{ config_delete_limited_port_range }}"
+  - "{{ config_delete_different_port_range }}"
+  - "{{ config_l4_port_range_invalid_1 }}"
+  - "{{ config_l4_port_range_invalid_2 }}"
+  - "{{ config_l4_port_range_invalid_3 }}"
+  - "{{ config_l4_port_range_invalid_4 }}"
+  - "{{ config_l4_port_range_invalid_5 }}"
+  - "{{ config_l4_port_range_invalid_6 }}"
+  - "{{ config_l4_port_range_invalid_7 }}"
+  - "{{ config_l4_port_range_invalid_8 }}"

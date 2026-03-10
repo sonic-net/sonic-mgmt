@@ -1,0 +1,150 @@
+- name: Set ptf host
+  set_fact:
+    ptf_host: "{{ ptf_ip.split('/')[0] }}"
+    ptf_host_ip: "{{ ptf_ip.split('/')[0] }}"
+
+- name: Add ptf host
+  add_host:
+    name: "{{ ptf_host }}"
+    groups:
+      - ptf
+
+- name: Set default exabgp_action
+  set_fact:
+    exabgp_action: start
+  when: exabgp_action is not defined
+
+- name: Get VMs information
+  set_fact:
+    topo_vms: "{{ topology['VMs'] | get_vms_by_dut_interfaces(dut_interfaces | default('')) }}"
+  when: convergence_data is not defined
+
+- name: Get VMs (multi-vrf) information
+  set_fact:
+    topo_vms: "{{ configuration }}"
+  when: convergence_data is defined
+
+- name: Save multi-vrf vm offset mapping, if they exist
+  set_fact:
+    vm_offsets: "{{ convergence_data['vm_offset_mapping']|default({}) }}"
+
+- block:
+  - name: Configure and start exabpg process for IPV4
+    when: configuration_properties.common.enable_ipv4_routes_generation | default(True)
+    block:
+
+    - set_fact:
+        ptf_local_ipv4: "{{ configuration_properties.common.nhipv4|default('10.10.246.254') }}"
+
+    - name: Configure exabgp processes for IPv4 on PTF
+      exabgp:
+        name: "{{ vm_item.key }}"
+        state: "configure"
+        router_id: "{{ vm_item.key|get_exabgp_router_id(convergence_data|default({}))|default(ptf_local_ipv4, true) }}"
+        local_ip: "{{ vm_item.key|get_exabgp_local_ip_v4(convergence_data|default({}))|default(ptf_local_ipv4, true) }}"
+        peer_ip: "{{ vm_item.key|get_exabgp_peer_v4(convergence_data|default({}))|default(configuration[vm_item.key].bp_interface.ipv4.split('/')[0], true) }}"
+        local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+        peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+        port: "{{ vm_item.key|get_exabgp_v4_port(topology, vm_offsets|default({}))|int }}"
+      loop: "{{ topo_vms|dict2items }}"
+      loop_control:
+        loop_var: vm_item
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Gather exabgp v4 programs
+      set_fact:
+        program_group_name: "exabgpv4"
+        program_group_programs: "{{ topo_vms.keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1') | join(',')}}"
+
+    - name: Configure exabgpv4 group
+      template:
+        src: "roles/vm_set/templates/exabgp.conf.j2"
+        dest: "/etc/supervisor/conf.d/exabgpv4.conf"
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Add exabgpv4 supervisor config and start related processes
+      when: "{{ topo_vms | length > 0 }}"
+      supervisorctl:
+        name: "exabgpv4:"
+        state: present  # present contains `supervisorctl reread` and `supervisorctl add`
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Verify that exabgp processes for IPv4 are started
+      wait_for:
+        host: "{{ ptf_host_ip }}"
+        port: "{{ vm_item.key|get_exabgp_v4_port(topology, vm_offsets|default({}))|int }}"
+        state: "started"
+        timeout: 180
+      loop: "{{ topo_vms|dict2items }}"
+      loop_control:
+        loop_var: vm_item
+      delegate_to: localhost
+
+  - name: Configure and start exabpg process for IPV6
+    when: configuration_properties.common.enable_ipv6_routes_generation | default(True)
+    block:
+
+    - set_fact:
+        ptf_local_ipv6: "{{ configuration_properties.common.nhipv6|default('fc0a::ff') }}"
+
+    - set_fact:
+        ptf_router_id: "{{ configuration_properties.common.nhipv4|default('10.10.246.254') }}"
+
+    - name: configure exabgp processes for IPv6 on PTF
+      exabgp:
+        name: "{{ vm_item.key }}-v6"
+        state: "configure"
+        router_id: "{{ vm_item.key|get_exabgp_router_id(convergence_data|default({}))|default(ptf_router_id, true) }}"
+        local_ip: "{{ vm_item.key|get_exabgp_local_ip_v6(convergence_data|default({}))|default(ptf_local_ipv6, true) }}"
+        peer_ip: "{{ vm_item.key | get_exabgp_peer_v6(convergence_data|default({})) | default(configuration[vm_item.key].bp_interface.ipv6.split('/')[0], true) }}"
+        local_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+        peer_asn: "{{ configuration[vm_item.key].bgp.asn }}"
+        port: "{{ vm_item.key|get_exabgp_v6_port(topology, vm_offsets|default({}))|int }}"
+      loop: "{{ topo_vms|dict2items }}"
+      loop_control:
+        loop_var: vm_item
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Gather exabgp v6 programs
+      set_fact:
+        program_group_name: "exabgpv6"
+        program_group_programs: "{{ topo_vms.keys() | map('regex_replace', '^(.*)$', 'exabgp-\\1-v6') | join(',')}}"
+
+    - name: Configure exabgpv6 group
+      template:
+        src: "roles/vm_set/templates/exabgp.conf.j2"
+        dest: "/etc/supervisor/conf.d/exabgpv6.conf"
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Add exabgpv6 supervisor config and start related processes
+      when: "{{ topo_vms | length > 0 }}"
+      supervisorctl:
+        name: "exabgpv6:"
+        state: present  # present contains `supervisorctl reread` and `supervisorctl add`
+      delegate_to: "{{ ptf_host }}"
+
+    - name: Verify that exabgp processes for IPv6 are started
+      wait_for:
+        host: "{{ ptf_host_ip }}"
+        port: "{{ vm_item.key|get_exabgp_v6_port(topology, vm_offsets|default({}))|int }}"
+        state: "started"
+        timeout: 180
+      loop: "{{ topo_vms|dict2items }}"
+      loop_control:
+        loop_var: vm_item
+      delegate_to: localhost
+
+  - name: Print upstream_neighbor_groups and downstream_neighbor_groups
+    debug:
+      msg: "upstream_neighbor_groups={{ upstream_neighbor_groups | default('undefined', true) }},
+      downstream_neighbor_groups={{ downstream_neighbor_groups | default('undefined', true) }}"
+
+  - name: Announce routes
+    announce_routes:
+      topo_name: "{{ topo }}"
+      ptf_ip: "{{ ptf_host_ip }}"
+      dut_interfaces: "{{ dut_interfaces | default('') }}"
+      upstream_neighbor_groups: "{{ upstream_neighbor_groups | default(0) | int }}"
+      downstream_neighbor_groups: "{{ downstream_neighbor_groups | default(0) | int }}"
+    delegate_to: localhost
+  when: exabgp_action == 'start'

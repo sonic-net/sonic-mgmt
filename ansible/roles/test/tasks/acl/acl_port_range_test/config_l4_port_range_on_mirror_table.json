@@ -1,0 +1,12 @@
+[
+    {
+        "ACL_RULE_TABLE:acl_test_table_mirror:acl_test_rule": {
+                    "priority" : "55",
+                    "SRC_IP" : "10.0.0.1/24",
+                    "DST_IP" : "10.0.0.0/24",
+                    "MIRROR_ACTION" : "test_session",
+                    "L4_SRC_PORT_RANGE" : "0-1028"
+        },
+        "OP": "SET"
+    }
+]
