@@ -26,7 +26,7 @@ import yaml
 __metaclass__ = type
 BUILDIMAGE_REPO_FLAG = "buildimage"
 MGMT_REPO_FLAG = "sonic-mgmt"
-INTERNAL_REPO_LIST = ["Networking-acs-buildimage", "sonic-mgmt-int", "sonic-metadata"]
+INTERNAL_REPO_LIST = ["Networking-acs-buildimage", "sonic-mgmt-int", "sonic-metadata", "sonic-upgrade-scripts"]
 MSFT_REPO_FLAG = "msft"
 GITHUB_SONIC_MGMT_REPO = "https://github.com/sonic-net/sonic-mgmt"
 GITHUB_SONIC_MGMT_REPO_MSFT = "https://github.com/Azure/sonic-mgmt.msft"
