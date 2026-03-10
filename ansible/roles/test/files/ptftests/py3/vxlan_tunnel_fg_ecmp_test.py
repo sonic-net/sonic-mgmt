@@ -10,11 +10,10 @@ Test cases:
   no flow hits the withdrawn endpoint, and that flows previously going to other
   endpoints are completely undisturbed
 - add_endpoint: Replay flows after a new endpoint is added. Asserts that at
-  most 15% of flows migrate to the new endpoint
-- dual_vnet_isolation: Send flows from two separate VNET ingress ports that both
+  most 12% of flows migrate to the new endpoint
+- conflicting_dest_prefix: Send flows from two separate VNET ingress ports that both
   have the same destination prefix but different VNIs. Asserts that Vnet1 flows
-  reach only Vnet1 endpoints and Vnet2 flows reach only Vnet2 endpoints, with
-  no cross-VNET contamination.
+  reach only Vnet1 endpoints and Vnet2 flows reach only Vnet2 endpoints
 """
 
 import logging
@@ -26,8 +25,7 @@ import ptf.packet as scapy
 from ptf.base_tests import BaseTest
 from ptf.testutils import test_params_get, dp_poll, send_packet, simple_tcp_packet
 
-MAX_DEVIATION = 0.25
-ADD_ENDPOINT_MAX_DISRUPTION = 0.15
+MAX_DEVIATION = 0.12
 
 logger = logging.getLogger(__name__)
 
@@ -268,7 +266,7 @@ class VxlanTunnelFgEcmpTest(BaseTest):
     def _add_endpoint(self, flow_map):
         """
         After a new endpoint is added to the DUT config:
-        - At most ADD_ENDPOINT_MAX_DISRUPTION (15%) of flows may move to
+        - At most MAX_DEVIATION (~10%) of flows may move to
           the new endpoint.
         - Flows that do not move to the new endpoint must stay on their
           current endpoint
@@ -306,13 +304,13 @@ class VxlanTunnelFgEcmpTest(BaseTest):
             for flow_key, old_ep, new_ep in unexpected_moves[:5]:
                 logger.warning(f"    flow={flow_key} {old_ep} -> {new_ep}")
 
-        assert disruption_rate <= ADD_ENDPOINT_MAX_DISRUPTION, (
+        assert disruption_rate <= MAX_DEVIATION, (
             f"Too many flows disrupted by adding endpoint {self.add_endpoint}: "
             f"{moved_to_new}/{total} = {disruption_rate:.1%} "
-            f"(threshold: {ADD_ENDPOINT_MAX_DISRUPTION:.0%})"
+            f"(threshold: {MAX_DEVIATION:.0%})"
         )
 
-    def _dual_vnet_isolation(self):
+    def _conflicting_dest_prefix(self):
         """
         Send flows from each VNET's ingress port and verify that:
         - All Vnet1 flows reach only Vnet1 endpoints
@@ -372,8 +370,8 @@ class VxlanTunnelFgEcmpTest(BaseTest):
     # ------------------------------------------------------------------
 
     def runTest(self):
-        if self.test_case == "dual_vnet_isolation":
-            self._dual_vnet_isolation()
+        if self.test_case == "conflicting_dest_prefix":
+            self._conflicting_dest_prefix()
             return
 
         if self.test_case == "create_flows":

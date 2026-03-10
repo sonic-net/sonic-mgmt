@@ -16,8 +16,8 @@ VNET2_NAME = "Vnet2"
 TUNNEL_NAME = "tunnel_v4"
 VNI = 1000
 VNET2_VNI = 2000
-PREFIX = "150.0.3.1/32"
-BUCKET_SIZE = 125
+PREFIX = "150.0.3.1/24"
+BUCKET_SIZE = 512 # todo navdhaj: check that should configure 511
 NUM_INITIAL_ENDPOINTS = 10
 ENDPOINT_BASE_IP = "100.0.1."
 VNET2_ENDPOINT_BASE_IP = "100.0.2."
@@ -31,7 +31,9 @@ PTF_LOG_FILE = '/tmp/vxlan_tunnel_fg_ecmp_test.log'
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.device_type('physical'),
+    pytest.mark.asic('cisco-8000')
 ]
 
 logger = logging.getLogger(__name__)
@@ -278,7 +280,7 @@ def run_vxlan_ptf_test(ptfhost, endpoints, params, test_case, num_packets, **kwa
     ptf_runner(
         ptfhost,
         "ptftests",
-        "vxlan_tunnel_fg_ecmp_test.VxlanTunnelFgEcmpTest",
+        "vxlan_tunnel_route_fg_ecmp_test.VxlanTunnelFgEcmpTest",
         platform_dir="ptftests",
         params={"params_file": PTF_PARAMS_FILE},
         log_file=PTF_LOG_FILE,
