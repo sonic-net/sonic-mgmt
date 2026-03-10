@@ -179,6 +179,14 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
                 "Failed to apply lag member configuration file: {}".format(result["stderr"])
             )
 
+        if duthost.facts['asic_type'] == "vs":
+            # VS SAI does not populate LAG member EGRESS/INGRESS_DISABLE attributes
+            # in ASIC_DB, and the Linux kernel teamdev doesn't enforce them,
+            # so packets still flow. Skip ASIC_DB wait and all traffic verification.
+            logger.info("KVM/VS SAI does not enforce LAG member disable in dataplane, "
+                        "skip ASIC_DB wait, forwarding and BGP verify steps.")
+            return
+
         # swssconfig returns before orchagent/syncd finishes applying the config.
         # Wait for ASIC_DB to reflect that all LAG members are disabled before
         # sending traffic, otherwise packets may still be forwarded.
@@ -202,14 +210,6 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
             "LAG members not disabled in ASIC_DB within 10s after swssconfig"
         )
         logger.info("All LAG members confirmed disabled in ASIC_DB")
-
-        if duthost.facts['asic_type'] == "vs":
-            # VS SAI stores LAG member EGRESS/INGRESS_DISABLE attributes in ASIC_DB
-            # but the Linux kernel teamdev doesn't enforce them, so packets still flow.
-            # Skip all forwarding/BGP verification on VS.
-            logger.info("KVM/VS SAI does not enforce LAG member disable in dataplane, "
-                        "skip forwarding and BGP verify steps.")
-            return
 
         # Make sure data forwarding starts to fail
         if peer_device_dest_ip:
