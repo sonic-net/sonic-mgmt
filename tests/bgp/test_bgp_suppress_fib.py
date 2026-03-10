@@ -28,7 +28,7 @@ from bgp_helpers import restart_bgp_session, get_eth_port, get_exabgp_port, get_
     get_eth_name_from_ptf_port, check_bgp_neighbor, check_fib_route
 
 pytestmark = [
-    pytest.mark.topology("t1"),
+    pytest.mark.topology("t1", "c0"),
     pytest.mark.skip_check_dut_health
 ]
 

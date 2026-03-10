@@ -13,7 +13,7 @@ from bgp_helpers import get_no_export_output
 from bgp_helpers import BGP_ANNOUNCE_TIME
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1', 'c0')
 ]
 
 

@@ -8,7 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('m1'),
+    pytest.mark.topology('m1', 'c0'),
 ]
 
 

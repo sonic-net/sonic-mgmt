@@ -6,7 +6,7 @@ from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
 from tests.common.utilities import wait_until
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 'c0'),
     pytest.mark.device_type('vs')
 ]
 

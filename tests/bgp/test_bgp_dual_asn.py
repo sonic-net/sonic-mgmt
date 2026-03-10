@@ -24,7 +24,7 @@ from tests.common.gu_utils import (
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa:F401
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
-pytestmark = [pytest.mark.topology("t0")]
+pytestmark = [pytest.mark.topology("t0", "c0")]
 
 
 @pytest.fixture(autouse=True, scope="module")

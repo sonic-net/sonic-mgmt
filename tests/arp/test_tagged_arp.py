@@ -21,7 +21,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx')
+    pytest.mark.topology('t0', 'm0', 'mx', 'c0')
 ]
 
 PTF_PORT_MAPPING_MODE = "use_orig_interface"

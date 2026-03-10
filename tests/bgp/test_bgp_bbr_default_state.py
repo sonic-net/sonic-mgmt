@@ -16,7 +16,7 @@ from tests.common.config_reload import config_reload
 
 
 pytestmark = [
-    pytest.mark.topology('t1'),
+    pytest.mark.topology('t1', 'c0'),
     pytest.mark.device_type('vs')
     ]
 

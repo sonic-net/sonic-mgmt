@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_require
 
 
 pytestmark = [
-    pytest.mark.topology("t0"),
+    pytest.mark.topology("t0", "c0"),
     pytest.mark.device_type('vs')
 ]
 

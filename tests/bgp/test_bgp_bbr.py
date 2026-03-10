@@ -28,7 +28,7 @@ from tests.common.devices.eos import EosHost
 from bgp_bbr_helpers import get_bbr_default_state, config_bbr_by_gcu
 
 pytestmark = [
-    pytest.mark.topology('t1', 't1-multi-asic'),
+    pytest.mark.topology('t1', 't1-multi-asic', 'c0'),
     pytest.mark.device_type('vs')
 ]
 

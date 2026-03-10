@@ -29,7 +29,7 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 # ---- Topology & device-type markers (register in pytest.ini to avoid warnings) ----
-pytestmark = [pytest.mark.topology("t1", "m1"), pytest.mark.device_type("vs"), pytest.mark.disable_loganalyzer]
+pytestmark = [pytest.mark.topology("t1", "m1", "c0"), pytest.mark.device_type("vs"), pytest.mark.disable_loganalyzer]
 
 # ---- Constants & helper structures ----
 CONSTANTS_FILE = "/etc/sonic/constants.yml"
