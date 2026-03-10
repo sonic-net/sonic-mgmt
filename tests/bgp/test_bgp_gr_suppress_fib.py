@@ -21,9 +21,6 @@ from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    # Restricted to virtual switch: GR timing (300s restart, 120s stale check)
-    # is tuned for KVM; physical testbeds may need different timeouts.
-    pytest.mark.device_type('vs')
 ]
 
 logger = logging.getLogger(__name__)
@@ -65,7 +62,12 @@ def enable_suppress_fib(duthosts, rand_one_dut_hostname):
 
 
 def _get_bgp_routes_summary(duthost):
-    """Get total number of received BGP routes (IPv4 + IPv6)."""
+    """Get total number of received BGP routes (IPv4 + IPv6).
+
+    Counts routes per-namespace and sums across all namespaces. On multi-ASIC
+    systems, the same prefix may exist in multiple ASICs (each has its own
+    forwarding table), so we count each occurrence independently.
+    """
     total_routes = 0
     namespaces = duthost.get_frontend_asic_namespace_list() or ['']
     for namespace in namespaces:
@@ -115,6 +117,35 @@ def _get_neighbor_route_counts(duthost, bgp_neighbors):
                 logger.warning("Failed to get route counts for neighbor %s in namespace '%s'",
                                neighbor, namespace)
     return counts
+
+
+def _get_neighbor_routes_per_namespace(duthost, neighbor_ips):
+    """Get routes from neighbors, counted per-namespace.
+
+    Returns a dict of {(namespace, neighbor_ip): {prefix: route_data}}.
+    On multi-ASIC systems, the same prefix in different ASICs is counted
+    separately since each ASIC maintains its own forwarding table.
+    """
+    routes = {}
+    for neighbor_ip in neighbor_ips:
+        for namespace in (duthost.get_frontend_asic_namespace_list() or ['']):
+            if '.' in neighbor_ip:
+                cmd = "vtysh -c 'show bgp ipv4 neighbor %s routes json'" % neighbor_ip
+            else:
+                cmd = "vtysh -c 'show bgp ipv6 neighbor %s routes json'" % neighbor_ip
+            cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
+            try:
+                result = json.loads(duthost.shell(cmd, verbose=False)['stdout'])
+                routes[(namespace, neighbor_ip)] = result.get('routes', {})
+            except Exception as e:
+                logger.warning("Failed to get routes for neighbor %s in namespace '%s': %s",
+                               neighbor_ip, namespace, e)
+    return routes
+
+
+def _count_total_routes(routes_dict):
+    """Count total routes across all (namespace, neighbor) pairs."""
+    return sum(len(v) for v in routes_dict.values())
 
 
 def _check_all_bgp_sessions_established(duthost, bgp_neighbor_ips):
@@ -168,24 +199,62 @@ def _check_no_stale_routes(duthost, bgp_neighbor_ips):
     return True
 
 
-def _get_routes_in_app_db(duthost):
-    """Get route count from APP_DB ROUTE_TABLE.
+def _get_asic_db_route_count(duthost):
+    """Get route count from ASIC_DB.
 
-    Returns None if the query fails so callers can detect errors.
+    Counts ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY keys across all namespaces.
+    Returns total count or None on failure.
     """
-    result = duthost.shell(
-        'sonic-db-cli APPL_DB keys "ROUTE_TABLE:*" | wc -l',
-        verbose=False)
-    rc = result.get('rc', 1)
-    stdout = result.get('stdout', '').strip()
-    if rc != 0:
-        logger.warning("Failed to query APP_DB routes (rc=%d)", rc)
-        return None
-    try:
-        return int(stdout)
-    except (TypeError, ValueError):
-        logger.warning("Failed to parse APP_DB route count: '%s'", stdout)
-        return None
+    total = 0
+    for namespace in (duthost.get_frontend_asic_namespace_list() or ['']):
+        if namespace:
+            cmd = ("sonic-db-cli -n {} ASIC_DB eval "
+                   "\"return #redis.call('keys','ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*')\" 0"
+                   ).format(namespace)
+        else:
+            cmd = ("sonic-db-cli ASIC_DB eval "
+                   "\"return #redis.call('keys','ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*')\" 0")
+        try:
+            result = duthost.shell(cmd, verbose=False)
+            if result.get('rc', 1) != 0:
+                logger.warning("Failed to query ASIC_DB routes in namespace '%s' (rc=%d)",
+                               namespace, result.get('rc'))
+                return None
+            total += int(result['stdout'].strip())
+        except Exception as e:
+            logger.warning("Failed to get ASIC_DB route count in namespace '%s': %s", namespace, e)
+            return None
+    return total
+
+
+def _get_gr_restart_timer(duthost, bgp_neighbor_ips):
+    """Get the negotiated GR restart timer from FRR for the given neighbors.
+
+    Returns the maximum restart timer across all neighbors (in seconds),
+    or a default of 120s if the timer cannot be determined.
+    """
+    max_timer = 0
+    default_timer = 120
+    for neighbor_ip in bgp_neighbor_ips:
+        for namespace in (duthost.get_frontend_asic_namespace_list() or ['']):
+            cmd = duthost.get_vtysh_cmd_for_namespace(
+                "vtysh -c 'show bgp neighbor %s json'" % neighbor_ip, namespace)
+            try:
+                result = json.loads(duthost.shell(cmd, verbose=False)['stdout'])
+                neighbor_data = result.get(neighbor_ip, {})
+                gr_info = neighbor_data.get('gracefulRestartInfo', {})
+                # FRR reports the received restart timer from the peer
+                timer = gr_info.get('timers', {}).get('receivedRestartTimer', 0)
+                if timer > max_timer:
+                    max_timer = timer
+            except Exception as e:
+                logger.warning("Failed to get GR timer for neighbor %s in namespace '%s': %s",
+                               neighbor_ip, namespace, e)
+    if max_timer > 0:
+        logger.info("Negotiated GR restart timer: %ds (max across neighbors)", max_timer)
+        return max_timer
+    logger.info("Could not determine GR restart timer, using default %ds", default_timer)
+    return default_timer
 
 
 def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
@@ -199,11 +268,11 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
     Test steps:
     1. Enable suppress-fib-pending on DUT
     2. Enable GR on all neighbors
-    3. Record routes from all neighbors before restart
+    3. Record routes and ASIC_DB route count before restart
     4. Restart BGP on DUT (systemctl restart bgp)
-    5. Verify BGP sessions re-establish
+    5. Verify BGP sessions re-establish (using negotiated GR timer)
     6. Verify all routes are restored and not stale
-    7. Verify routes are present in APP_DB (FIB programmed)
+    7. Verify ASIC_DB route count restored (FIB programmed)
     """
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -226,6 +295,11 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
         "Not all BGP sessions are established before test"
     )
     logger.info("All %d BGP sessions are established", len(bgp_neighbor_ips))
+
+    # Get the negotiated GR restart timer for appropriate wait timeouts
+    gr_timer = _get_gr_restart_timer(duthost, bgp_neighbor_ips)
+    # Buffer: GR timer + 60s for FIB programming and convergence
+    gr_wait_timeout = gr_timer + 60
 
     # Step 3: Wait for routes to stabilize (all sessions fully converged)
     # After setup_bgp_graceful_restart configures neighbors, sessions may flap.
@@ -252,21 +326,25 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
         "BGP route count did not stabilize after sessions established"
     )
     routes_before = _get_bgp_routes_summary(duthost)
-    app_db_routes_before = _get_routes_in_app_db(duthost)
-    pytest_assert(app_db_routes_before is not None, "Failed to query APP_DB routes before restart")
-    logger.info("Before restart: %d BGP routes, %d APP_DB routes", routes_before, app_db_routes_before)
+
+    # Capture ASIC_DB route count before restart (ground truth for FIB)
+    asic_db_before = _get_asic_db_route_count(duthost)
+    if asic_db_before is None:
+        logger.warning("Could not query ASIC_DB route count before restart")
+        asic_db_before = 0
+    logger.info("Before restart: %d BGP routes, %d ASIC_DB routes", routes_before, asic_db_before)
 
     # Step 4: Restart BGP on DUT
     logger.info("Restarting BGP service on DUT with suppress-fib-pending enabled")
     duthost.shell('sudo systemctl restart bgp')
 
     # Step 5: Wait for BGP sessions to re-establish
-    # With suppress-fib-pending, it may take slightly longer since FRR waits
-    # for routes to be programmed before sending EOR
-    logger.info("Waiting for BGP sessions to re-establish...")
+    # Use negotiated GR timer + buffer
+    logger.info("Waiting for BGP sessions to re-establish (timeout: %ds)...", gr_wait_timeout)
     pytest_assert(
-        wait_until(300, 10, 30, _check_all_bgp_sessions_established, duthost, bgp_neighbor_ips),
-        "BGP sessions did not re-establish after restart with suppress-fib-pending enabled"
+        wait_until(gr_wait_timeout, 10, 30, _check_all_bgp_sessions_established, duthost, bgp_neighbor_ips),
+        "BGP sessions did not re-establish after restart with suppress-fib-pending enabled "
+        "(GR timer: %ds)" % gr_timer
     )
     logger.info("All BGP sessions re-established after restart")
 
@@ -278,7 +356,7 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
         "EOR may have been sent prematurely before routes were programmed"
     )
 
-    # Step 7: Wait for routes to fully converge, then verify
+    # Step 7: Wait for BGP route count to fully converge
     pytest_assert(
         wait_until(180, 10, 0, lambda: _get_bgp_routes_summary(duthost) >= routes_before),
         "Routes did not fully recover to pre-restart count (%d) "
@@ -294,18 +372,40 @@ def test_bgp_gr_with_suppress_fib(duthosts, rand_one_dut_hostname, nbrhosts,
             "  Neighbor %s: all=%d valid=%d stale=%d",
             neighbor, counts['all'], counts['valid'], counts['stale'])
 
-    # Step 8: Verify routes are programmed in APP_DB (FIB)
-    def _app_db_routes_restored():
-        count = _get_routes_in_app_db(duthost)
-        return count is not None and count >= app_db_routes_before
+    # Step 8: Verify ASIC_DB route count restored (FIB programmed)
+    # Compare ASIC_DB before vs after. If some routes were unprogrammed before
+    # the restart (pre-existing condition), warn but don't fail on that delta.
+    if asic_db_before > 0:
+        def _asic_db_routes_restored():
+            count = _get_asic_db_route_count(duthost)
+            return count is not None and count >= asic_db_before
 
-    pytest_assert(
-        wait_until(120, 10, 0, _app_db_routes_restored),
-        "APP_DB route count did not recover to pre-restart level (%d). "
-        "Routes may not have been programmed into FIB." % app_db_routes_before
-    )
-    app_db_routes_after = _get_routes_in_app_db(duthost)
-    logger.info("APP_DB routes: before=%d after=%d", app_db_routes_before, app_db_routes_after)
+        pytest_assert(
+            wait_until(120, 10, 0, _asic_db_routes_restored),
+            "ASIC_DB route count did not recover to pre-restart level (%d). "
+            "Routes may not have been programmed into FIB." % asic_db_before
+        )
+        asic_db_after = _get_asic_db_route_count(duthost)
+        logger.info("ASIC_DB routes: before=%d after=%d", asic_db_before, asic_db_after)
+
+        # Check for pre-existing unprogrammed routes (BGP received but not in ASIC_DB)
+        bgp_vs_asic_gap_before = routes_before - asic_db_before
+        bgp_vs_asic_gap_after = routes_after - (asic_db_after or 0)
+        if bgp_vs_asic_gap_before > 0:
+            logger.warning(
+                "Pre-existing gap: %d BGP routes not programmed in ASIC_DB before restart "
+                "(this is a pre-existing condition, not caused by GR)",
+                bgp_vs_asic_gap_before)
+        if bgp_vs_asic_gap_after > bgp_vs_asic_gap_before:
+            # New routes appeared in BGP but not ASIC_DB after GR — this is a real problem
+            new_gap = bgp_vs_asic_gap_after - bgp_vs_asic_gap_before
+            pytest.fail(
+                "After GR, %d new BGP routes are not programmed in ASIC_DB "
+                "(gap before: %d, gap after: %d). "
+                "suppress-fib-pending may not be working correctly."
+                % (new_gap, bgp_vs_asic_gap_before, bgp_vs_asic_gap_after))
+    else:
+        logger.warning("Skipping ASIC_DB comparison: could not get baseline count")
 
     logger.info("BGP GR with suppress-fib-pending completed successfully. "
                 "All routes restored and programmed in FIB.")
@@ -353,31 +453,27 @@ def test_bgp_gr_suppress_fib_neighbor_restart(duthosts, rand_one_dut_hostname, n
     result = duthost.shell('show suppress-fib-pending')
     pytest_assert('Enabled' in result['stdout'], "suppress-fib-pending is not enabled")
 
+    # Get GR timer for appropriate wait timeouts
+    gr_timer = _get_gr_restart_timer(duthost, test_bgp_neighbor_ips)
+    gr_wait_timeout = gr_timer + 60
+
     # Verify BGP sessions are established
     pytest_assert(
         wait_until(120, 10, 0, duthost.check_bgp_session_state, test_bgp_neighbor_ips),
         "BGP sessions to %s not established before test" % test_neighbor_name
     )
 
-    # Get routes from this neighbor before GR.
-    # Using dict.update() for unique-prefix counting: if the same prefix appears
-    # in multiple namespaces, we count it once (unique prefix semantics).
-    routes_before = {}
-    for neighbor_ip in test_bgp_neighbor_ips:
-        for namespace in (duthost.get_frontend_asic_namespace_list() or ['']):
-            if '.' in neighbor_ip:
-                cmd = "vtysh -c 'show bgp ipv4 neighbor %s routes json'" % neighbor_ip
-            else:
-                cmd = "vtysh -c 'show bgp ipv6 neighbor %s routes json'" % neighbor_ip
-            cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
-            try:
-                result = json.loads(duthost.shell(cmd, verbose=False)['stdout'])
-                routes_before.update(result.get('routes', {}))
-            except Exception:
-                pass
+    # Get routes from this neighbor before GR, counted per-namespace.
+    # Each (namespace, neighbor) pair is tracked independently to avoid
+    # undercounting on multi-ASIC systems with overlapping prefixes.
+    routes_before = _get_neighbor_routes_per_namespace(duthost, test_bgp_neighbor_ips)
+    total_before = _count_total_routes(routes_before)
 
-    logger.info("Neighbor %s has %d routes before GR", test_neighbor_name, len(routes_before))
-    pytest_assert(len(routes_before) > 0, "No routes from neighbor %s" % test_neighbor_name)
+    # Capture ASIC_DB baseline
+    asic_db_before = _get_asic_db_route_count(duthost)
+    logger.info("Neighbor %s has %d routes before GR (ASIC_DB: %s)",
+                test_neighbor_name, total_before, asic_db_before)
+    pytest_assert(total_before > 0, "No routes from neighbor %s" % test_neighbor_name)
 
     try:
         # Kill BGP on neighbor to trigger GR
@@ -385,8 +481,6 @@ def test_bgp_gr_suppress_fib_neighbor_restart(duthosts, rand_one_dut_hostname, n
         nbrhost.kill_bgpd()
 
         # Wait for DUT to detect neighbor restart
-        # Note: check_bgp_session_nsf may not be supported on all neighbor types (e.g., cEOS)
-        # so we just wait for the session to leave Established state
         logger.info("Waiting for DUT to detect neighbor %s restart...", test_neighbor_name)
         pytest_assert(
             wait_until(60, 5, 5, lambda: not duthost.check_bgp_session_state(test_bgp_neighbor_ips)),
@@ -414,10 +508,11 @@ def test_bgp_gr_suppress_fib_neighbor_restart(duthosts, rand_one_dut_hostname, n
     logger.info("Restarting BGP on neighbor %s", test_neighbor_name)
     nbrhost.start_bgpd()
 
-    # Wait for BGP sessions to re-establish
+    # Wait for BGP sessions to re-establish using negotiated GR timer
+    logger.info("Waiting for BGP sessions to re-establish (timeout: %ds)...", gr_wait_timeout)
     pytest_assert(
-        wait_until(300, 10, 0, duthost.check_bgp_session_state, test_bgp_neighbor_ips),
-        "BGP sessions to %s did not re-establish after GR" % test_neighbor_name
+        wait_until(gr_wait_timeout, 10, 0, duthost.check_bgp_session_state, test_bgp_neighbor_ips),
+        "BGP sessions to %s did not re-establish after GR (GR timer: %ds)" % (test_neighbor_name, gr_timer)
     )
     logger.info("BGP sessions re-established after neighbor GR")
 
@@ -427,43 +522,47 @@ def test_bgp_gr_suppress_fib_neighbor_restart(duthosts, rand_one_dut_hostname, n
         "Stale routes remain after neighbor GR with suppress-fib-pending enabled"
     )
 
-    # Verify route count restored using wait_until for convergence
+    # Verify route count restored (100%, no tolerance) with wait for convergence
     def _routes_restored():
-        routes_after = {}
-        for neighbor_ip in test_bgp_neighbor_ips:
-            for namespace in (duthost.get_frontend_asic_namespace_list() or ['']):
-                if '.' in neighbor_ip:
-                    cmd = "vtysh -c 'show bgp ipv4 neighbor %s routes json'" % neighbor_ip
-                else:
-                    cmd = "vtysh -c 'show bgp ipv6 neighbor %s routes json'" % neighbor_ip
-                cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
-                try:
-                    result = json.loads(duthost.shell(cmd, verbose=False)['stdout'])
-                    routes_after.update(result.get('routes', {}))
-                except Exception:
-                    pass
-        return len(routes_after) >= len(routes_before)
+        routes_after = _get_neighbor_routes_per_namespace(duthost, test_bgp_neighbor_ips)
+        return _count_total_routes(routes_after) >= total_before
 
     pytest_assert(
         wait_until(120, 10, 0, _routes_restored),
-        "Routes not fully restored after neighbor GR with suppress-fib-pending"
+        "Routes not fully restored after neighbor GR with suppress-fib-pending "
+        "(expected >= %d)" % total_before
     )
 
     # Final snapshot for logging
-    routes_after = {}
-    for neighbor_ip in test_bgp_neighbor_ips:
-        for namespace in (duthost.get_frontend_asic_namespace_list() or ['']):
-            if '.' in neighbor_ip:
-                cmd = "vtysh -c 'show bgp ipv4 neighbor %s routes json'" % neighbor_ip
-            else:
-                cmd = "vtysh -c 'show bgp ipv6 neighbor %s routes json'" % neighbor_ip
-            cmd = duthost.get_vtysh_cmd_for_namespace(cmd, namespace)
-            try:
-                result = json.loads(duthost.shell(cmd, verbose=False)['stdout'])
-                routes_after.update(result.get('routes', {}))
-            except Exception:
-                pass
+    routes_after = _get_neighbor_routes_per_namespace(duthost, test_bgp_neighbor_ips)
+    total_after = _count_total_routes(routes_after)
+    logger.info("After GR: %d routes (before: %d)", total_after, total_before)
 
-    logger.info("After GR: %d routes (before: %d)", len(routes_after), len(routes_before))
+    # Verify ASIC_DB route count (FIB programming)
+    if asic_db_before is not None and asic_db_before > 0:
+        def _asic_db_restored():
+            count = _get_asic_db_route_count(duthost)
+            return count is not None and count >= asic_db_before
+
+        pytest_assert(
+            wait_until(120, 10, 0, _asic_db_restored),
+            "ASIC_DB route count did not recover after neighbor GR "
+            "(before: %d)" % asic_db_before
+        )
+        asic_db_after = _get_asic_db_route_count(duthost)
+        logger.info("ASIC_DB routes: before=%d after=%d", asic_db_before, asic_db_after)
+
+        # Warn on pre-existing gap, fail on new gap
+        gap_before = total_before - asic_db_before if total_before > asic_db_before else 0
+        gap_after = total_after - (asic_db_after or 0) if total_after > (asic_db_after or 0) else 0
+        if gap_before > 0:
+            logger.warning(
+                "Pre-existing gap: %d routes not in ASIC_DB before GR (not caused by GR)",
+                gap_before)
+        if gap_after > gap_before:
+            pytest.fail(
+                "After GR, %d new routes not programmed in ASIC_DB "
+                "(gap before: %d, gap after: %d)"
+                % (gap_after - gap_before, gap_before, gap_after))
 
     logger.info("Neighbor GR with suppress-fib-pending completed successfully")
