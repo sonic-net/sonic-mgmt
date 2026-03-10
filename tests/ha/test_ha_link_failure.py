@@ -15,7 +15,7 @@ from constants import (
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
 from tests.common.config_reload import config_reload
-from ha_utils import set_dead_dash_ha_scope, activate_standby_ha
+from ha_utils import set_dead_dash_ha_scope, activate_secondary_dash_ha
 from ha_link_utils import add_acl_link_drop, remove_acl_link_drop
 
 logger = logging.getLogger(__name__)
@@ -29,7 +29,7 @@ pytestmark = [
 def restore_ha_state(duthost):
     try:
         set_dead_dash_ha_scope(duthost, "vdpu1_0:haset0_0")
-        activate_standby_ha(duthost, "vdpu1_0:haset0_0", 120)
+        activate_secondary_dash_ha(duthost, "vdpu1_0:haset0_0", "activate_role")
     except Exception as e:
         logger.error(f"HA state restoration on {duthost.hostname} exception: {e}")
 
