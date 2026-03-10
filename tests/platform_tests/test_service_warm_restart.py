@@ -10,7 +10,7 @@ from tests.common.platform.device_utils import advanceboot_loganalyzer  # noqa: 
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0', 'c0')
+    pytest.mark.topology('t0')
 ]
 
 
