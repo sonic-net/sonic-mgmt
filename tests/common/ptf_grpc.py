@@ -81,7 +81,7 @@ class PtfGrpc:
             logger.info(f"Manual PtfGrpc configuration: target={self.target}, plaintext={self.plaintext}")
 
         # Connection configuration
-        self.timeout = 100.0  # seconds as float, configurable
+        self.timeout = 10.0  # seconds as float, configurable
         self.max_msg_size = 100 * 1024 * 1024  # 100MB in bytes
         self.headers = {}  # Custom headers
         self.verbose = False  # Enable verbose grpcurl output
@@ -388,7 +388,7 @@ class PtfGrpc:
         logger.debug(f"Description for {symbol}: {description}")
         return description
 
-    def call_unary(self, service: str, method: str, request: Union[Dict, str] = None, metadata = None) -> Dict:
+    def call_unary(self, service: str, method: str, request: Union[Dict, str] = None, metadata=None) -> Dict:
         """
         Make a unary gRPC call (single request/response).
 
@@ -428,7 +428,13 @@ class PtfGrpc:
         except json.JSONDecodeError as e:
             raise GrpcCallError(f"Failed to parse response from {service_method}: {e}")
 
-    def call_server_streaming(self, service: str, method: str, request: Union[Dict, str] = None, metadata = None) -> List[Dict]:
+    def call_server_streaming(
+        self,
+        service: str,
+        method: str,
+        request: Union[Dict, str] = None,
+        metadata=None,
+    ) -> List[Dict]:
         """
         Make a server streaming gRPC call (single request, multiple responses).
 
