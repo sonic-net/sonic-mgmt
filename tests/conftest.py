@@ -1,11 +1,9 @@
-import concurrent.futures
 from functools import lru_cache
 import enum
 import os
 import json
 import logging
 import random
-from concurrent.futures import as_completed
 import re
 import sys
 
@@ -72,6 +70,8 @@ from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.helpers.parallel import patch_ansible_worker_process
+from tests.common.helpers.parallel import fix_logging_handler_fork_lock
 
 import tests.common.gnmi_setup as gnmi_setup
 
@@ -115,6 +115,10 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.fixtures.duthost_utils')
 
 
+patch_ansible_worker_process()
+fix_logging_handler_fork_lock()
+
+
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
@@ -150,12 +154,24 @@ def pytest_addoption(parser):
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
 
+    # read_mac options
+    parser.addoption('--image1', action='store', type=str, help='1st image to download and install')
+    parser.addoption('--image2', action='store', type=str, help='2nd image to download and install')
+    parser.addoption('--iteration', action='store', type=int, help='Number of image installing iterations')
+    parser.addoption('--minigraph1', action='store', type=str, help='path to the minigraph1')
+    parser.addoption('--minigraph2', action='store', type=str, help='path to the minigraph2')
+
     #####################################
     # dash, vxlan, route shared options #
     #####################################
     parser.addoption("--skip_cleanup", action="store_true", help="Skip config cleanup after test (tests: dash, vxlan)")
     parser.addoption("--num_routes", action="store", default=None, type=int,
                      help="Number of routes (tests: route, vxlan)")
+
+    ############################
+    # sflow options            #
+    ############################
+    parser.addoption("--enable_sflow_feature", action="store_true", default=False, help="Enable sFlow feature on DUT")
 
     ############################
     # pfc_asym options         #
@@ -476,35 +492,6 @@ def pytest_sessionstart(session):
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
 
-    # Invoke the build-gnmi-stubs.sh script
-    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
-    base_dir = os.getcwd()  # Use the current working directory as the base directory
-    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
-
-    try:
-        result = subprocess.run(
-            [script_path, base_dir],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            check=False  # Do not raise an exception automatically on non-zero exit
-        )
-        logger.info(f"Output of {script_path}:\n{result.stdout}")
-        # logger.error(f"Error output of {script_path}:\n{result.stderr}")
-
-        if result.returncode != 0:
-            logger.error(f"{script_path} failed with exit code {result.returncode}")
-            session.exitstatus = 1  # Fail the pytest session
-        else:
-            # Add the generated directory to sys.path for module imports
-            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
-            if generated_path not in sys.path:
-                sys.path.insert(0, generated_path)
-                logger.info(f"Added {generated_path} to sys.path")
-    except Exception as e:
-        logger.error(f"Exception occurred while invoking {script_path}: {e}")
-        session.exitstatus = 1  # Fail the pytest session
-
 
 def pytest_sessionfinish(session, exitstatus):
     if session.config.cache.get("duthosts_fixture_failed", None):
@@ -801,8 +788,8 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
         # when no ptf defined in testbed.csv
         # try to parse it from inventory
         ptf_host = duthost.host.options["inventory_manager"].get_host(duthost.hostname).get_vars()["ptf_host"]
-        _hosts.apend(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
-                             macsec_enabled=request.config.option.enable_macsec))
+        _hosts.append(PTFHost(ansible_adhoc, ptf_host, duthost, tbinfo,
+                              macsec_enabled=request.config.option.enable_macsec))
     return _hosts
 
 
@@ -857,9 +844,22 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
         return devices
 
-    def initial_neighbor(neighbor_name, vm_name):
+    def initial_neighbor(neighbor_name, vm_name, multi_vrf_peer=False, multi_vrf_primary_host=None):
         logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
         if neighbor_type == "eos":
+            if multi_vrf_peer:
+                data = tbinfo['topo']['properties']['convergence_data']
+                primary_data = data['converged_peers'][multi_vrf_primary_host]
+                primary_asn = tbinfo['topo']['properties']['configuration'][multi_vrf_primary_host]['bgp']['asn']
+                multi_vrf_data = {'vrf': neighbor_name,
+                                  'intf_config': copy.deepcopy(primary_data['vrf'][neighbor_name]),
+                                  'intf_offset': primary_data['intf_mapping'][neighbor_name]["offset"],
+                                  'orig_intf_map': primary_data['intf_mapping'][neighbor_name]["orig_intf_map"],
+                                  'primary_host': multi_vrf_primary_host,
+                                  'primary_host_asn': primary_asn,
+                                  'intf_index_mapping': copy.deepcopy(data['interface_index_mapping'][neighbor_name]),
+                                  'vm_offset_mapping': data['vm_offset_mapping'][neighbor_name],
+                                  'ptf_bp_config': copy.deepcopy(data['ptf_backplane_addrs'][neighbor_name])}
             device = NeighborDevice(
                 {
                     'host': EosHost(
@@ -870,7 +870,9 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
                         shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name],
+                    'is_multi_vrf_peer': multi_vrf_peer,
+                    'multi_vrf_data': multi_vrf_data if multi_vrf_peer else None,
                 }
             )
         elif neighbor_type == "sonic":
@@ -902,8 +904,6 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         devices[neighbor_name] = device
         logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
 
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
-    futures = []
     servers = []
     if 'servers' in tbinfo:
         servers.extend(tbinfo['servers'].values())
@@ -911,21 +911,27 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         servers.append(tbinfo)
     else:
         logger.warning("Unknown testbed schema for setup nbrhosts")
-    for server in servers:
-        vm_base = int(server['vm_base'][2:])
-        vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
-        vms = MultiServersUtils.get_vms_by_dut_interfaces(
-                tbinfo['topo']['properties']['topology']['VMs'],
-                server['dut_interfaces']
-            ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
-        for neighbor_name, neighbor in vms.items():
-            vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
-            futures.append(executor.submit(initial_neighbor, neighbor_name, vm_name))
 
-    for future in as_completed(futures):
-        # if exception caught in the sub-thread, .result() will raise it in the main thread
-        _ = future.result()
-    executor.shutdown(wait=True)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for server in servers:
+            vm_base = int(server['vm_base'][2:])
+            vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
+            vms = MultiServersUtils.get_vms_by_dut_interfaces(
+                    tbinfo['topo']['properties']['topology']['VMs'],
+                    server['dut_interfaces']
+                ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
+            topo_is_multi_vrf = tbinfo['topo']['properties'].get('topo_is_multi_vrf', False)
+            for neighbor_name, neighbor in vms.items():
+                vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
+                if topo_is_multi_vrf:
+                    convergence_info = tbinfo['topo']['properties']['convergence_data']
+                    for vrf_name in convergence_info['convergence_mapping'][neighbor_name]:
+                        executor.submit(initial_neighbor, vrf_name, vm_name,
+                                        multi_vrf_peer=True,
+                                        multi_vrf_primary_host=neighbor_name)
+                else:
+                    executor.submit(initial_neighbor, neighbor_name, vm_name)
+
     logger.info("Fixture nbrhosts finished")
     return devices
 
@@ -934,84 +940,134 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
 def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, creds, duthosts):      # noqa: F811
     """
     Shortcut fixture for getting Fanout hosts
-    """
+    Supports both Ethernet connections and Serial connections
 
-    dev_conn = conn_graph_facts.get('device_conn', {})
+    For Ethernet connections: Uses device_conn from conn_graph_facts
+    For Serial connections: Uses device_serial_link from conn_graph_facts
+    """
+    # Internal helper functions
+    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> FanoutHost | None:
+        """
+        Create FanoutHost if not exists, or return existing one.
+        This centralizes fanout creation logic for both Ethernet and Serial connections.
+
+        Args:
+            fanout_hosts (dict): Dictionary of existing fanout hosts
+            fanout_name (str): Fanout device hostname
+            dut_host (str): DUT hostname that connects to this fanout
+
+        Returns:
+            FanoutHost: Fanout host object
+        """
+        # Return existing fanout if already created
+        if fanout_name in fanout_hosts:
+            fanout = fanout_hosts[fanout_name]
+            if dut_host not in fanout.dut_hostnames:
+                fanout.dut_hostnames.append(dut_host)
+            return fanout
+
+        # Get fanout device info from inventory
+        try:
+            host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_name).vars
+        except Exception as e:
+            logging.warning(f"Cannot get inventory for fanout {fanout_name}: {e}")
+            return None
+
+        os_type = host_vars.get('os', 'eos')
+
+        # Get credentials based on OS type
+        if 'fanout_tacacs_user' in creds:
+            fanout_user = creds['fanout_tacacs_user']
+            fanout_password = creds['fanout_tacacs_password']
+        elif 'fanout_tacacs_{}_user'.format(os_type) in creds:
+            fanout_user = creds['fanout_tacacs_{}_user'.format(os_type)]
+            fanout_password = creds['fanout_tacacs_{}_password'.format(os_type)]
+        elif os_type == 'sonic':
+            fanout_user = creds.get('fanout_sonic_user', None)
+            fanout_password = creds.get('fanout_sonic_password', None)
+        elif os_type == 'eos':
+            fanout_user = creds.get('fanout_network_user', None)
+            fanout_password = creds.get('fanout_network_password', None)
+        elif os_type == 'onyx':
+            fanout_user = creds.get('fanout_mlnx_user', None)
+            fanout_password = creds.get('fanout_mlnx_password', None)
+        elif os_type == 'ixia':
+            # Skip for ixia device which has no fanout
+            logging.info(f"Skipping ixia device {fanout_name}")
+            return None
+        else:
+            logging.warning(f"Unsupported fanout OS type: {os_type}")
+            return None
+
+        # EOS specific shell credentials
+        eos_shell_user = None
+        eos_shell_password = None
+        if os_type == "eos":
+            admin_user = creds['fanout_admin_user']
+            admin_password = creds['fanout_admin_password']
+            eos_shell_user = creds.get('fanout_shell_user', admin_user)
+            eos_shell_password = creds.get('fanout_shell_password', admin_password)
+
+        # Create FanoutHost object
+        fanout = FanoutHost(
+            ansible_adhoc,
+            os_type,
+            fanout_name,
+            'FanoutLeaf',
+            fanout_user,
+            fanout_password,
+            eos_shell_user=eos_shell_user,
+            eos_shell_passwd=eos_shell_password
+        )
+        fanout.dut_hostnames = [dut_host]
+        fanout_hosts[fanout_name] = fanout
+
+        # For SONiC fanout, get port alias to name mapping
+        if fanout.os == 'sonic':
+            ifs_status = fanout.host.get_interfaces_status()
+            for key, interface_info in list(ifs_status.items()):
+                fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
+            logging.info(f"fanout {fanout_name} fanout_port_alias_to_name {fanout.fanout_port_alias_to_name}")
+
+        return fanout
+
+    # Main fixture logic
     fanout_hosts = {}
 
+    # Skip NUT topologies that have no fanout
     if tbinfo['topo']['name'].startswith('nut-'):
-        # Nut topology has no fanout
+        logging.info("Nut topology has no fanout")
         return fanout_hosts
 
-    # WA for virtual testbed which has no fanout
-    for dut_host, value in list(dev_conn.items()):
+    # Process Ethernet connections
+    dev_conn = conn_graph_facts.get('device_conn', {})
+
+    for dut_host, ethernet_ports in dev_conn.items():
+
         duthost = duthosts[dut_host]
+
+        # Skip virtual testbed which has no fanout
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
-            continue  # skip for kvm platform which has no fanout
+            logging.info(f"Skipping kvm platform {dut_host}")
+            continue
+
         mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-        for dut_port in list(value.keys()):
-            fanout_rec = value[dut_port]
+
+        # Process each Ethernet port connection
+        for dut_port, fanout_rec in ethernet_ports.items():
             fanout_host = str(fanout_rec['peerdevice'])
             fanout_port = str(fanout_rec['peerport'])
 
-            if fanout_host in list(fanout_hosts.keys()):
-                fanout = fanout_hosts[fanout_host]
-            else:
-                host_vars = ansible_adhoc().options[
-                    'inventory_manager'].get_host(fanout_host).vars
-                os_type = host_vars.get('os', 'eos')
-                if 'fanout_tacacs_user' in creds:
-                    fanout_user = creds['fanout_tacacs_user']
-                    fanout_password = creds['fanout_tacacs_password']
-                elif 'fanout_tacacs_{}_user'.format(os_type) in creds:
-                    fanout_user = creds['fanout_tacacs_{}_user'.format(os_type)]
-                    fanout_password = creds['fanout_tacacs_{}_password'.format(os_type)]
-                elif os_type == 'sonic':
-                    fanout_user = creds.get('fanout_sonic_user', None)
-                    fanout_password = creds.get('fanout_sonic_password', None)
-                elif os_type == 'eos':
-                    fanout_user = creds.get('fanout_network_user', None)
-                    fanout_password = creds.get('fanout_network_password', None)
-                elif os_type == 'onyx':
-                    fanout_user = creds.get('fanout_mlnx_user', None)
-                    fanout_password = creds.get('fanout_mlnx_password', None)
-                elif os_type == 'ixia':
-                    # Skip for ixia device which has no fanout
-                    continue
-                else:
-                    # when os is mellanox, not supported
-                    pytest.fail("os other than sonic and eos not supported")
+            # Create or get fanout object
+            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_host)
+            if fanout is None:
+                continue
 
-                eos_shell_user = None
-                eos_shell_password = None
-                if os_type == "eos":
-                    admin_user = creds['fanout_admin_user']
-                    admin_password = creds['fanout_admin_password']
-                    eos_shell_user = creds.get('fanout_shell_user', admin_user)
-                    eos_shell_password = creds.get('fanout_shell_password', admin_password)
-
-                fanout = FanoutHost(ansible_adhoc,
-                                    os_type,
-                                    fanout_host,
-                                    'FanoutLeaf',
-                                    fanout_user,
-                                    fanout_password,
-                                    eos_shell_user=eos_shell_user,
-                                    eos_shell_passwd=eos_shell_password)
-                fanout.dut_hostnames = [dut_host]
-                fanout_hosts[fanout_host] = fanout
-
-                if fanout.os == 'sonic':
-                    ifs_status = fanout.host.get_interfaces_status()
-                    for key, interface_info in list(ifs_status.items()):
-                        fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
-                    logging.info("fanout {} fanout_port_alias_to_name {}"
-                                 .format(fanout_host, fanout.fanout_port_alias_to_name))
-
+            # Add Ethernet port mapping: DUT port -> Fanout port
             fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
 
-            # Add port name to fanout port mapping port if dut_port is alias.
-            if dut_port in mg_facts['minigraph_port_alias_to_name_map']:
+            # Handle port alias mapping if available
+            if dut_port in mg_facts.get('minigraph_port_alias_to_name_map', {}):
                 mapped_port = mg_facts['minigraph_port_alias_to_name_map'][dut_port]
                 # only add the mapped port which isn't in device_conn ports to avoid overwriting port map wrongly,
                 # it happens when an interface has the same name with another alias, for example:
@@ -1019,11 +1075,40 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
                 # --------------------
                 # Ethernet108   Ethernet32
                 # Ethernet32    Ethernet13/1
-                if mapped_port not in list(value.keys()):
+                if mapped_port not in list(ethernet_ports.keys()):
                     fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
 
-            if dut_host not in fanout.dut_hostnames:
-                fanout.dut_hostnames.append(dut_host)
+    # Process Serial connections
+
+    dev_serial_link = conn_graph_facts.get('device_serial_link', {})
+
+    for dut_host, serial_ports in dev_serial_link.items():
+
+        duthost = duthosts[dut_host]
+
+        # Skip virtual testbed which has no fanout
+        if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
+            logging.info(f"Skipping kvm platform {dut_host} for serial links")
+            continue
+
+        # Process each Serial port connection
+        for serial_port_num, link_info in serial_ports.items():
+            fanout_host = str(link_info['peerdevice'])
+            fanout_port = str(link_info['peerport'])
+
+            # Create or get fanout object (reuses same function as Ethernet)
+            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_host)
+            if fanout is None:
+                continue
+
+            # Add Serial port mapping with Console prefix
+            serial_port_key = f"C0_{serial_port_num}"
+            fanout.add_port_map(encode_dut_port_name(dut_host, serial_port_key), fanout_port)
+
+            logging.debug(f"Added serial port mapping: {dut_host} Console{serial_port_num} -> "
+                          f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})")
+
+    logging.info(f"fanouthosts fixture initialized with {len(fanout_hosts)} fanout devices")
 
     return fanout_hosts
 
@@ -1091,6 +1176,10 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
     if 'servers' in tbinfo:
         servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
                                   for value in tbinfo['servers'].values()}
+
+    # Check if logs directory exists, otherwise use /tmp
+    log_path = "logs" if os.path.isdir("logs") else "/tmp"
+
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
         res = localhost.announce_routes(
@@ -1098,7 +1187,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             ptf_ip=ptf_ip,
             action='generate',
             path="../ansible/",
-            log_path="logs",
+            log_path=log_path,
             dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
         )
         if 'topo_routes' not in res:
@@ -2991,12 +3080,18 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
 
 
 @pytest.fixture(scope="module", autouse=True)
-def temporarily_disable_route_check(request, duthosts):
+def temporarily_disable_route_check(request, tbinfo, duthosts):
     check_flag = False
     for m in request.node.iter_markers():
         if m.name == "disable_route_check":
             check_flag = True
             break
+
+    allowed_topologies = {"t2", "ut2", "lt2"}
+    topo_name = tbinfo['topo']['name']
+    if check_flag and topo_name not in allowed_topologies:
+        logger.info("Topology {} is not allowed for temporarily_disable_route_check fixture".format(topo_name))
+        check_flag = False
 
     def wait_for_route_check_to_pass(dut):
 
@@ -3020,7 +3115,7 @@ def temporarily_disable_route_check(request, duthosts):
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(stop_route_checker_on_duthost, duthost)
+                    executor.submit(stop_route_checker_on_duthost, duthost, wait_for_status=True)
 
             yield
 
@@ -3030,7 +3125,7 @@ def temporarily_disable_route_check(request, duthosts):
         finally:
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(start_route_checker_on_duthost, duthost)
+                    executor.submit(start_route_checker_on_duthost, duthost, wait_for_status=True)
     else:
         logger.info("Skipping temporarily_disable_route_check fixture")
         yield
@@ -3350,10 +3445,54 @@ def setup_pfc_test(
 
 
 @pytest.fixture(scope="session")
-def setup_gnmi_server(request, localhost, duthost):
+def build_gnmi_stubs(request):
+    """
+    Generate gRPC stub client code for gNMI server interaction.
+    This fixture only runs when SAI validation is enabled.
+    """
+    disable_sai_validation = request.config.getoption("--disable_sai_validation")
+    if disable_sai_validation:
+        logger.info("SAI validation is disabled, skipping gNMI stub generation")
+        yield
+        return
+
+    # Invoke the build-gnmi-stubs.sh script
+    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
+    base_dir = os.getcwd()  # Use the current working directory as the base directory
+    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
+
+    try:
+        result = subprocess.run(
+            [script_path, base_dir],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False  # Do not raise an exception automatically on non-zero exit
+        )
+        logger.info(f"Output of {script_path}:\n{result.stdout}")
+
+        if result.returncode != 0:
+            logger.error(f"{script_path} failed with exit code {result.returncode}")
+            pytest.fail(f"gNMI stub generation failed with exit code {result.returncode}")
+        else:
+            # Add the generated directory to sys.path for module imports
+            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
+            if generated_path not in sys.path:
+                sys.path.insert(0, generated_path)
+                logger.info(f"Added {generated_path} to sys.path")
+    except Exception as e:
+        logger.error(f"Exception occurred while invoking {script_path}: {e}")
+        pytest.fail(f"gNMI stub generation failed: {e}")
+
+    yield
+
+
+@pytest.fixture(scope="session")
+def setup_gnmi_server(request, localhost, duthost, build_gnmi_stubs):
     """
     SAI validation library uses gNMI to access sonic-db data
-    objects. This fixture is used by tests to set up gNMI server
+    objects. This fixture is used by tests to set up gNMI server.
+    Depends on build_gnmi_stubs to ensure gRPC stubs are generated first.
     """
     disable_sai_validation = request.config.getoption("--disable_sai_validation")
     if disable_sai_validation:
@@ -3647,7 +3786,7 @@ def pytest_runtest_setup(item):
             fixtureinfo.names_closure.append("setup_dualtor_mux_ports")
 
 
-@pytest.fixture(scope="module", autouse=False)
+@pytest.fixture(scope="module", autouse=True)
 def yang_validation_check(request, duthosts):
     """
     YANG validation check that runs before and after each test module

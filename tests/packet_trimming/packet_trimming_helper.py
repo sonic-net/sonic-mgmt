@@ -17,14 +17,16 @@ from tests.common.utilities import wait_until, get_dscp_to_queue_value
 from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_in_appl_db, validate_srv6_in_asic_db
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
-                                             DUMMY_IP, BATCH_PACKET_COUNT, PACKET_COUNT, STATIC_THRESHOLD_MULTIPLIER,
-                                             BLOCK_DATA_PLANE_SCHEDULER_NAME, TRIM_QUEUE, PACKET_TYPE, SRV6_PACKETS,
+                                             DUMMY_FILL_IPV6, DUMMY_IP, DUMMY_FILL_IP, BATCH_PACKET_COUNT,
+                                             PACKET_COUNT, STATIC_THRESHOLD_MULTIPLIER,
+                                             BLOCK_DATA_PLANE_SCHEDULER_NAME, PACKET_TYPE, SRV6_PACKETS,
                                              TRIM_QUEUE_PROFILE, TRIMMING_CAPABILITY, ACL_TABLE_NAME,
                                              ACL_RULE_PRIORITY, ACL_TABLE_TYPE_NAME, ACL_RULE_NAME, SRV6_MY_SID_LIST,
                                              SRV6_INNER_SRC_IP, SRV6_INNER_DST_IP, DEFAULT_QUEUE_SCHEDULER_CONFIG,
                                              SRV6_UNIFORM_MODE, SRV6_OUTER_SRC_IPV6, SRV6_INNER_SRC_IPV6, ECN,
-                                             SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_TC, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP,
-                                             SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR)
+                                             SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP,
+                                             SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR, SCHEDULER_METER_TYPE)
+from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
 logger = logging.getLogger(__name__)
 
@@ -393,6 +395,10 @@ def create_blocking_scheduler(duthost):
             f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" '
             f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR}'
         )
+        # meter_type is platform specific
+        if duthost.get_asic_name() == 'th5':
+            cmd_create += f' "meter_type" {SCHEDULER_METER_TYPE}'
+
         duthost.shell(cmd_create)
         logger.info(f"Successfully created blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
 
@@ -679,6 +685,8 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         # Use different source port for each interface to ensure proper hash distribution
         # This helps ensure packets go to the intended interface in PortChannel scenarios
         src_port = DEFAULT_SRC_PORT + interface_index
+        if duthost.get_asic_name() == 'th5':
+            src_port = DEFAULT_SRC_PORT + 10 * interface_index
 
         # Create packet for this specific interface based on address type
         common_params = {
@@ -692,7 +700,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         if is_ipv6:
             # Create IPv6 UDP packet
             ipv6_params = {
-                'ipv6_src': DUMMY_IPV6,
+                'ipv6_src': DUMMY_FILL_IPV6,
                 'ipv6_dst': dst_addr,
                 'ipv6_hlim': DEFAULT_TTL,
                 'ipv6_tc': dscp_value << 2,  # Convert DSCP to Traffic Class
@@ -702,7 +710,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         else:
             # Create IPv4 UDP packet
             ipv4_params = {
-                'ip_src': DUMMY_IP,
+                'ip_src': DUMMY_FILL_IP,
                 'ip_dst': dst_addr,
                 'ip_ttl': DEFAULT_TTL,
                 'ip_dscp': dscp_value,
@@ -720,7 +728,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
     remaining_packets = fill_packet_count % BATCH_PACKET_COUNT
 
     total_sent_packets = 0
-    max_retries = 10  # Maximum number of retries per batch
+    max_retries = 3  # Maximum number of retries per batch
 
     # Send packets in batches
     logger.info(f"Sending packets in batches of {BATCH_PACKET_COUNT} packets each")
@@ -788,7 +796,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
 
 
 def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block_queue, send_pkt_size,
-                           send_pkt_dscp, recv_pkt_size, recv_pkt_dscp, packet_count=PACKET_COUNT, timeout=5,
+                           send_pkt_dscp, recv_pkt_size, recv_pkt_dscp, packet_count, timeout=5,
                            fill_buffer=True, expect_packets=True):
     """
     Verify packet trimming for all packet types with given parameters.
@@ -1419,7 +1427,8 @@ def configure_trimming_acl(duthost, test_ports):
         "ACL_TABLE_TYPE": {
             ACL_TABLE_TYPE_NAME: {
                 "ACTIONS": [
-                    "DISABLE_TRIM_ACTION"
+                    "DISABLE_TRIM_ACTION",
+                    "COUNTER"
                 ],
                 "BIND_POINTS": [
                     "PORT"
@@ -1498,7 +1507,7 @@ def cleanup_trimming_acl(duthost):
 
 
 def set_buffer_profiles_for_block_and_trim_queues(duthost, interfaces, block_queue_id,
-                                                  block_queue_profile, trim_queue_id=TRIM_QUEUE,
+                                                  block_queue_profile, trim_queue_id=None,
                                                   trim_queue_profile=TRIM_QUEUE_PROFILE):
     """
     Set buffer profiles for blocked queue and forward trimming packet queue.
@@ -1508,7 +1517,7 @@ def set_buffer_profiles_for_block_and_trim_queues(duthost, interfaces, block_que
         interfaces (list or str): Port names to configure, can be a list or single string
         block_queue_id: Queue index used for blocking traffic
         block_queue_profile (str): Buffer profile name to apply for blocking queue
-        trim_queue_id (int): Queue index used for packet trimming (default: TRIM_QUEUE)
+        trim_queue_id (int): Queue index used for packet trimming (default: trim queue from packet_trimming_config)
         trim_queue_profile (str): Buffer profile name to apply for trimming queue (default: TRIM_QUEUE_PROFILE)
 
     Raises:
@@ -1516,7 +1525,7 @@ def set_buffer_profiles_for_block_and_trim_queues(duthost, interfaces, block_que
     """
     # Convert queue indices to string for Redis commands
     block_queue_id = str(block_queue_id)
-    trim_queue_id = str(trim_queue_id)
+    trim_queue_id = str(trim_queue_id) if trim_queue_id else str(PacketTrimmingConfig.get_trim_queue(duthost))
 
     logger.info(f"Setting blocking queue ({block_queue_id}) buffer profile to '{block_queue_profile}' and "
                 f"trimming queue ({trim_queue_id}) buffer profile to '{trim_queue_profile}', ports: {interfaces}")
@@ -2413,7 +2422,7 @@ def configure_tc_to_dscp_map(duthost, egress_ports):
     """
     logger.info("Configuring TC_TO_DSCP_MAP for asymmetric DSCP")
 
-    tc_to_dscp_map = {"spine_trim_map": {ASYM_TC: ASYM_PORT_1_DSCP}}
+    tc_to_dscp_map = {"spine_trim_map": {PacketTrimmingConfig.get_asym_tc(duthost): ASYM_PORT_1_DSCP}}
     port_qos_map = {}
 
     # Handle first egress port (spine_trim_map)
@@ -2423,7 +2432,7 @@ def configure_tc_to_dscp_map(duthost, egress_ports):
     logger.info(f"Applied spine_trim_map to interfaces: {egress_ports[0]['dut_members']}")
 
     if len(egress_ports) == 2:
-        tc_to_dscp_map["host_trim_map"] = {ASYM_TC: ASYM_PORT_2_DSCP}
+        tc_to_dscp_map["host_trim_map"] = {PacketTrimmingConfig.get_asym_tc(duthost): ASYM_PORT_2_DSCP}
 
         # Handle second egress port (host_trim_map)
         # Apply to all member interfaces
@@ -2528,7 +2537,8 @@ def verify_trimmed_packet(
             send_pkt_dscp=send_pkt_dscp,
             recv_pkt_size=recv_pkt_size,
             recv_pkt_dscp=dscp,
-            expect_packets=expect_packets
+            expect_packets=expect_packets,
+            packet_count=PACKET_COUNT
         )
 
 

@@ -543,14 +543,6 @@ gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
 #######################################
 #####          GNMI               #####
 #######################################
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
   skip:
     reason: >
@@ -1632,7 +1624,7 @@ vxlan/test_vxlan_ecmp.py::Test_VxLAN_entropy:
     conditions:
       - "asic_type in ['vpp']"
 
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_underlay_ecmp:
+vxlan/test_vxlan_underlay_ecmp.py::Test_VxLAN_underlay_ecmp:
   skip:
     reason: >
             Failed/Errored: To be included

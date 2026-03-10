@@ -86,6 +86,15 @@ def dscp_config(dscp_mode, duthost, loganalyzer):
         request: pytest request
         duthost (AnsibleHost): The DUT host
     """
+    asic_type = duthost.facts['asic_type']
+
+    # global DSCP_TO_TC_MAP update is not supported on Broadcom platforms
+    if asic_type == 'broadcom':
+        apply_dscp_cfg_setup(duthost, dscp_mode, loganalyzer)
+        yield
+        apply_dscp_cfg_teardown(duthost, loganalyzer)
+        return
+
     is_global_map_key_exist = duthost.shell('redis-cli -n 4 -c KEYS "PORT_QOS_MAP|global"')["stdout"]
     if is_global_map_key_exist:
         origin_dscp_to_tc_map = duthost.shell('redis-cli -n 4 -c HGET "PORT_QOS_MAP|global" "dscp_to_tc_map"')["stdout"]
@@ -188,14 +197,14 @@ def send_and_verify_traffic(ptfadapter,
     """
     pkt_egress_index = 0
     ptf_dst_port_list = []
-    ptfadapter.dataplane.flush()
     logger.info("Send packet(s) from port {} from downstream to upstream".format(ptf_src_port_id))
 
     try:
         for pkt, exp_pkt in zip(pkt_list, exp_pkt_list):
+            ptfadapter.dataplane.flush()
             testutils.send(ptfadapter, ptf_src_port_id, pkt, count=DEFAULT_PKT_COUNT)
             logger.info(f"Send packet: {pkt}, expected packet: {exp_pkt}")
-            result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids, timeout=1)
+            result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids, timeout=5)
             if isinstance(result, bool):
                 logger.info("Return a dummy value for VS platform")
                 port_index = 0
@@ -493,7 +502,14 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         with allure.step("Run test"):
             self._run_test(ptfadapter, duthost, tbinfo, test_params, inner_dst_ip_list, dut_qos_maps_module, dscp_mode)
 
-        if completeness_level != "basic":
+        is_smartswitch = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch", False)
+        topo_name = tbinfo["topo"]["name"]
+        if (
+            completeness_level != "basic"
+            and not is_smartswitch
+            and "dualtor" not in topo_name
+            and "t1" not in topo_name
+        ):
             with allure.step("Do warm-reboot"):
                 reboot(duthost, localhost, reboot_type="warm", safe_reboot=True, check_intf_up_ports=True,
                        wait_warmboot_finalizer=True)

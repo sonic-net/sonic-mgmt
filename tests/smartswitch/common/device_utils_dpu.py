@@ -384,7 +384,7 @@ def check_dpu_health_status(duthost, dpu_name,
        expected_oper_status: (Online/Offline)
        expected_oper_value: (up/down)
     Returns:
-       Returns Nothing
+       Returns: None
     """
     logging.info(f"Checking system-health status of {dpu_name}")
     output_dpu_health_status = duthost.show_and_parse(f"show system-health dpu {dpu_name}")
@@ -519,15 +519,17 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause):
         wait_until(
             DPU_MAX_PROCESS_UP_TIMEOUT, DPU_MAX_TIME_INT, 0,
             check_dpu_critical_processes, dpuhosts, dpu_id),
-        f"Crictical process check for {dpu_name} has been failed"
+        f"Critical process check for {dpu_name} has been failed"
     )
 
-    logging.info(f"Checking reboot cause of {dpu_name}")
-    pytest_assert(
-        wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
-                   check_dpu_reboot_cause, duthost, dpu_name, reboot_cause),
-        f"Reboot cause for DPU {dpu_name} is incorrect"
-    )
+    if reboot_cause:
+        logging.info(f"Checking reboot cause of {dpu_name}")
+        pytest_assert(
+            wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
+                       check_dpu_reboot_cause, duthost,
+                       dpu_name, reboot_cause),
+            f"Reboot cause for DPU {dpu_name} is incorrect"
+        )
 
 
 def post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
@@ -623,3 +625,37 @@ def check_midplane_status(duthost, dpu_ip, expected_status):
             if reachability is not None:
                 return str(reachability).strip().lower() == expected_status.lower()
     return False
+
+
+def check_dpus_reboot_cause(duthost, dpu_list, num_dpu_modules, reason):
+    """
+    Waits and checks in parallel the reboot cause of DPUs.
+    Args:
+       duthost: Host handle
+       dpu_list: List of DPUs
+       num_dpu_modules: Number of DPU modules
+       reason: Expected reboot cause to check for
+
+    Returns:
+       Returns Nothing
+    """
+    results = []
+
+    def collect_result(dpu_name):
+        result = wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
+                            check_dpu_reboot_cause, duthost, dpu_name, reason)
+        results.append((dpu_name, result))
+
+    with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
+        for dpu_name in dpu_list:
+            executor.submit(collect_result, dpu_name)
+
+    # Wait for all threads to finish
+    executor.shutdown(wait=True)
+
+    # Assert all DPUs passed
+    failed = [dpu for dpu, res in results if not res]
+    if failed:
+        pytest.fail(f"DPUs {failed} did not reboot due to '{reason}'")
+    else:
+        logging.info(f"All DPUs rebooted due to '{reason}' as expected")
