@@ -194,6 +194,10 @@
             {"type": "value", "value": 64},
             {"type": "comparison", "value": "max"}
           ],
+          "memory_increase_fail_threshold": {
+            "type": "value",
+            "value": 128
+          },
           "memory_high_threshold": {
             "type": "value",
             "value": 128
