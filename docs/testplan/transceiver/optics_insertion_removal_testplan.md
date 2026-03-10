@@ -21,7 +21,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
-| port_under_test | List | All | No | None|  A list under `dut.dut_name` containing the ports to be tested for physical OIR test.<br>This attribute must exist only under `dut` field. |
+| ports_under_test | List | [] | No | None|  A list under `dut.dut_name` containing the ports to be tested for physical OIR test.<br>This attribute must exist only under `dut` field. |
 | oir_method | String | manual | No | dut | The method used for OIR ("manual" or "automated"). |
 | physical_oir_timeout_min | Int | 30 | No | dut |  The timeout value in minutes to wait for the optics to be inserted/removed. |
 | simultaneous_oir | Bool | False | No | dut |  A flag indicating whether to allow simultaneous OIR operations on multiple ports. |
@@ -34,7 +34,7 @@ Please refer to the [Testbed Topology](./test_plan.md#testbed-topology) section.
 
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
-| port_under_test | List | All | No | None | A list under `dut.dut_name` containing the ports to be tested for remote reseat test.<br>This attribute must exist only under `dut` field. | 
+| ports_under_test | List | [] | No | None | A list under `dut.dut_name` containing the ports to be tested for remote reseat test.<br>This attribute must exist only under `dut` field. | 
 | remote_reseat_timeout_min | Int | 10 | No | transceivers | The timeout value in seconds to wait for the remote reseat process to complete. |
 | remote_reseat_stress_iteration | Int | 5 | No | dut | The number of iterations to stress test the remote reseat process. |
 | monitor_kernel_errors | Bool | False | No | transceivers | A flag indicating whether to monitor kernel errors during the test. |
@@ -103,25 +103,26 @@ A class named `PhysicalOIR` is defined under `tests.common.physical_oir` module.
    - Description: Initializes the PhysicalOIR class.
    - Parameters:
         - `duthost` : AnsibleHost object of the dut. Following attributes are fetched from the `duthost` object for further processing:
-            - `port_under_test`: List of ports to be tested.
+            - `ports_under_test`: List of ports to be tested.
             - `tbinfo`: Testbed information
             - `physical_oir_timeout_min`: Timeout value in minutes for the OIR process.
             - `oir_method`: The method used for OIR ("manual" or "automated").
             - `simultaneous_oir`: A flag indicating whether to allow simultaneous OIR operations on multiple ports.
 
         - `ansible-adhoc` : Ansible adhoc fixture to send commands to perform OIR operations.
+        - `port_attributes_dict`: A dictionary containing the port test attributes defined in `physical_oir.json` file.
 2. **is_available**
     - Description: Checks if the testbed supports physical OIR.
     - Parameters: None
     - Returns: Boolean indicating availability.
 
 3. **insert_sfps**
-    - Description: Inserts SFPs on the ports specified by the port_under_test attribute.
+    - Description: Inserts SFPs on the ports specified by the ports_under_test attribute.
     - Parameters: None
     - Returns: True if insertion is successful, False otherwise.
 
 4. **remove_sfps**
-    - Description: Removes SFPs from the ports specified by the port_under_test attribute.
+    - Description: Removes SFPs from the ports specified by the ports_under_test attribute.
     - Parameters: None
     - Returns: True if removal is successful, False otherwise.
 
@@ -144,11 +145,11 @@ class PhysicalOir:
         pass
 
     def insert_sfps(self) -> bool:
-        # Insert SFPs on the ports specified by port_under_test attribute
+        # Insert SFPs on the ports specified by ports_under_test attribute
         pass
 
     def remove_sfps(self) -> bool:
-        # Remove SFPs from the ports specified by port_under_test attribute
+        # Remove SFPs from the ports specified by ports_under_test attribute
         pass
 
     def cleanup(self):
