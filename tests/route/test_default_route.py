@@ -79,6 +79,8 @@ def get_upstream_neigh(tb, device_neigh_metadata, af, nexthops):
     for neigh_name, neigh_cfg in list(topo_cfg_facts.items()):
         if not is_in_neighbor(neigh_types, neigh_name):
             continue
+        if "PT0" in neigh_name and "tor" in neigh_cfg.get('properties', []):
+            continue
         interfaces = neigh_cfg.get('interfaces', {})
         ipv4_addr = None
         ipv6_addr = None

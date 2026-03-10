@@ -1038,6 +1038,12 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
       - "release in ['201911']"
       - "asic_type in ['vs']"
 
+platform_tests/daemon/test_pcied.py:
+  skip:
+    reason: "Not supported, AMD DPU Pcie link bringup sequence is handled differently"
+    conditions:
+      - "platform in ['arm64-elba-asic-flash128-r0']"
+
 #######################################
 #####    fwutil/test_fwutil.py    #####
 #######################################
@@ -1331,7 +1337,7 @@ platform_tests/test_reboot.py::test_fast_reboot:
     reason: "Skip test_fast_reboot for M*/t1/t2 / Fast reboot is broken on dualtor topology. Skipping for now. / Skip for smartswitch topology."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2']"
+      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2', 'lt2', 'ft2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
       - "'isolated' in topo_name"
       - "is_smartswitch==True"
