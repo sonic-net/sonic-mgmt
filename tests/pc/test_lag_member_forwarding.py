@@ -179,6 +179,30 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
                 "Failed to apply lag member configuration file: {}".format(result["stderr"])
             )
 
+        # swssconfig returns before orchagent/syncd finishes applying the config.
+        # Wait for ASIC_DB to reflect that all LAG members are disabled before
+        # sending traffic, otherwise packets may still be forwarded.
+        def check_lag_members_disabled_in_asic_db():
+            """Check ASIC_DB for LAG member EGRESS_DISABLE=true on all members."""
+            lag_member_keys = asichost.shell(
+                "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'"
+            )["stdout_lines"]
+            if not lag_member_keys:
+                return False
+            for key in lag_member_keys:
+                egress_disable = asichost.shell(
+                    "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_EGRESS_DISABLE".format(key)
+                )["stdout"].strip()
+                if egress_disable != "true":
+                    return False
+            return True
+
+        pytest_assert(
+            wait_until(10, 0.5, 0, check_lag_members_disabled_in_asic_db),
+            "LAG members not disabled in ASIC_DB within 10s after swssconfig"
+        )
+        logger.info("All LAG members confirmed disabled in ASIC_DB")
+
         if duthost.facts['asic_type'] == "vs":
             # VS SAI stores LAG member EGRESS/INGRESS_DISABLE attributes in ASIC_DB
             # but the Linux kernel teamdev doesn't enforce them, so packets still flow.
