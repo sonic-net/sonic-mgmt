@@ -136,7 +136,7 @@ The `PhysicalOIR` class should look like below:
 ```python
 # File tests/common/physical_oir.py
 class PhysicalOir:
-    def __init__(self, duthost, ansible_adhoc):
+    def __init__(self, duthost, ansible_adhoc, port_attributes_dict):
         # Initiate the class with required attributes
         pass
 
