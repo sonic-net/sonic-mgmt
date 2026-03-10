@@ -1896,7 +1896,12 @@ class TGIxia(TGBase):
 
         if not params.get('config_file'):
             if self.ports_fec_disable:
-                logger.info("Not disabling FEC") 
+                logger.info('Disabling FEC for ports: {}'.format(self.ports_fec_disable))
+                res = self.ixia_eval('interface_config', port_handle=list(self.tg_port_handle.values()), mode="modify",
+                                     autonegotiation=0, ieee_media_defaults=0, enable_rs_fec=0, force_enable_rs_fec='0',
+                                     firecode_force_on='0')
+                self.ixia_eval('interface_config', port_handle=self.ports_fec_disable, mode="modify", autonegotiation=0)
+                logger.info(res)
             self.auto_neg = 1 if self.auto_neg else 0
             if self.tg_link_params.get('port_speed') and self.tg_link_params.get('auto_neg'):
                 if self.tg_link_params.get('port_speed')[0] == self.tg_link_params.get('auto_neg')[0]:
@@ -1958,6 +1963,21 @@ class TGIxia(TGBase):
 
     def trgen_adjust_mismatch_params(self, fname, **kwargs):
         if fname == 'tg_traffic_config':
+            if kwargs.get('ip_precedence_mode') == 'raw' and kwargs.get('ip_precedence_raw') is not None:
+                raw_val = kwargs.get('ip_precedence_raw')
+                try:
+                    if isinstance(raw_val, str) and raw_val.lower().startswith('0x'):
+                        raw_val = int(raw_val, 16)
+                    else:
+                        raw_val = int(raw_val)
+                except Exception:
+                    raw_val = 0
+                kwargs['qos_type'] = 'custom'
+                kwargs['ip_tos_field'] = raw_val
+                kwargs.pop('ip_precedence_mode', None)
+                kwargs.pop('ip_precedence_raw', None)
+                logger.info("Applied Raw Priority (ip_tos_field = {}) for traffic item".format(raw_val))
+
             self.map_field("ether_type", "ethernet_value", kwargs)
             self.map_field("custom_pattern", "data_pattern", kwargs)
             self.map_field("icmpv6_oflag", "icmp_ndp_nam_o_flag", kwargs)

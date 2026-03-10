@@ -14,7 +14,7 @@ import natsort
 import apis.routing.ip as ip_obj
 import apis.routing.vrf as vrf_obj
 import apis.switching.vlan as vlan_obj
-from spytest.tgen.tg import get_ixnet
+from spytest.tgen.tg import get_ixnet, get_ixiangpf
 import sys
 import importlib
 import utilities.utils as utils_obj
@@ -294,6 +294,8 @@ def generate_l3vni_config(leaf_data, mode='add'):
                     break
                 vrf_data[vxlan_id]['bindings'].append(l2_vlan_id)
                 l2_vlan_id += 1
+
+
 
     # L3VNI configuration
 
@@ -1770,6 +1772,9 @@ def create_traffic_item(device_handles, endpoints, topo_handles, transmit_mode="
             'track_by':  'traffic_item',
         }
 
+        if rate_bps:
+            kwargs.pop('rate_percent')
+            kwargs['rate_bps'] = rate_bps
 
         if rx_all_ports: 
             kwargs['emulation_dst_handle'] = list()      
@@ -1796,6 +1801,35 @@ def create_traffic_item(device_handles, endpoints, topo_handles, transmit_mode="
 
         stream = tg_handle.tg_traffic_config(**kwargs)
 
+        if priority_val:
+            ixNet = get_ixnet()
+            streamname = stream['stream_id']
+            trafficitem = ixNet.getFilteredList('/traffic', 'trafficItem', '-name', streamname)[0]
+            confElement = ixNet.getList(trafficitem, 'configElement')[0]
+            if version == 'ipv4':
+                stackIP = ixNet.getFilteredList(confElement, 'stack', '-stackTypeId', 'ipv4')[0]
+                priority_field = 'ipv4.header.priority.raw'
+            else:
+                stackIP = ixNet.getFilteredList(confElement, 'stack', '-stackTypeId', 'ipv6')[0]
+                priority_field = 'ipv6.header.versionTrafficClassFlowLabel.trafficClass'
+            
+            priority = ixNet.getFilteredList(stackIP, 'field', '-fieldTypeId', priority_field)[0]
+            ixNet.setMultiAttribute(priority, '-singleValue', '{}'.format(priority_val), '-optionalEnabled', 'true', '-activeFieldChoice', 'true')
+            ixNet.commit()
+            st.log("Set priority to {} for stream {}".format(priority, name))
+
+        if pfc_queue_val:
+            ixNet = get_ixnet()
+            streamname = stream['stream_id']
+            trafficitem = ixNet.getFilteredList('/traffic', 'trafficItem', '-name', streamname)[0]
+            confElement = ixNet.getList(trafficitem, 'configElement')[0]
+            eth_stack = ixNet.getFilteredList(confElement, 'stack', '-stackTypeId', 'ethernet')[0]
+            pfc_field = ixNet.getFilteredList(eth_stack, 'field', '-displayName', 'PFC Queue')[0]
+            ixNet.setMultiAttribute(pfc_field, '-singleValue', '{}'.format(pfc_queue_val), '-optionalEnabled', 'true', '-activeFieldChoice', 'true')
+
+            ixNet.commit()
+            st.log("Set pfc queue value to {} for stream {}".format(pfc_queue_val, name))
+            
         stream_id = stream["stream_id"]
         stream_handles[i] = {}
         stream_handles[i]['stream_id'] = stream_id
@@ -2829,7 +2863,7 @@ def verify_evpn_es_evi(dut, exp_data, id_keys=['esi', 'vni'], **kwargs):
     act_data = get_evpn_es_evi(dut)
     compare_exp_actual_data(exp_data, act_data, id_keys)
     return act_data
-
+    
 def get_interfaces_status(dut, interface=""):
     """
     parses 'show interfaces status ' output into data struct below
@@ -2889,6 +2923,419 @@ def get_interfaces_status(dut, interface=""):
 def verify_interfaces_status(dut, exp_data, id_keys=['interface'], interface="", **kwargs): 
 
     act_data = get_interfaces_status(dut, interface)
+    compare_exp_actual_data(exp_data, act_data, id_keys)
+    return act_data
+
+### Added show cmd validations for PFC ###
+
+@VerifyLoop()
+def verify_queue_counters(dut, intf, exp_data, id_keys=['TxQ'], **kwargs):
+    act_data = get_queue_counters(dut, intf)
+    compare_exp_actual_data(exp_data, act_data, id_keys)
+    return act_data
+
+def get_queue_counters(dut, intf):
+    """
+    parses 'show queue counters <intf>'
+    """
+    cmd = "sudo show queue counters {}".format(intf)
+    out = st.show(dut, cmd, skip_tmpl=True, skip_error_check=False)
+    rows = st.parse_show(dut, cmd, out, "show_queue_counters.tmpl")
+
+    # strip thousands separators so callers can int() them
+    for r in rows:
+        for k in ('pkts', 'bytes', 'drop_pkts', 'drop_bytes'):
+            if k in r and isinstance(r[k], str):
+                r[k] = r[k].replace(',', '')
+    return rows
+
+def get_expected_queue_counters(dut, intf):
+    """
+    generates the expected data struct for 
+    'show queue counters <intf>' using the config file
+
+    Returns:
+    [{'port': 'Ethernet1_28', 'queue': 'UC0', 'pkts': 0, 'bytes': 0, 'drop_pkts': 0, 'drop_bytes': 0},
+     {'port': 'Ethernet1_28', 'queue': 'UC1', ...},
+     {'port': 'Ethernet1_28', 'queue': 'MC15', ...}]
+    """
+    return
+
+
+
+
+def clear_queue_counters(dut):
+    """
+    clears queue counters
+    """
+    cmd = "sudo sonic-clear queuecounters"
+    st.show(dut, cmd, skip_tmpl=True, skip_error_check=False)
+    return True
+
+def clear_pfc_counters(dut):
+    """
+    clears pfc counters
+    """
+    cmd = "sonic-clear pfccounters"
+    st.show(dut, cmd, skip_tmpl=True, skip_error_check=False)
+    return True
+
+
+@VerifyLoop()
+def verify_pfc_counters(dut, exp_data, id_keys=['Port', 'dir'], **kwargs):
+    act_data = get_pfc_counters(dut)
+    compare_exp_actual_data(exp_data, act_data, id_keys)
+    return act_data
+
+def get_pfc_counters(dut):
+    cmd = "sudo show pfc counters"
+    raw_out = st.config('leaf0', "show pfc counters | sed -n '/Port Tx/,/^$/p' | grep 'Ethernet1_28 '")
+
+    out = st.show(dut, cmd, skip_tmpl=True, skip_error_check=False)
+    return st.parse_show(dut, cmd, out, "show_pfc_counters.tmpl")
+
+def get_pfc_count(dut, port):
+    """
+    Get PFC pause frame counters for a given port.
+    Args:
+        dut (str): DUT name (e.g., 'leaf0')
+        port (str): Port name (e.g., 'Ethernet1_28')
+    Returns:
+        dict: {
+            'tx_pfc_0': <int>, ... 'tx_pfc_7': <int>,
+            'rx_pfc_0': <int>, ... 'rx_pfc_7': <int>
+        }
+    """
+    pfc_dict = defaultdict(dict)
+
+    # TX counters
+    raw_out = st.show(dut, "show pfc counters | sed -n '/Port Tx/,/^$/p' | grep '{} '".format(port), skip_tmpl=True)
+    lines = raw_out.strip().splitlines()
+    if lines:
+        tx_fields = lines[0].split()
+        if len(tx_fields) > 1:
+            for i in range(1, len(tx_fields)):
+                pfc_dict[port]['tx_pfc_{}'.format(i - 1)] = int(tx_fields[i].replace(',', ''))
+
+    # RX counters
+    raw_out = st.show(dut, "show pfc counters | sed -n '/Port Rx/,/^$/p' | grep '{} '".format(port), skip_tmpl=True)
+    lines = raw_out.strip().splitlines()
+    if lines:
+        rx_fields = lines[0].split()
+        if len(rx_fields) > 1:
+            for i in range(1, len(rx_fields)):
+                pfc_dict[port]['rx_pfc_{}'.format(i - 1)] = int(rx_fields[i].replace(',', ''))
+
+    return pfc_dict
+
+def get_expected_pfc_counters(dut):
+    """
+    generates the expected data struct for 'show pfc counters'
+    using the config file
+
+    Returns:
+    [{'port': 'Ethernet1_1', 'dir': 'Rx', 'priority': '0', 'pkts': 0},
+     {'port': 'Ethernet1_1', 'dir': 'Rx', 'priority': '1', 'pkts': 0}, ...,
+     {'port': 'Ethernet1_64', 'dir': 'Tx', 'priority': '7', 'pkts': 0}]
+    """
+    ret_val = list()
+    cfg_dict = get_cfg_dict()
+    dut_cfg = cfg_dict.get(dut, {})
+
+    for intf in dut_cfg.get('interfaces', []):
+        # Rx counters
+        for prio in range(0, 8):
+            ret_val.append({
+                'port': intf['name'],
+                'dir': 'Rx',
+                'priority': str(prio),
+                'pkts': 0
+            })
+
+        # Tx counters
+        for prio in range(0, 8):
+            ret_val.append({
+                'port': intf['name'],
+                'dir': 'Tx',
+                'priority': str(prio),
+                'pkts': 0
+            })
+
+    return ret_val
+
+
+
+@VerifyLoop()
+def verify_npu_rate_check(dut, exp_data, id_keys=['slice', 'iface'], **kwargs):
+
+    act_data = get_npu_rate_check(dut)
+
+    compare_exp_actual_data(exp_data, act_data, id_keys)
+    return act_data
+
+def get_npu_rate_check(dut):
+    cmd = "sudo show platform npu rate-check"
+    out = st.show(dut, cmd, skip_tmpl=True, skip_error_check=False)
+    return st.parse_show(dut, cmd, out, "show_platform_npu_rate_check.tmpl")
+
+def get_expected_npu_rate_check(dut):
+    """
+    Generates expected data structure for 'show platform npu rate-check'.
+    Covers IFG_RX, Reas, TXCGM, IFG_TX, HBM, and Totals.
+    """
+    ret_val = []
+
+
+    for idx in range(0, 12):
+        ret_val.append({'entity': "IFG_RX{}".format(idx), 'metric': 'BitRate', 'value': 0.0, 'unit': 'Gbps'})
+        ret_val.append({'entity': "IFG_RX{}".format(idx), 'metric': 'PktRate', 'value': 0.0, 'unit': 'Mpps'})
+        ret_val.append({'entity': "IFG_RX{}".format(idx), 'metric': 'RcyRate', 'value': 0.0, 'unit': 'Gbps'})
+        ret_val.append({'entity': "IFG_RX{}".format(idx), 'metric': 'RcyRate', 'value': 0.0, 'unit': 'Mpps'})
+
+
+    for idx in range(0, 6):
+        ret_val.append({'entity': "Reas{}".format(idx), 'metric': 'PktRate', 'value': 0.0, 'unit': 'Mpps'})
+
+
+    for idx in range(0, 6):
+        ret_val.append({'entity': "TXCGM{}".format(idx), 'metric': 'BitRate', 'value': 0.0, 'unit': 'Gbps'})
+        ret_val.append({'entity': "TXCGM{}".format(idx), 'metric': 'PktRate', 'value': 0.0, 'unit': 'Mpps'})
+        ret_val.append({'entity': "TXCGM{}".format(idx), 'metric': 'DrpRate', 'value': 0.0, 'unit': 'Gbps'})
+        ret_val.append({'entity': "TXCGM{}".format(idx), 'metric': 'TtlRate', 'value': 0.0, 'unit': 'Mpps'})
+
+
+    for idx in range(0, 12):
+        ret_val.append({'entity': "IFG_TX{}".format(idx), 'metric': 'BitRate', 'value': 0.0, 'unit': 'Gbps'})
+        ret_val.append({'entity': "IFG_TX{}".format(idx), 'metric': 'PktRate', 'value': 0.0, 'unit': 'Mpps'})
+        ret_val.append({'entity': "IFG_TX{}".format(idx), 'metric': 'RcyRate', 'value': 0.0, 'unit': 'Gbps'})
+        ret_val.append({'entity': "IFG_TX{}".format(idx), 'metric': 'RcyRate', 'value': 0.0, 'unit': 'Mpps'})
+
+
+    ret_val.append({'entity': "HBM", 'metric': 'WriteRateMpps', 'value': 0.0, 'unit': 'Mpps'})
+    ret_val.append({'entity': "HBM", 'metric': 'WriteRateGbps', 'value': 0.0, 'unit': 'Gbps'})
+    ret_val.append({'entity': "HBM", 'metric': 'ReadRate', 'value': 0.0, 'unit': 'Mpps'})
+
+    # Totals
+    ret_val.append({'entity': "Total", 'metric': 'RxRateGbps', 'value': 0.0, 'unit': 'Gbps'})
+    ret_val.append({'entity': "Total", 'metric': 'RxRateMpps', 'value': 0.0, 'unit': 'Mpps'})
+    ret_val.append({'entity': "Total", 'metric': 'TxRateGbps', 'value': 0.0, 'unit': 'Gbps'})
+    ret_val.append({'entity': "Total", 'metric': 'TxRateMpps', 'value': 0.0, 'unit': 'Mpps'})
+
+    return ret_val
+
+
+
+@VerifyLoop()
+def verify_npu_global(dut, exp_data, id_keys=['Interface'], **kwargs):
+    act_data = get_npu_global(dut)
+    compare_exp_actual_data(exp_data, act_data, id_keys)
+    return act_data
+
+def get_npu_global(dut):
+    cmd = "sudo show platform npu global"
+    out = st.show(dut, cmd, skip_tmpl=True, skip_error_check=False)
+    return st.parse_show(dut, cmd, out, "show_platform_npu_global.tmpl")
+
+def get_expected_npu_global(dut):
+    """
+    generates the expected data struct for 'show platform npu global'
+
+    Returns:
+    {
+      'asic': 'Gibraltar',
+      'device_freq_khz': 1325000,
+      'sms_mem_bytes': 113246208,
+      'hbm_present': False,
+      'interfaces': [
+          {'port': 'Ethernet1_1', 'slice': 5, 'ifg': 1, 'serdes': 0,
+           'sai_lane': 2816, 'sysport': 596, 'gid': 4, 'port_oid': '0x8000000000000d'},
+          ...
+      ],
+      'properties': {
+          'pfc_support': True,
+          'ecn_dequeue_marking': False,
+          'ecn_latency_marking': False,
+          'force_disable_hbm': True,
+          ...
+      }
+    }
+    """
+    ret_val = dict()
+    ret_val['hbm_present'] = False
+
+    # Interfaces: pulled from config, each with slice/ifg/serdes mapping
+    ret_val['interfaces'] = list()
+    cfg_dict = get_cfg_dict()
+    dut_cfg = cfg_dict.get(dut, {})
+    for intf in dut_cfg.get('interfaces', []):
+        # These fields will be filled from CLI parsing or config mapping
+        ret_val['interfaces'].append({
+            'port': intf['name'],
+            'port_oid': ''
+        })
+
+    # Device properties (default values)
+    ret_val['properties'] = {
+        'pfc_support': True,
+        'ecn_dequeue_marking': False,
+        'ecn_latency_marking': False,
+        'force_disable_hbm': True,
+        'ingress_wmk_polling_interval_ms': 100,
+        'add_fc_to_if_in_discards': False,
+        'ipinip_tunnel_lpbk_pkt_drop': True,
+        'enable_ip_over_ipv6_tunnel_scale_mode': True,
+        'disable_acl_mirror_entry_counters': True,
+        'acl_ignore_field_outer_vlan_id': True,
+        'tunnel_manager_enabled': True,
+        'mcast_tunnel_enabled': True,
+        'allow_srv6_managed_tunnel': False
+    }
+
+    return ret_val
+
+
+
+@VerifyLoop()
+def verify_interface_cgm(dut, intf, tc, exp_data, id_keys=['intf', 'tc'], **kwargs):
+    act_data = get_interface_cgm(dut, intf, tc)
+    compare_exp_actual_data(exp_data, act_data, id_keys)
+    return act_data
+
+def get_interface_cgm(dut, intf, tc):
+    cmd = "sudo show platform npu rx interface_cgm -t {} -i {}".format(tc, intf)
+    out = st.show(dut, cmd, skip_tmpl=True, skip_error_check=False)
+    return st.parse_show(dut, cmd, out, "show_platform_npu_rx_interface_cgm.tmpl")
+
+def get_expected_interface_cgm(dut, intf, tc):
+    """
+    generates the expected data struct for
+    'show platform npu rx interface_cgm -t <tc> -i <intf>'
+
+    Returns:
+    {
+      'interface': 'Ethernet1_28',
+      'slice': 1,
+      'enabled': True,
+      'pfc_enabled': True,
+      'pfc_mask': 24,
+      'flow_control': 'PFC',
+      'source_queue': {
+          'tc': 3,
+          'buffer_counter': 0,
+          'congestion_state': 'Xon',
+          'headroom_counter': 0
+      },
+      'rx_drops': {
+          'tc0': 0, 'tc1': 0, 'tc2': 0, 'tc3': 0,
+          'tc4': 0, 'tc5': 0, 'tc6': 0, 'tc7': 0
+      },
+      'rx_drop_reasons': {
+          'ctc_ctcg': 0,
+          'sq_sqg': 0,
+          'headroom': 0
+      },
+      'tc_sqg_map': {
+          'tc0': 1, 'tc1': 1, 'tc2': 1, 'tc3': 0,
+          'tc4': 0, 'tc5': 1, 'tc6': 1, 'tc7': 2
+      }
+    }
+    """
+    ret_val = dict()
+    ret_val['interface'] = intf
+    ret_val['slice'] = 0
+    ret_val['enabled'] = True
+    ret_val['pfc_enabled'] = False
+    ret_val['pfc_mask'] = 0
+    ret_val['flow_control'] = "NONE"
+    ret_val['pfc_timer_ns'] = 0
+
+    ret_val['source_queue'] = {
+        'tc': tc,
+        'buffer_counter': 0,
+        'congestion_state': "Xon",
+        'headroom_counter': 0
+    }
+
+    ret_val['rx_drops'] = {}
+    for t in range(0, 8):
+        ret_val['rx_drops']['tc{}'.format(t)] = 0
+
+    ret_val['rx_drop_reasons'] = {
+        'ctc_ctcg': 0,
+        'sq_sqg': 0,
+        'headroom': 0
+    }
+
+    ret_val['tc_sqg_map'] = {}
+    for t in range(0, 8):
+        # Default everything to 1, override tc7 with 2
+        ret_val['tc_sqg_map']['tc{}'.format(t)] = 1
+    ret_val['tc_sqg_map']['tc7'] = 2
+
+    return ret_val
+
+
+def get_voq_queue_counters(dut, intf, tc):
+    cmd = "sudo show platform npu voq queue_counters -i {} -t {}".format(intf, tc)
+    out = st.show(dut, cmd, skip_tmpl=True, skip_error_check=False)
+    return st.parse_show(dut, cmd, out, "show_platform_npu_voq_queue_counters.tmpl")
+
+def get_interface_counters_type(dut, counter_type):
+    # counter type can be "rx_ok, tx_ok, rx_err, tx_err, rx_bps, tx_bps"
+    cli_output = st.show(dut, "show interface counters", skip_tmpl=True)
+    parsed_out = st.parse_show(dut, "show interface counters", cli_output, "show_interfaces_counters.tmpl")
+
+    result = dict()
+    for output in parsed_out:
+        intf = output.get("iface")
+        if intf:
+            val = output.get(counter_type, "0")
+            try:
+                result[intf] = int(val.replace(",", ""))
+            except Exception:
+                result[intf] = 0
+    return result
+
+def get_interface_counters(dut, intf):
+    """
+    Return all counters for a given interface as a dict.
+    Runs `show interface counters -i <intf>` so only that port's output is parsed.
+    """
+    # Run CLI for just that interface
+    cmd = "show interface counters -i {}".format(intf)
+    cli_output = st.show(dut, cmd, skip_tmpl=True)
+
+    # Parse using same template (still works, single row)
+    parsed_out = st.parse_show(dut, cmd, cli_output, "show_interfaces_counters.tmpl")
+
+    if not parsed_out:
+        return {}
+
+    output = parsed_out[0]  # only one row
+    counters = {}
+    for key, val in output.items():
+        if key == 'iface':
+            continue
+        if isinstance(val, str):
+            val_clean = val.replace(',', '')
+            try:
+                counters[key] = int(val_clean)
+            except Exception:
+                counters[key] = val.strip()
+        else:
+            counters[key] = val
+    return counters
+
+### End of show cmd validations for PFC ###
+
+
+
+
+
+@VerifyLoop()
+def verify_evpn_es_evi(dut, exp_data, id_keys=['esi', 'vni'], **kwargs): 
+
+    act_data = get_evpn_es_evi(dut)
     compare_exp_actual_data(exp_data, act_data, id_keys)
     return act_data
 
@@ -3964,6 +4411,103 @@ def verify_bfd_summary(dut, exp_data, **kwargs):
     """
     act_data = get_bfd_summary(dut)
     compare_exp_actual_data(exp_data, act_data, ['interface', 'state'])
+
+def parse_main_interface_name(node, intf):
+    """
+    takes interface name as input and parses out the main interface name
+    e.g. Ethernet1_1_1 --> Ethernet1_1
+         Ethernet2     --> Ethernet2
+         Ethernet2_1   --> Ethernet2_1
+    """
+    intf_pattern1 = r'(Ethernet\d+_\d+).*'
+    intf_pattern2 = r'(Ethernet\d+).*'
+    int_match1 = re.match(intf_pattern1, intf)
+    int_match2 = re.match(intf_pattern2, intf)
+    if int_match1:
+        return int_match1.group(1)
+    if int_match2:
+        return int_match2.group(1)
+    else:
+        raise Exception("Invalid interface format: {}".format(intf))    
+
+def config_dpb(node, dpb_type, interfaces, intf_startup=True):
+    """
+    Configures DPB on the specified interfaces of a node
+    returns the list of new interfaces created after breakout   
+    """
+    dpb_type_pattern = r'(\d+)x(\d+)'
+    match = re.match(dpb_type_pattern, dpb_type)
+    if match:
+        no_of_intf = int(match.group(1))
+    else:
+        raise Exception("Invalid DPB type format: {}".format(dpb_type))
+
+    int_cfg = ""    
+    dpb_cfg = ""
+    main_intfs = []
+    ret_intfs = dict()
+    for intf in interfaces:
+        main_intf = parse_main_interface_name(node, intf)
+        if main_intf not in main_intfs:
+            main_intfs.append(main_intf)
+            ret_intfs[main_intf] = []
+            dpb_cfg += "sudo config interface breakout {} {} -yfl\n".format(main_intf, dpb_type)
+            if no_of_intf == 1:
+                int_cfg += "sudo config interface startup {} \n".format(main_intf)
+                ret_intfs[main_intf] = [main_intf]
+            else:
+                for cntr in range(no_of_intf):
+                    new_intf = main_intf + '_{}'.format(cntr + 1)
+                    ret_intfs[main_intf].append(new_intf)
+                    int_cfg += "sudo config interface startup {} \n".format(new_intf)
+    
+    st.log("Configuring breakout type: {} on Router: {} Interface {}".format(dpb_type, node, main_intfs))
+    st.config(node, dpb_cfg, skip_error_check=True, conf=True)
+    if intf_startup:
+        st.log("Bringing up interfaces on Router: {}".format(node))
+        st.config(node, int_cfg, skip_error_check=True, conf=True)
+
+    return ret_intfs
+
+def config_tgen_fcoe(tg_handle, port_list, fcoe_priority_groups="0 0 0 1 2 0 0 0"):
+    """
+    Configures FCoE on the specified traffic generator ports
+    returns nothing 
+    """
+    bw_ports = {"novus_10g_fcoe" : [], "k400g_fcoe" : [], "k800g_fcoe": []}
+    port_stats = tg_handle.ixia_eval('traffic_stats')
+    ixia_handle = get_ixiangpf()
+    ixNet = get_ixnet()
+    for port in port_list:
+        
+        port_speed = port_stats[port]['aggregate']['tx']['line_speed']
+        if port_speed == '10GE':
+            bw_ports["novus_10g_fcoe"].append(port)
+        elif port_speed == '400GE':
+            vportHandle = ixia_handle.convert_porthandle_to_vport(port_handle = port)['handle']
+            resourceMode = ixNet.getAttribute(vportHandle, '-resourceMode')
+            if 'aresOne-M' in resourceMode:
+                # incase of 400G breakout AresOne-M 800G port
+                bw_ports["k800g_fcoe"].append(port)
+            else:
+                bw_ports["k400g_fcoe"].append(port)
+        elif port_speed == '800GE':
+            bw_ports["k800g_fcoe"].append(port)
+        else:
+            st.error("Unsupported port speed {} for FCoE configuration on port {}".format(port_speed, port))
+    
+    for port_type, ports in bw_ports.items():
+        if not ports:
+            continue    
+        st.log("Configuring FCoE on ports: {} of mode: {}".format(ports, port_type))
+        tg_handle.ixia_eval('interface_config', 
+                            port_handle=ports, mode="modify",
+                            fcoe_priority_groups=fcoe_priority_groups,
+                            fcoe_priority_group_size="8",
+                            fcoe_flow_control_type="ieee802.1Qbb",
+                            intf_mode=port_type,
+                            fcoe_support_data_center_mode="1")
+    return
 
 def report_result(result, tc_id='', rc_msg=''):
     if result:

@@ -1032,3 +1032,13 @@ class VxlanMultiHomingProfile(Profile):
 
         self.test_cfg['global']['current_dpb_type'] = dpb_type
         st.log("DPB configuration complete.")
+
+class VxlanPFCProfile(VxlanMultiHomingProfile):
+    """
+    VXLAN PFC (Priority Flow Control) Profile:
+    Uses same topology and SONiC config as Multi-Homing, but TGEN is configured
+    with only L2-V4 traffic (no L3-V4, L2-V6, L3-V6, BUM) for PFC congestion tests.
+    """
+    def configure_tgen(self, **kwargs):
+        """Configure TGEN for PFC: only l2_v4 traffic items (skip l3_v4, l2_v6, l3_v6, BUM)."""
+        return super().configure_tgen(skip_l2l3_bum_traffic=True, **kwargs)
