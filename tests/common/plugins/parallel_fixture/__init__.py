@@ -27,11 +27,11 @@ class TaskScope(enum.Enum):
     FUNCTION = 3
 
 
-class ParallelTaskRuntimeError(BaseException):
+class ParallelTaskRuntimeError(Exception):
     pass
 
 
-class ParallelTaskTerminatedError(BaseException):
+class ParallelTaskTerminatedError(Exception):
     pass
 
 
@@ -40,8 +40,14 @@ def raise_async_exception(tid, exc_type):
     if not isinstance(tid, int):
         raise TypeError("Thread ID must be an integer")
 
-    ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid),
-                                               ctypes.py_object(exc_type))
+    res = ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid),
+                                                     ctypes.py_object(exc_type))
+    if res == 0:
+        logging.warning("[Parallel Fixture] Thread %s not found when raising async exception", tid)
+    elif res > 1:
+        # Clear the exception to restore interpreter consistency
+        ctypes.pythonapi.PyThreadState_SetAsyncExc(ctypes.c_long(tid), None)
+        raise SystemError("PyThreadState_SetAsyncExc affected multiple threads")
 
 
 _log_context = threading.local()
@@ -241,13 +247,9 @@ class ParallelFixtureManager(object):
                 )
 
     def _format_task_name(self, func, *args, **kwargs):
-        task_name = f"{func.__name__}"
-        if args:
-            task_name += f"({args}"
-        if kwargs:
-            task_name += f", {kwargs}"
+        task_name = func.__name__
         if args or kwargs:
-            task_name += ")"
+            task_name += f"({args}, {kwargs})"
         return task_name
 
     def _wrap_task(self, func, task_context):
@@ -346,7 +348,9 @@ class ParallelFixtureManager(object):
 
         # Stop the monitor
         self.is_monitor_running = False
-        self.monitor_thread.join()
+        self.monitor_thread.join(10)
+        if self.monitor_thread.is_alive():
+            logging.warning("[Parallel Fixture] Monitor thread failed to terminate.")
 
         # Cancel any pending futures
         for future in self.active_futures:
@@ -443,7 +447,7 @@ _PARALLEL_MANAGER = None
 @pytest.fixture(scope="session", autouse=True)
 def parallel_manager(tbinfo):
     dut_count = len(tbinfo.get("duts", []))
-    worker_count = max(dut_count * 8, 16)
+    worker_count = min(dut_count * 8, 16)
     global _PARALLEL_MANAGER
     _PARALLEL_MANAGER = ParallelFixtureManager(worker_count=worker_count)
     _PARALLEL_MANAGER.current_scope = TaskScope.SESSION
@@ -567,19 +571,22 @@ def pytest_runtest_setup(item):
 
     for fixtures in barriers.values():
         for fixture in fixtures:
-            current_fixture_names.remove(fixture)
+            if fixture in current_fixture_names:
+                current_fixture_names.remove(fixture)
     current_fixture_scopes = []
     for fixture in current_fixture_names:
         fixture_defs = fixtureinfo.name2fixturedefs.get(fixture, [])
         if not fixture_defs:
-            fixture_scope = current_fixture_scopes[-1]
+            fixture_scope = current_fixture_scopes[-1] \
+                if current_fixture_scopes else TaskScope.SESSION.value
         else:
             try:
                 fixture_scope = TaskScope[fixture_defs[0].scope.upper()].value
             except Exception:
                 logging.debug("[Parallel Fixture] Unknown fixture scope for %r,"
                               "default to previous scope", fixture_defs)
-                fixture_scope = current_fixture_scopes[-1]
+                fixture_scope = current_fixture_scopes[-1] \
+                    if current_fixture_scopes else TaskScope.SESSION.value
         current_fixture_scopes.append(fixture_scope)
 
     # NOTE: Inject the barriers to ensure they are running last
@@ -665,9 +672,11 @@ def pytest_runtest_teardown(item, nextitem):
 
 def pytest_runtest_logreport(report):
     """
-    HOOK: Runs once AFTER all fixture teardown.
+    HOOK: Runs once AFTER all fixture setup/teardown.
     Terminate the parallel manager.
     """
+    if report.when != "teardown":
+        return
     logging.debug("[Parallel Fixture] Terminate parallel manager after teardown")
     parallel_manager = _PARALLEL_MANAGER
     if parallel_manager:
