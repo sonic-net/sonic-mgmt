@@ -388,6 +388,9 @@ def copp_testbed(
     # Store test_params in the TestCOPP class
     TestCOPP.test_params = test_params
 
+    if duthost.get_mgmt_ip()["version"] == "v6":
+        pytest.skip("mgmt IPv6 only runs are not supported for COPP tests")
+
     if not is_backend_topology:
         # There is no upstream neighbor in T1 backend topology. Test is skipped on T0 backend.
         # For Non T2 topologies, setting upStreamDuthost as duthost to cover dualTOR and MLAG scenarios.
