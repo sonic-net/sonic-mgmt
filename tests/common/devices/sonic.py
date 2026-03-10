@@ -2475,7 +2475,7 @@ Totals               6450                 6449
         # Build set of Ethernet ports with 18.x.202.0/31 IPs to exclude
         excluded_ports = set()
         for port, val in config_db_ports.items():
-            if "role" in val:
+            if "role" in val and val["role"] != "Ext":
                 excluded_ports.add(port)
         return excluded_ports
 
