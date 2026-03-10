@@ -4729,7 +4729,7 @@ srv6/test_srv6_dataplane.py:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-srv6/test_srv6_dataplane:py::TestSRv6DataPlaneBase::test_srv6_full_func:
+srv6/test_srv6_dataplane.py::TestSRv6DataPlaneBase::test_srv6_full_func:
   xfail:
     reason: "vlan decap is disabled in 202412 image, which causes the test case failure."
     conditions:
