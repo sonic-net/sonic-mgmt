@@ -16,7 +16,7 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("t0", "c0")
 ]
 
 

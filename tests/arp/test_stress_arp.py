@@ -22,7 +22,7 @@ TEST_INCOMPLETE_NEIGHBOR_CNT = 10
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0'),
+    pytest.mark.topology('t0', 'c0'),
     pytest.mark.dualtor_active_standby_toggle_to_enum_tor
 ]
 
