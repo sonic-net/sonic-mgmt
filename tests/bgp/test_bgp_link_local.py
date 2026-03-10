@@ -114,7 +114,11 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
         # Only select neighbors with established BGP sessions
         bgp_state = bgp_facts.get('bgp_neighbors', {}).get(
             neigh_ip, {}).get('state', '')
+        neigh_name = neigh_info.get('name', '')
+        logger.info("Candidate neighbor %s (%s): BGP state=%s, in nbrhosts=%s",
+                    neigh_ip, neigh_name, bgp_state, neigh_name in nbrhosts)
         if bgp_state != 'established':
+            logger.info("Skipping %s: BGP state is '%s', not 'established'", neigh_ip, bgp_state)
             continue
         neigh_name = neigh_info.get('name', '')
         neigh_asn = neigh_info.get('asn', '')
@@ -258,9 +262,15 @@ def configure_unnumbered_bgp(setup_info):
 
     # --- Setup ---
 
-    # Session is already verified as established by setup_info fixture
-    logger.info("Existing BGP session to %s is established (verified by setup_info)",
-                neigh_ipv4)
+    # Wait for the selected BGP session to be established (it was established
+    # at module setup time, but may have temporarily dropped)
+    logger.info("Waiting for BGP session to %s to be established", neigh_ipv4)
+    pytest_assert(
+        wait_until(60, 5, 0, lambda: duthost.bgp_facts()['ansible_facts']
+                   .get('bgp_neighbors', {}).get(neigh_ipv4, {})
+                   .get('state', '') == 'established'),
+        "IPv4 BGP session to {} not established".format(neigh_ipv4))
+
     bgp_facts = duthost.bgp_facts()['ansible_facts']
     initial_prefixes = int(
         bgp_facts['bgp_neighbors'][neigh_ipv4].get('accepted prefixes', 0))
