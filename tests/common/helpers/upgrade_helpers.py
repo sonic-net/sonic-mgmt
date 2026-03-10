@@ -7,12 +7,11 @@ from dataclasses import dataclass
 from six.moves.urllib.parse import urlparse
 import tests.common.fixtures.grpc_fixtures  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common import reboot
-from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
+from tests.common.reboot import reboot, get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until, setup_ferret
 from tests.common.platform.device_utils import check_neighbors
-from typing import Dict, Optional
+from typing import Optional, Dict
 
 SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
@@ -32,6 +31,8 @@ class GnoiUpgradeConfig:
     protocol: str = "HTTP"
     allow_fail: bool = False
     to_version: Optional[str] = None  # Optional expected version string to validate after upgrade
+    ss_reboot_ready_timeout: int = 1200
+    ss_reboot_message: str = "Rebooting DPU for maintenance"
 
 
 def pytest_runtest_setup(item):
