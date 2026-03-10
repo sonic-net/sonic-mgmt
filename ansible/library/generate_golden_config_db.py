@@ -81,7 +81,7 @@ class GenerateGoldenConfigDBModule(object):
                 return frr_version_match.group(1)
             else:
                 return None
-        except subprocess.CalledProcessError as e:
+        except (subprocess.CalledProcessError, FileNotFoundError):
             return None
 
     def compare_frr_version(self, version1, version2):
@@ -98,7 +98,7 @@ class GenerateGoldenConfigDBModule(object):
 
     def generate_frr_config_mode_golden_config_db(self, config):
         frr_version = self.get_frr_version()
-        
+
         if not (frr_version and self.compare_frr_version(frr_version, "8.5.0") >= 0):
             return config
 
@@ -680,8 +680,7 @@ class GenerateGoldenConfigDBModule(object):
 
         # update router_config_mode
         if self.generate_frr_config_mode_golden_config_db() is True:
-            if ("DEVICE_METADATA" in config and
-                "localhost" in config["DEVICE_METADATA"]):
+            if ("DEVICE_METADATA" in config and "localhost" in config["DEVICE_METADATA"]):
                 if config["DEVICE_METADATA"]["localhost"].get("docker_routing_config_mode") != "unified":
                     config["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
 
