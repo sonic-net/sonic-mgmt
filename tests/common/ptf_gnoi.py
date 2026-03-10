@@ -117,7 +117,7 @@ class PtfGnoi:
         local_path: str,
         protocol: Optional[str] = None,
         credentials: Optional[Dict[str, str]] = None,
-        metadata = None
+        metadata=None
     ) -> Dict:
         """
         Download a remote artifact to the DUT using gNOI File.TransferToRemote.
@@ -196,7 +196,7 @@ class PtfGnoi:
         local_path: str,
         version: Optional[str] = None,
         activate: bool = True,
-        metadata = None,
+        metadata=None,
     ) -> Dict:
         """
         Set the upgrade package on the DUT using gNOI System.SetPackage (client-streaming RPC).
