@@ -1,68 +1,95 @@
-import pytest
+"""
+Tests for gNOI OS service APIs.
+
+This module tests the gNOI (gRPC Network Operations Interface) OS service,
+which provides methods for managing operating system images on network devices.
+"""
+
 import logging
 
-# Import fixtures module to ensure pytest discovers them
-import tests.common.fixtures.grpc_fixtures  # noqa: F401
+import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 
-# Enable TLS fixture by default for all tests in this module
+pytest_plugins = ("tests.common.fixtures.grpc_fixtures",)
+
+logger = logging.getLogger(__name__)
+
 pytestmark = [
-    pytest.mark.topology('any'),
-    pytest.mark.usefixtures("setup_gnoi_tls_server")
+    pytest.mark.topology("any"),
+    pytest.mark.disable_loganalyzer,
 ]
 
-"""
-This module contains tests for the gNOI OS API.
-"""
 
-
-@pytest.mark.disable_loganalyzer
 def test_gnoi_os_verify(duthosts, rand_one_dut_hostname, ptf_gnoi):
     """
     Verify the gNOI OS Verify API returns the current OS version.
+
+    Args:
+        duthosts: Fixture providing access to DUT hosts
+        rand_one_dut_hostname: Fixture providing a random DUT hostname
+        ptf_gnoi: Fixture providing gNOI client interface
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Get current OS version using the new TLS-enabled client
     response = ptf_gnoi.os_verify()
-    logging.info("OS.Verify API returned response: {}".format(response))
-    pytest_assert("version" in response, "OS.Verify API did not return os_version")
+    logger.info("OS.Verify API returned response: %s", response)
 
-    os_version_ansible = duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
-    pytest_assert(response["version"] == os_version_ansible, "OS.Verify API returned incorrect OS version")
+    pytest_assert(
+        "version" in response,
+        "OS.Verify API did not return version field"
+    )
+
+    current_image = duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
+    pytest_assert(
+        response["version"] == current_image,
+        f"OS.Verify returned incorrect version: expected {current_image}, got {response['version']}"
+    )
 
 
-@pytest.mark.disable_loganalyzer
-def test_gnoi_os_activate_invalid_image(duthosts, rand_one_dut_hostname, ptf_gnoi):
+def test_gnoi_os_activate_invalid_image(ptf_gnoi):
     """
-    Verify the gNOI OS Activate capable of detecting invalid OS version.
+    Verify the gNOI OS Activate API rejects an invalid OS version.
+
+    Args:
+        ptf_gnoi: Fixture providing gNOI client interface
     """
-    # Activate an invalid image - should return an error response
     invalid_version = "invalid-image-name"
     response = ptf_gnoi.os_activate(invalid_version)
-    logging.info("OS.Activate API returned response: {}".format(response))
+    logger.info("OS.Activate API returned response: %s", response)
 
-    # Check that the response contains an activateError field
-    pytest_assert("activateError" in response, "OS.Activate API did not return an error as expected")
+    pytest_assert(
+        "activateError" in response,
+        f"OS.Activate did not return activateError for invalid image: {response}"
+    )
 
-    # Check that the error indicates missing image
     error_detail = response.get("activateError", {}).get("detail", "")
-    pytest_assert("Image does not exist" in error_detail,
-                  "OS.Activate API error message does not indicate missing image: {}".format(error_detail))
+    pytest_assert(
+        "Image does not exist" in error_detail,
+        f"OS.Activate error message does not indicate missing image: {error_detail}"
+    )
 
 
-@pytest.mark.disable_loganalyzer
 def test_gnoi_os_activate_valid_image(duthosts, rand_one_dut_hostname, ptf_gnoi):
     """
-    Verify the gNOI OS Activate API capable of activating the current OS version.
+    Verify the gNOI OS Activate API can activate the current OS version.
+
+    Args:
+        duthosts: Fixture providing access to DUT hosts
+        rand_one_dut_hostname: Fixture providing a random DUT hostname
+        ptf_gnoi: Fixture providing gNOI client interface
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Activate a valid image
-    os_version_ansible = duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
+    current_image = duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
+    current_image = str(current_image)
 
-    response = ptf_gnoi.os_activate(os_version_ansible)
-    logging.info("OS.Activate API returned response: {}".format(response))
-    # Assert that the response indicates success (either contains "ActivateOk" or doesn't raise exception)
-    pytest_assert(True, "OS.Activate API completed successfully")
+    logger.info("Testing activation with image: %s", current_image)
+
+    response = ptf_gnoi.os_activate(current_image)
+    logger.info("OS.Activate API returned response: %s", response)
+
+    pytest_assert(
+        "activateOk" in response or "activate_ok" in str(response).lower(),
+        f"OS.Activate did not return success for image {current_image}: {response}"
+    )
