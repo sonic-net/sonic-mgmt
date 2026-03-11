@@ -153,9 +153,9 @@ def test_ha_planned_shutdown(
     t.join()
     time.sleep(2)
 
-    pytest_assert(verify_ha_state(duthosts[1], "vdpu0_0:haset0_0", "dead"),
+    pytest_assert(verify_ha_state(duthosts[0], "vdpu0_0:haset0_0", "dead"),
                   "Primary HA state is not dead")
-    pytest_assert(verify_ha_state(duthosts[0], "vdpu1_0:haset0_0", "standalone"),
+    pytest_assert(verify_ha_state(duthosts[1], "vdpu1_0:haset0_0", "standalone"),
                   "Secondary HA state is not standalone")
 
     logging.info("Primary shutdown all {} packets received".format(send_count))
