@@ -687,6 +687,7 @@ t1-lag-vpp:
   - bgp/test_traffic_shift_sup.py
   - fib/test_fib.py
   - test_interfaces.py
+  - http/test_http_copy.py
   - ip/test_ip_packet.py
   - ip/test_mgmt_ipv6_only.py
   - ipfwd/test_dir_bcast.py
@@ -700,6 +701,7 @@ t1-lag-vpp:
   - pc/test_lag_member_forwarding.py
   - pc/test_lag_2.py
   - pc/test_retry_count.py
+  - portstat/test_portstat.py
   - route/test_default_route.py
   - route/test_static_route.py
   - route/test_forced_mgmt_route.py
