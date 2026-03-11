@@ -79,6 +79,12 @@ def setup_info(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
                     "current neighbor_type is '{}'".format(neighbor_type))
 
     duthost = duthosts[rand_one_dut_hostname]
+
+    # BGP unnumbered over PortChannel does not work on VS platform
+    # (virtual switch + cEOS neighbors lack proper link-local peering support)
+    if duthost.facts.get('asic_type') == 'vs':
+        pytest.skip("BGP unnumbered over PortChannel not supported on VS/KVM")
+
     dut_asn = common_props.get('dut_asn')
     if not dut_asn:
         # Fallback: get ASN from running config
