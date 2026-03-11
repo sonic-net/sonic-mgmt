@@ -13,7 +13,7 @@ STATIC_ROUTE_IPV6 = '2001:db8:1::1/128'
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1')
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 'lt2', 'ft2')
 ]
 
 

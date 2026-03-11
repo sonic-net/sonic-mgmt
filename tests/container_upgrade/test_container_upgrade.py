@@ -33,6 +33,8 @@ class ContainerUpgradeTestEnvironment(object):
         parameters_file = required_container_upgrade_params["parameters_file"]
         self.parameters = create_parameters_mapping(containers, parameters_file)
 
+        self.optional_parameters = required_container_upgrade_params.get("optional_parameters", "") or ""
+
         self.version_pointer = 0
 
 

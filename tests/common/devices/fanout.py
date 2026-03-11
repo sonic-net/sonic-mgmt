@@ -1,4 +1,7 @@
+from collections import defaultdict
+from dataclasses import dataclass
 import logging
+from typing import Optional
 
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.onyx import OnyxHost
@@ -7,6 +10,14 @@ from tests.common.devices.eos import EosHost
 from tests.common.devices.aos import AosHost
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class SerialPortMapping():
+    dut_name: str
+    dut_port: int
+    baud_rate: int
+    flow_control: bool
 
 
 class FanoutHost(object):
@@ -22,6 +33,8 @@ class FanoutHost(object):
         self.type = device_type
         self.host_to_fanout_port_map = {}
         self.fanout_to_host_port_map = {}
+        self.serial_port_map: defaultdict[int, Optional[SerialPortMapping]] = defaultdict(lambda: None)
+
         if os == 'sonic':
             self.os = os
             self.fanout_port_alias_to_name = {}
@@ -122,6 +135,19 @@ class FanoutHost(object):
         """
         self.host_to_fanout_port_map[host_port] = fanout_port
         self.fanout_to_host_port_map[fanout_port] = host_port
+
+    def add_serial_port_map(self, host_name: str, host_port: int, fanout_port: int, baud_rate: int, flow_control: bool):
+        """
+            Record serial port mapping information for a given fanout port.
+            Mapping information can be access via self.serial_port_map[fanout_port]
+        """
+
+        self.serial_port_map[fanout_port] = SerialPortMapping(
+            dut_name=host_name,
+            dut_port=host_port,
+            baud_rate=baud_rate,
+            flow_control=flow_control
+        )
 
     def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
         return self.host.exec_template(ansible_root, ansible_playbook, inventory, **kwargs)
