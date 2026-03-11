@@ -1,0 +1,82 @@
+steps:
+  - ${{ if not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt')) }}:
+      - script: |
+          # If not sonic-mgmt/sonic-mgmt-int repo, need to download test_plan.py and pr_test_scripts.yaml
+          set -ex
+          curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
+        displayName: "Download Test Plan Script"
+      - script: |
+          # If not sonic-mgmt/sonic-mgmt-int repo, need to download pr_test_scripts.yaml
+          set -ex
+
+          # If public build image repo, download pr test scripts from public sonic-mgmt repo
+          if [[ "$(BUILD.REPOSITORY.NAME)" = "sonic-net/sonic-buildimage" || "$(BUILD.REPOSITORY.NAME)" = "Azure/sonic-buildimage-msft" ]]; then
+            curl "${{ parameters.MGMT_URL }}/${{ parameters.MGMT_BRANCH }}/.azure-pipelines/pr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
+
+          # Else, internal build image repo, download from internal sonic-mgmt repo
+          else
+            curl -u :$(MSSONIC-TOKEN) "${{ parameters.MGMT_URL }}&commitOrBranch=${{ parameters.MGMT_BRANCH }}&api-version=5.0-preview.1&path=.azure-pipelines%2Fpr_test_scripts.yaml" -o ./.azure-pipelines/pr_test_scripts.yaml
+          fi
+        displayName: "Download Pr Script"
+  - ${{ else }}:
+        - script: |
+            # Else, sonic-mgmt repo, if not master branch, need to download test_plan.py
+            set -ex
+            CURRENT_BRANCH=${{ parameters.MGMT_BRANCH }}
+            echo "Current branch: $CURRENT_BRANCH"
+            if [[ "$CURRENT_BRANCH" != "master" ]]; then
+              echo "Current mgmt branch is not master, need to download test_plan.py"
+              curl "https://raw.githubusercontent.com/sonic-net/sonic-mgmt/master/.azure-pipelines/test_plan.py" -o ./.azure-pipelines/test_plan.py
+            else
+              echo "Current mgmt branch is master, no need to download test_plan.py"
+            fi
+          displayName: "Download Test Plan Script"
+
+  - script: |
+      # Check if azure cli is installed. If not, try to install it
+      if ! command -v az; then
+        echo "Azure CLI is not installed. Trying to install it..."
+
+        echo "Get packages needed for the installation process"
+        sudo apt-get -o DPkg::Lock::Timeout=600 update
+        sudo apt-get -o DPkg::Lock::Timeout=600 -y install apt-transport-https ca-certificates curl gnupg lsb-release
+
+        echo "Download and install the Microsoft signing key"
+        sudo mkdir -p /etc/apt/keyrings
+        curl -sLS https://packages.microsoft.com/keys/microsoft.asc |
+          gpg --dearmor | sudo tee /etc/apt/keyrings/microsoft.gpg > /dev/null
+        sudo chmod go+r /etc/apt/keyrings/microsoft.gpg
+
+        echo "Add the Azure CLI software repository"
+        AZ_DIST=$(lsb_release -cs)
+        echo "Types: deb
+      URIs: https://packages.microsoft.com/repos/azure-cli/
+      Suites: ${AZ_DIST}
+      Components: main
+      Architectures: $(dpkg --print-architecture)
+      Signed-by: /etc/apt/keyrings/microsoft.gpg" | sudo tee /etc/apt/sources.list.d/azure-cli.sources
+
+        echo "Update repository information and install the azure-cli package"
+        sudo apt-get -o DPkg::Lock::Timeout=600 update
+        sudo apt-get -o DPkg::Lock::Timeout=600 -y install azure-cli
+      else
+        echo "Azure CLI is already installed"
+      fi
+    displayName: "Install Azure-CLI"
+
+  - script: |
+      set -e
+      echo "Step: cancel previous testplans for PR"
+
+      pip install PyYAML
+
+      rm -f new_test_plan_id.txt
+
+      # Enable verbose debugging output for the creation call in test_plan.py
+      set -x
+
+      python ./.azure-pipelines/test_plan.py cancel_pr
+
+      echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
+
+    displayName: "Cancel previously created testplans for PR"
