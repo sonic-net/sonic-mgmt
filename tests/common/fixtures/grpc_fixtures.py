@@ -191,7 +191,7 @@ def ptf_grpc(ptfhost, duthost):
     from tests.common.ptf_grpc import PtfGrpc
 
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    client = PtfGrpc(ptfhost, env, duthost=duthost)
+    client = PtfGrpc(ptfhost, env, duthost=duthost, insecure=True)
 
     logger.info(f"Created auto-configured gRPC client: {client}")
     return client
