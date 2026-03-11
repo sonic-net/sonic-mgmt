@@ -41,7 +41,8 @@ class PtfGrpc:
     to install gRPC libraries in the test environment.
     """
 
-    def __init__(self, ptfhost, target_or_env, plaintext=None, duthost=None, insecure=False):
+    def __init__(self, ptfhost, target_or_env, plaintext=None, duthost=None, insecure=False,
+                 ss_target_type=None, ss_target_index=None):
         """
         Initialize PtfGrpc client.
 
@@ -50,10 +51,14 @@ class PtfGrpc:
             target_or_env: Either target string (host:port) or GNMIEnvironment instance
             plaintext: Force plaintext mode (True/False), auto-detected if None
             duthost: DUT host instance (required for GNMIEnvironment auto-config)
-            insecure: Whether to skip TLS verification (if TLS is used)
+            insecure: Skip server cert verification (lab environments)
+            ss_target_type: SmartSwitch target type (e.g. "dpu") for DPU routing headers
+            ss_target_index: SmartSwitch target index (e.g. 0) for DPU routing headers
         """
         self.ptfhost = ptfhost
-        self.insecure = insecure  # Whether to skip TLS verification (if TLS is used)
+        self.insecure = insecure
+        self.ss_target_type = ss_target_type
+        self.ss_target_index = ss_target_index
         # TLS certificate configuration
         self.ca_cert = None
         self.client_cert = None
@@ -106,6 +111,8 @@ class PtfGrpc:
             if self.insecure:
                 cmd.append("-insecure")  # Use TLS but skip verification (if certificates not configured)
             # TLS mode - add certificate arguments if configured
+            if self.insecure:
+                cmd.append("-insecure")
             if self.ca_cert:
                 cmd.extend(["-cacert", self.ca_cert])
             if self.client_cert:
@@ -115,20 +122,18 @@ class PtfGrpc:
 
         timeout_arg = str(int(self.timeout))
         # Standard options (avoid unsupported flags like -max-msg-sz)
+        # grpcurl -connect-timeout: some versions expect float seconds (e.g. "10"), others Go duration ("10s").
+        # Use plain integer seconds for compatibility with float-format grpcurl.
+        timeout_arg = str(int(self.timeout))
         cmd.extend([
             "-connect-timeout", timeout_arg,
-            "-format", "json",
+            "-format", "json"
         ])
 
-        # Add per-call metadata headers (higher priority than self.headers)
-        if metadata:
-            if isinstance(metadata, dict):
-                items = metadata.items()
-            else:
-                items = metadata  # list of (k, v)
-
-            for name, value in items:
-                cmd.extend(["-H", f"{name}: {value}"])
+        # Inject SmartSwitch DPU routing headers if this client targets a specific DPU
+        if self.ss_target_type is not None and self.ss_target_index is not None:
+            cmd.extend(["-H", f"x-sonic-ss-target-type: {self.ss_target_type}"])
+            cmd.extend(["-H", f"x-sonic-ss-target-index: {self.ss_target_index}"])
 
         # Add custom headers
         for name, value in self.headers.items():
@@ -167,9 +172,6 @@ class PtfGrpc:
             GrpcTimeoutError: Timeout-related failures
             GrpcCallError: Other gRPC call failures
         """
-        # Use ansible command module for robust execution
-        # Join command parts into a single command string
-
         if input_data:
             logger.debug("Executing grpcurl argv=%r (with stdin data)", cmd)
             result = self.ptfhost.command(argv=cmd, stdin=input_data, module_ignore_errors=True)
@@ -209,12 +211,11 @@ class PtfGrpc:
 
             # Generic error
             raise PtfGrpcError(
-                "grpcurl failed: rc={} stdout='{}' stderr='{}' msg='{}' cmd={}".format(
+                "grpcurl failed: rc={} stdout='{}' stderr='{}' msg='{}'".format(
                     result.get('rc'),
                     stdout,
                     stderr,
                     msg,
-                    cmd,
                 )
             )
 
@@ -265,6 +266,31 @@ class PtfGrpc:
         self.client_key = client_key
         self.plaintext = False
         logger.info(f"Configured TLS certificates: ca={ca_cert}, cert={client_cert}, key={client_key}")
+
+    def with_ss_target(self, ss_target_type: str, ss_target_index: int) -> 'PtfGrpc':
+        """
+        Return a copy of this client configured to route RPCs to a specific SmartSwitch DPU.
+
+        All connection settings (target, certs, timeout, headers) are inherited.
+        The returned client automatically injects x-sonic-ss-target-type/index headers.
+
+        Args:
+            ss_target_type: Target type, e.g. "dpu"
+            ss_target_index: Target index, e.g. 0
+
+        Returns:
+            New PtfGrpc instance with DPU routing headers set
+        """
+        clone = PtfGrpc(self.ptfhost, self.target, plaintext=self.plaintext, insecure=self.insecure,
+                        ss_target_type=ss_target_type, ss_target_index=ss_target_index)
+        clone.ca_cert = self.ca_cert
+        clone.client_cert = self.client_cert
+        clone.client_key = self.client_key
+        clone.timeout = self.timeout
+        clone.headers = dict(self.headers)
+        clone.verbose = self.verbose
+        clone.env = self.env
+        return clone
 
     def _auto_configure_tls_certificates(self) -> None:
         """
@@ -359,8 +385,9 @@ class PtfGrpc:
                 cmd.extend(["-key", self.client_key])
 
         # Basic options (avoid unsupported flags like -max-msg-size)
+        # grpcurl -connect-timeout: use plain integer seconds for float-format grpcurl.
         cmd.extend([
-            "-connect-timeout", str(self.timeout)
+            "-connect-timeout", str(int(self.timeout))
         ])
 
         # Add custom headers

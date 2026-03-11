@@ -3,9 +3,6 @@ package testhelper
 import (
 	"context"
 	"fmt"
-	"reflect"
-	"testing"
-	"time"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/goyang/pkg/yang"
@@ -16,6 +13,9 @@ import (
 	"github.com/openconfig/ygot/ygot"
 	"github.com/openconfig/ygot/ytypes"
 	"google.golang.org/grpc"
+	"reflect"
+	"testing"
+	"time"
 )
 
 var globalEnumTypeMap = map[string][]reflect.Type{

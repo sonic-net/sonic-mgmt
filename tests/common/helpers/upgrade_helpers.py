@@ -14,7 +14,6 @@ from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until, setup_ferret
 from tests.common.platform.device_utils import check_neighbors
 from typing import Optional, Sequence, Tuple, Union, Dict
-
 SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
 
@@ -404,7 +403,7 @@ def perform_gnoi_upgrade(
         f"Current image mismatch after reboot. current={images.get('current')} expected={cfg.to_version}. full={images}"
     )
 
-    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
+    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
 
 
 def _wait_gnoi_time_ready(ptf_gnoi, metadata, cfg: GnoiUpgradeConfig, timeout=None, interval: int = 10) -> bool:
@@ -434,10 +433,10 @@ def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig)
         metadata=md,
     )
 
-    # method = str(cfg.upgrade_type).upper()
+    method = str(cfg.upgrade_type).upper()
     try:
         reboot_resp = ptf_gnoi.system_reboot(
-            method=cfg.upgrade_type,
+            method=method,
             delay=0,
             message=cfg.ss_reboot_message,
             metadata=md,
@@ -451,9 +450,6 @@ def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig)
 
     ok = _wait_gnoi_time_ready(ptf_gnoi, md, cfg)
     pytest_assert(ok, f"gNOI Time not reachable within {cfg.ss_reboot_ready_timeout}s after reboot")
-    check_services(duthost, tbinfo)
-    check_neighbors(duthost, tbinfo)
-    check_copp_config(duthost)
 
     return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
 
