@@ -74,10 +74,19 @@ jobs:
           BUILD_BRANCH: $(BUILD_BRANCH)
           IMPACT_AREA_INFO: ${{ parameters.IMPACT_AREA_INFO }}
 
+  - job: cancel_previous_test_plan_for_same_pr
+    displayName: "Cancel previous test plans for same PR"
+    continueOnError: false
+    pool: ${{ parameters.AGENT_POOL }}
+    timeoutInMinutes: 10
+    steps:
+      - template: cancel-previous-elastictest-testplan.yml
+
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
     dependsOn:
     - get_impacted_area
+    - cancel_previous_test_plan_for_same_pr
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
