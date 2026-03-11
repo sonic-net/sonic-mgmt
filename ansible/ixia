@@ -15,8 +15,8 @@ all:
           ansible_host: 10.64.246.228
           version: ixnetworkweb_10.25.2405.106
         ixia-apiserver4:
-          ansible_host: 10.64.246.229
-          version: ixnetworkweb_10.80.2412.123
+          ansible_host: 10.64.246.126
+          version: ixnetworkweb_10.80.2412.176
         str-aresone-api-serv-01:
           ansible_host: 10.64.246.230
           version: ixnetworkweb_10.25.2405.106
