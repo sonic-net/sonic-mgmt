@@ -13,7 +13,7 @@ from tests.common.arp_utils import setupFerret, teardownRouteToPtfhost, setupRou
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 'c0'),
+    pytest.mark.topology('t0'),
     pytest.mark.disable_loganalyzer
 ]
 
