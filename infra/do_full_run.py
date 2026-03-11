@@ -111,6 +111,7 @@ def cleanup_old_images_on_dut(p1, prompt):
 
 def run_test(args):
     log.info("run_test")
+    log.debug("run_tests args:\n{args}")
     full_link = args.full_link
     [image, image_id, stream] = extractFromImageName(full_link)
     testbed = args.testbed
@@ -128,6 +129,16 @@ def run_test(args):
         skip_tests = ""
     rerun = args.rerun
     testbed_info_dict = getTestbedInfoDict(testbed)
+
+    # temporary fix to running spytest 2 extra times because this
+    # gets explicitly called for test_pretest.py and test_posttest.py
+    # https://miggbo.atlassian.net/browse/MIGSOFTWAR-34018?focusedCommentId=7547659
+    if "spytest" in testbed_info_dict.get("run_type_check"): # this is a spytest tb = pre/posttest are not relevant
+        if test_suites_arg == 'test_pretest.py' or test_suites_arg == 'test_posttest.py':
+            log.warning("`run_test` called with test_pretest.py or test_posttest.py on a b2b/spytest testbed.\n"
+                        "This call will be skipped.")
+            return 0
+
     local_ucs = testbed_info_dict['ucs_host_name']
     local_log_dir = os.path.join(WORKSPACE, 'sanity/infra/', SANITY_LOGS_PATH)
     local_log_parent_dir = os.path.join(WORKSPACE, 'sanity/infra/')
