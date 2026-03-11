@@ -1394,6 +1394,17 @@ def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
     return passwd
 
 
+def update_console_creds(creds, console_auth_type):
+    # Load creds for console based on auth type (e.g. tacacs, xpme)
+    if console_auth_type and console_auth_type in creds.get("console_login_options", {}):
+        console_login_creds = creds["console_login_options"][console_auth_type]
+        creds["console_user"] = {}
+        creds["console_password"] = {}
+        for k, v in list(console_login_creds.items()):
+            creds["console_user"][k] = v["user"]
+            creds["console_password"][k] = v["passwd"]
+
+
 def check_msg_in_syslog(duthost, log_msg):
     """
     Checks for a given log message after the last start-LogAnalyzer message in syslog
