@@ -175,25 +175,37 @@ class TestbedHealthChecker:
             logger.info("DPU hosts detected. Enabling NAT before initializing DPU hosts.")
             self.enable_nat_for_dpuhosts(dpu_hostnames)
 
-            # Now initialize DPU hosts (reachable after NAT enabled)
-            dpu_sonichosts = init_sonichosts(
-                self.inventory, dpu_hostnames,
-                options={"verbosity": self.log_verbosity}
-            )
-            if not dpu_sonichosts:
-                raise HostInitFailed("Failed to initialize DPU hosts: {}".format(dpu_hostnames))
+            # Initialize DPU hosts one-by-one; some DPUs may be offline
+            reachable_dpu_hostnames = []
+            for dpu_hostname in dpu_hostnames:
+                try:
+                    dpu_sh = init_sonichosts(
+                        self.inventory, [dpu_hostname],
+                        options={"verbosity": self.log_verbosity}
+                    )
+                    if not dpu_sh:
+                        logger.warning("Failed to create SonicHosts for %s, skipping.", dpu_hostname)
+                        continue
+                    dpu_facts = dpu_sh.dut_basic_facts()
+                    self.duts_basic_facts.update(dpu_facts)
+                    for sonichost in dpu_sh:
+                        self.dpu_hosts.append(sonichost)
+                    reachable_dpu_hostnames.append(dpu_hostname)
+                    logger.info("DPU host %s is reachable and initialized.", dpu_hostname)
+                except (HostsUnreachable, RunAnsibleModuleFailed) as e:
+                    logger.warning("DPU host %s is unreachable, skipping: %s", dpu_hostname, repr(e))
 
-            # Get basic facts from DPU hosts
-            dpu_basic_facts = dpu_sonichosts.dut_basic_facts()
-            self.duts_basic_facts.update(dpu_basic_facts)
+            if not reachable_dpu_hostnames:
+                logger.warning("No DPU hosts are reachable. Continuing with NPU hosts only.")
 
-            # Store DPU hosts
-            for sonichost in dpu_sonichosts:
-                self.dpu_hosts.append(sonichost)
+            # Use only reachable hosts for the combined sonichosts
+            all_reachable_names = npu_hostnames + reachable_dpu_hostnames
+        else:
+            all_reachable_names = npu_hostnames if npu_hostnames else all_dut_names
 
-        # Combine all hosts into sonichosts for compatibility
+        # Combine all reachable hosts into sonichosts for compatibility
         self.sonichosts = init_sonichosts(
-            self.inventory, all_dut_names,
+            self.inventory, all_reachable_names,
             options={"verbosity": self.log_verbosity}
         )
         if not self.sonichosts:
