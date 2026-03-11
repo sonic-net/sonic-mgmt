@@ -1039,6 +1039,7 @@
       - name: Load DPU config in smartswitch
         load_extra_dpu_config:
           hwsku: "{{ hwsku }}"
+          hostname: "{{ inventory_hostname }}"
           host_username: "{{ sonic_login }}"
           host_passwords: "{{ sonic_default_passwords }}"
         become: true
@@ -1139,10 +1140,22 @@
               var: grpc_secrets_after
 
           - name: restart the pmon service
-            service:
-              name: pmon
-              state: restarted
-            become: true
+            block:
+              - name: attempt to restart pmon service
+                service:
+                  name: pmon
+                  state: restarted
+                become: true
+            rescue:
+              - name: reset failed state for pmon service
+                command: systemctl reset-failed pmon.service
+                become: true
+
+              - name: start pmon service after reset
+                service:
+                  name: pmon
+                  state: started
+                become: true
 
           when: stat_result.stat.exists
 

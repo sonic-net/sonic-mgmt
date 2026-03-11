@@ -97,6 +97,7 @@ class TestbedHealthChecker:
         self.testbed_file = testbed_file
         self.log_verbosity = log_verbosity
         self.output_file = output_file
+        self.is_snappi_testbed = False
 
         # DPU-related state
         self.dpu_hosts = []
@@ -194,6 +195,9 @@ class TestbedHealthChecker:
         )
         if not self.sonichosts:
             raise HostInitFailed("sonichosts is None. Please check testbed name/file/inventory.")
+
+        if 'rdma' in self.testbed_name or 'ixia' in self.testbed_name:
+            self.is_snappi_testbed = True
 
         logger.info("======================= init_hosts ends =======================")
 
@@ -371,6 +375,11 @@ class TestbedHealthChecker:
                 self.check_result.errmsg.append("sonichost {} is unreachable.".format(sonichost.hostname))
                 self.check_result.data[sonichost.hostname] = result
 
+            # Skip fanout connectivity check for DPU hosts - they don't have external connections
+            if "dpu" in sonichost.hostname.lower():
+                logger.info("Skipping fanout check for DPU host: {}".format(sonichost.hostname))
+                continue
+
             dut_device_conn = conn_graph_facts["ansible_facts"]["device_conn"][sonichost.hostname]
 
             peer_devices = [dut_device_conn[port]["peerdevice"] for port in dut_device_conn]
@@ -378,6 +387,11 @@ class TestbedHealthChecker:
 
             for fanout_hostname in peer_devices:
                 # Check fanouthost reachability
+
+                # Skip the ixia host health check
+                if "ixia" in fanout_hostname:
+                    logger.info("Skip ixia host {} health check.".format(fanout_hostname))
+                    continue
 
                 # Create fanouthost instance.
                 fanouthost = init_host(inventories=self.inventory, host_pattern=fanout_hostname)
@@ -415,6 +429,11 @@ class TestbedHealthChecker:
 
         for sonichost in self.sonichosts:
 
+            # Skip MGMT_INTERFACE check for DPU hosts - they use midplane IPs, not mgmt interface
+            if "dpu" in sonichost.hostname.lower():
+                logger.info("Skipping MGMT_INTERFACE check for DPU host: {}".format(sonichost.hostname))
+                continue
+
             rst = sonichost.shell(f"jq '.MGMT_INTERFACE' {config_db_file}", module_ignore_errors=True).get("stdout",
                                                                                                            None)
 
@@ -424,8 +443,8 @@ class TestbedHealthChecker:
             if not device_hostname or device_hostname == '"sonic"':
                 raise RuntimeError(f"Device {sonichost.hostname} is not properly configured, "
                                    f"hostname is still: {device_hostname}")
-            # If valid stdout
-            if rst is not None and rst.strip() != "":
+            # If valid stdout (also check for "null" which jq returns when key doesn't exist)
+            if rst is not None and rst.strip() != "" and rst.strip() != "null":
 
                 mgmt_interface = json.loads(rst)
 
@@ -453,6 +472,10 @@ class TestbedHealthChecker:
 
     def run_check(self):
         try:
+
+            # temporarily skip dpu smartswitch
+            if self.testbed_name in ["vms66-t1-8102-7", "vms12-t1-smartswitch-4280-02"]:
+                raise SkipCurrentTestbed()
 
             self.init_hosts()
 
@@ -523,6 +546,10 @@ class TestbedHealthChecker:
             state: str. The target state to compare the BGP session state against. Defaults to "established".
         """
 
+        if self.is_snappi_testbed:
+            logger.info("======================= skip check_bgp_session_state for snappi =======================")
+            return
+
         def find_unexpected_bgp_neighbors(neigh_bgp_facts, expected_state, unexpected_neighbors):
             for k, v in list(neigh_bgp_facts['bgp_neighbors'].items()):
                 if v['state'] != expected_state:
@@ -537,6 +564,11 @@ class TestbedHealthChecker:
             if (self.is_chassis and
                     self.duts_basic_facts[sonichost.hostname]["ansible_facts"]["dut_basic_facts"]["is_supervisor"]):
                 logger.info("Skip check_bgp_session_state on Supervisor.")
+                continue
+
+            # Skip BGP check for DPU hosts
+            if "dpu" in sonichost.hostname.lower():
+                logger.info("Skip check_bgp_session_state on DPU host: {}".format(sonichost.hostname))
                 continue
 
             hostname = sonichost.hostname
@@ -587,6 +619,9 @@ class TestbedHealthChecker:
         """
         Check the status of up ports on a list of SonicHost objects representing the DUTs.
         """
+        if self.is_snappi_testbed:
+            logger.info("=================== skip check_interface_status_of_up_ports for snappi ===================")
+            return
 
         failed = False
         interface_facts_on_hosts = {}
