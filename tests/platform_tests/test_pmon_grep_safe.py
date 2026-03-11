@@ -167,6 +167,8 @@ def test_pmon_grep_no_kernel_panic(duthosts, rand_one_dut_hostname):
         r"BUG:",
         r"Oops:",
         r"general protection fault",
+        r"Unable to handle kernel",
+        r"RIP:",
     ]
     panic_found = []
     for line in new_lines:
