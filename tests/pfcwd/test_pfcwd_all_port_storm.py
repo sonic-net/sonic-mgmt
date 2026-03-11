@@ -208,7 +208,8 @@ class TestPfcwdAllPortStorm(object):
     # Threshold percentage for restore verification (100% of stormed ports must restore)
     PFC_RESTORE_THRESHOLD_PERCENTAGE = 100
 
-    def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action, stormed_ports_list=None):
+    def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action, selected_test_ports,
+                 stormed_ports_list=None):
         """Storm generation/restoration on all ports and verification."""
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=syslog_marker)
         ignore_file = os.path.join(TEMPLATES_DIR, "ignore_pfc_wd_messages")
@@ -236,7 +237,8 @@ class TestPfcwdAllPortStorm(object):
 
             pytest_assert(
                 wait_until(60, 2, 5, verify_all_ports_pfc_storm_in_expected_state, duthost,
-                           storm_hndle, action, baseline_counters, threshold, stormed_ports_list),
+                           storm_hndle, action, selected_test_ports, baseline_counters, threshold,
+                           stormed_ports_list),
                 f"Not enough ports reached {action} state (threshold: {threshold}%)"
             )
 
@@ -283,10 +285,12 @@ class TestPfcwdAllPortStorm(object):
                           expect_regex=[EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(duthost)],
                           syslog_marker="all_port_storm",
                           action="storm",
-                          stormed_ports_list=stormed_ports_list)
+                          stormed_ports_list=stormed_ports_list,
+                          selected_test_ports=selected_test_ports)
 
         logger.info(f"--- {len(stormed_ports_list)} ports entered storm state ---")
         logger.info("--- Testing if PFC storm is restored on stormed ports ---")
         self.run_test(duthost, storm_hndle, expect_regex=[EXPECT_PFC_WD_RESTORE_RE],
                       syslog_marker="all_port_storm_restore", action="restore",
-                      stormed_ports_list=stormed_ports_list)
+                      stormed_ports_list=stormed_ports_list,
+                      selected_test_ports=selected_test_ports)
