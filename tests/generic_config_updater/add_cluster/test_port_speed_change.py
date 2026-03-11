@@ -801,7 +801,6 @@ def test_port_speed_change(tbinfo,
 
     with allure.step("Verify telemetry data for port after port speed change"):
         with setup_streaming_telemetry_context(False, duthost, localhost, ptfhost, gnxi_path):
-            add_route_to_ptf_setup(duthosts, tbinfo, request)
             GNMI_SERVER_START_WAIT_TIME = 15
             env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
             # Set up telemetry server
@@ -811,8 +810,9 @@ def test_port_speed_change(tbinfo,
                           module_ignore_errors=False)
             time.sleep(GNMI_SERVER_START_WAIT_TIME)
             logger.info("entering verifying port telemetry info Amol")
-            cmd = generate_client_cli(duthost, gnxi_path, method="get", xpath=f"COUNTERS/{selected_random_port}",
-                                      target="COUNTERS_DB")
+            cmd = f'. /root/env-python3/bin/activate && cd {gnxi_path}gnmi_cli_py ' \
+                  f'&& python py_gnmicli.py -g -t {duthost.mgmt_ip} -p {env.gnmi_port} ' \
+                  f'-m get -x COUNTERS/{selected_random_port} -xt COUNTERS_DB -o ndastreamingservertest'
             show_gnmi_out = ptfhost.shell(cmd)['stdout']
             logger.info("GNMI Server output")
             logger.info(show_gnmi_out)
