@@ -5,7 +5,7 @@ import time
 import pytest
 
 pytestmark = [
-    pytest.mark.topology("t0", "c0")
+    pytest.mark.topology("t0")
 ]
 
 logger = logging.getLogger(__name__)

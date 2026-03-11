@@ -23,7 +23,7 @@ from netaddr import IPNetwork
 
 
 pytestmark = [
-    pytest.mark.topology('t1', 'c0'),
+    pytest.mark.topology('t1'),
     pytest.mark.device_type('vs'),
 ]
 

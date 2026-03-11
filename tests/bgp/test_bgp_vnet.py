@@ -16,7 +16,7 @@ from ptf.mask import Mask
 from scapy.all import IP, Ether
 
 pytestmark = [
-    pytest.mark.topology('t0', 'c0'),
+    pytest.mark.topology('t0'),
     pytest.mark.disable_loganalyzer
 ]
 
