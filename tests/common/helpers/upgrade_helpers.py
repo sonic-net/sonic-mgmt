@@ -12,7 +12,8 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until, setup_ferret
-from tests.common.platform.device_utils import check_neighbors
+from tests.common.platform.device_utils import check_neighbors, get_configured_dpu_names
+from tests.smartswitch.common.reboot import perform_gnoi_reboot_dpu
 from typing import Optional, Sequence, Tuple, Union, Dict
 SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
@@ -434,24 +435,23 @@ def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig)
     )
 
     method = str(cfg.upgrade_type).upper()
-    try:
-        reboot_resp = ptf_gnoi.system_reboot(
-            method=method,
-            delay=0,
-            message=cfg.ss_reboot_message,
-            metadata=md,
-        )
-    except Exception as e:
-        logger.info("Reboot raised (often expected): %s", e)
-        reboot_resp = None
+    names = get_configured_dpu_names(duthost)
 
-    if cfg.allow_fail:
-        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
+    if 0 <= cfg.ss_target_index < len(names):
+        dpu_name = names[cfg.ss_target_index]
+    else:
+        raise IndexError(f"dpu_index {cfg.ss_target_index} out of range, configured DPUs: {names}")
 
-    ok = _wait_gnoi_time_ready(ptf_gnoi, md, cfg)
-    pytest_assert(ok, f"gNOI Time not reachable within {cfg.ss_reboot_ready_timeout}s after reboot")
+    perform_gnoi_reboot_dpu(
+        ptf_gnoi=ptf_gnoi,
+        dpu_index=cfg.ss_target_index,
+        dpu_name=dpu_name,
+        method=method,
+        message=cfg.ss_reboot_message,
+        timeout=cfg.ss_reboot_ready_timeout,
+    )
 
-    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
+    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
 
 
 def perform_gnoi_upgrade_smartswitch_dpu(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
