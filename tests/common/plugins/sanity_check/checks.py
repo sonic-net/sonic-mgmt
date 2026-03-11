@@ -769,7 +769,13 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
                 duthosts.shell("config mux mode auto all")
 
             logger.warning('Mux state check failed, trying to recover via linkmgrd restart')
-            duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+
+            try:
+                duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+            except RunAnsibleModuleFail as e:
+                logger.error("Failed to restart linkmgrd %s" % (str(e)))
+                return check_passed
+
             wait_until(30, 5, 0, _verify_mux_simulator_status_passed)
 
         if not check_passed:
