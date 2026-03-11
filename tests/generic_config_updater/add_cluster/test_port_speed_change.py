@@ -13,7 +13,6 @@ from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.config_reload import config_reload
 from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_context
-from tests.telemetry.telemetry_utils import generate_client_cli
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile, apply_patch
 from tests.generic_config_updater.add_cluster.helpers import get_active_interfaces, \
