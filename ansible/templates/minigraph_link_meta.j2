@@ -82,6 +82,27 @@
 {% endif %}
             </a:Properties>
             <a:Key>{{ device_conn[inventory_hostname][iface_name]['peerdevice'] }}:{{ device_conn[inventory_hostname][iface_name]['peerport'] }};{{ inventory_hostname }}:{{ port_name_map[iface_name] }}</a:Key>
+        </a:LinkMetadata>
+{% endif %}
+{% if iface_name in device_conn[inventory_hostname] and 'linktraining' in device_conn[inventory_hostname][iface_name] %}
+        <a:LinkMetadata>
+            <a:Name i:nil="true"/>
+            <a:Properties>
+{% if 'on' in device_conn[inventory_hostname][iface_name]['linktraining'] %}
+                    <a:DeviceProperty>
+                        <a:Name>LinkTraining</a:Name>
+                        <a:Reference i:nil="true"/>
+                        <a:Value>True</a:Value>
+                    </a:DeviceProperty>
+{% elif 'off' in device_conn[inventory_hostname][iface_name]['linktraining'] %}
+                    <a:DeviceProperty>
+                        <a:Name>LinkTraining</a:Name>
+                        <a:Reference i:nil="true"/>
+                        <a:Value>False</a:Value>
+                    </a:DeviceProperty>
+{% endif %}
+            </a:Properties>
+            <a:Key>{{ device_conn[inventory_hostname][iface_name]['peerdevice'] }}:{{ device_conn[inventory_hostname][iface_name]['peerport'] }};{{ inventory_hostname }}:{{ port_name_map[iface_name] }}</a:Key>
             </a:LinkMetadata>
 {% endif %}
 {% endif %}
