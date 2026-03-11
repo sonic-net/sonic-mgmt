@@ -6,7 +6,8 @@ def pins_deps():
         git_repository(
           name = "com_github_sonic_net_sonic_pins",
           remote = "https://github.com/sonic-net/sonic-pins.git",
-          commit = "356fd830c741ed0f377139534eac737c2aa56e59" # main as on march 27, 2025
+          # Updates to December 9, 2025
+          commit = "ce8d3b3d6d08298ba3b03614b2e29eb40729d734",
         )
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
@@ -30,9 +31,9 @@ def pins_deps():
     if not native.existing_rule("com_google_googletest"):
         http_archive(
             name = "com_google_googletest",
-            urls = ["https://github.com/google/googletest/archive/release-1.11.0.tar.gz"],
-            strip_prefix = "googletest-release-1.11.0",
-            sha256 = "b4870bf121ff7795ba20d20bcdd8627b8e088f2d1dab299a031c1034eddc93d5",
+            urls = ["https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz"],
+            strip_prefix = "googletest-1.14.0",
+            sha256 = "8ad598c73ad796e0d8280b082cebd82a630d73e73cd3c70057938a6501bba5d7",
         )
     if not native.existing_rule("com_google_benchmark"):
         http_archive(
@@ -118,17 +119,18 @@ def pins_deps():
         # rather than a release.
         http_archive(
             name = "com_github_p4lang_p4runtime",
-            # 90553b9 is the newest commit on main as of 2023-10-09.
-            urls = ["https://github.com/p4lang/p4runtime/archive/f0e9f33818b74f0009daa44160926e568f1eaa4d.zip"],
-            strip_prefix = "p4runtime-f0e9f33818b74f0009daa44160926e568f1eaa4d/proto",
-            sha256 = "97b43996ada83484bfa3f9be205d6b6fd75b9ed6985839414ee72110d369cd53",
+            # Updates to https://github.com/p4lang/p4runtime/pull/566 on October 16, 2025
+            urls = ["https://github.com/p4lang/p4runtime/archive/f5187a26cd8745cae1b8a48bcdddddc00ec85e22.zip"],
+            strip_prefix = "p4runtime-f5187a26cd8745cae1b8a48bcdddddc00ec85e22/proto",
+            sha256 = "ec894c1458a3a9504e98e4f6cc0683ddb2307d1aa229807819b2d8edab963b04",
         )
     if not native.existing_rule("com_github_p4lang_p4_constraints"):
         http_archive(
             name = "com_github_p4lang_p4_constraints",
-            urls = ["https://github.com/p4lang/p4-constraints/archive/19be9f88dd843e9012a46e8e0e764d545d649f67.zip"],
-            strip_prefix = "p4-constraints-19be9f88dd843e9012a46e8e0e764d545d649f67",
-            sha256 = "48cbe4e5831a54d78b79f33ae41fc9648f0731f055572e3568845805eea01cfa",
+            # Updates to https://github.com/p4lang/p4-constraints/pull/142 on April 29, 2024
+            urls = ["https://github.com/p4lang/p4-constraints/archive/d26400c0061c6eca43f48309ccfcec750c313337.zip"],
+            strip_prefix = "p4-constraints-d26400c0061c6eca43f48309ccfcec750c313337",
+            sha256 = "8bb2954680ded0f21d405ae79c5c7e893fcfa96b0236f22047154e07e536c9bd",
         )
     if not native.existing_rule("com_github_nlohmann_json"):
         http_archive(

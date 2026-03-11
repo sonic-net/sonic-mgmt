@@ -1,6 +1,6 @@
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, enum_fanout_graph_facts     # noqa: F401
 from .qos_fixtures import leaf_fanouts      # noqa: F401
-from .qos_helpers import eos_to_linux_intf, nxos_to_linux_intf, sonic_to_linux_intf
+from tests.common.platform.device_utils import eos_to_linux_intf, nxos_to_linux_intf, sonic_to_linux_intf
 import os
 import time
 import pytest
@@ -85,11 +85,12 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
     onyx_pfc_container_name = 'storm'
     int_status = asic.show_interface(command="status")[
         'ansible_facts']['int_status']
-    """ We only test active physical interfaces """
+    """ We only test active physical interfaces that have connection graph entries """
     active_phy_intfs = [intf for intf in int_status if
                         intf.startswith('Ethernet') and
                         int_status[intf]['admin_state'] == 'up' and
-                        int_status[intf]['oper_state'] == 'up']
+                        int_status[intf]['oper_state'] == 'up' and
+                        intf in conn_facts]
     only_lossless_rx_counters = "Cisco-8122" in asic.sonichost.facts["hwsku"]
     no_xon_counters = "Cisco-8122" in asic.sonichost.facts["hwsku"]
     if only_lossless_rx_counters and asic_type != 'vs':

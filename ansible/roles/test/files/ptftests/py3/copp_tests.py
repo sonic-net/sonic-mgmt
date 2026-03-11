@@ -56,6 +56,7 @@ class ControlPlaneBaseTest(BaseTest):
     DEFAULT_PRE_SEND_INTERVAL_SEC = 1
     DEFAULT_SEND_INTERVAL_SEC = 30
     DEFAULT_RECEIVE_WAIT_TIME = 3
+    PTF_TIMEOUT = 30
 
     def __init__(self):
         BaseTest.__init__(self)
@@ -88,6 +89,7 @@ class ControlPlaneBaseTest(BaseTest):
         self.topo_type = test_params.get('topo_type', None)
         self.ip_version = test_params.get('ip_version', None)
         self.neighbor_miss_trap_supported = test_params.get('neighbor_miss_trap_supported', False)
+        self.is_smartswitch = test_params.get('is_smartswitch', False)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -151,52 +153,52 @@ class ControlPlaneBaseTest(BaseTest):
                 pre_send_count += 1
 
             rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
-                self, packet, [recv_intf[1]], recv_intf[0], timeout=5)
+                self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
             self.log("Send %d and receive %d packets in the first second (PolicyTest)" % (
                 pre_send_count, rcv_pkt_cnt))
 
-        pre_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
-        pre_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)
-        pre_test_nn_tx_counter = self.dataplane.get_nn_counters(*send_intf)
-        pre_test_nn_rx_counter = self.dataplane.get_nn_counters(*recv_intf)
-
-        start_time = datetime.datetime.now()
-        end_time = datetime.datetime.now(
-        ) + datetime.timedelta(seconds=self.DEFAULT_SEND_INTERVAL_SEC)
-
         send_count = 0
+        first_capture_complete = False
+        second_capture_complete = False
+        datetime_five_seconds = datetime.timedelta(seconds=5)
+        datetime_fifteen_seconds = datetime.timedelta(seconds=15)
         self.dataplane.flush()
-        while datetime.datetime.now() < end_time:
+        start_time = datetime.datetime.now()
+        end_time = start_time + datetime.timedelta(seconds=self.DEFAULT_SEND_INTERVAL_SEC)
+        while datetime.datetime.now() < end_time + datetime_fifteen_seconds:
             testutils.send_packet(self, send_intf, packet)
             send_count += 1
+
+            if not first_capture_complete and datetime.datetime.now() > start_time + datetime_five_seconds:
+                first_capture_complete = True
+                pre_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
+                pre_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)
+                pre_test_nn_tx_counter = self.dataplane.get_nn_counters(*send_intf)
+                pre_test_nn_rx_counter = self.dataplane.get_nn_counters(*recv_intf)
+                first_capture_time = datetime.datetime.now()
+            elif not second_capture_complete and datetime.datetime.now() > end_time - datetime_five_seconds:
+                second_capture_complete = True
+                post_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
+                post_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)
+                post_test_nn_tx_counter = self.dataplane.get_nn_counters(*send_intf)
+                post_test_nn_rx_counter = self.dataplane.get_nn_counters(*recv_intf)
+                second_capture_time = datetime.datetime.now()
 
             # Depending on the server/platform combination it is possible for the server to
             # overwhelm the DUT, so we add an artificial delay here to rate-limit the server.
             time.sleep(1.0 / float(self.default_server_send_rate_limit_pps))
 
-        self.log("Sent out %d packets in %ds" %
-                 (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
-
+        self.log("Sent out %d packets in %ds" % (send_count, self.DEFAULT_SEND_INTERVAL_SEC))
         # Wait a little bit for all the packets to make it through
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)
         recv_count = testutils.count_matched_packets_all_ports(
-            self, packet, [recv_intf[1]], recv_intf[0], timeout=10)
-        self.log("Received %d packets after sleep %ds" %
-                 (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
+            self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
+        self.log("Received %d packets after sleep %ds" % (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
 
-        post_test_ptf_tx_counter = self.dataplane.get_counters(*send_intf)
-        post_test_ptf_rx_counter = self.dataplane.get_counters(*recv_intf)
-        post_test_nn_tx_counter = self.dataplane.get_nn_counters(*send_intf)
-        post_test_nn_rx_counter = self.dataplane.get_nn_counters(*recv_intf)
-
-        ptf_tx_count = int(
-            post_test_ptf_tx_counter[1] - pre_test_ptf_tx_counter[1])
-        nn_tx_count = int(
-            post_test_nn_tx_counter[1] - pre_test_nn_tx_counter[1])
-        ptf_rx_count = int(
-            post_test_ptf_rx_counter[0] - pre_test_ptf_rx_counter[0])
-        nn_rx_count = int(
-            post_test_nn_rx_counter[0] - pre_test_nn_rx_counter[0])
+        ptf_tx_count = int(post_test_ptf_tx_counter[1] - pre_test_ptf_tx_counter[1])
+        nn_tx_count = int(post_test_nn_tx_counter[1] - pre_test_nn_tx_counter[1])
+        ptf_rx_count = int(post_test_ptf_rx_counter[0] - pre_test_ptf_rx_counter[0])
+        nn_rx_count = int(post_test_nn_rx_counter[0] - pre_test_nn_rx_counter[0])
 
         self.log("", True)
         self.log("Counters before the test:", True)
@@ -216,11 +218,10 @@ class ControlPlaneBaseTest(BaseTest):
         self.log("Recv from If on remote ptf_nn_agent:      %d" % ptf_rx_count)
         self.log("Recv from NN on from remote ptf_nn_agent: %d" % nn_rx_count)
 
-        time_delta = end_time - start_time
-        time_delta_ms = (time_delta.microseconds +
-                         time_delta.seconds * 10**6) / 1000
-        tx_pps = int(send_count / (float(time_delta_ms) / 1000))
-        rx_pps = int(recv_count / (float(time_delta_ms) / 1000))
+        time_delta = second_capture_time - first_capture_time
+        time_delta_ms = (time_delta.microseconds + time_delta.seconds * 10**6) / 1000
+        tx_pps = int(nn_tx_count / (float(time_delta_ms) / 1000))
+        rx_pps = int(nn_rx_count / (float(time_delta_ms) / 1000))
 
         return send_count, recv_count, time_delta, time_delta_ms, tx_pps, rx_pps
 
@@ -297,7 +298,7 @@ class ARPTest(PolicyTest):
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
         src_ip = self.myip
-        dst_ip = self.peerip
+        dst_ip = self.myip  # GARP to avoid triggering ARP response trap
 
         packet = testutils.simple_arp_packet(
             eth_dst='ff:ff:ff:ff:ff:ff',
@@ -319,6 +320,9 @@ class DHCPTopoT1Test(PolicyTest):
         # T1 DHCP no packet to packet to CPU so police rate is 0
         self.PPS_LIMIT_MIN = 0
         self.PPS_LIMIT_MAX = 0
+        if self.is_smartswitch:
+            self.PPS_LIMIT_MIN = 90
+            self.PPS_LIMIT_MAX = 130
 
     def runTest(self):
         self.log("DHCPTopoT1Test")
@@ -445,6 +449,9 @@ class DHCP6TopoT1Test(PolicyTest):
         # T1 DHCP6 no packet to packet to CPU so police rate is 0
         self.PPS_LIMIT_MIN = 0
         self.PPS_LIMIT_MAX = 0
+        if self.is_smartswitch:
+            self.PPS_LIMIT_MIN = 90
+            self.PPS_LIMIT_MAX = 130
 
     def runTest(self):
         self.log("DHCP6TopoT1Test")
@@ -547,9 +554,11 @@ class UDLDTest(PolicyTest):
 class BGPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        test_params = testutils.test_params_get()
+        self.packet_size = int(test_params.get('packet_size', 100))
 
     def runTest(self):
-        self.log("BGPTest")
+        self.log("BGPTest with packet size: {}".format(self.packet_size))
         self.run_suite()
 
     def construct_packet(self, port_number):
@@ -557,6 +566,7 @@ class BGPTest(PolicyTest):
         dst_ip = self.peerip
 
         packet = testutils.simple_tcp_packet(
+            pktlen=self.packet_size,
             eth_dst=dst_mac,
             ip_dst=dst_ip,
             ip_ttl=1,
@@ -676,9 +686,11 @@ class SSHTest(PolicyTest):
 class IP2METest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        test_params = testutils.test_params_get()  # Get a fresh copy to be safe
+        self.packet_size = int(test_params.get('packet_size', 100))
 
     def runTest(self):
-        self.log("IP2METest")
+        self.log("IP2METest with packet size: {}".format(self.packet_size))
         self.run_suite()
 
     def one_port_test(self, port_number):
@@ -700,6 +712,7 @@ class IP2METest(PolicyTest):
         dst_ip = self.peerip
 
         packet = testutils.simple_tcp_packet(
+            pktlen=self.packet_size,
             eth_src=src_mac,
             eth_dst=dst_mac,
             ip_dst=dst_ip

@@ -13,12 +13,14 @@ from tests.common import config_reload
 from tests.common.constants import KVM_PLATFORM
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.reboot import wait_for_startup
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.utilities import wait_until, kill_process_by_pid
 
 logger = logging.getLogger(__name__)
 
@@ -105,7 +107,7 @@ def modify_monit_config_and_restart(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Back up Monit configuration file ...")
-    duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
+    duthost.shell("sudo cp -f /etc/monit/monitrc /home/admin/monitrc.backup")
 
     logger.info("Modifying Monit config to eliminate start delay and decrease interval ...")
     duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
@@ -117,7 +119,7 @@ def modify_monit_config_and_restart(duthosts, rand_one_dut_hostname):
     yield
 
     logger.info("Restore original Monit configuration ...")
-    duthost.shell("sudo mv -f /tmp/monitrc /etc/monit/")
+    duthost.shell("sudo mv -f /home/admin/monitrc.backup /etc/monit/monitrc")
 
     logger.info("Restart Monit service ...")
     duthost.shell("sudo systemctl restart monit")
@@ -524,7 +526,7 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
 
 def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     skip_containers = []
-    skip_containers.append("database")
+    # Skip database container for generate redis crash alerting messages.
     skip_containers.append("gbsyncd")
     # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
     # which will not trigger alarm message.
@@ -538,20 +540,100 @@ def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     return skip_containers
 
 
-@pytest.fixture
-def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+@pytest.fixture(scope='function')
+def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container,
+                               get_pdu_controller, localhost):
     duthost = duthosts[rand_one_dut_hostname]
     up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
+    # Check if database container is being tested
+    is_testing_database = "database" not in skip_containers
+
+    # add log to indicate start of yield
+    logger.info("Starting test to monitor critical processes...")
     yield
 
-    logger.info("Executing the config reload...")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-    logger.info("Executing the config reload was done!")
+    # add log to indicate end of yield
+    logger.info("Test to monitor critical processes is done, starting recovery...")
 
-    ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+    # Special handling for database container - use power cycle
+    if is_testing_database:
+        logger.info("Database container was tested - performing power cycle...")
+
+        # Check if this is a KVM testbed (no PDU available)
+        is_kvm = duthost.facts.get('platform') == KVM_PLATFORM
+
+        if is_kvm:
+            # For KVM testbed, use kernel-level reboot since config DB is corrupted
+            # and normal reboot commands won't work
+            logger.info("KVM testbed detected - using kernel SysRq trigger for immediate reboot...")
+            try:
+                # Use kernel's SysRq trigger to force immediate reboot
+                # This bypasses all userspace processes and goes directly to kernel
+                # 'b' = immediately reboot the system without syncing or unmounting
+                duthost.shell(
+                    'nohup bash -c "sleep 2 && echo 1 > /proc/sys/kernel/sysrq && echo b > /proc/sysrq-trigger" '
+                    '> /dev/null 2>&1 &',
+                    module_ignore_errors=True)
+                logger.info("Kernel reboot trigger command issued successfully")
+            except Exception as e:
+                logger.info("Reboot trigger command execution (expected to disconnect): {}".format(str(e)))
+        else:
+            # For physical testbed, use PDU reboot
+            logger.info("Physical testbed - performing power cycle via PDU...")
+            try:
+                pdu_ctrl = get_pdu_controller(duthost)
+                logger.info("PDU controller obtained: {}".format(pdu_ctrl))
+
+                if pdu_ctrl is None:
+                    logger.error("No PDU controller available for {}, cannot recover from database container test"
+                                 .format(duthost.hostname))
+                    pytest.fail("No PDU controller available for {}, cannot recover from database container test"
+                                .format(duthost.hostname))
+
+                # Perform PDU reboot (power cycle)
+                logger.info("Starting PDU reboot...")
+                if not pdu_reboot(pdu_ctrl):
+                    logger.error("PDU reboot failed for {}".format(duthost.hostname))
+                    pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
+
+                logger.info("PDU reboot completed, waiting for DUT to boot up...")
+            except Exception as e:
+                logger.error("Exception during PDU reboot: {}".format(str(e)))
+                raise
+
+        logger.info("Waiting for DUT to boot up after power cycle...")
+        # Wait for DUT to come back up after PDU power cycle
+        # Get timeout values based on chassis type
+        timeout = 300
+        wait_time = 120
+        if duthost.get_facts().get("modular_chassis"):
+            wait_time = max(wait_time, 600)
+            timeout = max(timeout, 420)
+
+        # Wait for SSH to come back up
+        wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
+        logger.info("SSH is up, waiting for critical processes...")
+
+        # Wait for all critical processes to be healthy
+        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+        logger.info("All critical processes are running")
+
+        # Wait for interfaces to come up
+        logger.info("Checking interface status...")
+        check_interface_status_of_up_ports(duthost)
+        logger.info("All interfaces are up")
+
+        logger.info("DUT recovered successfully after power cycle!")
+    else:
+        # Normal recovery for other containers
+        logger.info("Executing the config reload...")
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        logger.info("Executing the config reload was done!")
+
+        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         pytest.fail("Post-check failed after testing the process monitoring!")

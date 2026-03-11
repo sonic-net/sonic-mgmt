@@ -19,7 +19,7 @@ from .drop_packets import L2_COL_KEY, L3_COL_KEY, RX_ERR, RX_DRP, ACL_COUNTERS_U
     test_dst_ip_absent, test_src_ip_is_multicast_addr, test_src_ip_is_class_e, test_ip_is_zero_addr, \
     test_dst_ip_link_local, test_loopback_filter, test_ip_pkt_with_expired_ttl, test_broken_ip_header, \
     test_absent_ip_header, test_unicast_ip_incorrect_eth_dst, test_non_routable_igmp_pkts, test_acl_drop, \
-    test_acl_egress_drop  # noqa: F401
+    test_acl_egress_drop, drop_counter_config  # noqa: F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa: F401
 from ..common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -359,6 +359,10 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hws
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if not fanouthost:
         pytest.skip("Test case requires explicit fanout support")
+
+    # Marvell ASIC specific ACL rule injection
+    if fanouthost.facts["asic_type"] == "marvell-teralynx":
+        drop_counter_config(fanouthost)
 
     reserved_mac_addr = ["01:80:C2:00:00:05", "01:80:C2:00:00:08"]
     for reserved_dmac in reserved_mac_addr:

@@ -1,5 +1,6 @@
 import logging
 import pytest
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_res_success, expect_op_failure, expect_op_success
@@ -305,4 +306,9 @@ def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts):
     syslog_server_tc1_add_duplicate(rand_selected_dut)
     syslog_server_tc1_xfail(rand_selected_dut)
     syslog_server_tc1_replace(rand_selected_dut)
+
+    # Adding a sleep of 5 seconds to avoid syslog_server_tc1_replace & syslog_server_tc1_remove triggering too close
+    # This would avoid systemd kill core_uploader.service since it was restarted more than 5 times within 10 second time
+    # window
+    time.sleep(5)
     syslog_server_tc1_remove(rand_selected_dut)

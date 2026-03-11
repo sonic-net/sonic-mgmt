@@ -361,6 +361,11 @@
     vm_type: "ceos"
   when: vm_type is not defined
 
+- name: Set default value for topo_is_multi_vrf
+  set_fact:
+    topo_is_multi_vrf: False
+  when: topo_is_multi_vrf is not defined
+
 - name: Check VM type
   fail:
     msg: "Cannot support this VM type {{ vm_type }}"
