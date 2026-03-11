@@ -108,5 +108,5 @@ stages:
         IMAGE_URL: ${{ parameters.IMAGE_URL }}
         MIN_WORKER: ${{ parameters.MIN_WORKER }}
         MAX_WORKER: ${{ parameters.MAX_WORKER }}
-        PTF_IMAGE_TAG: internal-202505
+        PTF_IMAGE_TAG: internal-202511
         RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
