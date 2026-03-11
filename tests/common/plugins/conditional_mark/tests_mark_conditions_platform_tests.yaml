@@ -1221,7 +1221,7 @@ platform_tests/test_intf_fec.py:
       - "asic_type in ['vs']"
 
 platform_tests/test_intf_fec.py::test_verify_fec_histogram:
-   xfail:
+  xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
