@@ -7,12 +7,15 @@ from .helper import gnmi_set, dump_gnmi_log
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
+
 logger = logging.getLogger(__name__)
 allure.logger = logger
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
+                            "setup_gnmi_rotated_server", "check_dut_timestamp")
 ]
 
 

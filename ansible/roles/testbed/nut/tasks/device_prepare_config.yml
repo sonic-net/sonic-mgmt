@@ -10,7 +10,6 @@
   vars:
     tables_to_keep:
       - DEVICE_METADATA
-      - MGMT_INTERFACE
       - BANNER_MESSAGE
       - FEATURE
       - FLEX_COUNTER_TABLE

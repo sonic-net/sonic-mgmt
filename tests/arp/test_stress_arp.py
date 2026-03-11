@@ -35,13 +35,34 @@ LOOP_TIMES_LEVEL_MAP = {
 }
 
 
+@pytest.fixture(scope="function", autouse=True)
+def ignore_errors_for_non_selected_dualtor_hosts(
+    loganalyzer,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    tbinfo
+):
+    if 'dualtor' in tbinfo['topo']['name']:
+        # There is a known issue which causes redundant route entry delete and reports an ERR log.
+        # FYI, https://github.com/sonic-net/sonic-swss/issues/2579
+        # This error can be safely ignored on standby
+        error_patterns = [
+            ".*ERR swss#orchagent: :- meta_sai_validate_route_entry: object key SAI_OBJECT_TYPE_ROUTE_ENTRY:{\"dest\":\".*\",\"switch_id\":\"oid:.*\",\"vr\":\"oid:.*\"} doesn't exist",  # noqa: E501
+        ]
+        for duthost in duthosts:
+            if duthost.hostname != enum_rand_one_per_hwsku_frontend_hostname:
+                if loganalyzer and duthost.hostname in loganalyzer:
+                    loganalyzer[duthost.hostname].ignore_regex.extend(error_patterns)
+    yield
+
+
 @pytest.fixture(autouse=True)
-def arp_cache_fdb_cleanup(duthosts, rand_one_dut_hostname, tbinfo):
+def arp_cache_fdb_cleanup(duthosts, tbinfo):
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
-    duthost = duthosts[rand_one_dut_hostname]
     try:
-        clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
-        fdb_cleanup(duthost)
+        for dut in duthosts:
+            clear_dut_arp_cache(dut, is_ipv6=is_ipv6_only)
+            fdb_cleanup(dut)
     except RunAnsibleModuleFail as e:
         if 'Failed to send flush request: No such file or directory' in str(e):
             logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
@@ -54,8 +75,7 @@ def arp_cache_fdb_cleanup(duthosts, rand_one_dut_hostname, tbinfo):
 
     # Ensure clean test environment even after failing
     try:
-        dut_list = duthosts if "dualtor-aa" in tbinfo["topo"]["name"] else [duthost]
-        for dut in dut_list:
+        for dut in duthosts:
             clear_dut_arp_cache(dut, is_ipv6=is_ipv6_only)
             fdb_cleanup(dut)
     except RunAnsibleModuleFail as e:
@@ -84,7 +104,7 @@ def add_arp(ptf_intf_ipv4_addr, intf1_index, ptfadapter):
                                           hw_tgt='ff:ff:ff:ff:ff:ff'
                                           )
         # Add a short delay to avoid packet loss
-        time.sleep(0.001)
+        time.sleep(0.01)
         testutils.send_packet(ptfadapter, intf1_index, pkt)
     logger.info("Sending {} arp entries".format(ip_num))
 
@@ -260,8 +280,10 @@ def send_ipv6_echo_request(ptfadapter, dut_mac, ip_and_intf_info, ptf_intf_index
         testutils.send_packet(ptfadapter, ptf_intf_index, er_pkt)
 
 
-def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
+def test_ipv6_nd_incomplete(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                            ptfhost, config_facts, tbinfo, ip_and_intf_info,
                             ptfadapter, get_function_completeness_level, proxy_arp_enabled):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
