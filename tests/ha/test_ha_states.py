@@ -29,7 +29,7 @@ def test_ha_states(duthosts, setup_ha_config, setup_dash_ha_from_json, activate_
     pytest_assert(verify_ha_state(duthosts[1], "vdpu1_0:haset0_0", "standalone"),
                   "Secondary HA state is not standalone")
 
-    pytest_assert(activate_primary_dash_ha(duthosts[0], "vdpu0_0:haset0_0"),
+    pytest_assert(activate_primary_dash_ha(duthosts[0], "vdpu0_0:haset0_0", "activate_role"),
                   "Failed to activate HA on primary")
 
     logger.info(f"{duthosts[0].hostname} state transitions OK")
@@ -45,7 +45,7 @@ def test_ha_states(duthosts, setup_ha_config, setup_dash_ha_from_json, activate_
     pytest_assert(verify_ha_state(duthosts[0], "vdpu0_0:haset0_0", "standalone"),
                   "Primary HA state is not standalone")
 
-    pytest_assert(activate_secondary_dash_ha(duthosts[1], "vdpu1_0:haset0_0"),
+    pytest_assert(activate_secondary_dash_ha(duthosts[1], "vdpu1_0:haset0_0", "activate_role"),
                   "Failed to activate HA on secondary")
 
     logger.info(f"{duthosts[1].hostname} state transitions OK")

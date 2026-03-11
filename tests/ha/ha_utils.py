@@ -8,7 +8,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 
-def set_ha_scope_dead(duthost, scope_key):
+def set_ha_scope_dead(duthost, scope_key, owner="dpu"):
     """
     Set DASH_HA_SCOPE_CONFIG_TABLE entry to "dead" state
     scope_key example: vdpu0_0:haset0_0
@@ -19,7 +19,7 @@ def set_ha_scope_dead(duthost, scope_key):
                  "disabled": "true",
                  "desired_ha_state": "dead",
                  "ha_set_id": "haset0_0",
-                 "owner": "dpu",
+                 "owner": owner,
              }
     proto_utils_hset(
             duthost,
