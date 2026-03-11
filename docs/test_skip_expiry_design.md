@@ -2,7 +2,7 @@
 
 ## Executive Summary
 
-This document proposes a solution to prevent test skips from being forgotten indefinitely by introducing a category-based skip management system. Skips are classified into two categories: **permanent** (indefinite skips without expiry dates) and **temporary** (time-bound skips with mandatory expiry dates). This ensures that temporary skips are revisited and either fixed or explicitly renewed, while permanent skips are properly justified.
+This document proposes a solution to prevent test skips from being forgotten indefinitely by introducing a category-based skip management system. Different design approaches are discussed. For some approaches skips are classified into two categories: **permanent** (indefinite skips without expiry dates) and **temporary** (time-bound skips with mandatory expiry dates). This ensures that temporary skips are revisited and either fixed or explicitly renewed, while permanent skips are properly justified. Other approaches don't rely on specifying an expiry date or classifying skips as temporary or permanent. They rely solely on GitHub issues to track skips.
 
 ---
 
@@ -233,9 +233,9 @@ bgp/test_bgp_session.py:
   skip:
     reason: "BGP session flap during testbed maintenance"
     category: "INFRASTRUCTURE_ISSUE"  # Temporary - requires issue
-    issue: "https://github.com/sonic-net/sonic-mgmt/issues/12345"
     conditions:
       - "testbed in ['testbed-01']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/12345"
 ```
 
 #### Expiry Detection Strategies
@@ -246,7 +246,7 @@ The following strategies are proposed for determining when a GitHub issue (and i
 
 - Calculate expiry based on issue creation date plus a configurable duration (e.g., 6 months)
 - The automation workflow closes the issue when the expiry threshold is reached
-- When the conditional mark plugin sees a closed issue, it stops applying the skip
+- When the conditional mark plugin sees a closed issue, it evaluates that condition to False. The final skip behavior is determined by other conditions specified for the test and `conditions_logical_operator`.
 - Initial expiry thresholds can be calibrated based on historical analysis of how long issues have been open
 
 ```
@@ -274,13 +274,7 @@ Priority Tag Timeline:
 
 #### Chosen Expiry Strategy
 
-**Strategy A (Time-Based Expiry from Issue Creation) is chosen.**
-
-Rationale:
-- Simpler to implement and understand - a single expiry date based on issue creation
-- Avoids confusion that could arise from managing priority tags on only a subset of issues (test-skip related issues)
-- Priority escalation (Strategy B) adds complexity without proportional benefit for skip management
-- Time-based expiry provides a clear, predictable timeline that is easy to communicate to developers
+**Strategy B: Priority Tag Escalation**
 
 #### Automation Components
 
@@ -309,24 +303,7 @@ A separate tool that generates periodic reports and dashboards:
 The dashboard and reports can be made available through multiple channels:
 
 1. **GitHub Project Board**: Create a GitHub Project linked to the repository that automatically tracks issues with the `test-skip` label. This provides a kanban-style view of skip status, assignees, and expiry timeline.
-
 2. **GitHub Actions Artifact**: The daily workflow generates a report as a GitHub Actions artifact, downloadable from the workflow run page.
-
-3. **README.md Badge/Link**: Add a section or badge to the repository's README.md that links to:
-   - The GitHub Project board for skip tracking
-   - The latest workflow run with the report artifact
-   - A summary table showing current skip health metrics
-
-4. **GitHub Pages (Optional)**: For a richer dashboard experience, publish an HTML report to GitHub Pages. The workflow can update a `gh-pages` branch with the latest dashboard, accessible at `https://sonic-net.github.io/sonic-mgmt/skip-dashboard/`.
-
-Example README.md section:
-```markdown
-## Test Skip Status
-
-[![Skip Health](https://img.shields.io/badge/dynamic/json?url=...&label=Active%20Skips)](link-to-project-board)
-
-See the [Test Skip Dashboard](link-to-dashboard) for details on temporary skips and upcoming expiries.
-```
 
 **3. Pre-Expiry Test Execution (Optional)**
 
@@ -352,8 +329,8 @@ The plugin's responsibility is simplified:
 
 1. **For permanent skips**: Apply skip if category matches a permanent reason
 2. **For temporary skips**: Query GitHub API to check issue state
-   - If issue is **open**: Apply the skip
-   - If issue is **closed**: Do not apply the skip (test runs normally)
+   - If issue is **open**: Condition is evaluated to True;
+   - If issue is **closed**: Condition is evaluated to False; Test skip depends on other conditions.
 3. **Caching**: Cache issue state to avoid excessive API calls during test runs
 4. **Fallback**: If GitHub API is unavailable, use cached state or apply skip conservatively
 
@@ -393,32 +370,24 @@ Different release branches may have different skip requirements for the same tes
 
   This approach reduces issue duplication but adds complexity in label management.
 
-**4. Controlled Impact**
-
-To avoid blocking the entire PR testing pipeline when issues expire:
-
-- Use automation to query and report issue status without actually closing/reopening issues
-- Generate reports highlighting expired skips without taking immediate action (daily reports provide advance warning)
-- Allow manual intervention for issue closure after review
-
 #### Advantages
 
-- **Rich context**: GitHub issues provide discussion threads, linked PRs, commit references, and full history
-- **Built-in notifications**: GitHub's notification system alerts assignees and watchers
-- **Visibility**: Issues appear in project boards, dashboards, and search results
-- **No hard-coded dates in YAML**: Expiry logic is centralized in automation
-- **Flexible escalation**: Priority-based escalation provides graduated urgency
-- **Integration**: Natural fit with existing GitHub-based development workflow
-- **Audit trail**: Issue history captures all state changes and discussions
-- **Dynamic expiry**: Can adjust expiry policies without modifying YAML files
+- GitHub issues provide discussion threads, linked PRs, commit references, and full history
+- GitHub's notification system alerts assignees and watchers
+- Issues appear in project boards, dashboards, and search results
+- Expiry logic is centralized in automation
+- Priority-based escalation provides graduated urgency
+- Natural fit with existing GitHub-based development workflow
+- Issue history captures all state changes and discussions
+- Can adjust expiry policies without modifying YAML files
 
 #### Disadvantages
 
-- **Split context**: Skip definitions in YAML, skip reasons/status in GitHub - two places to check
-- **Automation complexity**: Requires building and maintaining the expiry workflow
-- **Gaming risk**: Easy to reopen a closed issue without actually fixing the problem
-- **No code review for state changes**: Closing/reopening issues doesn't require PR approval
-- **Release branch complexity**: Managing issues across multiple branches adds overhead
+- Skip definitions in YAML, skip reasons/status in GitHub - two places to check
+- Requires building and maintaining the expiry workflow
+- Easy to reopen a closed issue without actually fixing the problem
+- Closing/reopening issues doesn't require PR approval
+- Managing issues across multiple branches adds overhead
 
 > **Note**: The existing conditional mark plugin already includes efficient GitHub issue querying with caching, so API rate limits, latency, and external dependency concerns have been addressed in the current implementation.
 
@@ -562,14 +531,6 @@ skip_categories:
       - "NEW_FEATURE_UNDER_DEVELOPMENT"
       - "INFRASTRUCTURE_ISSUE"
 
-# Expiry configuration
-expiry_config:
-  default_expiry_months: 6  # Default expiry from issue creation
-  warning_days: [30, 14, 7]  # Days before expiry to send warnings
-  soft_expiry_mode: true  # Log warnings instead of failing tests
-  cache_ttl_minutes: 60  # How long to cache issue state
-  fallback_on_api_error: "skip"  # "skip" or "run" when API unavailable
-
 # Individual test skip definitions
 <test_path>:
   skip:
@@ -586,6 +547,20 @@ expiry_config:
 ```
 
 ### 2. Issue Expiry Workflow
+
+Expiry configuration governs the behavior of the workflow tools must be maintained in a separate configuration.
+
+```yaml
+# expiry_config.yml
+expiry_config:
+  p3_label_expiry_days: 90
+  p2_label_expiry_days: 60
+  p1_label_expiry_days: 30
+  p0_label_expiry_days: 15
+  warning_days: [30, 14, 7]  # Days before expiry to send warnings
+```
+
+Highlevel structure of the workflow.
 
 ```yaml
 # .github/workflows/skip-expiry-check.yml
@@ -606,22 +581,20 @@ jobs:
         run: |
           python scripts/parse_skip_issues.py \
             --config tests/common/plugins/conditional_mark/tests_mark_conditions.yaml \
-            --output issues.json
+            --output issues.yaml
 
       - name: Check issue expiry
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           python scripts/check_issue_expiry.py \
-            --issues issues.json \
-            --expiry-months 6 \
-            --action report  # or "close" or "escalate"
+            --issues issues.yaml \
+            --expiry_config tests/common/plugins/conditional_mark/expiry_config.yaml \
 
       - name: Generate report
         run: |
           python scripts/generate_skip_report.py \
-            --issues issues.json \
-            --output report.md
+            --issues issues.yaml \
 
       - name: Post report to issue
         if: github.event_name == 'schedule'
@@ -631,69 +604,7 @@ jobs:
           body-path: report.md
 ```
 
-### 3. Conditional Mark Plugin Changes
-
-```python
-# Pseudo-code for plugin modifications
-
-class GitHubIssueCache:
-    """Cache for GitHub issue state to avoid excessive API calls."""
-
-    def __init__(self, ttl_minutes=60):
-        self.cache = {}
-        self.ttl = timedelta(minutes=ttl_minutes)
-
-    def get_issue_state(self, issue_url: str) -> dict:
-        """Get issue state from cache or GitHub API."""
-        if issue_url in self.cache:
-            entry = self.cache[issue_url]
-            if datetime.now() - entry['timestamp'] < self.ttl:
-                return entry['state']
-
-        # Fetch from GitHub API
-        state = self._fetch_from_github(issue_url)
-        self.cache[issue_url] = {
-            'state': state,
-            'timestamp': datetime.now()
-        }
-        return state
-
-
-def should_skip_test(skip_config: dict, issue_cache: GitHubIssueCache) -> bool:
-    """Determine if test should be skipped based on issue state."""
-
-    category = skip_config.get('category')
-
-    # Permanent skips always apply (no issue needed)
-    if category in PERMANENT_CATEGORIES:
-        return True
-
-    # Temporary skips depend on issue state
-    issue_url = skip_config.get('issue')
-    if not issue_url:
-        raise ConfigurationError(f"Temporary skip requires 'issue' field")
-
-    try:
-        issue_state = issue_cache.get_issue_state(issue_url)
-
-        # Skip only if issue is open
-        if issue_state['state'] == 'open':
-            return True
-        else:
-            # Issue is closed - test should run
-            return False
-
-    except GitHubAPIError as e:
-        # Fallback behavior when API is unavailable
-        if config.fallback_on_api_error == 'skip':
-            logger.warning(f"GitHub API error, applying skip: {e}")
-            return True
-        else:
-            logger.warning(f"GitHub API error, running test: {e}")
-            return False
-```
-
-### 4. Pre-Expiry Test Execution
+### 3. Pre-Expiry Test Execution
 
 To provide early warning before skips expire, implement a pre-expiry test mode:
 
@@ -730,30 +641,13 @@ jobs:
             --comment-on-issues
 ```
 
-### 5. Release Branch Management
+### 4. Release Branch Management
 
 To handle skips across multiple release branches:
 
-**Recommended Approach: Branch-Specific Labels**
+**Recommended Approach: Option A: Branch-Specific Issues and Conditional Mark Files**
 
-```yaml
-# In tests_mark_conditions.yaml
-bgp/test_bgp_session.py:
-  skip:
-    reason: "BGP issue on main branch"
-    category: "BUG_FIX_IN_PROGRESS"
-    issue: "https://github.com/sonic-net/sonic-mgmt/issues/12345"
-    branches: ["main", "202311"]  # Issue applies to these branches
-    conditions:
-      - "testbed in ['testbed-01']"
-```
-
-The expiry workflow tags issues with branch labels (`branch:main`, `branch:202311`), allowing:
-- Different expiry policies per branch
-- Branch-specific reports and dashboards
-- Closing issue for one branch without affecting others
-
-### 6. Error Messages
+### 5. Error Messages
 
 #### Issue Not Found
 ```
@@ -782,302 +676,3 @@ WARNING: Cannot reach GitHub API to check issue state.
 Fallback behavior: Applying skip for test 'bgp/test_bgp_session.py'.
 Cached state from 2 hours ago: issue #12345 was open.
 ```
-
----
-
-## Detailed Design (Approach 1 - Reference)
-
-### 0. Skip Categories Overview
-
-The design introduces a two-tier category system to classify all test skips:
-
-#### Permanent Category
-- **Purpose**: For fundamental, unchangeable limitations
-- **Expiry Requirement**: No expiry date needed (and not allowed)
-- **Use Cases**:
-  - `ASIC_NOT_SUPPORTED`: Hardware/ASIC fundamentally doesn't support the feature
-  - `TOPO_NOT_SUPPORTED`: Test cannot run on certain topologies by design
-  - `FEATURE_NOT_APPLICABLE`: Feature doesn't apply to certain configurations
-
-**Example**:
-```yaml
-acl/test_acl.py:
-  skip:
-    reason: "ACL feature not available on VS platform"
-    category: "ASIC_NOT_SUPPORTED"
-    conditions:
-      - "asic_type in ['vs']"
-```
-
-#### Temporary Category
-- **Purpose**: For transient issues that should be resolved
-- **Expiry Requirement**: Mandatory expiry date (max 180 days from today)
-- **Use Cases**:
-  - `BUG_FIX_IN_PROGRESS`: Known bug being actively fixed
-  - `NEW_FEATURE_UNDER_DEVELOPMENT`: Feature in development, test temporarily disabled
-  - `INFRASTRUCTURE_ISSUE`: Testbed/infrastructure problem being addressed
-
-**Example**:
-```yaml
-bgp/test_bgp_session.py:
-  skip:
-    reason: "BGP session flap during testbed maintenance"
-    category: "INFRASTRUCTURE_ISSUE"
-    expiry_date: "2025-06-01"  # Must be within 180 days
-    conditions:
-      - "testbed in ['testbed-01']"
-```
-
-#### Category Selection Guidelines
-
-User defined categories can be defined and added under the skip_categories section.
-
----
-
-### 1. YAML Structure Definition
-
-```yaml
-# Top-level category definitions
-skip_categories:
-  permanent:
-    description: "Skips are indefinite and do not require expiry dates"
-    requires_expiry_date: false
-    allowed_reasons:
-      - "ASIC_NOT_SUPPORTED"
-      - "TOPO_NOT_SUPPORTED"
-      - "FEATURE_NOT_APPLICABLE"
-  temporary:
-    description: "Skips must have expiry date"
-    requires_expiry_date: true
-    max_expiry_days: 180  # Maximum days from today
-    allowed_reasons:
-      - "BUG_FIX_IN_PROGRESS"
-      - "NEW_FEATURE_UNDER_DEVELOPMENT"
-      - "INFRASTRUCTURE_ISSUE"
-
-# Individual test skip definitions
-<test_path>:
-  skip:
-    reason: "<human-readable skip reason>"
-    category: "<CATEGORY_NAME>"  # Must match one of the allowed_reasons
-    expiry_date: "<YYYY-MM-DD>"  # Required if category is in temporary
-    expiry_action: "fail"  # or "warn" - what to do when expired
-    conditions: [...]
-    conditions_logical_operator: "and"  # or "or"
-  xfail:
-    reason: "<human-readable xfail reason>"
-    category: "<CATEGORY_NAME>"
-    expiry_date: "<YYYY-MM-DD>"  # Required if category is in temporary
-    expiry_action: "run"
-    conditions: [...]
-```
-
-### 2. Category and Expiry Date Requirements
-
-#### Skip Categories
-- **permanent**: For fundamental limitations that won't change
-  - `requires_expiry_date: false` - No expiry date needed or allowed
-  - Allowed reasons (examples): `ASIC_NOT_SUPPORTED`, `TOPO_NOT_SUPPORTED`, `FEATURE_NOT_APPLICABLE`
-- **temporary**: For transient issues that should be fixed
-  - `requires_expiry_date: true` - Expiry date is mandatory
-  - `max_expiry_days: 180` - Maximum 6 months from today
-  - Allowed reasons (examples): `BUG_FIX_IN_PROGRESS`, `NEW_FEATURE_UNDER_DEVELOPMENT`, `INFRASTRUCTURE_ISSUE`
-
-#### Expiry Date Format
-- **Format**: ISO 8601 date format: `YYYY-MM-DD`
-- **Examples**: `2025-03-15`, `2025-12-31`
-- **Timezone**: All dates interpreted as UTC midnight (00:00:00 UTC)
-- **Validation**:
-  - Date must be parsable and not in the past (at time of addition)
-  - For temporary category: Date must not exceed `max_expiry_days` (180 days) from today
-  - For permanent category: Expiry date must not be specified
-
-### 3. Expiry Actions
-
-When a skip/xfail expiry date is reached:
-
-| Action | Behavior | Use Case |
-|--------|----------|----------|
-| `fail` | Test fails with explicit error message | Default - forces attention |
-| `warn` | Test runs, warning logged, but doesn't block | Soft reminder, gradual transition |
-| `run` | Test runs normally without skip/xfail | Silent transition back to normal |
-
-**Default**: `fail` (most conservative, ensures human review)
-
-### 4. Category and Expiry Date Validation
-
-| Scenario | Behavior | Rationale |
-|----------|----------|-----------|----------|
-| Permanent category with `expiry_date` | Validation error at load time | Permanent skips should not have expiry |
-| Permanent category without `expiry_date` | Skip/xfail applies indefinitely | Expected for permanent category |
-| Temporary category without `expiry_date` | Validation error at load time | Temporary skips must have expiry |
-| Temporary category with `expiry_date` > 180 days | Validation error at load time | Enforce max_expiry_days limit |
-| Category not in allowed_reasons | Validation error at load time | Category must be valid |
-| `expiry_date: ""` | Validation error at load time | Prevent accidents |
-| Invalid date format | Validation error at load time | Fail fast |
-| Missing `category` field | Validation error at load time | Category is mandatory |
-
-### 5. Error Messages
-
-#### Expired Skip (fail action)
-```
-SKIPPED [1] EXPIRED - Skip/xfail for test 'bgp/test_bgp_session.py::test_example' expired on 2025-01-15.
-Original reason: Infrastructure issue with BGP session setup
-Category: INFRASTRUCTURE_ISSUE (temporary)
-Action required: Update skip with new expiry date or fix the underlying issue.
-```
-
-#### Load-Time Validation Errors
-
-**Invalid Category**
-```
-ERROR: Invalid category 'INVALID_REASON' for test 'acl/test_acl.py'.
-Allowed categories:
-  Permanent: ASIC_NOT_SUPPORTED, TOPO_NOT_SUPPORTED, FEATURE_NOT_APPLICABLE
-  Temporary: BUG_FIX_IN_PROGRESS, NEW_FEATURE_UNDER_DEVELOPMENT, INFRASTRUCTURE_ISSUE
-```
-
-**Missing Expiry Date for Temporary Category**
-```
-ERROR: Missing expiry_date for test 'bgp/test_bgp.py'.
-Category 'BUG_FIX_IN_PROGRESS' is temporary and requires an expiry_date.
-```
-
-**Expiry Date on Permanent Category**
-```
-ERROR: Invalid expiry_date for test 'acl/test_acl.py'.
-Category 'ASIC_NOT_SUPPORTED' is permanent and should not have an expiry_date.
-```
-
-**Expiry Date Exceeds Maximum**
-```
-ERROR: expiry_date '2025-12-31' exceeds max_expiry_days (180) for test 'bgp/test_bgp.py'.
-Category 'INFRASTRUCTURE_ISSUE' requires expiry within 180 days from today (2025-06-01).
-```
-
-**Invalid Date Format**
-```
-ERROR: Invalid expiry_date format '2025-13-45' for test 'bgp/test_bgp.py'.
-Expected ISO 8601 format: YYYY-MM-DD
-```
-
----
-
-## Implementation Considerations
-
-### 1. Timezone Handling
-
-All expiry dates are interpreted as UTC midnight (00:00:00 UTC)
-
-### 2. Date Comparison Logic
-
-Test expires ON the expiry date (not day after).  Example - If `expiry_date: "2025-01-15"`, test expires at the start of Jan 15, 2025 UTC
-
-### 3. Backward Compatibility
-
-**Requirement**: Phased migration to avoid breaking existing workflows
-
-**Implementation Strategy**:
-
-#### Phase 1 (Migration Period - Warnings Only)
-- `category` field is optional, warnings logged if missing
-- `expiry_date` field is optional
-- Existing skip definitions continue to work unchanged
-- New skips encouraged (but not required) to use categories
-
-#### Phase 2 (Enforcement)
-- `category` field becomes mandatory (validation error if missing)
-- Category-specific rules enforced:
-  - Permanent categories: `expiry_date` not allowed
-  - Temporary categories: `expiry_date` required
-- All existing skips must be updated with valid categories
-
-**Migration Grace Period**: 4-6 weeks recommended
-
-### 4. Validation Strategy
-
-**Load-Time Validation** (Strict):
-- `category` field is mandatory for all skip/xfail entries
-- Category must match one of the `allowed_reasons` in either permanent or temporary
-- Permanent category must NOT have `expiry_date`
-- Temporary category MUST have `expiry_date`
-- Date format must be valid ISO 8601
-- Expiry date must not exceed `max_expiry_days` (180 days) for temporary category
-- Empty strings not allowed for dates
-- Date must not be in the past
-
-### 5. Multiple Mark Types
-
-Tests can have both `skip` and `xfail` with different categories and expiry dates:
-
-```yaml
-test_example.py::test_case:
-  skip:
-    reason: "Skip on VS platform due to ASIC limitations"
-    category: "ASIC_NOT_SUPPORTED"
-    conditions: ["asic_type == 'vs'"]
-  xfail:
-    reason: "Known to fail on platform B, fix in progress"
-    category: "BUG_FIX_IN_PROGRESS"
-    expiry_date: "2025-06-01"
-    conditions: ["platform == 'B'"]
-```
-
-**Behavior**: Each mark evaluated independently with its own category and expiry rules
-
-### 6. Expired Skip in CI/CD
-
-**Recommendations**:
-1. **Warning Period**: Add `expiry_action: warn` with 1-2 week grace period
-2. **Automated Alerts**: Trigger alerts when skips are expiring soon
-3. **Pull Request Checks**:
-   - Validate category is from allowed list
-   - Validate temporary skips have expiry dates
-   - Validate permanent skips do not have expiry dates
-   - Validate expiry dates don't exceed max_expiry_days
-   - Validate expiry dates are not in the past
-4. **Dashboard**:
-   - Track skip health across the repository
-   - Show distribution of permanent vs temporary skips
-   - Highlight skips expiring soon
-
----
-
-## Conclusion
-
-After evaluating three approaches for managing test skip expiry, the team has selected **Approach 3 (GitHub Issue-Based Expiry Management)**.
-
-### Summary of Approaches
-
-| Approach | Description | Status |
-|----------|-------------|--------|
-| **Approach 1** | Inline expiry dates in YAML | Considered - simpler but lacks integration |
-| **Approach 2** | Separate configuration registry | Considered - adds indirection |
-| **Approach 3** | GitHub issue-based expiry | **SELECTED** |
-
-### Key Design Decisions
-
-1. **Permanent skips** continue to use category tags in the YAML file without expiry
-2. **Temporary skips** reference GitHub issues instead of hard-coded dates
-3. **Conditional mark plugin** queries issue state (open/closed) to determine skip behavior
-4. **Automated workflow** monitors issues and manages expiry lifecycle
-5. **Soft rollout** with warning-only mode before enabling hard failure
-6. **Pre-expiry test execution** provides early warning before skips expire
-
-### Trade-offs
-
-The selected approach accepts increased implementation complexity and external API dependency in exchange for:
-- Better integration with existing GitHub-based workflows
-- Rich context and discussion capabilities
-- Built-in notification system
-- Flexible, centralized expiry policies
-- Priority escalation capabilities
-
-### Next Steps
-
-1. Implement GitHub issue cache for the conditional mark plugin
-2. Create the issue expiry workflow (GitHub Actions)
-3. Build reporting dashboard for skip visibility
-4. Migrate existing temporary skips to use GitHub issues
-5. Deploy in soft-expiry mode and monitor
-6. Enable hard failure mode after stabilization
