@@ -11,7 +11,6 @@ from contextlib import contextmanager
 
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis
 from tests.common.platform.device_utils import start_platform_api_service, platform_api_conn    # noqa: F401
 from tests.platform_tests.utils import get_config_from_yaml
@@ -91,28 +90,34 @@ def dut(duthosts, enum_rand_one_per_hwsku_hostname):
 @contextmanager
 def stop_and_restart_led_service(duthost, led_type_config, led_name):
     """
-    Context manager to stop LED service, yield duthost, then restart service.
+    Context manager to stop LED service(s), yield duthost, then restart service(s).
 
     Args:
         duthost: The DUT host
         led_type_config: The specific LED type dict (e.g., led_config["PORT_LED"])
         led_name: The actual LED instance name (e.g., "PORT_LED_1")
     """
-    service_name = led_type_config.get("service")
-    logger.info(f"Stopping {service_name} to allow manual LED control for {led_name}")
+    service_cfg = led_type_config.get("service")
+    services = service_cfg if isinstance(service_cfg, list) else [service_cfg]
 
-    service_status = duthost.shell(f"systemctl is-active {service_name}", module_ignore_errors=True)
-    was_running = service_status["stdout"].strip() == "active"
+    services_to_restart = []
+    for service_name in services:
+        logger.info(f"Stopping {service_name} to allow manual LED control for {led_name}")
+        service_status = duthost.shell(f"systemctl is-active {service_name}", module_ignore_errors=True)
+        if service_status["stdout"].strip() == "active":
+            duthost.shell(f"sudo systemctl stop {service_name}")
+            services_to_restart.append(service_name)
 
-    if was_running:
-        duthost.shell(f"sudo systemctl stop {service_name}")
+    if services_to_restart:
         time.sleep(1)
 
     yield duthost
 
-    if was_running:
+    for service_name in services_to_restart:
         logger.info(f"Restarting {service_name}")
         duthost.shell(f"sudo systemctl start {service_name}")
+
+    if services_to_restart:
         time.sleep(2)
 
 
@@ -138,33 +143,73 @@ def run_led_color_test(duthost, led_type_config, led_name):
     if not valid_color_received:
         pytest.fail(f"LED {led_name} status could not be determined cannot proceed with test.")
 
+    failures = []
+
     # Test each color
     for color in colors:
         logger.info(f"Setting {led_name} to {color}")
 
         # Set the LED color
+        t_set = time.monotonic()
         set_result = duthost.shell(f"sudo pddf_ledutil setstatusled {led_name} {color}", module_ignore_errors=True)
-        output_is_true = set_result["stdout"].strip() == "True"
-        pytest_assert(
-            output_is_true, f"Failed to set {led_name} to {color}: expected True, got {set_result.get('stdout', '')}"
+        t_set_done = time.monotonic()
+        logger.info(
+            f"setstatusled {led_name} {color} — rc={set_result['rc']} "
+            f"stdout={set_result['stdout'].strip()!r} stderr={set_result.get('stderr', '').strip()!r} "
+            f"elapsed={t_set_done - t_set: .3f}s"
         )
+        output_is_true = set_result["stdout"].strip() == "True"
         if not output_is_true:
-            break
+            msg = f"Failed to set  {led_name} to {color} — \
+                command output was {set_result['stdout'].strip()!r} (expected 'True')"
+            logger.error(msg)
+            failures.append(msg)
+            continue
         time.sleep(0.1)
 
         # Get the LED's current color
+        t_get = time.monotonic()
         get_result = duthost.shell(f"sudo pddf_ledutil getstatusled {led_name}", module_ignore_errors=True)
-        successful_status_read = get_result["rc"] == 0
-        pytest_assert(
-            successful_status_read,
-            f"Failed to get {led_name} status after setting to {color}: {get_result.get('stderr', '')}",
+        t_get_done = time.monotonic()
+        color_actual = get_result["stdout"].strip()
+        logger.info(
+            f"getstatusled {led_name} — rc={get_result['rc']} "
+            f"stdout={color_actual!r} stderr={get_result.get('stderr', '').strip()!r} "
+            f"elapsed={t_get_done - t_get: .3f}s "
+            f"delay_after_set={t_get - t_set_done: .3f}s"
         )
-        if successful_status_read:
-            color_actual = get_result["stdout"].strip()
+        if get_result["rc"] != 0:
+            msg = f"Failed to get {led_name} status after setting to {color}: {get_result.get('stderr', '').strip()!r}"
+            logger.error(msg)
+            failures.append(msg)
+            continue
 
-            pytest_assert(
-                color_actual == color, f"LED color for {led_name} expected to be '{color}', got '{color_actual}'"
+        if color_actual != color:
+            # Timing diagnostic: poll a few more times to see if the value eventually settles
+            logger.warning(
+                f"LED color mismatch for {led_name}: expected {color!r}, got {color_actual!r}. "
+                f"Polling to check if value settles..."
             )
+            settled = False
+            for poll_i, poll_delay in enumerate([0.1, 0.25, 0.5, 1.0], start=1):
+                time.sleep(poll_delay)
+                poll_result = duthost.shell(
+                    f"sudo pddf_ledutil getstatusled {led_name}", module_ignore_errors=True
+                )
+                poll_color = poll_result["stdout"].strip()
+                logger.warning(
+                    f"  Poll {poll_i} (+{poll_delay}s): got {poll_color!r} "
+                    f"(rc={poll_result['rc']}, stderr={poll_result.get('stderr', '').strip()!r})"
+                )
+                if poll_color == color:
+                    logger.warning(f"  Value settled to {color!r} after poll {poll_i}")
+                    settled = True
+                    break
+
+            if not settled:
+                msg = f"LED color for {led_name} expected to be '{color}', got '{color_actual}'"
+                logger.error(msg)
+                failures.append(msg)
     # Restore the initial color
     if initial_color:
         logger.info(f"Restoring {led_name} to initial color: {initial_color}")
@@ -175,6 +220,10 @@ def run_led_color_test(duthost, led_type_config, led_name):
             logger.info(f"Successfully restored {led_name} to {initial_color}")
         else:
             logger.warning(f"Failed to restore {led_name} to {initial_color}: {restore_result.get('stderr', '')}")
+
+    if failures:
+        pytest.fail(f"{len(failures)} color {'tests' if len(failures) > 1 else 'test'} failed "
+                    f"for {led_name}: \n" + "\n".join(f" - {f}" for f in failures))
 
 
 def get_led_count(led_type_config, _platform_api_conn):
