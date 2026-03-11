@@ -324,11 +324,16 @@ def configure_unnumbered_bgp(setup_info):
                       result.get('stderr', '')))
 
     # Configure link-local neighbor on EOS
-    eos_neighbor = "{}%{}".format(dut_link_local, neigh_pc_intf)
-    logger.info("Configure link-local BGP neighbor on EOS (%s)",
-                eos_neighbor)
+    # EOS does not support the Linux/FRR "fe80::addr%intf" notation.
+    # Use separate neighbor + update-source commands instead.
+    eos_neighbor = dut_link_local
+    logger.info("Configure link-local BGP neighbor on EOS (%s via %s)",
+                eos_neighbor, neigh_pc_intf)
     neigh_host.eos_config(
-        lines=["neighbor {} remote-as {}".format(eos_neighbor, dut_asn)],
+        lines=[
+            "neighbor {} remote-as {}".format(eos_neighbor, dut_asn),
+            "neighbor {} update-source {}".format(eos_neighbor, neigh_pc_intf),
+        ],
         parents="router bgp {}".format(neigh_asn))
 
     yield {
