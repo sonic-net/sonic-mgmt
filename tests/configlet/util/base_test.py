@@ -147,7 +147,7 @@ def prepare_for_test(duthost):
     mini_wo_to = managed_files["minigraph_wo_to"]
     if not mini_wo_to:
         report_error("Failed to get files wo_to={} clet={}".format(
-            mini_wo_to, clet_file))     # noqa F821
+            mini_wo_to, clet_file))     # noqa: F821
 
     if not os.path.exists(mini_wo_to):
         report_error("minigraph {} file absent".format(mini_wo_to))
@@ -176,7 +176,7 @@ def apply_clet(duthost, skip_test=False):
 
     if not clet_file:
         report_error("Failed to get files wo_to={} clet={}".format(
-            mini_wo_to, clet_file))     # noqa F821
+            mini_wo_to, clet_file))     # noqa: F821
 
     if not os.path.exists(clet_file):
         report_error("configlet {} file absent".format(clet_file))
