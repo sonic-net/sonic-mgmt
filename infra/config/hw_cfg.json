@@ -2274,7 +2274,7 @@
             "mtu_hack": {
                 "vms_count": 4
             }                                  
-	}, 
+        }, 
         "t0-m6-41-titan": {
             "ucs_host_name": "sonic-TTAN-ucs-m6-41",
             "ucs_host": "172.23.107.7",
