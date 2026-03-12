@@ -24,14 +24,16 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthost):
+def set_polling_interval(duthosts):
     wait_time = 2
-    duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
+    for duthost in duthosts.frontend_nodes:
+        duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
     wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
     yield
 
-    duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
+    for duthost in duthosts.frontend_nodes:
+        duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
     wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
 
@@ -153,13 +155,15 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
         intf2_indice = mg_facts['minigraph_ptf_indices'][intf2]
 
-    asic.config_ip_intf(intf1, "10.10.1.2/28", "add")
-    asic.config_ip_intf(intf2, "10.10.1.20/28", "add")
+    if tbinfo['topo']['type'] != 't0':
+        asic.config_ip_intf(intf1, "10.10.1.2/28", "add")
+        asic.config_ip_intf(intf2, "10.10.1.20/28", "add")
 
     yield intf1, intf2, intf1_indice, intf2_indice
 
-    asic.config_ip_intf(intf1, "10.10.1.2/28", "remove")
-    asic.config_ip_intf(intf2, "10.10.1.20/28", "remove")
+    if tbinfo['topo']['type'] != 't0':
+        asic.config_ip_intf(intf1, "10.10.1.2/28", "remove")
+        asic.config_ip_intf(intf2, "10.10.1.20/28", "remove")
 
     if tbinfo['topo']['type'] != 't0':
         if po1:
@@ -280,7 +284,7 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
 
 
 @pytest.fixture
-def proxy_arp_enabled(packets_for_test, rand_selected_dut, config_facts):
+def proxy_arp_enabled(request, rand_selected_dut, config_facts):
     """
     Tries to enable proxy ARP for each VLAN on the ToR
 
@@ -301,7 +305,6 @@ def proxy_arp_enabled(packets_for_test, rand_selected_dut, config_facts):
     vlan_ids = [vlans[vlan]['vlanid'] for vlan in list(vlans.keys())]
     old_proxy_arp_vals = {}
     new_proxy_arp_vals = []
-    ip_version, _, _ = packets_for_test
 
     # Enable proxy ARP/NDP for the VLANs on the DUT
     for vid in vlan_ids:
@@ -314,7 +317,7 @@ def proxy_arp_enabled(packets_for_test, rand_selected_dut, config_facts):
         new_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
         new_proxy_arp_vals.append(new_proxy_arp_res['stdout'])
 
-    if ip_version == 'v6':
+    if 'ipv6' in request.node.name:
         # Allow time for ndppd to reset and startup
         time.sleep(30)
 

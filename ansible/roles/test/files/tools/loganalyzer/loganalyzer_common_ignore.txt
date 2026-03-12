@@ -209,7 +209,7 @@ r, ".* ERR syncd\d*#syncd.*SAI_API_UNSPECIFIED:sai_bulk_object_get_stats.*"
 r, ".* ERROR: Failed to parse lldp age.*"
 
 # NTPsec always expects the statistics directory to be available, but for now, we don't need NTP stats to be logged
-r, ".* ERR ntpd.*: statistics directory .* does not exist or is unwriteable, error No such file or directory"
+r, ".* ERR ntpd.*: statistics directory .* does not exist or is unwriteable.*"
 
 # NTPsec logs a message with ERR in it at NOTICE level when exiting gracefully, ignore it
 r, ".* NOTICE ntpd.*: ERR: ntpd exiting on signal 15.*"
@@ -229,12 +229,12 @@ r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] mlnx_sai_utils.c\[\d+\]- sai_get_attribu
 r, ".* ERR syncd#SDK: \[SAI_BRIDGE.ERR\].*mlnx_sai_bridge.c\[\d+\]- mlnx_bridge_port_isolation_group_get: Isolation group is only supported for bridge port type port"
 r, ".* ERR syncd#SDK: \[SAI_BRIDGE.ERR\].*mlnx_sai_bridge.c\[\d+\]- mlnx_bridge_1d_oid_to_data: Unexpected bridge type 0 is not 1D"
 r, ".* ERR syncd#SDK: \[SAI_BRIDGE.ERR\].*mlnx_sai_bridge.c\[\d+\]- mlnx_bridge_port_lag_or_port_get: Invalid port type - 2"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- sai_get_attributes: Failed to get attribute*."
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, PORT_ID, key:BRIDGE_PORT \[OID:.*\] \[bridge_ports_db.*"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, ISOLATION_GROUP, key:BRIDGE_PORT \[OID:.*\] \[bridge_ports_db.*"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_UNICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*\] \[Type:.* sx_bridge_id.*"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_MULTICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- sai_get_attributes: Failed to get attribute*."
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, PORT_ID, key:BRIDGE_PORT \[OID:.*\] \[bridge_ports_db.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, ISOLATION_GROUP, key:BRIDGE_PORT \[OID:.*\] \[bridge_ports_db.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_UNICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*\] \[Type:.* sx_bridge_id.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_MULTICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*get_dispatch_attribs_handler:.*(INGRESS_SAMPLE_MIRROR_SESSION|EGRESS_SAMPLE_MIRROR_SESSION).*"
 
 # https://github.com/sonic-net/sonic-mgmt/issues/10384
@@ -410,6 +410,9 @@ r, ".* ERR dockerd: nss_tacplus: failed to connect TACACS\+ server.* Transport e
 r, ".* ERR dhcp_relay#supervisor-proc-exit-listener: Exception.*len.*trace: Traceback \(most recent call last\).*File .*\/usr\/bin\/supervisor-proc-exit-listener.*line.*in \<module\>.*main\(sys.argv.*File .*\/usr\/bin\/supe.*"
 r, ".* ERR dhcp_relay\#supervisor-proc-exit-listener: Exception:.*len.*trace: Traceback \(most recent call last.*File .*\/usr\/bin\/supervisor-proc-exit-listener.* line.*in .*main\(sys.* File.*\/usr\/bin\/supervisor-proc-exit-listener.* line.* in main.*payload.* sys.stdin.read.*KeyError:.*len.*"
 
+# https://github.com/sonic-net/sonic-buildimage/issues/22855
+r, ".* ERR chronyd\[\d+\]: Could not add source.*"
+
 # https://github.com/sonic-net/sonic-buildimage/issues/23426
 r, ".*ERR pmon.*Failed to confirm VDM freeze status for port.*"
 r, ".*ERR pmon.*Failed to freeze VDM stats in contextmanager for port.*"
@@ -419,3 +422,30 @@ r, ".*ERR pmon.*Failed to unfreeze VDM stats in contextmanager for port.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/21186
 r, ".*ERR bgp\#bgpmon:\s+\*ERROR\*\s+Failed\s+with\s+rc:\d+\s+when\s+execute:\s+.*vtysh.*-c.*show\s+bgp\s+summary\s+json.*"
+
+# https://github.com/sonic-net/sonic-buildimage/issues/24966
+r, ".* ERR bgp#mgmtd.*mgmt_ds_lock: ERROR: lock already taken on DS:running by session-id.*"
+
+# This is an info log which matches the regex "kernel:.*\serr", not an err
+r, ".*ACPI.*System may be unstable or behave erratically.*"
+
+# Ignore systemd-networkd.socket not being able to be started. This is expected on non-DPU platforms.
+r, ".*ERR systemd\[1\]: Failed to listen on systemd-networkd.socket - Network Service Netlink Socket.*"
+
+# Ignore syncd error when switching global packet trimming mode
+r, ".*ERR .* SAI_API_SWITCH:brcm_sai_switch_pkt_trim_qos_tc_egr_entries_create:.* Egress qos map with idx .* entries are already present.*"
+
+# Ignore the error when the sysfs was accessed too soon, before sys creation has been completed.
+r, ".*ERR sfputil: Failed to read from file /sys/module/sx_core/asic\d+/module\d+/present - FileNotFoundError.*"
+
+# This is a deprecation warning not a functional error, which matches the regex "kernel:.*allocation", not an err.
+r, ".*kernel.*gpio.*Static allocation of GPIO base is deprecated.*"
+
+# Ignore SCD kernel warning about I2C communication ack errors on Arista platforms
+r, ".*WARNING kernel:.*scd.*rsp.*ack_error=1.*"
+
+# CHASSIS_STATE_DB only exists on chassis platforms; gnmi processes log an ERR on non-chassis systems at startup
+r, ".*ERR gnmi#.*getDbInfo: Failed to find CHASSIS_STATE_DB.*"
+
+# Ignore SAI_STATUS_INVALID_PARAMETER error for SAI_API_QUEUE get stats until it's resolved
+r, ".*ERR swss#orchagent:.*SAI_API_QUEUE, status: SAI_STATUS_INVALID_PARAMETER.*"

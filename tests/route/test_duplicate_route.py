@@ -99,8 +99,16 @@ def verify_expected_loganalyzer_logs(
         ".*ERR.* api SAI_COMMON_API_BULK_CREATE failed in syncd mode.*",
         ".*ERR.* flush_creating_entries: EntityBulker.flush create entries failed.*",
         ".*ERR.* handleSaiFailure: Encountered failure in create operation.*",
+        ".*ERR.* start: Encountered failure in create operation.*",
+        ".*ERR.* Failed to add UC route .* Entry Already Exists.",
+        r".*ERR.* uc_route_set_async_pre_send_validate .* \[Entry Already Exists\].",
+        ".*ERR.* mlnx_create_route_async.* Entry Already Exists.",
         ".*ERR.* object key SAI_OBJECT_TYPE_ROUTE_ENTRY:.* already exists.*",  # TODO move to expectRegex
         ".*ERR.* addRoutePost: Failed to create route.*",  # TODO move to expectRegex
+        ".*ERR.* ipv4_route_bulk_updates API returned.*Key already exists in table.*",
+        ".*ERR syncd#SDK:.*mlnx_route_pre_create: Route entry already exists in the Route DB.*",
+        ".*ERR syncd#SDK:.*mlnx_route_bulk_set_impl: Failed to prepare route data for bulk operation. index:.*",
+        ".*ERR syncd#SDK:.*mlnx_route_bulk_set_impl: No valid route entries for bulk operation in chunk starting at.*"
     ]
     if loganalyzer:
         # Skip if loganalyzer is disabled

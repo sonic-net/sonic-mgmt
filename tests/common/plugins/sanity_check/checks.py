@@ -394,15 +394,20 @@ def check_dbmemory(duthosts):
 
 def _check_monit_services_status(check_result, monit_services_status):
     """
-    @summary: Check whether each type of service which was monitored by Monit was in correct status or not.
-              If a service was in "Not monitored" status, sanity check will skip it since this service
-              was temporarily set to not be monitored by Monit.
-    @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
+    @summary: Check whether each type of service which was monitored by Monit
+              was in correct status or not. If a service was in "Not monitored"
+              status, sanity check will skip it since this service was
+              temporarily set to not be monitored by Monit.
+    @return: A dictionary contains the testing result (failed or not failed)
+             and the status of each service.
     """
     check_result["services_status"] = {}
     for service_name, service_info in list(monit_services_status.items()):
         check_result["services_status"].update({service_name: service_info["service_status"]})
         if service_info["service_status"] == "Not monitored":
+            continue
+        # Newer versions of Monit have standardized on OK as a success result
+        if service_info["service_status"] == "OK":
             continue
         if ((service_info["service_type"] == "Filesystem" and service_info["service_status"] != "Accessible")
                 or (service_info["service_type"] == "Process" and service_info["service_status"] != "Running")
@@ -764,7 +769,13 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
                 duthosts.shell("config mux mode auto all")
 
             logger.warning('Mux state check failed, trying to recover via linkmgrd restart')
-            duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+
+            try:
+                duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+            except RunAnsibleModuleFail as e:
+                logger.error("Failed to restart linkmgrd %s" % (str(e)))
+                return check_passed
+
             wait_until(30, 5, 0, _verify_mux_simulator_status_passed)
 
         if not check_passed:

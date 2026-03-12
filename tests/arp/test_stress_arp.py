@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
                       in6_getnsma, inet_pton, inet_ntop, socket
 from ipaddress import ip_address, ip_network
-from tests.common.utilities import wait_until, increment_ipv6_addr
+from tests.common.utilities import wait_until, increment_ipv6_addr, is_ipv6_only_topology
 from tests.common.errors import RunAnsibleModuleFail
 
 
@@ -35,11 +35,34 @@ LOOP_TIMES_LEVEL_MAP = {
 }
 
 
+@pytest.fixture(scope="function", autouse=True)
+def ignore_errors_for_non_selected_dualtor_hosts(
+    loganalyzer,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    tbinfo
+):
+    if 'dualtor' in tbinfo['topo']['name']:
+        # There is a known issue which causes redundant route entry delete and reports an ERR log.
+        # FYI, https://github.com/sonic-net/sonic-swss/issues/2579
+        # This error can be safely ignored on standby
+        error_patterns = [
+            ".*ERR swss#orchagent: :- meta_sai_validate_route_entry: object key SAI_OBJECT_TYPE_ROUTE_ENTRY:{\"dest\":\".*\",\"switch_id\":\"oid:.*\",\"vr\":\"oid:.*\"} doesn't exist",  # noqa: E501
+        ]
+        for duthost in duthosts:
+            if duthost.hostname != enum_rand_one_per_hwsku_frontend_hostname:
+                if loganalyzer and duthost.hostname in loganalyzer:
+                    loganalyzer[duthost.hostname].ignore_regex.extend(error_patterns)
+    yield
+
+
 @pytest.fixture(autouse=True)
-def arp_cache_fdb_cleanup(duthost):
+def arp_cache_fdb_cleanup(duthosts, tbinfo):
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
     try:
-        clear_dut_arp_cache(duthost)
-        fdb_cleanup(duthost)
+        for dut in duthosts:
+            clear_dut_arp_cache(dut, is_ipv6=is_ipv6_only)
+            fdb_cleanup(dut)
     except RunAnsibleModuleFail as e:
         if 'Failed to send flush request: No such file or directory' in str(e):
             logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
@@ -52,8 +75,9 @@ def arp_cache_fdb_cleanup(duthost):
 
     # Ensure clean test environment even after failing
     try:
-        clear_dut_arp_cache(duthost)
-        fdb_cleanup(duthost)
+        for dut in duthosts:
+            clear_dut_arp_cache(dut, is_ipv6=is_ipv6_only)
+            fdb_cleanup(dut)
     except RunAnsibleModuleFail as e:
         if 'Failed to send flush request: No such file or directory' in str(e):
             logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
@@ -80,7 +104,7 @@ def add_arp(ptf_intf_ipv4_addr, intf1_index, ptfadapter):
                                           hw_tgt='ff:ff:ff:ff:ff:ff'
                                           )
         # Add a short delay to avoid packet loss
-        time.sleep(0.001)
+        time.sleep(0.01)
         testutils.send_packet(ptfadapter, intf1_index, pkt)
     logger.info("Sending {} arp entries".format(ip_num))
 
@@ -109,7 +133,6 @@ def test_ipv4_arp(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     pytest_assert(ipv4_available > 0 and fdb_available > 0, "Entries have been filled")
 
     arp_available = min(min(ipv4_available, fdb_available), ENTRIES_NUMBERS)
-    # Neighbor support is dependant on NH scale  for some cisco platforms.
     # Limit ARP scale based on available NH entries
     asic_type = duthost.facts["asic_type"]
     if 'cisco-8000' in asic_type:
@@ -194,6 +217,7 @@ def test_ipv6_nd(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                  ptfhost, config_facts, tbinfo, ip_and_intf_info,
                  ptfadapter, get_function_completeness_level, proxy_arp_enabled):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
@@ -227,7 +251,7 @@ def test_ipv6_nd(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                               "Neighbor Table Add failed")
         finally:
             try:
-                clear_dut_arp_cache(duthost)
+                clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
                 fdb_cleanup(duthost)
             except RunAnsibleModuleFail as e:
                 if 'Failed to send flush request: No such file or directory' in str(e):
@@ -262,6 +286,7 @@ def test_ipv6_nd_incomplete(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
     pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
@@ -288,7 +313,7 @@ def test_ipv6_nd_incomplete(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     logger.info("original nf_conntrack_icmpv6_timeout: {}".format(orig_conntrack_icmpv6_timeout))
 
     try:
-        clear_dut_arp_cache(duthost)
+        clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
 
         duthost.command("conntrack -F")
 
@@ -318,4 +343,4 @@ def test_ipv6_nd_incomplete(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
         duthost.command("conntrack -F")
 
-        clear_dut_arp_cache(duthost)
+        clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)

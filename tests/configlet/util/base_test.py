@@ -147,7 +147,7 @@ def prepare_for_test(duthost):
     mini_wo_to = managed_files["minigraph_wo_to"]
     if not mini_wo_to:
         report_error("Failed to get files wo_to={} clet={}".format(
-            mini_wo_to, clet_file))     # noqa F821
+            mini_wo_to, clet_file))     # noqa: F821
 
     if not os.path.exists(mini_wo_to):
         report_error("minigraph {} file absent".format(mini_wo_to))
@@ -176,7 +176,7 @@ def apply_clet(duthost, skip_test=False):
 
     if not clet_file:
         report_error("Failed to get files wo_to={} clet={}".format(
-            mini_wo_to, clet_file))     # noqa F821
+            mini_wo_to, clet_file))     # noqa: F821
 
     if not os.path.exists(clet_file):
         report_error("configlet {} file absent".format(clet_file))
@@ -188,15 +188,18 @@ def apply_clet(duthost, skip_test=False):
     # Apply delete
     duthost.shell("configlet -d -j {}".format(del_sonic_clet_file))
 
-    tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
-    duthost.shell("config interface shutdown {}".format(tor_ifname))
-    do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown".format(tor_ifname))
+    for link in tor_data["links"]:
+        tor_ifname = link["local"]["sonic_name"]
+        duthost.shell("config interface shutdown {}".format(tor_ifname))
+        do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown".format(tor_ifname))
 
     duthost.shell("configlet -u -j {}".format(sonic_clet_file))
     do_pause(PAUSE_CLET_APPLY, "Pause after applying configlet")
 
-    duthost.shell("config interface startup {}".format(tor_ifname))
-    do_pause(PAUSE_INTF_UP, "pause upon i/f {} startup".format(tor_ifname))
+    for link in tor_data["links"]:
+        tor_ifname = link["local"]["sonic_name"]
+        duthost.shell("config interface startup {}".format(tor_ifname))
+        do_pause(PAUSE_INTF_UP, "pause upon i/f {} startup".format(tor_ifname))
 
     append_log_prefix_msg("checking_dump", pfx_lvl)
     assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, clet_db_dir,
