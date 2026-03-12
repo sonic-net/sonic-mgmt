@@ -5494,3 +5494,20 @@
   inv_name: str5
   auto_recover: 'False'
   comment: yatishkoul
+
+- conf-name: ptp-robot-7060-1
+  group-name:
+  topo: ptp-32
+  robot_server: str43-3po-robot
+  robot_id: 1
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str43-3po-robot-7060
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-shankam

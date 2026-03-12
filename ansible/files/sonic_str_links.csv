@@ -727,3 +727,11 @@ str-8101-d04-u36,Ethernet192,str43-msn4700-d05-u23,Ethernet128,400000,,access,
 str-8101-d04-u36,Ethernet200,str43-msn4700-d05-u23,Ethernet136,400000,,access,
 str-8101-d04-u36,Ethernet208,str43-msn4700-d05-u23,Ethernet144,400000,,access,
 str-8101-d04-u36,Ethernet216,str43-msn4700-d05-u23,Ethernet152,400000,,access,
+str43-3po-robot-7060,Ethernet32,str43-3po-robot-7060,Ethernet40,100000,,Access,on
+str43-3po-robot-7060,Ethernet48,str43-3po-robot-7060,Ethernet56,100000,,Access,on
+str43-3po-robot-7060,Ethernet64,str43-3po-robot-7060,Ethernet72,100000,,Access,on
+str43-3po-robot-7060,Ethernet80,str43-3po-robot-7060,Ethernet88,100000,,Access,on
+str43-3po-robot-7060,Ethernet40,str43-3po-robot-7060,Ethernet32,100000,,Access,on
+str43-3po-robot-7060,Ethernet56,str43-3po-robot-7060,Ethernet48,100000,,Access,on
+str43-3po-robot-7060,Ethernet72,str43-3po-robot-7060,Ethernet64,100000,,Access,on
+str43-3po-robot-7060,Ethernet88,str43-3po-robot-7060,Ethernet80,100000,,Access,on

@@ -67,3 +67,4 @@ pdu-99,12,str-4700-d04-u10,PSU2
 pdu-99,30,str-4700-d04-u43,PSU1
 pdu-100,30,str-4700-d04-u43,PSU2
 pdu-102,24,str43-msn4700-d05-u23,PSU1
+pdu-144,7,str43-3po-robot-7060,PSU1
