@@ -219,9 +219,9 @@
   group-name: vms20-ixia-10
   topo: tgen-t1-64-4
   ptf_image_name: docker-keysight-api-server
-  ptf_imagetag: 10.25.2405.106
+  ptf_imagetag: 10.80.2412.176
   ptf: ixia-apiserver4
-  ptf_ip: 10.3.145.39/23
+  ptf_ip: 10.64.246.126/25
   ptf_ipv6:
   server: server_20
   vm_base:
@@ -234,14 +234,15 @@
   tgs:
   - msr-ixia-4
   auto_recover: 'False'
-  comment: devojha
+  comment: dashuaizhang
 
 - conf-name: vms20-rdma-t0-7050cx3
   group-name: vms20-ixia-11
   topo: tgen-t0-3-32
   ptf_image_name: docker-keysight-api-server
-  ptf: vms20-ixia-11
-  ptf_ip: 10.64.246.25/25
+  ptf_imagetag: 10.80.2412.176
+  ptf: ixia-apiserver4
+  ptf_ip: 10.64.246.126/25
   ptf_ipv6:
   server: server_20
   vm_base:
@@ -254,7 +255,7 @@
   tgs:
   - msr-ixia-4
   auto_recover: 'False'
-  comment: devojha
+  comment: dashuaizhang
 
 - conf-name: vms20-rdma-t0-5640
   group-name: vms20-ixia-12
@@ -788,7 +789,7 @@
   ptf_image_name: docker-keysight-api-server
   ptf_imagetag: 10.25.2405.106
   ptf: vms69-ixia-2
-  ptf_ip: 10.64.246.127/26
+  ptf_ip: 10.64.247.69/26
   ptf_ipv6:
   server: server_69
   vm_base:
@@ -806,7 +807,7 @@
   ptf_image_name: docker-keysight-api-server
   ptf_imagetag: 10.25.2405.106
   ptf: vms69-ixia-2
-  ptf_ip: 10.64.247.127/26
+  ptf_ip: 10.64.247.69/26
   ptf_ipv6:
   server: server_69
   vm_base:
@@ -3143,6 +3144,9 @@
   - str3-8102-07-dpu-7
   inv_name: str3
   auto_recover: 'True'
+  is_smartswitch: 'True'
+  is_lit_mode: 'True'
+  comment: vvolam - Reserved for litmode nightly test
 
 - conf-name: testbed-bjw2-can-t1-8101-1
   group-name: bjw2-2-9
@@ -3339,7 +3343,8 @@
   inv_name: str3
   auto_recover: 'True'
   is_smartswitch: 'True'
-  comment: paravind
+  is_lit_mode: 'True'
+  comment: vvolam - Reserved for litmode nightly test
 
 - conf-name: vms68-t0-smartswitch-8102-01
   group-name: vms68-6
@@ -5342,6 +5347,7 @@
   inv_name: str3
   auto_recover: 'True'
   is_smartswitch: 'True'
+  is_lit_mode: 'True'
   comment: vvolam
 
 - conf-name: vms69-t1-smartswitch-8102-26
@@ -5366,6 +5372,7 @@
   inv_name: str3
   auto_recover: 'True'
   is_smartswitch: 'True'
+  is_lit_mode: 'True'
   comment: vvolam
 
 - conf-name: vmstr-ut2-7280r4-1
