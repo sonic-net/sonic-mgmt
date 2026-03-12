@@ -726,7 +726,8 @@ class TestShowPriorityGroup():
 
 class TestShowQueue():
 
-    def test_show_queue_counters(self, setup, setup_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_show_queue_counters(self, setup, setup_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                 tbinfo):
         """
         Checks whether 'show queue counters' lists the interface names as
         per the configured naming mode
@@ -757,6 +758,12 @@ class TestShowQueue():
                         if hostname != duthost.hostname:
                             continue
                     # The interface name is always the last but one field in the BUFFER_QUEUE entry key
+                    # Note that on multi-asic T2, filter interfaces by asic namespace since
+                    # queue counters are queried per-asic. On single-asic T2 or
+                    # non-T2 topologies, include all local interfaces.
+                    if (duthost.is_multi_asic and tbinfo['topo']['type'] == 't2' and
+                            fields[-3] != asic.namespace):
+                        continue
                     interfaces.add(fields[-2])
                 except IndexError:
                     pass
