@@ -136,9 +136,19 @@ def wait_for_http(host_ip, http_port, timeout=10):
     return started
 
 
+def get_change_routes_ports(vm, topo):
+    offset = 0
+    vrf_data = topo.get("convergence_data", None)
+    if vrf_data:
+        offset = vrf_data["vm_offset_mapping"][vm]
+    else:
+        offset = topo["topology"]["VMs"][vm]["vm_offset"]
+    return (IPV4_BASE_PORT + offset, IPV6_BASE_PORT + offset)
+
+
 def get_topo_type(topo_name):
     pattern = re.compile(
-        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|m1|dpu|smartswitch-t1|lt2|ft2)')
+        r'^(t0-mclag|t0|t1|ptf|fullmesh|dualtor|t2|mgmttor|m0|mc0|mx|m1|c0|dpu|smartswitch-t1|lt2|ft2)')
     match = pattern.match(topo_name)
     if not match:
         return "unsupported"
@@ -544,18 +554,24 @@ def fib_t0(topo, ptf_ip, no_default_route=False, action="announce", upstream_nei
     if upstream_neighbor_groups == 0:
         upstream_neighbor_groups = common_config.get("upstream_neighbor_groups", DEFAULT_NEIGHBOR_GROUPS)
 
+    multi_vrf = topo.get('topo_is_multi_vrf', False)
+    multi_vrf_data = topo.get('convergence_data', {})
+
     vms = topo['topology']['VMs']
+    if multi_vrf:
+        vms = {}
+        for prime_dev, vrfs in multi_vrf_data['convergence_mapping'].items():
+            for vrf in vrfs:
+                vms[vrf] = prime_dev
+
     vms_len = len(vms)
     current_routes_offset = 0
     last_suffix = 0
     for index, vm_name in enumerate(sorted(vms.keys())):
-        vm = vms[vm_name]
         router_type = "leaf"
         if 'tor' in topo['configuration'][vm_name]['properties']:
             router_type = 'tor'
-        vm_offset = vm['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        port, port6 = get_change_routes_ports(vm_name, topo)
         aggregate_prefixes = topo['configuration'][vm_name].get("aggregate_routes", AGGREGATE_ROUTES_DEFAULT_VALUE)
         aggregate_routes = [(prefix, nhipv4 if "." in prefix else nhipv6, "") for prefix in aggregate_prefixes]
         aggregate_routes_v4 = get_ipv4_routes(aggregate_routes)
@@ -614,8 +630,16 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
     enable_ipv4_routes_generation = common_config.get("enable_ipv4_routes_generation",
                                                       ENABLE_IPV4_ROUTES_GENERATION_DEFAULT_VALUE)
 
+    multi_vrf = topo.get('topo_is_multi_vrf', False)
+    multi_vrf_data = topo.get('convergence_data', {})
+
     vms = topo['topology']['VMs']
     vms_config = topo['configuration']
+    if multi_vrf:
+        vms = {}
+        for prime_dev, vrfs in multi_vrf_data['convergence_mapping'].items():
+            for vrf in vrfs:
+                vms[vrf] = prime_dev
 
     dpus = None
     if 'DPUs' in topo['topology']:
@@ -639,9 +663,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
             v = downstream_vm_config[k]
             if dpus and k in dpus:
                 continue
-            vm_offset = vms[k]['vm_offset']
-            port = IPV4_BASE_PORT + vm_offset
-            port6 = IPV6_BASE_PORT + vm_offset
+            port, port6 = get_change_routes_ports(k, topo)
             routes_to_change[port] = []
             routes_to_change[port6] = []
             aggregate_prefixes = v.get("aggregate_routes", AGGREGATE_ROUTES_DEFAULT_VALUE)
@@ -684,10 +706,7 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
             curr_no_default_route = True
         if dpus and k in dpus:
             continue
-
-        vm_offset = vms[k]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        port, port6 = get_change_routes_ports(k, topo)
         # ports for T0 is already in routes_to_change, but ports for T1 is not, hence need setdefault
         routes_to_change.setdefault(port, [])
         routes_to_change.setdefault(port6, [])
@@ -839,7 +858,6 @@ def fib_m0(topo, ptf_ip, action="announce", topo_routes={}):
     mx_subnet_prefix_len_v6 = common_config.get(
         "mx_subnet_prefix_len_v6", MX_SUBNET_PREFIX_LEN_V6)
 
-    vms = topo['topology']['VMs']
     vms_config = topo['configuration']
     mx_list = list(filter(lambda x: "MX" in x, vms_config.keys()))
     mx_number = len(mx_list)
@@ -855,9 +873,7 @@ def fib_m0(topo, ptf_ip, action="announce", topo_routes={}):
     m1_routes_v6 = None
     mx_index = -1
     for k, v in vms_config.items():
-        vm_offset = vms[k]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        port, port6 = get_change_routes_ports(k, topo)
 
         router_type = None
         # Upstream
@@ -1017,7 +1033,6 @@ def fib_mx(topo, ptf_ip, action="announce", topo_routes={}):
     mx_number = common_config.get("mx_number", MX_NUMBER)
     m1_asn_start = common_config.get("m1_asn_start", M1_ASN_START)
 
-    vms = topo['topology']['VMs']
     vms_config = topo['configuration']
 
     # In order to avoid overlapping the routes announced and the vlan of mx, get ip_start
@@ -1030,9 +1045,7 @@ def fib_mx(topo, ptf_ip, action="announce", topo_routes={}):
     m0_routes_v4 = None
     m0_routes_v6 = None
     for k, v in vms_config.items():
-        vm_offset = vms[k]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        port, port6 = get_change_routes_ports(k, topo)
 
         # Routes announced by different M0s are the same, can reuse generated routes
         if m0_routes_v4 is not None:
@@ -1050,6 +1063,61 @@ def fib_mx(topo, ptf_ip, action="announce", topo_routes={}):
 
             m0_routes_v4 = routes_v4
             m0_routes_v6 = routes_v6
+
+        topo_routes[k] = {}
+        topo_routes[k][IPV4] = routes_v4
+        topo_routes[k][IPV6] = routes_v6
+        if action != GENERATE_WITHOUT_APPLY:
+            change_routes(action, ptf_ip, port, routes_v4)
+            change_routes(action, ptf_ip, port6, routes_v6)
+
+
+"""
+For C0, we have 3 set of routes:
+    - M0 routes - advertised by neighbor M0 VM
+    - M1 routes - advertised by neighbor M1 VM
+    - C1 routes - advertised by neighbor C1 VM
+
+All M0, M1, and C1 neighbors advertise default route (0.0.0.0/0 and ::/0) to C0 DUT.
+The AS path length determines route selection priority:
+    - M1: shortest AS path (highest priority)
+    - M0: medium AS path
+    - C1: longest AS path (lowest priority)
+This ensures C0's route selection priority is: M1 > M0 > C1.
+"""
+
+
+def fib_c0(topo, ptf_ip, action="announce", topo_routes={}):
+    common_config = topo['configuration_properties'].get('common', {})
+    nhipv4 = common_config.get("nhipv4", NHIPV4)
+    nhipv6 = common_config.get("nhipv6", NHIPV6)
+
+    vms = topo['topology']['VMs']
+    vms_config = topo['configuration']
+
+    for k, v in vms_config.items():
+        vm_offset = vms[k]['vm_offset']
+        port = IPV4_BASE_PORT + vm_offset
+        port6 = IPV6_BASE_PORT + vm_offset
+
+        router_type = None
+        aspath = None
+        if "m1" in v["properties"]:
+            router_type = "m1"
+            aspath = ""             # shortest AS path, highest priority
+        elif "m0" in v["properties"]:
+            router_type = "m0"
+            aspath = "64900"        # medium AS path
+        elif "c1" in v["properties"]:
+            router_type = "c1"
+            aspath = "65300 65400"  # longest AS path, lowest priority
+
+        routes_v4 = []
+        routes_v6 = []
+        # All neighbor types (M0, M1, C1) advertise default route with different AS paths
+        if router_type in ["m0", "m1", "c1"]:
+            routes_v4 = [("0.0.0.0/0", nhipv4, aspath)]
+            routes_v6 = [("::/0", nhipv6, aspath)]
 
         topo_routes[k] = {}
         topo_routes[k][IPV4] = routes_v4
@@ -1140,16 +1208,13 @@ def fib_m1(topo, ptf_ip, action="announce", topo_routes={}):
     mx_lo_v4_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("mx_loopback_v4_start")))
     mx_lo_v6_start = ipaddress.ip_network(UNICODE_TYPE(common_config.get("mx_loopback_v6_start")))
 
-    vms = topo['topology']['VMs']
     vms_config = topo['configuration']
 
     ipv4_base = ipaddress.IPv4Address(UNICODE_TYPE("192.168.0.0"))
     ipv6_base = ipaddress.IPv6Address(UNICODE_TYPE("20c0:a800::0"))
 
     for k, v in vms_config.items():
-        vm_offset = vms[k]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        port, port6 = get_change_routes_ports(k, topo)
 
         router_type = None
         if "ma" in v["properties"]:
@@ -1288,9 +1353,7 @@ def fib_ft2_routes(topo, ptf_ip, action="announce", topo_routes={}):
             if vm_index >= len(vms):
                 break
             vm_name = vms[vm_index]
-            vm_offset = topo['topology']['VMs'][vm_name]['vm_offset']
-            port = IPV4_BASE_PORT + vm_offset
-            port6 = IPV6_BASE_PORT + vm_offset
+            port, port6 = get_change_routes_ports(vm_name, topo)
             ipv4_routes = []
             for subnet in group_subnets_ipv4:
                 # Generate IPv4 routes
@@ -1313,7 +1376,6 @@ def fib_ft2_routes(topo, ptf_ip, action="announce", topo_routes={}):
 
 def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce", topo_routes={}):
     common_config = topo['configuration_properties'].get('common', {})
-    vms = topo['topology']['VMs']
     vms_config = topo['configuration']
     r_set = []
 
@@ -1350,9 +1412,7 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce", topo_routes
                 set_num = 0
             else:
                 set_num = 1
-            vm_offset = vms[a_vm]['vm_offset']
-            port = IPV4_BASE_PORT + vm_offset
-            port6 = IPV6_BASE_PORT + vm_offset
+            port, port6 = get_change_routes_ports(a_vm, topo)
             aggregate_prefixes = vms_config[a_vm].get("aggregate_routes", AGGREGATE_ROUTES_DEFAULT_VALUE)
             aggregate_routes = [(prefix, nhipv4 if "." in prefix else nhipv6, "") for prefix in aggregate_prefixes]
             aggregate_routes_v4 = get_ipv4_routes(aggregate_routes)
@@ -1431,9 +1491,7 @@ def fib_t0_mclag(topo, ptf_ip, action="announce", topo_routes={}):
             set_num = 0
         else:
             set_num = 1
-        vm_offset = vms[vm]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        port, port6 = get_change_routes_ports(vm, topo)
         aggregate_prefixes = topo['configuration'][vm].get("aggregate_routes", AGGREGATE_ROUTES_DEFAULT_VALUE)
         aggregate_routes = [(prefix, nhipv4 if "." in prefix else nhipv6, "") for prefix in aggregate_prefixes]
         aggregate_routes_v4 = get_ipv4_routes(aggregate_routes)
@@ -1508,7 +1566,7 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
             if group * T1_GROUP_SIZE + vm_index >= len(t1_vms):
                 break
             vm_name = t1_vms[group * T1_GROUP_SIZE + vm_index]
-            vm_offset = topo['topology']['VMs'][vm_name]['vm_offset']
+            port, port6 = get_change_routes_ports(vm_name, topo)
 
             ipv4_routes = []
             ipv6_routes = []
@@ -1523,8 +1581,8 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
             topo_routes[vm_name][IPV4] = ipv4_routes
             topo_routes[vm_name][IPV6] = ipv6_routes
             if action != GENERATE_WITHOUT_APPLY:
-                change_routes(action, ptf_ip, IPV4_BASE_PORT + vm_offset, ipv4_routes)
-                change_routes(action, ptf_ip, IPV6_BASE_PORT + vm_offset, ipv6_routes)
+                change_routes(action, ptf_ip, port, ipv4_routes)
+                change_routes(action, ptf_ip, port6, ipv6_routes)
 
     for device in range(len(ut2_vms)):
         ipv4_routes = [
@@ -1539,7 +1597,7 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
         as_path = "{} {}".format(leaf_asn_start + group, tor_asn_start + group)
 
         vm_name = ut2_vms[device]
-        vm_offset = topo['topology']['VMs'][vm_name]['vm_offset']
+        port, port6 = get_change_routes_ports(vm_name, topo)
 
         ipv4_routes.append((topo['configuration'][vm_name]['interfaces']['Loopback0']['ipv4'], nhipv4, as_path))
         ipv6_routes.append((topo['configuration'][vm_name]['interfaces']['Loopback0']['ipv6'], nhipv6, as_path))
@@ -1549,8 +1607,8 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
         topo_routes[vm_name][IPV4] = ipv4_routes
         topo_routes[vm_name][IPV6] = ipv6_routes
         if action != GENERATE_WITHOUT_APPLY:
-            change_routes(action, ptf_ip, IPV4_BASE_PORT + vm_offset, ipv4_routes)
-            change_routes(action, ptf_ip, IPV6_BASE_PORT + vm_offset, ipv6_routes)
+            change_routes(action, ptf_ip, port, ipv4_routes)
+            change_routes(action, ptf_ip, port6, ipv6_routes)
 
 
 def fib_dpu(topo, ptf_ip, action="announce", topo_routes={}):
@@ -1566,9 +1624,7 @@ def fib_dpu(topo, ptf_ip, action="announce", topo_routes={}):
     all_vms = sorted(vms.keys())
 
     for vm in all_vms:
-        vm_offset = vms[vm]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        port, port6 = get_change_routes_ports(vm, topo)
 
         topo_routes[vm] = {}
         topo_routes[vm][IPV4] = routes_v4
@@ -1581,12 +1637,17 @@ def fib_dpu(topo, ptf_ip, action="announce", topo_routes={}):
 def adhoc_routes(topo, ptf_ip, peers_routes_to_change, action):
     vms = topo['topology']['VMs']
 
+    vms = topo['topology']['VMs']
+    if topo.get('topo_is_multi_vrf', False):
+        multi_vrf_data = topo.get('convergence_data', {})
+        vms = []
+        for vrfs in multi_vrf_data['convergence_mapping'].values():
+            vms.extend(vrfs)
+
     for hostname, routes in peers_routes_to_change.items():
         if hostname not in vms:
             continue
-        vm_offset = vms[hostname]['vm_offset']
-        port = IPV4_BASE_PORT + vm_offset
-        port6 = IPV6_BASE_PORT + vm_offset
+        port, port6 = get_change_routes_ports(hostname, topo)
 
         ipv4_routes = [r for r in routes if '.' in r[0]]
         if ipv4_routes and action != GENERATE_WITHOUT_APPLY:
@@ -1706,6 +1767,9 @@ def main():
             module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
         elif topo_type == "mx":
             fib_mx(topo, ptf_ip, action=action, topo_routes=topo_routes)
+            module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
+        elif topo_type == "c0":
+            fib_c0(topo, ptf_ip, action=action, topo_routes=topo_routes)
             module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
         elif topo_type == "dpu":
             fib_dpu(topo, ptf_ip, action=action, topo_routes=topo_routes)

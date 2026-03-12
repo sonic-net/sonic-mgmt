@@ -2,20 +2,26 @@
 import os
 import pytest
 import time
+import logging
 
 from .ptfadapter import PtfTestAdapter, PtfAgent
 import ptf.testutils
 
 from tests.common import constants
+from tests.common.utilities import wait_until
 import random
 
+logger = logging.getLogger(__name__)
 
-DEFAULT_PTF_NN_PORT_RANGE = [10900, 11000]
+DEFAULT_PTF_NN_PORT_RANGE = [10900, 10999]
 DEFAULT_DEVICE_NUM = 0
 ETH_PFX = 'eth'
 ETHERNET_PFX = "Ethernet"
 BACKPLANE = 'backplane'
 MAX_RETRY_TIME = 3
+PORTS_DATA_READY_AFTER_NN_AGENT_START_TIMEOUT = 120
+CHECK_PORTS_DATA_READY_AFTER_NN_AGENT_START_INTERVAL = 20
+CHECK_PORTS_DATA_READY_AFTER_NN_AGENT_START_INITIAL_DELAY = 0
 
 
 def pytest_addoption(parser):
@@ -111,6 +117,42 @@ def get_ifaces_map(ifaces, ptf_port_mapping_mode, need_backplane=False):
         raise ValueError("Unsupported ptf port mapping mode: %s" % ptf_port_mapping_mode)
 
 
+def check_nn_agent_ready(adapter, sample_size=None):
+    """Wait for ptf_nn_agent to cache all interface MACs
+    """
+
+    def all_ports_ready(ports_to_check):
+        """Check if sampled ports have MACs cached"""
+        try:
+            for device_id, port in list(ports_to_check):
+                mac = adapter.dataplane.get_mac(device_id, port)
+                if mac:
+                    ports_to_check.discard((device_id, port))
+            return len(ports_to_check) == 0
+        except Exception:
+            return False
+
+    all_ports = list(adapter.dataplane.ports.keys())
+    num_ports = len(all_ports)
+    if sample_size:
+        random_indices = random.sample(range(num_ports), sample_size)
+        ports_to_check = set([all_ports[i] for i in random_indices])
+    else:
+        ports_to_check = set(all_ports)
+    are_all_ports_ready = wait_until(
+        PORTS_DATA_READY_AFTER_NN_AGENT_START_TIMEOUT,
+        CHECK_PORTS_DATA_READY_AFTER_NN_AGENT_START_INTERVAL,
+        CHECK_PORTS_DATA_READY_AFTER_NN_AGENT_START_INITIAL_DELAY,
+        all_ports_ready,
+        ports_to_check
+        )
+    if not are_all_ports_ready:
+        logger.warning(
+            f"ptf_nn_agent not fully ready - {len(ports_to_check)} ports "
+            f"(out of {num_ports} ports) still not ready"
+        )
+
+
 @pytest.fixture(scope='module')
 def ptfadapter(ptfhosts, tbinfo, request, duthost):
     """return ptf test adapter object.
@@ -183,7 +225,7 @@ def ptfadapter(ptfhosts, tbinfo, request, duthost):
         adapter.duthost = duthost
         if check_if_use_minigraph_from_tbinfo(tbinfo):
             adapter.mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-
+        check_nn_agent_ready(adapter)
         yield adapter
 
 
