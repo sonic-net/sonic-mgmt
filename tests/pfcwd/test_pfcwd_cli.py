@@ -54,6 +54,7 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.command("pfcwd start_default")
 
 
+
 class SetupPfcwdFunc(object):
     def parse_test_port_info(self):
         """
@@ -305,67 +306,105 @@ class SendVerifyTraffic():
                    log_file=log_file, is_python3=True)
 
 
+def _shutdown_lag_members(duthost, port, tbinfo, nbrhosts, port_type):
+    """Backs up config_db and modifies LAG members to isolate the selected port for PFCwd testing."""
+    if port_type != 'portchannel':
+        return None, None, None
+
+    config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    portChannels = config_facts['PORTCHANNEL_MEMBER']
+    portChannel = None
+    portChannelMembers = None
+    for intf in portChannels:
+        if port in portChannels[intf]:
+            portChannel = intf
+            portChannelMembers = portChannels[intf]
+            break
+
+    dst_mgfacts = duthost.get_extended_minigraph_facts(tbinfo)
+    vm_neighbors = dst_mgfacts['minigraph_neighbors']
+    peer_device = vm_neighbors[list(portChannelMembers.keys())[0]]['name']
+    peer_port = vm_neighbors[list(portChannelMembers.keys())[0]]['port']
+    vm_host = nbrhosts[peer_device]['host']
+    neigh_port_channel = None
+    min_links = None
+    if isinstance(vm_host, EosHost):
+        neigh_port_channels = vm_host.eos_command(
+            commands=['show port-channel | json'])['stdout'][0]["portChannels"]
+        for po_name, po_config in neigh_port_channels.items():
+            for member in po_config['activePorts']:
+                if member == peer_port:
+                    neigh_port_channel = po_name
+                    min_links = len(po_config['activePorts'])
+                    break
+
+        vm_host.eos_config(lines=['port-channel min-links 1'], parents=[f'int {neigh_port_channel}'])
+
+    cmd_data = f'.PORTCHANNEL.{portChannel}.min_links = "1"'
+
+    for member_port in portChannelMembers:
+        if member_port == port:
+            continue
+        cmd_data += f' | .PORT.{member_port}.admin_status="down"'
+
+    cmd = f"""jq '{cmd_data}' /etc/sonic/config_db.json > /tmp/config_db.json"""
+
+    _backup_original_config(duthost)
+    duthost.command(cmd, _uses_shell=True)
+    duthost.command("sudo cp /tmp/config_db.json /etc/sonic/config_db.json", _uses_shell=True)
+    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+    return vm_host, neigh_port_channel, min_links
+
+
+def _backup_original_config(duthost):
+    """Backs up the current config_db.json before LAG modification."""
+    duthost.command("cp /etc/sonic/config_db.json /tmp/config_db_backup.json", _uses_shell=True)
+
+
+def _restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, port_type):
+    """Restores config_db and original LAG config after PFCwd testing."""
+    if port_type != 'portchannel':
+        return
+
+    if isinstance(vm_host, EosHost):
+        vm_host.eos_config(lines=[f'port-channel min-links {min_links}'], parents=[f'int {neigh_port_channel}'])
+
+    duthost.command("sudo mv /tmp/config_db_backup.json /etc/sonic/config_db.json", _uses_shell=True)
+    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+
+
+@pytest.fixture(scope='function')
+def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, nbrhosts, setup_pfc_test):
+    """Complete LAG config resource manager.
+
+    Setup (before test): backs up config_db and shuts down extra LAG members so
+    only the selected port remains active.
+    Teardown (after test): restores the original config_db, always runs even on failure.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    ports = setup_pfc_test['selected_test_ports']
+    port = list(ports.keys())[0]
+    port_type = ports[port]['test_port_type']
+
+    vm_host, neigh_port_channel, min_links = _shutdown_lag_members(
+        duthost, port, tbinfo, nbrhosts, port_type)
+
+    yield
+
+    _restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, port_type)
+
+
 class TestPfcwdFunc(SetupPfcwdFunc):
     """ Test PFC function and supporting methods """
     def __shutdown_lag_members(self, duthost, selected_port, tbinfo, nbrhosts):
-
-        if self.ports[selected_port]['test_port_type'] != 'portchannel':
-            return None, None, None
-
-        config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
-        portChannels = config_facts['PORTCHANNEL_MEMBER']
-        portChannel = None
-        portChannelMembers = None
-        for intf in portChannels:
-            if selected_port in portChannels[intf]:
-                portChannel = intf
-                portChannelMembers = portChannels[intf]
-                break
-
-        dst_mgfacts = duthost.get_extended_minigraph_facts(tbinfo)
-        vm_neighbors = dst_mgfacts['minigraph_neighbors']
-        peer_device = vm_neighbors[list(portChannelMembers.keys())[0]]['name']
-        peer_port = vm_neighbors[list(portChannelMembers.keys())[0]]['port']
-        vm_host = nbrhosts[peer_device]['host']
-        neigh_port_channel = None
-        min_links = None
-        if isinstance(vm_host, EosHost):
-            neigh_port_channels = vm_host.eos_command(
-                commands=['show port-channel | json'])['stdout'][0]["portChannels"]
-            for po_name, po_config in neigh_port_channels.items():
-                for member in po_config['activePorts']:
-                    if member == peer_port:
-                        neigh_port_channel = po_name
-                        min_links = len(po_config['activePorts'])
-                        break
-
-            vm_host.eos_config(lines=['port-channel min-links 1'], parents=[f'int {neigh_port_channel}'])
-
-        cmd_data = f'.PORTCHANNEL.{portChannel}.min_links = "1"'
-
-        for port in portChannelMembers:
-            if port == selected_port:
-                continue
-            cmd_data += f' | .PORT.{port}.admin_status="down"'
-
-        cmd = f"""jq '{cmd_data}' /etc/sonic/config_db.json > /tmp/config_db.json"""
-
-        duthost.command("cp /etc/sonic/config_db.json /tmp/config_db_backup.json", _uses_shell=True)
-        duthost.command(cmd, _uses_shell=True)
-        duthost.command("sudo cp /tmp/config_db.json /etc/sonic/config_db.json", _uses_shell=True)
-        config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-        return vm_host, neigh_port_channel, min_links
+        return _shutdown_lag_members(
+            duthost, selected_port, tbinfo, nbrhosts,
+            self.ports[selected_port]['test_port_type'])
 
     def __restore_original_config(self, duthost, selected_port, vm_host, neigh_port_channel, min_links):
-
-        if self.ports[selected_port]['test_port_type'] != 'portchannel':
-            return
-
-        if isinstance(vm_host, EosHost):
-            vm_host.eos_config(lines=[f'port-channel min-links {min_links}'], parents=[f'int {neigh_port_channel}'])
-
-        duthost.command("sudo mv /tmp/config_db_backup.json /etc/sonic/config_db.json", _uses_shell=True)
-        config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        _restore_original_config(
+            duthost, selected_port, vm_host, neigh_port_channel, min_links,
+            self.ports[selected_port]['test_port_type'])
 
     def storm_detect_path(self, dut, port, action):
         """
@@ -509,7 +548,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                              setup_dut_test_params, enum_fanout_graph_facts, ptfhost,  # noqa: F811
                              duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
                              setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,
-                             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m):  # noqa: F811
+                             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,  # noqa: F811
+                             manage_lag_config):
         """
         PFCwd CLI show pfcwd stats test
 
@@ -551,7 +591,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         # for idx, port in enumerate(self.ports):
         port = list(self.ports.keys())[0]
 
-        vm_host, neigh_port_channel, min_links = self.__shutdown_lag_members(duthost, port, tbinfo, nbrhosts)
 
         logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
         self.setup_test_params(port, setup_info['vlan'], init=True, ip_version=ip_version)
@@ -584,4 +623,3 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     self.storm_hndle.stop_storm()
                 logger.info("--- Stop PFC WD ---")
                 self.dut.command("pfcwd stop")
-                self.__restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links)
