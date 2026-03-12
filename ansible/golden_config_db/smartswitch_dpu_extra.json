@@ -27,18 +27,5 @@
             "log_level": "2",
             "port": "50052"
         }
-    },
-    "INTERFACE": {
-        "Ethernet0": {},
-        "Ethernet0|20.0.200.1/24": {}
-    },
-    "STATIC_ROUTE": {
-        "default|0.0.0.0/0": {
-            "nexthop": "20.0.200.254",
-            "ifname": "Ethernet0",
-            "nexthop-vrf": "",
-            "blackhole": "false",
-            "distance": "0"
-        }
     }
 }

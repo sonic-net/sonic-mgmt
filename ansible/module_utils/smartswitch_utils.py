@@ -33,17 +33,17 @@ smartswitch_hwsku_config.update({
 })
 
 # VLAN configuration for NPU-DPU dataplane connectivity.
-# NPU 0 uses Vlan1000 (20.0.200.0/24); NPU 1 uses Vlan2000 (20.0.201.0/24, HA testbeds).
+# Both NPUs use Vlan55 with different subnets: NPU 0 → 20.0.200.0/24, NPU 1 → 20.0.201.0/24 (HA testbeds).
 smartswitch_vlan_config = {
     0: {
-        "vlan_name": "Vlan1000",
-        "vlanid": "1000",
+        "vlan_name": "Vlan55",
+        "vlanid": "55",
         "vlan_interface_ip": "20.0.200.254/24",
         "dpu_ip_prefix": "20.0.200.",
     },
     1: {
-        "vlan_name": "Vlan2000",
-        "vlanid": "2000",
+        "vlan_name": "Vlan55",
+        "vlanid": "55",
         "vlan_interface_ip": "20.0.201.254/24",
         "dpu_ip_prefix": "20.0.201.",
     }
