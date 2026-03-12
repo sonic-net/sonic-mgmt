@@ -22,6 +22,7 @@ from tests.common.platform.device_utils import get_dut_psu_line_pattern
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.utilities import skip_release_for_platform
 from tests.common.utilities import wait_until
+from tests.common.fixtures.duthost_utils import is_support_fan, is_support_psu  # noqa F401
 
 
 pytestmark = [
@@ -312,11 +313,14 @@ def test_show_platform_syseeprom(duthosts, enum_rand_one_per_hwsku_hostname, dut
             pytest.fail(error_msg)
 
 
-def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
+def test_show_platform_psustatus(duthosts, rand_one_dut_hostname, is_support_psu):  # noqa F811
     """
     @summary: Verify output of `show platform psustatus`
     """
-    duthost = duthosts[enum_supervisor_dut_hostname]
+    if not is_support_psu:
+        pytest.skip("No PSU support, skip the case")
+
+    duthost = duthosts[rand_one_dut_hostname]
 
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
     pytest_assert(
@@ -346,11 +350,14 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     pytest_assert(num_psu_ok > 0, "No PSUs are displayed with OK status on '{}'".format(duthost.hostname))
 
 
-def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
+def test_show_platform_psustatus_json(duthosts, rand_one_dut_hostname, is_support_psu):  # noqa F811
     """
     @summary: Verify output of `show platform psustatus --json`
     """
-    duthost = duthosts[enum_supervisor_dut_hostname]
+    if not is_support_psu:
+        pytest.skip("No PSU support, skip the case")
+
+    duthost = duthosts[rand_one_dut_hostname]
 
     if "201811" in duthost.os_version or "201911" in duthost.os_version:
         pytest.skip("JSON output not available in this version")
@@ -445,11 +452,14 @@ def check_fan_status(duthost, cmd):
     return num_fan_ok > 0
 
 
-def test_show_platform_fan(duthosts, enum_supervisor_dut_hostname):
+def test_show_platform_fan(duthosts, rand_one_dut_hostname, is_support_fan):  # noqa F811
     """
     @summary: Verify output of `show platform fan`
     """
-    duthost = duthosts[enum_supervisor_dut_hostname]
+    if not is_support_fan:
+        pytest.skip("No FAN support, skip the case")
+
+    duthost = duthosts[rand_one_dut_hostname]
     cmd = " ".join([CMD_SHOW_PLATFORM, "fan"])
     pytest_assert(wait_until(90, 5, 0, check_fan_status, duthost, cmd),
                   " No Fans are displayed with OK status on '{}'".format(duthost.hostname))
@@ -493,11 +503,11 @@ def test_show_platform_temperature(duthosts, enum_rand_one_per_hwsku_hostname):
     # TODO: Test values against platform-specific expected data
 
 
-def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
+def test_show_platform_ssdhealth(duthosts, rand_one_dut_hostname):
     """
     @summary: Verify output of `show platform ssdhealth`
     """
-    duthost = duthosts[enum_supervisor_dut_hostname]
+    duthost = duthosts[rand_one_dut_hostname]
     cmds_list = [CMD_SHOW_PLATFORM, "ssdhealth"]
     supported_disks = ["SATA", "NVME", "EMMC"]
 
