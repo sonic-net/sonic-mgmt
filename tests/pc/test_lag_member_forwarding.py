@@ -218,49 +218,48 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
         # Wait for ASIC_DB to reflect that LAG members of the tested LAG are
         # disabled before sending traffic, otherwise packets may still be forwarded.
         def check_lag_members_disabled_in_asic_db():
-            """Check ASIC_DB for EGRESS_DISABLE=true on members of the LAG under test."""
-            # First, find the SAI OID for the LAG under test
-            lag_keys = asichost.shell(
-                "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG:*'"
-            )["stdout_lines"]
-            # Find which LAG OID corresponds to portchannel_name via COUNTERS_DB
-            lag_oid = None
-            for lag_key in lag_keys:
-                oid = lag_key.split(":")[-1]
-                name_result = asichost.shell(
-                    "sonic-db-cli COUNTERS_DB HGET COUNTERS_LAG_NAME_MAP {}".format(
-                        portchannel_name),
+            """Check ASIC_DB for EGRESS_DISABLE=true on members of the LAG under test.
+
+            Instead of looking up the LAG's SAI OID (which may not exist in
+            COUNTERS_LAG_NAME_MAP on converged-peer testbeds), find the member
+            port SAI OIDs and match them against LAG_MEMBER entries.
+            """
+            # Get SAI OIDs for the member ports we disabled
+            member_port_oids = set()
+            for member_name in portchannel_members:
+                port_oid = asichost.shell(
+                    "sonic-db-cli COUNTERS_DB HGET COUNTERS_PORT_NAME_MAP {}".format(
+                        member_name),
                     module_ignore_errors=True
                 )["stdout"].strip()
-                if name_result == oid:
-                    lag_oid = oid
-                    break
+                if port_oid:
+                    member_port_oids.add(port_oid)
 
-            pytest_assert(lag_oid,
-                          "Could not find SAI OID for {} in COUNTERS_LAG_NAME_MAP".format(
-                              portchannel_name))
+            if len(member_port_oids) != len(portchannel_members):
+                logger.warning("Could not find all port OIDs: expected %d, found %d",
+                               len(portchannel_members), len(member_port_oids))
+                return False
 
-            # Filter to only members of the LAG under test
+            # Find LAG_MEMBER entries whose PORT_ID matches our member ports
             all_member_keys = asichost.shell(
                 "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'"
             )["stdout_lines"]
-            lag_member_keys = []
-            for key in all_member_keys:
-                member_lag_id = asichost.shell(
-                    "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_LAG_ID".format(key)
-                )["stdout"].strip()
-                if member_lag_id == lag_oid:
-                    lag_member_keys.append(key)
 
-            if not lag_member_keys:
-                return False
-            for key in lag_member_keys:
-                egress_disable = asichost.shell(
-                    "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_EGRESS_DISABLE".format(key)
+            matched = 0
+            for key in all_member_keys:
+                port_id = asichost.shell(
+                    "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_PORT_ID".format(key)
                 )["stdout"].strip()
-                if egress_disable != "true":
-                    return False
-            return True
+                if port_id in member_port_oids:
+                    egress_disable = asichost.shell(
+                        "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_EGRESS_DISABLE".format(
+                            key)
+                    )["stdout"].strip()
+                    if egress_disable != "true":
+                        return False
+                    matched += 1
+
+            return matched == len(member_port_oids)
 
         pytest_assert(
             wait_until(10, 0.5, 0, check_lag_members_disabled_in_asic_db),
