@@ -104,6 +104,19 @@ def get_ipnetns_prefix(host, intf):
     return ns_prefix
 
 
+def get_dict_macsec_counters(duthost, port):  # noqa: F811
+    '''
+    Queries get_macsec_counter and returns flattened dictionary.
+    '''
+    egr_counter, ing_counter = get_macsec_counters(duthost, port)
+    new_stats = {}
+    new_stats[duthost.hostname] = {}
+    new_stats[duthost.hostname][port] = egr_counter
+    new_stats[duthost.hostname][port].update(ing_counter)
+
+    return (new_stats)
+
+
 def get_macsec_sa_name(sonic_asic, port_name, egress=True):
     if egress:
         table = 'MACSEC_EGRESS_SA_TABLE'

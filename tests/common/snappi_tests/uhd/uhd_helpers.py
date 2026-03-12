@@ -117,12 +117,16 @@ def find_lb_ip(config, cards_dict, server_vlan):
 
 def find_dpu_port(config, cards_dict, vlan):
 
-    num_dpu_cards = 4
-    ENI_COUNT = 256
+    num_dpu_cards = cards_dict['num_dpus_ports']
+    ENI_COUNT = config.ENI_COUNT
     first_cps_card = 1
 
     dpu_slot_step = ENI_COUNT // num_dpu_cards
-    dpu_slot = int((vlan - 1) / dpu_slot_step) + first_cps_card
+
+    if cards_dict['switchover_port'] is False:
+        dpu_slot = int((vlan - 1) / dpu_slot_step) + first_cps_card
+    else:
+        dpu_slot = 1
 
     return dpu_slot
 
@@ -233,6 +237,19 @@ def create_front_panel_ports(count, config, cards_dict):
     fp_list = []
     num_channels = config.uhd_num_channels
 
+    ethpass_ports = cards_dict['ethpass_ports']
+    if len(ethpass_ports) > 0:
+        for port in ethpass_ports:
+            ethpass_dict = {
+                "name": f"l47_port_11{port['FrontPanel']}",
+                "choice": "front_panel_port",
+                "front_panel_port": {
+                    "front_panel_port": int(port['FrontPanel']),
+                    "layer_1_profile_name": "{}".format(config.layer1_profile_names[3])
+                }
+            }
+            fp_list.append(ethpass_dict)
+
     l47_ports_length = len(cards_dict['l47_ports'])
     data_index = 0
     for i in range(1, count // 2 + 1):
@@ -306,6 +323,7 @@ def create_arp_bypass(fp_ports_list, ip_list, config, cards_dict, subnet_mask):
 
     connections_list = []
     num_cps_cards = cards_dict['num_cps_cards']
+    ethpass_ports = cards_dict['ethpass_ports']
     first_cps_card, first_tcpbg_card = set_first_stateful_cards(cards_dict)
 
     """
@@ -316,6 +334,19 @@ def create_arp_bypass(fp_ports_list, ip_list, config, cards_dict, subnet_mask):
         else:
             first_tcpbg_card = 0
     """
+    eth_bypass_dict = {
+        'name': "Eth Bypass",
+        'functions': [{"choice": "connect_ethernet", "connect_ethernet": {}}],
+        'endpoints': []
+    }
+
+    if len(ethpass_ports) > 0:
+        for port in ethpass_ports:
+            eth_bypass_dict['endpoints'].append(
+                {'choice': 'front_panel', 'front_panel':
+                    {'port_name': 'l47_port_11{}'.format(port['FrontPanel']), 'vlan': {'choice': 'non_vlan'}}}
+            )
+        connections_list.append(eth_bypass_dict)
 
     for eni, ip in enumerate(ip_list):
 
