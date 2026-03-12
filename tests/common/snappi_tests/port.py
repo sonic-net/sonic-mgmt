@@ -8,6 +8,8 @@ class SnappiPortType(enum.Enum):
     IPInterface = 1
     PortChannelMember = 2
     VlanMember = 3
+    RtrInterface = 4
+    MacsecInterface = 5
 
 
 class SnappiPortConfig:
