@@ -26,13 +26,6 @@ var (
 	waitForSwitchStateTimeout       = 5 * time.Minute
 )
 
-var (
-	configChangedTimeout = 2 * time.Minute
-	// Using 4 minutes as the upper limit.
-	configPushAndConvergenceTimeout = 4 * time.Minute
-	waitForSwitchStateTimeout       = 5 * time.Minute
-)
-
 // DUT and CONTROL are the only restorable IDs.
 var restorableDUTIDs = map[string]bool{
 	"dut":     true,
@@ -234,22 +227,23 @@ func (cr *ConfigRestorer) reboot(ctx context.Context, t *testing.T, device *onda
 // restoreConfigOnDiff checks if there is a diff between
 // the current config and the saved config.
 // If there is a diff, try to restore the config.
-func (cr *ConfigRestorer) restoreConfigOnDiff(ctx context.Context, t *testing.T, device *ondatra.DUTDevice) error {
-	configChangedCtx, configChangedCancel := context.WithTimeout(ctx, configChangedTimeout)
-	defer configChangedCancel()
-	changed, err := cr.configChanged(configChangedCtx, t, device)
-	if err != nil {
-		return fmt.Errorf("err in finding config changes, err: %v", err)
-	}
-	if changed == false {
-		return nil
-	}
+func(cr *ConfigRestorer) restoreConfigOnDiff(ctx context.Context, t *testing.T, device *ondatra.DUTDevice) error
+{
+    configChangedCtx,
+        configChangedCancel : = context.WithTimeout(ctx, configChangedTimeout) defer configChangedCancel() changed,
+                            err : = cr.configChanged(configChangedCtx, t, device) if err != nil
+    {
+        return fmt.Errorf("err in finding config changes, err: %v", err)
+    }
+    if changed
+        == false {return nil}
 
 	dutName := device.Name()
 	log.InfoContextf(ctx, "Trying to restore config for device: %v by pushing default config\n", dutName)
 	configPushAndConvergenceCtx, configPushAndConvergenceCancel := context.WithTimeout(ctx, configPushAndConvergenceTimeout)
 	defer configPushAndConvergenceCancel()
-	if err := ConfigPushAndWaitForConvergence(configPushAndConvergenceCtx, t, device, nil /*(config)*/); err != nil {
+	if err := ConfigPushAndWaitForConvergence(configPushAndConvergenceCtx, t, device,
+ 			nil /*(config)*/, nil /*(ignorePathsWithPrefix)*/); err != nil {
 		log.InfoContextf(ctx, "ConfigPushAndWaitForConvergence(dut=%v) failed, err: %v", dutName, err)
 		return cr.reboot(ctx, t, device)
 	}
