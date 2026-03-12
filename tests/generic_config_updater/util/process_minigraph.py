@@ -3,12 +3,14 @@ import json
 import shutil
 import os
 import sys
+import logging
 
 NS_VAL = "Microsoft.Search.Autopilot.Evolution"
 NS_A_VAL = "http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"
 NS = "{" + NS_VAL + "}"
 NS_A = "{" + NS_A_VAL + "}"
 
+logger = logging.getLogger(__name__)
 
 class MinigraphRefactor:
     """Refactors minigraph.xml to remove a T1 neighbor and its associated configuration.
@@ -45,7 +47,7 @@ class MinigraphRefactor:
                 if start_router is not None and start_router.text == self.leafrouter_name or \
                    end_router is not None and end_router.text == self.leafrouter_name:
                     peering_sessions.remove(session)
-                    # print(f"Removed session: {ET.tostring(session, encoding='unicode')}")
+                    # logger.info(f"Removed session: {ET.tostring(session, encoding='unicode')}")
                     removed_sessions += 1
         return removed_sessions
 
@@ -57,7 +59,7 @@ class MinigraphRefactor:
                 hostname = router.find(f"{NS_A}Hostname")
                 if hostname is not None and hostname.text == self.leafrouter_name:
                     routers.remove(router)
-                    # print(f"Removed router: {ET.tostring(router, encoding='unicode')}")
+                    # logger.info(f"Removed router: {ET.tostring(router, encoding='unicode')}")
                     removed_router = True
         return removed_router
 
@@ -75,7 +77,7 @@ class MinigraphRefactor:
             hostname = self.parse_device(device)
             if hostname is not None and hostname == self.leafrouter_name:
                 devices.remove(device)
-                # print(f"Removed device: {ET.tostring(device, encoding='unicode')}")
+                # logger.info(f"Removed device: {ET.tostring(device, encoding='unicode')}")
                 removed_device = True
         return removed_device
 
@@ -142,7 +144,7 @@ class MinigraphRefactor:
                     pc_name = name_elem.text if name_elem is not None else "unknown"
                     self.affected_portchannels.add(pc_name)
                     portchannel_interfaces.remove(portchannel)
-                    print(f"Removed PortChannel: {pc_name} (AttachTo: {attach_to_elem.text})")
+                    logger.info("Removed PortChannel: %s (AttachTo: %s)", pc_name, attach_to_elem.text)
                     removed_portchannels += 1
 
         return removed_portchannels
@@ -178,7 +180,7 @@ class MinigraphRefactor:
                     prefix_elem = ip_interface.find(f"{NS}Prefix")
                     prefix = prefix_elem.text if prefix_elem is not None else "unknown"
                     ip_interfaces.remove(ip_interface)
-                    print(f"Removed IPInterface: AttachTo={attach_to_elem.text}, Prefix={prefix}")
+                    logger.info("Removed IPInterface: AttachTo=%s, Prefix=%s", attach_to_elem.text, prefix)
                     removed_interfaces += 1
 
         return removed_interfaces
@@ -192,7 +194,7 @@ class MinigraphRefactor:
                     key = link_metadata.find(f"{NS_A}Key")
                     if key is not None and self.leafrouter_name in key.text:
                         link.remove(link_metadata)
-                        print(f"Removed LinkMetadata with key: {key.text}")
+                        logger.info("Removed LinkMetadata with key: %s", key.text)
                         removed_metadata += 1
         return removed_metadata
 
@@ -241,7 +243,7 @@ class MinigraphRefactor:
 
         tree.write(output_file)
 
-        print(json.dumps(results, indent=2))
+        logger.info(json.dumps(results, indent=2))
         if results["removed_sessions"] == 0:
             return False, set()
         return True, self.affected_ports
@@ -249,7 +251,7 @@ class MinigraphRefactor:
 
 def main():
     if len(sys.argv) != 3:
-        print(f"Usage: {sys.argv[0]} <input_minigraph.xml> <output_minigraph.xml>")
+        logger.info("Usage: %s <input_minigraph.xml> <output_minigraph.xml>", sys.argv[0])
         sys.exit(1)
 
     input_file, output_file = sys.argv[1], sys.argv[2]
@@ -257,12 +259,12 @@ def main():
     backup_file = f"{input_file}.backup"
     if not os.path.exists(backup_file):
         shutil.copy2(input_file, backup_file)
-        # print(f"Backup created: {backup_file}")
+        # logger.info(f"Backup created: {backup_file}")
 
     refactor = MinigraphRefactor("ARISTA01T1")
     success, affected_ports = refactor.process_minigraph(input_file, output_file)
     if affected_ports:
-        print(f"Affected ports (should become admin_status=down): {sorted(affected_ports)}")
+        logger.info("Affected ports (should become admin_status=down): %s", sorted(affected_ports))
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ Key Design Notes:
 See test_addcluster_workflow() docstring for detailed explanation.
 """
 
+import ast
 import json
 import logging
 import os
@@ -63,9 +64,11 @@ TEMPLATES_DIR = os.path.join(THIS_DIR, "templates")
 ADDCLUSTER_FILE = os.path.join(TEMPLATES_DIR, "addcluster.json")
 
 # Configuration capture settings
-# Set to True to save config_db.json files and generated patches for debugging/analysis.
+# If the environment variable GCU_CAPTURE_CONFIGS is set to 'true', '1', 'y', or 'yes'
+# regardless of case, the test will capture pre- and post-patch configuration files for
+# debugging and analysis.
 # Captured files are saved to: tests/generic_config_updater/captures/<hostname>/<timestamp>/
-CAPTURE_CONFIGS = True
+CAPTURE_CONFIGS = os.environ.get('GCU_CAPTURE_CONFIGS', '').lower() in ('true', '1', 'y', 'yes')
 
 
 def get_capture_dir(hostname):
@@ -164,7 +167,7 @@ def capture_file(src_path, capture_dir, filename, description):
         return None
 
 
-def get_downstream_t1_neighbor(duthost):
+def get_downstream_t1_neighbor(duthost, mg_facts):
     """Get a downstream T1 neighbor from minigraph facts.
 
     In T2 topology, T1 neighbors are downstream devices connected to linecards.
@@ -173,14 +176,13 @@ def get_downstream_t1_neighbor(duthost):
 
     Args:
         duthost: DUT host object (should be a frontend/linecard node)
-
+        mg_facts: Minigraph facts dictionary
     Returns:
         tuple: (asic_namespace, neighbor_name) where:
                - asic_namespace is the ASIC namespace (e.g., 'asic0')
                - neighbor_name is the T1 device name (e.g., 'ARISTA01T1')
                Returns (None, None) if no T1 neighbor found.
     """
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     minigraph_devices = mg_facts.get('minigraph_devices', {})
     minigraph_neighbors = mg_facts.get('minigraph_neighbors', {})
 
@@ -240,17 +242,17 @@ def get_asic_index_from_namespace(namespace):
     return 0
 
 
-def get_interfaces_for_neighbor(duthost, neighbor_name):
+def get_interfaces_for_neighbor(duthost, mg_facts, neighbor_name):
     """Get the list of interfaces connected to a specific neighbor.
 
     Args:
         duthost: DUT host object
+        mg_facts: Minigraph facts dictionary
         neighbor_name: Name of the neighbor device (e.g., 'ARISTA01T1')
 
     Returns:
         list: List of interface names connected to the neighbor
     """
-    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     minigraph_neighbors = mg_facts.get('minigraph_neighbors', {})
 
     interfaces = []
@@ -310,7 +312,7 @@ def check_ports_require_dpb(duthost, interfaces, namespace):
         config_str = result['stdout'].strip()
         try:
             # Handle Python dict string format from redis
-            config = eval(config_str)  # Safe here as we control the source
+            config = ast.literal_eval(config_str)  # Safe here as we control the source
         except (SyntaxError, ValueError):
             logger.warning(f"Could not parse config for {interface}: {config_str}")
             continue
@@ -1189,8 +1191,12 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname):
     """
     duthost = duthosts[enum_downstream_dut_hostname]
 
+    # Cache minigraph facts for the DUT (used to find downstream T1 neighbor)
+    # to avoid lengthy CLI calls during test execution. This is especially important for multi-ASIC DUTs.
+    mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
+
     # Dynamically discover a downstream T1 neighbor
-    asic_id, target_t1 = get_downstream_t1_neighbor(duthost)
+    asic_id, target_t1 = get_downstream_t1_neighbor(duthost, mg_facts)
     if not target_t1:
         pytest.skip("No downstream T1 neighbor found in minigraph")
 
@@ -1208,7 +1214,7 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname):
     #
     # Skip the test if DPB would be required to restore the configuration.
     # -------------------------------------------------------------------------
-    neighbor_interfaces = get_interfaces_for_neighbor(duthost, target_t1)
+    neighbor_interfaces = get_interfaces_for_neighbor(duthost, mg_facts, target_t1)
     logger.info(f"Interfaces connected to {target_t1}: {neighbor_interfaces}")
 
     requires_dpb, breakout_ports = check_ports_require_dpb(duthost, neighbor_interfaces, asic_id)
