@@ -177,8 +177,6 @@ def restore_bgp_suppress_fib(duthost):
     """
     yield
     config_bgp_suppress_fib(duthost, suppress_fib)
-    logger.info("Save configuration")
-    duthost.shell('sudo config save -y')
 
 
 @pytest.fixture(scope='module')
@@ -716,6 +714,8 @@ def config_bgp_suppress_fib(duthost, enable=True, validate_result=False):
         logger.info('Disable BGP suppress fib pending function')
         cmd = 'sudo config suppress-fib-pending disabled'
     duthost.shell(cmd)
+    duthost.shell('sudo config save -y')
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
     if validate_result:
         res = duthost.shell('show suppress-fib-pending')
         assert enable is (res['stdout'] == 'Enabled'), (
@@ -884,10 +884,6 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
 
         with allure.step("Config bgp suppress-fib-pending function"):
             config_bgp_suppress_fib(duthost)
-
-        with allure.step("Save configuration"):
-            logger.info("Save configuration")
-            duthost.shell('sudo config save -y')
 
         for continous_boot_index in range(continuous_boot_times):
             if continuous_boot_times > 1:
