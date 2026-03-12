@@ -820,7 +820,6 @@ def test_port_speed_change(tbinfo,
             pytest_assert(inerrors_match is not None,
                           "COUNTERS  not found in gnmi_output for port {}".format(selected_random_port))
 
-
     # add acl config
     setup_acl_config(duthost, ip_netns_namespace_prefix)
 
