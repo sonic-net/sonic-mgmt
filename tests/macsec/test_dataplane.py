@@ -79,7 +79,8 @@ class TestDataPlane():
         for up_port, up_link in list(upstream_links.items()):
             dst_ip = up_link["local_ipv4_addr"]
             assert wait_until(
-                60, 5, 0, ping_ip, duthost, dst_ip, 4, get_ipnetns_prefix(duthost, up_port)
+                60, 5, 0, ping_ip, duthost, dst_ip,
+                count=4, cmd_prefix=get_ipnetns_prefix(duthost, up_port)
             ), "Ping from DUT to upstream neighbor {} on port {} failed after retries".format(dst_ip, up_port)
 
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, wait_mka_establish):
