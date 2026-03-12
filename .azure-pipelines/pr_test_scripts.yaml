@@ -12,6 +12,7 @@ t0:
   - arp/test_unknown_mac.py
   - arp/test_wr_arp.py
   - autorestart/test_container_autorestart.py
+  - bgp/test_bgp_allow_as_in.py
   - bgp/test_bgp_command.py
   - bgp/test_bgp_dual_asn.py
   - bgp/test_bgp_fact.py
@@ -374,6 +375,7 @@ t1-lag:
   - arp/test_neighbor_mac_noptf.py
   - autorestart/test_container_autorestart.py
   - bfd/test_bfd.py
+  - bgp/test_bgp_allow_as_in.py
   - bgp/test_bgp_allow_list.py
   - bgp/test_bgp_bbr.py
   - bgp/test_bgp_bbr_default_state.py
