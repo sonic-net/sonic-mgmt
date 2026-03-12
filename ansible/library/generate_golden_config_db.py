@@ -522,6 +522,9 @@ class GenerateGoldenConfigDBModule(object):
         }
 
         gold_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+        if self.topo_name == "t1-smartswitch-ha":
+            gold_config_db["DEVICE_METADATA"]["localhost"]["cluster"] = "cluster1"
+            gold_config_db["DEVICE_METADATA"]["localhost"]["region"] = "west"
 
         rc, out, err = self.module.run_command("cat {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         if rc != 0:
