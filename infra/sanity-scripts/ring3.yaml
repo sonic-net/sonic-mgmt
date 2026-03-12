@@ -141,7 +141,7 @@ FWD:
         - ipfwd/test_nhop_group.py
         - ip/test_ip_packet.py
   t1-lag:
-    mth64:
+    churchill-mono:
       hw:
         - acl/test_acl.py
         - acl/test_stress_acl.py
@@ -360,6 +360,19 @@ INFRA:
         - test_nbr_health.py
         - override_config_table/test_override_config_table.py
         - system_health/test_system_health.py
+      hw:
+        - database/test_db_scripts.py
+        - minigraph
+        - monit/test_monit_status.py
+        - ntp
+        - portstat
+        - ssh
+        - syslog/test_syslog_rate_limit.py
+        - system_health
+        - test_procdockerstatsd.py
+        - test_nbr_health.py
+  t1-lag:
+    churchill-mono:
       hw:
         - database/test_db_scripts.py
         - minigraph
@@ -625,6 +638,48 @@ MGMT: #Anukul Verma / Gourav Sharma
         - restapi/test_restapi_vxlan_ecmp.py
         # - http/test_http_copy.py
         # - mvrf/test_mgmtvrf.py
+  
+  t1-lag:
+    churchill-mono:
+      hw:
+        - snmp/test_snmp_cpu.py
+        - snmp/test_snmp_memory.py
+        - snmp/test_snmp_queue.py
+        - snmp/test_snmp_v2mib.py
+        - snmp/test_snmp_lldp.py
+        - snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_link_local.py
+        - gnmi/test_gnmi.py
+        - gnmi/test_gnmi_appldb.py
+        - gnmi/test_gnmi_countersdb.py
+        - gnmi/test_gnmi_smartswitch.py
+        - gnmi/test_gnoi_os.py
+        - gnmi/test_gnoi_system_grpc.py
+        - gnmi/test_gnoi_system.py
+        - console/test_console_availability.py
+        - console/test_console_driver.py
+        - console/test_console_loopback.py
+        - console/test_console_reversessh.py
+        - console/test_console_udevrule.py
+        - dut_console/test_console_baud_rate.py
+        #- dut_console/test_console_chassis_conn.py
+        - dut_console/test_escape_character.py
+        - dut_console/test_idle_timeout.py
+        - gnmi/test_mimic_hwproxy_cert_rotation.py
+        - dns/static_dns/test_static_dns.py
+        - generic_config_updater/test_aaa.py
+        - generic_config_updater/test_ip_bgp.py
+        - generic_config_updater/test_ntp.py
+        # - memory_checker/test_memory_checker.py
+        - ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_limit.py
+        - ssh/test_ssh_default_password.py
+        - tacacs/test_authorization.py
+        # - tacacs/test_ro_disk.py
+        - restapi/test_restapi.py
+        - restapi/test_restapi_vxlan_ecmp.py
+        # - http/test_http_copy.py
+        # - mvrf/test_mgmtvrf.py
 
 L2:
   t0-64:
@@ -703,6 +758,19 @@ L2:
         - pc/test_lag_2.py
         - pc/test_po_cleanup.py
         - pc/test_po_update.py
+    
+  t1-lag:
+    churchill-mono:
+      hw:
+        - arp/test_arpall.py
+        - arp/test_neighbor_mac_noptf.py
+        - dhcp_relay/test_dhcp_pkt_fwd.py
+        - lldp/test_lldp.py
+        - lldp/test_lldp_syncd.py
+        - pc/test_lag_2.py
+        - pc/test_po_cleanup.py
+        - pc/test_po_update.py
+
   t0:
     churchill-mono:
       hw:
@@ -830,6 +898,15 @@ ROUTING: #Sridhar Santhanam
         - bgp/test_bgp_allow_list.py
         - bgp/test_bgp_bounce.py
         - bgp/test_bgp_multipath_relax.py
+
+  t1-lag:
+    churchill-mono:
+      hw:
+        - bgp/test_bgp_bbr.py
+        - bgp/test_bgp_allow_list.py
+        - bgp/test_bgp_bounce.py
+        - bgp/test_bgp_multipath_relax.py
+
   t2-min:
     sfd:
       sim:
@@ -890,6 +967,7 @@ PFC: #Alpesh Patel / Sonum Mathur
         - pfcwd/test_pfcwd_cli.py
         - pfcwd/test_pfcwd_function.py
         - pfcwd/test_pfcwd_timer_accuracy.py
+        
   t1-64-lag:
     mth64:
       hw:
@@ -897,6 +975,16 @@ PFC: #Alpesh Patel / Sonum Mathur
         - qos/test_ecn_config.py
         - qos/test_qos_dscp_mapping.py
         - qos/test_qos_sai.py
+  
+  t1-lag:
+    churchill-mono:
+      hw:
+        t1-64-lag:
+        - qos/test_pfc_counters.py
+        - qos/test_ecn_config.py
+        - qos/test_qos_dscp_mapping.py
+        - qos/test_qos_sai.py
+
   t2:
     sfd:
       hw:
