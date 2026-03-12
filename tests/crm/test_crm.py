@@ -507,10 +507,34 @@ def increase_arp_cache(duthost, max_value, ip_ver, test_name):
         logger.info("{}".format(cmd))
 
 
-def configure_neighbors(amount, interface, ip_ver, asichost, test_name):
+def configure_neighbors(amount, interface, ip_ver, asichost, test_name, unique_mac=False):
     """ Configure bunch of IP neighbors on DUT. Bash template is used to speedup configuration """
     # Template used to speedup execution many similar commands on DUT
-    del_template = """
+    if unique_mac:
+        # Cisco-8000 needs to use unique MAC when adding neighbors to increment per resource optimization
+        del_template = """
+    %s
+    c=0
+    for s in {{neigh_ip_list}}
+    do
+        mac=$(printf "02:01:%%02x:%%02x:%%02x:%%02x" $((c>>24&255)) $((c>>16&255)) $((c>>8&255)) $((c&255)))
+        ip {{ns_prefix}} neigh del ${s} lladdr ${mac} dev {{iface}}
+        echo deleted - ${s}
+        c=$((c+1))
+    done""" % (NS_PREFIX_TEMPLATE)
+
+        add_template = """
+    %s
+    c=0
+    for s in {{neigh_ip_list}}
+    do
+        mac=$(printf "02:01:%%02x:%%02x:%%02x:%%02x" $((c>>24&255)) $((c>>16&255)) $((c>>8&255)) $((c&255)))
+        ip {{ns_prefix}} neigh replace ${s} lladdr ${mac} dev {{iface}}
+        echo added - ${s}
+        c=$((c+1))
+    done""" % (NS_PREFIX_TEMPLATE)
+    else:
+        del_template = """
     %s
     for s in {{neigh_ip_list}}
     do
@@ -518,7 +542,7 @@ def configure_neighbors(amount, interface, ip_ver, asichost, test_name):
         echo deleted - ${s}
     done""" % (NS_PREFIX_TEMPLATE)
 
-    add_template = """
+        add_template = """
     %s
     for s in {{neigh_ip_list}}
     do
@@ -932,10 +956,11 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_neighbor".format(ip_ver=ip_ver)
-    neighbor_add_cmd = "{ip_cmd} neigh replace {neighbor} lladdr 11:22:33:44:55:66 dev {iface}"\
-                       .format(ip_cmd=asichost.ip_cmd, neighbor=neighbor, iface=crm_interface[0])
-    neighbor_del_cmd = "{ip_cmd} neigh del {neighbor} lladdr 11:22:33:44:55:66 dev {iface}"\
-                       .format(ip_cmd=asichost.ip_cmd, neighbor=neighbor, iface=crm_interface[0])
+    neigh_mac = "02:01:00:00:00:01" if is_cisco_device(duthost) else "11:22:33:44:55:66"
+    neighbor_add_cmd = "{ip_cmd} neigh replace {neighbor} lladdr {mac} dev {iface}"\
+                       .format(ip_cmd=asichost.ip_cmd, neighbor=neighbor, mac=neigh_mac, iface=crm_interface[0])
+    neighbor_del_cmd = "{ip_cmd} neigh del {neighbor} lladdr {mac} dev {iface}"\
+                       .format(ip_cmd=asichost.ip_cmd, neighbor=neighbor, mac=neigh_mac, iface=crm_interface[0])
 
     # Get "crm_stats_ipv[4/6]_neighbor" used and available counter value
     get_neighbor_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
@@ -982,7 +1007,8 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
         # Add new neighbor entries to correctly calculate used CRM resources in percentage
         configure_neighbors(amount=neighbours_num, interface=crm_interface[0], ip_ver=ip_ver,
-                            asichost=asichost, test_name="test_crm_neighbor")
+                            asichost=asichost, test_name="test_crm_neighbor",
+                            unique_mac=is_cisco_device(duthost))
 
         # Wait for neighbor resources to stabilize using polling
         expected_neighbor_used = new_crm_stats_neighbor_used + neighbours_num - CRM_COUNTER_TOLERANCE
