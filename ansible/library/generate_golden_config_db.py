@@ -466,6 +466,12 @@ class GenerateGoldenConfigDBModule(object):
             if port_key in ori_config_db["PORT"]:
                 ori_config_db["PORT"][port_key]["admin_status"] = "up"
 
+            # Remove any minigraph-generated INTERFACE entries for DPU dataplane ports
+            keys_to_remove = [k for k in ori_config_db["INTERFACE"]
+                              if k == port_key or k.startswith(port_key + "|")]
+            for k in keys_to_remove:
+                del ori_config_db["INTERFACE"][k]
+
             vlan_member_key = "{}|{}".format(vlan_name, port_key)
             ori_config_db["VLAN_MEMBER"][vlan_member_key] = {"tagging_mode": "untagged"}
 
