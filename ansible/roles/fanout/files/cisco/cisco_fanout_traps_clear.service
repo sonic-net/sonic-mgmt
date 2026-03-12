@@ -1,0 +1,15 @@
+[Unit]
+Description=Cisco Fanout traps clear service
+After=syncd.service
+# BindsTo ensures that if syncd restarts (e.g. config reload), this service restarts too.
+BindsTo=syncd.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=720
+ExecStart=/usr/bin/python3 /usr/local/bin/cisco_fanout_traps_clear.py
+
+[Install]
+# We strictly want to be triggered by syncd.service
+WantedBy=syncd.service

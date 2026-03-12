@@ -26,6 +26,22 @@
     fanout_sonic_version: "{{ fanout_sonic_version | default({}) | combine([dict(['key', 'value'] | zip(item.split(':') | map('trim')))] | items2dict) }}"
   with_items: "{{ sonic_version_content['stdout_lines'] }}"
 
+- name: Detect Cisco Environment
+  set_fact:
+    is_cisco_env: >-
+      {{
+        ('cisco' in device_info[inventory_hostname]['HwSku'] | lower) or
+        (
+          device_info[inventory_hostname]['HwSku'] in ['32x100Gb', '36x100Gb', '32x400Gb'] and
+          (
+            'cisco' in fanout_sonic_version['asic_type'] | default('') | lower or
+            'cisco' in fanout_sonic_version['asic_subtype'] | default('') | lower or
+            'cisco' in fanout_sonic_version['build_version'] | default('') | lower or
+            'cisco' in fanout_sonic_version['built_by'] | default('') | lower
+          )
+        )
+      }}
+
 - fail: msg="sonic version other than 202205 does not support incremental update and dry run"
   when: "'20220531' not in fanout_sonic_version['build_version'] and (incremental is defined or dry_run is defined)"
 
@@ -55,7 +71,9 @@
       include_tasks:
         sonic/fanout_sonic_dry_run_202205.yml
       when: dry_run is defined
-  when: "'20220531' in fanout_sonic_version['build_version'] or 'internal' in fanout_sonic_version['build_version']"
+  when: >
+    ('20220531' in fanout_sonic_version['build_version'] or 'internal' in fanout_sonic_version['build_version']) and
+    not is_cisco_env
 
 - name: deploy SONiC fanout with image version 202311
   block:
@@ -63,7 +81,9 @@
       include_tasks:
         sonic/fanout_sonic_202311.yml
       when: dry_run is not defined and incremental is not defined
-  when: "'2023' in fanout_sonic_version['build_version']"
+  when: >
+    '2023' in fanout_sonic_version['build_version'] and
+    not is_cisco_env
 
 - name: deploy SONiC fanout with image version 202405 or 202411
   block:
@@ -71,7 +91,9 @@
       include_tasks:
         sonic/fanout_sonic_202405.yml
       when: dry_run is not defined and incremental is not defined
-  when: "'2024' in fanout_sonic_version['build_version']"
+  when: >
+    '2024' in fanout_sonic_version['build_version'] and
+    not is_cisco_env
 
 - name: deploy SONiC fanout with image version 202505
   block:
@@ -79,4 +101,14 @@
       include_tasks:
         sonic/fanout_sonic_202505.yml
       when: dry_run is not defined and incremental is not defined
-  when: "'2025' in fanout_sonic_version['build_version']"
+  when: >
+    '2025' in fanout_sonic_version['build_version'] and
+    not is_cisco_env
+
+- name: deploy SONiC fanout CISCO minimal (Multi-SKU)
+  block:
+    - name: deploy SONiC Cisco fanout minimal configuration
+      include_tasks:
+        cisco/fanout_sonic_cisco_minimal.yml
+      when: "dry_run is not defined"
+  when: is_cisco_env
