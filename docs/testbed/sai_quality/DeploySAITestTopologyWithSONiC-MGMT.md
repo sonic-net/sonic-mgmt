@@ -17,9 +17,6 @@ SONiC Software Version: SONiC.20201231.08
 ```
 ./testbed-cli.sh remove-topo vms12-t0-s6000-1 password.txt
 ```
-For understanding the topology concept, please refer to the doc
-[Topologies](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.Topology.md)
-
 For how to find the topology info and the related device please refer to the doc
 [Example of Testbed Configuration](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.Example.Config.md)
 
