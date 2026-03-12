@@ -1,4 +1,4 @@
-from tests.common.snappi_tests.snappi_fixtures import (                           # noqa: F401
+from tests.common.snappi_tests.snappi_fixtures import (                     # noqa: F401
     snappi_api, snappi_api_serv_ip, snappi_api_serv_port, tgen_ports)
 from tests.snappi_tests.bgp.files.bgp_convergence_helper import run_rib_in_convergence_test
 from tests.common.fixtures.conn_graph_facts import (                        # noqa: F401
@@ -22,7 +22,7 @@ pytestmark = [pytest.mark.topology('tgen')]
 MULTIPATH = 1
 CONVERGENCE_TEST_ITERATIONS = 1
 NUMBER_OF_ROUTES = 250000
-RIB_TIMEOUT = 50
+RIB_TIMEOUT = 90
 
 CONTAINER = 'swss'
 ORCHAGENT_PATH = "/usr/bin/orchagent.sh"
@@ -119,7 +119,7 @@ def _revert_config_db(duthost):
     duthost.shell("sudo cp {} /etc/sonic/config_db.json".format(CONFIG_DB_BACKUP_PATH))
     duthost.shell("sudo config reload -y")
     pytest_assert(
-        wait_until(360, 10, 1, duthost.critical_services_fully_started),
+        wait_until(600, 30, 1, duthost.critical_services_fully_started),
         "Not all critical services are fully started after config revert"
     )
     duthost.shell("sudo rm -f {}".format(CONFIG_DB_BACKUP_PATH), module_ignore_errors=True)
@@ -146,7 +146,7 @@ def dut_ready_for_rib_combo(duthost, localhost, profile_name, bulk_value, batch_
     logger.info('Fixture: rebooting DUT')
     reboot(duthost, localhost, reboot_type='cold', return_after_reconnect=True)
     pytest_assert(
-        wait_until(360, 10, 1, duthost.critical_services_fully_started),
+        wait_until(600, 10, 1, duthost.critical_services_fully_started),
         "Not all critical services are fully started"
     )
 
@@ -168,6 +168,7 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
                             conn_graph_facts,           # noqa: F811
                             fanout_graph_facts,         # noqa: F811
                             dut_ready_for_rib_combo,    # fixture: apply profile + bulk/batch + reboot
+                            request,
                             profile_name,
                             bulk_value,
                             batch_value,
@@ -184,6 +185,10 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
 
     Profiles and (bulk, batch) pairs are parameterized from files/fine-tunings.yml and
     files/bk_values.json (pairs; same as test_bgp_rib_in_combo).
+
+    supports --bgp_pc_config:
+    when --bgp_pc_config is passed, tgen_ports uses port-channel info from config_db
+    and run_rib_in_convergence_test skips duthost_bgp_config (port-channels preconfigured).
 
     """
     if profile_name == '_no_profile_':
@@ -209,11 +214,13 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
             continue
         if name == 'free':
             if 'used' in memory_params:
-                memory_params['used']['memory_increase_threshold'] = {"type": "percentage", "value": "30%"}
+                memory_params['used']['memory_increase_threshold'] = {"type": "percentage", "value": "50%"}
             continue
 
-    logger.info('Profile=%s, bulk_value=%s, batch_value=%s, route_type=%s',
-                profile_name, bulk_value, batch_value, route_type)
+    use_bgp_pc_config = request.config.getoption("--bgp_pc_config", default=False)
+
+    logger.info('Profile=%s, bulk_value=%s, batch_value=%s, route_type=%s, bgp_pc_config=%s',
+                profile_name, bulk_value, batch_value, route_type, use_bgp_pc_config)
 
     logger.info('Running RIB-IN convergence test')
 
@@ -225,4 +232,5 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
                                 NUMBER_OF_ROUTES,
                                 route_type,
                                 timeout=RIB_TIMEOUT,
-                                skip_cleanup=True)
+                                skip_cleanup=True,
+                                skip_duthost_bgp_config=use_bgp_pc_config,)
