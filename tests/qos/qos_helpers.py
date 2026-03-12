@@ -38,6 +38,98 @@ def ansible_stdout_to_str(ansible_stdout):
     return result
 
 
+def get_dscp_to_queue_mapping(duthost):
+    """
+    Get DSCP to queue mapping from DUT using config facts only
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        dict or None: DSCP to queue mapping from DUT configuration, or None if not found
+    """
+    try:
+        logger.info("Getting DSCP to queue mapping from DUT config facts...")
+
+        # Get config facts from DUT
+        config_facts = duthost.asic_instance().config_facts(source="running")["ansible_facts"]
+
+        # Get DSCP_TO_TC_MAP (usually 'AZURE' profile)
+        dscp_to_tc_map_data = config_facts.get('DSCP_TO_TC_MAP', {})
+        if not dscp_to_tc_map_data:
+            logger.error("DSCP_TO_TC_MAP not found in config facts")
+            return None
+
+        # Use AZURE profile (most common)
+        dscp_to_tc_map = dscp_to_tc_map_data.get('AZURE', {})
+        if not dscp_to_tc_map:
+            # If AZURE not found, try the first available profile
+            if dscp_to_tc_map_data:
+                profile_name = list(dscp_to_tc_map_data.keys())[0]
+                dscp_to_tc_map = dscp_to_tc_map_data[profile_name]
+                logger.info(f"Using DSCP_TO_TC_MAP profile: {profile_name}")
+            else:
+                logger.error("No DSCP_TO_TC_MAP profiles found")
+                return None
+        else:
+            logger.info("Using DSCP_TO_TC_MAP profile: AZURE")
+
+        logger.info(f"DSCP to TC mapping: {dscp_to_tc_map}")
+
+        # Build DSCP to queue mapping
+        # In SONiC, TC (Traffic Class) typically maps directly to queue
+        # So we can use TC as queue number
+        dscp_to_queue_map = {}
+        for dscp_str, tc_str in dscp_to_tc_map.items():
+            try:
+                dscp = int(dscp_str)
+                queue = int(tc_str)  # TC maps to queue
+                dscp_to_queue_map[dscp] = queue
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Skipping invalid DSCP {dscp_str} -> TC {tc_str}: {e}")
+                continue
+
+        logger.info(f"Built DSCP to queue mapping: {dscp_to_queue_map}")
+
+        if not dscp_to_queue_map:
+            logger.error("No valid DSCP to queue mappings found")
+            return None
+
+        return dscp_to_queue_map
+
+    except Exception as e:
+        logger.error(f"Failed to get DSCP to queue mapping from DUT: {e}")
+        return None
+
+
+def find_dscp_for_queue(duthost, target_queue):
+    """
+    Find a DSCP value that maps to the target queue
+
+    Args:
+        duthost: DUT host object
+        target_queue: Target queue number
+
+    Returns:
+        int or None: DSCP value that maps to target queue, or None if not found
+    """
+    # Get DSCP to queue mapping from DUT
+    dscp_to_queue_map = get_dscp_to_queue_mapping(duthost)
+    if dscp_to_queue_map is None:
+        logger.error("Could not get DSCP to queue mapping from DUT")
+        return None
+
+    for dscp, queue in dscp_to_queue_map.items():
+        if queue == target_queue:
+            logger.info(f"Found DSCP {dscp} maps to target queue {target_queue}")
+            return dscp
+
+    # If no exact match found, log available mappings and return None
+    available_mappings = {f"DSCP {dscp}": f"Queue {queue}" for dscp, queue in dscp_to_queue_map.items()}
+    logger.error(f"No DSCP found that maps to queue {target_queue}. Available mappings: {available_mappings}")
+    return None
+
+
 def get_phy_intfs(host_ans):
     """
     @Summary: Get the physical interfaces (e.g., EthernetX) of a DUT
