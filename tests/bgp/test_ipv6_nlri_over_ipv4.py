@@ -283,23 +283,42 @@ def test_nlri(setup):
             "Neighbor BGP Config After Peer Config: {}".format(setup['neighhost'].shell('show run bgp')['stdout'])
         )
     else:
-        cmds = [
-            "neighbor NLRI peer group",
-            "address-family ipv4",
-            "neighbor NLRI allowas-in",
-            "neighbor NLRI send-community",
-            "neighbor NLRI rib-in pre-policy retain all",
-            "address-family ipv6",
-            # "neighbor NLRI activate",
-            "neighbor NLRI allowas-in",
-            "neighbor NLRI rib-in pre-policy retain all",
-            "neighbor {} peer group NLRI".format(setup['dut_ip_v4']),
-            "neighbor {} remote-as {}".format(setup['dut_ip_v4'], setup['dut_asn']),
-        ]
+        # Get the IPv6 address of the neighbor interface to use as next-hop
+        neigh_ipv6_addr = setup['neigh_ip_v6']
 
+        # Configure route-map to set IPv6 next-hop for route advertisements.
+        # This is needed because when advertising IPv6 NLRI over an IPv4 BGP session,
+        # the IPv6 next-hop must be explicitly set. Without this route-map, the IPv6
+        # routes would be advertised with an invalid or missing next-hop, causing the
+        # DUT to reject them. The route-map sets the IPv6 next-hop to the neighbor's
+        # own IPv6 address, ensuring the DUT can properly install the IPv6 routes.
         setup['neighhost'].eos_config(
-            lines=cmds,
-            parents=['router bgp {}'.format(setup['neigh_asn'])],
+            lines=[
+                "set ipv6 next-hop {}".format(neigh_ipv6_addr),
+            ],
+            parents=["route-map SET_IPV6_NH_TO_SELF permit 10"]
+        )
+
+        # Configure BGP peer-group at global level using eos_config
+        setup['neighhost'].eos_config(
+            lines=[
+                "neighbor NLRI peer group",
+                "neighbor NLRI allowas-in",
+                "neighbor NLRI send-community",
+                "neighbor NLRI rib-in pre-policy retain all",
+                "neighbor {} peer group NLRI".format(setup['dut_ip_v4']),
+                "neighbor {} remote-as {}".format(setup['dut_ip_v4'], setup['dut_asn']),
+            ],
+            parents=["router bgp {}".format(setup['neigh_asn'])]
+        )
+
+        # Configure IPv6 address-family and activate the neighbor along with applying the route map
+        setup['neighhost'].eos_config(
+            lines=[
+                "neighbor NLRI route-map SET_IPV6_NH_TO_SELF out",
+                "neighbor NLRI activate",
+                ],
+            parents=["router bgp {}".format(setup['neigh_asn']), "address-family ipv6"]
         )
 
         logger.debug("Neighbor BGP Config After Peer Config: {}".format(
