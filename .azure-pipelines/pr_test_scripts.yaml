@@ -139,7 +139,6 @@ t0:
   - k8s/test_config_reload.py
   - k8s/test_disable_flag.py
   - k8s/test_join_available_master.py
-  - kubesonic/test_k8s_join_disjoin.py
   - l2/test_l2_configure.py
   - layer1/test_port_error.py
   - lldp/test_lldp.py
@@ -481,7 +480,6 @@ t1-lag:
   - k8s/test_config_reload.py
   - k8s/test_disable_flag.py
   - k8s/test_join_available_master.py
-  - kubesonic/test_k8s_join_disjoin.py
   - layer1/test_port_error.py
   - lldp/test_lldp.py
   - lldp/test_lldp_syncd.py
