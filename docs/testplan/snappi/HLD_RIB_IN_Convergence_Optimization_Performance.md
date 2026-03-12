@@ -1,14 +1,14 @@
-# High Level Design: RIB-IN Convergence Optimization and Performace Tests
+# High Level Design: RIB End-to-end Convergence Optimization and Performance Tests
 
 ## 1. Overview
 
 ### 1.1 Purpose
 
-This document describes the high-level design of the **RIB-IN optimization and performance** test suite, which measures control-plane-to-data-plane convergence time for BGP route advertisement under different DUT configuration profiles and orchagent tuning parameters. The tests are used to evaluate RIB-IN performance and optimize SONiC behavior (e.g., northbound ZMQ, synchronous mode, orchagent bulk/batch settings) across multiple dimensions in a single parameterized framework.
+This document describes the high-level design of the **RIB end-to-end optimization and performance** test suite, which measures control-plane-to-data-plane convergence time for BGP route advertisement under different DUT configuration profiles and orchagent tuning parameters. The tests are used to evaluate RIB-IN performance and optimize SONiC behavior (e.g., northbound ZMQ, synchronous mode, orchagent bulk/batch settings) across multiple dimensions in a single parameterized framework.
 
 ### 1.2 Goals
 
-- **Parameterized coverage**: Run RIB-IN convergence (250K routes) for each combination of:
+- **Parameterized coverage**: Run RIB convergence (250K routes) for each combination of:
   - **Fine-tuning profile** (DEVICE_METADATA from `fine-tunings.yml`)
   - **Orchagent bulk/batch pair** (e.g. `-b` / `-k` from `bk_values.json`)
   - **Route type** (IPv4, IPv6, IPv4v6)
@@ -23,8 +23,9 @@ This document describes the high-level design of the **RIB-IN optimization and p
 
 | Item | Description |
 |------|-------------|
-| Test modules | `test_bgp_rib_route_optimztn_perf.py` |
+| Test modules | `test_bgp_rib_route_optimztn_perf.py` (with optional `--bgp_pc_config`) |
 | Helper | `bgp_convergence_helper.py` (e.g. `run_rib_in_convergence_test`, `get_rib_in_convergence`, BGP/traffic config) |
+| Fixtures | `tgen_ports` (in `tests/common/snappi_tests/snappi_fixtures.py`); behavior depends on `--bgp_pc_config` |
 | Config inputs | `files/fine-tunings.yml`, `files/bk_values.json` |
 | DUT changes | Config DB DEVICE_METADATA merge; orchagent.sh `-b` / `-k` args in swss container; cold reboot |
 | Traffic | Snappi/IXIA traffic generator; BGP route withdraw ? advertise; convergence metrics |
@@ -125,22 +126,67 @@ Total cases = |profiles| × |pairs| × 3 (route types).
 
 ---
 
-## 6. Test Enhancements:
+## 6. Port-Channel / Preconfigured BGP Mode (`--bgp_pc_config`)
+
+### 6.1 Purpose
+
+For testbeds where **port-channels and BGP are already configured** (e.g. minigraph/config_db), tests can avoid reconfiguring the DUT BGP and port-channels. A single CLI flag controls both how port data is derived and whether the helper configures BGP on the DUT.
+
+### 6.2 CLI Flag
+
+- **Flag**: `--bgp_pc_config` (defined in `tests/conftest.py`).
+- **Type**: Store-true (boolean); default `False`.
+- **Usage**: Pass at test start, e.g.  
+  `pytest tests/snappi_tests/bgp/test_bgp_rib_route_optimztn_perf_new.py --bgp_pc_config ...`
+
+### 6.3 Behavior When Flag Is Set
+
+| Aspect | Behavior |
+|--------|----------|
+| **tgen_ports** | Built from **config_db** using **PORTCHANNEL_INTERFACE** and **PORTCHANNEL_MEMBER** (and optionally **BGP_NEIGHBOR** for TGEN IPs). One entry per PortChannel; same list-of-dict format as the default path (location, peer_port, peer_ip, ip, prefix, ipv6, etc.). |
+| **DUT BGP config** | **Skipped**: `run_rib_in_convergence_test(..., skip_duthost_bgp_config=True)` so `duthost_bgp_config` is not called; port-channels and BGP are assumed preconfigured. |
+| **TGEN BGP config** | Unchanged: `__tgen_bgp_config` still runs and uses the global `temp_tg_port`, which is set from `tgen_ports` at the start of `run_rib_in_convergence_test` so it is always valid whether or not `duthost_bgp_config` runs. |
+
+### 6.4 Behavior When Flag Is Not Set (Default)
+
+- **tgen_ports**: Built from **INTERFACE** in config_db (existing behavior): one entry per physical port; IPs may be preconfigured or added by the fixture.
+- **DUT BGP config**: **Run**: `duthost_bgp_config` creates port-channels and BGP neighbors on the DUT as before.
+
+### 6.5 tgen_ports Port-Channel Path (snappi_fixtures.py)
+
+When `--bgp_pc_config` is set, the fixture uses an internal helper **`_tgen_ports_from_portchannel`**:
+
+- Reads **PORTCHANNEL_INTERFACE** and **PORTCHANNEL_MEMBER** from config_db (supports key formats such as `PortChannel1` or `PortChannel1|ip/prefix` and member keys such as `PortChannel1|Ethernet0` or nested dict).
+- Builds one tgen_ports entry per PortChannel: `peer_port` = PortChannel name (e.g. `PortChannel1`); IPs from PORTCHANNEL_INTERFACE; location/speed from the first members Snappi port.
+- **TGEN (neighbor) IP** for each PortChannel: preferred source is **config_db `BGP_NEIGHBOR`**: for each neighbor, key = neighbor (TGEN) IP, value has `local_addr` = DUT IP; the fixture maps `local_addr` ? neighbor IP and uses it for `entry['ip']` and `entry['ipv6']`. If no matching BGP neighbor exists, it falls back to deriving an IP in the same subnet (e.g. via `get_addrs_in_subnet`).
+
+The **tgen_ports output format is unchanged** in both code paths so downstream code (e.g. `__tgen_bgp_config`) does not need to branch.
+
+### 6.6 Helper: run_rib_in_convergence_test and temp_tg_port
+
+- **`skip_duthost_bgp_config`** (default `False`): When `True`, `duthost_bgp_config` is not called (port-channels/BGP preconfigured).
+- **`temp_tg_port`**: Global used by `__tgen_bgp_config` (and related TGEN config). It is set at the start of `run_rib_in_convergence_test`: `temp_tg_port = tgen_ports`, so TGEN BGP config always has correct port data whether or not `duthost_bgp_config` runs.
+
+
+---
+
+## 7. Test Enhancements
 
 - **Utilization**: Test case monitors the various processes but has increased the memory thresholds for certain processes to display the utilization. The testcase will monitor the processes after each iteration, before the reload/reboot to avoid false-positives.
 - **Addition of IPv4v6 Routes**: 'create_v4v6_topo' is added in the helper file to test withdrawal of IPv4v6 routes.
 
 ---
 
-## 7. RIB-IN Convergence Logic (Helper)
+## 8. RIB-IN Convergence Logic (Helper)
 
-### 7.1 run_rib_in_convergence_test
+### 8.1 run_rib_in_convergence_test
 
 - Builds BGP/traffic config via helper (using `tgen_ports`, route_type, number_of_routes, multipath).
 - Sets up Snappi config and runs the RIB-IN convergence scenario: withdraw routes, start protocols, start traffic, advertise routes, collect convergence metrics.
 - Uses a global route-name list (e.g. NG_LIST) populated during config build; cleared after the run (e.g. in `get_rib_in_convergence`) for clean state.
+- Sets global **temp_tg_port = tgen_ports** at the start so that `__tgen_bgp_config` (and any other code using `temp_tg_port`) has valid port data whether or not `duthost_bgp_config` is run (see Section 6).
 
-### 7.2 get_rib_in_convergence (core sequence)
+### 8.2 get_rib_in_convergence (core sequence)
 
 1. Withdraw all BGP routes (control state).
 2. Start all protocols; wait.
@@ -152,20 +198,21 @@ Total cases = |profiles| × |pairs| × 3 (route types).
 
 ---
 
-## 8. Dependencies and Interfaces
+## 9. Dependencies and Interfaces
 
-### 8.1 Fixtures
+### 9.1 Fixtures
 
-- **snappi_api**, **tgen_ports**: Snappi/IXIA and port mapping.
+- **snappi_api**, **tgen_ports**: Snappi/IXIA and port mapping. **tgen_ports** behavior depends on `--bgp_pc_config`: if set, built from PORTCHANNEL_* and BGP_NEIGHBOR in config_db; otherwise from INTERFACE (see Section 6).
 - **duthost**, **localhost**: DUT and local host for reboot/shell/copy.
 - **conn_graph_facts**, **fanout_graph_facts**: Connectivity/graph data (for topology).
+- **request**: Used in `test_bgp_rib_route_optimztn_perf.py` to read `--bgp_pc_config`.
 
-### 8.2 File Paths
+### 9.2 File Paths
 
 - **Config files**: Under `tests/snappi_tests/bgp/files/` (e.g. `fine-tunings.yml`, `bk_values.json`).
 - **DUT backup**: config_db backup at e.g. `/etc/sonic/config_db_rib_combo_bkup.json` (or v1-specific path) so it survives reboot; removed after revert.
 
-### 8.3 Assumptions
+### 9.3 Assumptions
 
 - Testbed has tgen topology; Snappi API and BGP/traffic config are valid.
 - DUT has writable config_db and swss container with orchagent.sh; default orchagent args contain the expected pattern (e.g. `-b 1024`) so sed replacement is correct.
@@ -174,7 +221,7 @@ Total cases = |profiles| × |pairs| × 3 (route types).
 
 ---
 
-## 9. Possible enhancements:
+## 10. Possible enhancements
 
 Following possible enhancements can be added:
   - Support for extended BGP messages with MTU of 9100 bytes via Snappi along .
@@ -182,7 +229,7 @@ Following possible enhancements can be added:
   - Parameterize the max-routes (e.g. - 250k, 500k and so on).
 
 
-## 10. Summary
+## 11. Summary
 
 The RIB-IN optimization and performance tests provide a parameterized framework to measure RIB-IN convergence time (250K routes) across:
 
@@ -190,4 +237,5 @@ The RIB-IN optimization and performance tests provide a parameterized framework 
 - **Orchagent tuning** (bulk/batch pairs from bk_values.json),
 - **Route type** (IPv4, IPv6, IPv4v6).
 
-Each test applies a single (profile, bulk, batch, route_type), reboots the DUT, runs the convergence scenario once, then reverts config and orchagent. Two structural variants exist: inline setup/revert in the test (combo and route_optimztn_perf) and fixture-based setup/revert (rib_combo_v1) for memory delta analysis on the same boot.
+Each test applies a single (profile, bulk, batch, route_type), reboots the DUT, runs the convergence scenario once, then reverts config and orchagent. Two structural variants exist: inline setup/revert in the test (combo and route_optimztn_perf) and fixture-based setup/revert (rib_combo_v1) for memory delta analysis on the same boot. The **`--bgp_pc_config`** option (Section 6) allows using preconfigured port-channels and BGP on the testbed via port data from config_db and skipping DUT BGP configuration in the helper.
+
