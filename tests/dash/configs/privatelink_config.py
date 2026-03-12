@@ -74,7 +74,7 @@ APPLIANCE_CONFIG = {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
         "local_region_id": LOCAL_REGION_ID,
-        "trusted_vnis": [ENCAP_VNI, NSG_OUTBOUND_VNI],
+        "trusted_vnis_list": [ENCAP_VNI, NSG_OUTBOUND_VNI],
     }
 }
 
@@ -84,7 +84,7 @@ APPLIANCE_FNIC_CONFIG = {
         "vm_vni": VM_VNI,
         "outbound_direction_lookup": OUTBOUND_DIR_LOOKUP,
         "local_region_id": LOCAL_REGION_ID,
-        "trusted_vnis": ENCAP_VNI
+        "trusted_vnis_list": [ENCAP_VNI]
     }
 }
 
@@ -113,7 +113,7 @@ ENI_FNIC_CONFIG = {
         "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
         "eni_mode": EniMode.MODE_FNIC,
         "v4_meter_policy_id": METER_POLICY_V4,
-        "trusted_vnis": ENI_TRUSTED_VNI,
+        "trusted_vnis_list": [ENI_TRUSTED_VNI],
     }
 }
 
@@ -127,7 +127,7 @@ ENI_FNIC_PL_CONFIG = {
         "pl_underlay_sip": APPLIANCE_VIP,
         "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
         "eni_mode": EniMode.MODE_FNIC,
-        "trusted_vnis": [VNET1_VNI],
+        "trusted_vnis_list": [VNET1_VNI],
     }
 }
 
@@ -141,7 +141,7 @@ ENI_CONFIG = {
         "pl_underlay_sip": APPLIANCE_VIP,
         "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
         "v4_meter_policy_id": METER_POLICY_V4,
-        "trusted_vnis": VM_VNI
+        "trusted_vnis_list": [VM_VNI]
     }
 }
 
