@@ -54,7 +54,6 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.command("pfcwd start_default")
 
 
-
 class SetupPfcwdFunc(object):
     def parse_test_port_info(self):
         """
@@ -590,7 +589,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
         # for idx, port in enumerate(self.ports):
         port = list(self.ports.keys())[0]
-
 
         logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
         self.setup_test_params(port, setup_info['vlan'], init=True, ip_version=ip_version)
