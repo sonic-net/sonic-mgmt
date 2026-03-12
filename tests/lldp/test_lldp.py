@@ -1,3 +1,4 @@
+import contextlib
 import logging
 import re
 import pytest
@@ -529,7 +530,7 @@ def test_lldp_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             ".*ERR lldp#lldpmgrd.*"
         ])
 
-    with loganalyzer[enum_rand_one_per_hwsku_frontend_hostname] if loganalyzer else None:
+    with loganalyzer[enum_rand_one_per_hwsku_frontend_hostname] if loganalyzer else contextlib.nullcontext():
         logger.info("Step 1: Recording all interfaces")
         # Get all interfaces from 'show interface status' using show_and_parse
         intf_status_output = duthost.show_and_parse("show interface status")
@@ -539,9 +540,15 @@ def test_lldp_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         logger.info("All interfaces from 'show interface status': {}".format(sorted(all_interfaces)))
         logger.info("All interfaces in total: {}".format(len(all_interfaces)))
 
-        # Get chassis MAC address from management interface
-        mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
-        expected_chassis_mac = duthost.get_dut_iface_mac(mgmt_alias).lower()
+        # Get expected chassis MAC address based on topology
+        # For T2: chassis-id uses router MAC (DEVICE_METADATA['localhost']['mac'])
+        # For non-T2: chassis-id uses management interface MAC
+        if tbinfo["topo"]["type"] == "t2":
+            config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+            expected_chassis_mac = config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
+        else:
+            mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
+            expected_chassis_mac = duthost.get_dut_iface_mac(mgmt_alias).lower()
         logger.info("Expected chassis MAC address: {}".format(expected_chassis_mac))
 
         # Step 2: Verify LLDP table
@@ -600,7 +607,7 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
             ".*ERR.*neighsyncd.*"
         ])
 
-    with loganalyzer[enum_rand_one_per_hwsku_frontend_hostname] if loganalyzer else None:
+    with loganalyzer[enum_rand_one_per_hwsku_frontend_hostname] if loganalyzer else contextlib.nullcontext():
         logger.info("Step 1: Recording all interfaces before config reload")
         # Get all interfaces from 'show interface status' using show_and_parse
         intf_status_output = duthost.show_and_parse("show interface status")
@@ -610,9 +617,13 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
         logger.info("All interfaces before config reload: {}".format(sorted(all_pre_reload_interfaces)))
         logger.info("All interfaces in total: {}".format(len(all_pre_reload_interfaces)))
 
-        # Get chassis MAC address from management interface before reload
-        mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
-        expected_chassis_mac = duthost.get_dut_iface_mac(mgmt_alias).lower()
+        # Get expected chassis MAC address before reload based on topology
+        if tbinfo["topo"]["type"] == "t2":
+            config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+            expected_chassis_mac = config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
+        else:
+            mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
+            expected_chassis_mac = duthost.get_dut_iface_mac(mgmt_alias).lower()
         logger.info("Expected chassis MAC address: {}".format(expected_chassis_mac))
 
         logger.info("Step 2: Performing config reload")
@@ -623,10 +634,17 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
         assert wait_until(300, 10, 0, duthost.critical_services_fully_started), \
             "Not all critical services are fully started after config reload"
 
-        # Additional wait for LLDP neighbors to be discovered
+        # Wait for all LLDP neighbors to be discovered (not just > 0)
+        # The verify functions assert strict equality against all admin-up non-PortChannel interfaces,
+        # so we must wait until all expected neighbors appear to avoid a race condition.
+        expected_lldp_neighbors = len({intf['interface'] for intf in intf_status_output
+                                       if not intf['interface'].startswith('PortChannel')
+                                       and intf['admin'].lower() == 'up'})
         pytest_assert(
-            wait_until(180, 10, 0, lambda: get_num_lldpctl_facts(duthost, enum_frontend_asic_index) > 0),
-            "No LLDP neighbors discovered after config reload"
+            wait_until(180, 10, 0, lambda: get_num_lldpctl_facts(
+                duthost, enum_frontend_asic_index) >= expected_lldp_neighbors),
+            "Expected {} LLDP neighbors but only found {} after config reload".format(
+                expected_lldp_neighbors, get_num_lldpctl_facts(duthost, enum_frontend_asic_index))
         )
 
         # Step 4: Verify LLDP table after config reload
