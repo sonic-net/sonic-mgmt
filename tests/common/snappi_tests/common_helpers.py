@@ -263,7 +263,7 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     peer_devices = list(set(peer_devices))
     peer_snappi_devices = []
     for peer in peer_devices:
-        if 'snappi' in peer or 'ixia' in peer:
+        if 'snappi' in peer or 'ixia' in peer or 'stc' in peer:
             peer_snappi_devices.append(peer)
     if len(peer_snappi_devices) >= 1:
         return peer_snappi_devices
@@ -1479,7 +1479,7 @@ def get_pfc_count(duthost, port):
 def get_pfcQueueGroupSize(default=8):
     testbed_name = get_testbed_from_args()
     is_override, override_data = parse_override(testbed_name, 'pfcQueueGroupSize')
-    if is_override and override_data is not None:
+    if is_override and override_data is not None and override_data != []:
         return override_data
     return default
 
