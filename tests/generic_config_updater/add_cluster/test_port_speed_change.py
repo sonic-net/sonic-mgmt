@@ -715,7 +715,7 @@ def test_port_speed_change(tbinfo,
                            initialize_random_variables,
                            initialize_facts,
                            ptfadapter,
-                           setup_port_speed_change):
+                           setup_port_speed_change, ptfhost, gnxi_path, localhost):
     """
     Validates port speed change functionality via Generic Config Updater (GCU).
     This test verifies that port speed changes are correctly applied, including updates to
