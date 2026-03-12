@@ -6,22 +6,22 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"os"
-	"strconv"
-	"testing"
-	"time"
-
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	log "github.com/golang/glog"
-
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi"
 	"github.com/openconfig/ygnmi/ygnmi"
+	p4infopb "github.com/p4lang/p4runtime/go/p4/config/v1"
+	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/encoding/prototext"
-
-	p4infopb "github.com/p4lang/p4runtime/go/p4/config/v1"
-	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+	"os"
+	"path"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
 )
 
 var (
@@ -159,11 +159,15 @@ func (p *P4RTClient) P4Info() (*p4infopb.P4Info, error) {
 	err := fmt.Errorf("P4Info is not implemented")
 
 	// Read P4Info from file.
-	p4Info = &p4infopb.P4Info{}
-	data, err := os.ReadFile("ondatra/data/p4rtconfig.prototext")
+	file, err := bazel.Runfile("ondatra/data/p4rtconfig.prototext")
 	if err != nil {
 		return nil, err
 	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+        p4Info = &p4infopb.P4Info{}
 	err = prototext.Unmarshal(data, p4Info)
 
 	return p4Info, err
@@ -198,6 +202,20 @@ func (p *P4RTClient) PushP4Info() error {
 	config := &p4pb.ForwardingPipelineConfig{
 		P4Info: p.p4Info,
 	}
+	// Save the config to artifacts.
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		dn := testhelperDUTNameGet(p.dut)
+		artifactName := fmt.Sprintf("p4_push_%v.txt", time.Now().UnixNano())
+		fp := path.Join(dn, artifactName)
+		log.Infof("Saving P4Info to artifacts at path: %v", fp)
+		if err := SaveToArtifact(prototext.Format(p.p4Info), fp); err != nil {
+			log.Warningf("Failed to save P4Info for dut: %v to artifacts, err: %v", dn, err)
+		}
+	}()
+	defer wg.Wait()
 	req := &p4pb.SetForwardingPipelineConfigRequest{
 		DeviceId:   p.deviceID,
 		ElectionId: p.electionID,
