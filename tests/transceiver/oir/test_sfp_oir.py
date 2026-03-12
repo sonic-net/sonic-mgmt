@@ -84,7 +84,6 @@ def test_oir_remove_sfps(duthost, oir_remove_sfps_setup, port_attributes_dict): 
     for port in ports_under_test:
         if presence_dict[port]:
             failures.append(f"Transceiver still present on port {port}")
-    # assert not failures, " ; ".join(failures)
 
     physical_port_indices = get_physical_port_indices(duthost)
     pport_to_lport_mapping = get_physical_to_logical_port_mapping(physical_port_indices)
@@ -137,7 +136,6 @@ def test_oir_insert_sfps(duthost, oir_insert_sfps_setup, port_attributes_dict): 
     for port in ports_under_test:
         if not presence_dict[port]:
             failures.append(f"Transceiver not present on port {port}")
-    # assert not failures, " ; ".join(failures)
 
     physical_port_indices = get_physical_port_indices(duthost)
     pport_to_lport_mapping = get_physical_to_logical_port_mapping(physical_port_indices)
