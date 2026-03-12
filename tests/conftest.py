@@ -2961,9 +2961,8 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                             json.loads(dut.shell("cat /etc/sonic/running_golden_config{}.json".format(asic_index),
                                                  verbose=False)['stdout'])
 
-            with SafeThreadPoolExecutor(max_workers=8) as executor:
-                for duthost in duthosts:
-                    executor.submit(collect_before_test, duthost)
+            for duthost in duthosts:
+                collect_before_test(duthost)
 
         if par_ctx.is_par_run and par_ctx.is_par_leader:
             parallel_coordinator.set_new_status(
@@ -3034,9 +3033,8 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                             json.loads(dut.shell("sonic-cfggen -n {} -d --print-data".format(asic_ns),
                                                  verbose=False)['stdout'])
 
-            with SafeThreadPoolExecutor(max_workers=8) as executor:
-                for duthost in duthosts:
-                    executor.submit(collect_after_test, duthost)
+            for duthost in duthosts:
+                collect_after_test(duthost)
 
             for duthost in duthosts:
                 if new_core_dumps[duthost.hostname]:
