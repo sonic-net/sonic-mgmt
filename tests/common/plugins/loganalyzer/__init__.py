@@ -6,6 +6,7 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
 from .bug_handler_helper import get_bughandler_instance
 
+
 def _cleanup_orphaned_ansible_processes(timed_out_duts):
     """Kill orphaned ansible processes on DUTs whose analyze_logs did not complete.
 
