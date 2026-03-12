@@ -154,9 +154,12 @@ class LoadExtraDpuConfigModule(object):
                 "Ethernet0|{}".format(dpu_dataplane_ip): {}
             }
             dpu_config["STATIC_ROUTE"] = {
-                "0.0.0.0/0": {
+                "default|0.0.0.0/0": {
                     "nexthop": gateway_ip,
-                    "ifname": "Ethernet0"
+                    "ifname": "Ethernet0",
+                    "nexthop-vrf": "",
+                    "blackhole": "false",
+                    "distance": "0"
                 }
             }
 
