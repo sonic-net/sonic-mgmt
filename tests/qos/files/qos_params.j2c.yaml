@@ -327,31 +327,38 @@ qos_params:
                     pkts_num_fill_egr_min: 0
                     cell_size: 4096
             ecn_1:
-                dscp: 8
+                dscp: 3
                 ecn: 0
-                num_of_pkts: 5000
-                limit: 182000
-                min_limit: 180000
+                num_of_pkts: 8500
+                limit: 8500
+                min_limit: 2000
                 cell_size: 4096
             ecn_2:
-                dscp: 8
+                dscp: 3
                 ecn: 1
-                num_of_pkts: 2047
-                limit: 182320
-                min_limit: 0
+                num_of_pkts: 1800
+                limit: 1800
+                min_limit: 2000
                 cell_size: 4096
             ecn_3:
-                dscp: 0
-                ecn: 0
-                num_of_pkts: 5000
-                limit: 182000
-                min_limit: 180000
+                dscp: 3
+                ecn: 2
+                num_of_pkts: 8500
+                limit: 6500
+                min_limit: 2000
                 cell_size: 4096
             ecn_4:
+                dscp: 3
+                ecn: 1
+                num_of_pkts: 8500
+                limit: 6500
+                min_limit: 2000
+                cell_size: 4096
+            ecn_5:
                 dscp: 0
                 ecn: 1
-                num_of_pkts: 2047
-                limit: 182320
+                num_of_pkts: 8500
+                limit: 0
                 min_limit: 0
                 cell_size: 4096
             wrr:
@@ -705,31 +712,38 @@ qos_params:
                     pkts_num_fill_egr_min: 0
                     cell_size: 4096
             ecn_1:
-                dscp: 8
+                dscp: 3
                 ecn: 0
-                num_of_pkts: 5000
-                limit: 182000
-                min_limit: 180000
+                num_of_pkts: 8500
+                limit: 8500
+                min_limit: 2000
                 cell_size: 4096
             ecn_2:
-                dscp: 8
+                dscp: 3
                 ecn: 1
-                num_of_pkts: 2047
-                limit: 182320
-                min_limit: 0
+                num_of_pkts: 1800
+                limit: 1800
+                min_limit: 2000
                 cell_size: 4096
             ecn_3:
-                dscp: 0
-                ecn: 0
-                num_of_pkts: 5000
-                limit: 182000
-                min_limit: 180000
+                dscp: 3
+                ecn: 2
+                num_of_pkts: 8500
+                limit: 6500
+                min_limit: 2000
                 cell_size: 4096
             ecn_4:
+                dscp: 3
+                ecn: 1
+                num_of_pkts: 8500
+                limit: 6500
+                min_limit: 2000
+                cell_size: 4096
+            ecn_5:
                 dscp: 0
                 ecn: 1
-                num_of_pkts: 2047
-                limit: 182320
+                num_of_pkts: 8500
+                limit: 0
                 min_limit: 0
                 cell_size: 4096
             wrr:
@@ -1398,31 +1412,38 @@ qos_params:
                     pkts_num_fill_egr_min: 0
                     cell_size: 4096
             ecn_1:
-                dscp: 8
+                dscp: 3
                 ecn: 0
-                num_of_pkts: 5000
-                limit: 182000
-                min_limit: 180000
+                num_of_pkts: 8500
+                limit: 8500
+                min_limit: 2000
                 cell_size: 4096
             ecn_2:
-                dscp: 8
+                dscp: 3
                 ecn: 1
-                num_of_pkts: 2047
-                limit: 182320
-                min_limit: 0
+                num_of_pkts: 1800
+                limit: 1800
+                min_limit: 2000
                 cell_size: 4096
             ecn_3:
-                dscp: 0
-                ecn: 0
-                num_of_pkts: 5000
-                limit: 182000
-                min_limit: 180000
+                dscp: 3
+                ecn: 2
+                num_of_pkts: 8500
+                limit: 6500
+                min_limit: 2000
                 cell_size: 4096
             ecn_4:
+                dscp: 3
+                ecn: 1
+                num_of_pkts: 8500
+                limit: 6500
+                min_limit: 2000
+                cell_size: 4096
+            ecn_5:
                 dscp: 0
                 ecn: 1
-                num_of_pkts: 2047
-                limit: 182320
+                num_of_pkts: 8500
+                limit: 0
                 min_limit: 0
                 cell_size: 4096
             wrr:
