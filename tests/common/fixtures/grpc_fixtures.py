@@ -127,11 +127,11 @@ def gnmi_tls(duthost, ptfhost):
     finally:
         # 6. Cleanup: rollback configuration
         logger.info("Cleaning up gNOI TLS server environment")
-        try:
-            rollback(duthost, checkpoint_name)
+        output = rollback(duthost, checkpoint_name)
+        if output['rc'] or "Config rolled back successfully" not in output['stdout']:
+            logger.error("Configuration rollback failed: %s", output['stdout'])
+        else:
             logger.info("Configuration rollback completed")
-        except Exception as e:
-            logger.error(f"Failed to rollback configuration: {e}")
 
         try:
             _delete_gnoi_certs(cert_dir)
