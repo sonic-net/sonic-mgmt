@@ -117,7 +117,8 @@ def run_rib_in_convergence_test(snappi_api,
                                 number_of_routes,
                                 route_type,
                                 timeout=None,
-                                skip_cleanup=None):
+                                skip_cleanup=None,
+                                skip_duthost_bgp_config=False,):
     """
     Run RIB-IN Convergence test
 
@@ -130,14 +131,24 @@ def run_rib_in_convergence_test(snappi_api,
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
         timeout: optional timeout in seconds for convergence steps (default: TIMEOUT)
+        skip_cleanup: Skip the cleanup integrated in the test since main test does revert of config.
+        skip_duthost_bgp_config: Use existing config from config_db to run test.
     """
+    if timeout is None:
+        timeout = TIMEOUT
+
     port_count = multipath+1
 
+    """ Set global temp_tg_port for __tgen_bgp_config (used by tgen BGP config) """
+    global temp_tg_port
+    temp_tg_port = tgen_ports
+
     """ Create bgp config on dut """
-    duthost_bgp_config(duthost,
-                       tgen_ports,
-                       port_count,
-                       route_type,)
+    if not skip_duthost_bgp_config:
+        duthost_bgp_config(duthost,
+                           tgen_ports,
+                           port_count,
+                           route_type,)
 
     """  Create bgp config on TGEN """
     tgen_bgp_config = __tgen_bgp_config(snappi_api,
@@ -834,6 +845,7 @@ def get_rib_in_convergence(snappi_api,
     table.append(iteration)
     table.append(mean(avg_delta))
     table.append(mean(avg))
+    NG_LIST = []
     columns = ['Event Name', 'Route Type', 'No. of Routes',
                'Iterations', 'Frames Delta', 'Avg RIB-IN Convergence Time(ms)']
     logger.info("\n%s" % tabulate([table], headers=columns, tablefmt="psql"))
