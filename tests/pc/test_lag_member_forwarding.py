@@ -179,22 +179,48 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
                 "Failed to apply lag member configuration file: {}".format(result["stderr"])
             )
 
-        if duthost.facts['asic_type'] == "vs":
-            # VS SAI does not populate LAG member EGRESS/INGRESS_DISABLE attributes
-            # in ASIC_DB, and the Linux kernel teamdev doesn't enforce them,
-            # so packets still flow. Skip ASIC_DB wait and all traffic verification.
-            logger.info("KVM/VS SAI does not enforce LAG member disable in dataplane, "
-                        "skip ASIC_DB wait, forwarding and BGP verify steps.")
-            return
-
         # swssconfig returns before orchagent/syncd finishes applying the config.
-        # Wait for ASIC_DB to reflect that all LAG members are disabled before
-        # sending traffic, otherwise packets may still be forwarded.
+        # Wait for ASIC_DB to reflect that LAG members of the tested LAG are
+        # disabled before sending traffic, otherwise packets may still be forwarded.
         def check_lag_members_disabled_in_asic_db():
-            """Check ASIC_DB for LAG member EGRESS_DISABLE=true on all members."""
-            lag_member_keys = asichost.shell(
-                "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'"
+            """Check ASIC_DB for EGRESS_DISABLE=true on members of the LAG under test."""
+            # First, find the SAI OID for the LAG under test
+            lag_keys = asichost.shell(
+                "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG:*'"
             )["stdout_lines"]
+            # Find which LAG OID corresponds to portchannel_name via COUNTERS_DB
+            lag_oid = None
+            for lag_key in lag_keys:
+                oid = lag_key.split(":")[-1]
+                name_result = asichost.shell(
+                    "sonic-db-cli COUNTERS_DB HGET COUNTERS_LAG_NAME_MAP {}".format(
+                        portchannel_name),
+                    module_ignore_errors=True
+                )["stdout"].strip()
+                if name_result == oid:
+                    lag_oid = oid
+                    break
+
+            if not lag_oid:
+                logger.warning("Could not find SAI OID for %s, checking all LAG members",
+                               portchannel_name)
+                # Fallback: check all members (original behavior)
+                lag_member_keys = asichost.shell(
+                    "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'"
+                )["stdout_lines"]
+            else:
+                # Filter to only members of the LAG under test
+                all_member_keys = asichost.shell(
+                    "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'"
+                )["stdout_lines"]
+                lag_member_keys = []
+                for key in all_member_keys:
+                    member_lag_id = asichost.shell(
+                        "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_LAG_ID".format(key)
+                    )["stdout"].strip()
+                    if member_lag_id == lag_oid:
+                        lag_member_keys.append(key)
+
             if not lag_member_keys:
                 return False
             for key in lag_member_keys:
@@ -207,9 +233,18 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
 
         pytest_assert(
             wait_until(10, 0.5, 0, check_lag_members_disabled_in_asic_db),
-            "LAG members not disabled in ASIC_DB within 10s after swssconfig"
+            "LAG members of {} not disabled in ASIC_DB within 10s after swssconfig".format(
+                portchannel_name)
         )
-        logger.info("All LAG members confirmed disabled in ASIC_DB")
+        logger.info("All LAG members of %s confirmed disabled in ASIC_DB", portchannel_name)
+
+        if duthost.facts['asic_type'] == "vs":
+            # VS SAI populates ASIC_DB but the Linux kernel teamdev doesn't
+            # enforce LAG member disable in the dataplane, so packets still flow.
+            # Skip traffic and BGP verification on VS.
+            logger.info("KVM/VS SAI does not enforce LAG member disable in dataplane, "
+                        "skip forwarding and BGP verify steps.")
+            return
 
         # Make sure data forwarding starts to fail
         if peer_device_dest_ip:
