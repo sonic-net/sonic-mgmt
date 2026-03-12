@@ -5054,10 +5054,11 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
 
 vxlan/test_vxlan_decap.py:
   skip:
-    reason: "vxlan support not available for cisco-8122 platforms. Not required on isolated topologies d256u256s2, d96u32s2, d448u15-lag, and d128, as well as their minimzed and -v6 variants."
+    reason: "vxlan support not available for cisco-8122 platforms. L2 VxLAN is not supported on Broadcom TH4/TH5. Not required on isolated topologies d256u256s2, d96u32s2, d448u15-lag, and d128, as well as their minimzed and -v6 variants."
     conditions_logical_operator: OR
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "asic_gen in ['th4', 'th5'] and release in ['202503', '202505', '202511']"
       - *noVxlanTopos
   xfail:
     reason: "Skipped due to bug https://github.com/sonic-net/sonic-buildimage/issues/22056"
