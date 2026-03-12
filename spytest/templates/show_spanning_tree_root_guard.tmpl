@@ -1,0 +1,13 @@
+Value RG_TIMEOUT (\d+)
+Value RG_IFNAME (\S+)
+Value RG_VID (\d+)
+Value RG_STATUS (Consistent state|Inconsistent state)
+Value TIME_LEFT (\d+)
+
+Start
+  ^Root guard timeout: ${RG_TIMEOUT} secs
+  ^Port\s+VLAN\s+Current State\s*$$
+  ^-+\s*$$
+  ^${RG_IFNAME}\s+${RG_VID}\s+${RG_STATUS}( \(${TIME_LEFT} seconds left on timer\))?\s*$$ -> Record
+
+EOF
