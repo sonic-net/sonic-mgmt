@@ -28,7 +28,9 @@ TARGET_BRANCHES = [
     'internal-202503-chassis',
     'internal-202505',
     'internal-202506',
+    'internal-202509',
     'internal-202511',
+    'internal-202603',
 ]
 CREATE_GRAPH_BRANCHES = ['internal-202012', 'internal-202205', 'internal-202305']
 ANSIBLE_INVENTORY_LIST = ['testbed.yaml', 'veos', 'wan_sonic_tb', 'wan_vtestbed.yaml']
