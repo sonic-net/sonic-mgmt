@@ -12,7 +12,7 @@
   block:
   - name: Set default value for ptf_imagetag
     set_fact:
-      ptf_imagetag: "latest"
+      ptf_imagetag: "202505"
     when: ptf_imagetag is not defined
 
   - name: Stop mux simulator

@@ -11,14 +11,12 @@ import six
 import copy
 import time
 import collections
-from contextlib import contextmanager
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.cisco_data import is_cisco_device, copy_set_voq_watchdog_script_cisco_8000, \
-        copy_dshell_script_cisco_8000, run_dshell_command
+from tests.common.cisco_data import is_cisco_device, copy_dshell_script_cisco_8000, run_dshell_command
 from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.dualtor.mux_simulator_control \
@@ -32,7 +30,7 @@ from tests.common.system_utils import docker  # noqa F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import config_reload
 from tests.common.devices.eos import EosHost
-from .qos_helpers import dutBufferConfig
+from .qos_helpers import dutBufferConfig, disable_voq_watchdog
 from tests.common.snappi_tests.qos_fixtures import get_pfcwd_config, reapply_pfcwd
 from tests.common.snappi_tests.common_helpers import \
         stop_pfcwd, disable_packet_aging, enable_packet_aging
@@ -45,7 +43,7 @@ class QosBase:
     Common APIs
     """
     SUPPORTED_T0_TOPOS = [
-        "t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "dualtor-56", "dualtor-64",
+        "t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "t0-d18u8s4", "dualtor-56", "dualtor-64",
         "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa", "dualtor-aa-56", "dualtor-aa-64-breakout",
         "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64",
         "t0-standalone-128", "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2",
@@ -60,6 +58,7 @@ class QosBase:
                            "td3", "th3", "j2c+", "jr2", "th5"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
+    LOW_SPEED_PORT_SKUS = ['Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32C-C28S4']
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -1022,11 +1021,12 @@ class QosSaiBase(QosBase):
             config_facts = duthosts.config_facts(host=src_dut.hostname, source="running")
             port_speeds = self.__buildPortSpeeds(config_facts[src_dut.hostname])
             low_speed_portIds = []
-            if src_dut.facts['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in topo:
+            if src_dut.facts['hwsku'] in self.BREAKOUT_SKUS + self.LOW_SPEED_PORT_SKUS and 'backend' not in topo:
                 for speed, portlist in port_speeds.items():
                     if int(speed) < 40000:
                         for portname in portlist:
-                            low_speed_portIds.append(src_mgFacts["minigraph_ptf_indices"][portname])
+                            if portname in src_mgFacts["minigraph_ptf_indices"]:
+                                low_speed_portIds.append(src_mgFacts["minigraph_ptf_indices"][portname])
 
             testPortIds[src_dut_index][src_asic_index] = set(src_mgFacts["minigraph_ptf_indices"][port]
                                                              for port in src_mgFacts["minigraph_ports"].keys())
@@ -2888,66 +2888,14 @@ def set_port_cir(interface, rate):
         yield
         return
 
-    def voq_watchdog_enabled(self, get_src_dst_asic_and_duts):
-        dst_dut = get_src_dst_asic_and_duts['dst_dut']
-        if not is_cisco_device(dst_dut):
-            return False
-        namespace_option = "-n asic0" if dst_dut.facts.get("modular_chassis") else ""
-        show_command = "show platform npu global {}".format(namespace_option)
-        result = run_dshell_command(dst_dut, show_command)
-        pattern = r"voq_watchdog_enabled +: +True"
-        match = re.search(pattern, result["stdout"])
-        return match
-
-    def modify_voq_watchdog(self, duthosts, get_src_dst_asic_and_duts, dutConfig, enable):
-        # Skip if voq watchdog is not enabled.
-        if not self.voq_watchdog_enabled(get_src_dst_asic_and_duts):
-            logger.info("voq_watchdog is not enabled, skipping modify voq watchdog")
-            return
-
-        dst_dut = get_src_dst_asic_and_duts['dst_dut']
-        dst_asic = get_src_dst_asic_and_duts['dst_asic']
-        dut_list = [dst_dut]
-        asic_index_list = [dst_asic.asic_index]
-
-        if not get_src_dst_asic_and_duts["single_asic_test"]:
-            src_dut = get_src_dst_asic_and_duts['src_dut']
-            src_asic = get_src_dst_asic_and_duts['src_asic']
-            dut_list.append(src_dut)
-            asic_index_list.append(src_asic.asic_index)
-            # fabric card asics
-            for rp_dut in duthosts.supervisor_nodes:
-                for asic in rp_dut.asics:
-                    dut_list.append(rp_dut)
-                    asic_index_list.append(asic.asic_index)
-
-        # Modify voq watchdog.
-        for (dut, asic_index) in zip(dut_list, asic_index_list):
-            copy_set_voq_watchdog_script_cisco_8000(
-                dut=dut,
-                asic=asic_index,
-                enable=enable)
-            cmd_opt = "-n asic{}".format(asic_index)
-            if not dst_dut.sonichost.is_multi_asic:
-                cmd_opt = ""
-            dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
-
-    @contextmanager
-    def disable_voq_watchdog(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
-        # Disable voq watchdog.
-        self.modify_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig, enable=False)
-        yield
-        # Enable voq watchdog.
-        self.modify_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig, enable=True)
-
     @pytest.fixture(scope='function')
-    def disable_voq_watchdog_function_scope(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
-        with self.disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig) as result:
+    def disable_voq_watchdog_function_scope(self, duthosts, get_src_dst_asic_and_duts):
+        with disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts) as result:
             yield result
 
     @pytest.fixture(scope='class')
-    def disable_voq_watchdog_class_scope(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
-        with self.disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig) as result:
+    def disable_voq_watchdog_class_scope(self, duthosts, get_src_dst_asic_and_duts):
+        with disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts) as result:
             yield result
 
     def oq_watchdog_enabled(self, get_src_dst_asic_and_duts):

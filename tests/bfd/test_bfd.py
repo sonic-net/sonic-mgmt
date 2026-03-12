@@ -404,6 +404,7 @@ def warm_up_ipv6_neighbors(duthost, neighbor_addrs):
         logger.info(f"Warming up IPv6 neighbor {addr}")
         duthost.shell(f"ping -6 -c 1 -W 1 {addr}", module_ignore_errors=True)
 
+    time.sleep(5)  # Wait for NDP entries to be populated
     ndp_output = duthost.shell("ip -6 neigh show", module_ignore_errors=False)['stdout']
     logger.info(f"NDP entries:\n{ndp_output}")
     for addr in neighbor_addrs:

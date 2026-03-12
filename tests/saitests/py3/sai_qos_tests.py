@@ -1584,6 +1584,13 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
             # Disable tx on EGRESS port so that headroom buffer cannot be free
             self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
 
+            if 'cisco-8000' in asic_type:
+                PKT_NUM = 50
+                cntr_wait_time = 1
+            else:
+                PKT_NUM = 100
+                cntr_wait_time = 8
+
             # There are packet leak even port tx is disabled (18 packets leak on TD3 found)
             # Hence we send some packet to fill the leak before testing
             if asic_type != 'mellanox':
@@ -1615,11 +1622,9 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     else:
                         send_packet(self, src_port_id, pkt, 20)
                 assert not leakout_failed, "Failed filling leakout"
-                time.sleep(10)
-            if 'cisco-8000' in asic_type:
-                PKT_NUM = 50
-            else:
-                PKT_NUM = 100
+                time.sleep(cntr_wait_time)
+
+            fails = []
             for inner_dscp, pg in dscp_to_pg_map.items():
                 logging.info("Iteration: inner_dscp:{}, pg: {}".format(inner_dscp, pg))
                 # Build and send packet to active tor.
@@ -1642,16 +1647,21 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 logging.info(pg_shared_wm_res_base)
                 send_packet(self, src_port_id, pkt, PKT_NUM)
                 # validate pg counters increment by the correct pkt num
-                time.sleep(8)
+                time.sleep(cntr_wait_time)
 
                 pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.src_client, asic_type,
                                                                        port_list['src'][src_port_id])
                 pg_wm_inc = pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg]
                 lower_bounds = (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
                 upper_bounds = (PKT_NUM + ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
-                print("DSCP {}, PG {}, expectation: {} <= {} <= {}".format(
-                    inner_dscp, pg, lower_bounds, pg_wm_inc, upper_bounds), file=sys.stderr)
-                assert lower_bounds <= pg_wm_inc <= upper_bounds
+                msg = "DSCP {}, PG {}, expectation: {} <= {} <= {}, base wmk {}, new wmk {}".format(
+                    inner_dscp, pg, lower_bounds, pg_wm_inc, upper_bounds,
+                    pg_shared_wm_res_base[pg], pg_shared_wm_res[pg])
+                print(msg, file=sys.stderr)
+                if not (lower_bounds <= pg_wm_inc <= upper_bounds):
+                    print("FAILED CHECK", file=sys.stderr)
+                    fails.append(msg)
+            assert len(fails) == 0, "Some PG watermark checks failed ({}): \n{}".format(len(fails), "\n".join(fails))
 
         finally:
             # Enable tx on dest port
@@ -3457,6 +3467,14 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
 
+        def get_hdrm_pool_wm():
+            if 'Arista-7060X6' in hwsku:
+                return sai_thrift_read_headroom_pool_watermark(
+                    self.src_client, self.buf_pool_roid) * self.cell_size
+            else:
+                return sai_thrift_read_headroom_pool_watermark(
+                    self.src_client, self.buf_pool_roid)
+
         try:
             # send packets to leak out
             sidx = 0
@@ -3583,13 +3601,13 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.flush()
 
             upper_bound = 2 * margin + 1
-            if (hwsku == 'Arista-7260CX3-D108C8' and self.testbed_type in ('t0-116', 'dualtor-120')) \
-                    or (hwsku == 'Arista-7260CX3-D108C10' and self.testbed_type in ('t0-118')) \
-                    or (hwsku == 'Arista-7260CX3-C64' and self.testbed_type in ('dualtor-aa-56', 't1-64-lag')):
+            if ('Arista-7060X6' in hwsku
+                    or (hwsku == 'Arista-7260CX3-D108C8' and self.testbed_type in ('t0-116', 'dualtor-120'))
+                    or (hwsku == 'Arista-7260CX3-D108C10' and self.testbed_type in ('t0-118'))
+                    or (hwsku == 'Arista-7260CX3-C64' and self.testbed_type in ('dualtor-aa-56', 't1-64-lag'))):
                 upper_bound = 2 * margin + self.pgs_num
             if self.wm_multiplier:
-                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
-                    self.src_client, self.buf_pool_roid)
+                hdrm_pool_wm = get_hdrm_pool_wm()
                 print("Actual headroom pool watermark value to start: %d" %
                       hdrm_pool_wm, file=sys.stderr)
                 assert (hdrm_pool_wm <= (upper_bound *
@@ -3642,8 +3660,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 if self.wm_multiplier:
                     wm_pkt_num += (self.pkts_num_hdrm_full if i !=
                                    self.pgs_num - 1 else self.pkts_num_hdrm_partial)
-                    hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
-                        self.src_client, self.buf_pool_roid)
+                    hdrm_pool_wm = get_hdrm_pool_wm()
                     expected_wm = wm_pkt_num * self.cell_size * self.wm_multiplier
                     upper_bound_wm = expected_wm + \
                         (upper_bound * self.cell_size * self.wm_multiplier)
@@ -3713,8 +3730,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             print("pg hdrm filled", file=sys.stderr)
             if self.wm_multiplier:
                 # assert hdrm pool wm still remains the same
-                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
-                    self.src_client, self.buf_pool_roid)
+                hdrm_pool_wm = get_hdrm_pool_wm()
                 sys.stderr.write('After PG headroom filled, actual headroom pool watermark {}, upper_bound {}\n'.format(
                     hdrm_pool_wm, upper_bound_wm))
                 if 'marvell-teralynx' not in self.asic_type:
@@ -3723,8 +3739,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 # at this point headroom pool should be full. send few more packets to continue causing drops
                 print("overflow headroom pool", file=sys.stderr)
                 send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, 10)
-                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
-                    self.src_client, self.buf_pool_roid)
+                hdrm_pool_wm = get_hdrm_pool_wm()
                 assert (hdrm_pool_wm <= self.max_headroom)
             sys.stderr.flush()
 

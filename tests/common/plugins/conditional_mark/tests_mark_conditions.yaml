@@ -178,15 +178,17 @@ bgp/test_bgp_allow_list.py:
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "'isolated' in topo_name"
 
 bgp/test_bgp_bbr.py:
   skip:
-    reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
+    reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported. Not needed for isolated topo."
     conditions_logical_operator: or
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17598"
+      - "'isolated' in topo_name"
 
 bgp/test_bgp_gr_helper.py:
   skip:
@@ -1445,8 +1447,10 @@ fib/test_fib.py::test_nvgre_hash:
 
 fib/test_fib.py::test_nvgre_hash[ipv6-ipv4]:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topos'
+    conditions_logical_operator: or
     conditions:
+      - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
   xfail:
     reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304"
@@ -1455,8 +1459,10 @@ fib/test_fib.py::test_nvgre_hash[ipv6-ipv4]:
 
 fib/test_fib.py::test_nvgre_hash[ipv6-ipv6]:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topos'
+    conditions_logical_operator: or
     conditions:
+      - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
   xfail:
     reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304"
@@ -1507,6 +1513,7 @@ generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18445"
+      - "'isolated' in topo_name"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
@@ -1547,10 +1554,11 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
-    reason: 'Skipping test on 7260/3800 platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/11237'
+    reason: 'Skip test_replace_fec on unsupported hwsku/topo due to issues'
     conditions_logical_operator: "OR"
     conditions:
       - "hwsku in ['Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Arista-7260CX3-Q64', 'Mellanox-SN3800-D112C8'] and https://github.com/sonic-net/sonic-mgmt/issues/11237"
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/24365"
 
 generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
   skip:
@@ -1672,12 +1680,6 @@ gnmi/test_gnmi_configdb.py:
       - "'t2' in topo_name"
       - "is_multi_asic==True"
 
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
-  skip:
-    reason: "The test refers to a stale implementation of GNOI.System.Reboot."
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
-
 gnmi/test_gnoi_killprocess.py:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
@@ -1689,6 +1691,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
     conditions:
       - "topo_type not in ['t0']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+      - "'isolated' in topo_name"
 
 #######################################
 #####           hash              #####
@@ -2466,12 +2469,6 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
-platform_tests/test_reload_config.py::test_reload_configuration_checks:
-  skip:
-    reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
-    conditions:
-      - "asic_type in ['cisco-8000']"
-
 #######################################
 #####     process_monitoring      #####
 #######################################
@@ -2708,7 +2705,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
   xfail:
     reason: "Headroom pool size not supported."
     conditions:
-      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8']"
+      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060X6-16PE-384C-B-O128S2', 'Arista-7060X6-64PE-B-O128']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
   skip:

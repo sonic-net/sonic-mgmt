@@ -36,11 +36,11 @@ LOOP_TIMES_LEVEL_MAP = {
 
 
 @pytest.fixture(autouse=True)
-def arp_cache_fdb_cleanup(duthosts, rand_one_dut_hostname, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
+def arp_cache_fdb_cleanup(duthosts, tbinfo):
     try:
-        clear_dut_arp_cache(duthost)
-        fdb_cleanup(duthost)
+        for dut in duthosts:
+            clear_dut_arp_cache(dut)
+            fdb_cleanup(dut)
     except RunAnsibleModuleFail as e:
         if 'Failed to send flush request: No such file or directory' in str(e):
             logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
@@ -53,8 +53,7 @@ def arp_cache_fdb_cleanup(duthosts, rand_one_dut_hostname, tbinfo):
 
     # Ensure clean test environment even after failing
     try:
-        dut_list = duthosts if "dualtor-aa" in tbinfo["topo"]["name"] else [duthost]
-        for dut in dut_list:
+        for dut in duthosts:
             clear_dut_arp_cache(dut)
             fdb_cleanup(dut)
     except RunAnsibleModuleFail as e:
