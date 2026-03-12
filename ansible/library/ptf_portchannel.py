@@ -77,7 +77,9 @@ def exec_command(module, cmd, ignore_error=False, msg="executing command"):
 def get_portchannel_status(module, name):
     output = exec_command(
         module, cmd="supervisorctl status portchannel-%s" % name)
-    m = re.search(r'^([\w|-]*)\s+(\w*).*$', output.decode("utf-8"))
+    if isinstance(output, bytes):
+        output = output.decode("utf-8")
+    m = re.search(r'^([\w|-]*)\s+(\w*).*$', output)
     return m.group(2)
 
 
