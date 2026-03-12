@@ -21,6 +21,7 @@ from tests.common.fixtures.ptfhost_utils import change_mac_addresses  # noqa: F4
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 
 """
