@@ -2,7 +2,7 @@
     "DEVICE_METADATA": {
         "localhost": {
             "bgp_asn": "65100",
-            "hostname": "DPU_HOSTNAME_PLACEHOLDER",
+            "hostname": "dpu",
             "subtype": "SmartSwitch",
             "switch_type": "dpu",
             "type": "SmartSwitchDPU"
@@ -26,6 +26,16 @@
         "gnmi": {
             "log_level": "2",
             "port": "50052"
+        }
+    },
+    "INTERFACE": {
+        "Ethernet0": {},
+        "Ethernet0|20.0.200.1/24": {}
+    },
+    "STATIC_ROUTE": {
+        "0.0.0.0/0": {
+            "nexthop": "20.0.200.254",
+            "ifname": "Ethernet0"
         }
     }
 }

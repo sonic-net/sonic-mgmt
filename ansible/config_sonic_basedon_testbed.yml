@@ -823,6 +823,7 @@
           hwsku: "{{ hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
+          npu_index: "{{ dut_index | default(0) | int }}"
         become: true
 
       - name: Copy macsec profile json to dut
@@ -1042,6 +1043,7 @@
           hostname: "{{ inventory_hostname }}"
           host_username: "{{ sonic_login }}"
           host_passwords: "{{ sonic_default_passwords }}"
+          npu_index: "{{ dut_index | default(0) | int }}"
         become: true
         # t1-28-lag is smartswitch topo only
         when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true

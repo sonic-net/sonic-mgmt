@@ -14,7 +14,7 @@ import ipaddress
 
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info, multi_asic
-from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
+from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config, smartswitch_vlan_config
 
 DOCUMENTATION = '''
 module: generate_golden_config_db.py
@@ -60,7 +60,8 @@ class GenerateGoldenConfigDBModule(object):
                                     num_asics=dict(required=False, type='int', default=1),
                                     hwsku=dict(required=False, type='str', default=None),
                                     vm_configuration=dict(required=False, type='dict', default={}),
-                                    is_lit_mode=dict(required=False, type='bool', default=True)),
+                                    is_lit_mode=dict(required=False, type='bool', default=True),
+                                    npu_index=dict(required=False, type='int', default=0)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -71,6 +72,7 @@ class GenerateGoldenConfigDBModule(object):
 
         self.vm_configuration = self.module.params['vm_configuration']
         self.is_lit_mode = self.module.params['is_lit_mode']
+        self.npu_index = self.module.params['npu_index']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -412,7 +414,6 @@ class GenerateGoldenConfigDBModule(object):
         if rc != 0:
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
 
-        # Generate FEATURE table from init_cfg.ini
         ori_config_db = json.loads(out)
         if "DEVICE_METADATA" not in ori_config_db or "localhost" not in ori_config_db["DEVICE_METADATA"]:
             return "{}"
@@ -426,7 +427,6 @@ class GenerateGoldenConfigDBModule(object):
         ori_config_db["FEATURE"]["dhcp_server"]["state"] = "enabled"
         ori_config_db["FEATURE"]["dhcp_relay"]["state"] = "enabled"
 
-        # Generate INTERFACE table for EthernetBPXX
         if "PORT" not in ori_config_db or "INTERFACE" not in ori_config_db:
             return "{}"
 
@@ -443,19 +443,31 @@ class GenerateGoldenConfigDBModule(object):
             ori_config_db["DHCP_SERVER_IPV4_PORT"] = {}
 
         hwsku_config = smartswitch_hwsku_config[hwsku]
-        for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
+        dpu_num = hwsku_config["dpu_num"]
+
+        vlan_cfg = smartswitch_vlan_config.get(self.npu_index, smartswitch_vlan_config[0])
+        vlan_name = vlan_cfg["vlan_name"]
+
+        ori_config_db["VLAN"] = {
+            vlan_name: {"vlanid": vlan_cfg["vlanid"]}
+        }
+        ori_config_db["VLAN_INTERFACE"] = {
+            vlan_name: {},
+            "{}|{}".format(vlan_name, vlan_cfg["vlan_interface_ip"]): {}
+        }
+        ori_config_db["VLAN_MEMBER"] = {}
+
+        for i in range(dpu_num):
             port_index = hwsku_config["base"] + i * hwsku_config["step"] \
                 if "base" in hwsku_config and "step" in hwsku_config else i
             port_key = hwsku_config["port_key"].format(port_index)
-            if "interface_key" in hwsku_config:
-                interface_key = hwsku_config["interface_key"].format(port_index, i)
             dpu_key = hwsku_config["dpu_key"].format(i)
 
             if port_key in ori_config_db["PORT"]:
                 ori_config_db["PORT"][port_key]["admin_status"] = "up"
-                if "interface_key" in hwsku_config:
-                    ori_config_db["INTERFACE"][port_key] = {}
-                    ori_config_db["INTERFACE"][interface_key] = {}
+
+            vlan_member_key = "{}|{}".format(vlan_name, port_key)
+            ori_config_db["VLAN_MEMBER"][vlan_member_key] = {"tagging_mode": "untagged"}
 
             ori_config_db["CHASSIS_MODULE"]["DPU{}".format(i)] = {"admin_status": "up"}
 
@@ -493,6 +505,9 @@ class GenerateGoldenConfigDBModule(object):
             "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
             "INTERFACE": copy.deepcopy(ori_config_db["INTERFACE"]),
             "PORT": copy.deepcopy(ori_config_db["PORT"]),
+            "VLAN": copy.deepcopy(ori_config_db["VLAN"]),
+            "VLAN_INTERFACE": copy.deepcopy(ori_config_db["VLAN_INTERFACE"]),
+            "VLAN_MEMBER": copy.deepcopy(ori_config_db["VLAN_MEMBER"]),
             "CHASSIS_MODULE": copy.deepcopy(ori_config_db["CHASSIS_MODULE"]),
             "DPUS": copy.deepcopy(ori_config_db["DPUS"]),
             "DHCP_SERVER_IPV4_PORT": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4_PORT"]),
@@ -500,10 +515,8 @@ class GenerateGoldenConfigDBModule(object):
             "DHCP_SERVER_IPV4": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4"])
         }
 
-        # Set buffer_model to traditional by default
         gold_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
-        # Generate dhcp_server related configuration
         rc, out, err = self.module.run_command("cat {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         if rc != 0:
             self.module.fail_json(msg="Failed to get smartswitch config: {}".format(err))
