@@ -84,6 +84,7 @@
             <a:Key>{{ device_conn[inventory_hostname][iface_name]['peerdevice'] }}:{{ device_conn[inventory_hostname][iface_name]['peerport'] }};{{ inventory_hostname }}:{{ port_name_map[iface_name] }}</a:Key>
             </a:LinkMetadata>
 {% endif %}
+{% endif %}
 {% if iface_name in device_conn[inventory_hostname] and 'linktraining' in device_conn[inventory_hostname][iface_name] %}
         <a:LinkMetadata>
             <a:Name i:nil="true"/>
@@ -104,7 +105,6 @@
             </a:Properties>
             <a:Key>{{ device_conn[inventory_hostname][iface_name]['peerdevice'] }}:{{ device_conn[inventory_hostname][iface_name]['peerport'] }};{{ inventory_hostname }}:{{ port_name_map[iface_name] }}</a:Key>
         </a:LinkMetadata>
-{% endif %}
 {% endif %}
 {% if device_conn[inventory_hostname][iface_name]["fec_disable"] %}
         <a:LinkMetadata>
