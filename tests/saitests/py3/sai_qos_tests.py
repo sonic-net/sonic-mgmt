@@ -15,7 +15,7 @@ import math
 import os
 import macsec  # noqa F401
 import concurrent.futures
-from ptf.testutils import (ptf_ports,
+from ptf.testutils import (ptf_ports,     # noqa F401
                            dp_poll,
                            simple_arp_packet,
                            send_packet,
@@ -28,7 +28,7 @@ from ptf.testutils import (ptf_ports,
                            port_to_tuple,
                            simple_udpv6_packet)
 from ptf.mask import Mask
-from switch import (switch_init,
+from switch import (switch_init,          # noqa F401
                     sai_thrift_create_scheduler_profile,
                     sai_thrift_clear_all_counters,
                     sai_thrift_read_port_counters,
@@ -44,9 +44,9 @@ from switch import (switch_init,
                     sai_thrift_read_port_voq_counters,
                     sai_thrift_get_voq_port_id
                     )
-from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
+from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t, # noqa F401
                                       sai_thrift_attribute_t)
-from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID
+from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID # noqa F401
 from scapy.layers.inet6 import ICMPv6ND_NS, ICMPv6NDOptDstLLAddr
 
 
@@ -4267,51 +4267,82 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         router_mac = self.test_params['router_mac']
         sonic_version = self.test_params['sonic_version']
         asic_type = self.test_params['sonic_asic_type']
-        default_packet_length = 64
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         num_of_pkts = self.test_params['num_of_pkts']
+        cell_size = self.test_params['cell_size']
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        src_port_vlan = self.test_params['src_port_vlan']
         limit = self.test_params['limit']
         min_limit = self.test_params['min_limit']
-        cell_size = self.test_params['cell_size']
-        asic_type = self.test_params['sonic_asic_type']
+        exp_ip_id = 100
+        platform_asic = self.test_params['platform_asic']
+        ecn_queue_status = self.test_params['ecn_queue_status']
+
+        if 'packet_size' in self.test_params:
+            packet_length = self.test_params['packet_size']
+        else:
+            packet_length = 1000
+        if 'cell_size' in self.test_params:
+            cell_size = self.test_params['cell_size']
+            cell_occupancy = (packet_length + cell_size - 1) // cell_size
+        else:
+            cell_occupancy = 1
+
         # get counter names to query
         ingress_counters, egress_counters = get_counter_names(sonic_version)
 
         # STOP PORT FUNCTION
-        sched_prof_id = sai_thrift_create_scheduler_profile(
-            self.src_client, STOP_PORT_MAX_RATE)
-        attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-        attr = sai_thrift_attribute_t(
-            id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-        self.dst_client.sai_thrift_set_port_attribute(port_list['dst'][dst_port_id], attr)
 
-        # Clear Counters
-        sai_thrift_clear_all_counters(self.src_client, 'src')
-        sai_thrift_clear_all_counters(self.dst_client, 'dst')
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
+        )
+        log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
+
+        # Get a snapshot of counter values
+        port_counters_base, queue_counters_base = sai_thrift_read_port_counters(
+            self.dst_client, asic_type, port_list['dst'][dst_port_id])
+        print(port_counters_base)
+        print(queue_counters_base)
+        self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+        # Clear wred counters
+        if platform_asic and platform_asic == "broadcom-dnx":
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],
+                                                            'sonic-clear queue wredcounters')
+            if stdErr and retValue != 0:
+                raise RuntimeError("Command might have failed in the DUT.Error:{}".format(stdErr))
+            else:
+                print("---------Wredcounter queue counters reset------------")
 
         # send packets
         try:
             tos = dscp << 2
             tos |= ecn
-            ttl = 64
-            for i in range(0, num_of_pkts):
-                pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                        eth_dst=router_mac,
-                                        eth_src=src_port_mac,
-                                        ip_src=src_port_ip,
-                                        ip_dst=dst_port_ip,
-                                        ip_tos=tos,
-                                        ip_ttl=ttl)
-                send_packet(self, 0, pkt)
 
-            leaking_pkt_number = 0
-            for (rcv_port_number, pkt_str, pkt_time) in self.dataplane.packets(0, 1):
-                leaking_pkt_number += 1
-            print("leaking packet %d" % leaking_pkt_number)
+            pkt = construct_ip_pkt(packet_length,
+                                   pkt_dst_mac,
+                                   src_port_mac,
+                                   src_port_ip,
+                                   dst_port_ip,
+                                   dscp,
+                                   src_port_vlan,
+                                   ip_id=exp_ip_id,
+                                   ecn=ecn,
+                                   ttl=64)
+            send_packet(self, src_port_id, pkt, num_of_pkts)
+
+            # Set receiving socket buffers to some big value
+            for p in list(self.dataplane.ports.values()):
+                p.socket.setsockopt(socket.SOL_SOCKET,
+                                    socket.SO_RCVBUF, 41943040)
+            # RELEASE PORT
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+            time.sleep(2)
 
             # Read Counters
             print("DST port counters: ")
@@ -4320,91 +4351,82 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
             print(port_counters)
             print(queue_counters)
 
-            # Clear Counters
-            sai_thrift_clear_all_counters(self.src_client, 'src')
-            sai_thrift_clear_all_counters(self.dst_client, 'dst')
-
-            # Set receiving socket buffers to some big value
-            for p in list(self.dataplane.ports.values()):
-                p.socket.setsockopt(socket.SOL_SOCKET,
-                                    socket.SO_RCVBUF, 41943040)
-
-            # RELEASE PORT
-            sched_prof_id = sai_thrift_create_scheduler_profile(
-                self.src_client, RELEASE_PORT_MAX_RATE)
-            attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-            attr = sai_thrift_attribute_t(
-                id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-            self.dst_client.sai_thrift_set_port_attribute(
-                port_list['dst'][dst_port_id], attr)
-
             # if (ecn == 1) - capture and parse all incoming packets
             marked_cnt = 0
             not_marked_cnt = 0
-            if (ecn == 1):
+            if (ecn != 0):
                 print("")
                 print(
                     "ECN capable packets generated, releasing dst_port and analyzing traffic -")
-
-                cnt = 0
+                total_recv_cnt = 0
                 pkts = []
-                for i in range(num_of_pkts):
-                    (rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(
-                        self, device_number=0, port_number=dst_port_id, timeout=0.2)
-                    if rcv_pkt is not None:
-                        cnt += 1
-                        pkts.append(rcv_pkt)
-                    else:  # Received less packets then expected
-                        assert (cnt == num_of_pkts)
-                print("    Received packets:    " + str(cnt))
-
+                while total_recv_cnt < num_of_pkts:
+                    result = self.dataplane.poll(
+                        device_number=0, port_number=dst_port_id, timeout=3)
+                    if isinstance(result, self.dataplane.PollFailure):
+                        self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (
+                            dst_port_id, total_recv_cnt, result.format()))
+                    recv_pkt = scapy.Ether(result.packet)
+                    try:
+                        if (recv_pkt.payload.src == src_port_ip) and (recv_pkt.payload.dst == dst_port_ip):
+                            total_recv_cnt += 1
+                            pkts.append(recv_pkt)
+                    except AttributeError:
+                        continue
+                    except IndexError:
+                        # Ignore captured non-IP packet
+                        continue
+                print("Total packet recieved: " + str(total_recv_cnt))
                 for pkt_to_inspect in pkts:
-                    pkt_str = hex_dump_buffer(pkt_to_inspect)
-
                     # Count marked and not marked amount of packets
-                    if ((int(pkt_str[ECN_INDEX_IN_HEADER]) & 0x03) == 1):
+                    if ((pkt_to_inspect.payload.tos & 0x03) == 1) or ((pkt_to_inspect.payload.tos & 0x03) == 2):
                         not_marked_cnt += 1
-                    elif ((int(pkt_str[ECN_INDEX_IN_HEADER]) & 0x03) == 3):
-                        assert (not_marked_cnt == 0)
+                    elif ((pkt_to_inspect.payload.tos & 0x03) == 3):
                         marked_cnt += 1
 
                 print("    ECN non-marked pkts: " + str(not_marked_cnt))
                 print("    ECN marked pkts:     " + str(marked_cnt))
                 print("")
 
-            time.sleep(5)
-            # Read Counters
-            print("DST port counters: ")
-            port_counters, queue_counters = sai_thrift_read_port_counters(
-                self.dst_client, asic_type, port_list['dst'][dst_port_id])
-            print(port_counters)
-            print(queue_counters)
-            if (ecn == 0):
-                # num_of_pkts*pkt_size_in_cells*cell_size
-                transmitted_data = port_counters[TRANSMITTED_PKTS] * \
-                    2 * cell_size
-                assert (port_counters[TRANSMITTED_OCTETS] <= limit * 1.05)
-                assert (transmitted_data >= min_limit)
-                assert (marked_cnt == 0)
-            elif (ecn == 1):
-                non_marked_data = not_marked_cnt * 2 * cell_size
-                assert (non_marked_data <= limit*1.05)
-                assert (non_marked_data >= limit*0.95)
-                assert (marked_cnt == (num_of_pkts - not_marked_cnt))
-                for cntr in egress_counters:
-                    assert (port_counters[cntr] == 0)
-                for cntr in ingress_counters:
-                    assert (port_counters[cntr] == 0)
+            dut_port = self.get_dut_port(dst_port_id)
+            if platform_asic and platform_asic == "broadcom-dnx":
+                time.sleep(8)
+                stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
+                                                                self.test_params['dut_password'],
+                                                                'show queue wredcounters -n asic{}| grep {}| grep UC{}'
+                                                                .format(self.dst_asic_index, dut_port, dscp))
+                if stdErr and retValue != 0:
+                    raise RuntimeError("Command might have failed in the DUT.Error:{}".format(stdErr))
+                else:
+                    print("----Queue WredCounters on DUT----")
+                    print("ECNMarked pkts: {}  ECNMarked bytes: {}".format(stdOut[0].split()[4],
+                                                                           stdOut[0].split()[5]))
+                # the output number format is comma seperated value,remove comma if expected marked_pkts > 999
+                if ecn_queue_status == 'off':
+                    assert (marked_cnt == 0)
+                    limit = 0
+                assert (int(stdOut[0].split()[4]) == marked_cnt)
 
+            assert (port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS] >= num_of_pkts)
+            if ecn == 0:
+                assert (marked_cnt == 0)
+                transmitted_data = ((port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS])
+                                    * cell_occupancy)
+                assert (min_limit <= transmitted_data <= limit * 1.05)
+            else:
+                non_marked_data = not_marked_cnt * cell_occupancy
+                assert (limit * 0.95 <= non_marked_data)
+                # If the number of packets in the queue is below the minimum threshold
+                # then the packets will not be marked
+                if num_of_pkts > min_limit:
+                    assert (limit * 0.03 <= marked_cnt <= limit * 0.07)
+                    assert (marked_cnt >= (num_of_pkts - not_marked_cnt))
+
+                for cntr in ingress_counters:
+                    assert (port_counters[cntr] == port_counters_base[cntr])
         finally:
             # RELEASE PORT
-            sched_prof_id = sai_thrift_create_scheduler_profile(
-                self.src_client, RELEASE_PORT_MAX_RATE)
-            attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-            attr = sai_thrift_attribute_t(
-                id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-            self.dst_client.sai_thrift_set_port_attribute(
-                port_list['dst'][dst_port_id], attr)
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
             print("END OF TEST")
 
 
