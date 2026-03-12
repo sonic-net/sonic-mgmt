@@ -201,25 +201,21 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
                     lag_oid = oid
                     break
 
-            if not lag_oid:
-                logger.warning("Could not find SAI OID for %s, checking all LAG members",
-                               portchannel_name)
-                # Fallback: check all members (original behavior)
-                lag_member_keys = asichost.shell(
-                    "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'"
-                )["stdout_lines"]
-            else:
-                # Filter to only members of the LAG under test
-                all_member_keys = asichost.shell(
-                    "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'"
-                )["stdout_lines"]
-                lag_member_keys = []
-                for key in all_member_keys:
-                    member_lag_id = asichost.shell(
-                        "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_LAG_ID".format(key)
-                    )["stdout"].strip()
-                    if member_lag_id == lag_oid:
-                        lag_member_keys.append(key)
+            pytest_assert(lag_oid,
+                          "Could not find SAI OID for {} in COUNTERS_LAG_NAME_MAP".format(
+                              portchannel_name))
+
+            # Filter to only members of the LAG under test
+            all_member_keys = asichost.shell(
+                "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'"
+            )["stdout_lines"]
+            lag_member_keys = []
+            for key in all_member_keys:
+                member_lag_id = asichost.shell(
+                    "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_LAG_ID".format(key)
+                )["stdout"].strip()
+                if member_lag_id == lag_oid:
+                    lag_member_keys.append(key)
 
             if not lag_member_keys:
                 return False
