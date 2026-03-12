@@ -295,8 +295,8 @@ class LabGraph(object):
                 end_port_linked_port.update({"autoneg": autoneg_mode})
 
             if linktraining_mode:
-                links[start_device][start_port].update({"linktraining": linktraining_mode})
-                links[end_device][end_port].update({"linktraining": linktraining_mode})
+                start_port_linked_port.update({"linktraining": linktraining_mode})
+                end_port_linked_port.update({"linktraining": linktraining_mode})
 
             if start_port_mac:
                 start_port_linked_port.update({"mac": start_port_mac})
