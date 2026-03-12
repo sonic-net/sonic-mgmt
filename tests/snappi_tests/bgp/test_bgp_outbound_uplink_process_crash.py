@@ -4,9 +4,12 @@ from tests.common.helpers.assertions import pytest_require                      
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut    # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
      snappi_api, multidut_snappi_ports_for_bgp                                                      # noqa: F401
-from tests.snappi_tests.variables import t1_t2_device_hostnames, t1_snappi_ports                     # noqa: F401
-from tests.snappi_tests.bgp.files.bgp_outbound_helper import (
-     get_hw_platform, run_bgp_outbound_process_restart_test)                                        # noqa: F401
+from tests.snappi_tests.variables import (
+    TOPOLOGY_T2_PIZZABOX,
+    detect_topology_and_vendor, get_device_hostnames,
+    get_lower_tier_snappi_ports
+)                                                                                                    # noqa: F401
+from tests.snappi_tests.bgp.files.bgp_outbound_helper import run_bgp_outbound_process_restart_test   # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams                           # noqa: F401
 
 logger = logging.getLogger(__name__)
@@ -55,28 +58,34 @@ def test_bgp_outbound_uplink_process_crash(snappi_api,                          
                                                             'syncd': "/usr/bin/syncd",
                                                         }
 
-    ansible_dut_hostnames = []
-    for duthost in duthosts:
-        ansible_dut_hostnames.append(duthost.hostname)
+    ansible_dut_hostnames = [duthost.hostname for duthost in duthosts]
+    topology_type, vendor = detect_topology_and_vendor(ansible_dut_hostnames)
+    if vendor is None:
+        pytest_require(False, "Unknown Vendor/HW Platform")
+    logger.info("Vendor: {}".format(vendor))
+    logger.info("Topology Type: {}".format(topology_type))
 
-    hw_platform = get_hw_platform(ansible_dut_hostnames)
-    if hw_platform is None:
-        pytest_require(False, "Unable to get the hardware platform")
-    logger.info("HW Platform: {}".format(hw_platform))
+    device_hostnames = get_device_hostnames(topology_type, vendor)
+    lower_tier_snappi_port_list = get_lower_tier_snappi_ports(topology_type, vendor)
 
-    for duthost in duthosts:
-        if t1_t2_device_hostnames[hw_platform][1] in duthost.hostname:
-            snappi_extra_params.multi_dut_params.duthost1 = duthost
-        elif t1_t2_device_hostnames[hw_platform][2] in duthost.hostname:
-            snappi_extra_params.multi_dut_params.duthost2 = duthost
-        else:
-            continue
+    if topology_type == TOPOLOGY_T2_PIZZABOX:
+        # Pizzabox: Single DUT handles both uplink and downlink
+        snappi_extra_params.multi_dut_params.duthost1 = duthosts[0]
+        snappi_extra_params.multi_dut_params.t1_hostname = device_hostnames[0]  # Lower Tier
+        snappi_extra_params.multi_dut_params.host_name = device_hostnames[1]  # T2 Pizzabox
+    else:
+        # T2 Chassis: Multiple DUTs
+        for duthost in duthosts:
+            if device_hostnames[1] in duthost.hostname:  # Uplink LC
+                snappi_extra_params.multi_dut_params.duthost1 = duthost
+            elif device_hostnames[2] in duthost.hostname:  # Downlink LC
+                snappi_extra_params.multi_dut_params.duthost2 = duthost
+        snappi_extra_params.multi_dut_params.t1_hostname = device_hostnames[0]  # T1
+        snappi_extra_params.multi_dut_params.host_name = device_hostnames[1]  # Uplink LC
 
-    snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
-    snappi_extra_params.multi_dut_params.host_name = t1_t2_device_hostnames[hw_platform][1]
+    snappi_extra_params.multi_dut_params.vendor = vendor
     snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
-    snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
-    snappi_extra_params.multi_dut_params.hw_platform = hw_platform
+    snappi_extra_params.multi_dut_params.multi_dut_ports.extend(lower_tier_snappi_port_list)
     run_bgp_outbound_process_restart_test(api=snappi_api,
                                           creds=creds,
                                           snappi_extra_params=snappi_extra_params,
