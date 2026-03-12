@@ -55,21 +55,22 @@ def is_full_lossy_hwsku(hwsku):
 class GenerateGoldenConfigDBModule(object):
     def __init__(self):
         self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str'),
-                                    port_index_map=dict(require=False, type='dict', default=None),
-                                    macsec_profile=dict(require=False, type='str', default=None),
-                                    num_asics=dict(require=False, type='int', default=1),
-                                    hwsku=dict(require=False, type='str', default=None),
-                                    vm_configuration=dict(require=False, type='dict', default={}),
-                                    is_light_mode=dict(require=False, type='bool', default=True)),
+                                    port_index_map=dict(required=False, type='dict', default=None),
+                                    macsec_profile=dict(required=False, type='str', default=None),
+                                    num_asics=dict(required=False, type='int', default=1),
+                                    hwsku=dict(required=False, type='str', default=None),
+                                    vm_configuration=dict(required=False, type='dict', default={}),
+                                    is_lit_mode=dict(required=False, type='bool', default=True)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
         self.macsec_profile = self.module.params['macsec_profile']
         self.num_asics = self.module.params['num_asics']
         self.hwsku = self.module.params['hwsku']
+        self.platform, _ = device_info.get_platform_and_hwsku()
 
         self.vm_configuration = self.module.params['vm_configuration']
-        self.is_light_mode = self.module.params['is_light_mode']
+        self.is_lit_mode = self.module.params['is_lit_mode']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -144,6 +145,11 @@ class GenerateGoldenConfigDBModule(object):
                 golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "disable"
                 golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
+        # set counterpoll interval to 2000ms as workaround for Slowness observed in nexthop group and member programming
+        if "FLEX_COUNTER_TABLE" in ori_config_db and 'sn5640' in self.platform:
+            golden_config_db["FLEX_COUNTER_TABLE"] = ori_config_db["FLEX_COUNTER_TABLE"]
+            golden_config_db["FLEX_COUNTER_TABLE"]["PORT"]["POLL_INTERVAL"] = "2000"
+
         return json.dumps(golden_config_db, indent=4)
 
     def check_version_for_bmp(self):
@@ -161,6 +167,13 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return True
         return True
+
+    def has_otel_image(self):
+        rc, out, _ = self.module.run_command("docker images --format '{{.Repository}}'")
+        if rc != 0:
+            return False
+        repos = [line.strip().lower() for line in out.splitlines() if line.strip()]
+        return "docker-sonic-otel" in repos
 
     def get_config_from_minigraph(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -596,7 +609,7 @@ class GenerateGoldenConfigDBModule(object):
             module_msg = module_msg + " for mgfx"
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
         elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1", "t1-48-lag"] \
-                and self.is_light_mode:
+                and self.is_lit_mode:
             config = self.generate_smartswitch_golden_config_db()
             module_msg = module_msg + " for smartswitch"
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
@@ -630,6 +643,10 @@ class GenerateGoldenConfigDBModule(object):
             else:
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
+
+        # Enable otel feature when docker-sonic-otel image exists
+        if self.has_otel_image():
+            config = self.overwrite_feature_golden_config_db_singleasic(config, "otel", "enabled", "enabled")
 
         # Disable dash-ha feature for all multi-asic platforms
         if multi_asic.is_multi_asic():

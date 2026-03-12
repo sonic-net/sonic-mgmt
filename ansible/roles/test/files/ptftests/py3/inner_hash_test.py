@@ -120,7 +120,11 @@ class InnerHashTest(BaseTest):
 
         for outer_encap_format in self.outer_encap_formats:
             hit_count_map = {}
-            for _ in range(0, self.balancing_test_times*len(self.exp_port_list)):
+            # For ip-proto with symmetric hashing, double the iterations to compensate for not sending reverse packets
+            iterations = self.balancing_test_times * len(self.exp_port_list)
+            if self.symmetric_hashing and hash_key == 'ip-proto':
+                iterations *= 2
+            for _ in range(0, iterations):
                 src_port = int(random.choice(self.src_ports))
                 logging.info('Checking {} hash key {}, src_port={}, exp_ports={}, dst_ip={}'
                              .format(outer_encap_format, hash_key, src_port, self.exp_port_list, self.outer_dst_ip))
@@ -550,6 +554,10 @@ class InnerHashTest(BaseTest):
         result = True
 
         total_hit_cnt = self.balancing_test_times*len(self.exp_port_list)
+        # For ip-proto with symmetric hashing, double the count to match doubled iterations
+        if self.symmetric_hashing and hash_key == 'ip-proto':
+            total_hit_cnt = total_hit_cnt * 2
+
         for ecmp_entry in dest_port_list:
             total_entry_hit_cnt = 0
             for member in ecmp_entry:
@@ -561,8 +569,11 @@ class InnerHashTest(BaseTest):
 
             (p, r) = self.check_within_expected_range(
                 total_entry_hit_cnt, total_expected)
+            exp_cnt_display = (total_hit_cnt//len(dest_port_list)*len(ecmp_entry))
+            if self.symmetric_hashing and hash_key == 'ip-proto':
+                exp_cnt_display = exp_cnt_display // 2
             logging.info("%-10s \t %-10s \t %10d \t %10d \t %10s"
-                         % ("ECMP", str(ecmp_entry), (total_hit_cnt//len(dest_port_list)*len(ecmp_entry)),
+                         % ("ECMP", str(ecmp_entry), exp_cnt_display,
                             total_entry_hit_cnt, str(round(p, 4)*100) + '%'))
             result &= r
 
