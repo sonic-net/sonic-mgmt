@@ -78,15 +78,50 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
         pytest.skip("No Lag found in this topology")
     if len(lag_facts['lags'].keys()) == 1:
         pytest.skip("Only one Lag found in this topology, skipping test")
-    portchannel_name = list(lag_facts['lags'].keys())[0]
+    portchannel_name = None
     portchannel_dest_name = None
     recv_port = []
-    if len(lag_facts['lags'].keys()) > 1:
-        portchannel_dest_name = list(lag_facts['lags'].keys())[1]
-        portchannel_dest_members = list(lag_facts['lags'][portchannel_dest_name]['po_stats']['ports'].keys())
-        assert len(portchannel_dest_members) > 0
-        for member in portchannel_dest_members:
-            recv_port.append(mg_facts['minigraph_ptf_indices'][member])
+
+    # Select PortChannels where all BGP neighbors are established.
+    # The test needs two: one to disable (portchannel_name) and one for
+    # forwarding verification (portchannel_dest_name).
+    all_pcs = list(lag_facts['lags'].keys())
+    bgp_fact_info = duthost.asic_instance_from_namespace(
+        lag_facts['names'][all_pcs[0]]).bgp_facts()
+
+    def pc_bgp_all_established(pc_name):
+        """Check if all BGP neighbors of a PortChannel are established."""
+        pc_members = list(lag_facts['lags'][pc_name]['po_stats']['ports'].keys())
+        if not pc_members:
+            return False
+        ns = lag_facts['names'][pc_name]
+        ah = duthost.asic_instance_from_namespace(ns)
+        cf = ah.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        bf = ah.bgp_facts()['ansible_facts']
+        member_device = cf.get('DEVICE_NEIGHBOR', {}).get(pc_members[0], {}).get('name', '')
+        neighbor_ips = [ip for ip, data in cf.get('BGP_NEIGHBOR', {}).items()
+                        if data.get('name') == member_device]
+        if len(neighbor_ips) < 2:
+            return False
+        return all(bf.get('bgp_neighbors', {}).get(ip, {}).get('state') == 'established'
+                   for ip in neighbor_ips)
+
+    for pc in all_pcs:
+        if pc_bgp_all_established(pc):
+            if portchannel_name is None:
+                portchannel_name = pc
+            elif portchannel_dest_name is None:
+                portchannel_dest_name = pc
+                break
+
+    if not portchannel_name or not portchannel_dest_name:
+        pytest.skip("Need two PortChannels with all BGP neighbors established, "
+                    "found: src={}, dst={}".format(portchannel_name, portchannel_dest_name))
+
+    portchannel_dest_members = list(lag_facts['lags'][portchannel_dest_name]['po_stats']['ports'].keys())
+    assert len(portchannel_dest_members) > 0
+    for member in portchannel_dest_members:
+        recv_port.append(mg_facts['minigraph_ptf_indices'][member])
 
     portchannel_members = list(lag_facts['lags'][portchannel_name]['po_stats']['ports'].keys())
     assert len(portchannel_members) > 0
