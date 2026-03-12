@@ -165,6 +165,8 @@ def pytest_addoption(parser):
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
 
+    # FEC test options
+    parser.addoption("--toggles_num", action="store", default=1, type=int, help="Number of toggles for FEC test")
     # read_mac options
     parser.addoption('--image1', action='store', type=str, help='1st image to download and install')
     parser.addoption('--image2', action='store', type=str, help='2nd image to download and install')
