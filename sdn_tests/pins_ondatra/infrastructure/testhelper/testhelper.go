@@ -3,12 +3,6 @@ package testhelper
 
 import (
 	"fmt"
-	"crypto/rand"
-	"math/big"
-	"strings"
-	"testing"
-	"time"
-
 	log "github.com/golang/glog"
 	healthzpb "github.com/openconfig/gnoi/healthz"
 	"github.com/openconfig/ondatra"
@@ -16,11 +10,14 @@ import (
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/openconfig/ygnmi/ygnmi"
 	"github.com/pkg/errors"
+	"crypto/rand"
+	"math/big"
+	"strings"
+	"testing"
+	"time"
 )
 
 var pph portPmdHandler
-
-var dutModelName string
 
 // Function pointers that interact with the switch. They enable unit testing
 // of methods that interact with the switch.
@@ -47,6 +44,10 @@ var (
 
 	testhelperConfigIntfAggregateIDGet = func(t *testing.T, d *ondatra.DUTDevice, port string) string {
 		return gnmi.Get(t, d, gnmi.OC().Interface(port).Ethernet().AggregateId().Config())
+	}
+
+        testhelperConfigIntfAggregateIDLookup = func(t *testing.T, d *ondatra.DUTDevice, port string) (string, bool) {
+		return gnmi.Lookup(t, d, gnmi.OC().Interface(port).Ethernet().AggregateId().Config()).Val()
 	}
 
 	testhelperIntfAggregateIDReplace = func(t *testing.T, d *ondatra.DUTDevice, port string, ID string) {
@@ -121,12 +122,13 @@ var (
 		return d
 	}
 
-	teardownDUTHealthzGet = func(t *testing.T) healthzpb.HealthzClient {
-		return ondatra.DUT(t, "DUT").RawAPIs().GNOI(t).Healthz()
-	}
-
-	teardownDUTPeerHealthzGet = func(t *testing.T) healthzpb.HealthzClient {
-		return ondatra.DUT(t, "CONTROL").RawAPIs().GNOI(t).Healthz()
+	teardownHealthzGet = func(t *testing.T, dut *ondatra.DUTDevice) (healthzpb.HealthzClient, error) {
+		dutName := dut.Name()
+		g, err := gnoiClientGet(t, dut)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get gNOI client for DUT: %v, err: %v", dutName, err)
+		}
+		return g.Healthz(), nil
 	}
 
 	testhelperBreakoutModeGet = func(t *testing.T, d *ondatra.DUTDevice, physicalPort string) *oc.Component_Port_BreakoutMode {
