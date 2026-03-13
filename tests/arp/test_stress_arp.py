@@ -35,6 +35,27 @@ LOOP_TIMES_LEVEL_MAP = {
 }
 
 
+@pytest.fixture(scope="function", autouse=True)
+def ignore_errors_for_non_selected_dualtor_hosts(
+    loganalyzer,
+    duthosts,
+    enum_rand_one_per_hwsku_frontend_hostname,
+    tbinfo
+):
+    if 'dualtor' in tbinfo['topo']['name']:
+        # There is a known issue which causes redundant route entry delete and reports an ERR log.
+        # FYI, https://github.com/sonic-net/sonic-swss/issues/2579
+        # This error can be safely ignored on standby
+        error_patterns = [
+            ".*ERR swss#orchagent: :- meta_sai_validate_route_entry: object key SAI_OBJECT_TYPE_ROUTE_ENTRY:{\"dest\":\".*\",\"switch_id\":\"oid:.*\",\"vr\":\"oid:.*\"} doesn't exist",  # noqa: E501
+        ]
+        for duthost in duthosts:
+            if duthost.hostname != enum_rand_one_per_hwsku_frontend_hostname:
+                if loganalyzer and duthost.hostname in loganalyzer:
+                    loganalyzer[duthost.hostname].ignore_regex.extend(error_patterns)
+    yield
+
+
 @pytest.fixture(autouse=True)
 def arp_cache_fdb_cleanup(duthosts, tbinfo):
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
