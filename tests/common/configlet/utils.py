@@ -393,6 +393,19 @@ def db_comp(duthost, test_db_dir, ref_db_dir, ctx):
     return True
 
 
+def is_bgp_session_established(duthost, ip):
+    """Check if BGP session is established. Returns True/False for use with wait_until."""
+    if sys.version_info[0] > 2:
+        info = duthost.get_bgp_neighbor_info(ip)
+    else:
+        info = duthost.get_bgp_neighbor_info(ip.decode('utf-8'))
+    bgp_state = info.get("bgpState", "")
+    if bgp_state != "Established":
+        log_info("BGP session for {} is '{}', waiting for 'Established'".format(ip, bgp_state))
+        return False
+    return True
+
+
 def chk_bgp_session(duthost, ip, msg):
     if sys.version_info[0] > 2:
         info = duthost.get_bgp_neighbor_info(ip)
