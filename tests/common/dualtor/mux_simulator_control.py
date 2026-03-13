@@ -759,7 +759,7 @@ def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m(
 
 @pytest.fixture
 def toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_host_m(
-    duthosts, enum_rand_one_per_hwsku_hostname, mux_server_url, tbinfo, active_standby_ports               # noqa F811
+    duthosts, enum_rand_one_per_hwsku_hostname, mux_server_url, tbinfo, active_standby_ports               # noqa: F811
 ):
     """
     A function level fixture to toggle all ports to enum_rand_one_per_hwsku_frontend_hostname.
