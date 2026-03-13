@@ -198,8 +198,17 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
 
         # Assign IPv6 address if VLAN has IPv6
         if ip6:
-            ptfhost_info[member]["ipv6"] = str(
-                ipaddress.IPv6Interface(ip6).network[ptfhost_info[member]["port_index_list"][0]])
+            ipv6_iface = ipaddress.IPv6Interface(ip6)
+            ipv6_network = ipv6_iface.network
+            vlan_ipv6_addr = ipv6_iface.ip
+            # Offset by 1 to skip the network address (index 0), then also
+            # skip the VLAN address itself to avoid duplicate IP assignment.
+            # See: https://github.com/sonic-net/sonic-mgmt/issues/22461
+            candidate_idx = ptfhost_info[member]["port_index_list"][0] + 1
+            candidate_ip = ipv6_network[candidate_idx]
+            if candidate_ip == vlan_ipv6_addr:
+                candidate_ip = ipv6_network[candidate_idx + 1]
+            ptfhost_info[member]["ipv6"] = str(candidate_ip)
 
     yield vm_host_info, ptfhost_info
 
