@@ -189,9 +189,9 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
 #        nexthop via fc00::2e dev PortChannel104 weight 1 pref medium
 def check_static_route(duthost, prefix, nexthop_addrs, ipv6):
     if ipv6:
-        SHOW_STATIC_ROUTE_CMD = "ip -6 route show {}".format(prefix)
+        SHOW_STATIC_ROUTE_CMD = "show ipv6 route {}".format(prefix)
     else:
-        SHOW_STATIC_ROUTE_CMD = "ip route show {}".format(prefix)
+        SHOW_STATIC_ROUTE_CMD = "show ip route {}".format(prefix)
     output = duthost.shell(SHOW_STATIC_ROUTE_CMD, module_ignore_errors=True)["stdout"].split("\n")
 
     def _check_nh_in_output(nexthop):

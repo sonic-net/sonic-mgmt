@@ -198,8 +198,8 @@ def check_bgp(duthosts, tbinfo):
 
         def _check_default_route(version, dut):
             # Return True if successfully get default route
-            res = dut.shell("ip {} route show default".format("" if version == 4 else "-6"),
-                            module_ignore_errors=True)
+            res = dut.shell("show ip{} route {}/0".format("" if version == 4 else "v6",
+                            "0.0.0.0" if version == 4 else "::"), module_ignore_errors=True)
             return not res["rc"] and len(res["stdout"].strip()) != 0
 
         def _restart_bgp(dut):
