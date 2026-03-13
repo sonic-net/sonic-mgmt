@@ -434,41 +434,6 @@ def add_npu_static_routes(
 @pytest.fixture(scope="module")
 def setup_npu_dpu(dpu_setup, add_npu_static_routes):
     yield
-###############################################################################
-# VLAN CONFIG (COMMON)
-###############################################################################
-
-
-def generate_vlan_config(
-    svi_ip,
-    vlan_id=55,
-    vlan_description="DPU Management VLAN",
-    member_start=224,
-    member_count=8,
-    member_step=8
-):
-    vlan_name = f"Vlan{vlan_id}"
-
-    members = [f"Ethernet{member_start + i * member_step}" for i in range(member_count)]
-
-    vlan = {
-        vlan_name: {
-            "description": vlan_description,
-            "vlanid": str(vlan_id)
-        }
-    }
-
-    vlan_interface = {
-        vlan_name: {},
-        f"{vlan_name}|{svi_ip}": {}
-    }
-
-    vlan_member = {
-        f"{vlan_name}|{member}": {"tagging_mode": "untagged"}
-        for member in members
-    }
-
-    return vlan, vlan_interface, vlan_member
 
 
 ###############################################################################
@@ -581,10 +546,6 @@ def generate_ha_config_for_dut(switch_id: int, duthost, tbinfo):
     loopback_ip = topo_dut["loopback"]["ipv4"][switch_id]
     loopback_v6 = topo_dut["loopback"]["ipv6"][switch_id]
 
-    # VLAN SVI per DUT
-    svi_ip = "20.0.200.14/28" if switch_id == 0 else "20.0.201.14/28"
-    vlan, vlan_intf, vlan_member = generate_vlan_config(svi_ip)
-
     # VXLAN source IP is loopback IPv4 without mask
     vxlan_src_ip = loopback_ip.split("/")[0]
 
@@ -611,14 +572,6 @@ def generate_ha_config_for_dut(switch_id: int, duthost, tbinfo):
             f"Loopback0|{loopback_ip}": {},
             f"Loopback0|{loopback_v6}": {}
         },
-
-        # VLAN sections included
-        "VLAN": vlan,
-        "VLAN_INTERFACE": vlan_intf,
-        "VLAN_MEMBER": vlan_member,
-
-        # IMPORTANT: INTERFACE REMOVED (Reviewer request)
-        # No INTERFACE section.
 
         "FEATURE": {
             "dash-ha": {
