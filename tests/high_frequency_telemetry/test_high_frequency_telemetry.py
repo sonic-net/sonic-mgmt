@@ -99,7 +99,9 @@ def test_hft_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
                 logger.warning("Msg/s validation: "
                                "No Msg/s data found in stable output")
 
-        logger.info("Verifying supervisor restarted countersyncd in swss")
+        logger.info(
+            "Verifying countersyncd is still running in swss after HFT capture"
+        )
         countersyncd_running = wait_until(
             60,
             5,
@@ -108,19 +110,17 @@ def test_hft_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
             "countersyncd",
             "swss"
         )
-        countersyncd_status = duthost.shell(
-            "docker exec swss supervisorctl status countersyncd",
-            module_ignore_errors=True
-        )["stdout"].strip()
-        pytest_assert(
-            countersyncd_running,
-            "Expected swss:countersyncd to be RUNNING under supervisor after "
-            f"telemetry capture, but got: {countersyncd_status}"
-        )
-        logger.info(
-            "Verified swss:countersyncd is RUNNING under supervisor: %s",
-            countersyncd_status
-        )
+        if not countersyncd_running:
+            countersyncd_status = duthost.shell(
+                "docker exec swss supervisorctl status countersyncd",
+                module_ignore_errors=True
+            )["stdout"].strip()
+            pytest_assert(
+                countersyncd_running,
+                "Expected swss:countersyncd to be RUNNING under supervisor after "
+                f"telemetry capture, but got: {countersyncd_status}"
+            )
+        logger.info("Verified swss:countersyncd is RUNNING after HFT capture")
 
     finally:
         # Clean up: Remove high frequency telemetry configuration
