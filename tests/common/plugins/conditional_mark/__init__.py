@@ -20,6 +20,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
 ASIC_NAME_PATH = '/../../../../ansible/group_vars/sonic/variables'
+ANSIBLE_LIBRARY_PATH = os.path.join(os.path.dirname(__file__), '../../../../ansible/library')
 MARK_CONDITIONS_CONSTANTS = {
     "QOS_SAI_TOPO": ['t0', 't0-64', 't0-116', 't0-118', 't0-35', 't0-56', 't0-80',
                      't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256',
@@ -154,7 +155,7 @@ def load_dut_basic_facts(inv_name, dut_name):
     logger.info('Getting dut basic facts: {}'.format(dut_name))
     try:
         inv_full_path = os.path.join(os.path.dirname(__file__), '../../../../ansible', inv_name)
-        ansible_cmd = 'ansible -m dut_basic_facts -i {} {} -o'.format(inv_full_path, dut_name)
+        ansible_cmd = 'ansible -M {} -m dut_basic_facts -i {} {} -o'.format(ANSIBLE_LIBRARY_PATH, inv_full_path, dut_name)
 
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw dut basic facts:\n{}'.format(raw_output))
@@ -240,7 +241,7 @@ def load_minigraph_facts(inv_name, dut_name):
     logger.info('Getting minigraph basic facts: {}'.format(dut_name))
     try:
         # get minigraph basic faces
-        ansible_cmd = "ansible -m minigraph_facts -i ../ansible/{0} {1} -a host={1}".format(inv_name, dut_name)
+        ansible_cmd = "ansible -M {} -m minigraph_facts -i ../ansible/{} {} -a host={}".format(ANSIBLE_LIBRARY_PATH, inv_name, dut_name, dut_name)
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw minigraph basic facts:\n{}'.format(raw_output))
         output_fields = raw_output.split('SUCCESS =>', 1)
@@ -272,7 +273,7 @@ def load_config_facts(inv_name, dut_name):
     logger.info('Getting config basic facts: {}'.format(dut_name))
     try:
         # get config basic faces
-        ansible_cmd = ['ansible', '-m', 'config_facts', '-i', '../ansible/{}'.format(inv_name),
+        ansible_cmd = ['ansible', '-M', ANSIBLE_LIBRARY_PATH, '-m', 'config_facts', '-i', '../ansible/{}'.format(inv_name),
                        '{}'.format(dut_name), '-a', 'host={} source=\'persistent\''.format(dut_name)]
         raw_output = subprocess.check_output(ansible_cmd).decode('utf-8')
         logger.debug('raw config basic facts:\n{}'.format(raw_output))
@@ -313,7 +314,7 @@ def load_switch_capabilities_facts(inv_name, dut_name):
     logger.info('Getting switch capabilities basic facts: {}'.format(dut_name))
     try:
         # get switch capabilities basic faces
-        ansible_cmd = "ansible -m switch_capabilities_facts -i ../ansible/{} {}".format(inv_name, dut_name)
+        ansible_cmd = "ansible -M {} -m switch_capabilities_facts -i ../ansible/{} {}".format(ANSIBLE_LIBRARY_PATH, inv_name, dut_name)
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw switch capabilities basic facts:\n{}'.format(raw_output))
         output_fields = raw_output.split('SUCCESS =>', 1)
@@ -342,7 +343,7 @@ def load_console_facts(inv_name, dut_name):
     logger.info('Getting console basic facts: {}'.format(dut_name))
     try:
         # get console basic faces
-        ansible_cmd = "ansible -m console_facts -i ../ansible/{} {}".format(inv_name, dut_name)
+        ansible_cmd = "ansible -M {} -m console_facts -i ../ansible/{} {}".format(ANSIBLE_LIBRARY_PATH, inv_name, dut_name)
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw console basic facts:\n{}'.format(raw_output))
         output_fields = raw_output.split('SUCCESS =>', 1)
@@ -567,7 +568,7 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
         safe_globals = {}
         safe_globals.update(safe_facts)
 
-        for var in ["asic_type"]:
+        for var in ["asic_type", "platform", "hwsku", "asic_gen"]:
             if var not in safe_globals:
                 safe_globals[var] = None
 
@@ -665,11 +666,14 @@ def pytest_collection_modifyitems(session, config, items):
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     basic_facts['constants'] = MARK_CONDITIONS_CONSTANTS
+    # Normalize nodeids: strip 'tests/' prefix if present (pytest 9.0+ includes it)
     for item in items:
-        all_matches = find_all_matches(item.nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
+        nodeid = item.nodeid
+        if nodeid.startswith('tests/'):
+            nodeid = nodeid[len('tests/'):]
+        all_matches = find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 
         if all_matches:
-            logger.debug('Found match "{}" for test case "{}"'.format(all_matches, item.nodeid))
 
             for match in all_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
@@ -709,5 +713,4 @@ def pytest_collection_modifyitems(session, config, items):
                         else:
                             mark = getattr(pytest.mark, mark_name)(reason=reason)
 
-                        logger.debug('Adding mark {} to {}'.format(mark, item.nodeid))
                         item.add_marker(mark)
