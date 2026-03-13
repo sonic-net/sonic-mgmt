@@ -273,7 +273,7 @@ def setup_interfaces(ptfhost, upper_tor_host, lower_tor_host, tbinfo, test_devic
     finally:
         upper_tor_host.shell("show arp")
         lower_tor_host.shell("show arp")
-        ptfhost.shell("ip route show")
+        ptfhost.shell("show ip route")
         for conn in list(connections.values()):
             ptfhost.shell("ifconfig %s 0.0.0.0" % conn["neighbor_intf"], module_ignore_errors=True)
             ptfhost.shell("ip route del %s" % conn["local_addr"], module_ignore_errors=True)
