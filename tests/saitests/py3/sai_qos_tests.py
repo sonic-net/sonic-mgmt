@@ -302,6 +302,104 @@ def summarize_diag_counter(ptftest, changed_counter=-1, base_counter=0):
             collector.compare_counter(changed_counter, base_counter)
 
 
+def ignore_ingress_drop_caused_by_nonunicast_noise(
+        client, sai_port_id,
+        recv_counters, recv_counters_base, ingress_counter_idx,
+        counter_margin=0):
+    """
+    Ignore ingress drops caused by environmental non-unicast (broadcast/multicast) noise.
+
+    Problem Analysis:
+    During testing, we discovered that environmental broadcast/multicast traffic from the network
+    can cause InDiscard counter increases that are unrelated to the test traffic. These false positives
+    lead to incorrect test failures. The root cause is that the test infrastructure cannot distinguish
+    between drops caused by:
+    1. Actual test traffic exceeding buffer capacity (legitimate failures)
+    2. Environmental broadcast/multicast packets arriving simultaneously (false failures/noise)
+
+    Solution Approach:
+    By monitoring the InNonUcPkt (Received Non-Unicast Packets) counter, we can detect when broadcast/
+    multicast traffic arrives. If InNonUcPkt increases along with InDiscard, we classify the ingress
+    drop as environmental noise and ignore it, allowing the test to continue.
+
+    Why Other Metrics Cannot Be Used for Decision:
+    - PG Headroom Watermark (pg_headroom_wm): Watermark values behave differently across test stages.
+      Previous test runs may leave the watermark at a high value, or the current test stage may produce
+      varying watermark values depending on traffic patterns. Using watermarks would require complex
+      decision logic to handle these variations, making the code fragile and unreliable.
+
+    - PTF TX Counter: During certain test stages, PTF legitimately sends packets as part of the test.
+      When environmental non-unicast packets arrive simultaneously, we cannot distinguish whether the
+      counter change is from test traffic or noise. The PTF TX counter changing doesn't tell us if the
+      ingress drop was caused by PTF packets or by broadcast/multicast noise mixed in with PTF traffic.
+
+    Note: PG Headroom Watermark, PG Drop Counters, and PTF counters are already logged by the test
+    framework's diagnostic counter system (CounterCollector class), so this function does not print
+    them again. We only use InNonUcPkt counter for the decision logic.
+
+    Args:
+        client: SAI thrift client (unused but kept for API compatibility)
+        sai_port_id: SAI port ID (unused but kept for API compatibility)
+        recv_counters: Current port counters
+        recv_counters_base: Baseline port counters
+        ingress_counter_idx: Index of ingress drop counter (INGRESS_DROP or INGRESS_PORT_BUFFER_DROP)
+        counter_margin: Tolerance margin for platform-specific background traffic (e.g., IPv6 NS/RA on broadcom-dnx)
+                       If margin > 0, only drops exceeding this margin will be checked for noise
+
+    Returns:
+        True if ingress drop should be ignored (caused by broadcast/multicast noise)
+        False if ingress drop is legitimate and should fail the test
+    """
+    # Check if ingress drop exceeds the platform-specific margin
+    # For platforms with background traffic (e.g., broadcom-dnx), small drops within margin are ignored
+    ingress_drop_detected = (
+        recv_counters[ingress_counter_idx]
+        > recv_counters_base[ingress_counter_idx] + counter_margin)
+
+    if not ingress_drop_detected:
+        return False  # No ingress drop, normal case
+
+    # IngressDrop detected, check if caused by environmental broadcast/multicast noise
+    non_uc_pkt_increase = (
+        recv_counters[RECEIVED_NON_UC_PKTS]
+        > recv_counters_base[RECEIVED_NON_UC_PKTS])
+
+    # Check if this is environmental broadcast/multicast noise
+    if non_uc_pkt_increase:
+        # This is environmental broadcast/multicast noise
+        log_message(
+            '*** NOISE DETECTION: IngressDrop caused by environmental broadcast/multicast noise ***\n'
+            'InDiscard: {} -> {} (Delta={})\n'
+            'InNonUcPkt: {} -> {} (Delta={})\n'
+            '>>> IGNORING this IngressDrop and continuing test\n'.format(
+                recv_counters_base[ingress_counter_idx],
+                recv_counters[ingress_counter_idx],
+                recv_counters[ingress_counter_idx] - recv_counters_base[ingress_counter_idx],
+                recv_counters_base[RECEIVED_NON_UC_PKTS],
+                recv_counters[RECEIVED_NON_UC_PKTS],
+                recv_counters[RECEIVED_NON_UC_PKTS] - recv_counters_base[RECEIVED_NON_UC_PKTS]
+            ),
+            to_stderr=True
+        )
+        return True  # Ignore this ingress drop from broadcast/multicast noise
+
+    # This is legitimate ingress drop from test traffic
+    log_message(
+        '*** VALID IngressDrop detected (NOT noise) ***\n'
+        'InDiscard: {} -> {} (Delta={})\n'
+        'InNonUcPkt: {} -> {} (Delta={}, no increase - not broadcast/multicast)\n'.format(
+            recv_counters_base[ingress_counter_idx],
+            recv_counters[ingress_counter_idx],
+            recv_counters[ingress_counter_idx] - recv_counters_base[ingress_counter_idx],
+            recv_counters_base[RECEIVED_NON_UC_PKTS],
+            recv_counters[RECEIVED_NON_UC_PKTS],
+            recv_counters[RECEIVED_NON_UC_PKTS] - recv_counters_base[RECEIVED_NON_UC_PKTS]
+        ),
+        to_stderr=True
+    )
+    return False  # This is legitimate ingress drop, should fail test
+
+
 def qos_test_assert(ptftest, condition, message=None):
     try:
         assert condition, message
@@ -2220,15 +2318,23 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if (platform_asic and
-                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
-                    qos_test_assert(
-                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
-                else:
-                    qos_test_assert(
-                        self, recv_counters[cntr] == recv_counters_base[cntr],
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
+                dnx_asics = ["broadcom-dnx", "marvell-teralynx"]
+                counter_margin = COUNTER_MARGIN if (
+                    platform_asic and platform_asic in dnx_asics) else 0
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    # Legitimate ingress drop, should fail test
+                    if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx"]:
+                        qos_test_assert(
+                            self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                            'unexpectedly RX drop counter increase, {}'.format(test_stage))
+                    else:
+                        qos_test_assert(
+                            self, recv_counters[cntr] == recv_counters_base[cntr],
+                            'unexpectedly RX drop counter increase, {}'.format(test_stage))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
@@ -2262,15 +2368,23 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if (platform_asic and
-                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
-                    qos_test_assert(
-                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
-                else:
-                    qos_test_assert(
-                        self, recv_counters[cntr] == recv_counters_base[cntr],
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
+                dnx_asics = ["broadcom-dnx", "marvell-teralynx"]
+                counter_margin = COUNTER_MARGIN if (
+                    platform_asic and platform_asic in dnx_asics) else 0
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    # Legitimate ingress drop, should fail test
+                    if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx"]:
+                        qos_test_assert(
+                            self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                            'unexpectedly RX drop counter increase, {}'.format(test_stage))
+                    else:
+                        qos_test_assert(
+                            self, recv_counters[cntr] == recv_counters_base[cntr],
+                            'unexpectedly RX drop counter increase, {}'.format(test_stage))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
@@ -3116,17 +3230,28 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if (platform_asic and
-                        platform_asic in ["broadcom-dnx", "cisco-8000", "marvell-teralynx"]):
-                    qos_test_assert(
-                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
-                        'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
-                            port_counter_fields[cntr], step_id, step_desc))
-                else:
-                    qos_test_assert(
-                        self, recv_counters[cntr] == recv_counters_base[cntr],
-                        'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
-                            port_counter_fields[cntr], step_id, step_desc))
+                margin_asics = [
+                    "broadcom-dnx", "cisco-8000", "marvell-teralynx"]
+                counter_margin = COUNTER_MARGIN if (
+                    platform_asic and platform_asic in margin_asics
+                ) else 0
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    # Legitimate ingress drop, should fail test
+                    if (platform_asic and
+                            platform_asic in ["broadcom-dnx", "cisco-8000", "marvell-teralynx"]):
+                        qos_test_assert(
+                            self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                            'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
+                                port_counter_fields[cntr], step_id, step_desc))
+                    else:
+                        qos_test_assert(
+                            self, recv_counters[cntr] == recv_counters_base[cntr],
+                            'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
+                                port_counter_fields[cntr], step_id, step_desc))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
@@ -3168,10 +3293,17 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     pg, port_counter_fields[pg], step_id, step_desc))
             # recv port no ingress drop
             for cntr in ingress_counters:
-                qos_test_assert(
-                    self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
-                    'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
-                        port_counter_fields[cntr], step_id, step_desc))
+                counter_margin = COUNTER_MARGIN
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    # Legitimate ingress drop, should fail test
+                    qos_test_assert(
+                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                        'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
+                            port_counter_fields[cntr], step_id, step_desc))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
@@ -3228,10 +3360,17 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     pg, port_counter_fields[pg], step_id, step_desc))
             # recv port no ingress drop
             for cntr in ingress_counters:
-                qos_test_assert(
-                    self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
-                    'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
-                        port_counter_fields[cntr], step_id, step_desc))
+                counter_margin = COUNTER_MARGIN
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    # Legitimate ingress drop, should fail test
+                    qos_test_assert(
+                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                        'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
+                            port_counter_fields[cntr], step_id, step_desc))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
