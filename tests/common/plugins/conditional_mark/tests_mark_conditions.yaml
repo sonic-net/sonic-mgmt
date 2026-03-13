@@ -80,6 +80,13 @@ acl/test_acl.py:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+acl/test_acl.py::.*_forwarded\[ipv6-.*uplink->downlink:
+  regex: true
+  xfail:
+    reason: "IPv6 forwarded tests with uplink->downlink direction fail on v6 topology"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21788 and '-v6-' in topo_name and asic_type in ['mellanox', 'nvidia']"
+
 acl/test_acl.py::TestMultiBindingAcl:
   skip:
     reason: "MultiBinding only supports dualtor topo"
