@@ -99,11 +99,42 @@ acl/test_acl_outer_vlan.py:
     reason: "Skip running on dualtor testbed"
     conditions:
       - "'dualtor' in topo_name"
+
+acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_combined_tagged_dropped[ipv6]:
+  skip:
+    reason: "IPV6 EGRESS test not supported - arp_responder doesn't support IPv6"
+    conditions:
+      - "True"
+
+acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_combined_tagged_forwarded[ipv6]:
+  skip:
+    reason: "IPV6 EGRESS test not supported - arp_responder doesn't support IPv6"
+    conditions:
+      - "True"
+
+acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_combined_untagged_dropped[ipv6]:
+  skip:
+    reason: "IPV6 EGRESS test not supported - arp_responder doesn't support IPv6"
+    conditions:
+      - "True"
+
+acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_combined_untagged_forwarded[ipv6]:
+  skip:
+    reason: "IPV6 EGRESS test not supported - arp_responder doesn't support IPv6"
+    conditions:
+      - "True"
+
 acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_tagged_dropped[ipv4]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_tagged_dropped[ipv6]:
+  skip:
+    reason: "IPV6 EGRESS test not supported - arp_responder doesn't support IPv6"
+    conditions:
+      - "True"
 
 acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_tagged_forwarded[ipv4]:
   xfail:
@@ -111,11 +142,29 @@ acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_tagged_forwarded[ipv4]
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_tagged_forwarded[ipv6]:
+  skip:
+    reason: "IPV6 EGRESS test not supported - arp_responder doesn't support IPv6"
+    conditions:
+      - "True"
+
+acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_untagged_dropped[ipv6]:
+  skip:
+    reason: "IPV6 EGRESS test not supported - arp_responder doesn't support IPv6"
+    conditions:
+      - "True"
+
 acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_untagged_forwarded[ipv4]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_untagged_forwarded[ipv6]:
+  skip:
+    reason: "IPV6 EGRESS test not supported - arp_responder doesn't support IPv6"
+    conditions:
+      - "True"
 
 acl/test_stress_acl.py:
   skip:
