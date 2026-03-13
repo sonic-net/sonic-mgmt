@@ -125,8 +125,8 @@ def read_asic_name(hwsku):
             asic_name = yaml.safe_load(f)
 
         for key, value in list(asic_name.copy().items()):
-            asic_gen_identifiers = ['td', 'th', 'spc', 'q3d',]
-            if not any(identifier in key for identifier in asic_gen_identifiers):   
+            asic_gen_identifiers = ['td', 'th', 'spc', 'q3d']
+            if not any(identifier in key for identifier in asic_gen_identifiers):
                 asic_name.pop(key)
 
         for name, hw in list(asic_name.items()):
