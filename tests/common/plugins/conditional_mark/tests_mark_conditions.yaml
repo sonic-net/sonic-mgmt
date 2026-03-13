@@ -3378,11 +3378,12 @@ k8s/test_join_available_master.py:
 #######################################
 kubesonic/test_k8s_join_disjoin.py:
   skip:
-    reason: "kubesonic feature is not supported in slim image"
+    reason: "kubesonic feature is not supported in slim image and temporarily disable PR checker on KVM"
     conditions_logical_operator: or
     conditions:
       - "hwsku in ['Arista-7050-QX-32S', 'Arista-7050-Q16S64', 'Arista-7050QX-32S-S4Q31', 'Arista-7050QX32S-Q32', 'Celestica-E1031-T48S4']"
       - "branch in ['master']"
+      - "asic_type in ['vs']"
 
 #######################################
 #####           lldp              #####
@@ -3886,7 +3887,7 @@ qos/test_ecn_config.py:
   skip:
     reason: "This test only support on cisco device"
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "asic_type not in ['cisco-8000', 'broadcom']"
 
 qos/test_oq_watchdog.py:
   skip:
@@ -3953,9 +3954,11 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
       - "'dualtor' in topo_name and asic_type in ['mellanox']"
       - "asic_type in ['marvell-teralynx']"
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Test case has issue on the 202412 branch as decap tunnel is disabled."
+    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "'isolated' in topo_name and release in ['202412']"
 
 qos/test_qos_masic.py:
   skip:
@@ -4030,6 +4033,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pQueueMapping:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
       - "asic_type in ['marvell-teralynx']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiDscpEcn:
+  skip:
+    reason: "Unsupported testbed type."
+    conditions:
+      - "asic_type not in ['broadcom'] and asic_subtype not in ['broadcom-dnx']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
   skip:
@@ -4184,6 +4193,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiXonHysteresis:
     conditions:
       - "platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0']"
       - "asic_type not in ['cisco-8000']"
+
 qos/test_tunnel_qos_remap.py:
   skip:
     reason: "Tunnel qos remap test needs some SAI attributes, which are not supported on KVM."
@@ -4726,6 +4736,12 @@ srv6/test_srv6_dataplane.py:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+srv6/test_srv6_dataplane.py::TestSRv6DataPlaneBase::test_srv6_full_func:
+  xfail:
+    reason: "vlan decap is disabled in 202412 image, which causes the test case failure."
+    conditions:
+      - "'isolated' in topo_name and release in ['202412']"
 
 srv6/test_srv6_static_config.py:
   skip:
@@ -5409,10 +5425,11 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
 
 vxlan/test_vxlan_decap.py:
   skip:
-    reason: "vxlan support not available for cisco-8122 platforms. Not required on isolated topologies d256u256s2, d96u32s2, d448u15-lag, and d128, as well as their minimzed and -v6 variants."
+    reason: "vxlan support not available for cisco-8122 platforms. L2 VxLAN is not supported on Broadcom TH4/TH5. Not required on isolated topologies d256u256s2, d96u32s2, d448u15-lag, and d128, as well as their minimzed and -v6 variants."
     conditions_logical_operator: OR
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "asic_gen in ['th4', 'th5'] and release in ['202503', '202505', '202511']"
       - *noVxlanTopos
   xfail:
     reason: "Skipped due to bug https://github.com/sonic-net/sonic-buildimage/issues/22056"
