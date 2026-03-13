@@ -26,7 +26,7 @@ from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEI
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 from tests.common.dualtor.dual_tor_common import mux_config              # noqa: F401
 from tests.common.helpers.sonic_db import AsicDbCli
-from tests.common.fixtures.duthost_utils import shutdown_ebgp
+from tests.common.fixtures.duthost_utils import shutdown_ebgp # noqa: F401
 import json
 
 logger = logging.getLogger(__name__)
