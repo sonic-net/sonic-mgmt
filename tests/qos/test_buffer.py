@@ -2717,7 +2717,7 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname,
         wait_until(30, 2, 5, _check_violating_profile_not_applied, duthost, excepted_pg_table, expected_profile)
         pg_table_in_app_db = check_pg_profile(
             duthost, excepted_pg_table, expected_profile, fail_test=False)
-        assert pg_table_in_app_db is None, f"{expected_profile} should not exist in {excepted_pg_table} in app db"
+        assert not pg_table_in_app_db, f"{expected_profile} should not exist in {excepted_pg_table} in app db"
         # Check syslog includes relevant error log
         check_log_analyzer(loganalyzer, marker)
     finally:
