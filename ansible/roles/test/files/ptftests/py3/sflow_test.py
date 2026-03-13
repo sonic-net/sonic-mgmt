@@ -142,8 +142,8 @@ class SflowTest(BaseTest):
                                 sample['agent_id'] = agent
                                 port_sample[collector]['CounterSample'].append(sample)
                     except (ValueError, SyntaxError) as e:
-                        # sflowtool can spit out bad lines if it recieves chopped or malformed packets
-                        logging.warning("Skipping malformed line in %s: %s (error: %s)", collector, line[:100], str(e))
+                        # sflowtool output can include stderr
+                        logging.warning("Skipping line in %s: %s (error: %s)", collector, line[:100], str(e))
                         continue
         except OSError as e:
             # if sflowtool hasn't started writing yet this is expected
