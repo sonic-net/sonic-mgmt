@@ -447,6 +447,31 @@ class TestPlanManager(object):
         print(f"Result of cancelling test plan at {tp_url}:")
         print(str(resp["data"]))
 
+    def cancel_pr(self, pr_id):
+        tp_url = f"{self.scheduler_url}/test_plan/pr/{pr_id}"
+        cancel_url = f"{tp_url}/cancel"
+
+        print(f"Cancelling old PR testplans at {cancel_url}")
+
+        payload = json.dumps({})
+        headers = {
+            "Authorization": f"Bearer {self.get_token()}",
+            "Content-Type": "application/json"
+        }
+
+        raw_resp = {}
+        try:
+            raw_resp = requests.post(cancel_url, headers=headers, data=payload, timeout=10)
+            resp = raw_resp.json()
+        except Exception as exception:
+            raise Exception(f"HTTP execute failure, url: {cancel_url}, raw_resp: {str(raw_resp)}, "
+                            f"exception: {str(exception)}")
+        if not resp["success"]:
+            raise Exception(f"Cancel test PR failed with error: {resp['errmsg']}")
+
+        print(f"Result of cancelling PR testplans at {tp_url}:")
+        print(str(resp["data"]))
+
     def poll(self, test_plan_id, interval=60, timeout=-1, expected_state="", expected_result=None):
         print(f"Polling progress and status of test plan at {self.frontend_url}/scheduler/testplan/{test_plan_id}")
         print(f"Polling interval: {interval} seconds")
@@ -1118,9 +1143,10 @@ if __name__ == "__main__":
             env["SONIC_AUTOMATION_UMI"]
         )
 
+        pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") or os.environ.get(
+            "SYSTEM_PULLREQUEST_PULLREQUESTID")
+
         if args.action == "create":
-            pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") or os.environ.get(
-                "SYSTEM_PULLREQUEST_PULLREQUESTID")
             build_repo_provider = os.environ.get("BUILD_REPOSITORY_PROVIDER")
             build_reason = args.build_reason if args.build_reason else os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
@@ -1208,6 +1234,8 @@ if __name__ == "__main__":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state, args.expected_result)
         elif args.action == "cancel":
             tp.cancel(args.test_plan_id)
+        elif args.action == "cancel-pr":
+            tp.cancel_pr(pr_id=pr_id)
         sys.exit(0)
     except PollTimeoutException as e:
         print(f"Polling test plan failed with exception: {repr(e)}")
