@@ -97,8 +97,6 @@ class BenchmarkResults:
     pretty_start_time: str
     asic_db_to_hardware_time: Optional[float]
     total_time: float
-    fpmsyncd_timing: Optional[Tuple[str, str, float]] = None
-    orchagent_timing: Optional[Tuple[str, str, float]] = None
 
     def print_results(self):
         """Print formatted benchmark results"""
@@ -114,22 +112,6 @@ class BenchmarkResults:
             print(f"  ASIC_DB to Hardware: {self.asic_db_to_hardware_time:.3f}s")
         else:
             print("  ASIC_DB to Hardware: N/A (Virtual Switch)")
-
-        if self.fpmsyncd_timing:
-            first_new_timestamp, last_qualifying_timestamp, time_diff = self.fpmsyncd_timing
-            print(f"  fpmsyncd processing: {time_diff:.3f}s")
-            print(f"     first activity time: {first_new_timestamp}")
-            print(f"     last activity time: {last_qualifying_timestamp}")
-        else:
-            print("  fpmsyncd processing: Not measured")
-
-        if self.orchagent_timing:
-            first_new_timestamp, last_qualifying_timestamp, time_diff = self.orchagent_timing
-            print(f"  Orchagent processing: {time_diff:.3f}s")
-            print(f"     first activity time: {first_new_timestamp}")
-            print(f"     last activity time: {last_qualifying_timestamp}")
-        else:
-            print("  Orchagent processing: Not measured")
 
 
 class RouteProgrammingBenchmark:
@@ -196,15 +178,6 @@ class RouteProgrammingBenchmark:
         except subprocess.TimeoutExpired:
             print(f"Command timed out after {timeout}s: {cmd}")
             return ""
-
-    def get_last_routecounter_timestamp(self, count_pattern) -> Optional[Tuple[str, int]]:
-        """Get timestamp and route count of the last RouteCounter message before benchmark starts"""
-        try:
-            cmd = "tail -n 10000 /var/log/syslog"
-            syslog_output = self.run_command(cmd)
-
-            if not syslog_output:
-                return None
 
             last_timestamp = None
             last_count = 0
@@ -335,33 +308,6 @@ class RouteProgrammingBenchmark:
         """Get number of non-local routes programmed in hardware"""
         # Use bcmcmd to get hardware routes (includes all routes)
         return self.get_hardware_route_count()  # Use bcmcmd route count
-
-    def parse_syslog_timing(
-        self, target_routes: int, count_pattern: str, feature: str, baseline_info: Optional[Tuple[str, int]] = None
-    ) -> Optional[Tuple[str, str, float]]:
-        """
-        Parse syslog messages and calculate timing.
-
-        Args:
-            baseline_info: Tuple of (timestamp, route_count) to use as baseline
-        """
-        print(f"\nParsing syslog for {feature} timing (target: {target_routes} routes)...")
-
-        baseline_timestamp = None
-        baseline_count = 0
-
-        if baseline_info:
-            baseline_timestamp, baseline_count = baseline_info
-            print(f"Baseline: {baseline_count} routes at {baseline_timestamp}")
-            print(f"Looking for {target_routes} additional routes")
-
-        try:
-            cmd = "tail -n 10000 /var/log/syslog"
-            syslog_output = self.run_command(cmd)
-
-            if not syslog_output:
-                print("Warning: Could not read syslog")
-                return None
 
             # Parse cutoff timestamp if provided
             cutoff_dt = None
@@ -604,25 +550,6 @@ class RouteProgrammingBenchmark:
         print("\nBaseline counts:")
         initial_stats.print()
 
-        # Parse syslog for fpmsyncd timing after routes are in hardware
-        # Default patterns for fpmsyncd RouteCounter messages
-        # Looks for messages like:
-        # Example: bgp#fpmsyncd: :- ~RouteCounter: Processed 10000 RTM_NEWROUTE messages
-        fpmsyncd_count_pattern = (r"(\d{4} \w+ \d+ \d{2}:\d{2}:\d{2}\.\d+) .* bgp#fpmsyncd: :- ~RouteCounter: "
-                                  r"Processed (\d+) RTM_NEWROUTE messages")
-        fpmsyncd_baseline_info = self.get_last_routecounter_timestamp(fpmsyncd_count_pattern)
-        if fpmsyncd_baseline_info:
-            baseline_timestamp, baseline_count = fpmsyncd_baseline_info
-            print(f"Baseline fpmsyncd: {baseline_count} routes at {baseline_timestamp}")
-
-        # Example: swss#orchagent: :- flush_creating_entries: RouteOrch: 110000 routes added to SAI (bulk)
-        orchagent_count_pattern = (r"(\d{4} \w+ \d+ \d{2}:\d{2}:\d{2}\.\d+) .* swss#orchagent: :- "
-                                   r"flush_creating_entries: RouteOrch: (\d+)")
-        orchagent_baseline_info = self.get_last_routecounter_timestamp(orchagent_count_pattern)
-        if orchagent_baseline_info:
-            baseline_timestamp, baseline_count = orchagent_baseline_info
-            print(f"Baseline orchagent: {baseline_count} routes at {baseline_timestamp}")
-
         # Start benchmark
         total_start_time = time.time()
         dt_object = datetime.fromtimestamp(total_start_time)
@@ -653,34 +580,6 @@ class RouteProgrammingBenchmark:
 
         total_time = time.time() - total_start_time
 
-        feature = "fpmsyncd RouteCounter"
-        cnt = 30
-        fpmsyncd_timing = None
-        while not fpmsyncd_timing and cnt > 0:
-            fpmsyncd_timing = self.parse_syslog_timing(self.num_routes, fpmsyncd_count_pattern, feature,
-                                                       fpmsyncd_baseline_info)
-            if not fpmsyncd_timing:
-                cnt -= 1
-                if cnt:
-                    time.sleep(1)
-            else:
-                break
-
-        # Parse syslog for Orchagent timing
-        orchagent_timing = None
-        feature = "orchagent RouteCounter"
-        cnt = 30
-        orchagent_timing = None
-        while not orchagent_timing and cnt > 0:
-            orchagent_timing = self.parse_syslog_timing(self.num_routes, orchagent_count_pattern, feature,
-                                                        orchagent_baseline_info)
-            if not orchagent_timing:
-                cnt -= 1
-                if cnt:
-                    time.sleep(1)
-            else:
-                break
-
         # Clean up test routes
         print("\nCleaning up test routes...")
         self.clear_injected_routes()
@@ -690,8 +589,6 @@ class RouteProgrammingBenchmark:
             pretty_start_time=pretty_start_time,
             asic_db_to_hardware_time=asic_to_hw_time,
             total_time=total_time,
-            fpmsyncd_timing=fpmsyncd_timing,
-            orchagent_timing=orchagent_timing,
         )
 
 
@@ -725,8 +622,6 @@ def main():
                     "total_routes": results.total_routes,
                     "asic_db_to_hardware_time": results.asic_db_to_hardware_time,
                     "total_time": results.total_time,
-                    "fpmsyncd_timing": results.fpmsyncd_timing,
-                    "orchagent_timing": results.orchagent_timing,
                 },
                 f,
                 indent=2,

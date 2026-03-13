@@ -33,7 +33,7 @@ Metrics Output:
   Schema:
     Measurement: route_benchmark_metrics
     Tags: dut, route_count, branch (auto-detected), policy (optional)
-    Fields: total_time, hardware_time, fpmsyncd_time (optional), orchagent_time (optional)
+    Fields: total_time, hardware_time
 
   Note: The branch tag is automatically detected from the DUT's SONiC build version
         (e.g., "master.487-a98cf221", "202505.123-e0c38ec4d") for tracking performance
@@ -504,32 +504,6 @@ def output_structured_metrics(
         )
         logger.info(f"Added hardware time metric: {benchmark_results['asic_db_to_hardware_time']}s")
 
-    # FPMsyncd timing
-    if benchmark_results.get("fpmsyncd_timing") and len(benchmark_results["fpmsyncd_timing"]) >= 3:
-        fpmsyncd_time = benchmark_results["fpmsyncd_timing"][2]  # time_diff
-        fpmsyncd_tags = base_tags.copy()
-        fpmsyncd_tags["stage"] = "fpmsyncd"
-        metrics.append(
-            {
-                "tags": fpmsyncd_tags,
-                "fields": {"time": fpmsyncd_time},
-            }
-        )
-        logger.info(f"Added fpmsyncd time metric: {fpmsyncd_time}s")
-
-    # Orchagent timing
-    if benchmark_results.get("orchagent_timing") and len(benchmark_results["orchagent_timing"]) >= 3:
-        orchagent_time = benchmark_results["orchagent_timing"][2]  # time_diff
-        orchagent_tags = base_tags.copy()
-        orchagent_tags["stage"] = "orchagent"
-        metrics.append(
-            {
-                "tags": orchagent_tags,
-                "fields": {"time": orchagent_time},
-            }
-        )
-        logger.info(f"Added orchagent time metric: {orchagent_time}s")
-
     # Output metrics in a structured format that can be parsed by external tools
     metrics_output = {"metrics": metrics, "raw_results": benchmark_results}
 
@@ -754,12 +728,6 @@ def test_route_programming_performance(duthosts, enum_rand_one_per_hwsku_fronten
 
         if results.get("asic_db_to_hardware_time"):
             logger.info(f"  ASIC DB → Hardware (syncd): {results['asic_db_to_hardware_time']}s")
-
-        if results.get("fpmsyncd_timing") and len(results["fpmsyncd_timing"]) >= 3:
-            logger.info(f"  FPMsyncd processing: {results['fpmsyncd_timing'][2]}s")
-
-        if results.get("orchagent_timing") and len(results["orchagent_timing"]) >= 3:
-            logger.info(f"  Orchagent processing: {results['orchagent_timing'][2]}s")
 
         # Log policy configuration if applied
         if policy_config and policy_config.get("policy_applied"):
