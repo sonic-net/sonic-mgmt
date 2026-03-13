@@ -26,9 +26,7 @@ Extend `firmware.json` to support per-flavor BMC firmware definitions, add runti
 
 ### Target `firmware.json` Structure
 
-The file is organized by `chassis` (platform/SKU). Under each chassis, `component` holds firmware entries per component type. For BMC, a flavor layer is introduced: each flavor key (e.g. `AST2600`, `AST2700-A1`) maps to a list of firmware items; `[0]` is the latest version, `[1]` the old version for downgrade testing.
-
-Full structure (BMC section expanded to show flavor):
+For BMC, a flavor layer is introduced under each chassis: each flavor key (e.g. `AST2600`, `AST2700-A1`) maps to a list of firmware items; `[0]` is the latest version, `[1]` the old version for downgrade testing.
 
 ```json
 {
@@ -68,56 +66,26 @@ Full structure (BMC section expanded to show flavor):
 }
 ```
 
-Hierarchy: **chassis (platform/SKU)** → **component** → **BMC** → **flavor** → **list of {firmware, version, reboot}**.
+Hierarchy: **chassis** → **component** → **BMC** → **flavor** → **list of {firmware, version, reboot}**.
 
 ### Flavor Detection
 
-Add a helper `get_bmc_flavor()` in `firmware_helper.py`: read BMC IP from the per-platform `bmc.json`, SSH from the DUT to the BMC, run `uname -a`, and parse the flavor from the hostname. The hostname follows the pattern `{platform}-{flavor}-bmc`:
-
-**AST2600:**
-```
-root@spc6-ast2600-bmc:~# uname -a
-Linux spc6-ast2600-bmc 6.12.41-743dcf5-dirty-c737c9a-gc737c9a992b5 #1 SMP Fri Nov 21 19:14:19 UTC 2025 armv7l GNU/Linux
-```
-
-**AST2700-A1:**
-```
-root@spc6-ast2700-a1-bmc:~# uname -a
-Linux spc6-ast2700-a1-bmc 6.12.59-dirty-8017a42adc2b-11559-g8017a42adc2b #1 SMP PREEMPT Thu Jan 29 07:37:32 UTC 2026 aarch64 GNU/Linux
-```
-
-Extracted flavor: `spc6-ast2600-bmc` → `ast2600`, `spc6-ast2700-a1-bmc` → `ast2700-a1`. Normalize to uppercase (e.g. `AST2600`, `AST2700-A1`) when looking up in `firmware.json`.
+`resolve_bmc_flavor()` resolves the flavor for a given chassis. If only one flavor is defined in `firmware.json`, it returns directly. If multiple flavors exist, it SSHes from the DUT to the BMC, runs `uname -a`, and parses the flavor from the hostname pattern `{platform}-{flavor}-bmc` (e.g. `spc6-ast2600-bmc` → `AST2600`).
 
 ### Upgrade Flow
 
-1. Load `firmware.json` via `--fw-pkg`
-2. Get chassis name from DUT (`fwutil show status`)
-3. SSH to BMC, run `uname -a`, extract flavor from hostname
-4. Read `chassis[chassis].component.BMC[flavor]` from firmware.json
-5. Select target version, upgrade, and verify version after update
+1. Load `firmware.json`, get chassis name from DUT
+2. Call `get_bmc_firmware_list(fw_pkg, chassis, duthost, bmc_ip)` — internally resolves flavor and returns the firmware list
+3. Select target version, upgrade, and verify version after update
 
 ## File Changes
 
 | **File** | **Change** |
 |----------|-----------|
-| `tests/platform_tests/fwutil/firmware.json` | Add flavor layer under BMC entries for multi-flavor SKUs |
-| `tests/common/helpers/firmware_helper.py` | Add `get_bmc_flavor()` and `get_bmc_firmware_list(fw_pkg, chassis, flavor)` to resolve BMC firmware list from `chassis[chassis].component.BMC[flavor]` |
-| `tests/platform_tests/api/test_bmc.py` | Update `recover_bmc_firmware` and `test_bmc_firmware_update` to resolve flavor before indexing BMC firmware list |
-
-## Impact on Existing Test Cases
-
-The following existing test cases in `test_bmc.py` require modification to add flavor resolution before accessing the BMC firmware list:
-
-### `test_bmc_firmware_update`
-
-Currently accesses `fw_pkg["chassis"][chassis]["component"]["BMC"][idx]` directly. Insert a flavor resolution step before this access:
-- Detect BMC flavor via `get_bmc_flavor()`
-- Use `get_bmc_firmware_list()` to get the firmware list for the detected flavor
-- Then index into the list as before (`[LATEST_BMC_VERSION_IDX]`, `[OLD_BMC_VERSION_IDX]`)
-
-### `recover_bmc_firmware` fixture
-
-Same change — resolve flavor before reading `fw_pkg["chassis"][chassis]["component"]["BMC"][flavor][0]`.
+| `tests/platform_tests/fwutil/firmware.json` | Convert BMC entries from flat list to flavor-keyed dict |
+| `tests/common/helpers/firmware_helper.py` | Add flavor detection and resolution helpers; update existing BMC info lookup to require flavor |
+| `tests/platform_tests/api/test_bmc.py` | Use flavor-aware helper to get BMC firmware list instead of direct dict access |
+| `ngts/tests/nightly/sanity_checker/test_sanity_checker.py` | Add flavor resolution to BMC version check flow |
 
 ## New Test Cases
 
