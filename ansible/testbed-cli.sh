@@ -376,6 +376,45 @@ function parse_servers
   fi
 }
 
+# Auto-inject credentials from environment variables as -e options.
+# This appends Ansible extra-vars (-e key='value') to ansible_options for each
+# recognized credential variable found in the environment. Extra-vars have the
+# highest Ansible precedence, so they override group_vars without file changes.
+#
+# NOTE: Credentials passed via -e are visible in `ps` output to local users.
+#       Avoid running with ansible verbose flags (-vvv / ANSIBLE_DEBUG) as
+#       extra-vars will be logged to stdout.
+#
+# Usage:
+#   export ansible_user=myuser
+#   export sonicadmin_password=mypass
+#   ./testbed-cli.sh add-topo vms-kvm-t0 password.txt
+function inject_env_credentials
+{
+  local _envvar _envval
+  # Strip any previously injected credential flags to avoid duplicates
+  for _envvar in ansible_user ansible_password ansible_ssh_pass ansible_become_pass \
+                 sonicadmin_user sonicadmin_password sonicadmin_initial_password \
+                 vm_host_user vm_host_password vm_host_become_password \
+                 fanout_mlnx_password fanout_sonic_password fanout_network_password \
+                 fanout_shell_password tacacs_passkey snmp_rocommunity \
+                 root_path; do
+      ansible_options=$(echo "$ansible_options" | sed "s/ *-e ${_envvar}='[^']*'//g")
+  done
+  # Inject current values
+  for _envvar in ansible_user ansible_password ansible_ssh_pass ansible_become_pass \
+                 sonicadmin_user sonicadmin_password sonicadmin_initial_password \
+                 vm_host_user vm_host_password vm_host_become_password \
+                 fanout_mlnx_password fanout_sonic_password fanout_network_password \
+                 fanout_shell_password tacacs_passkey snmp_rocommunity \
+                 root_path; do
+      _envval="${!_envvar}"
+      if [ -n "$_envval" ]; then
+          ansible_options+=" -e ${_envvar}='${_envval}'"
+      fi
+  done
+}
+
 function add_topo
 {
   testbed_name=$1
@@ -395,6 +434,8 @@ function add_topo
   if [[ $vm_type == vcisco ]]; then
       ansible_options+=" -e eos_batch_size=1"
   fi
+
+  inject_env_credentials
 
   server_count=1
   if [ -n "$servers" ]; then
@@ -465,6 +506,8 @@ function remove_topo
   if [ -n "$sonic_vm_dir" ]; then
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
   fi
+
+  inject_env_credentials
 
   server_count=1
   if [ -n "$servers" ]; then
@@ -581,6 +624,8 @@ function refresh_dut
       ansible_options+=" -e eos_batch_size=1"
   fi
 
+  inject_env_credentials
+
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
         -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
         -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
@@ -661,7 +706,10 @@ function generate_minigraph
     fi
   done
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $ipv6_mgmt_flag "${filtered_args[@]}"
+  ansible_options=""
+  inject_env_credentials
+
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $ipv6_mgmt_flag $ansible_options "${filtered_args[@]}"
 
   echo Done
 }
@@ -696,7 +744,10 @@ function deploy_minigraph
     fi
   done
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $ipv6_mgmt_flag "${filtered_args[@]}"
+  ansible_options=""
+  inject_env_credentials
+
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $ipv6_mgmt_flag $ansible_options "${filtered_args[@]}"
 
   echo Done
 }
@@ -731,7 +782,10 @@ function test_minigraph
     fi
   done
 
-  ansible-playbook -i "$inventory" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $ipv6_mgmt_flag "${filtered_args[@]}"
+  ansible_options=""
+  inject_env_credentials
+
+  ansible-playbook -i "$inventory" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $ipv6_mgmt_flag $ansible_options "${filtered_args[@]}"
 
   echo Done
 }
