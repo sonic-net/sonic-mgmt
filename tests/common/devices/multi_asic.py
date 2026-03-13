@@ -102,10 +102,17 @@ class MultiAsicSonicHost(object):
         if is_dpu and 'snmp' in service_list:
             service_list.remove('snmp')
 
+        if is_dpu and 'lldp' in service_list:
+            service_list.remove('lldp')
+
         # Update the asic service based on feature table state and asic flag
         for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
             if service == 'teamd' and is_dpu:
                 logger.info("Removing teamd from default services for switch_type DPU")
+                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+                continue
+            if service == 'lldp' and is_dpu:
+                logger.info("Removing lldp from default services for switch_type DPU")
                 self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                 continue
             if service not in config_facts['FEATURE']:
@@ -116,7 +123,7 @@ class MultiAsicSonicHost(object):
             if config_facts['FEATURE'][service]['state'] == "disabled":
                 self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
         if not self.get_facts().get("modular_chassis") and not is_dpu:
-            service_list.append("lldp")
+            pass
 
         for asic in active_asics:
             service_list += asic.get_critical_services()
