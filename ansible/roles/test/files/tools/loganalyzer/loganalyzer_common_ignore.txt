@@ -428,6 +428,9 @@ r, ".*ERR bgp\#bgpmon:\s+\*ERROR\*\s+Failed\s+with\s+rc:\d+\s+when\s+execute:\s+
 # https://github.com/sonic-net/sonic-buildimage/issues/24966
 r, ".* ERR bgp#mgmtd.*mgmt_ds_lock: ERROR: lock already taken on DS:running by session-id.*"
 
+# https://github.com/sonic-net/sonic-mgmt/issues/16794
+r, ".* ERR bgp\d*#mgmtd.*mgmt_txn_cfg_commit_timedout.*"
+
 # This is an info log which matches the regex "kernel:.*\serr", not an err
 r, ".*ACPI.*System may be unstable or behave erratically.*"
 
