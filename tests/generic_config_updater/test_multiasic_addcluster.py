@@ -193,7 +193,7 @@ def get_downstream_t1_neighbor(duthost, mg_facts):
 
         # Check if neighbor is a T1 device in T2 topology
         device_info = minigraph_devices.get(neighbor_name, {})
-        # "LeafRouter" is an ambiguous term among vendors, but we use it here to 
+        # "LeafRouter" is an ambiguous term among vendors, but we use it here to
         # identify T1 devices. Do we need something more robust here?
         if device_info.get('type') == 'LeafRouter':
             # Determine the ASIC namespace for this neighbor
@@ -385,12 +385,14 @@ def check_ports_require_dpb(duthost, interfaces, namespace):
                 # Unusual ratios may indicate breakout
                 # Standard ratios: 25, 50, 100 Gbps per lane
                 if gbps_per_lane not in [10, 25, 50, 100]:
-                    reasons.append(f"unusual speed/lane ratio: {speed_gbps}G / {lane_count} lanes = {gbps_per_lane}G/lane")
+                    reasons.append(
+                        f"unusual speed/lane ratio: {speed_gbps}G / {lane_count} lanes = {gbps_per_lane}G/lane")
 
         # Heuristic 4: Low lane count with high speed (likely PAM4 breakout)
         # 2-lane 100G is often from 4x100G breakout of 400G port
         if lane_count == 2 and speed and int(speed) >= 100000:
-            reasons.append(f"{lane_count} lanes at {int(speed)//1000}G suggests breakout configuration")
+            reasons.append(
+                f"{lane_count} lanes at {int(speed)//1000}G suggests breakout configuration")
 
         # Heuristic 5: Lane count less than 4 is almost always breakout on modern platforms
         # (except for some 25G/10G single-lane ports which are typically native)
@@ -874,7 +876,7 @@ def collect_oper_status_from_patches(duthost, phase1_patch, phase2_patch, asic_i
                      (info['type'] == 'bgp_neighbor' and info['oper_status'] not in (None, 'Established')))
     unknown_count = sum(1 for info in items_to_check.values() if info['oper_status'] is None)
     logger.info(f"Pre-patch oper status summary: {up_count} up/Established/Active, "
-               f"{down_count} down/not-established/Inactive, {unknown_count} unknown")
+                f"{down_count} down/not-established/Inactive, {unknown_count} unknown")
 
     return items_to_check
 
@@ -967,10 +969,11 @@ def verify_oper_status_after_patches(duthost, pre_patch_status, asic_id, timeout
 
     logger.info(f"Waiting up to {timeout}s for operational status to converge...")
     logger.info(f"  - {len(must_be_up)} items must be operationally up/Established/Active "
-               f"(ports: {port_must_up}, portchannels: {pc_must_up}, BGP: {bgp_must_up}, ACL: {acl_must_up})")
+                f"(ports: {port_must_up}, portchannels: {pc_must_up}, BGP: {bgp_must_up}, ACL: {acl_must_up})")
     logger.info(f"  - {len(must_be_down)} items must be operationally down (admin_status='down') "
-               f"(ports: {port_must_down}, portchannels: {pc_must_down})")
-    logger.info(f"  - {len(was_down)} items were down/Inactive before with admin_status='up' (will check but only warn)")
+                f"(ports: {port_must_down}, portchannels: {pc_must_down})")
+    logger.info(f"  - {len(was_down)} items were down/Inactive before with admin_status='up' "
+                "(will check but only warn)")
 
     # Build items_by_type for status queries - include all items we need to check
     all_items_to_check = set(must_be_up.keys()) | set(must_be_down.keys()) | set(was_down.keys())
@@ -1029,7 +1032,7 @@ def verify_oper_status_after_patches(duthost, pre_patch_status, asic_id, timeout
             logger.error(f"Operational status did not converge within {timeout}s")
     else:
         # If nothing must be up or down, just wait a bit for stability
-        logger.info(f"No items required to be up or down - waiting 60s for stability")
+        logger.info("No items required to be up or down - waiting 60s for stability")
         time.sleep(60)
         converged = True
 
@@ -1052,7 +1055,7 @@ def verify_oper_status_after_patches(duthost, pre_patch_status, asic_id, timeout
             })
             admin_info = f"admin_status='{info['admin_status']}', " if info.get('admin_status') else ""
             logger.error(f"FAIL: {name} ({info['type']}) was operationally '{info['oper_status']}' before patch, "
-                        f"{admin_info}but is now '{current}'")
+                         f"{admin_info}but is now '{current}'")
         else:
             logger.info(f"PASS: {name} ({info['type']}) is operationally '{expected}' as expected")
 
@@ -1069,7 +1072,7 @@ def verify_oper_status_after_patches(duthost, pre_patch_status, asic_id, timeout
                 'admin_status': 'down'
             })
             logger.error(f"FAIL: {name} ({info['type']}) has admin_status='down' in patch, "
-                        f"but oper_status is '{current}' (expected 'down')")
+                         f"but oper_status is '{current}' (expected 'down')")
         else:
             logger.info(f"PASS: {name} ({info['type']}) is operationally 'down' as expected (admin_status='down')")
 
@@ -1088,15 +1091,15 @@ def verify_oper_status_after_patches(duthost, pre_patch_status, asic_id, timeout
                 'admin_status': info.get('admin_status')  # ACL tables don't have admin_status
             })
             logger.warning(f"INFO: {name} ({info['type']}) was operationally '{was_state}' before patch and "
-                          f"is now '{current}'. This may be due to external factors.")
+                           f"is now '{current}'. This may be due to external factors.")
         else:
             logger.info(f"IMPROVED: {name} ({info['type']}) was '{was_state}' before but is now '{expected}'")
 
     success = len(failures) == 0
     total_checked = len(must_be_up) + len(must_be_down)
     logger.info(f"Oper status verification complete: {total_checked - len(failures)}/{total_checked} passed "
-               f"({len(must_be_up)} must-be-up, {len(must_be_down)} must-be-down), "
-               f"{len(warnings)} warnings for previously-down items")
+                f"({len(must_be_up)} must-be-up, {len(must_be_down)} must-be-down), "
+                f"{len(warnings)} warnings for previously-down items")
 
     return success, failures, warnings
 
@@ -1203,7 +1206,8 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname):
     # Build namespace argument for CLI commands (handles single-ASIC vs multi-ASIC)
     ns_arg = get_namespace_arg(duthost, asic_id)
     asic_index = get_asic_index_from_namespace(asic_id)
-    logger.info(f"Testing with downstream T1 neighbor: {target_t1} on {asic_id} (ns_arg='{ns_arg}', index={asic_index})")
+    logger.info(
+        f"Testing with downstream T1 neighbor: {target_t1} on {asic_id} (ns_arg='{ns_arg}', index={asic_index})")
 
     # Step 0: Check for Dynamic Port Breakout (DPB) requirements
     # -------------------------------------------------------------------------
@@ -1224,7 +1228,8 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname):
         for port, info in breakout_ports.items():
             reasons = info.get('reasons', [])
             reason_str = "; ".join(reasons) if reasons else "low lane count"
-            port_details.append(f"{port} ({info['lane_count']} lanes, {info.get('speed', 'unknown')} speed): {reason_str}")
+            speed_info = info.get('speed', 'unknown')
+            port_details.append(f"{port} ({info['lane_count']} lanes, {speed_info} speed): {reason_str}")
         breakout_info = "\n  - ".join(port_details)
         pytest.skip(
             f"Test requires Dynamic Port Breakout (DPB) which is not supported. "
@@ -1400,7 +1405,7 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname):
             config_entries_to_check['DEVICE_NEIGHBOR'].add(f"DEVICE_NEIGHBOR|{entry}")
         elif path.startswith(f'/{asic_id}/CABLE_LENGTH/AZURE/'):
             entry = path.split('/')[-1]
-            config_entries_to_check['CABLE_LENGTH'].add(f"{entry}")
+            config_entries_to_check['CABLE_LENGTH'].add(entry)
         elif path.startswith(f'/{asic_id}/PORT_QOS_MAP/'):
             entry = path.split('/')[-1]
             config_entries_to_check['PORT_QOS_MAP'].add(f"PORT_QOS_MAP|{entry}")
@@ -1481,7 +1486,7 @@ def test_addcluster_workflow(duthosts, enum_downstream_dut_hostname):
 
         if oper_warnings:
             logger.warning(f"{len(oper_warnings)} item(s) were down before and remain down - "
-                          f"this may be due to external factors")
+                           "this may be due to external factors")
     else:
         logger.info("No pre-patch operational status recorded - skipping oper status verification")
 
