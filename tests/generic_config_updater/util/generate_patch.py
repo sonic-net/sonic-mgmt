@@ -87,6 +87,7 @@ def filter_non_front_panel_ports(ports):
     """
     return {p for p in ports if is_front_panel_port(p)}
 
+
 # Known table names for detecting single-ASIC config structure
 KNOWN_TABLES = {
     'ACL_TABLE', 'ACL_RULE', 'BGP_NEIGHBOR', 'BUFFER_PG', 'CABLE_LENGTH',
@@ -604,7 +605,7 @@ def generate_config_patch(full_config_path, no_leaf_config_path):
     # Filter ACL_TABLE patches, excluding localhost namespace (multi-ASIC cross-namespace issue)
     # On multi-ASIC chassis, localhost ACL_TABLE entries reference ports only in ASIC namespaces
     coalesced_acl_table = [p for p in coalesced_port_patches
-                          if '/ACL_TABLE/' in p['path'] and not p['path'].startswith('/localhost/')]
+                           if '/ACL_TABLE/' in p['path'] and not p['path'].startswith('/localhost/')]
     localhost_acl_count = sum(1 for p in coalesced_port_patches
                               if '/ACL_TABLE/' in p['path'] and p['path'].startswith('/localhost/'))
     if localhost_acl_count > 0:
@@ -614,7 +615,8 @@ def generate_config_patch(full_config_path, no_leaf_config_path):
     coalesced_bgp_neighbor = [p for p in coalesced_port_patches if '/BGP_NEIGHBOR/' in p['path']]
 
     # Log filtered backplane ports
-    backplane_port_count = sum(1 for p in coalesced_port_patches if '/PORT/' in p['path'] and not is_front_panel_patch(p))
+    backplane_port_count = sum(
+        1 for p in coalesced_port_patches if '/PORT/' in p['path'] and not is_front_panel_patch(p))
     if backplane_port_count > 0:
         logger.info("Filtered out %d backplane/non-front-panel PORT patches", backplane_port_count)
 

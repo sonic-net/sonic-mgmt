@@ -12,6 +12,7 @@ NS_A = "{" + NS_A_VAL + "}"
 
 logger = logging.getLogger(__name__)
 
+
 class MinigraphRefactor:
     """Refactors minigraph.xml to remove a T1 neighbor and its associated configuration.
 
