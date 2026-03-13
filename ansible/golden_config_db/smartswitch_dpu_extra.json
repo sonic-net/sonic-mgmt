@@ -2,7 +2,7 @@
     "DEVICE_METADATA": {
         "localhost": {
             "bgp_asn": "65100",
-            "hostname": "DPU_HOSTNAME_PLACEHOLDER",
+            "hostname": "dpu",
             "subtype": "SmartSwitch",
             "switch_type": "dpu",
             "type": "SmartSwitchDPU"
