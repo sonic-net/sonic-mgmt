@@ -34,7 +34,7 @@ from tests.ha.ha_utils import (
     build_dash_ha_scope_args,
     wait_for_pending_operation_id,
     build_dash_ha_scope_activate_args,
-    wait_for_ha_state,
+    verify_ha_state,
     build_dash_ha_set_args,
     proto_utils_hset
 )
@@ -808,7 +808,7 @@ def activate_dash_ha_from_json(duthosts):
     ]
     logger.info("HA: activate Primary and Standby")
     for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
-        is_active = wait_for_ha_state(duthost, scope_key=key, expected_state="active", timeout=120, interval=5)
+        is_active = verify_ha_state(duthost, scope_key=key, expected_state="active", timeout=10, interval=5)
         if not is_active:
             break
 
@@ -844,7 +844,7 @@ def activate_dash_ha_from_json(duthosts):
             )
             # Verify HA state using fields
             expected_state = "active"
-            assert wait_for_ha_state(
+            assert verify_ha_state(
                 duthost,
                 scope_key=key,
                 expected_state=expected_state,
