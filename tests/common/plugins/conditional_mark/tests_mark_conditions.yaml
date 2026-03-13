@@ -3114,10 +3114,6 @@ pc/test_po_update.py::test_po_update:
     reason: "Skip test due to there is no portchannel or no portchannel member exists in current topology."
     conditions:
       - "len(minigraph_portchannels) == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0"
-  xfail:
-    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20729"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20729 and '-v6-' in topo_name"
 
 pc/test_po_update.py::test_po_update_io_no_loss:
   skip:
@@ -3575,18 +3571,14 @@ qos/test_tunnel_qos_remap.py::test_pfc_watermark_extra_lossless_standby:
 #######################################
 radv/test_radv_ipv6_ra.py::test_radv_router_advertisement:
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions_logical_operator: or
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement:
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions_logical_operator: or
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
@@ -3595,10 +3587,8 @@ radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions_logical_operator: or
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
@@ -3607,10 +3597,8 @@ radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions_logical_operator: or
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
