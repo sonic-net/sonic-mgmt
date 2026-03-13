@@ -94,6 +94,7 @@ baseline:
         - test_announce_routes.py
         - test_posttest.py
         - test_pretest.py
+        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
   t2-min:
     sfd:
       sim:
@@ -107,6 +108,7 @@ baseline:
         - test_announce_routes.py
         - test_posttest.py
         - test_pretest.py    
+        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
   t1:
     lightning,superbolt:
       sim:
