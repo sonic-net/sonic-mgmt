@@ -3593,10 +3593,11 @@ pc/test_lag_member.py:
 
 pc/test_lag_member_forwarding.py:
   xfail:
-    reason: "Not supported on BRCM before SDK 13.x"
-    conditions_logical_operator: and
+    reason: "Not supported on BRCM before SDK 13.x or on Q3D platforms"
+    conditions_logical_operator: or
     conditions:
         - "asic_type in ['broadcom'] and https://github.com/sonic-net/sonic-buildimage/issues/21938"
+        - "asic_gen in ['q3d'] and https://github.com/sonic-net/sonic-mgmt/issues/22942"
 
 pc/test_po_cleanup.py:
   skip:
