@@ -111,7 +111,7 @@ class MultiAsicSonicHost(object):
                 logger.info("Removing teamd from default services for switch_type DPU")
                 self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                 continue
-            if service == 'lldp'and is_dpu:
+            if service == 'lldp' and is_dpu:
                 logger.info("Removing lldp from default services for switch_type DPU")
                 self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                 continue
@@ -123,7 +123,7 @@ class MultiAsicSonicHost(object):
             if config_facts['FEATURE'][service]['state'] == "disabled":
                 self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
         if not self.get_facts().get("modular_chassis") and not is_dpu:
-            service_list.append("lldp")
+            pass
 
         for asic in active_asics:
             service_list += asic.get_critical_services()
