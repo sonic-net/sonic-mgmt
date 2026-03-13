@@ -292,14 +292,23 @@ class TestPsuApi(PlatformApiTestBase):
                     continue
 
                 temperature = psu.get_temperature(platform_api_conn, psu_id)
-                if self.expect(temperature is not None, "Failed to retrieve temperature of PSU {}".format(psu_id)):
-                    self.expect(isinstance(temperature, float), "PSU {} temperature appears incorrect".format(psu_id))
+                if not self.expect(temperature is not None and temperature != "N/A",
+                                   "Failed to retrieve temperature of PSU {}".format(psu_id)):
+                    continue
+
+                if not self.expect(isinstance(temperature, float),
+                                   "PSU {} temperature validation failed: "
+                                   "expected float, got: {} (type: {})"
+                                   .format(psu_id, temperature, type(temperature).__name__)):
+                    continue
 
                 temp_threshold = psu.get_temperature_high_threshold(platform_api_conn, psu_id)
-                if self.expect(temp_threshold is not None,
+                if self.expect(temp_threshold is not None and temp_threshold != "N/A",
                                "Failed to retrieve temperature threshold of PSU {}".format(psu_id)):
                     if self.expect(isinstance(temp_threshold, float),
-                                   "PSU {} temperature high threshold appears incorrect".format(psu_id)):
+                                   "PSU {} temperature high threshold validation failed: "
+                                   "expected float, got: {} (type: {})"
+                                   .format(psu_id, temp_threshold, type(temp_threshold).__name__)):
                         self.expect(temperature < temp_threshold,
                                     "Temperature {} of PSU {} is over the threshold {}"
                                     .format(temperature, psu_id, temp_threshold))
