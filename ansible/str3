@@ -651,6 +651,7 @@ sonic_cisco_8102_smartswitch:
       ansible_host: 10.3.156.99
       ansible_hostv6: 2a01:111:e210:86::c3
       mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
       model: 8102-28FH-DPU-O
       serial: FLM29250MPG
       base_mac: F4:33:92:7C:F8:F0
@@ -848,8 +849,9 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-cisco-8102-E04-U26-dpu-0:
       ansible_host: 10.3.156.99
       ansible_hostv6: 2a01:111:e210:86::c3
-      ansible_ssh_port: 5021
       mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
+      ansible_ssh_port: 5021
       model: DSS-MTFUJI
       serial: FLM29240A4U
       base_mac: D0:85:43:D8:63:C0
@@ -868,8 +870,9 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-cisco-8102-E04-U26-dpu-1:
       ansible_host: 10.3.156.99
       ansible_hostv6: 2a01:111:e210:86::c3
-      ansible_ssh_port: 5022
       mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
+      ansible_ssh_port: 5022
       model: DSS-MTFUJI
       serial: FLM29240A4U
       base_mac: D0:85:43:D8:63:D0
@@ -888,8 +891,9 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-cisco-8102-E04-U26-dpu-2:
       ansible_host: 10.3.156.99
       ansible_hostv6: 2a01:111:e210:86::c3
-      ansible_ssh_port: 5023
       mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
+      ansible_ssh_port: 5023
       model: DSS-MTFUJI
       serial: FLM29240A0C
       base_mac: D0:85:43:D8:63:E0
@@ -908,8 +912,9 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-cisco-8102-E04-U26-dpu-3:
       ansible_host: 10.3.156.99
       ansible_hostv6: 2a01:111:e210:86::c3
-      ansible_ssh_port: 5024
       mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
+      ansible_ssh_port: 5024
       model: DSS-MTFUJI
       serial: FLM29240A0C
       base_mac: D0:85:43:D8:63:F0
@@ -928,8 +933,9 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-cisco-8102-E04-U26-dpu-4:
       ansible_host: 10.3.156.99
       ansible_hostv6: 2a01:111:e210:86::c3
-      ansible_ssh_port: 5025
       mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
+      ansible_ssh_port: 5025
       model: DSS-MTFUJI
       serial: FLM29240A0D
       base_mac: D0:85:43:D8:64:00
@@ -948,8 +954,9 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-cisco-8102-E04-U26-dpu-5:
       ansible_host: 10.3.156.99
       ansible_hostv6: 2a01:111:e210:86::c3
-      ansible_ssh_port: 5026
       mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
+      ansible_ssh_port: 5026
       model: DSS-MTFUJI
       serial: FLM29240A0D
       base_mac: D0:85:43:D8:64:10
@@ -968,8 +975,9 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-cisco-8102-E04-U26-dpu-6:
       ansible_host: 10.3.156.99
       ansible_hostv6: 2a01:111:e210:86::c3
-      ansible_ssh_port: 5027
       mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
+      ansible_ssh_port: 5027
       model: DSS-MTFUJI
       serial: FLM292409WT
       base_mac: D0:85:43:D8:64:20
@@ -988,8 +996,9 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-cisco-8102-E04-U26-dpu-7:
       ansible_host: 10.3.156.99
       ansible_hostv6: 2a01:111:e210:86::c3
-      ansible_ssh_port: 5028
       mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
+      ansible_ssh_port: 5028
       model: DSS-MTFUJI
       serial: FLM292409WT
       base_mac: D0:85:43:D8:64:30
@@ -2550,6 +2559,7 @@ sonic_mlnx_4280_smartswitch:
       ansible_host: 10.3.152.109
       ansible_hostv6: 2a01:111:e210:86::9b
       mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
       hwsku: Mellanox-SN4280-O28
       model: MSN4280-WS2RXOS
       serial: MT2438XZ0G0L
@@ -2612,6 +2622,7 @@ sonic_mlnx_4280_smartswitch:
       ansible_host: 10.3.156.98
       ansible_hostv6: 2a01:111:e210:86::c2
       mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
       hwsku: Mellanox-SN4280-O28
       model: MSN4280-WS2RXOS
       serial: MT2517XZ0AZ9
@@ -2648,6 +2659,8 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
     str3-msn4280-02-dpu-0:
       ansible_host: 10.3.152.109
       ansible_hostv6: 2a01:111:e210:86::9b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
       ansible_ssh_port: 5021
       model: SA004902
       serial: MT2428XZ0JWT
@@ -2662,6 +2675,8 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
     str3-msn4280-02-dpu-1:
       ansible_host: 10.3.152.109
       ansible_hostv6: 2a01:111:e210:86::9b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
       ansible_ssh_port: 5022
       model: SA004902
       serial: MT2428XZ0JWL
@@ -2676,6 +2691,8 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
     str3-msn4280-02-dpu-2:
       ansible_host: 10.3.152.109
       ansible_hostv6: 2a01:111:e210:86::9b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
       ansible_ssh_port: 5023
       model: SA004902
       serial: MT2428XZ0JWK
@@ -2690,6 +2707,8 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
     str3-msn4280-02-dpu-3:
       ansible_host: 10.3.152.109
       ansible_hostv6: 2a01:111:e210:86::9b
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
       ansible_ssh_port: 5024
       model: SA004902
       serial: MT2428XZ0JVN
@@ -2704,6 +2723,8 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
     str3-nvidia-4280-E04-U22-dpu-0:
       ansible_host: 10.3.156.98
       ansible_hostv6: 2a01:111:e210:86::c2
+      mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
       ansible_ssh_port: 5021
       model: SA004932
       serial: MT2518XZ0D03
@@ -2718,6 +2739,8 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
     str3-nvidia-4280-E04-U22-dpu-1:
       ansible_host: 10.3.156.98
       ansible_hostv6: 2a01:111:e210:86::c2
+      mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
       ansible_ssh_port: 5022
       model: SA004932
       serial: MT2518XZ0D02
@@ -2732,6 +2755,8 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
     str3-nvidia-4280-E04-U22-dpu-2:
       ansible_host: 10.3.156.98
       ansible_hostv6: 2a01:111:e210:86::c2
+      mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
       ansible_ssh_port: 5023
       model: SA004932
       serial: MT2518XZ0D0M
@@ -2746,6 +2771,8 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
     str3-nvidia-4280-E04-U22-dpu-3:
       ansible_host: 10.3.156.98
       ansible_hostv6: 2a01:111:e210:86::c2
+      mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 122
       ansible_ssh_port: 5024
       model: SA004932
       serial: MT2518XZ0CZH
