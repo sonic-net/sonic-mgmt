@@ -216,6 +216,23 @@ def setup_bgp_peers(
 
 
 '''
+    Helper functions for wait conditions
+'''
+
+
+def _check_rib_routes_received(duthost, is_ipv6, min_expected_rib):
+    """Return True when RIB entry count reaches min_expected_rib."""
+    stats = measure_stats(duthost, is_ipv6)
+    return int(stats["num_rib"]) >= min_expected_rib
+
+
+def _check_rib_routes_withdrawn(duthost, is_ipv6, min_expected_rib):
+    """Return True when RIB entry count drops to or below min_expected_rib."""
+    stats = measure_stats(duthost, is_ipv6)
+    return int(stats["num_rib"]) <= min_expected_rib
+
+
+'''
     Tests
 '''
 
@@ -228,6 +245,7 @@ def test_bgp_update_replication(
     setup_duthost_intervals,
 ):
     NUM_ROUTES = 10_000
+    ROUTE_WAIT_TIMEOUT = 60
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bgp_peers: list[BGPNeighbor] = setup_bgp_peers
     duthost_intervals: list[float] = setup_duthost_intervals
@@ -264,7 +282,8 @@ def test_bgp_update_replication(
                     is_ipv6=is_ipv6
                 )
             )
-            time.sleep(interval)
+            wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
+                       _check_rib_routes_received, duthost, is_ipv6, min_expected_rib)
 
             # Measure after injection
             results.append(measure_stats(duthost, is_ipv6))
@@ -287,7 +306,8 @@ def test_bgp_update_replication(
                     is_ipv6=is_ipv6
                 )
             )
-            time.sleep(interval)
+            wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
+                       _check_rib_routes_withdrawn, duthost, is_ipv6, min_expected_rib)
 
             # Measure after removal
             results.append(measure_stats(duthost, is_ipv6))
