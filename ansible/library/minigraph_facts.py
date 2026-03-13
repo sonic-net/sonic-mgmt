@@ -754,7 +754,8 @@ def parse_xml(filename, hostname, asic_name=None):
             elif child.tag == str(QName(ns, "UngDec")):
                 (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
             elif child.tag == str(QName(ns, "MetadataDeclaration")):
-                (syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type, zebra_nexthop) = parse_meta(child, hostname)
+                (syslog_servers, ntp_servers, mgmt_routes, deployment_id,
+                 resource_type, zebra_nexthop) = parse_meta(child, hostname)
             elif child.tag == str(QName(ns, "LinkMetadataDeclaration")):
                 macsec_enabled_ports, macsec_neighbors = parse_linkmeta(child, hostname)
         else:
