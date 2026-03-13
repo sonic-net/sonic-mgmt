@@ -1,3 +1,11 @@
+- name: Set ceos_effective_image fallback if not already defined
+  # ceos_effective_image is normally set by the caller (ceos.yml in the eos role) before this
+  # file is included. This task provides a safe fallback in case this file is invoked
+  # independently, so it does not fail with an undefined variable error.
+  set_fact:
+    ceos_effective_image: "{{ ceos_image }}"
+  when: ceos_effective_image is not defined
+
 - block:
   - name: set time out threshold
     set_fact:
@@ -18,7 +26,7 @@
     become: yes
     docker_container:
       name: ceos_{{ vm_set_name }}_{{ inventory_hostname }}
-      image: "{{ ceos_image }}"
+      image: "{{ ceos_effective_image }}"
       command: /sbin/init systemd.setenv=INTFTYPE=eth systemd.setenv=ETBA=1 systemd.setenv=SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT=1 systemd.setenv=CEOS=1 systemd.setenv=EOS_PLATFORM=ceoslab systemd.setenv=container=docker systemd.setenv=MGMT_INTF=eth0
       pull: no
       state: started
