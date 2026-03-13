@@ -808,7 +808,7 @@ def activate_dash_ha_from_json(duthosts):
     ]
     logger.info("HA: activate Primary and Standby")
     for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
-        is_active = wait_for_ha_state(duthost, scope_key=key, expected_state="active", timeout=120, interval=5)
+        is_active = verify_ha_state(duthost, scope_key=key, expected_state="active", timeout=10, interval=5)
         if not is_active:
             break
 
