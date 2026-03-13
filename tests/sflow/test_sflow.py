@@ -29,7 +29,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-def is_hsflowd_ready(duthost):
+def is_hsflowd_ready(duthost, collector_ips=[]):
     """
     Check if hsflowd is running and fully initialized.
     """
@@ -50,6 +50,15 @@ def is_hsflowd_ready(duthost):
     if result['failed'] or result['rc'] != 0:
         logger.info("is_hsflowd_ready: hsflowd.auto does not exist")
         return False
+
+    for ip in collector_ips:
+        result = duthost.shell(
+                f"docker exec sflow grep -q 'collector={ip}' /etc/hsflowd.auto 2>/dev/null",
+                module_ignore_errors=True
+            )
+        if result['failed'] or result['rc'] != 0:
+            logger.info("is_hsflowd_ready: hsflowd.auto does not include collector {ip}")
+            return False
 
     logger.info("is_hsflowd_ready: all checks passed")
     return True
@@ -256,11 +265,6 @@ def config_sflow(duthost, sflow_status='enable'):
         r"sFlow Admin State:\s+%s" % expected,
         duthost.shell('show sflow')['stdout']))
 
-    if sflow_status == 'enable':
-        wait_for_system_ready(duthost)
-        if not wait_until(180, 10, 0, is_hsflowd_ready, duthost):
-            pytest.fail("hsflowd is not running")
-
 # ----------------------------------------------------------------------------------
 
 
@@ -278,6 +282,7 @@ def config_sflow_feature(request, duthosts, rand_one_dut_hostname):
         duthost.shell("sudo config feature state sflow enabled")
         wait_until(30, 5, 0, lambda: duthost.get_feature_status()[0].get(
             'sflow') == 'enabled')
+        wait_for_system_ready(duthost)
 
     yield
 
@@ -304,6 +309,7 @@ def config_sflow_collector(duthost, collector, config):
     if config == 'add':
         duthost.shell('config sflow collector add %s %s --port %s ' %
                       (collector['name'], collector['ip_addr'], collector['port']))
+        wait_until(30, 5, 0, is_hsflowd_ready, duthost, [collector['ip_addr']])
     elif config == 'del':
         duthost.shell('config sflow collector  del %s' % collector['name'])
 # ----------------------------------------------------------------------------------
