@@ -3683,9 +3683,11 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
     conditions:
       - "'dualtor' in topo_name and asic_type in ['mellanox']"
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Test case has issue on the 202412 branch as decap tunnel is disabled."
+    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "'isolated' in topo_name and release in ['202412']"
 
 qos/test_qos_masic.py:
   skip:
@@ -4419,6 +4421,12 @@ srv6/test_srv6_dataplane.py:
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+srv6/test_srv6_dataplane.py::TestSRv6DataPlaneBase::test_srv6_full_func:
+  xfail:
+    reason: "vlan decap is disabled in 202412 image, which causes the test case failure."
+    conditions:
+      - "'isolated' in topo_name and release in ['202412']"
 
 srv6/test_srv6_static_config.py:
   skip:
