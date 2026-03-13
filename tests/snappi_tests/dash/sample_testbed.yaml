@@ -4,27 +4,34 @@
   group-name: vms6-1
   topo: ptf32
   ptf_image_name: docker-ptf-snappi
-  ptf: snappi_sonic_l47
+  ptf: snappi_sonic_ixl
   ptf_ip: 10.1.1.3
-  service_type: vnet2vnet
+  # service_type: vnet2vnet
+  service_type: privatelink
   l47_gateway: 10.1.1.3
   l47_tg_servermac: 140776176680961
   l47_tg_clientmac: 140776176680962
   dut_mac: 40501075136016
-  l47_version: 11.00.0.292
+  ixos_version: 26.0.2600.14
+  l47_version: 26.0.0.94
   chassis_ip: 10.1.1.4
+  chassis_user_login: root
+  chassis_user_passwd: peanutbutter123
+  clean_l47trafficgen_staticarps: True
   uhd_ip: 10.1.1.5
   dpu_active_ip: 172.35.1.1
   dpu_standby_ip: 172.35.1.2
-  dpu_active_mac: b0:8d:57:cd:36:ef
-  dpu_standby_mac: ec:19:2e:f1:ca:af
-  dpu_active_if: Ethernet224
-  dpu_standby_if: Ethernet240
+  dpu_active_mac: aa:bb:cc:dd:ee:ff
+  dpu_standby_mac: a1:b2:c3:d4:e5:f6
+  dpu_active_if: Ethernet-BP0
+  dpu_standby_if: Ethernet-BP2
   num_cps_cards: 8
   num_tcpbg_cards: 4
   num_udpbg_cards: 1
-  num_dpus: 1
-  dpu_ports_list: 5, 6
+  active_ethpass_ip: 220.0.4.1
+  active_mac: 22:dd:44:33:ee:01
+  standby_ethpass_ip: 220.0.4.2
+  standby_mac: 21:d2:44:33:ee:02
   ports_list:
     Traffic1@Network1:
       - [ 1, 1, 1 ]
