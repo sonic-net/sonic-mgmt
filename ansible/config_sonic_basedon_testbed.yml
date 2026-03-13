@@ -1029,6 +1029,12 @@
         become: true
         shell: config bgp startup all
 
+      - name: Wait for DPU control planes to boot after config reload
+        pause:
+          seconds: 300
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
+        tags: [ dpu_config ]
+
       - name: Copy smartswitch dpu config
         copy: src=golden_config_db/smartswitch_dpu_extra.json
               dest=/tmp/dpu_extra.json
