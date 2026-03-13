@@ -109,85 +109,39 @@ class PtfGnoi:
         """
         Verify the current OS version on the device.
 
-        Note: Requires duthost and localhost to be injected by fixture.
-
         Returns:
             Dictionary containing:
             - version: Current OS version string
 
         Raises:
-            RuntimeError: If duthost/localhost not available or call fails
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
         """
-        from tests.gnmi.helper import gnoi_request, extract_gnoi_response
-
-        # Check if hosts are available
-        if not hasattr(self, '_duthost') or not hasattr(self, '_localhost'):
-            logger.error("os_verify requires duthost/localhost injection - not available")
-            raise RuntimeError(
-                "OS operations require duthost and localhost. "
-                "Make sure your test uses the ptf_gnoi fixture with proper parameters."
-            )
-
         logger.debug("Verifying OS version via gNOI OS.Verify")
+        return self.grpc_client.call_unary("gnoi.os.OS", "Verify", {})
 
-        ret, msg = gnoi_request(self._duthost, self._localhost, "OS", "Verify", "")
-        if ret != 0:
-            raise RuntimeError(f"OS.Verify failed: {msg}")
-
-        response = extract_gnoi_response(msg)
-        if not response:
-            raise RuntimeError(f"Failed to parse OS.Verify response: {msg}")
-
-        logger.info(f"Successfully verified OS version: {response}")
-        return response
 
     def os_activate(self, version: str) -> Dict:
         """
         Activate an OS version on the device.
-
-        Note: Requires duthost and localhost to be injected by fixture.
 
         Args:
             version: OS version string to activate
 
         Returns:
             Dictionary containing activation response:
-            - {"activateOk": {}} on success
-            - {"activateError": {"detail": "..."}} on failure
+            - activateOk: {} on success
+            - activateError: {"detail": "..."} on failure
 
         Raises:
-            RuntimeError: If duthost/localhost not available
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
         """
-        import json
-        from tests.gnmi.helper import gnoi_request, extract_gnoi_response
-
-        # Check if hosts are available
-        if not hasattr(self, '_duthost') or not hasattr(self, '_localhost'):
-            logger.error("os_activate requires duthost/localhost injection - not available")
-            raise RuntimeError(
-                "OS operations require duthost and localhost. "
-                "Make sure your test uses the ptf_gnoi fixture with proper parameters."
-            )
-
         logger.debug(f"Activating OS version via gNOI OS.Activate: {version}")
-
-        request_json = json.dumps({"version": version})
-        ret, msg = gnoi_request(self._duthost, self._localhost, "OS", "Activate", request_json)
-
-        if ret != 0:
-            logger.error(f"Failed to activate OS version {version}: {msg}")
-            return {"activateError": {"type": "UNSPECIFIED", "detail": msg}}
-
-        # Check response format
-        if "ActivateError" in msg:
-            return {"activateError": {"detail": msg}}
-        elif "ActivateOk" in msg:
-            logger.info(f"Successfully activated OS version {version}")
-            return {"activateOk": {}}
-        else:
-            # Try to parse as JSON
-            response = extract_gnoi_response(msg)
-            return response if response else {"activateOk": {}}
+        request = {"version": version}
+        return self.grpc_client.call_unary("gnoi.os.OS", "Activate", request)
 
     def __str__(self):
         return f"PtfGnoi(grpc_client={self.grpc_client})"

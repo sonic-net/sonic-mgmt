@@ -44,7 +44,7 @@ def ptf_grpc(ptfhost, duthost):
 
 
 @pytest.fixture
-def ptf_gnoi(ptf_grpc, duthosts, rand_one_dut_hostname, localhost):
+def ptf_gnoi(ptf_grpc, duthosts):
     """
     gNOI-specific client using auto-configured gRPC client.
 
@@ -66,15 +66,6 @@ def ptf_gnoi(ptf_grpc, duthosts, rand_one_dut_hostname, localhost):
     from tests.common.ptf_gnoi import PtfGnoi
 
     gnoi_client = PtfGnoi(ptf_grpc)
-    
-    # Inject duthost and localhost for OS operations
-    try:
-        duthost = duthosts[rand_one_dut_hostname]
-        gnoi_client._duthost = duthost
-        gnoi_client._localhost = localhost
-        logger.debug("Injected duthost and localhost for OS operations")
-    except Exception as e:
-        logger.debug(f"Could not inject hosts: {e}")
     logger.info(f"Created gNOI wrapper: {gnoi_client}")
     return gnoi_client
 
