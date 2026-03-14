@@ -39,11 +39,11 @@ _forked_handlers = set()
 _forked_handlers_lock = threading.Lock()
 os.register_at_fork(before=logging._acquireLock,
                     after_in_parent=logging._releaseLock,
-                    after_in_child=logging._releaseLock)
+                    after_in_child=logging._lock._at_fork_reinit)
 display = ansible.utils.display.Display()
 os.register_at_fork(before=display._lock.acquire,
                     after_in_parent=display._lock.release,
-                    after_in_child=display._lock.release)
+                    after_in_child=display._lock._at_fork_reinit)
 
 
 def fix_logging_handler_fork_lock():
@@ -60,7 +60,7 @@ def fix_logging_handler_fork_lock():
             if handler not in _forked_handlers and handler.lock is not None:
                 os.register_at_fork(before=handler.lock.acquire,
                                     after_in_parent=handler.lock.release,
-                                    after_in_child=handler.lock.release)
+                                    after_in_child=handler.lock._at_fork_reinit)
                 new_handlers.append(handler)
                 _forked_handlers.add(handler)
 
