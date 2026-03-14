@@ -1,2 +1,0 @@
-[console_scripts]
-check-conditional-mark-sort = pre_commit_hooks.check_conditional_mark_sort:main
