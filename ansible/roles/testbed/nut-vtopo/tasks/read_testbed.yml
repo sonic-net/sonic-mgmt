@@ -3,9 +3,13 @@
 # Inputs: testbed_name, testbed_file
 # Outputs (set_fact): vnut_devices (list of dicts), vnut_links (list of dicts)
 
+- name: Resolve ansible base directory
+  set_fact:
+    vnut_ansible_dir: "{{ playbook_dir | dirname | dirname | dirname }}"
+
 - name: Read testbed YAML file
   set_fact:
-    testbed_data: "{{ lookup('file', testbed_file) | from_yaml }}"
+    testbed_data: "{{ lookup('file', vnut_ansible_dir + '/' + testbed_file) | from_yaml }}"
 
 - name: Extract testbed entry
   set_fact:
@@ -19,7 +23,7 @@
 
 - name: Read sonic_lab_devices.csv
   read_csv:
-    path: "{{ inventory_dir }}/sonic_lab_devices.csv"
+    path: "{{ vnut_lab_files_dir }}/sonic_lab_devices.csv"
   register: lab_devices_csv
 
 - name: Filter devices for this testbed
@@ -28,7 +32,7 @@
 
 - name: Read sonic_lab_links.csv
   read_csv:
-    path: "{{ inventory_dir }}/sonic_lab_links.csv"
+    path: "{{ vnut_lab_files_dir }}/sonic_lab_links.csv"
   register: lab_links_csv
 
 - name: Filter links for this testbed's devices

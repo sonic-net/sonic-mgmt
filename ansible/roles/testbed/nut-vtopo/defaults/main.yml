@@ -18,3 +18,6 @@ vnut_process_timeout: 180
 
 # HwSku overlay (path to directory with HwSku platform files)
 vnut_hwsku_overlay_path: ""
+
+# Path to lab CSV files directory (sonic_lab_devices.csv, sonic_lab_links.csv)
+vnut_lab_files_dir: "{{ playbook_dir | dirname | dirname | dirname }}/files"

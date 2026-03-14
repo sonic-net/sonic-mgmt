@@ -1,0 +1,5 @@
+StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,AutoNeg
+vnut-t0-01,Ethernet0,vnut-tg-01,Ethernet0,10000,,,
+vnut-t0-01,Ethernet4,vnut-t1-01,Ethernet0,10000,,,
+vnut-t0-02,Ethernet0,vnut-tg-01,Ethernet4,10000,,,
+vnut-t0-02,Ethernet4,vnut-t1-01,Ethernet4,10000,,,

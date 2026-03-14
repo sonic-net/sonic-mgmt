@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 """
 Ansible module to manage virtual network links (veth pairs) for NUT virtual testbed.
 

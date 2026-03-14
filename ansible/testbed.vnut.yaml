@@ -1,0 +1,13 @@
+---
+- name: vnut-2tier-test
+  comment: "Virtual NUT 2-tier testbed for local testing"
+  inv_name: vnut-lab
+  topo: nut-2tiers
+  test_tags: []
+  duts:
+    - vnut-t0-01
+    - vnut-t0-02
+    - vnut-t1-01
+  tgs:
+    - vnut-tg-01
+  auto_recover: 'True'

@@ -2,5 +2,9 @@
 - name: Deploy virtual NUT topology
   hosts: localhost
   gather_facts: no
+  vars_files:
+    - defaults/main.yml
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
   tasks:
     - include_tasks: tasks/main.yml

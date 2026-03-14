@@ -3,7 +3,7 @@
   vnut_network:
     action: create_bridge
     bridge_name: "{{ vnut_mgmt_bridge }}"
-    bridge_ip: "{{ vnut_mgmt_gateway }}/{{ vnut_mgmt_subnet | ipaddr('prefix') }}"
+    bridge_ip: "{{ vnut_mgmt_gateway }}/{{ vnut_mgmt_subnet.split('/')[1] }}"
   register: bridge_result
 
 - name: Display bridge creation result

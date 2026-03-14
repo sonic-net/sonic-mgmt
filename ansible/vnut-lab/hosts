@@ -1,0 +1,19 @@
+all:
+  children:
+    lab:
+      vars:
+        mgmt_subnet_mask_length: 24
+        ansible_python_interpreter: /usr/bin/python3
+      children:
+        sonic:
+          hosts:
+            vnut-t0-01:
+              ansible_host: 10.99.0.10
+            vnut-t0-02:
+              ansible_host: 10.99.0.11
+            vnut-t1-01:
+              ansible_host: 10.99.0.12
+        ptf:
+          hosts:
+            vnut-tg-01:
+              ansible_host: 10.99.0.20
