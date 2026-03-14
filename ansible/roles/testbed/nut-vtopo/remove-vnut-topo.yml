@@ -5,6 +5,6 @@
   vars_files:
     - defaults/main.yml
   vars:
-    ansible_python_interpreter: /usr/bin/python3
+    ansible_python_interpreter: "{{ ansible_playbook_python }}"
   tasks:
     - include_tasks: tasks/teardown.yml

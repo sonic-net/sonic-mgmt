@@ -62,6 +62,19 @@
   register: services_wait
   changed_when: false
 
+- name: Create admin user with SSH access on DUTs
+  shell: >
+    docker exec {{ item.Hostname }} bash -c
+    "useradd -m -s /bin/bash admin 2>/dev/null;
+    echo 'admin:{{ vnut_admin_password }}' | chpasswd;
+    mkdir -p /etc/sudoers.d /home/admin/.ssh;
+    echo 'admin ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/admin;
+    chmod 440 /etc/sudoers.d/admin"
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  changed_when: true
+
 - name: Display readiness status
   debug:
     msg: "All {{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list | length }} DUTs are ready"

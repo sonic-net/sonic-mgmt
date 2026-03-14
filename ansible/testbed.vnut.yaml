@@ -10,4 +10,5 @@
     - vnut-t1-01
   tgs:
     - vnut-tg-01
+  tg_api_server: "10.99.0.20:443"
   auto_recover: 'True'

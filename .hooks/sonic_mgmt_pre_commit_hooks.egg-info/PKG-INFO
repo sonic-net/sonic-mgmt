@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: sonic-mgmt-pre-commit-hooks
+Version: 1.0.1+pre.commit
+Summary: Some hooks for pre-commit in sonic-mgmt repo.
+Project-URL: Homepage, https://github.com/sonic-net/sonic-mgmt
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Programming Language :: Python :: Implementation :: PyPy
+Requires-Python: >=3.7
+License-File: LICENSE
+Requires-Dist: tomli>=2.0.1; python_version < "4.0"
+Dynamic: license-file
