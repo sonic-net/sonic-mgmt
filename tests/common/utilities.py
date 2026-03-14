@@ -1172,6 +1172,28 @@ def get_ipv4_loopback_ip(duthost):
     return selected_loopback_ip
 
 
+def get_ipv6_loopback_ip(duthost):
+    """
+    Get the first valid ipv6 loopback ip address
+    """
+    config_facts = duthost.get_running_config_facts()
+    los = config_facts.get("LOOPBACK_INTERFACE", {})
+    selected_loopback_ip = None
+
+    for key, _ in los.items():
+        if "Loopback" in key:
+            loopback_ips = los[key]
+            for ip_str, _ in loopback_ips.items():
+                ip = ip_str.split("/")[0]
+                if is_ipv6_address(ip):
+                    selected_loopback_ip = ip
+                    break
+        if selected_loopback_ip is not None:
+            break
+
+    return selected_loopback_ip
+
+
 def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
     """
     Given a DSCP value, and the DSCP to TC map and TC to queue map, return the
