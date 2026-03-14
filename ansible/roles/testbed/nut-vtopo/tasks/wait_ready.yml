@@ -1,5 +1,33 @@
-# TODO: Implementation pending
 ---
-- name: "[placeholder] Wait for all DUTs to be ready"
+- name: Wait for SSH on DUT containers
+  wait_for:
+    host: "{{ item.ManagementIp | ipaddr('address') }}"
+    port: 22
+    timeout: "{{ vnut_ssh_timeout }}"
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+
+- name: Wait for ConfigDB to be ready on DUTs
+  command: >
+    docker exec {{ item.Hostname }}
+    bash -c "timeout {{ vnut_configdb_timeout }} bash -c 'until redis-cli -n 4 ping 2>/dev/null | grep -q PONG; do sleep 2; done'"
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  register: configdb_wait
+  changed_when: false
+
+- name: Wait for critical SONiC services
+  command: >
+    docker exec {{ item.Hostname }}
+    bash -c "timeout {{ vnut_process_timeout }} bash -c 'until supervisorctl status | grep -q RUNNING; do sleep 5; done'"
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  register: services_wait
+  changed_when: false
+
+- name: Display readiness status
   debug:
-    msg: "TODO: implement this task"
+    msg: "All {{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list | length }} DUTs are ready"

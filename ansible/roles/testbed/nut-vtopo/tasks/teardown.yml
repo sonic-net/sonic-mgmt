@@ -1,5 +1,38 @@
-# TODO: Implementation pending
 ---
-- name: "[placeholder] Stop and remove all containers and cleanup"
+- name: Read testbed definition
+  include_tasks: read_testbed.yml
+
+- name: Stop and remove cSONiC containers
+  community.docker.docker_container:
+    name: "{{ item.Hostname }}"
+    state: absent
+    force_kill: yes
+  loop: "{{ vnut_devices }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  ignore_errors: yes
+
+- name: Stop and remove base network containers
+  community.docker.docker_container:
+    name: "{{ vnut_container_prefix }}_{{ testbed_name }}_{{ item.Hostname }}"
+    state: absent
+    force_kill: yes
+  loop: "{{ vnut_devices }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  ignore_errors: yes
+
+- name: Check if any other testbed uses the management bridge
+  shell: "docker network inspect {{ vnut_mgmt_bridge }} 2>/dev/null | python3 -c 'import json,sys; print(len(json.load(sys.stdin)[0].get(\"Containers\",{})))'"
+  register: bridge_usage
+  changed_when: false
+  failed_when: false
+
+- name: Remove management bridge if unused
+  command: "ip link delete {{ vnut_mgmt_bridge }}"
+  when: bridge_usage.stdout | default('0') | int == 0
+  ignore_errors: yes
+
+- name: Display teardown summary
   debug:
-    msg: "TODO: implement this task"
+    msg: "Removed all containers and links for testbed {{ testbed_name }}"

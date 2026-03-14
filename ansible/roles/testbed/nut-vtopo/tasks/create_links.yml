@@ -1,5 +1,18 @@
-# TODO: Implementation pending
 ---
-- name: "[placeholder] Create virtual front-panel links"
+- name: Create virtual front-panel links
+  vnut_network:
+    action: create_link
+    link_id: "vnut_{{ testbed_name }}_link_{{ idx }}"
+    start_device: "{{ item.StartDevice }}"
+    start_port: "{{ item.StartPort }}"
+    end_device: "{{ item.EndDevice }}"
+    end_port: "{{ item.EndPort }}"
+    testbed_name: "{{ testbed_name }}"
+    container_prefix: "{{ vnut_container_prefix }}"
+  loop: "{{ vnut_links }}"
+  loop_control:
+    index_var: idx
+
+- name: Display link creation summary
   debug:
-    msg: "TODO: implement this task"
+    msg: "Created {{ vnut_links | length }} virtual links"

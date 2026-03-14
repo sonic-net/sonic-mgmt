@@ -1,5 +1,11 @@
-# TODO: Implementation pending
 ---
-- name: "[placeholder] Create management network bridge"
+- name: Create management bridge
+  vnut_network:
+    action: create_bridge
+    bridge_name: "{{ vnut_mgmt_bridge }}"
+    bridge_ip: "{{ vnut_mgmt_gateway }}/{{ vnut_mgmt_subnet | ipaddr('prefix') }}"
+  register: bridge_result
+
+- name: Display bridge creation result
   debug:
-    msg: "TODO: implement this task"
+    var: bridge_result.msg
