@@ -12,6 +12,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.bgp.bgp_helpers import is_neighbor_sessions_established
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.vpp_utils import wait_for_vpp_route_programming
 from tests.common.utilities import wait_until, is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
@@ -285,6 +286,10 @@ def test_bgp_update_replication(
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
                        _check_rib_routes_received, duthost, is_ipv6, min_expected_rib)
 
+            if duthost.facts["asic_type"] == "vpp":
+                assert wait_for_vpp_route_programming(duthost, ipv6=is_ipv6, timeout=60), \
+                    "VPP route programming did not converge after announce"
+
             # Measure after injection
             results.append(measure_stats(duthost, is_ipv6))
 
@@ -308,6 +313,10 @@ def test_bgp_update_replication(
             )
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
                        _check_rib_routes_withdrawn, duthost, is_ipv6, min_expected_rib)
+
+            if duthost.facts["asic_type"] == "vpp":
+                assert wait_for_vpp_route_programming(duthost, ipv6=is_ipv6, timeout=60), \
+                    "VPP route programming did not converge after withdraw"
 
             # Measure after removal
             results.append(measure_stats(duthost, is_ipv6))
