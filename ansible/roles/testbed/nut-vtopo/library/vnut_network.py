@@ -173,12 +173,10 @@ def action_connect_mgmt(module):
     if interface_exists_in_ns(pid, "eth0"):
         module.exit_json(changed=False, msg="Management interface eth0 already exists in {}".format(cname))
 
-    veth_a = "{}-mgmt-a".format(cname)
-    veth_b = "{}-mgmt-b".format(cname)
-
-    # Truncate veth names to 15 chars (kernel limit)
-    veth_a = veth_a[:15]
-    veth_b = veth_b[:15]
+    import hashlib
+    short_id = hashlib.md5(cname.encode()).hexdigest()[:8]
+    veth_a = "vm{}a".format(short_id)  # 12 chars, well under 15
+    veth_b = "vm{}b".format(short_id)  # 12 chars, well under 15
 
     # Clean up if host-side veth exists
     if link_exists_on_host(veth_a):
