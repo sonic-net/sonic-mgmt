@@ -8,8 +8,8 @@
 - name: Launch DUT and TG containers
   include_tasks: launch_containers.yml
 
+- name: Wait for DUT services and restore management network
+  include_tasks: wait_ready.yml
+
 - name: Create virtual front-panel links
   include_tasks: create_links.yml
-
-- name: Wait for all DUTs to be ready
-  include_tasks: wait_ready.yml
