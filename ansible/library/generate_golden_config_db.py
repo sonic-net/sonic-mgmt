@@ -334,8 +334,7 @@ class GenerateGoldenConfigDBModule(object):
 
         # Enable otel feature when docker-sonic-otel image exists
         if self.has_otel_image():
-            config = self.overwrite_feature_golden_config_db_singleasic(config, "otel", "enabled", "enabled")
-            
+            config = self.overwrite_feature_golden_config_db_singleasic(config, "otel")
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
         self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
