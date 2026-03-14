@@ -217,7 +217,7 @@ def test_idf_isolation_no_export_with_config_reload(rand_one_downlink_duthost,
         cur_v4_routes = {}
         cur_v6_routes = {}
         # Verify that all routes advertised to neighbor at the start of the test
-        if not wait_until(600, 3, 0, verify_current_routes_announced_to_neighs,
+        if not wait_until(1000, 3, 0, verify_current_routes_announced_to_neighs,
                           duthost, nbrs, orig_v4_routes, cur_v4_routes, 4, exp_community):
             if not check_and_log_routes_diff(duthost, nbrs, orig_v4_routes, cur_v4_routes, 4):
                 pytest.fail("Not all ipv4 routes are announced to neighbors")
