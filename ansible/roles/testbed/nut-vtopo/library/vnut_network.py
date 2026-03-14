@@ -278,7 +278,9 @@ def main():
             container_prefix=dict(type="str", default="net"),
         ),
         required_if=[
-            ("action", "create_link", ["link_id", "start_device", "start_port", "end_device", "end_port", "testbed_name"]),
+            ("action", "create_link", [
+                "link_id", "start_device", "start_port",
+                "end_device", "end_port", "testbed_name"]),
             ("action", "connect_mgmt", ["device", "mgmt_ip", "mgmt_gateway", "testbed_name"]),
             ("action", "create_bridge", ["bridge_name", "bridge_ip"]),
             ("action", "cleanup", ["testbed_name"]),
