@@ -1,0 +1,21 @@
+---
+# start_sonic.yml — Phase 2: Launch cSONiC container into existing base network namespace
+- name: "Launch cSONiC container for {{ device.Hostname }}"
+  community.docker.docker_container:
+    name: "{{ device.Hostname }}"
+    image: "{{ vnut_sonic_image }}"
+    privileged: yes
+    network_mode: "container:{{ vnut_container_prefix }}_{{ testbed_name }}_{{ device.Hostname }}"
+    state: started
+
+- name: "Copy HwSku overlay into {{ device.Hostname }}"
+  when: vnut_hwsku_overlay_path | length > 0
+  community.docker.docker_container_exec:
+    container: "{{ device.Hostname }}"
+    command: "mkdir -p /usr/share/sonic/device/x86_64-kvm_x86_64-r0/{{ device.HwSku }}"
+
+- name: "Copy HwSku files into {{ device.Hostname }}"
+  when: vnut_hwsku_overlay_path | length > 0
+  command: >
+    docker cp {{ vnut_hwsku_overlay_path }}/{{ device.HwSku }}/.
+    {{ device.Hostname }}:/usr/share/sonic/device/x86_64-kvm_x86_64-r0/{{ device.HwSku }}/
