@@ -24,8 +24,19 @@
     label: "{{ item.item.Hostname }}"
   changed_when: true
 
+- name: Wait for management interface to stabilize
+  pause:
+    seconds: 3
+
+- name: Re-verify and fix management interface on DUT base containers
+  shell: "nsenter -t {{ item.stdout }} -n bash -c 'ip link set eth0 up; ip addr show eth0 | grep -q {{ item.item.ManagementIp.split(\"/\")[0] }} || ip addr add {{ item.item.ManagementIp }} dev eth0; ip route replace default via {{ vnut_mgmt_gateway }}'"
+  loop: "{{ dut_pids.results }}"
+  loop_control:
+    label: "{{ item.item.Hostname }}"
+  changed_when: true
+
 - name: Start sshd in cSONiC containers
-  shell: "docker exec {{ item.Hostname }} bash -c '/usr/sbin/sshd || true'"
+  shell: "docker exec {{ item.Hostname }} bash -c 'mkdir -p /run/sshd && /usr/sbin/sshd || true'"
   loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
   loop_control:
     label: "{{ item.Hostname }}"
