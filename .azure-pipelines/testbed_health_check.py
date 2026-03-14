@@ -97,7 +97,7 @@ class TestbedHealthChecker:
         self.testbed_file = testbed_file
         self.log_verbosity = log_verbosity
         self.output_file = output_file
-        self.is_snappi_testbed = False
+        self.is_snappi_testbed = 'rdma' in testbed_name or 'ixia' in testbed_name
 
         # DPU-related state
         self.dpu_hosts = []
@@ -195,9 +195,6 @@ class TestbedHealthChecker:
         )
         if not self.sonichosts:
             raise HostInitFailed("sonichosts is None. Please check testbed name/file/inventory.")
-
-        if 'rdma' in self.testbed_name or 'ixia' in self.testbed_name:
-            self.is_snappi_testbed = True
 
         logger.info("======================= init_hosts ends =======================")
 
