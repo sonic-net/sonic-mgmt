@@ -48,14 +48,15 @@ Usage in Ansible:
       bridge_ip: "10.0.0.1/24"
 """
 
+import shlex
 import subprocess
 
 from ansible.module_utils.basic import AnsibleModule
 
 
 def run_cmd(cmd, check=True):
-    """Run a shell command and return (rc, stdout, stderr)."""
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    """Run a command and return (rc, stdout, stderr)."""
+    result = subprocess.run(shlex.split(cmd), capture_output=True, text=True)
     if check and result.returncode != 0:
         raise RuntimeError(
             "Command failed: {}\nstdout: {}\nstderr: {}".format(
@@ -242,7 +243,7 @@ def action_cleanup(module):
         iface = parts[1].strip().split("@")[0]
         if iface.startswith(pattern) or iface.startswith("link_"):
             # Only delete if it's a veth on the host (not inside a namespace)
-            run_cmd("ip link delete {} 2>/dev/null || true".format(iface), check=False)
+            run_cmd("ip link delete {}".format(iface), check=False)
             cleaned.append(iface)
 
     if cleaned:
