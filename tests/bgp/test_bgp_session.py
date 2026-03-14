@@ -214,7 +214,7 @@ def _restore_neighbors(nbrhosts, setup, neighbor_name, local_interfaces):
 
 
 @pytest.fixture
-def failure_injection(request, duthosts, rand_one_dut_hostname, fanouthosts, nbrhosts, setup):
+def failure_injection(duthosts, rand_one_dut_hostname, fanouthosts, nbrhosts, setup):
     """Fixture to guarantee cleanup of injected failures.
 
     The test body calls inject() to apply the failure after skip checks pass.
@@ -240,13 +240,28 @@ def failure_injection(request, duthosts, rand_one_dut_hostname, fanouthosts, nbr
                 _shutdown_interfaces(fanouthosts, duthost, local_interfaces)
             elif failure_type == "neighbor":
                 _shutdown_neighbors(nbrhosts, setup, neighbor_name, local_interfaces)
+            else:
+                raise ValueError("Unsupported failure_type: {}".format(failure_type))
 
             duthost.shell('show ip bgp summary', module_ignore_errors=True)
             duthost.shell('show ipv6 bgp summary', module_ignore_errors=True)
 
+        def restore(self):
+            """Explicitly restore injected failures so the test can verify recovery.
+
+            Safe to call multiple times; fixture teardown will skip if already restored.
+            """
+            if not state['injected']:
+                return
+            if state['failure_type'] == "interface":
+                _restore_interfaces(fanouthosts, duthost, state['local_interfaces'])
+            elif state['failure_type'] == "neighbor":
+                _restore_neighbors(nbrhosts, setup, state['neighbor_name'], state['local_interfaces'])
+            state['injected'] = False
+
     yield FailureContext()
 
-    # Teardown — always restore interfaces/neighbors
+    # Teardown — safety net in case test aborts before calling restore()
     if state['injected']:
         if state['failure_type'] == "interface":
             _restore_interfaces(fanouthosts, duthost, state['local_interfaces'])
@@ -320,6 +335,9 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
 
     pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
+
+    # Restore interfaces/neighbors before verifying BGP recovery
+    failure_injection.restore()
 
     pytest_assert(wait_until(120, 10, 30, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
