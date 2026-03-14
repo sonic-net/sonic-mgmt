@@ -1,0 +1,15 @@
+---
+- name: Read testbed definition and CSV files
+  include_tasks: read_testbed.yml
+
+- name: Create management network
+  include_tasks: create_mgmt_network.yml
+
+- name: Launch DUT and TG containers
+  include_tasks: launch_containers.yml
+
+- name: Create virtual front-panel links
+  include_tasks: create_links.yml
+
+- name: Wait for all DUTs to be ready
+  include_tasks: wait_ready.yml

@@ -1,0 +1,5 @@
+# TODO: Implementation pending
+---
+- name: "[placeholder] Stop and remove all containers and cleanup"
+  debug:
+    msg: "TODO: implement this task"

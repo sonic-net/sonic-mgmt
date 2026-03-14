@@ -1,0 +1,5 @@
+# TODO: Implementation pending
+---
+- name: "[placeholder] Wait for all DUTs to be ready"
+  debug:
+    msg: "TODO: implement this task"

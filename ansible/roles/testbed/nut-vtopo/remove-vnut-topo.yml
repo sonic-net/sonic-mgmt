@@ -1,0 +1,6 @@
+---
+- name: Remove virtual NUT topology
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - include_tasks: tasks/teardown.yml

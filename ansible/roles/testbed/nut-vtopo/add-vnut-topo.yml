@@ -1,0 +1,6 @@
+---
+- name: Deploy virtual NUT topology
+  hosts: localhost
+  gather_facts: no
+  tasks:
+    - include_tasks: tasks/main.yml

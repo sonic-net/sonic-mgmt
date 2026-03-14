@@ -1161,6 +1161,44 @@ case "${subcmd}" in
                ;;
   config-vs-chassis) config_vs_chassis $@
                ;;
+  add-vnut-topo)    add_vnut_topo $@
+               ;;
+  remove-vnut-topo) remove_vnut_topo $@
+               ;;
+  *)           usage
+               ;;
+esac
+
+if [[ -f "$backup_file" ]];then
+    echo "Backup exists, restore backup file"
+    rm -f "$topo_file"
+    mv "$backup_file" "$topo_file"
+fi
+ deploy-cfg)  deploy_config $@
+               ;;
+  deploy-l1)   deploy_l1 $@
+               ;;
+  gen-cfg)     generate_config $@
+               ;;
+  config-y-cable) config_y_cable $@
+               ;;
+  set-l2) set_l2_mode $@
+               ;;
+  cleanup-vmhost) cleanup_vmhost $@
+               ;;
+  create-master) start_k8s_vms $@
+                 setup_k8s_vms $@
+               ;;
+  destroy-master) stop_k8s_vms $@
+               ;;
+  restart-ptf) restart_ptf $@
+               ;;
+  install-image) install_image $@
+               ;;
+  collect-show-tech) collect_show_tech $@
+               ;;
+  config-vs-chassis) config_vs_chassis $@
+               ;;
   *)           usage
                ;;
 esac

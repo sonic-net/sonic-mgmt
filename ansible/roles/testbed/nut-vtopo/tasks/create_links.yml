@@ -1,0 +1,5 @@
+# TODO: Implementation pending
+---
+- name: "[placeholder] Create virtual front-panel links"
+  debug:
+    msg: "TODO: implement this task"

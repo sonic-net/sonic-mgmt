@@ -1,0 +1,5 @@
+# TODO: Implementation pending
+---
+- name: "[placeholder] Create management network bridge"
+  debug:
+    msg: "TODO: implement this task"
