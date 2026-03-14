@@ -22,6 +22,7 @@ from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
 from tests.common.helpers.parallel import parallel_run_threaded
+from tests.common.helpers.interactive_ssh import exec_interactive_ssh
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 from typing import TypedDict
@@ -126,6 +127,45 @@ class SonicHost(AnsibleHostBase):
 
     def __repr__(self):
         return self.__str__()
+    
+    def exec_interactive(self, command, expect_pattern=None, response="", timeout=30, read_delay=1):
+        """
+        Execute an interactive command on SONiC device using Paramiko shell.
+        
+        Note: This is primarily used for migration scripts that run from XR but are executed
+        when the device is already running SONiC. It provides the same interface as CiscoHost.
+        
+        Args:
+            command (str): Command to execute
+            expect_pattern (str, optional): Regex pattern to wait for before sending response
+            response (str): Response to send when pattern is matched (default: "" = Enter key)
+            timeout (int): Maximum seconds to wait for pattern or command completion (default: 30)
+            read_delay (float): Delay in seconds between command/response and reading output (default: 1)
+            
+        Returns:
+            dict: Result dictionary with 'failed', 'rc', 'stdout', 'stderr', 'pattern_found'
+        """
+        im = self.host.options['inventory_manager']
+        vm = self.host.options['variable_manager']
+        hostvars = vm.get_vars(host=im.get_host(hostname=self.hostname))
+
+        ssh_user = hostvars.get('ansible_ssh_user', 'admin')
+        ssh_pass = hostvars.get('ansible_ssh_pass', 'password')
+        ssh_host = hostvars.get('ansible_host', self.hostname)
+
+        return exec_interactive_ssh(
+            ssh_host=ssh_host,
+            username=ssh_user,
+            password=ssh_pass,
+            command=command,
+            expect_pattern=expect_pattern,
+            response=response,
+            timeout=timeout,
+            read_delay=read_delay,
+            logger=logger,
+            host_for_error=self.hostname,
+            debug=False,
+        )
 
     @property
     def facts(self):
