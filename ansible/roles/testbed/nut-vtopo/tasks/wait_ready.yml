@@ -1,13 +1,4 @@
 ---
-- name: Wait for SSH on DUT containers
-  wait_for:
-    host: "{{ item.ManagementIp | ipaddr('address') }}"
-    port: 22
-    timeout: "{{ vnut_ssh_timeout }}"
-  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
-  loop_control:
-    label: "{{ item.Hostname }}"
-
 - name: Wait for ConfigDB to be ready on DUTs
   command: >
     docker exec {{ item.Hostname }}
@@ -17,6 +8,24 @@
     label: "{{ item.Hostname }}"
   register: configdb_wait
   changed_when: false
+
+- name: Restore management interface on DUT base containers
+  command: >
+    docker exec {{ vnut_container_prefix }}_{{ testbed_name }}_{{ item.Hostname }}
+    bash -c "ip link set eth0 up && ip addr flush dev eth0 && ip addr add {{ item.ManagementIp }} dev eth0 && ip route replace default via {{ vnut_mgmt_gateway }}"
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  changed_when: true
+
+- name: Wait for SSH on DUT containers
+  wait_for:
+    host: "{{ item.ManagementIp.split('/')[0] }}"
+    port: 22
+    timeout: "{{ vnut_ssh_timeout }}"
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
 
 - name: Wait for critical SONiC services
   command: >

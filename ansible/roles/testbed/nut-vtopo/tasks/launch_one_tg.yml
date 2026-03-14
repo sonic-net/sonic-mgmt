@@ -3,6 +3,7 @@
   community.docker.docker_container:
     name: "{{ vnut_container_prefix }}_{{ testbed_name }}_{{ device.Hostname }}"
     image: "{{ vnut_ptf_image }}"
+    command: "sleep infinity"
     privileged: yes
     network_mode: "none"
     state: started
