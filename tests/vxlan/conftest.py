@@ -339,9 +339,68 @@ def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):
             join(TEMPLATE_DIR, "vnet_config.j2")).render(combined_args))
 
 
+
+# @pytest.fixture(scope="function", autouse=True)
+# def dump_config(duthosts, rand_one_dut_hostname):
+#     duthost = duthosts[rand_one_dut_hostname]
+#     logger.info("##### dump_config before running tests #####")
+#     cmd = "ip -d link show type vrf"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+
+#     cmd = "vtysh -c 'show vrf'"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+
+#     cmd = "ip link show"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+
+#     logger.info("##### dump_config before running tests done #####")
+
+#     yield
+
+#     logger.info("##### dump_config after running tests #####")
+#     cmd = "ip -d link show type vrf"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+
+#     cmd = "vtysh -c 'show vrf'"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+
+#     cmd = "ip link show"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+
+#     logger.info("##### dump_config after running tests done #####")
+
+
+
+# @pytest.fixture(scope="module", autouse=True)
+# def dump_syslog(duthosts, rand_one_dut_hostname):
+#     duthost = duthosts[rand_one_dut_hostname]
+#     logger.info("##### dump_syslog before running tests #####")
+#     cmd = "logrotate -f /etc/logrotate.conf"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+#     logger.info("##### dump_syslog before running tests done #####")
+
+#     yield
+
+#     logger.info("##### dump_syslog after running tests #####")
+#     cmd = "cat /var/log/syslog"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+#     logger.info("##### dump_syslog after running tests done #####")
+
+
+
 @pytest.fixture(scope="module", autouse=True)
 def restore_config_by_config_reload(duthosts, rand_one_dut_hostname):
     yield
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Restore config after running tests")
     config_reload(duthost, safe_reload=True)
+
+
