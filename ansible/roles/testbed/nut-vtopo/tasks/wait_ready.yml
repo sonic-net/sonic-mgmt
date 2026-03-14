@@ -62,6 +62,15 @@
   register: services_wait
   changed_when: false
 
+- name: Install sudo in cSONiC containers
+  shell: >
+    docker exec {{ item.Hostname }} bash -c
+    "apt-get update -qq && apt-get install -y -qq sudo >/dev/null 2>&1"
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  changed_when: true
+
 - name: Create admin user with SSH access on DUTs
   shell: >
     docker exec {{ item.Hostname }} bash -c
