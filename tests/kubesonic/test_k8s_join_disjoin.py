@@ -70,6 +70,40 @@ def remove_minikube(vmhost):
     logger.info("Minikube is removed")
 
 
+def patch_cluster_info_to_ip(vmhost, creds):
+    """
+    kubeadm discovery uses kube-public/cluster-info (kubeconfig) + its JWS signature.
+    Minikube commonly publishes server: https://control-plane.minikube.internal:6443.
+    We patch it to use https://<vmhost.mgmt_ip>:6443 and re-sign so discovery succeeds and is not dependent on DNS.
+    """
+    http_proxy = creds.get("proxy_env", {}).get("http_proxy", "")
+    https_proxy = creds.get("proxy_env", {}).get("https_proxy", "")
+    http_proxy_param = f"http_proxy={http_proxy}" if http_proxy else ""
+    https_proxy_param = f"https_proxy={https_proxy}" if https_proxy else ""
+
+    # include vmhost IP so kubectl/minikube don't send apiserver traffic through proxy
+    no_proxy_param = f"{NO_PROXY},{vmhost.mgmt_ip}"
+    proxy_param = f"{http_proxy_param} {https_proxy_param} {no_proxy_param}".strip()
+
+    tmp = "/tmp/cluster-info.yaml"
+    vmhost.shell(f"{proxy_param} minikube kubectl -- -n kube-public get cm cluster-info -o yaml > {tmp}")
+
+    vmhost.shell(
+        f"sed -i 's#server: https://{MINIKUBE_VIP}:6443#server: https://{vmhost.mgmt_ip}:6443#g' {tmp}"
+    )
+
+    vmhost.shell(f"{proxy_param} minikube kubectl -- apply -f {tmp}")
+    vmhost.shell(f"rm -f {tmp}")
+
+    # Re-sign cluster-info so kubeadm discovery accepts the modified kubeconfig.
+    resign_cmd = (
+        "minikube ssh -- "
+        "\"sudo kubeadm init phase bootstrap-token cluster-info --config /var/lib/minikube/kubeadm.yaml "
+        "|| sudo kubeadm init phase bootstrap-token cluster-info --config /var/tmp/minikube/kubeadm.yaml\""
+    )
+    vmhost.shell(f"{proxy_param} {resign_cmd}")
+
+
 def setup_k8s_master(vmhost, creds):
     logger.info("Start to setup k8s master on vmhost")
     http_proxy = creds.get("proxy_env", {}).get("http_proxy", "")
@@ -89,6 +123,8 @@ def setup_k8s_master(vmhost, creds):
         --force \
     '''
     vmhost.shell(k8s_master_setup_cmd)
+    patch_cluster_info_to_ip(vmhost, creds)
+
     logger.info("K8s master setup is done")
 
 
@@ -108,12 +144,16 @@ def update_kubelet_config(vmhost, creds):
     https_proxy = creds.get("proxy_env", {}).get("https_proxy", "")
     http_proxy_param = f"http_proxy={http_proxy}" if http_proxy else ""
     https_proxy_param = f"https_proxy={https_proxy}" if https_proxy else ""
-    proxy_param = f"{http_proxy_param} {https_proxy_param} {NO_PROXY}"
+
+    # include vmhost IP to avoid proxying apiserver requests
+    no_proxy_param = f"{NO_PROXY},{vmhost.mgmt_ip}"
+    proxy_param = f"{http_proxy_param} {https_proxy_param} {no_proxy_param}".strip()
+
     tmp_kubelet_config = "/tmp/kubelet-config.yaml"
-    get_kubelet_config_cmd = f"{proxy_param} minikube kubectl -- get cm {KUBELET_CONFIGMAP} -n kube-system -o yaml"
+    get_kubelet_config_cmd = f"{proxy_param} minikube kubectl -- -n kube-system get cm {KUBELET_CONFIGMAP} -o yaml"
     vmhost.shell(f"{get_kubelet_config_cmd} > {tmp_kubelet_config}")
     vmhost.shell(f"sed 's|/var/lib/minikube/certs/ca.crt|/etc/kubernetes/pki/ca.crt|' -i {tmp_kubelet_config}")
-    vmhost.shell(f"{NO_PROXY} minikube kubectl -- apply -f {tmp_kubelet_config}")
+    vmhost.shell(f"{proxy_param} minikube kubectl -- apply -f {tmp_kubelet_config}")
     vmhost.shell(f"rm -f {tmp_kubelet_config}")
     logger.info("Kubelet config is updated")
 
@@ -367,7 +407,7 @@ def setup_and_teardown(duthost, vmhost, creds):
     # Prepare certs for duthost join
     prepare_cert(duthost, vmhost)
 
-    # Prepare dns for minikube vip
+    # Keep /etc/hosts entry (in case DNS is needed for an original minikube master setup)
     prepare_minikube_vip_dns(duthost, vmhost)
 
     # Remove node-ip param if the sku is needed
@@ -378,7 +418,7 @@ def setup_and_teardown(duthost, vmhost, creds):
     # Clean up the k8s table in configdb
     clean_configdb_k8s_table(duthost)
 
-    # Restore dns for minikube vip
+    # Cleanup dns for minikube vip
     remove_minikube_vip_dns(duthost, vmhost)
 
     # Restore certs for duthost join
@@ -430,8 +470,10 @@ def deploy_daemonset_pod_and_check(duthost, vmhost):
     logger.info("Start to label node and check if the daemonset pod is deployed")
     vmhost.shell(f"{NO_PROXY} minikube kubectl -- label node {duthost.hostname} {DAEMONSET_NODE_LABEL}=true")
     time.sleep(15)
-    ds_pod_status = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get pods -l group={DAEMONSET_POD_LABEL} \
-                                    --field-selector spec.nodeName={duthost.hostname}")
+    ds_pod_status = vmhost.shell(
+        f"{NO_PROXY} minikube kubectl -- get pods -l group={DAEMONSET_POD_LABEL} "
+        f"--field-selector spec.nodeName={duthost.hostname}"
+    )
     pytest_assert("1/1" in ds_pod_status["stdout"], "Failed to find daemonset pod from k8s")
     pytest_assert("Running" in ds_pod_status["stdout"], "Failed to find daemonset pod from k8s")
     container_status = duthost.shell(f"docker ps |grep {DAEMONSET_CONTAINER_NAME}", module_ignore_errors=True)
@@ -443,8 +485,10 @@ def delete_daemonset_pod_and_check(duthost, vmhost):
     logger.info("Start to unlabel node and check if the daemonset pod is deleted")
     vmhost.shell(f"{NO_PROXY} minikube kubectl -- label node {duthost.hostname} {DAEMONSET_NODE_LABEL}-")
     time.sleep(15)
-    ds_pod_status = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get pods -l group={DAEMONSET_POD_LABEL} \
-                                    --field-selector spec.nodeName={duthost.hostname}")
+    ds_pod_status = vmhost.shell(
+        f"{NO_PROXY} minikube kubectl -- get pods -l group={DAEMONSET_POD_LABEL} "
+        f"--field-selector spec.nodeName={duthost.hostname}"
+    )
     pytest_assert("No resources found" in ds_pod_status["stderr"], "Failed to delete daemonset")
     container_status = duthost.shell("docker ps |grep {DAEMONSET_CONTAINER_NAME}", module_ignore_errors=True)
     pytest_assert(container_status["stdout"] == "", "Failed to delete daemonset pod")
@@ -456,3 +500,4 @@ def test_kubesonic_join_and_disjoin(setup_and_teardown, duthost, vmhost):
     deploy_daemonset_pod_and_check(duthost, vmhost)
     delete_daemonset_pod_and_check(duthost, vmhost)
     trigger_disjoin_and_check(duthost, vmhost)
+
