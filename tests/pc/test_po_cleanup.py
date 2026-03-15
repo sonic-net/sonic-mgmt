@@ -107,6 +107,14 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format(pc))
 
     try:
+        # Start a watchdog that guarantees cleanup even if the test times out or aborts.
+        # Without this, 'yes' processes can leak on weak-per-core platforms (e.g. armhf)
+        # where the test may be killed before reaching the finally block.
+        # See: https://github.com/sonic-net/sonic-mgmt/issues/21517
+        watchdog_timeout = 600  # 10 minutes — well beyond config_reload's 240s wait
+        watchdog_pid = duthost.shell(
+            "nohup sh -c 'sleep {}; pkill -x -9 yes' >/dev/null 2>&1 & echo $!".format(watchdog_timeout))['stdout'].strip()
+
         # Make CPU high
         for i in range(host_vcpus):
             duthost.shell("nohup yes > /dev/null 2>&1 & sleep 1")
@@ -132,6 +140,9 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
             config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
 
         duthost.shell("killall yes")
+        # Cancel the watchdog so it doesn't fire during later tests
+        duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
     except Exception:
         duthost.shell("killall yes")
+        duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
         raise
