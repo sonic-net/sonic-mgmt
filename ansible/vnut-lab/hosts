@@ -5,7 +5,7 @@ all:
         mgmt_subnet_mask_length: 24
         ansible_python_interpreter: /usr/bin/python3
         ansible_user: admin
-        ansible_altpassword: YourPaSsWoRd
+        ansible_altpassword: "{{ sonicadmin_password }}"
       children:
         sonic:
           hosts:

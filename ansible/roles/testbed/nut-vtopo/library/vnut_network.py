@@ -48,19 +48,24 @@ Usage in Ansible:
       bridge_ip: "10.0.0.1/24"
 """
 
-import shlex
+import hashlib
 import subprocess
 
 from ansible.module_utils.basic import AnsibleModule
 
 
-def run_cmd(cmd, check=True):
-    """Run a command and return (rc, stdout, stderr)."""
-    result = subprocess.run(shlex.split(cmd), capture_output=True, text=True)
+def run_cmd(cmd_args, check=True):
+    """Run a command and return (rc, stdout, stderr).
+
+    Args:
+        cmd_args: List of command arguments (e.g. ["ip", "link", "show", "eth0"]).
+        check: If True, raise RuntimeError on non-zero exit code.
+    """
+    result = subprocess.run(cmd_args, capture_output=True, text=True)
     if check and result.returncode != 0:
         raise RuntimeError(
             "Command failed: {}\nstdout: {}\nstderr: {}".format(
-                cmd, result.stdout.strip(), result.stderr.strip()
+                " ".join(cmd_args), result.stdout.strip(), result.stderr.strip()
             )
         )
     return result.returncode, result.stdout.strip(), result.stderr.strip()
@@ -68,23 +73,27 @@ def run_cmd(cmd, check=True):
 
 def link_exists_on_host(link_name):
     """Check if a network link exists on the host."""
-    rc, _, _ = run_cmd("ip link show {}".format(link_name), check=False)
+    rc, _, _ = run_cmd(["ip", "link", "show", link_name], check=False)
     return rc == 0
 
 
 def bridge_exists(bridge_name):
     """Check if a bridge exists on the host."""
-    rc, _, _ = run_cmd("ip link show type bridge dev {}".format(bridge_name), check=False)
+    rc, _, _ = run_cmd(
+        ["ip", "link", "show", "type", "bridge", "dev", bridge_name], check=False
+    )
     return rc == 0
 
 
 def get_container_pid(container_name):
     """Get the PID of a running Docker container."""
     rc, stdout, stderr = run_cmd(
-        "docker inspect -f '{{{{.State.Pid}}}}' {}".format(container_name), check=False
+        ["docker", "inspect", "-f", "{{.State.Pid}}", container_name], check=False
     )
     if rc != 0:
-        raise RuntimeError("Container '{}' not found or not running: {}".format(container_name, stderr))
+        raise RuntimeError(
+            "Container '{}' not found or not running: {}".format(container_name, stderr)
+        )
     pid = stdout.strip()
     if pid == "0":
         raise RuntimeError("Container '{}' is not running (PID=0)".format(container_name))
@@ -99,7 +108,7 @@ def container_name(prefix, testbed, device):
 def interface_exists_in_ns(pid, iface_name):
     """Check if an interface exists inside a container network namespace."""
     rc, _, _ = run_cmd(
-        "nsenter -t {} -n ip link show {}".format(pid, iface_name), check=False
+        ["nsenter", "-t", pid, "-n", "ip", "link", "show", iface_name], check=False
     )
     return rc == 0
 
@@ -135,19 +144,19 @@ def action_create_link(module):
     # Create veth pair on host
     if link_exists_on_host(veth_a):
         # Clean up stale host-side veth (deleting one end removes both)
-        run_cmd("ip link delete {}".format(veth_a))
+        run_cmd(["ip", "link", "delete", veth_a])
 
-    run_cmd("ip link add {} type veth peer name {}".format(veth_a, veth_b))
+    run_cmd(["ip", "link", "add", veth_a, "type", "veth", "peer", "name", veth_b])
 
     # Move start end into start container
-    run_cmd("ip link set {} netns {}".format(veth_a, start_pid))
-    run_cmd("nsenter -t {} -n ip link set {} name {}".format(start_pid, veth_a, start_port))
-    run_cmd("nsenter -t {} -n ip link set {} up".format(start_pid, start_port))
+    run_cmd(["ip", "link", "set", veth_a, "netns", start_pid])
+    run_cmd(["nsenter", "-t", start_pid, "-n", "ip", "link", "set", veth_a, "name", start_port])
+    run_cmd(["nsenter", "-t", start_pid, "-n", "ip", "link", "set", start_port, "up"])
 
     # Move end into end container (may be same container for self-links)
-    run_cmd("ip link set {} netns {}".format(veth_b, end_pid))
-    run_cmd("nsenter -t {} -n ip link set {} name {}".format(end_pid, veth_b, end_port))
-    run_cmd("nsenter -t {} -n ip link set {} up".format(end_pid, end_port))
+    run_cmd(["ip", "link", "set", veth_b, "netns", end_pid])
+    run_cmd(["nsenter", "-t", end_pid, "-n", "ip", "link", "set", veth_b, "name", end_port])
+    run_cmd(["nsenter", "-t", end_pid, "-n", "ip", "link", "set", end_port, "up"])
 
     module.exit_json(
         changed=True,
@@ -172,30 +181,32 @@ def action_connect_mgmt(module):
 
     # Idempotency: if eth0 already exists inside container, skip
     if interface_exists_in_ns(pid, "eth0"):
-        module.exit_json(changed=False, msg="Management interface eth0 already exists in {}".format(cname))
+        module.exit_json(
+            changed=False,
+            msg="Management interface eth0 already exists in {}".format(cname),
+        )
 
-    import hashlib
     short_id = hashlib.md5(cname.encode()).hexdigest()[:8]
     veth_a = "vm{}a".format(short_id)  # 12 chars, well under 15
     veth_b = "vm{}b".format(short_id)  # 12 chars, well under 15
 
     # Clean up if host-side veth exists
     if link_exists_on_host(veth_a):
-        run_cmd("ip link delete {}".format(veth_a))
+        run_cmd(["ip", "link", "delete", veth_a])
 
     # Create veth pair
-    run_cmd("ip link add {} type veth peer name {}".format(veth_a, veth_b))
+    run_cmd(["ip", "link", "add", veth_a, "type", "veth", "peer", "name", veth_b])
 
     # Move one end into container as eth0
-    run_cmd("ip link set {} netns {}".format(veth_a, pid))
-    run_cmd("nsenter -t {} -n ip link set {} name eth0".format(pid, veth_a))
-    run_cmd("nsenter -t {} -n ip addr add {} dev eth0".format(pid, mgmt_ip))
-    run_cmd("nsenter -t {} -n ip link set eth0 up".format(pid))
-    run_cmd("nsenter -t {} -n ip route add default via {}".format(pid, mgmt_gw))
+    run_cmd(["ip", "link", "set", veth_a, "netns", pid])
+    run_cmd(["nsenter", "-t", pid, "-n", "ip", "link", "set", veth_a, "name", "eth0"])
+    run_cmd(["nsenter", "-t", pid, "-n", "ip", "addr", "add", mgmt_ip, "dev", "eth0"])
+    run_cmd(["nsenter", "-t", pid, "-n", "ip", "link", "set", "eth0", "up"])
+    run_cmd(["nsenter", "-t", pid, "-n", "ip", "route", "add", "default", "via", mgmt_gw])
 
     # Attach host end to bridge
-    run_cmd("ip link set {} master {}".format(veth_b, bridge))
-    run_cmd("ip link set {} up".format(veth_b))
+    run_cmd(["ip", "link", "set", veth_b, "master", bridge])
+    run_cmd(["ip", "link", "set", veth_b, "up"])
 
     module.exit_json(
         changed=True,
@@ -212,9 +223,9 @@ def action_create_bridge(module):
     if bridge_exists(bridge_name):
         module.exit_json(changed=False, msg="Bridge {} already exists".format(bridge_name))
 
-    run_cmd("ip link add {} type bridge".format(bridge_name))
-    run_cmd("ip addr add {} dev {}".format(bridge_ip, bridge_name))
-    run_cmd("ip link set {} up".format(bridge_name))
+    run_cmd(["ip", "link", "add", bridge_name, "type", "bridge"])
+    run_cmd(["ip", "addr", "add", bridge_ip, "dev", bridge_name])
+    run_cmd(["ip", "link", "set", bridge_name, "up"])
 
     module.exit_json(
         changed=True,
@@ -223,14 +234,19 @@ def action_create_bridge(module):
 
 
 def action_cleanup(module):
-    """Clean up orphaned veth pairs for a testbed."""
+    """Clean up veth pairs created for a testbed.
+
+    Removes host-side interfaces matching the management veth prefix
+    (vm<hash>a/vm<hash>b) for this testbed's containers, and link veth
+    pairs matching the testbed-scoped link_id prefix.
+    """
     p = module.params
     testbed_name = p["testbed_name"]
-    prefix = p["container_prefix"]
 
-    # List all host interfaces and find any matching our naming pattern
-    pattern = "{}_{}_".format(prefix, testbed_name)
-    rc, stdout, _ = run_cmd("ip -o link show", check=False)
+    # The testbed-scoped veth link prefix used in create_links.yml
+    link_prefix = "vl{}".format(testbed_name[:8])
+
+    rc, stdout, _ = run_cmd(["ip", "-o", "link", "show"], check=False)
     if rc != 0:
         module.exit_json(changed=False, msg="Could not list interfaces; nothing to clean")
 
@@ -241,9 +257,9 @@ def action_cleanup(module):
         if len(parts) < 2:
             continue
         iface = parts[1].strip().split("@")[0]
-        if iface.startswith(pattern) or iface.startswith("link_"):
-            # Only delete if it's a veth on the host (not inside a namespace)
-            run_cmd("ip link delete {}".format(iface), check=False)
+        # Match testbed-scoped link veth pairs (e.g. vlmytestb_0-a)
+        if iface.startswith(link_prefix):
+            run_cmd(["ip", "link", "delete", iface], check=False)
             cleaned.append(iface)
 
     if cleaned:

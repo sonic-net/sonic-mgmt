@@ -8,14 +8,26 @@
     network_mode: "container:{{ vnut_container_prefix }}_{{ testbed_name }}_{{ device.Hostname }}"
     state: started
 
-- name: "Copy HwSku overlay into {{ device.Hostname }}"
-  when: vnut_hwsku_overlay_path | length > 0
+- name: "Create HwSku directory in {{ device.Hostname }}"
+  when:
+    - vnut_hwsku_overlay_path | length > 0
+    - device.HwSku is defined and device.HwSku | length > 0
   community.docker.docker_container_exec:
     container: "{{ device.Hostname }}"
     command: "mkdir -p /usr/share/sonic/device/x86_64-kvm_x86_64-r0/{{ device.HwSku }}"
+  register: hwsku_mkdir
+  failed_when:
+    - hwsku_mkdir.rc is defined
+    - hwsku_mkdir.rc != 0
 
 - name: "Copy HwSku files into {{ device.Hostname }}"
-  when: vnut_hwsku_overlay_path | length > 0
+  when:
+    - vnut_hwsku_overlay_path | length > 0
+    - device.HwSku is defined and device.HwSku | length > 0
   command: >
     docker cp {{ vnut_hwsku_overlay_path }}/{{ device.HwSku }}/.
     {{ device.Hostname }}:/usr/share/sonic/device/x86_64-kvm_x86_64-r0/{{ device.HwSku }}/
+  register: hwsku_copy
+  failed_when:
+    - hwsku_copy.rc != 0
+    - "'No such file or directory' not in hwsku_copy.stderr"

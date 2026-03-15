@@ -7,8 +7,11 @@
   register: bridge_result
 
 - name: Enable IP forwarding
-  shell: sysctl -w net.ipv4.ip_forward=1
-  changed_when: true
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: yes
+    state: present
 
 - name: Set up NAT masquerade for management network
   shell: >

@@ -2,7 +2,7 @@
 - name: Create virtual front-panel links
   vnut_network:
     action: create_link
-    link_id: "vl{{ idx }}"
+    link_id: "vl{{ testbed_name[:8] }}_{{ idx }}"
     start_device: "{{ item.StartDevice }}"
     start_port: "{{ item.StartPort }}"
     end_device: "{{ item.EndDevice }}"

@@ -25,4 +25,5 @@ vnut_hwsku_overlay_path: ""
 vnut_admin_password: "{{ ansible_altpassword }}"
 
 # Path to lab CSV files directory (sonic_lab_devices.csv, sonic_lab_links.csv)
-vnut_lab_files_dir: "{{ playbook_dir | dirname | dirname | dirname }}/files"
+# Uses role_path for robust resolution regardless of playbook location.
+vnut_lab_files_dir: "{{ role_path }}/../../../vnut-lab/files"

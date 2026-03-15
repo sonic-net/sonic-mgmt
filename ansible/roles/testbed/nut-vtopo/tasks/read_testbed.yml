@@ -13,7 +13,19 @@
 
 - name: Extract testbed entry
   set_fact:
-    testbed_entry: "{{ testbed_data | selectattr('name', 'equalto', testbed_name) | first }}"
+    testbed_entry: "{{ testbed_data | selectattr('name', 'equalto', testbed_name) | list }}"
+
+- name: Validate testbed entry exists
+  assert:
+    that:
+      - testbed_entry | length > 0
+    fail_msg: >-
+      Testbed '{{ testbed_name }}' not found in {{ testbed_file }}.
+      Available testbeds: {{ testbed_data | map(attribute='name') | list }}
+
+- name: Set testbed entry fact
+  set_fact:
+    testbed_entry: "{{ testbed_entry | first }}"
 
 - name: Get DUT and TG names from testbed
   set_fact:
