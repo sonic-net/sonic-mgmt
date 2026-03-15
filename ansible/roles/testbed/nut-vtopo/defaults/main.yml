@@ -1,7 +1,7 @@
 ---
 # Default Docker images
 vnut_sonic_image: "docker-sonic-vs:latest"
-vnut_ptf_image: "debian:bookworm"
+vnut_ptf_image: "docker-ptf:latest"
 
 # Management network
 vnut_mgmt_bridge: "br-mgmt"
