@@ -106,6 +106,7 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
     for pc in port_channel_intfs:
         loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format(pc))
 
+    watchdog_pid = None
     try:
         # Start a watchdog that guarantees cleanup even if the test times out or aborts.
         # Without this, 'yes' processes can leak on weak-per-core platforms (e.g. armhf)
@@ -141,8 +142,10 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
 
         duthost.shell("killall yes")
         # Cancel the watchdog so it doesn't fire during later tests
-        duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
+        if watchdog_pid:
+            duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
     except Exception:
         duthost.shell("killall yes")
-        duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
+        if watchdog_pid:
+            duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
         raise

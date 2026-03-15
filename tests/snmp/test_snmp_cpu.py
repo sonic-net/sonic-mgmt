@@ -44,6 +44,7 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
 
     assert int(snmp_facts['ansible_ChStackUnitCpuUtil5sec'])
 
+    watchdog_pid = None
     try:
         # Start a watchdog that guarantees cleanup even if the test times out or aborts.
         # Without this, 'yes' processes can leak on weak-per-core platforms (e.g. armhf)
@@ -88,4 +89,5 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
     finally:
         duthost.shell("killall yes")
         # Cancel the watchdog so it doesn't fire during later tests
-        duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
+        if watchdog_pid:
+            duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
