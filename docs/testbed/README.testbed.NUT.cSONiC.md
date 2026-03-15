@@ -42,7 +42,7 @@ graph TB
 
 ### Network Planes
 
-- **Management network**: A Linux bridge (`br-mgmt`) on the `10.99.0.0/24` subnet connects all containers for SSH and API access. NAT and IP forwarding are configured to give containers internet connectivity.
+- **Management network**: A Linux bridge (`br-mgmt`) on the `10.99.0.0/24` subnet connects all containers for SSH and API access. The subnet is configurable via `defaults/main.yml` (`vnut_mgmt_subnet`) and the inventory files — choose a range that does not conflict with existing host networking. NAT and IP forwarding are configured to give containers internet connectivity.
 - **Data plane**: veth pairs connect DUT ports to TG ports (and DUT-to-DUT links), managed by the custom Ansible module `vnut_network.py`. Each veth pair directly links an interface in one container's network namespace to an interface in another.
 
 ### Topology: nut-2tiers
@@ -73,6 +73,18 @@ Links:
   ```
   The `--pid host` and `--network host` flags allow the sonic-mgmt container to manage sibling Docker containers and host networking. The Docker socket mount enables container orchestration.
 
+  > **⚠️ Security note:** The `--privileged` flag and Docker socket mount (`/var/run/docker.sock`) grant the container full access to the host system. This is required for managing sibling containers and host networking, but should only be used on dedicated development or CI machines — never on shared or production hosts.
+
+### Resource Requirements
+
+Approximate minimum resources for a `nut-2tiers` testbed (3 DUTs + 1 TG):
+
+- **RAM**: 8 GB+ (each `docker-sonic-vs` container uses ~1–2 GB)
+- **CPU**: 4+ cores recommended
+- **Disk**: 20 GB+ free for container images and logs
+
+Larger topologies will require proportionally more resources.
+
 ## 4. Testbed Definition
 
 vNUT.cSONiC reuses the same YAML and CSV formats as the hardware NUT testbed.
@@ -91,7 +103,10 @@ vNUT.cSONiC reuses the same YAML and CSV formats as the hardware NUT testbed.
     - vnut-t1-01
   tgs:
     - vnut-tg-01
+  # tg_api_server is required by _read_nut_testbed_topo_from_yaml() to extract ptf_ip.
+  # PTF doesn't expose a real API server on 443; this is a framework convention.
   tg_api_server: "10.99.0.20:443"
+  # String 'True' (not boolean) is intentional — the testbed YAML parser expects string values.
   auto_recover: 'True'
 ```
 
@@ -111,6 +126,8 @@ all:
         mgmt_subnet_mask_length: 24
         ansible_python_interpreter: /usr/bin/python3
         ansible_user: admin
+        # Placeholder passwords — for production use, store credentials in
+        # Ansible Vault or use {{ sonicadmin_password }} from group_vars.
         ansible_password: YourPaSsWoRd
         ansible_become_password: YourPaSsWoRd
       children:
@@ -129,6 +146,10 @@ all:
 ```
 
 #### `vnut-lab/files/sonic_lab_devices.csv`
+
+The `HwSku` and `Type` values below are inherited from the NUT testbed framework, which was originally designed for Ixia traffic generators. The framework's testbed parser keys on these fields, so they must remain consistent. Future work could introduce PTF-specific device types (e.g., `PtfContainer` / `DevPtfContainer`).
+
+> **Note:** `Force10-S6000` is used because `docker-sonic-vs` is built with this platform profile. Tests that branch on HwSku may produce results specific to this platform — this is a known limitation of virtual testbeds.
 
 ```csv
 Hostname,ManagementIp,HwSku,Type,Protocol,Os,AuthType
@@ -169,7 +190,7 @@ The `add-vnut-topo` action executes the following sequence:
 
 1. **Read testbed definition** — Parse `testbed.vnut.yaml` to determine topology, DUTs, TGs, and links.
 2. **Create management network** — Create the `br-mgmt` Linux bridge on the `10.99.0.0/24` subnet with NAT and IP forwarding rules.
-3. **Launch containers** — Start `docker-sonic-vs` containers for each DUT and a `docker-ptf` container for the TG. All containers are attached to `br-mgmt` with static IP addresses.
+3. **Launch containers** — Start `docker-sonic-vs` containers for each DUT and a `docker-ptf` container for the TG. Containers start on the default bridge network, then are attached to `br-mgmt` with static IPs (see [Container Launch](#container-launch) for details on the two-phase approach).
 4. **Create veth links** — Use the `vnut_network.py` Ansible module to create veth pairs connecting container interfaces according to the link definitions in `sonic_lab_links.csv`.
 5. **Start SONiC services** — Ensure supervisord and SONiC services are running inside each DUT container.
 6. **Wait for readiness** — Poll each DUT for SSH availability and service readiness.
@@ -212,6 +233,9 @@ Key parameters:
 - `-n vnut-2tier-test` — testbed name from the YAML file
 - `-d all` — run on all DUTs
 - `-t nut,any` — topology tags (NUT topology, any sub-topology)
+- `-m individual` — run each test case individually rather than grouped, which improves isolation and makes failures easier to diagnose
+- `-a False` — disable auto-recovery during test runs (prevents the framework from attempting testbed recovery on failures)
+- `-u` — upload test results
 - `-e "--skip_sanity --disable_loganalyzer"` — extra pytest options (recommended for virtual testbeds)
 - `-c <test_file>` — the test file or directory to run
 
@@ -221,9 +245,11 @@ Key parameters:
 
 A custom Ansible module that manages veth pair creation and deletion between container network namespaces.
 
-- **Hash-based naming**: veth interfaces are named using `vm{md5[:8]}a` and `vm{md5[:8]}b` (where the MD5 hash is derived from the link endpoints) to avoid naming collisions.
+- **Hash-based naming**: veth interfaces on the host are named using `vm{md5[:8]}a` and `vm{md5[:8]}b`, where the MD5 hash input is the link ID string `"vl{idx}"` (e.g., `"vl0"`, `"vl1"`). Each link in the testbed definition has a unique index, ensuring unique hash-based names and avoiding collisions.
 - **IFNAMSIZ compliance**: Inside containers, interfaces use the `vl{idx}` naming pattern to stay within the Linux 15-character interface name limit.
-- **Operations**: Supports `create` (create a veth pair and move endpoints into container namespaces), `delete` (remove a specific veth pair), and `cleanup` (remove all veth pairs for a testbed).
+- **Operations**: Supports `create` (create a veth pair and move endpoints into container namespaces), `delete` (remove a specific veth pair), and `cleanup` (remove all veth pairs for a testbed). Cleanup identifies testbed veth pairs by the `vl{idx}` naming convention, and the `vnut_network.py` module tracks created links. Multiple testbeds on the same host would need different link index ranges to avoid conflicts.
+
+> **Note on `vm` prefix:** The `vm` prefix in host-side veth names can collide with veth names used by `vs` testbeds. This will be addressed in the implementation PR (#22976) — a `vn` prefix is under consideration.
 
 ### Management Network
 
@@ -234,9 +260,9 @@ The deployment creates a `br-mgmt` Linux bridge with:
 
 ### Container Launch
 
-- **DUT containers**: Run the `docker-sonic-vs` image with `--privileged` and `--network bridge` initially, then attach to `br-mgmt` with a static IP.
+- **DUT containers**: Run the `docker-sonic-vs` image with `--privileged` and `--network bridge` initially, then attach to `br-mgmt` with a static IP. The two-step approach is necessary because Docker's default bridge does not support static IP assignment — containers must first start on the default bridge, then get connected to `br-mgmt` where a specific IP can be assigned.
 - **TG containers**: Run `docker-ptf` with the PTF test framework pre-installed, attached to `br-mgmt` with a static IP.
-- All containers run with `--restart unless-stopped` for resilience.
+- All containers run with `--restart unless-stopped` for resilience. Note that if the testbed is torn down while a container restart is in progress, orphaned containers may remain. Use `docker ps --filter name=net_vnut` to detect orphans, or run `remove-vnut-topo` which handles full cleanup.
 
 ### Service Readiness
 
@@ -247,6 +273,8 @@ After container launch, the deployment:
 
 ## 9. Limitations and Future Work
 
-- **Empty `build_version`**: The `docker-sonic-vs` image may report an empty `build_version` field. The test framework needs graceful handling of this case.
+- **Empty `build_version`**: The `docker-sonic-vs` image may report an empty `build_version` field. Tests should either skip version checks when running on vNUT.cSONiC, or the `wait_ready.yml` task should inject a placeholder version string. This is handled in the implementation PR.
+- **HwSku-specific behavior**: Since `docker-sonic-vs` uses the `Force10-S6000` platform profile, tests that branch on HwSku may produce platform-specific results that differ from production hardware.
+- **Test compatibility**: L2/L3 forwarding tests and basic configuration tests are expected to pass. Tests requiring hardware-specific features (ASIC counters, line-rate traffic, specific optics) will not work in the virtual environment. Performance-sensitive tests may also behave differently due to the overhead of containerized networking.
 - **Single topology**: Currently supports the `nut-2tiers` topology. The design is extensible to other NUT topologies (e.g., single-tier, 3-tier).
-- **Future: deploy-cfg integration**: Integrate with the `deploy-cfg` testbed-cli action to deploy full BGP configuration on virtual DUTs, enabling end-to-end routing tests.
+- **Future: deploy-cfg integration**: Integrate with the `deploy-cfg` testbed-cli action to deploy full BGP configuration on virtual DUTs, enabling end-to-end routing tests. No tracking issue exists yet for this work.
