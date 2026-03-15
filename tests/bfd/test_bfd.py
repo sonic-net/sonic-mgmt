@@ -629,6 +629,7 @@ def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
 
         duthost.shell("sonic-clear queuecounters")
         # wait for queue counters to accumulate BFD traffic
+
         def _check_bfd_queue_nonzero():
             queue_pkt_count, _ = get_egress_queue_count(duthost, dut_intf, 7)
             return queue_pkt_count > 0
