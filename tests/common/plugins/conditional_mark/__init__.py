@@ -155,7 +155,8 @@ def load_dut_basic_facts(inv_name, dut_name):
     logger.info('Getting dut basic facts: {}'.format(dut_name))
     try:
         inv_full_path = os.path.join(os.path.dirname(__file__), '../../../../ansible', inv_name)
-        ansible_cmd = 'ansible -M {} -m dut_basic_facts -i {} {} -o'.format(ANSIBLE_LIBRARY_PATH, inv_full_path, dut_name)
+        ansible_cmd = 'ansible -M {} -m dut_basic_facts -i {} {} -o'.format(
+            ANSIBLE_LIBRARY_PATH, inv_full_path, dut_name)
 
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw dut basic facts:\n{}'.format(raw_output))
@@ -241,7 +242,10 @@ def load_minigraph_facts(inv_name, dut_name):
     logger.info('Getting minigraph basic facts: {}'.format(dut_name))
     try:
         # get minigraph basic faces
-        ansible_cmd = "ansible -M {} -m minigraph_facts -i ../ansible/{} {} -a host={}".format(ANSIBLE_LIBRARY_PATH, inv_name, dut_name, dut_name)
+        ansible_cmd = (
+            "ansible -M {} -m minigraph_facts"
+            " -i ../ansible/{} {} -a host={}"
+            .format(ANSIBLE_LIBRARY_PATH, inv_name, dut_name, dut_name))
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw minigraph basic facts:\n{}'.format(raw_output))
         output_fields = raw_output.split('SUCCESS =>', 1)
@@ -273,7 +277,10 @@ def load_config_facts(inv_name, dut_name):
     logger.info('Getting config basic facts: {}'.format(dut_name))
     try:
         # get config basic faces
-        ansible_cmd = ['ansible', '-M', ANSIBLE_LIBRARY_PATH, '-m', 'config_facts', '-i', '../ansible/{}'.format(inv_name),
+        ansible_cmd = [
+            'ansible', '-M', ANSIBLE_LIBRARY_PATH,
+            '-m', 'config_facts',
+            '-i', '../ansible/{}'.format(inv_name),
                        '{}'.format(dut_name), '-a', 'host={} source=\'persistent\''.format(dut_name)]
         raw_output = subprocess.check_output(ansible_cmd).decode('utf-8')
         logger.debug('raw config basic facts:\n{}'.format(raw_output))
@@ -314,7 +321,10 @@ def load_switch_capabilities_facts(inv_name, dut_name):
     logger.info('Getting switch capabilities basic facts: {}'.format(dut_name))
     try:
         # get switch capabilities basic faces
-        ansible_cmd = "ansible -M {} -m switch_capabilities_facts -i ../ansible/{} {}".format(ANSIBLE_LIBRARY_PATH, inv_name, dut_name)
+        ansible_cmd = (
+            "ansible -M {} -m switch_capabilities_facts"
+            " -i ../ansible/{} {}"
+            .format(ANSIBLE_LIBRARY_PATH, inv_name, dut_name))
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw switch capabilities basic facts:\n{}'.format(raw_output))
         output_fields = raw_output.split('SUCCESS =>', 1)
@@ -343,7 +353,10 @@ def load_console_facts(inv_name, dut_name):
     logger.info('Getting console basic facts: {}'.format(dut_name))
     try:
         # get console basic faces
-        ansible_cmd = "ansible -M {} -m console_facts -i ../ansible/{} {}".format(ANSIBLE_LIBRARY_PATH, inv_name, dut_name)
+        ansible_cmd = (
+            "ansible -M {} -m console_facts"
+            " -i ../ansible/{} {}"
+            .format(ANSIBLE_LIBRARY_PATH, inv_name, dut_name))
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw console basic facts:\n{}'.format(raw_output))
         output_fields = raw_output.split('SUCCESS =>', 1)
