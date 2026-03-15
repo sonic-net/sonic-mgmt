@@ -118,6 +118,11 @@ The inventory directory contains an Ansible hosts file and device/link CSV files
 
 #### `vnut-lab/hosts`
 
+vNUT.cSONiC uses the same credential resolution path as the cSONiC testbed. See [README.testbed.cSONiC.md](README.testbed.cSONiC.md) for details. Credentials are resolved from:
+
+- `group_vars/vm_host/creds.yml` — `ansible_user`, `vm_host_user`
+- `group_vars/sonic/variables` — `ansible_altpassword`
+
 ```yaml
 all:
   children:
@@ -126,10 +131,7 @@ all:
         mgmt_subnet_mask_length: 24
         ansible_python_interpreter: /usr/bin/python3
         ansible_user: admin
-        # Placeholder passwords — for production use, store credentials in
-        # Ansible Vault or use {{ sonicadmin_password }} from group_vars.
-        ansible_password: YourPaSsWoRd
-        ansible_become_password: YourPaSsWoRd
+        ansible_altpassword: YourPaSsWoRd
       children:
         sonic:
           hosts:
