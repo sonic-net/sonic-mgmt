@@ -20,8 +20,9 @@ vnut_process_timeout: 180
 vnut_hwsku_overlay_path: ""
 
 # Admin credentials for DUT SSH access — uses the standard sonic-mgmt credential
-# from group_vars (e.g. ansible/group_vars/lab/secrets.yml).
-vnut_admin_password: "{{ sonicadmin_password }}"
+# from group_vars/sonic/variables (ansible_altpassword), matching the cSONiC
+# testbed credential resolution path.
+vnut_admin_password: "{{ ansible_altpassword }}"
 
 # Path to lab CSV files directory (sonic_lab_devices.csv, sonic_lab_links.csv)
 vnut_lab_files_dir: "{{ playbook_dir | dirname | dirname | dirname }}/files"
