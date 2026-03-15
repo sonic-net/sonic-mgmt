@@ -1,39 +1,43 @@
-# Virtual NUT Testbed (vnut-topo)
+# vNUT.cSONiC - Virtual NUT Testbed with cSONiC Containers
 
 ## 1. Overview
 
-The virtual NUT testbed (`vnut-topo`) allows developers to run sonic-mgmt NUT tests locally on a single host without any physical switches or traffic generators. It provides a fully virtualized alternative to the hardware-based NUT testbed described in [README.testbed.NUT.md](README.testbed.NUT.md).
+vNUT.cSONiC allows developers to run sonic-mgmt NUT tests locally on a single host without any physical switches or traffic generators. It provides a fully virtualized alternative to the hardware-based NUT testbed described in [README.testbed.NUT.md](README.testbed.NUT.md).
 
 Key characteristics:
 
-- Uses `docker-sonic-vs` containers as DUTs (Device Under Test) and `debian:bookworm` containers as traffic generators
+- Uses `docker-sonic-vs` containers as DUTs (Device Under Test) and `docker-ptf` containers as traffic generators
 - Reuses existing testbed YAML/CSV formats, topology definitions (`nut-*`), and `testbed-cli.sh` commands
 - All containers share a management bridge network (`br-mgmt`) for SSH and API access
 - Enables rapid local development and testing without lab hardware
 
 ## 2. Architecture
 
-The virtual NUT testbed creates a containerized network topology on a single host machine. The example below shows a 2-tier topology (`nut-2tiers`) with 3 DUTs and 1 traffic generator:
+vNUT.cSONiC creates a containerized network topology on a single host machine. The example below shows a 2-tier topology (`nut-2tiers`) with 3 DUTs and 1 traffic generator:
 
-```
-┌─────────────────────────────────────────────────────┐
-│                    Host Machine                      │
-│                                                      │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
-│  │vnut-t0-01│  │vnut-t0-02│  │vnut-t1-01│  (DUTs)  │
-│  │sonic-vs  │  │sonic-vs  │  │sonic-vs  │          │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘          │
-│       │veth         │veth         │veth              │
-│  ┌────┴─────────────┴─────────────┴─────┐           │
-│  │           vnut-tg-01 (TG)            │           │
-│  │           debian:bookworm            │           │
-│  └──────────────────────────────────────┘           │
-│                                                      │
-│  ┌──────────────────────────────────────┐           │
-│  │    br-mgmt (10.99.0.0/24)           │           │
-│  │    Management Network                │           │
-│  └──────────────────────────────────────┘           │
-└─────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph Host Machine
+        subgraph DUTs
+            T0_01["vnut-t0-01<br/>docker-sonic-vs"]
+            T0_02["vnut-t0-02<br/>docker-sonic-vs"]
+            T1_01["vnut-t1-01<br/>docker-sonic-vs"]
+        end
+
+        TG["vnut-tg-01 (TG)<br/>docker-ptf"]
+
+        T0_01 -- "veth: Ethernet0 ↔ Ethernet0" --> TG
+        T0_02 -- "veth: Ethernet0 ↔ Ethernet4" --> TG
+        T0_01 -- "veth: Ethernet4 ↔ Ethernet0" --> T1_01
+        T0_02 -- "veth: Ethernet4 ↔ Ethernet4" --> T1_01
+
+        MGMT["br-mgmt (10.99.0.0/24)<br/>Management Network"]
+
+        T0_01 -.- MGMT
+        T0_02 -.- MGMT
+        T1_01 -.- MGMT
+        TG -.- MGMT
+    end
 ```
 
 ### Network Planes
@@ -60,6 +64,7 @@ Links:
 
 - **Docker** installed on the host
 - **`docker-sonic-vs:latest`** image available (pull or build from [sonic-buildimage](https://github.com/sonic-net/sonic-buildimage))
+- **`docker-ptf:latest`** image available (the PTF test framework container)
 - **sonic-mgmt Docker container** (recommended) launched with the required privileges:
   ```bash
   docker run -it --pid host --network host --privileged \
@@ -70,13 +75,13 @@ Links:
 
 ## 4. Testbed Definition
 
-The virtual NUT testbed reuses the same YAML and CSV formats as the hardware NUT testbed.
+vNUT.cSONiC reuses the same YAML and CSV formats as the hardware NUT testbed.
 
 ### Testbed YAML (`testbed.vnut.yaml`)
 
 ```yaml
 - name: vnut-2tier-test
-  comment: "Virtual NUT 2-tier testbed for local testing"
+  comment: "vNUT.cSONiC 2-tier testbed for local testing"
   inv_name: vnut-lab
   topo: nut-2tiers
   test_tags: []
@@ -145,7 +150,7 @@ vnut-t0-02,Ethernet4,vnut-t1-01,Ethernet4,10000,,,
 
 ## 5. Deployment
 
-Deploy the virtual NUT testbed using `testbed-cli.sh`:
+Deploy the vNUT.cSONiC testbed using `testbed-cli.sh`:
 
 ```bash
 ./testbed-cli.sh -t testbed.vnut.yaml add-vnut-topo <testbed-name> <inventory> <vault-password-file>
@@ -164,7 +169,7 @@ The `add-vnut-topo` action executes the following sequence:
 
 1. **Read testbed definition** — Parse `testbed.vnut.yaml` to determine topology, DUTs, TGs, and links.
 2. **Create management network** — Create the `br-mgmt` Linux bridge on the `10.99.0.0/24` subnet with NAT and IP forwarding rules.
-3. **Launch containers** — Start `docker-sonic-vs` containers for each DUT and a `debian:bookworm` container for the TG. All containers are attached to `br-mgmt` with static IP addresses.
+3. **Launch containers** — Start `docker-sonic-vs` containers for each DUT and a `docker-ptf` container for the TG. All containers are attached to `br-mgmt` with static IP addresses.
 4. **Create veth links** — Use the `vnut_network.py` Ansible module to create veth pairs connecting container interfaces according to the link definitions in `sonic_lab_links.csv`.
 5. **Start SONiC services** — Ensure supervisord and SONiC services are running inside each DUT container.
 6. **Wait for readiness** — Poll each DUT for SSH availability and service readiness.
@@ -172,7 +177,7 @@ The `add-vnut-topo` action executes the following sequence:
 
 ## 6. Teardown
 
-Remove the virtual NUT testbed:
+Remove the vNUT.cSONiC testbed:
 
 ```bash
 ./testbed-cli.sh -t testbed.vnut.yaml remove-vnut-topo <testbed-name> <inventory> <vault-password-file>
@@ -230,7 +235,7 @@ The deployment creates a `br-mgmt` Linux bridge with:
 ### Container Launch
 
 - **DUT containers**: Run the `docker-sonic-vs` image with `--privileged` and `--network bridge` initially, then attach to `br-mgmt` with a static IP.
-- **TG containers**: Run `debian:bookworm` with SSH server installed, attached to `br-mgmt` with a static IP.
+- **TG containers**: Run `docker-ptf` with the PTF test framework pre-installed, attached to `br-mgmt` with a static IP.
 - All containers run with `--restart unless-stopped` for resilience.
 
 ### Service Readiness
@@ -244,5 +249,4 @@ After container launch, the deployment:
 
 - **Empty `build_version`**: The `docker-sonic-vs` image may report an empty `build_version` field. The test framework needs graceful handling of this case.
 - **Single topology**: Currently supports the `nut-2tiers` topology. The design is extensible to other NUT topologies (e.g., single-tier, 3-tier).
-- **Minimal TG**: The traffic generator container (`debian:bookworm`) does not run actual traffic generation software. It serves as a network endpoint for basic connectivity tests.
 - **Future: deploy-cfg integration**: Integrate with the `deploy-cfg` testbed-cli action to deploy full BGP configuration on virtual DUTs, enabling end-to-end routing tests.
