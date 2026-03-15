@@ -1,0 +1,59 @@
+---
+- name: Read testbed definition
+  include_tasks: read_testbed.yml
+
+- name: Stop and remove cSONiC containers
+  community.docker.docker_container:
+    name: "{{ item.Hostname }}"
+    state: absent
+    force_kill: yes
+  loop: "{{ vnut_devices }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  ignore_errors: yes
+
+- name: Stop and remove base network containers
+  community.docker.docker_container:
+    name: "{{ vnut_container_prefix }}_{{ testbed_name }}_{{ item.Hostname }}"
+    state: absent
+    force_kill: yes
+  loop: "{{ vnut_devices }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  ignore_errors: yes
+
+- name: Clean up veth pairs for this testbed
+  vnut_network:
+    action: cleanup
+    testbed_name: "{{ testbed_name }}"
+    container_prefix: "{{ vnut_container_prefix }}"
+  ignore_errors: yes
+
+- name: Check if management bridge exists
+  command: "ip link show {{ vnut_mgmt_bridge }}"
+  register: bridge_check
+  changed_when: false
+  failed_when: false
+
+- name: Remove iptables NAT masquerade rule
+  shell: >
+    iptables -t nat -D POSTROUTING -s {{ vnut_mgmt_subnet }}
+    ! -d {{ vnut_mgmt_subnet }} -j MASQUERADE 2>/dev/null || true
+  when: bridge_check.rc == 0
+  changed_when: true
+
+- name: Remove iptables FORWARD rules for management bridge
+  shell: |
+    iptables -D FORWARD -i {{ vnut_mgmt_bridge }} -j ACCEPT 2>/dev/null || true
+    iptables -D FORWARD -o {{ vnut_mgmt_bridge }} -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null || true
+  when: bridge_check.rc == 0
+  changed_when: true
+
+- name: Remove management bridge if it exists
+  command: "ip link delete {{ vnut_mgmt_bridge }}"
+  when: bridge_check.rc == 0
+  ignore_errors: yes
+
+- name: Display teardown summary
+  debug:
+    msg: "Removed all containers and links for testbed {{ testbed_name }}"

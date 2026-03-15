@@ -1,0 +1,29 @@
+---
+# Default Docker images
+vnut_sonic_image: "docker-sonic-vs:latest"
+vnut_ptf_image: "docker-ptf:latest"
+
+# Management network
+vnut_mgmt_bridge: "br-mgmt"
+vnut_mgmt_subnet: "10.99.0.0/24"
+vnut_mgmt_gateway: "10.99.0.1"
+
+# Container prefix
+vnut_container_prefix: "net"
+
+# Timeouts
+vnut_ssh_timeout: 120
+vnut_configdb_timeout: 120
+vnut_process_timeout: 180
+
+# HwSku overlay (path to directory with HwSku platform files)
+vnut_hwsku_overlay_path: ""
+
+# Admin credentials for DUT SSH access — uses the standard sonic-mgmt credential
+# from group_vars/sonic/variables (ansible_altpassword), matching the cSONiC
+# testbed credential resolution path.
+vnut_admin_password: "{{ ansible_altpassword }}"
+
+# Path to lab CSV files directory (sonic_lab_devices.csv, sonic_lab_links.csv)
+# Uses role_path for robust resolution regardless of playbook location.
+vnut_lab_files_dir: "{{ role_path }}/../../../vnut-lab/files"

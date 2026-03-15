@@ -1097,6 +1097,48 @@ then
   usage
 fi
 
+function add_vnut_topo
+{
+  testbed_name="$1"
+  inventory="$2"
+  passwd="$3"
+  shift; shift; shift
+  echo "Deploying virtual NUT topology for testbed '${testbed_name}'"
+
+  read_nut_file "${testbed_name}"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "${inventory}" \
+      roles/testbed/nut-vtopo/add-vnut-topo.yml \
+      --vault-password-file="${passwd}" \
+      -e testbed_name="${testbed_name}" \
+      -e testbed_file="${tbfile}" \
+      -e duts_name="${duts}" \
+      "$@"
+
+  echo Done
+}
+
+function remove_vnut_topo
+{
+  testbed_name="$1"
+  inventory="$2"
+  passwd="$3"
+  shift; shift; shift
+  echo "Removing virtual NUT topology for testbed '${testbed_name}'"
+
+  read_nut_file "${testbed_name}"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "${inventory}" \
+      roles/testbed/nut-vtopo/remove-vnut-topo.yml \
+      --vault-password-file="${passwd}" \
+      -e testbed_name="${testbed_name}" \
+      -e testbed_file="${tbfile}" \
+      -e duts_name="${duts}" \
+      "$@"
+
+  echo Done
+}
+
 subcmd=$1
 shift
 case "${subcmd}" in
@@ -1160,6 +1202,10 @@ case "${subcmd}" in
   collect-show-tech) collect_show_tech $@
                ;;
   config-vs-chassis) config_vs_chassis $@
+               ;;
+  add-vnut-topo)    add_vnut_topo $@
+               ;;
+  remove-vnut-topo) remove_vnut_topo $@
                ;;
   *)           usage
                ;;

@@ -1,0 +1,102 @@
+---
+- name: Wait for ConfigDB to be ready on DUTs
+  command: >
+    docker exec {{ item.Hostname }}
+    bash -c "redis-cli -n 4 ping 2>/dev/null | grep -q PONG"
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  register: configdb_wait
+  changed_when: false
+  retries: "{{ (vnut_configdb_timeout | int / 5) | int }}"
+  delay: 5
+  until: configdb_wait.rc == 0
+
+- name: Get PID of DUT base containers
+  command: docker inspect -f {% raw %}'{{.State.Pid}}'{% endraw %} {{ vnut_container_prefix }}_{{ testbed_name }}_{{ item.Hostname }}
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  register: dut_pids
+  changed_when: false
+
+- name: Restore management interface on DUT base containers
+  shell: >
+    nsenter -t {{ item.stdout }} -n bash -c
+    'ip link set eth0 up;
+    ip addr flush dev eth0;
+    ip addr add {{ item.item.ManagementIp }} dev eth0;
+    ip route replace default via {{ vnut_mgmt_gateway }}'
+  loop: "{{ dut_pids.results }}"
+  loop_control:
+    label: "{{ item.item.Hostname }}"
+  changed_when: true
+
+- name: Verify management interface is up on DUT base containers
+  shell: >
+    nsenter -t {{ item.stdout }} -n
+    ip addr show eth0 | grep -q {{ item.item.ManagementIp.split('/')[0] }}
+  loop: "{{ dut_pids.results }}"
+  loop_control:
+    label: "{{ item.item.Hostname }}"
+  register: mgmt_verify
+  retries: 10
+  delay: 2
+  until: mgmt_verify.rc == 0
+  changed_when: false
+
+- name: Start sshd in cSONiC containers
+  shell: "docker exec {{ item.Hostname }} bash -c 'mkdir -p /run/sshd && /usr/sbin/sshd || true'"
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  changed_when: true
+  ignore_errors: true
+
+- name: Wait for SSH on DUT containers
+  wait_for:
+    host: "{{ item.ManagementIp.split('/')[0] }}"
+    port: 22
+    timeout: "{{ vnut_ssh_timeout }}"
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+
+- name: Wait for critical SONiC services
+  command: >
+    docker exec {{ item.Hostname }}
+    bash -c "supervisorctl status 2>/dev/null | grep -v RUNNING | grep -v EXITED | wc -l"
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  register: services_wait
+  changed_when: false
+  retries: "{{ (vnut_process_timeout | int / 5) | int }}"
+  delay: 5
+  until: services_wait.stdout | default('999') | int == 0
+
+- name: Install sudo in cSONiC containers (if not present)
+  shell: >
+    docker exec {{ item.Hostname }} bash -c
+    "which sudo >/dev/null 2>&1 || (apt-get update -qq && apt-get install -y -qq sudo >/dev/null 2>&1)"
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  changed_when: true
+
+- name: Create admin user with SSH access on DUTs
+  shell: >
+    docker exec {{ item.Hostname }} bash -c
+    "useradd -m -s /bin/bash admin 2>/dev/null;
+    echo 'admin:{{ vnut_admin_password }}' | chpasswd;
+    mkdir -p /etc/sudoers.d /home/admin/.ssh;
+    echo 'admin ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/admin;
+    chmod 440 /etc/sudoers.d/admin"
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    label: "{{ item.Hostname }}"
+  changed_when: true
+
+- name: Display readiness status
+  debug:
+    msg: "All {{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list | length }} DUTs are ready"

@@ -1,0 +1,21 @@
+---
+- name: Read testbed definition and CSV files
+  include_tasks: read_testbed.yml
+
+- name: Create management network
+  include_tasks: create_mgmt_network.yml
+
+- name: Launch base DUT and TG containers
+  include_tasks: launch_containers.yml
+
+- name: Create virtual front-panel links
+  include_tasks: create_links.yml
+
+- name: Start cSONiC on DUT containers
+  include_tasks: start_sonic.yml
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    loop_var: device
+
+- name: Wait for DUT services and restore management network
+  include_tasks: wait_ready.yml

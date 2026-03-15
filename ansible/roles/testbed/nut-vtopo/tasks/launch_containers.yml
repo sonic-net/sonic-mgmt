@@ -1,0 +1,12 @@
+---
+- name: Launch DUT containers
+  include_tasks: launch_one_dut.yml
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevSonic') | list }}"
+  loop_control:
+    loop_var: device
+
+- name: Launch TG containers
+  include_tasks: launch_one_tg.yml
+  loop: "{{ vnut_devices | selectattr('Type', 'equalto', 'DevIxiaChassis') | list }}"
+  loop_control:
+    loop_var: device
