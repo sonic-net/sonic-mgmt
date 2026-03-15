@@ -51,8 +51,9 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
         # where the test may be killed before reaching the finally block.
         # See: https://github.com/sonic-net/sonic-mgmt/issues/21517
         watchdog_timeout = 300  # 5 minutes — well beyond the test's expected duration
-        watchdog_pid = duthost.shell(
-            "nohup sh -c 'sleep {}; pkill -x -9 yes' >/dev/null 2>&1 & echo $!".format(watchdog_timeout))['stdout'].strip()
+        watchdog_cmd = "nohup sh -c 'sleep {}; pkill -x -9 yes' >/dev/null 2>&1 & echo $!".format(
+            watchdog_timeout)
+        watchdog_pid = duthost.shell(watchdog_cmd)['stdout'].strip()
 
         for i in range(host_vcpus):
             duthost.shell("nohup yes > /dev/null 2>&1 & sleep 1")

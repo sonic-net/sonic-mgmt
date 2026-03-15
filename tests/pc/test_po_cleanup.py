@@ -113,8 +113,9 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         # where the test may be killed before reaching the finally block.
         # See: https://github.com/sonic-net/sonic-mgmt/issues/21517
         watchdog_timeout = 600  # 10 minutes — well beyond config_reload's 240s wait
-        watchdog_pid = duthost.shell(
-            "nohup sh -c 'sleep {}; pkill -x -9 yes' >/dev/null 2>&1 & echo $!".format(watchdog_timeout))['stdout'].strip()
+        watchdog_cmd = "nohup sh -c 'sleep {}; pkill -x -9 yes' >/dev/null 2>&1 & echo $!".format(
+            watchdog_timeout)
+        watchdog_pid = duthost.shell(watchdog_cmd)['stdout'].strip()
 
         # Make CPU high
         for i in range(host_vcpus):
