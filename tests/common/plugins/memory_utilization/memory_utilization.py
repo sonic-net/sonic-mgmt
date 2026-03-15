@@ -109,8 +109,8 @@ class MemoryMonitor:
                 if increase_fail_threshold is not None:
                     # Two-tier mode: warn at lower threshold, fail at higher threshold
                     if increase > increase_fail_threshold:
-                        #If threshold type is percentage,
-                        #Express increase value in percentage instead of MB
+                        # If threshold type is percentage,
+                        # Express increase value in percentage instead of MB
                         if increase_threshold_raw['type'] == 'percentage':
                             increase = (increase * 100)/current_value
                         self._handle_memory_threshold_exceeded(
