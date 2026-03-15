@@ -62,10 +62,15 @@ Links:
 
 ## 3. Prerequisites
 
-- **Docker** installed on the host
-- **`docker-sonic-vs:latest`** image available (pull or build from [sonic-buildimage](https://github.com/sonic-net/sonic-buildimage))
-- **`docker-ptf:latest`** image available (the PTF test framework container)
-- **sonic-mgmt Docker container** (recommended) launched with the required privileges:
+### Host Preparation
+
+For host preparation (Docker installation, SSH setup, management network configuration), refer to [README.testbed.VsSetup.md](README.testbed.VsSetup.md). No additional host setup steps are required for vNUT beyond what VsSetup covers.
+
+### sonic-mgmt Container Setup
+
+The recommended way to set up the sonic-mgmt container is using `setup-container.sh` as documented in [README.testbed.VsSetup.md](README.testbed.VsSetup.md). This script handles all required Docker flags and volume mounts automatically.
+
+If not using `setup-container.sh`, ensure these flags are passed when launching the sonic-mgmt container manually:
   ```bash
   docker run -it --pid host --network host --privileged \
     -v /var/run/docker.sock:/var/run/docker.sock \
@@ -74,6 +79,11 @@ Links:
   The `--pid host` and `--network host` flags allow the sonic-mgmt container to manage sibling Docker containers and host networking. The Docker socket mount enables container orchestration.
 
   > **⚠️ Security note:** The `--privileged` flag and Docker socket mount (`/var/run/docker.sock`) grant the container full access to the host system. This is required for managing sibling containers and host networking, but should only be used on dedicated development or CI machines — never on shared or production hosts.
+
+### Container Images
+
+- **`docker-sonic-vs:latest`** — The SONiC virtual switch image used as DUTs. Download from the [sonic-buildimage](https://github.com/sonic-net/sonic-buildimage) build artifacts, or build locally. Load the image with `docker load -i <image-file>`.
+- **`docker-ptf:latest`** — The PTF test framework container used as traffic generators. Available from the sonic-mgmt build artifacts.
 
 ### Resource Requirements
 
@@ -118,10 +128,12 @@ The inventory directory contains an Ansible hosts file and device/link CSV files
 
 #### `vnut-lab/hosts`
 
-vNUT.cSONiC uses the same credential resolution path as the cSONiC testbed. See [README.testbed.cSONiC.md](README.testbed.cSONiC.md) for details. Credentials are resolved from:
+vNUT.cSONiC uses the same credential resolution as the standard VS testbed and cSONiC testbed. No passwords should be hardcoded in the inventory. Credentials are resolved from:
 
-- `group_vars/vm_host/creds.yml` — `ansible_user`, `vm_host_user`
-- `group_vars/sonic/variables` — `ansible_altpassword`
+- `group_vars/vm_host/creds.yml` — host credentials (`ansible_user`, `vm_host_user`)
+- `group_vars/sonic/variables` — DUT credentials (`sonicadmin_user`, `sonicadmin_password`, `ansible_altpassword`)
+
+See [README.testbed.cSONiC.md](README.testbed.cSONiC.md) for details on credential resolution.
 
 ```yaml
 all:
@@ -130,8 +142,6 @@ all:
       vars:
         mgmt_subnet_mask_length: 24
         ansible_python_interpreter: /usr/bin/python3
-        ansible_user: admin
-        ansible_altpassword: YourPaSsWoRd
       children:
         sonic:
           hosts:
@@ -176,14 +186,14 @@ vnut-t0-02,Ethernet4,vnut-t1-01,Ethernet4,10000,,,
 Deploy the vNUT.cSONiC testbed using `testbed-cli.sh`:
 
 ```bash
-./testbed-cli.sh -t testbed.vnut.yaml add-vnut-topo <testbed-name> <inventory> <vault-password-file>
+./testbed-cli.sh -t testbed.vnut.yaml -m <inventory> add-vnut-topo <testbed-name> <vault-password-file>
 ```
 
 For example:
 
 ```bash
 cd ansible
-./testbed-cli.sh -t testbed.vnut.yaml add-vnut-topo vnut-2tier-test vnut-lab password.txt
+./testbed-cli.sh -t testbed.vnut.yaml -m vnut-lab add-vnut-topo vnut-2tier-test password.txt
 ```
 
 ### Deployment Steps
@@ -198,19 +208,56 @@ The `add-vnut-topo` action executes the following sequence:
 6. **Wait for readiness** — Poll each DUT for SSH availability and service readiness.
 7. **Provision admin user** — Create the `admin` user with sudo privileges on each DUT for Ansible access.
 
+### Configuration Deployment
+
+vNUT testbeds use `deploy-cfg` (not `deploy-mg`) for configuration deployment — no minigraph generation is involved. After initial topology deployment, apply configuration with:
+
+```bash
+./testbed-cli.sh -t testbed.vnut.yaml -m vnut-lab deploy-cfg vnut-2tier-test password.txt
+```
+
+> **Note:** `deploy-cfg` integration for vNUT is planned future work. See [Section 9](#9-limitations-and-future-work) for details.
+
+### Post-Deployment Verification
+
+After deployment, verify the testbed is functioning correctly:
+
+1. **Check all containers are running:**
+   ```bash
+   docker ps --filter name=vnut
+   ```
+   All DUT and TG containers should be in the `running` state.
+
+2. **SSH into each DUT and verify SONiC services:**
+   ```bash
+   ssh admin@10.99.0.10
+   show services
+   ```
+
+3. **Wait for BGP sessions to come up** — this is the key verification step. BGP convergence may take 1–2 minutes after deployment:
+   ```bash
+   admin@vnut-t0-01:~$ show ip bgp sum
+
+   IPv4 Unicast Summary:
+   BGP router identifier 10.0.0.1, local AS number 65001
+   Neighbor        V    AS   MsgRcvd MsgSent   TblVer  InQ OutQ Up/Down  State/PfxRcd
+   10.0.0.5        4 65100        12      10        0    0    0 00:01:23        2
+   ```
+   Verify that all expected BGP neighbors show `Established` state (a numeric `State/PfxRcd` value indicates an established session).
+
 ## 6. Teardown
 
 Remove the vNUT.cSONiC testbed:
 
 ```bash
-./testbed-cli.sh -t testbed.vnut.yaml remove-vnut-topo <testbed-name> <inventory> <vault-password-file>
+./testbed-cli.sh -t testbed.vnut.yaml -m <inventory> remove-vnut-topo <testbed-name> <vault-password-file>
 ```
 
 For example:
 
 ```bash
 cd ansible
-./testbed-cli.sh -t testbed.vnut.yaml remove-vnut-topo vnut-2tier-test vnut-lab password.txt
+./testbed-cli.sh -t testbed.vnut.yaml -m vnut-lab remove-vnut-topo vnut-2tier-test password.txt
 ```
 
 The teardown process cleans up all resources:
@@ -279,4 +326,4 @@ After container launch, the deployment:
 - **HwSku-specific behavior**: Since `docker-sonic-vs` uses the `Force10-S6000` platform profile, tests that branch on HwSku may produce platform-specific results that differ from production hardware.
 - **Test compatibility**: L2/L3 forwarding tests and basic configuration tests are expected to pass. Tests requiring hardware-specific features (ASIC counters, line-rate traffic, specific optics) will not work in the virtual environment. Performance-sensitive tests may also behave differently due to the overhead of containerized networking.
 - **Single topology**: Currently supports the `nut-2tiers` topology. The design is extensible to other NUT topologies (e.g., single-tier, 3-tier).
-- **Future: deploy-cfg integration**: Integrate with the `deploy-cfg` testbed-cli action to deploy full BGP configuration on virtual DUTs, enabling end-to-end routing tests. No tracking issue exists yet for this work.
+- **Future: deploy-cfg integration**: Integrate with the `deploy-cfg` testbed-cli action to deploy full BGP configuration on virtual DUTs, enabling end-to-end routing tests. This will allow automated configuration deployment as part of the standard testbed workflow. No tracking issue exists yet for this work.
