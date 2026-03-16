@@ -1,4 +1,3 @@
-
 import logging
 import json
 import pytest
@@ -258,4 +257,68 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
             else:
                 expect_op_failure(output)
     finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def test_buffer_profile_create_remove_rollback(duthost, ensure_dut_readiness, cli_namespace_prefix):
+    """
+    Test creating and removing a buffer profile via jsonpatch and rollback to checkpoint.
+    Steps:
+    1. Take checkpoint
+    2. Create new profile using jsonpatch, check operation success
+    3. Remove new profile using jsonpatch, check operation success
+    4. Rollback checkpoint
+    """
+    tmpfile = generate_tmpfile(duthost)
+    profile_name = "pg_lossless_99999_99m_profile"
+    profile_data = {
+        "dynamic_th": "-2",
+        "pool": "ingress_lossless_pool",
+        "size": "0",
+        "xoff": "1020672",
+        "xon": "0"
+    }
+    # Step 1: Take checkpoint done by ensure_dut_readiness fixture, verify checkpoint creation
+    try:
+        # Step 2: Create new profile
+        logger.info("Step 2: Creating new buffer profile {}".format(profile_name))
+        json_patch = [{
+            "op": "add",
+            "path": "/BUFFER_PROFILE/{}".format(profile_name),
+            "value": profile_data
+        }]
+        json_patch = format_json_patch_for_multiasic(
+            duthost=duthost, json_data=json_patch, is_asic_specific=True)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        # Verify profile exists in CONFIG_DB
+        result = duthost.shell(
+            'sonic-db-cli {} CONFIG_DB hget "BUFFER_PROFILE|{}" xon'.format(
+                cli_namespace_prefix, profile_name),
+            module_ignore_errors=True)
+        pytest_assert(result["stdout"] == profile_data["xon"], "Profile creation failed in CONFIG_DB")
+
+        # Step 3: Remove new profile
+        logger.info("Step 3: Removing buffer profile {}".format(profile_name))
+        json_patch = [{
+            "op": "remove",
+            "path": "/BUFFER_PROFILE/{}".format(profile_name)
+        }]
+        json_patch = format_json_patch_for_multiasic(
+            duthost=duthost, json_data=json_patch, is_asic_specific=True)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        # Verify profile no longer exists in CONFIG_DB
+        result = duthost.shell(
+            'sonic-db-cli {} CONFIG_DB exists "BUFFER_PROFILE|{}"'.format(
+                cli_namespace_prefix, profile_name),
+            module_ignore_errors=True)
+        pytest_assert(result["stdout"] == "0", "Profile removal failed in CONFIG_DB")
+
+        # Step 4: Rollback checkpoint done by ensure_dut_readiness fixture, verify rollback
+
+    finally:
+        # cleanup tmpfile
         delete_tmpfile(duthost, tmpfile)

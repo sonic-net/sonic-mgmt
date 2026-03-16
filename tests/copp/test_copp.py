@@ -112,7 +112,7 @@ class TestCOPP(object):
         # UDLD packet will not be forwarded to DUT
         if 'UDLD' == protocol:
             for fanouthost in list(fanouthosts.values()):
-                if fanouthost.get_fanout_os() == 'sonic' and "arista_7060x6_64pe_b" in fanouthost.facts["platform"]:
+                if fanouthost.get_fanout_os() == 'sonic' and "arista_7060x6_64pe" in fanouthost.facts["platform"]:
                     pytest.skip("Skip UDLD test for Arista-7060x6 fanout without UDLD forward support")
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -387,6 +387,9 @@ def copp_testbed(
 
     # Store test_params in the TestCOPP class
     TestCOPP.test_params = test_params
+
+    if duthost.get_mgmt_ip()["version"] == "v6":
+        pytest.skip("mgmt IPv6 only runs are not supported for COPP tests")
 
     if not is_backend_topology:
         # There is no upstream neighbor in T1 backend topology. Test is skipped on T0 backend.

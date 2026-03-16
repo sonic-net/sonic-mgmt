@@ -5,13 +5,15 @@ import jinja2
 import glob
 import re
 import yaml
+import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import wait_until
 from tests.common.errors import RunAnsibleModuleFail
 from collections import defaultdict
-from tests.common.connections.console_host import ConsoleHost
-from tests.common.utilities import get_dut_current_passwd
+from tests.common.connections.console_host import ConsoleHost, CONSOLE_LINECARD
+from tests.common.connections.linecard_console_conn import UnsupportedPlatformError
+from tests.common.utilities import get_dut_current_passwd, update_console_creds
 from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_CISCO_CONFIG,
     CONSOLE_SSH_DIGI_CONFIG,
@@ -429,12 +431,14 @@ def ignore_t2_syslog_msgs(duthost):
 
 
 def get_sai_sdk_dump_file(duthost, dump_file_name):
-    full_path_dump_file = f"/tmp/{dump_file_name}"
+    # a folder mounted from the host to the syncd container
+    # visible as /var/log/sdk_dbg for both the host and the syncd container
+    # and this won't cause syncd container memory usage to grow
+    dump_folder = "/var/log/sdk_dbg"
+    full_path_dump_file = f"{dump_folder}/{dump_file_name}"
+    logger.info(f"Generating SDK dump file: {full_path_dump_file}")
     cmd_gen_sdk_dump = f"docker exec syncd bash -c 'saisdkdump -f {full_path_dump_file}' "
     duthost.shell(cmd_gen_sdk_dump)
-
-    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd:{full_path_dump_file}  {full_path_dump_file}"  # noqa E231
-    duthost.shell(cmd_copy_dmp_from_syncd_to_host)
 
     compressed_dump_file = f"/tmp/{dump_file_name}.tar.gz"
     duthost.archive(path=full_path_dump_file, dest=compressed_dump_file, format='gz')
@@ -482,6 +486,74 @@ def is_mellanox_fanout(duthost, localhost):
     return True
 
 
+def get_supervisor_for_linecard(duthost, duthosts, inv_files):
+    """
+    Returns the supervisor duthost for a given linecard duthost.
+
+    Args:
+        duthost: The potential linecard duthost
+        duthosts: Collection of all duthosts in the testbed
+        inv_files: Inventory files for looking up node types
+
+    Returns:
+        supervisor duthost object if this is a linecard with a supervisor, None otherwise
+
+    Conditions satisfied for returning supervisor:
+        - duthost is NOT a supervisor node
+        - A supervisor node exists in duthosts collection
+    """
+    if is_supervisor_node(inv_files, duthost.hostname):
+        return None
+
+    for node in duthosts.nodes:
+        node_hostname = node.hostname
+        if is_supervisor_node(inv_files, node_hostname):
+            return duthosts[node_hostname]
+
+    return None
+
+
+def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
+    """
+    Instantiates a CONSOLE_LINECARD connection for accessing a linecard via supervisor.
+
+    Args:
+        supervisor: The supervisor duthost object
+        linecard_duthost: The linecard duthost object
+        inv_files: Inventory files for looking up slot numbers
+        creds: Credentials dictionary
+
+    Returns:
+        ConsoleHost instance configured for linecard console access
+
+    Raises:
+        pytest.skip: If platform is not supported or slot_num not found
+    """
+    supervisor_ip = supervisor.host.options['inventory_manager'].get_host(
+        supervisor.hostname).vars['ansible_host']
+
+    host_vars = get_host_visible_vars(inv_files, linecard_duthost.hostname)
+    slot_num = host_vars.get('slot_num')
+
+    if not slot_num:
+        pytest.skip(f"Could not determine slot number for linecard {linecard_duthost.hostname} from inventory. "
+                    f"Ensure 'slot_num' variable is defined in inventory.")
+
+    try:
+        return ConsoleHost(
+            console_type=CONSOLE_LINECARD,
+            console_host=None,
+            console_port=None,
+            sonic_username=creds['sonicadmin_user'],
+            sonic_password=[creds['sonicadmin_password']],
+            supervisor_ip=supervisor_ip,
+            slot_num=slot_num,
+            hwsku=supervisor.facts['hwsku']
+        )
+    except UnsupportedPlatformError as e:
+        pytest.skip(f"Linecard console not supported: {str(e)}")
+
+
 def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa: F811
     dut_hostname = duthost.hostname
     console_host = conn_graph_facts['device_console_info'][dut_hostname]['ManagementIp']
@@ -489,12 +561,18 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
         console_host = console_host.split("/")[0]
     console_port = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerport']
     console_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['type']
+    console_auth_type = conn_graph_facts['device_console_info'][dut_hostname].get('AuthType', "")
     console_menu_type = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['menu_type']
     console_username = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['proxy']
     console_device = conn_graph_facts['device_console_link'][dut_hostname]['ConsolePort']['peerdevice']
 
     console_type = f"console_{console_type}"
-    console_menu_type = f"{console_type}_{console_menu_type}"
+    update_console_creds(creds, console_auth_type)
+
+    if console_menu_type and console_menu_type.lower() != "n/a":
+        console_menu_type = f"{console_type}_{console_menu_type}"
+    else:
+        console_menu_type = console_type
 
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
@@ -581,7 +659,10 @@ def creds_on_dut(duthost):
     for cred_var in cred_vars:
         if cred_var in creds:
             creds[cred_var] = jinja2.Template(creds[cred_var]).render(**hostvars)
-    # load creds for console
+
+    creds["console_login_options"] = hostvars.get("console_login_options", {})
+
+    # load default creds for console
     if "console_login" not in list(hostvars.keys()):
         console_login_creds = {}
     else:

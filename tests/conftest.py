@@ -27,6 +27,7 @@ from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.fanout import FanoutHost
 from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
@@ -64,7 +65,8 @@ from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
-    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node
+    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node, \
+    get_supervisor_for_linecard, create_linecard_console
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -89,6 +91,7 @@ from ptf import testutils
 from ptf.mask import Mask
 
 from tests.common.telemetry.fixtures import db_reporter, ts_reporter                        # noqa: F401
+from tests.common.helpers.yang_utils import run_yang_validation
 
 
 logger = logging.getLogger(__name__)
@@ -153,7 +156,8 @@ def pytest_addoption(parser):
                      help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
 
     # neighbor device type
-    parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic", "cisco"],
+    parser.addoption("--neighbor_type", action="store", default="eos", type=str,
+                     choices=["eos", "sonic", "cisco", "csonic"],
                      help="Neighbor devices type")
 
     # ceos neighbor lacp multiplier
@@ -163,12 +167,30 @@ def pytest_addoption(parser):
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
 
+    # read_mac options
+    parser.addoption('--image1', action='store', type=str, help='1st image to download and install')
+    parser.addoption('--image2', action='store', type=str, help='2nd image to download and install')
+    parser.addoption('--iteration', action='store', type=int, help='Number of image installing iterations')
+    parser.addoption('--minigraph1', action='store', type=str, help='path to the minigraph1')
+    parser.addoption('--minigraph2', action='store', type=str, help='path to the minigraph2')
+
     #####################################
-    # dash, vxlan, route shared options #
+    # ha, dash, vxlan, route shared options #
     #####################################
     parser.addoption("--skip_cleanup", action="store_true", help="Skip config cleanup after test (tests: dash, vxlan)")
     parser.addoption("--num_routes", action="store", default=None, type=int,
                      help="Number of routes (tests: route, vxlan)")
+    parser.addoption("--skip_cert_cleanup", action="store_true", help="Skip certificates cleanup after test")
+    parser.addoption("--skip_config", action="store_true", help="Don't apply configurations on DUT")
+    parser.addoption("--vxlan_udp_dport", action="store", default="random",
+                     help="The vxlan udp dst port used in the test")
+    parser.addoption("--dpu_index", action="store", default=0, type=int,
+                     help="The default dpu used for the test")
+
+    ############################
+    # sflow options            #
+    ############################
+    parser.addoption("--enable_sflow_feature", action="store_true", default=False, help="Enable sFlow feature on DUT")
 
     ############################
     # pfc_asym options         #
@@ -916,6 +938,15 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
+        elif neighbor_type == "csonic":
+            vm_set_name = tbinfo.get('group-name', '')
+            container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
+            device = NeighborDevice(
+                {
+                    'host': CsonicHost(container_name),
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                }
+            )
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
         devices[neighbor_name] = device
@@ -1211,6 +1242,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             path="../ansible/",
             log_path=log_path,
             dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
+            verbose=False
         )
         if 'topo_routes' not in res:
             logger.warning("No routes generated.")
@@ -1336,7 +1368,7 @@ def collect_techsupport_all_duts(request, duthosts):
 @pytest.fixture
 def collect_techsupport_all_nbrs(request, nbrhosts):
     yield
-    if request.config.getoption("neighbor_type") == "sonic":
+    if request.config.getoption("neighbor_type") in ("sonic", "csonic"):
         [collect_techsupport_on_dut(request, nbrhosts[nbrhost]['host']) for nbrhost in nbrhosts]
 
 
@@ -2414,12 +2446,37 @@ def enum_downstream_dut_hostname(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def duthost_console(duthosts, enum_supervisor_dut_hostname, localhost, conn_graph_facts, creds):   # noqa: F811
-    duthost = duthosts[enum_supervisor_dut_hostname]
-    host = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
+def duthost_console(duthosts, enum_rand_one_per_hwsku_hostname, request, localhost,
+                    conn_graph_facts, creds):   # noqa: F811
+    """
+    Provides a console connection object for testing.
 
-    yield host
-    host.disconnect()
+    Automatically determines node type and returns appropriate console:
+    - For LINECARD: Uses LinecardConsoleConn via supervisor
+    - For everything else (SUPERVISOR/STANDALONE): Uses create_duthost_console()
+
+    This fixture runs once per unique hwsku in the testbed.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    inv_files = get_inventory_files(request)
+
+    # Check if this is a linecard that needs supervisor access
+    supervisor = get_supervisor_for_linecard(duthost, duthosts, inv_files)
+
+    if supervisor:
+        # LINECARD node - use console via supervisor
+        console = create_linecard_console(supervisor, duthost, inv_files, creds)
+    else:
+        # SUPERVISOR or STANDALONE node - use standard console
+        console = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
+
+    yield console
+
+    if console:
+        try:
+            console.disconnect()
+        except Exception:
+            pass
 
 
 @pytest.fixture(scope='session')
@@ -3420,15 +3477,29 @@ def setup_pfc_test(
         if expected_vlan_ifaces:
             mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
 
-        # gather all vlan specific info
-        ip_index = 0 if ip_version == "IPv4" else 1
-        vlan_addr = mg_facts['minigraph_vlan_interfaces'][ip_index]['addr']
-        vlan_prefix = mg_facts['minigraph_vlan_interfaces'][ip_index]['prefixlen']
-        vlan_dev = mg_facts['minigraph_vlan_interfaces'][ip_index]['attachto']
+        # Select the VLAN interface matching the requested IP version.
+        expected_ip_ver = 4 if ip_version == "IPv4" else 6
+        vlan_iface = next(
+            (iface for iface in mg_facts['minigraph_vlan_interfaces']
+             if ip_interface(str(iface['addr'])).version == expected_ip_ver),
+            None
+        )
+        if vlan_iface is None:
+            msg = "No {} VLAN interface found in minigraph_vlan_interfaces: {}".format(
+                ip_version, mg_facts['minigraph_vlan_interfaces'])
+            logger.error(msg)
+            pytest.fail(msg)
+        vlan_addr = vlan_iface['addr']
+        vlan_prefix = vlan_iface['prefixlen']
+        vlan_dev = vlan_iface['attachto']
         vlan_ips = duthost.get_ip_in_range(
             num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix),
             exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
         vlan_nw = vlan_ips[0].split('/')[0]
+        logger.debug(
+            "setup_pfc_test: ip_version={} vlan_addr={} vlan_prefix={} "
+            "vlan_dev={} vlan_ips={} vlan_nw={}".format(
+                ip_version, vlan_addr, vlan_prefix, vlan_dev, vlan_ips, vlan_nw))
 
     topo = tbinfo["topo"]["name"]
     # build the port list for the test
@@ -3834,43 +3905,20 @@ def yang_validation_check(request, duthosts):
     skip_yang = request.config.getoption("--skip_yang")
 
     if skip_yang:
-        logger.info("Skipping YANG validation check due to --skip_yang flag")
+        logger.info("Skipping YANG validation pre-check due to --skip_yang flag")
+        yield
+        logger.info("Skipping YANG validation post-check due to --skip_yang flag")
         return
 
-    def run_yang_validation(stage):
-        """Run YANG validation and return results"""
+    def run_yang_validation_all(stage):
+        """Run YANG validation on all DUTs and return results"""
         validation_results = {}
-
         for duthost in duthosts:
-            logger.info(f"Running YANG validation on {duthost.hostname} ({stage})")
-            try:
-                result = duthost.shell(
-                    'echo "[]" | sudo config apply-patch /dev/stdin',
-                    module_ignore_errors=True
-                )
-
-                if result['rc'] != 0:
-                    validation_results[duthost.hostname] = {
-                        'failed': True,
-                        'error': result.get('stderr', result.get('stdout', 'Unknown error'))
-                    }
-                    logger.error(f"YANG validation failed on {duthost.hostname} ({stage}): "
-                                 f"{validation_results[duthost.hostname]['error']}")
-                else:
-                    validation_results[duthost.hostname] = {'failed': False}
-                    logger.info(f"YANG validation passed on {duthost.hostname} ({stage})")
-
-            except Exception as e:
-                validation_results[duthost.hostname] = {
-                    'failed': True,
-                    'error': str(e)
-                }
-                logger.error(f"Exception during YANG validation on {duthost.hostname} ({stage}): {str(e)}")
-
+            validation_results[duthost.hostname] = run_yang_validation(duthost, stage)
         return validation_results
 
     # pre-test YANG validation
-    pre_results = run_yang_validation("pre-test")
+    pre_results = run_yang_validation_all("pre-test")
 
     # Check if any pre-test validation failed
     pre_failures = {host: result for host, result in pre_results.items() if result['failed']}
@@ -3884,7 +3932,7 @@ def yang_validation_check(request, duthosts):
     yield
 
     # post-test YANG validation
-    post_results = run_yang_validation("post-test")
+    post_results = run_yang_validation_all("post-test")
 
     # Check if any post-test validation failed
     post_failures = {host: result for host, result in post_results.items() if result['failed']}

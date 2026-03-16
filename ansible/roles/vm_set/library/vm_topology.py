@@ -1305,14 +1305,18 @@ class VMTopology(object):
             bind_helper("ovs-ofctl add-flow %s table=0,priority=10,ipv6,in_port=%s,nw_proto=89,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             # added ovs rules for HA
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,udp_src=11364,action=output:%s,%s" %
-                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,tcp_src=11362,action=output:%s,%s" %
-                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,udp_dst=11364,action=output:%s" %
-                        (br_name, vm_iface_id, dut_iface_id))
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,tcp_dst=11362,action=output:%s" %
-                        (br_name, vm_iface_id, dut_iface_id))
+            # cp_data_channel_port: 11362, dp_channel_dst_port: 11364
+            # Match dst and src ports, for both TCP and UDP
+            for ha_port in [11362, 11364]:
+                for proto in ['tcp', 'udp', 'tcp6', 'udp6']:
+                    bind_helper("ovs-ofctl add-flow %s table=0,priority=10,%s,in_port=%s,tp_dst=%d,action=output:%s,%s" %  # noqa: E501
+                                (br_name, proto, dut_iface_id, ha_port, vm_iface_id, injected_iface_id))
+                    bind_helper("ovs-ofctl add-flow %s table=0,priority=10,%s,in_port=%s,tp_src=%d,action=output:%s,%s" %  # noqa: E501
+                                (br_name, proto, dut_iface_id, ha_port, vm_iface_id, injected_iface_id))
+                    bind_helper("ovs-ofctl add-flow %s table=0,priority=10,%s,in_port=%s,tp_dst=%d,action=output:%s" %
+                                (br_name, proto, vm_iface_id, ha_port, dut_iface_id))
+                    bind_helper("ovs-ofctl add-flow %s table=0,priority=10,%s,in_port=%s,tp_src=%d,action=output:%s" %
+                                (br_name, proto, vm_iface_id, ha_port, dut_iface_id))
 
         # Add flow for BFD Control packets (UDP port 3784)
             bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,"
@@ -2518,13 +2522,19 @@ def main():
                                   'ptf_bp_ip_addr',
                                   'ptf_bp_ipv6_addr',
                                   'mgmt_bridge',
-                                  'duts_fp_ports'], cmd)
+                                  'duts_fp_ports',
+                                  'multi_vrf',
+                                  'multi_vrf_data'], cmd)
 
             vm_set_name = module.params['vm_set_name']
             topo = module.params['topo']
             duts_fp_ports = module.params['duts_fp_ports']
+            duts_midplane_ports = module.params['duts_midplane_ports']
+            duts_inband_ports = module.params['duts_inband_ports']
             duts_name = module.params['duts_name']
             is_multi_duts = True if len(duts_name) > 1 else False
+            is_multi_vrf = module.params['multi_vrf']
+            multi_vrf_data = module.params['multi_vrf_data']
 
             if len(vm_set_name) > VM_SET_NAME_MAX_LEN:
                 raise Exception("vm_set_name can't be longer than %d characters: %s (%d)" % (
