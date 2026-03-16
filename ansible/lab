@@ -16,6 +16,7 @@ all:
             sonic_msft_sup:
             sonic_msft_lc_100G:
             sonic_cisco_vs:
+            sonic_vnut:
         fanout:
           hosts:
             str-7260-10:
@@ -53,6 +54,8 @@ all:
         ansible_ssh_user: root
         ansible_ssh_pass: root
       hosts:
+        vnut-tg-01:
+          ansible_host: 10.250.0.220
         ptf_ptf1:
           ansible_host: 10.255.0.188
           ansible_hostv6: 2001:db8:1::1/64
@@ -284,3 +287,27 @@ sonic_cisco_vs:
       ansible_user: admin
       ansible_ssh_user: admin
       ansible_altpassword: admin
+
+sonic_vnut:
+  vars:
+    hwsku: Force10-S6000
+    iface_speed: 10000
+  hosts:
+    vnut-t0-01:
+      ansible_host: 10.250.0.210
+      type: kvm
+      hwsku: Force10-S6000
+      serial_port: 9100
+      num_asics: 1
+    vnut-t0-02:
+      ansible_host: 10.250.0.211
+      type: kvm
+      hwsku: Force10-S6000
+      serial_port: 9101
+      num_asics: 1
+    vnut-t1-01:
+      ansible_host: 10.250.0.212
+      type: kvm
+      hwsku: Force10-S6000
+      serial_port: 9102
+      num_asics: 1

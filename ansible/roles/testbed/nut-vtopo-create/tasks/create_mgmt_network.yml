@@ -1,0 +1,38 @@
+---
+- name: Derive management subnet CIDR
+  set_fact:
+    mgmt_subnet_cidr: "{{ (mgmt_gw + '/' + mgmt_prefixlen | string) | ansible.utils.ipaddr('network/prefix') }}"
+
+- name: Check if management bridge exists
+  command: "ip link show {{ mgmt_bridge }}"
+  register: bridge_check
+  failed_when: false
+  changed_when: false
+
+- name: Create management bridge (if not already present)
+  vnut_network:
+    action: create_bridge
+    bridge_name: "{{ mgmt_bridge }}"
+    bridge_ip: "{{ mgmt_gw }}/{{ mgmt_prefixlen }}"
+  when: bridge_check.rc != 0
+
+- name: Enable IP forwarding
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: '1'
+    sysctl_set: yes
+    state: present
+
+- name: Set up NAT masquerade for management network
+  shell: >
+    iptables -t nat -C POSTROUTING -s {{ mgmt_subnet_cidr }} ! -d {{ mgmt_subnet_cidr }} -j MASQUERADE 2>/dev/null ||
+    iptables -t nat -A POSTROUTING -s {{ mgmt_subnet_cidr }} ! -d {{ mgmt_subnet_cidr }} -j MASQUERADE
+  changed_when: false
+
+- name: Allow forwarding from management bridge
+  shell: |
+    iptables -C FORWARD -i {{ mgmt_bridge }} -j ACCEPT 2>/dev/null ||
+    iptables -I FORWARD -i {{ mgmt_bridge }} -j ACCEPT
+    iptables -C FORWARD -o {{ mgmt_bridge }} -m state --state RELATED,ESTABLISHED -j ACCEPT 2>/dev/null ||
+    iptables -I FORWARD -o {{ mgmt_bridge }} -m state --state RELATED,ESTABLISHED -j ACCEPT
+  changed_when: false

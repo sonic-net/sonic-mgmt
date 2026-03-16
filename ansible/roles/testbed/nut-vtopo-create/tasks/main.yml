@@ -1,0 +1,33 @@
+---
+
+- name: Create management network
+  include_tasks: create_mgmt_network.yml
+
+- name: Create front-panel link bridges (before VMs, so XML can reference them)
+  include_tasks: create_links.yml
+
+- name: Launch DUT KVM VMs
+  include_tasks: launch_one_dut.yml
+  loop: "{{ testbed_dut_names }}"
+  loop_control:
+    loop_var: dut_name
+    index_var: device_idx
+
+- name: Kickstart SONiC on DUT VMs
+  include_tasks: start_sonic.yml
+  loop: "{{ testbed_dut_names }}"
+  loop_control:
+    loop_var: dut_name
+    index_var: device_idx
+
+- name: Launch TG containers
+  include_tasks: launch_one_tg.yml
+  loop: "{{ testbed_tg_names }}"
+  loop_control:
+    loop_var: tg_name
+
+- name: Connect TG containers to front-panel link bridges
+  include_tasks: connect_tg_links.yml
+
+- name: Wait for testbed to be ready
+  include_tasks: wait_testbed_ready.yml

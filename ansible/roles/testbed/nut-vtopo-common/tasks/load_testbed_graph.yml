@@ -1,0 +1,71 @@
+---
+# Load testbed info via conn_graph_facts (LabGraph) and build bridge map.
+# Inputs: testbed_name, testbed_file (passed from testbed-cli.sh)
+# Outputs:
+#   testbed_dut_names, testbed_tg_names, testbed_all_devices
+#   device_info, device_conn (standard conn_graph_facts output)
+#   device_bridge_map  {device:port -> bridge_name}
+#   testbed_link_count  number of unique front-panel links
+
+- name: Validate testbed_name is provided
+  fail:
+    msg: "testbed_name must be specified"
+  when: testbed_name is not defined or testbed_name | length == 0
+
+- name: Read testbed YAML file
+  set_fact:
+    testbed_data: "{{ lookup('file', playbook_dir + '/' + (testbed_file | default('testbed.nut.yaml'))) | from_yaml }}"
+
+- name: Extract testbed entry
+  set_fact:
+    testbed_entry: "{{ (testbed_data | selectattr('name', 'equalto', testbed_name) | list | first) }}"
+
+- name: Set testbed device name lists
+  set_fact:
+    testbed_dut_names: "{{ testbed_entry.duts | default([]) }}"
+    testbed_tg_names: "{{ testbed_entry.tgs | default([]) }}"
+    testbed_all_devices: "{{ (testbed_entry.duts | default([])) + (testbed_entry.tgs | default([])) }}"
+
+- name: Get connection graph facts via LabGraph
+  conn_graph_facts:
+    hosts: "{{ testbed_all_devices }}"
+  delegate_to: localhost
+
+- name: Build bridge map from device_conn
+  set_fact:
+    device_bridge_map: >-
+      {%- set links = [] -%}
+      {%- set seen = [] -%}
+      {%- set bmap = {} -%}
+      {%- for dev in testbed_all_devices -%}
+        {%- for port in (device_conn[dev] | default({})).keys() | sort -%}
+          {%- set peer = device_conn[dev][port] -%}
+          {%- set key = ([dev ~ ':' ~ port, peer.peerdevice ~ ':' ~ peer.peerport] | sort | join('--')) -%}
+          {%- if key not in seen -%}
+            {%- set _ = seen.append(key) -%}
+            {%- set bridge = 'vbr_' ~ testbed_name[:8] ~ '_' ~ ((seen | length) - 1) -%}
+            {%- set _ = bmap.update({dev ~ ':' ~ port: bridge, peer.peerdevice ~ ':' ~ peer.peerport: bridge}) -%}
+            {%- set _ = links.append({'src': dev, 'src_port': port, 'dst': peer.peerdevice, 'dst_port': peer.peerport, 'bridge': bridge}) -%}
+          {%- endif -%}
+        {%- endfor -%}
+      {%- endfor -%}
+      {{ bmap }}
+    testbed_link_count: >-
+      {%- set seen = [] -%}
+      {%- for dev in testbed_all_devices -%}
+        {%- for port in (device_conn[dev] | default({})).keys() | sort -%}
+          {%- set peer = device_conn[dev][port] -%}
+          {%- set key = ([dev ~ ':' ~ port, peer.peerdevice ~ ':' ~ peer.peerport] | sort | join('--')) -%}
+          {%- if key not in seen -%}{%- set _ = seen.append(key) -%}{%- endif -%}
+        {%- endfor -%}
+      {%- endfor -%}
+      {{ seen | length }}
+
+- name: Display parsed testbed info
+  debug:
+    msg: |
+      Testbed: {{ testbed_name }}
+      DUTs: {{ testbed_dut_names }}
+      TGs: {{ testbed_tg_names }}
+      Devices: {{ device_info.keys() | list }}
+      Links: {{ testbed_link_count }}

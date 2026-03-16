@@ -1,0 +1,55 @@
+<domain type='kvm'>
+  <name>{{ vm_name }}</name>
+  <memory unit='GiB'>{{ vnut_vm_memory_gb }}</memory>
+  <currentMemory unit='GiB'>{{ vnut_vm_memory_gb }}</currentMemory>
+  <vcpu placement='static'>{{ vnut_vm_vcpus }}</vcpu>
+  <cpu mode='host-model' check='partial'>
+    <model fallback='forbid'/>
+    <topology sockets='1' dies='1' cores='{{ vnut_vm_vcpus }}' threads='1'/>
+  </cpu>
+  <os>
+    <type arch='x86_64' machine='q35'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+  </features>
+  <clock offset='utc'/>
+  <on_poweroff>destroy</on_poweroff>
+  <on_reboot>restart</on_reboot>
+  <on_crash>restart</on_crash>
+  <devices>
+    <emulator>/usr/bin/qemu-system-x86_64</emulator>
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2' cache='writeback'/>
+      <source file='{{ disk_image }}'/>
+      <target bus='virtio' dev='vda'/>
+    </disk>
+    <serial type='tcp'>
+      <source host='127.0.0.1' mode='bind' service='{{ serial_port }}'/>
+      <target port='0'/>
+      <protocol type='telnet'/>
+    </serial>
+    {# Management interface — connected to mgmt bridge #}
+    <interface type='bridge'>
+      <source bridge='{{ mgmt_bridge }}'/>
+      <model type='e1000'/>
+    </interface>
+{% for iface in vm_interfaces %}
+    {# Front-panel interface {{ iface.name }} — connected to bridge {{ iface.bridge }} #}
+    <interface type='bridge'>
+      <source bridge='{{ iface.bridge }}'/>
+      <model type='e1000'/>
+      <mtu size='{{ vnut_fp_mtu }}'/>
+    </interface>
+{% endfor %}
+    <controller type='usb' index='0'/>
+    <memballoon model='virtio'>
+      <alias name='balloon0'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x04' function='0x0'/>
+    </memballoon>
+    <watchdog model='i6300esb'/>
+  </devices>
+  <seclabel type='none'/>
+</domain>
