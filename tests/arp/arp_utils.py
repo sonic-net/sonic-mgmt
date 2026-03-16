@@ -2,7 +2,7 @@ import re
 import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from ipaddress import ip_interface
+from ipaddress import ip_interface, ip_network, IPv4Network
 
 
 logger = logging.getLogger(__name__)
@@ -101,8 +101,12 @@ def get_first_vlan_ipv4(config_facts):
     """
     vlan_intfs = config_facts.get("VLAN_INTERFACE", {})
     for intf, addrs in vlan_intfs.items():
-        for addr in addrs:
-            if ":" in addr:
-                continue
-            return intf, ip_interface(addr).ip
+        try:
+            if type(ip_network(addr, strict=False)) is IPv4Network:
+                iface = ip_interface(addr)
+                intf_ipv4 = (intf, iface.ip)
+        except ValueError:
+            continue
+    if intf_ipv4 is not None:
+        return intf_ipv4
     return None, None
