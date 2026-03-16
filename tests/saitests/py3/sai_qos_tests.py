@@ -42,7 +42,9 @@ from switch import (switch_init,          # noqa F401
                     sai_thrift_read_queue_occupancy,
                     sai_thrift_read_pg_occupancy,
                     sai_thrift_read_port_voq_counters,
-                    sai_thrift_get_voq_port_id
+                    sai_thrift_get_voq_port_id,
+                    sai_thrift_port_tx_disable,
+                    sai_thrift_port_tx_enable
                     )
 from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t, # noqa F401
                                       sai_thrift_attribute_t)
@@ -136,6 +138,10 @@ SAI_LOG_TO_CHECK = {"voq": ["HARDWARE_WATCHDOG", "soft_reset"],
 SDK_LOG_TO_CHECK = {"voq": ["VOQ Appears to be stuck"],
                     "oq": []}
 SAI_LOG = "/var/log/sai.log"
+
+# Constants for VoqCreditWDCounterTest
+CREDIT_WD_DEL_TIMEOUT_SECONDS = WATCHDOG_TIMEOUT_SECONDS["voq"] * 5  # 300 s max polling window
+CREDIT_WD_DEL_POLL_INTERVAL_SECONDS = 5
 SDK_LOG = "/var/log/syslog"
 
 
@@ -7845,3 +7851,95 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
         finally:
             # Re-enable TX on destination port
             self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
+
+
+class VoqCreditWDCounterTest(sai_base_test.ThriftInterfaceDataPlane):
+    """
+    Test that the VOQ Credit-WD-Del counter increments on a single-ASIC broadcom-dnx
+    VOQ device.
+
+    The test disables TX on a destination port via SAI thrift (without disabling the
+    credit watchdog), sends traffic to back up the VOQ, and waits for the credit
+    watchdog to fire and increment the Credit-WD-Del/pkts counter.
+    """
+
+    def runTest(self):
+        switch_init(self.clients)
+
+        # Parse input parameters
+        dscp = int(self.test_params.get('dscp', 8))
+        router_mac = self.test_params['router_mac']
+        dst_port_id = int(self.test_params['dst_port_id'])
+        dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        src_port_id = int(self.test_params['src_port_id'])
+        src_port_ip = self.test_params['src_port_ip']
+        src_port_vlan = self.test_params['src_port_vlan']
+        src_port_mac = self.dataplane.get_mac(0, src_port_id)
+        asic_type = self.test_params['sonic_asic_type']
+        pkts_num = int(self.test_params.get('pkts_num', 100))
+        packet_length = int(self.test_params.get('packet_size', 1350))
+
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+
+        pkt = construct_ip_pkt(packet_length,
+                               pkt_dst_mac,
+                               src_port_mac,
+                               src_port_ip,
+                               dst_port_ip,
+                               dscp,
+                               src_port_vlan,
+                               ttl=64)
+
+        log_message("test dst_port_id: {}, src_port_id: {}, src_vlan: {}".format(
+            dst_port_id, src_port_id, src_port_vlan), to_stderr=True)
+
+        # Resolve actual dst port in case dst_port_id is part of a LAG
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
+        )
+        log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
+
+        # Use the low-level sai_thrift_port_tx_disable (from switch.py) which sets
+        # SAI_PORT_ATTR_PKT_TX_ENABLE=0 WITHOUT disabling the credit watchdog.
+        # This allows the credit watchdog to fire and increment Credit-WD-Del.
+        sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+
+        try:
+            # Send packets to back up the VOQ
+            send_packet(self, src_port_id, pkt, pkts_num)
+
+            # Poll for the Credit-WD-Del counter to increase on the DUT
+            credit_wd_del_cmd = (
+                "show queue counters --voq --nonzero"
+                " | grep -i 'Ethernet'"
+                " | grep -vi 'Ethernet-IB'"
+                " | grep -i 'VOQ0'"
+                " | awk '{print $7}'"
+            )
+
+            def credit_wd_del_increasing():
+                stdout, err, ret = self.exec_cmd_on_dut(
+                    self.dst_server_ip,
+                    self.test_params['dut_username'],
+                    self.test_params['dut_password'],
+                    credit_wd_del_cmd)
+                out = stdout if stdout else []
+                integers = [int(item.replace(',', '')) for item in out
+                            if item.replace(',', '').strip().isdigit()]
+                return any(num > 0 for num in integers)
+
+            timeout = CREDIT_WD_DEL_TIMEOUT_SECONDS
+            time_elapsed = 0
+            while time_elapsed < timeout:
+                if credit_wd_del_increasing():
+                    break
+                time.sleep(CREDIT_WD_DEL_POLL_INTERVAL_SECONDS)
+                time_elapsed += CREDIT_WD_DEL_POLL_INTERVAL_SECONDS
+
+            qos_test_assert(self, credit_wd_del_increasing(),
+                            "Credit-WD-Del/pkts is not increasing. "
+                            "Ref: https://github.com/sonic-net/sonic-buildimage/issues/21098")
+
+        finally:
+            sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])

@@ -25,41 +25,32 @@ def test_voq_drop_counter(duthosts, tbinfo, ptfadapter,
 def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     This test implicitly verifies that queue counters --voq (i.e. Credit-WD-Del/pkts)
-    are working as expected by disabling the fabric ports via bcmcmd.
-    On multi-asic devices, SFI (fabric interface) ports are disabled.
-    On single-asic devices, NIF (network interface) ports are disabled.
+    are working as expected on multi-ASIC broadcom-dnx devices by disabling SFI
+    (fabric interface) ports via bcmcmd and checking that Credit-WD-Del/pkts increases
+    on the Ethernet-IB (inband) interfaces.
+
+    For single-ASIC broadcom-dnx VOQ devices, see tests/qos/test_voq_counter.py which
+    uses sai_thrift_port_tx_disable via PTF infrastructure.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bcm_changes = False
     # Ensure the device is a Broadcom device
     pytest_require((duthost.facts.get('platform_asic') == "broadcom-dnx"),
                    "The Test Case is only supported on Broadcom-dnx ASIC")
+    pytest_require(duthost.is_multi_asic,
+                   "This test is for multi-ASIC devices only; "
+                   "single-ASIC VOQ coverage is in tests/qos/test_voq_counter.py")
 
-    is_multi_asic = duthost.is_multi_asic
-
-    if is_multi_asic:
-        cmd_bcmcmd_false = "'port enable sfi false'"
-        cmd_bcmcmd_true = "'port enable sfi true'"
-        cmd = "show queue counters --voq --nonzero| grep -i '{}' |grep -i '{}' |awk '{{print $7}}'".format(
-            "Ethernet-IB", "VOQ0")
-    else:
-        # On single-ASIC VOQ devices, disable NIF (network/front-panel) ports to trigger Credit-WD-Del
-        cmd_bcmcmd_false = "'port enable nif false'"
-        cmd_bcmcmd_true = "'port enable nif true'"
-        # Single-ASIC VOQ has no Ethernet-IB ports; check Credit-WD-Del on regular Ethernet ports
-        cmd = ("show queue counters --voq --nonzero| grep -i 'Ethernet' "
-               "|grep -vi 'Ethernet-IB' |grep -i 'VOQ0' |awk '{print $7}'")
+    cmd_bcmcmd_false = "'port enable sfi false'"
+    cmd_bcmcmd_true = "'port enable sfi true'"
+    cmd = "show queue counters --voq --nonzero| grep -i '{}' |grep -i '{}' |awk '{{print $7}}'".format(
+        "Ethernet-IB", "VOQ0")
 
     try:
         bcm_changes = True
-        if is_multi_asic:
-            for asic in duthost.asics:
-                bcmcmd = "bcmcmd {} ".format("-n " + str(asic.asic_index)) + cmd_bcmcmd_false
-                res = duthost.shell(bcmcmd, module_ignore_errors=True)
-                if not res["stderr"] == "polling socket timeout: Success" and res["failed"]:
-                    pytest.fail("BCMCMD Failed")
-        else:
-            res = duthost.shell("bcmcmd " + cmd_bcmcmd_false, module_ignore_errors=True)
+        for asic in duthost.asics:
+            bcmcmd = "bcmcmd {} ".format("-n " + str(asic.asic_index)) + cmd_bcmcmd_false
+            res = duthost.shell(bcmcmd, module_ignore_errors=True)
             if not res["stderr"] == "polling socket timeout: Success" and res["failed"]:
                 pytest.fail("BCMCMD Failed")
 
@@ -73,13 +64,8 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                       "Ref: https://github.com/sonic-net/sonic-buildimage/issues/21098")
     finally:
         if bcm_changes:
-            if is_multi_asic:
-                for asic in duthost.asics:
-                    cmd = "bcmcmd {} ".format("-n " + str(asic.asic_index)) + cmd_bcmcmd_true
-                    res = duthost.shell(cmd, module_ignore_errors=True)
-                    if not res["stderr"] == "polling socket timeout: Success" and res["failed"]:
-                        pytest.fail("BCMCMD Failed")
-            else:
-                res = duthost.shell("bcmcmd " + cmd_bcmcmd_true, module_ignore_errors=True)
+            for asic in duthost.asics:
+                cmd = "bcmcmd {} ".format("-n " + str(asic.asic_index)) + cmd_bcmcmd_true
+                res = duthost.shell(cmd, module_ignore_errors=True)
                 if not res["stderr"] == "polling socket timeout: Success" and res["failed"]:
                     pytest.fail("BCMCMD Failed")
