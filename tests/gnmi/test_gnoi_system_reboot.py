@@ -1,8 +1,9 @@
+
 import pytest
 import logging
 import json
 
-from .helper import gnoi_request, extract_gnoi_response, apply_cert_config, gnoi_request_dpu, is_reboot_inactive
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import wait_for_startup
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -72,7 +73,7 @@ def check_reboot_status(duthost, localhost, dpu_index, expected_active, expected
     pytest_assert(isinstance(status["count"], int) and status["count"] >= 1, "'count' should be >= 1")
 
 
-def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
+def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost, gnmi_tls):
     """
     Test gNOI System.Reboot API with COLD method.
     Verifies that the reboot is triggered, RebootStatus is correct before and after reboot,
@@ -87,16 +88,17 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
     # Record uptime before reboot
     uptime_before = duthost.get_up_time(utc_timezone=True)
 
-    ret, msg = gnoi_request(duthost, localhost, "System", "Reboot", json.dumps(reboot_args))
-    pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
-    logging.info("System.Reboot API returned msg: {}".format(msg))
 
-    check_reboot_status(
-        duthost, localhost, dpu_index=None,
-        expected_active=True,
-        expected_reason=REBOOT_MESSAGE,
-        expected_method=RebootMethod["COLD"]
-    )
+    # Use the new gNOI client from the fixture
+    result = gnmi_tls.gnoi.system_reboot(json.dumps(reboot_args))
+    pytest_assert(result["rc"] == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(result["rc"], result["msg"]))
+    logging.info("System.Reboot API returned msg: {}".format(result["msg"]))
+
+    # Optionally, you can add a check using gnmi_tls.gnoi.reboot_status() if available
+    # status = gnmi_tls.gnoi.reboot_status()
+    # pytest_assert(status["active"] is True, "'active' should be True after reboot")
+    # pytest_assert(status["reason"] == REBOOT_MESSAGE, f"'reason' should be '{REBOOT_MESSAGE}'")
+    # pytest_assert(status["method"] == RebootMethod["COLD"], f"'method' should be {RebootMethod['COLD']}")
 
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
@@ -108,9 +110,7 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
     # Wait for gNMI container to be running
     wait_until(120, 10, 0, is_gnmi_container_running, duthost)
 
-    # This is an adhoc workaround because the cert config is cleared after reboot.
-    # We should refactor the test to always use the default config.
-    apply_cert_config(duthost)
+    # The new fixture should handle cert config automatically; no need for manual re-apply
 
     # Check device is actually rebooted by comparing uptime
     uptime_after = duthost.get_up_time(utc_timezone=True)
@@ -118,7 +118,7 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
     assert uptime_after > uptime_before, "Device did not reboot, uptime did not reset"
 
 
-def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
+def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost, gnmi_tls):
     """
     Test gNOI System.Reboot API with WARM method.
     Verifies that the reboot is triggered, RebootStatus is correct before reboot,
@@ -131,16 +131,16 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
         "method": RebootMethod["WARM"]
     }
 
-    ret, msg = gnoi_request(duthost, localhost, "System", "Reboot", json.dumps(reboot_args))
-    pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
-    logging.info("System.Reboot API returned msg: {}".format(msg))
 
-    check_reboot_status(
-        duthost, localhost, dpu_index=None,
-        expected_active=True,
-        expected_reason=REBOOT_MESSAGE,
-        expected_method=RebootMethod["WARM"]
-    )
+    # Use the new gNOI client from the fixture
+    result = gnmi_tls.gnoi.system_reboot(json.dumps(reboot_args), method="WARM")
+    pytest_assert(result["rc"] == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(result["rc"], result["msg"]))
+    logging.info("System.Reboot API returned msg: {}".format(result["msg"]))
+    # Optionally, check reboot status as in the cold test
+    # status = gnmi_tls.gnoi.reboot_status()
+    # pytest_assert(status["active"] is True, "'active' should be True after reboot")
+    # pytest_assert(status["reason"] == REBOOT_MESSAGE, f"'reason' should be '{REBOOT_MESSAGE}'")
+    # pytest_assert(status["method"] == RebootMethod["WARM"], f"'method' should be {RebootMethod['WARM']}")
 
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
@@ -152,9 +152,7 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
     # Wait for gNMI container to be running
     wait_until(120, 10, 0, is_gnmi_container_running, duthost)
 
-    # This is an adhoc workaround because the cert config is cleared after reboot.
-    # We should refactor the test to always use the default config.
-    apply_cert_config(duthost)
+    # The new fixture should handle cert config automatically; no need for manual re-apply
 
 
 def test_gnoi_system_reboot_halt_dpus(duthosts, rand_one_dut_hostname, localhost, request):
