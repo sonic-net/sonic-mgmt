@@ -19,7 +19,8 @@ RUN apt -y update \
     && apt -y install tcl-tls \
     && apt -y install iputils-ping \
     && apt -y install snmp \
-    && apt -y install snmptrapd
+    && apt -y install snmptrapd \
+    && apt -y install default-jre unzip zip curl
 COPY . /keysight
 WORKDIR /keysight
 
@@ -32,6 +33,13 @@ ENV SCID_TGEN_PATH=/opt
 ENV SCID_TCL85_BIN=/opt
 ENV IXNETWORK_VERSION=9.30.2212.7
 ENV HLAPI_VERSION=9.30.2212.6
+
+RUN pip install allure-pytest requests monotonic ixnetwork_restpy
+ENV ALLURE_VERSION=2.27.0
+# ADD https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz  /opt/
+RUN wget -qO- https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz | tar -xz -C /opt
+RUN ln -sf "/opt/allure-${ALLURE_VERSION}/bin/allure" /usr/bin/allure
+RUN pip install -U pytest
 
 LABEL author="Mircea Dan Gheorghe"
 LABEL version="1.0"
