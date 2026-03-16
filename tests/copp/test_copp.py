@@ -115,7 +115,7 @@ class TestCOPP(object):
         # UDLD packet will not be forwarded to DUT
         if 'UDLD' == protocol:
             for fanouthost in list(fanouthosts.values()):
-                if fanouthost.get_fanout_os() == 'sonic' and "arista_7060x6_64pe_b" in fanouthost.facts["platform"]:
+                if fanouthost.get_fanout_os() == 'sonic' and "arista_7060x6_64pe" in fanouthost.facts["platform"]:
                     pytest.skip("Skip UDLD test for Arista-7060x6 fanout without UDLD forward support")
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
