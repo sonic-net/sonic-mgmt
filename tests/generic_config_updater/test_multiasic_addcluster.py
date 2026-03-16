@@ -63,6 +63,50 @@ THIS_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(THIS_DIR, "templates")
 ADDCLUSTER_FILE = os.path.join(TEMPLATES_DIR, "addcluster.json")
 
+# Loganalyzer ignore patterns for expected TRANSIENT errors during port reconfiguration.
+#
+# These errors occur during a brief race window when GCU patches transition ports from
+# admin_status='down' to 'up'. Orchagent attempts to apply speed/PFC config before the
+# admin_status change fully propagates, causing temporary failures:
+#   - "Unsupported port speed" - speed config rejected on admin-down port
+#   - "Failed to start PFC Watchdog" - PFC can't start on admin-down port
+#   - "Unable to find key NPU_SI_SETTINGS" - xcvrd can't query admin-down port
+#
+# Why these are safe to ignore:
+#   1. verify_oper_status_after_patches() waits up to 300s for ports to become oper 'up'
+#   2. CONFIG_DB verification (Steps 9-12) confirms all entries are correctly applied
+#   3. If config permanently failed, ports wouldn't reach oper='up' and test would fail
+LOGANALYZER_IGNORE_REGEX = [
+    ".*doPortTask: Unsupported port .* speed.*",
+    ".*createEntry: Failed to start PFC Watchdog on port.*",
+    ".*Unable to find key NPU_SI_SETTINGS_SYNC_STATUS.*",
+]
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_errors(duthosts, loganalyzer):
+    """Ignore expected transient errors during port reconfiguration.
+
+    When GCU patches transition ports from admin_status='down' to 'up', there's a
+    brief race where orchagent tries to configure speed/PFC before admin_status
+    propagates. These errors resolve once the transition completes.
+
+    The test validates this by:
+    - verify_oper_status_after_patches(): confirms ports reach oper='up' (would fail
+      if speed config permanently failed)
+    - CONFIG_DB verification: confirms PFC_WD and other entries exist
+
+    Args:
+        duthosts: DUT hosts fixture
+        loganalyzer: Loganalyzer utility fixture
+    """
+    if loganalyzer:
+        for duthost in duthosts:
+            if duthost.hostname in loganalyzer:
+                loganalyzer[duthost.hostname].ignore_regex.extend(LOGANALYZER_IGNORE_REGEX)
+    yield
+
+
 # Configuration capture settings
 # If the environment variable GCU_CAPTURE_CONFIGS is set to 'true', '1', 'y', or 'yes'
 # regardless of case, the test will capture pre- and post-patch configuration files for
