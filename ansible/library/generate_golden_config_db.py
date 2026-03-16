@@ -644,7 +644,6 @@ class GenerateGoldenConfigDBModule(object):
         ori_config_db["DEVICE_METADATA"]["localhost"]["zebra_nexthop"] = zebra_nexthop
         return json.dumps(ori_config_db, indent=4)
 
-
     def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2 to enable FEC.
