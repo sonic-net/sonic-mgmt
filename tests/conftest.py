@@ -173,11 +173,17 @@ def pytest_addoption(parser):
     parser.addoption('--minigraph2', action='store', type=str, help='path to the minigraph2')
 
     #####################################
-    # dash, vxlan, route shared options #
+    # ha, dash, vxlan, route shared options #
     #####################################
     parser.addoption("--skip_cleanup", action="store_true", help="Skip config cleanup after test (tests: dash, vxlan)")
     parser.addoption("--num_routes", action="store", default=None, type=int,
                      help="Number of routes (tests: route, vxlan)")
+    parser.addoption("--skip_cert_cleanup", action="store_true", help="Skip certificates cleanup after test")
+    parser.addoption("--skip_config", action="store_true", help="Don't apply configurations on DUT")
+    parser.addoption("--vxlan_udp_dport", action="store", default="random",
+                     help="The vxlan udp dst port used in the test")
+    parser.addoption("--dpu_index", action="store", default=0, type=int,
+                     help="The default dpu used for the test")
 
     ############################
     # sflow options            #
@@ -260,35 +266,6 @@ def pytest_addoption(parser):
     #   collect logs option    #
     ############################
     parser.addoption("--collect_db_data", action="store_true", default=False, help="Collect db info if test failed")
-
-    ###############################
-    # SONiC Metadata upgrade test #
-    ###############################
-
-    parser.addoption(
-        "--metadata_process", action="store_true", default=False, help="Upgrade using metadata procedure"
-    )
-    parser.addoption(
-        "--skip_postupgrade_actions", action="store_true", default=False, help="Don't run post upgrade actions"
-    )
-    parser.addoption(
-        "--skip_bgp_neighbor", action="store_true", default=False, help="Don't run bgp neighbor"
-    )
-
-    #####################################
-    # SONiC Upgrade test with tcam hole #
-    #####################################
-
-    parser.addoption(
-        "--tcam_hole", action="store_true", default=False, help="Upgrade using metadata procedure"
-    )
-
-    ##################################
-    # SONiC Metadata conversion test #
-    ##################################
-    parser.addoption(
-        "--conversion_target_image", action="store", default=None, help="Target SONiC image for conversion test"
-    )
 
     ############################
     #   macsec options         #
@@ -382,7 +359,6 @@ def pytest_addoption(parser):
     #   Stress test options         #
     #################################
     parser.addoption("--run-stress-tests", action="store_true", default=False, help="Run only tests stress tests")
-    parser.addoption("--stress-test-runs", action="store", type=int, default=25, help="Number of stress test runs")
 
     #################################
     #   Container upgrade test options         #
