@@ -41,8 +41,14 @@ def check_rconsole(duthost, creds, slot):
         client.sendline("\n")
 
         i = client.expect(['sonic', 'login', pexpect.EOF], timeout=10)
+        pre_prompt_output = client.before.decode('utf-8', errors='replace')
+        warn_or_error = re.findall(r'[^\r\n]*(?:Warning|Error)[^\r\n]*', pre_prompt_output)
+
         if (i == 2):
             logging.info("Rconsole {} unexpected output".format(slot))
+        elif warn_or_error:
+            for line in warn_or_error:
+                logging.warning("Rconsole {} detected Warning/Error in output: {}".format(slot, line.strip()))
         else:
             logging.info("Rconsole {} success".format(slot))
             retval = True
