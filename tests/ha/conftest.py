@@ -700,6 +700,9 @@ def setup_ha_config(duthosts, tbinfo):
         # Verify syntax
         dut.shell(f"cat {tmpfile} | jq .")
 
+        # Copy proto_utils
+        dut.copy(src="ha/files/proto_utils.py", dest="/etc/sonic", mode="0755")
+
         # DELETE old Loopback0 IPs
         remove_loopback_ips(dut)
 
