@@ -90,6 +90,8 @@ class PtfGrpc:
         self.max_msg_size = 100 * 1024 * 1024  # 100MB in bytes
         self.headers = {}  # Custom headers
         self.verbose = False  # Enable verbose grpcurl output
+        self.max_time = None        # seconds: grpcurl -max-time (overall RPC deadline)
+        self.keepalive_time = None  # seconds: grpcurl -keepalive-time (idle keepalive ping interval)
 
     def _build_grpcurl_cmd(self, extra_args=None, service_method=None, metadata=None):
         """
@@ -108,8 +110,6 @@ class PtfGrpc:
         if self.plaintext:
             cmd.append("-plaintext")
         else:
-            if self.insecure:
-                cmd.append("-insecure")  # Use TLS but skip verification (if certificates not configured)
             # TLS mode - add certificate arguments if configured
             if self.insecure:
                 cmd.append("-insecure")
@@ -124,16 +124,28 @@ class PtfGrpc:
         # Standard options (avoid unsupported flags like -max-msg-sz)
         # grpcurl -connect-timeout: some versions expect float seconds (e.g. "10"), others Go duration ("10s").
         # Use plain integer seconds for compatibility with float-format grpcurl.
-        timeout_arg = str(int(self.timeout))
         cmd.extend([
             "-connect-timeout", timeout_arg,
             "-format", "json"
         ])
 
+        # Overall RPC deadline (prevents very long operations from being cut off by client-side limits)
+        if self.max_time is not None:
+            cmd.extend(["-max-time", str(int(self.max_time))])
+
+        # Keepalive interval for idle connections (tune to avoid server GOAWAY too_many_pings)
+        if self.keepalive_time is not None:
+            cmd.extend(["-keepalive-time", str(int(self.keepalive_time))])
+
         # Inject SmartSwitch DPU routing headers if this client targets a specific DPU
-        if self.ss_target_type is not None and self.ss_target_index is not None:
-            cmd.extend(["-H", f"x-sonic-ss-target-type: {self.ss_target_type}"])
-            cmd.extend(["-H", f"x-sonic-ss-target-index: {self.ss_target_index}"])
+        if metadata:
+            if isinstance(metadata, dict):
+                items = metadata.items()
+            else:
+                items = metadata  # list of (k, v)
+
+            for name, value in items:
+                cmd.extend(["-H", f"{name}: {value}"])
 
         # Add custom headers
         for name, value in self.headers.items():
@@ -155,6 +167,12 @@ class PtfGrpc:
             cmd.append(service_method)
 
         return cmd
+
+    def configure_max_time(self, seconds: float) -> None:
+        self.max_time = float(seconds)
+
+    def configure_keepalive_time(self, seconds: float) -> None:
+        self.keepalive_time = float(seconds)
 
     def _execute_grpcurl(self, cmd: List[str], input_data: str = None) -> Dict:
         """

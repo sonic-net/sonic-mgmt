@@ -223,6 +223,8 @@ class PtfGnoi:
             "SetPackage via gNOI System.SetPackage (streaming): filename=%s version=%s activate=%s",
             local_path, version, activate,
         )
+        self.grpc_client.configure_max_time(3600)        # allow long SetPackage
+        self.grpc_client.configure_keepalive_time(300)   # 5 min keepalive (less aggressive
 
         pkg: Dict[str, object] = {
             "filename": local_path,

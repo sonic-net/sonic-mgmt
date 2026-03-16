@@ -54,7 +54,7 @@ def smartswitch_gnoi_upgrade_lists(request):
 
     # defaults
     if ss_target_index in (None, ""):
-        ss_target_index = 0
+        ss_target_index = 3
     if not ss_reboot_ready_timeout:
         ss_reboot_ready_timeout = 1200
 
@@ -109,6 +109,7 @@ def test_upgrade_one_dpu_via_gnoi(
         protocol="HTTP",
         allow_fail=False,
         to_version=to_version,
+        ss_target_index=dpu_index,
         metadata=_build_dpu_metadata(dpu_index),
         ss_reboot_ready_timeout=reboot_ready_timeout,
         ss_reboot_message="Rebooting DPU for maintenance (gNOI upgrade)",
