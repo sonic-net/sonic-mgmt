@@ -117,59 +117,6 @@ class PtfGnoi:
             GrpcCallError: If the gRPC call fails
             GrpcTimeoutError: If the call times out
         """
-        logger.debug("Verifying OS version via gNOI OS.Verify")
-
-        try:
-            response = self.grpc_client.call_unary("gnoi.os.OS", "Verify")
-            logger.info(f"Successfully verified OS version: {response}")
-            return response
-
-        except Exception as e:
-            logger.error(f"Failed to verify OS version: {e}")
-            raise
-
-    def os_activate(self, version: str) -> Dict:
-        """
-        Activate an OS version on the device.
-
-        Args:
-            version: OS version string to activate
-
-        Returns:
-            Dictionary containing activation response
-
-        Raises:
-            GrpcConnectionError: If connection fails
-            GrpcCallError: If the gRPC call fails
-            GrpcTimeoutError: If the call times out
-            ValueError: If version is invalid or doesn't exist
-        """
-        logger.debug(f"Activating OS version via gNOI OS.Activate: {version}")
-
-        request = {"version": version}
-
-        try:
-            response = self.grpc_client.call_unary("gnoi.os.OS", "Activate", request)
-            logger.info(f"Successfully activated OS version {version}: {response}")
-            return response
-
-        except Exception as e:
-            logger.error(f"Failed to activate OS version {version}: {e}")
-            raise
-
-    def os_verify(self) -> Dict:
-        """
-        Verify the current OS version on the device.
-
-        Returns:
-            Dictionary containing:
-            - version: Current OS version string
-
-        Raises:
-            GrpcConnectionError: If connection fails
-            GrpcCallError: If the gRPC call fails
-            GrpcTimeoutError: If the call times out
-        """
         try:
             response = self.grpc_client.call_unary("gnoi.os.OS", "Verify")
             return response
