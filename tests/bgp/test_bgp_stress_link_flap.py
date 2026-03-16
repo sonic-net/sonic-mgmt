@@ -7,7 +7,7 @@ import ipaddress
 from jinja2 import Template
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until, wait_tcp_connection, get_upstream_neigh_type
+from tests.common.utilities import wait_until, get_upstream_neigh_type
 from tests.common.config_reload import config_reload
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGP_MONITOR_NAME
 from bgp_helpers import BGPSENTINEL_CONFIG_FILE
@@ -54,22 +54,19 @@ CONFIG_DB_BACKUP_PATH = "/tmp/config_db_backup.json"
 CONFIG_DB_PATH = "/etc/sonic/config_db.json"
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module")
 def backup_and_restore_config_db(duthosts, rand_one_dut_hostname):
     """
     Module-level fixture to backup config_db.json before tests and restore it after tests.
+    Explicitly requested by tests that modify config (sentinel/monitor variants).
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Save current running config and reload to ensure clean starting condition
-    logger.info("Saving running config and performing config reload on {} to ensure clean state".format(
-        duthost.hostname))
+    # Save current running config and backup config_db.json before tests
+    logger.info("Saving running config on {} before test".format(duthost.hostname))
     duthost.command("sudo config save -y")
-    # Backup config_db.json before tests
     logger.info("Backing up {} to {} on {}".format(CONFIG_DB_PATH, CONFIG_DB_BACKUP_PATH, duthost.hostname))
     duthost.command("sudo cp {} {}".format(CONFIG_DB_PATH, CONFIG_DB_BACKUP_PATH))
-
-    config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
     yield
 
@@ -665,10 +662,13 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
 
 @pytest.mark.parametrize("test_type", ["dut"])
 def test_bgp_stress_link_flap_with_sentinel(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts,
-                                            ptfhost, tbinfo, test_type, get_function_completeness_level):
+                                            ptfhost, tbinfo, test_type, get_function_completeness_level,
+                                            backup_and_restore_config_db):
     """
     Test BGP stress link flap with BGP Sentinel enabled.
     BGP Sentinel is a dynamic BGP peering feature that allows passive BGP sessions.
+    Only 'dut' flap type is tested since the goal is to verify BGP Sentinel stability
+    under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -723,10 +723,13 @@ def test_bgp_stress_link_flap_with_sentinel(duthosts, rand_one_dut_hostname, set
 
 @pytest.mark.parametrize("test_type", ["dut"])
 def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts,
-                                           ptfhost, tbinfo, test_type, get_function_completeness_level):
+                                           ptfhost, tbinfo, test_type, get_function_completeness_level,
+                                           backup_and_restore_config_db):
     """
     Test BGP stress link flap with BGP Monitor enabled.
     BGP Monitor sessions allow external systems to receive BGP routing updates.
+    Only 'dut' flap type is tested since the goal is to verify BGP Monitor stability
+    under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -809,10 +812,13 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setu
 @pytest.mark.parametrize("test_type", ["dut"])
 def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, rand_one_dut_hostname, setup, nbrhosts,
                                                         fanouthosts, ptfhost, tbinfo, test_type,
-                                                        get_function_completeness_level):
+                                                        get_function_completeness_level,
+                                                        backup_and_restore_config_db):
     """
     Test BGP stress link flap with both BGP Sentinel and BGP Monitor enabled.
     This test verifies that both features work together under stress conditions.
+    Only 'dut' flap type is tested since the goal is to verify feature stability
+    under interface flaps, not to exhaustively cover all flap types in longevity scope.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
