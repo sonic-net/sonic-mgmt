@@ -65,6 +65,8 @@ ADDCLUSTER_FILE = os.path.join(TEMPLATES_DIR, "addcluster.json")
 
 # Loganalyzer ignore patterns for expected TRANSIENT errors during port reconfiguration.
 #
+# See also: https://github.com/sonic-net/sonic-buildimage/issues/24577
+#
 # These errors occur during a brief race window when GCU patches transition ports from
 # admin_status='down' to 'up'. Orchagent attempts to apply speed/PFC config before the
 # admin_status change fully propagates, causing temporary failures:
