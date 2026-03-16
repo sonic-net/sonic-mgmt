@@ -695,7 +695,7 @@ sonic_mlnx_4700:
 
 sonic_mlnx_4280_smartswitch:
   vars:
-    hwsku: ACS-SN4280
+    hwsku: Mellanox-SN4280-O28
     iface_speed: 400000
   hosts:
     str2-mlnx-4280-smartswitch-02:
