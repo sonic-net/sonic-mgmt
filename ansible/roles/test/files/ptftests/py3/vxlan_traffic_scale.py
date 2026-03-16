@@ -228,4 +228,4 @@ class VXLANScaleTest(BaseTest):
         if self.mac_vni_per_vnet:
             return self.run_mac_vni_per_vnet_test()
         else:
-            return self.run_endpoint_test()        
+            return self.run_endpoint_test()
