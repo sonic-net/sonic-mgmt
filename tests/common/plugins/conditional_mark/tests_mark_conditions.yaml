@@ -5542,6 +5542,7 @@ zmq/test_gnmi_zmq.py:
     conditions_logical_operator: or
     conditions:
       - "'arista' in platform"
+      - "'dualtor' in topo_name"
       - "'isolated' in topo_name"
 
 zmq/test_gnmi_zmq.py::test_gnmi_zmq:
