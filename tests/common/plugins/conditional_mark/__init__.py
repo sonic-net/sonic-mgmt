@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
 ASIC_NAME_PATH = '/../../../../ansible/group_vars/sonic/variables'
-ANSIBLE_LIBRARY_PATH = os.path.join(os.path.dirname(__file__), '../../../../ansible/library')
+ANSIBLE_LIBRARY_PATH = os.path.realpath(os.path.join(os.path.dirname(__file__), '../../../../ansible/library'))
 MARK_CONDITIONS_CONSTANTS = {
     "QOS_SAI_TOPO": ['t0', 't0-64', 't0-116', 't0-118', 't0-35', 't0-56', 't0-80',
                      't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256',
@@ -155,8 +155,9 @@ def load_dut_basic_facts(inv_name, dut_name):
     logger.info('Getting dut basic facts: {}'.format(dut_name))
     try:
         inv_full_path = os.path.join(os.path.dirname(__file__), '../../../../ansible', inv_name)
-        ansible_cmd = 'ansible -M {} -m dut_basic_facts -i {} {} -o'.format(
-            ANSIBLE_LIBRARY_PATH, inv_full_path, dut_name)
+        ansible_cmd = (
+            'ansible -M {} -m dut_basic_facts -i {} {} -o'
+            .format(ANSIBLE_LIBRARY_PATH, inv_full_path, dut_name))
 
         raw_output = subprocess.check_output(ansible_cmd.split()).decode('utf-8')
         logger.debug('raw dut basic facts:\n{}'.format(raw_output))
@@ -583,6 +584,7 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
 
         for var in ["asic_type", "platform", "hwsku", "asic_gen"]:
             if var not in safe_globals:
+                logger.warning("Variable %s not found in basic_facts, defaulting to None", var)
                 safe_globals[var] = None
 
         condition_result = bool(eval(condition_str, safe_globals))
@@ -679,14 +681,16 @@ def pytest_collection_modifyitems(session, config, items):
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     basic_facts['constants'] = MARK_CONDITIONS_CONSTANTS
-    # Normalize nodeids: strip 'tests/' prefix if present (pytest 9.0+ includes it)
+    # Normalize nodeids: strip root directory prefix if present (pytest 9.0+ includes it)
+    root_prefix = os.path.basename(str(session.config.rootpath)) + "/"
     for item in items:
         nodeid = item.nodeid
-        if nodeid.startswith('tests/'):
-            nodeid = nodeid[len('tests/'):]
+        if nodeid.startswith(root_prefix):
+            nodeid = nodeid[len(root_prefix):]
         all_matches = find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 
         if all_matches:
+            logger.debug('Found match "{}" for test case "{}"'.format(all_matches, item.nodeid))
 
             for match in all_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
@@ -726,4 +730,5 @@ def pytest_collection_modifyitems(session, config, items):
                         else:
                             mark = getattr(pytest.mark, mark_name)(reason=reason)
 
+                        logger.debug('Adding mark {} to {}'.format(mark, item.nodeid))
                         item.add_marker(mark)
