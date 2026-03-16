@@ -31,7 +31,7 @@ class PtfGnoi:
         self.grpc_client = grpc_client
         logger.info(f"Initialized PtfGnoi wrapper with {grpc_client}")
 
-    def system_time(self) -> Dict:
+    def system_time(self, metadata=None) -> Dict:
         """
         Get the current system time from the device.
 
@@ -47,7 +47,7 @@ class PtfGnoi:
         logger.debug("Getting system time via gNOI System.Time")
 
         # Make the low-level gRPC call
-        response = self.grpc_client.call_unary("gnoi.system.System", "Time")
+        response = self.grpc_client.call_unary("gnoi.system.System", "Time", metadata=metadata)
 
         # Convert time string to int for consistency
         if "time" in response:
@@ -63,7 +63,7 @@ class PtfGnoi:
     # TODO: Add file_get(), file_put(), file_remove() methods
     # These are left for future implementation when gNOI File service is stable
 
-    def file_stat(self, remote_file: str) -> Dict:
+    def file_stat(self, remote_file: str, metadata=None) -> Dict:
         """
         Get file statistics from the device.
 
@@ -84,7 +84,7 @@ class PtfGnoi:
         request = {"path": remote_file}
 
         try:
-            response = self.grpc_client.call_unary("gnoi.file.File", "Stat", request)
+            response = self.grpc_client.call_unary("gnoi.file.File", "Stat", request, metadata=metadata)
 
             # Convert numeric strings to proper types for consistency
             if "stats" in response and isinstance(response["stats"], list):
@@ -117,6 +117,7 @@ class PtfGnoi:
         local_path: str,
         protocol: Optional[str] = None,
         credentials: Optional[Dict[str, str]] = None,
+        metadata=None
     ) -> Dict:
         """
         Download a remote artifact to the DUT using gNOI File.TransferToRemote.
@@ -182,11 +183,11 @@ class PtfGnoi:
             remote_download["credentials"] = credentials
 
         request = {
-            "localPath": local_path,
-            "remoteDownload": remote_download,
+            "local_path": local_path,
+            "remote_download": remote_download,
         }
 
-        response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request)
+        response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request, metadata=metadata)
         logger.info("TransferToRemote completed: %s -> %s", url, local_path)
         return response
 
@@ -195,6 +196,7 @@ class PtfGnoi:
         local_path: str,
         version: Optional[str] = None,
         activate: bool = True,
+        metadata=None,
     ) -> Dict:
         """
         Set the upgrade package on the DUT using gNOI System.SetPackage (client-streaming RPC).
@@ -221,6 +223,8 @@ class PtfGnoi:
             "SetPackage via gNOI System.SetPackage (streaming): filename=%s version=%s activate=%s",
             local_path, version, activate,
         )
+        self.grpc_client.configure_max_time(3600)        # allow long SetPackage
+        self.grpc_client.configure_keepalive_time(300)   # 5 min keepalive (less aggressive
 
         pkg: Dict[str, object] = {
             "filename": local_path,
@@ -233,6 +237,7 @@ class PtfGnoi:
             "gnoi.system.System",
             "SetPackage",
             [{"package": pkg}],
+            metadata=metadata,
         )
 
         logger.info("SetPackage completed: %s", local_path)
@@ -244,6 +249,7 @@ class PtfGnoi:
         delay: Optional[int] = None,
         message: Optional[str] = None,
         force: bool = False,
+        metadata=None,
     ) -> Dict:
         """
         Reboot the DUT using gNOI System.Reboot.
@@ -290,6 +296,6 @@ class PtfGnoi:
 
         logger.debug("Reboot via gNOI System.Reboot: %s", request)
 
-        response = self.grpc_client.call_unary("gnoi.system.System", "Reboot", request)
+        response = self.grpc_client.call_unary("gnoi.system.System", "Reboot", request, metadata=metadata)
         logger.info("Reboot request sent: method=%s delay=%s force=%s", method, delay, force)
         return response
