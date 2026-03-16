@@ -146,8 +146,8 @@ def test_oir_insert_sfps(duthost, oir_insert_sfps_setup, port_attributes_dict): 
     eeprom_infos = duthost.command("show interface transceiver eeprom -d")["stdout"]
     parsed_eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
     for lport in lports_under_test:
-        if expect_interface_status(duthost, lport, "up"):
-            failures.append(f"Interface {lport} is still up after transceiver removal.")
+        if expect_interface_status(duthost, lport, "down"):
+            failures.append(f"Interface {lport} is still down after transceiver insertion.")
         if "not detected" in parsed_eeprom_infos.get(lport, {}).get(lport, "").lower():
             failures.append(f"EEPROM information for interface {lport} is not available after transceiver insertion.")
 
