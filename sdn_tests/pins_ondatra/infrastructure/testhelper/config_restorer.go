@@ -26,13 +26,6 @@ var (
 	waitForSwitchStateTimeout       = 5 * time.Minute
 )
 
-var (
-	configChangedTimeout = 2 * time.Minute
-	// Using 4 minutes as the upper limit.
-	configPushAndConvergenceTimeout = 4 * time.Minute
-	waitForSwitchStateTimeout       = 5 * time.Minute
-)
-
 // DUT and CONTROL are the only restorable IDs.
 var restorableDUTIDs = map[string]bool{
 	"dut":     true,
@@ -249,7 +242,8 @@ func (cr *ConfigRestorer) restoreConfigOnDiff(ctx context.Context, t *testing.T,
 	log.InfoContextf(ctx, "Trying to restore config for device: %v by pushing default config\n", dutName)
 	configPushAndConvergenceCtx, configPushAndConvergenceCancel := context.WithTimeout(ctx, configPushAndConvergenceTimeout)
 	defer configPushAndConvergenceCancel()
-	if err := ConfigPushAndWaitForConvergence(configPushAndConvergenceCtx, t, device, nil /*(config)*/); err != nil {
+	if err := ConfigPushAndWaitForConvergence(configPushAndConvergenceCtx, t, device,
+		nil /*(config)*/, nil /*(ignorePathsWithPrefix)*/); err != nil {
 		log.InfoContextf(ctx, "ConfigPushAndWaitForConvergence(dut=%v) failed, err: %v", dutName, err)
 		return cr.reboot(ctx, t, device)
 	}
