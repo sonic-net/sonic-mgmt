@@ -401,6 +401,7 @@ class ParallelFixtureManager(object):
         if not self.terminated:
             raise RuntimeError("Cannot reset a running parallel fixture manager.")
 
+        logging.info("[Parallel Fixture] Resetting parallel fixture manager")
         # Reinitialize buckets for all defined scopes
         self.setup_futures = {scope: [] for scope in TaskScope}
         self.teardown_futures = {scope: [] for scope in TaskScope}
@@ -666,6 +667,21 @@ def pytest_runtest_teardown(item, nextitem):
     logging.debug("[Parallel Fixture] Reset parallel manager before teardown")
     parallel_manager = _PARALLEL_MANAGER
     if parallel_manager:
+        # If the manager wasn't terminated yet, it means pytest_runtest_call
+        # never ran (test was skipped or failed early during setup).
+        # Terminate it first before resetting.
+        if not parallel_manager.terminated:
+            logging.debug("[Parallel Fixture] Test was skipped or failed early, "
+                          "waiting for tasks to finish before terminating")
+            try:
+                for scope in TaskScope:
+                    parallel_manager.wait_for_setup_tasks(scope)
+            finally:
+                parallel_manager.terminate()
+            logging.debug("[Parallel Fixture] Test was skipped or failed early, "
+                          "terminating parallel manager")
+            parallel_manager.terminate()
+
         parallel_manager.reset()
         parallel_manager.current_scope = TaskScope.FUNCTION
 
