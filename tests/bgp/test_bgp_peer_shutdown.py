@@ -16,7 +16,7 @@ from tests.common.utilities import wait_until, delete_running_config
 from tests.common.utilities import is_ipv6_only_topology
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm1', 'lt2', 'ft2'),
+    pytest.mark.topology('t0', 't1', 't2', 'm1', 'lt2', 'ft2', 'c0'),
 ]
 
 TEST_ITERATIONS = 5
