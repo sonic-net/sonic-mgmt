@@ -17,8 +17,25 @@
   register: wred_value
   failed_when: wred_value.rc != 0
 
+- name: Copy JSON config to switch.
+  copy: src=roles/test/tasks/ecn.json dest=/tmp
+  when: wred_value.stdout == ""
+
+- name: Add config
+  shell: config load /tmp/ecn.json -y
+  become: yes
+  when: wred_value.stdout == ""
+
+- name: Make sure config updated
+  pause: seconds=2
+
+- set_fact:
+    red_min_threshold=4095
+  when: wred_value.stdout == ""
+
 - set_fact:
     red_min_threshold={{ wred_value.stdout }}
+  when: wred_value.stdout != ""
 
 - include_tasks: add_container_to_inventory.yml
   vars:
