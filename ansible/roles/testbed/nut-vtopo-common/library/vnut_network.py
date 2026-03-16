@@ -245,7 +245,7 @@ def action_cleanup(module):
 
     # The testbed-scoped TG veth prefix used in connect_tg_links.yml
     # Matches: vtg<testbed[:4]>_<idx>a / vtg<testbed[:4]>_<idx>b
-    tg_prefix = "vtg{}".format(testbed_name[:4])
+    tg_prefix = "vtg{}_".format(testbed_name[:4])
 
     rc, stdout, _ = run_cmd(["ip", "-o", "link", "show"], check=False)
     if rc != 0:

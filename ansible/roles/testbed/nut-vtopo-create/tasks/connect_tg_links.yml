@@ -15,7 +15,6 @@
     BRIDGE="{{ bridge }}"
     VETH_A="vtg{{ testbed_name[:4] }}_{{ ns.idx }}a"
     VETH_B="vtg{{ testbed_name[:4] }}_{{ ns.idx }}b"
-    {% set ns.idx = ns.idx + 1 %}
     PID=$(docker inspect -f '{% raw %}{{.State.Pid}}{% endraw %}' "$CONTAINER")
 
     if nsenter -t "$PID" -n ip link show "$PORT" >/dev/null 2>&1; then
@@ -29,6 +28,7 @@
       nsenter -t "$PID" -n ip link set "$PORT" up
       echo "Connected $CONTAINER:$PORT to $BRIDGE"
     fi
+    {% set ns.idx = ns.idx + 1 %}
     {% endfor %}
     {% endfor %}
   args:
