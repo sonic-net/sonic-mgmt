@@ -139,6 +139,12 @@ class SetupPfcwdFunc(object):
             self.ptf.command("ip -6 neigh flush all")
             self.dut.command("ip neigh flush all")
             self.dut.command("ip -6 neigh flush all")
+            # Prevent ARP replies from PTF interfaces that don't own the target IP.
+            # All vlan member ports share the same neighbor IP (e.g. 192.168.0.2).
+            # Without arp_ignore=1, the PTF kernel responds to ARP on every interface
+            # (default arp_ignore=0), causing the DUT to associate the IP with whichever
+            # port's reply arrives last -- typically the wrong port.
+            self.ptf.command("sysctl -w net.ipv4.conf.all.arp_ignore=1")
             if ip_version == "IPv4":
                 self.ptf.command("ifconfig {} {}".format(ptf_port, self.pfc_wd['test_neighbor_addr']))
                 self.ptf.command("ping {} -c 10".format(vlan['addr']))
@@ -430,11 +436,13 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
             self.storm_hndle.start_storm()
 
-        logger.info("Verify if PFC storm is detected on port {}".format(port))
-        pytest_assert(
-            wait_until(30, 2, 5, verify_pfc_storm_in_expected_state, dut, port, self.storm_hndle.pfc_queue_idx, "storm"),  # noqa: E501
-            "PFC storm state did not change as expected"
-        )
+            # For devices that require traffic, the detection loop must be within the
+            # send_background_traffic context to continue sending traffic.
+            logger.info("Verify if PFC storm is detected on port {}".format(port))
+            pytest_assert(
+                wait_until(30, 2, 5, verify_pfc_storm_in_expected_state, dut, port, self.storm_hndle.pfc_queue_idx, "storm"),  # noqa: E501
+                "PFC storm state did not change as expected"
+            )
 
     def storm_restore_path(self, dut, port):
         """
