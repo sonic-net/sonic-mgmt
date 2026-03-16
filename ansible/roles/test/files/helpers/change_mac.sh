@@ -13,6 +13,7 @@ for INTF in ${INTF_LIST}; do
 
     echo "Update ${INTF} MAC address: ${ADDR}->$MAC"
     # bringing the device down/up to trigger ipv6 link local address change
+    sysctl -w net.ipv6.conf.${INTF}.accept_ra_defrtr=0
     ip link set dev ${INTF} down
     ip link set dev ${INTF} address ${MAC}
     ip link set dev ${INTF} up
