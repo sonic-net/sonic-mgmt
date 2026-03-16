@@ -104,6 +104,54 @@ class PtfGnoi:
                 raise FileNotFoundError(f"File not found: {remote_file}") from e
             raise
 
+    def os_verify(self) -> Dict:
+        """
+        Verify the current OS version on the device.
+
+        Returns:
+            Dictionary containing:
+            - version: Current OS version string
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+        """
+        try:
+            response = self.grpc_client.call_unary("gnoi.os.OS", "Verify")
+            return response
+
+        except Exception as e:
+            logger.error(f"Failed to verify OS version: {e}")
+            raise
+
+    def os_activate(self, version: str) -> Dict:
+        """
+        Activate an OS version on the device.
+
+        Args:
+            version: OS version string to activate
+
+        Returns:
+            Dictionary containing activation response:
+            - activateOk: {} on success
+            - activateError: {"detail": "..."} on failure
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails
+            GrpcTimeoutError: If the call times out
+        """
+        request = {"version": version}
+
+        try:
+            response = self.grpc_client.call_unary("gnoi.os.OS", "Activate", request)
+            return response
+
+        except Exception as e:
+            logger.error(f"Failed to activate OS version {version}: {e}")
+            raise
+
     def __str__(self):
         return f"PtfGnoi(grpc_client={self.grpc_client})"
 
