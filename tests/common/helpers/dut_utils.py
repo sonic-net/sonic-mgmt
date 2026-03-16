@@ -451,6 +451,9 @@ def create_duthost_console(duthost, localhost, conn_graph_facts, creds):  # noqa
     console_menu_type = f"{console_type}_{console_menu_type}"
     update_console_creds(creds, console_auth_type)
 
+    # Internal repo uses console username found in creds - see PR #5387
+    console_username = creds['console_user'][console_type]
+
     # console password and sonic_password are lists, which may contain more than one password
     sonicadmin_alt_password = localhost.host.options['variable_manager']._hostvars[dut_hostname].get(
         "ansible_altpassword")
