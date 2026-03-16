@@ -373,9 +373,6 @@ class VxlanMultiHomingProfile(Profile):
         svi_dict_v4 = {}
         svi_dict_v6 ={}
 
-        global g_v4_host_info_dict
-        global g_v6_host_info_dict
-
         if st.getenv('skip_tgen', 'false') == 'true':
             return self.handles        
         l2vni_intf_dict = vxlan_obj.get_interfaces(self.vars, leaf_nodes, 'l2vni')
@@ -462,18 +459,18 @@ class VxlanMultiHomingProfile(Profile):
                 else:
                     svi_dict_v4[node] = vxlan_obj.generate_svi_ip_sag(config,'ipv4')
                     svi_dict_v6[node] = vxlan_obj.generate_svi_ip_sag(config,'ipv6')
-        g_v4_host_info_dict = vxlan_obj.generate_sag_hosts(l2vni_intf_dict,svi_dict_v4, port_vlan_dict=port_vlan_dict, 
+        self.v4_host_info_dict = vxlan_obj.generate_sag_hosts(l2vni_intf_dict,svi_dict_v4, port_vlan_dict=port_vlan_dict, 
                                                         skip_nodes=[])
-        g_v6_host_info_dict = vxlan_obj.generate_sag_hosts(l2vni_intf_dict,svi_dict_v6, port_vlan_dict = port_vlan_dict, 
+        self.v6_host_info_dict = vxlan_obj.generate_sag_hosts(l2vni_intf_dict,svi_dict_v6, port_vlan_dict = port_vlan_dict, 
                                                         version="ipv6", skip_nodes=[])
 
         ###CREATE DEVICE GROUPS###
         
         #ipv4
-        out_v4 = vxlan_obj.create_device_groups(topo_handles,g_v4_host_info_dict)
+        out_v4 = vxlan_obj.create_device_groups(topo_handles,self.v4_host_info_dict)
         v4_node_device_handles = out_v4[0]
         #ipv6
-        out_v6 = vxlan_obj.create_device_groups(topo_handles,g_v6_host_info_dict,version ="ipv6")
+        out_v6 = vxlan_obj.create_device_groups(topo_handles,self.v6_host_info_dict,version ="ipv6")
         v6_node_device_handles = out_v6[0]
         
         v4_device_handles = {}
@@ -496,13 +493,13 @@ class VxlanMultiHomingProfile(Profile):
             st.log("protocols started successfully")
             
         ### choose traffic item endpoints###
-        l2_traffic_endpoints = vxlan_obj.find_l2_traffic_endpoints(g_v4_host_info_dict)
+        l2_traffic_endpoints = vxlan_obj.find_l2_traffic_endpoints(self.v4_host_info_dict)
         # get vrf - vlan mapping from configs
         vrf_vlan_dict = dict()
         for item in self.test_cfg['leaf0']['l3vni']:
             vrf_vlan_dict[item['vrf_id']] = item['vlan_bindings']
 
-        l3_traffic_endpoints = vxlan_obj.find_l3_traffic_endpoints(g_v4_host_info_dict, vrf_vlan_dict = vrf_vlan_dict)
+        l3_traffic_endpoints = vxlan_obj.find_l3_traffic_endpoints(self.v4_host_info_dict, vrf_vlan_dict = vrf_vlan_dict)
         ### create traffic item endpoints###
         self.handles['l2_v4'] = vxlan_obj.create_traffic_item(device_handles = v4_device_handles,
                                                                 endpoints=l2_traffic_endpoints,
@@ -537,7 +534,7 @@ class VxlanMultiHomingProfile(Profile):
                 if l2_info.get('bum_traffic', False):
                     for port in l2_info['members']:
 
-                        bum_l2_endpoints = self.find_traffic_enpoints(topo_handles, g_v4_host_info_dict, node, port, 
+                        bum_l2_endpoints = self.find_traffic_enpoints(topo_handles, self.v4_host_info_dict, node, port, 
                                                                 l2_info['vlan_id'], l2_info['vlan_id'],  traffic_type='raw')
                         for dest_type, dst_mac in \
                             [('unknown', '00:99:00:00:00:99'), ('broadcast', 'ff:ff:ff:ff:ff:ff'), ('multicast', '01:00:5e:44:44:44')]:

@@ -33,24 +33,6 @@ def initialize_variables():
     with open(dir_path + '/' + CONFIGS_FILE) as f:
         test_cfg = yaml.load(f, Loader=yaml.FullLoader)
 
-    # Initialize tc_cfg with common configuration parameters
-    test_cfg['tc_cfg'] = {
-        'ext_sub_int_vlan_id_1': 201,
-        'ext_sub_int_vlan_id_2': 202,
-        'lb_addr_vrf_1': '21.1.1.1',
-        'lb_v6addr_vrf_1': '2100:1:1::1',
-        'ext_addr_vrf_1': '21.1.1.2',
-        'ext_v6addr_vrf_1': '2100:1:1::2',
-        'lb_addr_vrf_2': '22.1.1.1',
-        'lb_v6addr_vrf_2': '2200:1:1::1',
-        'ext_addr_vrf_2': '22.1.1.2',
-        'ext_v6addr_vrf_2': '2200:1:1::2',
-        'ext_asn_no': "65203",
-        'host_addr_1': '90.0.0.1',
-        'host_mask_1': '24',
-        'host_gateway_1': '80.2.0.10'
-    }
-
     test_cfg['nodes'] = {'leaf': [], 'spine': [], 'all': [], 'l2l3vni': []}
     for dut in st.get_dut_names():
         if "leaf" in dut:
@@ -4038,7 +4020,7 @@ class TestVxlanMacMoveTriggers():
             st.banner(" {} : traffic passed as expected when no host move".format(item))
         else:
             st.banner(" {} : traffic failed when no host move".format(item))
-            result[item] = False
+            result_flag = False
             self.cleanup_tgen(mm_handles) 
         seq = 1
         for _cnt in range(1,4):
@@ -5242,14 +5224,14 @@ def sb_static_setup_traffic_streams(traffic_mesh=False, alternate_nh = False):
     topo_handles = tgen_handles["topo_handles"]
     for src_node in sb_static_leaf_nodes:
         #IPv4 Streams
-        for src_port in g_v4_host_info_dict[src_node].keys():
+        for src_port in pf.v4_host_info_dict[src_node].keys():
             tg = topo_handles[src_node][src_port]['tg_handle']
             tg_stream_map = {}
             tg_stream_map["tg"] = tg
             streams = []
-            for vlan in g_v4_host_info_dict[src_node][src_port].keys():
+            for vlan in pf.v4_host_info_dict[src_node][src_port].keys():
                 for dst_ipv4 in sb_static_static_routes[sb_static_vlan_vrf_map[src_node][vlan]]['v4_addrs']: 
-                    src_ipv4 = g_v4_host_info_dict[src_node][src_port][vlan]["host_ip"]
+                    src_ipv4 = pf.v4_host_info_dict[src_node][src_port][vlan]["host_ip"]
 
                     if not alternate_nh:
                         dst_node = sb_static_gw_port_map[dst_ipv4]['node']
@@ -5267,7 +5249,7 @@ def sb_static_setup_traffic_streams(traffic_mesh=False, alternate_nh = False):
                         stream = tg.tg_traffic_config(name = name,
                                                     emulation_src_handle=topo_handles[src_node][src_port]['port_handle'], 
                                                     emulation_dst_handle=topo_handles[dst_node][dst_port]['port_handle'],
-                                                    mac_src=g_v4_host_info_dict[src_node][src_port][vlan]["src_mac"],
+                                                    mac_src=pf.v4_host_info_dict[src_node][src_port][vlan]["src_mac"],
                                                     mac_dst="00:11:22:33:44:55",
                                                     vlan_id = vlan,
                                                     ip_src_addr=src_ipv4, 
@@ -5294,14 +5276,14 @@ def sb_static_setup_traffic_streams(traffic_mesh=False, alternate_nh = False):
                 sb_static_tg_stream_maps.append(tg_stream_map)
 
         #IPv6 Streams
-        for src_port in g_v6_host_info_dict[src_node].keys():
+        for src_port in pf.v6_host_info_dict[src_node].keys():
             tg = topo_handles[src_node][src_port]['tg_handle']
             tg_stream_map = {}
             tg_stream_map["tg"] = tg
             streams = []
-            for vlan in g_v6_host_info_dict[src_node][src_port].keys():
+            for vlan in pf.v6_host_info_dict[src_node][src_port].keys():
                 for dst_ipv6 in sb_static_static_routes[sb_static_vlan_vrf_map[src_node][vlan]]['v6_addrs']: 
-                    src_ipv6 = g_v6_host_info_dict[src_node][src_port][vlan]["host_ip"]
+                    src_ipv6 = pf.v6_host_info_dict[src_node][src_port][vlan]["host_ip"]
 
                     if not alternate_nh:
                         dst_node = sb_static_gw_port_map[dst_ipv6]['node']
@@ -5319,7 +5301,7 @@ def sb_static_setup_traffic_streams(traffic_mesh=False, alternate_nh = False):
                         stream = tg.tg_traffic_config(name = name,
                                                     emulation_src_handle=topo_handles[src_node][src_port]['port_handle'], 
                                                     emulation_dst_handle=topo_handles[dst_node][dst_port]['port_handle'],
-                                                    mac_src=g_v6_host_info_dict[src_node][src_port][vlan]["src_mac"],
+                                                    mac_src=pf.v6_host_info_dict[src_node][src_port][vlan]["src_mac"],
                                                     mac_dst="00:11:22:33:44:55",
                                                     vlan_id = vlan,
                                                     ipv6_src_addr=src_ipv6, 
@@ -5377,9 +5359,9 @@ def setup_sb_static():
             for vlan in item['vlan_bindings']:
                 sb_static_vlan_vrf_map[node][vlan] = item['vrf_id']
 
-        for port in g_v4_host_info_dict[node].keys():
-            for vlan in g_v4_host_info_dict[node][port].keys():
-                host = g_v4_host_info_dict[node][port][vlan]["host_ip"]
+        for port in pf.v4_host_info_dict[node].keys():
+            for vlan in pf.v4_host_info_dict[node][port].keys():
+                host = pf.v4_host_info_dict[node][port][vlan]["host_ip"]
                 gw = host.replace('.0.','.{}.'.format(host.split('.')[0]))
                 sb_static_gw_port_map[gw] = {}
                 sb_static_host_port_map[host] = {}
@@ -5390,9 +5372,9 @@ def setup_sb_static():
                 sb_static_static_routes[sb_static_vlan_vrf_map[node][vlan]]['v4_addrs'].append(gw)
                 sb_static_static_routes[sb_static_vlan_vrf_map[node][vlan]]['v4_nexthops'].append(host)
 
-        for port in g_v6_host_info_dict[node].keys():
-            for vlan in g_v6_host_info_dict[node][port].keys():
-                host = g_v6_host_info_dict[node][port][vlan]["host_ip"]
+        for port in pf.v6_host_info_dict[node].keys():
+            for vlan in pf.v6_host_info_dict[node][port].keys():
+                host = pf.v6_host_info_dict[node][port][vlan]["host_ip"]
                 gw = host.replace('::',':{}::'.format(host.split(':')[0]))
                 sb_static_gw_port_map[gw] = {}
                 sb_static_host_port_map[host] = {}
@@ -7197,7 +7179,6 @@ def verify_vxlan_neigh_groups(dut, retry=1):
 @pytest.fixture(scope="class")
 def configure_external_router(request):
     
-    global ref_vrf_1, ref_vrf_2, org_bgp_cfg_ext, ext_v6addr_vrf_1, lb_v6addr_vrf_1, ext_asn_no
     tc_id = "base_config_ext_connectivity"
     test_cfg['tc_id'] = tc_id
     tc_cfg = vxlan_obj.get_tc_params(tc_id) 
@@ -7227,13 +7208,13 @@ def configure_external_router(request):
         if dut_id == ext_dut_id or dut_id == leaf3_dut_id :
             for key,value in vars.items():
                 if ext_dut_id+leaf3_dut_id in key:
-                    ext_dut_int_vrf_1 = get_intf_short_name(value + '.' + str(test_cfg['tc_cfg']['ext_sub_int_vlan_id_1']))
-                    ext_dut_int_vrf_2 = get_intf_short_name(value + '.' + str(test_cfg['tc_cfg']['ext_sub_int_vlan_id_2']))
+                    ext_dut_int_vrf_1 = get_intf_short_name(value + '.' + str(tc_cfg['ext_sub_int_vlan_id_1']))
+                    ext_dut_int_vrf_2 = get_intf_short_name(value + '.' + str(tc_cfg['ext_sub_int_vlan_id_2']))
 
                     continue
                 if leaf3_dut_id+ext_dut_id in key:
-                    leaf3_int_vrf_1 = get_intf_short_name(value + '.' + str(ext_sub_int_vlan_id_1))
-                    leaf3_int_vrf_2 = get_intf_short_name(value + '.' + str(ext_sub_int_vlan_id_2))
+                    leaf3_int_vrf_1 = get_intf_short_name(value + '.' + str(tc_cfg['ext_sub_int_vlan_id_1']))
+                    leaf3_int_vrf_2 = get_intf_short_name(value + '.' + str(tc_cfg['ext_sub_int_vlan_id_2']))
                     continue
                 if ext_dut_id+"T1P1" in key:
                     ext_tgen_int = value
@@ -7241,13 +7222,13 @@ def configure_external_router(request):
     #find the port connected to VM host
     #Config ip address on interfaces
     leaf3_interfaces = [
-        {'intf': leaf3_int_vrf_1, 'vlan': ext_sub_int_vlan_id_1, 'vrf': ref_vrf_1, 'ipv4': lb_addr_vrf_1, 'ipv6': lb_v6addr_vrf_1},
-        {'intf': leaf3_int_vrf_2, 'vlan': ext_sub_int_vlan_id_2, 'vrf': ref_vrf_2, 'ipv4': lb_addr_vrf_2, 'ipv6': lb_v6addr_vrf_2}
+        {'intf': leaf3_int_vrf_1, 'vlan': tc_cfg['ext_sub_int_vlan_id_1'], 'vrf': ref_vrf_1, 'ipv4': tc_cfg['lb_addr_vrf_1'], 'ipv6': tc_cfg['lb_v6addr_vrf_1']},
+        {'intf': leaf3_int_vrf_2, 'vlan': tc_cfg['ext_sub_int_vlan_id_2'], 'vrf': ref_vrf_2, 'ipv4': tc_cfg['lb_addr_vrf_2'], 'ipv6': tc_cfg['lb_v6addr_vrf_2']}
     ]
 
     ext_router_interfaces =[
-        {'intf': ext_dut_int_vrf_1, 'vlan': ext_sub_int_vlan_id_1, 'vrf': ref_vrf_1, 'ipv4': ext_addr_vrf_1, 'ipv6': ext_v6addr_vrf_1, 'host_vlan': tc_cfg['vlan_id_hx1']},
-        {'intf': ext_dut_int_vrf_2, 'vlan': ext_sub_int_vlan_id_2, 'vrf': ref_vrf_2, 'ipv4': ext_addr_vrf_2, 'ipv6': ext_v6addr_vrf_2, 'host_vlan': tc_cfg['vlan_id_hx2']}
+        {'intf': ext_dut_int_vrf_1, 'vlan': tc_cfg['ext_sub_int_vlan_id_1'], 'vrf': ref_vrf_1, 'ipv4': tc_cfg['ext_addr_vrf_1'], 'ipv6': tc_cfg['ext_v6addr_vrf_1'], 'host_vlan': tc_cfg['vlan_id_hx1']},
+        {'intf': ext_dut_int_vrf_2, 'vlan': tc_cfg['ext_sub_int_vlan_id_2'], 'vrf': ref_vrf_2, 'ipv4': tc_cfg['ext_addr_vrf_2'], 'ipv6': tc_cfg['ext_v6addr_vrf_2'], 'host_vlan': tc_cfg['vlan_id_hx2']}
     ]
     
     for iface in leaf3_interfaces:
@@ -7278,35 +7259,35 @@ def configure_external_router(request):
     cmd = "route-map RECEIVE-HOST-ROUTES-V6 permit 1\non-match next\nset ipv6 next-hop prefer-global\nexit\n"
     cmd += "router bgp {} vrf {}\nbgp router-id 50.50.50.2\n".format(leaf3_asn_no, ref_vrf_1)
     cmd += "no bgp ebgp-requires-policy\nno bgp network import-check\nno bgp default ipv4-unicast\n"
-    cmd += "neighbor {} remote-as {}\n".format(ext_addr_vrf_1, ext_asn_no)
-    cmd += "neighbor {} remote-as {}\n".format(ext_v6addr_vrf_1, ext_asn_no)
-    cmd += "neighbor {} capability extended-nexthop\n".format(ext_v6addr_vrf_1)
-    cmd += "address-family ipv4 unicast\nneighbor {} activate\nexit-address-family\n".format(ext_addr_vrf_1)
-    cmd += "address-family ipv6 unicast\nneighbor {} activate\nneighbor {} route-map RECEIVE-HOST-ROUTES-V6 in\nexit-address-family\nexit\n".format(ext_v6addr_vrf_1, ext_v6addr_vrf_1)
+    cmd += "neighbor {} remote-as {}\n".format(tc_cfg['ext_addr_vrf_1'], tc_cfg['ext_asn_no'])
+    cmd += "neighbor {} remote-as {}\n".format(tc_cfg['ext_v6addr_vrf_1'], tc_cfg['ext_asn_no'])
+    cmd += "neighbor {} capability extended-nexthop\n".format(tc_cfg['ext_v6addr_vrf_1'])
+    cmd += "address-family ipv4 unicast\nneighbor {} activate\nexit-address-family\n".format(tc_cfg['ext_addr_vrf_1'])
+    cmd += "address-family ipv6 unicast\nneighbor {} activate\nneighbor {} route-map RECEIVE-HOST-ROUTES-V6 in\nexit-address-family\nexit\n".format(tc_cfg['ext_v6addr_vrf_1'], tc_cfg['ext_v6addr_vrf_1'])
     cmd += "router bgp {} vrf {}\nbgp router-id 50.50.50.2\n".format(leaf3_asn_no, ref_vrf_2)
     cmd += "no bgp ebgp-requires-policy\nno bgp network import-check\nno bgp default ipv4-unicast\n"
-    cmd += "neighbor {} remote-as {}\n".format(ext_addr_vrf_2, ext_asn_no)
-    cmd += "neighbor {} remote-as {}\n".format(ext_v6addr_vrf_2, ext_asn_no)
-    cmd += "neighbor {} capability extended-nexthop\n".format(ext_v6addr_vrf_2)
-    cmd += "address-family ipv4 unicast\nneighbor {} activate\nexit-address-family\n".format(ext_addr_vrf_2)
-    cmd += "address-family ipv6 unicast\nneighbor {} activate\nneighbor {} route-map RECEIVE-HOST-ROUTES-V6 in\nexit-address-family\nexit\nend".format(ext_v6addr_vrf_2, ext_v6addr_vrf_2)
+    cmd += "neighbor {} remote-as {}\n".format(tc_cfg['ext_addr_vrf_2'], tc_cfg['ext_asn_no'])
+    cmd += "neighbor {} remote-as {}\n".format(tc_cfg['ext_v6addr_vrf_2'], tc_cfg['ext_asn_no'])
+    cmd += "neighbor {} capability extended-nexthop\n".format(tc_cfg['ext_v6addr_vrf_2'])
+    cmd += "address-family ipv4 unicast\nneighbor {} activate\nexit-address-family\n".format(tc_cfg['ext_addr_vrf_2'])
+    cmd += "address-family ipv6 unicast\nneighbor {} activate\nneighbor {} route-map RECEIVE-HOST-ROUTES-V6 in\nexit-address-family\nexit\nend".format(tc_cfg['ext_v6addr_vrf_2'], tc_cfg['ext_v6addr_vrf_2'])
 
     st.banner(cmd)
     vxlan_obj.config_dut('leaf3', 'bgp', cmd)
     #configure bgp on external router
     org_bgp_cfg_ext = "route-map GLOBAL-NH-V6 permit 1\non-match next\nset ipv6 next-hop prefer-global\nexit\n"
-    org_bgp_cfg_ext += "router bgp {} vrf {}\nbgp router-id 50.50.50.1\nno bgp ebgp-requires-policy\nno bgp network import-check\nno bgp default ipv4-unicast\n".format(ext_asn_no, ref_vrf_1)
-    org_bgp_cfg_ext += "neighbor {} remote-as {}\n".format(lb_addr_vrf_1, leaf3_asn_no)
-    org_bgp_cfg_ext += "neighbor {} remote-as {}\n".format(lb_v6addr_vrf_1, leaf3_asn_no)
-    org_bgp_cfg_ext += "neighbor {} capability extended-nexthop\n".format(lb_v6addr_vrf_1)
-    org_bgp_cfg_ext += "address-family ipv4 unicast\nnetwork 220.1.1.0/24\nneighbor {} activate\nexit-address-family\n".format(lb_addr_vrf_1)
-    org_bgp_cfg_ext += "address-family ipv6 unicast\nnetwork 220:1:1::/64\nneighbor {} activate\nneighbor {} route-map GLOBAL-NH-V6 in\nexit-address-family\nexit\n".format(lb_v6addr_vrf_1, lb_v6addr_vrf_1)
-    org_bgp_cfg_ext += "router bgp {} vrf {}\nbgp router-id 50.50.50.1\nno bgp ebgp-requires-policy\nno bgp network import-check\nno bgp default ipv4-unicast\n".format(ext_asn_no, ref_vrf_2)
-    org_bgp_cfg_ext += "neighbor {} remote-as {}\n".format(lb_addr_vrf_2, leaf3_asn_no)
-    org_bgp_cfg_ext += "neighbor {} remote-as {}\n".format(lb_v6addr_vrf_2, leaf3_asn_no)
-    org_bgp_cfg_ext += "neighbor {} capability extended-nexthop\n".format(lb_v6addr_vrf_2)
-    org_bgp_cfg_ext += "address-family ipv6 unicast\nnetwork 221:1:1::/64\nneighbor {} activate\nneighbor {} route-map GLOBAL-NH-V6 in\nexit-address-family\n".format(lb_v6addr_vrf_2, lb_v6addr_vrf_2)
-    org_bgp_cfg_ext += "address-family ipv4 unicast\nnetwork 221.1.1.0/24\nneighbor {} activate\nexit-address-family\nend\nexit".format(lb_addr_vrf_2)
+    org_bgp_cfg_ext += "router bgp {} vrf {}\nbgp router-id 50.50.50.1\nno bgp ebgp-requires-policy\nno bgp network import-check\nno bgp default ipv4-unicast\n".format(tc_cfg['ext_asn_no'], ref_vrf_1)
+    org_bgp_cfg_ext += "neighbor {} remote-as {}\n".format(tc_cfg['lb_addr_vrf_1'], leaf3_asn_no)
+    org_bgp_cfg_ext += "neighbor {} remote-as {}\n".format(tc_cfg['lb_v6addr_vrf_1'], leaf3_asn_no)
+    org_bgp_cfg_ext += "neighbor {} capability extended-nexthop\n".format(tc_cfg['lb_v6addr_vrf_1'])
+    org_bgp_cfg_ext += "address-family ipv4 unicast\nnetwork 220.1.1.0/24\nneighbor {} activate\nexit-address-family\n".format(tc_cfg['lb_addr_vrf_1'])
+    org_bgp_cfg_ext += "address-family ipv6 unicast\nnetwork 220:1:1::/64\nneighbor {} activate\nneighbor {} route-map GLOBAL-NH-V6 in\nexit-address-family\nexit\n".format(tc_cfg['lb_v6addr_vrf_1'], tc_cfg['lb_v6addr_vrf_1'])
+    org_bgp_cfg_ext += "router bgp {} vrf {}\nbgp router-id 50.50.50.1\nno bgp ebgp-requires-policy\nno bgp network import-check\nno bgp default ipv4-unicast\n".format(tc_cfg['ext_asn_no'], ref_vrf_2)
+    org_bgp_cfg_ext += "neighbor {} remote-as {}\n".format(tc_cfg['lb_addr_vrf_2'], leaf3_asn_no)
+    org_bgp_cfg_ext += "neighbor {} remote-as {}\n".format(tc_cfg['lb_v6addr_vrf_2'], leaf3_asn_no)
+    org_bgp_cfg_ext += "neighbor {} capability extended-nexthop\n".format(tc_cfg['lb_v6addr_vrf_2'])
+    org_bgp_cfg_ext += "address-family ipv6 unicast\nnetwork 221:1:1::/64\nneighbor {} activate\nneighbor {} route-map GLOBAL-NH-V6 in\nexit-address-family\n".format(tc_cfg['lb_v6addr_vrf_2'], tc_cfg['lb_v6addr_vrf_2'])
+    org_bgp_cfg_ext += "address-family ipv4 unicast\nnetwork 221.1.1.0/24\nneighbor {} activate\nexit-address-family\nend\nexit".format(tc_cfg['lb_addr_vrf_2'])
 
     vxlan_obj.config_dut(selected_dut, 'bgp', org_bgp_cfg_ext)
     st.wait(10)
@@ -7325,14 +7306,14 @@ def configure_external_router(request):
     cmd += "no router bgp {} vrf {}".format(leaf3_asn_no, ref_vrf_2)
     ###unconfig external router
     #bgp
-    cmd = "no router bgp {} vrf {}\n".format(ext_asn_no, ref_vrf_1)
-    cmd += "no router bgp {} vrf {}\nend\nexit\n".format(ext_asn_no, ref_vrf_2)
+    cmd = "no router bgp {} vrf {}\n".format(tc_cfg['ext_asn_no'], ref_vrf_1)
+    cmd += "no router bgp {} vrf {}\nend\nexit\n".format(tc_cfg['ext_asn_no'], ref_vrf_2)
     vxlan_obj.config_dut(selected_dut, 'bgp', cmd)
     #interface
-    ip_obj.config_sub_interface(dut = 'leaf3', intf = leaf3_int_vrf_1, vlan = ext_sub_int_vlan_id_1, config = 'no')
-    ip_obj.config_sub_interface(dut = selected_dut, intf = ext_dut_int_vrf_1, vlan = ext_sub_int_vlan_id_1, config = 'no')
-    ip_obj.config_sub_interface(dut = 'leaf3', intf = leaf3_int_vrf_2, vlan = ext_sub_int_vlan_id_2, config = 'no')
-    ip_obj.config_sub_interface(dut = selected_dut, intf = ext_dut_int_vrf_2, vlan = ext_sub_int_vlan_id_2, config = 'no')
+    ip_obj.config_sub_interface(dut = 'leaf3', intf = leaf3_int_vrf_1, vlan = tc_cfg['ext_sub_int_vlan_id_1'], config = 'no')
+    ip_obj.config_sub_interface(dut = selected_dut, intf = ext_dut_int_vrf_1, vlan = tc_cfg['ext_sub_int_vlan_id_1'], config = 'no')
+    ip_obj.config_sub_interface(dut = 'leaf3', intf = leaf3_int_vrf_2, vlan = tc_cfg['ext_sub_int_vlan_id_2'], config = 'no')
+    ip_obj.config_sub_interface(dut = selected_dut, intf = ext_dut_int_vrf_2, vlan = tc_cfg['ext_sub_int_vlan_id_2'], config = 'no')
     #sonic
     vrf_obj.config_vrf(dut = selected_dut, vrf_name = ref_vrf_1, config = 'no')
     vrf_obj.config_vrf(dut = selected_dut, vrf_name = ref_vrf_2, config = 'no')
@@ -7764,6 +7745,11 @@ def tgen_ext_conn_preconfig():
     topology_handles = [ext_topo_handles['external_router'][ext_tgen_intf['external_router'][0]]['topology_handle']]
     for topology in topology_handles:
         tg_handle.tg_topology_config(topology_handle =topology, mode = 'destroy')
+
+def restore_helper_file(dut):
+    st.config(dut, "mkdir -p /etc/spytest/remote")
+    st.config(dut, "cp /etc/sonic/spytest-helper.py /etc/spytest/remote/spytest-helper.py")
+    st.config(dut, "ls -lrt /etc | grep spytest")
 
 @pytest.mark.usefixtures('tgen_health_check_class', 'configure_external_router', 'tgen_ext_conn_preconfig')
 class TestVxlanExternalConnectivity():

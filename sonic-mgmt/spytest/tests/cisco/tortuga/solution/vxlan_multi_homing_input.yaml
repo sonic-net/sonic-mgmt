@@ -852,6 +852,20 @@ testcases:
         src_vlan_id_2: 4
         spine_host_vlan_1: 3
         spine_host_vlan_2: 4
+        ext_sub_int_vlan_id_1: 201
+        ext_sub_int_vlan_id_2: 202
+        lb_addr_vrf_1: '21.1.1.1'
+        lb_v6addr_vrf_1: '2100:1:1::1'
+        ext_addr_vrf_1: '21.1.1.2'
+        ext_v6addr_vrf_1: '2100:1:1::2'
+        lb_addr_vrf_2: '22.1.1.1'
+        lb_v6addr_vrf_2: '2200:1:1::1'
+        ext_addr_vrf_2: '22.1.1.2'
+        ext_v6addr_vrf_2: '2200:1:1::2'
+        ext_asn_no: '65203'
+        host_addr_1: '90.0.0.1'
+        host_mask_1: '24'
+        host_gateway_1: '80.2.0.10'
 
     test_local_bridged_traffic:
         port_channel_num: 1
