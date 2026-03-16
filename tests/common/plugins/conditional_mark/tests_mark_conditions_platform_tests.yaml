@@ -1446,7 +1446,7 @@ platform_tests/test_reboot.py::test_soft_reboot:
   skip:
     reason: "Skip test_soft_reboot for M* and test is supported only on S6100 hwsku"
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1'] or hwsku not in ['Force10-S6100']"
+      - "topo_type in ['m0', 'mx', 'm1'] or hwsku not in ['Force10-S6100'] or hwsku in ['Nokia-7215-C1', 'Nokia-7215-C1-G3']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
