@@ -605,6 +605,44 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps(ori_config_db, indent=4)
 
+    def _parse_zebra_nexthop_from_minigraph(self):
+        """Parse ZebraNexthop attribute directly from /etc/sonic/minigraph.xml."""
+        try:
+            import xml.etree.ElementTree as ET
+            tree = ET.parse("/etc/sonic/minigraph.xml")
+            root = tree.getroot()
+            for prop in root.iter():
+                if prop.tag.split('}')[-1] == 'DeviceProperty':
+                    name_elem = None
+                    value_elem = None
+                    for child in prop:
+                        tag = child.tag.split('}')[-1]
+                        if tag == 'Name':
+                            name_elem = child
+                        elif tag == 'Value':
+                            value_elem = child
+                    if name_elem is not None and name_elem.text == 'ZebraNexthop' and value_elem is not None:
+                        return value_elem.text
+        except Exception:
+            pass
+        return None
+
+    def update_zebra_nexthop_config(self, config):
+        """Inject zebra_nexthop into DEVICE_METADATA from minigraph if present.
+
+        sonic_cfggen does not parse ZebraNexthop from minigraph, so we read
+        the XML directly and set it via the golden_config_db override mechanism.
+        """
+        zebra_nexthop = self._parse_zebra_nexthop_from_minigraph()
+        if zebra_nexthop is None:
+            return config
+        ori_config_db = json.loads(config)
+        if "DEVICE_METADATA" not in ori_config_db:
+            ori_config_db["DEVICE_METADATA"] = {}
+        if "localhost" not in ori_config_db["DEVICE_METADATA"]:
+            ori_config_db["DEVICE_METADATA"]["localhost"] = {}
+        ori_config_db["DEVICE_METADATA"]["localhost"]["zebra_nexthop"] = zebra_nexthop
+        return json.dumps(ori_config_db, indent=4)
     def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2 to enable FEC.
@@ -656,6 +694,9 @@ class GenerateGoldenConfigDBModule(object):
         # update dns config
         config = self.update_dns_config(config)
 
+        # update zebra_nexthop config from minigraph
+        config = self.update_zebra_nexthop_config(config)
+
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
         if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
@@ -694,3 +735,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
