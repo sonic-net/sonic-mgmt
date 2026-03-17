@@ -1556,12 +1556,12 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
             dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
             dut.shell(
                 f"{asic_arg} config route {cmd} prefix {DEST_TO_GATEWAY_MAP[addr]['dest']}/32 nexthop "
-                f"{addr} {DEST_TO_GATEWAY_MAP[addr]['intf']}"
+                f"{addr} dev {DEST_TO_GATEWAY_MAP[addr]['intf']}"
             )
         else:
             dut.shell(
                 f"{asic_arg} config route {cmd} prefix {DEST_TO_GATEWAY_MAP[addr]['dest']}/32 nexthop "
-                f"{addr} {DEST_TO_GATEWAY_MAP[addr]['intf']}"
+                f"{addr} dev {DEST_TO_GATEWAY_MAP[addr]['intf']}"
             )
             dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
     except RunAnsibleModuleFail:
