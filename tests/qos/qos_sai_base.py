@@ -678,7 +678,7 @@ class QosSaiBase(QosBase):
                 pytest_assert(
                     ipName in dutConfig["testPorts"], 'Not find {} for {} in dutConfig'.format(ipName, idName))
                 portIds.append(dutConfig["testPorts"][idName])
-        pytest_assert(self.replaceNonExistentPortId(testPortIds, set(portIds)), "No enough test ports")
+        pytest_assert(self.replaceNonExistentPortId(testPortIds, list(portIds)), "No enough test ports")
         for idx, idName in enumerate(portIdNames):
             dutConfig["testPorts"][idName] = portIds[idx]
             ipName = idName.replace('id', 'ip')
