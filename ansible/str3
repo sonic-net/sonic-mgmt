@@ -627,13 +627,13 @@ sonic_cisco_8102_smartswitch:
         "0x22": "479717"
         "0x23": "FLM292808L6"
         "0x24": "F4:33:92:7D:38:E0"
-        "0x26": "0"
+        "0x26": "1"
         "0x28": "x86_64-8102_28fh_dpu_o-r0"
         "0x2A": "528"
         "0x2B": "Cisco"
         "0x2D": "Cisco"
         "0x2C": "US"
-        "0xFE": "0x187A33D9"
+        "0xFE": "0x633DFE3A"
       plt_reboot_dict:
         cold:
           timeout: 700
