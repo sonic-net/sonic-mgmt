@@ -52,6 +52,12 @@
     - set_fact:
         real_ansible_host: "{{ ansible_ssh_host }}"
 
+    - name: find supervisor dut of testbed
+      set_fact:
+        sup_dut: "{{ item | default(None) }}"
+      when: hostvars[item]['card_type'] is defined and hostvars[item]['card_type'] == 'supervisor'
+      loop: "{{ testbed_facts['duts'] }}"
+
     - block:
 
         - name: Set next boot device to ONIE
@@ -115,12 +121,14 @@
 
         # Reboot may need some time to update firmware firstly.
         # Increasing the async time to 300 seconds to avoid reboot being interrupted.
-        - name: Reboot switch
+        # Don't reboot supervisor yet as it could interrupt linecard initialization.
+        - name: Reboot devices
           become: true
           shell: reboot
           async: 300
           poll: 0
           ignore_errors: true
+          when: inventory_hostname != sup_dut
 
       when: upgrade_type == "sonic"
 
@@ -135,6 +143,31 @@
         delay: 180
         timeout: 600
       changed_when: false
+
+    # reboot supervisor and wait for it to come back
+    - block:
+      - name: Reboot supervisor
+        become: true
+        shell: reboot
+        async: 300
+        poll: 0
+        ignore_errors: true
+
+      - name: Wait for sup to come back (to SONiC)
+        local_action: wait_for
+        args:
+          host: "{{ real_ansible_host }}"
+          port: 22
+          state: started
+          search_regex: "OpenSSH"
+          delay: 180
+          timeout: 600
+        changed_when: false
+
+      - name: Wait for chassis initialization
+        pause: seconds=60
+
+      when: upgrade_type == "sonic" and inventory_hostname == sup_dut
 
     - name: Wait for SONiC initialization
       pause: seconds=60
