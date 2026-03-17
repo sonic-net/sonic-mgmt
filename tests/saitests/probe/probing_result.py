@@ -65,7 +65,9 @@ class ThresholdResult:
     @property
     def is_range(self) -> bool:
         """Check if result is a range (lower < upper)."""
-        return self.success and self.lower_bound < self.upper_bound
+        return (self.success and self.lower_bound is not None
+                and self.upper_bound is not None
+                and self.lower_bound < self.upper_bound)
 
     @property
     def value(self) -> Optional[int]:
