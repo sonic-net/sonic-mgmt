@@ -68,10 +68,14 @@ def setup_test_environment():
     ptf_mock.mask.Mask = MagicMock()
 
     # ========================================================================
-    # Step 2: Create scapy mock
+    # Step 2: Create scapy mock (with __path__ for Python 3.12+ compatibility)
     # ========================================================================
     scapy_mock = MagicMock()
+    scapy_mock.__path__ = []  # Required for Python 3.12+ to recognize as package
     scapy_mock.all = MagicMock()
+    scapy_layers_mock = MagicMock()
+    scapy_layers_mock.__path__ = []
+    scapy_layers_inet6_mock = MagicMock()
 
     # ========================================================================
     # Step 3: Create sai_base_test mock with ThriftInterfaceDataPlane class
@@ -104,6 +108,8 @@ def setup_test_environment():
     sys.modules['ptf.mask'] = ptf_mock.mask
     sys.modules['scapy'] = scapy_mock
     sys.modules['scapy.all'] = scapy_mock.all
+    sys.modules['scapy.layers'] = scapy_layers_mock
+    sys.modules['scapy.layers.inet6'] = scapy_layers_inet6_mock
     sys.modules['sai_base_test'] = sai_base_test_mock
     sys.modules['macsec'] = MagicMock()
     sys.modules['switch'] = MagicMock()
