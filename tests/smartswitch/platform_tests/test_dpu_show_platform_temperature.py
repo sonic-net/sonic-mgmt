@@ -75,6 +75,8 @@ def test_dpu_show_platform_temperature(duthosts, rand_one_dut_hostname):
     platform_temp_parsed = duthost.show_and_parse(cmd)
 
     platform = duthost.facts['platform']
+    if platform not in SENSORS:
+        pytest.skip("Platform '{}' not supported in temperature sensor test".format(platform))
     expected_sensors = SENSORS[platform]
     expected_sensor_values = EXPECTED_SENSOR_VALUES[platform]
 
