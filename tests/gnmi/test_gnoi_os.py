@@ -9,6 +9,8 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+# Import fixtures module to ensure pytest discovers them
+from tests.common.fixtures.grpc_fixtures import setup_gnoi_tls_server  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
