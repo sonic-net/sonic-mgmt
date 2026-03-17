@@ -554,6 +554,92 @@ class TestIngressDropProbing:
         else:
             print("[PASS] Inconsistent: Extreme inconsistency handled")
 
+    # ========================================================================
+    # G. Bug Fix Validation (3 tests)
+    # ========================================================================
+
+    def test_ingress_drop_threshold_at_one(self):
+        """
+        G1: Boundary - threshold at value 1 (lower-bound halving edge case)
+
+        Validates:
+        - Lower-bound algorithm terminates when current reaches 1
+        - No infinite loop from max(current // 2, 1) clamping
+        """
+        actual_threshold = 1
+
+        probe = create_ingress_drop_probe_instance(
+            actual_threshold=actual_threshold,
+            scenario=None,
+            enable_precise_detection=False,
+            precision_target_ratio=0.05
+        )
+
+        probe.runTest()
+        result = probe.probe_result
+
+        assert result is not None, "Probe should return a result even for threshold=1"
+        if result.success:
+            assert result.lower_bound <= actual_threshold <= result.upper_bound, \
+                f"Result [{result.lower_bound}, {result.upper_bound}] should bracket threshold {actual_threshold}"
+            print(f"[PASS] Threshold=1 boundary: result=[{result.lower_bound}, {result.upper_bound}]")
+        else:
+            print("[PASS] Threshold=1 boundary: completed (result=FAILED, expected for extreme case)")
+
+    def test_ingress_drop_threshold_at_two(self):
+        """
+        G2: Boundary - threshold at value 2 (binary search minimum range)
+
+        Validates:
+        - Binary search converges correctly at minimum meaningful range
+        """
+        actual_threshold = 2
+
+        probe = create_ingress_drop_probe_instance(
+            actual_threshold=actual_threshold,
+            scenario=None,
+            enable_precise_detection=False,
+            precision_target_ratio=0.05
+        )
+
+        probe.runTest()
+        result = probe.probe_result
+
+        assert result is not None, "Probe should return a result for threshold=2"
+        assert result.lower_bound <= actual_threshold <= result.upper_bound, \
+            f"Result [{result.lower_bound}, {result.upper_bound}] should bracket threshold {actual_threshold}"
+
+        print(f"[PASS] Threshold=2 boundary: result=[{result.lower_bound}, {result.upper_bound}]")
+
+    def test_ingress_drop_point_probing_with_intermittent_failures(self):
+        """
+        G3: Point Probing with intermittent verification failures
+
+        Validates:
+        - Point Probing handles verification failures (drain buffer recovery)
+        - Algorithm does not crash on intermittent executor failures
+        """
+        actual_threshold = 700
+
+        probe = create_ingress_drop_probe_instance(
+            actual_threshold=actual_threshold,
+            scenario='intermittent',
+            enable_precise_detection=True,
+            precise_detection_range_limit=100,
+            precision_target_ratio=0.01
+        )
+
+        probe.runTest()
+        result = probe.probe_result
+
+        assert result is not None, "Probe should return a result despite intermittent failures"
+        if result.success:
+            assert result.lower_bound <= actual_threshold <= result.upper_bound, \
+                f"Result [{result.lower_bound}, {result.upper_bound}] should bracket {actual_threshold}"
+            print(f"[PASS] Point Probing recovery: result=[{result.lower_bound}, {result.upper_bound}]")
+        else:
+            print("[PASS] Point Probing with intermittent: completed gracefully (result=FAILED due to noise)")
+
 
 def main():
     """Run complete Ingress Drop probing test suite."""
