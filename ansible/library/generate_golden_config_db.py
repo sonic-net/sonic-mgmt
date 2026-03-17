@@ -55,7 +55,7 @@ def is_full_lossy_hwsku(hwsku):
 class GenerateGoldenConfigDBModule(object):
     def __init__(self):
         self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str'),
-port_index_map=dict(required=False, type='dict', default=None),
+                                    port_index_map=dict(required=False, type='dict', default=None),
                                     macsec_profile=dict(required=False, type='str', default=None),
                                     num_asics=dict(required=False, type='int', default=1),
                                     hwsku=dict(required=False, type='str', default=None),
