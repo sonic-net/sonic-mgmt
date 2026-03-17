@@ -60,7 +60,9 @@ class ThresholdResult:
     @property
     def is_point(self) -> bool:
         """Check if result is a precise point (lower == upper)."""
-        return self.success and self.lower_bound == self.upper_bound
+        return (self.success and self.lower_bound is not None
+                and self.upper_bound is not None
+                and self.lower_bound == self.upper_bound)
 
     @property
     def is_range(self) -> bool:
