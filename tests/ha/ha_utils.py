@@ -218,6 +218,7 @@ def activate_secondary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_
             }
     return activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type)
 
+
 def _apply_ha_scope_gnmi(localhost, duthost, ptfhost, scope_key, fields, approved_pending_operation_ids=None):
     if apply_ha_messages is None or ha_scope_config is None:
         raise ModuleNotFoundError(
