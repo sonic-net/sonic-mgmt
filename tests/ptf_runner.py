@@ -83,7 +83,9 @@ def get_test_path(testdir, testname):
     """
     Returns two values
     - first: the complete path of the test based on testdir and testname.
-    - second: True if file is in 'py3' or 'probe' False otherwise
+    - second: True if file is in a subdirectory ('py3' or 'probe'), False otherwise.
+              Originally only 'py3' existed; 'probe' was added for the MMU threshold
+              probing framework.
     Raises FileNotFoundError if file is not found
     """
     curr_path = os.path.dirname(os.path.abspath(__file__))
@@ -137,8 +139,8 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
     cmd = ""
     ptf_img_type = get_ptf_image_type(host)
     logger.info('PTF image type: {}'.format(ptf_img_type))
-    test_fpath, in_py3 = get_test_path(testdir, testname)
-    logger.info('Test file path {}, in py3: {}'.format(test_fpath, in_py3))
+    test_fpath, in_subdir = get_test_path(testdir, testname)
+    logger.info('Test file path {}, in subdir: {}'.format(test_fpath, in_subdir))
     is_python3 = is_py3_compat(test_fpath)
 
     # The logic below automatically chooses the PTF binary to execute a test script
@@ -165,7 +167,7 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
             err_msg = 'cannot run Python 2 test in a Python 3 only {} {}'.format(testdir, testname)
             raise Exception(err_msg)
 
-    if in_py3:
+    if in_subdir:
         tdir = pathlib.Path(testdir).joinpath(test_subdir)
         cmd = "{} --test-dir {} {}".format(ptf_cmd, tdir, testname)
     else:
