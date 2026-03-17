@@ -100,30 +100,18 @@ class ThresholdPointProbingAlgorithm:
             # Start from lower_bound+1 since lower_bound is confirmed unreached (skip known value)
             step = self.step_size
             phase_time = 0.0  # Track cumulative phase time
+            drain_buffer = True  # First iteration always drains; reset to True on failure
 
             for iteration, current_packets in enumerate(range(lower_bound + 1, upper_bound + 1, step), start=1):
-                # Dynamic control variables based on iteration
-                if current_packets == lower_bound + 1:
-                    # First iteration: drain buffer and send total packets
-                    send_value = current_packets
-                    drain_buffer = True
-                    attempts = self.verification_attempts  # Allow retries on first check
-                else:
-                    # Subsequent iterations: incremental sending without buffer draining
-                    send_value = step
-                    drain_buffer = False
-                    attempts = 1  # No retries for incremental mode (unidirectional growth)
+                # Full send after drain, incremental otherwise
+                send_value = current_packets if drain_buffer else step
+                attempts = self.verification_attempts if drain_buffer else 1
 
-                # Pass current_packets as lower bound (current testing point) and
-                # upper_bound as window for markdown table display
-                # This ensures the bounds column shows the current search range
-                # [current_value, upper_bound]
                 self.observer.on_iteration_start(
                     iteration, current_packets, current_packets, upper_bound,
                     "init" if iteration == 1 else f"+{step}"
                 )
 
-                # Check if current packet count triggers threshold
                 success, detected = self.executor.check(
                     src_port, dst_port,
                     value=send_value,
@@ -138,11 +126,13 @@ class ThresholdPointProbingAlgorithm:
                 )
 
                 if not success:
-                    # Verification failed - this shouldn't happen with attempts=1 but handle gracefully
+                    # Buffer state unknown after failure — drain on next iteration
+                    drain_buffer = True
                     continue
 
+                drain_buffer = False  # Successful — switch to incremental mode
+
                 if detected:
-                    # Found precise threshold point!
                     precise_threshold = current_packets
                     return (precise_threshold, precise_threshold, phase_time)
 
