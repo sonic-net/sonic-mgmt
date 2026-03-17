@@ -11,12 +11,24 @@ from tests.common.dualtor.mux_simulator_control import (  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service  # noqa: F401
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_common import cable_type, CableType                                     # noqa: F401
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
+from tests.common.constants import CounterpollConstants
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology("dualtor")]
 
 SERVER_IPV4 = "192.168.0.100"
+
+COUNTERPOLL_TYPES = [
+    CounterpollConstants.QUEUE,
+    CounterpollConstants.PORT,
+    CounterpollConstants.PORT_BUFFER_DROP,
+    CounterpollConstants.RIF,
+    CounterpollConstants.WATERMARK,
+    CounterpollConstants.PG_DROP,
+    CounterpollConstants.ACL,
+]
 
 
 @pytest.fixture
@@ -165,6 +177,10 @@ def test_mac_move_during_switchover(
     """
     Trigger a MAC move during a switchover and verify that the switchover still completes successfully
     """
+
+    # Disable counterpolls to avoid timeout
+    ConterpollHelper.disable_counterpoll(rand_selected_dut, COUNTERPOLL_TYPES)
+
     # Learn the neighbor on the DUT
     testutils.send(ptfadapter, common_setup_teardown["ptf_intf1"], neigh_learn_pkt)
 
@@ -205,3 +221,6 @@ def test_mac_move_during_switchover(
 
     # recover mux conifg
     rand_selected_dut.shell("config mux mode auto all")
+
+    # Recover counterpolls
+    ConterpollHelper.enable_counterpoll(rand_selected_dut, COUNTERPOLL_TYPES)
