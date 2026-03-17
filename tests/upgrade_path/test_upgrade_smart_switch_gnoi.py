@@ -59,6 +59,8 @@ def smartswitch_gnoi_upgrade_lists(request):
         ss_reboot_ready_timeout = 1200
 
     parsed_indices = None
+    if not ss_target_indices:
+        parsed_indices = [0, 1]
     if ss_target_indices:
         parsed_indices = [int(x.strip()) for x in ss_target_indices.split(",") if x.strip()]
         if not parsed_indices:
