@@ -262,14 +262,31 @@ def recover_gnmi_cert(localhost, my_duthost, skip_cert_cleanup):
     _clear_gnmi_client_cert_role(my_duthost)
     if not skip_cert_cleanup:
         localhost.shell("rm -rf "+env.work_dir, module_ignore_errors=True)
-    dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
-    output = my_duthost.command(dut_command, module_ignore_errors=True)['stdout'].strip()
+    status_cmd = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
+    output = my_duthost.command(status_cmd, module_ignore_errors=True)['stdout'].strip()
     if 'RUNNING' in output:
         return
-    dut_command = "docker exec %s pkill telemetry" % (env.gnmi_container)
-    my_duthost.shell(dut_command, module_ignore_errors=True)
+    # Kill any leftover gNMI/telemetry process to avoid port conflicts.
+    for proc in ("telemetry", "gnmi"):
+        my_duthost.shell(
+            "docker exec %s pkill %s" % (env.gnmi_container, proc),
+            module_ignore_errors=True,
+        )
+    # Clear any failed supervisor state before attempting restart.
+    my_duthost.shell(
+        "systemctl reset-failed %s" % env.gnmi_container,
+        module_ignore_errors=True,
+    )
     dut_command = "docker exec %s supervisorctl start %s" % (env.gnmi_container, env.gnmi_program)
-    my_duthost.shell(dut_command)
+    my_duthost.shell(dut_command, module_ignore_errors=True)
+    time.sleep(3)
+    output = my_duthost.shell(status_cmd, module_ignore_errors=True)['stdout'].strip()
+    if 'RUNNING' not in output:
+        # Fallback to container restart to restore default supervisor-managed service.
+        my_duthost.shell(
+            "systemctl restart %s" % env.gnmi_container,
+            module_ignore_errors=True,
+        )
     time.sleep(env.gnmi_server_start_wait_time)
 
 
