@@ -17,6 +17,7 @@ from jinja2 import Template
 from netaddr import IPNetwork
 from ansible.plugins.filter.core import to_bool
 
+from tests.common.reboot import reboot                                      # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
@@ -350,3 +351,110 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
         if vxlan != "set_unset" or asic_type in ["cisco-8000"]:
             # in vxlan setunset case the config was not applied, hence DEL is also not required
             apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
+
+
+@pytest.mark.disable_loganalyzer
+def test_decap_warmboot(tbinfo, duthosts, localhost, ptfhost, setup_teardown, mux_server_url,           # noqa: F811
+                        toggle_all_simulator_ports_to_random_side, supported_ttl_dscp_params,           # noqa: F811
+                        ip_ver, loopback_ips, duts_running_config_facts, duts_minigraph_facts,
+                        mux_status_from_nic_simulator):                                                 # noqa: F811
+    """
+    Test that IPinIP decap rules are present and functional after warm-reboot.
+
+    Test steps:
+    1. Apply decap configuration and verify IPinIP traffic is decapsulated correctly before warm-reboot
+    2. Save config and perform warm-reboot
+    3. Verify decap rules are still present in APP_DB/ASIC_DB after warm-reboot
+    4. Verify IPinIP traffic is decapsulated correctly after warm-reboot
+
+    Addresses issue: https://github.com/sonic-net/sonic-mgmt/issues/16480
+    """
+    setup_info = setup_teardown
+    asic_type = duthosts[0].facts["asic_type"]
+    ecn_mode = "copy_from_outer"
+    ttl_mode = supported_ttl_dscp_params['ttl']
+    dscp_mode = supported_ttl_dscp_params['dscp']
+    vxlan = supported_ttl_dscp_params['vxlan']
+
+    # Skip vxlan set_unset variant — not relevant for warmboot persistence test
+    if vxlan == "set_unset":
+        pytest.skip("Skipping warmboot test for vxlan set_unset variant")
+
+    try:
+        # Step 1: Apply decap config and verify traffic before warm-reboot
+        apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
+
+        if 'dualtor' in tbinfo['topo']['name']:
+            wait(30, 'Wait for mux active/standby state to stabilize')
+
+        logger.info("Verifying decap traffic BEFORE warm-reboot")
+        launch_ptf_runner(
+            ptfhost=ptfhost,
+            tbinfo=tbinfo,
+            duthosts=duthosts,
+            mux_server_url=mux_server_url,
+            duts_running_config_facts=duts_running_config_facts,
+            duts_minigraph_facts=duts_minigraph_facts,
+            mux_status_from_nic_simulator=mux_status_from_nic_simulator,
+            setup_info=setup_info,
+            outer_ipv4=setup_info["outer_ipv4"],
+            outer_ipv6=setup_info["outer_ipv6"],
+            inner_ipv4=setup_info["inner_ipv4"],
+            inner_ipv6=setup_info["inner_ipv6"],
+            ttl_mode=ttl_mode,
+            dscp_mode=dscp_mode,
+            asic_type=asic_type,
+        )
+
+        # Step 2: Save config and perform warm-reboot
+        for duthost in duthosts:
+            if not duthost.is_supervisor_node():
+                duthost.shell('config save -y')
+
+        logger.info("Performing warm-reboot")
+        reboot(duthosts[0], localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
+
+        # Step 3: Verify decap rules are present in APP_DB after warm-reboot
+        logger.info("Verifying decap rules in APP_DB after warm-reboot")
+        for duthost in duthosts:
+            if duthost.is_supervisor_node():
+                continue
+            for asic_id in duthost.get_frontend_asic_ids():
+                result = duthost.shell(
+                    'sonic-db-cli{} APP_DB keys "TUNNEL_DECAP_TABLE:*"'.format(
+                        " -n {}".format(asic_id) if asic_id is not None else ""
+                    )
+                )
+                assert result['stdout'].strip(), \
+                    "No decap tunnel entries found in APP_DB on {} asic {} after warm-reboot".format(
+                        duthost.hostname, asic_id
+                    )
+                logger.info("Decap rules present on {} asic {}: {}".format(
+                    duthost.hostname, asic_id, result['stdout'].strip()
+                ))
+
+        # Step 4: Verify traffic is decapsulated correctly after warm-reboot
+        if 'dualtor' in tbinfo['topo']['name']:
+            wait(30, 'Wait for mux active/standby state to stabilize after warm-reboot')
+
+        logger.info("Verifying decap traffic AFTER warm-reboot")
+        launch_ptf_runner(
+            ptfhost=ptfhost,
+            tbinfo=tbinfo,
+            duthosts=duthosts,
+            mux_server_url=mux_server_url,
+            duts_running_config_facts=duts_running_config_facts,
+            duts_minigraph_facts=duts_minigraph_facts,
+            mux_status_from_nic_simulator=mux_status_from_nic_simulator,
+            setup_info=setup_info,
+            outer_ipv4=setup_info["outer_ipv4"],
+            outer_ipv6=setup_info["outer_ipv6"],
+            inner_ipv4=setup_info["inner_ipv4"],
+            inner_ipv6=setup_info["inner_ipv6"],
+            ttl_mode=ttl_mode,
+            dscp_mode=dscp_mode,
+            asic_type=asic_type,
+        )
+
+    finally:
+        apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
