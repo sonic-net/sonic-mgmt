@@ -425,6 +425,42 @@ class TestThresholdPointProbingFixedRangeConvergence(unittest.TestCase):
             f"Worst case: {range_size} iterations for {range_size}-cell range"
         assert point == 5200  # 5000 + 200
 
+    @pytest.mark.order(8570)
+    def test_run_failure_recovery_drains_buffer(self):
+        """Bug #2: After verification failure, next iteration must drain buffer.
+
+        Reproduces: When executor returns success=False, the algorithm does 'continue'
+        but next iteration still uses drain_buffer=False. The buffer state is unknown
+        after a failure, so incremental sending on top of it produces wrong results.
+        After a failure, the next iteration should reset with drain_buffer=True.
+        """
+        self.setUp()
+        self.mock_executor.check.side_effect = [
+            (True, False),   # 101: first iteration, drain_buffer=True (normal)
+            (False, False),  # 102: FAILURE — buffer state now unknown
+            (True, True),    # 103: should have drain_buffer=True to recover
+        ]
+
+        algo = ThresholdPointProbingAlgorithm(self.mock_executor, self.mock_observer)
+        lower, upper, phase_time = algo.run(
+            src_port=24, dst_port=28, lower_bound=100, upper_bound=110
+        )
+
+        # Verify the calls
+        calls = self.mock_executor.check.call_args_list
+        assert len(calls) == 3
+
+        # First call (iteration 1): drain_buffer=True (always for first)
+        assert calls[0][1]['drain_buffer'] is True
+
+        # Second call (iteration 2): drain_buffer=False (incremental, this is fine)
+        assert calls[1][1]['drain_buffer'] is False
+
+        # Third call (iteration 3, AFTER FAILURE): must drain buffer to recover
+        # from unknown state. This is the bug — current code keeps drain_buffer=False.
+        assert calls[2][1]['drain_buffer'] is True, \
+            "After verification failure, next iteration must drain buffer to recover"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

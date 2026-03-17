@@ -278,6 +278,37 @@ class TestLowerBoundProbingAlgorithm:
         assert complete_calls[0][0][2].value == IterationOutcome.REACHED.value
         assert complete_calls[1][0][2].value == IterationOutcome.UNREACHED.value
 
+    @pytest.mark.order(8340)
+    def test_run_no_infinite_loop_at_current_one(self):
+        """Bug #1: Algorithm infinite loops when current=1 and threshold is always reached.
+
+        Reproduces: max(1 // 2, 1) == 1, so current never decreases below 1.
+        With upper_bound=2, start=1, if threshold is always reached at current=1,
+        the loop should terminate promptly (not spin for max_iterations).
+        """
+        self.setUp()
+        # Always detected at current=1 — should NOT loop indefinitely
+        call_count = 0
+
+        def counting_check(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            return (True, True)  # Always triggered
+
+        self.mock_executor.check.side_effect = counting_check
+
+        algo = LowerBoundProbingAlgorithm(self.mock_executor, self.mock_observer)
+        result, phase_time = algo.run(src_port=24, dst_port=28, upper_bound=2)
+
+        # Algorithm should terminate with None (can't find lower bound)
+        assert result is None
+        # Critical: should NOT take more than a handful of iterations.
+        # With upper_bound=2, start=1, if current=1 is still triggered,
+        # algorithm should recognize it cannot go lower and exit.
+        # A reasonable bound is <= 5 iterations, not 50 (max_iterations default).
+        assert call_count <= 5, \
+            f"Algorithm took {call_count} iterations at current=1 — likely infinite loop bug"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
