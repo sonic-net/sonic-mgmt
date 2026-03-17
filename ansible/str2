@@ -480,6 +480,7 @@ sonic:
     sonic_nokia_7215:
     sonic_cisco_8102:
     sonic_cisco_8102_smartswitch:
+    sonic_pensando_elba_smartswitch_dpu:
     sonic_cisco_8101:
     sonic_cisco_8101_tornado_O8V48:
     sonic_cisco_8101_tornado_V64:
@@ -2514,6 +2515,76 @@ sonic_cisco_8102_smartswitch:
         "0x2C": "US"
         "0x2D": "Cisco"
         "0xFE": "0x3DDA0171"
+
+sonic_pensando_elba_smartswitch_dpu:
+  vars:
+    hwsku: Pensando-elba
+    iface_speed: 200000
+  hosts:
+    str2-8102-smartswitch-03-dpu-0:
+      ansible_host: 10.64.246.173
+      ansible_ssh_port: 5021
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-03-dpu-1:
+      ansible_host: 10.64.246.173
+      ansible_ssh_port: 5022
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-03-dpu-2:
+      ansible_host: 10.64.246.173
+      ansible_ssh_port: 5023
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-03-dpu-3:
+      ansible_host: 10.64.246.173
+      ansible_ssh_port: 5024
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-03-dpu-4:
+      ansible_host: 10.64.246.173
+      ansible_ssh_port: 5025
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-03-dpu-5:
+      ansible_host: 10.64.246.173
+      ansible_ssh_port: 5026
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-03-dpu-6:
+      ansible_host: 10.64.246.173
+      ansible_ssh_port: 5027
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-03-dpu-7:
+      ansible_host: 10.64.246.173
+      ansible_ssh_port: 5028
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-04-dpu-0:
+      ansible_host: 10.64.246.175
+      ansible_ssh_port: 5021
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-04-dpu-1:
+      ansible_host: 10.64.246.175
+      ansible_ssh_port: 5022
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-04-dpu-2:
+      ansible_host: 10.64.246.175
+      ansible_ssh_port: 5023
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-04-dpu-3:
+      ansible_host: 10.64.246.175
+      ansible_ssh_port: 5024
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-04-dpu-4:
+      ansible_host: 10.64.246.175
+      ansible_ssh_port: 5025
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-04-dpu-5:
+      ansible_host: 10.64.246.175
+      ansible_ssh_port: 5026
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-04-dpu-6:
+      ansible_host: 10.64.246.175
+      ansible_ssh_port: 5027
+      mgmt_subnet_mask_length: 25
+    str2-8102-smartswitch-04-dpu-7:
+      ansible_host: 10.64.246.175
+      ansible_ssh_port: 5028
+      mgmt_subnet_mask_length: 25
 
 sonic_cisco_8101:
   vars:

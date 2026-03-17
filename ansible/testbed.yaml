@@ -3599,6 +3599,22 @@
   dut:
     - str2-8102-smartswitch-03
     - str2-8102-smartswitch-04
+    - str2-8102-smartswitch-03-dpu-0
+    - str2-8102-smartswitch-03-dpu-1
+    - str2-8102-smartswitch-03-dpu-2
+    - str2-8102-smartswitch-03-dpu-3
+    - str2-8102-smartswitch-03-dpu-4
+    - str2-8102-smartswitch-03-dpu-5
+    - str2-8102-smartswitch-03-dpu-6
+    - str2-8102-smartswitch-03-dpu-7
+    - str2-8102-smartswitch-04-dpu-0
+    - str2-8102-smartswitch-04-dpu-1
+    - str2-8102-smartswitch-04-dpu-2
+    - str2-8102-smartswitch-04-dpu-3
+    - str2-8102-smartswitch-04-dpu-4
+    - str2-8102-smartswitch-04-dpu-5
+    - str2-8102-smartswitch-04-dpu-6
+    - str2-8102-smartswitch-04-dpu-7
   inv_name: str2
   auto_recover: 'True'
   is_smartswitch: 'True'
