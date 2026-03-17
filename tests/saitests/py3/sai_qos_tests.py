@@ -7855,8 +7855,7 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
 
 class VoqCreditWDCounterTest(sai_base_test.ThriftInterfaceDataPlane):
     """
-    Test that the VOQ Credit-WD-Del counter increments on a single-ASIC broadcom-dnx
-    VOQ device.
+    Test that the VOQ Credit-WD-Del counter increments on a broadcom-dnx VOQ device.
 
     The test disables TX on a destination port via SAI thrift (without disabling the
     credit watchdog), sends traffic to back up the VOQ, and waits for the credit
@@ -7879,6 +7878,8 @@ class VoqCreditWDCounterTest(sai_base_test.ThriftInterfaceDataPlane):
         asic_type = self.test_params['sonic_asic_type']
         pkts_num = int(self.test_params.get('pkts_num', 100))
         packet_length = int(self.test_params.get('packet_size', 1350))
+        dutInterfaces = self.test_params['dutInterfaces']
+        testPorts = self.test_params['testPorts']
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
 
@@ -7900,6 +7901,10 @@ class VoqCreditWDCounterTest(sai_base_test.ThriftInterfaceDataPlane):
         )
         log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
 
+        # Get the interface name for the destination port to filter counters precisely
+        dst_port_name = dutInterfaces[testPorts["dst_port_id"]]
+        log_message("dst_port_name: {}".format(dst_port_name), to_stderr=True)
+
         # Use the low-level sai_thrift_port_tx_disable (from switch.py) which sets
         # SAI_PORT_ATTR_PKT_TX_ENABLE=0 WITHOUT disabling the credit watchdog.
         # This allows the credit watchdog to fire and increment Credit-WD-Del.
@@ -7909,13 +7914,12 @@ class VoqCreditWDCounterTest(sai_base_test.ThriftInterfaceDataPlane):
             # Send packets to back up the VOQ
             send_packet(self, src_port_id, pkt, pkts_num)
 
-            # Poll for the Credit-WD-Del counter to increase on the DUT
+            # Poll for the Credit-WD-Del counter to increase on the specific dst port
             credit_wd_del_cmd = (
                 "show queue counters --voq --nonzero"
-                " | grep -i 'Ethernet'"
-                " | grep -vi 'Ethernet-IB'"
+                " | grep -i '{dst_port}'"
                 " | grep -i 'VOQ0'"
-                " | awk '{print $7}'"
+                " | awk '{{print $7}}'".format(dst_port=dst_port_name)
             )
 
             def credit_wd_del_increasing():
