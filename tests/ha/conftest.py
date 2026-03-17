@@ -728,6 +728,15 @@ def setup_dash_ha_from_json(duthosts):
     ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
 
     logger.info("HA: setup from json for Primary and Standby")
+
+    # Workaround for the neigh resolve issue
+    # To be removed after fixes are merged: PR 147, 148 in sonic-dash-ha
+    for i in range(len(duthosts)):
+        logger.info(f"Sending ping to DPU0 for {duthosts[i].hostname}")
+        ip_part = 200 + i
+        ping_result = duthosts[i].shell(f"ping -c 3 20.0.{ip_part}.1", module_ignore_errors=True)["stdout"]
+        logger.info(f"{duthosts[i].hostname} ping_result [{ping_result}]")
+
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
 
