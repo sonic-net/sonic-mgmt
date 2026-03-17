@@ -734,7 +734,8 @@ def setup_dash_ha_from_json(duthosts):
     for i in range(len(duthosts)):
         logger.info(f"Sending ping to DPU0 for {duthosts[i].hostname}")
         ip_part = 200 + i
-        duthosts[i].shell(f"ping -c 3 20.0.{ip_part}.1")
+        ping_result = duthosts[i].shell(f"ping -c 3 20.0.{ip_part}.1", module_ignore_errors=True)["stdout"]
+        logger.info(f"{duthosts[i].hostname} ping_result [{ping_result}]")
 
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
