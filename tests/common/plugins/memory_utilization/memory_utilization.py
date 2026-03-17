@@ -319,7 +319,6 @@ class MemoryMonitor:
                     break
 
         if is_increase:
-            val_str, th_str = format_threshold_and_value(threshold, value)
             # For percentage threshold, display actual % increase; otherwise display raw increase (e.g. MB)
             prev_f = float(prev_val)
             if threshold_type == 'percentage' and prev_f > 0:
