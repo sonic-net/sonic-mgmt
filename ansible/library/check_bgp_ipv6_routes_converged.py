@@ -57,7 +57,16 @@ def toggle_bgp_neighbors_in_parallel(module, ip_addrs, state, parallelism=100, r
         "' sh\n"
         "{ip_payload}EOF_NEIGHBORS\n"
     ).format(p=p, db=db, state=state, ip_payload=ip_payload)
-    _execute_command_on_dut(module, cmd)
+
+    out = _execute_command_on_dut(module, cmd)
+    # Validate that at least one neighbor was toggled
+    toggled_count = sum(1 for line in out.strip().split('\n') if line.startswith(state))
+    if toggled_count == 0:
+        module.fail_json(
+            msg="No BGP neighbor keys were toggled. All keys missing in CONFIG_DB. "
+                "Check testbed configuration - IPv6 addresses may not match CONFIG_DB entries. "
+                "Attempted to toggle neighbors: {}".format(ip_addrs)
+        )
 
 
 def _perform_action_on_connections(module, action, connection_type, targets):
@@ -89,6 +98,7 @@ def _execute_command_on_dut(module, cmd):
     if rc != 0:
         module.fail_json(msg=f"Command failed: {err}")
     logging.info("Command completed successfully.")
+    return out
 
 
 def compare_routes(running_routes, expected_routes):

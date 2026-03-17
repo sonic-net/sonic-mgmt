@@ -520,6 +520,8 @@ def _select_targets_to_flap(bgp_peers_info, flapping_count):
     """Selects flapping_neighbors_ipv6, injection_neighbor, flapping_ports, injection_port"""
     bgp_neighbors = list(bgp_peers_info.keys())
     pytest_assert(len(bgp_neighbors) >= 2, "At least two BGP neighbors required for flap test")
+    pytest_assert(flapping_count in ('all', 'all-minus-one') or flapping_count < len(bgp_neighbors),
+                  "Flapping count must be less than number of neighbors or 'all'/'all-minus-one'")
     if flapping_count in ('all', 'all-minus-one'):
         injection_neighbor = random.choice(bgp_neighbors)
         flapping_neighbors = [n for n in bgp_neighbors if flapping_count == 'all' or n != injection_neighbor]
@@ -600,21 +602,26 @@ def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count
         logger.warning(f"Action {action} provided is not supported, skipping flapper function")
         return {}
 
-    pkts = generate_packets(
-        prefixes,
-        duthost.facts['router_mac'],
-        pdp.get_mac(pdp.port_to_device(injection_port), injection_port),
-        icmp_type
-    )
-    # Downtime ratio is calculated by dividing the number of flapping neighbors by 5, from test data
-    downtime_ratio = len(flapping_connections) / 5
-    downtime_threshold = _get_max_time('dataplane_downtime', downtime_ratio)
-    terminated = Event()
-    traffic_thread = Thread(
-        target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
-    )
-    flush_counters(pdp, exp_mask)
-    traffic_thread.start()
+    skip_dataplane_check = flapping_count == 'all'
+
+    if not skip_dataplane_check:
+        pkts = generate_packets(
+            prefixes,
+            duthost.facts['router_mac'],
+            pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
+        )
+        # Downtime ratio is calculated by dividing the number of flapping neighbors by 5, from test data
+        downtime_ratio = len(flapping_connections) / 5
+        downtime_threshold = _get_max_time('dataplane_downtime', downtime_ratio)
+        terminated = Event()
+        traffic_thread = Thread(
+            target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
+        )
+        flush_counters(pdp, exp_mask)
+        traffic_thread.start()
+    else:
+        terminated = None
+        traffic_thread = None
     start_time = datetime.datetime.now()
     LOG_STAMP = "RP_ANALYSIS_STAMP_%s" % start_time.strftime("%Y%m%d_%H%M%S")
     duthost.shell('sudo logger "%s"' % LOG_STAMP)
@@ -628,20 +635,25 @@ def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count
             compressed=True,
             action=action
         )
-        terminated.set()
-        traffic_thread.join()
-        end_time = datetime.datetime.now()
-        acceptable_downtime = validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, downtime_threshold)
-        if not acceptable_downtime:
-            if action == 'shutdown':
-                _restore(duthost, connection_type, flapping_connections)
-            pytest.fail(f"Dataplane downtime is too high, threshold is {downtime_threshold} seconds")
-        if not result.get("converged"):
-            pytest.fail("BGP routes are not stable in long time")
+        if not skip_dataplane_check:
+            terminated.set()
+            traffic_thread.join()
+            end_time = datetime.datetime.now()
+            acceptable_downtime = validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, downtime_threshold)
+            if not acceptable_downtime:
+                if action == 'shutdown':
+                    _restore(duthost, connection_type, flapping_connections)
+                pytest.fail(f"Dataplane downtime is too high, threshold is {downtime_threshold} seconds")
+            if not result.get("converged"):
+                pytest.fail("BGP routes are not stable in long time")
+        else:
+            end_time = datetime.datetime.now()
+            test_results[current_test] = "Skipped dataplane check due to all connections flapping"
     finally:
         # Ensure traffic is stopped
-        terminated.set()
-        traffic_thread.join()
+        if terminated and traffic_thread:
+            terminated.set()
+            traffic_thread.join()
     rp_start_time = get_route_programming_start_time_from_syslog(duthost, connection_type, action, LOG_STAMP)
     if rp_start_time:
         RP_metrics = get_route_programming_metrics_from_sairedis_replay(duthost, rp_start_time)
