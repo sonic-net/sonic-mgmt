@@ -203,7 +203,7 @@ class TestQosProbe(QosSaiBase):
 
         portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
         if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
-            qosConfig = dutQosConfig["param"][portSpeedCableLength][" breakout"]
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
         else:
             qosConfig = dutQosConfig["param"][portSpeedCableLength]
 
