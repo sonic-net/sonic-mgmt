@@ -39,7 +39,8 @@ EOF
     yield
 
     duthost.command(f"sudo rm {copp_trap_ospf_rule_json}")
-
+    config_reload(duthost, config_source='config_db', safe_reload=True)
+    time.sleep(10)
     return duthost
 
 

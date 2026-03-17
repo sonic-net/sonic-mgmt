@@ -1,7 +1,11 @@
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+import re
+import ipaddress
+import time
 import json
 import logging
+import pytest
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 import ptf.packet as scapy
 
 
@@ -22,7 +26,7 @@ def restart_dhcp_service(duthost):
     duthost.shell('systemctl reset-failed dhcp_relay')
 
     def _is_dhcp_relay_ready():
-        output = duthost.shell('docker exec dhcp_relay supervisorctl status | grep dhcp | awk \'{print $2}\'',
+        output = duthost.shell('docker exec dhcp_relay supervisorctl status | grep dhc | awk \'{print $2}\'',
                                module_ignore_errors=True)
         return (not output['rc'] and output['stderr'] == '' and len(output['stdout_lines']) != 0 and
                 all(element == 'RUNNING' for element in output['stdout_lines']))
@@ -374,3 +378,161 @@ def merge_counters(source_counter, merge_counter, is_v6=False):
         for dhcp_type in SUPPORTED_DHCPV6_TYPE if is_v6 else SUPPORTED_DHCPV4_TYPE:
             source_counter[dir][dhcp_type] = source_counter.get(dir, {}).get(dhcp_type, 0) + \
                                                                     merge_counter.get(dir, {}).get(dhcp_type, 0)
+
+
+def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
+    """
+    Enable or disable the SONiC DHCPv4 feature flag and restart the DHCP service on the DUT.
+    """
+    if dhcpv4_config_flag:
+        duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay" "True"',
+                      module_ignore_errors=True)
+    else:
+        duthost.shell('sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" "has_sonic_dhcpv4_relay"',
+                      module_ignore_errors=True)
+
+    # Save the config and restart DHCP relay service
+    duthost.shell('sudo config save -y', module_ignore_errors=True)
+    restart_dhcp_service(duthost)
+
+
+@pytest.fixture()
+def enable_sonic_dhcpv4_relay_agent(duthost, request):
+    """
+    Fixture to enable the DHCP relay feature flag and restart the service.
+    """
+    if "skip_config_dhcpv4_relay_agent" in request.keywords:
+        yield
+        return
+
+    if "dut_dhcp_relay_data" in request.fixturenames:
+        dut_dhcp_relay_data = request.getfixturevalue("dut_dhcp_relay_data")
+    else:
+        dut_dhcp_relay_data = None
+
+    try:
+        if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
+            sonic_dhcpv4_flag_config_and_unconfig(duthost, True)
+            sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, True)
+        yield
+    finally:
+        # Cleanup: disable the feature flag
+        if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
+            sonic_dhcpv4_flag_config_and_unconfig(duthost, False)
+            sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+
+
+def check_dhcpv4_socket_status(duthost, dut_dhcp_relay_data=None, process_and_socket_check=None):
+    """
+    Check if the DHCP relay agent is running and listening on expected sockets.
+    Works for dhcp4relay.
+
+    """
+    # If checking for socket bindings
+    cmd = "docker exec -t dhcp_relay ss -nlp | grep dhcp4relay"
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    output = result.get("stdout", "")
+
+    # Basic static checks
+    expected_static_patterns = [
+        r"p_raw\s+UNCONN.*dhcp4relay",
+        r"udp\s+UNCONN.*0\.0\.0\.0:67.*dhcp4relay"
+    ]
+
+    for pattern in expected_static_patterns:
+        if not re.search(pattern, output):
+            logger.error("Missing expected socket match: %s", pattern)
+            return False
+
+    # Validate presence of DHCPv4 socket for each downlink VLAN interface from test data
+    if dut_dhcp_relay_data is None:
+        logger.error("Missing dut_dhcp_relay_data for VLAN check")
+        return False
+
+    for dhcp_relay in dut_dhcp_relay_data:
+        vlan_iface_name = dhcp_relay['downlink_vlan_iface']['name']
+        vlan_pattern = r"%{}:67.*dhcp4relay".format(re.escape(vlan_iface_name))
+        if not re.search(vlan_pattern, output):
+            logger.error("Missing expected DHCPv4 VLAN socket for %s:67", vlan_iface_name)
+            return False
+
+    return True
+
+
+def sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, socket_check=True):
+
+    if dut_dhcp_relay_data:
+        for dhcp_relay in dut_dhcp_relay_data:
+            vlan = str(dhcp_relay['downlink_vlan_iface']['name'])
+            dhcp_servers = ",".join(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
+            duthost.shell(f'config dhcpv4_relay add --dhcpv4-servers {dhcp_servers} {vlan}')
+
+        if socket_check:
+            pytest_assert(wait_until(40, 5, 0, check_dhcpv4_socket_status, duthost, dut_dhcp_relay_data,
+                          "sonic_dhcpv4_socket_check"))
+
+
+def sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data):
+
+    if dut_dhcp_relay_data:
+        for dhcp_relay in dut_dhcp_relay_data:
+            vlan = str(dhcp_relay['downlink_vlan_iface']['name'])
+            duthost.shell(f'config dhcpv4_relay del {vlan}', module_ignore_errors=True)
+
+
+def check_routes_to_dhcp_server(duthost, dut_dhcp_relay_data):
+    """Validate there is route on DUT to each DHCP server
+    """
+    output = duthost.shell("show ip bgp sum", module_ignore_errors=True)
+    logger.info("bgp state: {}".format(output["stdout"]))
+    output = duthost.shell("show int po", module_ignore_errors=True)
+    logger.info("portchannel state: {}".format(output["stdout"]))
+    default_gw_ip = dut_dhcp_relay_data[0]['default_gw_ip']
+    dhcp_servers = set()
+    for dhcp_relay in dut_dhcp_relay_data:
+        dhcp_servers |= set(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
+
+    for dhcp_server in dhcp_servers:
+        rtInfo = duthost.get_ip_route_info(ipaddress.ip_address(dhcp_server))
+        nexthops = rtInfo["nexthops"]
+        if len(nexthops) == 0:
+            logger.info("Failed to find route to DHCP server '{0}'".format(dhcp_server))
+            return False
+        if len(nexthops) == 1:
+            # if only 1 route to dst available - check that it's not default route via MGMT iface
+            route_index_in_list = 0
+            ip_dst_index = 0
+            route_dst_ip = nexthops[route_index_in_list][ip_dst_index]
+            if default_gw_ip and route_dst_ip == ipaddress.ip_address(default_gw_ip):
+                logger.info("Found route to DHCP server via default GW(MGMT interface)")
+                return False
+    return True
+
+
+def check_dhcp_stress_status(duthost, test_duration_seconds):
+    # Monitor DHCP status during the test
+    start_time = time.time()
+    sleep_time = 30
+    while time.time() - start_time < test_duration_seconds - sleep_time:
+        # Check the status of the DHCP container
+        dhcp_container_status = duthost.shell('docker ps | grep dhcp_relay')["stdout"]
+        if dhcp_container_status == "":
+            assert False, "DHCP container is NOT running."
+
+        # Check CPU usage of the DHCP process
+        dhcp_cpu_usage = duthost.shell('show processes cpu --verbose | grep dhc | awk \'{print $9}\'')["stdout"]
+        if dhcp_cpu_usage:
+            dhcp_cpu_usage_lines = dhcp_cpu_usage.splitlines()
+            for cpu_usage in dhcp_cpu_usage_lines:
+                cpu_usage_float = float(cpu_usage)
+            assert cpu_usage_float < 50.0, "DHCP CPU usage is too high: {}%".format(cpu_usage_float)
+
+        # Check the status of multiple DHCP processes inside the container
+        dhcp_process_status = duthost.shell(
+             'docker exec dhcp_relay supervisorctl status | grep dhcp | grep -v dhcp6')["stdout"]
+        if dhcp_process_status:
+            dhcp_process_status_lines = dhcp_process_status.splitlines()
+            for dhcp_process_status_line in dhcp_process_status_lines:
+                process_name, process_status = dhcp_process_status_line.split()[0], dhcp_process_status_line.split()[1],
+                assert process_status == "RUNNING", "{} is not running!".format(process_name)
+    time.sleep(sleep_time)
