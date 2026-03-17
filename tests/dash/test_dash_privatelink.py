@@ -124,3 +124,43 @@ def test_privatelink_udp_sport_range_negative(
         logger.info(f"Sending packet with sport: {invalid_sport}")
         testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
         testutils.verify_no_packet_any(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
+
+
+@pytest.mark.parametrize("encap_proto", ["vxlan"])
+def test_privatelink_vm_ca_pa_validation(
+    ptfadapter,
+    dash_pl_config,
+    encap_proto
+):    
+    logger.info("vm_to_dpu with origin sip 25.1.1.1 pass")
+    ptfadapter.dataplane.flush()
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, encap_proto)  ## VXLAN
+    testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
+    testutils.verify_packet(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_SEND_INTF])
+
+    logger.info("change vm_to_dpu sip to 25.1.1.2, vm_to_dpu is blocked")
+    pl.VM1_PA = "25.1.1.2"
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, encap_proto)  ## VXLAN
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
+    testutils.verify_no_packet_any(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
+    logger.info("recover vm_to_dpu sip back to 25.1.1.1")
+    pl.VM1_PA = "25.1.1.1"
+
+    logger.info("change pe_to_dpu sip to 101.1.2.4, pe_to_dpu pass")
+    pl.PE_PA = '101.1.2.4'
+    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config)  ## GRE
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
+    testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[LOCAL_PTF_INTF])
+    logger.info("recover pe_to_dpu sip to 101.1.2.3")
+    pl.PE_PA = '101.1.2.3'
+
+    logger.info("change ENCAP_VNI to 101, pe_to_dpu pass")
+    pl.ENCAP_VNI = 101
+    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config)  ## GRE
+    ptfadapter.dataplane.flush()
+    testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
+    testutils.verify_no_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[LOCAL_PTF_INTF])
+    logger.info("recover ENCAP_VNI to 100")
+    pl.ENCAP_VNI = 100
