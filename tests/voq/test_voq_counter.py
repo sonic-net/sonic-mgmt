@@ -25,18 +25,27 @@ def test_voq_drop_counter(duthosts, tbinfo, ptfadapter,
 def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     This test implicitly verifies that queue counters --voq (i.e. Credit-WD-Del/pkts)
-    are working as expected by disabling the fabric ports
+    are working as expected on multi-ASIC broadcom-dnx devices by disabling SFI
+    (fabric interface) ports via bcmcmd and checking that Credit-WD-Del/pkts increases
+    on the Ethernet-IB (inband) interfaces.
+
+    For single-ASIC broadcom-dnx VOQ devices, see tests/qos/test_voq_counter.py which
+    uses sai_thrift_port_tx_disable via PTF infrastructure.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bcm_changes = False
     # Ensure the device is a Broadcom device
     pytest_require((duthost.facts.get('platform_asic') == "broadcom-dnx"),
                    "The Test Case is only supported on Broadcom-dnx ASIC")
+    pytest_require(duthost.is_multi_asic,
+                   "This test is for multi-ASIC devices only; "
+                   "single-ASIC VOQ coverage is in tests/qos/test_voq_counter.py")
 
     cmd_bcmcmd_false = "'port enable sfi false'"
     cmd_bcmcmd_true = "'port enable sfi true'"
-    cmd = "show queue counters --voq --nonzero| grep -i '{}' |grep -i '{}' |awk '{{print $7}}'".format("Ethernet-IB",
-                                                                                                       "VOQ0")
+    cmd = "show queue counters --voq --nonzero| grep -i '{}' |grep -i '{}' |awk '{{print $7}}'".format(
+        "Ethernet-IB", "VOQ0")
+
     try:
         bcm_changes = True
         for asic in duthost.asics:
