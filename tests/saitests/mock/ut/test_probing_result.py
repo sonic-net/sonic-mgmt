@@ -103,6 +103,39 @@ class TestThresholdResultPointVsRange(unittest.TestCase):
 
         assert result.is_point is False
 
+    @pytest.mark.order(5272)
+    def test_is_point_with_both_none_but_success_true(self):
+        """is_point should return False for None bounds even with success=True.
+
+        Without None guard, None == None returns True which is semantically wrong.
+        """
+        result = ThresholdResult(
+            lower_bound=None,
+            upper_bound=None,
+            success=True
+        )
+        assert result.is_point is False
+
+    @pytest.mark.order(5274)
+    def test_is_point_with_none_lower_bound(self):
+        """is_point should return False when lower_bound is None."""
+        result = ThresholdResult(
+            lower_bound=None,
+            upper_bound=200,
+            success=True
+        )
+        assert result.is_point is False
+
+    @pytest.mark.order(5276)
+    def test_is_point_with_none_upper_bound(self):
+        """is_point should return False when upper_bound is None."""
+        result = ThresholdResult(
+            lower_bound=100,
+            upper_bound=None,
+            success=True
+        )
+        assert result.is_point is False
+
     @pytest.mark.order(5280)
     def test_is_range_false_on_failure(self):
         """Test is_range returns False for failed result."""
@@ -249,6 +282,33 @@ class TestThresholdResultRepresentation(unittest.TestCase):
         repr_str = repr(result)
         assert repr_str == "ThresholdResult(point=0)"
 
+    @pytest.mark.order(5435)
+    def test_repr_with_none_bounds_and_success_true(self):
+        """__repr__ should not crash on inconsistent state (success=True, bounds=None).
+
+        __repr__ calls is_point internally, which previously would return True
+        for None == None. With None guard, is_point returns False, so __repr__
+        falls through to the range branch safely.
+        """
+        result = ThresholdResult(
+            lower_bound=None,
+            upper_bound=None,
+            success=True
+        )
+        repr_str = repr(result)
+        assert "ThresholdResult" in repr_str
+
+    @pytest.mark.order(5437)
+    def test_repr_with_partial_none_bounds(self):
+        """__repr__ handles partial None bounds without crash."""
+        result = ThresholdResult(
+            lower_bound=None,
+            upper_bound=200,
+            success=True
+        )
+        repr_str = repr(result)
+        assert "ThresholdResult" in repr_str
+
 
 @pytest.mark.order(5440)
 class TestThresholdResultDirectInstantiation(unittest.TestCase):
@@ -327,6 +387,41 @@ class TestThresholdResultEdgeCases(unittest.TestCase):
         assert result.is_point is True
         assert result.value == 999
         assert result.candidate == 999
+
+    @pytest.mark.order(5500)
+    def test_is_range_with_none_lower_bound(self):
+        """Bug #3: is_range crashes with TypeError when success=True but lower_bound is None.
+
+        Reproduces: ThresholdResult with inconsistent state (success=True, lower_bound=None)
+        causes 'TypeError: < not supported between NoneType and int' in is_range property.
+        """
+        result = ThresholdResult(
+            lower_bound=None,
+            upper_bound=200,
+            success=True
+        )
+        # Should return False gracefully, not crash with TypeError
+        assert result.is_range is False
+
+    @pytest.mark.order(5510)
+    def test_is_range_with_none_upper_bound(self):
+        """Bug #3: is_range crashes when success=True but upper_bound is None."""
+        result = ThresholdResult(
+            lower_bound=100,
+            upper_bound=None,
+            success=True
+        )
+        assert result.is_range is False
+
+    @pytest.mark.order(5520)
+    def test_is_range_with_both_none_but_success_true(self):
+        """Bug #3: is_range with both bounds None and success=True."""
+        result = ThresholdResult(
+            lower_bound=None,
+            upper_bound=None,
+            success=True
+        )
+        assert result.is_range is False
 
 
 if __name__ == "__main__":
