@@ -889,6 +889,25 @@
           - hwsku is defined
           - hwsku == 'cisco-8101-p4-32x100-vs'
           - not (use_ipv6_mgmt|default(false)|bool)
+
+        - name: Replace PORT table from golden_config for generic HwSku
+          become: true
+          shell: |
+            # Check if golden_config has PORT table
+            python3 -c "import json,sys; gc=json.load(open('/etc/sonic/golden_config_db.json')); sys.exit(0 if 'PORT' in gc and len(gc['PORT']) > 0 else 1)"
+          register: has_golden_port
+          failed_when: false
+
+        - name: Apply golden_config PORT table override
+          become: true
+          shell: |
+            # Delete all existing PORT entries from config_db
+            redis-cli -n 4 keys "PORT|*" | xargs -r redis-cli -n 4 del
+            # Re-load PORT table from golden_config
+            sonic-cfggen -j /etc/sonic/golden_config_db.json --write-to-db
+            # Save to persist across reboot
+            config save -y
+          when: has_golden_port.rc == 0
         when: init_cfg_profile is not defined
 
       - name: SONiC config reload to pick up config_db.json

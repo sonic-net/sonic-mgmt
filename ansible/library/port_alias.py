@@ -57,6 +57,42 @@ NVIDIA_BF_PLATFORM_KEY = 'bf_platform'
 PLATFORM_KEYS = [ONIE_PLATFORM_KEY, ABOOT_PLATFORM_KEY, NVIDIA_BF_PLATFORM_KEY]
 
 KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'
+HWSKU_JSON = 'hwsku.json'
+PLATFORM_JSON = 'platform.json'
+
+
+def _resolve_base_hwsku(hwsku, platform_dir):
+    """
+    Resolve the base HwSku directory name for generic/dynamic HwSku support.
+    If the exact hwsku directory exists, return it as-is.
+    Otherwise, strip breakout suffixes to find the base HwSku directory.
+    """
+    if os.path.isdir(os.path.join(platform_dir, hwsku)):
+        return hwsku
+    base = re.sub(r'-([A-Z]\d+)+$', '', hwsku)
+    if base != hwsku and os.path.isdir(os.path.join(platform_dir, base)):
+        return base
+    base2 = re.sub(r'(-B)?-([A-Z]\d+)+$', '', hwsku)
+    if base2 != hwsku and os.path.isdir(os.path.join(platform_dir, base2)):
+        return base2
+    return hwsku
+
+
+def _parse_hwsku_port_count(hwsku):
+    """
+    Parse target HwSku suffix to extract total non-management port count.
+    E.g., 'Arista-7060X6-64PE-O128S2' -> 128, 'Arista-7060X6-64PE-C256S2' -> 256
+    Returns total non-mgmt port count, or 0 if suffix cannot be parsed.
+    """
+    # Match groups of letter+digits at the end: -O128S2 -> [('O','128'), ('S','2')]
+    suffix_match = re.findall(r'([CVOP])(\d+)', hwsku)
+    if not suffix_match:
+        return 0
+    total = 0
+    for letter, count in suffix_match:
+        if letter != 'S':  # S = management ports, skip
+            total += int(count)
+    return total
 
 
 class SonicPortAliasMap():
@@ -85,17 +121,19 @@ class SonicPortAliasMap():
         platform = self.get_platform_type()
         if platform is None:
             return None
-        if asic_id is None or asic_id == '':
-            portconfig = os.path.join(
-                FILE_PATH, platform, self.hwsku, PORTMAP_FILE)
-        elif slotid is None or slotid == '':
-            portconfig = os.path.join(
-                FILE_PATH, platform, self.hwsku, str(asic_id), PORTMAP_FILE)
-        else:
-            portconfig = os.path.join(FILE_PATH, platform, self.hwsku, str(
-                slotid), str(asic_id), PORTMAP_FILE)
-        if os.path.exists(portconfig):
-            return portconfig
+        platform_dir = os.path.join(FILE_PATH, platform)
+        for hwsku_dir_name in [self.hwsku, _resolve_base_hwsku(self.hwsku, platform_dir)]:
+            if asic_id is None or asic_id == '':
+                portconfig = os.path.join(
+                    FILE_PATH, platform, hwsku_dir_name, PORTMAP_FILE)
+            elif slotid is None or slotid == '':
+                portconfig = os.path.join(
+                    FILE_PATH, platform, hwsku_dir_name, str(asic_id), PORTMAP_FILE)
+            else:
+                portconfig = os.path.join(FILE_PATH, platform, hwsku_dir_name, str(
+                    slotid), str(asic_id), PORTMAP_FILE)
+            if os.path.exists(portconfig):
+                return portconfig
         return None
 
     def get_portmap(self, asic_id=None, include_internal=False,
@@ -121,10 +159,95 @@ class SonicPortAliasMap():
         asic_name = "Asic0" if asic_id is None else "asic" + str(asic_id)
 
         filename = self.get_portconfig_path(slotid, asic_id)
-        if filename is None:
+                # Parse target HwSku suffix for port count (generic HwSku support)
+        target_port_count = _parse_hwsku_port_count(self.hwsku)
+        # Use hwsku.json fallback when no port_config.ini and suffix can be parsed
+        use_generic = filename is None and target_port_count > 0
+        if use_generic:
+            platform = self.get_platform_type()
+            if platform:
+                import json as _json
+                platform_dir = os.path.join(FILE_PATH, platform)
+                # Strip suffix to find base hwsku directory
+                base_hwsku = re.sub(r'-([A-Z]\d+)+$', '', self.hwsku)
+                if base_hwsku == self.hwsku:
+                    base_hwsku = re.sub(r'(-B)?-([A-Z]\d+)+$', '', self.hwsku)
+                hwsku_json_path = os.path.join(FILE_PATH, platform, base_hwsku, HWSKU_JSON)
+                if not os.path.exists(hwsku_json_path):
+                    # Try the exact hwsku dir if base doesn't have hwsku.json
+                    hwsku_json_path = os.path.join(FILE_PATH, platform, self.hwsku, HWSKU_JSON)
+                if os.path.exists(hwsku_json_path):
+                    with open(hwsku_json_path) as f:
+                        hwsku_data = _json.load(f)
+                    platform_json_path = os.path.join(FILE_PATH, platform, PLATFORM_JSON)
+                    platform_data = None
+                    if os.path.exists(platform_json_path):
+                        with open(platform_json_path) as f:
+                            platform_data = _json.load(f)
+
+                    # Determine breakout from suffix port count + cage count
+                    interfaces = hwsku_data.get('interfaces', {})
+                    non_mgmt_cages = len([k for k in interfaces if int(k.replace('Ethernet', '')) < 512])
+                    if target_port_count > 0 and non_mgmt_cages > 0:
+                        ports_per_cage = target_port_count // non_mgmt_cages
+                        if ports_per_cage < 1:
+                            ports_per_cage = 1
+                        # Derive: assume 8 lanes per cage, speed = (8/ports_per_cage) * 100G
+                        lanes_per_port = 8 // ports_per_cage
+                        speed_g = lanes_per_port * 100
+                        override_brkout = '{}x{}G'.format(ports_per_cage, speed_g)
+                    else:
+                        override_brkout = None
+
+                    for port_name, port_info in sorted(interfaces.items(),
+                                                        key=lambda x: int(x[0].replace('Ethernet', ''))):
+                        base_num = int(port_name.replace('Ethernet', ''))
+                        if override_brkout and base_num < 512:
+                            brkout_mode = override_brkout
+                        else:
+                            brkout_mode = port_info.get('default_brkout_mode', '1x400G')
+                        brkout_clean = re.sub(r'\[.*\]', '', brkout_mode)
+                        m = re.match(r'(\d+)x(\d+)G', brkout_clean)
+                        num_ports = int(m.group(1)) if m else 1
+                        speed_val = str(int(m.group(2)) * 1000) if m else '400000'
+
+                        if platform_data and 'interfaces' in platform_data:
+                            plat_port = platform_data['interfaces'].get(port_name, {})
+                            all_lanes = plat_port.get('lanes', '')
+                            base_alias = plat_port.get('alias', '')
+                            base_index = str(plat_port.get('index', base_num // 8 + 1)).split(',')[0].strip()
+                            lane_list = all_lanes.split(',') if all_lanes else []
+                            total_lanes = len(lane_list) if lane_list else 8
+                        else:
+                            total_lanes = 8
+                            base_alias = ''
+                            base_index = str(base_num // 8 + 1)
+
+                        lanes_per_subport = total_lanes // num_ports if num_ports > 0 else total_lanes
+                        step = lanes_per_subport
+
+                        for sub_idx in range(num_ports):
+                            sub_port_num = base_num + sub_idx * step
+                            sub_port_name = 'Ethernet{}'.format(sub_port_num)
+
+                            # Use port name as alias so minigraph uses Ethernet* names.
+                            # Golden_config PORT table will set the correct alias.
+                            alias = sub_port_name
+
+                            aliases.append((alias, base_index))
+                            front_panel_aliases.append(alias)
+                            portmap[sub_port_name] = alias
+                            aliasmap[alias] = sub_port_name
+                            portspeed[alias] = speed_val
+                            indexmap[base_index] = sub_port_name
+
+                    if aliases:
+                        return (aliases, front_panel_aliases, inband_aliases, portmap, aliasmap, portspeed,
+                                front_panel_asic_ifnames, front_panel_asic_id,
+                                asic_if_names, asic_if_ids, sysports, indexmap)
+
             raise Exception(
-                "Something wrong when trying to find the portmap file, "
-                "either the hwsku is not available or file location is not correct")
+                "Neither port_config.ini nor hwsku.json found for hwsku: {}".format(self.hwsku))
         with open(filename) as f:
             lines = f.readlines()
         alias_index = -1
