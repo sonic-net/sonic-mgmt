@@ -168,9 +168,8 @@ class BgpModule(object):
                     for line in lines:
                         if regex_confed_link.match(line):
                             neighbor['confed_peer'] = True
-                            if neighbor['confed_peer']:
-                                confed_peer_type = regex_confed_link.match(line).group(1)
-                                neighbor['confed_peer_type'] = 'external' if confed_peer_type == 'confed-external link' else 'internal'  # noqa: E501
+                            confed_peer_type = regex_confed_link.match(line).group(1)
+                            neighbor['confed_peer_type'] = 'external' if confed_peer_type == 'confed-external link' else 'internal'  # noqa: E501
                         if regex_ipv4.match(line):
                             neighbor_ip = regex_ipv4.match(line).group(1)
                             neighbor['ip_version'] = 4

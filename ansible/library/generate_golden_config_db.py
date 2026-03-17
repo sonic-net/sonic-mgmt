@@ -564,11 +564,18 @@ class GenerateGoldenConfigDBModule(object):
                 namespace = "asic{}".format(asic)
                 if namespace not in rendered_json:
                     rendered_json[namespace] = {}
-                rendered_json[namespace] = {"BGP_DEVICE_GLOBAL": {"CONFED": {"asn": "65100", "peers": "65300"}}}
+                rendered_json[namespace] = {
+                    "BGP_DEVICE_GLOBAL": {
+                        "CONFED": {"asn": self.bgp_confd_asn, "peers": self.bgp_confd_peers}
+                    }
+                }
         else:
             if "BGP_DEVICE_GLOBAL" not in rendered_json:
                 rendered_json["BGP_DEVICE_GLOBAL"] = {}
-            rendered_json["BGP_DEVICE_GLOBAL"]["CONFED"] = {"asn": "65100", "peers": "65300"}
+            rendered_json["BGP_DEVICE_GLOBAL"]["CONFED"] = {
+                "asn": self.bgp_confd_asn,
+                "peers": self.bgp_confd_peers
+            }
         return json.dumps(rendered_json, indent=4)
 
     def generate_t2_golden_config_db(self):
@@ -625,8 +632,9 @@ class GenerateGoldenConfigDBModule(object):
         if "DEVICE_METADATA" in ori_config_db:
             golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
 
-        # Set buffer_model to traditional to prevent regression, as it is currently hardcoded here:
-        #     https://github.com/sonic-net/sonic-utilities/blob/19594b99129f3c881d500ff65d4955d077accb25/config/main.py#L2216
+        # Set buffer_model to traditional to prevent regression, as it is currently
+        # hardcoded here:
+        # See sonic-utilities config/main.py:L2216.
         golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
         return json.dumps(golden_config_db, indent=4)

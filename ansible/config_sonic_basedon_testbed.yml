@@ -827,11 +827,11 @@
           port_index_map: "{{ port_index_map | default({}) }}"
           hwsku: "{{ hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
-is_lit_mode: "{{ is_lit_mode | default(true) }}"
+          is_lit_mode: "{{ is_lit_mode | default(true) }}"
           npu_index: "{{ dut_index | default(0) | int }}"
           num_asics: "{{ num_asics }}"
           bgp_confd_asn: "{{ bgp_confd_asn }}"
-          bgp_confd_peers: "{{ bgp_confd_peers }}" 
+          bgp_confd_peers: "{{ bgp_confd_peers }}"
         become: true
         when: enable_macsec is not defined
 
