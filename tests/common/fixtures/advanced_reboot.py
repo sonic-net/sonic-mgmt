@@ -652,11 +652,23 @@ class AdvancedReboot:
                 self.ptfhost.shell("pkill -f 'ptftests advanced-reboot.ReloadTest'", module_ignore_errors=True)
                 # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
                 thread.join(timeout=10)
+
+                # The duthost has upgraded at this point and the python interpreter may be different
+                # on this new image. Therefore, clear and refetch any cached facts (which contain the
+                # path to the old python interpreter) to avoid using stale facts that were collected
+                # before the reboot.
+                self.duthost.meta("clear_facts")
+
                 self.__verifyRebootOper(rebootOper)
                 if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
                     test_results[test_case_name].append("Failed to verify BGP router identifier is Loopback0 on %s" %
                                                         self.duthost.hostname)
             except Exception:
+                # The duthost may or may not have rebooted/upgraded at the time of exception, hence we may not
+                # have cleared the facts yet and still have a non-existant python interpreter in the cached facts.
+                # Therefore, clear the facts cached here as well to avoid any issues with running commands
+                # on the duthost after an exception is caught.
+                self.duthost.meta("clear_facts")
                 traceback_msg = traceback.format_exc()
                 err_msg = "Exception caught while running advanced-reboot test on ptf: \n{}".format(traceback_msg)
                 logger.error(err_msg)
@@ -739,6 +751,12 @@ class AdvancedReboot:
                 # the thread might still be running, and to catch any exceptions after pkill allow 10s to join
                 thread.join(timeout=10)
 
+                # The duthost has upgraded at this point and the python interpreter may be different
+                # on this new image. Therefore, clear and refetch any cached facts (which contain the
+                # path to the old python interpreter) to avoid using stale facts that were collected
+                # before the reboot.
+                self.duthost.meta("clear_facts")
+
                 self.__verifyRebootOper(rebootOper)
                 if self.duthost.num_asics() == 1 and not check_bgp_router_id(self.duthost, self.mgFacts):
                     test_results.append(
@@ -750,6 +768,11 @@ class AdvancedReboot:
                 if self.consistency_checker_provider:
                     self.check_asic_and_db_consistency()
             except Exception:
+                # The duthost may or may not have rebooted/upgraded at the time of exception, hence we may not
+                # have cleared the facts yet and still have a non-existant python interpreter in the cached facts.
+                # Therefore, clear the facts cached here as well to avoid any issues with running commands
+                # on the duthost after an exception is caught.
+                self.duthost.meta("clear_facts")
                 traceback_msg = traceback.format_exc()
                 err_msg = "Exception caught while running advanced-reboot test on ptf during upgrade {}: \n{}".format(
                     upgrade_path_str, traceback_msg)
