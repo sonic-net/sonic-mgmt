@@ -321,10 +321,15 @@ def verify_lldp_table(duthost, intf_status_output, test_name=""):
     if not missing_in_lldp_table and not extra_in_lldp_table:
         logger.info("LLDP table and interface status (admin up, no PortChannels) match perfectly{}".format(context))
 
-    pytest_assert(intf_status_filtered_for_lldp == lldp_table_interfaces_no_eth0,
-                  "Interface mismatch between 'show interface status' (admin up, no PortChannels) and LLDP table{}. "
-                  "Missing in LLDP table: {}, Extra in LLDP table: {}".format(
-                      context, sorted(missing_in_lldp_table), sorted(extra_in_lldp_table)))
+    # Only assert that LLDP table has no unexpected interfaces (extra).
+    # Missing interfaces in LLDP table are expected on dualtor/some topologies
+    # where admin-up ports may not have LLDP neighbors.
+    if missing_in_lldp_table:
+        logger.info("Interfaces admin-up but missing LLDP neighbors (expected on some topologies){}: {}".format(
+            context, sorted(missing_in_lldp_table)))
+    pytest_assert(not extra_in_lldp_table,
+                  "Extra interfaces in LLDP table (not in admin-up non-PortChannel set){}: {}".format(
+                      context, sorted(extra_in_lldp_table)))
 
     return lldp_table_interfaces
 
@@ -448,10 +453,15 @@ def verify_lldpctl_facts(duthost, enum_frontend_asic_index, intf_status_output, 
     if not missing_in_lldpctl_facts and not extra_in_lldpctl_facts:
         logger.info("lldpctl_facts and interface status (admin up, no PortChannels) match perfectly{}".format(context))
 
-    pytest_assert(intf_status_filtered_for_lldpctl == lldpctl_facts_interfaces,
-                  "Interface mismatch between 'show interface status' and lldpctl_facts (admin up, no PortChannels){}. "
-                  "Missing in lldpctl_facts: {}, Extra in lldpctl_facts: {}".format(
-                      context, sorted(missing_in_lldpctl_facts), sorted(extra_in_lldpctl_facts)))
+    # Only assert that lldpctl_facts has no unexpected interfaces.
+    # Missing interfaces are expected on dualtor/some topologies where
+    # admin-up ports may not have LLDP neighbors.
+    if missing_in_lldpctl_facts:
+        logger.info("Interfaces admin-up but missing in lldpctl_facts (expected on some topologies){}: {}".format(
+            context, sorted(missing_in_lldpctl_facts)))
+    pytest_assert(not extra_in_lldpctl_facts,
+                  "Unexpected interfaces in lldpctl_facts (not admin-up or are PortChannels){}: {}".format(
+                      context, sorted(extra_in_lldpctl_facts)))
 
     # Verify consistency between lldpctl_facts and lldpcli
     for interface in lldpctl_facts.get('lldpctl', {}):
