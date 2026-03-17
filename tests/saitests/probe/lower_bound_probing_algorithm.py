@@ -128,7 +128,10 @@ class LowerBoundProbingAlgorithm:
                     return (current, phase_time)
                 else:
                     # Continue logarithmic reduction
-                    current = max(current // 2, 1)
+                    if current <= 1:
+                        # Cannot reduce below 1 — threshold is reached even at minimum
+                        break
+                    current = current // 2
 
             self.observer.on_error(
                 "Lower bound detection exceeded maximum iterations or reached minimum value")
