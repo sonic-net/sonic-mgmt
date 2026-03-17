@@ -608,7 +608,8 @@ def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count
         pkts = generate_packets(
             prefixes,
             duthost.facts['router_mac'],
-            pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
+            pdp.get_mac(pdp.port_to_device(injection_port), injection_port),
+            icmp_type
         )
         # Downtime ratio is calculated by dividing the number of flapping neighbors by 5, from test data
         downtime_ratio = len(flapping_connections) / 5
