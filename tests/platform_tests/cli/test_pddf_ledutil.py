@@ -7,6 +7,7 @@ import logging
 import os
 import re
 import time
+import types
 from contextlib import contextmanager
 
 import pytest
@@ -23,6 +24,9 @@ pytestmark = [
 ]
 
 TEST_CONFIG_FILE = os.path.join(os.path.split(__file__)[0], "pddf_ledutil.yml")
+
+_INVALID_LED = "NONEXISTENT_LED"
+_INVALID_COLOR = "NONEXISTENT_COLOR"
 
 
 @pytest.fixture(scope="module")
@@ -87,38 +91,56 @@ def dut(duthosts, enum_rand_one_per_hwsku_hostname):
     return duthosts[enum_rand_one_per_hwsku_hostname]
 
 
-@contextmanager
-def stop_and_restart_led_service(duthost, led_type_config, led_name):
+@pytest.fixture
+def led_service_manager(dut):
     """
-    Context manager to stop LED service(s), yield duthost, then restart service(s).
-
-    Args:
-        duthost: The DUT host
-        led_type_config: The specific LED type dict (e.g., led_config["PORT_LED"])
-        led_name: The actual LED instance name (e.g., "PORT_LED_1")
+    Fixture providing a context manager for stopping and restarting LED services.
+    Uses try/finally to guarantee services are restarted even if the test fails.
     """
-    service_cfg = led_type_config.get("service")
-    services = service_cfg if isinstance(service_cfg, list) else [service_cfg]
+    @contextmanager
+    def _manage(led_type_config, led_name):
+        service_cfg = led_type_config.get("service")
+        services = service_cfg if isinstance(service_cfg, list) else [service_cfg]
 
-    services_to_restart = []
-    for service_name in services:
-        logger.info(f"Stopping {service_name} to allow manual LED control for {led_name}")
-        service_status = duthost.shell(f"systemctl is-active {service_name}", module_ignore_errors=True)
-        if service_status["stdout"].strip() == "active":
-            duthost.shell(f"sudo systemctl stop {service_name}")
-            services_to_restart.append(service_name)
+        services_to_restart = []
+        for service_name in services:
+            logger.info(f"Stopping {service_name} to allow manual LED control for {led_name}")
+            service_status = dut.shell(f"systemctl is-active {service_name}", module_ignore_errors=True)
+            if service_status["stdout"].strip() == "active":
+                dut.shell(f"sudo systemctl stop {service_name}")
+                services_to_restart.append(service_name)
 
-    if services_to_restart:
-        time.sleep(1)
+        if services_to_restart:
+            time.sleep(1)
 
-    yield duthost
+        try:
+            yield
+        finally:
+            for service_name in services_to_restart:
+                logger.info(f"Restarting {service_name}")
+                dut.shell(f"sudo systemctl start {service_name}")
+            if services_to_restart:
+                time.sleep(2)
 
-    for service_name in services_to_restart:
-        logger.info(f"Restarting {service_name}")
-        duthost.shell(f"sudo systemctl start {service_name}")
+    yield _manage
 
-    if services_to_restart:
-        time.sleep(2)
+
+@pytest.fixture
+def valid_single_led(led_config):
+    """
+    Resolve the first single (non-multiple) LED entry that has at least one configured color.
+    Skips the test if no such entry exists.
+    """
+    for led_type, led_type_config in led_config.items():
+        if isinstance(led_type_config, dict) and not led_type_config.get("multiple", False):
+            colors = led_type_config.get("colors", [])
+            if colors:
+                return types.SimpleNamespace(
+                    name=led_type,
+                    color=colors[0],
+                    type_config=led_type_config,
+                )
+    pytest.skip("No single-LED config with colors available")
 
 
 def run_led_color_test(duthost, led_type_config, led_name):
@@ -141,7 +163,7 @@ def run_led_color_test(duthost, led_type_config, led_name):
 
     valid_color_received = (initial_color_result["rc"] == 0) and ("not configured" not in initial_color)
     if not valid_color_received:
-        pytest.fail(f"LED {led_name} status could not be determined cannot proceed with test.")
+        pytest.fail(f"LED {led_name} initial status could not be determined cannot begin test.")
 
     failures = []
 
@@ -198,11 +220,11 @@ def run_led_color_test(duthost, led_type_config, led_name):
                 )
                 poll_color = poll_result["stdout"].strip()
                 logger.warning(
-                    f"  Poll {poll_i} (+{poll_delay}s): got {poll_color!r} "
+                    f"  [{led_name}={color!r}] Poll {poll_i} (+{poll_delay}s): got {poll_color!r} "
                     f"(rc={poll_result['rc']}, stderr={poll_result.get('stderr', '').strip()!r})"
                 )
                 if poll_color == color:
-                    logger.warning(f"  Value settled to {color!r} after poll {poll_i}")
+                    logger.warning(f"  [{led_name}] Value settled to {color!r} after poll {poll_i}")
                     settled = True
                     break
 
@@ -244,7 +266,16 @@ def get_led_count(led_type_config, _platform_api_conn):
         return 0
 
 
-def test_pddf_ledutil_leds(dut, led_config, platform_api_conn):  # noqa: F811
+def assert_led_state_unchanged(dut, led_name, pre_color):
+    post_color = dut.shell(
+        f"sudo pddf_ledutil getstatusled {led_name}", module_ignore_errors=True
+    )["stdout"].strip()
+    assert post_color == pre_color, (
+        f"LED {led_name} color changed after rejected command: {pre_color!r} -> {post_color!r}"
+    )
+
+
+def test_pddf_ledutil_leds(dut, led_config, platform_api_conn, led_service_manager):  # noqa: F811
     """
     Test all LEDs configured in the YAML file.
     """
@@ -265,14 +296,70 @@ def test_pddf_ledutil_leds(dut, led_config, platform_api_conn):  # noqa: F811
 
             logger.info(f"Testing {count} {led_type} LEDs")
 
-            first_led_name = name_template.format(index_start)
-            with stop_and_restart_led_service(dut, led_type_config, first_led_name):
-                for i in range(index_start, index_start + count):
-                    led_name = name_template.format(i)
-                    logger.info(f"Testing {led_name}")
+            for i in range(index_start, index_start + count):
+                led_name = name_template.format(i)
+                logger.info(f"Testing {led_name}")
+                # Restart per LED, prevents the watchdog restarting services mid-test during long tests
+                with led_service_manager(led_type_config, led_name):
                     run_led_color_test(dut, led_type_config, led_name)
         else:
             led_name = led_type
             logger.info(f"Testing single LED: {led_name}")
-            with stop_and_restart_led_service(dut, led_type_config, led_name):
+            with led_service_manager(led_type_config, led_name):
                 run_led_color_test(dut, led_type_config, led_name)
+
+
+def test_getstatusled_valid_led(dut, valid_single_led):  # noqa: F811
+    stdout = dut.shell(
+        f"sudo pddf_ledutil getstatusled {valid_single_led.name}", module_ignore_errors=True
+    )["stdout"].strip()
+    valid_colors = valid_single_led.type_config.get("colors", [])
+    assert stdout in valid_colors, f"Expected one of {valid_colors}, got {stdout!r}"
+
+
+def test_getstatusled_invalid_led(dut):  # noqa: F811
+    stdout = dut.shell(
+        f"sudo pddf_ledutil getstatusled {_INVALID_LED}", module_ignore_errors=True
+    )["stdout"].strip()
+    assert "not configured" in stdout, f"Expected 'not configured', got {stdout!r}"
+
+
+def test_setstatusled_valid_led_valid_color(dut, valid_single_led, led_service_manager):  # noqa: F811
+    with led_service_manager(valid_single_led.type_config, valid_single_led.name):
+        pre_color = dut.shell(
+            f"sudo pddf_ledutil getstatusled {valid_single_led.name}", module_ignore_errors=True
+        )["stdout"].strip()
+        stdout = dut.shell(
+            f"sudo pddf_ledutil setstatusled {valid_single_led.name} {valid_single_led.color}", module_ignore_errors=True
+        )["stdout"].strip()
+
+        assert "True" in stdout, f"Expected 'True', got {stdout!r}"
+
+        restore = dut.shell(
+            f"sudo pddf_ledutil setstatusled {valid_single_led.name} {pre_color}", module_ignore_errors=True
+        )
+        if "True" not in restore["stdout"]:
+            logger.warning(f"Failed to restore {valid_single_led.name} to {pre_color!r}: {restore['stdout'].strip()!r}")
+
+
+def test_setstatusled_valid_led_invalid_color(dut, valid_single_led, led_service_manager):  # noqa: F811
+    with led_service_manager(valid_single_led.type_config, valid_single_led.name):
+        pre_color = dut.shell(
+            f"sudo pddf_ledutil getstatusled {valid_single_led.name}", module_ignore_errors=True
+        )["stdout"].strip()
+        stdout = dut.shell(
+            f"sudo pddf_ledutil setstatusled {valid_single_led.name} {_INVALID_COLOR}", module_ignore_errors=True
+        )["stdout"].strip()
+
+        assert "Invalid color" in stdout, f"Expected 'Invalid color', got {stdout!r}"
+        assert "False" in stdout, f"Expected 'False', got {stdout!r}"
+        assert_led_state_unchanged(dut, valid_single_led.name, pre_color)
+
+
+def test_setstatusled_invalid_led(dut, valid_single_led):  # noqa: F811
+    for color in [valid_single_led.color, _INVALID_COLOR]:
+        stdout = dut.shell(
+            f"sudo pddf_ledutil setstatusled {_INVALID_LED} {color}", module_ignore_errors=True
+        )["stdout"].strip()
+        assert "not configured" in stdout, f"Expected 'not configured' for color {color!r}, got {stdout!r}"
+        assert "False" in stdout, f"Expected 'False' for color {color!r}, got {stdout!r}"
