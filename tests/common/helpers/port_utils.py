@@ -1,4 +1,5 @@
 from natsort import natsorted
+from tests.platform_tests.mellanox.software_control_helper import ASIC_DETECT_GET_DEVICE_PATH_CMD
 
 
 def get_common_supported_speeds(duthost, dut_port_name, fanout, fanout_port_name):
@@ -106,7 +107,7 @@ class MlnxCableSupportedSpeedsHelper(object):
             cls.sorted_ports[duthost] = ports
 
         if not cls.device_path:
-            cls.device_path = duthost.shell('ls /dev/mst/*_pci_cr0')['stdout'].strip()
+            cls.device_path = duthost.shell(ASIC_DETECT_GET_DEVICE_PATH_CMD)['stdout'].strip()
         port_index = cls.sorted_ports[duthost].index(dut_port_name) + 1
         cmd = 'mlxlink -d {} -p {} | grep "Supported Cable Speed"'.format(cls.device_path, port_index)
         output = duthost.shell(cmd)['stdout'].strip()
