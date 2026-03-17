@@ -44,6 +44,18 @@ class TestQosProbe(QosSaiBase):
     - Headroom pool size probing
     """
 
+    @staticmethod
+    def find_cell_size(config_dict):
+        """Recursively find cell_size in config dictionary."""
+        if isinstance(config_dict, dict):
+            if 'cell_size' in config_dict:
+                return config_dict['cell_size']
+            for value in config_dict.values():
+                result = TestQosProbe.find_cell_size(value)
+                if result is not None:
+                    return result
+        return None
+
     @pytest.fixture(scope="class", autouse=True)
     def setup(self, disable_voq_watchdog_class_scope):
         return
@@ -147,20 +159,9 @@ class TestQosProbe(QosSaiBase):
         testParams["egress_lossy_pool_size"] = bufferConfig["BUFFER_POOL"]["egress_lossy_pool"]["size"]
 
         # Get cell_size with fallback to sub-layers if not found at top level
-        def find_cell_size(config_dict):
-            """Recursively find cell_size in config dictionary"""
-            if isinstance(config_dict, dict):
-                if 'cell_size' in config_dict:
-                    return config_dict['cell_size']
-                for value in config_dict.values():
-                    result = find_cell_size(value)
-                    if result is not None:
-                        return result
-            return None
-
         cell_size = dutQosConfig["param"].get("cell_size", None)
         if cell_size is None:
-            cell_size = find_cell_size(dutQosConfig["param"])
+            cell_size = self.find_cell_size(dutQosConfig["param"])
         testParams["cell_size"] = cell_size
 
         # Get pdb parameter from command line
@@ -267,20 +268,9 @@ class TestQosProbe(QosSaiBase):
         testParams["egress_lossy_pool_size"] = bufferConfig["BUFFER_POOL"]["egress_lossy_pool"]["size"]
 
         # Get cell_size with fallback to sub-layers if not found at top level
-        def find_cell_size(config_dict):
-            """Recursively find cell_size in config dictionary"""
-            if isinstance(config_dict, dict):
-                if 'cell_size' in config_dict:
-                    return config_dict['cell_size']
-                for value in config_dict.values():
-                    result = find_cell_size(value)
-                    if result is not None:
-                        return result
-            return None
-
         cell_size = dutQosConfig["param"].get("cell_size", None)
         if cell_size is None:
-            cell_size = find_cell_size(dutQosConfig["param"])
+            cell_size = self.find_cell_size(dutQosConfig["param"])
         testParams["cell_size"] = cell_size
 
         # Get pdb parameter from command line
@@ -532,20 +522,9 @@ class TestQosProbe(QosSaiBase):
         testParams["egress_lossy_pool_size"] = bufferConfig["BUFFER_POOL"]["egress_lossy_pool"]["size"]
 
         # Get cell_size with fallback to sub-layers if not found at top level
-        def find_cell_size(config_dict):
-            """Recursively find cell_size in config dictionary"""
-            if isinstance(config_dict, dict):
-                if 'cell_size' in config_dict:
-                    return config_dict['cell_size']
-                for value in config_dict.values():
-                    result = find_cell_size(value)
-                    if result is not None:
-                        return result
-            return None
-
         cell_size = dutQosConfig["param"].get("cell_size", None)
         if cell_size is None:
-            cell_size = find_cell_size(dutQosConfig["param"])
+            cell_size = self.find_cell_size(dutQosConfig["param"])
         testParams["cell_size"] = cell_size
 
         # Get pdb parameter from command line
