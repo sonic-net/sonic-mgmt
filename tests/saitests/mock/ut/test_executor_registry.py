@@ -424,9 +424,12 @@ def test_lazy_import_execution_order():
     for key in sorted(pfc_entries_after, key=str):
         print(f"   {key}")
 
-    # Assertions
-    assert len(pfc_entries_after) == 4, \
-        f"Should have 4 PFC executors registered, got {len(pfc_entries_after)}"
+    # Assertions — verify at least the 4 core variants are registered
+    # (additional scenarios like 'bad_spot' may also be present)
+    expected_scenarios = {None, 'noisy', 'wrong_config', 'intermittent'}
+    registered_scenarios = {k[2] for k in pfc_entries_after}
+    assert expected_scenarios.issubset(registered_scenarios), \
+        f"Missing PFC executor scenarios: {expected_scenarios - registered_scenarios}"
 
     assert 'sim_pfc_xoff_probing_executor' in ExecutorRegistry._loaded_modules, \
         "Module should be loaded after create()"

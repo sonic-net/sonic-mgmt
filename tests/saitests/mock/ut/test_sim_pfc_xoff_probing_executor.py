@@ -20,7 +20,8 @@ from sim_pfc_xoff_probing_executor import (  # noqa: E402, F401
     SimPfcXoffProbingExecutor,
     SimPfcXoffProbingExecutorNoisy,
     SimPfcXoffProbingExecutorWrongConfig,
-    SimPfcXoffProbingExecutorIntermittent
+    SimPfcXoffProbingExecutorIntermittent,
+    SimPfcXoffProbingExecutorBadSpot
 )
 
 
@@ -109,6 +110,137 @@ def test_pfc_xoff_noisy_hardware(mock_observer):
     executor.cleanup()
 
     print("[OK] PFC XOFF noisy hardware test passed")
+
+
+@pytest.mark.order(5)
+def test_pfc_xoff_bad_spot_normal_values(mock_observer):
+    """
+    UT #3: PFC XOFF - Bad-spot executor with normal (non-bad) values
+
+    Test that bad-spot executor behaves like normal executor for
+    values NOT in the bad_values set.
+    """
+    print("\n=== Testing PFC XOFF Bad-Spot: Normal Values ===")
+    executor = SimPfcXoffProbingExecutorBadSpot(
+        observer=mock_observer,
+        name='test_pfc_bad_spot',
+        actual_threshold=500,
+        bad_values=[300, 375]
+    )
+
+    # Below threshold, not a bad value — should not trigger
+    success, detected = executor.check(None, None, 400)
+    print(f"  Check at 400: success={success}, detected={detected}")
+    assert success is True
+    assert detected is False
+
+    # At threshold, not a bad value — should trigger
+    success, detected = executor.check(None, None, 500)
+    print(f"  Check at 500: success={success}, detected={detected}")
+    assert success is True
+    assert detected is True
+
+    # Above threshold — should trigger
+    success, detected = executor.check(None, None, 600)
+    print(f"  Check at 600: success={success}, detected={detected}")
+    assert success is True
+    assert detected is True
+
+    assert executor.bad_hit_count == 0, "No bad values should have been hit"
+    executor.cleanup()
+    print("[OK] Bad-spot normal values test passed")
+
+
+@pytest.mark.order(6)
+def test_pfc_xoff_bad_spot_bad_values(mock_observer):
+    """
+    UT #4: PFC XOFF - Bad-spot executor always fails at bad values
+
+    Test that bad-spot executor returns (False, False) for values
+    in the bad_values set, regardless of threshold.
+    """
+    print("\n=== Testing PFC XOFF Bad-Spot: Bad Values ===")
+    executor = SimPfcXoffProbingExecutorBadSpot(
+        observer=mock_observer,
+        name='test_pfc_bad_spot',
+        actual_threshold=500,
+        bad_values=[300, 375]
+    )
+
+    # Bad value below threshold — should fail verification
+    success, detected = executor.check(None, None, 300)
+    print(f"  Check at 300 (bad): success={success}, detected={detected}")
+    assert success is False
+    assert detected is False
+
+    # Bad value below threshold — should fail verification
+    success, detected = executor.check(None, None, 375)
+    print(f"  Check at 375 (bad): success={success}, detected={detected}")
+    assert success is False
+    assert detected is False
+
+    # Normal value — should work fine
+    success, detected = executor.check(None, None, 400)
+    print(f"  Check at 400 (normal): success={success}, detected={detected}")
+    assert success is True
+
+    assert executor.bad_hit_count == 2, f"Should have hit 2 bad values, got {executor.bad_hit_count}"
+    executor.cleanup()
+    print("[OK] Bad-spot bad values test passed")
+
+
+@pytest.mark.order(7)
+def test_pfc_xoff_bad_spot_empty_bad_values(mock_observer):
+    """
+    UT #5: PFC XOFF - Bad-spot executor with no bad values acts like normal
+
+    When bad_values is empty, executor should behave identically to
+    the normal SimPfcXoffProbingExecutor.
+    """
+    print("\n=== Testing PFC XOFF Bad-Spot: Empty Bad Values ===")
+    executor = SimPfcXoffProbingExecutorBadSpot(
+        observer=mock_observer,
+        name='test_pfc_bad_spot',
+        actual_threshold=500,
+        bad_values=[]
+    )
+
+    # Below threshold
+    assert executor.check(None, None, 400) == (True, False)
+    # At threshold
+    assert executor.check(None, None, 500) == (True, True)
+    # Above threshold
+    assert executor.check(None, None, 600) == (True, True)
+
+    assert executor.bad_hit_count == 0
+    executor.cleanup()
+    print("[OK] Bad-spot empty bad values test passed")
+
+
+@pytest.mark.order(8)
+def test_pfc_xoff_bad_spot_repeated_bad_checks(mock_observer):
+    """
+    UT #6: PFC XOFF - Bad-spot executor tracks hit count correctly
+
+    Multiple checks at the same bad value should all fail and
+    increment the hit counter.
+    """
+    print("\n=== Testing PFC XOFF Bad-Spot: Repeated Bad Checks ===")
+    executor = SimPfcXoffProbingExecutorBadSpot(
+        observer=mock_observer,
+        name='test_pfc_bad_spot',
+        actual_threshold=500,
+        bad_values=[300]
+    )
+
+    for i in range(5):
+        success, detected = executor.check(None, None, 300)
+        assert success is False and detected is False, f"Check #{i+1} at bad value should fail"
+
+    assert executor.bad_hit_count == 5, f"Should have 5 bad hits, got {executor.bad_hit_count}"
+    print(f"  Bad value 300 tested 5 times, all failed (hit_count={executor.bad_hit_count})")
+    executor.cleanup()
+    print("[OK] Bad-spot repeated checks test passed")
 
 
 if __name__ == '__main__':

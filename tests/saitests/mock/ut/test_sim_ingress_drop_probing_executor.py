@@ -20,7 +20,8 @@ from sim_ingress_drop_probing_executor import (  # noqa: E402, F401
     SimIngressDropProbingExecutor,
     SimIngressDropProbingExecutorNoisy,
     SimIngressDropProbingExecutorWrongConfig,
-    SimIngressDropProbingExecutorIntermittent
+    SimIngressDropProbingExecutorIntermittent,
+    SimIngressDropProbingExecutorBadSpot
 )
 
 
@@ -134,6 +135,103 @@ def test_ingress_drop_wrong_config(mock_observer):
     normal_executor.cleanup()
 
     print("[OK] Ingress Drop wrong configuration test passed (detected offset behavior)")
+
+
+@pytest.mark.order(7)
+def test_ingress_drop_bad_spot_normal_values(mock_observer):
+    """
+    UT: Ingress Drop Bad-spot executor with normal (non-bad) values
+
+    Behaves like normal executor for values not in bad_values set.
+    """
+    print("\n=== Testing Ingress Drop Bad-Spot: Normal Values ===")
+    executor = SimIngressDropProbingExecutorBadSpot(
+        observer=mock_observer,
+        name='test_drop_bad_spot',
+        actual_threshold=500,
+        bad_values=[300, 375]
+    )
+
+    success, detected = executor.check(None, None, 400)
+    assert success is True and detected is False
+
+    success, detected = executor.check(None, None, 500)
+    assert success is True and detected is True
+
+    success, detected = executor.check(None, None, 600)
+    assert success is True and detected is True
+
+    assert executor.bad_hit_count == 0
+    executor.cleanup()
+    print("[OK] Ingress Drop bad-spot normal values test passed")
+
+
+@pytest.mark.order(8)
+def test_ingress_drop_bad_spot_bad_values(mock_observer):
+    """
+    UT: Ingress Drop Bad-spot executor always fails at bad values
+    """
+    print("\n=== Testing Ingress Drop Bad-Spot: Bad Values ===")
+    executor = SimIngressDropProbingExecutorBadSpot(
+        observer=mock_observer,
+        name='test_drop_bad_spot',
+        actual_threshold=500,
+        bad_values=[300, 375]
+    )
+
+    success, detected = executor.check(None, None, 300)
+    assert success is False and detected is False
+
+    success, detected = executor.check(None, None, 375)
+    assert success is False and detected is False
+
+    # Normal value still works
+    success, detected = executor.check(None, None, 400)
+    assert success is True
+
+    assert executor.bad_hit_count == 2
+    executor.cleanup()
+    print("[OK] Ingress Drop bad-spot bad values test passed")
+
+
+@pytest.mark.order(9)
+def test_ingress_drop_bad_spot_empty(mock_observer):
+    """
+    UT: Ingress Drop Bad-spot with empty bad_values acts like normal
+    """
+    executor = SimIngressDropProbingExecutorBadSpot(
+        observer=mock_observer,
+        name='test_drop_bad_spot',
+        actual_threshold=500,
+        bad_values=[]
+    )
+
+    assert executor.check(None, None, 400) == (True, False)
+    assert executor.check(None, None, 500) == (True, True)
+    assert executor.bad_hit_count == 0
+    executor.cleanup()
+    print("[OK] Ingress Drop bad-spot empty test passed")
+
+
+@pytest.mark.order(10)
+def test_ingress_drop_bad_spot_repeated(mock_observer):
+    """
+    UT: Ingress Drop Bad-spot tracks repeated hits
+    """
+    executor = SimIngressDropProbingExecutorBadSpot(
+        observer=mock_observer,
+        name='test_drop_bad_spot',
+        actual_threshold=500,
+        bad_values=[300]
+    )
+
+    for _ in range(5):
+        success, detected = executor.check(None, None, 300)
+        assert success is False and detected is False
+
+    assert executor.bad_hit_count == 5
+    executor.cleanup()
+    print("[OK] Ingress Drop bad-spot repeated test passed")
 
 
 if __name__ == '__main__':

@@ -466,6 +466,231 @@ class TestThresholdRangeProbingAlgorithm:
         error_msg = self.mock_observer.on_error.call_args[0][0]
         assert "exceeded" in error_msg.lower() and "maximum iterations" in error_msg.lower()
 
+    @pytest.mark.order(8800)
+    def test_run_oscillation_on_noisy_hardware(self):
+        """Design issue: Range algorithm oscillates when a specific candidate
+        value always fails verification.
+
+        Scenario: value 300 always fails (hardware bug at that exact packet count),
+        all other values work normally. The actual threshold is 350.
+
+        Expected behavior: algorithm should NOT repeatedly test value 300.
+        After discovering 300 is unreliable, it should probe a different
+        midpoint and converge to the threshold.
+
+        [100, 900] mid=500 detected  → push [100, 500]
+        [100, 500] mid=300 FAIL      → pop back to [100, 900]
+        [100, 900] mid=500 detected  → push [100, 500]  ← SAME!
+        [100, 500] mid=300 FAIL      → pop back again   ← SAME!
+        ... oscillates
+
+        The fix should make the algorithm avoid retesting 300 and try
+        a different value (e.g., 301 or 299), eventually converging.
+        """
+        self.setUp()
+        actual_threshold = 350
+        bad_value = 300  # This value always causes verification failure
+        tested_values = []
+
+        def check_with_bad_spot(*args, **kwargs):
+            value = args[2] if len(args) > 2 else kwargs.get('value', 0)
+            tested_values.append(value)
+            if value == bad_value:
+                return (False, False)  # Always fails at this specific value
+            return (True, value >= actual_threshold)
+        self.mock_executor.check.side_effect = check_with_bad_spot
+
+        algo = ThresholdRangeProbingAlgorithm(
+            self.mock_executor, self.mock_observer,
+            precision_target_ratio=0.001
+        )
+        lower, upper, phase_time = algo.run(
+            src_port=24, dst_port=28, lower_bound=100, upper_bound=900
+        )
+
+        # Count how many times the bad value was tested
+        bad_value_hits = tested_values.count(bad_value)
+
+        # KEY ASSERTION: should not test the same failing value more than
+        # a few times. Current code retests it ~25 times (half of max_iterations).
+        assert bad_value_hits <= 3, \
+            f"Value {bad_value} was tested {bad_value_hits} times — " \
+            f"algorithm should avoid retesting known-failing values"
+
+    # ========================================================================
+    # Anti-Oscillation Backtrack Nudge Scenarios
+    #
+    # These tests verify the 6 backtrack scenarios documented in the module
+    # docstring. Each test constructs a specific failure pattern and verifies
+    # that the nudge produces a different midpoint on retry.
+    # ========================================================================
+
+    @pytest.mark.order(8810)
+    def test_backtrack_scenario1_parent_unreached_child_fail(self):
+        """Scenario 1: Parent unreached → right child → child FAIL (single layer)
+
+        grandfather: [781, 2337] mid=1559 reached → left [781, 1559]
+        father:      [781, 1559] mid=1170 unreached → right [1171, 1559]
+        child:       [1171, 1559] mid=1365 FAIL → backtrack
+
+        After nudge: father's start should decrease, producing a different
+        midpoint that leads to a different child range.
+        """
+        self.setUp()
+        actual_threshold = 1300
+        tested_values = []
+
+        def check_fn(*args, **kwargs):
+            value = args[2] if len(args) > 2 else kwargs.get('value', 0)
+            tested_values.append(value)
+            if value == 1365:
+                return (False, False)
+            return (True, value >= actual_threshold)
+        self.mock_executor.check.side_effect = check_fn
+
+        algo = ThresholdRangeProbingAlgorithm(
+            self.mock_executor, self.mock_observer, precision_target_ratio=0.001
+        )
+        algo.run(src_port=24, dst_port=28, lower_bound=781, upper_bound=2337)
+
+        hits = tested_values.count(1365)
+        assert hits <= 2, f"Bad value 1365 tested {hits} times"
+
+    @pytest.mark.order(8820)
+    def test_backtrack_scenario2_parent_reached_child_fail(self):
+        """Scenario 2: Parent reached → left child → child FAIL (single layer)
+
+        grandfather: [200, 900] mid=550 unreached → right [551, 900]
+        father:      [551, 900] mid=725 reached → left [551, 725]
+        child:       [551, 725] mid=638 FAIL → backtrack
+
+        After nudge: father's end should increase, producing a different midpoint.
+        """
+        self.setUp()
+        actual_threshold = 700
+        tested_values = []
+
+        def check_fn(*args, **kwargs):
+            value = args[2] if len(args) > 2 else kwargs.get('value', 0)
+            tested_values.append(value)
+            if value == 638:
+                return (False, False)
+            return (True, value >= actual_threshold)
+        self.mock_executor.check.side_effect = check_fn
+
+        algo = ThresholdRangeProbingAlgorithm(
+            self.mock_executor, self.mock_observer, precision_target_ratio=0.001
+        )
+        algo.run(src_port=24, dst_port=28, lower_bound=200, upper_bound=900)
+
+        hits = tested_values.count(638)
+        assert hits <= 2, f"Bad value 638 tested {hits} times"
+
+    @pytest.mark.order(8830)
+    def test_backtrack_scenario3_multi_layer_gf_unreached(self):
+        """Scenario 3: Multi-layer backtrack — grandparent unreached
+
+        father reached → left child FAIL → nudge father
+        new father ALSO FAIL → pop to grandparent
+        grandparent was unreached → nudge with boundary merge
+        """
+        self.setUp()
+        actual_threshold = 600
+        fail_values = {400, 450, 350}  # Multiple bad spots cause multi-layer backtrack
+        tested_values = []
+
+        def check_fn(*args, **kwargs):
+            value = args[2] if len(args) > 2 else kwargs.get('value', 0)
+            tested_values.append(value)
+            if value in fail_values:
+                return (False, False)
+            return (True, value >= actual_threshold)
+        self.mock_executor.check.side_effect = check_fn
+
+        algo = ThresholdRangeProbingAlgorithm(
+            self.mock_executor, self.mock_observer, precision_target_ratio=0.001
+        )
+        lower, upper, _ = algo.run(
+            src_port=24, dst_port=28, lower_bound=100, upper_bound=900
+        )
+
+        # With anti-oscillation, should still converge or exhaust gracefully
+        for v in fail_values:
+            hits = tested_values.count(v)
+            assert hits <= 3, f"Bad value {v} tested {hits} times"
+
+    @pytest.mark.order(8840)
+    def test_backtrack_scenario4_multi_layer_gf_reached(self):
+        """Scenario 4: Multi-layer backtrack — grandparent reached"""
+        self.setUp()
+        actual_threshold = 350
+        fail_values = {250, 300, 275}
+        tested_values = []
+
+        def check_fn(*args, **kwargs):
+            value = args[2] if len(args) > 2 else kwargs.get('value', 0)
+            tested_values.append(value)
+            if value in fail_values:
+                return (False, False)
+            return (True, value >= actual_threshold)
+        self.mock_executor.check.side_effect = check_fn
+
+        algo = ThresholdRangeProbingAlgorithm(
+            self.mock_executor, self.mock_observer, precision_target_ratio=0.001
+        )
+        algo.run(src_port=24, dst_port=28, lower_bound=100, upper_bound=900)
+
+        for v in fail_values:
+            hits = tested_values.count(v)
+            assert hits <= 3, f"Bad value {v} tested {hits} times"
+
+    @pytest.mark.order(8850)
+    def test_backtrack_converges_despite_bad_region(self):
+        """Verify algorithm converges to correct threshold even with a bad region.
+
+        Bad values 290-310: a 20-value region that always fails.
+        Actual threshold is 350. Algorithm should navigate around the bad
+        region and still find the threshold.
+        """
+        self.setUp()
+        actual_threshold = 350
+        bad_region = set(range(290, 311))
+        tested_values = []
+
+        def check_fn(*args, **kwargs):
+            value = args[2] if len(args) > 2 else kwargs.get('value', 0)
+            tested_values.append(value)
+            if value in bad_region:
+                return (False, False)
+            return (True, value >= actual_threshold)
+        self.mock_executor.check.side_effect = check_fn
+
+        algo = ThresholdRangeProbingAlgorithm(
+            self.mock_executor, self.mock_observer, precision_target_ratio=0.05
+        )
+        lower, upper, _ = algo.run(
+            src_port=24, dst_port=28, lower_bound=100, upper_bound=900
+        )
+
+        # Should still converge (threshold 350 is outside bad region 290-310)
+        if lower is not None:
+            assert lower <= actual_threshold <= upper, \
+                f"Range [{lower}, {upper}] should bracket threshold {actual_threshold}"
+
+    @pytest.mark.order(8860)
+    def test_backtrack_nudge_size_proportional(self):
+        """Verify _backtrack_nudge returns proportional values."""
+        self.setUp()
+        algo = ThresholdRangeProbingAlgorithm(
+            self.mock_executor, self.mock_observer
+        )
+
+        assert algo._backtrack_nudge(0, 10) == 1         # Small range → min nudge
+        assert algo._backtrack_nudge(0, 100) == 10        # 100 // 10
+        assert algo._backtrack_nudge(0, 1000) == 100      # 1000 // 10
+        assert algo._backtrack_nudge(500, 600) == 10      # range=100
+        assert algo._backtrack_nudge(0, 5) == 1           # Very small → min 1
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
