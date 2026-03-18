@@ -476,6 +476,6 @@ def perform_gnoi_upgrade_smartswitch_dpus_parallel(
             futs[i] = executor.submit(_upgrade_one_dpu_via_gnoi, duthost, tbinfo, ptf_gnoi, cfg)
 
         for i, fut in futs.items():
-            results[i] = fut.result()
+            results[i] = fut.get()
 
     return results
