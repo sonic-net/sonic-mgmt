@@ -331,6 +331,9 @@ class TestPlanManager(object):
         if BUILDIMAGE_REPO_FLAG in kwargs.get("source_repo"):
             kvm_image_build_id = build_id
             kvm_image_branch = ""
+        # kvm_image_build_id and kvm_image_branch are mutually exclusive; build id takes precedence
+        if kvm_image_build_id:
+            kvm_image_branch = ""
         affinity = json.loads(kwargs.get("affinity", "[]"))
         payload = {
             "name": test_plan_name,
