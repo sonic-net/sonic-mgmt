@@ -52,7 +52,7 @@ def setup_c0(request, duthost, tbinfo):
 
     console_facts = duthost.console_facts()['ansible_facts']['console_facts']
     if len(console_facts["lines"]) != len(console_lines):
-        pytest.fail("Loopback test requires DUT with 48 console lines configured, got {}"
+        pytest.fail("C0 topo test requires DUT with 48 console lines configured, got {}"
                     .format(len(console_facts["lines"])))
 
     return duthost, console_fanout
