@@ -3,6 +3,7 @@ import logging
 import ptf.packet as scapy
 import ptf.testutils as testutils
 import pytest
+from random import randint
 from scapy.all import Ether, IP, VXLAN, IPv6, UDP, GRE
 from constants import (
     LOCAL_PTF_INTF,
@@ -16,7 +17,7 @@ from constants import (
 from conftest import get_interface_ip
 from configs.privatelink_config import TUNNEL1_ENDPOINT_IP
 import configs.privatelink_config as pl
-from dash_utils import apply_swssconfig_file
+from tests.common.dash_utils import apply_swssconfig_file
 from gnmi_utils import apply_messages
 from packets import (
     get_pl_overlay_dip,
@@ -926,14 +927,14 @@ class TestPrivateLinkRedirectFNIC:
     @pytest.mark.parametrize(
         "l4_protocols", [['tcp'], ['udp']], ids=['tcp', 'udp']
     )
-    def test_dst_port_is_middle_port_in_map_range(
+    def test_dst_port_is_random_port_in_map_range(
         self, ptfadapter, dash_pl_config, l4_protocols
     ):
         """
         Test:
         Create UDP and TCP packets with inner destination port
         is middle port of the port map range.
-        1. VM to dpu packets sent with inner dest port 8500
+        1. VM to dpu packets sent with random inner dest port in the map range
         2. DPU to PE packets are sdn modified (inner dport: 42500,
            encoded inner dst ipv6, outer ipv4: 60.60.60.1,
            encap: GRE) and forwarded to PE
@@ -947,8 +948,11 @@ class TestPrivateLinkRedirectFNIC:
 
         # for reverse flow, sport, dport will be reversed
         vm_to_pe_inner_sport = 12345
-        vm_to_pe_inner_dport = 8500  # middle port in port map range
-
+        # random port in port map range excluding start and end port
+        vm_to_pe_inner_dport = randint(pl.PORT_MAP_1_RANGE_START+1, pl.PORT_MAP_1_RANGE_END-1)
+        expected_mapped_port = pl.PL_REDIRECT_BACKEND_PORT_BASE + (
+                    vm_to_pe_inner_dport - pl.PORT_MAP_1_RANGE_START
+                )
         # packet_set_dic = {'tcp': [(),(),..], 'udp': [(),(),..]}
         packet_set_dic = generate_packets(
             ptfadapter,
@@ -981,14 +985,14 @@ class TestPrivateLinkRedirectFNIC:
                 exp_dpu_to_pe_pkt.exp_pkt[IP].dst = (
                     pl.PL_REDIRECT_BACKEND_IP
                 )
-                exp_dpu_to_pe_pkt.exp_pkt[GRE][Ether][IPv6].dport = 42500
+                exp_dpu_to_pe_pkt.exp_pkt[GRE][Ether][IPv6].dport = expected_mapped_port
                 exp_dpu_to_pe_pkt.exp_pkt[GRE][Ether][IPv6].dst = (
                     overlay_pe_ipv6
                 )
 
                 # modify pe_to_dpu_pkt to have mapped backend port
                 pe_to_dpu_pkt[IP].src = pl.PL_REDIRECT_BACKEND_IP
-                pe_to_dpu_pkt[GRE][Ether][IPv6].sport = 42500
+                pe_to_dpu_pkt[GRE][Ether][IPv6].sport = expected_mapped_port
                 pe_to_dpu_pkt[GRE][Ether][IPv6].src = overlay_pe_ipv6
 
                 # modify exp_dpu_to_vm_pkt
@@ -1058,6 +1062,7 @@ class TestPrivateLinkRedirectPLNSG:
             inner_sport=vm_to_pe_inner_sport,
             inner_dport=vm_to_pe_inner_dport,
             plnsg=True,
+            exp_vni=pl.VNET1_VNI
         )
 
         # modify expected packets and update the payload
@@ -1119,6 +1124,7 @@ class TestPrivateLinkRedirectPLNSG:
             inner_sport=vm_to_pe_inner_sport,
             inner_dport=vm_to_pe_inner_dport,
             plnsg=True,
+            exp_vni=pl.VNET1_VNI
         )
 
         # modify expected packets and update the payload
@@ -1181,6 +1187,7 @@ class TestPrivateLinkRedirectPLNSG:
             inner_sport=vm_to_pe_inner_sport,
             inner_dport=vm_to_pe_inner_dport,
             plnsg=True,
+            exp_vni=pl.VNET1_VNI
         )
 
         # modify expected packets and update the payload
@@ -1272,6 +1279,7 @@ class TestPrivateLinkRedirectPLNSG:
             inner_sport=vm_to_pe_inner_sport,
             inner_dport=vm_to_pe_inner_dport,
             plnsg=True,
+            exp_vni=pl.VNET1_VNI
         )
 
         # modify expected packets and update the payload
@@ -1331,28 +1339,34 @@ class TestPrivateLinkRedirectPLNSG:
     @pytest.mark.parametrize(
         "l4_protocols", [['tcp'], ['udp']], ids=['tcp', 'udp']
     )
-    def test_dst_port_is_middle_port_in_map_range(
+    def test_dst_port_is_random_port_in_map_range(
         self, ptfadapter, dash_pl_config, l4_protocols
     ):
         """
         Test:
         Create UDP and TCP packets with inner destination port
-        is middle port of the port map range.
-        1. VM to dpu packets sent with inner dest port 8500
-        2. DPU to PE packets are sdn modified (inner dport: 42500,
+        is random port of the port map range.
+        1. VM to dpu packets sent with inner dest port
+           randomly generated within the port map range.
+        2. Base port is PL_REDIRECT_BACKEND_PORT_BASE (42000) and port map range is 8001-9000.
+        3. DPU to PE packets are sdn modified (inner dport: 42500,
            encoded inner dst ipv6, outer ipv4: 60.60.60.1,
            encap: GRE) and forwarded to PE
-        3. Packets send from PE to dpu with PE parameters.
-        4. DPU to VM packets are sdn modified to have same VM/vnic
+        4. Packets send from PE to dpu with PE parameters.
+        5. DPU to VM packets are sdn modified to have same VM/vnic
            parameters (encap: VXLAN) and forwarded to VM
-        5. Verify packets are received and header values are as
+        6. Verify packets are received and header values are as
            expected on both PE and VM side.
         """
         logger.info(f"dash_pl_config: \n{dash_pl_config}")
 
         # for reverse flow, sport, dport will be reversed
         vm_to_pe_inner_sport = 12345
-        vm_to_pe_inner_dport = 8500  # middle port in port map range
+        # random port in port map range excluding start and end port
+        vm_to_pe_inner_dport = randint(pl.PORT_MAP_1_RANGE_START+1, pl.PORT_MAP_1_RANGE_END-1)
+        expected_mapped_port = pl.PL_REDIRECT_BACKEND_PORT_BASE + (
+                    vm_to_pe_inner_dport - pl.PORT_MAP_1_RANGE_START
+                )
 
         # packet_set_dic = {'tcp': [(),(),..], 'udp': [(),(),..]}
         packet_set_dic = generate_packets(
@@ -1363,6 +1377,7 @@ class TestPrivateLinkRedirectPLNSG:
             inner_sport=vm_to_pe_inner_sport,
             inner_dport=vm_to_pe_inner_dport,
             plnsg=True,
+            exp_vni=pl.VNET1_VNI
         )
 
         # modify expected packets and update the payload
@@ -1390,14 +1405,14 @@ class TestPrivateLinkRedirectPLNSG:
                 )
                 exp_dpu_to_pe_pkt.exp_pkt[VXLAN][Ether][GRE][Ether][
                     IPv6
-                ].dport = 42500
+                ].dport = expected_mapped_port
                 exp_dpu_to_pe_pkt.exp_pkt[VXLAN][Ether][GRE][Ether][
                     IPv6
                 ].dst = overlay_pe_ipv6
 
                 # modify pe_to_dpu_pkt to have mapped backend port
                 pe_to_dpu_pkt[IP].src = pl.PL_REDIRECT_BACKEND_IP
-                pe_to_dpu_pkt[GRE][Ether][IPv6].sport = 42500
+                pe_to_dpu_pkt[GRE][Ether][IPv6].sport = expected_mapped_port
                 pe_to_dpu_pkt[GRE][Ether][IPv6].src = overlay_pe_ipv6
 
                 # modify exp_dpu_to_vm_pkt
