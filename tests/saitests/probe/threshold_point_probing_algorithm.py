@@ -54,6 +54,12 @@ class ThresholdPointProbingAlgorithm:
     - Single verification per step (configurable)
     - Optimized packet sending strategy
     - Failure detection if no threshold found in range
+
+    Note on step_size:
+        When step_size > 1, the returned threshold point has ±step_size
+        tolerance. For example, with step_size=2, the algorithm checks
+        101, 103, 105... — if 103 triggers, the actual threshold could
+        be 102 (skipped). Default step_size=1 gives exact results.
     """
 
     def __init__(self, executor: ProbingExecutorProtocol, observer: ProbingObserver,
@@ -66,7 +72,8 @@ class ThresholdPointProbingAlgorithm:
             executor: Any executor implementing ProbingExecutorProtocol
             observer: Unified ProbingObserver for Phase 4 (threshold_point)
             verification_attempts: How many times to repeat each check and require consistency
-            step_size: Step increment size (default 1, can be 2, 4, etc. for faster probing)
+            step_size: Step increment size (default 1 for exact results; values > 1
+                       trade precision for speed — returned point has ±step_size tolerance)
         """
         self.executor = executor
         self.observer = observer
@@ -84,7 +91,6 @@ class ThresholdPointProbingAlgorithm:
             lower_bound: Starting point for step-by-step search
             upper_bound: End point for search range
             **traffic_keys: Traffic identification keys (e.g., pg=3, queue=5)
-            upper_bound: Maximum search limit
 
         Returns:
             Tuple[lower_bound, upper_bound, phase_time] where:
