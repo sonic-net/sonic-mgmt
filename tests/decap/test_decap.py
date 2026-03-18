@@ -358,7 +358,7 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
 # Warm-reboot decap test (Test Gap #16480)
 # ---------------------------------------------------------------------------
 
-TUNNEL_TABLE_KEY = "TUNNEL_DECAP_TABLE:IPINIP_TUNNEL"
+TUNNEL_TABLE_KEY = "TUNNEL_DECAP_TABLE:TEST_IPINIP_V4_TUNNEL"
 DECAP_RULE_FIELDS = ["dscp_mode", "ecn_mode", "ttl_mode", "tunnel_type"]
 
 
@@ -375,11 +375,11 @@ def _read_decap_rules(duthost):
 
 
 def _verify_decap_rules(duthost, context=""):
-    """Assert that default IPINIP_TUNNEL decap rules are present in APP_DB."""
+    """Assert that TEST_IPINIP_V4_TUNNEL decap rules are present in APP_DB."""
     rules = _read_decap_rules(duthost)
     pytest_assert(
         rules.get("tunnel_type") == "IPINIP",
-        "IPINIP_TUNNEL not found on {} {}".format(duthost.hostname, context)
+        "TEST_IPINIP_V4_TUNNEL not found in APP_DB on {} {}".format(duthost.hostname, context)
     )
     pytest_assert(
         "dscp_mode" in rules and "ecn_mode" in rules and "ttl_mode" in rules,
@@ -391,7 +391,7 @@ def _verify_decap_rules(duthost, context=""):
 
 @pytest.mark.disable_loganalyzer
 def test_decap_warmboot(tbinfo, duthosts, rand_one_dut_hostname, localhost, ptfhost,
-                        setup_teardown, mux_server_url,                                 # noqa: F811
+                        mux_server_url,                                                 # noqa: F811
                         toggle_all_simulator_ports_to_random_side,                      # noqa: F811
                         supported_ttl_dscp_params, ip_ver, loopback_ips,
                         duts_running_config_facts, duts_minigraph_facts,
@@ -400,16 +400,20 @@ def test_decap_warmboot(tbinfo, duthosts, rand_one_dut_hostname, localhost, ptfh
 
     Test Gap: https://github.com/sonic-net/sonic-mgmt/issues/16480
 
+    Unlike test_decap, this test manages its own decap config independently
+    (does not use the setup_teardown fixture) to avoid interference with the
+    module-scoped fixture that removes the default tunnel.
+
     Test steps:
-        1. Verify default IPINIP_TUNNEL decap rules exist in APP_DB before warm-reboot
+        1. Apply test decap config and verify rules in APP_DB before warm-reboot
         2. Run IPv4-in-IPv4 traffic test to confirm decap works before warm-reboot
-        3. Perform warm-reboot on the DUT
+        3. Save config and perform warm-reboot
         4. Verify decap rules are unchanged in APP_DB after warm-reboot
         5. Run IPv4-in-IPv4 traffic test again to confirm decap still works
     """
     duthost = duthosts[rand_one_dut_hostname]
-    setup_info = setup_teardown
     asic_type = duthost.facts["asic_type"]
+    ecn_mode = "copy_from_outer"
     ttl_mode = supported_ttl_dscp_params['ttl']
     dscp_mode = supported_ttl_dscp_params['dscp']
     vxlan = supported_ttl_dscp_params['vxlan']
@@ -418,59 +422,97 @@ def test_decap_warmboot(tbinfo, duthosts, rand_one_dut_hostname, localhost, ptfh
     if vxlan == "set_unset":
         pytest.skip("Skipping warmboot test for vxlan set_unset variant")
 
-    # Step 1: Verify default decap rules before warm-reboot
-    logger.info("Step 1: Verifying default decap rules before warm-reboot on %s", duthost.hostname)
-    pre_reboot_rules = _verify_decap_rules(duthost, context="(before warm-reboot)")
+    is_multi_asic = duthost.sonichost.is_multi_asic
+    setup_info = {
+        "fib_info_files": duts_running_config_facts,
+        "single_fib_for_duts": False,
+        "ignore_ttl": True if is_multi_asic else False,
+        "max_internal_hops": 3 if is_multi_asic else 0,
+        "outer_ipv4": True,
+        "outer_ipv6": False,
+        "inner_ipv4": True,
+        "inner_ipv6": False,
+    }
 
-    # Step 2: Verify decap traffic before warm-reboot
-    logger.info("Step 2: Running decap traffic test before warm-reboot")
-    if 'dualtor' in tbinfo['topo']['name']:
-        wait(30, 'Wait for mux active/standby state to stabilize')
+    # Build loopback IPs for this DUT
+    lo_ips = []
+    lo_ipv6s = []
+    cfg_facts = duts_running_config_facts[duthost.hostname]
+    lo_ip = None
+    lo_ipv6 = None
+    for addr in cfg_facts[0][1]["LOOPBACK_INTERFACE"]["Loopback0"]:
+        ip = IPNetwork(addr).ip
+        if ip.version == 4 and not lo_ip:
+            lo_ip = str(ip)
+        elif ip.version == 6 and not lo_ipv6:
+            lo_ipv6 = str(ip)
+    lo_ips.append(lo_ip)
+    lo_ipv6s.append(lo_ipv6)
+    local_loopback_ips = {'lo_ips': lo_ips, 'lo_ipv6s': lo_ipv6s}
+    setup_info.update(local_loopback_ips)
 
-    launch_ptf_runner(
-        ptfhost=ptfhost, tbinfo=tbinfo, duthosts=duthosts,
-        mux_server_url=mux_server_url,
-        duts_running_config_facts=duts_running_config_facts,
-        duts_minigraph_facts=duts_minigraph_facts,
-        mux_status_from_nic_simulator=mux_status_from_nic_simulator,
-        setup_info=setup_info,
-        outer_ipv4=True, outer_ipv6=False,
-        inner_ipv4=True, inner_ipv6=False,
-        ttl_mode=ttl_mode, dscp_mode=dscp_mode, asic_type=asic_type,
-    )
+    local_ip_ver = {"outer_ipv4": True, "outer_ipv6": False,
+                    "inner_ipv4": True, "inner_ipv6": False}
 
-    # Step 3: Save config and perform warm-reboot
-    logger.info("Step 3: Performing warm-reboot on %s", duthost.hostname)
-    duthost.shell('config save -y')
-    reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True,
-           safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
-    logger.info("Warm-reboot completed on %s", duthost.hostname)
+    try:
+        # Step 1: Apply test decap config and verify rules before warm-reboot
+        logger.info("Step 1: Applying decap config and verifying rules before warm-reboot on %s",
+                    duthost.hostname)
+        apply_decap_cfg([duthost], local_ip_ver, local_loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
+        pre_reboot_rules = _verify_decap_rules(duthost, context="(before warm-reboot)")
 
-    # Step 4: Verify decap rules are unchanged after warm-reboot
-    logger.info("Step 4: Verifying decap rules after warm-reboot on %s", duthost.hostname)
-    post_reboot_rules = _verify_decap_rules(duthost, context="(after warm-reboot)")
-    pytest_assert(
-        pre_reboot_rules == post_reboot_rules,
-        "Decap rules changed after warm-reboot on {}: before={}, after={}".format(
-            duthost.hostname, pre_reboot_rules, post_reboot_rules)
-    )
-    logger.info("Decap rules match before and after warm-reboot on %s", duthost.hostname)
+        # Step 2: Verify decap traffic before warm-reboot
+        logger.info("Step 2: Running decap traffic test before warm-reboot")
+        if 'dualtor' in tbinfo['topo']['name']:
+            wait(30, 'Wait for mux active/standby state to stabilize')
 
-    # Step 5: Verify decap traffic after warm-reboot
-    logger.info("Step 5: Running decap traffic test after warm-reboot")
-    if 'dualtor' in tbinfo['topo']['name']:
-        wait(30, 'Wait for mux active/standby state to stabilize after warm-reboot')
+        launch_ptf_runner(
+            ptfhost=ptfhost, tbinfo=tbinfo, duthosts=[duthost],
+            mux_server_url=mux_server_url,
+            duts_running_config_facts=duts_running_config_facts,
+            duts_minigraph_facts=duts_minigraph_facts,
+            mux_status_from_nic_simulator=mux_status_from_nic_simulator,
+            setup_info=setup_info,
+            outer_ipv4=True, outer_ipv6=False,
+            inner_ipv4=True, inner_ipv6=False,
+            ttl_mode=ttl_mode, dscp_mode=dscp_mode, asic_type=asic_type,
+        )
 
-    launch_ptf_runner(
-        ptfhost=ptfhost, tbinfo=tbinfo, duthosts=duthosts,
-        mux_server_url=mux_server_url,
-        duts_running_config_facts=duts_running_config_facts,
-        duts_minigraph_facts=duts_minigraph_facts,
-        mux_status_from_nic_simulator=mux_status_from_nic_simulator,
-        setup_info=setup_info,
-        outer_ipv4=True, outer_ipv6=False,
-        inner_ipv4=True, inner_ipv6=False,
-        ttl_mode=ttl_mode, dscp_mode=dscp_mode, asic_type=asic_type,
-    )
+        # Step 3: Save config and perform warm-reboot
+        logger.info("Step 3: Performing warm-reboot on %s", duthost.hostname)
+        duthost.shell('config save -y')
+        reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True,
+               safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
+        logger.info("Warm-reboot completed on %s", duthost.hostname)
 
-    logger.info("test_decap_warmboot PASSED on %s", duthost.hostname)
+        # Step 4: Verify decap rules are unchanged after warm-reboot
+        logger.info("Step 4: Verifying decap rules after warm-reboot on %s", duthost.hostname)
+        post_reboot_rules = _verify_decap_rules(duthost, context="(after warm-reboot)")
+        pytest_assert(
+            pre_reboot_rules == post_reboot_rules,
+            "Decap rules changed after warm-reboot on {}: before={}, after={}".format(
+                duthost.hostname, pre_reboot_rules, post_reboot_rules)
+        )
+        logger.info("Decap rules match before and after warm-reboot on %s", duthost.hostname)
+
+        # Step 5: Verify decap traffic after warm-reboot
+        logger.info("Step 5: Running decap traffic test after warm-reboot")
+        if 'dualtor' in tbinfo['topo']['name']:
+            wait(30, 'Wait for mux active/standby state to stabilize after warm-reboot')
+
+        launch_ptf_runner(
+            ptfhost=ptfhost, tbinfo=tbinfo, duthosts=[duthost],
+            mux_server_url=mux_server_url,
+            duts_running_config_facts=duts_running_config_facts,
+            duts_minigraph_facts=duts_minigraph_facts,
+            mux_status_from_nic_simulator=mux_status_from_nic_simulator,
+            setup_info=setup_info,
+            outer_ipv4=True, outer_ipv6=False,
+            inner_ipv4=True, inner_ipv6=False,
+            ttl_mode=ttl_mode, dscp_mode=dscp_mode, asic_type=asic_type,
+        )
+
+        logger.info("test_decap_warmboot PASSED on %s", duthost.hostname)
+
+    finally:
+        apply_decap_cfg([duthost], local_ip_ver, local_loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
