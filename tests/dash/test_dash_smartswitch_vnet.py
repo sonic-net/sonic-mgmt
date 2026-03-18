@@ -79,7 +79,8 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
         {
             "SWITCH_TABLE:switch": {
                 "vxlan_sport": VXLAN_UDP_BASE_SRC_PORT,
-                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK
+                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK,
+                "vxlan_security": "true"
             },
             "OP": "SET"
         }
