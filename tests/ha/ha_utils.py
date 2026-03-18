@@ -4,6 +4,7 @@ import ast
 import json
 
 from tests.common.utilities import wait_until
+from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config
 
 logger = logging.getLogger(__name__)
 
@@ -192,53 +193,67 @@ def verify_ha_state(
     return success
 
 
-def activate_primary_dash_ha(duthost, scope_key, expected_op_type):
+def activate_primary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_op_type):
     """
     Activate Role using pending_operation_ids
     """
     fields = {
                 "version": "1",
-                "disabled": "false",
+                "disabled": False,
                 "desired_ha_state": "active",
-                "ha_set_id": "haset0_0",
                 "owner": "dpu",
             }
-    return activate_dash_ha(duthost, scope_key, fields, expected_op_type)
+    return activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type)
 
 
-def activate_secondary_dash_ha(duthost, scope_key, expected_op_type):
+def activate_secondary_dash_ha(localhost, duthost, ptfhost, scope_key, expected_op_type):
     """
     Activate Role using pending_operation_ids
     """
     fields = {
                 "version": "1",
-                "disabled": "false",
+                "disabled": False,
                 "desired_ha_state": "unspecified",
-                "ha_set_id": "haset0_0",
                 "owner": "dpu",
             }
-    return activate_dash_ha(duthost, scope_key, fields, expected_op_type)
+    return activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type)
 
 
-def activate_dash_ha(duthost, scope_key, fields, expected_op_type):
-
-    proto_utils_hset(
-            duthost,
-            table="DASH_HA_SCOPE_CONFIG_TABLE",
-            key=scope_key,
-            args=build_dash_ha_scope_args(fields),
+def _apply_ha_scope_gnmi(localhost, duthost, ptfhost, scope_key, fields, approved_pending_operation_ids=None):
+    if apply_ha_messages is None or ha_scope_config is None:
+        raise ModuleNotFoundError(
+            "Failed to import apply_ha_messages/ha_scope_config from tests/ha/ha_gnmi.py"
         )
+    vdpu_id, ha_set_id = scope_key.split(":", 1)
+    messages = ha_scope_config(
+        vdpu_id=vdpu_id,
+        ha_set_id=ha_set_id,
+        approved_pending_operation_ids=approved_pending_operation_ids,
+        **fields,
+    )
+    apply_ha_messages(
+        localhost=localhost,
+        duthost=duthost,
+        ptfhost=ptfhost,
+        messages=messages,
+    )
+
+
+def activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op_type):
+    _apply_ha_scope_gnmi(localhost, duthost, ptfhost, scope_key, fields)
 
     pending_id = wait_for_pending_operation_id(duthost, scope_key, expected_op_type, timeout=60)
     assert pending_id, (
         f"Timed out waiting for active pending_operation_id "
         f"for scope {scope_key}"
     )
-    proto_utils_hset(
+    _apply_ha_scope_gnmi(
+        localhost,
         duthost,
-        table="DASH_HA_SCOPE_CONFIG_TABLE",
-        key=scope_key,
-        args=build_dash_ha_scope_activate_args(fields, pending_id),
+        ptfhost,
+        scope_key,
+        fields,
+        approved_pending_operation_ids=[pending_id],
     )
 
     if verify_ha_state(
@@ -253,6 +268,20 @@ def activate_dash_ha(duthost, scope_key, fields, expected_op_type):
     else:
         logger.warning(f"HA did not reach ACTIVE state for {scope_key}")
         return False
+
+
+def set_dead_dash_ha_scope(localhost, duthost, ptfhost, scope_key):
+    """
+    Set DASH_HA_SCOPE_CONFIG_TABLE entry to "dead" state
+    scope_key example: vdpu0_0:haset0_0
+    """
+    fields = {
+                "version": "1",
+                "disabled": True,
+                "desired_ha_state": "dead",
+                "owner": "dpu",
+            }
+    _apply_ha_scope_gnmi(localhost, duthost, ptfhost, scope_key, fields)
 
 
 def wait_for_pending_operation_id(
