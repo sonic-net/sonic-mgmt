@@ -172,7 +172,7 @@ class ThresholdRangeProbingAlgorithm:
                 if self.enable_precise_detection:
                     precision_reached = range_size <= self.precise_detection_range_limit
                 else:
-                    precision_reached = range_size <= candidate_threshold * self.precision_target_ratio
+                    precision_reached = range_size <= max(1, candidate_threshold * self.precision_target_ratio)
 
                 if precision_reached:
                     iteration_time, phase_time = self.observer.on_iteration_complete(
