@@ -9,6 +9,7 @@ from tests.common.helpers.upgrade_helpers import (
     perform_gnoi_upgrade_smartswitch_dpu,
     perform_gnoi_upgrade_smartswitch_dpus_parallel,
 )
+from tests.common.platform.device_utils import get_configured_dpu_names
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ def _build_dpu_metadata(dpu_index: int):
 
 
 @pytest.fixture(scope="module")
-def smartswitch_gnoi_upgrade_lists(request):
+def smartswitch_gnoi_upgrade_lists(request, duthost):
     """
     Same style as tests/upgrade_path/test_upgrade_gnoi.py:
       - upgrade_type: warm/cold -> passed into cfg.upgrade_type (helper maps to reboot method)
@@ -55,13 +56,12 @@ def smartswitch_gnoi_upgrade_lists(request):
     # defaults
     if ss_target_index in (None, ""):
         ss_target_index = 3
-    if not ss_reboot_ready_timeout:
-        ss_reboot_ready_timeout = 1200
 
+    names = get_configured_dpu_names(duthost)
     parsed_indices = None
     if not ss_target_indices:
-        parsed_indices = [0, 1]
-    if ss_target_indices:
+        parsed_indices = list(range(len(names)))        # 4 -> [0, 1, 2, 3]]
+    else:
         parsed_indices = [int(x.strip()) for x in ss_target_indices.split(",") if x.strip()]
         if not parsed_indices:
             parsed_indices = None
