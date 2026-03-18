@@ -13,7 +13,7 @@ import ipaddress
 
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info, multi_asic
-from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
+from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config, smartswitch_vlan_config
 
 DOCUMENTATION = '''
 module: generate_golden_config_db.py
@@ -59,7 +59,8 @@ class GenerateGoldenConfigDBModule(object):
                                     num_asics=dict(required=False, type='int', default=1),
                                     hwsku=dict(required=False, type='str', default=None),
                                     vm_configuration=dict(required=False, type='dict', default={}),
-                                    is_lit_mode=dict(required=False, type='bool', default=True)),
+                                    is_lit_mode=dict(required=False, type='bool', default=True),
+                                    npu_index=dict(required=False, type='int', default=0)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -69,6 +70,7 @@ class GenerateGoldenConfigDBModule(object):
 
         self.vm_configuration = self.module.params['vm_configuration']
         self.is_lit_mode = self.module.params['is_lit_mode']
+        self.npu_index = self.module.params['npu_index']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -386,7 +388,6 @@ class GenerateGoldenConfigDBModule(object):
         if rc != 0:
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
 
-        # Generate FEATURE table from init_cfg.ini
         ori_config_db = json.loads(out)
         if "DEVICE_METADATA" not in ori_config_db or "localhost" not in ori_config_db["DEVICE_METADATA"]:
             return "{}"
@@ -400,7 +401,6 @@ class GenerateGoldenConfigDBModule(object):
         ori_config_db["FEATURE"]["dhcp_server"]["state"] = "enabled"
         ori_config_db["FEATURE"]["dhcp_relay"]["state"] = "enabled"
 
-        # Generate INTERFACE table for EthernetBPXX
         if "PORT" not in ori_config_db or "INTERFACE" not in ori_config_db:
             return "{}"
 
@@ -417,19 +417,37 @@ class GenerateGoldenConfigDBModule(object):
             ori_config_db["DHCP_SERVER_IPV4_PORT"] = {}
 
         hwsku_config = smartswitch_hwsku_config[hwsku]
-        for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
+        dpu_num = hwsku_config["dpu_num"]
+
+        vlan_cfg = smartswitch_vlan_config.get(self.npu_index, smartswitch_vlan_config[0])
+        vlan_name = vlan_cfg["vlan_name"]
+
+        ori_config_db["VLAN"] = {
+            vlan_name: {"vlanid": vlan_cfg["vlanid"]}
+        }
+        ori_config_db["VLAN_INTERFACE"] = {
+            vlan_name: {},
+            "{}|{}".format(vlan_name, vlan_cfg["vlan_interface_ip"]): {}
+        }
+        ori_config_db["VLAN_MEMBER"] = {}
+
+        for i in range(dpu_num):
             port_index = hwsku_config["base"] + i * hwsku_config["step"] \
                 if "base" in hwsku_config and "step" in hwsku_config else i
             port_key = hwsku_config["port_key"].format(port_index)
-            if "interface_key" in hwsku_config:
-                interface_key = hwsku_config["interface_key"].format(port_index, i)
             dpu_key = hwsku_config["dpu_key"].format(i)
 
             if port_key in ori_config_db["PORT"]:
                 ori_config_db["PORT"][port_key]["admin_status"] = "up"
-                if "interface_key" in hwsku_config:
-                    ori_config_db["INTERFACE"][port_key] = {}
-                    ori_config_db["INTERFACE"][interface_key] = {}
+
+            # Remove any minigraph-generated INTERFACE entries for DPU dataplane ports
+            keys_to_remove = [k for k in ori_config_db["INTERFACE"]
+                              if k == port_key or k.startswith(port_key + "|")]
+            for k in keys_to_remove:
+                del ori_config_db["INTERFACE"][k]
+
+            vlan_member_key = "{}|{}".format(vlan_name, port_key)
+            ori_config_db["VLAN_MEMBER"][vlan_member_key] = {"tagging_mode": "untagged"}
 
             ori_config_db["CHASSIS_MODULE"]["DPU{}".format(i)] = {"admin_status": "up"}
 
@@ -468,6 +486,9 @@ class GenerateGoldenConfigDBModule(object):
             "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
             "INTERFACE": copy.deepcopy(ori_config_db["INTERFACE"]),
             "PORT": copy.deepcopy(ori_config_db["PORT"]),
+            "VLAN": copy.deepcopy(ori_config_db["VLAN"]),
+            "VLAN_INTERFACE": copy.deepcopy(ori_config_db["VLAN_INTERFACE"]),
+            "VLAN_MEMBER": copy.deepcopy(ori_config_db["VLAN_MEMBER"]),
             "CHASSIS_MODULE": copy.deepcopy(ori_config_db["CHASSIS_MODULE"]),
             "DPUS": copy.deepcopy(ori_config_db["DPUS"]),
             "DHCP_SERVER_IPV4_PORT": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4_PORT"]),
@@ -475,10 +496,11 @@ class GenerateGoldenConfigDBModule(object):
             "DHCP_SERVER_IPV4": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4"])
         }
 
-        # Set buffer_model to traditional by default
         gold_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+        if self.topo_name == "t1-smartswitch-ha":
+            gold_config_db["DEVICE_METADATA"]["localhost"]["cluster"] = "cluster1"
+            gold_config_db["DEVICE_METADATA"]["localhost"]["region"] = "west"
 
-        # Generate dhcp_server related configuration
         rc, out, err = self.module.run_command("cat {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         if rc != 0:
             self.module.fail_json(msg="Failed to get smartswitch config: {}".format(err))
@@ -526,38 +548,6 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
-    def generate_default_init_config_db(self):
-        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
-        if rc != 0:
-            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
-
-        # Generate config table from init_cfg.ini
-        ori_config_db = json.loads(out)
-
-        golden_config_db = {}
-        if "DEVICE_METADATA" in ori_config_db:
-            golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
-
-        # Set buffer_model to traditional to prevent regression, as it is currently hardcoded here:
-        #     https://github.com/sonic-net/sonic-utilities/blob/19594b99129f3c881d500ff65d4955d077accb25/config/main.py#L2216
-        golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
-
-        return json.dumps(golden_config_db, indent=4)
-
-    def update_zmq_config(self, config):
-        ori_config_db = json.loads(config)
-        if "DEVICE_METADATA" not in ori_config_db:
-            ori_config_db["DEVICE_METADATA"] = {}
-        if "localhost" not in ori_config_db["DEVICE_METADATA"]:
-            ori_config_db["DEVICE_METADATA"]["localhost"] = {}
-
-        # Older version image may not support ZMQ feature flag
-        rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
-        if "orch_northbond_route_zmq_enabled" in out:
-            ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
-
-        return json.dumps(ori_config_db, indent=4)
-
     def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2 to enable FEC.
@@ -601,10 +591,7 @@ class GenerateGoldenConfigDBModule(object):
         elif self.topo_name in ["t1-filterleaf-lag"]:
             config = self.generate_filterleaf_golden_config_db()
         else:
-            config = self.generate_default_init_config_db()
-
-        # update ZMQ config
-        config = self.update_zmq_config(config)
+            config = "{}"
 
         # update dns config
         config = self.update_dns_config(config)
