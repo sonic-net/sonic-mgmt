@@ -7,14 +7,46 @@ Generic precision range detection algorithm that works with any probing type
 Phase 3 Strategy:
 - Start with range from Phase 2 (lower_bound to upper_bound)
 - Binary search with adaptive termination (5% precision OR fixed range limit)
-- Stack-based backtracking for noise resilience
+- Stack-based backtracking with anti-oscillation nudge for noise resilience
 - Multiple verification attempts for noise-resilient detection
+
+Anti-Oscillation Backtrack Design:
+    When a child range fails verification, we pop back to its parent range.
+    Without adjustment, the parent would produce the same midpoint and same
+    child — causing infinite oscillation. To avoid this, we nudge the parent
+    range boundary in the direction that makes the failing move less aggressive.
+
+    The nudge direction depends on whether the parent's last successful check
+    was 'reached' (threshold triggered → searched left) or 'unreached'
+    (threshold not triggered → searched right):
+
+    Scenario 1: Parent unreached → searched right → child FAIL
+        Parent's right-move was too aggressive. Nudge parent_start left
+        (decrease) so the new midpoint is lower, producing a less aggressive
+        right-move next time.
+        Adjustment: parent_start -= nudge
+
+    Scenario 2: Parent reached → searched left → child FAIL
+        Parent's left-move was too aggressive. Nudge parent_end right
+        (increase) so the new midpoint is higher, producing a less aggressive
+        left-move next time.
+        Adjustment: parent_end += nudge
+
+    Multi-layer backtrack (new parent also fails → pop to grandparent):
+        Before applying the nudge to grandparent, merge boundaries to preserve
+        the wider search space explored by the failed descendant:
+        grandparent = (min(gp_start, failed_start), max(gp_end, failed_end))
+        Then apply the same nudge logic based on grandparent's direction.
+
+    Nudge size: proportional to parent range — max(1, range_size // 10).
+
+    6 scenario walkthrough: see unit tests in test_threshold_range_probing_algorithm.py
 
 Key principles:
 1. Pure algorithm logic - no hardware/platform dependencies
 2. Executor-agnostic through protocol interface
 3. Binary search with dynamic precision control
-4. Stack-based backtracking for verification failures
+4. Stack-based backtracking with anti-oscillation for verification failures
 """
 
 import sys
@@ -50,7 +82,7 @@ class ThresholdRangeProbingAlgorithm:
     Strategy:
     - Binary search within [lower_bound, upper_bound]
     - Adaptive termination: range_size <= candidate_threshold * 5% OR fixed range limit
-    - Stack-based backtracking for verification failures
+    - Stack-based backtracking with anti-oscillation nudge
     - Noise-resilient verification (configurable attempts)
     """
 
@@ -78,6 +110,18 @@ class ThresholdRangeProbingAlgorithm:
         self.enable_precise_detection = enable_precise_detection
         self.precise_detection_range_limit = precise_detection_range_limit
 
+    @staticmethod
+    def _backtrack_nudge(range_start, range_end):
+        """Calculate nudge size for anti-oscillation backtrack.
+
+        Proportional to current range: large ranges get larger nudges to
+        shift the midpoint meaningfully, small ranges get minimal nudges.
+
+        Returns:
+            int: nudge size (at least 1, proportional to range_size // 10)
+        """
+        return max(1, (range_end - range_start) // 10)
+
     def run(self, src_port: int, dst_port: int,
             lower_bound: int, upper_bound: int, **traffic_keys) -> Tuple[Optional[int], Optional[int], float]:
         """
@@ -99,40 +143,43 @@ class ThresholdRangeProbingAlgorithm:
             self.executor.prepare(src_port, dst_port)
 
             # Phase 3: Precision Range Detection using binary search with
-            # dynamic precision control
-            # Initialize range stack for backtracking support
-            range_stack = [(lower_bound, upper_bound)]
-            next_step = "init"  # Step description for next iteration
+            # dynamic precision control and anti-oscillation backtracking
+            #
+            # Stack entries: (range_start, range_end, direction)
+            #   direction: how this range was produced by its parent
+            #     'init'    - initial range (no parent)
+            #     'right'   - parent was unreached → searched right
+            #     'left'    - parent was reached → searched left
+            #     'nudge'   - backtracked with anti-oscillation nudge
+            STEP_LABELS = {'init': 'init', 'right': 'L->', 'left': '<-U', 'nudge': 'L<->U'}
+
+            range_stack = [(lower_bound, upper_bound, 'init')]
             iteration = 0
-            max_iterations = 50  # Safety limit
-            phase_time = 0.0  # Track cumulative phase time
+            max_iterations = 50
+            phase_time = 0.0
 
             while iteration < max_iterations and range_stack:
                 iteration += 1
-                range_start, range_end = range_stack[-1]
+                range_start, range_end, direction = range_stack[-1]
                 candidate_threshold = (range_start + range_end) // 2
 
-                # Add search window information for Phase 3 (complete window available)
-                self.observer.on_iteration_start(iteration, candidate_threshold, range_start, range_end, next_step)
+                self.observer.on_iteration_start(
+                    iteration, candidate_threshold, range_start, range_end,
+                    STEP_LABELS.get(direction, direction))
 
-                # Check dynamic precision target with precise detection optimization
+                # Check dynamic precision target
                 range_size = range_end - range_start
-
-                # Use different precision control based on mode
                 if self.enable_precise_detection:
-                    # Precise detection mode: use fixed range limit to minimize step-by-step iterations
                     precision_reached = range_size <= self.precise_detection_range_limit
                 else:
-                    # Normal mode: use dynamic precision (5% of threshold magnitude)
                     precision_reached = range_size <= candidate_threshold * self.precision_target_ratio
 
                 if precision_reached:
-                    # Output a summary row indicating precision already met, no probe needed
                     iteration_time, phase_time = self.observer.on_iteration_complete(
                         iteration, candidate_threshold, IterationOutcome.SKIPPED)
                     return (range_start, range_end, phase_time)
 
-                # Noise-resilient verification with multiple attempts
+                # Noise-resilient verification
                 success, detected = self.executor.check(
                     src_port, dst_port, candidate_threshold,
                     attempts=self.verification_attempts, iteration=iteration, **traffic_keys
@@ -144,21 +191,31 @@ class ThresholdRangeProbingAlgorithm:
                 )
 
                 if not success:
-                    # Verification failed - backtrack to parent range
-                    range_stack.pop()
-                    next_step = "L<->U"  # Backtrace: expand window
-                    # Let while condition handle stack exhaustion check
+                    # Backtrack with anti-oscillation nudge:
+                    # Pop failed child, nudge parent boundary to shift its
+                    # midpoint, preventing the same child from being produced.
+                    failed_start, failed_end, _ = range_stack.pop()
+
+                    if range_stack:
+                        parent_start, parent_end, parent_dir = range_stack[-1]
+                        nudge = self._backtrack_nudge(parent_start, parent_end)
+
+                        # Merge: preserve the wider search space from failed child
+                        merged_start = min(parent_start, failed_start)
+                        merged_end = max(parent_end, failed_end)
+
+                        # Nudge in the direction opposite to parent's last move
+                        if parent_dir in ('right', 'init'):
+                            merged_start -= nudge  # Soften right-move
+                        else:
+                            merged_end += nudge    # Soften left-move
+
+                        range_stack[-1] = (merged_start, merged_end, 'nudge')
                 else:
                     if detected:
-                        # Threshold triggered - search left half
-                        new_range = (range_start, candidate_threshold)
-                        next_step = "<-U"  # Search left: upper bound shrinking
+                        range_stack.append((range_start, candidate_threshold, 'left'))
                     else:
-                        # Threshold dismissed - search right half
-                        new_range = (candidate_threshold + 1, range_end)
-                        next_step = "L->"  # Search right: lower bound rising
-
-                    range_stack.append(new_range)
+                        range_stack.append((candidate_threshold + 1, range_end, 'right'))
 
             # Unified error handling after while loop exit
             if iteration >= max_iterations:
