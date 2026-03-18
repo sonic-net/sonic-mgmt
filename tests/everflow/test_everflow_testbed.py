@@ -15,6 +15,7 @@ from . import everflow_test_utilities as everflow_utils
 import ptf.packet as scapy
 from tests.ptf_runner import ptf_runner
 from .everflow_test_utilities import TARGET_SERVER_IP, BaseEverflowTest, DOWN_STREAM, UP_STREAM, get_default_server_ip
+from retry.api import retry_call
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                   # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory                                   # noqa: F401
@@ -256,17 +257,30 @@ class EverflowIPv4Tests(BaseEverflowTest):
         random_upstream_intf = random.choice(list(upstream_links_for_unselected_dut.keys()))
         rx_port_ptf_id = upstream_links_for_unselected_dut[random_upstream_intf]["ptf_port_id"]
         tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][0]
-        self._run_everflow_test_scenarios(
-            ptfadapter,
-            setup_info,
-            mux_config,
-            setup_mirror_session,
-            everflow_dut,
-            rx_port_ptf_id,
-            [tx_port_ptf_id],
-            dest_port_type,
-            erspan_ip_ver=erspan_ip_ver,
-            multi_binding_acl=True
+        try_num = 1
+        if everflow_dut.facts['asic_type'] == 'vs':
+            try_num = 5
+        # Adding retries is required by MSFT to overcome the issue of random packet loss on their simulator
+        retry_call(
+            self._run_everflow_test_scenarios,
+            fargs=(
+                ptfadapter,
+                setup_info,
+                mux_config,
+                setup_mirror_session,
+                everflow_dut,
+                rx_port_ptf_id,
+                [tx_port_ptf_id],
+                dest_port_type
+            ),
+            fkwargs={
+                'erspan_ip_ver': erspan_ip_ver,
+                'multi_binding_acl': True
+            },
+            exceptions=Exception,
+            tries=try_num,
+            delay=10,
+            logger=logger
         )
 
     def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,              # noqa F811
