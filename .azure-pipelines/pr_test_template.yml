@@ -70,6 +70,10 @@ parameters:
   type: string
   default: $(BUILD_BRANCH)
 
+- name: KVM_BUILD_ID
+  type: string
+  default: ""
+
 jobs:
   - job: get_impacted_area
     displayName: "Get impacted area"
@@ -133,6 +137,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
@@ -218,6 +223,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
@@ -440,6 +446,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: ${{ parameters.KVM_IMAGE_BRANCH }}
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
