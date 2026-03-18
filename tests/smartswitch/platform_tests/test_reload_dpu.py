@@ -9,6 +9,7 @@ import time
 from tests.common.cisco_data import is_cisco_device
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, SONIC_SSH_PORT, SONIC_SSH_REGEX
+from tests.common.helpers.dut_utils import is_mellanox_devices
 from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
     pre_test_check, post_test_switch_check, post_test_dpus_check,\
     dpus_shutdown_and_check, dpus_startup_and_check, check_dpus_module_status,\
@@ -28,6 +29,7 @@ memory_exhaustion_cmd = "sudo nohup bash -c 'sleep 5 && tail /dev/zero' &"
 DUT_ABSENT_TIMEOUT_FOR_KERNEL_PANIC = 100
 DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 240
 MAX_COOL_OFF_TIME = 300
+EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG = 40
 
 
 # @pytest.fixture(params=["gnoi_based", "cli_based"])
@@ -230,11 +232,15 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
         check_dpus_module_status(duthost, dpu_on_list, "off")
 
     logging.info("Executing post test dpu check")
+    reboot_cause_pattern = r"reboot|Non-Hardware"
+    if is_mellanox_devices(duthost.facts['hwsku']):
+        reboot_cause_pattern = r"Watchdog"
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, ip_address_list,
                          num_dpu_modules,
-                         re.compile(r"reboot|Non-Hardware",
-                                    re.IGNORECASE))
+                         re.compile(reboot_cause_pattern,
+                                    re.IGNORECASE),
+                         EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG)
 
 
 @pytest.mark.disable_loganalyzer
@@ -284,10 +290,16 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
         check_dpus_module_status(duthost, dpu_on_list, "off")
 
     logging.info("Executing post test dpu check")
-    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
+    reboot_cause_pattern = r"reboot|Non-Hardware"
+    if is_mellanox_devices(duthost.facts['hwsku']):
+        reboot_cause_pattern = r"Watchdog"
+
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
                          num_dpu_modules,
-                         re.compile(r"reboot|Non-Hardware",
-                                    re.IGNORECASE))
+                         re.compile(reboot_cause_pattern,
+                                    re.IGNORECASE),
+                         EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG)
 
 
 @pytest.mark.disable_loganalyzer
