@@ -368,7 +368,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
             continue
         last_byte = _next_system_id & 0xFF
         lag = config.lags.lag(name='Lag {}'.format(pc))[-1]
-        lag.protocol.lacp.actor_system_id = f"00:00:00:00:00:{last_byte:02x}"
+        lag.protocol.lacp.actor_system_id = f"00:00:00:00:00:{last_byte:02x}"           # noqa: E231
         lag.protocol.lacp.actor_system_priority = 1
         lag.protocol.lacp.actor_key = 1
 
@@ -666,8 +666,9 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
             port['port_id'] = str(port_id + 1)
             dut_port_info = dut_port_table.get(port['peer_port'], {})
             port['autoneg'] = dut_port_info.get('autoneg') == 'on'
-            port['fec'] = dut_port_info.get('fec') == 'rs'
-            port['link_training'] = dut_port_info.get('link_training', '').lower() in ['on', 'true', 'yes', '1']
+            port['fec'] = str(dut_port_info.get('fec', '')).strip().lower().startswith('rs')
+            fec_value = str(dut_port_info.get('link_training', '')).strip().lower()
+            port['link_training'] = fec_value in ['on', 'true', 'yes', '1']
             port['speed'] = speed_type.get(str(port_speed), port['speed'])
             peer_port = port['peer_port']
             int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
@@ -714,7 +715,7 @@ def snappi_base_config(duthost_list, snappi_ports, snappi_api, setup=True, multi
         snappi_api: Snappi API fixture.
         setup (bool): Indicates if functionality is called to create or clear the setup.
         multi_mode: True to use multi-base behavior (mixed speeds, per-port L1 config).
-                    False to use DUT-base behavior (single speed check, single L1 config).
+                    False to use DUT-base behavior (single speed check, uniform per-port L1 settings).
 
     Returns:
         Result of setup_dut_ports call (config, port_config_list, etc.)
@@ -1399,22 +1400,12 @@ def cleanup_config(duthost_list, snappi_ports):
         delete_macsec_profile(macsec_enabled_port['duthost'], macsec_enabled_port['peer_port'], macsec_profile_name)
 
 
-def is_snappi_multidut(duthosts):
-    if not duthosts:
-        return False
-    if len(duthosts) > 1:
-        return True
-    return bool(duthosts[0].get_facts().get("modular_chassis"))
-
-
 def _get_snappi_ports_unified(duthosts,
                               conn_graph_facts,             # noqa: F811
                               fanout_graph_facts,           # noqa: F811
                               fanout_graph_facts_multidut,  # noqa: F811
                               tbinfo,
-                              rand_one_dut_hostname,
-                              rand_one_dut_portname_oper_up,  # noqa: F811
-                              snappi_api_serv_ip):
+                              rand_one_dut_hostname):
     """
     Unified fixture:
     Returns Snappi port information for both
@@ -1466,7 +1457,7 @@ def _get_snappi_ports_unified(duthosts,
                 # Populate DUT-related interface attributes
                 port.update({
                     'autoneg': dut_port_info.get('autoneg') == 'on',
-                    'fec': dut_port_info.get('fec') == 'rs',
+                    'fec': str(dut_port_info.get('fec', '')).lower().startswith('rs'),
                     'link_training': str(dut_port_info.get('link_training', '')).lower() in ['on', 'true', 'yes', '1'],
                     'intf_config_changed': False,
                     'api_server_ip': tbinfo['ptf_ip'],
@@ -1497,9 +1488,7 @@ def get_snappi_ports_single_dut(duthosts,
                                 conn_graph_facts,                       # noqa: F811
                                 fanout_graph_facts,                     # noqa: F811
                                 tbinfo,
-                                rand_one_dut_hostname,
-                                rand_one_dut_portname_oper_up,
-                                snappi_api_serv_ip):
+                                rand_one_dut_hostname):
     """Backward-compatible wrapper calling unified port logic."""
     return _get_snappi_ports_unified(
         duthosts=duthosts,
@@ -1527,7 +1516,6 @@ def get_snappi_ports_multi_dut(duthosts,
     )
 
 
-
 @pytest.fixture(scope="module")
 def multidut_snappi_ports_for_bgp(duthosts,
                                   tbinfo,
@@ -1552,6 +1540,7 @@ def multidut_snappi_ports_for_bgp(duthosts,
             port['speed'] = speed_type[port['speed']]
         logger.info(f"Using uniform port speed: {port_speed}")
         return multidut_snappi_ports
+
 
 def is_snappi_multidut(duthosts):
     if duthosts is None or len(duthosts) == 0:
