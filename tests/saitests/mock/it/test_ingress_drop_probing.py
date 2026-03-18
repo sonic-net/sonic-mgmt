@@ -640,6 +640,67 @@ class TestIngressDropProbing:
         else:
             print("[PASS] Point Probing with intermittent: completed gracefully (result=FAILED due to noise)")
 
+    def test_ingress_drop_range_oscillation_bad_spot(self):
+        """
+        G4: Range algorithm oscillation with deterministic bad-spot executor
+
+        Same pattern as PFC XOFF G4: uses bad_spot scenario where specific
+        candidate values always fail verification. Checks Phase 3 observer
+        output for repeated candidate values.
+        """
+        import io
+        import sys
+
+        actual_threshold = 700
+
+        bad_values = [687, 693, 696]
+        probe = create_ingress_drop_probe_instance(
+            actual_threshold=actual_threshold,
+            scenario='bad_spot',
+            bad_values=bad_values,
+            enable_precise_detection=False,
+            precision_target_ratio=0.005,
+        )
+
+        captured = io.StringIO()
+        old_stderr = sys.stderr
+        sys.stderr = captured
+
+        probe.runTest()
+        result = probe.probe_result
+
+        sys.stderr = old_stderr
+        output = captured.getvalue()
+
+        phase3_candidates = []
+        for line in output.split('\n'):
+            line = line.strip()
+            if line.startswith('| 3.') and '|' in line:
+                cols = [c.strip() for c in line.split('|')]
+                if len(cols) >= 4 and cols[3].lstrip('-').isdigit():
+                    phase3_candidates.append(int(cols[3]))
+
+        assert result is not None
+
+        if phase3_candidates:
+            from collections import Counter
+            counts = Counter(phase3_candidates)
+            max_repeats = max(counts.values()) if counts else 0
+            most_repeated = counts.most_common(1)[0] if counts else (0, 0)
+
+            print(f"[INFO] Phase 3 candidates: {phase3_candidates}")
+            print(f"       Most repeated: value={most_repeated[0]} x{most_repeated[1]}")
+
+            assert max_repeats <= 3, \
+                f"Oscillation: value {most_repeated[0]} tested {most_repeated[1]} times"
+        else:
+            print("[INFO] Phase 3 was not reached")
+
+        if result.success:
+            print(f"[PASS] result=[{result.lower_bound}, {result.upper_bound}]")
+        else:
+            print("[PASS] Completed (bad spots caused failure)")
+
 
 def main():
     """Run complete Ingress Drop probing test suite."""

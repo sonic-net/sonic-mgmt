@@ -991,6 +991,74 @@ class TestPfcXoffProbing:
             # Intermittent failures may cause overall probe failure — that's acceptable
             print("[PASS] Point Probing with intermittent: completed gracefully (result=FAILED due to noise)")
 
+    def test_pfc_xoff_range_oscillation_high_failure_rate(self):
+        """
+        G4: Range algorithm oscillation with deterministic bad-spot executor
+
+        Uses bad_spot scenario where candidate values within a bad range
+        always fail verification. With actual_threshold=500 and bad values
+        in 480-499, Phase 3 binary search hits failures when probing near
+        the threshold, triggering backtrack anti-oscillation logic.
+        """
+        import io
+        import sys
+
+        actual_threshold = 500
+
+        # Bad values: a few specific values near threshold that Phase 3
+        # midpoints will hit during convergence
+        bad_values = [487, 493, 496]
+        probe = create_pfc_xoff_probe_instance(
+            actual_threshold=actual_threshold,
+            scenario='bad_spot',
+            bad_values=bad_values,
+            enable_precise_detection=False,
+            precision_target_ratio=0.005,
+        )
+
+        # Capture stderr to analyze observer output
+        captured = io.StringIO()
+        old_stderr = sys.stderr
+        sys.stderr = captured
+
+        probe.runTest()
+        result = probe.probe_result
+
+        sys.stderr = old_stderr
+        output = captured.getvalue()
+
+        # Parse Phase 3 candidate values from markdown table
+        phase3_candidates = []
+        for line in output.split('\n'):
+            line = line.strip()
+            if line.startswith('| 3.') and '|' in line:
+                cols = [c.strip() for c in line.split('|')]
+                if len(cols) >= 4 and cols[3].lstrip('-').isdigit():
+                    phase3_candidates.append(int(cols[3]))
+
+        assert result is not None, "Probe should return a result"
+
+        if phase3_candidates:
+            from collections import Counter
+            counts = Counter(phase3_candidates)
+            max_repeats = max(counts.values()) if counts else 0
+            most_repeated = counts.most_common(1)[0] if counts else (0, 0)
+
+            print(f"[INFO] Phase 3 candidates: {phase3_candidates}")
+            print(f"       Unique: {len(counts)}, Most repeated: "
+                  f"value={most_repeated[0]} x{most_repeated[1]}")
+
+            # After fix: no candidate should be tested more than 3 times
+            assert max_repeats <= 3, \
+                f"Oscillation: value {most_repeated[0]} tested {most_repeated[1]} times"
+        else:
+            print("[INFO] Phase 3 was not reached")
+
+        if result.success:
+            print(f"[PASS] result=[{result.lower_bound}, {result.upper_bound}]")
+        else:
+            print("[PASS] Completed (bad spots caused failure)")
+
 
 def main():
     """Run complete PFC XOFF probing test suite."""
