@@ -102,6 +102,8 @@ def complete_install(duthost, localhost, boot_type, res, pdu_ctrl, component, au
             else:
                 # For BIOS/ONIE, most time is spend after the reboot in ONIE
                 pre_reboot_timeout = 120
+                if duthost.facts["platform"] == "x86_64-nvidia_sn4280-r0":
+                    pre_reboot_timeout += 240
                 post_reboot_timeout = timeout
             localhost.wait_for(host=hn, port=22, state='stopped', delay=1, timeout=pre_reboot_timeout)
             # Wait for 30s in case there is ssh flap
