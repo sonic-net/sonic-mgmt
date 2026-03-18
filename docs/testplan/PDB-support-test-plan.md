@@ -60,7 +60,7 @@ Test PDB and chassis PDB APIs through the platform API service.
 |---|-----------|-----------|-----------------|----------------------|--------|------|
 | 1 | Platform API | test_chassis.py::test_pdbs | 1. Call `chassis.get_num_pdbs()`, check it returns an integer.<br>2. Compare the count with `platform.json` `pdbs` array length.<br>3. Call `chassis.get_all_pdbs()`, check list length equals num_pdbs.<br>4. For each index, call `chassis.get_pdb(i)` and check it matches the list entry.<br>5. On PSU platforms, check `get_num_pdbs()` returns 0 and `get_all_pdbs()` returns empty list. | Count matches platform.json; list and index consistent | New | **new** |
 | 2 | Platform API | test_pdb.py::test_power | Based on PSU test_power. Changes:<br>1. Call both input and output power APIs: `get_input_voltage/current/power()` and `get_output_voltage/current/power()`.<br>2. For each set, check returns are float and power is close to voltage x current (within 10%).<br>3. Call `get_maximum_supplied_power()`, check max_power >= output_power.<br>4. Remove `get_powergood_status()` check (not in PDB HLD).<br>5. Remove `get_voltage_high/low_threshold()` checks (not in PDB HLD). | All return float; power close to voltage x current; max_power >= output_power | New | **psu-adapted** |
-| 3 | Platform API | test_pdb.py::test_is_replaceable | Based on PSU test_is_replaceable. Change: expect False instead of True (PDB is not replaceable per HLD). | Returns bool; expected False | New | **psu-adapted** |
+| 3 | Platform API | test_pdb.py::test_is_replaceable | For each PDB, call `is_replaceable()`. Only check that the API returns successfully (not None). Do not assert specific True/False value. | Returns not None | New | **psu-adapted** |
 | 4 | Platform API | test_pdb.py::test_get_name | For each PDB, call `get_name()`. | Returns non-empty string matching platform.json | New | **psu-reuse** |
 | 5 | Platform API | test_pdb.py::test_get_presence | For each PDB, call `get_presence()`. | Returns bool; installed PDBs return True | New | **psu-reuse** |
 | 6 | Platform API | test_pdb.py::test_get_model | For each PDB, call `get_model()`. | Returns non-empty string | New | **psu-reuse** |
@@ -106,11 +106,3 @@ Test PDB error scenarios and check system behavior.
 | # | Test Area | Test Name | Test Description | Test Expected Result | Status | Tags |
 |---|-----------|-----------|-----------------|----------------------|--------|------|
 | 20 | Error Handling | test_platform_info.py::test_pdb_error_status_and_log | For PSU, `test_turn_on_off_psu_and_check_psustatus` uses a PDU controller to power off PSU, then checks CLI and syslog. PDB is not removable, so use mock sysfs instead:<br>1. Mock PDB absent via sysfs, run `show platform psustatus`, check PDB status shows the error.<br>2. Use `LogAnalyzer` to check that expected error logs show up in syslog and no unexpected errors appear.<br>3. Restore the mock, check PDB status goes back to OK and error logs clear. | PDB error shown in CLI; expected logs in syslog; status recovers after restore | New | **new** |
-
-#### Sanity
-
-Nightly sanity check for PDB health on all testbeds.
-
-| # | Test Area | Test Name | Test Description | Test Expected Result | Status | Tags |
-|---|-----------|-----------|-----------------|----------------------|--------|------|
-| 21 | Sanity | test_sanity_checker.py | Change: add a PDB check block. On PDB platforms, go through all PDBs and check each one is present and working. Log any failures to sanity results. Same pattern as PSU/BMC checks. | All PDBs present and working; failures logged to sanity results | New | **existing-modified** |
