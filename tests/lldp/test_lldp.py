@@ -532,13 +532,15 @@ def test_lldp_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
 
-    # Configure loganalyzer to fail if LLDP errors are found
+    # Configure loganalyzer to only fail on LLDP-specific errors
     if loganalyzer:
-        # Add LLDP error patterns to match_regex (will fail if found)
-        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].match_regex.extend([
-            ".*cannot find port.*",
-            ".*ERR lldp#lldpmgrd.*"
-        ])
+        # Override match_regex for ALL DUTs to only match LLDP errors
+        # (the fixture teardown analyzes all DUTs, not just the selected one)
+        for hostname in loganalyzer:
+            loganalyzer[hostname].match_regex = [
+                ".*cannot find port.*",
+                ".*ERR lldp#lldpmgrd.*"
+            ]
 
     with loganalyzer[enum_rand_one_per_hwsku_frontend_hostname] if loganalyzer else contextlib.nullcontext():
         logger.info("Step 1: Recording all interfaces")
@@ -594,28 +596,15 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
 
-    # Configure loganalyzer to check for specific LLDP errors while ignoring expected config reload errors
+    # Configure loganalyzer to only fail on LLDP-specific errors
     if loganalyzer:
-        # Add LLDP error patterns to match_regex (will fail if found)
-        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].match_regex.extend([
-            ".*cannot find port.*",
-            ".*ERR lldp#lldpmgrd.*"
-        ])
-
-        # Ignore expected errors during config reload
-        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend([
-            ".*ERR memory_checker.*",
-            ".*ERR.* container .* not running.*",
-            ".*ERR.* Failed to get container ID.*",
-            ".*ERR.* Container .* is not running.*",
-            ".*ERR syncd#syncd.*",
-            ".*ERR kernel.*",
-            ".*ERR.*: route already exists.*",
-            ".*ERR.*PortInitDone.*",
-            ".*ERR.*Incomplete key.*",
-            ".*ERR.*portsyncd.*",
-            ".*ERR.*neighsyncd.*"
-        ])
+        # Override match_regex for ALL DUTs to only match LLDP errors
+        # (the fixture teardown analyzes all DUTs, not just the selected one)
+        for hostname in loganalyzer:
+            loganalyzer[hostname].match_regex = [
+                ".*cannot find port.*",
+                ".*ERR lldp#lldpmgrd.*"
+            ]
 
     with loganalyzer[enum_rand_one_per_hwsku_frontend_hostname] if loganalyzer else contextlib.nullcontext():
         logger.info("Step 1: Recording all interfaces before config reload")
@@ -636,6 +625,13 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
             expected_chassis_mac = duthost.get_dut_iface_mac(mgmt_alias).lower()
         logger.info("Expected chassis MAC address: {}".format(expected_chassis_mac))
 
+        # Record pre-reload LLDP neighbor count as baseline
+        # (not all admin-up ports have neighbors, e.g. dualtor/unused ports)
+        pre_reload_lldp_neighbors = get_num_lldpctl_facts(duthost, enum_frontend_asic_index)
+        logger.info("Pre-reload LLDP neighbor count: {}".format(pre_reload_lldp_neighbors))
+        pytest_assert(pre_reload_lldp_neighbors > 0,
+                      "No LLDP neighbors found before config reload")
+
         logger.info("Step 2: Performing config reload")
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
@@ -644,17 +640,12 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
         assert wait_until(300, 10, 0, duthost.critical_services_fully_started), \
             "Not all critical services are fully started after config reload"
 
-        # Wait for all LLDP neighbors to be discovered (not just > 0)
-        # The verify functions assert strict equality against all admin-up non-PortChannel interfaces,
-        # so we must wait until all expected neighbors appear to avoid a race condition.
-        expected_lldp_neighbors = len({intf['interface'] for intf in intf_status_output
-                                       if not intf['interface'].startswith('PortChannel')
-                                       and intf['admin'].lower() == 'up'})
+        # Wait for all LLDP neighbors to be re-discovered using pre-reload count as baseline
         pytest_assert(
             wait_until(180, 10, 0, lambda: get_num_lldpctl_facts(
-                duthost, enum_frontend_asic_index) >= expected_lldp_neighbors),
+                duthost, enum_frontend_asic_index) >= pre_reload_lldp_neighbors),
             "Expected {} LLDP neighbors but only found {} after config reload".format(
-                expected_lldp_neighbors, get_num_lldpctl_facts(duthost, enum_frontend_asic_index))
+                pre_reload_lldp_neighbors, get_num_lldpctl_facts(duthost, enum_frontend_asic_index))
         )
 
         # Step 4: Verify LLDP table after config reload
