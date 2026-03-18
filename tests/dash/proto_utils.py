@@ -115,7 +115,10 @@ def parse_dash_proto(key: str, proto_dict: dict):
             elif field_map[key].message_type.name == "Guid":
                 new_dict[key] = parse_guid(value)
             elif field_map[key].message_type.name == "ValueOrRange":
-                new_dict[key] = parse_value_or_range(value)
+                if field_map[key].label == FieldDescriptor.LABEL_REPEATED:
+                    new_dict[key] = [parse_value_or_range(val) for val in value]
+                else:
+                    new_dict[key] = parse_value_or_range(value)
 
         elif field_map[key].type == field_map[key].TYPE_BYTES:
             new_dict[key] = parse_byte_field(value)

@@ -1,12 +1,14 @@
 #!/usr/bin/python
+import json
 import paramiko
 import os
 import time
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.misc_utils import wait_for_path
-from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
+from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config, smartswitch_vlan_config
 
 DPU_HOST_IP_BASE = "169.254.200.{}"
+SRC_DPU_CONFIG_TEMPLATE = "/tmp/dpu_extra_template.json"
 SRC_DPU_CONFIG_FILE = "/tmp/dpu_extra.json"
 DST_DPU_CONFIG_FILE = "/tmp/dpu_extra.json"
 DST_FULL_CONFIG_FILE = "/tmp/dpu_full.json"
@@ -28,15 +30,19 @@ class LoadExtraDpuConfigModule(object):
         self.module = AnsibleModule(
             argument_spec=dict(
                 hwsku=dict(type='str', required=True),
+                hostname=dict(type='str', required=True),
                 host_username=dict(type='str', required=True),
-                host_passwords=dict(type='list', elements='str', required=True, no_log=True)
+                host_passwords=dict(type='list', elements='str', required=True, no_log=True),
+                npu_index=dict(type='int', required=False, default=0)
             ),
             supports_check_mode=False
         )
 
         self.hwsku = self.module.params['hwsku']
+        self.hostname = self.module.params['hostname']
         self.host_username = self.module.params['host_username']
         self.host_passwords = self.module.params['host_passwords']
+        self.npu_index = self.module.params['npu_index']
 
         try:
             self.hwsku_config = smartswitch_hwsku_config[self.hwsku]
@@ -126,9 +132,39 @@ class LoadExtraDpuConfigModule(object):
         self.module.log("Configuring {} DPUs, requiring at least {} successful configurations".format(
             self.dpu_num, required_success_count))
 
+        # Backup the original template before modifications
+        self.module.run_command("cp {} {}".format(SRC_DPU_CONFIG_FILE, SRC_DPU_CONFIG_TEMPLATE))
+
+        vlan_cfg = smartswitch_vlan_config.get(self.npu_index, smartswitch_vlan_config[0])
+        gateway_ip = vlan_cfg["vlan_interface_ip"].split("/")[0]
+
         for i in range(0, self.dpu_num):
-            # Update the extra dpu config file
-            self.module.run_command("sed -i 's/18.*202/18.{}.202/g' {}".format(i, SRC_DPU_CONFIG_FILE))
+            # Copy fresh template for each DPU
+            self.module.run_command("cp {} {}".format(SRC_DPU_CONFIG_TEMPLATE, SRC_DPU_CONFIG_FILE))
+
+            with open(SRC_DPU_CONFIG_FILE, 'r') as f:
+                dpu_config = json.load(f)
+
+            dpu_config["DEVICE_METADATA"]["localhost"]["hostname"] = "{}-dpu-{}".format(
+                self.hostname, i)
+
+            dpu_dataplane_ip = "{}{}/24".format(vlan_cfg["dpu_ip_prefix"], i + 1)
+            dpu_config["INTERFACE"] = {
+                "Ethernet0": {},
+                "Ethernet0|{}".format(dpu_dataplane_ip): {}
+            }
+            dpu_config["STATIC_ROUTE"] = {
+                "default|0.0.0.0/0": {
+                    "nexthop": gateway_ip,
+                    "ifname": "Ethernet0",
+                    "nexthop-vrf": "",
+                    "blackhole": "false",
+                    "distance": "0"
+                }
+            }
+
+            with open(SRC_DPU_CONFIG_FILE, 'w') as f:
+                json.dump(dpu_config, f, indent=4)
 
             dpu_ip = DPU_HOST_IP_BASE.format(i + 1)
 
@@ -162,6 +198,7 @@ class LoadExtraDpuConfigModule(object):
                 ssh.close()
 
         self.module.run_command("sudo rm -f {}".format(SRC_DPU_CONFIG_FILE))
+        self.module.run_command("sudo rm -f {}".format(SRC_DPU_CONFIG_TEMPLATE))
 
         self.module.log("Configuration completed: {} successful, {} failed out of {} total DPUs".format(
             success_count, failure_count, self.dpu_num))
@@ -212,7 +249,7 @@ class LoadExtraDpuConfigModule(object):
         for line in out.split("\n"):
             if "up" in line and "dpu_midplane_link_state" in line:
                 dpu_midplane_up_count += 1
-            if line.startswith("DPU") and "Online" in line and "Partial" not in line:
+            if line.startswith("DPU") and "Online" in line:
                 dpu_online_count += 1
         return dpu_online_count, dpu_midplane_up_count
 

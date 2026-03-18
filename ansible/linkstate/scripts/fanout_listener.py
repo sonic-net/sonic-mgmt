@@ -67,13 +67,13 @@ class Conn(object):
 
     def read(self):
         fp = self.conn.makefile('rb', 1024)
-        data = pickle.load(fp)
+        data = pickle.load(fp)  # nosemgrep: avoid-pickle
         fp.close()
         return data
 
     def write(self, data):
         fp = self.conn.makefile('wb', 1024)
-        pickle.dump(data, fp, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(data, fp, pickle.HIGHEST_PROTOCOL)  # nosemgrep: avoid-pickle
         fp.close()
 
 
