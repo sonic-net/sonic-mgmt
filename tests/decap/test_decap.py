@@ -394,6 +394,7 @@ def test_decap_warmboot(tbinfo, duthosts, rand_one_dut_hostname, localhost, ptfh
                         mux_server_url,                                                 # noqa: F811
                         toggle_all_simulator_ports_to_random_side,                      # noqa: F811
                         supported_ttl_dscp_params, ip_ver, loopback_ips,
+                        fib_info_files, single_fib_for_duts,                            # noqa: F811
                         duts_running_config_facts, duts_minigraph_facts,
                         mux_status_from_nic_simulator):                                 # noqa: F811
     """Verify IPinIP decap rules and traffic survive warm-reboot.
@@ -424,8 +425,8 @@ def test_decap_warmboot(tbinfo, duthosts, rand_one_dut_hostname, localhost, ptfh
 
     is_multi_asic = duthost.sonichost.is_multi_asic
     setup_info = {
-        "fib_info_files": duts_running_config_facts,
-        "single_fib_for_duts": False,
+        "fib_info_files": fib_info_files[:3],  # Test at most 3 DUTs
+        "single_fib_for_duts": single_fib_for_duts,
         "ignore_ttl": True if is_multi_asic else False,
         "max_internal_hops": 3 if is_multi_asic else 0,
         "outer_ipv4": True,
@@ -434,22 +435,14 @@ def test_decap_warmboot(tbinfo, duthosts, rand_one_dut_hostname, localhost, ptfh
         "inner_ipv6": False,
     }
 
-    # Build loopback IPs for this DUT
-    lo_ips = []
-    lo_ipv6s = []
-    cfg_facts = duts_running_config_facts[duthost.hostname]
-    lo_ip = None
-    lo_ipv6 = None
-    for addr in cfg_facts[0][1]["LOOPBACK_INTERFACE"]["Loopback0"]:
-        ip = IPNetwork(addr).ip
-        if ip.version == 4 and not lo_ip:
-            lo_ip = str(ip)
-        elif ip.version == 6 and not lo_ipv6:
-            lo_ipv6 = str(ip)
-    lo_ips.append(lo_ip)
-    lo_ipv6s.append(lo_ipv6)
-    local_loopback_ips = {'lo_ips': lo_ips, 'lo_ipv6s': lo_ipv6s}
-    setup_info.update(local_loopback_ips)
+    setup_info.update(loopback_ips)
+
+    # Build single-DUT loopback dict for apply_decap_cfg (which indexes by position)
+    dut_index = [dh.hostname for dh in duthosts if not dh.is_supervisor_node()].index(duthost.hostname)
+    single_dut_loopback = {
+        'lo_ips': [loopback_ips['lo_ips'][dut_index]],
+        'lo_ipv6s': [loopback_ips['lo_ipv6s'][dut_index]],
+    }
 
     local_ip_ver = {"outer_ipv4": True, "outer_ipv6": False,
                     "inner_ipv4": True, "inner_ipv6": False}
@@ -458,7 +451,7 @@ def test_decap_warmboot(tbinfo, duthosts, rand_one_dut_hostname, localhost, ptfh
         # Step 1: Apply test decap config and verify rules before warm-reboot
         logger.info("Step 1: Applying decap config and verifying rules before warm-reboot on %s",
                     duthost.hostname)
-        apply_decap_cfg([duthost], local_ip_ver, local_loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
+        apply_decap_cfg([duthost], local_ip_ver, single_dut_loopback, ttl_mode, dscp_mode, ecn_mode, 'SET')
         pre_reboot_rules = _verify_decap_rules(duthost, context="(before warm-reboot)")
 
         # Step 2: Verify decap traffic before warm-reboot
@@ -515,4 +508,4 @@ def test_decap_warmboot(tbinfo, duthosts, rand_one_dut_hostname, localhost, ptfh
         logger.info("test_decap_warmboot PASSED on %s", duthost.hostname)
 
     finally:
-        apply_decap_cfg([duthost], local_ip_ver, local_loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
+        apply_decap_cfg([duthost], local_ip_ver, single_dut_loopback, ttl_mode, dscp_mode, ecn_mode, 'DEL')
