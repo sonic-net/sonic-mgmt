@@ -88,7 +88,8 @@ FWD:
         - everflow/test_everflow_ipv6.py
         - hash/test_generic_hash.py::test_algorithm_config
         - hash/test_generic_hash.py::test_backend_error_messages
-        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
+        - cisco/platform_tests/test_serviceability_basic.py
+        - cisco/platform_tests/test_serviceability_s1cli.py
         - acl/test_acl.py::TestAclWithPortToggle
       hw:
         - crm/test_crm.py::test_crm_neighbor
@@ -100,10 +101,13 @@ FWD:
         - ipfwd/test_nhop_group.py
         - ipfwd/test_dir_bcast.py
         - acl/test_stress_acl.py
-        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
+        - cisco/platform_tests/test_serviceability_basic.py
+        - cisco/platform_tests/test_serviceability_s1cli.py
+        - cisco/platform_tests/test_serviceability_packet_capture.py
   t0:
     churchill-mono:
       sim:
+        - cisco/platform_tests/test_serviceability_basic.py
         - fib/test_fib.py::test_hash
         - fib/test_fib.py::test_ipinip_hash
         - fib/test_fib.py::test_ipinip_hash_negative
@@ -119,15 +123,14 @@ FWD:
         - hash/test_generic_hash.py::test_algorithm_config
         - hash/test_generic_hash.py::test_backend_error_messages
         - acl/test_acl.py::TestAclWithPortToggle
-        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_resource
-        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
         - cisco/platform_tests/test_serviceability_s1cli.py
       hw:
         - acl/test_acl.py
         - acl/test_stress_acl.py
         - crm/test_crm.py::test_crm_neighbor
         - crm/test_crm_available.py
-        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
+        - cisco/platform_tests/test_serviceability_basic.py
+        - cisco/platform_tests/test_serviceability_s1cli.py
         - drop_packets/test_drop_counters.py
         - everflow/test_everflow_ipv6.py
         - everflow/test_everflow_testbed.py
@@ -137,6 +140,7 @@ FWD:
         - ip/test_ip_packet.py
         - ipfwd/test_dip_sip.py
         - ipfwd/test_dir_bcast.py
+        - cisco/platform_tests/test_serviceability_packet_capture.py
     titan:
       sim:
         - acl/test_acl.py
@@ -157,6 +161,7 @@ FWD:
         - ipfwd/test_dip_sip.py
         - ipfwd/test_nhop_group.py
         - ip/test_ip_packet.py
+        - cisco/platform_tests/test_serviceability_packet_capture.py
   t1-lag:
     churchill-mono:
       hw:
@@ -174,16 +179,19 @@ FWD:
         - ipfwd/test_dip_sip.py
         - ipfwd/test_nhop_group.py
         - ip/test_ip_packet.py
+        - cisco/platform_tests/test_serviceability_packet_capture.py
   t2-min:
     sfd:
       sim:
         - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
-        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
+        - cisco/platform_tests/test_serviceability_basic.py
+        - cisco/platform_tests/test_serviceability_s1cli.py
   t2-min-VL:
     sfd:
       sim:
         - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
-        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
+        - cisco/platform_tests/test_serviceability_basic.py
+        - cisco/platform_tests/test_serviceability_s1cli.py
   t2:
     sfd:
       hw:
@@ -192,6 +200,7 @@ FWD:
         - ipfwd/test_dip_sip.py
         - ipfwd/test_mtu.py
         - ipfwd/test_nhop_group.py
+        - cisco/platform_tests/test_serviceability_packet_capture.py
 
 PLT:
   t0-64:
@@ -965,6 +974,7 @@ PFC: #Alpesh Patel / Sonum Mathur
       sim:
         - generic_config_updater/test_incremental_qos.py
         - generic_config_updater/test_pfcwd_interval.py
+        - cisco/platform_tests/test_serviceability_pfc.py
       hw:
         # pfcwd tests should take ~1 hour on M64
         - pfcwd/test_pfc_config.py
@@ -972,6 +982,7 @@ PFC: #Alpesh Patel / Sonum Mathur
         - pfcwd/test_pfcwd_cli.py
         - pfcwd/test_pfcwd_function.py
         - pfcwd/test_pfcwd_timer_accuracy.py
+        - cisco/platform_tests/test_serviceability_pfc.py
 
   t0:
     churchill-mono:
@@ -981,6 +992,7 @@ PFC: #Alpesh Patel / Sonum Mathur
         - pfcwd/test_pfcwd_cli.py
         - pfcwd/test_pfcwd_function.py
         - pfcwd/test_pfcwd_timer_accuracy.py
+        - cisco/platform_tests/test_serviceability_pfc.py
         
   t1-64-lag:
     mth64:
@@ -998,6 +1010,7 @@ PFC: #Alpesh Patel / Sonum Mathur
         - qos/test_ecn_config.py
         - qos/test_qos_dscp_mapping.py
         - qos/test_qos_sai.py
+        - cisco/platform_tests/test_serviceability_pfc.py
 
   t2:
     sfd:
@@ -1006,3 +1019,4 @@ PFC: #Alpesh Patel / Sonum Mathur
         - pfcwd/test_pfcwd_all_port_storm.py
         - pfcwd/test_pfcwd_cli.py
         - pfcwd/test_pfcwd_function.py
+        - cisco/platform_tests/test_serviceability_pfc.py
