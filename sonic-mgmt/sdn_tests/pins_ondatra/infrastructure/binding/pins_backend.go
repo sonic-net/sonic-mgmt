@@ -6,19 +6,20 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"os"
-	"time"
 	"flag"
 
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	log "github.com/golang/glog"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ondatra/binding"
-    "github.com/openconfig/ondatra/binding/introspect"
+	"github.com/openconfig/ondatra/binding/introspect"
 	opb "github.com/openconfig/ondatra/proto"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/bindingbackend"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"os"
+	"time"
 )
 
 var insecureMode = flag.Bool("use_binding_insecure_mode", true, "set the flag if the server doesn't support gRPC mTLS.")
@@ -41,7 +42,11 @@ func (b *Backend) registerGRPCTLS(grpc *bindingbackend.GRPCServices, serverName 
 	}
 
 	// Load certificate of the CA who signed server's certificate.
-	pemServerCA, err := os.ReadFile("ondatra/certs/ca_crt.pem")
+	file, err := bazel.Runfile("ondatra/certs/ca_crt.pem")
+	if err != nil {
+		return err
+	}
+	pemServerCA, err := os.ReadFile(file)
 	if err != nil {
 		return err
 	}
@@ -162,6 +167,11 @@ func (b *Backend) ReserveTopology(ctx context.Context, tb *opb.Testbed, runtime,
 		return r, nil
 	}
 
+        if b.insecure {
+		log.WarningContextf(ctx, "Using insecure mode to dial gRPC.")
+		return r, nil
+	}
+
 	for _, dut := range r.DUTs {
 		if err := b.registerGRPCTLS(&dut.GRPC, dut.Name); err != nil {
 			return nil, err
@@ -197,8 +207,8 @@ func (b *Backend) DialGRPC(ctx context.Context, addr string, opts ...grpc.DialOp
 	opts = append(opts, authOpts...)
 
 	conn, err := grpc.DialContext(ctx, addr, opts...)
- 	if err != nil {
- 		return nil, fmt.Errorf("DialContext(%s, %v) : %v", addr, opts, err)
+	if err != nil {
+		return nil, fmt.Errorf("DialContext(%s, %v) : %v", addr, opts, err)
 	}
 	return conn, nil
 }

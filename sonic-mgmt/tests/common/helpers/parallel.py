@@ -8,6 +8,7 @@ import tempfile
 import threading
 import time
 import traceback
+import sys
 from multiprocessing import Process, Manager, Pipe, TimeoutError
 from multiprocessing.pool import ThreadPool
 from ansible.executor.process.worker import WorkerProcess
@@ -43,6 +44,8 @@ os.register_at_fork(before=logging._acquireLock,
 
 def fix_logging_handler_fork_lock():
     """Prevent logging handlers from deadlocking after fork."""
+    if sys.version_info < (3, 9):
+        return  # _at_fork_reinit not available before 3.9
     # Collect all loggers including root
     loggers = [logging.getLogger()] + list(logging.Logger.manager.loggerDict.values())
     handlers = set()
@@ -55,7 +58,7 @@ def fix_logging_handler_fork_lock():
             if handler not in _forked_handlers and handler.lock is not None:
                 os.register_at_fork(before=handler.lock.acquire,
                                     after_in_parent=handler.lock.release,
-                                    after_in_child=handler.lock.release)
+                                    after_in_child=handler.lock._at_fork_reinit)
                 new_handlers.append(handler)
                 _forked_handlers.add(handler)
 

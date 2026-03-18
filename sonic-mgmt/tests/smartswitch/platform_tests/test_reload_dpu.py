@@ -11,10 +11,12 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
     pre_test_check, post_test_switch_check, post_test_dpus_check,\
-    dpus_shutdown_and_check, dpus_startup_and_check,\
+    dpus_shutdown_and_check, dpus_startup_and_check, check_dpus_module_status,\
     num_dpu_modules, check_dpus_are_not_pingable, check_dpus_reboot_cause  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.smartswitch.common.reboot import perform_reboot
+from tests.common.fixtures.grpc_fixtures import ptf_grpc  # noqa: F401
+# ptf_gnoi comes from tests.smartswitch.conftest (SmartSwitch dsmsroot certs)
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 pytestmark = [
@@ -26,6 +28,13 @@ memory_exhaustion_cmd = "sudo nohup bash -c 'sleep 5 && tail /dev/zero' &"
 DUT_ABSENT_TIMEOUT_FOR_KERNEL_PANIC = 100
 DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 240
 MAX_COOL_OFF_TIME = 300
+
+
+# @pytest.fixture(params=["gnoi_based", "cli_based"])
+@pytest.fixture(params=["gnoi_based"])
+def invocation_type(request):
+    """Parametrize reboot tests to run with both gNOI and CLI reboot paths."""
+    return request.param
 
 
 def test_dpu_status_post_switch_reboot(duthosts, dpuhosts,
@@ -216,6 +225,9 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
 
         logging.info("Starting UP the DPUs")
         dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
+    else:
+        logging.info("Check DPUs are offline")
+        check_dpus_module_status(duthost, dpu_on_list, "off")
 
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts,
@@ -267,6 +279,9 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
 
         logging.info("Starting UP the DPUs")
         dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
+    else:
+        logging.info("Check DPUs are offline")
+        check_dpus_module_status(duthost, dpu_on_list, "off")
 
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
@@ -275,8 +290,10 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
                                     re.IGNORECASE))
 
 
+@pytest.mark.disable_loganalyzer
 def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
-                          platform_api_conn, num_dpu_modules):  # noqa: F811, E501
+                          platform_api_conn, num_dpu_modules,  # noqa: F811
+                          invocation_type, ptf_gnoi):  # noqa: F811, E501
     """
     Test to cold reboot all DPUs in the DUT.
     Steps:
@@ -299,7 +316,8 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
     with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
         logging.info("Rebooting all DPUs in parallel")
         for dpu_name in dpu_on_list:
-            executor.submit(perform_reboot, duthost, REBOOT_TYPE_COLD, dpu_name)
+            executor.submit(perform_reboot, duthost, REBOOT_TYPE_COLD, dpu_name, invocation_type,
+                            ptf_gnoi=ptf_gnoi)
 
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts,
