@@ -1190,9 +1190,13 @@ class BaseEverflowTest(object):
         src_port_metadata_map = {}
 
         if 't2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo']:
+            device_type = duthost.get_running_config_facts().get(
+                'DEVICE_METADATA', {}).get('localhost', {}).get('type')
+            is_upper_spine = (device_type == 'UpperSpineRouter')
             if valid_across_namespace is True:
                 src_port_set.add(src_port)
-                src_port_metadata_map[src_port] = (None, 1)
+                ttl_dec = 0 if is_upper_spine else 1
+                src_port_metadata_map[src_port] = (None, ttl_dec)
                 # Add the dest_port to src_port_set only in non MACSEC testbed scenarios
                 if not MACSEC_INFO:
                     if duthost.facts['switch_type'] == "voq":
@@ -1275,6 +1279,8 @@ class BaseEverflowTest(object):
                     if 't2' in setup['topo']:
                         if duthost.facts['switch_type'] == "voq":
                             mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
+                        else:
+                            mirror_packet_sent[packet.Ether].src = setup[direction]["egress_router_mac"]
                     elif direction == 'downstream' and setup.get("dualtor", False):
                         # On dualtor deployment, the SRC_MAC of the downstream mirror packet is the VLAN MAC
                         mirror_packet_sent[packet.Ether].src = setup[direction]["vlan_mac"]
