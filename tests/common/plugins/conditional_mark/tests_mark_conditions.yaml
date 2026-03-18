@@ -675,6 +675,15 @@ clock/test_clock.py::test_config_clock_timezone:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24562 and asic_type in ['mellanox', 'nvidia', 'vs']"
 
 #######################################
+#####          config_setup       #####
+#######################################
+config_setup/test_config_setup_boot.py:
+  skip:
+    reason: "Skip until https://github.com/sonic-net/sonic-buildimage/pull/25215 has merged and test updated"
+    conditions:
+      - "True"
+
+#######################################
 #####           configlet         #####
 #######################################
 configlet:
