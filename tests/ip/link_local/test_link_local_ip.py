@@ -115,7 +115,7 @@ class TestLinkLocalIPacket:
         duthost.command("rm -rf {}".format(PACKET_SAVE_PATH))
 
         # Get 2 downlinks
-        rx_iface, tx_iface = random.sample(downlinks, 2)
+        rx_iface, tx_iface = random.sample(sorted(downlinks), 2)
         ptf_rx_idx = mg_facts["minigraph_ptf_indices"][rx_iface]
         ptf_tx_idx = mg_facts["minigraph_ptf_indices"][tx_iface]
         link_local_src = self.get_port_default_ipv6_link_local_address(ptfhost, 'eth{}'.format(ptf_rx_idx))
