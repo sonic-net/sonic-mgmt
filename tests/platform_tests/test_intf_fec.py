@@ -4,7 +4,7 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
-from tests.common.platform.interface_utils import get_fec_eligible_interfaces
+from tests.common.platform.interface_utils import clear_interface_counters_and_wait, get_fec_eligible_interfaces
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -135,6 +135,8 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
     if not interfaces:
         pytest.skip("Skipping this test as there is no fec eligible interface")
+
+    clear_interface_counters_and_wait(duthost)
 
     logging.info("Get output of 'show interfaces counters fec-stats'")
     intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
