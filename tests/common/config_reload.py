@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 config_sources = ['config_db', 'minigraph', 'running_golden_config']
 
+
 def _inject_zebra_nexthop(duthost):
     """Restore zebra_nexthop from minigraph.xml into CONFIG_DB after config load_minigraph.
 
@@ -51,7 +52,6 @@ except Exception as e:
 """
     duthost.copy(content=INJECT_SCRIPT, dest="/tmp/_inject_zebra_nexthop.py")
     duthost.shell("python3 /tmp/_inject_zebra_nexthop.py", module_ignore_errors=True)
-
 
 
 # Timeouts for smartswitch DPU state transitions (in seconds)
