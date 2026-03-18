@@ -255,3 +255,62 @@ class SimPfcXoffProbingExecutorIntermittent(SimPfcXoffProbingExecutor):
             )
 
         return (True, result)
+
+
+@ExecutorRegistry.register(probe_type='pfc_xoff', executor_env='sim', scenario='bad_spot')
+class SimPfcXoffProbingExecutorBadSpot(SimPfcXoffProbingExecutor):
+    """
+    Bad-spot sim executor — simulates hardware that always fails verification
+    at specific packet count values.
+
+    Use case:
+    - Test algorithm resilience to deterministic hardware faults at specific values
+    - Validate anti-oscillation: algorithm should avoid retesting known-bad values
+    - Reproduce range algorithm oscillation bug
+    """
+
+    def __init__(self, observer, name, bad_values=None, **kwargs):
+        """
+        Initialize bad-spot sim executor.
+
+        Args:
+            bad_values: List of packet count values that always fail verification.
+                        If None, defaults to empty (behaves like normal executor).
+            **kwargs: Passed to parent SimPfcXoffExecutor
+        """
+        super().__init__(observer, name, **kwargs)
+        self.bad_values = set(bad_values or [])
+        self.bad_hit_count = 0
+
+        if self.verbose:
+            self.observer.trace(
+                f"[{self.name}] Bad-spot mode: "
+                f"bad_values={sorted(self.bad_values)}"
+            )
+
+    def check(self, src_port: int, dst_port: int, value: int, attempts: int = 1,
+              drain_buffer: bool = True, iteration: int = 0, **traffic_keys):
+        """Bad-spot scenario: always fail at specific values."""
+        self._check_count += 1
+
+        if value in self.bad_values:
+            self.bad_hit_count += 1
+            if self.verbose:
+                self.observer.trace(
+                    f"[{self.name}] Check #{self._check_count}: "
+                    f"value={value} HIT BAD SPOT — verification failed "
+                    f"(hit #{self.bad_hit_count})"
+                )
+            return (False, False)
+
+        # Normal check for non-bad values
+        result = value >= self._actual_threshold
+
+        if self.verbose:
+            self.observer.trace(
+                f"[{self.name}] Check #{self._check_count}: "
+                f"value={value}, actual={self._actual_threshold}, "
+                f"pfc_triggered={result}"
+            )
+
+        return (True, result)

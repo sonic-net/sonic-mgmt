@@ -259,3 +259,47 @@ class SimIngressDropProbingExecutorIntermittent(SimIngressDropProbingExecutor):
             )
 
         return (True, result)
+
+
+@ExecutorRegistry.register(probe_type='ingress_drop', executor_env='sim', scenario='bad_spot')
+class SimIngressDropProbingExecutorBadSpot(SimIngressDropProbingExecutor):
+    """
+    Bad-spot sim executor — simulates hardware that always fails verification
+    at specific packet count values.
+
+    Use case:
+    - Test algorithm resilience to deterministic hardware faults
+    - Validate anti-oscillation in range algorithm
+    """
+
+    def __init__(self, observer, name, bad_values=None, **kwargs):
+        super().__init__(observer, name, **kwargs)
+        self.bad_values = set(bad_values or [])
+        self.bad_hit_count = 0
+
+        if self.verbose:
+            self.observer.trace(
+                f"[{self.name}] Bad-spot mode: bad_values={sorted(self.bad_values)}"
+            )
+
+    def check(self, src_port: int, dst_port: int, value: int, attempts: int = 1,
+              drain_buffer: bool = True, iteration: int = 0, **traffic_keys):
+        """Bad-spot scenario: always fail at specific values."""
+        self._check_count += 1
+
+        if value in self.bad_values:
+            self.bad_hit_count += 1
+            if self.verbose:
+                self.observer.trace(
+                    f"[{self.name}] Check #{self._check_count}: "
+                    f"value={value} HIT BAD SPOT (hit #{self.bad_hit_count})"
+                )
+            return (False, False)
+
+        result = value >= self._actual_threshold
+        if self.verbose:
+            self.observer.trace(
+                f"[{self.name}] Check #{self._check_count}: "
+                f"value={value}, actual={self._actual_threshold}, drop={result}"
+            )
+        return (True, result)
