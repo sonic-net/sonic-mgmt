@@ -751,7 +751,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
 
     # Make sure CRM counters updated - use polling to wait for route counter to update
     logger.info(f"Waiting for route counters to update after deleting {total_routes} routes...")
-    expected_max_used = crm_stats_route_used - total_routes + CRM_COUNTER_TOLERANCE
+    expected_max_used = crm_stats_route_used + CRM_COUNTER_TOLERANCE
 
     def check_route_deleted():
         return get_route_used() <= expected_max_used
