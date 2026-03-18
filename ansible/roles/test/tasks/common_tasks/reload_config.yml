@@ -5,11 +5,47 @@
   when: "config_source not in [ 'minigraph', 'config_db' ]"
 
 - name: "Reload SONiC configuration using minigraph"
-  shell: "{{ item }}"
+  shell: "config load_minigraph -y"
   become: "yes"
-  with_items:
-    - "config load_minigraph -y"
-    - "config save -y"
+  when: "config_source == 'minigraph'"
+
+- name: "Restore zebra_nexthop from minigraph into CONFIG_DB after load_minigraph"
+  shell: |
+    python3 - <<'PYEOF'
+    import xml.etree.ElementTree as ET
+    import subprocess
+    try:
+        root = ET.parse('/etc/sonic/minigraph.xml').getroot()
+        zn = None
+        for prop in root.iter():
+            if prop.tag.split('}')[-1] == 'DeviceProperty':
+                n = v = None
+                for c in prop:
+                    t = c.tag.split('}')[-1]
+                    if t == 'Name':
+                        n = c.text
+                    elif t == 'Value':
+                        v = c.text
+                if n == 'ZebraNexthop' and v:
+                    zn = v
+                    break
+        if zn:
+            subprocess.run(
+                ['sonic-db-cli', 'CONFIG_DB', 'hset',
+                 'DEVICE_METADATA|localhost', 'zebra_nexthop', zn],
+                check=True
+            )
+            print('zebra_nexthop restored to: ' + zn)
+    except Exception as e:
+        print('WARNING: inject_zebra_nexthop failed: ' + str(e))
+    PYEOF
+  become: "yes"
+  ignore_errors: "yes"
+  when: "config_source == 'minigraph'"
+
+- name: "Save SONiC configuration after loading minigraph"
+  shell: "config save -y"
+  become: "yes"
   when: "config_source == 'minigraph'"
 
 - name: "Reload SONiC configuration using config_db"
