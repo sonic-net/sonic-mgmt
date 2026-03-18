@@ -149,6 +149,8 @@ r, ".* ERR syncd\d*#syncd.*getSupportedBufferPoolCounters.*is not supported on b
 # https://dev.azure.com/msazure/One/_workitems/edit/14233570
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:brcm_sai_get_port_stats_ext.*Ext Stat Get failed.*"
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:brcm_sai_get_port_stats.*Multi stats get failed with error.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:brcm_sai_get_port_serdes_attribute_cmn:\d+ RX VGA get failed with error -8.*"
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:brcm_sai_get_port_serdes_attribute_cmn:\d+ Port.*TX_FIR_TAPS_LIST get failed with error -8.*"
 
 # https://dev.azure.com/msazure/One/_workitems/edit/14233568
 r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unknown or unsupported stat type.*"
