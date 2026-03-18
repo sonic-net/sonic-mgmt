@@ -691,6 +691,73 @@ class TestThresholdRangeProbingAlgorithm:
         assert algo._backtrack_nudge(500, 600) == 10      # range=100
         assert algo._backtrack_nudge(0, 5) == 1           # Very small → min 1
 
+    @pytest.mark.order(8870)
+    def test_precision_check_at_small_threshold_with_bad_spot(self):
+        """Precision check must use max(1, ...) guard for small thresholds.
+
+        Scenario: threshold=1 with bad_spot at value=1. Binary search
+        oscillates around small values where candidate * ratio < 1.
+
+        Without fix: precision target = 1 * 0.05 = 0.05, range_size=1
+        never satisfies <= 0.05, burns all 50 max_iterations.
+
+        With fix: precision target = max(1, 0.05) = 1, exits via SKIPPED
+        when range_size <= 1.
+        """
+        self.setUp()
+
+        def check_fn(*args, **kwargs):
+            value = args[2] if len(args) > 2 else kwargs.get('value', 0)
+            if value == 1:
+                return (False, False)  # bad spot at exact threshold
+            return (True, value >= 1)
+        self.mock_executor.check.side_effect = check_fn
+
+        algo = ThresholdRangeProbingAlgorithm(
+            self.mock_executor, self.mock_observer, precision_target_ratio=0.05
+        )
+        lower, upper, _ = algo.run(
+            src_port=24, dst_port=28, lower_bound=0, upper_bound=5
+        )
+
+        # With fix: should exit via precision_reached (SKIPPED), not max_iterations
+        # Verify no error was logged (precision_reached exits cleanly)
+        error_calls = self.mock_observer.on_error.call_args_list
+        assert len(error_calls) == 0, \
+            f"Should exit via precision_reached, not error: {error_calls[0][0][0] if error_calls else ''}"
+        assert self.mock_executor.check.call_count < 15, \
+            f"Took {self.mock_executor.check.call_count} iterations — precision check broken"
+
+    @pytest.mark.order(8880)
+    def test_precision_check_at_small_threshold(self):
+        """Precision check should terminate for small threshold values.
+
+        With threshold=5, candidate ~2-3, ratio=0.05:
+        precision target = max(1, 3 * 0.05) = max(1, 0.15) = 1
+        Algorithm should converge when range_size <= 1.
+        """
+        self.setUp()
+        actual_threshold = 5
+
+        def check_fn(*args, **kwargs):
+            value = args[2] if len(args) > 2 else kwargs.get('value', 0)
+            return (True, value >= actual_threshold)
+        self.mock_executor.check.side_effect = check_fn
+
+        algo = ThresholdRangeProbingAlgorithm(
+            self.mock_executor, self.mock_observer, precision_target_ratio=0.05
+        )
+        lower, upper, _ = algo.run(
+            src_port=24, dst_port=28, lower_bound=0, upper_bound=20
+        )
+
+        assert lower is not None, "Should converge for small threshold"
+        assert lower <= actual_threshold <= upper, \
+            f"Range [{lower}, {upper}] should bracket threshold {actual_threshold}"
+        call_count = self.mock_executor.check.call_count
+        assert call_count < 15, \
+            f"Algorithm took {call_count} iterations for small range [0,20]"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
