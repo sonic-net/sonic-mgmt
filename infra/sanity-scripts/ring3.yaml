@@ -108,21 +108,6 @@ FWD:
     churchill-mono:
       sim:
         - cisco/platform_tests/test_serviceability_basic.py
-        - fib/test_fib.py::test_hash
-        - fib/test_fib.py::test_ipinip_hash
-        - fib/test_fib.py::test_ipinip_hash_negative
-        - fib/test_fib.py::test_nvgre_hash
-        - ipfwd/test_dip_sip.py
-        - drop_packets/test_drop_counters.py::test_acl_drop
-        - drop_packets/test_drop_counters.py::test_unicast_ip_incorrect_eth_dst
-        - drop_packets/test_drop_counters.py::test_absent_ip_header
-        - drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr
-        - drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop
-        - drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr
-        - everflow/test_everflow_ipv6.py
-        - hash/test_generic_hash.py::test_algorithm_config
-        - hash/test_generic_hash.py::test_backend_error_messages
-        - acl/test_acl.py::TestAclWithPortToggle
         - cisco/platform_tests/test_serviceability_s1cli.py
       hw:
         - acl/test_acl.py
