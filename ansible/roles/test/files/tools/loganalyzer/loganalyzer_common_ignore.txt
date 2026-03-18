@@ -318,7 +318,7 @@ r, ".* NOTICE kernel:.*Kernel command line:.*Aboot=.*"
 r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
 
 # ignore TACACS login failure, which will happen when other user trying login device when running test
-r, ".* ERR sshd\[\d*\]: auth fail.*"
+r, ".* ERR sshd(-session)?\[\d*\]: auth fail.*"
 
 # ignore NTP nss_tacplus error, which will happen when reload config, because ntpd and chrony will invoke getpwnap API but nss_tacplus will re-render during reload config
 r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
