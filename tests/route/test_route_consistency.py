@@ -176,7 +176,7 @@ class TestRouteConsistency():
             logger.info("withdraw ipv4 and ipv6 routes for {}".format(topo_name))
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
             pytest_assert(wait_until(self.sleep_interval, 10, 15, self.routes_have_changed,
-                                     duthosts, self.pre_test_route_snapshot, 3, routes_count_tracking()),
+                                     duthosts, self.pre_test_route_snapshot, 2, routes_count_tracking()),
                           "Routes were not withdrawn within {} seconds".format(self.sleep_interval))
 
             """ compare the number of routes withdrawn from all the DUTs. In working condition, the number of routes
@@ -250,7 +250,7 @@ class TestRouteConsistency():
             logger.info("shutdown bgp sessions for {}".format(duthost.hostname))
             duthost.shell("sudo config bgp shutdown all")
             pytest_assert(wait_until(self.sleep_interval, 10, 15, self.routes_have_changed,
-                                     duthosts, self.pre_test_route_snapshot, 3, routes_count_tracking()),
+                                     duthosts, self.pre_test_route_snapshot, 2, routes_count_tracking()),
                           "Routes did not change after BGP shutdown within {} seconds".format(self.sleep_interval))
 
             post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
@@ -321,7 +321,7 @@ class TestRouteConsistency():
                     id = ""
                 check_and_kill_process(duthost, container_name + str(id), program_name)
             wait_until(60, 5, 15, self.routes_have_changed,
-                       duthosts, self.pre_test_route_snapshot, 3, routes_count_tracking())
+                       duthosts, self.pre_test_route_snapshot, 2, routes_count_tracking())
 
             post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
             num_routes_withdrawn = 0
