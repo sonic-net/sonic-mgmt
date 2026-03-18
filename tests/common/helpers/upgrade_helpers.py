@@ -8,15 +8,18 @@ from dataclasses import dataclass
 from six.moves.urllib.parse import urlparse
 import tests.common.fixtures.grpc_fixtures  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.reboot import reboot, get_reboot_cause, reboot_ctrl_dict
+from tests.common import reboot
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until, setup_ferret
 from tests.common.platform.device_utils import check_neighbors
-from typing import Optional, Dict
+from typing import Optional, Sequence, Tuple, Union, Dict
 
 # internal only import - used by ferret functions
 import json
 import os
+
 
 SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
@@ -26,6 +29,10 @@ TMP_VLAN_FILE = '/tmp/vlan_interfaces.json'
 TMP_PORTS_FILE = '/tmp/ports.json'
 TMP_PEER_INFO_FILE = "/tmp/peer_dev_info.json"
 TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
+SS_TARGET_TYPE_HDR = "x-sonic-ss-target-type"
+SS_TARGET_INDEX_HDR = "x-sonic-ss-target-index"
+
+GrpcMetadata = Union[Dict[str, str], Sequence[Tuple[str, str]]]
 
 
 @dataclass(frozen=True)
@@ -36,6 +43,9 @@ class GnoiUpgradeConfig:
     protocol: str = "HTTP"
     allow_fail: bool = False
     to_version: Optional[str] = None  # Optional expected version string to validate after upgrade
+    ss_target_type: Optional[str] = None   # e.g. "dpu"
+    ss_target_index: Optional[int] = None  # e.g. 3
+    metadata: Optional[GrpcMetadata] = None
     ss_reboot_ready_timeout: int = 1200
     ss_reboot_message: str = "Rebooting DPU for maintenance"
 
@@ -151,8 +161,8 @@ def create_hole_in_tcam(duthosts, rand_one_dut_hostname):
     def apply_fdb_config(duthost, vlan_id, iface, appdb_router_mac):
         """ Creates FDB config and applies it on DUT """
         dut_fdb_config = os.path.join("/tmp", "fdb.json")
-        fdb_entry_json = [{ "FDB_TABLE:{}:{}".format(vlan_id, appdb_router_mac):
-            { "port": iface, "type": "dynamic" }, "OP": "SET" }]
+        fdb_entry_json = [{"FDB_TABLE:{}:{}".format(vlan_id, appdb_router_mac):
+                           {"port": iface, "type": "dynamic"}, "OP": "SET"}]
         with tempfile.NamedTemporaryFile(suffix=".json", prefix="fdb_config") as fp:
             logger.info("Generating FDB config")
             json.dump(fdb_entry_json, fp)
@@ -191,8 +201,8 @@ def create_hole_in_tcam(duthosts, rand_one_dut_hostname):
         # Verify that the tcam hole is now created
         STATION_TCAM_SIZE = duthost.shell(
             "bcmcmd -n 0 'listmem my_station_tcam' | grep 'Entries:' | awk '{print $2}'")['stdout']
-        STATION_TCAM_LAST_INDEX_EXIST= duthost.shell(
-            "bcmcmd -n 0 'dump chg my_station_tcam' | grep -c '\[{}\]'".format(
+        STATION_TCAM_LAST_INDEX_EXIST = duthost.shell(
+            "bcmcmd -n 0 'dump chg my_station_tcam' | grep -c '\\[{}\\]'".format(
                 int(STATION_TCAM_SIZE) - 1))['stdout']
         if STATION_TCAM_LAST_INDEX_EXIST == '1':
             logger.info("Hole in TCAM found")
@@ -202,16 +212,20 @@ def create_hole_in_tcam(duthosts, rand_one_dut_hostname):
         # If Metadata script is used, the below steps will be performed by the replaced script on the device
         if not metadata_process:
             logger.info("Set up Station TCAM Entry 1 Vlan Mask as 0 for mitigation on Broadcom")
-            duthost.shell("bcmcmd 'l2 station add id=1 mac=0x{} macm=0xffffffffffff ".format(BRCM_STATION_ROUTER_MAC) +
-            "vlanid=0 vlanidm=0 ipv4=1 ipv6=1 arprarp=1 replace=1'")
+            duthost.shell("bcmcmd 'l2 station add id=1 mac=0x{} macm=0xffffffffffff ".format(
+                BRCM_STATION_ROUTER_MAC) + "vlanid=0 vlanidm=0 ipv4=1 ipv6=1 arprarp=1 replace=1'")
             # Remove app db entry before warmboot to image with a fix
             duthost.shell("redis-cli -n 0 del 'FDB_TABLE:'{}':'{}".format(VLAN, APP_DB_FDB_ROUTER_MAC))
 
     yield create_hole
 
     # clean up
-    duthost.shell("redis-cli -n 6 del 'FDB_TABLE|'{}':'{}".format(VLAN, STATE_DB_FDB_ROUTER_MAC), module_ignore_errors=True)
-    duthost.shell("redis-cli -n 0 del 'FDB_TABLE:'{}':'{}".format(VLAN, APP_DB_FDB_ROUTER_MAC), module_ignore_errors=True)
+    duthost.shell(
+        "redis-cli -n 6 del 'FDB_TABLE|'{}':'{}".format(VLAN, STATE_DB_FDB_ROUTER_MAC),
+        module_ignore_errors=True)
+    duthost.shell(
+        "redis-cli -n 0 del 'FDB_TABLE:'{}':'{}".format(VLAN, APP_DB_FDB_ROUTER_MAC),
+        module_ignore_errors=True)
     duthost.shell("docker exec -i swss rm /fdb.json*", module_ignore_errors=True)
 
 
@@ -355,9 +369,11 @@ def add_pfc_storm_table(duthost):
         # BRCM: CS00012297394 for details
         logger.info("PFC storm table is not supported on 201811.")
         return
-    COUNTER_OID_3 = duthost.command('redis-cli -n 2 hget "COUNTERS_QUEUE_NAME_MAP"  "Ethernet4:3"')['stdout'].rstrip('\n')
+    COUNTER_OID_3 = duthost.command(
+        'redis-cli -n 2 hget "COUNTERS_QUEUE_NAME_MAP"  "Ethernet4:3"')['stdout'].rstrip('\n')
     duthost.command('redis-cli -n 2 hset "COUNTERS:{}" "DEBUG_STORM" "enabled"'.format(COUNTER_OID_3))
-    COUNTER_OID_4 = duthost.command('redis-cli -n 2 hget "COUNTERS_QUEUE_NAME_MAP"  "Ethernet4:4"')['stdout'].rstrip('\n')
+    COUNTER_OID_4 = duthost.command(
+        'redis-cli -n 2 hget "COUNTERS_QUEUE_NAME_MAP"  "Ethernet4:4"')['stdout'].rstrip('\n')
     duthost.command('redis-cli -n 2 hset "COUNTERS:{}" "DEBUG_STORM" "enabled"'.format(COUNTER_OID_4))
 
     duthost.command('redis-cli -n 2 hset "COUNTERS:{}" "DEBUG_STORM" "disabled"'.format(COUNTER_OID_3))
@@ -538,4 +554,79 @@ def perform_gnoi_upgrade(
         f"Current image mismatch after reboot. current={images.get('current')} expected={cfg.to_version}. full={images}"
     )
 
-    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
+    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
+
+
+def _wait_gnoi_time_ready(ptf_gnoi, metadata, cfg: GnoiUpgradeConfig, timeout=None, interval: int = 10) -> bool:
+    timeout = timeout or cfg.ss_reboot_ready_timeout
+    return wait_until(timeout, interval, 0, ptf_gnoi.system_time, metadata=metadata)
+
+
+def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
+    if cfg.metadata is None:
+        raise ValueError("cfg.metadata must be provided for SmartSwitch DPU upgrade")
+
+    md = cfg.metadata
+
+    ptf_gnoi.system_time(metadata=md)
+
+    transfer_resp = ptf_gnoi.file_transfer_to_remote(
+        url=cfg.to_image,
+        local_path=cfg.dut_image_path,
+        protocol=cfg.protocol,
+        metadata=md,
+    )
+
+    setpkg_resp = ptf_gnoi.system_set_package(
+        local_path=cfg.dut_image_path,
+        version=cfg.to_version,
+        activate=True,
+        metadata=md,
+    )
+
+    method = str(cfg.upgrade_type).upper()
+    try:
+        reboot_resp = ptf_gnoi.system_reboot(
+            method=method,
+            delay=0,
+            message=cfg.ss_reboot_message,
+            metadata=md,
+        )
+    except Exception as e:
+        logger.info("Reboot raised (often expected): %s", e)
+        reboot_resp = None
+
+    if cfg.allow_fail:
+        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
+
+    ok = _wait_gnoi_time_ready(ptf_gnoi, md, cfg)
+    pytest_assert(ok, f"gNOI Time not reachable within {cfg.ss_reboot_ready_timeout}s after reboot")
+
+    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
+
+
+def perform_gnoi_upgrade_smartswitch_dpu(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
+    return _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg)
+
+
+def perform_gnoi_upgrade_smartswitch_dpus_parallel(
+    duthost, tbinfo,
+    ptf_gnoi,
+    cfgs: Sequence[GnoiUpgradeConfig],
+    max_workers: Optional[int] = None,
+) -> Dict[int, Dict]:
+    if not cfgs:
+        raise ValueError("cfgs is empty")
+
+    workers = max_workers or len(cfgs)
+    results: Dict[int, Dict] = {}
+
+    with SafeThreadPoolExecutor(max_workers=workers) as executor:
+        futs = {}
+        for i, cfg in enumerate(cfgs):
+            futs[i] = executor.submit(_upgrade_one_dpu_via_gnoi, duthost, tbinfo, ptf_gnoi, cfg)
+
+        for i, fut in futs.items():
+            results[i] = fut.result()
+
+    return results

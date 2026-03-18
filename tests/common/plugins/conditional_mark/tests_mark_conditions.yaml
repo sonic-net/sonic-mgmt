@@ -80,6 +80,13 @@ acl/test_acl.py:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+acl/test_acl.py::.*_forwarded\[ipv6-.*uplink->downlink:
+  regex: true
+  xfail:
+    reason: "IPv6 forwarded tests with uplink->downlink direction fail on v6 topology"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21788 and '-v6-' in topo_name and asic_type in ['mellanox', 'nvidia']"
+
 acl/test_acl.py::TestMultiBindingAcl:
   skip:
     reason: "MultiBinding only supports dualtor topo"
@@ -695,10 +702,6 @@ configlet/test_add_rack.py:
     reason: "AddRack is not yet supported on multi-ASIC platform"
     conditions:
       - "is_multi_asic==True"
-  xfail:
-    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20728"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20728 and '-v6-' in topo_name"
 
 container_hardening/test_container_hardening.py::test_container_privileged:
   skip:
@@ -1012,12 +1015,6 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_monitor_checksum_validation:
     reason: "xfail due to GitHub issue https://github.com/sonic-net/sonic-buildimage/issues/24402"
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24402 and asic_type in ['mellanox', 'nvidia']"
-
-dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_on_dualtor_standby:
-  skip:
-    reason: "The test case only tests DHCP relay on the dualtor standby dut"
-    conditions:
-      - "'dualtor' not in topo_name"
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_random_sport:
   skip:
@@ -1843,9 +1840,11 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_vla
 
 everflow/test_everflow_testbed.py::EverflowIPv4Tests::test_everflow_dscp_with_policer:
   skip:
-    reason: "Test not supported on Mellanox platforms"
+    reason: "Test not supported on Mellanox platforms or Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b) as policer is not supported. CS00012412189"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox']"
+      - "platform in ['x86_64-arista_7060x6_64pe_b']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
   skip:
@@ -1894,11 +1893,12 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
   skip:
-    reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms and Broadcom DNX platforms."
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8000 platforms, Broadcom DNX platforms, and Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b). CS00012412189"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
       - "asic_type in ['cisco-8000']"
+      - "platform in ['x86_64-arista_7060x6_64pe_b']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -2084,11 +2084,11 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
-    reason: "Skipping test since mirror with policer is not supported on Cisco 8122 platforms and Broadcom DNX platforms."
+    reason: "Skipping test since mirror with policer is not supported on Cisco 8122 platforms, Broadcom DNX platforms, and Broadcom Th5 platform (x86_64-arista_7060x6_64pe_b). CS00012412189"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_subtype in ['broadcom-dnx']"
-      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0', 'x86_64-arista_7060x6_64pe_b']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -3219,6 +3219,12 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_inte
     conditions:
       - "asic_type in ['cisco-8000']"
 
+iface_namingmode/test_iface_namingmode.py::TestShowIP::test_show_ip_route_v4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 iface_namingmode/test_iface_namingmode.py::TestShowInterfaces::test_config_interface_state:
   xfail:
     reason: "Cisco-8101-O8V48 testbed is not supported."
@@ -3242,12 +3248,6 @@ iface_namingmode/test_iface_namingmode.py::TestShowLLDP::test_show_lldp_table:
     reason: "Cisco-8101-O8V48 testbed is not supported."
     conditions:
       - "hwsku in ['Cisco-8101-O8V48', 'Cisco-8101C01-O8V48']"
-
-iface_namingmode/test_iface_namingmode.py::TestShowIP::test_show_ip_route_v4:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
 
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
   xfail:
@@ -3296,11 +3296,6 @@ iface_namingmode/test_iface_namingmode.py::test_show_pfc_counters:
 #######################################
 #####            ip               #####
 #######################################
-ip/link_local/test_link_local_ip.py:
-  skip:
-    reason: "New test case, failing badly, need owner to enhance"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19897"
 ip/test_ip_packet.py:
   skip:
     reason: "Skipping ip packet test since can't provide enough interfaces"
@@ -3601,6 +3596,15 @@ mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
 #######################################
 #####            mx               #####
 #######################################
+mx:
+  skip:
+    reason: "Test is only applicable to m0, mx, and m1 topologies"
+    conditions:
+      - "topo_type not in ['m0', 'mx', 'm1']"
+
+#######################################
+#####           nat               #####
+#######################################
 mx/test_dhcp_server_init_internal_only.py:
   skip:
     reason: "Not support to run in release >= 202311"
@@ -3615,15 +3619,6 @@ mx/test_dhcp_server_internal_only.py:
 
 #######################################
 #####           mx              #####
-#######################################
-mx:
-  skip:
-    reason: "Test is only applicable to m0, mx, and m1 topologies"
-    conditions:
-      - "topo_type not in ['m0', 'mx', 'm1']"
-
-#######################################
-#####           nat               #####
 #######################################
 nat:
   skip:
@@ -3704,9 +3699,10 @@ pc/test_lag_member.py:
 pc/test_lag_member_forwarding.py:
   xfail:
     reason: "Not supported on BRCM before SDK 13.x"
-    conditions_logical_operator: and
+    conditions_logical_operator: or
     conditions:
         - "asic_type in ['broadcom'] and https://github.com/sonic-net/sonic-buildimage/issues/21938"
+        - "asic_type in ['mellanox', 'nvidia'] and https://github.com/sonic-net/sonic-mgmt/issues/17095"
 
 pc/test_po_cleanup.py:
   skip:
@@ -4137,9 +4133,11 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pQueueMapping:
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpEcn:
   skip:
-    reason: "Unsupported testbed type."
+    reason: "Unsupported testbed type or test fails on all topologies. https://github.com/sonic-net/sonic-mgmt/issues/23059"
+    conditions_logical_operator: or
     conditions:
       - "asic_type not in ['broadcom'] and asic_subtype not in ['broadcom-dnx']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23059"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
   skip:
@@ -4565,6 +4563,15 @@ scp/test_scp_copy.py::test_scp_copy:
 #######################################
 #####       session monitors      #####
 #######################################
+scripts:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
+#######################################
+#####              sflow          #####
+#######################################
 session_monitor/test_bgp_session_tracker.py:
   skip:
     reason: "Skip bgp session tracker test for non-smartswitch t0 devices"
@@ -4585,15 +4592,6 @@ session_monitor/test_link_state_tracker.py:
 
 #######################################
 #####            scripts         #####
-#######################################
-scripts:
-  skip:
-    reason: "It is not tested for now"
-    conditions:
-      - "True"
-
-#######################################
-#####              sflow          #####
 #######################################
 sflow/test_sflow.py:
   skip:
@@ -5676,6 +5674,7 @@ zmq/test_gnmi_zmq.py:
     conditions_logical_operator: or
     conditions:
       - "'arista' in platform"
+      - "'dualtor' in topo_name"
       - "'isolated' in topo_name"
 
 zmq/test_gnmi_zmq.py::test_gnmi_zmq:

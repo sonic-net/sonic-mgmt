@@ -113,20 +113,35 @@ def dash_pl_config(duthost, dpuhosts, dpu_index, config_facts, minigraph_facts):
     for neigh_ip, config in list(config_facts["BGP_NEIGHBOR"].items()):
         if ip_interface(neigh_ip).version == 4:
             if LOCAL_PTF_INTF not in dash_info and config["name"].endswith("T0"):
-                intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
-                dash_info[LOCAL_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
-                dash_info[LOCAL_DUT_INTF] = intf
-                dash_info[LOCAL_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+                try:
+                    intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
+                    dash_info[LOCAL_PTF_INTF] = minigraph_facts["minigraph_ptf_indices"][intf]
+                    dash_info[LOCAL_DUT_INTF] = intf
+                    dash_info[LOCAL_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+                except KeyError:
+                    logger.warning("Could not find PTF interface mapping for neighbor %s, skipping", neigh_ip)
+                    dash_info.pop(LOCAL_PTF_INTF, None)
+                    dash_info.pop(LOCAL_DUT_INTF, None)
+                    dash_info.pop(LOCAL_PTF_MAC, None)
+                    continue
             if REMOTE_PTF_SEND_INTF not in dash_info and config["name"].endswith("T2"):
-                intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
-                intfs = list(config_facts["PORTCHANNEL_MEMBER"][intf].keys())
-                dash_info[REMOTE_PTF_SEND_INTF] = minigraph_facts["minigraph_ptf_indices"][intfs[0]]
-                dash_info[REMOTE_PTF_RECV_INTF] = [minigraph_facts["minigraph_ptf_indices"][i] for i in intfs]
-                dash_info[REMOTE_DUT_INTF] = intf
-                dash_info[REMOTE_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
-
+                try:
+                    intf, _ = get_intf_from_ip(config['local_addr'], config_facts)
+                    intfs = list(config_facts["PORTCHANNEL_MEMBER"][intf].keys())
+                    dash_info[REMOTE_PTF_SEND_INTF] = minigraph_facts["minigraph_ptf_indices"][intfs[0]]
+                    dash_info[REMOTE_PTF_RECV_INTF] = [minigraph_facts["minigraph_ptf_indices"][i] for i in intfs]
+                    dash_info[REMOTE_DUT_INTF] = intf
+                    dash_info[REMOTE_PTF_MAC] = neigh_table["v4"][neigh_ip]["macaddress"]
+                except KeyError:
+                    logger.warning("Could not find PTF interface mapping for neighbor %s, skipping", neigh_ip)
+                    dash_info.pop(REMOTE_PTF_SEND_INTF, None)
+                    dash_info.pop(REMOTE_PTF_RECV_INTF, None)
+                    dash_info.pop(REMOTE_DUT_INTF, None)
+                    dash_info.pop(REMOTE_PTF_MAC, None)
+                    continue
             if REMOTE_PTF_INTF in dash_info and LOCAL_PTF_INTF in dash_info:
                 break
+
     dpuhost = dpuhosts[dpu_index]
     dash_info[DPU_DATAPLANE_PORT] = dpuhost.dpu_dataplane_port
     dash_info[DPU_DATAPLANE_IP] = dpuhost.dpu_data_port_ip
@@ -413,7 +428,8 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
         {
             "SWITCH_TABLE:switch": {
                 "vxlan_sport": VXLAN_UDP_BASE_SRC_PORT,
-                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK
+                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK,
+                "vxlan_security": "true"
             },
             "OP": "SET"
         }
@@ -429,6 +445,28 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
     yield
     if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
         config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+
+@pytest.fixture(scope="function")
+def disable_vxlan_security(dpuhosts, dpu_index):
+    """
+    Disable VXLAN security in dpu configuration.
+    Configuration is applied by swssconfig..
+    """
+    dpuhost = dpuhosts[dpu_index]
+    vxlan_security_config = [
+        {
+            "SWITCH_TABLE:switch": {
+                "vxlan_security": "false"
+            },
+            "OP": "SET"
+        }
+    ]
+    logger.info(f"Disabling VXLAN security: {vxlan_security_config}")
+    config_path = "/tmp/vxlan_security_config.json"
+    dpuhost.copy(content=json.dumps(vxlan_security_config, indent=4),
+                 dest=config_path, verbose=False)
+    apply_swssconfig_file(dpuhost, config_path)
 
 
 @pytest.fixture(scope="function")
@@ -486,6 +524,7 @@ def add_npu_static_routes(
     duthost, dash_pl_config, skip_config, skip_cleanup, dpu_index, dpuhosts
 ):
     dpuhost = dpuhosts[dpu_index]
+    cleanup_cmds = []
     if not skip_config:
         cmds = []
         vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[LOCAL_DUT_INTF]).ip + 1
@@ -494,31 +533,26 @@ def add_npu_static_routes(
         pt_require(vm_nexthop_ip, "VM nexthop interface does not have an IP address")
         pt_require(pe_nexthop_ip, "PE nexthop interface does not have an IP address")
 
-        cmds.append(f"ip route replace {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
-        cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
+        cmds.append(f"config route add prefix {pl.APPLIANCE_VIP}/32 nexthop {dpuhost.dpu_data_port_ip}")
+        cmds.append(f"config route add prefix {pl.VM1_PA}/32 nexthop {vm_nexthop_ip}")
 
         return_tunnel_endpoints = pl.TUNNEL1_ENDPOINT_IPS + pl.TUNNEL2_ENDPOINT_IPS
         for tunnel_ip in return_tunnel_endpoints:
-            cmds.append(f"ip route replace {tunnel_ip}/32 via {vm_nexthop_ip}")
+            cmds.append(f"config route add prefix {tunnel_ip}/32 nexthop {vm_nexthop_ip}")
         nsg_tunnel_endpoints = pl.TUNNEL3_ENDPOINT_IPS + pl.TUNNEL4_ENDPOINT_IPS
         for tunnel_ip in nsg_tunnel_endpoints:
-            cmds.append(f"ip route replace {tunnel_ip}/32 via {pe_nexthop_ip}")
+            cmds.append(f"config route add prefix {tunnel_ip}/32 nexthop {pe_nexthop_ip}")
 
-        cmds.append(f"ip route replace {pl.PE_PA}/32 via {pe_nexthop_ip}")
+        cmds.append(f"config route add prefix {pl.PE_PA}/32 nexthop {pe_nexthop_ip}")
         logger.info(f"Adding static routes: {cmds}")
         duthost.shell_cmds(cmds=cmds)
+
+        cleanup_cmds = [cmd.replace("add", "del") for cmd in cmds]
 
     yield
 
     if not skip_config and not skip_cleanup:
-        cmds = []
-        cmds.append(f"ip route del {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
-        cmds.append(f"ip route del {pl.VM1_PA}/32 via {vm_nexthop_ip}")
-        for tunnel_ip in return_tunnel_endpoints:
-            cmds.append(f"ip route replace {tunnel_ip}/32 via {vm_nexthop_ip}")
-        cmds.append(f"ip route del {pl.PE_PA}/32 via {pe_nexthop_ip}")
-        logger.info(f"Removing static routes: {cmds}")
-        duthost.shell_cmds(cmds=cmds)
+        duthost.shell_cmds(cmds=cleanup_cmds, continue_on_fail=True, module_ignore_errors=True)
 
 
 @pytest.fixture(scope="function")
