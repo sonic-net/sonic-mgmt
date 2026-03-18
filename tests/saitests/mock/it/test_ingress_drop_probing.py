@@ -701,6 +701,40 @@ class TestIngressDropProbing:
         else:
             print("[PASS] Completed (bad spots caused failure)")
 
+    def test_ingress_drop_small_threshold_precision(self):
+        """
+        G5: Precision check max(1,...) guard for small threshold
+        """
+        import io
+        import sys
+
+        actual_threshold = 10
+
+        probe = create_ingress_drop_probe_instance(
+            actual_threshold=actual_threshold,
+            scenario='bad_spot',
+            bad_values=[10],
+            enable_precise_detection=False,
+            precision_target_ratio=0.05
+        )
+
+        captured = io.StringIO()
+        old_stderr = sys.stderr
+        sys.stderr = captured
+
+        probe.runTest()
+        result = probe.probe_result
+
+        sys.stderr = old_stderr
+        output = captured.getvalue()
+
+        phase3_lines = [l for l in output.split('\n') if l.strip().startswith('| 3.')]
+
+        assert result is not None
+        assert len(phase3_lines) < 30, \
+            f"Phase 3 took {len(phase3_lines)} iterations — precision check broken"
+        print(f"[PASS] Small threshold precision: {len(phase3_lines)} Phase 3 iterations")
+
 
 def main():
     """Run complete Ingress Drop probing test suite."""
