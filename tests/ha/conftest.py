@@ -594,8 +594,8 @@ def generate_ha_config_for_dut(switch_id: int, duthost, tbinfo):
         "VDPU": generate_vdpu_config(),
         "DASH_HA_GLOBAL_CONFIG": {
             "GLOBAL": {
-                "dpu_bfd_probe_interval_in_ms": "1000",
-                "dpu_bfd_probe_multiplier": "3",
+                "dpu_bfd_probe_interval_in_ms": "200",
+                "dpu_bfd_probe_multiplier": "5",
                 "cp_data_channel_port": "11362",
                 "dp_channel_dst_port": "11368",
                 "dp_channel_src_port_min": "7001",
