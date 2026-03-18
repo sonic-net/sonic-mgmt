@@ -8,6 +8,7 @@ import re
 import logging
 import json
 import functools
+import time
 from collections import defaultdict
 from natsort import natsorted
 from .transceiver_utils import all_transceivers_detected
@@ -294,6 +295,24 @@ def get_fec_eligible_interfaces(duthost, supported_speeds):
             logging.info(f"Skip for {intf_name}: oper_state: {oper} speed: {speed}")
 
     return interfaces
+
+
+def clear_interface_counters_and_wait(duthost, wait_time=60):
+    """
+    Clear SONiC interface counters and wait before validating them.
+
+    Args:
+        duthost: The device under test.
+        wait_time (int): Number of seconds to wait after clearing counters.
+
+    Returns:
+        None
+    """
+    logging.info("Run 'sudo sonic-clear counters' before validating FEC counters")
+    duthost.command("sudo sonic-clear counters")
+
+    logging.info("Wait %s seconds after clearing counters", wait_time)
+    time.sleep(wait_time)
 
 
 def get_physical_to_logical_port_mapping(physical_port_indices):
