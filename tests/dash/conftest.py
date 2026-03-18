@@ -428,7 +428,8 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
         {
             "SWITCH_TABLE:switch": {
                 "vxlan_sport": VXLAN_UDP_BASE_SRC_PORT,
-                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK
+                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK,
+                "vxlan_security": "true"
             },
             "OP": "SET"
         }
@@ -444,6 +445,28 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
     yield
     if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
         config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+
+@pytest.fixture(scope="function")
+def disable_vxlan_security(dpuhosts, dpu_index):
+    """
+    Disable VXLAN security in dpu configuration.
+    Configuration is applied by swssconfig..
+    """
+    dpuhost = dpuhosts[dpu_index]
+    vxlan_security_config = [
+        {
+            "SWITCH_TABLE:switch": {
+                "vxlan_security": "false"
+            },
+            "OP": "SET"
+        }
+    ]
+    logger.info(f"Disabling VXLAN security: {vxlan_security_config}")
+    config_path = "/tmp/vxlan_security_config.json"
+    dpuhost.copy(content=json.dumps(vxlan_security_config, indent=4),
+                 dest=config_path, verbose=False)
+    apply_swssconfig_file(dpuhost, config_path)
 
 
 @pytest.fixture(scope="function")

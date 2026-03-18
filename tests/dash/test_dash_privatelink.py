@@ -98,14 +98,22 @@ def test_privatelink_basic_transform(
     testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[LOCAL_PTF_INTF])
 
 
+@pytest.mark.parametrize("vxlan_security", ["true", "false"])
 def test_privatelink_udp_sport_range_negative(
     ptfadapter,
-    dash_pl_config
+    dash_pl_config,
+    vxlan_security,
+    request
 ):
     """
     Validate that when the VXLAN UDP source port is not in the configured
-    range, the packet is dropped by the DPU.
+    range, the packet is dropped by the DPU when vxlan_security is true.
+    When vxlan_security is false, the packet is not dropped.
     """
+    # vxlan_security is enabled by default, disable it when vxlan_security is false
+    if vxlan_security == "false":
+        request.getfixturevalue("disable_vxlan_security")
+
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, "vxlan")
     min_valid_sport = VXLAN_UDP_BASE_SRC_PORT
     max_valid_sport = VXLAN_UDP_BASE_SRC_PORT + 2**VXLAN_UDP_SRC_PORT_MASK - 1
@@ -117,10 +125,16 @@ def test_privatelink_udp_sport_range_negative(
                           65535]
     logger.info(f"Send the vxlan encaped outbound packets with invalid sport: \
         {invalid_sport_list}")
-    logger.info("Check the packets are all dropped.")
+
+    logger.info(f"Validate the traffic when vxlan_security is {vxlan_security}.")
     for invalid_sport in invalid_sport_list:
         vm_to_dpu_pkt[scapy.UDP].sport = invalid_sport
         ptfadapter.dataplane.flush()
         logger.info(f"Sending packet with sport: {invalid_sport}")
         testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
-        testutils.verify_no_packet_any(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
+        if vxlan_security == "true":
+            logger.info("Check the packet is dropped.")
+            testutils.verify_no_packet_any(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
+        else:
+            logger.info("Check the packet is not dropped.")
+            testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
