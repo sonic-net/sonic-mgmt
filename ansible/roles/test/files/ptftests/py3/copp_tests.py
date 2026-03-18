@@ -89,7 +89,7 @@ class ControlPlaneBaseTest(BaseTest):
         self.topo_type = test_params.get('topo_type', None)
         self.ip_version = test_params.get('ip_version', None)
         self.neighbor_miss_trap_supported = test_params.get('neighbor_miss_trap_supported', False)
-        self.is_smartswitch = test_params.get('is_smartswitch', False)
+        self.is_smartswitch_light_mode = test_params.get('is_smartswitch_light_mode', False)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -320,7 +320,7 @@ class DHCPTopoT1Test(PolicyTest):
         # T1 DHCP no packet to packet to CPU so police rate is 0
         self.PPS_LIMIT_MIN = 0
         self.PPS_LIMIT_MAX = 0
-        if self.is_smartswitch:
+        if self.is_smartswitch_light_mode:
             self.PPS_LIMIT_MIN = 90
             self.PPS_LIMIT_MAX = 130
 
@@ -449,7 +449,7 @@ class DHCP6TopoT1Test(PolicyTest):
         # T1 DHCP6 no packet to packet to CPU so police rate is 0
         self.PPS_LIMIT_MIN = 0
         self.PPS_LIMIT_MAX = 0
-        if self.is_smartswitch:
+        if self.is_smartswitch_light_mode:
             self.PPS_LIMIT_MIN = 90
             self.PPS_LIMIT_MAX = 130
 
