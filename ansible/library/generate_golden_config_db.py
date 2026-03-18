@@ -637,10 +637,28 @@ class GenerateGoldenConfigDBModule(object):
         if zebra_nexthop is None:
             return config
         ori_config_db = json.loads(config)
-        if "DEVICE_METADATA" not in ori_config_db:
-            ori_config_db["DEVICE_METADATA"] = {}
-        if "localhost" not in ori_config_db["DEVICE_METADATA"]:
-            ori_config_db["DEVICE_METADATA"]["localhost"] = {}
+        if "DEVICE_METADATA" not in ori_config_db or \
+                "localhost" not in ori_config_db["DEVICE_METADATA"]:
+            # DEVICE_METADATA is absent from the golden_config_db (e.g. for t1
+            # topologies where golden config starts empty). Read the full
+            # localhost entry from the running configDB so that
+            # config override-config-table receives a *complete* entry
+            # (preserving hwsku, mac, hostname, etc.) rather than a bare
+            # {"zebra_nexthop": ...} stub that would wipe those fields.
+            rc, out, err = self.module.run_command(
+                "sonic-cfggen -d --var-json DEVICE_METADATA"
+            )
+            if rc != 0 or not out.strip():
+                return config
+            try:
+                device_metadata = json.loads(out)
+            except ValueError:
+                return config
+            if "localhost" not in device_metadata:
+                return config
+            if "DEVICE_METADATA" not in ori_config_db:
+                ori_config_db["DEVICE_METADATA"] = {}
+            ori_config_db["DEVICE_METADATA"]["localhost"] = device_metadata["localhost"]
         ori_config_db["DEVICE_METADATA"]["localhost"]["zebra_nexthop"] = zebra_nexthop
         return json.dumps(ori_config_db, indent=4)
 
