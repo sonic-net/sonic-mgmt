@@ -234,8 +234,8 @@ def get_memory_usage(process_name):
     return total_memory_usage
 
 
-def monitor_memory(process_name, initial_memory, interval):
-    while True:
+def monitor_memory(process_name, initial_memory, interval, stop_event):
+    while not stop_event.is_set():
         memory_usage = get_memory_usage(process_name)
         logging.info("Monitor Memory usage for {}: {} bytes".format(process_name, memory_usage))
         if memory_usage >= 2 * initial_memory:
@@ -253,10 +253,16 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
     for process_name in bmp_processes:
         initial_memory[process_name] = get_memory_usage(process_name)
 
+    # Create stop event for graceful thread termination
+    stop_event = threading.Event()
+
     # Create and start the memory monitoring threads
     bmp_monitor_threads = []
     for process_name in bmp_processes:
-        bmp_thread = threading.Thread(target=monitor_memory, args=(process_name, initial_memory[process_name], 30))
+        bmp_thread = threading.Thread(
+            target=monitor_memory,
+            args=(process_name, initial_memory[process_name], 30, stop_event)
+        )
         bmp_thread.start()
         bmp_monitor_threads.append(bmp_thread)
 
@@ -308,7 +314,8 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
         if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
             pytest.fail("not all bgp sessions are up after config reload")
 
-        # Quit bmp memory monitor thread
+        # Signal threads to stop and wait for them to finish
+        stop_event.set()
         for bmp_thread in bmp_monitor_threads:
             bmp_thread.join()
 
