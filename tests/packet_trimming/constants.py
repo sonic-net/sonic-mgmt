@@ -147,14 +147,13 @@ SRV6_MY_SID_LIST = [
 SRV6_ROUTE_PREFIX = '2001::/16'
 
 # Drop counter
-SWITCH_INTERVAL = 1000
-PORT_INTERVAL = 100
-QUEUE_INTERVAL = 100
+# The polling interval should be no less than 2 seconds to avoid BGP routes large convergence time.
+TRIMMING_COUNTER_INTERVAL = 2000
 
 COUNTER_TYPE = [
-    ("switch", "SWITCH_STAT", SWITCH_INTERVAL),
-    ("port", "PORT_STAT", PORT_INTERVAL),
-    ("queue", "QUEUE_STAT", QUEUE_INTERVAL),
+    ("switch", "SWITCH_STAT", TRIMMING_COUNTER_INTERVAL),
+    ("port", "PORT_STAT", TRIMMING_COUNTER_INTERVAL),
+    ("queue", "QUEUE_STAT", TRIMMING_COUNTER_INTERVAL),
 ]
 
 # Mirror session configuration
