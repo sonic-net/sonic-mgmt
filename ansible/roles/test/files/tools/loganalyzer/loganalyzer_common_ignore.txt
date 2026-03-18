@@ -448,6 +448,7 @@ r, ".*WARNING kernel:.*scd.*rsp.*ack_error=1.*"
 
 # CHASSIS_STATE_DB only exists on chassis platforms; gnmi processes log an ERR on non-chassis systems at startup
 r, ".*ERR gnmi#.*getDbInfo: Failed to find CHASSIS_STATE_DB.*"
+r, ".*ERR telemetry#.*getDbInfo: Failed to find CHASSIS_STATE_DB.*"
 
 # Ignore SAI_STATUS_INVALID_PARAMETER error for SAI_API_QUEUE get stats until it's resolved
 r, ".*ERR swss#orchagent:.*SAI_API_QUEUE, status: SAI_STATUS_INVALID_PARAMETER.*"
