@@ -56,6 +56,12 @@ def common_setup_teardown(
         **pl.PE_SUBNET_ROUTE_CONFIG,
         **pl.VM_SUBNET_ROUTE_CONFIG
     }
+
+    if 'bluefield' in dpuhost.facts['asic_type']:
+        route_and_mapping_messages.update({
+            **pl.INBOUND_VNI_ROUTE_RULE_CONFIG
+        })
+
     logger.info(route_and_mapping_messages)
     apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
 
