@@ -21,6 +21,7 @@ FAKE_IP = '10.20.30.40'
 FAKE_MAC = 'aa:bb:cc:dd:11:22'
 FILE_NUM_FOR_VALIDATE = 10
 
+
 @pytest.fixture(scope='module', autouse=True)
 def disable_logrotate_cron_job(rand_selected_dut):
     with DisableLogrotateCronContext(rand_selected_dut):
@@ -113,18 +114,22 @@ def create_temp_syslog_file(duthost, size):
     logger.info('Create a temp syslog file as {}'.format(size))
     duthost.shell('sudo fallocate -l {} /var/log/syslog'.format(size))
 
+
 def get_tail_syslog_files(duthost, num):
     files = duthost.shell('sudo ls -lt --full-time /var/log/syslog.* | tail -n {}'.format(num),
-                        module_ignore_errors=True)['stdout']
+                          module_ignore_errors=True)['stdout_lines']
     logger.debug(files)
     return files
+
 
 def files_time_shifted(before, after):
     fl1 = before.splitlines()
     fl2 = after.splitlines()
-    # get syslog files timestamp, when the file number limit is reached.
-    # after log rotation, the total log file numner does not change, but
-    # timestamp of those files should be shifted one position.
+    '''
+    get syslog files timestamp, when the file number limit is reached.
+    after log rotation, the total log file numner does not change, but
+    timestamp of those files should be shifted one position.
+    '''
     time_fl1 = [item.split()[6] for item in fl1]
     time_fl2 = [item.split()[6] for item in fl2]
     logger.debug("=========== Syslog file imestamps before rotate =======")
@@ -133,6 +138,7 @@ def files_time_shifted(before, after):
     logger.debug(time_fl2)
     # Return true if sure oldest syslog files timestamp shifted
     return time_fl1[:-1] == time_fl2[1:]
+
 
 def run_logrotate(duthost, force=False):
     """
@@ -194,13 +200,14 @@ def validate_logrotate_function(duthost, logrotate_threshold, small_size, num_of
         syslog_number_with_rotate = get_syslog_file_count(duthost)
         logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_with_rotate))
         # Handle the corner case when number of syslog files reach its configured limit
-        if syslog_number_origin  == syslog_number_with_rotate:
+        if syslog_number_origin == syslog_number_with_rotate:
             tail_files_after_rotate = get_tail_syslog_files(duthost, num_of_file)
             assert files_time_shifted(tail_files_before_rotate, tail_files_after_rotate) == 1, \
-            	'No logrotate happens, both syslog file number and timestamp are the same'
+                'No logrotate happens, both syslog file number and timestamp are the same'
         else:
             assert syslog_number_origin + 1 == syslog_number_with_rotate, \
-            	'No logrotate happens, there should be one time logrotate executed'
+                'No logrotate happens, there should be one time logrotate executed'
+
 
 def get_threshold_based_on_memory(duthost):
     """
