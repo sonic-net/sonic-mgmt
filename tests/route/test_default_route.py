@@ -157,6 +157,18 @@ def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns, device_neigh_
                   "Default route nexthops doesn't match the testbed topology")
 
 
+def test_default_route(duthosts, tbinfo):
+    """
+    Verify default route set_src and nexthop global address.
+
+    This test exists to prevent the CI runner from creating a phantom failure
+    entry for the module name 'test_default_route'. See:
+    https://github.com/sonic-net/sonic-mgmt/issues/23040
+    """
+    test_default_route_set_src(duthosts, tbinfo)
+    test_default_ipv6_route_next_hop_global_address(duthosts, tbinfo)
+
+
 def test_default_route_set_src(duthosts, tbinfo):
     """
     check if ipv4 and ipv6 default src address match Loopback0 address
