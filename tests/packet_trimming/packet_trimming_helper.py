@@ -2878,6 +2878,22 @@ def compare_counters(counter1, counter2, keys_to_compare):
     logger.info("All specified counters match")
 
 
+def check_trim_drop_counter_zero(duthost, port):
+    """
+    Check if TRIM_DRP_PKTS counter on the specified port is 0.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. "Ethernet96"
+
+    Returns:
+        bool: True if TRIM_DRP_PKTS is 0, False otherwise
+    """
+    trim_drop = get_port_trim_counters_json(duthost, port)['TRIM_DRP_PKTS']
+    logger.info(f"TRIM_DRP_PKTS on port {port}: {trim_drop}")
+    return trim_drop == 0
+
+
 def verify_queue_and_port_trim_counter_consistency(duthost, port):
     """
     Verify the consistency of the trim counter on the queue and the port level.
