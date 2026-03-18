@@ -58,6 +58,10 @@ parameters:
   type: object
   default: {}
 
+- name: KVM_BUILD_ID
+  type: string
+  default: ""
+
 jobs:
   - job: get_impacted_area
     displayName: "Get impacted area"
@@ -109,6 +113,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
@@ -150,6 +155,8 @@ jobs:
   #         MAX_WORKER: $(INSTANCE_NUMBER)
   #         DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
   #         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+  #         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+  #         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
   #         MGMT_BRANCH: $(BUILD_BRANCH)
   #         COMMON_EXTRA_PARAMS: "--disable_sai_validation "
   #         ${{ each param in parameters.OVERRIDE_PARAMS }}:
@@ -190,6 +197,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
@@ -231,6 +239,8 @@ jobs:
   #         MAX_WORKER: $(INSTANCE_NUMBER)
   #         COMMON_EXTRA_PARAMS: "--disable_loganalyzer --disable_sai_validation "
   #         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+  #         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+  #         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
   #         MGMT_BRANCH: $(BUILD_BRANCH)
   #         ${{ each param in parameters.OVERRIDE_PARAMS }}:
   #           ${{ param.key }}: ${{ param.value }}
@@ -270,6 +280,8 @@ jobs:
   #         MIN_WORKER: $(INSTANCE_NUMBER)
   #         MAX_WORKER: $(INSTANCE_NUMBER)
   #         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+  #         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+  #         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
   #         COMMON_EXTRA_PARAMS: "--neighbor_type=sonic --disable_sai_validation "
   #         VM_TYPE: vsonic
   #         MGMT_BRANCH: $(BUILD_BRANCH)
@@ -315,6 +327,8 @@ jobs:
   #         MIN_WORKER: $(INSTANCE_NUMBER)
   #         MAX_WORKER: $(INSTANCE_NUMBER)
   #         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+  #         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+  #         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
   #         MGMT_BRANCH: $(BUILD_BRANCH)
   #         COMMON_EXTRA_PARAMS: "--disable_sai_validation "
   #         SPECIFIC_PARAM: '[
@@ -360,6 +374,8 @@ jobs:
   #         MAX_WORKER: $(INSTANCE_NUMBER)
   #         NUM_ASIC: 4
   #         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+  #         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+  #         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
   #         MGMT_BRANCH: $(BUILD_BRANCH)
   #         COMMON_EXTRA_PARAMS: "--disable_sai_validation "
   #         ${{ each param in parameters.OVERRIDE_PARAMS }}:
@@ -401,6 +417,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
@@ -425,6 +442,8 @@ jobs:
 #           MIN_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
 #           MAX_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
 #           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+#           KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+#           KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
 #           MGMT_BRANCH: $(BUILD_BRANCH)
 #           ASIC_TYPE: "vpp"
 #           KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
