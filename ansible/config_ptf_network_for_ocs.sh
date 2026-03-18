@@ -100,34 +100,34 @@ rollback_network_config() {
     # Capture the exit code from the command that triggered the trap
     # Note: This may not always be accurate when called from trap
     local exit_code=$?
-    
+
     # Don't rollback if script completed successfully
     if [[ $SCRIPT_EXITED -eq 1 ]]; then
         return 0
     fi
-    
+
     echo ""
     echo "!!! ERROR DETECTED - Attempting to rollback network configuration !!!"
     echo ""
-    
+
     if [[ $ROLLBACK_REQUIRED -eq false ]]; then
         echo "No rollback needed - network configuration not yet modified"
         return 0
     fi
-    
+
     if [[ -z "$SERVER_INTERFACE" ]]; then
         echo "No server interface specified, skipping rollback"
         return 0
     fi
-    
+
     echo "Rolling back network configuration for interface: $SERVER_INTERFACE"
-    
+
     # Remove interface from bridge
     if brctl show $MGMT_BRIDGE 2>/dev/null | grep -q $SERVER_INTERFACE; then
         echo "Removing $SERVER_INTERFACE from bridge $MGMT_BRIDGE"
         brctl delif $MGMT_BRIDGE $SERVER_INTERFACE
     fi
-    
+
     # Restore original IP address to physical interface
     if [[ -n "$ORIGINAL_IP" ]]; then
         echo "Restoring original IP address to $SERVER_INTERFACE: $ORIGINAL_IP"
@@ -136,7 +136,7 @@ rollback_network_config() {
             echo "Warning: Failed to restore IP address to $SERVER_INTERFACE"
         fi
     fi
-    
+
     # Restore original gateway
     if [[ -n "$ORIGINAL_GW" ]]; then
         echo "Restoring original gateway: $ORIGINAL_GW"
@@ -145,23 +145,23 @@ rollback_network_config() {
             echo "Warning: Failed to restore default gateway"
         fi
     fi
-    
+
     # Bring interface up
     echo "Bringing interface $SERVER_INTERFACE up"
     if ! ip link set $SERVER_INTERFACE up; then
         echo "Warning: Failed to bring interface $SERVER_INTERFACE up"
     fi
-    
+
     # Remove bridge IP if it was added
     if [[ -n "$ORIGINAL_IP" ]] && ip addr show $MGMT_BRIDGE 2>/dev/null | grep -q 'inet\s+'; then
         echo "Removing IP address from bridge $MGMT_BRIDGE"
         ip addr flush dev $MGMT_BRIDGE 2>/dev/null
     fi
-    
+
     echo ""
     echo "Rollback completed. Please verify network connectivity."
     echo "If connectivity issues persist, you may need to manually restore configuration."
-    
+
     # Return the original exit code if it indicates failure, otherwise return 1
     if [[ $exit_code -ne 0 ]]; then
         return $exit_code
@@ -175,7 +175,7 @@ setup_trap() {
     # Trap EXIT to handle script termination
     # The EXIT trap will be called with the exit status of the command that terminated the script
     trap 'rollback_network_config' EXIT
-    
+
     # Trap INT (Ctrl+C) and TERM signals
     # Save the exit code before calling rollback
     trap 'echo "Interrupted by user"; SCRIPT_EXITED=0; exit 130' INT TERM
@@ -462,19 +462,19 @@ main() {
 
     # Execute steps
     echo "=== Starting PTF network configuration ==="
-    
+
     create_mgmt_bridge
-    
+
     if ! configure_ptf_network; then
         echo "=== PTF network configuration failed at configure_ptf_network step ==="
         exit 1
     fi
-    
+
     if ! bridge_server_interface; then
         echo "=== PTF network configuration failed at bridge_server_interface step ==="
         exit 1
     fi
-    
+
     echo "=== PTF network configuration completed successfully ==="
     # Mark script as completed successfully to prevent rollback
     SCRIPT_EXITED=1
