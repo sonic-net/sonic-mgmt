@@ -4029,9 +4029,11 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pQueueMapping:
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpEcn:
   skip:
-    reason: "Unsupported testbed type."
+    reason: "Unsupported testbed type or test fails on all topologies. https://github.com/sonic-net/sonic-mgmt/issues/23059"
+    conditions_logical_operator: or
     conditions:
       - "asic_type not in ['broadcom'] and asic_subtype not in ['broadcom-dnx']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23059"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
   skip:
