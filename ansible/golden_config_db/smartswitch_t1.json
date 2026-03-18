@@ -10,15 +10,6 @@
             "log_level": "2",
             "port": "50052"
         }
-    },
-    "STATIC_ROUTE": {
-        "default|10.2.0.1/32": {
-            "blackhole": "false",
-            "distance": "0",
-            "ifname": "",
-            "nexthop": "18.0.202.1",
-            "nexthop-vrf": "default"
-        }
     }
 
 }
