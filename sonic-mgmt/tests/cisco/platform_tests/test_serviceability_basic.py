@@ -92,14 +92,14 @@ def check_dshell_client(duthost, enabled=True, change=True):
         check_dshell = duthost.command(f"docker exec syncd{asic} ps -efl")
         action = "start" if enabled else "stop"
         timeout = 0
-        while timeout < 12 and ("/usr/bin/dshell_client.py" in check_dshell["stdout"]) is not enabled:
+        while timeout < 12 and ("dshell_client.py" in check_dshell["stdout"]) is not enabled:
             if timeout:
                 time.sleep(15)
             if change:
                 duthost.command(f"docker exec syncd{asic} supervisorctl " + action + " dshell_client")
             check_dshell = duthost.command(f"docker exec syncd{asic} ps -efl")
             timeout += 1
-        result &= ("/usr/bin/dshell_client.py" in check_dshell["stdout"]) is enabled
+        result &= ("dshell_client.py" in check_dshell["stdout"]) is enabled
         if change:
             assert result, logging.error(f"Unable to {action} dshell client in syncd{asic}")
     return result
