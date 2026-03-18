@@ -103,4 +103,3 @@ def test_gnoi_os_activate_valid_image(duthosts, rand_one_dut_hostname, ptf_gnoi)
         "activateOk" in response or "activateError" in response,
         f"OS.Activate returned unexpected response format (missing activateOk/activateError): {response}"
     )
-    
