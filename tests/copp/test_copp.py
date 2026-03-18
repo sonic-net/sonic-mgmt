@@ -137,11 +137,17 @@ class TestCOPP(object):
                     pytest_assert(not trap_installed,
                                   f"Trap {trap_ids[0]} for protocol {protocol} is unexpectedly installed")
 
+        is_smartswitch_light_mode = False
+        if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+            if "dhcp_server" in duthost.critical_services_status():
+                is_smartswitch_light_mode = True
+
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
                      copp_testbed,
-                     dut_type)
+                     dut_type,
+                     is_smartswitch_light_mode=is_smartswitch_light_mode)
 
     @pytest.mark.parametrize("protocol", ["IP2ME",
                                           "SNMP",
@@ -430,13 +436,12 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
 
 def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
-                 ip_version="4", packet_size=100):    # noqa: F811
+                 ip_version="4", packet_size=100, is_smartswitch_light_mode=False):    # noqa: F811
     """
         Configures and runs the PTF test cases.
     """
 
     is_ipv4 = True if ip_version == "4" else False
-
     params = {"verbose": False,
               "target_port": test_params.nn_target_port,
               "myip": test_params.myip if is_ipv4 else test_params.myip6,
@@ -447,7 +452,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
               "has_trap": has_trap,
               "hw_sku": dut.facts["hwsku"],
               "asic_type": dut.facts["asic_type"],
-              "is_smartswitch": dut.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"),
+              "is_smartswitch_light_mode": is_smartswitch_light_mode,
               "platform": dut.facts["platform"],
               "topo_type": test_params.topo_type,
               "ip_version": ip_version,
