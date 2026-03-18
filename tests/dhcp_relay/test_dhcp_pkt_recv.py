@@ -1,3 +1,4 @@
+import json
 import logging
 import ptf.packet as scapy
 import pytest
@@ -17,6 +18,7 @@ pytestmark = [
 ACL_TABLE_NAME_DHCPV6_PKT_RECV_TEST = "DHCPV6_PKT_RECV_TEST"
 ACL_STAGE_INGRESS = "ingress"
 ACL_TABLE_TYPE_L3V6 = "L3V6"
+DATAACL_TABLE_NAME = "DATAACL"
 
 ACL_RULE_FILE_PATH_MULTICAST_ACCEPT = "dhcp_relay/acl/dhcpv6_pkt_recv_multicast_accept.json"
 ACL_RULE_DST_FILE = "/tmp/test_dchp_pkt_acl_rule.json"
@@ -38,16 +40,51 @@ def check_dhcp_relay_feature_state(rand_selected_dut):
 
 class Dhcpv6PktRecvBase:
 
-    @pytest.fixture(scope="class")
+    @pytest.fixture(scope="module")
     def setup_teardown(self, rand_selected_dut, tbinfo):
         duthost = rand_selected_dut
+
+        # Remove DATAACL table to free TCAM resources for test ACL tables
+        data_acl_table = None
+        data_acl_rules = None
+
+        output = duthost.shell("sonic-cfggen -d --var-json \"ACL_TABLE\"")['stdout']
+        try:
+            acl_tables = json.loads(output)
+            if DATAACL_TABLE_NAME in acl_tables:
+                data_acl_table = {DATAACL_TABLE_NAME: acl_tables[DATAACL_TABLE_NAME]}
+        except json.JSONDecodeError:
+            logging.warning("Failed to parse ACL_TABLE JSON output: %s", output)
+
+        output = duthost.shell("sonic-cfggen -d --var-json \"ACL_RULE\"")['stdout']
+        try:
+            acl_rules = json.loads(output)
+            data_acl_rules = {k: v for k, v in acl_rules.items()
+                              if k.startswith(DATAACL_TABLE_NAME + "|")}
+        except json.JSONDecodeError:
+            logging.warning("Failed to parse ACL_RULE JSON output: %s", output)
+
+        if data_acl_table is not None:
+            logging.info("Removing ACL table {} to free TCAM resources".format(DATAACL_TABLE_NAME))
+            duthost.shell(cmd="config acl remove table {}".format(DATAACL_TABLE_NAME))
+
         dut_index = str(tbinfo['duts_map'][duthost.hostname])
         disabled_host_interfaces = tbinfo['topo']['properties']['topology'].get('disabled_host_interfaces', [])
         host_interfaces = [intf for intf in tbinfo['topo']['properties']['topology'].get('host_interfaces', [])
                            if intf not in disabled_host_interfaces]
         ptf_indices = self.parse_ptf_indices(host_interfaces, dut_index)
         dut_intf_ptf_index = duthost.get_extended_minigraph_facts(tbinfo)['minigraph_ptf_indices']
+
         yield ptf_indices, dut_intf_ptf_index
+
+        # Restore DATAACL table and rules if they were removed
+        if data_acl_table is not None:
+            restore_data = {'ACL_TABLE': data_acl_table}
+            if data_acl_rules:
+                restore_data['ACL_RULE'] = data_acl_rules
+            logging.info("Restoring ACL table {} with {} rules".format(
+                DATAACL_TABLE_NAME, len(data_acl_rules) if data_acl_rules else 0))
+            duthost.shell('sonic-cfggen -a \'{}\' -w'.format(json.dumps(restore_data)))
 
     def parse_ptf_indices(self, host_interfaces, dut_index):
         indices = list()
