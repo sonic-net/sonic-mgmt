@@ -13,7 +13,7 @@ Private Link redirect map leverages the identical SDN transformation as defined 
 
 ### Scope
 The test is targeting the verification of the private link redirect functionality on DPU in a smartswitch.
-New test script and testcases are added to verify the packet is sdn tranformed as expected and packets/counters are verified.
+New test script and testcases are added to verify the packet is sdn transformed as expected and packets/counters are verified.
 
 ### Testbed
 The test will run on a smartswitch testbed with DPUs enabled.
