@@ -34,6 +34,10 @@ parameters:
   type: object
   default: {}
 
+- name: KVM_BUILD_ID
+  type: string
+  default: ""
+
 stages:
 - stage: Test
   variables:
@@ -54,3 +58,4 @@ stages:
         STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
         TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
         MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+        KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
