@@ -4,8 +4,6 @@ import re
 from tests.platform_tests.mellanox.interface_utils import get_physical_index_to_interfaces_map
 
 SC_ENABLED = 1
-# Command to get ASIC device (PCI) path on DUT
-ASIC_DETECT_GET_DEVICE_PATH_CMD = '/usr/bin/asic_detect/asic_detect.sh -p'
 
 PLATFORM_FOLDER_PATH = "/usr/share/sonic/device/"
 SAI_PROFILE_FILE_NAME = "sai.profile"

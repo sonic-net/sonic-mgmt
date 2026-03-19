@@ -1,5 +1,4 @@
 from natsort import natsorted
-from tests.platform_tests.mellanox.software_control_helper import ASIC_DETECT_GET_DEVICE_PATH_CMD
 
 
 def get_common_supported_speeds(duthost, dut_port_name, fanout, fanout_port_name):
@@ -101,6 +100,8 @@ class MlnxCableSupportedSpeedsHelper(object):
         if (duthost, dut_port_name) in cls.supported_speeds:
             return cls.supported_speeds[duthost, dut_port_name]
 
+        # Command to get ASIC device (PCI) path on DUT
+        ASIC_DETECT_GET_DEVICE_PATH_CMD = '/usr/bin/asic_detect/asic_detect.sh -p'
         if duthost not in cls.sorted_ports:
             int_status = duthost.show_interface(command="status")["ansible_facts"]['int_status']
             ports = natsorted([port_name for port_name in list(int_status.keys())])
