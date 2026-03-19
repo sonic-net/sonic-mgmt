@@ -53,7 +53,6 @@ ICMP_TYPE_MAX = 125
 _icmp_type_generator = itertools.cycle(range(ICMP_TYPE_MIN, ICMP_TYPE_MAX + 1))
 test_results = {}
 current_test = ""
-global_icmp_type = ICMP_TYPE_MIN
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -625,7 +624,7 @@ def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count
         prefixes,
         duthost.facts['router_mac'],
         pdp.get_mac(pdp.port_to_device(injection_port), injection_port),
-        global_icmp_type
+        icmp_type
     )
     # Downtime ratio is calculated by dividing the number of flapping neighbors by 5, from test data
     downtime_ratio = len(flapping_connections) / 5
