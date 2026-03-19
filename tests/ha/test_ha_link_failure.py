@@ -26,10 +26,10 @@ pytestmark = [
 ]
 
 
-def restore_ha_state(duthost):
+def restore_ha_state(localhost, ptfhost, duthost):
     try:
-        set_dead_dash_ha_scope(duthost, "vdpu1_0:haset0_0")
-        activate_secondary_dash_ha(duthost, "vdpu1_0:haset0_0", "activate_role")
+        set_dead_dash_ha_scope(localhost, duthost, ptfhost, "vdpu1_0:haset0_0")
+        activate_secondary_dash_ha(localhost, duthost, ptfhost, "vdpu1_0:haset0_0", "activate_role")
     except Exception as e:
         logger.error(f"HA state restoration on {duthost.hostname} exception: {e}")
 
@@ -123,8 +123,10 @@ We are testing 4 scenarios:
 )
 def test_ha_link_failure(
     ptfadapter,
+    localhost,
     duthosts,
     dpuhosts,
+    ptfhost,
     activate_dash_ha_from_json,
     dash_pl_config,
     standby_link_fail,
@@ -236,7 +238,7 @@ def test_ha_link_failure(
     else:
         remove_acl_link_drop(duthosts[0], dash_pl_config[1][NPU_DATAPLANE_PORT])
     # take system out of split-brain
-    restore_ha_state(duthosts[1])
+    restore_ha_state(localhost, ptfhost, duthosts[1])
 
     traffic = "traffic to standby" if traffic_to_standby else "traffic to primary"
     if standby_link_fail:
@@ -246,9 +248,9 @@ def test_ha_link_failure(
         else:
             logger.info(f"Standby link fail with {traffic} test OK. All {send_count} packets sent were received.")
     else:
-        threshold_loss = 1.0
+        threshold_loss = rate_pps * 2.0 # Up to 2s of allowable loss during link failure.
         percentage_loss = (failed_count / send_count) * 100
-        if (percentage_loss < threshold_loss):
+        if (failed_count < threshold_loss):
             logger.info(f"Primary link fail with {traffic} test OK. Sent: {send_count},"
                         f" not received: {failed_count}, loss: {percentage_loss}, threshold: {threshold_loss}")
         else:
