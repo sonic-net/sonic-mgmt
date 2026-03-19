@@ -153,9 +153,9 @@ def inbound_pl_packets(
 
     if inner_packet_type == "tcp":
         tcp_flags = ''
-        if tcp_seq_num:
+        if tcp_seq_num is not None:
             inner_packet[l4_protocol_key].seq = tcp_seq_num
-        if tcp_ack_num:
+        if tcp_ack_num is not None:
             inner_packet[l4_protocol_key].ack = tcp_ack_num
         if tcp_flag_syn:
             tcp_flags += 'S'
@@ -273,9 +273,9 @@ def outbound_pl_packets(
 
     if inner_packet_type == "tcp":
         tcp_flags = ''
-        if tcp_seq_num:
+        if tcp_seq_num is not None:
             inner_packet[l4_protocol_key].seq = tcp_seq_num
-        if tcp_ack_num:
+        if tcp_ack_num is not None:
             inner_packet[l4_protocol_key].ack = tcp_ack_num
         if tcp_flag_syn:
             tcp_flags += 'S'

@@ -85,7 +85,7 @@ The test will run on a smartswitch testbed with DPUs enabled.
 	- Update the RNI table on DPU with the created PL Redirect map table and push the ENI config to DPU.
 	- Send TCP packet with dst port is within the map table range and is the start port (eg: 8001).
 -  **Validation:**
-	- Check that the packet is forwarded as expected private link packet with pl redirect modifications of dst port (50002) and underlay ip (60.60.60.1).
+	- Check that the packet is forwarded as expected private link packet with pl redirect modifications of dst port (42001) and underlay ip (60.60.60.1).
 -  **Tear down:**
 	- Remove configs at the end of execution of all test cases
 
@@ -98,7 +98,7 @@ The test will run on a smartswitch testbed with DPUs enabled.
 	- Update the RNI table on DPU with the created PL Redirect map table and push the ENI config to DPU.
 	- Send TCP packet with dst port is within the map table range and is the end port (eg: 9000).
 -  **Validation:**
-	- Check that the packet is forwarded as expected private link packet with pl redirect modifications of dst port (51001) and underlay ip (60.60.60.1).
+	- Check that the packet is forwarded as expected private link packet with pl redirect modifications of dst port (43000) and underlay ip (60.60.60.1).
 -  **Tear down:**
 	- Remove configs at the end of execution of all test cases
 
@@ -111,7 +111,7 @@ The test will run on a smartswitch testbed with DPUs enabled.
 	- Update the ENI table on DPU with the created PL Redirect map table and push the ENI config to DPU.
 	- Send TCP packet with dst port is within the map table range and is any value within the range (eg: 8500).
 -  **Validation:**
-	- Check that the packet is forwarded as expected private link packet with pl redirect modifications of dst port (50501) and underlay ip (60.60.60.1).
+	- Check that the packet is forwarded as expected private link packet with pl redirect modifications of dst port (42500) and underlay ip (60.60.60.1).
 -  **Tear down:**
 	- Remove configs at the end of execution of all test cases
 

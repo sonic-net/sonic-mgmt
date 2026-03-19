@@ -82,11 +82,13 @@ def assert_pkt_info(packet_dic):
         logger.info(packet_dic['expected_pkt'].show(dump=True))
 
     for item in packet_dic['To_verify']:
+        if item['expected_value'] != item['received_value']:
+            detailed_packet_info()
         assert item['expected_value'] == item['received_value'], (
             f"{item['field_name']} mismatch: "
             f"Expected {item['expected_value']}, "
-            f"Received {item['received_value']}\n"
-            f"{detailed_packet_info()}"
+            f"Received {item['received_value']}. "
+            "See detailed packet info in logs."
         )
 
         logger.info(
@@ -301,7 +303,8 @@ def verify_packets(
 def set_vxlan_udp_sport_range_redirect(dpuhosts, dpu_index):
     """
     Configure VXLAN UDP source port range in dpu configuration.
-    Similar to the fixture(function scope) in conftest.py, but here in 'Class' scope.
+    Similar to the fixture(function scope) in conftest.py, but here in
+    'Class' scope.
     """
     dpuhost = dpuhosts[dpu_index]
     vxlan_sport_config = [
@@ -949,7 +952,9 @@ class TestPrivateLinkRedirectFNIC:
         # for reverse flow, sport, dport will be reversed
         vm_to_pe_inner_sport = 12345
         # random port in port map range excluding start and end port
-        vm_to_pe_inner_dport = randint(pl.PORT_MAP_1_RANGE_START+1, pl.PORT_MAP_1_RANGE_END-1)
+        vm_to_pe_inner_dport = randint(
+            pl.PORT_MAP_1_RANGE_START+1, pl.PORT_MAP_1_RANGE_END-1
+        )
         expected_mapped_port = pl.PL_REDIRECT_BACKEND_PORT_BASE + (
                     vm_to_pe_inner_dport - pl.PORT_MAP_1_RANGE_START
                 )
@@ -985,7 +990,9 @@ class TestPrivateLinkRedirectFNIC:
                 exp_dpu_to_pe_pkt.exp_pkt[IP].dst = (
                     pl.PL_REDIRECT_BACKEND_IP
                 )
-                exp_dpu_to_pe_pkt.exp_pkt[GRE][Ether][IPv6].dport = expected_mapped_port
+                exp_dpu_to_pe_pkt.exp_pkt[GRE][Ether][IPv6].dport = (
+                    expected_mapped_port
+                )
                 exp_dpu_to_pe_pkt.exp_pkt[GRE][Ether][IPv6].dst = (
                     overlay_pe_ipv6
                 )
@@ -1348,7 +1355,8 @@ class TestPrivateLinkRedirectPLNSG:
         is random port of the port map range.
         1. VM to dpu packets sent with inner dest port
            randomly generated within the port map range.
-        2. Base port is PL_REDIRECT_BACKEND_PORT_BASE (42000) and port map range is 8001-9000.
+        2. Base port is PL_REDIRECT_BACKEND_PORT_BASE (42000) and port map
+           range is 8001-9000.
         3. DPU to PE packets are sdn modified (inner dport: 42500,
            encoded inner dst ipv6, outer ipv4: 60.60.60.1,
            encap: GRE) and forwarded to PE
@@ -1363,7 +1371,9 @@ class TestPrivateLinkRedirectPLNSG:
         # for reverse flow, sport, dport will be reversed
         vm_to_pe_inner_sport = 12345
         # random port in port map range excluding start and end port
-        vm_to_pe_inner_dport = randint(pl.PORT_MAP_1_RANGE_START+1, pl.PORT_MAP_1_RANGE_END-1)
+        vm_to_pe_inner_dport = randint(
+            pl.PORT_MAP_1_RANGE_START+1, pl.PORT_MAP_1_RANGE_END-1
+        )
         expected_mapped_port = pl.PL_REDIRECT_BACKEND_PORT_BASE + (
                     vm_to_pe_inner_dport - pl.PORT_MAP_1_RANGE_START
                 )
