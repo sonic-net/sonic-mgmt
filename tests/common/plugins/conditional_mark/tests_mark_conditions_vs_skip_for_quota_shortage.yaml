@@ -1,0 +1,85 @@
+# This file contains conditional marks to skip test cases on t0 topology in PR testing.
+# These tests are also covered by t1-lag topology, so skipping them on t0 saves CPU quota.
+# Only applies to VS (virtual switch) platform.
+# Generated based on Kusto analysis of PR test results from the last 7 days.
+
+bgp/test_bgp_update_replication.py:
+  skip:
+    reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
+    conditions:
+      - "topo_type == 't0' and asic_type in ['vs']"
+
+
+copp/test_copp.py:
+  skip:
+    reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
+    conditions:
+      - "topo_type == 't0' and asic_type in ['vs']"
+
+
+drop_packets/drop_packets.py:
+  skip:
+    reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
+    conditions:
+      - "topo_type == 't0' and asic_type in ['vs']"
+
+
+everflow/test_everflow_ipv6.py:
+  skip:
+    reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
+    conditions:
+      - "topo_type == 't0' and asic_type in ['vs']"
+
+
+everflow/test_everflow_testbed.py:
+  skip:
+    reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
+    conditions:
+      - "topo_type == 't0' and asic_type in ['vs']"
+
+
+ip/test_mgmt_ipv6_only.py:
+  skip:
+    reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
+    conditions:
+      - "topo_type == 't0' and asic_type in ['vs']"
+
+
+ntp/test_ntp.py:
+  skip:
+    reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
+    conditions:
+      - "topo_type == 't0' and asic_type in ['vs']"
+
+
+pfcwd/test_pfcwd_function.py:
+  skip:
+    reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
+    conditions:
+      - "topo_type == 't0' and asic_type in ['vs']"
+
+pfcwd/test_pfcwd_timer_accuracy.py:
+  skip:
+    reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
+    conditions:
+      - "topo_type == 't0' and asic_type in ['vs']"
+
+
+route/test_route_consistency.py:
+  skip:
+    reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
+    conditions:
+      - "topo_type == 't0' and asic_type in ['vs']"
+
+sub_port_interfaces/test_sub_port_interfaces.py:
+  skip:
+    reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
+    conditions:
+      - "topo_type == 't0' and asic_type in ['vs']"
+
+
+tacacs/test_accounting.py:
+  skip:
+    reason: "All tests covered by t1-lag topology, skip on t0 to save PR testing CPU quota"
+    conditions:
+      - "topo_type == 't0' and asic_type in ['vs']"
