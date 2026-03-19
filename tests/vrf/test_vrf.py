@@ -1102,7 +1102,23 @@ class TestVrfLoopbackIntf:
         ptfhost.shell("pgrep exabgp")
 
         # make sure routes announced to bgp neighbors
-        time.sleep(10)
+        def _bgp_speaker_established():
+            for vrf in cfg_facts["VRF"]:
+                try:
+                    bgp_info = json.loads(
+                        duthost.shell(
+                            "vtysh -c 'show bgp vrf {} summary json'".format(vrf)
+                        )["stdout"]
+                    )
+                    peers = bgp_info.get("ipv4Unicast", {}).get("peers", {})
+                    peer = peers.get(str(ptf_speaker_ip.ip), {})
+                    if peer.get("state") != "Established":
+                        return False
+                except Exception:
+                    return False
+            return True
+
+        wait_until(30, 2, 0, _bgp_speaker_established)
 
         # -------- Testing ----------
 
@@ -1492,7 +1508,15 @@ class TestVrfUnbindIntf:
         duthost.shell("config interface vrf unbind {}".format(PORTCHANNEL_TEMP_1))
 
         # wait for neigh/route flush
-        time.sleep(5)
+        def _pc1_ip_flushed():
+            out = duthost.shell("ip addr show {}".format(PORTCHANNEL_TEMP_1))["stdout"]
+            for ver, ips in list(g_vars["vrf_intfs"]["Vrf1"][PORTCHANNEL_TEMP_1].items()):
+                for ip in ips:
+                    if str(ip) in out:
+                        return False
+            return True
+
+        wait_until(30, 2, 0, _pc1_ip_flushed)
 
         # -------- Testing ----------
         yield
@@ -1656,7 +1680,12 @@ class TestVrfDeletion:
         gen_vrf_neigh_file("Vrf2", ptfhost, render_file="/tmp/vrf2_neigh.txt")
 
         duthost.shell("config vrf del Vrf1")
-        time.sleep(5)
+
+        def _vrf1_deleted():
+            res = duthost.shell("ip link show type vrf", module_ignore_errors=True)["stdout"]
+            return "Vrf1" not in res
+
+        wait_until(30, 2, 0, _vrf1_deleted)
 
         # -------- Testing ----------
         yield
