@@ -784,10 +784,9 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setu
 
         # Wait for BGP Monitor sessions to establish
         logger.info("Waiting for BGP Monitor sessions to establish...")
-        if wait_until(60, 5, 0, is_bgp_monitor_session_established, duthost, bgp_monitor_ips):
-            logger.info("BGP Monitor sessions established successfully")
-        else:
-            logger.warning("BGP Monitor sessions did not establish within timeout")
+        pytest_assert(wait_until(300, 10, 0, is_bgp_monitor_session_established, duthost, bgp_monitor_ips),
+                      "BGP Monitor sessions did not establish within timeout")
+        logger.info("BGP Monitor sessions established successfully")
 
         # Run the stress link flap test
         _run_stress_link_flap_test(duthost, setup, nbrhosts, fanouthosts, test_type, normalized_level)
@@ -798,10 +797,9 @@ def test_bgp_stress_link_flap_with_monitor(duthosts, rand_one_dut_hostname, setu
                       "Not all BGP sessions are established on DUT after test")
 
         # Verify BGP Monitor sessions are still established
-        if is_bgp_monitor_session_established(duthost, bgp_monitor_ips):
-            logger.info("BGP Monitor sessions remain established after stress test")
-        else:
-            logger.warning("BGP Monitor sessions not established after stress test")
+        pytest_assert(is_bgp_monitor_session_established(duthost, bgp_monitor_ips),
+                      "BGP Monitor sessions not established after stress test")
+        logger.info("BGP Monitor sessions remain established after stress test")
 
     finally:
         # Cleanup BGP Monitor configuration
@@ -876,10 +874,9 @@ def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, rand_one_dut_h
 
         # Wait for BGP Monitor sessions to establish
         logger.info("Waiting for BGP Monitor sessions to establish...")
-        if wait_until(60, 5, 0, is_bgp_monitor_session_established, duthost, bgp_monitor_ips):
-            logger.info("BGP Monitor sessions established successfully")
-        else:
-            logger.warning("BGP Monitor sessions did not establish within timeout")
+        pytest_assert(wait_until(300, 10, 0, is_bgp_monitor_session_established, duthost, bgp_monitor_ips),
+                      "BGP Monitor sessions did not establish within timeout")
+        logger.info("BGP Monitor sessions established successfully")
 
         # Run the stress link flap test
         _run_stress_link_flap_test(duthost, setup, nbrhosts, fanouthosts, test_type, normalized_level)
@@ -890,10 +887,9 @@ def test_bgp_stress_link_flap_with_sentinel_and_monitor(duthosts, rand_one_dut_h
                       "Not all BGP sessions are established on DUT after test")
 
         # Verify BGP Monitor sessions are still established
-        if is_bgp_monitor_session_established(duthost, bgp_monitor_ips):
-            logger.info("BGP Monitor sessions remain established after stress test")
-        else:
-            logger.warning("BGP Monitor sessions not established after stress test")
+        pytest_assert(is_bgp_monitor_session_established(duthost, bgp_monitor_ips),
+                      "BGP Monitor sessions not established after stress test")
+        logger.info("BGP Monitor sessions remain established after stress test")
 
     finally:
         # Cleanup both BGP Sentinel and Monitor configurations
