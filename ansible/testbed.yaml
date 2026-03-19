@@ -1516,6 +1516,26 @@
   auto_recover: 'True'
   comment: v-cshekar
 
+- conf-name: vms20-rdma-t0-7260cx3
+  group-name: vms20-ixia-11
+  topo: tgen-t0-3-32
+  ptf_image_name: docker-keysight-api-server
+  ptf_imagetag: 10.80.2412.176
+  ptf: ixia-apiserver4
+  ptf_ip: 10.64.246.126/25
+  server: server_20
+  vm_base:
+  dut:
+  - STR-7260CX3-C19-U39
+  inv_name: ixia
+  test_tags: []
+  l1s:
+  - str-ocs-dlx64-acs-07
+  tgs:
+  - msr-ixia-4
+  auto_recover: 'False'
+  comment: ediwibowo
+
 - conf-name: testbed-bjw-can-3800-1
   group-name: bjw7-7
   topo: t1
