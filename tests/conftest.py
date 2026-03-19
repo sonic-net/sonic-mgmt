@@ -285,6 +285,9 @@ def pytest_addoption(parser):
                      help="Enable macsec on some links of testbed")
     parser.addoption("--macsec_profile", action="store", default="all",
                      type=str, help="profile name list in macsec/profile.json")
+    parser.addoption("--per_interface_macsec", action="store_true", default=False,
+                     help="Layer per-interface MACsec profiles (unique CAK/CKN per port) "
+                          "on top of the base profile for testing")
 
     ############################
     #   QoS options         #

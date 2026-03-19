@@ -18,7 +18,11 @@ from .macsec_config_helper import setup_macsec_configuration
 from .macsec_config_helper import cleanup_macsec_configuration
 from .macsec_config_helper import is_macsec_configured
 from .macsec_config_helper import get_macsec_enable_status, get_macsec_profile
-from .macsec_helper import load_all_macsec_info
+from .macsec_config_helper import generate_macsec_profile
+from .macsec_config_helper import setup_macsec_multi_profile_configuration
+from .macsec_config_helper import cleanup_macsec_multi_profile_configuration
+from .macsec_config_helper import enable_macsec_port
+from .macsec_helper import load_all_macsec_info, getns_prefix
 
 # flake8: noqa: F401
 from tests.common.plugins.sanity_check import sanity_check
@@ -83,7 +87,7 @@ class MacsecPlugin(object):
         stop_macsec_service()
 
     @pytest.fixture(scope="module")
-    def startup_macsec(self, request, macsec_duthost, ctrl_links, macsec_profile, tbinfo):
+    def startup_macsec(self, request, macsec_duthost, ctrl_links, macsec_profile, port_profiles, tbinfo):
         topo_name = tbinfo['topo']['name']
         def __startup_macsec():
             profile = macsec_profile
@@ -102,13 +106,45 @@ class MacsecPlugin(object):
                                        profile['send_sci'], profile['rekey_period'], tbinfo)
             logger.info(
                 "Setup MACsec configuration with arguments:\n{}".format(locals()))
+
+            if port_profiles:
+                # Layer per-interface profiles on top of the base config.
+                # Save original profile bindings so shutdown can restore them.
+                self._original_profile_per_port = {}
+                for dut_port in ctrl_links:
+                    ns = getns_prefix(macsec_duthost, dut_port)
+                    cmd = "sonic-db-cli {} CONFIG_DB HGET 'PORT|{}' 'macsec'".format(
+                        ns, dut_port)
+                    output = macsec_duthost.command(cmd)['stdout'].strip()
+                    self._original_profile_per_port[dut_port] = output if output else None
+                setup_macsec_multi_profile_configuration(
+                    macsec_duthost, ctrl_links, port_profiles, tbinfo)
+                logger.info(
+                    "Setup per-interface MACsec configuration with profiles:\n{}".format(
+                        {p: pp["name"] for p, pp in port_profiles.items()}))
         return __startup_macsec
 
     @pytest.fixture(scope="module")
-    def shutdown_macsec(self, macsec_duthost, ctrl_links, macsec_profile):
+    def shutdown_macsec(self, macsec_duthost, ctrl_links, macsec_profile, port_profiles, tbinfo):
         def __shutdown_macsec():
             profile = macsec_profile
-            cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
+            if port_profiles:
+                cleanup_macsec_multi_profile_configuration(
+                    macsec_duthost, ctrl_links, port_profiles)
+                # Restore original profile bindings.
+                orig = getattr(self, '_original_profile_per_port', {})
+                for dut_port, nbr in list(ctrl_links.items()):
+                    orig_name = orig.get(dut_port)
+                    if orig_name:
+                        enable_macsec_port(macsec_duthost, dut_port, orig_name)
+                        enable_macsec_port(nbr["host"], nbr["port"], orig_name)
+                for dut_port, nbr in list(ctrl_links.items()):
+                    wait_until(300, 3, 0,
+                               lambda dp=dut_port, n=nbr: macsec_duthost.iface_macsec_ok(dp) and
+                               n["host"].iface_macsec_ok(n["port"]))
+                load_all_macsec_info(macsec_duthost, ctrl_links, tbinfo)
+            else:
+                cleanup_macsec_configuration(macsec_duthost, ctrl_links, profile['name'])
         return __shutdown_macsec
 
     @pytest.fixture(scope="module")
