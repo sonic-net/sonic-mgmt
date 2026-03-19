@@ -526,6 +526,7 @@ def generate_vdpu_config(dpu_count=8):
 
 def generate_remote_dpu_config_for_dut(
     switch_id: int,
+    tbinfo,
     dpu_count=8,
     swbus_start=23606
 ):
@@ -538,7 +539,9 @@ def generate_remote_dpu_config_for_dut(
 
     remote_switch_id = 1 - switch_id
 
-    remote_npu_ip = f"10.1.{remote_switch_id}.32"
+    topo_dut = tbinfo["topo"]["properties"]["topology"]["DUT"]
+    remote_loopback = topo_dut["loopback"]["ipv4"][remote_switch_id]
+    remote_npu_ip = remote_loopback.split("/")[0]
     pa_prefix = f"20.0.20{remote_switch_id}."
 
     remote = {}
@@ -583,7 +586,7 @@ def generate_ha_config_for_dut(switch_id: int, duthost, tbinfo):
 
     return {
         "DPU": generate_local_dpu_config(switch_id),
-        "REMOTE_DPU": generate_remote_dpu_config_for_dut(switch_id),
+        "REMOTE_DPU": generate_remote_dpu_config_for_dut(switch_id, tbinfo),
         "VDPU": generate_vdpu_config(),
         "DASH_HA_GLOBAL_CONFIG": {
             "GLOBAL": {
