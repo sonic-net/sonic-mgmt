@@ -11,8 +11,8 @@ from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
 from tests.common.config_reload import config_reload
-from tests.ha.ha_utils import activate_primary_dash_ha, activate_secondary_dash_ha, \
-         verify_ha_state, proto_utils_hset, build_dash_ha_scope_args
+from ha_utils import activate_primary_dash_ha, activate_secondary_dash_ha, \
+         verify_ha_state, set_dead_dash_ha_scope
 
 logger = logging.getLogger(__name__)
 
@@ -20,27 +20,6 @@ pytestmark = [
     pytest.mark.topology('t1-smartswitch-ha'),
     pytest.mark.skip_check_dut_health
 ]
-
-
-def set_ha_scope_dead(duthost, scope_key):
-    """
-    Set DASH_HA_SCOPE_CONFIG_TABLE entry to "dead" state
-    scope_key example: vdpu0_0:haset0_0
-    """
-
-    fields = {
-                "version": "1",
-                "disabled": "true",
-                "desired_ha_state": "dead",
-                "ha_set_id": "haset0_0",
-                "owner": "dpu",
-            }
-    proto_utils_hset(
-            duthost,
-            table="DASH_HA_SCOPE_CONFIG_TABLE",
-            key=scope_key,
-            args=build_dash_ha_scope_args(fields),
-    )
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -107,7 +86,9 @@ def common_setup_teardown(
 
 def test_ha_planned_shutdown(
     ptfadapter,
+    localhost,
     duthosts,
+    ptfhost,
     activate_dash_ha_from_json,
     dash_pl_config
 ):
@@ -126,7 +107,7 @@ def test_ha_planned_shutdown(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("Set primary to dead")
-        set_ha_scope_dead(duthosts[0], "vdpu0_0:haset0_0")
+        set_dead_dash_ha_scope(localhost, ptfhost, duthosts[0], "vdpu0_0:haset0_0")
 
     t = threading.Thread(target=primary_ha_action, name="primary_ha_action_thread")
     t.start()
@@ -161,7 +142,7 @@ def test_ha_planned_shutdown(
     logging.info("Primary shutdown all {} packets received".format(send_count))
 
     # Re-activate primary
-    pytest_assert(activate_primary_dash_ha(duthosts[0], "vdpu0_0:haset0_0", "activate_role"),
+    pytest_assert(activate_primary_dash_ha(localhost, duthosts[0], ptfhost, "vdpu0_0:haset0_0", "activate_role"),
                   "Failed to re-activate HA on primary")
 
     packet_sending_flag = queue.Queue(1)
@@ -171,7 +152,7 @@ def test_ha_planned_shutdown(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("Set standby to dead")
-        set_ha_scope_dead(duthosts[1], "vdpu1_0:haset0_0")
+        set_dead_dash_ha_scope(localhost, ptfhost, duthosts[1], "vdpu1_0:haset0_0")
 
     t = threading.Thread(target=standby_ha_action, name="standby_ha_action_thread")
     t.start()
@@ -205,5 +186,5 @@ def test_ha_planned_shutdown(
     logging.info("standby shutdown all {} packets received".format(send_count))
 
     # Re-activate standby
-    pytest_assert(activate_secondary_dash_ha(duthosts[1], "vdpu1_0:haset0_0", "activate_role"),
+    pytest_assert(activate_secondary_dash_ha(localhost, duthosts[1], ptfhost, "vdpu1_0:haset0_0", "activate_role"),
                   "Failed to re-activate HA on standby")
