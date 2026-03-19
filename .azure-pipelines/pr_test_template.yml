@@ -62,9 +62,9 @@ parameters:
   type: string
   default: ""
 
-- name: INCLUDE_TOPOLOGIES
+- name: INCLUDE_JOBS
   type: string
-  default: "t0,t1,t2"
+  default: "t0_job,t1_job,t2_job"
 
 jobs:
   - job: get_impacted_area
@@ -81,15 +81,15 @@ jobs:
         parameters:
           BUILD_BRANCH: $(BUILD_BRANCH)
           IMPACT_AREA_INFO: ${{ parameters.IMPACT_AREA_INFO }}
-          INCLUDE_TOPOLOGIES: ${{ parameters.INCLUDE_TOPOLOGIES }}
 
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't0_job')) }}
+    condition: and(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -128,9 +128,10 @@ jobs:
     displayName: "impacted-area-kvmtest-t0-2vlans by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-2vlans_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't0_2vlans_job')) }}
+    condition: and(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-2vlans_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -170,9 +171,10 @@ jobs:
     displayName: "impacted-area-kvmtest-t1-lag by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't1_job')) }}
+    condition: and(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -211,9 +213,10 @@ jobs:
     displayName: "impacted-area-kvmtest-dualtor by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dualtor_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 'dualtor_job')) }}
+    condition: and(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dualtor_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -252,9 +255,10 @@ jobs:
     displayName: "impacted-area-kvmtest-t0-sonic by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-sonic_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't0_sonic_job')) }}
+    condition: and(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-sonic_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -298,9 +302,10 @@ jobs:
     displayName: "impacted-area-kvmtest-dpu by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dpu_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 'dpu_job')) }}
+    condition: and(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dpu_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -343,9 +348,10 @@ jobs:
     displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't1_multi_asic_job')) }}
+    condition: and(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -385,9 +391,10 @@ jobs:
     displayName: "impacted-area-kvmtest-t2 by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't2_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't2_job')) }}
+    condition: and(contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't2_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
