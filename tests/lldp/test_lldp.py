@@ -359,7 +359,7 @@ def verify_lldpcli_interfaces(duthost, asic, intf_status_output, test_name=""):
     # Get lldpcli interfaces
     lldpcli_output = duthost.shell(
         "docker exec lldp{} lldpcli show interfaces".format(
-            asic.get_asic_index() if duthost.is_multi_asic else ""
+            asic.asic_index if duthost.is_multi_asic else ""
         )
     )['stdout']
 
@@ -506,7 +506,7 @@ def verify_chassis_info(duthost, asic, expected_chassis_mac, test_name=""):
     # Get chassis information
     chassis_output = duthost.shell(
         "docker exec lldp{} lldpcli show chassis".format(
-            asic.get_asic_index() if duthost.is_multi_asic else ""
+            asic.asic_index if duthost.is_multi_asic else ""
         )
     )['stdout']
 
