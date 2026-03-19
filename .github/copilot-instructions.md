@@ -16,12 +16,17 @@ sonic-mgmt/
 │   ├── vlan/            # VLAN tests
 │   ├── ecmp/            # ECMP tests
 │   ├── crm/             # CRM tests
+│   ├── smartswitch/     # SmartSwitch / DPU tests
+│   │   ├── common/      # Shared DPU utilities (device_utils_dpu.py, reboot.py)
+│   │   ├── conftest.py  # SmartSwitch fixtures (gNOI certs, ptf_gnoi)
+│   │   └── platform_tests/  # DPU platform tests (reboot, health, temperature)
 │   ├── conftest.py      # Shared pytest fixtures
 │   └── ...              # Many more test modules
 ├── ansible/             # Ansible playbooks for testbed management
 │   ├── roles/           # Ansible roles
 │   ├── vars/            # Variable files
 │   ├── testbed.yaml     # Testbed topology definitions
+│   ├── golden_config_db/  # Golden config DB JSON files applied to DUTs
 │   └── ...
 ├── spytest/             # SPyTest framework (alternative test framework)
 ├── sdn_tests/           # SDN-specific tests
@@ -32,11 +37,21 @@ sonic-mgmt/
 ```
 
 ### Key Concepts
-- **Testbed topologies**: Tests run on defined topologies (t0, t1, t2, dualtor, etc.)
+- **Testbed topologies**: Tests run on defined topologies (t0, t1, t2, dualtor, smartswitch, etc.)
 - **DUT (Device Under Test)**: The SONiC switch being tested
 - **PTF (Packet Test Framework)**: Used for data-plane testing via packet injection
 - **Ansible**: Used to deploy and manage testbed infrastructure
 - **Fixtures**: Pytest fixtures provide testbed access, DUT connections, and topology info
+
+### SmartSwitch / DPU Concepts
+- **SmartSwitch**: A SONiC switch with one or more on-board DPU (Data Processing Unit) modules
+- **DPU (Data Processing Unit)**: An independent SONiC instance running on a SmartSwitch module; accessed via midplane IP
+- **NPU**: The main switch CPU on a SmartSwitch (runs SONiC, manages DPUs via `config chassis modules`)
+- **Midplane**: Internal network connecting NPU to DPUs; DPUs are reachable via midplane IP addresses
+- **Dark mode**: All DPUs are administratively shut down (`CHASSIS_MODULE` admin-status = down)
+- **Lit mode**: DPUs are administratively up and running; tests can interact with them via midplane IPs using SSH port forwarding
+- **`duthost`**: Handle to the NPU (switch); **`dpuhosts`**: list of handles to individual DPU SONiC instances
+
 
 ## Language & Style
 
@@ -100,13 +115,13 @@ from tests.common.helpers.assertions import pytest_assert
 def test_my_feature(duthosts, rand_one_dut_hostname, tbinfo):
     """Test that my feature works correctly."""
     duthost = duthosts[rand_one_dut_hostname]
-    
+
     # Configure via CLI
     duthost.shell('config my_feature enable')
-    
+
     # Verify state
     output = duthost.show_and_parse('show my_feature status')
-    pytest_assert(output[0]['status'] == 'enabled', 
+    pytest_assert(output[0]['status'] == 'enabled',
                   "Feature should be enabled")
 ```
 
@@ -119,6 +134,47 @@ def test_my_feature(duthosts, rand_one_dut_hostname, tbinfo):
 - **Topology markers**: Always mark tests with appropriate topology
 - **Idempotency**: Tests should be idempotent — clean up after themselves
 - **No hardcoded values**: Use fixtures and testbed info instead of hardcoded IPs/ports
+
+### PR Description Template
+
+When creating a PR, always use `.github/PULL_REQUEST_TEMPLATE.md` as the body. Fill in every section; do not omit or reorder them:
+
+```
+### Description of PR
+Summary:
+Fixes # (issue)
+
+### Type of change
+- [ ] Bug fix
+- [ ] Testbed and Framework(new/improvement)
+- [ ] New Test case
+    - [ ] Skipped for non-supported platforms
+- [ ] Test case improvement
+
+### Back port request
+- [ ] 202205
+- [ ] 202305
+- [ ] 202311
+- [ ] 202405
+- [ ] 202411
+- [ ] 202505
+- [ ] 202511
+
+### Approach
+#### What is the motivation for this PR?
+
+#### How did you do it?
+
+#### How did you verify/test it?
+
+#### Any platform specific information?
+
+#### Supported testbed topology if it's a new test case?
+
+### Documentation
+```
+
+Mark the appropriate `[ ]` checkbox(es) with `[x]` based on the change type and target branches.
 
 ## Common Patterns
 
