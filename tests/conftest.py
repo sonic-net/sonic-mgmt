@@ -76,7 +76,6 @@ from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel import patch_ansible_worker_process
 from tests.common.helpers.parallel import fix_logging_handler_fork_lock
-from tests._fanout_utils import get_fanout_host_vars
 
 import tests.common.gnmi_setup as gnmi_setup
 
@@ -1039,7 +1038,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
 
         # Get fanout device info from inventory
         try:
-            host_vars = get_fanout_host_vars(duthost.host.options["inventory"], fanout_name, get_host_visible_vars)
+            host_vars = get_host_visible_vars(duthost.host.options["inventory"], fanout_name) or {}
         except Exception as e:
             logging.warning(f"Cannot get inventory for fanout {fanout_name}: {e}")
             return None
