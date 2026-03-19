@@ -1361,10 +1361,10 @@ platform_tests/test_reboot.py::test_soft_reboot:
 
 platform_tests/test_reboot.py::test_warm_reboot:
   skip:
-    reason: "Skip test_warm_reboot for M*/t1/t2 / Warm reboot is broken on dualtor topology. Skipping for now."
+    reason: "Skip test_warm_reboot on non-T0 topology. Warm reboot is also broken on dualtor topology and unsupported on selected HWSKUs."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2']"
+      - "topo_type != 't0'"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
       - "'isolated' in topo_name"
