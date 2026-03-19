@@ -12,6 +12,14 @@ from urllib.parse import urlparse
 logger = logging.getLogger(__name__)
 
 
+# Signal types as defined in gNOI system.proto
+# https://github.com/openconfig/gnoi/blob/main/system/system.proto#L352
+SIGNAL_TERM = "SIGNAL_TERM"  # Terminate the process gracefully
+SIGNAL_KILL = "SIGNAL_KILL"  # Terminate the process immediately
+SIGNAL_HUP = "SIGNAL_HUP"    # Reload the process configuration
+SIGNAL_ABRT = "SIGNAL_ABRT"  # Terminate immediately and dump core
+
+
 class PtfGnoi:
     """
     High-level gNOI client wrapper.
@@ -31,7 +39,7 @@ class PtfGnoi:
         self.grpc_client = grpc_client
         logger.info(f"Initialized PtfGnoi wrapper with {grpc_client}")
 
-    def system_time(self) -> Dict:
+    def system_time(self, metadata=None) -> Dict:
         """
         Get the current system time from the device.
 
@@ -47,7 +55,7 @@ class PtfGnoi:
         logger.debug("Getting system time via gNOI System.Time")
 
         # Make the low-level gRPC call
-        response = self.grpc_client.call_unary("gnoi.system.System", "Time")
+        response = self.grpc_client.call_unary("gnoi.system.System", "Time", metadata=metadata)
 
         # Convert time string to int for consistency
         if "time" in response:
@@ -63,7 +71,7 @@ class PtfGnoi:
     # TODO: Add file_get(), file_put(), file_remove() methods
     # These are left for future implementation when gNOI File service is stable
 
-    def file_stat(self, remote_file: str) -> Dict:
+    def file_stat(self, remote_file: str, metadata=None) -> Dict:
         """
         Get file statistics from the device.
 
@@ -84,7 +92,7 @@ class PtfGnoi:
         request = {"path": remote_file}
 
         try:
-            response = self.grpc_client.call_unary("gnoi.file.File", "Stat", request)
+            response = self.grpc_client.call_unary("gnoi.file.File", "Stat", request, metadata=metadata)
 
             # Convert numeric strings to proper types for consistency
             if "stats" in response and isinstance(response["stats"], list):
@@ -105,6 +113,61 @@ class PtfGnoi:
                 raise FileNotFoundError(f"File not found: {remote_file}") from e
             raise
 
+    def kill_process(self, name: str, restart: bool = False, signal=SIGNAL_TERM) -> Dict:
+        """
+        Kill (and optionally restart) a process/service via gNOI System.KillProcess.
+
+        Signal types (as defined in gNOI system.proto):
+            - SIGNAL_TERM: Terminate the process gracefully (default)
+            - SIGNAL_KILL: Terminate the process immediately
+            - SIGNAL_HUP: Reload the process configuration
+            - SIGNAL_ABRT: Terminate immediately and dump a core file
+
+        NOTE:
+            Current SONiC implementation only supports SIGNAL_TERM. Other signal
+            types will be rejected with an error. Use the module-level constants
+            (SIGNAL_TERM, SIGNAL_KILL, SIGNAL_HUP, SIGNAL_ABRT) for signal values.
+
+        Technical note:
+            grpcurl JSON->proto mapping is most reliable when enums are passed as
+            their string names (e.g., "SIGNAL_TERM"), not numeric values.
+
+        Args:
+            name: Process/service name to kill
+            restart: Whether to restart the process after killing
+            signal: Signal type (use SIGNAL_* constants from this module)
+
+        Returns:
+            Dictionary response from gNOI server (typically empty on success)
+
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If the gRPC call fails (e.g., unsupported signal)
+            GrpcTimeoutError: If the call times out
+
+        Example:
+            >>> from tests.common.ptf_gnoi import PtfGnoi, SIGNAL_TERM
+            >>> ptf_gnoi = PtfGnoi(grpc_client)
+            >>> ptf_gnoi.kill_process("snmp", restart=True, signal=SIGNAL_TERM)
+        """
+        # Normalize TERM representations to the enum name expected by grpcurl mapping.
+        if isinstance(signal, int):
+            # Keep non-1 ints as-is for negative tests, but map 1 => SIGNAL_TERM
+            signal = "SIGNAL_TERM" if signal == 1 else signal
+        elif isinstance(signal, str):
+            low = signal.strip().lower()
+            if low in ("sigterm", "term", "signal_term", "1"):
+                signal = "SIGNAL_TERM"
+
+        logger.debug(
+            "Calling gNOI System.KillProcess: name=%s restart=%s signal=%s",
+            name,
+            restart,
+            signal,
+        )
+        request = {"name": name, "restart": restart, "signal": signal}
+        return self.grpc_client.call_unary("gnoi.system.System", "KillProcess", request)
+
     def __str__(self):
         return f"PtfGnoi(grpc_client={self.grpc_client})"
 
@@ -117,6 +180,7 @@ class PtfGnoi:
         local_path: str,
         protocol: Optional[str] = None,
         credentials: Optional[Dict[str, str]] = None,
+        metadata=None
     ) -> Dict:
         """
         Download a remote artifact to the DUT using gNOI File.TransferToRemote.
@@ -182,11 +246,11 @@ class PtfGnoi:
             remote_download["credentials"] = credentials
 
         request = {
-            "localPath": local_path,
-            "remoteDownload": remote_download,
+            "local_path": local_path,
+            "remote_download": remote_download,
         }
 
-        response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request)
+        response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request, metadata=metadata)
         logger.info("TransferToRemote completed: %s -> %s", url, local_path)
         return response
 
@@ -195,6 +259,7 @@ class PtfGnoi:
         local_path: str,
         version: Optional[str] = None,
         activate: bool = True,
+        metadata=None,
     ) -> Dict:
         """
         Set the upgrade package on the DUT using gNOI System.SetPackage (client-streaming RPC).
@@ -221,6 +286,8 @@ class PtfGnoi:
             "SetPackage via gNOI System.SetPackage (streaming): filename=%s version=%s activate=%s",
             local_path, version, activate,
         )
+        self.grpc_client.configure_max_time(3600)        # allow long SetPackage
+        self.grpc_client.configure_keepalive_time(300)   # 5 min keepalive (less aggressive
 
         pkg: Dict[str, object] = {
             "filename": local_path,
@@ -233,6 +300,7 @@ class PtfGnoi:
             "gnoi.system.System",
             "SetPackage",
             [{"package": pkg}],
+            metadata=metadata,
         )
 
         logger.info("SetPackage completed: %s", local_path)
@@ -244,6 +312,7 @@ class PtfGnoi:
         delay: Optional[int] = None,
         message: Optional[str] = None,
         force: bool = False,
+        metadata=None,
     ) -> Dict:
         """
         Reboot the DUT using gNOI System.Reboot.
@@ -290,6 +359,6 @@ class PtfGnoi:
 
         logger.debug("Reboot via gNOI System.Reboot: %s", request)
 
-        response = self.grpc_client.call_unary("gnoi.system.System", "Reboot", request)
+        response = self.grpc_client.call_unary("gnoi.system.System", "Reboot", request, metadata=metadata)
         logger.info("Reboot request sent: method=%s delay=%s force=%s", method, delay, force)
         return response
