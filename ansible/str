@@ -460,6 +460,23 @@ sonic_arista32_100:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal6-6.0.10-16758769"
         "0x2F": "HBG224100YH"
+    str43-3po-robot-7060:
+      ansible_host: 10.3.158.70
+      ansible_hostv6: 2a01:111:e210:88::a03:9e46
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 64
+      hwsku: Arista-7060CX-32S-C32
+      model: DCS-7060CX-32S
+      serial: JPN2436P0JN
+      base_mac: 9c:69:ed:88:e5:40
+      syseeprom_info:
+        "0x21": "DCS-7060CX-32S"
+        "0x22": "ASY0171724A0"
+        "0x23": "JPN2436P0JN"
+        "0x24": "9c:69:ed:88:e5:40"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "111"
+        "0x27": "03.01"
   vars:
     iface_speed: 100000
 
@@ -923,7 +940,7 @@ server:
     str-acs-serv-11:
       ansible_host: 10.64.247.244
       ansible_hostv6: 2a01:111:e210:b000::a40:f7f4
-    str-acs-serv-13:
+    str4-acs-serv-13:
       ansible_host: 10.64.247.246
       ansible_hostv6: 2a01:111:e210:b000::a40:f7f6
     str-acs-serv-14:

@@ -789,7 +789,7 @@
   ptf_image_name: docker-keysight-api-server
   ptf_imagetag: 10.25.2405.106
   ptf: vms69-ixia-2
-  ptf_ip: 10.64.247.69/26
+  ptf_ip: 10.64.247.102/26
   ptf_ipv6:
   server: server_69
   vm_base:
@@ -807,7 +807,7 @@
   ptf_image_name: docker-keysight-api-server
   ptf_imagetag: 10.25.2405.106
   ptf: vms69-ixia-2
-  ptf_ip: 10.64.247.69/26
+  ptf_ip: 10.64.247.102/26
   ptf_ipv6:
   server: server_69
   vm_base:
@@ -3599,6 +3599,22 @@
   dut:
     - str2-8102-smartswitch-03
     - str2-8102-smartswitch-04
+    - str2-8102-smartswitch-03-dpu-0
+    - str2-8102-smartswitch-03-dpu-1
+    - str2-8102-smartswitch-03-dpu-2
+    - str2-8102-smartswitch-03-dpu-3
+    - str2-8102-smartswitch-03-dpu-4
+    - str2-8102-smartswitch-03-dpu-5
+    - str2-8102-smartswitch-03-dpu-6
+    - str2-8102-smartswitch-03-dpu-7
+    - str2-8102-smartswitch-04-dpu-0
+    - str2-8102-smartswitch-04-dpu-1
+    - str2-8102-smartswitch-04-dpu-2
+    - str2-8102-smartswitch-04-dpu-3
+    - str2-8102-smartswitch-04-dpu-4
+    - str2-8102-smartswitch-04-dpu-5
+    - str2-8102-smartswitch-04-dpu-6
+    - str2-8102-smartswitch-04-dpu-7
   inv_name: str2
   auto_recover: 'True'
   is_smartswitch: 'True'
@@ -5494,3 +5510,71 @@
   inv_name: str5
   auto_recover: 'False'
   comment: yatishkoul
+
+- conf-name: ptp-robot-7060-1
+  group-name:
+  topo: ptp-32
+  robot_server: str43-3po-robot
+  robot_id: 1
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str43-3po-robot-7060
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-shankam
+
+- conf-name: testbed-bjw3-can-w5000-1
+  group-name: bjw3-3-4
+  topo: c0
+  ptf_image_name: docker-ptf
+  ptf: bjw3-3-4
+  ptf_ip: 10.150.239.30/23
+  ptf_ipv6: 2404:f801:10:16::a96:ef1d/64
+  server: server_bjw3_3
+  vm_base: VM23004
+  dut:
+    - bjw3-can-w5000-1
+  inv_name: bjw3
+  auto_recover: 'True'
+  comment: Beijing Lab
+  ptf_extra_mgmt_ip:
+    - 172.16.188.167/17
+
+- conf-name: testbed-bjw3-can-7215c1-1
+  group-name: bjw3-1-5
+  topo: c0
+  ptf_image_name: docker-ptf
+  ptf: bjw3-1-5
+  ptf_ip: 10.150.239.31/23
+  ptf_ipv6: 2404:f801:10:16::a96:ef1e/64
+  server: server_bjw3_1
+  vm_base: VM19002
+  dut:
+    - bjw3-can-7215c1-1
+  inv_name: bjw3
+  auto_recover: 'True'
+  comment: Beijing Lab
+  ptf_extra_mgmt_ip:
+    - 172.16.188.168/17
+
+- conf-name: testbed-bjw3-can-7215c1-2
+  group-name: bjw3-5-6
+  topo: c0-lo
+  ptf_image_name: docker-ptf
+  ptf: bjw3-5-6
+  ptf_ip: 10.150.239.32/23
+  ptf_ipv6: 2404:f801:10:16::a96:ef1f/64
+  server: server_bjw3_5
+  vm_base: VM32122
+  dut:
+    - bjw3-can-7215c1-2
+  inv_name: bjw3
+  auto_recover: 'True'
+  comment: Beijing Lab
+  ptf_extra_mgmt_ip:
+    - 172.16.188.169/17
