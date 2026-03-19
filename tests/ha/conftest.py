@@ -31,13 +31,8 @@ from tests.common import config_reload
 import configs.privatelink_config as pl
 from tests.common.helpers.assertions import pytest_require as pt_require
 from tests.ha.ha_utils import (
-
-    build_dash_ha_scope_args,
     wait_for_pending_operation_id,
-    build_dash_ha_scope_activate_args,
-    verify_ha_state,
-    build_dash_ha_set_args,
-    proto_utils_hset
+    verify_ha_state
 )
 
 ENABLE_GNMI_API = True
