@@ -276,7 +276,7 @@ def verify_lldp_table(duthost, intf_status_output, test_name=""):
         test_name: Optional test context name for logging
 
     Returns:
-        set: LLDP table interfaces (including eth0)
+        set: LLDP table interfaces (including eth0 if present)
     """
     context = " {}".format(test_name) if test_name else ""
     logger.info("Verifying LLDP table{}".format(context))
@@ -295,9 +295,15 @@ def verify_lldp_table(duthost, intf_status_output, test_name=""):
     logger.info("LLDP table interfaces{}: {}".format(context, sorted(lldp_table_interfaces)))
     logger.info("LLDP table interfaces in total: {}".format(len(lldp_table_interfaces)))
 
-    # Verify eth0 is in LLDP table
-    pytest_assert('eth0' in lldp_table_interfaces,
-                  "eth0 is missing from LLDP table{}".format(context))
+    # On virtual/KVM testbeds, eth0 has no LLDP neighbor so it won't appear in the LLDP table
+    is_virtual = duthost.facts.get('asic_type', '') == 'vs'
+    if is_virtual:
+        if 'eth0' not in lldp_table_interfaces:
+            logger.info("eth0 not in LLDP table (expected on virtual/KVM testbed){}"
+                        .format(context))
+    else:
+        pytest_assert('eth0' in lldp_table_interfaces,
+                      "eth0 is missing from LLDP table{}".format(context))
 
     # For LLDP table comparison: exclude eth0 from lldp_table, exclude PortChannels and admin down from intf_status
     lldp_table_interfaces_no_eth0 = lldp_table_interfaces - {'eth0'}
@@ -345,7 +351,7 @@ def verify_lldpcli_interfaces(duthost, asic, intf_status_output, test_name=""):
         test_name: Optional test context name for logging
 
     Returns:
-        set: lldpcli interfaces (including eth0)
+        set: lldpcli interfaces (including eth0 if present)
     """
     context = " {}".format(test_name) if test_name else ""
     logger.info("Verifying lldpcli show interfaces{}".format(context))
@@ -366,9 +372,15 @@ def verify_lldpcli_interfaces(duthost, asic, intf_status_output, test_name=""):
     logger.info("lldpcli interfaces{}: {}".format(context, sorted(lldpcli_interfaces)))
     logger.info("lldpcli interfaces in total: {}".format(len(lldpcli_interfaces)))
 
-    # Verify eth0 is in lldpcli interfaces
-    pytest_assert('eth0' in lldpcli_interfaces,
-                  "eth0 is missing from lldpcli interfaces{}".format(context))
+    # On virtual/KVM testbeds, eth0 may not appear in lldpcli
+    is_virtual = duthost.facts.get('asic_type', '') == 'vs'
+    if is_virtual:
+        if 'eth0' not in lldpcli_interfaces:
+            logger.info("eth0 not in lldpcli interfaces (expected on virtual/KVM testbed){}"
+                        .format(context))
+    else:
+        pytest_assert('eth0' in lldpcli_interfaces,
+                      "eth0 is missing from lldpcli interfaces{}".format(context))
 
     # For lldpcli comparison: exclude eth0 from lldpcli, exclude only PortChannels from intf_status
     lldpcli_interfaces_no_eth0 = lldpcli_interfaces - {'eth0'}
@@ -424,9 +436,15 @@ def verify_lldpctl_facts(duthost, enum_frontend_asic_index, intf_status_output, 
         skip_interface_pattern_list=["Ethernet-BP", "Ethernet-IB"] + internal_port_list
     )['ansible_facts']
 
-    # Verify eth0 is in lldpctl_facts
-    pytest_assert('eth0' in lldpctl_facts.get('lldpctl', {}),
-                  "eth0 is missing from lldpctl_facts{}".format(context))
+    # Verify eth0 is in lldpctl_facts (only on physical testbeds)
+    is_virtual = duthost.facts.get('asic_type', '') == 'vs'
+    if is_virtual:
+        if 'eth0' not in lldpctl_facts.get('lldpctl', {}):
+            logger.info("eth0 not in lldpctl_facts (expected on virtual/KVM testbed){}"
+                        .format(context))
+    else:
+        pytest_assert('eth0' in lldpctl_facts.get('lldpctl', {}),
+                      "eth0 is missing from lldpctl_facts{}".format(context))
 
     # Get interfaces from lldpctl_facts (excluding eth0)
     lldpctl_facts_interfaces = set(lldpctl_facts.get('lldpctl', {}).keys()) - {'eth0'}
