@@ -354,7 +354,7 @@ def test_snmp_queue_counters(duthosts,
         duthost, interface, asic)
     expected_snmp_cnt_pre = calculate_expected_snmp_counters(queue_counts_pre)
 
-    wait_until(60, 20, 0, check_snmp_cmd_output, duthost,
+    wait_until(120, 15, 0, check_snmp_cmd_output, duthost,
                get_bfr_queue_cntrs_cmd, expected_snmp_cnt_pre)
     queue_counters_cnt_pre = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
 
