@@ -7,7 +7,7 @@ from tests.common.config_reload import config_reload
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1'),
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 'c0'),
     pytest.mark.device_type('vs')
 ]
 
