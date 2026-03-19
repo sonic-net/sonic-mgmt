@@ -8,7 +8,15 @@ from pathlib import Path
 import pytest
 
 
-MODULE_PATH = Path(__file__).resolve().parents[5] / "tests" / "common" / "plugins" / "sanity_check" / "__init__.py"
+def _find_repo_root():
+    current_path = Path(__file__).resolve()
+    for parent in current_path.parents:
+        if (parent / ".git").exists():
+            return parent
+    raise RuntimeError("Unable to locate repository root from test path")
+
+
+MODULE_PATH = _find_repo_root() / "tests" / "common" / "plugins" / "sanity_check" / "__init__.py"
 
 
 def _register_stub_module(module_name, **attributes):
@@ -19,7 +27,7 @@ def _register_stub_module(module_name, **attributes):
 
 
 def _load_sanity_check_module():
-    module_name = "copilot_sanity_check_under_test"
+    module_name = "sanity_check_under_test"
     original_modules = {}
 
     stub_modules = {

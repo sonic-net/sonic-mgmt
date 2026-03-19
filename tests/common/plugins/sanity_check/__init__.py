@@ -149,10 +149,7 @@ def do_checks(request, check_items, *args, **kwargs):
         try:
             check_fixture = request.getfixturevalue(item)
             results = check_fixture(*args, **kwargs)
-        except BaseException as err:
-            if isinstance(err, (KeyboardInterrupt, SystemExit)):
-                raise
-
+        except (Exception, pytest.fail.Exception) as err:
             check_item = item[6:] if item.startswith("check_") else item
             logger.exception("Exception raised while executing sanity check '%s'", item)
             check_results.append({
