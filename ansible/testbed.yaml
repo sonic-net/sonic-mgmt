@@ -5598,3 +5598,18 @@
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.169/17
+
+- conf-name: ptp-7060x6-64-5
+  group-name:
+  topo: ptp-96
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str43-7060x6-64pe-lt2
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-shankam
