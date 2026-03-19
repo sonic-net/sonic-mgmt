@@ -603,6 +603,10 @@ class GenerateGoldenConfigDBModule(object):
             if "Server" in config.get("description", ""):
                 config["link_training"] = "on"
 
+        # align with default behavior in generate_default_init_config_db
+        if "DEVICE_METADATA" in golden_config and "localhost" in golden_config["DEVICE_METADATA"]:
+            golden_config["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
         return json.dumps(golden_config, indent=4)
 
     def generate(self):
