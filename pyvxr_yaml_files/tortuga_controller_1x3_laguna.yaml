@@ -7,7 +7,7 @@ simulation:
     pending_timeout: 60
     hours: 30
     partition: regression
-
+    cluster: rch-slurm-m1
 
 devices:
   trex1: &host
@@ -92,6 +92,14 @@ devices:
       sudo systemctl restart azimuth
       sudo systemctl disable systemd-networkd
       sudo config platform cisco sdk-debug disable
+      counterpoll port disable
+      counterpoll queue disable
+      counterpoll port-buffer-drop disable
+      counterpoll rif disable
+      counterpoll watermark disable
+      counterpoll pg-drop disable
+      counterpoll tunnel disable
+
 
   L1:
     <<: *switch
@@ -100,6 +108,14 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo config platform cisco sdk-debug disable
+      counterpoll port disable
+      counterpoll queue disable
+      counterpoll port-buffer-drop disable
+      counterpoll rif disable
+      counterpoll watermark disable
+      counterpoll pg-drop disable
+      counterpoll tunnel disable
+
 
   L2:
     <<: *switch
@@ -108,6 +124,14 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo config platform cisco sdk-debug disable
+      counterpoll port disable
+      counterpoll queue disable
+      counterpoll port-buffer-drop disable
+      counterpoll rif disable
+      counterpoll watermark disable
+      counterpoll pg-drop disable
+      counterpoll tunnel disable
+
 
   S0:
     <<: *switch
