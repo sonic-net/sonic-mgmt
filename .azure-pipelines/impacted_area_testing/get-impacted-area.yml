@@ -1,3 +1,16 @@
+parameters:
+- name: BUILD_BRANCH
+  type: string
+  default: ""
+
+- name: IMPACT_AREA_INFO
+  type: object
+  default: {}
+
+- name: INCLUDE_TOPOLOGIES
+  type: string
+  default: ""
+
 steps:
 - script: |
     echo "##vso[task.setvariable variable=BUILD_BRANCH]${{ parameters.BUILD_BRANCH }}"
@@ -38,6 +51,10 @@ steps:
       echo "Impact area was pre-defined, skip get diff step."
       exit 0
     fi
+    if [[ -n "${{ parameters.INCLUDE_TOPOLOGIES }}" ]]; then
+      echo "Topology override enabled, skip get diff step."
+      exit 0
+    fi
     git fetch --all
     DIFF_FOLDERS=$(git diff $(git merge-base origin/${{ parameters.BUILD_BRANCH }} HEAD)..HEAD  --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
 
@@ -64,43 +81,48 @@ steps:
     pip install PyYAML
     pip install natsort
 
-    FINAL_FEATURES=""
-    IFS=' ' read -ra FEATURES_LIST <<< "$(DIFF_FOLDERS)"
+    if [[ -n "${{ parameters.INCLUDE_TOPOLOGIES }}" ]]; then
+      echo "Topology override enabled, collect the full PR test script set."
+      FINAL_FEATURES=""
+    else
+      FINAL_FEATURES=""
+      IFS=' ' read -ra FEATURES_LIST <<< "$(DIFF_FOLDERS)"
 
-    # Define the list of folders include common features
-    COMMON_DIRS=("tests/common" "tests/scripts")
+      # Define the list of folders include common features
+      COMMON_DIRS=("tests/common" "tests/scripts")
 
-    for FEATURE in "${FEATURES_LIST[@]}"
-    do
-      for COMMON_DIR in "${COMMON_DIRS[@]}"; do
-        if [[ "$FEATURE" == *$COMMON_DIR* ]]; then
+      for FEATURE in "${FEATURES_LIST[@]}"
+      do
+        for COMMON_DIR in "${COMMON_DIRS[@]}"; do
+          if [[ "$FEATURE" == *$COMMON_DIR* ]]; then
+            FINAL_FEATURES=""
+            break 2
+          fi
+        done
+
+        # If changes only limited to specific feature, the scope of PR testing is impacted area.
+        if [[ "$FEATURE" =~ ^tests\/.* ]]; then
+          # Cut the feature path
+          if [[ $FEATURE == */*/* ]]; then
+              FEATURE=$(echo "$FEATURE" | cut -d'/' -f1-2)
+          fi
+
+          FEATURE=${FEATURE#tests/}
+
+          if [[ -z "$FINAL_FEATURES" ]]; then
+            FINAL_FEATURES="$FEATURE"
+          elif [[ ! "$FINAL_FEATURES" == *$FEATURE* ]]; then
+            FINAL_FEATURES="$FINAL_FEATURES,$FEATURE"
+          fi
+
+        # If changes related to other folders excpet tests, we also consider them as common part.
+        # The scope of PR testing is all test scripts.
+        else
           FINAL_FEATURES=""
-          break 2
+          break
         fi
       done
-
-      # If changes only limited to specific feature, the scope of PR testing is impacted area.
-      if [[ "$FEATURE" =~ ^tests\/.* ]]; then
-        # Cut the feature path
-        if [[ $FEATURE == */*/* ]]; then
-            FEATURE=$(echo "$FEATURE" | cut -d'/' -f1-2)
-        fi
-
-        FEATURE=${FEATURE#tests/}
-
-        if [[ -z "$FINAL_FEATURES" ]]; then
-          FINAL_FEATURES="$FEATURE"
-        elif [[ ! "$FINAL_FEATURES" == *$FEATURE* ]]; then
-          FINAL_FEATURES="$FINAL_FEATURES,$FEATURE"
-        fi
-
-      # If changes related to other folders excpet tests, we also consider them as common part.
-      # The scope of PR testing is all test scripts.
-      else
-        FINAL_FEATURES=""
-        break
-      fi
-    done
+    fi
 
     # Generate TEST_SCRIPTS with retry logic for JSON validation
     MAX_RETRIES=3
@@ -146,9 +168,58 @@ steps:
       fi
     done
 
+    TOPOLOGY_OVERRIDE='${{ parameters.INCLUDE_TOPOLOGIES }}'
+    if [[ -n "$TOPOLOGY_OVERRIDE" ]]; then
+      if [[ "$TOPOLOGY_OVERRIDE" == "all" ]]; then
+        PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
+      else
+        PR_CHECKERS='[]'
+        IFS=',' read -ra TOPOLOGY_LIST <<< "$TOPOLOGY_OVERRIDE"
+        for topo in "${TOPOLOGY_LIST[@]}"; do
+          topo=$(echo "$topo" | xargs)
+          checker=""
+          case "$topo" in
+            t0|t0_checker)
+              checker="t0_checker"
+              ;;
+            t0-2vlans|t0-2vlans_checker)
+              checker="t0-2vlans_checker"
+              ;;
+            t0-sonic|t0-sonic_checker)
+              checker="t0-sonic_checker"
+              ;;
+            t1|t1_checker)
+              checker="t1_checker"
+              ;;
+            t1-multi-asic|t1-multi-asic_checker)
+              checker="t1-multi-asic_checker"
+              ;;
+            dualtor|dualtor_checker)
+              checker="dualtor_checker"
+              ;;
+            dpu|dpu_checker)
+              checker="dpu_checker"
+              ;;
+            t2|t2_checker)
+              checker="t2_checker"
+              ;;
+          esac
+
+          if [[ -n "$checker" ]] && echo "$TEST_SCRIPTS" | jq -e --arg checker "$checker" 'has($checker)' > /dev/null; then
+            PR_CHECKERS=$(echo "$PR_CHECKERS" | jq -c --arg checker "$checker" '. + [$checker] | unique')
+          fi
+        done
+      fi
+    fi
+
     # Final validation
     if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
       echo "##vso[task.complete result=Failed;]Failed to generate valid JSON after $MAX_RETRIES attempts. Last TEST_SCRIPTS: $TEST_SCRIPTS"
+      exit 1
+    fi
+
+    if [[ -n "$TOPOLOGY_OVERRIDE" ]] && [[ "$PR_CHECKERS" == "[]" ]]; then
+      echo "##vso[task.complete result=Failed;]No valid PR checkers were resolved from INCLUDE_TOPOLOGIES=${TOPOLOGY_OVERRIDE}."
       exit 1
     fi
 

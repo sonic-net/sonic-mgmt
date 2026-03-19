@@ -28,6 +28,10 @@ parameters:
     type: string
     default: "False"
 
+  - name: INCLUDE_TOPOLOGIES
+    type: string
+    default: "all"
+
 variables:
   - group: SONiC-Elastictest
   - name: inventory
@@ -50,6 +54,7 @@ stages:
       RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
       STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
       TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+      INCLUDE_TOPOLOGIES: ${{ parameters.INCLUDE_TOPOLOGIES }}
 
 - stage: Test_round_2
   dependsOn:
@@ -62,6 +67,7 @@ stages:
       RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
       STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
       TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+      INCLUDE_TOPOLOGIES: ${{ parameters.INCLUDE_TOPOLOGIES }}
 
 - stage: Test_round_3
   dependsOn:
@@ -74,6 +80,7 @@ stages:
       RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
       STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
       TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+      INCLUDE_TOPOLOGIES: ${{ parameters.INCLUDE_TOPOLOGIES }}
 
 - stage: Test_round_4
   dependsOn:
@@ -86,3 +93,4 @@ stages:
       RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
       STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
       TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+      INCLUDE_TOPOLOGIES: ${{ parameters.INCLUDE_TOPOLOGIES }}
