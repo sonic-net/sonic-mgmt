@@ -91,7 +91,7 @@ def parse_routes_on_eos(dut_host, neigh_hosts, ip_ver, exp_community=[]):
         peer_in_bgp_confed = node['conf']['bgp'].get('peer_in_bgp_confed', False)
         asn = mg_facts['minigraph_bgp_asn']
         if peer_in_bgp_confed:
-            asn = confed_asn
+            asn = int(confed_asn)
         peer_ips = node['conf']['bgp']['peers'][asn]
         for ip in peer_ips:
             if ipaddress.IPNetwork(ip).version == 4:
@@ -183,7 +183,7 @@ def parse_routes_on_vsonic(dut_host, neigh_hosts, ip_ver):
         peer_in_bgp_confed = node['conf']['bgp'].get('peer_in_bgp_confed', False)
         asn = mg_facts['minigraph_bgp_asn']
         if peer_in_bgp_confed:
-            asn = confed_asn
+            asn = int(confed_asn)
         peer_ips = node['conf']['bgp']['peers'][asn]
 
         for ip in peer_ips:
