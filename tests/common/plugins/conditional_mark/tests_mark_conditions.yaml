@@ -3251,12 +3251,12 @@ ip/test_ip_packet.py::TestIPPacket::
 
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_drop:
   skip:
-    reason: "Broadcom, Cisco, Barefoot, and Marvell Asic will tolorate IP packets with 0xffff checksum
+    reason: "Broadcom, Cisco, Barefoot, VPP, and Marvell Asic will tolorate IP packets with 0xffff checksum
             / Skipping ip packet test since can't provide enough interfaces"
     conditions_logical_operator: or
     conditions:
 
-      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot', 'marvell-teralynx', 'marvell-prestera'] and asic_subtype not in ['broadcom-dnx']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot', 'marvell-teralynx', 'marvell-prestera', 'vpp'] and asic_subtype not in ['broadcom-dnx']"
       - "len(minigraph_interfaces) < 2 and len(minigraph_portchannels) < 2"
       - "topo_name in ['t2_2lc_36p-masic', 't2_2lc_min_ports-masic', 't2_5lc-mixed-96']"
 
@@ -3269,6 +3269,12 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_to
       - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
       - "len(minigraph_interfaces) < 2 and len(minigraph_portchannels) < 2"
 
+ip/test_ip_packet.py::TestIPPacket::test_drop_l3_ip_packet_non_dut_mac:
+  skip:
+    reason: "vpp dpdk driver runs in non-promiscuous mode, which means it will drop packets
+            / that are not destined to DUT MAC address."
+    conditions:
+      - "asic_type in ['vpp']"
 ip/test_mgmt_ipv6_only.py:
   skip:
     reason: "Skipping mgmt ipv6 test for M* topo"
