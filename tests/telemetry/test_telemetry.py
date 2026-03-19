@@ -163,6 +163,9 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
                                     verbose=False)['stdout'])
 
+    if 'BUFFER_QUEUE' not in data or not data['BUFFER_QUEUE']:
+        pytest.skip("Skipping test as BUFFER_QUEUE table is not present in config db")
+
     buffer_queues = list(data['BUFFER_QUEUE'].keys())
     buffer_queues_interfaces = [bq.split('|')[0] for bq in buffer_queues]
 
