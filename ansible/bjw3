@@ -98,6 +98,15 @@ all:
         bjw3-1-4:
           ansible_host: 10.150.239.29
           ansible_hostv6: 2404:f801:10:16::a96:ef1c
+        bjw3-3-4:
+          ansible_host: 10.150.239.30
+          ansible_hostv6: 2404:f801:10:16::a96:ef1d
+        bjw3-1-5:
+          ansible_host: 10.150.239.31
+          ansible_hostv6: 2404:f801:10:16::a96:ef1e
+        bjw3-5-6:
+          ansible_host: 10.150.239.32
+          ansible_hostv6: 2404:f801:10:16::a96:ef1f
     pdu:
       vars:
         pdu_ro_snmp_version: v3
@@ -267,6 +276,15 @@ fanout:
       ansible_host: 10.150.238.123
       ansible_hostv6: 2404:f801:10:16::a96:ee7b
       os: sonic
+    bjw3-can-w5000-leaf-1:
+      ansible_host: 10.150.238.125
+      ansible_hostv6: 2404:f801:10:16::a96:ee7d
+      os: sonic
+    bjw3-can-7215c1-leaf-1:
+      ansible_host: 10.150.238.127
+      ansible_hostv6: 2404:f801:10:16::a96:ee7f
+      os: sonic
+
 
 sonic:
   vars:
@@ -283,6 +301,8 @@ sonic:
     sonic_cisco_8220:
     sonic_arista_720dt:
     sonic_arista_720dtm:
+    sonic_micas_w5000:
+    sonic_nokia_7215c1:
 
 
 server:
@@ -932,6 +952,39 @@ sonic_arista_720dtm:
       ansible_host: 10.150.238.122
       ansible_hostv6: 2404:f801:10:2200::a96:ee7a
       model: CCS-720DT-MGX-48S-2F
+      serial:
+      base_mac:
+      syseeprom_info:
+
+
+sonic_micas_w5000:
+  vars:
+    hwsku: M2-W5000-48CON2SFP
+  hosts:
+    bjw3-can-w5000-1:
+      ansible_host: 10.150.238.124
+      ansible_hostv6: 2404:f801:10:16::a96:ee7c
+      model:
+      serial:
+      base_mac:
+      syseeprom_info:
+
+
+sonic_nokia_7215c1:
+  vars:
+    hwsku: Nokia-7215-C1
+  hosts:
+    bjw3-can-7215c1-1:
+      ansible_host: 10.150.238.126
+      ansible_hostv6: 2404:f801:10:16::a96:ee7e
+      model:
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw3-can-7215c1-2:
+      ansible_host: 10.150.238.128
+      ansible_hostv6: 2404:f801:10:16::a96:ee80
+      model:
       serial:
       base_mac:
       syseeprom_info:
