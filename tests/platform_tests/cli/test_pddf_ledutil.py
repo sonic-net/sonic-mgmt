@@ -330,7 +330,8 @@ def test_setstatusled_valid_led_valid_color(dut, valid_single_led, led_service_m
             f"sudo pddf_ledutil getstatusled {valid_single_led.name}", module_ignore_errors=True
         )["stdout"].strip()
         stdout = dut.shell(
-            f"sudo pddf_ledutil setstatusled {valid_single_led.name} {valid_single_led.color}", module_ignore_errors=True
+            f"sudo pddf_ledutil setstatusled {valid_single_led.name} \
+            {valid_single_led.color}", module_ignore_errors=True
         )["stdout"].strip()
 
         assert "True" in stdout, f"Expected 'True', got {stdout!r}"
