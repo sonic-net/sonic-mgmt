@@ -158,8 +158,7 @@ def do_checks(request, check_items, *args, **kwargs):
             check_results.append({
                 "failed": True,
                 "check_item": check_item,
-                "failed_reason": "Exception raised while executing sanity check '{}': {}"
-                                 .format(item, repr(err))
+                "failed_reason": f"Exception raised while executing sanity check '{item}': {repr(err)}"
             })
             continue
 

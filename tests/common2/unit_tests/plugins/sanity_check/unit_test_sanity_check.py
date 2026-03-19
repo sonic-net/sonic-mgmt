@@ -1,16 +1,14 @@
 """Unit tests for sanity check result aggregation."""
 
 import importlib.util
-import os
 import sys
 import types
+from pathlib import Path
 
 import pytest
 
 
-TEST_FILE_DIR = os.path.dirname(os.path.abspath(__file__))
-REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(TEST_FILE_DIR)))))
-MODULE_PATH = os.path.join(REPO_ROOT, "tests", "common", "plugins", "sanity_check", "__init__.py")
+MODULE_PATH = Path(__file__).resolve().parents[5] / "tests" / "common" / "plugins" / "sanity_check" / "__init__.py"
 
 
 def _register_stub_module(module_name, **attributes):
@@ -50,7 +48,8 @@ def _load_sanity_check_module():
             "tests.common.plugins.sanity_check.checks", CHECK_ITEMS=[], __all__=[]
         ),
         "tests.common.plugins.sanity_check.recover": _register_stub_module(
-            "tests.common.plugins.sanity_check.recover", recover=lambda *args, **kwargs: None,
+            "tests.common.plugins.sanity_check.recover",
+            recover=lambda *args, **kwargs: None,
             recover_chassis=lambda *args, **kwargs: None
         ),
         "tests.common.helpers.assertions": _register_stub_module(
