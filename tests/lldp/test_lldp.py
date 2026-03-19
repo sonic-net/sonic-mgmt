@@ -583,11 +583,16 @@ def test_lldp_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         logger.info("All interfaces in total: {}".format(len(all_interfaces)))
 
         # Get expected chassis MAC address based on topology
-        # For T2: chassis-id uses router MAC (DEVICE_METADATA['localhost']['mac'])
+        # For T2 multi-ASIC: each ASIC's lldp container uses its own MAC from ASIC-level config
+        # For T2 single-ASIC: chassis-id uses router MAC (DEVICE_METADATA['localhost']['mac'])
         # For non-T2: chassis-id uses management interface MAC
         if tbinfo["topo"]["type"] == "t2":
-            config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-            expected_chassis_mac = config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
+            if duthost.is_multi_asic:
+                asic_cfg = asic.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+                expected_chassis_mac = asic_cfg['DEVICE_METADATA']['localhost']['mac'].lower()
+            else:
+                config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+                expected_chassis_mac = config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
         else:
             mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
             expected_chassis_mac = duthost.get_dut_iface_mac(mgmt_alias).lower()
@@ -648,8 +653,12 @@ def test_lldp_interfaces_config_reload(duthosts, enum_rand_one_per_hwsku_fronten
 
         # Get expected chassis MAC address before reload based on topology
         if tbinfo["topo"]["type"] == "t2":
-            config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-            expected_chassis_mac = config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
+            if duthost.is_multi_asic:
+                asic_cfg = asic.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+                expected_chassis_mac = asic_cfg['DEVICE_METADATA']['localhost']['mac'].lower()
+            else:
+                config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+                expected_chassis_mac = config_facts['DEVICE_METADATA']['localhost']['mac'].lower()
         else:
             mgmt_alias = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_mgmt_interface"]["alias"]
             expected_chassis_mac = duthost.get_dut_iface_mac(mgmt_alias).lower()
