@@ -18,7 +18,7 @@ from tests.bgp.traffic_checker import get_traffic_shift_state, check_tsa_persist
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
 
 pytestmark = [
-    pytest.mark.topology('t1')
+    pytest.mark.topology('t1', 'lt2', 'ft2')
 ]
 
 logger = logging.getLogger(__name__)
@@ -309,6 +309,9 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
     Verify all routes are announced to bgp monitor, and only loopback routes are announced to neighs
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if tbinfo['topo']['type'] in ['lt2', 'ft2'] and duthost.get_bgp_confed_asn():
+        pytest.skip("Skip test on LT2/FT2 as BGP confederation configuration can only be loaded from golden config")
+
     # Initially make sure both supervisor and line cards are in BGP operational normal state
     if tbinfo['topo']['type'] == 't2':
         initial_tsa_check_before_and_after_test(duthosts)
