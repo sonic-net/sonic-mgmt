@@ -520,6 +520,9 @@ class TestBfdStaticRoute(BfdBase):
 
     def test_bfd_single_portchannel_member_flap(self, request, select_src_dst_dut_with_asic, bfd_cleanup_db):
         """
+        Validate BFD static route behavior when one member from each selected
+        source backend portchannel is shut down and brought back up.
+
         Author:  Harsha Golla
         Email : harsgoll@cisco.com
         """
@@ -554,6 +557,10 @@ class TestBfdStaticRoute(BfdBase):
             list_of_portchannel_members_on_src = (
                 extract_backend_portchannels(src_dut)[portchannel_interface]["members"]
             )
+            if not list_of_portchannel_members_on_src:
+                pytest.fail(
+                    "No members found for backend portchannel {}".format(portchannel_interface)
+                )
 
             selected_portchannel_members_on_src.append(list_of_portchannel_members_on_src[0])
 
