@@ -3602,6 +3602,14 @@
   dut:
     - str2-mlnx-4280-smartswitch-02
     - str2-mlnx-4280-smartswitch-03
+    - str2-mlnx-4280-smartswitch-02-dpu-0
+    - str2-mlnx-4280-smartswitch-02-dpu-1
+    - str2-mlnx-4280-smartswitch-02-dpu-2
+    - str2-mlnx-4280-smartswitch-02-dpu-3
+    - str2-mlnx-4280-smartswitch-03-dpu-0
+    - str2-mlnx-4280-smartswitch-03-dpu-1
+    - str2-mlnx-4280-smartswitch-03-dpu-2
+    - str2-mlnx-4280-smartswitch-03-dpu-3
   inv_name: str2
   auto_recover: 'True'
   is_smartswitch: 'True'

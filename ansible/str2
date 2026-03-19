@@ -481,6 +481,7 @@ sonic:
     sonic_cisco_8102:
     sonic_cisco_8102_smartswitch:
     sonic_pensando_elba_smartswitch_dpu:
+    sonic_nvidia_bluefield_smartswitch_dpu:
     sonic_cisco_8101:
     sonic_cisco_8101_tornado_O8V48:
     sonic_cisco_8101_tornado_V64:
@@ -763,6 +764,44 @@ sonic_mlnx_4280_smartswitch:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+
+sonic_nvidia_bluefield_smartswitch_dpu:
+  vars:
+    hwsku: Nvidia-bf3-com-dpu
+    iface_speed: 400000
+  hosts:
+    str2-mlnx-4280-smartswitch-02-dpu-0:
+      ansible_host: 10.64.246.170
+      ansible_ssh_port: 5021
+      mgmt_subnet_mask_length: 25
+    str2-mlnx-4280-smartswitch-02-dpu-1:
+      ansible_host: 10.64.246.170
+      ansible_ssh_port: 5022
+      mgmt_subnet_mask_length: 25
+    str2-mlnx-4280-smartswitch-02-dpu-2:
+      ansible_host: 10.64.246.170
+      ansible_ssh_port: 5023
+      mgmt_subnet_mask_length: 25
+    str2-mlnx-4280-smartswitch-02-dpu-3:
+      ansible_host: 10.64.246.170
+      ansible_ssh_port: 5024
+      mgmt_subnet_mask_length: 25
+    str2-mlnx-4280-smartswitch-03-dpu-0:
+      ansible_host: 10.64.246.171
+      ansible_ssh_port: 5021
+      mgmt_subnet_mask_length: 25
+    str2-mlnx-4280-smartswitch-03-dpu-1:
+      ansible_host: 10.64.246.171
+      ansible_ssh_port: 5022
+      mgmt_subnet_mask_length: 25
+    str2-mlnx-4280-smartswitch-03-dpu-2:
+      ansible_host: 10.64.246.171
+      ansible_ssh_port: 5023
+      mgmt_subnet_mask_length: 25
+    str2-mlnx-4280-smartswitch-03-dpu-3:
+      ansible_host: 10.64.246.171
+      ansible_ssh_port: 5024
+      mgmt_subnet_mask_length: 25
 
 sonic_arista:
   vars:
