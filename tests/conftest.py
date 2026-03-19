@@ -27,6 +27,7 @@ from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.fanout import FanoutHost
 from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
@@ -155,7 +156,8 @@ def pytest_addoption(parser):
                      help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
 
     # neighbor device type
-    parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic", "cisco"],
+    parser.addoption("--neighbor_type", action="store", default="eos", type=str,
+                     choices=["eos", "sonic", "cisco", "csonic"],
                      help="Neighbor devices type")
 
     # ceos neighbor lacp multiplier
@@ -320,7 +322,25 @@ def pytest_addoption(parser):
     #   SmartSwitch options    #
     ############################
     parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
-
+    parser.addoption(
+        "--ss_target_index",
+        action="store",
+        default="",
+        help="Single SmartSwitch target DPU index (e.g. 0 or 3)",
+    )
+    parser.addoption(
+        "--ss_target_indices",
+        action="store",
+        default="",
+        help="Comma-separated SmartSwitch target DPU indices for parallel tests (e.g. 0,1,2)",
+    )
+    parser.addoption(
+        "--ss-max-workers",
+        action="store",
+        type=int,
+        default=4,
+        help="Max parallel workers for SmartSwitch gNOI upgrade tests (default: 4)",
+    )
     ##################################
     #   Container Upgrade options    #
     ##################################
@@ -486,6 +506,9 @@ def get_specified_device_info(request, device_pattern):
         return [get_target_hostname(request)]
 
     host_pattern = request.config.getoption(device_pattern)
+    # When no DPUs specified (None/"None"/empty), return [] so DPU tests skip instead of fail
+    if device_pattern == '--dpu-pattern' and (host_pattern is None or host_pattern == 'None' or host_pattern == ''):
+        return []
     if host_pattern == 'all':
         if device_pattern == '--dpu-pattern':
             testbed_duts = [dut for dut in testbed_duts if 'dpu' in dut]
@@ -936,6 +959,15 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
+        elif neighbor_type == "csonic":
+            vm_set_name = tbinfo.get('group-name', '')
+            container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
+            device = NeighborDevice(
+                {
+                    'host': CsonicHost(container_name),
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                }
+            )
         else:
             raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
         devices[neighbor_name] = device
@@ -1357,7 +1389,7 @@ def collect_techsupport_all_duts(request, duthosts):
 @pytest.fixture
 def collect_techsupport_all_nbrs(request, nbrhosts):
     yield
-    if request.config.getoption("neighbor_type") == "sonic":
+    if request.config.getoption("neighbor_type") in ("sonic", "csonic"):
         [collect_techsupport_on_dut(request, nbrhosts[nbrhost]['host']) for nbrhost in nbrhosts]
 
 
@@ -3894,7 +3926,9 @@ def yang_validation_check(request, duthosts):
     skip_yang = request.config.getoption("--skip_yang")
 
     if skip_yang:
-        logger.info("Skipping YANG validation check due to --skip_yang flag")
+        logger.info("Skipping YANG validation pre-check due to --skip_yang flag")
+        yield
+        logger.info("Skipping YANG validation post-check due to --skip_yang flag")
         return
 
     def run_yang_validation_all(stage):

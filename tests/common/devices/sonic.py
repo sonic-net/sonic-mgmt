@@ -99,8 +99,15 @@ class SonicHost(AnsibleHostBase):
         self._os_version = self._get_os_version()
 
         device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
+        switch_type = device_metadata.get('switch_type', '')
         device_type = device_metadata.get('type')
         device_subtype = device_metadata.get('subtype')
+
+        if switch_type == "dpu":
+            logger.info("Removing teamd and lldp from default services for switch_type DPU")
+            self.DEFAULT_ASIC_SERVICES.remove("lldp")
+            self.DEFAULT_ASIC_SERVICES.remove("teamd")
+
         if (device_type == 'UpperSpineRouter') or (device_subtype in ['UpstreamLC', 'DownstreamLC']):
             self.DEFAULT_ASIC_SERVICES.append("macsec")
 
@@ -2476,7 +2483,7 @@ Totals               6450                 6449
         # Build set of Ethernet ports with 18.x.202.0/31 IPs to exclude
         excluded_ports = set()
         for port, val in config_db_ports.items():
-            if "role" in val:
+            if "role" in val and val["role"] != "Ext":
                 excluded_ports.add(port)
         return excluded_ports
 
