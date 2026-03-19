@@ -386,10 +386,22 @@ def verify_lldpcli_interfaces(duthost, asic, intf_status_output, test_name=""):
     lldpcli_interfaces_no_eth0 = lldpcli_interfaces - {'eth0'}
 
     # Filter intf_status_output: exclude only PortChannel interfaces (keep admin down)
-    intf_status_filtered_for_lldpcli = {
-        intf['interface'] for intf in intf_status_output
-        if not intf['interface'].startswith('PortChannel')
-    }
+    # On multi-ASIC, lldpcli only shows interfaces for the current ASIC,
+    # so also filter intf_status to only include ports belonging to this ASIC.
+    if duthost.is_multi_asic:
+        asic_cfg = asic.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        asic_ports = set(asic_cfg.get('PORT', {}).keys())
+        logger.info("Multi-ASIC: filtering interface status to ASIC {} ports ({} ports)".format(
+            asic.asic_index, len(asic_ports)))
+        intf_status_filtered_for_lldpcli = {
+            intf['interface'] for intf in intf_status_output
+            if not intf['interface'].startswith('PortChannel') and intf['interface'] in asic_ports
+        }
+    else:
+        intf_status_filtered_for_lldpcli = {
+            intf['interface'] for intf in intf_status_output
+            if not intf['interface'].startswith('PortChannel')
+        }
 
     missing_in_lldpcli = intf_status_filtered_for_lldpcli - lldpcli_interfaces_no_eth0
     extra_in_lldpcli = lldpcli_interfaces_no_eth0 - intf_status_filtered_for_lldpcli
