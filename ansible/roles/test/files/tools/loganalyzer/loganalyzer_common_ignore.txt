@@ -35,6 +35,7 @@ r, ".* ERR syncd#syncd: .* SAI_API_PORT:brcm_sai_get_port_attribute:\d+ Error -2
 r, ".* ERR mux#linkmgrd: MuxManager\.cpp:.*Unsupported link failure detection type for : software.*"
 r, ".* ERR syncd#syncd: \[none\] SAI_API_SWITCH:sai_query_attribute_capability:\d* Acl (entry|table) attribute capabilities failed with error -2."
 r, ".* ERR syncd#syncd: \[none\] SAI_API_SWITCH:sai_query_attribute_enum_values_capability:\d* Error in enum \d* capability query for obj type .* rv=-8"
+r, ".* ERR syncd#syncd: \[none\] SAI_API_SWITCH:sai_query_stats_st_capability:\d+ Get TAM ST Stats capabilities failed with error -2.*"
 
 # Errors for config reload on broadcom platform on 202405
 r, ".* ERR syncd\d*#syncd.*_attribute_enum_values_capability.*count.*greater than capability-count 0.*"
@@ -318,7 +319,7 @@ r, ".* NOTICE kernel:.*Kernel command line:.*Aboot=.*"
 r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
 
 # ignore TACACS login failure, which will happen when other user trying login device when running test
-r, ".* ERR sshd\[\d*\]: auth fail.*"
+r, ".* ERR sshd(-session)?\[\d*\]: auth fail.*"
 
 # ignore NTP nss_tacplus error, which will happen when reload config, because ntpd and chrony will invoke getpwnap API but nss_tacplus will re-render during reload config
 r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
@@ -419,6 +420,8 @@ r, ".*ERR pmon.*Failed to freeze VDM stats in contextmanager for port.*"
 r, ".*ERR pmon.*Failed to freeze VDM stats for port.*"
 r, ".*ERR pmon.*Failed to confirm VDM unfreeze status for port.*"
 r, ".*ERR pmon.*Failed to unfreeze VDM stats in contextmanager for port.*"
+# https://github.com/aristanetworks/sonic-qual.msft/issues/1156
+r, ".*ERR pmon#DomInfoUpdateTask.*Failed to get VDM basic real values for port.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/21186
 r, ".*ERR bgp\#bgpmon:\s+\*ERROR\*\s+Failed\s+with\s+rc:\d+\s+when\s+execute:\s+.*vtysh.*-c.*show\s+bgp\s+summary\s+json.*"
@@ -446,6 +449,7 @@ r, ".*WARNING kernel:.*scd.*rsp.*ack_error=1.*"
 
 # CHASSIS_STATE_DB only exists on chassis platforms; gnmi processes log an ERR on non-chassis systems at startup
 r, ".*ERR gnmi#.*getDbInfo: Failed to find CHASSIS_STATE_DB.*"
+r, ".*ERR telemetry#.*getDbInfo: Failed to find CHASSIS_STATE_DB.*"
 
 # Ignore SAI_STATUS_INVALID_PARAMETER error for SAI_API_QUEUE get stats until it's resolved
 r, ".*ERR swss#orchagent:.*SAI_API_QUEUE, status: SAI_STATUS_INVALID_PARAMETER.*"
