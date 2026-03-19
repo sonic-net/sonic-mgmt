@@ -23,7 +23,9 @@ class TestFanoutUtils(unittest.TestCase):
             self.assertEqual("missing-fanout", host_name)
             return None
 
-        self.assertEqual({}, get_fanout_host_vars(["/tmp/inventory"], "missing-fanout", fake_host_visible_vars_getter))
+        host_vars = get_fanout_host_vars(["/tmp/inventory"], "missing-fanout", fake_host_visible_vars_getter)
+
+        self.assertEqual({}, host_vars)
 
 
 if __name__ == "__main__":
