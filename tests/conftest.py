@@ -76,6 +76,7 @@ from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel import patch_ansible_worker_process
 from tests.common.helpers.parallel import fix_logging_handler_fork_lock
+from tests._fanout_utils import get_fanout_host_vars
 
 import tests.common.gnmi_setup as gnmi_setup
 
@@ -1016,7 +1017,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     """
 
     # Internal helper functions
-    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> Optional[FanoutHost]:
+    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host, inv_files) -> Optional[FanoutHost]:
         """
         Create FanoutHost if not exists, or return existing one.
         Fanout creation logic for both Ethernet and Serial connections.
@@ -1038,7 +1039,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
 
         # Get fanout device info from inventory
         try:
-            host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_name).vars
+            host_vars = get_fanout_host_vars(inv_files, fanout_name, get_host_visible_vars)
         except Exception as e:
             logging.warning(f"Cannot get inventory for fanout {fanout_name}: {e}")
             return None
@@ -1115,6 +1116,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     for dut_name, ethernet_ports in dev_conn.items():
 
         duthost = duthosts[dut_name]
+        inv_files = duthost.host.options["inventory_manager"]._sources
 
         # Skip virtual testbed which has no fanout
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
@@ -1130,7 +1132,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             fanout_port = str(fanout_rec['peerport'])
 
             # Create or get fanout object
-            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name)
+            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name, inv_files)
             if fanout is None:
                 continue
 
@@ -1156,6 +1158,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     for dut_name, serial_ports_map in dev_serial_link.items():
 
         duthost = duthosts[dut_name]
+        inv_files = duthost.host.options["inventory_manager"]._sources
 
         # Skip virtual testbed which has no fanout
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
@@ -1170,7 +1173,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             flow_control = link_info.get('flow_control', "0") == "1"
 
             # Create or get fanout object
-            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name)
+            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name, inv_files)
             if fanout is None:
                 continue
 
