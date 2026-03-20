@@ -87,6 +87,7 @@ def get_recovery_critical_ps_reboot_timeout(duthost):
 
     return timeout
 
+
 def get_critical_services_status_with_timeout(duthost):
     """
     Return critical services running status.
@@ -101,6 +102,7 @@ def get_critical_services_status_with_timeout(duthost):
         logging.warning("{} - Failed to get critical services status: {}".format(
             LOG_PREFIX, str(service_error)))
         return None
+
 
 def critical_services_fully_started_with_timeout(duthost, dump_not_ready=False):
     """
@@ -226,7 +228,11 @@ def execute_flap_and_monitor_ssh(duthost_console, localhost, supervisor_ip, num_
     Returns:
         dict: Test results with detailed information
     """
-    logging.info("{} - STEP2: Executing {} flap cycle(s) with new flow and monitoring SSH".format(LOG_PREFIX, num_cycles))
+    logging.info(
+        "{} - STEP2: Executing {} flap cycle(s) with new flow and monitoring SSH".format(
+            LOG_PREFIX, num_cycles
+        )
+    )
     
     test_results = {
         'success': False,
@@ -279,7 +285,11 @@ def execute_flap_and_monitor_ssh(duthost_console, localhost, supervisor_ip, num_
                 return test_results
             
             # Step2c: Monitor for SSH disconnection
-            logging.info("{} - STEP2_c: Monitoring for SSH disconnection for {} seconds...".format(cycle_prefix, SSH_CONN_MONITOR_TIMEOUT))
+            logging.info(
+                "{} - STEP2_c: Monitoring for SSH disconnection for {} seconds...".format(
+                    cycle_prefix, SSH_CONN_MONITOR_TIMEOUT
+                )
+            )
             
             disconnect_monitor_start = time.time()
             ssh_disconnection_detected = False
@@ -320,7 +330,11 @@ def execute_flap_and_monitor_ssh(duthost_console, localhost, supervisor_ip, num_
             successful_cycles += 1
             
             # Step2e: Ensure SSH connection is restored
-            logging.info("{} - STEP2_e: Waiting for SSH connection restoration (timeout: {}s)...".format(cycle_prefix, SSH_CONN_RESTORE_TIMEOUT))
+            logging.info(
+                "{} - STEP2_e: Waiting for SSH connection restoration (timeout: {}s)...".format(
+                    cycle_prefix, SSH_CONN_RESTORE_TIMEOUT
+                )
+            )
             restoration_start = time.time()
             ssh_restored_in_cycle = False
             
@@ -337,18 +351,28 @@ def execute_flap_and_monitor_ssh(duthost_console, localhost, supervisor_ip, num_
                 time.sleep(1)  # Check every second during restoration
             
             if not ssh_restored_in_cycle:
-                test_results['error_message'] = "SSH connection not restored within {}s for cycle {}".format(SSH_CONN_RESTORE_TIMEOUT, cycle)
+                test_results['error_message'] = (
+                    "SSH connection not restored within {}s for cycle {}".format(
+                        SSH_CONN_RESTORE_TIMEOUT, cycle
+                    )
+                )
                 sync_results()
                 return test_results
             
             # Log cycle results
             cycle_time = time.time() - cycle_start
             if ssh_disconnection_detected:
-                logging.info("{} - Cycle {} COMPLETED: SSH disconnect detected at {:.1f}s, restored in {:.1f}s total".format(
-                    LOG_PREFIX, cycle, disconnect_detected_time, cycle_time))
+                logging.info(
+                    "{} - Cycle {} COMPLETED: SSH disconnect detected at {:.1f}s, restored in {:.1f}s total".format(
+                        LOG_PREFIX, cycle, disconnect_detected_time, cycle_time
+                    )
+                )
             else:
-                logging.warning("{} - Cycle {} COMPLETED: NO SSH disconnect detected, total time {:.1f}s".format(
-                    LOG_PREFIX, cycle, cycle_time))
+                logging.warning(
+                    "{} - Cycle {} COMPLETED: NO SSH disconnect detected, total time {:.1f}s".format(
+                        LOG_PREFIX, cycle, cycle_time
+                    )
+                )
             
             # Brief rest between cycles in stress test
             if num_cycles > 1 and cycle < num_cycles:
@@ -365,13 +389,19 @@ def execute_flap_and_monitor_ssh(duthost_console, localhost, supervisor_ip, num_
         test_results['final_status_ok'] = final_status_ok
         
         # Determine overall success
-        test_results['success'] = (test_results['ssh_restored'] and 
-                                 test_results['final_status_ok'] and 
-                                 successful_cycles == num_cycles)
+        test_results['success'] = (
+            test_results['ssh_restored']
+            and test_results['final_status_ok']
+            and successful_cycles == num_cycles
+        )
         
         # Log final summary
         if ssh_disconnections == 0:
-            logging.warning("{} - WARNING: No SSH disconnections detected during any cycle - management port may not have actually shut down".format(LOG_PREFIX))
+            logging.warning(
+                "{} - WARNING: No SSH disconnections detected during any cycle - management port may not have actually shut down".format(
+                    LOG_PREFIX
+                )
+            )
         
         logging.info("{} - Stress test execution completed. Disconnections: {}, Cycles: {}/{}".format(
             LOG_PREFIX, ssh_disconnections, successful_cycles, num_cycles))
@@ -399,10 +429,19 @@ def cleanup_and_report(duthost_console, test_results, num_cycles, duthost, local
         str: Error message if test failed, None if test passed
     """
     # Generate test summary report
-    logging.info("{} - STEP3 SUMMARY: Time={:.1f}s, Cycles={}/{}, SSH_disconnections={}/{}, SSH_restore={}, Final_Status={}, Result={}".format(
-        LOG_PREFIX, test_results['execution_time'], test_results['successful_cycles'], num_cycles, 
-        test_results['ssh_disconnections'], test_results['connectivity_checks'], test_results['ssh_restored'],
-        "UP" if test_results['final_status_ok'] else "DOWN", "PASS" if test_results['success'] else "FAIL"))
+    logging.info(
+        "{} - STEP3 SUMMARY: Time={:.1f}s, Cycles={}/{}, SSH_disconnections={}/{}, SSH_restore={}, Final_Status={}, Result={}".format(
+            LOG_PREFIX,
+            test_results['execution_time'],
+            test_results['successful_cycles'],
+            num_cycles,
+            test_results['ssh_disconnections'],
+            test_results['connectivity_checks'],
+            test_results['ssh_restored'],
+            "UP" if test_results['final_status_ok'] else "DOWN",
+            "PASS" if test_results['success'] else "FAIL",
+        )
+    )
     
     # Determine final result and error message
     error_msg = None
@@ -454,11 +493,12 @@ def recovery_console_reboot(duthost_console, duthost, localhost):
                 LOG_PREFIX, str(console_reboot_error)))
 
         logging.info(
-            "{} - Recovery STEP2: waiting for DUT SSH startup (duthost={} mgmt_ip={} localhost={})".format(
+            "{} - Recovery STEP2: waiting for DUT SSH startup "
+            "(duthost={} mgmt_ip={} localhost={})".format(
                 LOG_PREFIX,
                 duthost.hostname,
                 duthost.mgmt_ip,
-                getattr(localhost, "hostname", "localhost")
+                getattr(localhost, "hostname", "localhost"),
             )
         )
         wait_for_startup(duthost, localhost, delay=RECOVERY_SSH_REBOOT_DELAY, timeout=RECOVERY_SSH_REBOOT_TIMEOUT)
@@ -489,7 +529,9 @@ def recovery_console_reboot(duthost_console, duthost, localhost):
             critical_services_fully_started_with_timeout(duthost, dump_not_ready=True)
         pytest_assert(
             critical_services_ready,
-            "{}: Recovery reboot failed: all critical services should be fully started!".format(duthost.hostname)
+            "{}: Recovery reboot failed: all critical services should be fully started!".format(
+                duthost.hostname
+            ),
         )
 
         logging.info("{} - Recovery COMPLETE: console reboot and post-checks passed".format(LOG_PREFIX))
@@ -498,15 +540,14 @@ def recovery_console_reboot(duthost_console, duthost, localhost):
         logging.error("{} - Recovery: console reboot failed: {}".format(LOG_PREFIX, str(reboot_error)))
         return False
 
-
-#######################################################################################
-##    Test Case: Stress test on management port flap using console
-##    This test will:
-##    1. Verify management port is initially UP via console
-##    2. Execute stress management interface flap via console (10 cycles)
-##    3. Monitor SSH connectivity during stress test execution
-##    4. Verify SSH connectivity is restored after stress test
-#######################################################################################
+#=============================================================
+# Test Case: Stress test on management port flap using console
+# This test will:
+# 1. Verify management port is initially UP via console
+# 2. Execute stress management interface flap via console (10 cycles)
+# 3. Monitor SSH connectivity during stress test execution
+# 4. Verify SSH connectivity is restored after stress test
+#=============================================================
 
 def test_mgmt_interface_stress_flap_console(duthost_console, duthosts, enum_supervisor_dut_hostname, localhost):
     """
@@ -526,8 +567,15 @@ def test_mgmt_interface_stress_flap_console(duthost_console, duthosts, enum_supe
     if not duthost.is_supervisor_node():
         pytest.skip("This test is RP-only and must run on a supervisor node")
 
-    logging.info("{} - Starting management interface stress test on {} (ASIC: {}, Supervisor Node) - DUT: {} IP: {}".format(
-        LOG_PREFIX, duthost.hostname, duthost.facts["asic_type"], duthost.hostname, duthost.mgmt_ip))
+    logging.info(
+        "{} - Starting management interface stress test on {} (ASIC: {}, Supervisor Node) - DUT: {} IP: {}".format(
+            LOG_PREFIX,
+            duthost.hostname,
+            duthost.facts["asic_type"],
+            duthost.hostname,
+            duthost.mgmt_ip,
+        )
+    )
 
     # STEP1: Check console echo
     check_runtime_console_state(duthost_console, duthost)
