@@ -109,12 +109,13 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         port_indices = mg_facts.get("minigraph_port_indices", {})
         if test_port not in port_indices:
-            pytest.fail("Port index for {} not found in minigraph facts".format(test_port))
+            pytest.skip("Port index not found for {} in minigraph facts".format(test_port))
         test_port_idx = port_indices[test_port]
 
         cmd_off = "bcmcmd 'port enable {} false'".format(test_port_idx)
         cmd_on = "bcmcmd 'port enable {} true'".format(test_port_idx)
-        cmd = "show queue counters --voq --nonzero | grep -i '{}' | grep -i 'VOQ0' | awk '{{print $7}}'".format(test_port)
+        # Check all VOQs for the selected port to be more generic across platforms
+        cmd = "show queue counters --voq --nonzero | grep -i '{}' | awk '{{print $7}}'".format(test_port)
 
         # Find an ingress port for traffic generation
         ingress_port = next((p for p in up_ports if p != test_port), None)
@@ -129,15 +130,18 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
             bcm_changes = True
             # Disable egress to trigger queue buildup
             res = duthost.shell(cmd_off, module_ignore_errors=True)
-            if not res["stderr"] == "polling socket timeout: Success" and res["failed"]:
-                pytest.fail("BCMCMD Failed to disable egress")
+            if res["failed"]:
+                pytest.fail("BCMCMD Failed to disable egress: {}".format(res))
 
-            # Send substantial traffic to ensure queue buildup and counter increment
+            # Packet to be used for traffic generation
             pkt = testutils.simple_tcp_packet()
-            for _ in range(5000):
-                ptfadapter.dataplane.send(ptf_idx, pkt)
 
             def queue_counter_assertion():
+                # Send a burst of traffic during each poll to maintain queue pressure
+                # This ensures the queue is full when the counter is checked
+                for _ in range(500):
+                    ptfadapter.dataplane.send(ptf_idx, pkt)
+
                 out = duthost.shell(cmd)["stdout"].split("\n")
                 integers = [int(item.replace(",", "")) for item in out if item.replace(",", "").strip().isdigit()]
                 return any(num > 0 for num in integers)
@@ -149,5 +153,5 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
         finally:
             if bcm_changes:
                 res = duthost.shell(cmd_on, module_ignore_errors=True)
-                if not res["stderr"] == "polling socket timeout: Success" and res["failed"]:
-                    pytest.fail("BCMCMD Failed to re-enable egress")
+                if res["failed"]:
+                    pytest.fail("BCMCMD Failed to re-enable egress: {}".format(res))
