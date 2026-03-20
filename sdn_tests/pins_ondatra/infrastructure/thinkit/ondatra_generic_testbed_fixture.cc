@@ -41,7 +41,7 @@
 #include "infrastructure/thinkit/thinkit.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
-#include "p4_pdpi/p4_runtime_session.h"
+#include "p4_infra/p4_runtime/p4_runtime_session.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "thinkit/generic_testbed.h"
 #include "thinkit/proto/generic_testbed.pb.h"
@@ -228,9 +228,9 @@ OndatraGenericTestbedFixture::GetTestbedWithRequirements(
 
   ASSIGN_OR_RETURN(auto control_switch, CreateSwitchFromDevice(*(*control)));
   ASSIGN_OR_RETURN(auto session,
-                   pdpi::P4RuntimeSession::Create(*control_switch));
+                   p4_runtime::P4RuntimeSession::Create(*control_switch));
   ASSIGN_OR_RETURN(p4::v1::GetForwardingPipelineConfigResponse response,
-                   pdpi::GetForwardingPipelineConfig(session.get()));
+                   p4_runtime::GetForwardingPipelineConfig(session.get()));
   ASSIGN_OR_RETURN(
       auto control_device,
       pins_test::PinsControlDevice::Create(
