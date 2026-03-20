@@ -172,10 +172,14 @@ def get_report_summary(duthost, analyze_result, reboot_type, reboot_oper, base_o
                             "arp_ping": "", "lacp_session_max_wait": ""}
     if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
         if lacp_sessions_waittime and len(lacp_sessions_waittime) > 0:
-            max_lacp_session_wait = max(list(lacp_sessions_waittime.values()))
-            analyze_result.get(
-                "controlplane", controlplane_summary).update(
-                    {"lacp_session_max_wait": max_lacp_session_wait})
+            valid_values = [v for v in lacp_sessions_waittime.values() if v is not None]
+            max_lacp_session_wait = max(valid_values) if valid_values else None
+            if max_lacp_session_wait is not None:
+                analyze_result.get(
+                    "controlplane", controlplane_summary).update(
+                        {"lacp_session_max_wait": max_lacp_session_wait})
+            else:
+                logging.warning("LACP session wait times were not calculated")
 
     result_summary = {
         "reboot_type": "{}-{}".format(reboot_type, reboot_oper) if reboot_oper else reboot_type,
