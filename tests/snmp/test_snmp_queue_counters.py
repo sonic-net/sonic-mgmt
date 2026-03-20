@@ -33,8 +33,6 @@ logger = logging.getLogger(__name__)
 
 CFG_DB_PATH = "/etc/sonic/config_db.json"
 ORIG_CFG_DB = "/etc/sonic/orig_config_db.json"
-
-# There are 4 counter types for unicast queues and 4 for multicast queues
 UNICAST_CTRS = 4
 MULTICAST_CTRS = 4
 
