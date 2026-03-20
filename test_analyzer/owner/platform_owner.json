@@ -225,7 +225,7 @@
     },
     {
         "hwsku": "Cisco-8101C01-C32",
-        "topo": "dualtor-aa",
+        "topo": "dualtor",
         "owner": "Longxiang Lyu",
         "email": "lolv@microsoft.com",
         "new_platform": "Yes",
