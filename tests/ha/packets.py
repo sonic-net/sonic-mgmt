@@ -59,8 +59,13 @@ def get_pl_overlay_dip(orig_dip, ol_dip, ol_mask):
 
 def inbound_pl_packets(
     config, floating_nic=False, inner_packet_type="udp", vxlan_udp_dport=4789, inner_sport=4567, inner_dport=6789,
-    vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT, vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK
+    vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT, vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK, exp_vni=None
 ):
+    if exp_vni is not None:
+        expected_vni = int(exp_vni)
+    else:
+        expected_vni = int(pl.ENCAP_VNI if floating_nic else pl.VM_VNI)
+
     inner_sip = get_pl_overlay_dip(  # not a typo, inner DIP/SIP are reversed for inbound direction
         pl.PE_CA, pl.PL_OVERLAY_DIP, pl.PL_OVERLAY_DIP_MASK
     )
@@ -109,7 +114,7 @@ def inbound_pl_packets(
         ip_id=0,
         udp_dport=vxlan_udp_dport,
         udp_sport=vxlan_udp_base_src_port,
-        vxlan_vni=pl.ENCAP_VNI if floating_nic else int(pl.VNET1_VNI),
+        vxlan_vni=expected_vni,
         inner_frame=exp_inner_packet,
     )
 
@@ -174,7 +179,7 @@ def outbound_pl_packets(
             ip_src=pl.VM1_PA,
             ip_dst=pl.APPLIANCE_VIP,
             gre_key_present=True,
-            gre_key=(outer_vni << 8) if floating_nic else (int(pl.VNET1_VNI) << 8),
+            gre_key=(outer_vni << 8) if floating_nic else (int(pl.VM_VNI) << 8),
             inner_frame=inner_packet,
         )
     else:
