@@ -1,4 +1,6 @@
 import logging
+import os
+import yaml
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -8,6 +10,27 @@ from tests.platform_tests.test_reboot import check_interfaces_and_services
 
 
 logger = logging.getLogger(__name__)
+
+
+def is_pddf_supported_and_enabled(duthost):
+    """
+    Check if PDDF mode is supported and enabled on this platform.
+
+    Args:
+        duthost: The DUT host to check
+
+    Returns:
+        bool: True if PDDF is supported and enabled, False otherwise
+    """
+    result = duthost.shell("which pddf_ledutil", module_ignore_errors=True)
+    if result["rc"] != 0:
+        return False
+
+    result = duthost.shell("sudo pddf_ledutil getstatusled SYS_LED", module_ignore_errors=True)
+    if "PDDF mode should be supported" in result["stdout"]:
+        return False
+
+    return True
 
 
 def get_max_to_reboot(duthost, test_name):
@@ -21,6 +44,31 @@ def get_max_to_reboot(duthost, test_name):
         max_time_to_reboot = plt_reboot_ctrl.get('timeout', 120)
 
     return max_time_to_reboot
+
+
+def get_config_from_yaml(file_path):
+    """
+    Load configuration from a YAML file.
+
+    Python 3.7+ maintains dictionary insertion order by default,
+    so no need for OrderedDict.
+
+    Args:
+        file_path (str): Path to the YAML file to load
+
+    Returns:
+        dict: The loaded configuration
+    """
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Config file not found: {file_path}")
+    with open(file_path) as stream:
+        try:
+            config = yaml.safe_load(stream)
+        except yaml.YAMLError as e:
+            raise ValueError(f"Malformed YAML in config file '{file_path}': {e}") from e
+    if config is None:
+        raise ValueError(f"Config file is empty: {file_path}")
+    return config
 
 
 def fanout_hosts_and_ports(fanouthosts, duts_and_ports):
