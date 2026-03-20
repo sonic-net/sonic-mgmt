@@ -147,11 +147,16 @@ def setup_bgp_peers(
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
+    confed_asn = duthost.get_bgp_confed_asn()
+    use_vtysh = False
     dut_type = mg_facts["minigraph_devices"][duthost.hostname]["type"]
     if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
-    elif dut_type == "UpperSpineRouter":
+    elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
         neigh_type = "LowerSpineRouter"
+        if dut_type == "FabricSpineRouter" and confed_asn is not None:
+            # For FT2, we need to use vtysh to configure BGP neigh if BGP confed is enabled
+            use_vtysh = True
     else:
         neigh_type = "ToRRouter"
 
@@ -189,7 +194,9 @@ def setup_bgp_peers(
             neigh_type=neigh_type,
             namespace=connection_namespace,
             is_multihop=is_quagga or is_dualtor,
-            is_passive=False
+            is_passive=False,
+            confed_asn=confed_asn,
+            use_vtysh=use_vtysh,
         )
 
         bgp_peers.append(peer)
