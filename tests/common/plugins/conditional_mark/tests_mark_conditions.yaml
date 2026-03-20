@@ -3381,6 +3381,7 @@ pc/test_lag_member_forwarding.py:
     conditions:
         - "asic_type in ['broadcom'] and https://github.com/sonic-net/sonic-buildimage/issues/21938"
         - "asic_type in ['mellanox', 'nvidia'] and https://github.com/sonic-net/sonic-mgmt/issues/17095"
+        - "asic_gen in ['q3d'] and https://github.com/sonic-net/sonic-mgmt/issues/22942"
 
 pc/test_po_cleanup.py:
   skip:
