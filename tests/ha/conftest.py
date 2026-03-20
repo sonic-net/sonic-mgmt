@@ -30,7 +30,11 @@ from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 from tests.common import config_reload
 import configs.privatelink_config as pl
 from tests.common.helpers.assertions import pytest_require as pt_require
-from tests.ha.ha_utils import wait_for_pending_operation_id, wait_for_ha_state
+from tests.ha.ha_utils import (
+    wait_for_pending_operation_id,
+    verify_ha_state
+)
+
 ENABLE_GNMI_API = True
 logger = logging.getLogger(__name__)
 
@@ -813,7 +817,7 @@ def activate_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server):
     ]
     logger.info("HA: activate Primary and Standby")
     for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
-        is_active = wait_for_ha_state(duthost, scope_key=key, expected_state="active", timeout=120, interval=5)
+        is_active = verify_ha_state(duthost, scope_key=key, expected_state="active", timeout=10, interval=5)
         if not is_active:
             break
 
@@ -862,7 +866,7 @@ def activate_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server):
             )
             # Verify HA state using fields
             expected_state = "active"
-            assert wait_for_ha_state(
+            assert verify_ha_state(
                 duthost,
                 scope_key=key,
                 expected_state=expected_state,
