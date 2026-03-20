@@ -14,7 +14,7 @@ import pytest
 
 from tests.common.helpers.platform_api import chassis
 from tests.common.platform.device_utils import start_platform_api_service, platform_api_conn    # noqa: F401
-from tests.platform_tests.utils import get_config_from_yaml
+from tests.platform_tests.utils import get_config_from_yaml, is_pddf_supported_and_enabled
 
 logger = logging.getLogger(__name__)
 
@@ -70,19 +70,8 @@ def check_pddf_mode(duthosts, enum_rand_one_per_hwsku_hostname):
     Skip tests if pddf_ledutil is not available.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    # Check if pddf_ledutil command exists
-    result = duthost.shell("which pddf_ledutil", module_ignore_errors=True)
-    if result["rc"] != 0:
-        pytest.skip("pddf_ledutil command not found - platform may not support PDDF")
-
-    logger.info(f"pddf_ledutil found at: {result['stdout'].strip()}")
-
-    # Verify pddf_ledutil is functional by trying to run it
-    duthost.shell("pddf_ledutil --help 2>&1 || pddf_ledutil 2>&1", module_ignore_errors=True)
-    logger.info("pddf_ledutil appears to be functional")
-
-    logger.info("Platform supports pddf_ledutil, proceeding with tests")
+    if not is_pddf_supported_and_enabled(duthost):
+        pytest.skip("PDDF mode is not supported or enabled on this platform")
 
 
 @pytest.fixture(scope="function")

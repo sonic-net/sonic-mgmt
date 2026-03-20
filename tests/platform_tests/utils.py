@@ -12,6 +12,27 @@ from tests.platform_tests.test_reboot import check_interfaces_and_services
 logger = logging.getLogger(__name__)
 
 
+def is_pddf_supported_and_enabled(duthost):
+    """
+    Check if PDDF mode is supported and enabled on this platform.
+
+    Args:
+        duthost: The DUT host to check
+
+    Returns:
+        bool: True if PDDF is supported and enabled, False otherwise
+    """
+    result = duthost.shell("which pddf_ledutil", module_ignore_errors=True)
+    if result["rc"] != 0:
+        return False
+
+    result = duthost.shell("sudo pddf_ledutil getstatusled SYS_LED", module_ignore_errors=True)
+    if "PDDF mode should be supported" in result["stdout"]:
+        return False
+
+    return True
+
+
 def get_max_to_reboot(duthost, test_name):
     """
     For chassis testbeds, we need to specify plt_reboot_ctrl in inventory file,
