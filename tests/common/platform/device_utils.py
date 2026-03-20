@@ -20,6 +20,7 @@ from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHE
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
 from tests.common.devices.duthosts import DutHosts
 from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa: F401
+from tests.common.platform.controlplane_gating import controlplane_gating
 
 """
 Helper script for fanout switch operations
@@ -1023,6 +1024,17 @@ def advanceboot_loganalyzer_factory(duthost, request, marker_postfix=None):
             report_file_name = request.node.name + "_report.json"
             summary_file_name = request.node.name + "_summary.json"
 
+        # Prepare minimal dict for control plane gating logic
+        gating_input = {
+            "lacp_session_max_wait": result_summary.get("controlplane", {}).get("lacp_session_max_wait"),
+            "bgp": result_summary.get("time_span", {}).get("bgp"),
+            "HwSku": result_summary.get("hwsku"),
+            "BaseImage": result_summary.get("base_ver"),
+            "TargetImage": result_summary.get("target_ver")
+        }
+        # Run control plane gating
+        gating_failures = controlplane_gating(gating_input)
+
         report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),
                                            "../../logs/platform_tests/")))
         report_file_path = report_file_dir + "/" + report_file_name
@@ -1036,6 +1048,9 @@ def advanceboot_loganalyzer_factory(duthost, request, marker_postfix=None):
 
         # After generating timing data report, do some checks on the timing data
         verification_errors = list()
+        # Append the gating failures
+        if gating_failures:
+            verification_errors.extend(gating_failures)
         verify_mac_jumping(test_name, analyze_result, verification_errors)
         if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
             # TBD: expand this verification to KVM - extra port events in KVM which need to be filtered
