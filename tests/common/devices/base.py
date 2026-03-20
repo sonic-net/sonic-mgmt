@@ -45,7 +45,7 @@ class AnsibleHostBase(object):
         if hostname == 'localhost':
             self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
-            self.host = ansible_adhoc(become=True, *args, **kwargs)[hostname]
+            self.host = ansible_adhoc(become=True, host_pattern=hostname, *args, **kwargs)[hostname]
             self.mgmt_ip = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_host"]
             if "ansible_hostv6" in self.host.options["inventory_manager"].get_host(hostname).vars:
                 self.mgmt_ipv6 = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_hostv6"]
