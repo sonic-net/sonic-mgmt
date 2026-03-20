@@ -1,6 +1,9 @@
 # tests/counter/test_xon_xoff.py
 import time
 import pytest
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts  # noqa F401
+from tests.common.platform.device_utils import eos_to_linux_intf, nxos_to_linux_intf, sonic_to_linux_intf
 
 pytestmark = [
     pytest.mark.topology("lt2", "ft2")
@@ -8,17 +11,44 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module")
-def setup_fanouthost(duthosts, rand_one_dut_hostname, fanouthosts, conn_graph_facts, tbinfo):
+def setup_fanouthost(duthosts, rand_one_dut_hostname, fanouthosts, conn_graph_facts,
+                     fanout_graph_facts, tbinfo):  # noqa F811
     """
     A module level fixture to setup fanout host to send XON frames.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    dut_port = list(mg_facts['minigraph_ptf_indices'].keys())[0]
+    int_status = duthost.show_interface(command="status")['ansible_facts']['int_status']
+    active_phy_intfs = [
+        intf for intf in int_status
+        if intf.startswith('Ethernet') and
+        int_status[intf]['admin_state'] == 'up' and
+        int_status[intf]['oper_state'] == 'up'
+    ]
     neighbors = conn_graph_facts["device_conn"].get(duthost.hostname, {})
-    peer_device = neighbors.get(dut_port, {}).get("peerdevice", "")
-    fanout_port = neighbors.get(dut_port, {}).get("peerport", "")
-    fanouthost = fanouthosts[peer_device]
+
+    dut_port = None
+    fanout_port = None
+    fanouthost = None
+    for intf in active_phy_intfs:
+        peer_device = neighbors.get(intf, {}).get("peerdevice", "")
+        peer_port = neighbors.get(intf, {}).get("peerport", "")
+        if peer_device in fanouthosts and peer_port:
+            fanouthost = fanouthosts[peer_device]
+            fanout_os = fanouthost.get_fanout_os()
+            fanout_hwsku = fanout_graph_facts[fanouthost.hostname]["device_info"]["HwSku"]
+            if fanout_os == "nxos":
+                fanout_port = nxos_to_linux_intf(peer_port)
+            elif fanout_os == "sonic":
+                fanout_port = sonic_to_linux_intf(peer_port)
+            else:
+                fanout_port = eos_to_linux_intf(peer_port, hwsku=fanout_hwsku)
+            dut_port = intf
+            break
+
+    pytest_assert(
+        dut_port is not None and fanout_port is not None and fanouthost is not None,
+        "No active DUT port with valid fanout connection found"
+    )
 
     # Copy pfc_gen.py to fanout host /tmp
     # Since the test is to verify XON frames are not counted, we do not need to

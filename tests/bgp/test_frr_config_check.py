@@ -11,6 +11,12 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+# Global skip list for FRR commands that may not appear in 'show running-config' output
+# These commands are hidden when their values match FRR defaults
+SKIP_CONFIG_COMMANDS = [
+    'zebra nexthop kernel enable'
+]
+
 
 def parse_frr_config_file(duthost, config_file):
     """
@@ -99,7 +105,7 @@ def verify_frr_config_in_running(duthost, config_file, running_config):
 
     # Check each configuration line
     for config_line in config_lines:
-        # Skip certain lines that are not expected in running config
+        # Skip certain lines that are not expected in running config (regex patterns)
         skip_patterns = [
             r'password\s+',           # password lines are security-related and not shown
             r'^interface\s+',
@@ -109,6 +115,8 @@ def verify_frr_config_in_running(duthost, config_file, running_config):
         ]
 
         should_skip = False
+
+        # Check against regex patterns
         for pattern in skip_patterns:
             # re.IGNORECASE makes the pattern matching case-insensitive
             # This means 'HOSTNAME', 'hostname', 'Hostname' will all match r'hostname\s+'
@@ -116,6 +124,15 @@ def verify_frr_config_in_running(duthost, config_file, running_config):
                 should_skip = True
                 logger.debug("Skipping config line '{}' (matched pattern: {})".format(config_line, pattern))
                 break
+
+        # Check against global skip command list (commands that may be hidden when matching defaults)
+        if not should_skip:
+            for skip_cmd in SKIP_CONFIG_COMMANDS:
+                if config_line.lower().startswith(skip_cmd.lower()):
+                    should_skip = True
+                    logger.debug("Skipping config line '{}' (matched skip command: {})".format(
+                        config_line, skip_cmd))
+                    break
 
         if should_skip:
             continue

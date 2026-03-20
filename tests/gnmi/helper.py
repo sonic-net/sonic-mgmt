@@ -8,6 +8,7 @@ from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_com
                                             dump_gnmi_log, dump_system_status
 from tests.common.helpers.gnmi_utils import gnmi_container   # noqa: F401
 from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
+from tests.common.helpers.dut_utils import check_container_state
 
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,7 @@ def apply_cert_config(duthost):
     dut_command = "sudo netstat -nap | grep %d" % env.gnmi_port
     output = duthost.shell(dut_command, module_ignore_errors=True)
     if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
-        is_time_synced = wait_until(60, 3, 0, check_system_time_sync, duthost)
+        is_time_synced = wait_until(80, 3, 0, check_system_time_sync, duthost)
         assert is_time_synced, "Failed to synchronize DUT system time with NTP Server"
     if env.gnmi_process not in output['stdout']:
         # Dump tcp port status and gnmi log
@@ -112,6 +113,12 @@ def recover_cert_config(duthost):
         output = duthost.shell(dut_command, module_ignore_errors=True)
         logger.error("GNMI service failed to start. GNMI log: {}".format(output['stdout']))
         pytest.fail("Failed to recover GNMI client cert configuration.")
+
+    # Restart telemetry container if it was stopped during cert config change
+    # apply_cert_config may trigger ctrmgrd to stop the telemetry container
+    if not check_container_state(duthost, "telemetry", should_be_running=True):
+        logger.info("Telemetry container is not running after cert config recovery, restarting it")
+        duthost.shell("sudo systemctl restart telemetry", module_ignore_errors=True)
 
 
 def check_ntp_sync_status(duthost):
@@ -236,13 +243,16 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
                lambda: len(duthost.shell(health_check_cmd, module_ignore_errors=True)['stdout_lines']) > 0)
 
     output = ptfhost.shell(cmd, module_ignore_errors=True)
-    error = "GRPC error\n"
-    if error in output['stdout']:
+
+    stdout = output.get("stdout") or ""
+    stderr = output.get("stderr") or ""
+    rc = output.get("rc", 1)
+    combined = f"{stdout}\n{stderr}"
+
+    if rc != 0 or "GRPC error" in combined or "rpc error" in combined:
         dump_gnmi_log(duthost)
         dump_system_status(duthost)
-        result = output['stdout'].split(error, 1)
-        raise Exception("GRPC error:" + result[1])
-    return
+        raise Exception(f"py_gnmicli failed rc={rc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")
 
 
 def gnmi_get(duthost, ptfhost, path_list):

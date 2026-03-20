@@ -14,7 +14,7 @@ from tests.packet_trimming.packet_trimming_helper import (
     verify_trimmed_packet, reboot_dut, check_connected_route_ready, get_switch_trim_counters_json,
     get_port_trim_counters_json, disable_egress_data_plane, enable_egress_data_plane,
     verify_queue_and_port_trim_counter_consistency, get_queue_trim_counters_json, compare_counters,
-    configure_port_mirror_session, remove_port_mirror_session)
+    configure_port_mirror_session, remove_port_mirror_session, check_trim_drop_counter_zero)
 
 logger = logging.getLogger(__name__)
 
@@ -344,6 +344,7 @@ class BasePacketTrimming:
             self.configure_trimming_global_by_mode(duthost)
 
         with allure.step("Enable trimming in buffer profile"):
+            duthost.shell("sonic-clear switchcounters")
             for buffer_profile in test_params['trim_buffer_profiles']:
                 configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
             for buffer_profile in trim_counter_params['trim_buffer_profiles']:
@@ -380,7 +381,7 @@ class BasePacketTrimming:
 
         trim_queue = PacketTrimmingConfig.get_trim_queue(duthost)
 
-        with allure.step("Verify TrimDrop counters on switch level"):
+        with allure.step("Verify TrimDrop counters on port level"):
             original_schedulers = {}
             try:
                 # Block the trimmed queue
@@ -395,10 +396,13 @@ class BasePacketTrimming:
                 counter_kwargs.update({'expect_packets': False})
                 verify_trimmed_packet(**counter_kwargs)
 
-                # Get the TrimDrop counters on switch level
-                switch_trim_drop_value = get_switch_trim_counters_json(duthost)['trim_drop']
-                logger.info(f"switch_trim_drop_value: {switch_trim_drop_value}")
-                pytest_assert(switch_trim_drop_value > 0, "Trim drop counter on switch level is not greater than 0")
+                # Get the TrimDrop counters on port level
+                for egress_port in trim_counter_params['egress_ports']:
+                    for port in egress_port['dut_members']:
+                        port_trim_drop_value = get_port_trim_counters_json(duthost, port)['TRIM_DRP_PKTS']
+                        logger.info(f"port: {port}, port_trim_drop_value: {port_trim_drop_value}")
+                        pytest_assert(port_trim_drop_value > 0,
+                                      f"Trim drop counter on port {port} is not greater than 0")
 
             finally:
                 # Enable the trimmed queue with original scheduler
@@ -406,9 +410,36 @@ class BasePacketTrimming:
                     for dut_member in port['dut_members']:
                         original_scheduler = original_schedulers.get(dut_member)
                         enable_egress_data_plane(duthost, dut_member, trim_queue, original_scheduler)
+                        # Known limitation: TRIM_DRP_PKTS is a calculated counter (TRIM_PKTS - TRIM_TX_PKTS)
+                        # rather than a real hardware counter. After restoring the blocked trim queue,
+                        # queued packets drain out and TRIM_DRP_PKTS gradually decreases to 0.
+                        # Wait for it to stabilize before reading baseline counters for the next step.
+                        pytest_assert(
+                            wait_until(30, 2, 0, check_trim_drop_counter_zero, duthost, dut_member),
+                            f"TRIM_DRP_PKTS on port {dut_member} did not stabilize to 0"
+                        )
+
+    def test_trimming_counters_with_feature_toggle(self, duthost, ptfadapter, test_params, trim_counter_params):
+        """
+        Test Case: Verify PacketTrimming Counters After Feature Toggle
+        """
+        with allure.step(f"Configure packet trimming in global level for {self.trimming_mode} mode"):
+            self.configure_trimming_global_by_mode(duthost)
+
+        with allure.step("Enable trimming in buffer profile"):
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
+            for buffer_profile in trim_counter_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, trim_counter_params['trim_buffer_profiles'][buffer_profile], "on")
+
+        # Packets are trimmed on two queues, verify trimming counters in queue and port level
+        with allure.step("Verify trimming counters on two queues"):
+            # Trigger trimmed packets on queue0
+            counter_kwargs = self.get_verify_trimmed_counter_packet_kwargs(duthost, ptfadapter, {**trim_counter_params})
+            verify_trimmed_packet(**counter_kwargs)
 
         with allure.step("Verify trimming counter when trimming feature toggles"):
-            trim_queue = 'UC'+str(trim_queue)
+            trim_queue = 'UC' + str(PacketTrimmingConfig.get_trim_queue(duthost))
 
             # Get queue level and port level counter when trimming is enabled
             port = test_params['egress_ports'][0]['dut_members'][0]

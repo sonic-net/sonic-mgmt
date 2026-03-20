@@ -1038,6 +1038,12 @@ platform_tests/daemon/test_ledd.py::test_pmon_ledd_kill_and_start_status:
       - "release in ['201911']"
       - "asic_type in ['vs']"
 
+platform_tests/daemon/test_pcied.py:
+  skip:
+    reason: "Not supported, AMD DPU Pcie link bringup sequence is handled differently"
+    conditions:
+      - "platform in ['arm64-elba-asic-flash128-r0']"
+
 #######################################
 #####    fwutil/test_fwutil.py    #####
 #######################################
@@ -1083,6 +1089,7 @@ platform_tests/mellanox/test_check_sfp_eeprom.py:
     reason: "202405 and 202411 not support command like 'mlxlink -d /dev/mst/mt53104_pci_cr0 -p 1 -m' on mellanox spc3 devices when software control is enabled"
     conditions_logical_operator: or
     conditions:
+      - "asic_type not in ['mellanox', 'nvidia-bluefield']"
       - "'SN4' in hwsku and (release in ['202405', '202411'])"
       - "'SN5' in hwsku and (release in ['202405', '202411'])"
 
@@ -1330,7 +1337,7 @@ platform_tests/test_reboot.py::test_fast_reboot:
     reason: "Skip test_fast_reboot for M*/t1/t2 / Fast reboot is broken on dualtor topology. Skipping for now. / Skip for smartswitch topology."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2']"
+      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2', 'lt2', 'ft2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
       - "'isolated' in topo_name"
       - "is_smartswitch==True"
@@ -1354,10 +1361,10 @@ platform_tests/test_reboot.py::test_soft_reboot:
 
 platform_tests/test_reboot.py::test_warm_reboot:
   skip:
-    reason: "Skip test_warm_reboot for M*/t1/t2 / Warm reboot is broken on dualtor topology. Skipping for now."
+    reason: "Skip test_warm_reboot for M*/t1/t2/lt2/ft2. Warm reboot is broken on dualtor topology. Skipping for now."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2']"
+      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2', 'lt2', 'ft2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
       - "'isolated' in topo_name"
@@ -1452,6 +1459,15 @@ platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
       - https://github.com/sonic-net/sonic-buildimage/issues/18231
+
+####################################################
+#####   test_dpu_show_platform_temperature.py  #####
+####################################################
+smartswitch/platform_tests/test_dpu_show_platform_temperature.py:
+  skip:
+    reason: "Skip on the platforms not explicitly supported in the code"
+    conditions:
+      - "platform not in ['arm64-nvda_bf-bf3comdpu', 'arm64-nvda_bf-9009d3b600cvaa']"
 
 #######################################
 #####   test_platform_dpu.py   #####
