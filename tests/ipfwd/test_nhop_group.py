@@ -16,6 +16,7 @@ from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
 from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
 from tests.common.vs_data import is_vs_device
+from tests.common.vpp_data import is_vpp_device
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle_one_link
 
@@ -461,6 +462,8 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
         logger.info("skip this check on Mellanox as ASIC resources are shared")
     elif is_vs_device(duthost):
         logger.info("skip this check on VS as no real ASIC")
+    elif is_vpp_device(duthost):
+        logger.info("skip this check on VPP as ASIC resources are in memory and shared")
     else:
         pytest_assert(
             crm_after["available_nhop_grp"] == 0,

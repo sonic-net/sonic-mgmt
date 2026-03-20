@@ -676,33 +676,6 @@ ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only:
       - "asic_type in ['vpp']"
 
 #######################################
-#####           IPFWD             #####
-#######################################
-ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-ipfwd/test_nhop_group.py::test_nhop_group_member_count:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####         LLDP                #####
 #######################################
 lldp/test_lldp.py::test_lldp_neighbor_post_swss_reboot:
