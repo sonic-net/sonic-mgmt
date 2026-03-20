@@ -3331,6 +3331,10 @@ ipfwd/test_mtu.py:
       - "topo_type not in ['t1', 't2', 'lt2', 'ft2']"
 
 ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
+  skip:
+    reason: "VPP virtual platform has no fanout switch to flap interfaces"
+    conditions:
+      - "asic_type in ['vpp'] and platform in ['x86_64-kvm_x86_64-r0']"
   xfail:
     reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/16218 on mellanox platform"
     conditions:
@@ -3343,6 +3347,10 @@ ipfwd/test_nhop_group.py::test_nhop_group_member_count:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20731 and '-v6-' in topo_name"
 
 ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
+  skip:
+    reason: "VPP does not support ordered ECMP feature"
+    conditions:
+      - "asic_type in ['vpp']"
   xfail:
     reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20731"
     conditions:
