@@ -15,7 +15,7 @@
         "parameters": "--pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
     },
     "docker-sonic-restapi": {
-        "parameters": "--net=host -v /var/run/redis/redis.sock:/var/run/redis/redis.sock -v /etc/sonic/credentials:/etc/sonic/credentials:ro -v /etc/localtime:/etc/localtime:ro"
+        "parameters": "--net=host -v /var/run/redis/redis.sock:/var/run/redis/redis.sock -v /etc/sonic/credentials:/etc/sonic/credentials:ro -v /etc/localtime:/etc/localtime:ro -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-chassis:/var/run/redis-chassis:ro -v /etc/fips/fips_enable:/etc/fips/fips_enable:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -e RUNTIME_OWNER=local -e NAMESPACE_PREFIX=asic -e CONTAINER_NAME=restapi -e SYSLOG_TARGET_IP=127.0.0.1"
     },
     "docker-restapi-watchdog": {
         "parameters": "--net=host -v /etc/localtime:/etc/localtime:ro"
