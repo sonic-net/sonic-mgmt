@@ -6,8 +6,8 @@ import logging
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.yang_utils import run_yang_validation
+from tests.common.helpers.dut_utils import is_container_running, migrate_container_systemd
 from tests.acms.helper import container_name, sidecar_container_name
-from tests.common.helpers.dut_utils import migrate_container_systemd
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +39,14 @@ def get_parameters(docker_container):
     """Load docker run parameters from container_upgrade parameters."""
     with open(CONTAINER_UPGRADE_PARAMETERS_FILE, "r") as f:
         parameters = json.load(f)
-    return parameters[docker_container]["parameters"]
+    return ' '.join(parameters[docker_container]["parameters"])
+
+
+def stop_acms(duthost):
+    """Stop both acms and k8s_acms_ds containers to prevent duplicates."""
+    for name in ["acms", "k8s_acms_ds"]:
+        duthost.command(f"docker stop {name}", module_ignore_errors=True)
+        duthost.command(f"docker rm {name}", module_ignore_errors=True)
 
 
 def run_acms_sidecar(duthost, env_vars, acms_sidecar_parameters):
@@ -66,8 +73,7 @@ def run_acms(duthost, acms_parameters):
     cmd = (f"docker run -d {acms_parameters} "
            f"--name {container_name} {ACMS_IMAGE}")
 
-    duthost.command(f"docker stop {container_name}", module_ignore_errors=True)
-    duthost.command(f"docker rm {container_name}", module_ignore_errors=True)
+    stop_acms(duthost)
     out = duthost.command(cmd)
     pytest_assert(out["rc"] == 0, "Failed to start acms container")
 
@@ -111,6 +117,19 @@ def setup_yang_model(duthosts, rand_one_dut_hostname):
     duthost.command(f"sudo rm -f {SONIC_RESTAPI_YANG}.bak")
 
 
+@pytest.fixture(scope='function', autouse=True)
+def restore_acms_container(duthosts, rand_one_dut_hostname):
+    """
+    Restore container_name after each test.
+    """
+    yield
+
+    duthost = duthosts[rand_one_dut_hostname]
+    if not is_container_running(duthost, container_name):
+        acms_parameters = get_parameters(DOCKER_ACMS)
+        run_acms(duthost, acms_parameters)
+
+
 def test_v1_configdb_yang_validated(duthosts,
                                     rand_one_dut_hostname,
                                     verify_acms_containers_running,
@@ -140,7 +159,8 @@ def test_v1_configdb_yang_validated(duthosts,
     }
 
     run_acms_sidecar(duthost, env_vars, acms_sidecar_parameters)
-    migrate_container_systemd(duthost, container_name, acms_parameters)
+    stop_acms(duthost)
+    migrate_container_systemd(duthost, "acms", acms_parameters)
 
     configdb_cname = duthost.shell(GET_CONFIGDB_CNAME_CMD)["stdout"]
     pytest_assert(configdb_cname == V1_EXPECTED_CNAME,
@@ -299,7 +319,8 @@ def test_v1_action_disabled_golden_config_yang_validated(duthosts,
     }
 
     run_acms_sidecar(duthost, env_vars, acms_sidecar_parameters)
-    migrate_container_systemd(duthost, container_name, acms_parameters)
+    stop_acms(duthost)
+    migrate_container_systemd(duthost, "acms", acms_parameters)
 
     configdb_cname = duthost.shell(GET_CONFIGDB_CNAME_CMD)["stdout"]
     logger.info(f"V1 action-disabled: ConfigDB cname after sidecar: {configdb_cname}")

@@ -1,9 +1,18 @@
 import pytest
 import re
 
-container_name = "acms"
-sidecar_container_name = "acms_sidecar"
-watchdog_container_name = "acms_watchdog"
+
+class _ContainerNames:
+    """Mutable container names — use `cn` instance so fixture updates are visible across all imports."""
+    name = "acms"
+    sidecar = "k8s_acms_sidecar_ds"
+    watchdog = "k8s_acms_watchdog_ds"
+
+
+cn = _ContainerNames()
+container_name = cn.name
+sidecar_container_name = cn.sidecar
+watchdog_container_name = cn.watchdog
 
 TEST_DATA_CLOUD = [
     {
@@ -77,13 +86,13 @@ def generate_pfx_cert(duthost, cert_name, expire=3650):
     """
     Generate a pfx cert file on the DUT acms container.
     """
-    command = "docker exec acms openssl genrsa -out /tmp/%s.key 2048" % (cert_name)
+    command = "docker exec %s openssl genrsa -out /tmp/%s.key 2048" % (container_name, cert_name)
     duthost.shell(command, module_ignore_errors=True)
-    command = "docker exec acms openssl req -new -x509 -key /tmp/%s.key -out /tmp/%s.crt \
-              -subj '/CN=test.server.restapi.sonic' -days %d" % (cert_name, cert_name, expire)
+    command = "docker exec %s openssl req -new -x509 -key /tmp/%s.key -out /tmp/%s.crt \
+              -subj '/CN=test.server.restapi.sonic' -days %d" % (container_name, cert_name, cert_name, expire)
     duthost.shell(command, module_ignore_errors=True)
-    command = "docker exec acms openssl pkcs12 -export -out /tmp/%s.pfx -inkey /tmp/%s.key \
-              -in /tmp/%s.crt -password pass:" % (cert_name, cert_name, cert_name)
+    command = "docker exec %s openssl pkcs12 -export -out /tmp/%s.pfx -inkey /tmp/%s.key \
+              -in /tmp/%s.crt -password pass:" % (container_name, cert_name, cert_name, cert_name)
     duthost.shell(command, module_ignore_errors=True)
 
 

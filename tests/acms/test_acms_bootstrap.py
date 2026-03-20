@@ -1,10 +1,7 @@
 import logging
 import pytest
 
-from tests.acms.helper import container_name
-from tests.acms.helper import create_acms_conf
-from tests.acms.helper import host_generate_pfx_cert
-from tests.acms.helper import TEST_DATA_CLOUD
+from tests.acms.helper import container_name, create_acms_conf, host_generate_pfx_cert, TEST_DATA_CLOUD
 
 
 logger = logging.getLogger(__name__)

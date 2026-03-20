@@ -3,8 +3,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.acms.helper import container_name
-from tests.acms.helper import host_generate_pfx_cert
+from tests.acms.helper import container_name, host_generate_pfx_cert
 
 logger = logging.getLogger(__name__)
 

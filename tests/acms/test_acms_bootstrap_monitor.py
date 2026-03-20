@@ -1,10 +1,7 @@
 import logging
 import pytest
 
-from tests.acms.helper import container_name
-from tests.acms.helper import create_acms_conf
-from tests.acms.helper import create_dsms_conf
-from tests.acms.helper import generate_pfx_cert
+from tests.acms.helper import container_name, create_acms_conf, create_dsms_conf, generate_pfx_cert
 from tests.common.utilities import wait_until
 from dateutil import parser
 
@@ -121,6 +118,7 @@ def test_bootstrap_monitor_01(duthosts, rand_one_dut_hostname):
     poll_time = parser.parse(expire_date, fuzzy=True)
     assert str(poll_time) == db_date, "ACMS_BOOTSTRAP_CERT date does not match: " + str(poll_time)
 
+
 def test_bootstrap_monitor_02(duthosts, rand_one_dut_hostname):
     """
     Test ACMS bootstrap_monitor.py functionality.
@@ -184,6 +182,7 @@ def test_bootstrap_monitor_02(duthosts, rand_one_dut_hostname):
     assert expire_date == expire_date_60, "Invalid expire date: " + expire_date
     poll_time = parser.parse(expire_date, fuzzy=True)
     assert str(poll_time) == db_date, "ACMS_BOOTSTRAP_CERT date does not match: " + str(poll_time)
+
 
 def test_bootstrap_monitor_03(duthosts, rand_one_dut_hostname):
     """

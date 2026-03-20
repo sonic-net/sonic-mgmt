@@ -1,12 +1,10 @@
-import time
 import logging
 import pytest
 from datetime import datetime
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.acms.helper import container_name
-from tests.acms.helper import generate_pfx_cert
+from tests.acms.helper import container_name, generate_pfx_cert
 
 logger = logging.getLogger(__name__)
 
@@ -69,9 +67,12 @@ def test_acms_cert_converter(duthosts, rand_one_dut_hostname, localhost):
     generate_pfx_cert(duthost, "acms")
     # Copy the pfx cert file to the DUT
     for i in range(MIN_TEST_CERT_POSTFIX, MAX_TEST_CERT_POSTFIX):
-        duthost.shell("docker exec acms cp /tmp/acms.pfx %s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)), module_ignore_errors=True)
+        cp_cmd = "docker exec %s cp /tmp/acms.pfx %s%s.pfx.%s" % (
+            container_name, acms_certs_path, certs_name, str(i))
+        duthost.shell(cp_cmd, module_ignore_errors=True)
         # Update the notify file
-        dut_command = "echo %s%s.pfx.%s > %s%s.pfx.notify" % (acms_certs_path, certs_name, str(i), acms_certs_path, certs_name)
+        dut_command = "echo %s%s.pfx.%s > %s%s.pfx.notify" % (
+            acms_certs_path, certs_name, str(i), acms_certs_path, certs_name)
         duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl start cert_converter" % container_name
     duthost.shell(dut_command, module_ignore_errors=True)
@@ -91,7 +92,9 @@ def test_acms_cert_converter(duthosts, rand_one_dut_hostname, localhost):
         dut_command = "sudo rm /etc/sonic/credentials/restapiserver.key." + str(i)
         duthost.shell(dut_command, module_ignore_errors=True)
     i = 100
-    duthost.shell("docker exec acms cp /tmp/acms.pfx %s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)), module_ignore_errors=True)
+    cp_cmd = "docker exec %s cp /tmp/acms.pfx %s%s.pfx.%s" % (
+        container_name, acms_certs_path, certs_name, str(i))
+    duthost.shell(cp_cmd, module_ignore_errors=True)
     # Update the notify file
     with open("pfx.notify", "w+") as fp:
         fp.write("%s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)))
@@ -133,9 +136,12 @@ def test_acms_cert_converter_clean(duthosts, rand_one_dut_hostname, localhost):
     generate_pfx_cert(duthost, "acms")
     # Copy the pfx cert file to the DUT
     for i in range(MIN_TEST_CERT_POSTFIX, MAX_TEST_CERT_POSTFIX):
-        duthost.shell("docker exec acms cp /tmp/acms.pfx %s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)), module_ignore_errors=True)
+        cp_cmd = "docker exec %s cp /tmp/acms.pfx %s%s.pfx.%s" % (
+            container_name, acms_certs_path, certs_name, str(i))
+        duthost.shell(cp_cmd, module_ignore_errors=True)
         # Update the notify file
-        dut_command = "echo %s%s.pfx.%s > %s%s.pfx.notify" % (acms_certs_path, certs_name, str(i), acms_certs_path, certs_name)
+        dut_command = "echo %s%s.pfx.%s > %s%s.pfx.notify" % (
+            acms_certs_path, certs_name, str(i), acms_certs_path, certs_name)
         duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl start cert_converter" % container_name
     duthost.shell(dut_command, module_ignore_errors=True)
@@ -201,9 +207,12 @@ def test_acms_cert_converter_upgrade(duthosts, rand_one_dut_hostname, localhost)
     generate_pfx_cert(duthost, "acms")
     # Copy the pfx cert file to the DUT
     for i in range(MIN_TEST_CERT_POSTFIX, MAX_TEST_CERT_POSTFIX):
-        duthost.shell("docker exec acms cp /tmp/acms.pfx %s%s.pfx.%s" % (acms_certs_path, certs_name, str(i)), module_ignore_errors=True)
+        cp_cmd = "docker exec %s cp /tmp/acms.pfx %s%s.pfx.%s" % (
+            container_name, acms_certs_path, certs_name, str(i))
+        duthost.shell(cp_cmd, module_ignore_errors=True)
         # Update the notify file
-        dut_command = "echo %s%s.pfx.%s > %s%s.pfx.notify" % (acms_certs_path, certs_name, str(i), acms_certs_path, certs_name)
+        dut_command = "echo %s%s.pfx.%s > %s%s.pfx.notify" % (
+            acms_certs_path, certs_name, str(i), acms_certs_path, certs_name)
         duthost.shell(dut_command, module_ignore_errors=True)
 
     dut_command = "docker exec %s supervisorctl start cert_converter" % container_name

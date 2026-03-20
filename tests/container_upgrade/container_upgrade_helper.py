@@ -29,9 +29,9 @@ container_name_mapping = {
     "docker-gnmi-watchdog": "gnmi_watchdog",
     "docker-auditd": "auditd",
     "docker-auditd-watchdog": "auditd_watchdog",
-    "docker-acms": "acms",
-    "docker-acms-watchdog": "acms_watchdog",
-    "docker-acms-sidecar": "acms_sidecar",
+    "docker-acms": "k8s_acms_ds",
+    "docker-acms-watchdog": "k8s_acms_watchdog_ds",
+    "docker-acms-sidecar": "k8s_acms_sidecar_ds",
     "docker-sonic-bmp": "bmp",
     "docker-bmp-watchdog": "bmp_watchdog",
     "kubesonic-cleanup": "k8s_cleanup",
@@ -125,7 +125,7 @@ def create_testcase_mapping(testcase_file):
 def create_parameters_mapping(containers, parameters_file):
     with open(parameters_file, 'r') as file:
         data = json.load(file)
-    container_parameters = {container: details['parameters'] for container, details in data.items()}
+    container_parameters = {container: ' '.join(details['parameters']) for container, details in data.items()}
 
     return container_parameters
 
@@ -162,7 +162,7 @@ def validate_is_v1_enabled(duthost, sidecar_container_name):
     If sidecar container of existing service has IS_V1_ENABLED=false,
     existing service container should not be running
     """
-    container_name = sidecar_container_name.rsplit("_sidecar", 1)[0]
+    container_name = sidecar_container_name.replace("_sidecar", "")
     cmd = "docker exec %s env | grep IS_V1_ENABLED" % sidecar_container_name
     output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     if "IS_V1_ENABLED=false" in output:
