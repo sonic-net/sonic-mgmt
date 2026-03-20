@@ -1,9 +1,7 @@
 import logging
 import pytest
 
-from tests.common.fixtures.grpc_fixtures import (  # noqa: F401
-    setup_gnoi_tls_server, ptf_gnoi, ptf_grpc
-)
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.upgrade_path.test_upgrade_path import setup_upgrade_test
 from tests.common.helpers.upgrade_helpers import perform_gnoi_upgrade, GnoiUpgradeConfig
 
@@ -12,7 +10,6 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.usefixtures("setup_gnoi_tls_server"),
 ]
 
 
@@ -32,7 +29,7 @@ def gnoi_upgrade_path_lists(request):
 def test_upgrade_via_gnoi(
     localhost, duthosts, ptfhost, rand_one_dut_hostname,
     nbrhosts, fanouthosts, tbinfo, request,
-    gnoi_upgrade_path_lists, ptf_gnoi  # noqa: F811
+    gnoi_upgrade_path_lists, gnmi_tls  # noqa: F811
 ):
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -61,7 +58,7 @@ def test_upgrade_via_gnoi(
                            upgrade_type)
 
     perform_gnoi_upgrade(
-        ptf_gnoi=ptf_gnoi,
+        ptf_gnoi=gnmi_tls.gnoi,
         duthost=duthost,
         tbinfo=tbinfo,
         cfg=cfg,
