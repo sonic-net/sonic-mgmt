@@ -36,8 +36,8 @@ str2-msn4700-06,10.3.146.80/24,Mellanox-SN4700-V64,DevSonic,,sonic
 str2-msn4700-fanout-05,10.3.146.45/24,Mellanox-SN4700-V64,FanoutLeafSonic,,sonic
 str2-msn4700-fanout-06,10.3.146.89/24,Mellanox-SN4700-V64,FanoutLeafSonic,,sonic
 str2-msn4700-fanout-13,10.64.246.172/25,Mellanox-SN4700-O32,FanoutLeafSonic,,sonic
-str2-mlnx-4280-smartswitch-02,10.64.246.170/25,ACS-SN4280,DevSonic,,sonic
-str2-mlnx-4280-smartswitch-03,10.64.246.171/25,ACS-SN4280,DevSonic,,sonic
+str2-mlnx-4280-smartswitch-02,10.64.246.170/25,Mellanox-SN4280-O28,DevSonic,,sonic
+str2-mlnx-4280-smartswitch-03,10.64.246.171/25,Mellanox-SN4280-O28,DevSonic,,sonic
 str2-z9332f-02,10.3.146.84/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str2-z9332f-05,10.3.146.228/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
 str2-7260cx3-d09-u04,10.3.146.19/24,Arista-7260CX3,FanoutLeaf,,
