@@ -16,7 +16,8 @@ from tests.common.helpers.dut_utils import get_disabled_container_list
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.disable_memory_utilization
 ]
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
@@ -496,6 +497,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     skip_condition = disabled_containers[:]
     skip_condition.append("database")
     skip_condition.append("acms")
+    skip_condition.append("otel")
     if tbinfo["topo"]["type"] != "t0":
         skip_condition.append("radv")
     if "202412" in duthost.os_version:

@@ -823,6 +823,7 @@
           hwsku: "{{ hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
+          npu_index: "{{ dut_index | default(0) | int }}"
         become: true
 
       - name: Copy macsec profile json to dut
@@ -1028,6 +1029,12 @@
         become: true
         shell: config bgp startup all
 
+      - name: Wait for DPU control planes to boot after config reload
+        pause:
+          seconds: 300
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
+        tags: [ dpu_config ]
+
       - name: Copy smartswitch dpu config
         copy: src=golden_config_db/smartswitch_dpu_extra.json
               dest=/tmp/dpu_extra.json
@@ -1042,6 +1049,7 @@
           hostname: "{{ inventory_hostname }}"
           host_username: "{{ sonic_login }}"
           host_passwords: "{{ sonic_default_passwords }}"
+          npu_index: "{{ dut_index | default(0) | int }}"
         become: true
         # t1-28-lag is smartswitch topo only
         when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_lit_mode|bool == true
@@ -1140,10 +1148,22 @@
               var: grpc_secrets_after
 
           - name: restart the pmon service
-            service:
-              name: pmon
-              state: restarted
-            become: true
+            block:
+              - name: attempt to restart pmon service
+                service:
+                  name: pmon
+                  state: restarted
+                become: true
+            rescue:
+              - name: reset failed state for pmon service
+                command: systemctl reset-failed pmon.service
+                become: true
+
+              - name: start pmon service after reset
+                service:
+                  name: pmon
+                  state: started
+                become: true
 
           when: stat_result.stat.exists
 
