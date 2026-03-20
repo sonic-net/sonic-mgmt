@@ -32,8 +32,7 @@ MAX_COOL_OFF_TIME = 300
 EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG = 40
 
 
-# @pytest.fixture(params=["gnoi_based", "cli_based"])
-@pytest.fixture(params=["gnoi_based"])
+@pytest.fixture(params=["gnoi_based", "cli_based"])
 def invocation_type(request):
     """Parametrize reboot tests to run with both gNOI and CLI reboot paths."""
     return request.param
