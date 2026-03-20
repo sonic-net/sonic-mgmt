@@ -143,8 +143,7 @@ def check_ssh_connectivity_to_supervisor(localhost, supervisor_ip):
             timeout=2,  # Reduced timeout for more sensitive detection
             module_ignore_errors=True
         )
-        is_connected = not (result.is_failed or ('Timeout' in str(result)))
-        return is_connected
+        return not (result.is_failed or ('Timeout' in str(result)))
     except Exception:
         return False
 
@@ -361,18 +360,11 @@ def execute_flap_and_monitor_ssh(duthost_console, localhost, supervisor_ip, num_
             
             # Log cycle results
             cycle_time = time.time() - cycle_start
-            if ssh_disconnection_detected:
-                logging.info(
-                    "{} - Cycle {} COMPLETED: SSH disconnect detected at {:.1f}s, restored in {:.1f}s total".format(
-                        LOG_PREFIX, cycle, disconnect_detected_time, cycle_time
-                    )
+            logging.info(
+                "{} - Cycle {} COMPLETED: SSH disconnect detected at {:.1f}s, restored in {:.1f}s total".format(
+                    LOG_PREFIX, cycle, disconnect_detected_time, cycle_time
                 )
-            else:
-                logging.warning(
-                    "{} - Cycle {} COMPLETED: NO SSH disconnect detected, total time {:.1f}s".format(
-                        LOG_PREFIX, cycle, cycle_time
-                    )
-                )
+            )
             
             # Brief rest between cycles in stress test
             if num_cycles > 1 and cycle < num_cycles:
