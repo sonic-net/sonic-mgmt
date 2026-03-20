@@ -2,7 +2,6 @@ import os
 import re
 import json
 import logging
-import pytest
 
 
 def controlplane_gating(reboot_timing_dict):
@@ -70,5 +69,4 @@ def controlplane_gating(reboot_timing_dict):
                 f"for {hwsku} {base_version}->{target_version}"
             )
             logging.info("Gating failure: %s", gating_failures[-1])
-            pytest.fail(f"{label} threshold exceeded: {val:.2f}s > {avg:.2f}s + {wiggle:.2f}s")
     return gating_failures

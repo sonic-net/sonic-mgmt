@@ -1032,7 +1032,8 @@ def advanceboot_loganalyzer_factory(duthost, request, marker_postfix=None):
             "BaseImage": result_summary.get("base_ver"),
             "TargetImage": result_summary.get("target_ver")
         }
-        controlplane_gating(gating_input)
+        # Run control plane gating
+        gating_failures = controlplane_gating(gating_input)
 
         report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),
                                            "../../logs/platform_tests/")))
@@ -1047,6 +1048,9 @@ def advanceboot_loganalyzer_factory(duthost, request, marker_postfix=None):
 
         # After generating timing data report, do some checks on the timing data
         verification_errors = list()
+        # Append the gating failures
+        if gating_failures:
+            verification_errors.extend(gating_failures)
         verify_mac_jumping(test_name, analyze_result, verification_errors)
         if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
             # TBD: expand this verification to KVM - extra port events in KVM which need to be filtered
