@@ -1,0 +1,48 @@
+# Step template: PR Failure Analyzer
+# Reusable steps for running pr_failure_analyzer.py.
+# Included by pr_failure_analyzer.yml (standalone) and pr_full_pipeline.yml (combined).
+parameters:
+  - name: LOOKBACK_DAYS
+    type: number
+    default: 7
+  - name: FAILURE_INFO_FILE
+    type: string
+    default: "failure_info.json"
+  - name: UPLOAD_KUSTO
+    type: boolean
+    default: true
+
+steps:
+  - template: ../../.azure-pipelines/templates/install-azure-cli.yml
+
+  - task: AzureCLI@2
+    retryCountOnTaskFailure: 3
+    displayName: Run PR failure analyzer
+    inputs:
+      azureSubscription: "SONiC-Automation"
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+        export ACCESS_TOKEN=$accessToken
+        set -x
+        cd test_analyzer
+        pip install -r requirements.txt
+        cd pr_binary_search
+        python pr_failure_analyzer.py \
+          --lookback_days ${{ parameters.LOOKBACK_DAYS }} \
+          --failure_info_file ${{ parameters.FAILURE_INFO_FILE }} \
+          --upload_kusto ${{ parameters.UPLOAD_KUSTO }}
+    env:
+      KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+      GIT_API_TOKEN: $(GIT_API_TOKEN)
+      TEST_BASELINE_LOW_SUCCESS_THRESHOLD: $(TEST_BASELINE_LOW_SUCCESS_THRESHOLD)
+      TEST_PR_LOW_SUCCESS_THRESHOLD: $(TEST_PR_LOW_SUCCESS_THRESHOLD)
+      TEST_PREVIOUS_SUCCESS_THRESHOLD: $(TEST_PREVIOUS_SUCCESS_THRESHOLD)
+      TOTAL_TEST_COUNT_THRESHOLD: $(TOTAL_TEST_COUNT_THRESHOLD)
+      TEST_QUERY_DAYS_RANGE: $(TEST_QUERY_DAYS_RANGE)
+
+  - publish: $(Build.SourcesDirectory)/test_analyzer/pr_binary_search/${{ parameters.FAILURE_INFO_FILE }}
+    artifact: failure-info
+    displayName: Publish failure info artifact
+    condition: succeeded()

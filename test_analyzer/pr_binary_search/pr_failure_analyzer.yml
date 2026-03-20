@@ -1,5 +1,6 @@
-# This job is for periodically polling testbed health and upload polling results to Kusto
-
+# Pipeline: PR Failure Analyzer (standalone)
+# Runs failure analysis and publishes failure_info.json as a pipeline artifact.
+# Step logic lives in pr_failure_analyzer_steps.yml (shared with pr_full_pipeline.yml).
 name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
 
 trigger: none
@@ -7,70 +8,42 @@ pr: none
 
 schedules:
   - cron: "0 22 * * *"
-    displayName: PRFailureAnalyzer
+    displayName: Daily PR Failure Analyzer
     branches:
       include:
         - internal
     always: true
 
 parameters:
-  - name: START_TIME
-    type: string
-    default: null
-    displayName: "Start Time"
-
-  - name: END_TIME
-    type: string
-    default: null
-    displayName: "End Time"
-
+  - name: LOOKBACK_DAYS
+    type: number
+    default: 7
+    displayName: "Lookback Days"
   - name: FAILURE_INFO_FILE
     type: string
     default: "failure_info.json"
-    displayName: "Failure Info File"
+    displayName: "Failure Info Output File"
+  - name: UPLOAD_KUSTO
+    type: boolean
+    default: true
+    displayName: "Upload results to Kusto"
 
 stages:
   - stage: PRFailureAnalyzer
     jobs:
       - job: PRFailureAnalyzer
-        timeoutInMinutes: 180
+        pool: sonic-ubuntu-1c
+        timeoutInMinutes: 1440
         variables:
           - group: KUSTO_SECRETS
           - group: GIT_SECRETS
           - group: PR Regression
+          - group: sonicbld
           - name: skipComponentGovernanceDetection
             value: true
-
         steps:
-          - task: AzureCLI@2
-            retryCountOnTaskFailure: 3
-            displayName: Run PR failure analyzer script
-            inputs:
-              azureSubscription: "SONiC-Automation"
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                pwd
-
-                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
-                export ACCESS_TOKEN=$accessToken
-
-                set -x
-
-                cd test_analyzer
-                pip install -r requirements.txt
-                cd pr_binary_search
-
-                python pr_failure_analyzer.py \
-                  --failure_info_file ${{ parameters.FAILURE_INFO_FILE }}
-
-                python pr_failure_info_kusto_uploader.py \
-                  --input_file ${{ parameters.FAILURE_INFO_FILE }}
-            env:
-              KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
-              GIT_API_TOKEN: $(GIT_API_TOKEN)
-              BASELINE_LOW_SUCCESS_THRESHOLD: $(BASELINE_LOW_SUCCESS_THRESHOLD)
-              PR_LOW_SUCCESS_THRESHOLD: $(PR_LOW_SUCCESS_THRESHOLD)
-              PREVIOUS_SUCCESS_THRESHOLD: $(PREVIOUS_SUCCESS_THRESHOLD)
-              TOTAL_TEST_COUNT_THRESHOLD: $(TOTAL_TEST_COUNT_THRESHOLD)
-              QUERY_DAYS_RANGE: $(QUERY_DAYS_RANGE)
+          - template: pr_failure_analyzer_steps.yml
+            parameters:
+              LOOKBACK_DAYS: ${{ parameters.LOOKBACK_DAYS }}
+              FAILURE_INFO_FILE: ${{ parameters.FAILURE_INFO_FILE }}
+              UPLOAD_KUSTO: ${{ parameters.UPLOAD_KUSTO }}

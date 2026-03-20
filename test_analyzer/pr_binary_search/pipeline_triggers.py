@@ -1,6 +1,7 @@
 import requests
 import logging
 import time
+import re
 from requests.auth import HTTPBasicAuth
 from schemas import (
     PipelineRunParameters,
@@ -10,6 +11,11 @@ from schemas import (
 
 logging.basicConfig(level=logging.INFO, format='[%(threadName)s] %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
 logger = logging.getLogger(__name__)
+
+ELASTICTEST_PLAN_PATTERNS = [
+    re.compile(r"elastictest\.org/scheduler/testplan/([A-Za-z0-9-]+)"),
+    re.compile(r"TestPlanId[\"'=:\s]+([A-Za-z0-9-]{6,})"),
+]
 
 
 class AzureDevOpsClient:
@@ -73,6 +79,44 @@ class AzureDevOpsClient:
         else:
             logger.error(f"Failed to get pipeline status: {resp.status_code}, {resp.text}")
             return None
+
+    def get_pipeline_logs(self, run_id: int) -> list:
+        url = f"{self.url_prefix}/build/builds/{run_id}/logs?api-version=7.1"
+        resp = requests.get(
+            url,
+            headers={"Content-Type": "application/json"},
+            auth=HTTPBasicAuth("", self.token)
+        )
+        if resp.status_code != 200:
+            logger.error(f"Failed to get pipeline logs for {run_id}: {resp.status_code}, {resp.text}")
+            return []
+        return resp.json().get("value", [])
+
+    def get_pipeline_log_content(self, run_id: int, log_id: int) -> str:
+        url = f"{self.url_prefix}/build/builds/{run_id}/logs/{log_id}?api-version=7.1"
+        resp = requests.get(
+            url,
+            headers={"Content-Type": "text/plain"},
+            auth=HTTPBasicAuth("", self.token)
+        )
+        if resp.status_code != 200:
+            logger.error(
+                f"Failed to get pipeline log content for run={run_id}, log={log_id}: {resp.status_code}, {resp.text}")
+            return ""
+        return resp.text
+
+    def extract_test_plan_ids(self, run_id: int) -> list:
+        test_plan_ids = set()
+        for log in self.get_pipeline_logs(run_id):
+            log_id = log.get("id")
+            if log_id is None:
+                continue
+            content = self.get_pipeline_log_content(run_id, log_id)
+            if not content:
+                continue
+            for pattern in ELASTICTEST_PLAN_PATTERNS:
+                test_plan_ids.update(pattern.findall(content))
+        return sorted(test_plan_ids)
 
     def poll_pipeline_results(
         self, pipeline_runs, timeout=21600, check_interval=60
@@ -200,27 +244,45 @@ class AzureDevOpsClient:
 
 
 def build_queue_payload(branch: str, commit: str, stage: str, parameters) -> dict:
-    """Prepare payload for triggering a pipeline run"""
+    """Prepare payload for triggering a pipeline run via ADO Pipelines runs API."""
     if stage == "test":
         if not isinstance(parameters, TestPipelineParameters):
             raise ValueError("Expected TestPipelineParameters")
+        # The test pipeline (pre_defined_pr_test) lives in sonic-net/sonic-mgmt.
+        # Do NOT set "version" here: the incoming `commit` is a sonic-buildimage SHA
+        # that does not exist in sonic-mgmt, which causes a 400 Bad Request.
+        # Omitting "version" lets Azure DevOps use the branch HEAD of sonic-mgmt.
+        payload = {
+            "resources": {
+                "repositories": {
+                    "self": {
+                        "refName": f"refs/heads/{branch}",
+                    }
+                }
+            },
+            "templateParameters": parameters.to_payload(),
+        }
+        return payload
+
     elif stage == "build":
         if not isinstance(parameters, BuildPipelineParameters):
             raise ValueError("Expected BuildPipelineParameters")
+        # Build pipeline (build_vs_image) uses sonic-buildimage as its self-repo,
+        # so setting "version" to a buildimage SHA is correct.
+        return {
+            "resources": {
+                "repositories": {
+                    "self": {
+                        "refName": f"refs/heads/{branch}",
+                        "version": commit,
+                    }
+                }
+            },
+            "templateParameters": parameters.to_payload(),
+        }
+
     else:
         raise ValueError(f"Unknown stage: {stage}")
-
-    return {
-        "resources": {
-            "repositories": {
-                "self": {
-                    "refName": f"refs/heads/{branch}",
-                    "version": commit,
-                }
-            }
-        },
-        "templateParameters": parameters.to_payload()
-    }
 
 
 def trigger_pipeline(

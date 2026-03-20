@@ -1,0 +1,46 @@
+# Step template: PR Binary Search
+# Reusable steps for running pr_binary_search.py.
+# Reads failure info from Kusto (PRBinarySearchFailureInfo table) - no artifact download needed.
+# Included by pr_binary_search.yml (standalone) and pr_binary_search_full_pipeline.yml (combined).
+parameters:
+  - name: KUSTO_LOOKBACK_HOURS
+    type: number
+    default: 48
+    displayName: "Kusto lookback window (hours) for failure info"
+  - name: MAX_PARALLEL
+    type: number
+    default: 5
+  - name: UPLOAD_KUSTO
+    type: boolean
+    default: true
+  - name: USE_AGENCY_FAILURE_INFO
+    type: boolean
+    default: false
+    displayName: "Use PRBinarySearchFailureInfoAgency as Kusto failure info source"
+
+steps:
+  - template: ../../.azure-pipelines/templates/install-azure-cli.yml
+
+  - task: AzureCLI@2
+    retryCountOnTaskFailure: 0
+    displayName: Run PR binary search
+    inputs:
+      azureSubscription: "SONiC-Automation"
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+        export ACCESS_TOKEN=$accessToken
+        set -x
+        cd test_analyzer
+        pip install -r requirements.txt
+        cd pr_binary_search
+        python pr_binary_search.py \
+          --from_kusto True \
+          --kusto_lookback_hours ${{ parameters.KUSTO_LOOKBACK_HOURS }} \
+          --max_parallel ${{ parameters.MAX_PARALLEL }} \
+          --upload_kusto ${{ parameters.UPLOAD_KUSTO }} \
+          --USE_AGENCY_FAILURE_INFO ${{ parameters.USE_AGENCY_FAILURE_INFO }}
+    env:
+      KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+      MSSONIC_TOKEN: $(MSSONIC-TOKEN)

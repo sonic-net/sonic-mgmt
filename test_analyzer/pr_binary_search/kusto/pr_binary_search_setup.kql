@@ -1,0 +1,167 @@
+////////////////////////////////////////////////////////////////////////////////
+// PR Binary Search Kusto Setup
+//
+// Purpose:
+// 1. Keep `PRBinarySearchFailureInfo` as the failure-analyzer source table.
+// 2. Add execution-level tables so one failure can be traced to:
+//    - each binary-search round
+//    - each tested commit
+//    - each Azure DevOps pipeline run
+//    - each Elastictest test plan id
+// 3. Add a summary table for the final root-cause conclusion.
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+// Optional helper function:
+// Build a stable join key from the existing failure analyzer table.
+////////////////////////////////////////////////////////////////////////////////
+.create-or-alter function with (
+    folder = "PRBinarySearch",
+    docstring = "Normalized failure analyzer view with FailureJoinKey for binary-search joins"
+) PRBinarySearchFailureInfoView() {
+    PRBinarySearchFailureInfo
+    | extend FailureJoinKey = strcat(
+        SourceRepo, "|", Branch, "|", TriggerType, "|",
+        CheckerType, "|", FilePath, "|", ModulePath, "|", TestCase
+    )
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// Table 1: execution records
+// One row per failure x round x commit x stage(build/test).
+////////////////////////////////////////////////////////////////////////////////
+.create-merge table PRBinarySearchLog (
+    SearchRunId: string,
+    AnalyzerRunId: string,
+    FailureJoinKey: string,
+    TriggerType: string,
+    SourceRepo: string,
+    Branch: string,
+    CheckerType: string,
+    FilePath: string,
+    ModulePath: string,
+    TestCase: string,
+    RoundNumber: int,
+    CommitSha: string,
+    Stage: string,
+    Verdict: string,
+    IsBad: bool,
+    PipelineDefinitionId: int,
+    PipelineRunId: string,
+    PipelineUrl: string,
+    Status: string,
+    Result: string,
+    BuildReason: string,
+    ImpactAreaInfo: dynamic,
+    RawRecord: dynamic,
+    UploadTime: datetime
+)
+
+.create-or-alter table PRBinarySearchLog ingestion json mapping "PRBinarySearchLogMappingV1" @'[
+  {"column":"SearchRunId","Properties":{"path":"$.SearchRunId"}},
+  {"column":"AnalyzerRunId","Properties":{"path":"$.AnalyzerRunId"}},
+  {"column":"FailureJoinKey","Properties":{"path":"$.FailureJoinKey"}},
+  {"column":"TriggerType","Properties":{"path":"$.TriggerType"}},
+  {"column":"SourceRepo","Properties":{"path":"$.SourceRepo"}},
+  {"column":"Branch","Properties":{"path":"$.Branch"}},
+  {"column":"CheckerType","Properties":{"path":"$.CheckerType"}},
+  {"column":"FilePath","Properties":{"path":"$.FilePath"}},
+  {"column":"ModulePath","Properties":{"path":"$.ModulePath"}},
+  {"column":"TestCase","Properties":{"path":"$.TestCase"}},
+  {"column":"RoundNumber","Properties":{"path":"$.RoundNumber"}},
+  {"column":"CommitSha","Properties":{"path":"$.CommitSha"}},
+  {"column":"Stage","Properties":{"path":"$.Stage"}},
+  {"column":"Verdict","Properties":{"path":"$.Verdict"}},
+  {"column":"IsBad","Properties":{"path":"$.IsBad"}},
+  {"column":"PipelineDefinitionId","Properties":{"path":"$.PipelineDefinitionId"}},
+  {"column":"PipelineRunId","Properties":{"path":"$.PipelineRunId"}},
+  {"column":"PipelineUrl","Properties":{"path":"$.PipelineUrl"}},
+  {"column":"Status","Properties":{"path":"$.Status"}},
+  {"column":"Result","Properties":{"path":"$.Result"}},
+  {"column":"BuildReason","Properties":{"path":"$.BuildReason"}},
+  {"column":"ImpactAreaInfo","Properties":{"path":"$.ImpactAreaInfo"}},
+  {"column":"RawRecord","Properties":{"path":"$.RawRecord"}},
+  {"column":"UploadTime","Properties":{"path":"$.UploadTime"}}
+]'
+
+////////////////////////////////////////////////////////////////////////////////
+// Table 2: pipeline-run -> Elastictest test plan ids
+// One row per failure x commit x pipeline run x test plan id.
+////////////////////////////////////////////////////////////////////////////////
+.create-merge table PRBinarySearchTestPlanMap (
+    SearchRunId: string,
+    FailureJoinKey: string,
+    PipelineRunId: string,
+    RoundNumber: int,
+    CommitSha: string,
+    TestPlanId: string,
+    UploadTime: datetime
+)
+
+.create-or-alter table PRBinarySearchTestPlanMap ingestion json mapping "PRBinarySearchTestPlanMapMappingV1" @'[
+  {"column":"SearchRunId","Properties":{"path":"$.SearchRunId"}},
+  {"column":"FailureJoinKey","Properties":{"path":"$.FailureJoinKey"}},
+  {"column":"PipelineRunId","Properties":{"path":"$.PipelineRunId"}},
+  {"column":"RoundNumber","Properties":{"path":"$.RoundNumber"}},
+  {"column":"CommitSha","Properties":{"path":"$.CommitSha"}},
+  {"column":"TestPlanId","Properties":{"path":"$.TestPlanId"}},
+  {"column":"UploadTime","Properties":{"path":"$.UploadTime"}}
+]'
+
+////////////////////////////////////////////////////////////////////////////////
+// Table 3: final binary-search summary
+// One row per failure.
+////////////////////////////////////////////////////////////////////////////////
+.create-merge table PRBinarySearchResult (
+    SearchRunId: string,
+    AnalyzerRunId: string,
+    FailureJoinKey: string,
+    TriggerType: string,
+    SourceRepo: string,
+    Branch: string,
+    CheckerType: string,
+    FilePath: string,
+    ModulePath: string,
+    TestCase: string,
+    LikelyIssueClose: bool,
+    RootCauseType: string,
+    RootCauseValue: string,
+    IssueRepo: string,
+    IssueNumber: string,
+    IssueClosedAt: datetime,
+    BadCommit: string,
+    TotalRounds: int,
+    SearchCompleted: bool,
+    FinalRange: dynamic,
+    TestedPipelineRunIds: dynamic,
+    TestedTestPlanIds: dynamic,
+    RawSummary: dynamic,
+    UploadTime: datetime
+)
+
+.create-or-alter table PRBinarySearchResult ingestion json mapping "PRBinarySearchResultMappingV1" @'[
+  {"column":"SearchRunId","Properties":{"path":"$.SearchRunId"}},
+  {"column":"AnalyzerRunId","Properties":{"path":"$.AnalyzerRunId"}},
+  {"column":"FailureJoinKey","Properties":{"path":"$.FailureJoinKey"}},
+  {"column":"TriggerType","Properties":{"path":"$.TriggerType"}},
+  {"column":"SourceRepo","Properties":{"path":"$.SourceRepo"}},
+  {"column":"Branch","Properties":{"path":"$.Branch"}},
+  {"column":"CheckerType","Properties":{"path":"$.CheckerType"}},
+  {"column":"FilePath","Properties":{"path":"$.FilePath"}},
+  {"column":"ModulePath","Properties":{"path":"$.ModulePath"}},
+  {"column":"TestCase","Properties":{"path":"$.TestCase"}},
+  {"column":"LikelyIssueClose","Properties":{"path":"$.LikelyIssueClose"}},
+  {"column":"RootCauseType","Properties":{"path":"$.RootCauseType"}},
+  {"column":"RootCauseValue","Properties":{"path":"$.RootCauseValue"}},
+  {"column":"IssueRepo","Properties":{"path":"$.IssueRepo"}},
+  {"column":"IssueNumber","Properties":{"path":"$.IssueNumber"}},
+  {"column":"IssueClosedAt","Properties":{"path":"$.IssueClosedAt"}},
+  {"column":"BadCommit","Properties":{"path":"$.BadCommit"}},
+  {"column":"TotalRounds","Properties":{"path":"$.TotalRounds"}},
+  {"column":"SearchCompleted","Properties":{"path":"$.SearchCompleted"}},
+  {"column":"FinalRange","Properties":{"path":"$.FinalRange"}},
+  {"column":"TestedPipelineRunIds","Properties":{"path":"$.TestedPipelineRunIds"}},
+  {"column":"TestedTestPlanIds","Properties":{"path":"$.TestedTestPlanIds"}},
+  {"column":"RawSummary","Properties":{"path":"$.RawSummary"}},
+  {"column":"UploadTime","Properties":{"path":"$.UploadTime"}}
+]'

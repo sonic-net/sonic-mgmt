@@ -3,6 +3,7 @@ Shared fixed structures and constants for PR binary search.
 """
 import json
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -22,22 +23,29 @@ class TestPipelineParameters:
     RETRY_TIMES: str
     MGMT_COMMIT_HASH: str = None
     IMPACT_AREA_INFO: dict = None
+    # KVM_BUILD_ID is passed as a templateParameter so the elastictest scheduler
+    # can download the exact VS image built from a specific sonic-buildimage commit.
+    KVM_BUILD_ID: str = None
+    # OVERRIDE_PARAMS is forwarded to the pre_defined_pr_test pipeline's OVERRIDE_PARAMS
+    # templateParameter (type: object).  Use it to pass extra elastictest arguments such
+    # as KVM_IMAGE_BUILD_PIPELINE_ID without modifying the test-pipeline YAML.
+    OVERRIDE_PARAMS: Optional[dict] = None
 
     def to_payload(self) -> dict:
         payload = {}
-
         payload["BUILD_REASON"] = self.BUILD_REASON
         payload["BUILD_BRANCH"] = self.BUILD_BRANCH
         payload["TEST_PLAN_NUM"] = str(self.TEST_PLAN_NUM)
         payload["TEST_PLAN_STOP_ON_FAILURE"] = str(self.TEST_PLAN_STOP_ON_FAILURE)
         payload["RETRY_TIMES"] = str(self.RETRY_TIMES)
-
         if self.MGMT_COMMIT_HASH:
             payload["MGMT_COMMIT_HASH"] = self.MGMT_COMMIT_HASH
-
         if self.IMPACT_AREA_INFO:
             payload["IMPACT_AREA_INFO"] = json.dumps(self.IMPACT_AREA_INFO)
-
+        if self.OVERRIDE_PARAMS:
+            payload["OVERRIDE_PARAMS"] = json.dumps(self.OVERRIDE_PARAMS)
+        if self.KVM_BUILD_ID:
+            payload["KVM_BUILD_ID"] = self.KVM_BUILD_ID
         return payload
 
 

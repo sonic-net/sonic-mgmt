@@ -20,12 +20,22 @@ import datetime as dt
 from datetime import timezone, timedelta
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
 from azure.kusto.data.exceptions import KustoServiceError
+from config import (
+    ALLOWED_BRANCHES,
+    DEFAULT_FAILURE_INFO_FILE,
+    KUSTO_DATABASE,
+    KUSTO_FAILURE_MAPPING,
+    KUSTO_FAILURE_TABLE,
+    SUPPORTED_PUBLIC_REPOS,
+)
+from issue_close_analyzer import analyze_issue_close_with_conditional_mark
+from kusto_uploader import ingest_records_from_env
 
 logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 PR_SUMMARY_TABLE = "PRTestCaseResultSummary"
-DATABASE = "SonicTestData"
+DATABASE = KUSTO_DATABASE
 ingest_cluster = os.environ.get("KUSTO_CLUSTER_INGEST_URL", None)
 cluster = ingest_cluster.replace("ingest-", "") if ingest_cluster else None
 access_token = os.environ.get("ACCESS_TOKEN", None)
@@ -42,8 +52,18 @@ LAST_GOOD_SEARCH_STEP_DAYS = int(os.environ.get("LAST_GOOD_SEARCH_STEP_DAYS", 30
 INCLUDE_NEXT_COMMIT_AFTER_WINDOW = os.environ.get("INCLUDE_NEXT_COMMIT_AFTER_WINDOW", "true").lower() in (
     "1", "true", "yes", "on"
 )
-SUPPORTED_PUBLIC_REPOS = ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage"]
-KUSTO_OUTPUT_TABLE = "PRBinarySearchFailureInfo"
+KUSTO_OUTPUT_TABLE = KUSTO_FAILURE_TABLE
+
+
+def parse_bool_arg(value):
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"1", "true", "yes", "y", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "n", "off"}:
+        return False
+    raise argparse.ArgumentTypeError(f"Invalid boolean value: {value}")
 
 
 def isoformat_kusto(dtobj: dt.datetime) -> str:
@@ -212,13 +232,14 @@ def build_kusto_records(all_failure_entries, all_commit_info, run_id):
         key = _entry_key(entry)
         commits = commit_map.get(key, [])
         test_scripts = {entry.get("checker"): [entry.get("file_path")]}
-        likely_issue_close = bool(entry.get("result_type") == "issue_close_suspected")
+        likely_issue_close = bool(entry.get("result_type") == "issue_close_confirmed")
         if likely_issue_close:
             raw_failure_info = {
                 "issue_close_check": {
                     "prev_day": entry.get("issue_close_prev_day", {}),
                     "bad_day": entry.get("issue_close_bad_day", {}),
-                }
+                },
+                "issue_close_analysis": entry.get("issue_close_analysis", {}),
             }
         else:
             raw_failure_info = {
@@ -226,6 +247,7 @@ def build_kusto_records(all_failure_entries, all_commit_info, run_id):
                 "branch": entry.get("branch"),
                 "test_scripts": test_scripts,
                 "commits": commits,
+                "issue_close_analysis": entry.get("issue_close_analysis", {}),
             }
         record = {
             "AnalyzerRunId": run_id,
@@ -443,10 +465,17 @@ def get_failure_details(kusto, failure_details, all_failure_entries, failures, t
         if likely_issue_close:
             prev = issue_close_stats["prev_day"]
             bad = issue_close_stats["bad_day"]
-            # Keep a minimal window so issue-close suspected entries can still carry commit context.
             start_time = first_bad_time - timedelta(hours=FAILURE_WINDOW_FALLBACK_HOURS)
             end_time = first_bad_time + timedelta(hours=FAILURE_WINDOW_BUFFER_HOURS)
-            failure_details.append({
+            issue_close_analysis = analyze_issue_close_with_conditional_mark(
+                row['FilePath'],
+                row['ModulePath'],
+                row['TestCase'],
+                first_bad_time,
+                row['Branch'],
+            )
+            result_type = "issue_close_confirmed" if issue_close_analysis["confirmed"] else "candidate"
+            detail = {
                 "repo": row['SourceRepo'],
                 "branch": row['Branch'],
                 "checker": row['CheckerType'],
@@ -454,30 +483,28 @@ def get_failure_details(kusto, failure_details, all_failure_entries, failures, t
                 "file_path": row['FilePath'],
                 "module_path": row['ModulePath'],
                 "trigger_type": trigger_type,
-                "result_type": "issue_close_suspected",
+                "result_type": result_type,
                 "start_time": isoformat_kusto(start_time),
                 "end_time": isoformat_kusto(end_time),
                 "first_bad_time": isoformat_kusto(first_bad_time),
                 "last_good_time": None,
                 "issue_close_prev_day": prev,
                 "issue_close_bad_day": bad,
-            })
-            all_failure_entries.append({
-                "repo": row['SourceRepo'],
-                "branch": row['Branch'],
-                "checker": row['CheckerType'],
-                "testcase": row['TestCase'],
-                "file_path": row['FilePath'],
-                "module_path": row['ModulePath'],
-                "trigger_type": trigger_type,
-                "result_type": "issue_close_suspected",
-                "first_bad_time": isoformat_kusto(first_bad_time),
-                "last_good_time": None,
-                "start_time": isoformat_kusto(start_time),
-                "end_time": isoformat_kusto(end_time),
-                "issue_close_prev_day": prev,
-                "issue_close_bad_day": bad,
-            })
+                "issue_close_analysis": issue_close_analysis,
+            }
+            if issue_close_analysis["confirmed"]:
+                logger.info(
+                    f"Confirmed issue-close regression for {row['TestCase']}: "
+                    f"{issue_close_analysis['issues']}"
+                )
+            else:
+                logger.info(
+                    f"Issue-close heuristic not confirmed for {row['TestCase']}; "
+                    f"keeping it as binary-search candidate. analysis={issue_close_analysis}"
+                )
+
+            failure_details.append(dict(detail))
+            all_failure_entries.append(dict(detail))
             continue
 
         last_good_time = None
@@ -522,6 +549,7 @@ def get_failure_details(kusto, failure_details, all_failure_entries, failures, t
             "last_good_time": isoformat_kusto(last_good_time) if last_good_time else None,
             "issue_close_prev_day": issue_close_stats.get("prev_day", {}),
             "issue_close_bad_day": issue_close_stats.get("bad_day", {}),
+            "issue_close_analysis": {},
         }
         failure_details.append(detail)
         all_failure_entries.append(dict(detail))
@@ -558,6 +586,7 @@ def remove_duplicates_failures(failure_details):
 def deduplicate_failure_entries(entries):
     # Dedup for Kusto output by testcase identity.
     priority = {
+        "issue_close_confirmed": 4,
         "candidate": 3,
         "issue_close_suspected": 2,
         "no_first_bad_point": 1,
@@ -608,7 +637,7 @@ def deduplicate_failure_entries(entries):
     return list(unique.values())
 
 
-def analyze_candidates(kusto, lookback_days, failure_info_file):
+def analyze_candidates(kusto, lookback_days, failure_info_file, allowed_branches=None):
     now = dt.datetime.now(tz=timezone.utc)
     start = now - timedelta(days=lookback_days)
     end = now
@@ -616,6 +645,10 @@ def analyze_candidates(kusto, lookback_days, failure_info_file):
     failure_details = []
     all_failure_entries = []
     baseline_failures, pr_failures = get_pr_result_summary(kusto, start, end)
+    if allowed_branches is not None:
+        baseline_failures = [row for row in baseline_failures if row.get("Branch") in allowed_branches]
+        pr_failures = [row for row in pr_failures if row.get("Branch") in allowed_branches]
+        logger.info(f"Applied branch filter: {sorted(allowed_branches)}")
     if len(baseline_failures) > 0:
         logger.info(f"Total BaselineTest failures found: {baseline_failures}")
         failure_details, all_failure_entries = get_failure_details(
@@ -652,7 +685,8 @@ def analyze_candidates(kusto, lookback_days, failure_info_file):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--lookback_days", type=int, default=QUERY_DAYS_RANGE, help="Lookback days")
-    p.add_argument("--failure_info_file", type=str, default="failure_info.json", help="Output failure info file")
+    p.add_argument("--failure_info_file", type=str, default=DEFAULT_FAILURE_INFO_FILE, help="Output failure info file")
+    p.add_argument("--upload_kusto", type=parse_bool_arg, default=False, help="Upload generated failure info to Kusto")
     args = p.parse_args()
 
     if not cluster:
@@ -670,7 +704,19 @@ def main():
         f"BASELINE_LOW_SUCCESS_THRESHOLD={BASELINE_LOW_SUCCESS_THRESHOLD}")
     logger.info(f"Include next commit after window: {INCLUDE_NEXT_COMMIT_AFTER_WINDOW}")
     logger.info(f"Supported public repos: {SUPPORTED_PUBLIC_REPOS}")
-    analyze_candidates(kusto_client, args.lookback_days, args.failure_info_file)
+    _, kusto_records = analyze_candidates(
+        kusto_client,
+        args.lookback_days,
+        args.failure_info_file,
+        allowed_branches=set(ALLOWED_BRANCHES),
+    )
+    if args.upload_kusto:
+        ingest_records_from_env(
+            kusto_records,
+            database=KUSTO_DATABASE,
+            table=KUSTO_FAILURE_TABLE,
+            mapping=KUSTO_FAILURE_MAPPING,
+        )
 
 
 if __name__ == "__main__":

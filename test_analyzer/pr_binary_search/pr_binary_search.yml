@@ -1,38 +1,33 @@
-# This job is for periodically polling testbed health and upload polling results to Kusto
-
+# Pipeline: PR Binary Search (standalone)
+# Runs binary search to identify the bad commit for each failure.
+# Reads failure info from Kusto (PRBinarySearchFailureInfo) - no artifact download needed.
+# Step logic lives in pr_binary_search_steps.yml (shared with pr_binary_search_full_pipeline.yml).
 name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
-
 trigger: none
 pr: none
 
-schedules:
-  - cron: "0 22 * * *"
-    displayName: PRFailureAnalyzer
-    branches:
-      include:
-        - internal
-    always: true
-
 parameters:
-  - name: LOOKBACK_DAYS
+  - name: KUSTO_LOOKBACK_HOURS
     type: number
-    default: 7
-    displayName: "Lookback Days"
-
-  - name: FAILURE_INFO_FILE
-    type: string
-    default: "failure_info.json"
-    displayName: "Failure Info File"
-
+    default: 48
+    displayName: "Kusto lookback window (hours) for failure info"
   - name: MAX_PARALLEL
     type: number
     default: 5
-    displayName: "Max Parallel"
+    displayName: "Max Parallel Binary Searches"
+  - name: UPLOAD_KUSTO
+    type: boolean
+    default: true
+    displayName: "Upload results to Kusto"
+  - name: USE_AGENCY_FAILURE_INFO
+    type: boolean
+    default: false
+    displayName: "Use PRBinarySearchFailureInfoAgency as Kusto failure info source"
 
 stages:
-  - stage: PRFailureAnalyzer
+  - stage: PRBinarySearch
     jobs:
-      - job: PRFailureAnalyzer
+      - job: PRBinarySearch
         pool: sonic-ubuntu-1c
         timeoutInMinutes: 1440
         variables:
@@ -42,60 +37,10 @@ stages:
           - group: sonicbld
           - name: skipComponentGovernanceDetection
             value: true
-
         steps:
-          - template: ../../.azure-pipelines/templates/install-azure-cli.yml
-
-          - task: AzureCLI@2
-            retryCountOnTaskFailure: 3
-            displayName: Run PR failure analyzer script
-            inputs:
-              azureSubscription: "SONiC-Automation"
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                pwd
-
-                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
-                export ACCESS_TOKEN=$accessToken
-
-                set -x
-
-                cd test_analyzer
-                pip install -r requirements.txt
-                cd pr_binary_search
-
-                python pr_failure_analyzer.py --lookback_days ${{ parameters.LOOKBACK_DAYS }} --failure_info_file ${{ parameters.FAILURE_INFO_FILE }}
-
-                python pr_failure_info_kusto_uploader.py --input_file ${{ parameters.FAILURE_INFO_FILE }}
-            env:
-              KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
-              GIT_API_TOKEN: $(GIT_API_TOKEN)
-              TEST_BASELINE_LOW_SUCCESS_THRESHOLD: $(TEST_BASELINE_LOW_SUCCESS_THRESHOLD)
-              TEST_PR_LOW_SUCCESS_THRESHOLD: $(TEST_PR_LOW_SUCCESS_THRESHOLD)
-              TEST_PREVIOUS_SUCCESS_THRESHOLD: $(TEST_PREVIOUS_SUCCESS_THRESHOLD)
-              TOTAL_TEST_COUNT_THRESHOLD: $(TOTAL_TEST_COUNT_THRESHOLD)
-              TEST_QUERY_DAYS_RANGE: $(TEST_QUERY_DAYS_RANGE)
-
-          - task: AzureCLI@2
-            retryCountOnTaskFailure: 0
-            displayName: Run PR binary search
-            inputs:
-              azureSubscription: "SONiC-Automation"
-              scriptType: 'bash'
-              scriptLocation: 'inlineScript'
-              inlineScript: |
-                pwd
-
-                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
-                export ACCESS_TOKEN=$accessToken
-
-                set -x
-
-                cd test_analyzer
-                pip install -r requirements.txt
-                cd pr_binary_search
-
-                python pr_binary_search.py --failure_info_file ${{ parameters.FAILURE_INFO_FILE }} --max_parallel ${{ parameters.MAX_PARALLEL }}
-            env:
-              MSSONIC_TOKEN: $(MSSONIC-TOKEN)
+          - template: pr_binary_search_steps.yml
+            parameters:
+              KUSTO_LOOKBACK_HOURS: ${{ parameters.KUSTO_LOOKBACK_HOURS }}
+              MAX_PARALLEL: ${{ parameters.MAX_PARALLEL }}
+              UPLOAD_KUSTO: ${{ parameters.UPLOAD_KUSTO }}
+              USE_AGENCY_FAILURE_INFO: ${{ parameters.USE_AGENCY_FAILURE_INFO }}
