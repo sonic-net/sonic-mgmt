@@ -2,6 +2,7 @@ import os
 import re
 import json
 import logging
+import pytest
 
 
 def controlplane_gating(reboot_timing_dict):
@@ -54,6 +55,7 @@ def controlplane_gating(reboot_timing_dict):
             "No thresholds found for HwSku=%s, BaseImage=%s, TargetImage=%s. "
             "Skipping controlplane gating.", hwsku, base_version, target_version
         )
+        return []
 
     checks = [
         ("LACP", lacp_val, lacp_avg, LACP_WIGGLE_ROOM),
@@ -68,5 +70,5 @@ def controlplane_gating(reboot_timing_dict):
                 f"for {hwsku} {base_version}->{target_version}"
             )
             logging.info("Gating failure: %s", gating_failures[-1])
-            raise SystemExit(f"{label} threshold exceeded! Failing pipeline.")
+            pytest.fail(f"{label} threshold exceeded: {val:.2f}s > {avg:.2f}s + {wiggle:.2f}s")
     return gating_failures
