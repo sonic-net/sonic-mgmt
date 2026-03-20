@@ -261,7 +261,7 @@ def fib_info_files_per_function(duthosts, ptfhost, duts_running_config_facts, du
 
 
 @pytest.fixture(scope='module')
-def global_hash_capabilities(duthost):
+def global_hash_capabilities(duthosts, rand_one_dut_hostname):
     """
     Get the generic hash capabilities.
     Args:
@@ -270,6 +270,7 @@ def global_hash_capabilities(duthost):
         ecmp_hash_fields: a list of supported ecmp hash fields
         lag_hash_fields: a list of supported lag hash fields
     """
+    duthost = duthosts[rand_one_dut_hostname]
     global_hash_capabilities = duthost.get_switch_hash_capabilities()
     return {'ecmp': global_hash_capabilities['ecmp'], 'ecmp_algo': global_hash_capabilities['ecmp_algo'],
             'lag': global_hash_capabilities['lag'], 'lag_algo': global_hash_capabilities['lag_algo']}
