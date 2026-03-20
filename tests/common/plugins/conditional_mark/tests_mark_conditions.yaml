@@ -2888,9 +2888,9 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
 
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
-    reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
+    reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx and VPP use unified hash fields for ECMP and LAG.'
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx', 'vpp']"
   xfail:
     reason: 'ECMP hash skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/18304 Or xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20733'
     conditions_logical_operator: or
@@ -2919,9 +2919,9 @@ hash/test_generic_hash.py::test_hash_capability:
 
 hash/test_generic_hash.py::test_lag_hash:
   skip:
-    reason: 'LAG hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
+    reason: 'LAG hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx and VPP use unified hash fields for ECMP and LAG.'
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx', 'vpp']"
   xfail:
     reason: 'xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20733'
     conditions:

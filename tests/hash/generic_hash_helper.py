@@ -27,8 +27,11 @@ ETHERTYPE_RANGE = [0x0801, 0x0900]
 ENCAPSULATION = ['ipinip', 'vxlan', 'nvgre']
 MELLANOX_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT']
 CISCO_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT']
+VPP_SUPPORTED_HASH_ALGORITHM = ['CRC']
 MARVELL_TERALYNX_HASH_ALGORITHM = ['CRC', 'XOR']
 DEFAULT_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT', 'RANDOM', 'XOR']
+VPP_SUPPORTED_REBOOT_TYPES = ['cold', 'reload']
+DEFAULT_SUPPORTED_REBOOT_TYPES = ['cold', 'warm', 'fast', 'reload']
 
 MELLANOX_ECMP_HASH_FIELDS = [
     'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT',
@@ -44,6 +47,12 @@ CISCO_ECMP_HASH_FIELDS = [
     'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
 ]
 CISCO_LAG_HASH_FIELDS = [
+    'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
+]
+VPP_ECMP_HASH_FIELDS = [
+    'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
+]
+VPP_LAG_HASH_FIELDS = [
     'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
 ]
 MARVELL_TERALYNX_ECMP_HASH_FIELDS = [
@@ -70,6 +79,8 @@ HASH_CAPABILITIES = {'mellanox': {'ecmp': MELLANOX_ECMP_HASH_FIELDS,
                                  'lag': DEFAULT_LAG_HASH_FIELDS},
                      'cisco-8000': {'ecmp': CISCO_ECMP_HASH_FIELDS,
                                     'lag': CISCO_LAG_HASH_FIELDS},
+                     'vpp': {'ecmp': VPP_ECMP_HASH_FIELDS,
+                             'lag': VPP_LAG_HASH_FIELDS},
                      'marvell-teralynx': {'ecmp': MARVELL_TERALYNX_ECMP_HASH_FIELDS,
                                           'lag': MARVELL_TERALYNX_LAG_HASH_FIELDS}}
 
@@ -94,6 +105,8 @@ def get_supported_hash_algorithms(request):
         supported_hash_algorithm_list = MELLANOX_SUPPORTED_HASH_ALGORITHM[:]
     elif asic_type in 'cisco-8000':
         supported_hash_algorithm_list = CISCO_SUPPORTED_HASH_ALGORITHM[:]
+    elif asic_type in 'vpp':
+        supported_hash_algorithm_list = VPP_SUPPORTED_HASH_ALGORITHM[:]
     elif asic_type in 'marvell-teralynx':
         supported_hash_algorithm_list = MARVELL_TERALYNX_HASH_ALGORITHM[:]
     else:
@@ -362,6 +375,37 @@ def check_default_route_asic_db(duthost):
         return False
 
 
+def check_vpp_fib_paths(duthost, expected_path_count, destination='0.0.0.0/0'):
+    """
+    Check that the VPP FIB has programmed all expected paths for a given destination.
+    Runs 'docker exec syncd vppctl show ip fib <destination>' and parses the
+    'len:N' value from the path-list output line.
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+        expected_path_count: expected number of paths (i.e. len(expected_port_groups))
+        destination: FIB destination prefix to check (default: '0.0.0.0/0')
+    Returns:
+        True if the number of paths matches expected_path_count.
+    """
+    logger.info("Check VPP FIB paths for %s, expecting %d paths.", destination, expected_path_count)
+    output = duthost.shell('docker exec syncd vppctl show ip fib {}'.format(destination),
+                           module_ignore_errors=True)["stdout"]
+    # Parse "len:N" from the path-list line, e.g.:
+    #   path-list:[430] locks:12738 flags:shared,popular, uPRF-list:346 len:8 itfs:[65, 66, ...]
+    # Note: There is also a "len:0" on the default-route drop entry whose line contains "flags:drop".
+    # We skip any line containing "flags:drop" and match the active path-list line only.
+    for line in output.splitlines():
+        if 'path-list:' in line and 'flags:drop' not in line:
+            match = re.search(r'len:(\d+)', line)
+            if match:
+                actual_paths = int(match.group(1))
+                logger.info("VPP FIB %s: expected %d paths, got %d paths.",
+                            destination, expected_path_count, actual_paths)
+                return actual_paths >= expected_path_count
+    logger.warning("Could not parse path count from VPP FIB output: %s", output)
+    return False
+
+
 def get_ptf_port_indices(mg_facts, downlink_interfaces, uplink_interfaces):
     """
     Get the ptf port indices for the interfaces under test.
@@ -586,6 +630,8 @@ def get_hash_algorithm_from_option(request, hash_algorithm_identifier):
         supported_hash_algorithm_list = MELLANOX_SUPPORTED_HASH_ALGORITHM[:]
     elif asic_type in 'cisco-8000':
         supported_hash_algorithm_list = CISCO_SUPPORTED_HASH_ALGORITHM[:]
+    elif asic_type in 'vpp':
+        supported_hash_algorithm_list = VPP_SUPPORTED_HASH_ALGORITHM[:]
     elif asic_type in 'marvell-teralynx':
         supported_hash_algorithm_list = MARVELL_TERALYNX_HASH_ALGORITHM[:]
     else:
@@ -606,12 +652,14 @@ def get_diff_hash_algorithm(supported_algorithm, get_supported_hash_algorithms):
     """
     Get a different supported hash algorithm
     :param supported_algorithm: current supported algorithm
-    :return: another supported algorithm
+    :return: another supported algorithm, or the same one if only one is supported
     """
     supported_hash_algorithm_list = get_supported_hash_algorithms[:]
     if supported_algorithm in supported_hash_algorithm_list:
         temp_hash_algo_list = supported_hash_algorithm_list
         temp_hash_algo_list.remove(supported_algorithm)
+        if not temp_hash_algo_list:
+            return supported_algorithm
         return random.choice(temp_hash_algo_list)
     else:
         return random.choice(supported_hash_algorithm_list)
@@ -632,19 +680,27 @@ def get_ip_version_from_option(ip_version_option):
     else:
         return [ip_version_option]
 
-
-def get_reboot_type_from_option(reboot_option):
+def get_reboot_type_from_option(request, reboot_option):
     """
     Generate the reboot type to test based on the pytest option.
     Args:
+        request: pytest metafunc or request object for getting asic type
         reboot_option: the pytest option value of --reboot
     Returns:
         the list of reboot types
     """
+    asic_type = get_asic_type(request)
+    if asic_type == 'vpp':
+        supported_reboot_types = VPP_SUPPORTED_REBOOT_TYPES
+    else:
+        supported_reboot_types = DEFAULT_SUPPORTED_REBOOT_TYPES
+
     if reboot_option == 'all':
-        return ['cold', 'warm', 'fast', 'reload']
+        return supported_reboot_types[:]
     elif reboot_option == 'random':
-        return [random.choice(['cold', 'warm', 'fast', 'reload'])]
+        return [random.choice(supported_reboot_types)]
+    elif reboot_option in supported_reboot_types:
+        return [reboot_option]
     else:
         return [reboot_option]
 
