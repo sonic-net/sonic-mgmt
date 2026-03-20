@@ -1,24 +1,11 @@
 """
-Test SNMP Queue Counters
+Validates SNMP queue counter behavior with create_only_config_db_buffers 
+optimization: that SNMP correctly exposes queue counters and that removing
+buffer queue configuration properly reduces the counter count.
 
-This test validates SNMP queue counter behavior with the
-create_only_config_db_buffers optimization. It verifies that SNMP correctly
-exposes queue counters and that removing buffer queue configuration properly
-reduces the counter count.
-
-Key Implementation Notes:
--------------------------
-The SNMP agent reads queue information from COUNTERS_QUEUE_NAME_MAP in Redis,
-which contains ALL SAI queue objects (both unicast and multicast) regardless
-of buffer configuration. SNMP exposes all queue objects that exist in the
-hardware/SAI layer.
-
-In contrast, `queuestat` only shows queues that have flex counters
-registered, which depends on BUFFER_QUEUE configuration when
-create_only_config_db_buffers=true.
-
-Therefore, to correctly predict SNMP counter counts, we must query
-COUNTERS_QUEUE_NAME_MAP directly rather than relying on queuestat output.
+N.B.: The SNMP agent reads queue information from COUNTERS_QUEUE_NAME_MAP 
+in Redis which contains ALL SAI queue objects. SNMP exposes all queue 
+objects that exist in the hardware/SAI layer.
 """
 
 import pytest
@@ -54,47 +41,6 @@ def load_new_cfg(duthost, data, loganalyzer):
 def get_queue_ctrs(duthost, cmd):
     """Get the count of SNMP queue counter entries returned by snmpwalk."""
     return len(duthost.shell(cmd)["stdout_lines"])
-
-
-def get_redis_queue_count_for_interface(duthost, interface, asic=None):
-    """
-    Get the count of queues for an interface from COUNTERS_QUEUE_NAME_MAP.
-
-    This is the authoritative source for what SNMP will expose, as the SNMP
-    agent reads from COUNTERS_QUEUE_NAME_MAP to build the queue statistics
-    table.
-
-    Args:
-        duthost: The DUT host object
-        interface: Interface name (e.g., "Ethernet0")
-        asic: ASIC instance for multi-ASIC systems, or None for single-ASIC
-
-    Returns:
-        Dictionary with 'total', 'unicast', and 'multicast' queue counts
-    """
-    # Build the redis-cli command with namespace support for multi-ASIC
-    if asic is not None and duthost.sonichost.is_multi_asic:
-        redis_cmd = (
-            "sonic-db-cli -n {} COUNTERS_DB HGETALL COUNTERS_QUEUE_NAME_MAP"
-            .format(asic.namespace))
-    else:
-        redis_cmd = "redis-cli -n 2 HGETALL COUNTERS_QUEUE_NAME_MAP"
-
-    result = duthost.shell(redis_cmd)['stdout_lines']
-
-    # HGETALL returns alternating key/value pairs
-    # Keys are in format "InterfaceName:QueueIndex" (e.g., "Ethernet0:0")
-    # Values are SAI OIDs
-    queue_count = {'total': 0, 'unicast': 0, 'multicast': 0}
-
-    # Parse the alternating key/value pairs - keys are at even indices
-    for i in range(0, len(result), 2):
-        if i < len(result):
-            key = result[i]
-            if key.startswith("{}:".format(interface)):
-                queue_count['total'] += 1
-
-    return queue_count
 
 
 def get_redis_queue_count_with_types(duthost, interface, asic=None):
@@ -260,6 +206,10 @@ def test_snmp_queue_counters(duthosts,
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    """
+     Ignore expected error logs related to memory checker and orchagent
+     that may occur during config reload and do not impact the test outcome.
+    """
     if loganalyzer:
         ignore_regex_list = [
             r".* ERR memory_checker: \[memory_checker\] "
@@ -352,6 +302,7 @@ def test_snmp_queue_counters(duthosts,
         duthost, interface, asic)
     expected_snmp_cnt_pre = calculate_expected_snmp_counters(queue_counts_pre)
 
+    # Config reload may make SNMP agent restart, 60s wait may be insufficient
     wait_until(120, 15, 0, check_snmp_cmd_output, duthost,
                get_bfr_queue_cntrs_cmd, expected_snmp_cnt_pre)
     queue_counters_cnt_pre = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
