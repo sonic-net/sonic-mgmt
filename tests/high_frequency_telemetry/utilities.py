@@ -833,13 +833,19 @@ def validate_config_state_transitions(
             }
             continue
 
-        # Validate the output based on expected configuration state
+        # Validate the output based on expected configuration state.
+        # This helper is used for config state transition validation, not
+        # precise rate validation. For create/re-create phases, only verify
+        # that the stream becomes active again. Strict Msg/s checks are
+        # intentionally skipped because countersyncd reports a cumulative
+        # average rate and config application latency can skew the early
+        # samples within the same collection window.
         expect_disabled = (action == "delete")
         validation = validate_counter_output(
             output=output,
             expected_objects=validation_objects,
             min_counter_value=0,
-            expected_poll_interval=10000,
+            expected_poll_interval=None,
             expect_disabled=expect_disabled
         )
 
