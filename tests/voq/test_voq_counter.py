@@ -51,8 +51,8 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
             for asic in duthost.asics:
                 bcmcmd = "bcmcmd {} ".format("-n " + str(asic.asic_index)) + cmd_bcmcmd_false
                 res = duthost.shell(bcmcmd, module_ignore_errors=True)
-                if not res["stderr"] == "polling socket timeout: Success" and res["failed"]:
-                    pytest.fail("BCMCMD Failed")
+                if res["failed"]:
+                    pytest.fail("BCMCMD Failed: {}".format(res))
 
             def queue_counter_assertion():
                 out = duthost.shell(cmd)['stdout'].split('\n')
@@ -67,8 +67,8 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
                 for asic in duthost.asics:
                     cmd = "bcmcmd {} ".format("-n " + str(asic.asic_index)) + cmd_bcmcmd_true
                     res = duthost.shell(cmd, module_ignore_errors=True)
-                    if not res["stderr"] == "polling socket timeout: Success" and res["failed"]:
-                        pytest.fail("BCMCMD Failed")
+                    if res["failed"]:
+                        pytest.fail("BCMCMD Failed: {}".format(res))
 
     elif is_q3d_single_asic:
         cmd_bcmcmd = "setreg SCH_SCHEDULER_CONFIGURATION_REGISTER DISABLE_FABRIC_MSGS"
@@ -77,8 +77,8 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
             bcm_changes = True
             bcmcmd = "bcmcmd '{}'=1".format(cmd_bcmcmd)
             res = duthost.shell(bcmcmd, module_ignore_errors=True)
-            if not res["stderr"] == "polling socket timeout: Success" and res["failed"]:
-                pytest.fail("BCMCMD Failed to disable fabric messages")
+            if res["failed"]:
+                pytest.fail("BCMCMD Failed to disable fabric messages: {}".format(res))
 
             def queue_counter_assertion():
                 out = duthost.shell(cmd)["stdout"].split("\n")
@@ -94,8 +94,8 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
             if bcm_changes:
                 bcmcmd = "bcmcmd '{}'=0".format(cmd_bcmcmd)
                 res = duthost.shell(bcmcmd, module_ignore_errors=True)
-                if not res["stderr"] == "polling socket timeout: Success" and res["failed"]:
-                    pytest.fail("BCMCMD Failed to re-enable fabric messages")
+                if res["failed"]:
+                    pytest.fail("BCMCMD Failed to re-enable fabric messages: {}".format(res))
 
     else:
         # Generic approach for other single-ASIC VOQ platforms
@@ -136,12 +136,13 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
             # Packet to be used for traffic generation
             pkt = testutils.simple_tcp_packet()
 
-            def queue_counter_assertion():
-                # Send a burst of traffic during each poll to maintain queue pressure
-                # This ensures the queue is full when the counter is checked
+            def send_traffic():
+                # maintain queue pressure
                 for _ in range(500):
                     ptfadapter.dataplane.send(ptf_idx, pkt)
 
+            def queue_counter_assertion():
+                send_traffic()
                 out = duthost.shell(cmd)["stdout"].split("\n")
                 integers = [int(item.replace(",", "")) for item in out if item.replace(",", "").strip().isdigit()]
                 return any(num > 0 for num in integers)
