@@ -11,7 +11,7 @@ import logging
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
-from tests.common.fixtures.grpc_fixtures import setup_gnoi_tls_server, ptf_gnoi, ptf_grpc  # noqa: F401
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.reboot import sync_reboot_history_queue_with_dut, reboot, check_reboot_cause,\
     check_reboot_cause_history, check_determine_reboot_cause_service, reboot_ctrl_dict,\
@@ -186,16 +186,15 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
             return
 
 
-@pytest.mark.usefixtures("setup_gnoi_tls_server")
 def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list, invocation_type, ptf_gnoi):      # noqa: F811
+                     localhost, conn_graph_facts, xcvr_skip_list, invocation_type, gnmi_tls):      # noqa: F811
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
                      xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthosts=duthosts, invocation_type=invocation_type,
-                     ptf_gnoi=ptf_gnoi)
+                     ptf_gnoi=gnmi_tls.gnoi)
 
 
 def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
