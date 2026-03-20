@@ -4,30 +4,23 @@ package pinsbind
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"fmt"
-	"net/http"
-	"time"
-
-       "flag"
-
 	log "github.com/golang/glog"
-
+	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/gnoigo"
-        pinsbackend "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbackend"
-        "google.golang.org/grpc"
-
 	"github.com/openconfig/ondatra/binding"
 	"github.com/openconfig/ondatra/binding/grpcutil"
-        "github.com/openconfig/ondatra/binding/introspect"
-
+	"github.com/openconfig/ondatra/binding/introspect"
 	opb "github.com/openconfig/ondatra/proto"
 	"github.com/openconfig/ondatra/proxy"
-	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/bindingbackend"
-
-	gpb "github.com/openconfig/gnmi/proto/gnmi"
-
 	rpb "github.com/openconfig/ondatra/proxy/proto/reservation"
 	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/bindingbackend"
+	pinsbackend "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbackend"
+	"google.golang.org/grpc"
+	"net/http"
+	"time"
 )
 
 var (
