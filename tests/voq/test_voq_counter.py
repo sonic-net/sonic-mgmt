@@ -1,5 +1,6 @@
 import logging
 import pytest
+import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.gu_utils import get_asic_name
@@ -8,7 +9,7 @@ from tests.common.gu_utils import get_asic_name
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t2', 't1', 't0')
 ]
 
 
@@ -23,11 +24,11 @@ def test_voq_drop_counter(duthosts, tbinfo, ptfadapter,
     """
 
 
-def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfadapter, tbinfo):
     """
     This test implicitly verifies that queue counters --voq (i.e. Credit-WD-Del/pkts)
-    are working as expected by disabling the fabric ports
-    For Q3D (single-ASIC), instead disable fabric messages via register setting.
+    are working as expected. For multi-ASIC systems, it disables fabric ports.
+    For single-ASIC systems, it simulates congestion by disabling TX on a port.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bcm_changes = False
@@ -38,18 +39,40 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.shell("sonic-clear queuecounters")
 
     asic_name = get_asic_name(duthost).lower()
-    is_q3d_single_asic = ("q3d" in asic_name) and (not duthost.is_multi_asic)
+    is_multi_asic = duthost.is_multi_asic
+    is_q3d_single_asic = ("q3d" in asic_name) and (not is_multi_asic)
 
-    if is_q3d_single_asic:
-        cmd_bcmcmd = "setreg SCH_SCHEDULER_CONFIGURATION_REGISTER DISABLE_FABRIC_MSGS"
-        cmd = "show queue counters --voq --nonzero | grep -i 'VOQ7' | awk '{print $7}'"
+    if not is_multi_asic:
+        if is_q3d_single_asic:
+            cmd_bcmcmd = "setreg SCH_SCHEDULER_CONFIGURATION_REGISTER DISABLE_FABRIC_MSGS"
+            cmd_off = "bcmcmd '{}'=1".format(cmd_bcmcmd)
+            cmd_on = "bcmcmd '{}'=0".format(cmd_bcmcmd)
+            cmd = "show queue counters --voq --nonzero | grep -i 'VOQ7' | awk '{print $7}'"
+        else:
+            # Generic single-ASIC approach: disable TX on an UP port and send traffic
+            up_ports = [p for p in duthost.frontend_ports if duthost.is_port_up(p)]
+            if not up_ports:
+                pytest.skip("No UP ports found on DUT")
+            test_port = up_ports[0]
+            # Use SAI-based port TX disable to cause congestion
+            cmd_off = "bcmcmd 'port enable {} false'".format(test_port)
+            cmd_on = "bcmcmd 'port enable {} true'".format(test_port)
+            cmd = "show queue counters --voq --nonzero | grep -i '{}' | grep -i 'VOQ0' | awk '{{print $7}}'".format(test_port)
+
+            # Find an ingress port for traffic
+            ingress_port = next((p for p in up_ports if p != test_port), None)
+            if ingress_port:
+                mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+                ptf_idx = mg_facts['minigraph_ptf_indices'][ingress_port]
+                pkt = testutils.simple_tcp_packet()
+                for _ in range(100):
+                    ptfadapter.dataplane.send(ptf_idx, pkt)
 
         try:
             bcm_changes = True
-            bcmcmd = f"bcmcmd '{cmd_bcmcmd}'=1"
-            res = duthost.shell(bcmcmd, module_ignore_errors=True)
+            res = duthost.shell(cmd_off, module_ignore_errors=True)
             if not res["stderr"] == "polling socket timeout: Success" and res["failed"]:
-                pytest.fail("BCMCMD Failed to disable fabric messages")
+                pytest.fail("BCMCMD Failed to disable egress")
 
             def queue_counter_assertion():
                 out = duthost.shell(cmd)["stdout"].split("\n")
@@ -63,10 +86,9 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             )
         finally:
             if bcm_changes:
-                bcmcmd = f"bcmcmd '{cmd_bcmcmd}'=0"
-                res = duthost.shell(bcmcmd, module_ignore_errors=True)
+                res = duthost.shell(cmd_on, module_ignore_errors=True)
                 if not res["stderr"] == "polling socket timeout: Success" and res["failed"]:
-                    pytest.fail("BCMCMD Failed to re-enable fabric messages")
+                    pytest.fail("BCMCMD Failed to re-enable egress")
     else:
         cmd_bcmcmd_false = "'port enable sfi false'"
         cmd_bcmcmd_true = "'port enable sfi true'"
