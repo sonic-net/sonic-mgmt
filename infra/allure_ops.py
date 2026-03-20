@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+import shlex
 import sys
 import paramiko
 import yaml
@@ -96,6 +97,7 @@ def get_container_local_mount_dir(ssh, container_name, destination_path):
 
     return testbed_mount_dir
 
+
 def install_allure_on_remote_container(ssh, hostname, container_name):
 
     # Get docker mount directory on the testbed server
@@ -109,8 +111,16 @@ def install_allure_on_remote_container(ssh, hostname, container_name):
     if allure_debian_url is None or allure_debian_url == "":
         raise Exception("allure debian package URL is not provided")
     alure_package_name = os.path.basename(parse.urlparse(allure_debian_url).path)
+    
+    print("remove existing allure*.deb* under mount dir if any: {}".format(testbed_mount_dir))
+    clear_debs = "cd {} && rm -f allure*.deb*".format(shlex.quote(testbed_mount_dir))
+    _, _, clear_status = _run_cmd_in_ssh(ssh, clear_debs)
+    if clear_status != 0:
+        raise Exception("Failed to clear existing Allure .deb files under {}".format(testbed_mount_dir))
+
     print("download allure debian package from {} to {}:{}".format(allure_debian_url, hostname, testbed_mount_dir))
-    stdout, stderr, status_code = _run_cmd_in_ssh(ssh, f'wget {allure_debian_url} -P {testbed_mount_dir}')
+    wget_cmd = "wget {} -P {}".format(shlex.quote(allure_debian_url), shlex.quote(testbed_mount_dir))
+    stdout, stderr, status_code = _run_cmd_in_ssh(ssh, wget_cmd)
     if status_code != 0:
         raise Exception(f'Failed to download the allure package: stdout: {stdout}, stderr: {stderr}')
 
@@ -124,11 +134,13 @@ def install_allure_on_remote_container(ssh, hostname, container_name):
     if status_code != 0:
         raise Exception(f'Failed to verify the allure installation: stdout: {stdout}, stderr: {stderr}')
 
-    # Cleanup the downloaded package from the sonic-mgmt container (and the VM)
-    stdout, stderr, status_code = _run_cmd_in_ssh_container(ssh, container_name, f'rm /data/{alure_package_name}')
-    if status_code != 0:
-        raise Exception(f'Failed to cleanup the downloaded package: stdout: {stdout}, stderr: {stderr}')
-    
+    # After successful install, remove downloaded Allure .deb(s) from the mount (same as /data in container).
+    print("remove Allure .deb package(s) from mount dir after successful install: {}".format(testbed_mount_dir))
+    cleanup_debs = "cd {} && rm -f allure*.deb*".format(shlex.quote(testbed_mount_dir))
+    _, _, cleanup_status = _run_cmd_in_ssh(ssh, cleanup_debs)
+    if cleanup_status != 0:
+        raise Exception("Failed to remove Allure .deb after install under {}".format(testbed_mount_dir))
+
     return 0
 
 def generate_allure_report_and_copy_to_remote(ssh, hostname, container_name, report_name):
