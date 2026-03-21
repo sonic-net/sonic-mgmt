@@ -816,6 +816,14 @@
         rescue:
           - debug: msg="SOC properties may not be defined in the device config file. Skipping adjustment of SOC properties."
 
+      # golden config for lt2/ft2 modifies the PORT table. To support lt2-isolated
+      # which have some interfaces disabled, apply the minigraph config first so that
+      # golden config inherits the same admin_status settings
+      - name: Apply minigraph prior to generating golden_config_db.json
+        become: true
+        shell: config load_minigraph -y
+        when: "'lt2' in topo or 'ft2' in topo"
+
       - name: Generate golden_config_db.json
         generate_golden_config_db:
           topo_name: "{{ topo }}"
