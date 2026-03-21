@@ -431,41 +431,6 @@ def add_npu_static_routes(
 @pytest.fixture(scope="module")
 def setup_npu_dpu(dpu_setup, add_npu_static_routes):
     yield
-###############################################################################
-# VLAN CONFIG (COMMON)
-###############################################################################
-
-
-def generate_vlan_config(
-    svi_ip,
-    vlan_id=55,
-    vlan_description="DPU Management VLAN",
-    member_start=224,
-    member_count=8,
-    member_step=8
-):
-    vlan_name = f"Vlan{vlan_id}"
-
-    members = [f"Ethernet{member_start + i * member_step}" for i in range(member_count)]
-
-    vlan = {
-        vlan_name: {
-            "description": vlan_description,
-            "vlanid": str(vlan_id)
-        }
-    }
-
-    vlan_interface = {
-        vlan_name: {},
-        f"{vlan_name}|{svi_ip}": {}
-    }
-
-    vlan_member = {
-        f"{vlan_name}|{member}": {"tagging_mode": "untagged"}
-        for member in members
-    }
-
-    return vlan, vlan_interface, vlan_member
 
 
 ###############################################################################
@@ -474,22 +439,25 @@ def generate_vlan_config(
 
 def generate_local_dpu_config(
     switch_id: int,
+    hostname: str,
     dpu_count=8,
     swbus_start=23606
 ):
     """
     switch_id:
-        0 FOR DUT01 FOR dpu0_x prefix, pa_ipv4 = 20.0.200.x
-        1 FOR DUT02 FOR dpu1_x prefix, pa_ipv4 = 20.0.201.x
+        0 FOR DUT01, pa_ipv4 = 20.0.200.x
+        1 FOR DUT02, pa_ipv4 = 20.0.201.x
+
+    DPU keys align with DPU hostnames: {hostname}-dpu-{idx}
     """
-    prefix = f"dpu{switch_id}_"
     pa_prefix = f"20.0.20{switch_id}."
     vip_prefix = "3.2.1."
     midplane_prefix = "169.254.200."
 
     dpu = {}
     for idx in range(dpu_count):
-        dpu[f"{prefix}{idx}"] = {
+        dpu_key = f"{hostname}-dpu-{idx}"
+        dpu[dpu_key] = {
             "dpu_id": str(idx),
             "gnmi_port": "50051",
             "local_port": "8080",
@@ -505,21 +473,18 @@ def generate_local_dpu_config(
     return dpu
 
 
-def generate_vdpu_config(dpu_count=8):
+def generate_vdpu_config(hostname_0: str, hostname_1: str, dpu_count=8):
     """
-    Generate VDPU table for BOTH clusters:
-        vdpu0_0 ... vdpu0_7  --> dpu0_0 ... dpu0_7
-        vdpu1_0 ... vdpu1_7  --> dpu1_0 ... dpu1_7
+    Generate VDPU table for BOTH clusters.
+    main_dpu_ids maps to DPU table keys ({hostname}-dpu-{idx}).
     """
     vdpu = {}
 
-    # cluster0 (switch 0)
     for idx in range(dpu_count):
-        vdpu[f"vdpu0_{idx}"] = {"main_dpu_ids": f"dpu0_{idx}"}
+        vdpu[f"vdpu0_{idx}"] = {"main_dpu_ids": f"{hostname_0}-dpu-{idx}"}
 
-    # cluster1 (switch 1)
     for idx in range(dpu_count):
-        vdpu[f"vdpu1_{idx}"] = {"main_dpu_ids": f"dpu1_{idx}"}
+        vdpu[f"vdpu1_{idx}"] = {"main_dpu_ids": f"{hostname_1}-dpu-{idx}"}
 
     return vdpu
 
@@ -530,14 +495,13 @@ def generate_vdpu_config(dpu_count=8):
 
 def generate_remote_dpu_config_for_dut(
     switch_id: int,
+    peer_hostname: str,
     dpu_count=8,
     swbus_start=23606
 ):
     """
     Both DUT01 and DUT02 belong to the same cluster.
-
-    DUT01 (switch_id=0) sees remote DPUs as dpu1_x
-    DUT02 (switch_id=1) sees remote DPUs as dpu0_x
+    Remote DPU keys align with peer DPU hostnames: {peer_hostname}-dpu-{idx}
     """
 
     remote_switch_id = 1 - switch_id
@@ -547,7 +511,8 @@ def generate_remote_dpu_config_for_dut(
 
     remote = {}
     for idx in range(dpu_count):
-        remote[f"dpu{remote_switch_id}_{idx}"] = {
+        dpu_key = f"{peer_hostname}-dpu-{idx}"
+        remote[dpu_key] = {
             "dpu_id": str(idx),
             "npu_ipv4": remote_npu_ip,
             "pa_ipv4": f"{pa_prefix}{idx + 1}",
@@ -561,36 +526,34 @@ def generate_remote_dpu_config_for_dut(
 # UNIFIED FULL CONFIG GENERATOR (DUT01 + DUT02)
 ###############################################################################
 
-def generate_ha_config_for_dut(switch_id: int, duthost, tbinfo):
+def generate_ha_config_for_dut(switch_id: int, duthost, peer_duthost, tbinfo):
     """
     switch_id 0 FOR  DUT01
     switch_id 1 FOR  DUT02
 
-    duthost: the DUT host object, used to retrieve hostname.
-    tbinfo:  testbed info, used to retrieve loopback IPs from topology.
+    duthost:      the DUT host object for this switch.
+    peer_duthost: the peer DUT host object (other switch in the HA pair).
+    tbinfo:       testbed info, used to retrieve loopback IPs from topology.
     """
 
-    # Get hostname from duthost
     hostname = duthost.hostname
+    peer_hostname = peer_duthost.hostname
 
-    # Get loopback IPs from topology
+    hostname_0 = hostname if switch_id == 0 else peer_hostname
+    hostname_1 = peer_hostname if switch_id == 0 else hostname
+
     topo_dut = tbinfo["topo"]["properties"]["topology"]["DUT"]
     loopback_ip = topo_dut["loopback"]["ipv4"][switch_id]
     loopback_v6 = topo_dut["loopback"]["ipv6"][switch_id]
 
-    # VLAN SVI per DUT
-    svi_ip = "20.0.200.14/28" if switch_id == 0 else "20.0.201.14/28"
-    vlan, vlan_intf, vlan_member = generate_vlan_config(svi_ip)
-
-    # VXLAN source IP is loopback IPv4 without mask
     vxlan_src_ip = loopback_ip.split("/")[0]
 
     return {
-        "DPU": generate_local_dpu_config(switch_id),
-        "REMOTE_DPU": generate_remote_dpu_config_for_dut(switch_id),
-        "VDPU": generate_vdpu_config(),
+        "DPU": generate_local_dpu_config(switch_id, hostname),
+        "REMOTE_DPU": generate_remote_dpu_config_for_dut(switch_id, peer_hostname),
+        "VDPU": generate_vdpu_config(hostname_0, hostname_1),
         "DASH_HA_GLOBAL_CONFIG": {
-            "GLOBAL": {
+            "global": {
                 "dpu_bfd_probe_interval_in_ms": "1000",
                 "dpu_bfd_probe_multiplier": "3",
                 "cp_data_channel_port": "11362",
@@ -609,14 +572,6 @@ def generate_ha_config_for_dut(switch_id: int, duthost, tbinfo):
             f"Loopback0|{loopback_v6}": {}
         },
 
-        # VLAN sections included
-        "VLAN": vlan,
-        "VLAN_INTERFACE": vlan_intf,
-        "VLAN_MEMBER": vlan_member,
-
-        # IMPORTANT: INTERFACE REMOVED (Reviewer request)
-        # No INTERFACE section.
-
         "FEATURE": {
             "dash-ha": {
                 "auto_restart": "disabled",
@@ -629,13 +584,6 @@ def generate_ha_config_for_dut(switch_id: int, duthost, tbinfo):
                 "support_syslog_rate_limit": "true"
             }
         },
-        "DEVICE_METADATA": {
-            "localhost": {
-                "region": "west",
-                "cluster": "cluster1",
-                "hostname": f"{hostname}"
-                }
-            },
 
         "VNET": {
             "Vnet_55": {
@@ -688,7 +636,8 @@ def setup_ha_config(duthosts, tbinfo):
     logger.info("HA: setup config for Primary and Standby")
     for switch_id in (0, 1):
         dut = duthosts[switch_id]
-        cfg = generate_ha_config_for_dut(switch_id, dut, tbinfo)
+        peer_dut = duthosts[1 - switch_id]
+        cfg = generate_ha_config_for_dut(switch_id, dut, peer_dut, tbinfo)
         tmpfile = f"/tmp/dut{switch_id}_ha_config.json"
 
         # Copy JSON
@@ -709,8 +658,8 @@ def setup_ha_config(duthosts, tbinfo):
         time.sleep(10)
 
         # Validate DPU entries
-        prefix = f"dpu{switch_id}_"
-        out = dut.shell(f"redis-cli -n 4 KEYS 'DPU|{prefix}*'")["stdout"]
+        hostname = dut.hostname
+        out = dut.shell(f"redis-cli -n 4 KEYS 'DPU|{hostname}-dpu-*'")["stdout"]
         assert out.strip(), f"ERROR: DUT{switch_id} missing DPU entries"
 
         final_cfg[f"DUT{switch_id}"] = cfg
