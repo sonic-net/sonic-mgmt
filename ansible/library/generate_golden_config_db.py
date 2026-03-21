@@ -623,6 +623,27 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps({"PORT": port_config}, indent=4)
 
+    def generate_t0_f2_golden_config_db(self):
+        """
+        Generate golden_config for t0-f2 to enable link_training on server facing ports.
+        """
+        SUPPORTED_TOPO = ["t0-f2-d40u8"]
+        if self.topo_name not in SUPPORTED_TOPO:
+            return "{}"
+        ori_config = json.loads(self.get_config_from_minigraph())
+        golden_config = ori_config
+        golden_config["PORT"] = ori_config.get("PORT", {})
+        for _, config in golden_config["PORT"].items():
+            # Enable link_training for server facing ports
+            if "Server" in config.get("description", ""):
+                config["link_training"] = "on"
+
+        # align with default behavior in generate_default_init_config_db
+        if "DEVICE_METADATA" in golden_config and "localhost" in golden_config["DEVICE_METADATA"]:
+            golden_config["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
+        return json.dumps(golden_config, indent=4)
+
     def generate(self):
         module_msg = "Success to generate golden_config_db.json"
         # topo check
@@ -635,6 +656,9 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_smartswitch_golden_config_db()
             module_msg = module_msg + " for smartswitch"
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
+        elif "t0-f2" in self.topo_name:
+            config = self.generate_t0_f2_golden_config_db()
+            module_msg = module_msg + " for t0-f2"
         elif "ft2" in self.topo_name or "lt2" in self.topo_name:
             config = self.generate_lt2_ft2_golden_config_db()
         elif "t2" in self.topo_name and self.macsec_profile:
