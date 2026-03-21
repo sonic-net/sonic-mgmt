@@ -4501,6 +4501,21 @@
   auto_recover: 'True'
   comment: v-ryannikan
 
+- conf-name: ptp-sn4700-5
+  group-name:
+  topo: ptp-56
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str-sn4700-f04-u31
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-ryannikan
+
 - conf-name: testbed-bjw3-can-7215a1d-1
   group-name: bjw3-3-2
   topo: mx
