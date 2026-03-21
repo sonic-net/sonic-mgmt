@@ -799,6 +799,21 @@ def get_pfcwd_stats(duthost, port, prio, asic_value=None):
     return pfcwd_stats
 
 
+def enable_default_pfcwd_status(duthost, asic_value=None):
+    """
+    Enable PFC watchdog default status.
+    Note: "pfcwd start_default" has no effect on config without enabling
+          "default_pfcwd_status".
+    """
+    cmd_prefix = f'sudo ip netns exec {asic_value} ' if asic_value is not None else ''
+    cmd = cmd_prefix + 'sonic-db-dump -n CONFIG_DB -y -k \"DEVICE_METADATA|localhost\"'
+    res = duthost.shell(cmd)
+    meta_data = json.loads(res["stdout"])
+    pfc_status = meta_data["DEVICE_METADATA|localhost"]["value"].get("default_pfcwd_status", "")
+    if pfc_status == 'disable':
+        cmd = cmd_prefix + 'sonic-db-cli CONFIG_DB hset \"DEVICE_METADATA|localhost\" default_pfcwd_status enable'
+        duthost.shell(cmd)
+
 def start_pfcwd(duthost, asic_value=None):
     """
     Start PFC watchdog with default setting
@@ -809,6 +824,7 @@ def start_pfcwd(duthost, asic_value=None):
     Returns:
         N/A
     """
+    enable_default_pfcwd_status(duthost, asic_value)
     if asic_value is None:
         duthost.shell('sudo pfcwd start_default')
     else:
