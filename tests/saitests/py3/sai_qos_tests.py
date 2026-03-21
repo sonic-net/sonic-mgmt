@@ -1162,6 +1162,9 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
             for dut_i in self.test_port_ids:
                 for asic_i in self.test_port_ids[dut_i]:
                     for dst_port_id in self.test_port_ids[dut_i][asic_i]:
+                        # Skip ports that don't have IP configuration (e.g., in multi-VLAN topologies like t0-118)
+                        if dst_port_id not in self.test_port_ips.get(dut_i, {}).get(asic_i, {}):
+                            continue
                         dst_port_ip = self.test_port_ips[dut_i][asic_i][dst_port_id]
                         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
                         arpreq_pkt = construct_arp_pkt('ff:ff:ff:ff:ff:ff', dst_port_mac,
@@ -1198,6 +1201,9 @@ class ARPpopulateIPv6(ARPpopulate):
         for dut_i in self.test_port_ids:
             for asic_i in self.test_port_ids[dut_i]:
                 for dst_port_id in self.test_port_ids[dut_i][asic_i]:
+                    # Skip ports that don't have IP configuration (e.g., in multi-VLAN topologies like t0-118)
+                    if dst_port_id not in self.test_port_ips.get(dut_i, {}).get(asic_i, {}):
+                        continue
                     dst_port_ip = self.test_port_ips[dut_i][asic_i][dst_port_id]
                     dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
                     arpreq_pkt = construct_ns_pkt(dst_port_mac, dst_port_ip['peer_addr'])
