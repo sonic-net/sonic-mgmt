@@ -7,6 +7,7 @@ import os
 import json
 import logging
 import requests
+import ipaddress
 
 logger = logging.getLogger(__name__)
 
@@ -409,8 +410,14 @@ def install_route_from_exabgp(operation, ptfip, route, port):
     Install or withdraw ip route by exabgp
     """
     route_data = [route]
-    url = "http://{}:{}".format(ptfip, port)
-    command = "{} attribute next-hop self nlri {}".format(operation, ' '.join(route_data))
+    try:
+        ip_obj = ipaddress.ip_address(ptfip)
+        host = f"[{ptfip}]" if ip_obj.version == 6 else ptfip
+    except ValueError:
+        host = ptfip
+
+    url = f"http://{host}:{port}"
+    command = "{} attributes next-hop self nlri {}".format(operation, ' '.join(route_data))
     data = {"command": command}
     logger.info("url: {}".format(url))
     logger.info("command: {}".format(data))
