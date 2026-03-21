@@ -1280,7 +1280,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_fill_min": fillMin,
             "pkts_num_fill_shared": triggerDrop - 1,
             "cell_size": qosConfig[bufPool]["cell_size"],
-            "buf_pool_roid": buf_pool_roid
+            "buf_pool_roid": buf_pool_roid,
+            "dut_asic": dutConfig["dutAsic"]
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:

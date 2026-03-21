@@ -823,9 +823,21 @@ class QosSaiBase(QosBase):
         rtn_dict.update(select_src_dst_dut_and_asic)
         yield rtn_dict
 
-    def __buildTestPorts(self, request, testPortIds, testPortIps, src_port_ids, dst_port_ids,
-                         get_src_dst_asic_and_duts, uplinkPortIds, sysPortMap=None,
-                         downlinkPortIds=None, is_supported_per_dir=False, lossy_queue_traffic_direction=''):
+    def __buildTestPorts(
+        self,
+        request,
+        testPortIds,
+        testPortIps,
+        src_port_ids,
+        dst_port_ids,
+        get_src_dst_asic_and_duts,
+        uplinkPortIds,
+        sysPortMap=None,
+        downlinkPortIds=None,
+        is_supported_per_dir=False,
+        lossy_queue_traffic_direction="",
+        dutInterfaces=None,
+    ):
         """
             Build map of test ports index and IPs
 
@@ -924,6 +936,25 @@ class QosSaiBase(QosBase):
         srcPort = srcPorts[0] if src_port_ids else src_test_port_ids[srcPorts[0]]
         srcVlan = src_test_port_ips[srcPort]['vlan_id'] if 'vlan_id' in src_test_port_ips[srcPort] else None
 
+        # Validate cable length match between src_port_id and dst_port_id
+        # This validation ensures consistent buffer behavior across src and dst ports
+        try:
+            enforce_cable_length = request.config.getoption("--qos_enforce_cable_length")
+        except (ValueError, AttributeError):
+            # Default to True if option not available
+            enforce_cable_length = True
+
+        if enforce_cable_length and dutInterfaces is not None:
+            logger.info("Validating cable length match between src_port_id and dst_port_id")
+            src_asic = get_src_dst_asic_and_duts["src_asic"]
+            self.__validate_src_dst_cable_length(
+                src_asic, dutInterfaces, srcPort, dstPort, enforce=True
+            )
+        elif enforce_cable_length and dutInterfaces is None:
+            logger.warning(
+                "Cable length validation requested but dutInterfaces not provided. Skipping validation."
+            )
+
         # collecting the system ports associated with dst ports
         # In case of PortChannel as dst port, all lag ports will be added to the list
         # ex. {dstPort: system_port, dstPort1:system_port1 ...}
@@ -963,6 +994,86 @@ class QosSaiBase(QosBase):
         return port_speeds
 
     @pytest.fixture(scope='class', autouse=False)
+    def __get_port_cable_length(self, dut_asic, dutInterfaces, port_id):
+        """
+        Get cable length for a specific port ID
+
+        Args:
+            dut_asic (SonicAsic): Device ASIC Under Test (DUT)
+            dutInterfaces (dict): Map of port IDs to interface names
+            port_id (int): Port ID to get cable length for
+
+        Returns:
+            str: Cable length (e.g., "100m", "2000m") or None if not found
+        """
+        if port_id not in dutInterfaces:
+            logger.warning(f"Port ID {port_id} not found in dutInterfaces")
+            return None
+
+        interface_name = dutInterfaces[port_id]
+        try:
+            cable_length = dut_asic.shell(
+                f'redis-cli -n 4 hget "CABLE_LENGTH|AZURE" {interface_name}'
+            )["stdout"].strip()
+
+            if cable_length and cable_length != "":
+                logger.info(f"Port {interface_name} (ID: {port_id}) has cable length: {cable_length}")
+                return cable_length
+            else:
+                logger.warning(f"No cable length found for port {interface_name} (ID: {port_id})")
+                return None
+        except Exception as e:
+            logger.warning(f"Failed to get cable length for port {interface_name} (ID: {port_id}): {e}")
+            return None
+
+    def __validate_src_dst_cable_length(self, dut_asic, dutInterfaces, src_port_id, dst_port_id, enforce=True):
+        """
+        Validate that source and destination ports have the same cable length
+
+        Args:
+            dut_asic (SonicAsic): Device ASIC Under Test (DUT)
+            dutInterfaces (dict): Map of port IDs to interface names
+            src_port_id (int): Source port ID
+            dst_port_id (int): Destination port ID
+            enforce (bool): If True, raise assertion error on mismatch. If False, only log warning.
+
+        Returns:
+            bool: True if cable lengths match, False otherwise
+        """
+        src_cable_len = self.__get_port_cable_length(dut_asic, dutInterfaces, src_port_id)
+        dst_cable_len = self.__get_port_cable_length(dut_asic, dutInterfaces, dst_port_id)
+
+        if src_cable_len is None or dst_cable_len is None:
+            msg = (
+                f"Cannot validate cable length: src_port_id={src_port_id} "
+                f"(cable_len={src_cable_len}), dst_port_id={dst_port_id} (cable_len={dst_cable_len})"
+            )
+            if enforce:
+                pytest_assert(False, msg)
+            else:
+                logger.warning(msg)
+            return False
+
+        if src_cable_len != dst_cable_len:
+            msg = (
+                f"Cable length mismatch: src_port_id={src_port_id} "
+                f"({dutInterfaces[src_port_id]}: {src_cable_len}) != "
+                f"dst_port_id={dst_port_id} ({dutInterfaces[dst_port_id]}: {dst_cable_len})"
+            )
+            if enforce:
+                pytest_assert(False, msg)
+            else:
+                logger.warning(msg)
+            return False
+
+        logger.info(
+            f"Cable length validation passed: src_port_id={src_port_id} "
+            f"({dutInterfaces[src_port_id]}), dst_port_id={dst_port_id} "
+            f"({dutInterfaces[dst_port_id]}), cable_length={src_cable_len}"
+        )
+        return True
+
+    @pytest.fixture(scope="class", autouse=False)
     def configure_ip_on_ptf_intfs(self, ptfhost, get_src_dst_asic_and_duts, tbinfo):
         src_dut = get_src_dst_asic_and_duts['src_dut']
         src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
@@ -1392,9 +1503,35 @@ class QosSaiBase(QosBase):
 
         if dualTor:
             testPortIds = dualTorPortIndexes
-        testPorts = self.__buildTestPorts(request, testPortIds, testPortIps, src_port_ids, dst_port_ids,
-                                          get_src_dst_asic_and_duts, uplinkPortIds, sysPortMap,
-                                          downlinkPortIds, is_supported_per_dir, lossy_queue_traffic_direction)
+        
+        # Build dutinterfaces mapping before calling __buildTestPorts
+        # This is needed for cable length validation
+        dutinterfaces = {}
+        if tbinfo["topo"]["type"] == "t2":
+            # dutportIps={0: {0: {0: {'peer_addr': u'10.0.0.1', 'port': u'Ethernet8'},
+            # 2: {'peer_addr': u'10.0.0.5', 'port': u'Ethernet17'}}}}
+            # { 0: 'Ethernet8', 2: 'Ethernet17' }
+            for dut_index, dut_val in dutPortIps.items():
+                for asic_index, asic_val in dut_val.items():
+                    for ptf_port, ptf_val in asic_val.items():
+                        dutinterfaces[ptf_port] = ptf_val["port"]
+        else:
+            dutinterfaces = {index: port for port, index in src_mgFacts["minigraph_ptf_indices"].items()}
+
+        testPorts = self.__buildTestPorts(
+            request,
+            testPortIds,
+            testPortIps,
+            src_port_ids,
+            dst_port_ids,
+            get_src_dst_asic_and_duts,
+            uplinkPortIds,
+            sysPortMap,
+            downlinkPortIds,
+            is_supported_per_dir,
+            lossy_queue_traffic_direction,
+            dutinterfaces,
+        )
         # Update the uplink/downlink ports to testPorts
         testPorts.update({
             "uplink_port_ids": uplinkPortIds,
@@ -1406,21 +1543,7 @@ class QosSaiBase(QosBase):
         })
         logging.debug("testPorts: {}".format(testPorts))
 
-        dutinterfaces = {}
-        uplinkPortIds = testPorts.get('uplink_port_ids', [])
-
-        if tbinfo["topo"]["type"] == "t2":
-            # dutportIps={0: {0: {0: {'peer_addr': u'10.0.0.1', 'port': u'Ethernet8'},
-            # 2: {'peer_addr': u'10.0.0.5', 'port': u'Ethernet17'}}}}
-            # { 0: 'Ethernet8', 2: 'Ethernet17' }
-            for dut_index, dut_val in dutPortIps.items():
-                for asic_index, asic_val in dut_val.items():
-                    for ptf_port, ptf_val in asic_val.items():
-                        dutinterfaces[ptf_port] = ptf_val['port']
-        else:
-            dutinterfaces = {
-                index: port for port, index in src_mgFacts["minigraph_ptf_indices"].items()
-            }
+        uplinkPortIds = testPorts.get("uplink_port_ids", [])
 
         yield {
             "dutInterfaces": dutinterfaces,
