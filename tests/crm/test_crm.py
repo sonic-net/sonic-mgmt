@@ -650,7 +650,7 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_route".format(ip_ver=ip_ver)
-    if is_ipv6_only_topology and ip_ver == "4":
+    if is_ipv6_only_topology(tbinfo) and ip_ver == "4":
         pytest.skip("Skipping IPv4 test on IPv6-only topology")
 
     # Template used to speedup execution of many similar commands on DUT
