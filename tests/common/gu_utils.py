@@ -17,7 +17,8 @@ GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
 GCUTIMEOUT_MAP = {
     'armhf-nokia_ixs7215_52x-r0': 1200,
-    'x86_64-nvidia_sn5640-r0': 3600  # Increase timeout due to issue #22370
+    'x86_64-nvidia_sn5640-r0': 3600,  # Increase timeout due to issue #22370
+    'x86_64-nokia_ixr7250e_36x400g-r0': 1600
 }
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
