@@ -314,10 +314,10 @@ def __tgen_bgp_config(snappi_api,
     layer1.name = 'port settings'
     layer1.port_names = [port.name for port in config.ports]
     layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = False
-    layer1.auto_negotiation.link_training = False
+    layer1.auto_negotiation.rs_fec = temp_tg_port[0].get('fec', False)
+    layer1.auto_negotiation.link_training = temp_tg_port[0].get('link_training', False)
     layer1.speed = temp_tg_port[0]['speed']
-    layer1.auto_negotiate = False
+    layer1.auto_negotiate = temp_tg_port[0].get('autoneg', False)
 
     def create_v4_topo():
         eth = config.devices[0].ethernets.add()
@@ -780,10 +780,10 @@ def get_RIB_IN_capacity(snappi_api,
         layer1.name = 'port settings'
         layer1.port_names = [port.name for port in config.ports]
         layer1.ieee_media_defaults = False
-        layer1.auto_negotiation.rs_fec = False
-        layer1.auto_negotiation.link_training = False
+        layer1.auto_negotiation.rs_fec = temp_tg_port[0].get('fec', False)
+        layer1.auto_negotiation.link_training = temp_tg_port[0].get('link_training', False)
         layer1.speed = temp_tg_port[0]['speed']
-        layer1.auto_negotiate = False
+        layer1.auto_negotiate = temp_tg_port[0].get('autoneg', False)
 
         def create_v4_topo():
             eth = config.devices[0].ethernets.add()
