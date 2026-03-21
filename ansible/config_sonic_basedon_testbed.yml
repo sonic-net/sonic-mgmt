@@ -917,6 +917,72 @@
           - use_ipv6_mgmt|default(false)|bool
           - ansible_hostv6 is defined
           - ansible_hostv6 != ''
+      
+      - name: Validate breakout config params
+        assert:
+          that:
+            - breakout_count is defined
+            - breakout_speed is defined
+            - breakout_total is defined or breakout_ports is defined
+          fail_msg: "breakout_count, breakout_speed, and (breakout_total or breakout_ports) are required when buffer_breakout_enable=true"
+        when: buffer_breakout_enable | default(false) | bool
+
+      - name: Apply breakout config_db.json
+        block:
+          - name: Wait for docker service to be active
+            shell: systemctl is-active --quiet docker
+            register: docker_active
+            retries: 30
+            delay: 10
+            until: docker_active.rc == 0
+
+          - name: Wait for docker containers to be listed
+            shell: docker ps
+            register: docker_ps
+            retries: 10
+            delay: 10
+            until: docker_ps.rc == 0
+
+          - name: Copy breakout config_db script to DUT
+            copy:
+              src: "{{ playbook_dir }}/library/breakout_config_db.py"
+              dest: /tmp/breakout_config_db.py
+              mode: "0755"
+
+          - name: Generate breakout config_db.json
+            shell: >
+              python3 /tmp/breakout_config_db.py
+              --breakout-count {{ breakout_count }}
+              --breakout-speed {{ breakout_speed }}
+              {% if breakout_total is defined %} --breakout-total {{ breakout_total }}{% endif %}
+              {% if breakout_ports is defined %} --ports {{ breakout_ports }}{% endif %}
+              {% if breakout_base_speed is defined %} --base-speed {{ breakout_base_speed }}{% endif %}
+              {% if breakout_default_cable_length is defined %} --default-cable-length {{ breakout_default_cable_length }}{% endif %}
+              {% if breakout_topo is defined %} --topo {{ breakout_topo }}{% endif %}
+              {% if breakout_platform is defined %} --platform {{ breakout_platform }}{% endif %}
+              {% if breakout_hwsku is defined %} --hwsku {{ breakout_hwsku }}{% endif %}
+              {% if breakout_device_type is defined %} --device-type {{ breakout_device_type }}{% endif %}
+              {% if breakout_buffers_root is defined %} --buffers-root {{ breakout_buffers_root }}{% endif %}
+              {% if breakout_buffer_pool_override is defined %} --buffer-pool-override {{ breakout_buffer_pool_override }}{% endif %}
+              --in {{ breakout_input_path | default('/etc/sonic/config_db.json') }}
+              --out {{ breakout_output_path | default('/etc/sonic/config_db.breakout.json') }}
+            args:
+              warn: false
+
+          - name: Replace config_db.json with breakout config
+            shell: >
+              cp {{ breakout_output_path | default('/etc/sonic/config_db.breakout.json') }} /etc/sonic/config_db.json
+            when: breakout_apply | default(true) | bool
+
+          - name: Reload config after breakout
+            command: config reload -y
+            when: breakout_apply | default(true) | bool
+
+          - name: Update golden_config_db.json after breakout
+            shell: >
+              cp {{ breakout_output_path | default('/etc/sonic/config_db.breakout.json') }} /etc/sonic/golden_config_db.json
+            when: breakout_apply | default(true) | bool
+        when: buffer_breakout_enable | default(false) | bool
 
       - name: Check if chrony exists
         service: name=chrony
