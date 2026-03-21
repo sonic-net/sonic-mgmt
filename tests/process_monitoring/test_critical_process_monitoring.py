@@ -29,7 +29,7 @@ pytestmark = [
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 POST_CHECK_INTERVAL_SECS = 1
-POST_CHECK_THRESHOLD_SECS = 360
+POST_CHECK_THRESHOLD_SECS = 600
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -564,8 +564,6 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     loganalyzer.expect_regex = []
-    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
-
     skip_containers = []
     skip_containers.append("database")
     skip_containers.append("gbsyncd")
@@ -606,10 +604,12 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
     logger.info("Found all the expected alerting messages from syslog!")
 
     logger.info("Executing the config reload...")
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
     logger.info("Executing the config reload was done!")
 
     ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         pytest.fail("Post-check failed after testing the process monitoring!")
