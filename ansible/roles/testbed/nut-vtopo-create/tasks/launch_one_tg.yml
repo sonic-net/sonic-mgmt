@@ -1,0 +1,18 @@
+---
+- name: "Create TG container for {{ tg_name }}"
+  community.docker.docker_container:
+    name: "{{ vnut_container_prefix }}_{{ testbed_name }}_{{ tg_name }}"
+    image: "{{ vnut_ptf_image }}"
+    privileged: yes
+    network_mode: "none"
+    state: started
+
+- name: "Connect {{ tg_name }} to management network"
+  vnut_network:
+    action: connect_mgmt
+    device: "{{ tg_name }}"
+    mgmt_ip: "{{ device_info[tg_name].ManagementIp }}"
+    mgmt_gateway: "{{ mgmt_gw }}"
+    mgmt_bridge: "{{ mgmt_bridge }}"
+    testbed_name: "{{ testbed_name }}"
+    container_prefix: "{{ vnut_container_prefix }}"

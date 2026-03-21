@@ -1,0 +1,25 @@
+---
+# Default Docker images (TG container only)
+vnut_ptf_image: "docker-ptf:latest"
+
+# Naming prefix for TG Docker containers
+vnut_container_prefix: "net"
+
+# KVM VM settings
+vnut_vm_memory_gb: 4
+vnut_vm_vcpus: 2
+vnut_sonic_vm_storage: "{{ ansible_env.HOME }}/sonic-vm"
+vnut_sonic_vs_image: "{{ vnut_sonic_vm_storage }}/images/sonic-vs.img"
+vnut_vm_disk_dir: "{{ vnut_sonic_vm_storage }}/disks"
+vnut_vm_serial_port_base: 9100
+
+# Front-panel MTU
+vnut_fp_mtu: 9100
+
+# SONiC credentials (fallback defaults; override via group_vars or extra-vars)
+sonicadmin_user: admin
+sonicadmin_password: password
+sonic_default_passwords:
+  - "YourPaSsWoRd"
+  - "password"
+  - "admin"

@@ -1,0 +1,38 @@
+---
+# connect_tg_links.yml — Connect TG container interfaces to front-panel link bridges
+# Uses device_conn directly and device_bridge_map for bridge name lookup.
+# Uses a global counter (ns.idx) across all TGs to ensure unique veth names.
+
+- name: Connect TG containers to link bridges
+  shell: |
+    set -e
+    {% set ns = namespace(idx=0) %}
+    {% for tg in testbed_tg_names %}
+    {% for port in (device_conn[tg] | default({})).keys() | sort %}
+    {% set bridge = device_bridge_map[tg ~ ':' ~ port] %}
+    CONTAINER="{{ vnut_container_prefix }}_{{ testbed_name }}_{{ tg }}"
+    PORT="{{ port }}"
+    BRIDGE="{{ bridge }}"
+    VETH_A="vtg{{ testbed_name[:4] }}_{{ ns.idx }}a"
+    VETH_B="vtg{{ testbed_name[:4] }}_{{ ns.idx }}b"
+    PID=$(docker inspect -f '{% raw %}{{.State.Pid}}{% endraw %}' "$CONTAINER")
+
+    if nsenter -t "$PID" -n ip link show "$PORT" >/dev/null 2>&1; then
+      echo "Port $PORT already exists in $CONTAINER"
+    else
+      ip link add "$VETH_A" type veth peer name "$VETH_B" 2>/dev/null || true
+      ip link set "$VETH_A" master "$BRIDGE"
+      ip link set "$VETH_A" up
+      ip link set "$VETH_B" netns "$PID"
+      nsenter -t "$PID" -n ip link set "$VETH_B" name "$PORT"
+      nsenter -t "$PID" -n ip link set "$PORT" up
+      echo "Connected $CONTAINER:$PORT to $BRIDGE"
+    fi
+    {% set ns.idx = ns.idx + 1 %}
+    {% endfor %}
+    {% endfor %}
+  args:
+    executable: /bin/bash
+  register: connect_tg_result
+  changed_when: "'Connected' in connect_tg_result.stdout"
+  when: testbed_tg_names | length > 0

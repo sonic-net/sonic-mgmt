@@ -8,3 +8,7 @@ pdu-2,192.168.9.3,Sentry,Pdu,snmp,
 console-1,192.168.10.1/23,Cisco,ConsoleServer,ssh,sonic,tacacs
 console-2,192.168.10.2/23,Sonic,ConsoleServer,ssh,cisco,
 management-1,192.168.10.3/23,Sonic,MgmtTsToRRouter,,sonic
+vnut-t0-01,10.250.0.210/24,Force10-S6000,DevSonic,,sonic,
+vnut-t0-02,10.250.0.211/24,Force10-S6000,DevSonic,,sonic,
+vnut-t1-01,10.250.0.212/24,Force10-S6000,DevSonic,,sonic,
+vnut-tg-01,10.250.0.220/24,IxiaChassis,DevIxiaChassis,,ixia,

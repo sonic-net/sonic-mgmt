@@ -1,0 +1,24 @@
+---
+# start_sonic.yml — Kickstart SONiC VM via serial console
+# Called with: dut_name (hostname string), device_idx
+
+- name: "Set serial port for {{ dut_name }}"
+  set_fact:
+    serial_port: "{{ vnut_vm_serial_port_base + device_idx }}"
+
+- name: "Kickstart SONiC VM {{ dut_name }}"
+  sonic_kickstart:
+    telnet_port: "{{ serial_port }}"
+    login: "{{ sonicadmin_user }}"
+    passwords: "{{ sonic_default_passwords }}"
+    hostname: "{{ dut_name }}"
+    mgmt_ip: "{{ device_info[dut_name].ManagementIp }}"
+    mgmt_gw: "{{ mgmt_gw }}"
+    new_password: "{{ sonicadmin_password }}"
+    num_asic: 1
+  register: kickstart_output
+
+- name: "Fail if kickstart failed for {{ dut_name }}"
+  fail:
+    msg: "Kickstart failed for {{ dut_name }}: {{ kickstart_output }}"
+  when: kickstart_output.kickstart_code != 0

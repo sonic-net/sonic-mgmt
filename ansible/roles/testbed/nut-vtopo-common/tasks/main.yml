@@ -1,0 +1,5 @@
+---
+# Common tasks for virtual NUT topology management.
+# Import this role before nut-vtopo-create or nut-vtopo-remove.
+- name: Load testbed graph and build bridge map
+  import_tasks: load_testbed_graph.yml

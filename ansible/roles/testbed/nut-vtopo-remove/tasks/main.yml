@@ -1,0 +1,103 @@
+---
+# Testbed info (device_info, device_conn, device_bridge_map, testbed_link_count)
+# is loaded by nut-vtopo-common role which runs before this role.
+
+# --- Destroy KVM VMs ---
+- name: Get list of running VMs
+  virt:
+    command: list_vms
+    state: running
+    uri: qemu:///system
+  register: vm_list_running
+  become: yes
+  ignore_errors: yes
+
+- name: Destroy DUT VMs
+  virt:
+    name: "{{ item }}"
+    state: destroyed
+    uri: qemu:///system
+  loop: "{{ testbed_dut_names }}"
+  loop_control:
+    label: "{{ item }}"
+  when: item in (vm_list_running.list_vms | default([]))
+  become: yes
+  ignore_errors: yes
+
+- name: Get list of defined VMs
+  virt:
+    command: list_vms
+    uri: qemu:///system
+  register: vm_list_defined
+  become: yes
+  ignore_errors: yes
+
+- name: Undefine DUT VMs
+  virt:
+    name: "{{ item }}"
+    command: undefine
+    uri: qemu:///system
+  loop: "{{ testbed_dut_names }}"
+  loop_control:
+    label: "{{ item }}"
+  when: item in (vm_list_defined.list_vms | default([]))
+  become: yes
+  ignore_errors: yes
+
+- name: Remove DUT disk images
+  file:
+    path: "{{ vnut_vm_disk_dir }}/sonic_{{ item }}.img"
+    state: absent
+  loop: "{{ testbed_dut_names }}"
+  loop_control:
+    label: "{{ item }}"
+  ignore_errors: yes
+
+# --- Remove TG containers ---
+- name: Stop and remove TG containers
+  community.docker.docker_container:
+    name: "{{ vnut_container_prefix }}_{{ testbed_name }}_{{ item }}"
+    state: absent
+    force_kill: yes
+  loop: "{{ testbed_tg_names }}"
+  loop_control:
+    label: "{{ item }}"
+  ignore_errors: yes
+
+# --- Clean up link bridges ---
+- name: Remove front-panel link bridges
+  shell: |
+    {% for idx in range(testbed_link_count | int) %}
+    BRIDGE="vbr_{{ testbed_name[:8] }}_{{ idx }}"
+    ip link delete "$BRIDGE" 2>/dev/null || true
+    {% endfor %}
+    echo "Cleaned up link bridges"
+  args:
+    executable: /bin/bash
+  changed_when: false
+  ignore_errors: yes
+
+# --- Clean up TG veth pairs ---
+# Count total TG ports across all TGs (matching the global counter in connect_tg_links.yml)
+- name: Clean up TG veth pairs
+  shell: |
+    {% set ns = namespace(idx=0) %}
+    {% for tg in testbed_tg_names %}
+    {% for port in (device_conn[tg] | default({})).keys() | sort %}
+    ip link delete "vtg{{ testbed_name[:4] }}_{{ ns.idx }}a" 2>/dev/null || true
+    {% set ns.idx = ns.idx + 1 %}
+    {% endfor %}
+    {% endfor %}
+    echo "Cleaned up TG veth pairs"
+  args:
+    executable: /bin/bash
+  changed_when: false
+  ignore_errors: yes
+
+# --- Management network ---
+# The management bridge and iptables rules are shared with other testbeds,
+# so we do NOT remove them during vnut teardown.
+
+- name: Display teardown summary
+  debug:
+    msg: "Removed all VMs, containers, and front-panel links for testbed {{ testbed_name }}"
