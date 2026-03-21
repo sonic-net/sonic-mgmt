@@ -1,6 +1,7 @@
 import pytest
 import logging
 import time
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -15,57 +16,31 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     def get_swss_uptime_seconds():
-        """Get swss container uptime in seconds from docker ps"""
+        """Get swss container uptime in seconds via docker inspect."""
         try:
-            # Use docker ps to get status info - avoid template conflicts
+            # Step 1: Get container start time from docker inspect JSON
             result = duthost.shell(
-                'docker ps --filter "name=swss"',
+                "docker inspect swss | grep StartedAt | head -1 | cut -d'\"' -f4",
                 module_ignore_errors=True
             )
-            if result['rc'] != 0:
+            if result['rc'] != 0 or not result['stdout'].strip():
+                return 0
+            started_at = result['stdout'].strip()
+
+            # Step 2: Convert start time to epoch seconds on DUT
+            result = duthost.shell(
+                f'date -ud "{started_at}" +%s',
+                module_ignore_errors=True
+            )
+            if result['rc'] != 0 or not result['stdout'].strip():
                 return 0
 
-            stdout_lines = result['stdout_lines']
-            if len(stdout_lines) < 2:  # No container found (only header)
-                return 0
-
-            # Find the swss container line and extract status
-            for line in stdout_lines[1:]:  # Skip header
-                if 'swss' in line:
-                    # Line format: CONTAINER_ID IMAGE COMMAND
-                    # CREATED STATUS PORTS NAMES
-                    # Example: d0a33fe4d37f docker-orchagent:latest
-                    # "/usr/bin/docker-ini…" 8 days ago Up 18 minutes swss
-                    parts = line.split()
-
-                    # Find "Up" and get the next parts for time
-                    try:
-                        up_index = parts.index('Up')
-                        if up_index + 2 < len(parts):
-                            time_value = parts[up_index + 1]
-                            time_unit = parts[up_index + 2]
-
-                            logger.debug(f"swss container status: "
-                                         f"Up {time_value} {time_unit}")
-
-                            # Convert to seconds
-                            time_num = int(time_value)
-                            if 'second' in time_unit:
-                                return time_num
-                            elif 'minute' in time_unit:
-                                return time_num * 60
-                            elif 'hour' in time_unit:
-                                return time_num * 3600
-                            elif 'day' in time_unit:
-                                return time_num * 86400
-                            else:
-                                return 20  # Unknown format, assume long enough
-                    except (ValueError, IndexError):
-                        logger.warning(f"Failed to parse status line: {line}")
-                        return 0
-
-            return 0  # No swss container found
-
+            # Step 3: Calculate uptime = current UTC epoch - start epoch
+            started_epoch = int(result['stdout'].strip())
+            now_epoch = int(datetime.now(timezone.utc).timestamp())
+            uptime = now_epoch - started_epoch
+            logger.debug(f"swss container uptime: {uptime}s")
+            return uptime
         except Exception as e:
             logger.warning(f"Failed to get swss uptime: {e}")
             return 0
