@@ -438,6 +438,79 @@ class TestIngressDropProbingExecutor:
         assert success is False
         assert detected is False
 
+    @pytest.mark.order(8817)
+    @patch('ingress_drop_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('ingress_drop_probing_executor.sai_thrift_read_port_counters')
+    @patch('ingress_drop_probing_executor.time.sleep')
+    def test_check_verbose_observer_none_guard_result_path(self, mock_sleep, mock_read_counters):
+        """Bug: verbose trace at result summary must not crash when observer becomes None.
+
+        StormLiangMS review: 'if self.verbose:' at line 281 should be
+        'if self.verbose and self.observer:' to prevent AttributeError.
+
+        The assert at L162 normally prevents observer=None from reaching check() logic,
+        but defensive coding requires all verbose blocks to be self-protecting.
+        This test bypasses the assert by nullifying observer mid-execution.
+        """
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        executor = IngressDropProbingExecutor(
+            ptftest=self.mock_ptftest,
+            observer=self.observer,  # Valid observer passes assert at L162
+            verbose=True
+        )
+
+        call_count = [0]
+
+        def counter_side_effect(*args, **kwargs):
+            call_count[0] += 1
+            if call_count[0] == 2:
+                # Nullify observer after Step5 counter read, before result trace at L281
+                executor.observer = None
+            return ([0] * 20, [0] * 10)
+
+        mock_read_counters.side_effect = counter_side_effect
+
+        # DESIRED: should return (True, False) without crash
+        # BUG: crashes with AttributeError at L281 (self.observer.trace on None)
+        success, detected = executor.check(24, 28, 1000)
+        assert success is True
+        assert detected is False
+
+    @pytest.mark.order(8818)
+    @patch('ingress_drop_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('ingress_drop_probing_executor.sai_thrift_read_port_counters')
+    @patch('ingress_drop_probing_executor.time.sleep')
+    def test_check_verbose_observer_none_guard_exception_path(self, mock_sleep, mock_read_counters):
+        """Bug: exception handler's verbose trace must not crash when observer becomes None.
+
+        StormLiangMS review: 'if self.verbose:' at line 290 should be
+        'if self.verbose and self.observer:' to prevent AttributeError in exception handler.
+
+        Without fix: the AttributeError in the exception handler masks the original
+        hardware error, making debugging harder.
+        """
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        executor = IngressDropProbingExecutor(
+            ptftest=self.mock_ptftest,
+            observer=self.observer,  # Valid observer passes assert at L162
+            verbose=True
+        )
+
+        def counter_side_effect(*args, **kwargs):
+            # Nullify observer then raise exception to test the except handler path
+            executor.observer = None
+            raise RuntimeError("Simulated hardware error")
+
+        mock_read_counters.side_effect = counter_side_effect
+
+        # DESIRED: should return (False, False) — exception handled gracefully
+        # BUG: crashes with AttributeError at L290 (self.observer.trace on None)
+        success, detected = executor.check(24, 28, 1000)
+        assert success is False
+        assert detected is False
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
