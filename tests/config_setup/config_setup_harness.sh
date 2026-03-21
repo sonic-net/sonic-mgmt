@@ -1,4 +1,4 @@
-!/bin/bash
+#!/bin/bash
 set -e
 
 HARNESS_DIR="/tmp/config_setup_test"
