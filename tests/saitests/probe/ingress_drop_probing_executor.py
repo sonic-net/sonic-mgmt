@@ -278,7 +278,7 @@ class IngressDropProbingExecutor:
                 return_result = (False, False)
 
             # Single attempt or consistent multiple attempts
-            if self.verbose:
+            if self.verbose and self.observer:
                 self.observer.trace(
                     f"[Ingress Drop Executor] Check complete: value={value}, attempts={attempts}, "
                     f"results={results}, final_detected={return_result[1]}, success={return_result[0]}"
@@ -287,6 +287,6 @@ class IngressDropProbingExecutor:
             return return_result
 
         except Exception as e:
-            if self.verbose:
+            if self.verbose and self.observer:
                 self.observer.trace(f"[Ingress Drop Executor] Check error: {e}")
             return False, False
