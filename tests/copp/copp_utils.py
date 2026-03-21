@@ -119,12 +119,15 @@ def configure_ptf(ptf, test_params, is_backend_topology=False):
     """
 
     ptf.script(cmd=_REMOVE_IP_SCRIPT)
+    myip = test_params.myip if test_params.myip else test_params.myip6
+    is_ipv6 = ipaddress.ip_address(myip).version == 6
+    prefix = "/31" if not is_ipv6 else "/127"
     if is_backend_topology:
-        ip_command = "ip address add %s/31 dev \"eth%s.%s\"" % (test_params.myip,
+        ip_command = "ip address add %s%s dev \"eth%s.%s\"" % (myip, prefix,
                                                                 test_params.nn_target_port,
                                                                 test_params.nn_target_vlanid)
     else:
-        ip_command = "ip address add %s/31 dev eth%s" % (test_params.myip, test_params.nn_target_port)
+        ip_command = "ip address add %s%s dev eth%s" % (myip, prefix, test_params.nn_target_port)
 
     logging.debug("ip_command is: %s" % ip_command)
     ptf.command(ip_command)
@@ -312,8 +315,20 @@ def _get_http_and_https_proxy_ip(creds):
            creds (dict): Credential information according to the dut inventory
     """
 
-    return (re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('http_proxy', ''))[0],
-            re.findall(r'[0-9]+(?:\.[0-9]+){3}', creds.get('proxy_env', {}).get('https_proxy', ''))[0])
+    def extract_ip(url):
+        # Handle IPv6 in brackets [2001:db8::1]:8080 or plain IPv4
+        match = re.search(r'//(?:[^@]*@)?(?P<ip>\[?[a-fA-F0-9:.]+\]?)', url)
+        if match:
+            ip = match.group('ip').strip('[]')
+            try:
+                if ipaddress.ip_address(ip):
+                    return ip
+            except ValueError:
+                pass
+        return ""
+
+    return extract_ip(creds.get('proxy_env', {}).get('http_proxy', '')), \
+        extract_ip(creds.get('proxy_env', {}).get('https_proxy', ''))
 
 
 def configure_always_enabled_for_trap(dut, trap_id, always_enabled):
@@ -444,41 +459,50 @@ def install_trap(dut, feature_name):
 
 def get_vlan_ip(duthost, ip_version):
     """
-    @Summary: Get an IP on the Vlan subnet
+    @Summary: Get an IP on the Vlan subnet matching the specified IP version.
     @param duthost: Ansible host instance of the device
-    @return: Return a vlan IP, e.g., "192.168.0.2"
+    @param ip_version: IP version string ("4" or "6")
+    @return: Return a vlan IP, e.g., "192.168.0.2", or None if not found
     """
-
     mg_facts = duthost.minigraph_facts(
         host=duthost.hostname)['ansible_facts']
-    mg_vlans = mg_facts['minigraph_vlans']
+    mg_vlan_intfs = mg_facts.get('minigraph_vlan_interfaces', [])
 
-    if not mg_vlans:
+    if not mg_vlan_intfs:
         return None
 
-    mg_vlan_intfs = mg_facts['minigraph_vlan_interfaces']
+    target_version = int(ip_version)
+    for intf in mg_vlan_intfs:
+        subnet = ipaddress.ip_network(intf['subnet'], strict=False)
+        if subnet.version == target_version:
+            return str(subnet[2])
 
-    if ip_version == "4":
-        vlan_subnet = ipaddress.ip_network(mg_vlan_intfs[0]['subnet'])
-    else:
-        vlan_subnet = ipaddress.ip_network(mg_vlan_intfs[-1]['subnet'])
+    return None
 
-    ip_addr = str(vlan_subnet[2])
-    return ip_addr
+
+def get_lo_ip(duthost, ip_version="4"):
+    """
+    Get a loopback IP address matching the specified IP version.
+
+    Args:
+        duthost (SonicHost): The target device.
+        ip_version (str): The IP version ("4" or "6"). Defaults to "4".
+    Returns:
+        str: The loopback IP address, or None if not found.
+    """
+    mg_facts = duthost.minigraph_facts(
+        host=duthost.hostname)['ansible_facts']
+    target_version = int(ip_version)
+
+    for intf in mg_facts.get("minigraph_lo_interfaces", []):
+        if ipaddress.ip_address(intf["addr"]).version == target_version:
+            return intf["addr"]
+
+    return None
 
 
 def get_lo_ipv4(duthost):
-
-    loopback_ip = None
-    mg_facts = duthost.minigraph_facts(
-        host=duthost.hostname)['ansible_facts']
-
-    for intf in mg_facts["minigraph_lo_interfaces"]:
-        if ipaddress.ip_address(intf["addr"]).version == 4:
-            loopback_ip = intf["addr"]
-            break
-
-    return loopback_ip
+    return get_lo_ip(duthost, ip_version="4")
 
 
 def get_copp_trap_capabilities(duthost):
