@@ -891,12 +891,13 @@ def enable_packet_aging(duthost, asic_value=None):
                     duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
 
 
-def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
+def get_ipv6_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
     """
     Get N IPv6 addresses in a subnet.
     Args:
         subnet (str): IPv6 subnet, e.g., '2001::1/64'
         number_of_ip (int): Number of IP addresses to get
+        exclude_ips (list): Optional list of IPs to exclude
     Return:
         Return n IPv6 addresses in this subnet in a list.
     """
@@ -904,12 +905,16 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
     subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
     subnet = subnet.encode().decode("utf-8")
     ipv6_list = []
-    for i in range(number_of_ip):
+    exclude_set = set(exclude_ips) if exclude_ips else set()
+    while len(ipv6_list) < number_of_ip:
         network = IPv6Network(subnet)
         address = IPv6Address(
             network.network_address + getrandbits(
                 network.max_prefixlen - network.prefixlen))
-        ipv6_list.append(str(address))
+        addr_str = str(address)
+        if addr_str in exclude_set or addr_str in ipv6_list:
+            continue
+        ipv6_list.append(addr_str)
 
     return ipv6_list
 
