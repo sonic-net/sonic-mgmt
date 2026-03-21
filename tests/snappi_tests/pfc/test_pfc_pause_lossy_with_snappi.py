@@ -11,7 +11,6 @@ from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list,
 from tests.snappi_tests.pfc.files.helper import run_pfc_test
 import logging
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-from tests.snappi_tests.files.helper import reboot_duts, setup_ports_and_dut, multidut_port_info  # noqa: F401
 from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 logger = logging.getLogger(__name__)
 
@@ -159,8 +158,7 @@ def test_pfc_pause_single_lossy_prio_reboot(snappi_api,             # noqa: F811
                                             lossless_prio_list,     # noqa: F811
                                             get_snappi_ports,       # noqa: F811
                                             tbinfo,                 # noqa: F811
-                                            tgen_port_info,    # noqa: F811
-                                            reboot_duts):           # noqa: F811
+                                            tgen_port_info):    # noqa: F811
     """
     Test if PFC will impact a single lossy priority after various kinds of reboots in multidut setup
 
@@ -227,8 +225,7 @@ def test_pfc_pause_multi_lossy_prio_reboot(snappi_api,          # noqa: F811
                                            lossless_prio_list,   # noqa: F811
                                            get_snappi_ports,     # noqa: F811
                                            tbinfo,               # noqa: F811
-                                           tgen_port_info,  # noqa: F811
-                                           reboot_duts):         # noqa: F811
+                                           tgen_port_info):  # noqa: F811
     """
     Test if PFC will impact multiple lossy priorities after various kinds of reboots
 
