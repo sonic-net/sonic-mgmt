@@ -44,6 +44,151 @@ LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8
                          'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
                          'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16'})
 
+DEVICE_PATH = '/usr/share/sonic/device'
+
+
+def _resolve_base_hwsku_dir(hwsku, platform):
+    """
+    Resolve the base HwSku directory for generic HwSku support.
+    If the exact hwsku directory exists, return it.
+    Otherwise, strip breakout suffixes (e.g., -C222O9, -O128S2) to find the base directory.
+    """
+    import os
+    platform_dir = os.path.join(DEVICE_PATH, platform)
+    exact_dir = os.path.join(platform_dir, hwsku)
+    if os.path.isdir(exact_dir):
+        return exact_dir
+
+    # Strip breakout suffix patterns: -C256S2, -O128S2, -C224O8, -C222O9, etc.
+    base = re.sub(r'-([A-Z]\d+)+$', '', hwsku)
+    base_dir = os.path.join(platform_dir, base)
+    if base != hwsku and os.path.isdir(base_dir):
+        return base_dir
+
+    # Try stripping -B- variants (e.g., Arista-7060X6-64PE-B-C512S2)
+    base2 = re.sub(r'(-B)?-([A-Z]\d+)+$', '', hwsku)
+    base2_dir = os.path.join(platform_dir, base2)
+    if base2 != hwsku and os.path.isdir(base2_dir):
+        return base2_dir
+
+    return exact_dir  # Return original path even if not found
+
+
+def generate_port_table_from_hwsku_json(platform, hwsku, minigraph_ports=None):
+    """
+    Generate a PORT table dict from hwsku.json + platform.json for generic HwSku support.
+    Derives the breakout mode by comparing minigraph port names against hwsku.json cages.
+
+    Args:
+        platform: Platform name (e.g., 'x86_64-arista_7060x6_64pe')
+        hwsku: Target HwSku name (e.g., 'Arista-7060X6-64PE')
+        minigraph_ports: Set of port names from minigraph (e.g., {'Ethernet0', 'Ethernet4', ...})
+
+    Returns:
+        dict: PORT table suitable for config_db / golden_config override, or None if not applicable
+    """
+    import os
+
+    hwsku_dir = _resolve_base_hwsku_dir(hwsku, platform)
+
+    hwsku_json_path = os.path.join(hwsku_dir, 'hwsku.json')
+    if not os.path.exists(hwsku_json_path):
+        return None
+
+    with open(hwsku_json_path) as f:
+        hwsku_data = json.load(f)
+
+    # Load platform.json for lane info and alias patterns
+    platform_json_path = os.path.join(DEVICE_PATH, platform, 'platform.json')
+    platform_data = None
+    if os.path.exists(platform_json_path):
+        with open(platform_json_path) as f:
+            platform_data = json.load(f)
+
+    interfaces = hwsku_data.get('interfaces', {})
+    port_table = {}
+
+    for port_name, port_info in sorted(interfaces.items(), key=lambda x: int(x[0].replace('Ethernet', ''))):
+        base_num = int(port_name.replace('Ethernet', ''))
+
+        # Get lane info from platform.json
+        if platform_data and 'interfaces' in platform_data:
+            plat_port = platform_data['interfaces'].get(port_name, {})
+            all_lanes = plat_port.get('lanes', '')
+            base_alias = plat_port.get('alias', '')
+            base_index = str(plat_port.get('index', base_num // 8 + 1)).split(',')[0].strip()
+            lane_list = all_lanes.split(',') if all_lanes else []
+            total_lanes = len(lane_list) if lane_list else 8
+        else:
+            lane_list = []
+            total_lanes = 8
+            base_alias = ''
+            base_index = str(base_num // 8 + 1)
+
+        # Derive breakout by counting how many minigraph ports fall within this cage
+        if minigraph_ports and base_num < 512:
+            # Count ports in this cage's range [base_num, base_num + total_lanes)
+            ports_in_cage = [p for p in minigraph_ports
+                             if p.startswith('Ethernet') and p[8:].isdigit()
+                             and base_num <= int(p[8:]) < base_num + total_lanes]
+            num_ports = len(ports_in_cage) if ports_in_cage else 1
+        else:
+            # Management ports or no minigraph info — use hwsku.json default
+            brkout_mode = port_info.get('default_brkout_mode', '1x400G')
+            brkout_clean = re.sub(r'\[.*\]', '', brkout_mode)
+            m = re.match(r'(\d+)x(\d+)G', brkout_clean)
+            num_ports = int(m.group(1)) if m else 1
+
+        lanes_per_subport = total_lanes // num_ports if num_ports > 0 else total_lanes
+        # Speed = lanes_per_subport * 100G (PAM4: 1 lane = 100Gbps)
+        speed = lanes_per_subport * 100000
+        step = lanes_per_subport
+
+        for sub_idx in range(num_ports):
+            sub_port_num = base_num + sub_idx * step
+            sub_port_name = 'Ethernet{}'.format(sub_port_num)
+
+            # Assign lanes for this sub-port
+            if lane_list:
+                start_lane = sub_idx * lanes_per_subport
+                end_lane = start_lane + lanes_per_subport
+                sub_lanes = ','.join(lane_list[start_lane:end_lane])
+            else:
+                sub_lanes = ','.join([str(base_num + sub_idx * step + l) for l in range(lanes_per_subport)])
+
+            # Generate alias
+            if base_alias:
+                if num_ports > 1:
+                    suffix = chr(ord('a') + sub_idx)
+                    alias = '{}{}'.format(re.sub(r'[a-z]$', '', base_alias), suffix)
+                else:
+                    alias = base_alias
+            else:
+                cage_num = base_num // 8 + 1
+                if num_ports > 1:
+                    alias = 'etp{}{}'.format(cage_num, chr(ord('a') + sub_idx))
+                else:
+                    alias = 'etp{}'.format(cage_num)
+                    alias = 'etp{}'.format(cage_num)
+
+            # Build PORT entry
+            port_entry = {
+                'alias': alias,
+                'lanes': sub_lanes,
+                'speed': str(speed),
+                'index': base_index,
+                'admin_status': 'up',
+                'mtu': '9100'
+            }
+
+            # Add FEC for high-speed ports
+            if speed >= 200000:
+                port_entry['fec'] = 'rs'
+
+            port_table[sub_port_name] = port_entry
+
+    return port_table if port_table else None
+
 
 def is_full_lossy_hwsku(hwsku):
     """
@@ -572,6 +717,63 @@ class GenerateGoldenConfigDBModule(object):
             return json.dumps(ori_config_db, indent=4)
         else:
             return config
+        
+    def generate_generic_hwsku_port_override(self):
+        """
+        Generate golden_config with PORT table override for generic HwSku support.
+        Derives breakout mode by reading minigraph port names and comparing against
+        hwsku.json physical cages. No breakout_mode parameter needed.
+        """
+        import os
+        from lxml import etree
+
+        platform, _ = device_info.get_platform_and_hwsku()
+
+        hwsku_dir = os.path.join(DEVICE_PATH, platform, self.hwsku)
+        port_config_path = os.path.join(hwsku_dir, 'port_config.ini')
+
+        # If port_config.ini exists, sonic-cfggen handles PORT table — no override needed
+        if os.path.exists(port_config_path):
+            return None
+
+        # Read port names from minigraph
+        minigraph_ports = set()
+        minigraph_path = '/etc/sonic/minigraph.xml'
+        if os.path.exists(minigraph_path):
+            try:
+                tree = etree.parse(minigraph_path)
+                root = tree.getroot()
+                ns = 'Microsoft.Search.Autopilot.Evolution'
+                # Find all InterfaceName elements in DeviceInterfaceLinks
+                for elem in root.iter():
+                    if 'InterfaceName' in elem.tag and elem.text and elem.text.startswith('Ethernet'):
+                        minigraph_ports.add(elem.text)
+                # Also find port names from EthernetInterfaces
+                for elem in root.iter():
+                    if 'EthernetInterface' in elem.tag:
+                        for child in elem:
+                            if 'InterfaceName' in child.tag and child.text and child.text.startswith('Ethernet'):
+                                minigraph_ports.add(child.text)
+            except Exception:
+                pass
+
+        if not minigraph_ports:
+            return None
+
+        port_table = generate_port_table_from_hwsku_json(platform, self.hwsku, minigraph_ports)
+        if port_table is None:
+            return None
+
+        golden_config_db = {"PORT": port_table}
+
+        # Also update DEVICE_METADATA with the target hwsku name
+        golden_config_db["DEVICE_METADATA"] = {
+            "localhost": {
+                "hwsku": self.hwsku
+            }
+        }
+
+        return golden_config_db
 
     def generate_default_init_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -655,6 +857,19 @@ class GenerateGoldenConfigDBModule(object):
 
         # update dns config
         config = self.update_dns_config(config)
+
+        # Apply generic HwSku PORT table override if applicable
+        port_override = self.generate_generic_hwsku_port_override()
+        if port_override is not None:
+            config_dict = json.loads(config)
+            if isinstance(config_dict, dict):
+                # Merge PORT table override into golden config
+                for table_name, table_data in port_override.items():
+                    if table_name in config_dict and isinstance(config_dict[table_name], dict):
+                        config_dict[table_name].update(table_data)
+                    else:
+                        config_dict[table_name] = table_data
+                config = json.dumps(config_dict, indent=4)
 
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
