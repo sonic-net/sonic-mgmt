@@ -252,7 +252,8 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
             gw4 = v4_entry['addr']
             pfx4 = v4_entry['prefixlen']
             subnet4 = f"{gw4}/{pfx4}"
-            member_ipv4s = get_addrs_in_subnet(subnet4, len(members))
+            # Do not assign the VLAN gateway IP to a TGEN interface.
+            member_ipv4s = get_addrs_in_subnet(subnet4, len(members), exclude_ips=[gw4])
         else:
             gw4 = pfx4 = None
             member_ipv4s = [None] * len(members)
@@ -261,7 +262,8 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
             gw6 = v6_entry['addr']
             pfx6 = v6_entry['prefixlen']
             subnet6 = f"{gw6}/{pfx6}"
-            member_ipv6s = get_ipv6_addrs_in_subnet(subnet6, len(members))
+            # Do not assign the VLAN gateway IP to a TGEN interface.
+            member_ipv6s = get_ipv6_addrs_in_subnet(subnet6, len(members), exclude_ips=[gw6])
         else:
             gw6 = pfx6 = None
             member_ipv6s = [None] * len(members)
