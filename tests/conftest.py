@@ -374,6 +374,13 @@ def pytest_addoption(parser):
     parser.addoption("--skip_yang", action="store_true", default=False,
                      help="Skip YANG validation")
 
+    #################################
+    #   BGP convergence options     #
+    #################################
+    # BGP RIB tests: use port-channel info from config_db (minigraph) for tgen_ports
+    parser.addoption("--bgp_pc_config", action="store_true", default=False,
+                     help="Use existing config from config_db for BGP RIB tests (skip duthost_bgp_config)")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
