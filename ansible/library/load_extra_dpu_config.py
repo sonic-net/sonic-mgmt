@@ -178,9 +178,20 @@ class LoadExtraDpuConfigModule(object):
 
             try:
                 # Attempt each step and track success
-                if (self.transfer_to_dpu(ssh, dpu_ip) and
-                        self.wait_for_dpu_path(ssh, dpu_ip, DEFAULT_CONFIG_FILE) and
-                        self.execute_command(ssh, dpu_ip, GEN_FULL_CONFIG_CMD) and
+                if not self.transfer_to_dpu(ssh, dpu_ip):
+                    failure_count += 1
+                    self.module.warn("Failed to configure DPU {} at {}".format(i + 1, dpu_ip))
+                    continue
+
+                # Wait for DEFAULT_CONFIG_FILE, if missing run config save to create it
+                if not self.wait_for_dpu_path(ssh, dpu_ip, DEFAULT_CONFIG_FILE):
+                    self.module.log("DEFAULT_CONFIG_FILE missing on DPU {}, running config save".format(dpu_ip))
+                    if not self.execute_command(ssh, dpu_ip, CONFIG_SAVE_CMD):
+                        failure_count += 1
+                        self.module.warn("Failed to configure DPU {} at {}".format(i + 1, dpu_ip))
+                        continue
+
+                if (self.execute_command(ssh, dpu_ip, GEN_FULL_CONFIG_CMD) and
                         self.execute_command(ssh, dpu_ip, CONFIG_RELOAD_CMD) and
                         self.execute_command(ssh, dpu_ip, CONFIG_SAVE_CMD) and
                         self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_DPU_CONFIG_FILE)) and

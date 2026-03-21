@@ -22,6 +22,18 @@
             "state": "disabled"
         }
     },
+    "PORT": {
+        "Ethernet0": {
+            "admin_status": "up",
+            "alias": "etp1",
+            "autoneg": "off",
+            "dhcp_rate_limit": "300",
+            "fec": "rs",
+            "lanes": "0,1,2,3",
+            "mtu": "9100",
+            "speed": "200000"
+        }
+    },
     "GNMI": {
         "gnmi": {
             "log_level": "2",
