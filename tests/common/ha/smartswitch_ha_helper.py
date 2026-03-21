@@ -1,6 +1,6 @@
 import pytest
 import re
-from common.plugins.ptfadapter import PtfTestAdapter
+from tests.common.plugins.ptfadapter import PtfTestAdapter
 
 
 def add_port_to_namespace(ptfhost, name_of_namespace, port_name, port_ip):
