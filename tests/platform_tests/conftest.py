@@ -8,9 +8,9 @@ import tempfile
 from tests.common.mellanox_data import is_mellanox_device
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
-from tests.common.platform.transceiver_utils import get_ports_with_flat_memory, \
-    get_passive_cable_port_list, get_cmis_cable_ports_and_ver
+from tests.common.platform.transceiver_utils import get_passive_cable_port_list, get_cmis_cable_ports_and_ver
 from tests.common.helpers.firmware_helper import PLATFORM_COMP_PATH_TEMPLATE
+from tests.common.platform.interface_utils import get_ports_with_flat_memory
 
 logger = logging.getLogger(__name__)
 
@@ -241,10 +241,10 @@ def dpu_npu_port_list(duthosts):
 
 
 @pytest.fixture(scope="module")
-def port_list_with_flat_memory(duthosts):
+def port_list_with_flat_memory(duthosts, conn_graph_facts):
     ports_with_flat_memory = {}
     for dut in duthosts:
-        ports_with_flat_memory.update({dut.hostname: get_ports_with_flat_memory(dut)})
+        ports_with_flat_memory.update({dut.hostname: get_ports_with_flat_memory(dut, conn_graph_facts)})
     logging.info(f"port list with flat memory: {ports_with_flat_memory}")
     return ports_with_flat_memory
 
