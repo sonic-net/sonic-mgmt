@@ -15,6 +15,45 @@ logger = logging.getLogger(__name__)
 
 config_sources = ['config_db', 'minigraph', 'running_golden_config']
 
+
+def _inject_zebra_nexthop(duthost):
+    """Restore zebra_nexthop from minigraph.xml into CONFIG_DB after config load_minigraph.
+
+    sonic-cfggen does not parse ZebraNexthop from minigraph, so we read the XML
+    directly and write it to CONFIG_DB.  Called after load_minigraph, before config save.
+    """
+    INJECT_SCRIPT = """
+import xml.etree.ElementTree as ET
+import subprocess
+try:
+    root = ET.parse('/etc/sonic/minigraph.xml').getroot()
+    zn = None
+    for prop in root.iter():
+        if prop.tag.split('}')[-1] == 'DeviceProperty':
+            n = v = None
+            for c in prop:
+                t = c.tag.split('}')[-1]
+                if t == 'Name':
+                    n = c.text
+                elif t == 'Value':
+                    v = c.text
+            if n == 'ZebraNexthop' and v:
+                zn = v
+                break
+    if zn:
+        subprocess.run(
+            ['sonic-db-cli', 'CONFIG_DB', 'hset',
+             'DEVICE_METADATA|localhost', 'zebra_nexthop', zn],
+            check=True
+        )
+        print('zebra_nexthop restored to: ' + zn)
+except Exception as e:
+    print('WARNING: inject_zebra_nexthop failed: ' + str(e))
+"""
+    duthost.copy(content=INJECT_SCRIPT, dest="/tmp/_inject_zebra_nexthop.py")
+    duthost.shell("python3 /tmp/_inject_zebra_nexthop.py", module_ignore_errors=True)
+
+
 # Timeouts for smartswitch DPU state transitions (in seconds)
 DPU_STATE_TIMEOUT = 360
 DPU_STATE_INTERVAL = 30
@@ -250,6 +289,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)
         sonic_host.shell(cmd, executable="/bin/bash")
+        _inject_zebra_nexthop(sonic_host)
         time.sleep(60)
         if start_bgp:
             sonic_host.shell('config bgp startup all')
