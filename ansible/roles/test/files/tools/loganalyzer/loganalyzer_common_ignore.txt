@@ -453,3 +453,8 @@ r, ".*ERR telemetry#.*getDbInfo: Failed to find CHASSIS_STATE_DB.*"
 
 # Ignore SAI_STATUS_INVALID_PARAMETER error for SAI_API_QUEUE get stats until it's resolved
 r, ".*ERR swss#orchagent:.*SAI_API_QUEUE, status: SAI_STATUS_INVALID_PARAMETER.*"
+
+# https://github.com/sonic-net/sonic-mgmt/issues/19347
+r, ".* ERR auditd.*: queue to plugins is full - dropping event"
+r, ".* ERR auditd.*: message repeated .*: \[ queue to plugins is full - dropping event\]"
+r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped event notifications"
