@@ -337,3 +337,35 @@ def get_lport_to_first_subport_mapping(duthost, logical_intfs=None):
     first_subport_dict = {k: pport_to_lport_mapping[v][0] for k, v in physical_port_indices.items()}
     logging.debug("First subports mapping: {}".format(first_subport_dict))
     return first_subport_dict
+
+
+def get_xcvr_presence_data(duthost, asic_index=None):
+    """
+    @summary: Returns a dictionary of transceiver presence status for each interface.
+    @param asic_index: The ASIC index to query presence for. If None, queries the default namespace.
+    @return: A dictionary where keys are interface names and values are booleans indicating presence.
+    """
+    namespace = duthost.get_namespace_from_asic_id(asic_index)
+    namespace_prefix = '-n ' + namespace if namespace else ''
+    check_intf_presence_command = 'show interface transceiver presence {}'.format(namespace_prefix)
+    interface_presence_parsed = duthost.show_and_parse(check_intf_presence_command)
+    interface_presence_dict = {}
+    for entry in interface_presence_parsed:
+        interface_presence_dict[entry['port']] = entry.get('presence', '') == 'Present'
+    return interface_presence_dict
+
+
+def get_pport_presence_data(duthost, asic_index=None):
+    """
+    @summary: Returns a dictionary of physical port presence status for each physical port index.
+    @param asic_index: The ASIC index to query presence for. If None, queries the default namespace.
+    @return: A dictionary where keys are physical port indices and values are booleans indicating presence.
+    """
+    interface_presence_dict = get_xcvr_presence_data(duthost, asic_index)
+    physical_port_indices = get_physical_port_indices(duthost)
+    pport_presence_dict = {}
+    for intf, is_present in interface_presence_dict.items():
+        pport_index = physical_port_indices.get(intf)
+        if pport_index is not None:
+            pport_presence_dict[pport_index] = is_present
+    return pport_presence_dict
