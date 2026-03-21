@@ -434,7 +434,7 @@ def check_dpu_health_status(duthost, dpu_name,
     return
 
 
-def _get_dpuhost_for_dpu(dpuhosts, dpu_id):
+def get_dpuhost_for_dpu(dpuhosts, dpu_id):
     """
     Get the dpuhost that corresponds to the given dpu_id.
     dpuhosts may have fewer nodes than platform slots when the testbed
@@ -462,7 +462,7 @@ def check_dpu_critical_processes(dpuhosts, dpu_id):
     Returns:
        True if check passes or DPU not in dpuhosts (skip), False if a critical process failed
     """
-    dpuhost = _get_dpuhost_for_dpu(dpuhosts, dpu_id)
+    dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
     if dpuhost is None:
         logging.warning(
             "DPU%d not in dpuhosts (len=%d); skipping critical process check. "
