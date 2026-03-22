@@ -272,8 +272,7 @@ class IngressDropProbingExecutor:
 
             # ===== Result analysis based on attempts =====
             return_result = (True, results[0])
-            # Multiple attempts: check consistency
-            # Inconsistent results indicate noise/error
+            # Multiple attempts: check consistency (set dedup detects mixed True/False)
             if len(results) > 1 and len(set(results)) > 1:
                 return_result = (False, False)
 

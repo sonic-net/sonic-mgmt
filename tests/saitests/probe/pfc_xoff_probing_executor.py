@@ -176,31 +176,17 @@ class PfcXoffProbingExecutor:
                         f"pfc_triggered={pfc_triggered}")
 
             # Result analysis based on attempts
-            if attempts == 1:
-                # Single attempt: direct result
-                detected = results[0]
-                success = True
-            else:
-                # Multiple attempts: require consistent results for reliable detection
-                all_true = all(results)
-                all_false = not any(results)
-                all_equal = all_true or all_false
-
-                if all_equal:
-                    # Verification successful - consistent results
-                    detected = results[0]  # Any result since they're all the same
-                    success = True
-                else:
-                    # Verification failed - inconsistent results indicate noise/error
-                    detected = False
-                    success = False
+            return_result = (True, results[0])
+            # Multiple attempts: check consistency (set dedup detects mixed True/False)
+            if len(results) > 1 and len(set(results)) > 1:
+                return_result = (False, False)
 
             if self.verbose and self.observer:
                 self.observer.trace(
                     f"[PFC Xoff Executor] Check complete: value={value}, attempts={attempts}, "
-                    f"results={results}, final_detected={detected}, success={success}")
+                    f"results={results}, final_detected={return_result[1]}, success={return_result[0]}")
 
-            return success, detected
+            return return_result
 
         except Exception as e:
             if self.verbose and self.observer:
