@@ -234,5 +234,56 @@ def test_ingress_drop_bad_spot_repeated(mock_observer):
     print("[OK] Ingress Drop bad-spot repeated test passed")
 
 
+@pytest.mark.order(14)
+def test_ingress_drop_intermittent_returns_tuple_not_exception(mock_observer):
+    """
+    Bug: Intermittent executor raises Exception instead of returning (False, False).
+
+    Physical executors catch hardware errors and return (False, False).
+    Algorithm callers do not use try/except — they expect a tuple and check
+    'if not success:' to handle failures. Raising breaks the contract.
+    """
+    from sim_ingress_drop_probing_executor import SimIngressDropProbingExecutorIntermittent
+
+    executor = SimIngressDropProbingExecutorIntermittent(
+        observer=mock_observer,
+        name='test_intermittent',
+        actual_threshold=500,
+        failure_rate=1.0  # 100% failure — every check() fails
+    )
+
+    # Should return (False, False), NOT raise Exception
+    success, detected = executor.check(None, None, 500)
+    assert success is False
+    assert detected is False
+
+    executor.cleanup()
+    print("[OK] Intermittent executor returns (False, False) on failure")
+
+
+@pytest.mark.order(15)
+def test_ingress_drop_intermittent_success_path(mock_observer):
+    """Intermittent executor normal path (no failure) returns correct result."""
+    from sim_ingress_drop_probing_executor import SimIngressDropProbingExecutorIntermittent
+
+    executor = SimIngressDropProbingExecutorIntermittent(
+        observer=mock_observer,
+        name='test_intermittent_ok',
+        actual_threshold=500,
+        failure_rate=0.0  # 0% failure — every check() succeeds
+    )
+
+    success, detected = executor.check(None, None, 600)
+    assert success is True
+    assert detected is True  # 600 >= 500
+
+    success, detected = executor.check(None, None, 400)
+    assert success is True
+    assert detected is False  # 400 < 500
+
+    executor.cleanup()
+    print("[OK] Intermittent executor success path works correctly")
+
+
 if __name__ == '__main__':
     pytest.main([__file__, '-v'])
