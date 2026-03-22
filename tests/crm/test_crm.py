@@ -440,9 +440,8 @@ def generate_neighbors(amount, ip_ver):
     return ip_addr_list
 
 
-def configure_nexthop_groups(amount, interface, asichost, test_name, chunk_size):
+def configure_nexthop_groups(amount, interface, duthost, asichost, test_name):
     """ Configure bunch of nexthop groups on DUT. Bash template is used to speedup configuration """
-    # Template used to speedup execution many similar commands on DUT
     del_template = """
     %s
     for s in {{neigh_ip_list}}
@@ -456,41 +455,62 @@ def configure_nexthop_groups(amount, interface, asichost, test_name, chunk_size)
         ip {{ns_prefix}} neigh del ${s} lladdr 11:22:33:44:55:66 dev {{iface}}
     done""" % (NS_PREFIX_TEMPLATE)
 
-    add_template = """
+    neigh_template = """
     %s
-    ip -4 {{ns_prefix}} route add 2.0.0.0/8 dev {{iface}}
-    ip {{ns_prefix}} neigh replace 2.0.0.1 lladdr 11:22:33:44:55:66 dev {{iface}}
     for s in {{neigh_ip_list}}
     do
-        ip  {{ns_prefix}} neigh replace ${s} lladdr 11:22:33:44:55:66 dev {{iface}}
+        ip {{ns_prefix}} neigh replace ${s} lladdr 11:22:33:44:55:66 dev {{iface}}
+    done""" % (NS_PREFIX_TEMPLATE)
+
+    route_template = """
+    %s
+    for s in {{neigh_ip_list}}
+    do
         ip -4 {{ns_prefix}} route add ${s}/32 nexthop via ${s} nexthop via 2.0.0.1
     done""" % (NS_PREFIX_TEMPLATE)
 
+    init_template = """
+    %s
+    ip -4 {{ns_prefix}} route add 2.0.0.0/8 dev {{iface}}
+    ip {{ns_prefix}} neigh replace 2.0.0.1 lladdr 11:22:33:44:55:66 dev {{iface}}""" % (NS_PREFIX_TEMPLATE)
+
     del_template = Template(del_template)
-    add_template = Template(add_template)
+    neigh_template = Template(neigh_template)
+    route_template = Template(route_template)
+    init_template = Template(init_template)
 
     ip_addr_list = generate_neighbors(amount + 1, "4")
+    remaining_ips = ip_addr_list[1:]
+    all_ips_str = " ".join([str(item) for item in remaining_ips])
 
-    # Split up the neighbors into chunks of size chunk_size to buffer kernel neighbor messages
-    batched_ip_addr_lists = [ip_addr_list[i:i + chunk_size]
-                             for i in range(0, len(ip_addr_list), chunk_size)]
+    RESTORE_CMDS[test_name].append(del_template.render(iface=interface,
+                                                        neigh_ip_list=all_ips_str,
+                                                        namespace=asichost.namespace))
 
-    logger.info("Configuring {} total nexthop groups".format(amount))
-    for ip_batch in batched_ip_addr_lists:
-        ip_addr_list_batch = " ".join([str(item) for item in ip_batch[1:]])
-        # Store CLI command to delete all created neighbors if test case will fail
-        RESTORE_CMDS[test_name].append(del_template.render(iface=interface,
-                                                           neigh_ip_list=ip_addr_list_batch,
-                                                           namespace=asichost.namespace))
+    asichost.shell(init_template.render(iface=interface, namespace=asichost.namespace))
 
-        logger.info("Configuring {} nexthop groups".format(len(ip_batch)))
+    # Phase 1: add all neighbors, then verify via CRM counter before adding routes
+    get_neighbor_stats = "{} COUNTERS_DB HMGET CRM:STATS " \
+                         "crm_stats_ipv4_neighbor_used " \
+                         "crm_stats_ipv4_neighbor_available".format(asichost.sonic_db_cli)
+    neighbor_used_before, _ = get_crm_stats(get_neighbor_stats, duthost)
 
-        asichost.shell(add_template.render(iface=interface,
-                                           neigh_ip_list=ip_addr_list_batch,
-                                           namespace=asichost.namespace))
+    logger.info("Phase 1: Adding {} neighbors".format(amount))
+    asichost.shell(neigh_template.render(iface=interface,
+                                         neigh_ip_list=all_ips_str,
+                                         namespace=asichost.namespace))
 
-        # Brief pause between batches to avoid overwhelming kernel neighbor messages
-        wait_until(1, 1, 1, lambda: True)
+    expected_neighbor_used = neighbor_used_before + amount + 1
+    logger.info("Waiting for all {} neighbors to be programmed in HW".format(amount + 1))
+    wait_for_crm_counter_update(get_neighbor_stats, duthost,
+                                expected_used=expected_neighbor_used - CRM_COUNTER_TOLERANCE,
+                                oper_used=">=", timeout=60, interval=5)
+
+    # Phase 2: add routes now that all neighbors are confirmed in HW
+    logger.info("Phase 2: Adding {} routes".format(amount))
+    asichost.shell(route_template.render(iface=interface,
+                                         neigh_ip_list=all_ips_str,
+                                         namespace=asichost.namespace))
 
 
 def increase_arp_cache(duthost, max_value, ip_ver, test_name):
@@ -1136,17 +1156,10 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         # Increase default Linux configuration for ARP cache
         increase_arp_cache(duthost, nexthop_group_num, 4, "test_crm_nexthop_group")
 
-        # Configure neighbors in batches of size chunk_size
-        # on sn4700 devices, kernel neighbor messages were being dropped due to volume.
-        if "msn4700" in asic_type:
-            chunk_size = 200
-        else:
-            chunk_size = nexthop_group_num
-
         # Add new neighbor entries to correctly calculate used CRM resources in percentage
         configure_nexthop_groups(amount=nexthop_group_num, interface=crm_interface[0],
-                                 asichost=asichost, test_name="test_crm_nexthop_group",
-                                 chunk_size=chunk_size)
+                                 duthost=duthost, asichost=asichost,
+                                 test_name="test_crm_nexthop_group")
 
         # Wait for nexthop group resources to stabilize using polling
         expected_nhg_used = new_nexthop_group_used + nexthop_group_num - CRM_COUNTER_TOLERANCE
