@@ -518,6 +518,88 @@ class TestBfdStaticRoute(BfdBase):
                     version,
                 )
 
+    def test_bfd_single_portchannel_member_flap(self, request, select_src_dst_dut_with_asic, bfd_cleanup_db):
+        """
+        Validate BFD static route behavior when one member from each selected
+        source backend portchannel is shut down and brought back up.
+
+        Author:  Harsha Golla
+        Email : harsgoll@cisco.com
+        """
+        request.config.interface_shutdown = True
+
+        src_asic = select_src_dst_dut_with_asic["src_asic"]
+        dst_asic = select_src_dst_dut_with_asic["dst_asic"]
+        src_dut = select_src_dst_dut_with_asic["src_dut"]
+        dst_dut = select_src_dst_dut_with_asic["dst_dut"]
+        src_dut_nexthops = select_src_dst_dut_with_asic["src_dut_nexthops"]
+        dst_dut_nexthops = select_src_dst_dut_with_asic["dst_dut_nexthops"]
+        src_prefix = select_src_dst_dut_with_asic["src_prefix"]
+        dst_prefix = select_src_dst_dut_with_asic["dst_prefix"]
+        version = select_src_dst_dut_with_asic["version"]
+        src_dst_context = [
+            ("src", src_asic, src_prefix, src_dut, src_dut_nexthops),
+            ("dst", dst_asic, dst_prefix, dst_dut, dst_dut_nexthops),
+        ]
+
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for _, asic, prefix, dut, dut_nexthops in src_dst_context:
+                executor.submit(create_and_verify_bfd_state, asic, prefix, dut, dut_nexthops)
+
+        # Extract portchannel interfaces on src
+        list_of_portchannels_on_src = dst_dut_nexthops.keys()
+        request.config.portchannels_on_dut = "src"
+        request.config.selected_portchannels = list_of_portchannels_on_src
+
+        # Shutdown one PortChannel member per portchannel
+        selected_portchannel_members_on_src = []
+        for portchannel_interface in list_of_portchannels_on_src:
+            list_of_portchannel_members_on_src = (
+                extract_backend_portchannels(src_dut)[portchannel_interface]["members"]
+            )
+            if not list_of_portchannel_members_on_src:
+                pytest.fail(
+                    "No members found for backend portchannel {}".format(portchannel_interface)
+                )
+
+            selected_portchannel_members_on_src.append(list_of_portchannel_members_on_src[0])
+
+        request.config.selected_portchannel_members = selected_portchannel_members_on_src
+        batch_control_interface_state(src_dut, src_asic, selected_portchannel_members_on_src, "shutdown")
+
+        # Verify BFD and static routes
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for _, asic, prefix, dut, dut_nexthops in src_dst_context:
+                executor.submit(
+                    verify_bfd_and_static_route,
+                    dut,
+                    dut_nexthops,
+                    asic,
+                    "Down",
+                    request,
+                    prefix,
+                    "Route Removal",
+                    version,
+                )
+
+        # Bring up PortChannel members
+        batch_control_interface_state(src_dut, src_asic, selected_portchannel_members_on_src, "startup")
+
+        # Verify BFD and static routes
+        with SafeThreadPoolExecutor(max_workers=8) as executor:
+            for _, asic, prefix, dut, dut_nexthops in src_dst_context:
+                executor.submit(
+                    verify_bfd_and_static_route,
+                    dut,
+                    dut_nexthops,
+                    asic,
+                    "Up",
+                    request,
+                    prefix,
+                    "Route Addition",
+                    version,
+                )
+
     def test_bfd_config_reload(self, request, select_src_dst_dut_with_asic, bfd_cleanup_db):
         """
         Author:  Harsha Golla

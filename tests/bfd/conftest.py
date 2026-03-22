@@ -68,12 +68,12 @@ def bfd_cleanup_db(request, duthosts, enum_supervisor_dut_hostname):
         clear_bfd_configs(request.config.dst_dut, request.config.dst_asic.asic_index, request.config.dst_prefix)
 
     portchannels_on_dut = None
-    if hasattr(request.config, "portchannels_on_dut"):
-        portchannels_on_dut = request.config.portchannels_on_dut
-        selected_interfaces = request.config.selected_portchannels
-    elif hasattr(request.config, "selected_portchannel_members"):
+    if hasattr(request.config, "selected_portchannel_members"):
         portchannels_on_dut = request.config.portchannels_on_dut
         selected_interfaces = request.config.selected_portchannel_members
+    elif hasattr(request.config, "portchannels_on_dut"):
+        portchannels_on_dut = request.config.portchannels_on_dut
+        selected_interfaces = request.config.selected_portchannels
     else:
         selected_interfaces = []
 
