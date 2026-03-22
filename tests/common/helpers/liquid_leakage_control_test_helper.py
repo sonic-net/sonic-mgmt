@@ -15,6 +15,9 @@ WAIT_GNMI_LD_EVENT_TIMEOUT = 90
 # To left some buffer for the thread timeout,the timeout for gnmi event is set to 120 seconds
 WAIT_GNMI_EVENT_TIMEOUT = WAIT_GNMI_LD_EVENT_TIMEOUT + 30
 
+DUT_CONFIG_FILE = '/usr/share/sonic/device/{}/system_health_monitoring_config.json'
+DUT_CONFIG_BACKUP_FILE = '/usr/share/sonic/device/{}/system_health_monitoring_config.json.bak'
+
 
 class LiquidLeakageMocker(BaseMocker):
     """
@@ -86,14 +89,14 @@ def verify_leakage_status(dut, leakage_index_list, expected_status):
     :param expected_status: Expected status of the DUT.
     :return:
     """
-    logging.info(f"Verify leakage status of {leakage_index_list} is : {expected_status}")
+    logging.info(f"Verify leakage status of {leakage_index_list} is: {expected_status}")
     leakage_status_list = get_leakage_status(dut)
     failed_leakage_list = []
     success_leakage_list = []
     for index in leakage_index_list:
         for leak_status in leakage_status_list:
             if leak_status['name'] == f"leakage{index}":
-                if leak_status['leak'].lower() != expected_status.lower():
+                if leak_status['leaking'].lower() != expected_status.lower():
                     failed_leakage_list.append(index)
                     logging.info(f"Leakage status is not as expected: {leak_status}")
                 else:
@@ -173,7 +176,7 @@ def verify_gnmi_msg_is_sent(leakage_index_list, gnmi_result, msg_type):
         if msg_type == "leaking":
             expected_msg_regex = f".*{msg_common_prefix}.*sensor report leaking event.*leakage{index}.*"
         else:
-            expected_msg_regex = f".*{msg_common_prefix}.*leaking sensor report recoveried.*leakage{index}.*"
+            expected_msg_regex = f".*{msg_common_prefix}.*leaking sensor report recovered.*leakage{index}.*"
         assert re.search(expected_msg_regex, gnmi_result), f"Gnmi msg is not as expected: {gnmi_result}"
     return True
 
@@ -188,15 +191,16 @@ def startmonitor_gnmi_event(duthost, ptfhost):
     """
     dut_mgmt_ip = duthost.mgmt_ip
     timeout = WAIT_GNMI_LD_EVENT_TIMEOUT
-    gnmi_subscribe_cmd = f"python /root/gnxi/gnmi_cli_py/py_gnmicli.py  -g -t {dut_mgmt_ip} -p 50052 -m subscribe \
+    gnmi_subscribe_cmd = f"python /root/gnxi/gnmi_cli_py/py_gnmicli.py -g -t {dut_mgmt_ip} -p 50052 -m subscribe \
     -x all[heartbeat=2] -xt EVENTS -o ndastreamingservertest --subscribe_mode 0 --submode 1 --interval 0 \
-        --update_count 0 --create_connections 1 --filter_event_regex sonic-events-host --timeout {timeout} "
+    --update_count 0 --create_connections 1 --filter_event_regex sonic-events-host --timeout {timeout}"
     result = ptfhost.shell(gnmi_subscribe_cmd, module_ignore_errors=True)['stdout']
     logging.info(f"gnmi subscribe cmd: {gnmi_subscribe_cmd} \n gnmi event result: {result}")
     return result
 
 
-def get_pmon_daemon_control_dict(dut):
+def get_pmon_daemon_thermalctld_control_dict(dut):
+
     """
     Get the pmon daemon control dict of the DUT.
     :param dut: DUT object representing a SONiC switch under test.
@@ -204,7 +208,9 @@ def get_pmon_daemon_control_dict(dut):
     """
     pmon_daemon_control_file_path = os.path.join(
         "/usr/share/sonic/device", dut.facts["platform"], "pmon_daemon_control.json")
-    return json.loads(dut.shell(f"cat {pmon_daemon_control_file_path} ")['stdout'])
+    pmon_daemon_control_dict = json.loads(dut.shell(f"cat {pmon_daemon_control_file_path} ")['stdout'])
+    logging.info(f"Pmon daemon control dict: {pmon_daemon_control_dict}")
+    return pmon_daemon_control_dict.get("thermalctld", {})
 
 
 def is_liquid_cooling_system_supported(dut):
@@ -213,7 +219,7 @@ def is_liquid_cooling_system_supported(dut):
     :param dut: DUT object representing a SONiC switch under test.
     :return: True if the liquid cooling system is supported, False otherwise.
     """
-    pmon_daemon_control_dict = get_pmon_daemon_control_dict(dut)
+    pmon_daemon_control_dict = get_pmon_daemon_thermalctld_control_dict(dut)
     if pmon_daemon_control_dict.get("enable_liquid_cooling"):
         logging.info("Liquid cooling system is supported")
         return True
@@ -228,7 +234,7 @@ def get_liquid_cooling_update_interval(dut):
     :param dut: DUT object representing a SONiC switch under test.
     :return: The liquid cooling update interval of the DUT.
     """
-    pmon_daemon_control_dict = get_pmon_daemon_control_dict(dut)
+    pmon_daemon_control_dict = get_pmon_daemon_thermalctld_control_dict(dut)
     return pmon_daemon_control_dict.get("liquid_cooling_update_interval")
 
 
@@ -245,7 +251,9 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
         "Test was not supported on devices which do not support GNMI!")
     duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' port 50052")
     duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' client_auth true")
-    duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|certs' ca_crt /etc/sonic/telemetry/dsmsroot.cer")
+
+    duthost.shell(
+        "sonic-db-cli CONFIG_DB hset 'GNMI|certs' ca_crt /etc/sonic/telemetry/dsmsroot.cer")
     duthost.shell(
         "sonic-db-cli CONFIG_DB hset 'GNMI|certs' server_crt /etc/sonic/telemetry/streamingtelemetryserver.cer")
     duthost.shell(
@@ -258,3 +266,83 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
 
     logging.info("Recover gnmi config")
     config_reload(duthost, safe_reload=True)
+
+
+@pytest.fixture(scope="module", autouse=True)
+def skip_when_no_liquid_cooling_system(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if not is_liquid_cooling_system_supported(duthost):
+        pytest.skip("No liquid cooling leakage sensors found on device")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def ensure_liquid_cooling_in_system_health_monitoring_config(
+        duthosts, rand_one_dut_hostname,
+        skip_when_no_liquid_cooling_system):  # noqa: F811
+    """
+    Fixture to ensure 'liquid_cooling' is in the 'include_devices' list of
+    system_health_monitoring_config.json. Backs up the file, modifies it
+    if needed, and restores it after the test.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    platform_str = duthost.facts['platform']
+    config_file = DUT_CONFIG_FILE.format(platform_str)
+    backup_file = DUT_CONFIG_BACKUP_FILE.format(platform_str)
+
+    # Read the original content
+    logging.info("Reading system_health_monitoring_config.json from duthost")
+    cmd = 'cat {}'.format(config_file)
+    output = duthost.shell(cmd)
+    original_content = output['stdout'].strip()
+    json_obj = json.loads(original_content)
+
+    # Check if liquid_cooling already exists in the original content
+    needs_modification = False
+    if 'include_devices' in json_obj:
+        include_devices = json_obj['include_devices']
+        if isinstance(include_devices, list) and 'liquid_cooling' in include_devices:
+            logging.info("'liquid_cooling' already exists in include_devices list, no modification needed")
+        else:
+            needs_modification = True
+    else:
+        needs_modification = True
+
+    # Only backup, modify, and restart if changes are needed
+    if needs_modification:
+        # Backup the file
+        logging.info("Backing up system_health_monitoring_config.json")
+        duthost.shell('cp {} {}'.format(config_file, backup_file))
+
+        # Check if include_devices key exists
+        if 'include_devices' in json_obj:
+            # Check if liquid_cooling is in the list
+            include_devices = json_obj['include_devices']
+            if not isinstance(include_devices, list):
+                include_devices = []
+                json_obj['include_devices'] = include_devices
+
+            # Add liquid_cooling to the list
+            logging.info("Adding 'liquid_cooling' to include_devices list")
+            include_devices.append('liquid_cooling')
+            json_obj['include_devices'] = include_devices
+        else:
+            # Create include_devices key with liquid_cooling
+            logging.info("Creating 'include_devices' key with 'liquid_cooling'")
+            json_obj['include_devices'] = ['liquid_cooling']
+
+        # Write the modified JSON back to the file
+        modified_content = json.dumps(json_obj, indent=4)
+        duthost.copy(content=modified_content, dest=config_file)
+        # Restart system-health service to apply the changes
+        logging.info("Restarting system-health service")
+        duthost.shell('sudo systemctl restart system-health')
+
+    yield
+
+    # Restore the original content only if we made modifications
+    if needs_modification:
+        logging.info("Restoring original system_health_monitoring_config.json")
+        duthost.shell('mv {} {}'.format(backup_file, config_file))
+        # Restart system-health service to apply the restored config
+        logging.info("Restarting system-health service after restore")
+        duthost.shell('sudo systemctl restart system-health')
