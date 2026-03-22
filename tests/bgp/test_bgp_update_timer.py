@@ -17,7 +17,7 @@ from tests.bgp.bgp_helpers import (
         is_neighbor_sessions_established
 )
 from tests.common.helpers.bgp import BGPNeighbor
-from tests.common.utilities import wait_until, delete_running_config
+from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv6_only_topology
 
 from tests.common.helpers.assertions import pytest_assert
@@ -172,12 +172,6 @@ def common_setup_teardown(
     )
 
     yield bgp_neighbors, use_vtysh
-
-    # Cleanup suppress-fib-pending config
-    delete_tacacs_json = [
-        {"DEVICE_METADATA": {"localhost": {"suppress-fib-pending": "disabled"}}}
-    ]
-    delete_running_config(delete_tacacs_json, duthost)
 
 
 @pytest.fixture
