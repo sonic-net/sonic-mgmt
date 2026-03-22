@@ -146,8 +146,19 @@ def filter_check_items(tbinfo, duthosts, check_items):
 def do_checks(request, check_items, *args, **kwargs):
     check_results = []
     for item in check_items:
-        check_fixture = request.getfixturevalue(item)
-        results = check_fixture(*args, **kwargs)
+        try:
+            check_fixture = request.getfixturevalue(item)
+            results = check_fixture(*args, **kwargs)
+        except (Exception, pytest.fail.Exception) as err:
+            check_item = item[6:] if item.startswith("check_") else item
+            logger.exception("Exception raised while executing sanity check '%s'", item)
+            check_results.append({
+                "failed": True,
+                "check_item": check_item,
+                "failed_reason": f"Exception raised while executing sanity check '{item}': {repr(err)}"
+            })
+            continue
+
         logger.debug("check results of each item {}".format(results))
         if results and isinstance(results, list):
             check_results.extend(results)
