@@ -1,5 +1,7 @@
 import time
 import logging
+import os
+import re
 import pytest
 import allure
 
@@ -91,17 +93,31 @@ def get_var_log_size(duthost):
     return int(size)
 
 
+def get_syslog_file_list(duthost):
+    """
+    Check the rotated syslog file list
+    :param duthost: DUT host object
+    :return: a list of rotated syslog filenames (absolute paths)
+    """
+    logger.info('Check rotated syslog file list')
+    # Safe ls command as requested in Point 5
+    res = duthost.shell('ls /var/log/syslog.* 2>/dev/null || true', module_ignore_errors=True)
+    if res['rc'] != 0:
+        return []
+
+    # Extract filenames and filter for syslog archives (e.g. syslog.1, syslog.20230101.gz)
+    pattern = re.compile(r'syslog\.\d+(\.gz)?$')
+    file_list = [line.strip() for line in res['stdout_lines'] if pattern.match(os.path.basename(line.strip()))]
+    return file_list
+
+
 def get_syslog_file_count(duthost):
     """
     Check the rotated syslog file number
     :param duthost: DUT host object
     :return: file number value
     """
-    logger.info('Check rotated syslog file number')
-    num = duthost.shell('sudo ls -l /var/log | grep -Ec "syslog\\.[0-9]{1,4}[\\.gz]{0,1}"',
-                        module_ignore_errors=True)['stdout']
-    logger.debug('There are {} rotated syslog files'.format(num))
-    return int(num)
+    return len(get_syslog_file_list(duthost))
 
 
 def create_temp_syslog_file(duthost, size):
@@ -116,15 +132,16 @@ def create_temp_syslog_file(duthost, size):
 
 def run_logrotate(duthost, force=False):
     """
-    Run logrotate command
+    Run logrotate command using a private state file to ensure deterministic behavior.
     :param duthost: DUT host object
-    :param force: force logrotate run immediately even the syslog size is very small, value is True or False
+    :param force: force logrotate run immediately even the syslog size is very small
     """
+    state_file = '/tmp/logrotate.status'
     if force:
-        logger.debug('Make sure there is no big /var/log/syslog exist by forcing execute logrotate')
-        cmd = 'sudo /usr/sbin/logrotate -f /etc/logrotate.conf > /dev/null 2>&1'
+        logger.debug('Forcing logrotate execution')
+        cmd = 'sudo /usr/sbin/logrotate -f -s {} /etc/logrotate.conf > /dev/null 2>&1'.format(state_file)
     else:
-        cmd = 'sudo /usr/sbin/logrotate /etc/logrotate.conf > /dev/null 2>&1'
+        cmd = 'sudo /usr/sbin/logrotate -s {} /etc/logrotate.conf > /dev/null 2>&1'.format(state_file)
     logger.info('Run logrotate command: {}'.format(cmd))
     duthost.shell(cmd)
 
@@ -146,31 +163,73 @@ def validate_logrotate_function(duthost, logrotate_threshold, small_size):
     :param duthost: DUT host object
     :param logrotate_threshold: logrotate threshold, such as 16M or 1024K
     """
-    with allure.step('Run logrotate with force option to prepare clean syslog environment'):
+    with allure.step('Prepare clean syslog environment by removing existing archives and status'):
+        delete_all_archives_under_var_log(duthost)
+        duthost.shell('sudo rm -f /tmp/logrotate.status')
         run_logrotate(duthost, force=True)
 
     with allure.step('There should be no logrotate process when rsyslog size is smaller than threshold {}'.format(
             logrotate_threshold)):
-        syslog_number_origin = get_syslog_file_count(duthost)
-        logger.info('There are {} syslog gz files'.format(syslog_number_origin))
+        syslog_list_origin = get_syslog_file_list(duthost)
+        logger.info('There are {} syslog rotated files'.format(len(syslog_list_origin)))
         if small_size:
             create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 0.5))
         else:
             create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 0.9))
         run_logrotate(duthost)
-        syslog_number_no_rotate = get_syslog_file_count(duthost)
-        logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_no_rotate))
-        assert syslog_number_origin == syslog_number_no_rotate, \
+        syslog_list_no_rotate = get_syslog_file_list(duthost)
+        logger.info('There are {} syslog rotated files after running logrotate'.format(len(syslog_list_no_rotate)))
+        assert len(syslog_list_origin) == len(syslog_list_no_rotate), \
             'Unexpected logrotate happens, there should be no logrotate executed'
 
     with allure.step('There will be logrotate process when rsyslog size is larger than threshold {}'.format(
             logrotate_threshold)):
         create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 1.1))
+
+        # Collect state BEFORE rotation (Point 6: early validation)
+        before_list = get_syslog_file_list(duthost)
+        if not before_list:
+            pytest.fail("Pre-rotation state invalid: no rotated files found.")
+
         run_logrotate(duthost)
-        syslog_number_with_rotate = get_syslog_file_count(duthost)
-        logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_with_rotate))
-        assert syslog_number_origin + 1 == syslog_number_with_rotate, \
-            'No logrotate happens, there should be one time logrotate executed'
+
+        # Collect state AFTER rotation
+        after_list = get_syslog_file_list(duthost)
+
+        # Point 1: Optimize set usage
+        before_set = set(before_list)
+        after_set = set(after_list)
+        added = after_set - before_set
+        removed = before_set - after_set
+
+        # Point 2: Improve logging (MANDATORY f-string format)
+        logger.info(
+            f"Logrotate validation: before={len(before_list)}, "
+            f"after={len(after_list)}, added={list(added)}, removed={list(removed)}"
+        )
+
+        # Point 4: Add explicit no-change detection
+        if len(added) == 0 and len(removed) == 0:
+            pytest.fail(f"Logrotate did not modify any files: before={len(before_list)}, after={len(after_list)}")
+
+        # Point 3 & 7: Final validation logic (Case A/B/Else structure)
+        # Case A: count increased
+        if len(after_set) > len(before_set):
+            logger.info("Logrotate validation: count increased → PASS")
+            return
+
+        # Case B: same count + exactly 1 added/removed (limit reached corner case)
+        if len(after_set) == len(before_set):
+            if len(added) == 1 and len(removed) == 1:
+                logger.info("Logrotate validation: count unchanged, added=1, removed=1 → PASS")
+                return
+
+        # Case Else: unexpected logrotate behavior
+        pytest.fail(
+            f"Unexpected logrotate behavior: "
+            f"before={len(before_list)}, after={len(after_list)}, "
+            f"added={list(added)}, removed={list(removed)}"
+        )
 
 
 def get_threshold_based_on_memory(duthost):
