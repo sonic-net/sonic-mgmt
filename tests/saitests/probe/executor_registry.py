@@ -153,8 +153,8 @@ class ExecutorRegistry:
 
         Args:
             probe_type: 'pfc_xoff' or 'ingress_drop'
-            env: 'physical' or 'sim'
-            scenario: Sim test scenario (only for env='sim')
+            executor_env: 'physical' or 'sim'
+            scenario: Sim test scenario (only for executor_env='sim')
                       None - normal sim
                       'noisy' - hardware noise simulation
                       'wrong_config' - wrong threshold configuration
