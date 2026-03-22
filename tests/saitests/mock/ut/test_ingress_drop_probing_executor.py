@@ -511,6 +511,114 @@ class TestIngressDropProbingExecutor:
         assert success is False
         assert detected is False
 
+    @pytest.mark.order(8819)
+    @patch('ingress_drop_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('ingress_drop_probing_executor.sai_thrift_read_port_counters')
+    @patch('ingress_drop_probing_executor.time.sleep')
+    def test_check_result_analysis_single_detected(self, mock_sleep, mock_read_counters):
+        """Result analysis: single attempt, drop detected → (True, True)"""
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        mock_read_counters.side_effect = [
+            ([0] * 20, [0] * 10),   # baseline
+            ([5] * 20, [0] * 10)    # after traffic: drops detected
+        ]
+        executor = IngressDropProbingExecutor(
+            ptftest=self.mock_ptftest, observer=self.observer
+        )
+        success, detected = executor.check(24, 28, 1000)
+        assert (success, detected) == (True, True)
+
+    @pytest.mark.order(8820)
+    @patch('ingress_drop_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('ingress_drop_probing_executor.sai_thrift_read_port_counters')
+    @patch('ingress_drop_probing_executor.time.sleep')
+    def test_check_result_analysis_single_not_detected(self, mock_sleep, mock_read_counters):
+        """Result analysis: single attempt, no drop → (True, False)"""
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        mock_read_counters.side_effect = [
+            ([0] * 20, [0] * 10),   # baseline
+            ([0] * 20, [0] * 10)    # after traffic: no drops
+        ]
+        executor = IngressDropProbingExecutor(
+            ptftest=self.mock_ptftest, observer=self.observer
+        )
+        success, detected = executor.check(24, 28, 1000)
+        assert (success, detected) == (True, False)
+
+    @pytest.mark.order(8821)
+    @patch('ingress_drop_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('ingress_drop_probing_executor.sai_thrift_read_port_counters')
+    @patch('ingress_drop_probing_executor.time.sleep')
+    def test_check_result_analysis_multi_all_detected(self, mock_sleep, mock_read_counters):
+        """Result analysis: 2 attempts, both detected → (True, True)"""
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        mock_read_counters.side_effect = [
+            ([0] * 20, [0] * 10), ([5] * 20, [0] * 10),  # attempt 1: detected
+            ([0] * 20, [0] * 10), ([5] * 20, [0] * 10),  # attempt 2: detected
+        ]
+        executor = IngressDropProbingExecutor(
+            ptftest=self.mock_ptftest, observer=self.observer
+        )
+        success, detected = executor.check(24, 28, 1000, attempts=2)
+        assert (success, detected) == (True, True)
+
+    @pytest.mark.order(8822)
+    @patch('ingress_drop_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('ingress_drop_probing_executor.sai_thrift_read_port_counters')
+    @patch('ingress_drop_probing_executor.time.sleep')
+    def test_check_result_analysis_multi_none_detected(self, mock_sleep, mock_read_counters):
+        """Result analysis: 2 attempts, none detected → (True, False)"""
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        mock_read_counters.side_effect = [
+            ([0] * 20, [0] * 10), ([0] * 20, [0] * 10),  # attempt 1: not detected
+            ([0] * 20, [0] * 10), ([0] * 20, [0] * 10),  # attempt 2: not detected
+        ]
+        executor = IngressDropProbingExecutor(
+            ptftest=self.mock_ptftest, observer=self.observer
+        )
+        success, detected = executor.check(24, 28, 1000, attempts=2)
+        assert (success, detected) == (True, False)
+
+    @pytest.mark.order(8823)
+    @patch('ingress_drop_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('ingress_drop_probing_executor.sai_thrift_read_port_counters')
+    @patch('ingress_drop_probing_executor.time.sleep')
+    def test_check_result_analysis_multi_inconsistent_tf(self, mock_sleep, mock_read_counters):
+        """Result analysis: 2 attempts, [True, False] inconsistent → (False, False)"""
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        mock_read_counters.side_effect = [
+            ([0] * 20, [0] * 10), ([5] * 20, [0] * 10),  # attempt 1: detected
+            ([0] * 20, [0] * 10), ([0] * 20, [0] * 10),  # attempt 2: not detected
+        ]
+        executor = IngressDropProbingExecutor(
+            ptftest=self.mock_ptftest, observer=self.observer
+        )
+        success, detected = executor.check(24, 28, 1000, attempts=2)
+        assert (success, detected) == (False, False)
+
+    @pytest.mark.order(8824)
+    @patch('ingress_drop_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('ingress_drop_probing_executor.sai_thrift_read_port_counters')
+    @patch('ingress_drop_probing_executor.time.sleep')
+    def test_check_result_analysis_multi_inconsistent_ft(self, mock_sleep, mock_read_counters):
+        """Result analysis: 2 attempts, [False, True] inconsistent → (False, False)"""
+        from ingress_drop_probing_executor import IngressDropProbingExecutor
+
+        mock_read_counters.side_effect = [
+            ([0] * 20, [0] * 10), ([0] * 20, [0] * 10),  # attempt 1: not detected
+            ([0] * 20, [0] * 10), ([5] * 20, [0] * 10),  # attempt 2: detected
+        ]
+        executor = IngressDropProbingExecutor(
+            ptftest=self.mock_ptftest, observer=self.observer
+        )
+        success, detected = executor.check(24, 28, 1000, attempts=2)
+        assert (success, detected) == (False, False)
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -489,6 +489,126 @@ class TestPfcXoffProbingExecutor:
         assert detected is True
         self.mock_ptftest.buffer_ctrl.send_traffic.assert_called_with(24, 28, 10**6)
 
+    @pytest.mark.order(8719)
+    @patch('pfc_xoff_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('pfc_xoff_probing_executor.sai_thrift_read_port_counters')
+    @patch('pfc_xoff_probing_executor.time.sleep')
+    def test_check_result_analysis_single_detected(self, mock_sleep, mock_read_counters):
+        """Result analysis: single attempt, PFC triggered → (True, True)"""
+        from pfc_xoff_probing_executor import PfcXoffProbingExecutor
+
+        base = [0] * 20
+        triggered = [0] * 20
+        triggered[5] = 100
+
+        mock_read_counters.side_effect = [(base, [0] * 10), (triggered, [0] * 10)]
+        executor = PfcXoffProbingExecutor(
+            ptftest=self.mock_ptftest, observer=self.observer
+        )
+        success, detected = executor.check(24, 28, 1000)
+        assert (success, detected) == (True, True)
+
+    @pytest.mark.order(8720)
+    @patch('pfc_xoff_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('pfc_xoff_probing_executor.sai_thrift_read_port_counters')
+    @patch('pfc_xoff_probing_executor.time.sleep')
+    def test_check_result_analysis_single_not_detected(self, mock_sleep, mock_read_counters):
+        """Result analysis: single attempt, no PFC → (True, False)"""
+        from pfc_xoff_probing_executor import PfcXoffProbingExecutor
+
+        mock_read_counters.side_effect = [
+            ([0] * 20, [0] * 10), ([0] * 20, [0] * 10)
+        ]
+        executor = PfcXoffProbingExecutor(
+            ptftest=self.mock_ptftest, observer=self.observer
+        )
+        success, detected = executor.check(24, 28, 1000)
+        assert (success, detected) == (True, False)
+
+    @pytest.mark.order(8721)
+    @patch('pfc_xoff_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('pfc_xoff_probing_executor.sai_thrift_read_port_counters')
+    @patch('pfc_xoff_probing_executor.time.sleep')
+    def test_check_result_analysis_multi_all_detected(self, mock_sleep, mock_read_counters):
+        """Result analysis: 2 attempts, both triggered → (True, True)"""
+        from pfc_xoff_probing_executor import PfcXoffProbingExecutor
+
+        base = [0] * 20
+        triggered = [0] * 20
+        triggered[5] = 100
+
+        mock_read_counters.side_effect = [
+            (base, [0] * 10), (triggered, [0] * 10),
+            (base, [0] * 10), (triggered, [0] * 10),
+        ]
+        executor = PfcXoffProbingExecutor(
+            ptftest=self.mock_ptftest, observer=self.observer
+        )
+        success, detected = executor.check(24, 28, 1000, attempts=2)
+        assert (success, detected) == (True, True)
+
+    @pytest.mark.order(8722)
+    @patch('pfc_xoff_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('pfc_xoff_probing_executor.sai_thrift_read_port_counters')
+    @patch('pfc_xoff_probing_executor.time.sleep')
+    def test_check_result_analysis_multi_none_detected(self, mock_sleep, mock_read_counters):
+        """Result analysis: 2 attempts, none triggered → (True, False)"""
+        from pfc_xoff_probing_executor import PfcXoffProbingExecutor
+
+        mock_read_counters.side_effect = [
+            ([0] * 20, [0] * 10), ([0] * 20, [0] * 10),
+            ([0] * 20, [0] * 10), ([0] * 20, [0] * 10),
+        ]
+        executor = PfcXoffProbingExecutor(
+            ptftest=self.mock_ptftest, observer=self.observer
+        )
+        success, detected = executor.check(24, 28, 1000, attempts=2)
+        assert (success, detected) == (True, False)
+
+    @pytest.mark.order(8723)
+    @patch('pfc_xoff_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('pfc_xoff_probing_executor.sai_thrift_read_port_counters')
+    @patch('pfc_xoff_probing_executor.time.sleep')
+    def test_check_result_analysis_multi_inconsistent_tf(self, mock_sleep, mock_read_counters):
+        """Result analysis: 2 attempts, [True, False] → (False, False)"""
+        from pfc_xoff_probing_executor import PfcXoffProbingExecutor
+
+        base = [0] * 20
+        triggered = [0] * 20
+        triggered[5] = 100
+
+        mock_read_counters.side_effect = [
+            (base, [0] * 10), (triggered, [0] * 10),
+            (base, [0] * 10), (base, [0] * 10),
+        ]
+        executor = PfcXoffProbingExecutor(
+            ptftest=self.mock_ptftest, observer=self.observer
+        )
+        success, detected = executor.check(24, 28, 1000, attempts=2)
+        assert (success, detected) == (False, False)
+
+    @pytest.mark.order(8724)
+    @patch('pfc_xoff_probing_executor.port_list', {"src": {24: "mock_port_24"}})
+    @patch('pfc_xoff_probing_executor.sai_thrift_read_port_counters')
+    @patch('pfc_xoff_probing_executor.time.sleep')
+    def test_check_result_analysis_multi_inconsistent_ft(self, mock_sleep, mock_read_counters):
+        """Result analysis: 2 attempts, [False, True] → (False, False)"""
+        from pfc_xoff_probing_executor import PfcXoffProbingExecutor
+
+        base = [0] * 20
+        triggered = [0] * 20
+        triggered[5] = 100
+
+        mock_read_counters.side_effect = [
+            (base, [0] * 10), (base, [0] * 10),
+            (base, [0] * 10), (triggered, [0] * 10),
+        ]
+        executor = PfcXoffProbingExecutor(
+            ptftest=self.mock_ptftest, observer=self.observer
+        )
+        success, detected = executor.check(24, 28, 1000, attempts=2)
+        assert (success, detected) == (False, False)
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
