@@ -2,10 +2,9 @@
 """
 Unit Tests for ExecutorRegistry
 
-IMPORTANT: These tests use @pytest.mark.order(900+) to run LAST in execution order.
-This test file clears registry entries during cleanup, which could affect other
-tests that depend on mock executors being registered. Running it last ensures
-all other tests complete before registry cleanup occurs.
+Test isolation is handled by the autouse fixture in conftest.py which calls
+ExecutorRegistry.clear_registry() and removes executor modules from sys.modules
+before and after each test (using yield, guaranteed even on test failure).
 
 Requires: pytest-order plugin (pip install pytest-order)
 
@@ -60,9 +59,6 @@ def test_register_decorator_physical():
 
     print("[OK] Physical executor registered correctly")
 
-    # Cleanup
-    del ExecutorRegistry._registry[key]
-
 
 @pytest.mark.order(901)
 def test_register_decorator_mock_variants():
@@ -109,10 +105,6 @@ def test_register_decorator_mock_variants():
 
     print("[OK] All mock variants registered correctly")
 
-    # Cleanup
-    for key in keys:
-        del ExecutorRegistry._registry[key]
-
 
 @pytest.mark.order(902)
 def test_create_invalid_env():
@@ -145,14 +137,6 @@ def test_create_error_unregistered_executor():
     from executor_registry import ExecutorRegistry
 
     print("\n=== UT: create() - unregistered executor ===")
-
-    # Clear pfc module if loaded
-    if 'sim_pfc_xoff_probing_executor' in sys.modules:
-        keys_to_remove = [k for k in ExecutorRegistry._registry.keys()
-                          if k[0] == 'pfc_xoff']
-        for k in keys_to_remove:
-            del ExecutorRegistry._registry[k]
-        ExecutorRegistry._loaded_modules.discard('sim_pfc_xoff_probing_executor')
 
     # Force load the module first
     import importlib
@@ -208,12 +192,6 @@ def test_create_physical_env():
 
     print("[OK] Physical environment create() works correctly")
     print("[OK] Line 214 covered: key = (executor_type, 'physical')")
-
-    # Cleanup
-    key = ('test_physical_exec', 'physical')
-    if key in ExecutorRegistry._registry:
-        del ExecutorRegistry._registry[key]
-    ExecutorRegistry._loaded_modules.discard('test_physical_exec_probing_executor')
 
 
 @pytest.mark.order(905)
@@ -320,8 +298,6 @@ def test_module_caching():
     if 'sim_ingress_drop_probing_executor' in sys.modules:
         # Module already imported by previous tests, reload to restore registry
         importlib.reload(sys.modules['sim_ingress_drop_probing_executor'])
-        # Clear loaded modules tracking to test caching from fresh state
-        ExecutorRegistry._loaded_modules.discard('sim_ingress_drop_probing_executor')
 
     class MockObserver:
         def trace(self, msg): pass
@@ -377,12 +353,6 @@ def test_lazy_import_execution_order():
     # Clear module to ensure fresh import
     if 'sim_pfc_xoff_probing_executor' in sys.modules:
         del sys.modules['sim_pfc_xoff_probing_executor']
-        # Clear registry entries for this module
-        keys_to_remove = [k for k in ExecutorRegistry._registry.keys()
-                          if k[0] == 'pfc_xoff']
-        for k in keys_to_remove:
-            del ExecutorRegistry._registry[k]
-        ExecutorRegistry._loaded_modules.discard('sim_pfc_xoff_probing_executor')
 
     # Mock observer
     class MockObserver:
