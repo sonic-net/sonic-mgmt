@@ -4,6 +4,7 @@ import logging
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa: F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa: F401
+from tests.common.utilities import wait_until
 
 DEFAULT_HLIM_TTL = 64
 WAIT_EXPECTED_PACKET_TIMEOUT = 5
@@ -25,8 +26,43 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
     unpatch_lldpctl(localhost, duthost)
 
 
+def check_route(duthost, static_route, nexthop_ip, asic_id, ip_ver=4, expected_state=True):
+    if ip_ver == 4:
+        cli_cmd = "show ip route {}"
+    else:
+        cli_cmd = "show ipv6 route {}"
+    cli_cmd = cli_cmd.format(static_route)
+    if duthost.is_multi_asic:
+        namespace = duthost.get_namespace_from_asic_id(asic_id)
+        cli_cmd = cli_cmd + " -n {}".format(namespace)
+    route_output = duthost.shell(cli_cmd)["stdout"]
+    return (nexthop_ip in route_output) == expected_state
+
+
+def add_static_route(duthost, static_route, nexthop_ip, asic_id):
+    cli_cmd = "config route add prefix {} nexthop {}".format(static_route, nexthop_ip)
+    if duthost.is_multi_asic:
+        namespace = duthost.get_namespace_from_asic_id(asic_id)
+        cmd_prefix = "sudo ip netns exec {} ".format(namespace)
+        cli_cmd = cmd_prefix + cli_cmd
+    result = duthost.shell(cli_cmd)
+    return result
+
+
+def delete_static_route(duthost, static_route, nexthop_ip, asic_id):
+    cli_cmd = "config route del prefix {} nexthop {}".format(static_route, nexthop_ip)
+    if duthost.is_multi_asic:
+        namespace = duthost.get_namespace_from_asic_id(asic_id)
+        cmd_prefix = "sudo ip netns exec {} ".format(namespace)
+        cli_cmd = cmd_prefix + cli_cmd
+    result = duthost.shell(cli_cmd)
+    return result
+
+
 @pytest.fixture(scope="function", autouse=True)
-def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts, request):
+def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                       enum_rand_one_frontend_asic_index, gather_facts, request):
+
     """
     Fixture to set up and tear down static routes for IPv4 and IPv6.
 
@@ -39,6 +75,7 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
     Args:
         duthosts: Fixture providing access to DUT hosts.
         enum_rand_one_per_hwsku_frontend_hostname: Fixture selecting a random frontend DUT.
+        enum_rand_one_frontend_asic_index: Fixture selecting a random asic
         gather_facts: Fixture providing network facts.
         request: Pytest request object.
 
@@ -49,10 +86,12 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
         None
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    nexthop_ipv4 = gather_facts['dst_host_ipv4']
+    nexthop_ipv6 = gather_facts['dst_host_ipv6']
 
     # Configure IPv4 static route
     try:
-        result = duthost.command("ip route add {} via {}".format(STATIC_ROUTE, gather_facts['dst_host_ipv4']))
+        result = add_static_route(duthost, STATIC_ROUTE, nexthop_ipv4, enum_rand_one_frontend_asic_index)
         if result['rc'] != 0:
             raise Exception("Failed to add IPv4 static route: {}".format(result['stderr']))
     except Exception as e:
@@ -61,7 +100,7 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
 
     # Configure IPv6 static route
     try:
-        result = duthost.command("ip -6 route add {} via {}".format(STATIC_ROUTE_IPV6, gather_facts['dst_host_ipv6']))
+        result = add_static_route(duthost, STATIC_ROUTE_IPV6, nexthop_ipv6, enum_rand_one_frontend_asic_index)
         if result['rc'] != 0:
             raise Exception("Failed to add IPv6 static route: {}".format(result['stderr']))
     except Exception as e:
@@ -71,18 +110,16 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
     # Verify IPv4 route is in the routing table
 
     try:
-        result = duthost.command("ip route show {}".format(STATIC_ROUTE))
-        assert result['rc'] == 0, "Failed to show IPv4 static route: {}".format(result['stderr'])
-        assert "via " + gather_facts['dst_host_ipv4'] in result["stdout"], "IPv4 static route verification failed"
+        assert wait_until(60, 5, 0, check_route, duthost, STATIC_ROUTE, nexthop_ipv4,
+                          enum_rand_one_frontend_asic_index, 4, True), "IPv4 static route verification failed"
     except Exception as e:
         logger.error("Error occurred while verifying IPv4 static route: %s", str(e))
         pytest.fail("IPv4 static route verification failed")
 
     # # Verify IPv6 route is in the routing table
     try:
-        result = duthost.command("ip -6 route show {}".format(STATIC_ROUTE_IPV6))
-        assert result['rc'] == 0, "Failed to show IPv6 static route: {}".format(result['stderr'])
-        assert "via " + gather_facts['dst_host_ipv6'] in result["stdout"], "IPv6 static route verification failed"
+        assert wait_until(60, 5, 0, check_route, duthost, STATIC_ROUTE_IPV6, nexthop_ipv6,
+                          enum_rand_one_frontend_asic_index, 6, True), "IPv6 static route verification failed"
     except Exception as e:
         logger.error("Error occurred while verifying IPv6 static route: %s", str(e))
         pytest.fail("IPv6 static route verification failed")
@@ -91,22 +128,29 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
     yield
 
     # Use either individual functions
-    delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
-    delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
+    delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                             enum_rand_one_frontend_asic_index, gather_facts)
+    delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                             enum_rand_one_frontend_asic_index, gather_facts)
 
     # Or use the combined function
     # delete_static_routes(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
 
 
 @pytest.fixture(autouse=True)
-def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts):
+def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                   enum_rand_one_frontend_asic_index, gather_facts):
     yield
     # Teardown - delete the static routes
-    delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
-    delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
+    delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                             enum_rand_one_frontend_asic_index, gather_facts)
+    delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                             enum_rand_one_frontend_asic_index, gather_facts)
 
 
-def delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts):
+def delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                             enum_rand_one_frontend_asic_index, gather_facts):
+
     """
     Function to delete IPv4 static route from the DUT.
 
@@ -118,19 +162,19 @@ def delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     Args:
         duthosts: Fixture providing access to DUT hosts
         enum_rand_one_per_hwsku_frontend_hostname: Fixture selecting a random frontend DUT
+        enum_rand_one_frontend_asic_index: Fixture selecting a random asic
         gather_facts: Fixture providing network facts
 
     Raises:
         pytest.fail: If any step in removing or verifying route fails
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
+    nexthop_ip = gather_facts['dst_host_ipv4']
     # Check if IPv4 route exists before deleting
     try:
-        check_result = duthost.command("ip route show {}".format(STATIC_ROUTE))
-        if check_result['rc'] == 0 and check_result['stdout'].strip():
+        if check_route(duthost, STATIC_ROUTE, nexthop_ip, enum_rand_one_frontend_asic_index, 4, True):
             # Route exists, delete it
-            result = duthost.command("ip route del {}".format(STATIC_ROUTE))
+            result = delete_static_route(duthost, STATIC_ROUTE, nexthop_ip, enum_rand_one_frontend_asic_index)
             if result['rc'] != 0:
                 raise Exception("Failed to delete IPv4 static route: {}".format(result['stderr']))
             logger.info("Successfully deleted IPv4 static route: {}".format(STATIC_ROUTE))
@@ -142,15 +186,17 @@ def delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
     # Verify IPv4 route is removed from the routing table
     try:
-        result = duthost.command("ip route show {}".format(STATIC_ROUTE))
-        assert "No such process" in result['stderr'] or result['stdout'].strip() == "", \
+        assert wait_until(60, 5, 0, check_route, duthost, STATIC_ROUTE, nexthop_ip,
+                          enum_rand_one_frontend_asic_index, 4, False), \
             "IPv4 static route still exists in routing table"
     except Exception as e:
         logger.error("Error occurred while verifying IPv4 static route removal: %s", str(e))
         pytest.fail("IPv4 static route removal verification failed")
 
 
-def delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts):
+def delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                             enum_rand_one_frontend_asic_index, gather_facts):
+
     """
     Function to delete IPv6 static route from the DUT.
 
@@ -162,19 +208,21 @@ def delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     Args:
         duthosts: Fixture providing access to DUT hosts
         enum_rand_one_per_hwsku_frontend_hostname: Fixture selecting a random frontend DUT
+        enum_rand_one_frontend_asic_index: Fixture selecting a random asic
         gather_facts: Fixture providing network facts
 
     Raises:
         pytest.fail: If any step in removing or verifying route fails
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    nexthop_ip = gather_facts['dst_host_ipv6']
 
     # Check if IPv6 route exists before deleting
     try:
-        check_result = duthost.command("ip -6 route show {}".format(STATIC_ROUTE_IPV6))
-        if check_result['rc'] == 0 and check_result['stdout'].strip():
+        if check_route(duthost, STATIC_ROUTE_IPV6, nexthop_ip, enum_rand_one_frontend_asic_index, 6, True):
             # Route exists, delete it
-            result = duthost.command("ip -6 route del {}".format(STATIC_ROUTE_IPV6))
+            result = delete_static_route(duthost, STATIC_ROUTE_IPV6, nexthop_ip,
+                                         enum_rand_one_frontend_asic_index)
             if result['rc'] != 0:
                 raise Exception("Failed to delete IPv6 static route: {}".format(result['stderr']))
             logger.info("Successfully deleted IPv6 static route: {}".format(STATIC_ROUTE_IPV6))
@@ -186,8 +234,8 @@ def delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname
 
     # Verify IPv6 route is removed from the routing table
     try:
-        result = duthost.command("ip -6 route show {}".format(STATIC_ROUTE_IPV6))
-        assert "No such process" in result['stderr'] or result['stdout'].strip() == "", \
+        assert wait_until(60, 5, 0, check_route, duthost, STATIC_ROUTE_IPV6, nexthop_ip,
+                          enum_rand_one_frontend_asic_index, 6, False), \
             "IPv6 static route still exists in routing table"
     except Exception as e:
         logger.error("Error occurred while verifying IPv6 static route removal: %s", str(e))
