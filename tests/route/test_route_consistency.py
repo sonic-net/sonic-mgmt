@@ -49,6 +49,10 @@ def is_all_neighbor_session_established(duthost):
     return True
 
 
+def routes_count_tracking():
+    return {"last_counts": {}, "stable_count": 0}
+
+
 class TestRouteConsistency():
     """ TestRouteConsistency class for testing route consistency across all the Frontend DUTs in the testbed
         It verifies route consistency by taking a snapshot of route table from ASIC_DB from all the DUTs before the test
@@ -128,20 +132,38 @@ class TestRouteConsistency():
                 return False
         return True
 
-    def routes_have_changed(self, duthosts, previous_route_snapshot):
-        """Check that the route table has changed from a previous snapshot on ANY DUT.
+    def routes_have_changed(self, duthosts, previous_route_snapshot, stable_threshold, tracking):
+        """Check that the route table has stabilized after a change.
 
-        Returns True when at least one DUT's route table differs from the previous snapshot,
-        indicating that convergence has started. On non-VOQ single-asic topologies the snapshot
-        is empty (get_route_prefix_snapshot_from_asicdb only collects VOQ/chassis data), so
-        return True immediately to avoid blocking on an always-empty comparison.
+        Waits until the route count per DUT has stopped changing for stable_threshold
+        consecutive checks, ensuring the DUT has fully completed updating the route table.
+
+        Args:
+            duthosts: DUT hosts to check.
+            previous_route_snapshot: The pre-test route snapshot to compare against.
+            stable_threshold: Number of consecutive unchanged checks required.
+            tracking: A mutable dict with keys "last_counts" (dict) and "stable_count" (int)
+                      used to track state across calls from wait_until.
+
+        On non-VOQ single-asic topologies the snapshot is empty, so return True
+        immediately to avoid blocking on an always-empty comparison.
         """
         if not previous_route_snapshot:
             return True
+
         new_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
-        for dut_instance_name in previous_route_snapshot.keys():
-            if previous_route_snapshot[dut_instance_name] != new_route_snapshot[dut_instance_name]:
-                return True
+        current_counts = {name: len(routes) for name, routes in new_route_snapshot.items()}
+        original_counts = {name: len(routes) for name, routes in previous_route_snapshot.items()}
+
+        if current_counts == tracking["last_counts"]:
+            tracking["stable_count"] += 1
+        else:
+            tracking["stable_count"] = 0
+            tracking["last_counts"] = current_counts
+
+        if current_counts != original_counts and tracking["stable_count"] >= stable_threshold:
+            return True
+
         return False
 
     def test_route_withdraw_advertise(self, duthosts, tbinfo, localhost):
@@ -154,7 +176,7 @@ class TestRouteConsistency():
             logger.info("withdraw ipv4 and ipv6 routes for {}".format(topo_name))
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
             pytest_assert(wait_until(self.sleep_interval, 10, 15, self.routes_have_changed,
-                                     duthosts, self.pre_test_route_snapshot),
+                                     duthosts, self.pre_test_route_snapshot, 2, routes_count_tracking()),
                           "Routes were not withdrawn within {} seconds".format(self.sleep_interval))
 
             """ compare the number of routes withdrawn from all the DUTs. In working condition, the number of routes
@@ -228,7 +250,7 @@ class TestRouteConsistency():
             logger.info("shutdown bgp sessions for {}".format(duthost.hostname))
             duthost.shell("sudo config bgp shutdown all")
             pytest_assert(wait_until(self.sleep_interval, 10, 15, self.routes_have_changed,
-                                     duthosts, self.pre_test_route_snapshot),
+                                     duthosts, self.pre_test_route_snapshot, 2, routes_count_tracking()),
                           "Routes did not change after BGP shutdown within {} seconds".format(self.sleep_interval))
 
             post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
@@ -299,7 +321,7 @@ class TestRouteConsistency():
                     id = ""
                 check_and_kill_process(duthost, container_name + str(id), program_name)
             wait_until(60, 5, 15, self.routes_have_changed,
-                       duthosts, self.pre_test_route_snapshot)
+                       duthosts, self.pre_test_route_snapshot, 2, routes_count_tracking())
 
             post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
             num_routes_withdrawn = 0
