@@ -243,7 +243,7 @@ class SimPfcXoffProbingExecutorIntermittent(SimPfcXoffProbingExecutor):
                     f"[{self.name}] Check #{self._check_count}: FAILED - {error_msg}"
                 )
 
-            raise Exception(error_msg)
+            return (False, False)
 
         # Normal check if no failure
         result = value >= self._actual_threshold
