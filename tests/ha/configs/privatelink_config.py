@@ -55,7 +55,7 @@ APPLIANCE_CONFIG = {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
         "local_region_id": LOCAL_REGION_ID,
-        "trusted_vnis": [ENCAP_VNI, NSG_OUTBOUND_VNI],
+        "trusted_vnis_list": [ENCAP_VNI, NSG_OUTBOUND_VNI],
     }
 }
 
@@ -86,7 +86,7 @@ ENI_CONFIG = {
         "pl_underlay_sip": APPLIANCE_VIP,
         "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
         "v4_meter_policy_id": METER_POLICY_V4,
-        "trusted_vnis": VM_VNI
+        "trusted_vnis_list": [VM_VNI]
     }
 }
 
