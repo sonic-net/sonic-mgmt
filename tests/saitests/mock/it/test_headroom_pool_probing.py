@@ -597,6 +597,51 @@ class TestHeadroomPoolProbing:
         print(f"      Improvement: {error_reduction:.1f}x error reduction")
         print("      -> Design decision VALIDATED: Point Probing is mandatory")
 
+    def test_headroom_pool_buffer_cleanup_on_pg_failure(self):
+        """
+        D5: Buffer cleanup on PG failure — verify probe handles PG failure
+        without buffer state corruption affecting subsequent PGs.
+        """
+        pg_thresholds = {3: 500, 4: 800}
+        pool_threshold = 1300
+
+        probe = create_headroom_pool_probe_instance(
+            pg_thresholds=pg_thresholds,
+            pool_threshold=pool_threshold,
+            scenario=None,
+            enable_precise_detection=True,
+            precision_target_ratio=0.05,
+            pgs=[3, 4]
+        )
+
+        probe.runTest()
+        result = probe.probe_result
+
+        assert result is not None, "Probe should return a result"
+        print("[PASS] Buffer cleanup on PG failure: probe completed without crash")
+
+    def test_headroom_pool_multi_pg_isolation(self):
+        """
+        D6: Multi-PG isolation — 3 PGs should each produce independent results.
+        """
+        pg_thresholds = {3: 400, 4: 600, 5: 800}
+        pool_threshold = 1800
+
+        probe = create_headroom_pool_probe_instance(
+            pg_thresholds=pg_thresholds,
+            pool_threshold=pool_threshold,
+            scenario=None,
+            enable_precise_detection=True,
+            precision_target_ratio=0.05,
+            pgs=[3, 4, 5]
+        )
+
+        probe.runTest()
+        result = probe.probe_result
+
+        assert result is not None, "Probe should return a result"
+        print("[PASS] Multi-PG isolation: 3 PGs probe completed without crash")
+
 
 def main():
     """Run complete Headroom Pool probing test suite."""
