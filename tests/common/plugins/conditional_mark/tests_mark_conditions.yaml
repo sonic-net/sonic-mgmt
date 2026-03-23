@@ -808,6 +808,14 @@ dash/test_dash_privatelink.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
+dash/test_dash_privatelink_redirect.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+
 dash/test_dash_smartswitch_vnet.py:
   skip:
     conditions_logical_operator: or
@@ -2512,6 +2520,14 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
     conditions:
       - "release in ['master', '202511'] and https://github.com/sonic-net/sonic-mgmt/issues/22333"
 
+generic_config_updater/test_eth_interface.py::test_port_speed_change_oper_status:
+  skip:
+    reason: 'Skip this test due to misleading StateDB output for valid speed, same known issue as test_update_speed'
+    conditions_logical_operator: "OR"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8143
+      - https://github.com/sonic-net/sonic-buildimage/issues/13267
+
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
     reason: 'Skip test_replace_fec on unsupported hwsku/topo due to issues'
@@ -2802,7 +2818,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
 #######################################
 #####           ha              #####
 #######################################
-ha/test_ha_steady_state_pl.py:
+ha/test_ha_planned_shutdown.py:
   skip:
     conditions_logical_operator: or
     reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
@@ -2810,6 +2826,15 @@ ha/test_ha_steady_state_pl.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
       - "topo_name not in 't1-smartswitch-ha'"
+
+ha/test_ha_steady_state_pl.py:
+   skip:
+     conditions_logical_operator: or
+     reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
+     conditions:
+       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+       - "topo_name not in 't1-smartswitch-ha'"
 
 #######################################
 #####           hash              #####
@@ -3615,6 +3640,7 @@ pc/test_lag_member_forwarding.py:
     conditions:
         - "asic_type in ['broadcom'] and https://github.com/sonic-net/sonic-buildimage/issues/21938"
         - "asic_type in ['mellanox', 'nvidia'] and https://github.com/sonic-net/sonic-mgmt/issues/17095"
+        - "asic_gen in ['q3d'] and https://github.com/sonic-net/sonic-mgmt/issues/22942"
 
 pc/test_po_cleanup.py:
   skip:
