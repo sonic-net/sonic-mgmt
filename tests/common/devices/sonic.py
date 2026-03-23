@@ -262,6 +262,15 @@ class SonicHost(AnsibleHostBase):
         inv_files = im._sources
         return is_supervisor_node(inv_files, self.hostname)
 
+    def is_bmc(self):
+        """Check if the current SONiC host is a BMC.
+
+        Returns:
+            bool: True if this host is a BMC device, False otherwise.
+        """
+        device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
+        return device_metadata.get('type', '') == 'NetworkBmc'
+
     def is_frontend_node(self):
         """Check if the current node is a frontend node in case of multi-DUT.
 
