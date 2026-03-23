@@ -100,7 +100,10 @@ def restore_orig_configs(duthost, original_mode, intf):
 
 
 def get_available_ports(duthost, tbinfo, num_of_ports=1):
-    """Find num_of_ports available i.e not part of any vlan or portchannel"""
+    """Find num_of_ports available i.e not part of any vlan or portchannel.
+    When num_of_ports > 1, returns ports with the same speed so they can be
+    added to a PortChannel together.
+    """
     available_ports = []
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -121,10 +124,26 @@ def get_available_ports(duthost, tbinfo, num_of_ports=1):
             for po, poData in poDict.items():
                 if found_intf in poData['members']:
                     found_intf = None
-        if found_intf and len(available_ports) < num_of_ports:
+        if found_intf:
             available_ports.append(found_intf)
 
-    return available_ports
+    if num_of_ports <= 1:
+        return available_ports[:num_of_ports]
+
+    intf_status = {x.get('interface'): x for x in duthost.show_and_parse('show interfaces status')}
+
+    speed_groups = {}
+    for port in available_ports:
+        speed = intf_status.get(port, {}).get('speed', 'N/A')
+        speed_groups.setdefault(speed, []).append(port)
+
+    for speed, ports in sorted(speed_groups.items(), key=lambda x: len(x[1]), reverse=True):
+        if len(ports) >= num_of_ports:
+            logger.info(f"Selected {num_of_ports} ports with matching speed {speed}: {ports[:num_of_ports]}")
+            return ports[:num_of_ports]
+
+    logger.warning(f"Could not find {num_of_ports} available ports with the same speed")
+    return available_ports[:num_of_ports]
 
 
 def get_free_lag_intf(duthost):
