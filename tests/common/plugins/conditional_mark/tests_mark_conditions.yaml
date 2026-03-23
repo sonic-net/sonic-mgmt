@@ -5141,6 +5141,12 @@ upgrade_path/test_upgrade_path.py::test_upgrade_path_t2:
     conditions:
       - "'t2' not in topo_type"
 
+upgrade_path/test_upgrade_path.py::test_upgrade_path_t2_delayed:
+  skip:
+    reason: "Only supported on T2 topology"
+    conditions:
+      - "'t2' not in topo_type"
+
 #######################################
 #####            vlan             #####
 #######################################
