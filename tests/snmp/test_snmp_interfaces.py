@@ -252,7 +252,7 @@ def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, ri
 
     Allows a small margin of error to account for live traffic that may cause
     additional discards/errors between when counters are set and when SNMP is queried.
-    The margin is the lesser of 10% of the expected value or 100 packets.
+    The margin is the lesser of 5% of the expected value or 100 packets.
 
     Returns False if:
     - Counter is below expected value (test counters not applied)
