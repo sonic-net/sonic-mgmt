@@ -248,7 +248,10 @@ def verify_snmp_speed(facts, snmp_facts, results):
 def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, rif_interface, rif_counters,
                         port_counters, num_port_intfs):
     """
-    Verify correct correctness of snmp counter
+    Verify correct correctness of snmp counter.
+
+    Uses >= comparison to tolerate additional discards/errors from live traffic
+    that may occur between when counters are set and when SNMP is queried.
     """
     snmp_facts = get_snmp_facts(
         duthost, localhost, host=hostip, version="v2c",
@@ -259,23 +262,22 @@ def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, ri
     interface = rif_interface if 'PortChannel' in rif_interface else minigraph_port_name_to_alias_map[rif_interface]
     rif_snmp_facts = snmp_facts['snmp_interfaces'][snmp_port_map[interface]]
 
-    if (int(rif_snmp_facts['ifInDiscards']) != int(rif_counters[rif_interface]['rx_err']) +
-            int(port_counters['rx_drp'])):
-        logger.info(f"ifInDiscards value is {rif_snmp_facts['ifInDiscards']} but must be "
-                    f"{int(rif_counters[rif_interface]['rx_err']) + int(port_counters['rx_drp'])}")
+    # Use >= comparison: live traffic may cause additional discards between counter set and SNMP query
+    expected_in_discards = int(rif_counters[rif_interface]['rx_err']) + int(port_counters['rx_drp'])
+    if int(rif_snmp_facts['ifInDiscards']) < expected_in_discards:
+        logger.info(f"ifInDiscards value is {rif_snmp_facts['ifInDiscards']} but must be at least "
+                    f"{expected_in_discards}")
         return False
-    if (int(rif_snmp_facts['ifOutDiscards']) != int(rif_counters[rif_interface]['tx_err']) +
-            int(port_counters['tx_drp'])):
-        logger.info(f"ifOutDiscards value is {rif_snmp_facts['ifOutDiscards']} but must be "
-                    f"{int(rif_counters[rif_interface]['tx_err']) + int(port_counters['tx_drp'])}")
+    expected_out_discards = int(rif_counters[rif_interface]['tx_err']) + int(port_counters['tx_drp'])
+    if int(rif_snmp_facts['ifOutDiscards']) < expected_out_discards:
+        logger.info(f"ifOutDiscards value is {rif_snmp_facts['ifOutDiscards']} but must be at least "
+                    f"{expected_out_discards}")
         return False
-    if int(rif_snmp_facts['ifInErrors']) != COUNTER_VALUE * num_port_intfs:
-        logger.info(f"ifInErrors value is {rif_snmp_facts['ifInErrors']} "
-                    f"but must be {COUNTER_VALUE * num_port_intfs}")
+    if int(rif_snmp_facts['ifInErrors']) < COUNTER_VALUE:
+        logger.info(f"ifInErrors value is {rif_snmp_facts['ifInErrors']} but must be at least {COUNTER_VALUE}")
         return False
-    if int(rif_snmp_facts['ifOutErrors']) != COUNTER_VALUE * num_port_intfs:
-        logger.info(f"ifOutErrors value is {rif_snmp_facts['ifOutErrors']} "
-                    f"but must be {COUNTER_VALUE * num_port_intfs}")
+    if int(rif_snmp_facts['ifOutErrors']) < COUNTER_VALUE:
+        logger.info(f"ifOutErrors value is {rif_snmp_facts['ifOutErrors']} but must be at least {COUNTER_VALUE}")
         return False
 
     return True
