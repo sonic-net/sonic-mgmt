@@ -248,10 +248,15 @@ def verify_snmp_speed(facts, snmp_facts, results):
 def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, rif_interface, rif_counters,
                         port_counters, num_port_intfs):
     """
-    Verify correct correctness of snmp counter.
+    Verify correctness of SNMP counters with tolerance for live traffic.
 
-    Uses >= comparison to tolerate additional discards/errors from live traffic
-    that may occur between when counters are set and when SNMP is queried.
+    Allows a small margin of error to account for live traffic that may cause
+    additional discards/errors between when counters are set and when SNMP is queried.
+    The margin is the lesser of 10% of the expected value or 100 packets.
+
+    Returns False if:
+    - Counter is below expected value (test counters not applied)
+    - Counter exceeds expected value + margin (excessive live traffic interference)
     """
     snmp_facts = get_snmp_facts(
         duthost, localhost, host=hostip, version="v2c",
@@ -262,22 +267,30 @@ def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, ri
     interface = rif_interface if 'PortChannel' in rif_interface else minigraph_port_name_to_alias_map[rif_interface]
     rif_snmp_facts = snmp_facts['snmp_interfaces'][snmp_port_map[interface]]
 
-    # Use >= comparison: live traffic may cause additional discards between counter set and SNMP query
+    # Allow margin for live traffic: lesser of 5% of expected or 100 packets
+    def check_counter_with_margin(actual, expected, counter_name):
+        margin = min(int(expected * 0.05), 100)
+        if actual < expected:
+            logger.info(f"{counter_name} value is {actual} but must be at least {expected}")
+            return False
+        if actual > expected + margin:
+            logger.info(f"{counter_name} value is {actual} but must not exceed {expected + margin} "
+                        f"(expected {expected} + margin {margin})")
+            return False
+        return True
+
     expected_in_discards = int(rif_counters[rif_interface]['rx_err']) + int(port_counters['rx_drp'])
-    if int(rif_snmp_facts['ifInDiscards']) < expected_in_discards:
-        logger.info(f"ifInDiscards value is {rif_snmp_facts['ifInDiscards']} but must be at least "
-                    f"{expected_in_discards}")
+    if not check_counter_with_margin(int(rif_snmp_facts['ifInDiscards']), expected_in_discards, 'ifInDiscards'):
         return False
+
     expected_out_discards = int(rif_counters[rif_interface]['tx_err']) + int(port_counters['tx_drp'])
-    if int(rif_snmp_facts['ifOutDiscards']) < expected_out_discards:
-        logger.info(f"ifOutDiscards value is {rif_snmp_facts['ifOutDiscards']} but must be at least "
-                    f"{expected_out_discards}")
+    if not check_counter_with_margin(int(rif_snmp_facts['ifOutDiscards']), expected_out_discards, 'ifOutDiscards'):
         return False
-    if int(rif_snmp_facts['ifInErrors']) < COUNTER_VALUE:
-        logger.info(f"ifInErrors value is {rif_snmp_facts['ifInErrors']} but must be at least {COUNTER_VALUE}")
+
+    if not check_counter_with_margin(int(rif_snmp_facts['ifInErrors']), COUNTER_VALUE, 'ifInErrors'):
         return False
-    if int(rif_snmp_facts['ifOutErrors']) < COUNTER_VALUE:
-        logger.info(f"ifOutErrors value is {rif_snmp_facts['ifOutErrors']} but must be at least {COUNTER_VALUE}")
+
+    if not check_counter_with_margin(int(rif_snmp_facts['ifOutErrors']), COUNTER_VALUE, 'ifOutErrors'):
         return False
 
     return True
