@@ -26,8 +26,6 @@
         {% if 'linktraining' in device_conn[inventory_hostname][port_name] %}
             {% if 'on' in device_conn[inventory_hostname][port_name]['linktraining'] %}
                 "link_training": "on",
-            {% elif 'off' in device_conn[inventory_hostname][port_name]['linktraining'] %}
-                "link_training": "off",
             {% endif %}
         {% endif %}
         {% if 'autoneg' in device_conn[inventory_hostname][port_name] %}
