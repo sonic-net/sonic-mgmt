@@ -14,17 +14,25 @@ Validations:
 """
 
 import ast
+import ipaddress
 import logging
+import time
 from collections import namedtuple
 
 import pytest
+import requests
+from natsort import natsorted
 
 # Functions
 from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_enabled
 
+from tests.common.devices.eos import EosHost
+from tests.common.devices.sonic import SonicHost
 from tests.common.gcu_utils import apply_gcu_patch
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -34,11 +42,22 @@ pytestmark = [pytest.mark.topology("t1", "m1"), pytest.mark.device_type("vs"), p
 # ---- Constants & helper structures ----
 CONSTANTS_FILE = "/etc/sonic/constants.yml"
 
-# Aggregate prefixes
+# Aggregate prefixes (Groups 1 & 2 — single /24 aggregate used for DB/FRR validation)
 AGGR_V4 = "172.16.51.0/24"
 AGGR_V6 = "2000:172:16:50::/64"
 BGP_AGGREGATE_ADDRESS = "BGP_AGGREGATE_ADDRESS"
 PLACEHOLDER_PREFIX = "192.0.2.0/32"  # RFC5737 TEST-NET-1
+
+# ExaBGP base ports (downstream PTF ports)
+EXABGP_BASE_PORT = 5000
+EXABGP_BASE_PORT_V6 = 6000
+
+# ---- Group 3: Route Presence and Withdrawal Behavior ----
+# IPv4 /16 aggregate with three /24 contributing routes exercises the full lifecycle.
+AGGR_GRP3_V4 = "10.100.0.0/16"
+CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
+
+BGP_ANNOUNCE_TIME = 3  # seconds to wait after ExaBGP route injection for BGP convergence
 
 AggregateCfg = namedtuple("AggregateCfg", ["prefix", "bbr_required", "summary_only", "as_set"])
 
@@ -273,3 +292,330 @@ def test_bgp_aggregate_address_when_bbr_changed(
         config_bbr_by_gcu(duthost, "disabled")
     else:
         config_bbr_by_gcu(duthost, "enabled")
+
+
+# ===========================================================================
+# Test Group 3: Route Presence and Withdrawal Behavior
+# ===========================================================================
+# Objective: Validate that the aggregate route on M2 (upstream) depends on the
+# presence of contributing routes injected from M0 (downstream via ExaBGP), and
+# that route withdrawal converges correctly.
+#
+# Validation model (black-box / neighbor-visible):
+#   - M0 (downstream): ExaBGP announces/withdraws contributing more-specific routes
+#   - M2 (upstream):   nbrhosts.get_route() checks aggregate/contributing presence
+#
+# Topology mapping (topology-agnostic via UPSTREAM/DOWNSTREAM_NEIGHBOR_MAP):
+#   t1:  downstream=T0,  upstream=T2
+#   m1:  downstream=M0,  upstream=MA  (test plan calls this "M2/MgmtSpineRouter";
+#                                      nbrhosts key suffix is "MA" per UPSTREAM_NEIGHBOR_MAP)
+
+
+@pytest.fixture(scope="module")
+def route_propagation_setup(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo):
+    """
+    Discover downstream (M0/T0) and upstream (MA/T2) neighbors and ExaBGP ports
+    for Test Group 3 route propagation tests.
+    """
+    topo_type = tbinfo["topo"]["type"]
+    downstream_suffix = DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper()
+    upstream_suffix = UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
+
+    # Downstream neighbor used to inject contributing routes via ExaBGP
+    downstream_neighbors = natsorted(
+        [n for n in nbrhosts if n.upper().endswith(downstream_suffix)]
+    )
+    pytest_assert(downstream_neighbors, f"No downstream ({downstream_suffix}) neighbors found in nbrhosts")
+    m0 = downstream_neighbors[0]
+
+    # Upstream neighbors used to verify aggregate route reception
+    upstream_neighbors = natsorted(
+        [n for n in nbrhosts if n.upper().endswith(upstream_suffix)]
+    )
+    pytest_assert(upstream_neighbors, f"No upstream ({upstream_suffix}) neighbors found in nbrhosts")
+
+    # ExaBGP HTTP API port for the chosen downstream neighbor
+    m0_offset = tbinfo["topo"]["properties"]["topology"]["VMs"][m0]["vm_offset"]
+    m0_exabgp_port = EXABGP_BASE_PORT + m0_offset
+    m0_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + m0_offset
+
+    common_cfg = tbinfo["topo"]["properties"]["configuration_properties"]["common"]
+    nhipv4 = common_cfg.get("nhipv4")
+    nhipv6 = common_cfg.get("nhipv6")
+
+    yield {
+        "m0": m0,
+        "m2_neighbors": upstream_neighbors,
+        "m0_exabgp_port": m0_exabgp_port,
+        "m0_exabgp_port_v6": m0_exabgp_port_v6,
+        "nhipv4": nhipv4,
+        "nhipv6": nhipv6,
+    }
+
+
+# ---- ExaBGP helpers ----
+
+def _exabgp_send(ptfhost, port, msg):
+    """Post a single command to an ExaBGP HTTP API endpoint."""
+    url = f"http://{ptfhost.mgmt_ip}:{port}"
+    r = requests.post(url, data={"commands": msg}, proxies={"http": None, "https": None})
+    assert r.status_code == 200, f"ExaBGP API call failed: status={r.status_code}, url={url}, msg={msg}"
+
+
+def _inject_routes(setup, ptfhost, prefixes, action):
+    """
+    Announce or withdraw a list of prefixes via ExaBGP on the downstream neighbor.
+
+    Args:
+        action: 'announce' or 'withdraw'
+    """
+    assert action in ("announce", "withdraw"), f"Invalid action: {action}"
+    for prefix in prefixes:
+        ver = ipaddress.ip_network(prefix, strict=False).version
+        if ver == 4:
+            nexthop = setup["nhipv4"]
+            port = setup["m0_exabgp_port"]
+        else:
+            nexthop = setup["nhipv6"]
+            port = setup["m0_exabgp_port_v6"]
+        msg = f"{action} route {prefix} next-hop {nexthop}"
+        _exabgp_send(ptfhost, port, msg)
+        logger.info(f"ExaBGP: {msg} (port={port})")
+    time.sleep(BGP_ANNOUNCE_TIME)
+
+
+# ---- Neighbor route verification helpers ----
+
+def _route_present_on_host(host, prefix):
+    """Return True if the prefix is in the BGP table of the given neighbor host.
+
+    Exception-safe: returns False on any error so that wait_until polling can
+    continue retrying instead of aborting on transient SSH / API failures.
+    """
+    try:
+        if isinstance(host, EosHost):
+            route_data = host.get_route(prefix)
+            entries = route_data.get("vrfs", {}).get("default", {}).get("bgpRouteEntries", {})
+            return prefix in entries
+        elif isinstance(host, SonicHost):
+            route_data = host.get_route(prefix)
+            return bool(route_data and "paths" in route_data)
+        else:
+            logger.warning(f"Unknown neighbor host type: {type(host)}")
+            return False
+    except Exception as e:
+        logger.debug(f"Failed to check route {prefix} on {host}: {e}")
+        return False
+
+
+def _check_route_on_all_m2(nbrhosts, m2_list, prefix, expected_present):
+    """Polling target: returns True when ALL M2 neighbors match expected_present."""
+    for m2 in m2_list:
+        present = _route_present_on_host(nbrhosts[m2]["host"], prefix)
+        if present != expected_present:
+            state = "present" if expected_present else "absent"
+            logger.info(f"{prefix} not yet {state} on {m2}")
+            return False
+    return True
+
+
+def verify_route_on_m2(nbrhosts, m2_list, prefix, expected_present, timeout=60):
+    """
+    Assert that a route is present (or absent) on ALL upstream M2 neighbors,
+    polling until convergence or timeout.
+    """
+    ok = wait_until(timeout, 2, 0, _check_route_on_all_m2, nbrhosts, m2_list, prefix, expected_present)
+    state_str = "present" if expected_present else "absent"
+    pytest_assert(ok, f"Route {prefix} expected to be {state_str} on M2 {m2_list} after {timeout}s")
+
+
+# ===========================================================================
+# Test Case 3.1 — Aggregate route with no contributing routes
+# ===========================================================================
+
+def test_aggregate_no_contributing_routes(
+    duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, route_propagation_setup
+):
+    """
+    TC 3.1: Aggregate address is NOT advertised to M2 when no contributing
+    more-specific routes exist in the DUT BGP table.  Once a contributing
+    route is injected the aggregate MUST appear on M2.
+
+    Steps:
+      1. Add aggregate (bbr-required=false, summary-only=false) without
+         any contributing routes.
+      2. Verify aggregate is absent on M2.
+      3. Inject one contributing route from M0.
+      4. Verify aggregate appears on M2.
+      5. Cleanup: withdraw contributing route, remove aggregate.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    setup = route_propagation_setup
+    agg_prefix = AGGR_GRP3_V4
+    contributing = CONTRIBUTING_V4[:1]  # single /24 is enough to trigger aggregation
+
+    cfg = AggregateCfg(prefix=agg_prefix, bbr_required=False, summary_only=False, as_set=False)
+
+    try:
+        # Step 1: configure aggregate, no contributing routes yet
+        gcu_add_aggregate(duthost, cfg)
+
+        # Step 2: aggregate must NOT be on M2
+        verify_route_on_m2(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=False, timeout=15)
+
+        # Step 3: inject a contributing route
+        _inject_routes(setup, ptfhost, contributing, "announce")
+
+        # Step 4: aggregate must now appear on M2
+        verify_route_on_m2(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=True)
+    finally:
+        _inject_routes(setup, ptfhost, contributing, "withdraw")
+        try:
+            gcu_remove_aggregate(duthost, agg_prefix)
+        except Exception:
+            logger.warning(f"Cleanup: failed to remove aggregate {agg_prefix}, will be recovered by rollback")
+
+
+# ===========================================================================
+# Test Case 3.2 — All contributing routes withdrawn
+# ===========================================================================
+
+def test_aggregate_all_contributing_withdrawn(
+    duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, route_propagation_setup
+):
+    """
+    TC 3.2: Aggregate disappears on M2 once ALL contributing routes are
+    withdrawn, and re-appears when even a single contributing route is
+    re-announced.
+
+    Steps:
+      1. Announce 3 contributing routes from M0, add aggregate.
+      2. Verify aggregate received on M2.
+      3. Withdraw all 3 contributing routes.
+      4. Verify aggregate withdrawn from M2.
+      5. Re-announce one contributing route.
+      6. Verify aggregate re-appears on M2.
+      7. Cleanup.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    setup = route_propagation_setup
+    agg_prefix = AGGR_GRP3_V4
+    contributing = CONTRIBUTING_V4  # all three /24 routes
+
+    cfg = AggregateCfg(prefix=agg_prefix, bbr_required=False, summary_only=False, as_set=False)
+
+    try:
+        # Steps 1-2
+        _inject_routes(setup, ptfhost, contributing, "announce")
+        gcu_add_aggregate(duthost, cfg)
+        verify_route_on_m2(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=True)
+
+        # Steps 3-4: withdraw ALL contributors
+        _inject_routes(setup, ptfhost, contributing, "withdraw")
+        verify_route_on_m2(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=False)
+
+        # Steps 5-6: re-announce a single contributor
+        _inject_routes(setup, ptfhost, contributing[:1], "announce")
+        verify_route_on_m2(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=True)
+    finally:
+        _inject_routes(setup, ptfhost, contributing, "withdraw")
+        try:
+            gcu_remove_aggregate(duthost, agg_prefix)
+        except Exception:
+            logger.warning(f"Cleanup: failed to remove aggregate {agg_prefix}, will be recovered by rollback")
+
+
+# ===========================================================================
+# Test Case 3.3 — Partial contributing route withdrawal
+# ===========================================================================
+
+def test_aggregate_partial_contributing_withdrawal(
+    duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, route_propagation_setup
+):
+    """
+    TC 3.3: Aggregate STAYS present on M2 when only a subset of contributing
+    routes is withdrawn (at least one contributing route remains active).
+
+    Steps:
+      1. Announce contributing routes from two simulated sources (set-A and set-B).
+      2. Add aggregate, verify received on M2.
+      3. Withdraw set-A only.
+      4. Verify aggregate is still present on M2 (set-B still active).
+      5. Cleanup: withdraw set-B, remove aggregate.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    setup = route_propagation_setup
+    agg_prefix = AGGR_GRP3_V4
+    # Two logical "sets" representing different M0 sources
+    set_a = CONTRIBUTING_V4[:2]    # 10.100.1.0/24, 10.100.2.0/24
+    set_b = CONTRIBUTING_V4[2:]    # 10.100.3.0/24
+
+    cfg = AggregateCfg(prefix=agg_prefix, bbr_required=False, summary_only=False, as_set=False)
+
+    try:
+        # Steps 1-2
+        _inject_routes(setup, ptfhost, set_a + set_b, "announce")
+        gcu_add_aggregate(duthost, cfg)
+        verify_route_on_m2(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=True)
+
+        # Step 3: partial withdrawal
+        _inject_routes(setup, ptfhost, set_a, "withdraw")
+
+        # Step 4: aggregate must remain — set_b is still active
+        verify_route_on_m2(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=True)
+    finally:
+        _inject_routes(setup, ptfhost, set_a + set_b, "withdraw")
+        try:
+            gcu_remove_aggregate(duthost, agg_prefix)
+        except Exception:
+            logger.warning(f"Cleanup: failed to remove aggregate {agg_prefix}, will be recovered by rollback")
+
+
+# ===========================================================================
+# Test Case 3.4 — New contributing route added dynamically
+# ===========================================================================
+
+def test_aggregate_new_contributing_route_added(
+    duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, route_propagation_setup
+):
+    """
+    TC 3.4: Dynamically adding a new contributing route does not disturb the
+    aggregate.  With summary-only=false, the new contributing route is also
+    visible on M2 alongside the aggregate.
+
+    Steps:
+      1. Start with one contributing route, add aggregate.
+      2. Verify aggregate received on M2.
+      3. Announce a second contributing route.
+      4. Verify aggregate still present on M2.
+      5. Verify the new contributing route is also visible on M2 (not suppressed).
+      6. Cleanup.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    setup = route_propagation_setup
+    agg_prefix = AGGR_GRP3_V4
+    initial_contributing = CONTRIBUTING_V4[:1]   # 10.100.1.0/24
+    new_contributing = CONTRIBUTING_V4[1:2]      # 10.100.2.0/24
+
+    cfg = AggregateCfg(prefix=agg_prefix, bbr_required=False, summary_only=False, as_set=False)
+
+    try:
+        # Steps 1-2
+        _inject_routes(setup, ptfhost, initial_contributing, "announce")
+        gcu_add_aggregate(duthost, cfg)
+        verify_route_on_m2(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=True)
+
+        # Step 3
+        _inject_routes(setup, ptfhost, new_contributing, "announce")
+
+        # Step 4: aggregate still present
+        verify_route_on_m2(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=True)
+
+        # Step 5: new contributing route visible (summary-only=false → not suppressed)
+        verify_route_on_m2(nbrhosts, setup["m2_neighbors"], new_contributing[0], expected_present=True)
+    finally:
+        _inject_routes(setup, ptfhost, initial_contributing + new_contributing, "withdraw")
+        try:
+            gcu_remove_aggregate(duthost, agg_prefix)
+        except Exception:
+            logger.warning(f"Cleanup: failed to remove aggregate {agg_prefix}, will be recovered by rollback")
