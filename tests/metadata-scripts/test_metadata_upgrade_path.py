@@ -6,7 +6,6 @@ from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common.reboot import REBOOT_TYPE_COLD
 from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper, add_pfc_storm_table
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
-from upgrade_strategies import create_upgrade_strategy
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot                                   # noqa F401
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db                            # noqa F401
 from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
@@ -40,31 +39,6 @@ def skip_cancelled_case(request, upgrade_type_params):
     if "test_cancelled_upgrade_path" in request.node.name and \
             upgrade_type_params not in ["warm", "fast"]:
         pytest.skip("Cancelled upgrade path test supported only for fast and warm reboot types.")
-
-
-@pytest.fixture(scope="module")
-def upgrade_strategy_fixture(request, ptfhost):
-    """
-    Pytest fixture to create upgrade strategy based on command-line option.
-
-    Args:
-        request: Pytest request object for accessing command-line options
-        ptfhost: PTF host fixture for gNOI-based strategies
-
-    Returns:
-        UpgradeStrategy instance
-    """
-    strategy_type = request.config.getoption('upgrade_strategy', default='script')
-
-    if strategy_type == 'script':
-        return create_upgrade_strategy('script')
-    elif strategy_type == 'gnoi':
-        # Import ptf_gnoi here to avoid circular dependency
-        from tests.common.ptf_gnoi import PtfGnoi
-        ptf_gnoi = PtfGnoi(ptfhost)
-        return create_upgrade_strategy('gnoi', ptf_gnoi)
-    else:
-        raise ValueError(f"Unknown upgrade strategy '{strategy_type}'. Valid options: script, gnoi")
 
 
 def pytest_generate_tests(metafunc):

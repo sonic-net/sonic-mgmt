@@ -3580,6 +3580,12 @@ metadata-scripts/test_multi_hop_upgrade_path.py:
     conditions:
       - "'t0' not in topo_type"
 
+metadata-scripts/test_warmboot_data_consistency.py:
+  xfail:
+    reason: "Test is still under development"
+    conditions:
+      - "True"
+
 #######################################
 #####            mpls             #####
 #######################################

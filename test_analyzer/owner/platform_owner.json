@@ -89,6 +89,14 @@
     },
     {
         "hwsku": "Arista-7060CX-32S-C32",
+        "topo": "t0",
+        "owner": "Liping Xu",
+        "email": "xuliping@microsoft.com",
+        "new_platform": "",
+        "tag": ""
+    },
+    {
+        "hwsku": "Arista-7060CX-32S-C32",
         "topo": "t1",
         "owner": "Liping Xu",
         "email": "xuliping@microsoft.com",

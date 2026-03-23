@@ -1,0 +1,347 @@
+trigger: none
+pr: none
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+resources:
+  repositories:
+  - repository: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    type: git
+    name: sonic-metadata
+    ref: master
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+- name: TESTBED_NAME
+  type: string
+  displayName: "Testbed Name"
+
+- name: POOL
+  type: string
+  default: nightly
+  displayName: "Agent pool name"
+  values:
+    - nightly
+    - nightly-svc
+    - nightly-bjw
+    - nightly-tk5
+
+- name: VM_TYPE
+  type: string
+  displayName: "VM type of neighbor devices"
+  default: ceos
+  values:
+    - vsonic
+    - ceos
+
+- name: METADATA_UPGRADE_PATH
+  default: true
+  type: boolean
+  displayName: "Use sonic-metadata scripts for image download & installation"
+
+- name: SKIP_LOCKING_TESTBED
+  displayName: "Skip locking testbed (Please reserve the testbed manually)"
+  type: boolean
+  default: false
+
+- name: FROM_IMAGE_LIST
+  type: string
+  displayName: "All base image numbers (space separated)"
+  default: 30
+- name: FROM_IMAGE_URL
+  displayName: "Base image location"
+  type: string
+  default: $(IMAGE_BRCM_ABOOT_202505)
+  values:
+  - $(IMAGE_BRCM_201811)
+  - $(IMAGE_BRCM_201911)
+  - $(IMAGE_BRCM_202012)
+  - $(IMAGE_BRCM_202012_SLIM)
+  - $(IMAGE_BRCM_202205)
+  - $(IMAGE_BRCM_202305)
+  - $(IMAGE_BRCM_202305_SLIM)
+  - $(IMAGE_BRCM_202311)
+  - $(IMAGE_BRCM_202405)
+  - $(IMAGE_BRCM_202405_SLIM)
+  - $(IMAGE_BRCM_202411)
+  - $(IMAGE_BRCM_202505)
+  - $(IMAGE_BRCM_202511)
+  - $(IMAGE_BRCM_INTERNAL)
+  - $(IMAGE_BRCM_PUBLIC)
+  - $(IMAGE_BRCM_ABOOT_201811)
+  - $(IMAGE_BRCM_ABOOT_201911)
+  - $(IMAGE_BRCM_ABOOT_202012)
+  - $(IMAGE_BRCM_ABOOT_202012_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202106)
+  - $(IMAGE_BRCM_ABOOT_202205)
+  - $(IMAGE_BRCM_ABOOT_202205_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202305)
+  - $(IMAGE_BRCM_ABOOT_202305_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202311)
+  - $(IMAGE_BRCM_ABOOT_202311_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202405)
+  - $(IMAGE_BRCM_ABOOT_202405_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202411)
+  - $(IMAGE_BRCM_ABOOT_202411_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202505)
+  - $(IMAGE_BRCM_ABOOT_202505_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202511)
+  - $(IMAGE_BRCM_ABOOT_202511_SLIM)
+  - $(IMAGE_BRCM_ABOOT_LEGACY_TH_202511)
+  - $(IMAGE_BRCM_ABOOT_INTERNAL)
+  - $(IMAGE_BRCM_ABOOT_PUBLIC)
+  - $(IMAGE_CISCO_202012)
+  - $(IMAGE_CISCO_202205)
+  - $(IMAGE_CISCO_202305)
+  - $(IMAGE_CISCO_202311)
+  - $(IMAGE_CISCO_202405)
+  - $(IMAGE_CISCO_202411)
+  - $(IMAGE_CISCO_202505)
+  - $(BJW_IMAGE_CISCO_202305)
+  - $(BJW_IMAGE_CISCO_202311)
+  - $(BJW_IMAGE_CISCO_202405)
+  - $(BJW_IMAGE_CISCO_202411)
+  - $(BJW_IMAGE_CISCO_202505)
+  - $(IMAGE_CISCO_ABOOT_202012)
+  - $(IMAGE_CISCO_ABOOT_202205)
+  - $(IMAGE_CISCO_CHASSIS_202405)
+  - $(IMAGE_MLNX_201811)
+  - $(IMAGE_MLNX_201911)
+  - $(IMAGE_MLNX_202012)
+  - $(IMAGE_MLNX_202205)
+  - $(IMAGE_MLNX_202305)
+  - $(IMAGE_MLNX_202311)
+  - $(IMAGE_MLNX_202405)
+  - $(IMAGE_MLNX_202411)
+  - $(IMAGE_MLNX_202412_TAG)
+  - $(IMAGE_MLNX_202505)
+  - $(IMAGE_MLNX_202511)
+  - $(IMAGE_MLNX_INTERNAL)
+  - $(IMAGE_MLNX_PUBLIC)
+  - $(IMAGE_MARVELL_202012)
+  - $(IMAGE_MARVELL_202205)
+  - $(IMAGE_MARVELL_202305)
+  - $(IMAGE_MARVELL_202311)
+  - $(IMAGE_MARVELL_202405)
+  - $(IMAGE_MARVELL_202411)
+  - $(IMAGE_MARVELL_202505)
+  - $(IMAGE_MARVELL_PUBLIC)
+  - $(BJW_IMAGE_BRCM_201811)
+  - $(BJW_IMAGE_BRCM_202012_SLIM)
+  - $(BJW_IMAGE_BRCM_202305_SLIM)
+  - $(BJW_IMAGE_MLNX_201811)
+  - $(BJW_IMAGE_MLNX_201911)
+  - $(BJW_IMAGE_MLNX_202012)
+  - $(BJW_IMAGE_MLNX_202205)
+  - $(BJW_IMAGE_MLNX_202305)
+  - $(BJW_IMAGE_MLNX_202311)
+  - $(BJW_IMAGE_MLNX_202405)
+  - $(BJW_IMAGE_MLNX_202411)
+  - $(BJW_IMAGE_MLNX_202412_TAG)
+  - $(BJW_IMAGE_MLNX_202505)
+  - $(BJW_IMAGE_MLNX_202511)
+  - $(BJW_IMAGE_BRCM_ABOOT_202305)
+  - $(BJW_IMAGE_BRCM_ABOOT_202311)
+  - $(BJW_IMAGE_BRCM_ABOOT_202405)
+  - $(BJW_IMAGE_BRCM_ABOOT_202411)
+  - $(BJW_IMAGE_BRCM_ABOOT_202505)
+  - $(BJW_IMAGE_BRCM_ABOOT_202505_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202511)
+  - $(BJW_IMAGE_BRCM_ABOOT_202511_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_LEGACY_TH_202511)
+  - $(BJW_IMAGE_MARVELL_202205)
+  - $(BJW_IMAGE_MARVELL_202305)
+  - $(BJW_IMAGE_MARVELL_202311)
+  - $(BJW_IMAGE_MARVELL_202405)
+  - $(BJW_IMAGE_MARVELL_202411)
+  - $(BJW_IMAGE_MARVELL_202505)
+  - $(IMAGE_BRCM_DNX_CHASSIS_202205)
+  - $(IMAGE_BRCM_DNX_CHASSIS_202405)
+  - $(BJW_IMAGE_BRCM_DNX_CHASSIS_202205)
+  - $(BJW_IMAGE_BRCM_DNX_CHASSIS_202405)
+  - custom
+
+- name: TO_IMAGE_LIST
+  type: string
+  displayName: "All target image numbers (space separated)"
+  default: "latest"
+- name: TO_IMAGE_URL
+  displayName: "Target image location"
+  type: string
+  default: $(IMAGE_BRCM_ABOOT_202511)
+  values:
+  - $(IMAGE_BRCM_201811)
+  - $(IMAGE_BRCM_201911)
+  - $(IMAGE_BRCM_202012)
+  - $(IMAGE_BRCM_202012_SLIM)
+  - $(IMAGE_BRCM_202205)
+  - $(IMAGE_BRCM_202305)
+  - $(IMAGE_BRCM_202305_SLIM)
+  - $(IMAGE_BRCM_202311)
+  - $(IMAGE_BRCM_202405)
+  - $(IMAGE_BRCM_202405_SLIM)
+  - $(IMAGE_BRCM_202411)
+  - $(IMAGE_BRCM_202505)
+  - $(IMAGE_BRCM_202511)
+  - $(IMAGE_BRCM_INTERNAL)
+  - $(IMAGE_BRCM_PUBLIC)
+  - $(IMAGE_BRCM_ABOOT_201811)
+  - $(IMAGE_BRCM_ABOOT_201911)
+  - $(IMAGE_BRCM_ABOOT_202012)
+  - $(IMAGE_BRCM_ABOOT_202012_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202106)
+  - $(IMAGE_BRCM_ABOOT_202205)
+  - $(IMAGE_BRCM_ABOOT_202205_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202305)
+  - $(IMAGE_BRCM_ABOOT_202305_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202311)
+  - $(IMAGE_BRCM_ABOOT_202311_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202405)
+  - $(IMAGE_BRCM_ABOOT_202405_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202411)
+  - $(IMAGE_BRCM_ABOOT_202411_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202505)
+  - $(IMAGE_BRCM_ABOOT_202505_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202511)
+  - $(IMAGE_BRCM_ABOOT_202511_SLIM)
+  - $(IMAGE_BRCM_ABOOT_LEGACY_TH_202511)
+  - $(IMAGE_BRCM_ABOOT_INTERNAL)
+  - $(IMAGE_BRCM_ABOOT_PUBLIC)
+  - $(IMAGE_CISCO_202012)
+  - $(IMAGE_CISCO_202205)
+  - $(IMAGE_CISCO_202305)
+  - $(IMAGE_CISCO_202311)
+  - $(IMAGE_CISCO_202405)
+  - $(IMAGE_CISCO_202411)
+  - $(IMAGE_CISCO_202505)
+  - $(BJW_IMAGE_CISCO_202305)
+  - $(BJW_IMAGE_CISCO_202311)
+  - $(BJW_IMAGE_CISCO_202405)
+  - $(BJW_IMAGE_CISCO_202411)
+  - $(BJW_IMAGE_CISCO_202505)
+  - $(IMAGE_CISCO_ABOOT_202012)
+  - $(IMAGE_CISCO_ABOOT_202205)
+  - $(IMAGE_CISCO_CHASSIS_202405)
+  - $(IMAGE_MLNX_201811)
+  - $(IMAGE_MLNX_201911)
+  - $(IMAGE_MLNX_202012)
+  - $(IMAGE_MLNX_202205)
+  - $(IMAGE_MLNX_202305)
+  - $(IMAGE_MLNX_202311)
+  - $(IMAGE_MLNX_202405)
+  - $(IMAGE_MLNX_202411)
+  - $(IMAGE_MLNX_202412_TAG)
+  - $(IMAGE_MLNX_202505)
+  - $(IMAGE_MLNX_202511)
+  - $(IMAGE_MLNX_INTERNAL)
+  - $(IMAGE_MLNX_PUBLIC)
+  - $(IMAGE_MARVELL_202012)
+  - $(IMAGE_MARVELL_202205)
+  - $(IMAGE_MARVELL_202305)
+  - $(IMAGE_MARVELL_202311)
+  - $(IMAGE_MARVELL_202405)
+  - $(IMAGE_MARVELL_202411)
+  - $(IMAGE_MARVELL_202505)
+  - $(IMAGE_MARVELL_PUBLIC)
+  - $(BJW_IMAGE_BRCM_201811)
+  - $(BJW_IMAGE_BRCM_202012_SLIM)
+  - $(BJW_IMAGE_BRCM_202305_SLIM)
+  - $(BJW_IMAGE_MLNX_201811)
+  - $(BJW_IMAGE_MLNX_201911)
+  - $(BJW_IMAGE_MLNX_202012)
+  - $(BJW_IMAGE_MLNX_202205)
+  - $(BJW_IMAGE_MLNX_202305)
+  - $(BJW_IMAGE_MLNX_202311)
+  - $(BJW_IMAGE_MLNX_202405)
+  - $(BJW_IMAGE_MLNX_202411)
+  - $(BJW_IMAGE_MLNX_202412_TAG)
+  - $(BJW_IMAGE_MLNX_202505)
+  - $(BJW_IMAGE_MLNX_202511)
+  - $(BJW_IMAGE_BRCM_ABOOT_202305)
+  - $(BJW_IMAGE_BRCM_ABOOT_202311)
+  - $(BJW_IMAGE_BRCM_ABOOT_202405)
+  - $(BJW_IMAGE_BRCM_ABOOT_202411)
+  - $(BJW_IMAGE_BRCM_ABOOT_202505)
+  - $(BJW_IMAGE_BRCM_ABOOT_202505_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202511)
+  - $(BJW_IMAGE_BRCM_ABOOT_202511_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_LEGACY_TH_202511)
+  - $(BJW_IMAGE_MARVELL_202205)
+  - $(BJW_IMAGE_MARVELL_202305)
+  - $(BJW_IMAGE_MARVELL_202311)
+  - $(BJW_IMAGE_MARVELL_202405)
+  - $(BJW_IMAGE_MARVELL_202411)
+  - $(BJW_IMAGE_MARVELL_202505)
+  - $(IMAGE_BRCM_DNX_CHASSIS_202205)
+  - $(IMAGE_BRCM_DNX_CHASSIS_202405)
+  - $(BJW_IMAGE_BRCM_DNX_CHASSIS_202205)
+  - $(BJW_IMAGE_BRCM_DNX_CHASSIS_202405)
+  - custom
+
+- name: VSONIC_NEIGHBOR_IMAGE_URL
+  displayName: "SONiC image URL (used only for vsonic neighbors)"
+  type: string
+  default: https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target%2Fsonic-vs.img.gz
+
+- name: ITERATIONS
+  type: string
+  default: "1"
+  values:
+  - "1"
+  - "10"
+  - "16"
+  - "17"
+  - "18"
+  - "20"
+  - "22"
+  - "27"
+  - "100"
+  - "500"
+
+- name: SKIP_TEST_RESULTS_UPLOADING
+  displayName: "Upload timing data report to Kusto"
+  type: boolean
+  default: false
+
+stages:
+- stage: SONiCMetadataPreTest
+  jobs:
+  - job:
+    pool: nightly
+    displayName: "SONiC Metadata Unit Test"
+    timeoutInMinutes: 100
+    steps:
+    - checkout: self
+    - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    - template: step_metadata_unit_test.yml
+
+  - job:
+    pool: nightly
+    displayName: "SONiC Metadata Linter Test"
+    timeoutInMinutes: 100
+    steps:
+    - checkout: self
+    - checkout: https://mssonic@dev.azure.com/mssonic/internal/_git/sonic-metadata
+    - template: step_metadata_linter.yml
+
+- template: metadata_upgrade_template.yml
+  parameters:
+    UPGRADE_TEST_TYPE: warmboot-data-consistency
+    TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+    POOL: ${{ parameters.POOL }}
+    # NOTE: Unused for this specific test but required by template
+    UPGRADE_TYPE: warm
+    VM_TYPE: ${{ parameters.VM_TYPE }}
+    # Test doesn't support post-upgrade actions due to running config persisting to disk following reboot
+    SKIP_POSTUPGRADE_ACTIONS: true
+    # Not integrated yet but we should in the future
+    RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: false
+    METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
+    FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
+    FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
+    TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
+    TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
+    VSONIC_NEIGHBOR_IMAGE_URL: ${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}
+    ITERATIONS : ${{ parameters.ITERATIONS }}
+    SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+    SKIP_LOCKING_TESTBED: ${{ parameters.SKIP_LOCKING_TESTBED }}
