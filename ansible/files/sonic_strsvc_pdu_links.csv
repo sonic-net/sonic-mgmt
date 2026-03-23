@@ -79,8 +79,6 @@ pdu-140,22,svcstr-7260cx3-acs-16,PSU1
 pdu-141,22,svcstr-7260cx3-acs-16,PSU2
 pdu-138,28,svcstr-7280r4-ut2-1,PSU1
 pdu-139,28,svcstr-7280r4-ut2-1,PSU2
-pdu-138,29,svcstr-7280r4-ut2-2,PSU1
-pdu-139,29,svcstr-7280r4-ut2-2,PSU2
 pdu-140,25,svcstr-7060x6-64pe-1,PSU1
 pdu-141,25,svcstr-7060x6-64pe-1,PSU2
 pdu-140,26,svcstr-nh5010-ut2-2,PSU1
@@ -88,4 +86,12 @@ pdu-141,26,svcstr-nh5010-ut2-2,PSU2
 pdu-140,27,svcstr-z9332f-05,PSU1
 pdu-141,27,svcstr-z9332f-05,PSU2
 pdu-138,27,svcstr-nh5010-ut2-3,PSU1
-pdu-139,27,svcstr-nh5010-ut2-3,PSU2s
+pdu-139,27,svcstr-nh5010-ut2-3,PSU2
+pdu-140,28,svcstr-nh5010-fanout-2,PSU1
+pdu-141,28,svcstr-nh5010-fanout-2,PSU2
+pdu-138,29,svcstr-7280r4-ut2-2,PSU1
+pdu-139,29,svcstr-7280r4-ut2-2,PSU2
+pdu-138,31,svcstr-nh5010-fanout-3,PSU1
+pdu-139,31,svcstr-nh5010-fanout-3,PSU2
+pdu-138,32,svcstr-8101-fanout-01,PSU1
+pdu-139,32,svcstr-8101-fanout-01,PSU2

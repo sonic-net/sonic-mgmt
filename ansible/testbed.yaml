@@ -4946,7 +4946,7 @@
 
 - conf-name: vmsvc-ut2-nh5010-3
   group-name: svc3-2
-  topo: t2_single_node_min_nexthop_ut2
+  topo: t2_single_node_max_64p
   ptf_image_name: docker-ptf
   ptf: svc3-2
   ptf_ip: 10.206.144.11/24
@@ -5329,14 +5329,14 @@
   comment: yatishkoul
 
 - conf-name: vmsvc-ut2-nh5010-2
-  group-name: svc3-3
-  topo: t2_single_node_max_38p
+  group-name: svc8-1
+  topo: t2_single_node_max_64p
   ptf_image_name: docker-ptf
-  ptf: svc3-3
+  ptf: svc8-1
   ptf_ip: 10.206.144.91/24
   ptf_ipv6: 2a01:111:e205:100::ace:905b/64
-  server: server_svc_3
-  vm_base: VM30102
+  server: server_svc_8
+  vm_base: VM30160
   dut:
   - svcstr-nh5010-ut2-2
   inv_name: strsvc
