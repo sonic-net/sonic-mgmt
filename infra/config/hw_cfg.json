@@ -601,6 +601,52 @@
                 "sudo reboot"
             ]
         },
+        "b2b-ipfabric-apple": {
+            "ucs_host_name":"tu2",
+            "ucs_host": "10.29.158.30",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "telnet_host": ["10.29.158.9", "10.29.158.9"],
+            "telnet_port": ["2003", "2004"],
+            "telnet_details": ["10.29.158.4 2003", "10.29.158.4 2004"],
+            "dut_ssh": ["10.29.158.176", "10.29.158.175"],
+            "topology": "b2b",
+            "installer_mode": "sonic",
+            "ucs_ssh_prompt": "sonic@tu2",
+            "hw_type":"mathilda-64",
+            "docker_prompt":"root@tu2",
+            "run_type_check": "ip_fabric_topo2.yaml",
+            "logs_folder":"/data/run_logs/",
+            "git_update_flag": "true",
+            "sonic_test_dir": "/home/sonic/test_logs/tortuga",
+            "sonic_mgmt_container_202305": "cicd_prod_master_ixia_v9_20",
+            "sonic_mgmt_container_202405": "cicd_apple_ipfabric_ixia_10",
+            "sonic_mgmt_container_202311": "cicd_prod_master_ixia_v9_20",
+            "sonic_mgmt_container_master": "cicd_prod_master_ixia_v9_20",
+            "skip_tests": "",
+            "allure_flag": "false",
+            "skip_folder":"",
+            "external_ucs": "none",
+            "lldp_count": 62,
+            "collect_spytest_flag":"true",
+            "testbed_yaml": "/data/spytest_tb_files/ip_fabric_topo2.yaml",
+            "tests_list": ["/data/sonic-mgmt/spytest/tests/cisco/ip_fabric/test_packet_capture.py"],
+            "special_run_commands": [
+                "cd /data/sonic-mgmt/spytest/",
+                "mkdir /run_logs/apple_ipfabric/$image_folder",
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master $test_name --logs-path /run_logs/tortuga_optics/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=36000 --module-init-max-timeout=36000",
+                "ls -l"
+            ],
+            "extra_onie_check": [
+                "show lldp table"
+            ],
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ]
+        },
         "b2b-tu-2-carib": {
             "ucs_host_name":"tu2",
             "ucs_host": "10.29.158.30",
@@ -2510,6 +2556,9 @@
         "b2b-tu-2-siren3":  [
             "cisco.202405c.2.tortuga.siren.no-agents"
         ],
+        "b2b-ipfabric-apple": [
+            "cisco.202405cz.2.1.ztp.release"
+        ],
         "b2b-tu-2-siren-optics":  [
             "cisco.202305.1.tortuga.siren.no-agents",
             "cisco.202305.1.tortuga.siren.no-agents.v4",
@@ -2666,6 +2715,7 @@
         "b2b-tu-2-siren3":"tu2-carib-siren",
         "b2b-tu-2-siren-optics": "tu2-carib-siren",
         "b2b-tu-2-carib-optics": "tu2-carib-siren",
+        "b2b-ipfabric-apple": "tu2-carib-siren",
         "b2b-m3-2-m64": "ucs_m3_2",
         "b2b-m3-2-croc": "ucs_m3_2",
         "b2b-m3-2-cmono": "ucs_m3_2",
