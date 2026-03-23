@@ -85,7 +85,7 @@ switch01-bmc-con,192.168.0.101/24,bmc,ConsoleServer,ssh,sonic
 
 - `switch01` — The host-side SONiC switch.
 - `switch01-bmc` — The BMC as a DUT (used when running BMC tests).
-- `sniffer-01` — The sniffer device for `bmc-shared-mgmt` setup. Optional for other topology.
+- `sniffer-01` — A sniffer device for the `bmc-shared-mgmt` setup (optional for other topologies). By default, the sniffer operates in pass-through mode and does **not** affect management traffic or CPU-side testing. The sniffer can be a shared hardware device with a SONiC fanout that has everflow capability, but it still requires its own entry in the devices file with the `Sniffer` type to indicate a dedicated role used only in BMC testing.
 - `lab-con` — The lab console server, providing physical console access to the BMC.
 - `switch01-bmc-con` — The BMC acting as a console server for the host (used when running host-side tests). Note this shares the same management IP as `switch01-bmc` since it is the same device in a different role.
 
@@ -181,6 +181,10 @@ Example `testbed.yaml` segment for bmc-shared-mgmt:
   inv_name: lab
   auto_recover: 'False'
   comment: BMC shared-mgmt testbed
+  sniffer:
+    device: sniffer-01
+    dut_facing_port: Ethernet0
+    mgmt_facing_port: Ethernet4
   embedded_switch:
     bmc_port:
       mode: access
@@ -197,6 +201,10 @@ Example `testbed.yaml` segment for bmc-shared-mgmt:
   - **`bmc_port`**: The BMC-facing port. `mode: access` means traffic is untagged. `vlan` is the VLAN ID assigned to this port.
   - **`cpu_port`**: The CPU-facing port. `mode: tagged` means traffic carries the specified VLAN tag.
   - **`frontpanel_port`**: The front-panel-facing port. `mode: trunk` allows both tagged and untagged traffic. `native_vlan` specifies the VLAN for untagged traffic, which matches the BMC port's VLAN so that untagged inbound traffic is forwarded to the BMC.
+- **`sniffer`**: Describes the sniffer device and which of its ports are used.
+  - **`device`**: The hostname of the sniffer device (as defined in `devices.csv`).
+  - **`dut_facing_port`**: The sniffer port connected to the DUT's front-panel management port.
+  - **`mgmt_facing_port`**: The sniffer port connected to the lab management switch.
 
 ## 4 Utilities
 
@@ -336,6 +344,31 @@ def test_dual_mgmt_specific(duthosts, rand_one_dut_hostname):
 ```
 
 Feature-level test plans are owned and maintained by the respective feature owners and are not covered in this document.
+
+#### Handling the `any` Topology Marker
+
+In the sonic-mgmt framework, `any` is a literal topology name — tests marked with `@pytest.mark.topology('any')` are collected when running with `--topology any`. When executing tests on a BMC testbed, tests that depend on ASIC or data-plane features (which are unavailable on BMC) should be excluded.
+
+The recommended approach is to use the existing **conditional mark plugin** to skip BMC-incompatible tests via centralized YAML configuration. This is the same mechanism already used for topology-specific exclusions (e.g., `dualtor`, `m0/mx`).
+
+Example conditional mark YAML entry for BMC exclusion:
+
+```yaml
+# Skip tests that require ASIC/data-plane when running on BMC
+tests/acl/test_acl_hardware_offload.py:
+  skip:
+    reason: "Requires ASIC hardware offload, not available on BMC"
+    conditions:
+      - "'bmc' in topo_name"
+
+tests/ecmp/test_ecmp.py:
+  skip:
+    reason: "Requires data-plane forwarding, not available on BMC"
+    conditions:
+      - "'bmc' in topo_name"
+```
+
+This approach keeps the existing `any` behavior unchanged while providing a centralized, auditable way to manage BMC-incompatible test exclusions.
 
 ### 5.2 bmc-shared-mgmt Specific Tests
 
