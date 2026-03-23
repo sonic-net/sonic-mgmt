@@ -134,7 +134,7 @@ class TestBMCApi(PlatformApiTestBase):
             time.sleep(WAIT_TIME)
 
             if method == 'api':
-                ret_code, message = bmc.update_firmware(duthost, fw_image)
+                ret_code, (message, _) = bmc.update_firmware(duthost, fw_image)
 
                 if EROT_BUSY_MSG in message:
                     logger.info(f"{EROT_BUSY_MSG}, waiting for {WAIT_TIME} seconds")

@@ -325,6 +325,9 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
                 # TODO: Should remove the following two lines once the issue was solved in the image.
                 if "syncd" in container_name_in_namespace and critical_process == "dsserve":
                     continue
+                # Skip 'otel' process since it would autorestart
+                if "otel" in container_name_in_namespace and critical_process == "otel":
+                    continue
                 logger.info("Generating the regex of expected alerting message for process '{}' in container '{}'"
                             .format(critical_process, container_name_in_namespace))
                 expected_alerting_messages.append(".*Process '{}' is not running in namespace '{}'.*"
@@ -710,15 +713,24 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     loganalyzer.expect_regex = ["Process \'orchagent\' is stuck in namespace"]
     marker = loganalyzer.init()
 
-    # freeze orchagent for warm-reboot
-    # 'x86_64-mlnx_msn2700-r0' is weaker CPU systems and takes more time to update large-scale routing
-    if duthost.facts['platform'] == 'x86_64-mlnx_msn2700-r0':
-        command_output = duthost.shell("docker exec -i swss orchagent_restart_check -w 5000 -r 6")
-    else:
-        command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
-    exit_code = command_output["rc"]
+    # Retry up to 150 sec to accommodate for flex counter processing delay
+    max_retries = 30
+    retry_delay = 5
+    for retry_count in range(max_retries):
+        command_output = duthost.shell("docker exec -i swss orchagent_restart_check -n", module_ignore_errors=True)
+        exit_code = command_output["rc"]
+        logger.warning("command_output: {}".format(command_output))
+        if exit_code == 0:
+            break
+        else:
+            logger.warning(f"Attempt {retry_count+1}/{max_retries} failed, retrying in {retry_delay} seconds...")
+            time.sleep(retry_delay)
+
+    command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
     logger.warning("command_output: {}".format(command_output))
-    pytest_assert(exit_code == 0, "Failed to freeze orchagent for warm reboot")
+    exit_code = command_output["rc"]
+    pytest_assert(exit_code == 0,
+                  "Failed to freeze orchagent for warm reboot after {} seconds".format(retry_delay * max_retries))
 
     # stuck alert will be trigger after 60s, wait 120s to make sure no any alert send
     time.sleep(120)

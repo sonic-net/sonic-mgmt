@@ -1304,6 +1304,32 @@ def get_dpu_port(duthost, dpu_index):
     return port
 
 
+def get_configured_dpu_names(duthost):
+    """
+    Return DPU names configured in the DUT running config (e.g. ["dpu0","dpu1"]).
+
+    This is used by tests to avoid targeting chassis modules that are present in
+    platform API but are not configured for DPU management (and thus have no
+    gNMI/gNOI settings in config DB).
+    """
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if not config_facts:
+        logger.error("Failed to retrieve config_facts from DUT")
+        return []
+
+    dpu_section = config_facts.get('DPU', {})
+    if not dpu_section:
+        return []
+
+    # Keep deterministic ordering (dpu0, dpu1, ...)
+    def _dpu_sort_key(name):
+        m = re.search(r'(\d+)$', str(name))
+        return int(m.group(1)) if m else 10**9
+
+    names = [str(k) for k in dpu_section.keys()]
+    return sorted(names, key=_dpu_sort_key)
+
+
 def check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
     # Check DPU ping status
     logging.info("Checking DPU ping status")

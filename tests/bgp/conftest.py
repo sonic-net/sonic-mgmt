@@ -11,6 +11,7 @@ import six
 import socket
 
 from jinja2 import Template
+from tests.bgp.constants import SHOW_IP_INTERFACE_CMD
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.generators import generate_ips
 from tests.common.helpers.parallel import parallel_run
@@ -72,21 +73,40 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         logger.info('enable graceful restart on neighbor host {}'.format(node['host'].hostname))
         logger.info('bgp asn {}'.format(asn))
         if isinstance(node['host'], EosHost):
-            node_results.append(node['host'].config(
-                    lines=['graceful-restart restart-time 300'],
-                    parents=['router bgp {}'.format(asn)],
-                    module_ignore_errors=True)
-                )
-            node_results.append(node['host'].config(
-                    lines=['graceful-restart'],
-                    parents=['router bgp {}'.format(asn), 'address-family ipv4'],
-                    module_ignore_errors=True)
-                )
-            node_results.append(node['host'].config(
-                    lines=['graceful-restart'],
-                    parents=['router bgp {}'.format(asn), 'address-family ipv6'],
-                    module_ignore_errors=True)
-                )
+            if node.get('is_multi_vrf_peer', False):
+                vrf = node['multi_vrf_data']['vrf']
+                asn = node['multi_vrf_data']['primary_host_asn']
+                node_results.append(node['host'].config(
+                        lines=['graceful-restart restart-time 300'],
+                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf)],
+                        module_ignore_errors=True)
+                    )
+                node_results.append(node['host'].config(
+                        lines=['graceful-restart'],
+                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf), 'address-family ipv4'],
+                        module_ignore_errors=True)
+                    )
+                node_results.append(node['host'].config(
+                        lines=['graceful-restart'],
+                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf), 'address-family ipv6'],
+                        module_ignore_errors=True)
+                    )
+            else:
+                node_results.append(node['host'].config(
+                        lines=['graceful-restart restart-time 300'],
+                        parents=['router bgp {}'.format(asn)],
+                        module_ignore_errors=True)
+                    )
+                node_results.append(node['host'].config(
+                        lines=['graceful-restart'],
+                        parents=['router bgp {}'.format(asn), 'address-family ipv4'],
+                        module_ignore_errors=True)
+                    )
+                node_results.append(node['host'].config(
+                        lines=['graceful-restart'],
+                        parents=['router bgp {}'.format(asn), 'address-family ipv6'],
+                        module_ignore_errors=True)
+                    )
         elif isinstance(node['host'], SonicHost):
             node_results.append(node['host'].config(
                 lines=['bgp graceful-restart', 'bgp graceful-restart restart-time 300'],
@@ -136,16 +156,30 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         logger.info('disable graceful restart on neighbor {}'.format(node))
         asn = (node['conf']['bgp']['asn'])
         if isinstance(node['host'], EosHost):
-            node_results.append(node['host'].config(
-                    lines=['no graceful-restart'],
-                    parents=['router bgp {}'.format(asn), 'address-family ipv4'],
-                    module_ignore_errors=True)
-                )
-            node_results.append(node['host'].config(
-                    lines=['no graceful-restart'],
-                    parents=['router bgp {}'.format(asn), 'address-family ipv6'],
-                    module_ignore_errors=True)
-                )
+            if node.get('is_multi_vrf_peer', False):
+                vrf = node['multi_vrf_data']['vrf']
+                asn = node['multi_vrf_data']['primary_host_asn']
+                node_results.append(node['host'].config(
+                        lines=['no graceful-restart'],
+                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf), 'address-family ipv4'],
+                        module_ignore_errors=True)
+                    )
+                node_results.append(node['host'].config(
+                        lines=['no graceful-restart'],
+                        parents=['router bgp {}'.format(asn), 'vrf {}'.format(vrf), 'address-family ipv6'],
+                        module_ignore_errors=True)
+                    )
+            else:
+                node_results.append(node['host'].config(
+                        lines=['no graceful-restart'],
+                        parents=['router bgp {}'.format(asn), 'address-family ipv4'],
+                        module_ignore_errors=True)
+                    )
+                node_results.append(node['host'].config(
+                        lines=['no graceful-restart'],
+                        parents=['router bgp {}'.format(asn), 'address-family ipv6'],
+                        module_ignore_errors=True)
+                    )
         elif isinstance(node['host'], SonicHost):
             node_results.append(node['host'].config(
                 lines=['no bgp graceful-restart', 'no bgp graceful-restart restart-time 300'],
@@ -174,6 +208,10 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         results[node['host'].hostname] = node_results
 
     # enable graceful restart on neighbors
+    if tbinfo['topo']['properties'].get('topo_is_multi_vrf', False):
+        # cEOSLab only supports running 5 concurrent in-progress config sessions.
+        # We run this task sequentially to avoid races
+        cct = 1
     results = parallel_run(configure_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)
 
     check_results(results)
@@ -827,3 +865,13 @@ def traffic_shift_community(duthost):
 @pytest.fixture(scope='module')
 def get_function_completeness_level(pytestconfig):
     return pytestconfig.getoption("--completeness_level")
+
+
+@pytest.fixture(scope='module')
+def ip_version(tbinfo):
+    return 'v6' if is_ipv6_only_topology(tbinfo) else 'v4'
+
+
+@pytest.fixture(scope='module')
+def show_ip_interface_cmd(ip_version):
+    return SHOW_IP_INTERFACE_CMD[ip_version]

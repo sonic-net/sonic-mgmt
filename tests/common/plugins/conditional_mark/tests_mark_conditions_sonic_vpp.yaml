@@ -7,14 +7,6 @@
 #######################################
 #####           ACL               #####
 #######################################
-acl/test_acl.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 acl/test_stress_acl.py::test_acl_add_del_stress:
   skip:
     reason: >
@@ -177,30 +169,6 @@ bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown:
       - "asic_type in ['vpp']"
 
 bgp/test_bgp_port_disable.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_session.py::test_bgp_session_interface_down:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_session_flap.py::test_bgp_multiple_session_flaps:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_session_flap.py::test_bgp_single_session_flaps:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -543,14 +511,6 @@ gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
 #######################################
 #####          GNMI               #####
 #######################################
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
   skip:
     reason: >

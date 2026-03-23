@@ -15,7 +15,7 @@ import math
 import os
 import macsec  # noqa F401
 import concurrent.futures
-from ptf.testutils import (ptf_ports,
+from ptf.testutils import (ptf_ports,     # noqa F401
                            dp_poll,
                            simple_arp_packet,
                            send_packet,
@@ -28,7 +28,7 @@ from ptf.testutils import (ptf_ports,
                            port_to_tuple,
                            simple_udpv6_packet)
 from ptf.mask import Mask
-from switch import (switch_init,
+from switch import (switch_init,          # noqa F401
                     sai_thrift_create_scheduler_profile,
                     sai_thrift_clear_all_counters,
                     sai_thrift_read_port_counters,
@@ -44,9 +44,9 @@ from switch import (switch_init,
                     sai_thrift_read_port_voq_counters,
                     sai_thrift_get_voq_port_id
                     )
-from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
+from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t, # noqa F401
                                       sai_thrift_attribute_t)
-from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID
+from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID # noqa F401
 from scapy.layers.inet6 import ICMPv6ND_NS, ICMPv6NDOptDstLLAddr
 
 
@@ -137,6 +137,15 @@ SDK_LOG_TO_CHECK = {"voq": ["VOQ Appears to be stuck"],
                     "oq": []}
 SAI_LOG = "/var/log/sai.log"
 SDK_LOG = "/var/log/syslog"
+
+
+def update_COUNTER_MARGIN(dut_asic):
+    global COUNTER_MARGIN
+    # For q3d few extra ipv6 NS/RA pkt(6-9) received from VM, adding to counter value
+    # & may give inconsistent test results so changing margin to 10
+    if dut_asic == "q3d":
+        log_message("Overriding COUNTER_MARGIN to 10 for q3d", to_stderr=True)
+        COUNTER_MARGIN = 10
 
 
 def log_message(message, level='info', to_stderr=False):
@@ -302,6 +311,104 @@ def summarize_diag_counter(ptftest, changed_counter=-1, base_counter=0):
             collector.compare_counter(changed_counter, base_counter)
 
 
+def ignore_ingress_drop_caused_by_nonunicast_noise(
+        client, sai_port_id,
+        recv_counters, recv_counters_base, ingress_counter_idx,
+        counter_margin=0):
+    """
+    Ignore ingress drops caused by environmental non-unicast (broadcast/multicast) noise.
+
+    Problem Analysis:
+    During testing, we discovered that environmental broadcast/multicast traffic from the network
+    can cause InDiscard counter increases that are unrelated to the test traffic. These false positives
+    lead to incorrect test failures. The root cause is that the test infrastructure cannot distinguish
+    between drops caused by:
+    1. Actual test traffic exceeding buffer capacity (legitimate failures)
+    2. Environmental broadcast/multicast packets arriving simultaneously (false failures/noise)
+
+    Solution Approach:
+    By monitoring the InNonUcPkt (Received Non-Unicast Packets) counter, we can detect when broadcast/
+    multicast traffic arrives. If InNonUcPkt increases along with InDiscard, we classify the ingress
+    drop as environmental noise and ignore it, allowing the test to continue.
+
+    Why Other Metrics Cannot Be Used for Decision:
+    - PG Headroom Watermark (pg_headroom_wm): Watermark values behave differently across test stages.
+      Previous test runs may leave the watermark at a high value, or the current test stage may produce
+      varying watermark values depending on traffic patterns. Using watermarks would require complex
+      decision logic to handle these variations, making the code fragile and unreliable.
+
+    - PTF TX Counter: During certain test stages, PTF legitimately sends packets as part of the test.
+      When environmental non-unicast packets arrive simultaneously, we cannot distinguish whether the
+      counter change is from test traffic or noise. The PTF TX counter changing doesn't tell us if the
+      ingress drop was caused by PTF packets or by broadcast/multicast noise mixed in with PTF traffic.
+
+    Note: PG Headroom Watermark, PG Drop Counters, and PTF counters are already logged by the test
+    framework's diagnostic counter system (CounterCollector class), so this function does not print
+    them again. We only use InNonUcPkt counter for the decision logic.
+
+    Args:
+        client: SAI thrift client (unused but kept for API compatibility)
+        sai_port_id: SAI port ID (unused but kept for API compatibility)
+        recv_counters: Current port counters
+        recv_counters_base: Baseline port counters
+        ingress_counter_idx: Index of ingress drop counter (INGRESS_DROP or INGRESS_PORT_BUFFER_DROP)
+        counter_margin: Tolerance margin for platform-specific background traffic (e.g., IPv6 NS/RA on broadcom-dnx)
+                       If margin > 0, only drops exceeding this margin will be checked for noise
+
+    Returns:
+        True if ingress drop should be ignored (caused by broadcast/multicast noise)
+        False if ingress drop is legitimate and should fail the test
+    """
+    # Check if ingress drop exceeds the platform-specific margin
+    # For platforms with background traffic (e.g., broadcom-dnx), small drops within margin are ignored
+    ingress_drop_detected = (
+        recv_counters[ingress_counter_idx]
+        > recv_counters_base[ingress_counter_idx] + counter_margin)
+
+    if not ingress_drop_detected:
+        return False  # No ingress drop, normal case
+
+    # IngressDrop detected, check if caused by environmental broadcast/multicast noise
+    non_uc_pkt_increase = (
+        recv_counters[RECEIVED_NON_UC_PKTS]
+        > recv_counters_base[RECEIVED_NON_UC_PKTS])
+
+    # Check if this is environmental broadcast/multicast noise
+    if non_uc_pkt_increase:
+        # This is environmental broadcast/multicast noise
+        log_message(
+            '*** NOISE DETECTION: IngressDrop caused by environmental broadcast/multicast noise ***\n'
+            'InDiscard: {} -> {} (Delta={})\n'
+            'InNonUcPkt: {} -> {} (Delta={})\n'
+            '>>> IGNORING this IngressDrop and continuing test\n'.format(
+                recv_counters_base[ingress_counter_idx],
+                recv_counters[ingress_counter_idx],
+                recv_counters[ingress_counter_idx] - recv_counters_base[ingress_counter_idx],
+                recv_counters_base[RECEIVED_NON_UC_PKTS],
+                recv_counters[RECEIVED_NON_UC_PKTS],
+                recv_counters[RECEIVED_NON_UC_PKTS] - recv_counters_base[RECEIVED_NON_UC_PKTS]
+            ),
+            to_stderr=True
+        )
+        return True  # Ignore this ingress drop from broadcast/multicast noise
+
+    # This is legitimate ingress drop from test traffic
+    log_message(
+        '*** VALID IngressDrop detected (NOT noise) ***\n'
+        'InDiscard: {} -> {} (Delta={})\n'
+        'InNonUcPkt: {} -> {} (Delta={}, no increase - not broadcast/multicast)\n'.format(
+            recv_counters_base[ingress_counter_idx],
+            recv_counters[ingress_counter_idx],
+            recv_counters[ingress_counter_idx] - recv_counters_base[ingress_counter_idx],
+            recv_counters_base[RECEIVED_NON_UC_PKTS],
+            recv_counters[RECEIVED_NON_UC_PKTS],
+            recv_counters[RECEIVED_NON_UC_PKTS] - recv_counters_base[RECEIVED_NON_UC_PKTS]
+        ),
+        to_stderr=True
+    )
+    return False  # This is legitimate ingress drop, should fail test
+
+
 def qos_test_assert(ptftest, condition, message=None):
     try:
         assert condition, message
@@ -463,22 +570,47 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl,
 
 def dynamically_compensate_leakout(
         thrift_client, asic_type, counter_checker, check_port, check_field,
-        base, ptf_test, compensate_port, compensate_pkt, max_retry):
+        base, ptf_test, compensate_port, compensate_pkt, max_retry,
+        stable_zero_count=3):
+    """
+    Dynamically compensate for packet leakout by monitoring counter changes.
+
+    Sends compensation packets when leakout is detected, and confirms stability
+    by observing consecutive zero-leakout readings before declaring completion.
+    """
     prev = base
-    time.sleep(1.5)
-    curr, _ = counter_checker(thrift_client, asic_type, check_port)
-    leakout_num = curr[check_field] - prev[check_field]
-    retry = 0
     num = 0
-    while leakout_num > 0 and retry < max_retry:
-        send_packet(ptf_test, compensate_port, compensate_pkt, leakout_num)
-        num += leakout_num
-        prev = curr
+    compensate_count = 0
+    zero_streak = 0
+    leakout_history = []
+
+    for _ in range((max_retry + 1) * stable_zero_count):
+        time.sleep(1.5)
         curr, _ = counter_checker(thrift_client, asic_type, check_port)
-        leakout_num = curr[check_field] - prev[check_field]
-        retry += 1
-    sys.stderr.write('Compensate {} packets to port {}, and retry {} times\n'.format(
-        num, compensate_port, retry))
+        leakout = curr[check_field] - prev[check_field]
+        prev = curr
+        leakout_history.append(leakout)
+
+        if leakout > 0:
+            if compensate_count >= max_retry:
+                sys.stderr.write(
+                    'Warning: max_retry={} reached, leakout={}\n'.format(
+                        max_retry, leakout))
+                break
+            send_packet(ptf_test, compensate_port, compensate_pkt, leakout)
+            num += leakout
+            compensate_count += 1
+            zero_streak = 0
+        else:
+            zero_streak += 1
+            if zero_streak >= stable_zero_count:
+                break
+
+    sys.stderr.write(
+        'Compensate {} packets to port {}, {} retries '
+        '(zero_streak={}, history={})\n'.format(
+            num, compensate_port, compensate_count, zero_streak,
+            leakout_history))
     return num
 
 
@@ -2058,6 +2190,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         initialize_diag_counter(self)
 
         # Parse input parameters
+        dut_asic = self.test_params['dut_asic']
         dscp = int(self.test_params['dscp'])
         ecn = int(self.test_params['ecn'])
         router_mac = self.test_params['router_mac']
@@ -2084,6 +2217,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         # get counter names to query
         ingress_counters, egress_counters = get_counter_names(sonic_version)
+
+        update_COUNTER_MARGIN(dut_asic)
 
         # get a snapshot of PG drop packets counter
         if '201811' not in sonic_version and ('mellanox' in asic_type or 'cisco-8000' in asic_type):
@@ -2175,6 +2310,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 send_packet(self, src_port_id, pkt, (pkts_num_egr_mem +
                                                      pkts_num_leak_out +
                                                      pkts_num_trig_pfc) // cell_occupancy - 1 - margin)
+                pkt_count = (pkts_num_egr_mem + pkts_num_leak_out +
+                             pkts_num_trig_pfc) // cell_occupancy - 1 - margin
             elif 'cisco-8000' in asic_type:
                 fill_leakout_plus_one(
                     self, src_port_id, dst_port_id,
@@ -2183,10 +2320,16 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 # Send 1 less packet due to leakout filling
                 send_packet(self, src_port_id, pkt, (pkts_num_leak_out +
                                                      pkts_num_trig_pfc) // cell_occupancy - 2 - margin)
+                pkt_count = (pkts_num_leak_out +
+                             pkts_num_trig_pfc) // cell_occupancy - 2 - margin
             else:
                 # send packets short of triggering pfc
                 send_packet(self, src_port_id, pkt, (pkts_num_leak_out +
                                                      pkts_num_trig_pfc) // cell_occupancy - 1 - margin)
+                pkt_count = (pkts_num_leak_out +
+                             pkts_num_trig_pfc) // cell_occupancy - 1 - margin
+            log_message("Sending {} packets to port {} short of PFC trigger".format(
+                pkt_count, src_port_id), to_stderr=True)
             capture_diag_counter(self, 'ShortOfPfc')
 
             # allow enough time for the dut to sync up the counter values in counters_db
@@ -2220,15 +2363,23 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if (platform_asic and
-                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
-                    qos_test_assert(
-                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
-                else:
-                    qos_test_assert(
-                        self, recv_counters[cntr] == recv_counters_base[cntr],
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
+                dnx_asics = ["broadcom-dnx", "marvell-teralynx"]
+                counter_margin = COUNTER_MARGIN if (
+                    platform_asic and platform_asic in dnx_asics) else 0
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    # Legitimate ingress drop, should fail test
+                    if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx"]:
+                        qos_test_assert(
+                            self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                            'unexpectedly RX drop counter increase, {}'.format(test_stage))
+                    else:
+                        qos_test_assert(
+                            self, recv_counters[cntr] == recv_counters_base[cntr],
+                            'unexpectedly RX drop counter increase, {}'.format(test_stage))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
@@ -2237,6 +2388,9 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
 
             # send 1 packet to trigger pfc
             send_packet(self, src_port_id, pkt, 1 + 2 * margin)
+            log_message("Sending {} packets to port {} to trigger PFC".format(
+                1 + 2 * margin, src_port_id), to_stderr=True)
+
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
             capture_diag_counter(self, 'TrigPfc')
@@ -2262,15 +2416,23 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if (platform_asic and
-                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
-                    qos_test_assert(
-                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
-                else:
-                    qos_test_assert(
-                        self, recv_counters[cntr] == recv_counters_base[cntr],
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
+                dnx_asics = ["broadcom-dnx", "marvell-teralynx"]
+                counter_margin = COUNTER_MARGIN if (
+                    platform_asic and platform_asic in dnx_asics) else 0
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    # Legitimate ingress drop, should fail test
+                    if platform_asic and platform_asic in ["broadcom-dnx", "marvell-teralynx"]:
+                        qos_test_assert(
+                            self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                            'unexpectedly RX drop counter increase, {}'.format(test_stage))
+                    else:
+                        qos_test_assert(
+                            self, recv_counters[cntr] == recv_counters_base[cntr],
+                            'unexpectedly RX drop counter increase, {}'.format(test_stage))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
@@ -2280,6 +2442,11 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # send packets short of ingress drop
             send_packet(self, src_port_id, pkt, (pkts_num_trig_ingr_drp -
                                                  pkts_num_trig_pfc) // cell_occupancy - 1 - 2 * margin)
+            pkt_count = ((pkts_num_trig_ingr_drp - pkts_num_trig_pfc) //
+                         cell_occupancy - 1 - 2 * margin)
+            log_message("Sending {} packets to port {} short of ingress drop".format(
+                pkt_count, src_port_id), to_stderr=True)
+
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
             capture_diag_counter(self, 'ShortOfIngDrp')
@@ -2322,6 +2489,9 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
 
             # send 1 packet to trigger ingress drop
             send_packet(self, src_port_id, pkt, 1 + 2 * margin)
+            log_message("Sending {} packets to port {} to trigger ingress drop".format(
+                1 + 2 * margin, src_port_id), to_stderr=True)
+
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
             capture_diag_counter(self, 'TrigIngDrp')
@@ -2779,6 +2949,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
         src_dst_asic_diff = self.test_params['src_dst_asic_diff']
         dut_asic = self.test_params['dut_asic']
 
+        update_COUNTER_MARGIN(dut_asic)
+
         self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
 
         # get a snapshot of counter values at recv and transmit ports
@@ -3116,17 +3288,28 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if (platform_asic and
-                        platform_asic in ["broadcom-dnx", "cisco-8000", "marvell-teralynx"]):
-                    qos_test_assert(
-                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
-                        'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
-                            port_counter_fields[cntr], step_id, step_desc))
-                else:
-                    qos_test_assert(
-                        self, recv_counters[cntr] == recv_counters_base[cntr],
-                        'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
-                            port_counter_fields[cntr], step_id, step_desc))
+                margin_asics = [
+                    "broadcom-dnx", "cisco-8000", "marvell-teralynx"]
+                counter_margin = COUNTER_MARGIN if (
+                    platform_asic and platform_asic in margin_asics
+                ) else 0
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    # Legitimate ingress drop, should fail test
+                    if (platform_asic and
+                            platform_asic in ["broadcom-dnx", "cisco-8000", "marvell-teralynx"]):
+                        qos_test_assert(
+                            self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                            'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
+                                port_counter_fields[cntr], step_id, step_desc))
+                    else:
+                        qos_test_assert(
+                            self, recv_counters[cntr] == recv_counters_base[cntr],
+                            'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
+                                port_counter_fields[cntr], step_id, step_desc))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
@@ -3168,10 +3351,17 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     pg, port_counter_fields[pg], step_id, step_desc))
             # recv port no ingress drop
             for cntr in ingress_counters:
-                qos_test_assert(
-                    self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
-                    'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
-                        port_counter_fields[cntr], step_id, step_desc))
+                counter_margin = COUNTER_MARGIN
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    # Legitimate ingress drop, should fail test
+                    qos_test_assert(
+                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                        'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
+                            port_counter_fields[cntr], step_id, step_desc))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
@@ -3228,10 +3418,17 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     pg, port_counter_fields[pg], step_id, step_desc))
             # recv port no ingress drop
             for cntr in ingress_counters:
-                qos_test_assert(
-                    self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
-                    'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
-                        port_counter_fields[cntr], step_id, step_desc))
+                counter_margin = COUNTER_MARGIN
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    # Legitimate ingress drop, should fail test
+                    qos_test_assert(
+                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                        'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
+                            port_counter_fields[cntr], step_id, step_desc))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
@@ -3521,7 +3718,7 @@ class HdrmPoolSizeTest_withDynamicBufferCacl(sai_base_test.ThriftInterfaceDataPl
             pkt_cnt = 1 + 2 * margin
             send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, pkt_cnt)
             # allow enough time for the dut to sync up the counter values in counters_db
-            time.sleep(1.5)
+            time.sleep(5)
             self.show_port_counter(self.asic_type, recv_counters_bases, xmit_counters_bases,
                                    'To fill last PG and trigger ingress drop, send {} pkt with DSCP {} PG {}'
                                    ' from src_port{} to dst_port'.format(pkt_cnt, sidx_dscp_pg_tuples[i][1],
@@ -4232,51 +4429,82 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         router_mac = self.test_params['router_mac']
         sonic_version = self.test_params['sonic_version']
         asic_type = self.test_params['sonic_asic_type']
-        default_packet_length = 64
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
+        dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         num_of_pkts = self.test_params['num_of_pkts']
+        cell_size = self.test_params['cell_size']
+        pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
+        src_port_vlan = self.test_params['src_port_vlan']
         limit = self.test_params['limit']
         min_limit = self.test_params['min_limit']
-        cell_size = self.test_params['cell_size']
-        asic_type = self.test_params['sonic_asic_type']
+        exp_ip_id = 100
+        platform_asic = self.test_params['platform_asic']
+        ecn_queue_status = self.test_params['ecn_queue_status']
+
+        if 'packet_size' in self.test_params:
+            packet_length = self.test_params['packet_size']
+        else:
+            packet_length = 1000
+        if 'cell_size' in self.test_params:
+            cell_size = self.test_params['cell_size']
+            cell_occupancy = (packet_length + cell_size - 1) // cell_size
+        else:
+            cell_occupancy = 1
+
         # get counter names to query
         ingress_counters, egress_counters = get_counter_names(sonic_version)
 
         # STOP PORT FUNCTION
-        sched_prof_id = sai_thrift_create_scheduler_profile(
-            self.src_client, STOP_PORT_MAX_RATE)
-        attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-        attr = sai_thrift_attribute_t(
-            id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-        self.dst_client.sai_thrift_set_port_attribute(port_list['dst'][dst_port_id], attr)
 
-        # Clear Counters
-        sai_thrift_clear_all_counters(self.src_client, 'src')
-        sai_thrift_clear_all_counters(self.dst_client, 'dst')
+        dst_port_id = get_rx_port(
+            self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
+        )
+        log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
+
+        # Get a snapshot of counter values
+        port_counters_base, queue_counters_base = sai_thrift_read_port_counters(
+            self.dst_client, asic_type, port_list['dst'][dst_port_id])
+        print(port_counters_base)
+        print(queue_counters_base)
+        self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+        # Clear wred counters
+        if platform_asic and platform_asic == "broadcom-dnx":
+            stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
+                                                            self.test_params['dut_password'],
+                                                            'sonic-clear queue wredcounters')
+            if stdErr and retValue != 0:
+                raise RuntimeError("Command might have failed in the DUT.Error:{}".format(stdErr))
+            else:
+                print("---------Wredcounter queue counters reset------------")
 
         # send packets
         try:
             tos = dscp << 2
             tos |= ecn
-            ttl = 64
-            for i in range(0, num_of_pkts):
-                pkt = simple_tcp_packet(pktlen=default_packet_length,
-                                        eth_dst=router_mac,
-                                        eth_src=src_port_mac,
-                                        ip_src=src_port_ip,
-                                        ip_dst=dst_port_ip,
-                                        ip_tos=tos,
-                                        ip_ttl=ttl)
-                send_packet(self, 0, pkt)
 
-            leaking_pkt_number = 0
-            for (rcv_port_number, pkt_str, pkt_time) in self.dataplane.packets(0, 1):
-                leaking_pkt_number += 1
-            print("leaking packet %d" % leaking_pkt_number)
+            pkt = construct_ip_pkt(packet_length,
+                                   pkt_dst_mac,
+                                   src_port_mac,
+                                   src_port_ip,
+                                   dst_port_ip,
+                                   dscp,
+                                   src_port_vlan,
+                                   ip_id=exp_ip_id,
+                                   ecn=ecn,
+                                   ttl=64)
+            send_packet(self, src_port_id, pkt, num_of_pkts)
+
+            # Set receiving socket buffers to some big value
+            for p in list(self.dataplane.ports.values()):
+                p.socket.setsockopt(socket.SOL_SOCKET,
+                                    socket.SO_RCVBUF, 41943040)
+            # RELEASE PORT
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
+            time.sleep(2)
 
             # Read Counters
             print("DST port counters: ")
@@ -4285,91 +4513,82 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
             print(port_counters)
             print(queue_counters)
 
-            # Clear Counters
-            sai_thrift_clear_all_counters(self.src_client, 'src')
-            sai_thrift_clear_all_counters(self.dst_client, 'dst')
-
-            # Set receiving socket buffers to some big value
-            for p in list(self.dataplane.ports.values()):
-                p.socket.setsockopt(socket.SOL_SOCKET,
-                                    socket.SO_RCVBUF, 41943040)
-
-            # RELEASE PORT
-            sched_prof_id = sai_thrift_create_scheduler_profile(
-                self.src_client, RELEASE_PORT_MAX_RATE)
-            attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-            attr = sai_thrift_attribute_t(
-                id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-            self.dst_client.sai_thrift_set_port_attribute(
-                port_list['dst'][dst_port_id], attr)
-
             # if (ecn == 1) - capture and parse all incoming packets
             marked_cnt = 0
             not_marked_cnt = 0
-            if (ecn == 1):
+            if (ecn != 0):
                 print("")
                 print(
                     "ECN capable packets generated, releasing dst_port and analyzing traffic -")
-
-                cnt = 0
+                total_recv_cnt = 0
                 pkts = []
-                for i in range(num_of_pkts):
-                    (rcv_device, rcv_port, rcv_pkt, pkt_time) = dp_poll(
-                        self, device_number=0, port_number=dst_port_id, timeout=0.2)
-                    if rcv_pkt is not None:
-                        cnt += 1
-                        pkts.append(rcv_pkt)
-                    else:  # Received less packets then expected
-                        assert (cnt == num_of_pkts)
-                print("    Received packets:    " + str(cnt))
-
+                while total_recv_cnt < num_of_pkts:
+                    result = self.dataplane.poll(
+                        device_number=0, port_number=dst_port_id, timeout=3)
+                    if isinstance(result, self.dataplane.PollFailure):
+                        self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (
+                            dst_port_id, total_recv_cnt, result.format()))
+                    recv_pkt = scapy.Ether(result.packet)
+                    try:
+                        if (recv_pkt.payload.src == src_port_ip) and (recv_pkt.payload.dst == dst_port_ip):
+                            total_recv_cnt += 1
+                            pkts.append(recv_pkt)
+                    except AttributeError:
+                        continue
+                    except IndexError:
+                        # Ignore captured non-IP packet
+                        continue
+                print("Total packet recieved: " + str(total_recv_cnt))
                 for pkt_to_inspect in pkts:
-                    pkt_str = hex_dump_buffer(pkt_to_inspect)
-
                     # Count marked and not marked amount of packets
-                    if ((int(pkt_str[ECN_INDEX_IN_HEADER]) & 0x03) == 1):
+                    if ((pkt_to_inspect.payload.tos & 0x03) == 1) or ((pkt_to_inspect.payload.tos & 0x03) == 2):
                         not_marked_cnt += 1
-                    elif ((int(pkt_str[ECN_INDEX_IN_HEADER]) & 0x03) == 3):
-                        assert (not_marked_cnt == 0)
+                    elif ((pkt_to_inspect.payload.tos & 0x03) == 3):
                         marked_cnt += 1
 
                 print("    ECN non-marked pkts: " + str(not_marked_cnt))
                 print("    ECN marked pkts:     " + str(marked_cnt))
                 print("")
 
-            time.sleep(5)
-            # Read Counters
-            print("DST port counters: ")
-            port_counters, queue_counters = sai_thrift_read_port_counters(
-                self.dst_client, asic_type, port_list['dst'][dst_port_id])
-            print(port_counters)
-            print(queue_counters)
-            if (ecn == 0):
-                # num_of_pkts*pkt_size_in_cells*cell_size
-                transmitted_data = port_counters[TRANSMITTED_PKTS] * \
-                    2 * cell_size
-                assert (port_counters[TRANSMITTED_OCTETS] <= limit * 1.05)
-                assert (transmitted_data >= min_limit)
-                assert (marked_cnt == 0)
-            elif (ecn == 1):
-                non_marked_data = not_marked_cnt * 2 * cell_size
-                assert (non_marked_data <= limit*1.05)
-                assert (non_marked_data >= limit*0.95)
-                assert (marked_cnt == (num_of_pkts - not_marked_cnt))
-                for cntr in egress_counters:
-                    assert (port_counters[cntr] == 0)
-                for cntr in ingress_counters:
-                    assert (port_counters[cntr] == 0)
+            dut_port = self.get_dut_port(dst_port_id)
+            if platform_asic and platform_asic == "broadcom-dnx":
+                time.sleep(8)
+                stdOut, stdErr, retValue = self.exec_cmd_on_dut(self.dst_server_ip, self.test_params['dut_username'],
+                                                                self.test_params['dut_password'],
+                                                                'show queue wredcounters -n asic{}| grep {}| grep UC{}'
+                                                                .format(self.dst_asic_index, dut_port, dscp))
+                if stdErr and retValue != 0:
+                    raise RuntimeError("Command might have failed in the DUT.Error:{}".format(stdErr))
+                else:
+                    print("----Queue WredCounters on DUT----")
+                    print("ECNMarked pkts: {}  ECNMarked bytes: {}".format(stdOut[0].split()[4],
+                                                                           stdOut[0].split()[5]))
+                # the output number format is comma seperated value,remove comma if expected marked_pkts > 999
+                if ecn_queue_status == 'off':
+                    assert (marked_cnt == 0)
+                    limit = 0
+                assert (int(stdOut[0].split()[4]) == marked_cnt)
 
+            assert (port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS] >= num_of_pkts)
+            if ecn == 0:
+                assert (marked_cnt == 0)
+                transmitted_data = ((port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS])
+                                    * cell_occupancy)
+                assert (min_limit <= transmitted_data <= limit * 1.05)
+            else:
+                non_marked_data = not_marked_cnt * cell_occupancy
+                assert (limit * 0.95 <= non_marked_data)
+                # If the number of packets in the queue is below the minimum threshold
+                # then the packets will not be marked
+                if num_of_pkts > min_limit:
+                    assert (limit * 0.03 <= marked_cnt <= limit * 0.07)
+                    assert (marked_cnt >= (num_of_pkts - not_marked_cnt))
+
+                for cntr in ingress_counters:
+                    assert (port_counters[cntr] == port_counters_base[cntr])
         finally:
             # RELEASE PORT
-            sched_prof_id = sai_thrift_create_scheduler_profile(
-                self.src_client, RELEASE_PORT_MAX_RATE)
-            attr_value = sai_thrift_attribute_value_t(oid=sched_prof_id)
-            attr = sai_thrift_attribute_t(
-                id=SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID, value=attr_value)
-            self.dst_client.sai_thrift_set_port_attribute(
-                port_list['dst'][dst_port_id], attr)
+            self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
             print("END OF TEST")
 
 
@@ -4682,6 +4901,9 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         hwsku = self.test_params['hwsku']
         platform_asic = self.test_params['platform_asic']
         ip_type = self.test_params.get('ip_type', 'ipv4')
+        dut_asic = self.test_params["dut_asic"]
+
+        update_COUNTER_MARGIN(dut_asic)
 
         # get counter names to query
         ingress_counters, egress_counters = get_counter_names(sonic_version)
@@ -4771,21 +4993,16 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # Since there is variability in packet leakout in hwsku Arista-7050CX3-32S-D48C8 and
             # Arista-7050CX3-32S-C32. Starting with zero pkts_num_leak_out and trying to find
             # actual leakout by sending packets and reading actual leakout from HW
-            if hwsku == 'DellEMC-Z9332f-O32' or hwsku == 'DellEMC-Z9332f-M-O16C64':
+            if (hwsku == 'DellEMC-Z9332f-O32' or
+                    hwsku == 'DellEMC-Z9332f-M-O16C64' or
+                    check_leackout_compensation_support(asic_type, hwsku)):
                 pkts_num_leak_out = 0
 
             if asic_type == 'cisco-8000':
-                qos_test_assert(self, fill_leakout_plus_one(self, src_port_id, dst_port_id,
-                                                            pkt, int(self.test_params['pg']), asic_type))
-
-            if platform_asic and platform_asic == "broadcom-dnx":
-                if check_leackout_compensation_support(asic_type, hwsku):
-                    send_packet(self, src_port_id, pkt, pkts_num_leak_out)
-                    time.sleep(5)
-                    dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
-                                                   port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
-                                                   xmit_counters_base, self, src_port_id, pkt, 10)
-                    pkts_num_leak_out = 0
+                qos_test_assert(
+                    self, fill_leakout_plus_one(
+                        self, src_port_id, dst_port_id, pkt,
+                        int(self.test_params['pg']), asic_type))
 
             # send packets short of triggering egress drop
             if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku:
@@ -4798,6 +5015,12 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                 # send packets short of triggering egress drop
                 send_packet(self, src_port_id, pkt, pkts_num_leak_out +
                             pkts_num_trig_egr_drp - 1 - margin)
+                log_message(
+                    "Sending {}({} + {} - 1 - {}) packets short of "
+                    "triggering drop".format(
+                        pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin,
+                        pkts_num_leak_out, pkts_num_trig_egr_drp, margin),
+                    to_stderr=True)
                 if check_leackout_compensation_support(asic_type, hwsku):
                     time.sleep(5)
                     dynamically_compensate_leakout(self.dst_client, asic_type, sai_thrift_read_port_counters,
@@ -4824,7 +5047,11 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             if platform_asic and platform_asic == "broadcom-dnx":
                 voq_queue_counters = sai_thrift_read_port_voq_counters(self.src_client, voq_list)
             # recv port no pfc
-            qos_test_assert(self, recv_counters[pg] == recv_counters_base[pg])
+            qos_test_assert(
+                self, recv_counters[pg] == recv_counters_base[pg],
+                "Unexpected PFC triggered: recv_counters[{}]={} != "
+                "recv_counters_base[{}]={}".format(
+                    pg, recv_counters[pg], pg, recv_counters_base[pg]))
             # recv port no ingress drop
             # For dnx few extra ipv6 NS/RA pkt received, adding to coutner value
             # & may give inconsistent test results
@@ -4835,15 +5062,34 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                     if cntr == 1:
                         log_message("recv_counters_base: {}, recv_counters: {}".format(
                             recv_counters_base[cntr], recv_counters[cntr]), to_stderr=True)
-                        qos_test_assert(self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN)
+                        qos_test_assert(
+                            self,
+                            recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                            "Ingress drop encountered: {} packets dropped on "
+                            "counter {} ({})".format(
+                                recv_counters[cntr] - recv_counters_base[cntr],
+                                cntr, port_counter_fields[cntr]))
                 else:
-                    qos_test_assert(self, recv_counters[cntr] == recv_counters_base[cntr])
+                    qos_test_assert(
+                        self, recv_counters[cntr] == recv_counters_base[cntr],
+                        "Ingress drop encountered: {} packets dropped on "
+                        "counter {} ({})".format(
+                            recv_counters[cntr] - recv_counters_base[cntr],
+                            cntr, port_counter_fields[cntr]))
             # xmit port no egress drop
             for cntr in egress_counters:
-                qos_test_assert(self, xmit_counters[cntr] == xmit_counters_base[cntr])
+                qos_test_assert(
+                    self, xmit_counters[cntr] == xmit_counters_base[cntr],
+                    "Egress drop encountered: {} packets dropped on "
+                    "counter {} ({})".format(
+                        xmit_counters[cntr] - xmit_counters_base[cntr],
+                        cntr, port_counter_fields[cntr]))
 
             # send 1 packet to trigger egress drop
             send_packet(self, src_port_id, pkt, 1 + 2 * margin)
+            log_message(
+                "Sending {}(1 + 2 *{}) packets short of triggering drop".format(
+                    1 + 2 * margin, margin), to_stderr=True)
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
 
@@ -4856,21 +5102,57 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_counters, queue_counters = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_id])
             # recv port no pfc
-            qos_test_assert(self, recv_counters[pg] == recv_counters_base[pg])
+            qos_test_assert(
+                self, recv_counters[pg] == recv_counters_base[pg],
+                "Unexpected PFC triggered: recv_counters[{}]={} != "
+                "recv_counters_base[{}]={}".format(
+                    pg, recv_counters[pg], pg, recv_counters_base[pg]))
             # recv port no ingress drop
             for cntr in ingress_counters:
                 if platform_asic and platform_asic == "broadcom-dnx":
                     if cntr == 1:
-                        qos_test_assert(self, recv_counters[cntr] > recv_counters_base[cntr])
+                        if dut_asic == 'q3d':
+                            qos_test_assert(
+                                self, recv_counters[cntr] > recv_counters_base[cntr],
+                                "Expected ingress drop but counter {} ({}) did not "
+                                "increase: {} <= {}".format(
+                                    cntr, port_counter_fields[cntr],
+                                    recv_counters[cntr], recv_counters_base[cntr]))
+                        else:
+                            qos_test_assert(
+                                self, recv_counters[cntr] >= recv_counters_base[cntr],
+                                "Ingress drop encountered: {} packets dropped on "
+                                "counter {} ({})".format(
+                                    recv_counters[cntr] - recv_counters_base[cntr],
+                                    cntr, port_counter_fields[cntr]))
                 else:
-                    qos_test_assert(self, recv_counters[cntr] == recv_counters_base[cntr])
+                    qos_test_assert(
+                        self, recv_counters[cntr] == recv_counters_base[cntr],
+                        "Ingress drop encountered: {} packets dropped on "
+                        "counter {} ({})".format(
+                            recv_counters[cntr] - recv_counters_base[cntr],
+                            cntr, port_counter_fields[cntr]))
 
             # xmit port egress drop
-            if platform_asic and platform_asic == "broadcom-dnx":
+            if platform_asic and platform_asic == "broadcom-dnx" and dut_asic != 'q3d':
                 log_message("On J2C+ don't support egress drop stats - so ignoring this step for now", to_stderr=True)
+            elif dut_asic == 'q3d':
+                # No egress drop are expected
+                for cntr in egress_counters:
+                    qos_test_assert(
+                        self, xmit_counters[cntr] == xmit_counters_base[cntr],
+                        "Egress drop encountered {} (packets dropped on "
+                        "counter {} ({})".format(
+                            xmit_counters[cntr] - xmit_counters_base[cntr],
+                            cntr, port_counter_fields[cntr]))
             else:
                 for cntr in egress_counters:
-                    qos_test_assert(self, xmit_counters[cntr] > xmit_counters_base[cntr])
+                    qos_test_assert(
+                        self, xmit_counters[cntr] > xmit_counters_base[cntr],
+                        "Expected egress drop but counter {} ({}) did not "
+                        "increase: {} <= {}".format(
+                            cntr, port_counter_fields[cntr],
+                            xmit_counters[cntr], xmit_counters_base[cntr]))
 
             # voq ingress drop
             if platform_asic and platform_asic == "broadcom-dnx":

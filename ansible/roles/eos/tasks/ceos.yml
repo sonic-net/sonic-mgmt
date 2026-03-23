@@ -23,11 +23,32 @@
 - include_vars: group_vars/vm_host/ceos.yml
 - include_tasks: ceos_config.yml
 
+- name: Check if ceos_image from registry is available locally
+  docker_image_info:
+    name:
+      - "{{ ceos_registry }}/{{ ceos_image }}"
+  become: yes
+  register: ceos_registry_image_info
+  delegate_to: "{{ VM_host[0] }}"
+  when: ceos_registry is defined
+
+- name: Set ceos_effective_image
+  set_fact:
+    # Use registry-prefixed image name when the registry image is available locally (was pulled
+    # from registry). This avoids creating a local alias and ensures containers always reference
+    # the registry image, satisfying security requirements (e.g. Microsoft ACR/MCR policy).
+    # Fall back to the plain ceos_image name when no registry is configured or registry image
+    # is not available (e.g. pull failed and image was built from ceos_image_orig instead).
+    ceos_effective_image: >-
+      {{ ceos_registry + '/' + ceos_image
+         if (ceos_registry is defined and ceos_registry_image_info.images | length > 0)
+         else ceos_image }}
+
 - name: Create cEOS container
   become: yes
   docker_container:
     name: ceos_{{ vm_set_name }}_{{ inventory_hostname }}
-    image: "{{ ceos_image }}"
+    image: "{{ ceos_effective_image }}"
     command: /sbin/init systemd.setenv=INTFTYPE=eth systemd.setenv=ETBA=1 systemd.setenv=SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT=1 systemd.setenv=CEOS=1 systemd.setenv=EOS_PLATFORM=ceoslab systemd.setenv=container=docker systemd.setenv=MGMT_INTF=eth0
     pull: no
     state: started
@@ -38,8 +59,8 @@
     capabilities:
       - net_admin
     privileged: yes
-    memory: 2G
-    memory_swap: 4G
+    memory: "{{ '10G' if use_converged_peers|bool else '2G' }}"
+    memory_swap: "{{ '20G' if use_converged_peers|bool else '4G' }}"
     env:
       CEOS=1
       container=docker

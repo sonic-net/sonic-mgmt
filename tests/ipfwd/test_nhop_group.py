@@ -23,7 +23,7 @@ CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 PTF_QUEUE_LEN = 100000
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2', 'm1')
+    pytest.mark.topology('t1', 't2', 'm1', "lt2", "ft2")
 ]
 
 logger = logging.getLogger(__name__)

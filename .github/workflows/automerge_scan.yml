@@ -16,7 +16,7 @@ jobs:
         set -e
 
         echo ${TOKEN} | gh auth login --with-token
-        gh pr list -R sonic-net/sonic-mgmt -A mssonicbld -L 100 --json url,createdAt,labels,statusCheckRollup > prs.log
+        gh pr list -R sonic-net/sonic-mgmt -A mssonicbld -L 1000 --json url,createdAt,labels,statusCheckRollup > prs.log
         cat prs.log | jq
     - name: Main
       run: |
@@ -69,6 +69,6 @@ jobs:
           done
           # merge the PR
           echo ========Merging  PR========
-          gh pr merge --rebase --delete-branch --admin -R sonic-net/sonic-mgmt $url || true
+          gh pr merge --squash --delete-branch --admin -R sonic-net/sonic-mgmt $url || true
           echo ========Finished PR========
         done

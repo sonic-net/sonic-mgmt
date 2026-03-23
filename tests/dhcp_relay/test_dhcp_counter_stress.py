@@ -8,7 +8,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters, \
                                           validate_counters_and_pkts_consistency
 from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
-from tests.dhcp_relay.dhcp_relay_utils import check_dhcp_stress_status
+from tests.common.dhcp_relay_utils import check_dhcp_stress_status
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 

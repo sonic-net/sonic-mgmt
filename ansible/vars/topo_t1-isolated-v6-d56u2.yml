@@ -259,7 +259,7 @@ configuration:
     tornum: 1
     bgp:
       router-id: 100.1.0.1
-      asn: 4200000000
+      asn: 4200000001
       peers:
         4200100000:
           - fc00::1
@@ -277,7 +277,7 @@ configuration:
     tornum: 2
     bgp:
       router-id: 100.1.0.9
-      asn: 4200000000
+      asn: 4200000002
       peers:
         4200100000:
           - fc00::21
@@ -295,7 +295,7 @@ configuration:
     tornum: 3
     bgp:
       router-id: 100.1.0.17
-      asn: 4200000000
+      asn: 4200000003
       peers:
         4200100000:
           - fc00::41
@@ -313,7 +313,7 @@ configuration:
     tornum: 4
     bgp:
       router-id: 100.1.0.25
-      asn: 4200000000
+      asn: 4200000004
       peers:
         4200100000:
           - fc00::61
@@ -331,7 +331,7 @@ configuration:
     tornum: 5
     bgp:
       router-id: 100.1.0.33
-      asn: 4200000000
+      asn: 4200000005
       peers:
         4200100000:
           - fc00::81
@@ -349,7 +349,7 @@ configuration:
     tornum: 6
     bgp:
       router-id: 100.1.0.41
-      asn: 4200000000
+      asn: 4200000006
       peers:
         4200100000:
           - fc00::a1
@@ -367,7 +367,7 @@ configuration:
     tornum: 7
     bgp:
       router-id: 100.1.0.49
-      asn: 4200000000
+      asn: 4200000007
       peers:
         4200100000:
           - fc00::c1
@@ -385,7 +385,7 @@ configuration:
     tornum: 8
     bgp:
       router-id: 100.1.0.57
-      asn: 4200000000
+      asn: 4200000008
       peers:
         4200100000:
           - fc00::e1
@@ -403,7 +403,7 @@ configuration:
     tornum: 9
     bgp:
       router-id: 100.1.0.65
-      asn: 4200000000
+      asn: 4200000009
       peers:
         4200100000:
           - fc00::101
@@ -421,7 +421,7 @@ configuration:
     tornum: 10
     bgp:
       router-id: 100.1.0.73
-      asn: 4200000000
+      asn: 4200000010
       peers:
         4200100000:
           - fc00::121
@@ -439,7 +439,7 @@ configuration:
     tornum: 11
     bgp:
       router-id: 100.1.0.81
-      asn: 4200000000
+      asn: 4200000011
       peers:
         4200100000:
           - fc00::141
@@ -457,7 +457,7 @@ configuration:
     tornum: 12
     bgp:
       router-id: 100.1.0.89
-      asn: 4200000000
+      asn: 4200000012
       peers:
         4200100000:
           - fc00::161
@@ -474,7 +474,7 @@ configuration:
     - spine
     bgp:
       router-id: 100.1.0.97
-      asn: 4200200000
+      asn: 4200200001
       peers:
         4200100000:
           - fc00::181
@@ -491,7 +491,7 @@ configuration:
     - spine
     bgp:
       router-id: 100.1.0.99
-      asn: 4200200000
+      asn: 4200200002
       peers:
         4200100000:
           - fc00::189
@@ -509,7 +509,7 @@ configuration:
     tornum: 13
     bgp:
       router-id: 100.1.0.101
-      asn: 4200000000
+      asn: 4200000013
       peers:
         4200100000:
           - fc00::191
@@ -527,7 +527,7 @@ configuration:
     tornum: 14
     bgp:
       router-id: 100.1.0.109
-      asn: 4200000000
+      asn: 4200000014
       peers:
         4200100000:
           - fc00::1b1
@@ -545,7 +545,7 @@ configuration:
     tornum: 15
     bgp:
       router-id: 100.1.0.121
-      asn: 4200000000
+      asn: 4200000015
       peers:
         4200100000:
           - fc00::1e1
@@ -563,7 +563,7 @@ configuration:
     tornum: 16
     bgp:
       router-id: 100.1.0.129
-      asn: 4200000000
+      asn: 4200000016
       peers:
         4200100000:
           - fc00::201
@@ -581,7 +581,7 @@ configuration:
     tornum: 17
     bgp:
       router-id: 100.1.0.137
-      asn: 4200000000
+      asn: 4200000017
       peers:
         4200100000:
           - fc00::221
@@ -599,7 +599,7 @@ configuration:
     tornum: 18
     bgp:
       router-id: 100.1.0.145
-      asn: 4200000000
+      asn: 4200000018
       peers:
         4200100000:
           - fc00::241
@@ -617,7 +617,7 @@ configuration:
     tornum: 19
     bgp:
       router-id: 100.1.0.153
-      asn: 4200000000
+      asn: 4200000019
       peers:
         4200100000:
           - fc00::261
@@ -635,7 +635,7 @@ configuration:
     tornum: 20
     bgp:
       router-id: 100.1.0.161
-      asn: 4200000000
+      asn: 4200000020
       peers:
         4200100000:
           - fc00::281
@@ -653,7 +653,7 @@ configuration:
     tornum: 21
     bgp:
       router-id: 100.1.0.169
-      asn: 4200000000
+      asn: 4200000021
       peers:
         4200100000:
           - fc00::2a1
@@ -671,7 +671,7 @@ configuration:
     tornum: 22
     bgp:
       router-id: 100.1.0.177
-      asn: 4200000000
+      asn: 4200000022
       peers:
         4200100000:
           - fc00::2c1
@@ -689,7 +689,7 @@ configuration:
     tornum: 23
     bgp:
       router-id: 100.1.0.185
-      asn: 4200000000
+      asn: 4200000023
       peers:
         4200100000:
           - fc00::2e1
@@ -707,7 +707,7 @@ configuration:
     tornum: 24
     bgp:
       router-id: 100.1.0.193
-      asn: 4200000000
+      asn: 4200000024
       peers:
         4200100000:
           - fc00::301
@@ -725,7 +725,7 @@ configuration:
     tornum: 25
     bgp:
       router-id: 100.1.0.201
-      asn: 4200000000
+      asn: 4200000025
       peers:
         4200100000:
           - fc00::321
@@ -743,7 +743,7 @@ configuration:
     tornum: 26
     bgp:
       router-id: 100.1.0.209
-      asn: 4200000000
+      asn: 4200000026
       peers:
         4200100000:
           - fc00::341
@@ -761,7 +761,7 @@ configuration:
     tornum: 27
     bgp:
       router-id: 100.1.0.217
-      asn: 4200000000
+      asn: 4200000027
       peers:
         4200100000:
           - fc00::361
@@ -779,7 +779,7 @@ configuration:
     tornum: 28
     bgp:
       router-id: 100.1.0.225
-      asn: 4200000000
+      asn: 4200000028
       peers:
         4200100000:
           - fc00::381
@@ -797,7 +797,7 @@ configuration:
     tornum: 29
     bgp:
       router-id: 100.1.0.233
-      asn: 4200000000
+      asn: 4200000029
       peers:
         4200100000:
           - fc00::3a1
@@ -815,7 +815,7 @@ configuration:
     tornum: 30
     bgp:
       router-id: 100.1.0.241
-      asn: 4200000000
+      asn: 4200000030
       peers:
         4200100000:
           - fc00::3c1
@@ -833,7 +833,7 @@ configuration:
     tornum: 31
     bgp:
       router-id: 100.1.0.249
-      asn: 4200000000
+      asn: 4200000031
       peers:
         4200100000:
           - fc00::3e1
@@ -851,7 +851,7 @@ configuration:
     tornum: 32
     bgp:
       router-id: 100.1.1.1
-      asn: 4200000000
+      asn: 4200000032
       peers:
         4200100000:
           - fc00::401
@@ -869,7 +869,7 @@ configuration:
     tornum: 33
     bgp:
       router-id: 100.1.1.9
-      asn: 4200000000
+      asn: 4200000033
       peers:
         4200100000:
           - fc00::421
@@ -887,7 +887,7 @@ configuration:
     tornum: 34
     bgp:
       router-id: 100.1.1.17
-      asn: 4200000000
+      asn: 4200000034
       peers:
         4200100000:
           - fc00::441
@@ -905,7 +905,7 @@ configuration:
     tornum: 35
     bgp:
       router-id: 100.1.1.25
-      asn: 4200000000
+      asn: 4200000035
       peers:
         4200100000:
           - fc00::461
@@ -923,7 +923,7 @@ configuration:
     tornum: 36
     bgp:
       router-id: 100.1.1.33
-      asn: 4200000000
+      asn: 4200000036
       peers:
         4200100000:
           - fc00::481
@@ -941,7 +941,7 @@ configuration:
     tornum: 37
     bgp:
       router-id: 100.1.1.41
-      asn: 4200000000
+      asn: 4200000037
       peers:
         4200100000:
           - fc00::4a1
@@ -959,7 +959,7 @@ configuration:
     tornum: 38
     bgp:
       router-id: 100.1.1.49
-      asn: 4200000000
+      asn: 4200000038
       peers:
         4200100000:
           - fc00::4c1
@@ -977,7 +977,7 @@ configuration:
     tornum: 39
     bgp:
       router-id: 100.1.1.57
-      asn: 4200000000
+      asn: 4200000039
       peers:
         4200100000:
           - fc00::4e1
@@ -995,7 +995,7 @@ configuration:
     tornum: 40
     bgp:
       router-id: 100.1.1.65
-      asn: 4200000000
+      asn: 4200000040
       peers:
         4200100000:
           - fc00::501
@@ -1013,7 +1013,7 @@ configuration:
     tornum: 41
     bgp:
       router-id: 100.1.1.77
-      asn: 4200000000
+      asn: 4200000041
       peers:
         4200100000:
           - fc00::531
@@ -1031,7 +1031,7 @@ configuration:
     tornum: 42
     bgp:
       router-id: 100.1.1.85
-      asn: 4200000000
+      asn: 4200000042
       peers:
         4200100000:
           - fc00::551
@@ -1049,7 +1049,7 @@ configuration:
     tornum: 43
     bgp:
       router-id: 100.1.1.97
-      asn: 4200000000
+      asn: 4200000043
       peers:
         4200100000:
           - fc00::581
@@ -1067,7 +1067,7 @@ configuration:
     tornum: 44
     bgp:
       router-id: 100.1.1.105
-      asn: 4200000000
+      asn: 4200000044
       peers:
         4200100000:
           - fc00::5a1
@@ -1085,7 +1085,7 @@ configuration:
     tornum: 45
     bgp:
       router-id: 100.1.1.113
-      asn: 4200000000
+      asn: 4200000045
       peers:
         4200100000:
           - fc00::5c1
@@ -1103,7 +1103,7 @@ configuration:
     tornum: 46
     bgp:
       router-id: 100.1.1.121
-      asn: 4200000000
+      asn: 4200000046
       peers:
         4200100000:
           - fc00::5e1
@@ -1121,7 +1121,7 @@ configuration:
     tornum: 47
     bgp:
       router-id: 100.1.1.129
-      asn: 4200000000
+      asn: 4200000047
       peers:
         4200100000:
           - fc00::601
@@ -1139,7 +1139,7 @@ configuration:
     tornum: 48
     bgp:
       router-id: 100.1.1.137
-      asn: 4200000000
+      asn: 4200000048
       peers:
         4200100000:
           - fc00::621
@@ -1157,7 +1157,7 @@ configuration:
     tornum: 49
     bgp:
       router-id: 100.1.1.145
-      asn: 4200000000
+      asn: 4200000049
       peers:
         4200100000:
           - fc00::641
@@ -1175,7 +1175,7 @@ configuration:
     tornum: 50
     bgp:
       router-id: 100.1.1.153
-      asn: 4200000000
+      asn: 4200000050
       peers:
         4200100000:
           - fc00::661
@@ -1193,7 +1193,7 @@ configuration:
     tornum: 51
     bgp:
       router-id: 100.1.1.161
-      asn: 4200000000
+      asn: 4200000051
       peers:
         4200100000:
           - fc00::681
@@ -1211,7 +1211,7 @@ configuration:
     tornum: 52
     bgp:
       router-id: 100.1.1.169
-      asn: 4200000000
+      asn: 4200000052
       peers:
         4200100000:
           - fc00::6a1
@@ -1229,7 +1229,7 @@ configuration:
     tornum: 53
     bgp:
       router-id: 100.1.1.177
-      asn: 4200000000
+      asn: 4200000053
       peers:
         4200100000:
           - fc00::6c1
@@ -1247,7 +1247,7 @@ configuration:
     tornum: 54
     bgp:
       router-id: 100.1.1.185
-      asn: 4200000000
+      asn: 4200000054
       peers:
         4200100000:
           - fc00::6e1
@@ -1265,7 +1265,7 @@ configuration:
     tornum: 55
     bgp:
       router-id: 100.1.1.193
-      asn: 4200000000
+      asn: 4200000055
       peers:
         4200100000:
           - fc00::701
@@ -1283,7 +1283,7 @@ configuration:
     tornum: 56
     bgp:
       router-id: 100.1.1.201
-      asn: 4200000000
+      asn: 4200000056
       peers:
         4200100000:
           - fc00::721
