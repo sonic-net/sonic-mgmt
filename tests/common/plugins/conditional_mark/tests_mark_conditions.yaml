@@ -313,6 +313,18 @@ bfd/test_bfd_traffic.py:
 #######################################
 #####            bgp              #####
 #######################################
+bgp/reliable_tsa/test_reliable_tsa_flaky.py:
+  skip:
+    reason: "reliable TSA is not supported on non-chassis"
+    conditions:
+      - "is_chassis==False"
+
+bgp/reliable_tsa/test_reliable_tsa_stable.py:
+  skip:
+    reason: "reliable TSA is not supported on non-chassis"
+    conditions:
+      - "is_chassis==False"
+
 bgp/test_bgp_aggregate_address.py:
   skip:
     reason: "Skip for multi-ASIC testbed"
@@ -803,6 +815,14 @@ dash/test_dash_eni_counter.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
 
 dash/test_dash_privatelink.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+
+dash/test_dash_privatelink_redirect.py:
   skip:
     conditions_logical_operator: or
     reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
@@ -2817,7 +2837,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
 #######################################
 #####           ha              #####
 #######################################
-ha/test_ha_steady_state_pl.py:
+ha/test_ha_planned_shutdown.py:
   skip:
     conditions_logical_operator: or
     reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
@@ -2825,6 +2845,15 @@ ha/test_ha_steady_state_pl.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
       - "topo_name not in 't1-smartswitch-ha'"
+
+ha/test_ha_steady_state_pl.py:
+   skip:
+     conditions_logical_operator: or
+     reason: "Currently ha tests are not supported on KVM or non-smartswitch T1s"
+     conditions:
+       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+       - "topo_name not in 't1-smartswitch-ha'"
 
 #######################################
 #####           hash              #####
@@ -3703,6 +3732,7 @@ pc/test_lag_member_forwarding.py:
     conditions:
         - "asic_type in ['broadcom'] and https://github.com/sonic-net/sonic-buildimage/issues/21938"
         - "asic_type in ['mellanox', 'nvidia'] and https://github.com/sonic-net/sonic-mgmt/issues/17095"
+        - "asic_gen in ['q3d'] and https://github.com/sonic-net/sonic-mgmt/issues/22942"
 
 pc/test_po_cleanup.py:
   skip:

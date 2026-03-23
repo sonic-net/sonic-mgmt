@@ -17,6 +17,8 @@ from dash_api.meter_policy_pb2 import MeterPolicy
 from dash_api.meter_rule_pb2 import MeterRule
 from dash_api.tunnel_pb2 import Tunnel
 from dash_api.route_rule_pb2 import RouteRule
+from dash_api.ha_set_config_pb2 import HaSetConfig
+from dash_api.ha_scope_config_pb2 import HaScopeConfig
 import dash_api.types_pb2 as types_pb2
 
 from google.protobuf.descriptor import FieldDescriptor
@@ -49,7 +51,9 @@ PB_CLASS_MAP = {
     "METER_POLICY": MeterPolicy,
     "METER_RULE": MeterRule,
     "TUNNEL": Tunnel,
-    "ROUTE_RULE": RouteRule
+    "ROUTE_RULE": RouteRule,
+    "HA_SET_CONFIG": HaSetConfig,
+    "HA_SCOPE_CONFIG": HaScopeConfig
 }
 
 PB_TYPE_MAP = {
@@ -131,7 +135,30 @@ def parse_dash_proto(key: str, proto_dict: dict):
             if isinstance(value, int):
                 new_dict[key] = value
             else:
-                new_dict[key] = get_enum_type_from_str(field_map[key].enum_type.name, value)
+                enum_desc = field_map[key].enum_type
+                enum_value = str(value).upper()
+                if enum_value not in enum_desc.values_by_name:
+                    enum_type_parts = re.findall(r'[A-Z][^A-Z]*', enum_desc.name)
+                    enum_prefix = '_'.join(enum_type_parts).upper()
+                    if not enum_value.startswith(enum_prefix):
+                        enum_value = f"{enum_prefix}_{enum_value}"
+
+                if enum_value in enum_desc.values_by_name:
+                    new_dict[key] = enum_desc.values_by_name[enum_value].number
+                else:
+                    new_dict[key] = get_enum_type_from_str(enum_desc.name, value)
+
+        elif field_map[key].type == field_map[key].TYPE_BOOL:
+            if isinstance(value, str):
+                new_dict[key] = value.strip().lower() == "true"
+            else:
+                new_dict[key] = bool(value)
+
+        elif field_map[key].type == field_map[key].TYPE_STRING:
+            if field_map[key].label == FieldDescriptor.LABEL_REPEATED:
+                new_dict[key] = [str(item) for item in value]
+            else:
+                new_dict[key] = str(value)
 
         elif field_map[key].type in PB_INT_TYPES:
             new_dict[key] = int(value)

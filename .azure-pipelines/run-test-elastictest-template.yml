@@ -105,10 +105,6 @@ parameters:
     type: string
     default: ""
 
-  - name: KVM_BUILD_ID
-    type: string
-    default: ""
-
   - name: FEATURES
     type: string
     default: ""
@@ -193,6 +189,10 @@ parameters:
     default: ""
 
   - name: KVM_IMAGE_BUILD_PIPELINE_ID
+    type: string
+    default: ""
+
+  - name: KVM_BUILD_ID
     type: string
     default: ""
 
@@ -284,10 +284,6 @@ steps:
 
       rm -f new_test_plan_id.txt
 
-      kvmBuildId="${{ parameters.KVM_BUILD_ID }}"
-      if [ -z "$kvmBuildId" ]; then
-        kvmBuildId=$(KVM_BUILD_ID)
-      fi
       # Enable verbose debugging output for the creation call in test_plan.py
       set -x
 
@@ -298,8 +294,8 @@ steps:
       --max-worker ${{ parameters.MAX_WORKER }} \
       --lock-wait-timeout-seconds ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }} \
       --test-set ${{ parameters.TEST_SET }} \
-      --kvm-build-id $kvmBuildId \
-      --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
+      --kvm-build-id ${{ parameters.KVM_BUILD_ID }} \
+      --kvm-image-branch ${{ parameters.KVM_IMAGE_BRANCH }} \
       --setup-container-params "${{ parameters.SETUP_CONTAINER_PARAMS }}" \
       --kvm-image-build-pipeline-id ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }} \
       --skip-remove-add-topo-for-nightly ${{ parameters.SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY }} \
