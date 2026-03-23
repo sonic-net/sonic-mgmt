@@ -669,6 +669,21 @@
         ]
     },
     {
+        "feature": "gnmi_e2e",
+        "owner": "Dawei Huang",
+        "email": "daweihuang@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "gnmi_e2e.test_gnmi_auth",
+                    "gnmi_e2e.test_telemetry_auth"
+                ],
+                "owner": "Dawei Huang",
+                "email": "daweihuang@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "gnoi",
         "owner": "Dawei Huang",
         "email": "daweihuang@microsoft.com",
@@ -1212,7 +1227,7 @@
                 ],
                 "owner": "Rita Hui",
                 "email": "ritahui@microsoft.com",
-                "cases" : [
+                "cases": [
                     {
                         "cases": [
                             "test_warm_reboot"
@@ -1674,7 +1689,7 @@
                 ],
                 "owner": "Qi Luo",
                 "email": "qiluo@microsoft.com",
-                "cases" : [
+                "cases": [
                     {
                         "cases": [
                             "test_orchagent_logrotate"
