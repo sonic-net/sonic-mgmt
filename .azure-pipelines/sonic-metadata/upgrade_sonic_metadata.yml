@@ -22,6 +22,7 @@ parameters:
   values:
   - A->B
   - multi-hop
+  - warmboot-data-consistency
 - name: FROM_IMAGE_LIST
   type: string
 - name: FROM_IMAGE_URL
@@ -329,6 +330,78 @@ steps:
                 echo "##vso[task.setvariable variable=CONTINUE]false"
                 echo "##vso[task.setvariable variable=SKIP_COLLECT_SHOW_TECHSUPPORT]false"
             fi
+        elif [[ x"$UPGRADE_TEST_TYPE" = x"warmboot-data-consistency" ]]; then
+            # Assert FROM_IMAGE_LIST and TO_IMAGE_LIST have exactly one element each for simplicity
+            from_images=($FROM_IMAGE_LIST)
+            to_images=($TO_IMAGE_LIST)
+            if [ "${#from_images[@]}" -ne 1 ] || [ "${#to_images[@]}" -ne 1 ]; then
+              echo "Error: FROM_IMAGE_LIST and TO_IMAGE_LIST must each contain exactly one element in the snapshot comparison test."
+              exit 1
+            fi
+            from_image="${from_images[0]}"
+            to_image="${to_images[0]}"
+            echo =================== Upgrading from $from_image =====================
+            echo ======== Upgrading to $to_image ========
+            from_url=$FROM_IMAGE_URL.$from_image.$IMAGE_TYPE
+            to_url=$TO_IMAGE_URL.$to_image.$IMAGE_TYPE
+            if [[ $FROM_IMAGE_URL == "custom" ]]; then
+              from_url=$from_image
+            else
+              if [[ $from_image == *"latest"* ]]; then
+                from_url=${{ parameters.FROM_IMAGE_URL }}
+              elif [[ $from_image == *"prev"* ]]; then
+                from_url=${{ parameters.FROM_IMAGE_URL }}.PREV.1
+              fi
+            fi
+            if [[ $TO_IMAGE_URL == "custom" ]]; then
+              to_url=$to_image
+            else
+              if [[ $to_image == *"latest"* ]]; then
+                to_url=${{ parameters.TO_IMAGE_URL }}
+              fi
+            fi
+
+            # Since we have 20241211 and 20241210 images, we need to check the image number
+            if [[ $from_url == *"20241211"* ]]; then
+              # Extract the numeric part of from_image
+              if [[ $from_image =~ ([0-9]+) ]]; then
+                image_number=${BASH_REMATCH[0]}
+                # If image number is less than 10, replace 20241211 with 20241210
+                if [ $image_number -lt 10 ]; then
+                  from_url=${from_url/20241211/20241210}
+                  echo "Modified From URL to $from_url due to image number < 10"
+                fi
+              fi
+            fi
+
+            if [[ $to_url == *"20241211"* ]]; then
+              # Extract the numeric part of to_image
+              if [[ $to_image =~ ([0-9]+) ]]; then
+                image_number=${BASH_REMATCH[0]}
+                # If image number is less than 10, replace 20241211 with 20241210
+                if [ $image_number -lt 10 ]; then
+                  to_url=${to_url/20241211/20241210}
+                  echo "Modified To URL to $to_url due to image number < 10"
+                fi
+              fi
+            fi
+
+            EXTRA_PARAMS="--showlocals --assert plain -rav --skip_sanity --upgrade_strategy=${{ parameters.UPGRADE_STRATEGY }} --base_image_list=$from_url --target_image_list=$to_url $metadata_process_option"
+
+            ./run_tests.sh -n ${{ parameters.TESTBED_NAME }} \
+              -i $BASE_PATH/ansible/$INVENTORY_NAME,$BASE_PATH/ansible/veos \
+              -m individual \
+              -l INFO \
+              -e "$EXTRA_PARAMS" \
+              -u \
+              -c "metadata-scripts/test_warmboot_data_consistency.py::test_warmboot_data_consistency"
+
+            if [ $? -ne 0 ]; then
+                TEST_PASS="FAIL"
+                # fail and stop all the remaining batches if pytest fails
+                echo "##vso[task.setvariable variable=CONTINUE]false"
+                echo "##vso[task.setvariable variable=SKIP_COLLECT_SHOW_TECHSUPPORT]false"
+            fi
         else
             echo "No upgrade path type specified"
             exit 3
@@ -408,15 +481,20 @@ steps:
         # temporary workaround to allow reboot timing data upload
         # After recent test change, the file names get DUT name in them
         # A more permanent fix is needed in report_uploader.py to accept file names with DUT name
-        reboot_path=$(Build.ArtifactStagingDirectory)/logs/platform_tests
-        reboot_results=`find $reboot_path -type f -regex '.*test.*_\(reboot\|upgrade_path\).*_\(summary\|report\).json'`
+        UPGRADE_TEST_TYPE="${{ parameters.UPGRADE_TEST_TYPE }}"
+        if [[ x"$UPGRADE_TEST_TYPE" = x"warmboot-data-consistency" ]]; then
+            reboot_path="$(Build.ArtifactStagingDirectory)/logs"
+            report_upload_files="$reboot_path/test_upgrade_path_summary.json"
+        else
+            reboot_path="$(Build.ArtifactStagingDirectory)/logs/platform_tests"
+            reboot_results=`find $reboot_path -type f -regex '.*test.*_\(reboot\|upgrade_path\).*_\(summary\|report\).json'`
+            for reboot_result in $reboot_results; do
+                result_target=`echo $reboot_result | sed "s/\[.*\]//g"`
+                mv $reboot_result $result_target || true
+            done
+            report_upload_files="$(find $reboot_path -type f -regex '.*test.*_\(reboot\|sad.*\|upgrade_path\)_\(summary\|report\).json')"
+        fi
 
-        for reboot_result in $reboot_results; do
-            result_target=`echo $reboot_result | sed "s/\[.*\]//g"`
-            mv $reboot_result $result_target || true
-        done
-
-        report_upload_files="$(find $reboot_path -type f -regex '.*test.*_\(reboot\|sad.*\|upgrade_path\)_\(summary\|report\).json')"
         python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId):${{ iter }}" --json tr.json $report_upload_files SonicTestData
     condition: and(succeeded(), eq(variables['COLLECT_ARTIFACT'], 'true'), ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }})
     env:

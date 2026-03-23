@@ -958,7 +958,8 @@
             },
             {
                 "scripts": [
-                    "metadata-scripts.test_multi_hop_upgrade_path"
+                    "metadata-scripts.test_multi_hop_upgrade_path",
+                    "metadata-scripts.test_warmboot_data_consistency"
                 ],
                 "owner": "Ryan Garthwaite",
                 "email": "rgarthwaite@microsoft.com"

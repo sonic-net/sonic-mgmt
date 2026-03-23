@@ -51,6 +51,7 @@ parameters:
   values:
   - A->B
   - multi-hop
+  - warmboot-data-consistency
 - name: FROM_IMAGE_LIST
   type: string
   displayName: "All base image numbers (space separated)"
