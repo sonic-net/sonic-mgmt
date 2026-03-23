@@ -85,7 +85,7 @@ stages:
 
 - stage: Test
   dependsOn: Pre_test
-  condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
+  condition: and(succeeded(), not(canceled()), in(dependencies.Pre_test.result, 'Succeeded'))
   variables:
   - group: SONiC-Elastictest
   - name: BUILD_BRANCH
