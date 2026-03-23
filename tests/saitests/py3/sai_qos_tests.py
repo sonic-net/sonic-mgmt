@@ -570,24 +570,47 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl,
 
 def dynamically_compensate_leakout(
         thrift_client, asic_type, counter_checker, check_port, check_field,
-        base, ptf_test, compensate_port, compensate_pkt, max_retry):
+        base, ptf_test, compensate_port, compensate_pkt, max_retry,
+        stable_zero_count=3):
+    """
+    Dynamically compensate for packet leakout by monitoring counter changes.
+
+    Sends compensation packets when leakout is detected, and confirms stability
+    by observing consecutive zero-leakout readings before declaring completion.
+    """
     prev = base
-    time.sleep(1.5)
-    curr, _ = counter_checker(thrift_client, asic_type, check_port)
-    leakout_num = curr[check_field] - prev[check_field]
-    retry = 0
     num = 0
-    while leakout_num > 0 and retry < max_retry:
-        send_packet(ptf_test, compensate_port, compensate_pkt, leakout_num)
-        num += leakout_num
-        # Wait for the packet to be leaked out
-        time.sleep(1)
-        prev = curr
+    compensate_count = 0
+    zero_streak = 0
+    leakout_history = []
+
+    for _ in range((max_retry + 1) * stable_zero_count):
+        time.sleep(1.5)
         curr, _ = counter_checker(thrift_client, asic_type, check_port)
-        leakout_num = curr[check_field] - prev[check_field]
-        retry += 1
-    sys.stderr.write('Compensate {} packets to port {}, and retry {} times\n'.format(
-        num, compensate_port, retry))
+        leakout = curr[check_field] - prev[check_field]
+        prev = curr
+        leakout_history.append(leakout)
+
+        if leakout > 0:
+            if compensate_count >= max_retry:
+                sys.stderr.write(
+                    'Warning: max_retry={} reached, leakout={}\n'.format(
+                        max_retry, leakout))
+                break
+            send_packet(ptf_test, compensate_port, compensate_pkt, leakout)
+            num += leakout
+            compensate_count += 1
+            zero_streak = 0
+        else:
+            zero_streak += 1
+            if zero_streak >= stable_zero_count:
+                break
+
+    sys.stderr.write(
+        'Compensate {} packets to port {}, {} retries '
+        '(zero_streak={}, history={})\n'.format(
+            num, compensate_port, compensate_count, zero_streak,
+            leakout_history))
     return num
 
 

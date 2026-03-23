@@ -2,6 +2,7 @@ import logging
 import random
 import re
 import pytest
+import time
 from tests.generic_config_updater.add_cluster.helpers import get_cfg_info_from_dut
 from tests.generic_config_updater.add_cluster.helpers import acl_asic_shell_wrappper
 from .platform_constants import PLATFORM_SUPPORTED_SPEEDS_MAP, PLATFORM_SPEED_LANES_MAP, SPEED_FEC_MAP
@@ -11,6 +12,8 @@ from tests.common.utilities import wait_until, is_ipv4_address, is_ipv6_address
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.config_reload import config_reload
+from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_context
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile, apply_patch
 from tests.generic_config_updater.add_cluster.helpers import get_active_interfaces, \
     remove_dataacl_table_single_dut, send_and_verify_traffic
@@ -712,7 +715,7 @@ def test_port_speed_change(tbinfo,
                            initialize_random_variables,
                            initialize_facts,
                            ptfadapter,
-                           setup_port_speed_change):
+                           setup_port_speed_change, ptfhost, gnxi_path, localhost):
     """
     Validates port speed change functionality via Generic Config Updater (GCU).
     This test verifies that port speed changes are correctly applied, including updates to
@@ -794,6 +797,28 @@ def test_port_speed_change(tbinfo,
         pytest_assert(initial_pg_lossless_profile_name in current_buffer_profile_info_appl_db,
                       "Expected buffer profile {} was not created in APPL_DB.".format(
                           initial_pg_lossless_profile_name))
+
+    with allure.step("Verify telemetry data for port after port speed change"):
+        with setup_streaming_telemetry_context(False, duthost, localhost, ptfhost, gnxi_path):
+            GNMI_SERVER_START_WAIT_TIME = 15
+            env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+            # Set up telemetry server
+            duthost.shell('sonic-db-cli CONFIG_DB hset "%s|gnmi" user_auth none' % (env.gnmi_config_table),
+                          module_ignore_errors=False)
+            duthost.shell('docker exec %s supervisorctl reload' % (env.gnmi_container),
+                          module_ignore_errors=False)
+            time.sleep(GNMI_SERVER_START_WAIT_TIME)
+            logger.info("entering verifying port telemetry info Amol")
+            cmd = f'. /root/env-python3/bin/activate && cd {gnxi_path}gnmi_cli_py ' \
+                  f'&& python py_gnmicli.py -g -t {duthost.mgmt_ip} -p {env.gnmi_port} ' \
+                  f'-m get -x COUNTERS/{selected_random_port} -xt COUNTERS_DB -o ndastreamingservertest'
+            show_gnmi_out = ptfhost.shell(cmd)['stdout']
+            logger.info("GNMI Server output")
+            logger.info(show_gnmi_out)
+            result = str(show_gnmi_out)
+            inerrors_match = re.search("SAI_PORT_STAT_IF_IN_ERRORS", result)
+            pytest_assert(inerrors_match is not None,
+                          "COUNTERS  not found in gnmi_output for port {}".format(selected_random_port))
 
     # add acl config
     setup_acl_config(duthost, ip_netns_namespace_prefix)
