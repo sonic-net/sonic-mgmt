@@ -2807,6 +2807,15 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "release in ['202412']"
       - "'f2' in topo_name"
 
+###############################################
+#####       golden_config_infra           #####
+###############################################
+golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rendered_golden_config_override:
+  xfail:
+    reason: "Ports not operationally up after golden config override on t0-f2-d40u8"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/23198 and topo_name == 't0-f2-d40u8'"
+
 #######################################
 #####           ha              #####
 #######################################
