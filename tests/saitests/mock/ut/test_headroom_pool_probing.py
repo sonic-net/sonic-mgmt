@@ -944,3 +944,194 @@ class TestHeadroomPoolProbingPersistBuffer(unittest.TestCase):
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+# =============================================================================
+# Buffer Cleanup on PG Failure Tests
+# =============================================================================
+# These tests verify that buffer_ctrl.drain_buffer() is called before
+# `continue` when a PG phase fails in the multi-PG loop.
+# Bug: headroom_pool_probing.py's probe() uses `continue` without
+# draining the buffer, leaving it in a held state.
+# =============================================================================
+
+@pytest.mark.order(4250)
+class TestBufferCleanupOnPgFailure:
+    """Test buffer cleanup when PG probing fails at different phases."""
+
+    def _create_instance_with_2pgs(self):
+        """Helper: create instance with 2 PG flows and mocked dependencies."""
+        instance = TestHeadroomPoolProbingInstance()
+        mock_stream_mgr = MagicMock()
+        mock_stream_mgr.flows = {
+            (24, 36, frozenset([('pg', 3)])): MagicMock(dscp=3),
+            (28, 36, frozenset([('pg', 4)])): MagicMock(dscp=4)
+        }
+        instance.stream_mgr = mock_stream_mgr
+        instance.get_pool_size = MagicMock(return_value=10000)
+        instance._get_observer_configs = MagicMock(return_value={
+            'upper': MagicMock(), 'lower': MagicMock(),
+            'range': MagicMock(), 'point': MagicMock()
+        })
+        instance.create_executor = MagicMock(return_value=MagicMock())
+        instance._build_result = MagicMock(return_value={'success': True})
+        instance._report_results = MagicMock(return_value=MagicMock())
+        return instance
+
+    def _make_algo_side_effects(self, fail_phase):
+        """Helper: create per-type side_effects that fail at a specific phase.
+
+        Args:
+            fail_phase: which phase to fail at:
+                'pfc_upper', 'pfc_lower', 'pfc_range',
+                'drop_upper', 'drop_lower', 'drop_range'
+        """
+        # Track call counts per algorithm type
+        upper_count = [0]
+        lower_count = [0]
+        range_count = [0]
+
+        # Phase-to-type mapping: which call of which type should fail
+        # PG has: upper(1), lower(1), range(1) for PFC, then same for Drop
+        # Call 1 of upper = PFC upper, Call 2 of upper = Drop upper
+        fail_map = {
+            'pfc_upper': ('upper', 1), 'pfc_lower': ('lower', 1), 'pfc_range': ('range', 1),
+            'drop_upper': ('upper', 2), 'drop_lower': ('lower', 2), 'drop_range': ('range', 2),
+        }
+        fail_type, fail_n = fail_map[fail_phase]
+
+        def upper_side_effect(*args, **kwargs):
+            upper_count[0] += 1
+            if fail_type == 'upper' and upper_count[0] == fail_n:
+                return (None, 1.0)
+            return (2000, 1.0)
+
+        def lower_side_effect(*args, **kwargs):
+            lower_count[0] += 1
+            if fail_type == 'lower' and lower_count[0] == fail_n:
+                return (None, 1.0)
+            return (1000, 1.0)
+
+        def range_side_effect(*args, **kwargs):
+            range_count[0] += 1
+            if fail_type == 'range' and range_count[0] == fail_n:
+                return (None, None, 1.0)
+            return (1000, 1005, 1.0)
+
+        def point_side_effect(*args, **kwargs):
+            return (1000, 1002, 1.0)
+
+        return upper_side_effect, lower_side_effect, range_side_effect, point_side_effect
+
+    def _run_probe_with_mock_algos(self, instance, side_effects):
+        """Helper: run probe() with mocked algorithms."""
+        upper_se, lower_se, range_se, point_se = side_effects
+
+        with patch('headroom_pool_probing.UpperBoundProbingAlgorithm') as mock_upper, \
+             patch('headroom_pool_probing.LowerBoundProbingAlgorithm') as mock_lower, \
+             patch('headroom_pool_probing.ThresholdRangeProbingAlgorithm') as mock_range, \
+             patch('headroom_pool_probing.ThresholdPointProbingAlgorithm') as mock_point, \
+             patch('headroom_pool_probing.ProbingObserver'):
+
+            for mock_cls, se in [(mock_upper, upper_se), (mock_lower, lower_se),
+                                  (mock_range, range_se), (mock_point, point_se)]:
+                mock_algo = MagicMock()
+                mock_algo.run.side_effect = se
+                mock_cls.return_value = mock_algo
+
+            HeadroomPoolProbing.probe(instance)
+
+    @pytest.mark.order(4250)
+    def test_buffer_drain_on_pfc_upper_bound_failure(self):
+        """PG #1 PFC upper bound fails → drain_buffer should be called before continue."""
+        instance = self._create_instance_with_2pgs()
+        side_effects = self._make_algo_side_effects('pfc_upper')
+
+        self._run_probe_with_mock_algos(instance, side_effects)
+
+        drain_calls = [c for c in instance.buffer_ctrl.drain_buffer.call_args_list
+                       if c[0][0] == [36]]
+        assert len(drain_calls) > 0, \
+            "drain_buffer([36]) should be called when PG fails to clean buffer state"
+
+    @pytest.mark.order(4251)
+    def test_buffer_drain_on_pfc_lower_bound_failure(self):
+        """PG #1 PFC lower bound fails → drain_buffer should be called before continue."""
+        instance = self._create_instance_with_2pgs()
+        side_effects = self._make_algo_side_effects('pfc_lower')
+
+        self._run_probe_with_mock_algos(instance, side_effects)
+
+        drain_calls = [c for c in instance.buffer_ctrl.drain_buffer.call_args_list
+                       if c[0][0] == [36]]
+        assert len(drain_calls) > 0, \
+            "drain_buffer([36]) should be called when PFC lower bound fails"
+
+    @pytest.mark.order(4252)
+    def test_buffer_drain_on_pfc_range_failure(self):
+        """PG #1 PFC range fails → drain_buffer should be called before continue."""
+        instance = self._create_instance_with_2pgs()
+        side_effects = self._make_algo_side_effects('pfc_range')
+
+        self._run_probe_with_mock_algos(instance, side_effects)
+
+        drain_calls = [c for c in instance.buffer_ctrl.drain_buffer.call_args_list
+                       if c[0][0] == [36]]
+        assert len(drain_calls) > 0, \
+            "drain_buffer([36]) should be called when PFC range fails"
+
+    @pytest.mark.order(4253)
+    def test_buffer_drain_on_drop_upper_bound_failure(self):
+        """PG #1 Ingress Drop upper bound fails → drain_buffer should be called."""
+        instance = self._create_instance_with_2pgs()
+        side_effects = self._make_algo_side_effects('drop_upper')
+
+        self._run_probe_with_mock_algos(instance, side_effects)
+
+        drain_calls = [c for c in instance.buffer_ctrl.drain_buffer.call_args_list
+                       if c[0][0] == [36]]
+        assert len(drain_calls) > 0, \
+            "drain_buffer([36]) should be called when Drop upper bound fails"
+
+    @pytest.mark.order(4254)
+    def test_buffer_drain_on_drop_lower_bound_failure(self):
+        """PG #1 Ingress Drop lower bound fails → drain_buffer should be called."""
+        instance = self._create_instance_with_2pgs()
+        side_effects = self._make_algo_side_effects('drop_lower')
+
+        self._run_probe_with_mock_algos(instance, side_effects)
+
+        drain_calls = [c for c in instance.buffer_ctrl.drain_buffer.call_args_list
+                       if c[0][0] == [36]]
+        assert len(drain_calls) > 0, \
+            "drain_buffer([36]) should be called when Drop lower bound fails"
+
+    @pytest.mark.order(4255)
+    def test_buffer_drain_on_drop_range_failure(self):
+        """PG #1 Ingress Drop range fails → drain_buffer should be called."""
+        instance = self._create_instance_with_2pgs()
+        side_effects = self._make_algo_side_effects('drop_range')
+
+        self._run_probe_with_mock_algos(instance, side_effects)
+
+        drain_calls = [c for c in instance.buffer_ctrl.drain_buffer.call_args_list
+                       if c[0][0] == [36]]
+        assert len(drain_calls) > 0, \
+            "drain_buffer([36]) should be called when Drop range fails"
+
+    @pytest.mark.order(4256)
+    def test_buffer_drain_with_different_dst_ports(self):
+        """Multi-PG with different dst_ports — each failure must drain its own port."""
+        instance = self._create_instance_with_2pgs()
+        instance.stream_mgr.flows = {
+            (24, 36, frozenset([('pg', 3)])): MagicMock(dscp=3),
+            (28, 40, frozenset([('pg', 4)])): MagicMock(dscp=4)
+        }
+        side_effects = self._make_algo_side_effects('pfc_upper')
+
+        self._run_probe_with_mock_algos(instance, side_effects)
+
+        drain_calls = [c for c in instance.buffer_ctrl.drain_buffer.call_args_list
+                       if c[0][0] == [36]]
+        assert len(drain_calls) > 0, \
+            "drain_buffer([36]) should be called for PG #1's dst_port on failure"
