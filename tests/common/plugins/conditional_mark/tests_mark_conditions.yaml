@@ -2518,7 +2518,7 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
     reason: "This test will be reworked following changes to GCU validators"
     conditions_logical_operator: "OR"
     conditions:
-      - "release in ['master', '202511'] and https://github.com/sonic-net/sonic-mgmt/issues/22333"
+      - "release in ['master', '202412', '202511'] and https://github.com/sonic-net/sonic-mgmt/issues/22333"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
