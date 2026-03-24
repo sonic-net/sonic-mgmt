@@ -759,15 +759,15 @@
     },
     {
         "feature": "iface_namingmode",
-        "owner": "Qi Luo",
-        "email": "qiluo@microsoft.com",
+        "owner": "Ziting Guo",
+        "email": "zitingguo@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "iface_namingmode.test_iface_namingmode"
                 ],
-                "owner": "Qi Luo",
-                "email": "qiluo@microsoft.com"
+                "owner": "Ziting Guo",
+                "email": "zitingguo@microsoft.com"
             }
         ]
     },
