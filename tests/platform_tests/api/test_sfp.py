@@ -953,7 +953,15 @@ class TestSfpApi(PlatformApiTestBase):
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
                 continue
 
-            if not self.is_xcvr_support_power_override(info_dict):
+            try:
+                power_override_support = sfp.get_power_override_support(platform_api_conn, i)
+            except NotImplementedError:
+                power_override_support = None
+
+            if power_override_support is None:
+                power_override_support = self.is_xcvr_support_power_override(info_dict)
+
+            if not power_override_support:
                 logger.warning(
                     "test_power_override: Skipping transceiver {} (not applicable for this transceiver type)"
                     .format(i))
