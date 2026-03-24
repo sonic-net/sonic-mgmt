@@ -102,10 +102,12 @@ stages:
   - job: cancel_previous_test_plan_for_same_pr
     displayName: "Cancel previous test plans for same PR"
     continueOnError: true
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: sonic-ubuntu-1c
     timeoutInMinutes: 10
     steps:
-      - template: cancel-previous-elastictest-testplan.yml
+      - template: .azure-pipelines/cancel-previous-elastictest-testplan.yml
+        parameters:
+          MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
