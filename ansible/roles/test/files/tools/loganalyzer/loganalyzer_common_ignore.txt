@@ -453,3 +453,7 @@ r, ".*ERR telemetry#.*getDbInfo: Failed to find CHASSIS_STATE_DB.*"
 
 # Ignore SAI_STATUS_INVALID_PARAMETER error for SAI_API_QUEUE get stats until it's resolved
 r, ".*ERR swss#orchagent:.*SAI_API_QUEUE, status: SAI_STATUS_INVALID_PARAMETER.*"
+
+# Ignore link-training failure status query errors during port state transitions
+# SAI cannot read LT registers while the port serdes is mid-transition
+r, ".* ERR swss\d*#orchagent:.*getPortLinkTrainingFailure: Failed to get LT failure status for .*"
