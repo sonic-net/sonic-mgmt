@@ -108,7 +108,9 @@ def get_lldpctl_output(duthost):
 def get_show_lldp_table_output(duthost):
     lines = duthost.shell("show lldp table")["stdout"].split("\n")[3:-2]
     interface_list = [line.split()[0] for line in lines]
-    return interface_list
+    # Deduplicate: in dualtor topology, uplink ports may have multiple
+    # LLDP neighbors (T1 switch + fanout), causing duplicate interface entries
+    return list(dict.fromkeys(interface_list))
 
 
 def get_lldp_data(duthost, db_instance):
@@ -123,7 +125,7 @@ def check_lldp_table_keys(duthost, db_instance):
     # Check if LLDP_ENTRY_TABLE keys match show lldp table output
     lldp_entry_keys = get_lldp_entry_keys(db_instance)
     show_lldp_table_int_list = get_show_lldp_table_output(duthost)
-    return sorted(lldp_entry_keys) == sorted(show_lldp_table_int_list)
+    return set(lldp_entry_keys) == set(show_lldp_table_int_list)
 
 
 def _shutdown_startup_interface(duthost, interface, asic_str=""):
@@ -192,9 +194,14 @@ def assert_lldp_interfaces(
     """
     Assert that LLDP_ENTRY_TABLE keys match show lldp table output and lldpctl output
     """
+    db_set = set(lldp_entry_keys)
+    cli_set = set(show_lldp_table_int_list)
     pytest_assert(
-        sorted(lldp_entry_keys) == sorted(show_lldp_table_int_list),
-        "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output",
+        db_set == cli_set,
+        "LLDP_ENTRY_TABLE keys do not match 'show lldp table' output. "
+        "In DB but not in CLI: {}. In CLI but not in DB: {}".format(
+            db_set - cli_set, cli_set - db_set
+        ),
     )
 
     # Verify LLDP_ENTRY_TABLE keys match lldpctl interface indexes
