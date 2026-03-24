@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 
 config_sources = ['config_db', 'minigraph', 'running_golden_config']
 
+# Timeouts for smartswitch DPU state transitions (in seconds)
+DPU_STATE_TIMEOUT = 360
+DPU_STATE_INTERVAL = 30
+
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
 GOLDEN_CONFIG_TEMPLATE = os.path.join(TEMPLATE_DIR, 'golden_config_db.j2')
@@ -66,6 +70,78 @@ def config_force_option_supported(duthost):
     if "force" in out['stdout'].strip():
         return True
     return False
+
+
+def _check_all_dpu_module_states(sonic_host, dpu_expected_states):
+    """
+    Check if all DPU modules have reached their expected states.
+    Args:
+        sonic_host: SONiC host object
+        dpu_expected_states: dict mapping dpu_name to expected status ("on" or "off")
+    Returns:
+        True if all DPUs are in their expected states, False otherwise
+    """
+    for dpu_name, expected_status in dpu_expected_states.items():
+        output = sonic_host.shell(
+            'show chassis module status | grep %s' % dpu_name,
+            module_ignore_errors=True
+        )
+        if output['rc'] != 0:
+            return False
+
+        is_offline = "offline" in output["stdout"].lower()
+        if expected_status == "off" and not is_offline:
+            return False
+        if expected_status != "off" and is_offline:
+            return False
+    return True
+
+
+def _wait_for_smartswitch_dpu_states(sonic_host):
+    """
+    After config reload on a smartswitch, wait for all DPUs to reach their
+    expected state based on the CHASSIS_MODULE admin_status in config_db.
+
+    In lit mode, DPUs have admin_status "up" and should come online.
+    In dark mode, DPUs have admin_status "down" and should go offline.
+    If CHASSIS_MODULE has no entries or admin_status is absent, DPUs are
+    expected to be online (default behavior).
+    """
+    # Get all CHASSIS_MODULE keys from config_db
+    output = sonic_host.shell(
+        'redis-cli -n 4 keys "CHASSIS_MODULE|*"',
+        module_ignore_errors=True
+    )
+    if output['rc'] != 0 or not output['stdout'].strip():
+        logger.info("No CHASSIS_MODULE entries found in config_db, skipping DPU state wait")
+        return
+
+    dpu_entries = [line.strip() for line in output['stdout'].strip().split('\n') if line.strip()]
+    if not dpu_entries:
+        logger.info("No CHASSIS_MODULE entries found in config_db, skipping DPU state wait")
+        return
+
+    dpu_expected_states = {}
+    for entry in dpu_entries:
+        # entry is like "CHASSIS_MODULE|DPU0"
+        dpu_name = entry.split('|', 1)[1] if '|' in entry else entry
+        admin_output = sonic_host.shell(
+            'redis-cli -n 4 hget "%s" "admin_status"' % entry,
+            module_ignore_errors=True
+        )
+        admin_status = admin_output['stdout'].strip() if admin_output['rc'] == 0 else ''
+        # If admin_status is "down", DPU should be offline; otherwise expect online
+        expected = "off" if admin_status == "down" else "on"
+        dpu_expected_states[dpu_name] = expected
+
+    logger.info("Waiting for smartswitch DPU states: %s", dpu_expected_states)
+
+    if not wait_until(DPU_STATE_TIMEOUT, DPU_STATE_INTERVAL, 0,
+                      _check_all_dpu_module_states, sonic_host,
+                      dpu_expected_states):
+        pytest_assert(False, "Not all DPUs reached expected states %s within timeout" % dpu_expected_states)
+
+    logger.info("Smartswitch DPU state wait completed")
 
 
 def config_reload_minigraph_with_rendered_golden_config_override(
@@ -204,6 +280,12 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
     wait = max(wait, 600) if modular_chassis else wait
+
+    # On smartswitch, wait for DPUs to reach expected state after config reload.
+    # This prevents consecutive config reloads from triggering DPU admin state
+    # changes before the previous transitions have completed.
+    if is_dut and sonic_host.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+        _wait_for_smartswitch_dpu_states(sonic_host)
 
     if safe_reload:
         # The wait time passed in might not be guaranteed to cover the actual

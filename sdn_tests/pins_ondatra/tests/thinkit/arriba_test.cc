@@ -15,6 +15,7 @@
 #include "gtest/gtest.h"
 #include "gutil/gutil/testing.h"
 #include "infrastructure/thinkit/ondatra_params.h"
+#include "tests/thinkit/util.h"
 #include "thinkit/mirror_testbed_fixture.h"
 
 ABSL_FLAG(std::vector<std::string>, arriba_test_vector_files, {},
@@ -22,7 +23,7 @@ ABSL_FLAG(std::vector<std::string>, arriba_test_vector_files, {},
 ABSL_FLAG(double, expected_minimum_success_rate, 1.0,
           "Expected minimum success rate for the packet vectors.");
 ABSL_FLAG(
-    bool, wait_for_all_enabled_interfaces_to_be_up, true,
+    bool, wait_for_all_enabled_interfaces_to_be_up, false,
     "If true, waits for all enabled ports to be up on SUT and control switch.");
 ABSL_FLAG(
     absl::Duration, max_expected_packet_in_flight_duration, absl::Seconds(3),
@@ -109,7 +110,11 @@ absl::StatusOr<std::vector<ArribaTestParams>> GetTestInstances() {
     test_instances.push_back(ArribaTestParams{
         .mirror_testbed = std::shared_ptr<thinkit::MirrorTestbedInterface>(
             mirror_testbed_params.mirror_testbed),
-        .arriba_test_vector = arriba_test_vector,
+        .arriba_test_vector =
+            gutil::ParseProtoFileOrDie<dvaas::ArribaTestVector>(
+                test_vector_file),
+        .wait_for_all_enabled_interfaces_to_be_up =
+            absl::GetFlag(FLAGS_wait_for_all_enabled_interfaces_to_be_up),
     });
   }
   return test_instances;

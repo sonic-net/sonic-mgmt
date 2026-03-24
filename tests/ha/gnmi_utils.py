@@ -9,6 +9,28 @@ import pytest
 
 logger = logging.getLogger(__name__)
 
+GNMI_CLIENT_CERT_CN = "test.client.gnmi.sonic"
+GNMI_CLIENT_CERT_ROLE = (
+    "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,"
+    "gnmi_dpu_appl_db_readwrite,gnoi_readwrite"
+)
+
+
+def _set_gnmi_client_cert_role(my_duthost):
+    role_cmd = (
+        'sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "{}" "{}"'
+    )
+    my_duthost.shell(role_cmd.format(GNMI_CLIENT_CERT_CN, "role@", GNMI_CLIENT_CERT_ROLE))
+    # Some platform images still read "role" instead of "role@".
+    my_duthost.shell(role_cmd.format(GNMI_CLIENT_CERT_CN, "role", GNMI_CLIENT_CERT_ROLE))
+
+
+def _clear_gnmi_client_cert_role(my_duthost):
+    my_duthost.shell(
+        'sudo sonic-db-cli CONFIG_DB del "GNMI_CLIENT_CERT|{}"'.format(GNMI_CLIENT_CERT_CN),
+        module_ignore_errors=True,
+    )
+
 
 @lru_cache(maxsize=None)
 class GNMIEnvironment(object):
@@ -182,6 +204,30 @@ def apply_gnmi_cert(my_duthost, ptfhost):
     ptfhost.copy(src=env.work_dir+env.gnmi_ca_cert, dest=my_dest)
     ptfhost.copy(src=env.work_dir+env.gnmi_client_cert, dest=my_dest)
     ptfhost.copy(src=env.work_dir+env.gnmi_client_key, dest=my_dest)
+    _set_gnmi_client_cert_role(my_duthost)
+    certs_table = "{}|certs".format(env.gnmi_config_table)
+    my_duthost.shell(
+        'sudo sonic-db-cli CONFIG_DB hset "{}" ca_crt "{}{}"'.format(
+            certs_table, env.gnmi_cert_path, env.gnmi_ca_cert
+        ),
+        module_ignore_errors=True,
+    )
+    my_duthost.shell(
+        'sudo sonic-db-cli CONFIG_DB hset "{}" server_crt "{}{}"'.format(
+            certs_table, env.gnmi_cert_path, env.gnmi_server_cert
+        ),
+        module_ignore_errors=True,
+    )
+    my_duthost.shell(
+        'sudo sonic-db-cli CONFIG_DB hset "{}" server_key "{}{}"'.format(
+            certs_table, env.gnmi_cert_path, env.gnmi_server_key
+        ),
+        module_ignore_errors=True,
+    )
+    my_duthost.shell(
+        'sudo sonic-db-cli CONFIG_DB hset "{}|gnmi" client_auth true'.format(env.gnmi_config_table),
+        module_ignore_errors=True,
+    )
     port = env.gnmi_port
     assert int(port) > 0, "Invalid GNMI port"
     dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, env.gnmi_program)
@@ -193,6 +239,8 @@ def apply_gnmi_cert(my_duthost, ptfhost):
     dut_command += "--server_crt %s%s " % (env.gnmi_cert_path, env.gnmi_server_cert)
     dut_command += "--server_key %s%s " % (env.gnmi_cert_path, env.gnmi_server_key)
     dut_command += "--ca_crt %s%s " % (env.gnmi_cert_path, env.gnmi_ca_cert)
+    dut_command += "--config_table_name GNMI_CLIENT_CERT "
+    dut_command += "--client_auth cert "
     if env.enable_zmq:
         dut_command += " -zmq_address=tcp://127.0.0.1:8100 "
     dut_command += "-gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
@@ -211,16 +259,34 @@ def recover_gnmi_cert(localhost, my_duthost, skip_cert_cleanup):
     Returns:
     """
     env = GNMIEnvironment(my_duthost)
+    _clear_gnmi_client_cert_role(my_duthost)
     if not skip_cert_cleanup:
         localhost.shell("rm -rf "+env.work_dir, module_ignore_errors=True)
-    dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
-    output = my_duthost.command(dut_command, module_ignore_errors=True)['stdout'].strip()
+    status_cmd = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
+    output = my_duthost.command(status_cmd, module_ignore_errors=True)['stdout'].strip()
     if 'RUNNING' in output:
         return
-    dut_command = "docker exec %s pkill telemetry" % (env.gnmi_container)
-    my_duthost.shell(dut_command, module_ignore_errors=True)
+    # Kill any leftover gNMI/telemetry process to avoid port conflicts.
+    for proc in ("telemetry", "gnmi"):
+        my_duthost.shell(
+            "docker exec %s pkill %s" % (env.gnmi_container, proc),
+            module_ignore_errors=True,
+        )
+    # Clear any failed supervisor state before attempting restart.
+    my_duthost.shell(
+        "systemctl reset-failed %s" % env.gnmi_container,
+        module_ignore_errors=True,
+    )
     dut_command = "docker exec %s supervisorctl start %s" % (env.gnmi_container, env.gnmi_program)
-    my_duthost.shell(dut_command)
+    my_duthost.shell(dut_command, module_ignore_errors=True)
+    time.sleep(3)
+    output = my_duthost.shell(status_cmd, module_ignore_errors=True)['stdout'].strip()
+    if 'RUNNING' not in output:
+        # Fallback to container restart to restore default supervisor-managed service.
+        my_duthost.shell(
+            "systemctl restart %s" % env.gnmi_container,
+            module_ignore_errors=True,
+        )
     time.sleep(env.gnmi_server_start_wait_time)
 
 

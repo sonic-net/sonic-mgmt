@@ -25,19 +25,16 @@ from constants import LOCAL_CA_IP, \
     NPU_DATAPLANE_IP, NPU_DATAPLANE_MAC, NPU_DATAPLANE_PORT, DPU_DATAPLANE_IP, DPU_DATAPLANE_MAC, DPU_DATAPLANE_PORT
 from tests.common.dash_utils import render_template_to_host, apply_swssconfig_file
 from tests.common.helpers.smartswitch_util import correlate_dpu_info_with_dpuhost, get_data_port_on_dpu, get_dpu_dataplane_port # noqa F401
-from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
+from tests.ha.gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
+from tests.ha.ha_gnmi import apply_ha_messages, ha_scope_config, ha_set_config
 from tests.common import config_reload
 import configs.privatelink_config as pl
 from tests.common.helpers.assertions import pytest_require as pt_require
 from tests.ha.ha_utils import (
-
-    build_dash_ha_scope_args,
     wait_for_pending_operation_id,
-    build_dash_ha_scope_activate_args,
-    wait_for_ha_state,
-    build_dash_ha_set_args,
-    proto_utils_hset
+    verify_ha_state
 )
+
 ENABLE_GNMI_API = True
 logger = logging.getLogger(__name__)
 
@@ -338,12 +335,11 @@ def vxlan_udp_dport(request, duthost):
 
 
 @pytest.fixture(scope="module")
-def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
+def set_vxlan_udp_sport_range(dpuhosts):
     """
     Configure VXLAN UDP source port range in dpu configuration.
 
     """
-    dpuhost = dpuhosts[dpu_index]
     vxlan_sport_config = [
         {
             "SWITCH_TABLE:switch": {
@@ -356,15 +352,17 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
 
     logger.info(f"Setting VXLAN source port config: {vxlan_sport_config}")
     config_path = "/tmp/vxlan_sport_config.json"
-    dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
-    apply_swssconfig_file(dpuhost, config_path)
-    if 'pensando' in dpuhost.facts['asic_type']:
-        logger.warning("Applying Pensando DPU VXLAN sport workaround")
-        dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
+    for dpuhost in dpuhosts:
+        dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
+        apply_swssconfig_file(dpuhost, config_path)
+        if 'pensando' in dpuhost.facts['asic_type']:
+            logger.warning("Applying Pensando DPU VXLAN sport workaround")
+            dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
     yield
-
-    if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
-        config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    for dpuhost in dpuhosts:
+        if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0"
+                                                         " hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
+            config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 @pytest.fixture(scope="module")
@@ -533,6 +531,7 @@ def generate_vdpu_config(dpu_count=8):
 
 def generate_remote_dpu_config_for_dut(
     switch_id: int,
+    tbinfo,
     dpu_count=8,
     swbus_start=23606
 ):
@@ -545,7 +544,9 @@ def generate_remote_dpu_config_for_dut(
 
     remote_switch_id = 1 - switch_id
 
-    remote_npu_ip = f"10.1.{remote_switch_id}.32"
+    topo_dut = tbinfo["topo"]["properties"]["topology"]["DUT"]
+    remote_loopback = topo_dut["loopback"]["ipv4"][remote_switch_id]
+    remote_npu_ip = remote_loopback.split("/")[0]
     pa_prefix = f"20.0.20{remote_switch_id}."
 
     remote = {}
@@ -590,7 +591,7 @@ def generate_ha_config_for_dut(switch_id: int, duthost, tbinfo):
 
     return {
         "DPU": generate_local_dpu_config(switch_id),
-        "REMOTE_DPU": generate_remote_dpu_config_for_dut(switch_id),
+        "REMOTE_DPU": generate_remote_dpu_config_for_dut(switch_id, tbinfo),
         "VDPU": generate_vdpu_config(),
         "DASH_HA_GLOBAL_CONFIG": {
             "GLOBAL": {
@@ -722,12 +723,21 @@ def setup_ha_config(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def setup_dash_ha_from_json(duthosts):
+def setup_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(current_dir, "..", "common", "ha")
     ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
 
     logger.info("HA: setup from json for Primary and Standby")
+
+    # Workaround for the neigh resolve issue
+    # To be removed after fixes are merged: PR 147, 148 in sonic-dash-ha
+    for i in range(len(duthosts)):
+        logger.info(f"Sending ping to DPU0 for {duthosts[i].hostname}")
+        ip_part = 200 + i
+        ping_result = duthosts[i].shell(f"ping -c 3 20.0.{ip_part}.1", module_ignore_errors=True)["stdout"]
+        logger.info(f"{duthosts[i].hostname} ping_result [{ping_result}]")
+
     with open(ha_set_file) as f:
         ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
 
@@ -736,11 +746,12 @@ def setup_dash_ha_from_json(duthosts):
     # -------------------------------------------------
     for duthost in duthosts:
         for key, fields in ha_set_data.items():
-            proto_utils_hset(
-                duthost,
-                table="DASH_HA_SET_CONFIG_TABLE",
-                key=key,
-                args=build_dash_ha_set_args(fields),
+            ha_set_messages = ha_set_config(ha_set_id=key, **fields)
+            apply_ha_messages(
+                localhost=localhost,
+                duthost=duthost,
+                ptfhost=ptfhost,
+                messages=ha_set_messages,
             )
 
     # -------------------------------------------------
@@ -751,9 +762,8 @@ def setup_dash_ha_from_json(duthosts):
             "vdpu0_0:haset0_0",
             {
                 "version": "1",
-                "disabled": "true",
+                "disabled": True,
                 "desired_ha_state": "active",
-                "ha_set_id": "haset0_0",
                 "owner": "dpu",
             },
         ),
@@ -761,26 +771,31 @@ def setup_dash_ha_from_json(duthosts):
             "vdpu1_0:haset0_0",
             {
                 "version": "1",
-                "disabled": "true",
+                "disabled": True,
                 "desired_ha_state": "unspecified",
-                "ha_set_id": "haset0_0",
                 "owner": "dpu",
             },
         ),
     ]
 
     for duthost, (key, fields) in zip(duthosts, ha_scope_per_dut):
-        proto_utils_hset(
-            duthost,
-            table="DASH_HA_SCOPE_CONFIG_TABLE",
-            key=key,
-            args=build_dash_ha_scope_args(fields),
+        vdpu_id, ha_set_id = key.split(":", 1)
+        ha_scope_messages = ha_scope_config(
+            vdpu_id=vdpu_id,
+            ha_set_id=ha_set_id,
+            **fields,
+        )
+        apply_ha_messages(
+            localhost=localhost,
+            duthost=duthost,
+            ptfhost=ptfhost,
+            messages=ha_scope_messages,
         )
     yield
 
 
 @pytest.fixture(scope="function")
-def activate_dash_ha_from_json(duthosts):
+def activate_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server):
     # -------------------------------------------------
     # Step 4: Activate Role (using pending_operation_ids)
     # -------------------------------------------------
@@ -791,7 +806,6 @@ def activate_dash_ha_from_json(duthosts):
                 "version": "1",
                 "disabled": False,
                 "desired_ha_state": "active",
-                "ha_set_id": "haset0_0",
                 "owner": "dpu",
             },
         ),
@@ -801,14 +815,13 @@ def activate_dash_ha_from_json(duthosts):
                 "version": "1",
                 "disabled": False,
                 "desired_ha_state": "unspecified",
-                "ha_set_id": "haset0_0",
                 "owner": "dpu",
             },
         ),
     ]
     logger.info("HA: activate Primary and Standby")
     for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
-        is_active = wait_for_ha_state(duthost, scope_key=key, expected_state="active", timeout=120, interval=5)
+        is_active = verify_ha_state(duthost, scope_key=key, expected_state="active", timeout=10, interval=5)
         if not is_active:
             break
 
@@ -816,11 +829,17 @@ def activate_dash_ha_from_json(duthosts):
         logger.info("HA: Primary and Standby already active")
     else:
         for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
-            proto_utils_hset(
-                duthost,
-                table="DASH_HA_SCOPE_CONFIG_TABLE",
-                key=key,
-                args=build_dash_ha_scope_args(fields),
+            vdpu_id, ha_set_id = key.split(":", 1)
+            ha_scope_messages = ha_scope_config(
+                vdpu_id=vdpu_id,
+                ha_set_id=ha_set_id,
+                **fields,
+            )
+            apply_ha_messages(
+                localhost=localhost,
+                duthost=duthost,
+                ptfhost=ptfhost,
+                messages=ha_scope_messages,
             )
         for idx, (duthost, (key, fields)) in enumerate(zip(duthosts, activate_scope_per_dut)):
             pending_id = wait_for_pending_operation_id(
@@ -836,15 +855,22 @@ def activate_dash_ha_from_json(duthosts):
             )
 
             logger.info(f"DASH HA {duthost.hostname} found pending id {pending_id}")
-            proto_utils_hset(
-                duthost,
-                table="DASH_HA_SCOPE_CONFIG_TABLE",
-                key=key,
-                args=build_dash_ha_scope_activate_args(fields, pending_id),
+            vdpu_id, ha_set_id = key.split(":", 1)
+            ha_scope_messages = ha_scope_config(
+                vdpu_id=vdpu_id,
+                ha_set_id=ha_set_id,
+                approved_pending_operation_ids=[pending_id],
+                **fields,
+            )
+            apply_ha_messages(
+                localhost=localhost,
+                duthost=duthost,
+                ptfhost=ptfhost,
+                messages=ha_scope_messages,
             )
             # Verify HA state using fields
             expected_state = "active"
-            assert wait_for_ha_state(
+            assert verify_ha_state(
                 duthost,
                 scope_key=key,
                 expected_state=expected_state,

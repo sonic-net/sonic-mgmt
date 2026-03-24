@@ -99,8 +99,15 @@ class SonicHost(AnsibleHostBase):
         self._os_version = self._get_os_version()
 
         device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
+        switch_type = device_metadata.get('switch_type', '')
         device_type = device_metadata.get('type')
         device_subtype = device_metadata.get('subtype')
+
+        if switch_type == "dpu":
+            logger.info("Removing teamd and lldp from default services for switch_type DPU")
+            self.DEFAULT_ASIC_SERVICES.remove("lldp")
+            self.DEFAULT_ASIC_SERVICES.remove("teamd")
+
         if (device_type == 'UpperSpineRouter') or (device_subtype in ['UpstreamLC', 'DownstreamLC']):
             self.DEFAULT_ASIC_SERVICES.append("macsec")
 
@@ -1893,12 +1900,25 @@ Totals               6450                 6449
             "th3": {"b98", "BCM5698"},
             "th4": {"b99", "BCM5699"},
             "th5": {"f90", "BCM7890"},
+            "q3d": {"8870", "8872"},
         }
         for asic in search_sets.keys():
             for search_term in search_sets[asic]:
                 if search_term in output:
                     return asic
         return UNKNOWN_ASIC
+
+    def _try_get_mrvl_asic_name(self, output):
+        prestera_devices = {
+            "Device 8400",  # Falcon
+            "Device 9400",  # AlleyCat5P
+        }
+
+        for search_term in prestera_devices:
+            if search_term in output:
+                return "marvell-prestera"
+
+        return "marvell-teralynx"
 
     def get_asic_name(self):
         asic = UNKNOWN_ASIC
@@ -1910,7 +1930,7 @@ Totals               6450                 6449
         elif "Mellanox Technologies" in output:
             asic = "spc"
         elif "Marvell Technology" in output:
-            asic = "marvell-teralynx"
+            asic = self._try_get_mrvl_asic_name(output)
 
         logger.info("asic: {}".format(asic))
 
@@ -2475,7 +2495,7 @@ Totals               6450                 6449
         # Build set of Ethernet ports with 18.x.202.0/31 IPs to exclude
         excluded_ports = set()
         for port, val in config_db_ports.items():
-            if "role" in val:
+            if "role" in val and val["role"] != "Ext":
                 excluded_ports.add(port)
         return excluded_ports
 
