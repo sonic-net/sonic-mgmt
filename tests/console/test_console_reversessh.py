@@ -16,7 +16,7 @@ console_lines = list(map(str, range(1, 49)))
 
 
 @pytest.fixture(scope="function")
-def custom_escape_char(duthost):
+def custom_default_escape_char(duthost):
     """
     Fixture to set custom escape character and clear it after test
     """
@@ -24,17 +24,17 @@ def custom_escape_char(duthost):
 
     # Set escape character for all lines
     try:
-        duthost.shell('sudo config console escape {}'.format(escape_char))
+        duthost.shell('sudo config console default_escape {}'.format(escape_char))
     except Exception as e:
-        pytest.fail("Not able to set custom escape character: {}".format(e))
+        pytest.fail("Not able to set custom default escape character: {}".format(e))
 
     yield escape_char
 
     # Clear escape character (restore to default)
     try:
-        duthost.shell('sudo config console escape clear')
-    except Exception:
-        pass
+        duthost.shell('sudo config console default_escape clear')
+    except Exception as e:
+        pytest.fail("Not able to restore custom default escape character: {}".format(e))
 
 
 @pytest.mark.parametrize("target_line", random.sample(console_lines, 2))
@@ -121,7 +121,7 @@ def test_console_reversessh_force_interrupt(duthost, creds, target_line):
 
 
 @pytest.mark.parametrize("target_line", random.sample(console_lines, 4))
-def test_console_reversessh_custom_escape_character(duthost, creds, target_line, custom_escape_char):
+def test_console_reversessh_custom_default_escape_character(duthost, creds, target_line, custom_default_escape_char):
     """
     Test reverse SSH with custom escape character.
     Verify that default escape keys don't work when escape character is changed,
@@ -157,7 +157,7 @@ def test_console_reversessh_custom_escape_character(duthost, creds, target_line,
             "Target line {} exited with default escape keys when custom escape char is set".format(target_line))
 
         # Send custom escape sequence (ctrl-B + ctrl-X) - should exit
-        client.sendcontrol(custom_escape_char.lower())
+        client.sendcontrol(custom_default_escape_char.lower())
         client.sendcontrol('x')
     except Exception as e:
         pytest.fail("Not able to do reverse SSH to remote host via DUT: {}".format(e))
