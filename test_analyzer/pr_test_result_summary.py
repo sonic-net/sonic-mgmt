@@ -78,15 +78,15 @@ def get_pr_test_plans(kusto_client, start_time, end_time):
     TestPlans
     | where TestPlanType == "PR"
     | where CreatedByType == "PR"
+    | where TriggerType in ("PRTest", "BaselineTest")
     | where TestPlanName !contains "optional"
-    | where TestPlanName contains "Baseline" or TestPlanName contains "PullRequest"
     | where EndTime between (datetime({start_time}) .. datetime({end_time}))
     | extend CheckerType = case(
     TestPlanName matches regex ("kvmtest-t0_"), "t0_checker",
     TestPlanName matches regex ("kvmtest-t0-sonic_"), "t0-sonic_checker",
     TestPlanName matches regex ("kvmtest-t0-2vlans_"), "t0-2vlans_checker",
     TestPlanName matches regex ("kvmtest-t1-lag_"), "t1_checker",
-    TestPlanName matches regex ("kvmtest-multi-asic-t1-lag_"), "t1-multi-asic_checker",
+    TestPlanName matches regex ("kvmtest-multi-asic-t1_"), "t1-multi-asic_checker",
     TestPlanName matches regex ("kvmtest-dualtor-t0_"), "dualtor_checker",
     TestPlanName matches regex ("kvmtest-dpu_"), "dpu_checker",
     TestPlanName matches regex ("kvmtest-t2_"), "t2_checker", "other")
