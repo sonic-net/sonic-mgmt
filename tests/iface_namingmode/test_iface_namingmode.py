@@ -1439,14 +1439,13 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
                 ).format(item, acl_table)
 
 
+@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
 def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, duthosts,
                                            enum_rand_one_per_hwsku_frontend_hostname):
     """
     Checks whether 'show interfaces neighbor expected' lists the
     interface names as per the configured naming mode
     """
-    if tbinfo['topo']['type'] not in ['t1', 't2', 'lt2', 'ft2']:
-        pytest.skip('Unsupported topology')
 
     dutHostGuest, mode, ifmode = setup_config_mode
     minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']
