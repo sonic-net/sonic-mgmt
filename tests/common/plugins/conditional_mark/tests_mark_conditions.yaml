@@ -746,6 +746,10 @@ dash/test_dash_privatelink.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
+dash/test_dash_privatelink.py::test_privatelink_udp_sport_range_negative:
+  skip:
+    reason: "The default behavior is changed for SONiC feature 'enable/disable VXLAN sport filtering' which lead to test failure. The feature will not be backported to 202511, skip the test."
+
 dash/test_dash_smartswitch_vnet.py:
   skip:
     conditions_logical_operator: or
