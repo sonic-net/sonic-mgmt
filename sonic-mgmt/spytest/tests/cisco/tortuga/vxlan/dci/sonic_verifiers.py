@@ -1,6 +1,16 @@
 from spytest import st
-from typing import List, Tuple, Union
-from dci.expected_results_sonic import remote_vtep_test_data, remote_mac_test_data
+from typing import List, Tuple, Union, Dict
+
+# For MAC verification: VTEP can be a single value or a list of allowed VTEPs (either/both)
+MacVtepVniEntry = Tuple[str, Union[str, List[str]], str]
+from dci.expected_results_sonic import (
+    remote_vtep_test_data,
+    remote_mac_test_data,
+    remote_mac_before_mobility_intra_dc_test_data,
+    remote_mac_after_mobility_intra_dc_test_data,
+    remote_mac_before_mobility_inter_dc_test_data,
+    remote_mac_after_mobility_inter_dc_test_data,
+)
 from retry import retry
 
 
@@ -73,20 +83,24 @@ def verify_remotevtep(dut, vtep_data: List[Tuple[str, str]], expected_status: st
                 st.log(f"Entry {i}: Source={src}, Destination={dst}, Status={status}")
             return False
 
+    total_entries = len(parsed_output)
+    if total_entries != len(vtep_data):
+        st.log(f"Total entries {total_entries} does not match expected {len(vtep_data)} on DUT {dut}, parsed output: {parsed_output}")
+        return False
     st.log(f"All {len(vtep_data)} remote VTEP entries verified successfully on DUT {dut}")
     return True
 
 
 @retry(tries=5, delay=10)
-def verify_remotemac(dut, mac_vtep_vni_list: List[Tuple[str, str, str]], **kwargs) -> bool:
+def verify_remotemac(dut, mac_vtep_vni_list: List[MacVtepVniEntry], **kwargs) -> bool:
     """
     Verify that MAC addresses are learned with correct VTEP and VNI associations.
 
     Args:
         dut (WorkArea): Device under test
-        mac_vtep_vni_list (List[Tuple[str, str, str]]): List of (MAC, VTEP, VNI) tuples to verify
-                          Each tuple represents one MAC/VTEP/VNI combination to verify.
-                          If a MAC has multiple VTEPs, provide multiple tuples.
+        mac_vtep_vni_list: List of (MAC, VTEP_or_allowed_VTEPs, VNI) tuples.
+                          VTEP can be a single string or a list of allowed VTEPs;
+                          a list means accept the MAC+VNI if the device has any of those VTEPs.
         **kwargs: Additional arguments to pass to the command
                     skip_tmpl=False,
                     skip_error_check=True,
@@ -96,8 +110,7 @@ def verify_remotemac(dut, mac_vtep_vni_list: List[Tuple[str, str, str]], **kwarg
     Example:
         verify_remotemac(dut, [
             ("00:00:00:00:00:01", "fd27::233:d0c6:fed5", "5010"),
-            ("00:00:00:00:00:02", "fd27::233:d0c6:fed5", "5010"),
-            ("00:00:00:00:00:02", "fd27::233:d0c6:fed6", "5010"),  # Same MAC, different VTEP
+            ("00:00:00:00:00:02", ["fd27::233:d0c6:fed5", "fd27::233:d0c6:fed6"], "5010"),  # either VTEP
             ("00:00:00:00:00:03", "102.102.102.102", "5011")
         ])
     """
@@ -117,11 +130,16 @@ def verify_remotemac(dut, mac_vtep_vni_list: List[Tuple[str, str, str]], **kwarg
 
     for mac_entry in mac_vtep_vni_list:
         mac = mac_entry[0]
-        expected_vtep = mac_entry[1]
+        expected_vtep_or_list = mac_entry[1]
         expected_vni = mac_entry[2]
+        allowed_vteps = (
+            [expected_vtep_or_list]
+            if isinstance(expected_vtep_or_list, str)
+            else list(expected_vtep_or_list)
+        )
 
         mac_found = False
-        st.log(f"Searching for MAC: {mac}, VTEP: {expected_vtep}, VNI: {expected_vni}")
+        st.log(f"Searching for MAC: {mac}, VTEP: {allowed_vteps}, VNI: {expected_vni}")
 
         # Search through parsed entries from TextFSM template
         for entry in parsed_output:
@@ -135,14 +153,17 @@ def verify_remotemac(dut, mac_vtep_vni_list: List[Tuple[str, str, str]], **kwarg
                 # Handle multiple VTEPs in entry separated by newlines or spaces
                 entry_vtep_list = entry_vtep.replace("\n", " ").split()
 
-                # Check if the expected VTEP matches any VTEP in the entry
-                if expected_vtep in entry_vtep_list or expected_vtep in entry_vtep:
-                    st.log(f"✓ Found MAC {mac} with VTEP {expected_vtep} and VNI {expected_vni}")
-                    mac_found = True
+                # Check if any allowed VTEP matches the entry
+                for vtep in allowed_vteps:
+                    if vtep in entry_vtep_list or vtep in entry_vtep:
+                        st.log(f"✓ Found MAC {mac} with VTEP {vtep} and VNI {expected_vni}")
+                        mac_found = True
+                        break
+                if mac_found:
                     break
 
         if not mac_found:
-            st.log(f"MAC {mac} with VTEP {expected_vtep} and VNI {expected_vni} not found on DUT {dut}")
+            st.log(f"MAC {mac} with VTEP {allowed_vteps} and VNI {expected_vni} not found on DUT {dut}")
             st.log(f"Available entries (showing all {len(parsed_output)} entries):")
             for i, entry in enumerate(parsed_output):
                 st.log(
@@ -170,16 +191,63 @@ def verify_dci_remotevtep(nodes, test_name):
             st.report_fail("test_case_failed", f"{test_name} verify_remotevtep failed on {nodes_name}")
 
 
-def verify_dci_remotemac(nodes, test_name):
+def verify_dci_remotemac(nodes, test_name, mac_data_type="default"):
     """
     Verify remote MAC learning on all DCI gateway nodes.
 
     Args:
         nodes: Dictionary of node objects
         test_name: Name of the test for error reporting
+        mac_data_type: Type of MAC test data to use. Options:
+            - "default": Use remote_mac_test_data (default initial state)
+            - "before_mobility_intra_dc": Use data before intra-DC mobility
+            - "after_mobility_intra_dc": Use data after intra-DC mobility
+            - "before_mobility_inter_dc": Use data before inter-DC mobility
+            - "after_mobility_inter_dc": Use data after inter-DC mobility
+            - dict: Directly pass a custom dictionary of MAC test data
+            
+    Example:
+        # Use default data
+        verify_dci_remotemac(nodes, "test_name")
+        
+        # Use after intra-DC mobility data
+        verify_dci_remotemac(nodes, "test_name", "after_mobility_intra_dc")
+        
+        # Use custom data
+        custom_data = {"dc1gw1": [("00:00:00:00:10:01", "fd27::233:d0c6:fed5", "5010")]}
+        verify_dci_remotemac(nodes, "test_name", custom_data)
     """
+    # Map string keys to actual data dictionaries
+    mac_data_map = {
+        "default": remote_mac_test_data,
+        "before_mobility_intra_dc": remote_mac_before_mobility_intra_dc_test_data,
+        "after_mobility_intra_dc": remote_mac_after_mobility_intra_dc_test_data,
+        "before_mobility_inter_dc": remote_mac_before_mobility_inter_dc_test_data,
+        "after_mobility_inter_dc": remote_mac_after_mobility_inter_dc_test_data,
+    }
+    
+    # Determine which test data to use
+    if isinstance(mac_data_type, dict):
+        # User passed custom dictionary directly
+        selected_mac_data = mac_data_type
+        st.log(f"Using custom MAC test data with {len(mac_data_type)} node entries")
+    elif mac_data_type in mac_data_map:
+        # User passed a valid string key
+        selected_mac_data = mac_data_map[mac_data_type]
+        st.log(f"Using MAC test data type: {mac_data_type}")
+    else:
+        # Invalid key, log warning and use default
+        st.warn(f"Invalid mac_data_type '{mac_data_type}', falling back to 'default'")
+        selected_mac_data = remote_mac_test_data
+    
+    # Verify MAC learning on all gateway nodes
     for nodes_name in ["dc1gw1", "dc1gw2", "dc2gw1", "dc3gw1"]:
+        if nodes_name not in selected_mac_data:
+            st.warn(f"No MAC test data found for {nodes_name} in selected data type")
+            continue
+            
+        st.log(f"Verifying {len(selected_mac_data[nodes_name])} MAC entries on {nodes_name}")
         if not verify_remotemac(
-            nodes[nodes_name], remote_mac_test_data[nodes_name], skip_tmpl=False, skip_error_check=False
+            nodes[nodes_name], selected_mac_data[nodes_name], skip_tmpl=False, skip_error_check=False
         ):
             st.report_fail("test_case_failed", f"{test_name} verify_remotemac failed on {nodes_name}")

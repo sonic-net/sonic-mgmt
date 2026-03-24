@@ -1,5 +1,6 @@
 import pytest
 import os
+from typing import Optional
 from ixnetwork_restpy import SessionAssistant
 
 from dci.const import CONFIG_FILE_PATH_DEFAULT, get_traffic_pairs, get_ping_anycast
@@ -26,6 +27,7 @@ def get_command_line_args():
         "ixia_config_file": os.getenv("DCI_IXIA_CONFIG_FILE", "ixia_dci_hosts.ixncfg"),
         "ixia_api_key": os.getenv("DCI_IXIA_API_KEY", ""),
         "ixia_force_new_session": os.getenv("DCI_IXIA_FORCE_NEW_SESSION", "true").lower() == "true",
+        "auto_start_protocols": os.getenv("DCI_AUTO_START_PROTOCOLS", "true").lower() == "true",
     }
 
 
@@ -65,6 +67,49 @@ def testbed_vars(deploy_leaf_on_ixia=False, use_ixia_for_hosts=False):
     return tb_vars, nodes
 
 
+def auto_start_protocols_and_verify(data):
+    """
+    Automatically start protocols and verify initial traffic.
+    
+    This function is called by default for test_config.py.
+    For test_mobility.py, set DCI_AUTO_START_PROTOCOLS=false to skip this
+    and use fine-grained control via start_device_group/start_protocol_stack APIs.
+    
+    Args:
+        data (dict): Test data dictionary containing session_assistant, traffic_pairs, etc.
+    """
+    # Initiate mac learning by sending traffic from hosts to their respective leafs
+    if not data.get("use_ixia_for_hosts"):
+        send_ping_and_verify_traffic(
+            st.getwa(),
+            data.get("ping_anycast", []),
+            use_ixia_for_hosts=False,
+            single_direction=True,
+            ignore_validation=True,
+            packet_count=2,
+        )
+    else:
+        # Start all IXIA protocols
+        session_assistant = data["session_assistant"]
+        assert isinstance(session_assistant, SessionAssistant)
+        start_all_protocols(session_assistant)
+        st.wait(20, "waiting for IXIA protocols to stabilize and perform ARP resolution")
+
+    # Test regular traffic pairs (bidirectional)
+    if not send_ping_and_verify_traffic(
+        st.getwa(),
+        data.get("traffic_pairs", []),
+        use_ixia_for_hosts=data.get("use_ixia_for_hosts"),
+        session_assistant=data.get("session_assistant", None),
+        packet_count=5,
+        max_percent_loss=10.0,
+    ):
+        session_assistant = data["session_assistant"]
+        assert isinstance(session_assistant, SessionAssistant)
+        cleanup_ixia_session(session_assistant)
+        st.report_fail("test_case_failed", "Initial ping test failed after configuration")
+
+
 @pytest.fixture(scope="module", autouse=True)
 def setup():
     """
@@ -101,7 +146,7 @@ def setup():
     dut_type = vxlan_utils.check_hw_or_sim(dut_names[0])
     if dut_type != "sim":
         pytest.skip("Test is currently supported only on VXR platform")
-
+    mh_utils.change_fdb_ageout("60000", skip_duts_with="HOST")
     if not command_line_args["deploy_leaf_on_ixia"] and not command_line_args["use_ixia_for_hosts"]:
         data["traffic_pairs"] = get_traffic_pairs(nodes)
         data["ping_anycast"] = get_ping_anycast(nodes)
@@ -117,7 +162,7 @@ def setup():
         api_key = command_line_args["ixia_api_key"]
         force_new_session = command_line_args["ixia_force_new_session"]
         ixia_vm_ip = wa.net.tb.devices["T1"]["properties"]["ix_server"]
-        sess_assistant: SessionAssistant | None = configure_ixia_session(
+        sess_assistant: Optional[SessionAssistant] = configure_ixia_session(
             config_file, ixia_vm_ip, api_key, force_new_session
         )
         if not sess_assistant:
@@ -127,44 +172,21 @@ def setup():
     if not command_line_args["cleanup"] and not command_line_args["no_config"]:
         configure_devices(updated_config_file, nodes, add=True)
         st.wait(60, "waiting on device to reach stable state post configuration")
-        # Initiate mac learning by sending traffic from hosts to their respective leafs
-        if not data["use_ixia_for_hosts"]:
-            send_ping_and_verify_traffic(
-                st.getwa(),
-                data.get("ping_anycast", []),
-                use_ixia_for_hosts=False,
-                single_direction=True,
-                ignore_validation=True,
-                packet_count=2,
-            )
+        
+        # Auto-start protocols and verify traffic (for test_config.py)
+        # For test_mobility.py, set DCI_AUTO_START_PROTOCOLS=false for fine-grained control
+        if command_line_args["auto_start_protocols"]:
+            auto_start_protocols_and_verify(data)
         else:
-            # Type checker: session_assistant is guaranteed to be SessionAssistant here
-            # because we aborted earlier if it was None
-            session_assistant = data["session_assistant"]
-            assert isinstance(session_assistant, SessionAssistant)
-            start_all_protocols(session_assistant)
-            st.wait(10, "waiting for IXIA protocols to stabilize")
-
-        # Test regular traffic pairs (bidirectional)
-        if not send_ping_and_verify_traffic(
-            st.getwa(),
-            data.get("traffic_pairs", []),
-            use_ixia_for_hosts=data["use_ixia_for_hosts"],
-            session_assistant=data.get("session_assistant", None),
-            packet_count=5,
-            max_percent_loss=10.0,
-        ):
-            session_assistant = data["session_assistant"]
-            assert isinstance(session_assistant, SessionAssistant)
-            cleanup_ixia_session(session_assistant)
-            st.report_fail("test_case_failed", "Initial ping test failed after configuration")
+            st.log("Skipping auto-start protocols and traffic verification (DCI_AUTO_START_PROTOCOLS=false)")
+            st.log("Test will manually control protocol start/stop for fine-grained control")
 
     # Always yield data regardless of conditions
     if not command_line_args["cleanup"]:
         yield data
 
     # Cleanup code runs after tests complete
-    mh_utils.change_fdb_ageout("60000", skip_duts_with="HOST")
+    mh_utils.change_fdb_ageout()
     configure_devices(updated_config_file, nodes, add=False)
     if data.get("use_ixia_for_hosts") and data.get("session_assistant"):
         session_assistant = data["session_assistant"]

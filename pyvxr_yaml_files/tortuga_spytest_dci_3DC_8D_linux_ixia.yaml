@@ -57,6 +57,8 @@ devices:
 
   ixia:
     platform: ixia-web
+    vcpu: 12
+    memory: '16G'
     ixia_images:
       windows: /auto/vxr/images/ixia/IxNetworkWeb_KVM_10.00.2407.119.qcow2
       chassis: /auto/vxr/images/ixia/Ixia_Virtual_Chassis_10.00_KVM.qcow2
