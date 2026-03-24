@@ -585,20 +585,20 @@ sonic_cisco_8102_smartswitch:
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
       mgmt_subnet_mask_length: 24
       model: 8102-28FH-DPU-O
-      serial: FLM2921032A
-      base_mac: A0:C7:D2:CE:2C:90
+      serial: FLM292606U4
+      base_mac: F4:33:92:22:F6:B0
       syseeprom_info:
         "0x21": "8102-28FH-DPU-O"
         "0x22": "479717"
-        "0x23": "FLM2921032A"
-        "0x24": "A0:C7:D2:CE:2C:90"
+        "0x23": "FLM292606U4"
+        "0x24": "F4:33:92:22:F6:B0"
         "0x26": "1"
         "0x28": "x86_64-8102_28fh_dpu_o-r0"
         "0x2A": "528"
         "0x2B": "Cisco"
         "0x2D": "Cisco"
         "0x2C": "US"
-        "0xFE": "0x4EBE34DD"
+        "0xFE": "0x5F3581D"
       plt_reboot_dict:
         cold:
           timeout: 700
@@ -689,160 +689,160 @@ sonic_pensando_elba_smartswitch_dpu:
       ansible_ssh_port: 5021
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
-      serial: FLM29100D70
-      base_mac: 38:AA:09:53:AB:A0
+      serial: FLM29240A5D
+      base_mac: D0:85:43:D8:5A:C0
       syseeprom_info:
         "0x21": "MTFUJI"
         "0x22": "DSS-MTFUJI"
-        "0x23": "FLM29100D70"
-        "0x24": "38:AA:09:53:AB:A0"
-        "0x25": "1750204800"
+        "0x23": "FLM29240A5D"
+        "0x24": "D0:85:43:D8:5A:C0"
+        "0x25": "1757980800"
         "0x26": "1"
         "0x29": "master-03250614-V001-dirty"
         "0x2A": "16"
         "0x2B": "CISCO"
         "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
-        "0xFE": "0x502DF079"
+        "0xFE": "0x2799DAC3"
     str3-8102-07-dpu-1:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
       ansible_ssh_port: 5022
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
-      serial: FLM29100D70
-      base_mac: 38:AA:09:53:AB:B0
+      serial: FLM29240A5D
+      base_mac: D0:85:43:D8:5A:D0
       syseeprom_info:
         "0x21": "MTFUJI"
         "0x22": "DSS-MTFUJI"
-        "0x23": "FLM29100D70"
-        "0x24": "38:AA:09:53:AB:B0"
-        "0x25": "1750204800"
+        "0x23": "FLM29240A5D"
+        "0x24": "D0:85:43:D8:5A:D0"
+        "0x25": "1757980800"
         "0x26": "1"
         "0x29": "master-03250614-V001-dirty"
         "0x2A": "16"
         "0x2B": "CISCO"
         "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
-        "0xFE": "0xCA58BB2A"
+        "0xFE": "0xBDEC9190"
     str3-8102-07-dpu-2:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
       ansible_ssh_port: 5023
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
-      serial: FLM29100D6U
-      base_mac: 38:AA:09:53:AB:C0
+      serial: FLM29240A61
+      base_mac: D0:85:43:D8:5A:E0
       syseeprom_info:
         "0x21": "MTFUJI"
         "0x22": "DSS-MTFUJI"
-        "0x23": "FLM29100D6U"
-        "0x24": "38:AA:09:53:AB:C0"
-        "0x25": "1750204800"
+        "0x23": "FLM29240A61"
+        "0x24": "D0:85:43:D8:5A:E0"
+        "0x25": "1757980800"
         "0x26": "1"
         "0x29": "master-03250614-V001-dirty"
         "0x2A": "16"
         "0x2B": "CISCO"
         "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
-        "0xFE": "0xBDF0F86B"
+        "0xFE": "0xAF200EC7"
     str3-8102-07-dpu-3:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
       ansible_ssh_port: 5024
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
-      serial: FLM29100D6U
-      base_mac: 38:AA:09:53:AB:D0
+      serial: FLM29240A61
+      base_mac: D0:85:43:D8:5A:F0
       syseeprom_info:
         "0x21": "MTFUJI"
         "0x22": "DSS-MTFUJI"
-        "0x23": "FLM29100D6U"
-        "0x24": "38:AA:09:53:AB:D0"
-        "0x25": "1750204800"
+        "0x23": "FLM29240A61"
+        "0x24": "D0:85:43:D8:5A:F0"
+        "0x25": "1757980800"
         "0x26": "1"
         "0x29": "master-03250614-V001-dirty"
         "0x2A": "16"
         "0x2B": "CISCO"
         "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
-        "0xFE": "0x2785B338"
+        "0xFE": "0x35554594"
     str3-8102-07-dpu-4:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
       ansible_ssh_port: 5025
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
-      serial: FLM29100D7X
-      base_mac: 38:AA:09:53:AB:E0
+      serial: FLM29240A56
+      base_mac: D0:85:43:D8:5B:00
       syseeprom_info:
         "0x21": "MTFUJI"
         "0x22": "DSS-MTFUJI"
-        "0x23": "FLM29100D7X"
-        "0x24": "38:AA:09:53:AB:E0"
-        "0x25": "1750204800"
+        "0x23": "FLM29240A56"
+        "0x24": "D0:85:43:D8:5B:00"
+        "0x25": "1757980800"
         "0x26": "1"
         "0x29": "master-03250614-V001-dirty"
         "0x2A": "16"
         "0x2B": "CISCO"
         "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
-        "0xFE": "0x80555CFB"
+        "0xFE": "0xD8FA0CA8"
     str3-8102-07-dpu-5:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
       ansible_ssh_port: 5026
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
-      serial: FLM29100D7X
-      base_mac: 38:AA:09:53:AB:F0
+      serial: FLM29240A56
+      base_mac: D0:85:43:D8:5B:10
       syseeprom_info:
         "0x21": "MTFUJI"
         "0x22": "DSS-MTFUJI"
-        "0x23": "FLM29100D7X"
-        "0x24": "38:AA:09:53:AB:F0"
-        "0x25": "1750204800"
+        "0x23": "FLM29240A56"
+        "0x24": "D0:85:43:D8:5B:10"
+        "0x25": "1757980800"
         "0x26": "1"
         "0x29": "master-03250614-V001-dirty"
         "0x2A": "16"
         "0x2B": "CISCO"
         "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
-        "0xFE": "0x1A2017A8"
+        "0xFE": "0x428F47FB"
     str3-8102-07-dpu-6:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
       ansible_ssh_port: 5027
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
-      serial: FLM29100D7M
-      base_mac: 38:AA:09:53:AC:00
+      serial: FLM29240ABE
+      base_mac: D0:85:43:D8:5B:20
       syseeprom_info:
         "0x21": "MTFUJI"
         "0x22": "DSS-MTFUJI"
-        "0x23": "FLM29100D7M"
-        "0x24": "38:AA:09:53:AC:00"
-        "0x25": "1750204800"
+        "0x23": "FLM29240ABE"
+        "0x24": "D0:85:43:D8:5B:20"
+        "0x25": "1757980800"
         "0x26": "1"
         "0x29": "master-03250614-V001-dirty"
         "0x2A": "16"
         "0x2B": "CISCO"
         "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
-        "0xFE": "0xD7403F4E"
+        "0xFE": "0x25AEAE1E"
     str3-8102-07-dpu-7:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
       ansible_ssh_port: 5028
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
-      serial: FLM29100D7M
-      base_mac: 38:AA:09:53:AC:10
+      serial: FLM29240ABE
+      base_mac: D0:85:43:D8:5B:30
       syseeprom_info:
         "0x21": "MTFUJI"
         "0x22": "DSS-MTFUJI"
-        "0x23": "FLM29100D7M"
-        "0x24": "38:AA:09:53:AC:10"
-        "0x25": "1750204800"
+        "0x23": "FLM29240ABE"
+        "0x24": "D0:85:43:D8:5B:30"
+        "0x25": "1757980800"
         "0x26": "1"
         "0x29": "master-03250614-V001-dirty"
         "0x2A": "16"
         "0x2B": "CISCO"
         "0xFD": "0x31 0x32 0x2F 0x30 0x34 0x2F 0x32 0x33 0x0A 0x0A 0x30 0x0A 0x0A 0x30"
-        "0xFE": "0x4D35741D"
+        "0xFE": "0xBFDBE54D"
     str3-cisco-8102-E04-U26-dpu-0:
       ansible_host: 10.3.156.99
       ansible_hostv6: 2a01:111:e210:86::c3
@@ -2559,18 +2559,20 @@ sonic_mlnx_4280_smartswitch:
       mgmt_subnet_v6_mask_length: 122
       hwsku: Mellanox-SN4280-O28
       model: MSN4280-WS2RXOS
-      serial: MT2438XZ0G0L
-      base_mac: B0:CF:0E:32:78:00
+      serial: MT2517XZ0AY7
+      base_mac: 2C:5E:AB:3C:22:00
       syseeprom_info:
         "0x21": "SN4280"
         "0x22": "MSN4280-WS2RXOS"
-        "0x23": "MT2438XZ0G0L"
-        "0x24": "B0:CF:0E:32:78:00"
+        "0x23": "MT2517XZ0AY7"
+        "0x24": "2C:5E:AB:3C:22:00"
+        "0x25": "07/06/2025 14:39:07"
         "0x26": "16"
         "0x28": "x86_64-nvidia_sn4280-r0"
+        "0x29": "2024.08-5.3.0015-9600"
         "0x2A": "222"
         "0x2B": "Nvidia"
-        "0xFE": "0x9A4A6E0F"
+        "0xFE": "0x1E644699"
       plt_reboot_dict:
         cold:
           timeout: 300
@@ -2659,64 +2661,64 @@ sonic_mlnx_bf_4902_smartswitch_dpu:
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
       ansible_ssh_port: 5021
-      model: SA004902
-      serial: MT2428XZ0JWT
-      base_mac: B0:CF:0E:32:78:DE
+      model: SA004932
+      serial: MT2518XZ0CZL
+      base_mac: 2C:5E:AB:3C:22:DE
       syseeprom_info:
         "0x21": "BF-3 P-SERIES BASED COM EXPRESS RE-SPIN MODULE, 64GB DDR5, WITH DENSILINK, DPU MODE"
-        "0x22": "SA004902"
-        "0x23": "MT2428XZ0JWT"
-        "0x24": "B0:CF:0E:32:78:DE"
-        "0x27": "A4"
-        "0xFE": "0x7A77A951"
+        "0x22": "SA004932"
+        "0x23": "MT2518XZ0CZL"
+        "0x24": "2C:5E:AB:3C:22:DE"
+        "0x27": "A2"
+        "0xFE": "0x495E3623"
     str3-msn4280-02-dpu-1:
       ansible_host: 10.3.152.109
       ansible_hostv6: 2a01:111:e210:86::9b
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
       ansible_ssh_port: 5022
-      model: SA004902
-      serial: MT2428XZ0JWL
-      base_mac: B0:CF:0E:32:78:E6
+      model: SA004932
+      serial: MT2518XZ0D05
+      base_mac: 2C:5E:AB:3C:22:E6
       syseeprom_info:
         "0x21": "BF-3 P-SERIES BASED COM EXPRESS RE-SPIN MODULE, 64GB DDR5, WITH DENSILINK, DPU MODE"
-        "0x22": "SA004902"
-        "0x23": "MT2428XZ0JWL"
-        "0x24": "B0:CF:0E:32:78:E6"
-        "0x27": "A4"
-        "0xFE": "0x6A1011AC"
+        "0x22": "SA004932"
+        "0x23": "MT2518XZ0D05"
+        "0x24": "2C:5E:AB:3C:22:E6"
+        "0x27": "A2"
+        "0xFE": "0x4F9C5B35"
     str3-msn4280-02-dpu-2:
       ansible_host: 10.3.152.109
       ansible_hostv6: 2a01:111:e210:86::9b
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
       ansible_ssh_port: 5023
-      model: SA004902
-      serial: MT2428XZ0JWK
-      base_mac: B0:CF:0E:32:78:EE
+      model: SA004932
+      serial: MT2518XZ0D00
+      base_mac: 2C:5E:AB:3C:22:EE
       syseeprom_info:
         "0x21": "BF-3 P-SERIES BASED COM EXPRESS RE-SPIN MODULE, 64GB DDR5, WITH DENSILINK, DPU MODE"
-        "0x22": "SA004902"
-        "0x23": "MT2428XZ0JWK"
-        "0x24": "B0:CF:0E:32:78:EE"
-        "0x27": "A4"
-        "0xFE": "0xC2FE50D1"
+        "0x22": "SA004932"
+        "0x23": "MT2518XZ0D00"
+        "0x24": "2C:5E:AB:3C:22:EE"
+        "0x27": "A2"
+        "0xFE": "0x4FF4ABD9"
     str3-msn4280-02-dpu-3:
       ansible_host: 10.3.152.109
       ansible_hostv6: 2a01:111:e210:86::9b
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
       ansible_ssh_port: 5024
-      model: SA004902
-      serial: MT2428XZ0JVN
-      base_mac: B0:CF:0E:32:78:F6
+      model: SA004932
+      serial: MT2518XZ0D14
+      base_mac: 2C:5E:AB:3C:22:F6
       syseeprom_info:
         "0x21": "BF-3 P-SERIES BASED COM EXPRESS RE-SPIN MODULE, 64GB DDR5, WITH DENSILINK, DPU MODE"
-        "0x22": "SA004902"
-        "0x23": "MT2428XZ0JVN"
-        "0x24": "B0:CF:0E:32:78:F6"
-        "0x27": "A4"
-        "0xFE": "0x0B20AD62"
+        "0x22": "SA004932"
+        "0x23": "MT2518XZ0D14"
+        "0x24": "2C:5E:AB:3C:22:F6"
+        "0x27": "A2"
+        "0xFE": "0x3FD18D82"
     str3-nvidia-4280-E04-U22-dpu-0:
       ansible_host: 10.3.156.98
       ansible_hostv6: 2a01:111:e210:86::c2

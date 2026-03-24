@@ -764,6 +764,25 @@ sonic_mlnx_4700:
         "0x28": "64 x86_64-mlnx_msn4700-r0"
         "0x29": "2022.08-5.3.0010-9600"
         "0x2B": "Mellanox"
+    str-sn4700-f04-u31:
+      ansible_host: 10.3.146.182
+      ansible_hostv6: 2a01:111:e210:3000::a03:92b6
+      mgmt_subnet_mask_length: 24
+      hwsku: Mellanox-SN4700-O8V48
+      iface_speed:
+      model: MSN4700-WS2FO
+      serial: MT2326XZ04NJ
+      base_mac: 9C:05:91:4B:FA:00
+      syseeprom_info:
+        "0x21": "MSN4700"
+        "0x22": "MSN4700-WS2FO"
+        "0x23": "MT2326XZ04NJ"
+        "0x24": "9C:05:91:4B:FA:00"
+        "0x25": "06/29/2023 11:12:06"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn4700-r0"
+        "0x29": "2022.08-5.3.0010-115200"
+        "0x2B": "Mellanox"
 
 sonic_arista_7060x6_512:
   hosts:
@@ -851,6 +870,28 @@ sonic_arista_7060x6_512:
         "0x2B": "Arista Networks"
         "0x2D": "Arista Networks"
         "0x2F": "HBG25160FGQ"
+    str43-7060x6-64pe-lt2:
+      ansible_host: 10.64.247.68
+      ansible_hostv6: 2a01:111:e210:b000::a40:f744
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060X6-64PE-P32O64
+      model: DCS-7060X6-64PE-B
+      serial: HBG25160FLK
+      base_mac: d8:06:f3:5f:1a:50
+      syseeprom_info:
+        "0x21": "DCS-7060X6-64PE-B"
+        "0x22": "ASY0899401A0"
+        "0x23": "HBG25160FLK"
+        "0x24": "d8:06:f3:5f:1a:50"
+        "0x25": "2025/04/21 23:42:35"
+        "0x26": "11.00"
+        "0x27": "02.00"
+        "0x28": "QuicksilverP512"
+        "0x2B": "Arista Networks"
+        "0x2D": "Arista Networks"
+        "0x2F": "HBG25160FLK"
+
 
 acs_ixia_dscp:
   hosts:

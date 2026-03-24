@@ -1516,6 +1516,26 @@
   auto_recover: 'True'
   comment: v-cshekar
 
+- conf-name: vms20-rdma-t0-7260cx3
+  group-name: vms20-ixia-11
+  topo: tgen-t0-3-32
+  ptf_image_name: docker-keysight-api-server
+  ptf_imagetag: 10.80.2412.176
+  ptf: ixia-apiserver4
+  ptf_ip: 10.64.246.126/25
+  server: server_20
+  vm_base:
+  dut:
+  - STR-7260CX3-C19-U39
+  inv_name: ixia
+  test_tags: []
+  l1s:
+  - str-ocs-dlx64-acs-07
+  tgs:
+  - msr-ixia-4
+  auto_recover: 'False'
+  comment: ediwibowo
+
 - conf-name: testbed-bjw-can-3800-1
   group-name: bjw7-7
   topo: t1
@@ -3582,6 +3602,14 @@
   dut:
     - str2-mlnx-4280-smartswitch-02
     - str2-mlnx-4280-smartswitch-03
+    - str2-mlnx-4280-smartswitch-02-dpu-0
+    - str2-mlnx-4280-smartswitch-02-dpu-1
+    - str2-mlnx-4280-smartswitch-02-dpu-2
+    - str2-mlnx-4280-smartswitch-02-dpu-3
+    - str2-mlnx-4280-smartswitch-03-dpu-0
+    - str2-mlnx-4280-smartswitch-03-dpu-1
+    - str2-mlnx-4280-smartswitch-03-dpu-2
+    - str2-mlnx-4280-smartswitch-03-dpu-3
   inv_name: str2
   auto_recover: 'True'
   is_smartswitch: 'True'
@@ -4473,6 +4501,21 @@
   auto_recover: 'True'
   comment: v-ryannikan
 
+- conf-name: ptp-sn4700-5
+  group-name:
+  topo: ptp-56
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str-sn4700-f04-u31
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-ryannikan
+
 - conf-name: testbed-bjw3-can-7215a1d-1
   group-name: bjw3-3-2
   topo: mx
@@ -4903,7 +4946,7 @@
 
 - conf-name: vmsvc-ut2-nh5010-3
   group-name: svc3-2
-  topo: t2_single_node_min_nexthop_ut2
+  topo: t2_single_node_max_64p
   ptf_image_name: docker-ptf
   ptf: svc3-2
   ptf_ip: 10.206.144.11/24
@@ -5286,14 +5329,14 @@
   comment: yatishkoul
 
 - conf-name: vmsvc-ut2-nh5010-2
-  group-name: svc3-3
-  topo: t2_single_node_max_38p
+  group-name: svc8-1
+  topo: t2_single_node_max_64p
   ptf_image_name: docker-ptf
-  ptf: svc3-3
+  ptf: svc8-1
   ptf_ip: 10.206.144.91/24
   ptf_ipv6: 2a01:111:e205:100::ace:905b/64
-  server: server_svc_3
-  vm_base: VM30102
+  server: server_svc_8
+  vm_base: VM30160
   dut:
   - svcstr-nh5010-ut2-2
   inv_name: strsvc
@@ -5578,3 +5621,18 @@
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.169/17
+
+- conf-name: ptp-7060x6-64-5
+  group-name:
+  topo: ptp-96
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str43-7060x6-64pe-lt2
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-shankam

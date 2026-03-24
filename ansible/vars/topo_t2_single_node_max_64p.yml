@@ -330,7 +330,7 @@ topology:
 configuration_properties:
   common:
     dut_asn: 65100
-    dut_type: SpineRouter
+    dut_type: UpperSpineRouter
     podset_number: 400
     tor_number: 16
     tor_subnet_number: 8
