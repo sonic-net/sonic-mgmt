@@ -26,6 +26,10 @@ pytestmark = [
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_STATE_WAIT_TIMEOUT_SECS = 60
+T2_RESTORE_WAIT_TIMEOUT_SECS = 120
+LONG_RESTORE_WAIT_TOPOLOGIES = {"lt2", "ft2"}
+
 
 @pytest.fixture(scope="class")
 def pfc_queue_idx():
@@ -208,7 +212,12 @@ class TestPfcwdAllPortStorm(object):
     # Threshold percentage for restore verification (100% of stormed ports must restore)
     PFC_RESTORE_THRESHOLD_PERCENTAGE = 100
 
-    def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action, selected_test_ports,
+    def get_state_wait_timeout(self, action, topo_name):
+        if action == "restore" and topo_name in LONG_RESTORE_WAIT_TOPOLOGIES:
+            return T2_RESTORE_WAIT_TIMEOUT_SECS
+        return DEFAULT_STATE_WAIT_TIMEOUT_SECS
+
+    def run_test(self, duthost, storm_hndle, expect_regex, syslog_marker, action, selected_test_ports, topo_name,
                  stormed_ports_list=None):
         """Storm generation/restoration on all ports and verification."""
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=syslog_marker)
@@ -233,10 +242,11 @@ class TestPfcwdAllPortStorm(object):
                 threshold = self.PFC_RESTORE_THRESHOLD_PERCENTAGE
 
             port_type = "ports" if action == "storm" else "stormed ports"
-            logger.info(f"Waiting for {threshold}% of {port_type} to reach {action} state")
+            wait_timeout = self.get_state_wait_timeout(action, topo_name)
+            logger.info(f"Waiting up to {wait_timeout} seconds for {threshold}% of {port_type} to reach {action} state")
 
             pytest_assert(
-                wait_until(60, 2, 5, verify_all_ports_pfc_storm_in_expected_state, duthost,
+                wait_until(wait_timeout, 2, 5, verify_all_ports_pfc_storm_in_expected_state, duthost,
                            storm_hndle, action, selected_test_ports, baseline_counters, threshold,
                            stormed_ports_list),
                 f"Not enough ports reached {action} state (threshold: {threshold}%)"
@@ -244,7 +254,7 @@ class TestPfcwdAllPortStorm(object):
 
     def test_all_port_storm_restore(
             self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-            storm_test_setup_restore, setup_pfc_test, ptfhost,
+            storm_test_setup_restore, setup_pfc_test, ptfhost, tbinfo,
             setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,     # noqa: F811
             toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                  # noqa: F811
             set_pfc_time_cisco_8000):
@@ -257,6 +267,7 @@ class TestPfcwdAllPortStorm(object):
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         storm_hndle = storm_test_setup_restore
+        topo_name = tbinfo["topo"]["name"].lower()
         logger.info("--- Testing if PFC storm is detected on all ports ---")
 
         # Track which ports actually enter storm state
@@ -285,6 +296,7 @@ class TestPfcwdAllPortStorm(object):
                           expect_regex=[EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(duthost)],
                           syslog_marker="all_port_storm",
                           action="storm",
+                          topo_name=topo_name,
                           stormed_ports_list=stormed_ports_list,
                           selected_test_ports=selected_test_ports)
 
@@ -292,5 +304,6 @@ class TestPfcwdAllPortStorm(object):
         logger.info("--- Testing if PFC storm is restored on stormed ports ---")
         self.run_test(duthost, storm_hndle, expect_regex=[EXPECT_PFC_WD_RESTORE_RE],
                       syslog_marker="all_port_storm_restore", action="restore",
+                      topo_name=topo_name,
                       stormed_ports_list=stormed_ports_list,
                       selected_test_ports=selected_test_ports)
