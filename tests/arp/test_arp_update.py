@@ -5,7 +5,7 @@ import ptf.testutils as testutils
 import pytest
 import random
 
-from tests.arp.arp_utils import clear_dut_arp_cache, fdb_cleanup, get_dut_mac, fdb_has_mac, get_first_vlan_ipv4
+from tests.arp.arp_utils import clear_dut_arp_cache, fdb_cleanup, get_dut_mac, fdb_has_mac, get_vlan_last_ipv4
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.fixtures.ptfhost_utils import setup_vlan_arp_responder, run_icmp_responder  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -61,7 +61,7 @@ def dut_interface_info(rand_selected_dut, config_facts, tbinfo):
     """
     duthost = rand_selected_dut
     dut_mac = get_dut_mac(duthost, config_facts, tbinfo)
-    vlan_name, dut_ipv4 = get_first_vlan_ipv4(config_facts)
+    vlan_name, dut_ipv4 = get_vlan_last_ipv4(config_facts)
 
     return {
         'host': duthost,
