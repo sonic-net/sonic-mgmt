@@ -272,6 +272,10 @@ pdu-130,5,str3-cisco-8102-E04-U26-dpu-6,PSU1,
 pdu-132,3,str3-cisco-8102-E04-U26-dpu-6,PSU2,
 pdu-130,5,str3-cisco-8102-E04-U26-dpu-7,PSU1,
 pdu-132,3,str3-cisco-8102-E04-U26-dpu-7,PSU2,
+pdu-242,29,str3-d03u27-sn4700-01,PSU1,
+pdu-97,30,str3-d03u27-sn4700-01,PSU2,
+pdu-242,28,str3-d03u26-sn4700-02,PSU1,
+pdu-97,29,str3-d03u26-sn4700-02,PSU2,
 Sentry_6224b9,48,str3-7280r4-ut2-1,PSU1
 pdu-137,9,str3-7280r4-ut2-1,PSU2
 Sentry_6224b9,24,str3-7280r4-ut2-2,PSU1

@@ -4516,6 +4516,36 @@
   auto_recover: 'True'
   comment: v-ryannikan
 
+- conf-name: ptp-sn4700-6
+  group-name:
+  topo: ptp-64
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str3-d03u27-sn4700-01
+  inv_name: str3
+  auto_recover: 'True'
+  comment: v-dtesemma
+
+- conf-name: ptp-sn4700-7
+  group-name:
+  topo: ptp-64
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str3-d03u26-sn4700-02
+  inv_name: str3
+  auto_recover: 'True'
+  comment: v-dtesemma
+
 - conf-name: testbed-bjw3-can-7215a1d-1
   group-name: bjw3-3-2
   topo: mx
