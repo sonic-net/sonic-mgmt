@@ -243,8 +243,6 @@ def test_ingress_drop_intermittent_returns_tuple_not_exception(mock_observer):
     Algorithm callers do not use try/except — they expect a tuple and check
     'if not success:' to handle failures. Raising breaks the contract.
     """
-    from sim_ingress_drop_probing_executor import SimIngressDropProbingExecutorIntermittent
-
     executor = SimIngressDropProbingExecutorIntermittent(
         observer=mock_observer,
         name='test_intermittent',
@@ -264,8 +262,6 @@ def test_ingress_drop_intermittent_returns_tuple_not_exception(mock_observer):
 @pytest.mark.order(15)
 def test_ingress_drop_intermittent_success_path(mock_observer):
     """Intermittent executor normal path (no failure) returns correct result."""
-    from sim_ingress_drop_probing_executor import SimIngressDropProbingExecutorIntermittent
-
     executor = SimIngressDropProbingExecutorIntermittent(
         observer=mock_observer,
         name='test_intermittent_ok',

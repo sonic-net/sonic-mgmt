@@ -252,8 +252,6 @@ def test_pfc_xoff_intermittent_returns_tuple_not_exception(mock_observer):
     Algorithm callers do not use try/except — they expect a tuple and check
     'if not success:' to handle failures. Raising breaks the contract.
     """
-    from sim_pfc_xoff_probing_executor import SimPfcXoffProbingExecutorIntermittent
-
     executor = SimPfcXoffProbingExecutorIntermittent(
         observer=mock_observer,
         name='test_intermittent',
@@ -273,8 +271,6 @@ def test_pfc_xoff_intermittent_returns_tuple_not_exception(mock_observer):
 @pytest.mark.order(13)
 def test_pfc_xoff_intermittent_success_path(mock_observer):
     """Intermittent executor normal path (no failure) returns correct result."""
-    from sim_pfc_xoff_probing_executor import SimPfcXoffProbingExecutorIntermittent
-
     executor = SimPfcXoffProbingExecutorIntermittent(
         observer=mock_observer,
         name='test_intermittent_ok',

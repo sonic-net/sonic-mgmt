@@ -1034,7 +1034,7 @@ class TestBufferCleanupOnPgFailure:
              patch('headroom_pool_probing.ProbingObserver'):
 
             for mock_cls, se in [(mock_upper, upper_se), (mock_lower, lower_se),
-                                  (mock_range, range_se), (mock_point, point_se)]:
+                                 (mock_range, range_se), (mock_point, point_se)]:
                 mock_algo = MagicMock()
                 mock_algo.run.side_effect = se
                 mock_cls.return_value = mock_algo
