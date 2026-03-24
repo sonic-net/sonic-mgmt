@@ -930,7 +930,7 @@ class TestPfcXoffProbing:
                 f"Result [{result.lower_bound}, {result.upper_bound}] should bracket threshold {actual_threshold}"
             print(f"[PASS] Threshold=1 boundary: result=[{result.lower_bound}, {result.upper_bound}]")
         else:
-            print(f"[PASS] Threshold=1 boundary: probing completed (result=FAILED, expected for extreme case)")
+            print("[PASS] Threshold=1 boundary: probing completed (result=FAILED, expected for extreme case)")
 
     def test_pfc_xoff_threshold_at_two(self):
         """
@@ -1091,7 +1091,7 @@ class TestPfcXoffProbing:
         sys.stderr = old_stderr
         output = captured.getvalue()
 
-        phase3_lines = [l for l in output.split('\n') if l.strip().startswith('| 3.')]
+        phase3_lines = [line for line in output.split('\n') if line.strip().startswith('| 3.')]
 
         assert result is not None
         assert len(phase3_lines) < 30, \

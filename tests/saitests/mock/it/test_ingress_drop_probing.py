@@ -728,7 +728,7 @@ class TestIngressDropProbing:
         sys.stderr = old_stderr
         output = captured.getvalue()
 
-        phase3_lines = [l for l in output.split('\n') if l.strip().startswith('| 3.')]
+        phase3_lines = [line for line in output.split('\n') if line.strip().startswith('| 3.')]
 
         assert result is not None
         assert len(phase3_lines) < 30, \
