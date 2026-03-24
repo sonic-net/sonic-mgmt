@@ -110,7 +110,7 @@ rollback_network_config() {
     echo "!!! ERROR DETECTED - Attempting to rollback network configuration !!!"
     echo ""
 
-    if [[ $ROLLBACK_REQUIRED -eq false ]]; then
+    if [[ "$ROLLBACK_REQUIRED" == "false" ]]; then
         echo "No rollback needed - network configuration not yet modified"
         return 0
     fi
@@ -287,18 +287,18 @@ configure_ptf_network() {
     if [[ -n "$DNS_SERVERS" ]]; then
         echo "Configuring custom DNS servers: $DNS_SERVERS"
         # Backup original resolv.conf
-        nsenter -t $PTF_PID -n cp /etc/resolv.conf /etc/resolv.conf.backup 2>/dev/null || true
+        nsenter -t $PTF_PID -n -m cp /etc/resolv.conf /etc/resolv.conf.backup 2>/dev/null || true
         # Append custom DNS servers
         for dns in $DNS_SERVERS; do
-            nsenter -t $PTF_PID -n bash -c "echo 'nameserver $dns' >> /etc/resolv.conf"
+            nsenter -t $PTF_PID -n -m bash -c "echo 'nameserver $dns' >> /etc/resolv.conf"
         done
     else
         # No custom DNS provided, check if existing DNS configuration is present
-        existing_dns=$(nsenter -t $PTF_PID -n grep -c "^nameserver" /etc/resolv.conf 2>/dev/null || echo "0")
+        existing_dns=$(nsenter -t $PTF_PID -n -m grep -c "^nameserver" /etc/resolv.conf 2>/dev/null || echo "0")
         if [[ "$existing_dns" -eq 0 ]]; then
             echo "No existing DNS configuration found, adding Google Public DNS"
-            nsenter -t $PTF_PID -n bash -c "echo 'nameserver 8.8.8.8' >> /etc/resolv.conf"
-            nsenter -t $PTF_PID -n bash -c "echo 'nameserver 8.8.4.4' >> /etc/resolv.conf"
+            nsenter -t $PTF_PID -n -m bash -c "echo 'nameserver 8.8.8.8' >> /etc/resolv.conf"
+            nsenter -t $PTF_PID -n -m bash -c "echo 'nameserver 8.8.4.4' >> /etc/resolv.conf"
         else
             echo "Existing DNS configuration preserved ($existing_dns nameservers found)"
         fi
