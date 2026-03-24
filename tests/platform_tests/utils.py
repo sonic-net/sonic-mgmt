@@ -22,15 +22,10 @@ def is_pddf_supported_and_enabled(duthost):
     Returns:
         bool: True if PDDF is supported and enabled, False otherwise
     """
-    result = duthost.shell("which pddf_ledutil", module_ignore_errors=True)
-    if result["rc"] != 0:
-        return False
-
-    result = duthost.shell("sudo pddf_ledutil getstatusled SYS_LED", module_ignore_errors=True)
-    if "PDDF mode should be supported" in result["stdout"]:
-        return False
-
-    return True
+    result = duthost.shell(
+        "test -f /usr/share/sonic/platform/pddf_support", module_ignore_errors=True
+    )
+    return result["rc"] == 0
 
 
 def get_max_to_reboot(duthost, test_name):
