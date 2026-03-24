@@ -41,8 +41,17 @@ else:
         SnmpEngine,
         ContextData,
         ObjectType,
-        ObjectIdentity
+        ObjectIdentity,
+        usmHMACMD5AuthProtocol,
+        usmHMACSHAAuthProtocol,
+        usmDESPrivProtocol,
+        usmAesCfb128Protocol
     )
+    # For pysnmp v5+, add the protocol constants to cmdgen module for compatibility
+    cmdgen.usmHMACMD5AuthProtocol = usmHMACMD5AuthProtocol
+    cmdgen.usmHMACSHAAuthProtocol = usmHMACSHAAuthProtocol
+    cmdgen.usmDESPrivProtocol = usmDESPrivProtocol
+    cmdgen.usmAesCfb128Protocol = usmAesCfb128Protocol
 
 DOCUMENTATION = '''
 ---

@@ -151,6 +151,13 @@ class GenerateGoldenConfigDBModule(object):
         # disable bmp feature table first
         return False
 
+    def has_otel_image(self):
+        rc, out, _ = self.module.run_command("docker images --format '{{.Repository}}'")
+        if rc != 0:
+            return False
+        repos = [line.strip().lower() for line in out.splitlines() if line.strip()]
+        return "docker-sonic-otel" in repos
+
     def get_config_from_minigraph(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
@@ -566,6 +573,19 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps({"PORT": port_config}, indent=4)
 
+    def generate_dummy_hft_config_db(self, config):
+        json_config = json.loads(config)
+        json_config["HIGH_FREQUENCY_TELEMETRY_PROFILE"] = {
+            "default": {
+                "stream_state": "disabled",
+                "poll_interval": "10000"
+            }
+        }
+        json_config["HIGH_FREQUENCY_TELEMETRY_GROUP"] = {
+            "default|PORT": {}
+        }
+        return json.dumps(json_config, indent=4)
+
     def generate(self):
         module_msg = "Success to generate golden_config_db.json"
         # topo check
@@ -606,6 +626,10 @@ class GenerateGoldenConfigDBModule(object):
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
 
+        # Enable otel feature when docker-sonic-otel image exists
+        if self.has_otel_image():
+            config = self.overwrite_feature_golden_config_db_singleasic(config, "otel", "enabled", "enabled")
+
         # Disable dash-ha feature for all multi-asic platforms
         if multi_asic.is_multi_asic():
             config = self.overwrite_feature_golden_config_db_multiasic(config, "dash-ha", feature_data={
@@ -615,6 +639,10 @@ class GenerateGoldenConfigDBModule(object):
                     "has_per_asic_scope": "True",
                 }
             })
+
+        # Generate dummy table for HFT
+        if not multi_asic.is_multi_asic():
+            config = self.generate_dummy_hft_config_db(config)
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)

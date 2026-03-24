@@ -20,8 +20,8 @@ EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
 VENDOR_SPEC_ADDITIONAL_INFO_RE = {
     "mellanox":
         r"additional info: occupancy:[0-9]+\|packets:[0-9]+\|packets_last:[0-9]+\|pfc_rx_packets:[0-9]+\|"
-        r"pfc_rx_packets_last:[0-9]+\|pfc_duration:[0-9]+\|pfc_duration_last:[0-9]+\|timestamp:[0-9]+\.[0-9]+\|"
-        r"timestamp_last:[0-9]+\.[0-9]+\|(effective|real)_poll_time:[0-9]+"
+        r"pfc_rx_packets_last:[0-9]+\|pfc_duration:[0-9]+\|pfc_duration_last:[0-9]+\|timestamp:[0-9]+(?:\.[0-9]+)?\|"
+        r"timestamp_last:[0-9]+(?:\.[0-9]+)?\|(?:effective|real)_poll_time:[0-9]+(?:\.[0-9]+)?"
     }
 
 EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
