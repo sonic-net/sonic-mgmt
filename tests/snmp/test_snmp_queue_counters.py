@@ -1,10 +1,10 @@
 """
-Validates SNMP queue counter behavior with create_only_config_db_buffers 
+Validates SNMP queue counter behavior with create_only_config_db_buffers
 optimization: that SNMP correctly exposes queue counters and that removing
 buffer queue configuration properly reduces the counter count.
 
-N.B.: The SNMP agent reads queue information from COUNTERS_QUEUE_NAME_MAP 
-in Redis which contains ALL SAI queue objects. SNMP exposes all queue 
+N.B.: The SNMP agent reads queue information from COUNTERS_QUEUE_NAME_MAP
+in Redis which contains ALL SAI queue objects. SNMP exposes all queue
 objects that exist in the hardware/SAI layer.
 """
 
