@@ -239,6 +239,7 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
         )
 
         if test_type == "bgp_docker":
+            duthost.shell("systemctl reset-failed bgp", module_ignore_errors=True)
             duthost.shell("systemctl restart bgp")
         elif test_type == "swss_docker":
             duthost.shell("systemctl restart swss")
