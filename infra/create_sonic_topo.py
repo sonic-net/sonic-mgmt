@@ -48,7 +48,7 @@ TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
 SFD_SUPPORTED_NUM_LC = 2
 
 # LC combinations supported for SFD T2 min topology
-SFD_SUPPORTED_LC_TOPO = {'GG', 'VG', 'VL'}
+SFD_SUPPORTED_LC_TOPO = {'GG', 'VG', 'VL', 'LL'}
 
 # LC type and code mapping for SFD LCs
 SFD_LC_TOPO_CODE = {
@@ -154,7 +154,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=False,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't1-28-lag', 't1-lag-dash-4', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t2-min-VG", "t2-min-VL", "t0", "t1"])
+                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't1-28-lag', 't1-lag-dash-4', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t2-min-VG", "t2-min-VL", "t2-min-LL", "t0", "t1"])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
@@ -333,8 +333,9 @@ def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
         logging.info("Overwrote lab file for T2 specific oddities")
 
     logging.info("Deploying MG")
-    deploy_mg_cmd = "cd /data/ansible; ./testbed-cli.sh -t testbed.csv deploy-mg docker-ptf lab group_vars/lab/secrets.yml"
-    _run_cmd_in_ssh_container(ssh, DEFAULT_SONIC_MGMT_DOCKER_CONTAINER_NAME, deploy_mg_cmd)
+    deploy_mg_cmd = "cd /data/ansible; ./testbed-cli.sh -t testbed.csv deploy-mg docker-ptf lab group_vars/lab/secrets.yml > deploy-mg.log"
+    # deploy-mg can take several minutes (minigraph load, config push); use 10 min timeout to avoid Paramiko timeout
+    _run_cmd_in_ssh_container(ssh, DEFAULT_SONIC_MGMT_DOCKER_CONTAINER_NAME, deploy_mg_cmd, timeout=600)
     logging.info("Deploying MG is finished")
     ssh.close()
 
@@ -672,6 +673,9 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'
         if lc_topo_code == 'VL':
             ftp_client.put('lab_connection_graph_t2_2lc_vl_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
             ftp_client.put('sonic_t2/topo_t2_2lc_min_ports-vl.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t2_2lc_min_ports-masic.yml')
+        elif lc_topo_code == 'LL':
+            ftp_client.put('lab_connection_graph_t2_2lc_ll_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+            ftp_client.put('sonic_t2/topo_t2_2lc_min_ports-ll.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t2_2lc_min_ports-masic.yml')
         else:
             ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
             ftp_client.put('sonic_t2/topo_t2_2lc_min_ports-masic.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t2_2lc_min_ports-masic.yml')
@@ -924,7 +928,7 @@ def get_dut_platform(device_type):
     else:
         return "mathilda"
 
-def determine_base_topo(topo_type, device_type):
+def determine_base_topo(topo_type, device_type, original_topo_type=None):
     ptf_intfcount = 32
     if topo_type in ['t2-vs', 't2-min']:
         assert device_type == 'sfd', "Only SF-D is currently supported with T2 topologies"
@@ -933,7 +937,13 @@ def determine_base_topo(topo_type, device_type):
             base_topo_file = 'testbed-t2-vs.yaml'
             vEOS_count = 4
         elif topo_type == 't2-min':
-            base_topo_file = 'testbed-t2-2lc-min-ports.yaml'
+            # t2-min-VL and t2-min-LL use same testbed with VL/LL port set (LC0/LC1 400G ports)
+            if original_topo_type == 't2-min-VL':
+                base_topo_file = 'testbed-t2-2lc-min-ports-gb-lc-VL.yaml'
+            elif original_topo_type == 't2-min-LL':
+                base_topo_file = 'testbed-t2-2lc-min-ports-gb-lc-LL.yaml'
+            else:
+                base_topo_file = 'testbed-t2-2lc-min-ports.yaml'
             vEOS_count = 8
     elif topo_type == 't0':
         os.system("cp sonic_t0_topo/* .")
@@ -1063,11 +1073,11 @@ def start_vxr(input_file, cicd, clean_sim, topo_yaml):
     if input_file:
         return vxr_path, input_file
 
-    if cicd:
-        vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py"
-
     if clean_sim:
         os.system("{} clean".format(vxr_path))
+
+    if cicd:
+        vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py"
 
     os.system("bash -c '{} start {} |& tee sim_op.log'".format(vxr_path, topo_yaml))
 
@@ -1115,10 +1125,11 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
 
     # Change DUT password and set mgmt ip address
 
-    for dut_name in get_dut_names(data):
-        logging.info("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
-        change_dut_passwd(data[dut_name])
-        logging.info("********** Change DUT password for DUT #{} and set mgmt ip address is finished ***********".format(dut_name))
+    if device_type != 'sfd':
+        for dut_name in get_dut_names(data):
+            logging.info("********** Change DUT password for DUT #{} and set mgmt ip address ***********".format(dut_name))
+            change_dut_passwd(data[dut_name])
+            logging.info("********** Change DUT password for DUT #{} and set mgmt ip address is finished ***********".format(dut_name))
 
     if add_sim_patch:
         logging.info("********** Add simulation patches to handle eth4 **********")
@@ -1342,11 +1353,12 @@ def main():
 
     dut_platform = get_dut_platform(device_type)
 
-    if topo_type == 't2-min-VG' or topo_type == 't2-min-VL':
+    original_topo_type = topo_type
+    if topo_type in ('t2-min-VG', 't2-min-VL', 't2-min-LL'):
         # All LC combinations for SFD T2 min topology use same Sonic-mgmt SIM topology
         topo_type = 't2-min'
 
-    base_topo_file, vEOS_count, ptf_intfcount = determine_base_topo(topo_type, device_type)
+    base_topo_file, vEOS_count, ptf_intfcount = determine_base_topo(topo_type, device_type, original_topo_type)
 
     logging.info("USING BASE TOPO {}".format(base_topo_file))
 

@@ -625,7 +625,7 @@ test_tag={test_tag},
     normalized_device_type = device_type.strip().lower() if device_type else device_type
     get_testcases(script_file, test_tag, normalized_topo_type, additional_tests, normalized_device_type)
 
-    if topo_type in ['t2-min-VG', 't2-min-VL']:
+    if topo_type in ['t2-min-VG', 't2-min-VL', 't2-min-LL']:
         # Keep execution topology as t2-min while allowing testcase selection from variant topology.
         testcase_topo_type = normalized_topo_type
         topo_type = 't2-min'
