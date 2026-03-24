@@ -175,6 +175,62 @@ def skip_lossy_buffer_only(is_lossy_only_pool):
         pytest.skip("Skip test for lossy only pool")
 
 
+# Global variable to track fixture failures per parameter set for TestQosSai
+_fixture_failures = {}
+
+
+def pytest_runtest_makereport(item, call):
+    """Pytest hook that runs after each test phase (setup/call/teardown).
+
+    This hook detects fixture failures during setup and records them so that
+    subsequent tests in the same parameter set can be skipped.
+    """
+    # Only track setup failures for TestQosSai tests
+    if not (hasattr(item, 'cls') and item.cls and item.cls.__name__ == 'TestQosSai'):
+        return
+
+    # Check if setup phase failed
+    if call.when == "setup" and call.excinfo is not None:
+        # A fixture failed during setup - extract parameter set
+        test_name = item.name
+        if '[' in test_name:
+            params = test_name.split('[')[1].rstrip(']')
+            param_set = params.split('-')[0]
+        else:
+            param_set = 'default'
+
+        # Mark this parameter set as having fixture failures
+        _fixture_failures[param_set] = True
+
+
+def pytest_runtest_setup(item):
+    """Pytest hook that runs before any test setup (including fixtures).
+
+    This hook skips tests if fixtures failed for this parameter set.
+    """
+    # Only apply to tests in TestQosSai class
+    if not (hasattr(item, 'cls') and item.cls and item.cls.__name__ == 'TestQosSai'):
+        return
+
+    # Don't skip testParameter itself - let it run and fail naturally
+    if 'testParameter' in item.name:
+        return
+
+    # Extract parameter set from test name
+    # Format: testName[param_set-other_params] or testName[param_set]
+    test_name = item.name
+    if '[' in test_name:
+        params = test_name.split('[')[1].rstrip(']')
+        # Get the first parameter (the fixture parameter set like 'single_asic')
+        param_set = params.split('-')[0]
+    else:
+        param_set = 'default'
+
+    # Skip if fixtures failed for this parameter set
+    if param_set in _fixture_failures:
+        pytest.skip(f"Skipping because fixtures failed for parameter set [{param_set}]")
+
+
 @pytest.fixture(scope="module", autouse=True)
 def enable_dscp_remapping_on_dualtor_flag(request, duthost):
     """
