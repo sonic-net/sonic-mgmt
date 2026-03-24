@@ -335,12 +335,11 @@ def vxlan_udp_dport(request, duthost):
 
 
 @pytest.fixture(scope="module")
-def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
+def set_vxlan_udp_sport_range(dpuhosts):
     """
     Configure VXLAN UDP source port range in dpu configuration.
 
     """
-    dpuhost = dpuhosts[dpu_index]
     vxlan_sport_config = [
         {
             "SWITCH_TABLE:switch": {
@@ -353,15 +352,17 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
 
     logger.info(f"Setting VXLAN source port config: {vxlan_sport_config}")
     config_path = "/tmp/vxlan_sport_config.json"
-    dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
-    apply_swssconfig_file(dpuhost, config_path)
-    if 'pensando' in dpuhost.facts['asic_type']:
-        logger.warning("Applying Pensando DPU VXLAN sport workaround")
-        dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
+    for dpuhost in dpuhosts:
+        dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
+        apply_swssconfig_file(dpuhost, config_path)
+        if 'pensando' in dpuhost.facts['asic_type']:
+            logger.warning("Applying Pensando DPU VXLAN sport workaround")
+            dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
     yield
-
-    if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
-        config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    for dpuhost in dpuhosts:
+        if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0"
+                                                         " hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
+            config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 @pytest.fixture(scope="module")
@@ -530,6 +531,7 @@ def generate_vdpu_config(dpu_count=8):
 
 def generate_remote_dpu_config_for_dut(
     switch_id: int,
+    tbinfo,
     dpu_count=8,
     swbus_start=23606
 ):
@@ -542,7 +544,9 @@ def generate_remote_dpu_config_for_dut(
 
     remote_switch_id = 1 - switch_id
 
-    remote_npu_ip = f"10.1.{remote_switch_id}.32"
+    topo_dut = tbinfo["topo"]["properties"]["topology"]["DUT"]
+    remote_loopback = topo_dut["loopback"]["ipv4"][remote_switch_id]
+    remote_npu_ip = remote_loopback.split("/")[0]
     pa_prefix = f"20.0.20{remote_switch_id}."
 
     remote = {}
@@ -587,7 +591,7 @@ def generate_ha_config_for_dut(switch_id: int, duthost, tbinfo):
 
     return {
         "DPU": generate_local_dpu_config(switch_id),
-        "REMOTE_DPU": generate_remote_dpu_config_for_dut(switch_id),
+        "REMOTE_DPU": generate_remote_dpu_config_for_dut(switch_id, tbinfo),
         "VDPU": generate_vdpu_config(),
         "DASH_HA_GLOBAL_CONFIG": {
             "GLOBAL": {
