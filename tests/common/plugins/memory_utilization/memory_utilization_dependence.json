@@ -6,7 +6,7 @@
     "Mellanox-SN5640": ["Mellanox-SN5640-C448O16", "Mellanox-SN5640-C512S2"],
     "Arista-7060CX": ["Arista-7060CX-32S-C32", "Arista-7060CX-32S-D48C8"],
     "Arista-7260CX3": ["Arista-7260CX3-C64", "Arista-7260CX3-D108C8", "Arista-7260CX3-D108C10"],
-    "Mellanox-SN6600":["Mellanox-SN6600-C512S4", "Mellanox-SN6600-V512S4"]
+    "Mellanox-SN6600":["Mellanox-SN6600-C512S4", "Mellanox-SN6600_LD-V512C2", "Mellanox-SN6600_LD-V448P16C2"]
   },
   "COMMON": [
     {
