@@ -119,7 +119,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.conditional_mark',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
-                  'tests.common.fixtures.duthost_utils')
+                  'tests.common.fixtures.duthost_utils',
+                  'tests.common.plugins.parallel_fixture')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
@@ -322,7 +323,25 @@ def pytest_addoption(parser):
     #   SmartSwitch options    #
     ############################
     parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
-
+    parser.addoption(
+        "--ss_target_index",
+        action="store",
+        default="",
+        help="Single SmartSwitch target DPU index (e.g. 0 or 3)",
+    )
+    parser.addoption(
+        "--ss_target_indices",
+        action="store",
+        default="",
+        help="Comma-separated SmartSwitch target DPU indices for parallel tests (e.g. 0,1,2)",
+    )
+    parser.addoption(
+        "--ss-max-workers",
+        action="store",
+        type=int,
+        default=4,
+        help="Max parallel workers for SmartSwitch gNOI upgrade tests (default: 4)",
+    )
     ##################################
     #   Container Upgrade options    #
     ##################################
@@ -488,6 +507,9 @@ def get_specified_device_info(request, device_pattern):
         return [get_target_hostname(request)]
 
     host_pattern = request.config.getoption(device_pattern)
+    # When no DPUs specified (None/"None"/empty), return [] so DPU tests skip instead of fail
+    if device_pattern == '--dpu-pattern' and (host_pattern is None or host_pattern == 'None' or host_pattern == ''):
+        return []
     if host_pattern == 'all':
         if device_pattern == '--dpu-pattern':
             testbed_duts = [dut for dut in testbed_duts if 'dpu' in dut]
