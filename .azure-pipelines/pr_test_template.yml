@@ -89,6 +89,8 @@ jobs:
     timeoutInMinutes: 10
     steps:
       - template: cancel-previous-elastictest-testplan.yml
+        parameters:
+          MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
