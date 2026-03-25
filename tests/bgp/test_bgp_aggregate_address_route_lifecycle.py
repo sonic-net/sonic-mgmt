@@ -19,8 +19,9 @@ from test_bgp_aggregate_address import (
     AggregateCfg,
     gcu_add_aggregate,
     gcu_remove_aggregate,
-    setup_teardown,          # noqa: F401 - autouse pytest fixture
 )
+# Import autouse fixture so pytest discovers it for this module
+from test_bgp_aggregate_address import setup_teardown  # noqa: F401
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp_routing import inject_routes, verify_route_on_neighbors
