@@ -330,11 +330,10 @@ class DHCPTest(DataplaneBaseTest):
         else:
             source_ip = self.portchannels_ip_list[0]
 
+        giaddr = self.relay_iface_ip
         if ((self.link_selection and self.source_interface) or
            self.server_vrf or self.dual_tor or self.agent_relay_mode):
             giaddr = self.switch_loopback_ip
-        elif self.server_id_override or not self.dual_tor:
-            giaddr = self.relay_iface_ip
 
         ip = scapy.IP(src=source_ip,
                       dst=self.BROADCAST_IP, len=328, ttl=64)
@@ -411,11 +410,10 @@ class DHCPTest(DataplaneBaseTest):
         else:
             source_ip = self.portchannels_ip_list[0]
 
+        giaddr = self.relay_iface_ip
         if ((self.link_selection and self.source_interface) or
            self.server_vrf or self.dual_tor or self.agent_relay_mode):
             giaddr = self.switch_loopback_ip
-        elif self.server_id_override or not self.dual_tor:
-            giaddr = self.relay_iface_ip
 
         ip = scapy.IP(src=source_ip,
                       dst=self.BROADCAST_IP, len=328, ttl=64)
@@ -453,11 +451,10 @@ class DHCPTest(DataplaneBaseTest):
         else:
             source_ip = self.portchannels_ip_list[0]
 
+        giaddr = self.relay_iface_ip
         if ((self.link_selection and self.source_interface) or
            self.server_vrf or self.dual_tor or self.agent_relay_mode):
             giaddr = self.switch_loopback_ip
-        elif self.server_id_override or not self.dual_tor:
-            giaddr = self.relay_iface_ip
 
         ip = scapy.IP(src=source_ip,
                       dst=self.BROADCAST_IP, len=328, ttl=64)
@@ -556,12 +553,11 @@ class DHCPTest(DataplaneBaseTest):
         return pkt
 
     def create_dhcp_offer_packet(self):
+        ip_dst = self.relay_iface_ip
+        ip_gateway = self.relay_iface_ip
         if (self.link_selection and self.source_interface) or self.dual_tor:
             ip_dst = self.switch_loopback_ip
             ip_gateway = self.switch_loopback_ip
-        elif self.server_id_override or not self.dual_tor:
-            ip_dst = self.relay_iface_ip
-            ip_gateway = self.relay_iface_ip
 
         return self.dhcp_offer_packet(
             eth_server=self.server_iface_mac,

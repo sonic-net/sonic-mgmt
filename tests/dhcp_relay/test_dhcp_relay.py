@@ -83,22 +83,24 @@ def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo, requ
     relay_agent = request.getfixturevalue("relay_agent")
 
     if relay_agent == "sonic-relay-agent":
-        """
-        Configure the deployment_id directly incase of sonic-dhcpv4-relay agent support and reset the default.
-        Restart of dhcp service is not required.
-        dhcpv4 process, socket validations are already covered as part of fixtures.
-        """
+        # Set deployment_id to "8" in CONFIG_DB so sonic-dhcpv4-relay uses the client
+        # interface IP as the relay source IP. Restore the original value on teardown.
+        default_deployment_id = ""
         try:
             # Read and cache the original deployment_id
-            default_deployment_id = duthost.shell('sonic-db-cli CONFIG_DB hget '    # noqa: F841
+            default_deployment_id = duthost.shell('sonic-db-cli CONFIG_DB hget '
                                                   '"DEVICE_METADATA|localhost" "deployment_id"',
                                                   module_ignore_errors=True)["stdout"].strip()
             duthost.shell('sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "deployment_id" "8"',
                           module_ignore_errors=True)
             yield
         finally:
-            duthost.shell(f'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost"'
-                          f' "deployment_id" "{default_deployment_id}"', module_ignore_errors=True)
+            if default_deployment_id:
+                duthost.shell(f'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost"'
+                              f' "deployment_id" "{default_deployment_id}"', module_ignore_errors=True)
+            else:
+                duthost.shell('sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" "deployment_id"',
+                              module_ignore_errors=True)
     else:
         """
         Enable source port ip in relay function
