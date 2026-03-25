@@ -47,6 +47,15 @@ voq/test_voq_init.py::test_voq_neighbor_create:
       - "is_chassis_config_absent==True"
 
 #################################################
+#####test_voq_intfs.py #####
+#################################################
+voq/test_voq_intfs.py:
+  skip:
+    reason: "Skipped as the test applies to chassis only"
+    conditions:
+      - "is_chassis_config_absent==True"
+
+#################################################
 #####test_voq_ipfwd.py #####
 #################################################
 voq/test_voq_ipfwd.py:
