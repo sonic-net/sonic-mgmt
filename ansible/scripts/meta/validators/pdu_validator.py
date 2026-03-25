@@ -258,7 +258,6 @@ class PDUValidator(GlobalValidator):
                     device_psu_key = f"{device_name}:{psu_name}"
 
                     if port_key in pdu_port_usage:
-                        # PDU port conflict detected
                         existing_device_psu = pdu_port_usage[port_key]
                         try:
                             existing_device = existing_device_psu.split(':')[0]
@@ -266,16 +265,19 @@ class PDUValidator(GlobalValidator):
                             existing_device = ""
                         if existing_device == device_name:
                             continue  # Same device using multiple PSUs on same port is allowed using Y cable
-                        # pdu_port_conflict: PDU outlet is used by multiple devices
-                        self.result.add_issue(
-                            'E4007',
-                            {
-                                "pdu": pdu_device,
-                                "port": pdu_port,
-                                "device1": existing_device_psu,
-                                "device2": device_psu_key
-                            }
-                        )
+                        # A BMC device and its host share the same chassis and PSU,
+                        # so sharing PDU ports is expected.
+                        if not self._is_bmc_host_pair(device_name, existing_device):
+                            # pdu_port_conflict: PDU outlet is used by multiple devices
+                            self.result.add_issue(
+                                'E4007',
+                                {
+                                    "pdu": pdu_device,
+                                    "port": pdu_port,
+                                    "device1": existing_device_psu,
+                                    "device2": device_psu_key
+                                }
+                            )
                     else:
                         pdu_port_usage[port_key] = device_psu_key
 
@@ -353,3 +355,12 @@ class PDUValidator(GlobalValidator):
                     'E4012',
                     {"device": device_name, "psu": psu_name, "feed_id": feed_id, "valid_feeds": valid_feeds}
                 )
+
+    @staticmethod
+    def _is_bmc_host_pair(device1, device2):
+        """Check if two devices are a BMC and its host sharing the same chassis."""
+        if device1 + "-bmc" == device2:
+            return True
+        if device2 + "-bmc" == device1:
+            return True
+        return False
