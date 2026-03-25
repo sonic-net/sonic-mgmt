@@ -74,7 +74,7 @@ class EosHost(AnsibleHostBase):
                 'ansible_ssh_pass': self.shell_passwd,
                 'ansible_become_method': 'sudo'
             }
-        self.host.options['variable_manager'].extra_vars.update(evars)
+        self._update_host_variables(evars)
         return super(EosHost, self).__getattr__(module_name)
 
     def __str__(self):

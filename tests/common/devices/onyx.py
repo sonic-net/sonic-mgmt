@@ -24,7 +24,7 @@ class OnyxHost(AnsibleHostBase):
                  'ansible_become_method': 'enable'
                  }
 
-        self.host.options['variable_manager'].extra_vars.update(evars)
+        self._update_host_variables(evars)
         self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
         self.fanout_helper = FanoutOnyxDropCounter(self)
 

@@ -83,17 +83,17 @@ class SonicHost(AnsibleHostBase):
             )
             for user_var in (_['name'] for _ in user_def['vars']):
                 if user_var in hostvars:
-                    vm.extra_vars.update({user_var: shell_user})
+                    self._set_host_variable(user_var, shell_user)
             for pass_var in (_['name'] for _ in pass_def['vars']):
                 if pass_var in hostvars:
-                    vm.extra_vars.update({pass_var: shell_passwd})
+                    self._set_host_variable(pass_var, shell_passwd)
 
         if ssh_user and ssh_passwd:
             evars = {
                 'ansible_ssh_user': ssh_user,
                 'ansible_ssh_pass': ssh_passwd,
             }
-            self.host.options['variable_manager'].extra_vars.update(evars)
+            self._update_host_variables(evars)
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()

@@ -103,7 +103,7 @@ class AosHost(AnsibleHostBase):
     def __getattr__(self, module_name):
         if not module_name.startswith('aos_'):
             return None
-        self.host.options['variable_manager'].extra_vars.update(self.admin_conn_props)
+        self._update_host_variables(self.admin_conn_props)
         return super(AosHost, self).__getattr__(module_name)
 
     def _has_cli_cmd_failed(self, cmd_output_obj):

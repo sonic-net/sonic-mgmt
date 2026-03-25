@@ -28,7 +28,7 @@ class K8sMasterHost(AnsibleHostBase):
         evars = {
             'ansible_become_method': 'enable'
         }
-        self.host.options['variable_manager'].extra_vars.update(evars)
+        self._update_host_variables(evars)
 
     def check_k8s_master_ready(self):
         """
