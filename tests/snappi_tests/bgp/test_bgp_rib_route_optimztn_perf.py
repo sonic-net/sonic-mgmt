@@ -6,7 +6,6 @@ from tests.common.fixtures.conn_graph_facts import (                        # no
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-import time
 import json
 import logging
 import os
@@ -66,8 +65,12 @@ except Exception:
 
 PROFILE_NAMES = [
     name for name, cfg in _FINE_TUNINGS.items()
-    if isinstance(cfg, dict) and 'DEVICE_METADATA' in cfg
+    if isinstance(cfg, dict) and (
+        cfg.get('skip_config_db')
+        or 'DEVICE_METADATA' in cfg
+    )
 ]
+
 if not PROFILE_NAMES:
     PROFILE_NAMES = ['_no_profile_']
 
@@ -141,22 +144,27 @@ def dut_ready_for_rib_combo(duthost, localhost, profile_name, bulk_value, batch_
 
     logger.info('Fixture: applying profile=%s, bulk_value=%s, batch_value=%s',
                 profile_name, bulk_value, batch_value)
-    _apply_config_db_profile(duthost, profile_config, original_config)
+
+    # if the skip_config_db is present, then no changes in config_db.
+    if not profile_config.get('skip_config_db'):
+        _apply_config_db_profile(duthost, profile_config, original_config)
+
     _apply_bk_value(duthost, bulk_value, batch_value)
     logger.info('Fixture: rebooting DUT')
     reboot(duthost, localhost, reboot_type='cold', return_after_reconnect=True)
     pytest_assert(
-        wait_until(600, 10, 1, duthost.critical_services_fully_started),
+        wait_until(900, 30, 1, duthost.critical_services_fully_started),
         "Not all critical services are fully started"
     )
+    logger.info('Applying TSB config to the DUT to ensure BGP readiness')
+    duthost.shell("sudo TSB", module_ignore_errors=True)
+    duthost.shell("sudo config save -y", module_ignore_errors=True)
 
     yield
 
-    # Added sleep of 2 mins so that revert config has time in case of pytest.skip
-    time.sleep(120)
     logger.info('Fixture teardown: reverting config_db and orchagent')
-    _revert_config_db(duthost)
     _revert_bk_value(duthost)
+    _revert_config_db(duthost)
 
 
 @pytest.mark.parametrize('profile_name', PROFILE_NAMES)
@@ -191,6 +199,9 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
     and run_rib_in_convergence_test skips duthost_bgp_config (port-channels preconfigured).
 
     """
+    if duthost.is_multi_asic:
+        pytest.skip("Test not supported on multi-ASIC platforms")
+
     if profile_name == '_no_profile_':
         pytest.skip("No valid profiles in fine-tunings.yml")
 

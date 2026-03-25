@@ -1,4 +1,4 @@
-# High Level Design: RIB End-to-end Convergence Optimization and Performance Tests
+# High Level Design: RIB End-to-end Convergence Optimization and Performance Tests.
 
 ## 1. Overview
 
@@ -13,7 +13,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
   - **Orchagent bulk/batch pair** (e.g. `-b` / `-k` from `bk_values.json`)
   - **Route type** (IPv4, IPv6, IPv4v6)
 - **Clean state**: Each test applies profile + b/k, reboots, runs the convergence test, then reverts config and orchagent so the next parameterized run starts from a known state.
-- **Optional memory observability**: A fixture-based variant (v1) allows memory utilization plugin to capture before/after on the same boot for meaningful delta.
+- **Memory observability**: A fixture-based variant allows memory utilization plugin to capture before/after on the same boot for meaningful delta.
 
 ---
 
@@ -28,7 +28,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 | Fixtures | `tgen_ports` (in `tests/common/snappi_tests/snappi_fixtures.py`); behavior depends on `--bgp_pc_config` |
 | Config inputs | `files/fine-tunings.yml`, `files/bk_values.json` |
 | DUT changes | Config DB DEVICE_METADATA merge; orchagent.sh `-b` / `-k` args in swss container; cold reboot |
-| Traffic | Snappi/IXIA traffic generator; BGP route withdraw ? advertise; convergence metrics |
+| Traffic | Snappi/IXIA traffic generator; BGP route withdraw ; advertise; convergence metrics |
 
 ### 2.2 Out of Scope
 
@@ -44,23 +44,23 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 
 ```
 +-----------------------------------------------------------------------------+
-¦  For each (profile_name, bulk_value, batch_value, route_type):             ¦
+¦  For each (profile_name, bulk_value, batch_value, route_type):              ¦
 ¦                                                                             ¦
 ¦  1. SETUP                                                                   ¦
-¦      Backup config_db.json on DUT ? CONFIG_DB_BACKUP_PATH                  ¦
-¦      Merge profile DEVICE_METADATA into config_db ? apply to DUT          ¦
-¦      Backup orchagent.sh in swss container; optionally patch -b / -k       ¦
-¦      Cold reboot DUT ? wait for critical services                          ¦
+¦      Backup config_db.json on DUT and CONFIG_DB_BACKUP_PATH                 ¦
+¦      Merge profile DEVICE_METADATA into config_db and apply to DUT          ¦
+¦      Backup orchagent.sh in swss container; optionally patch -b / -k        ¦
+¦      Cold reboot DUT and wait for critical services                         ¦
 ¦                                                                             ¦
 ¦  2. RUN RIB-IN CONVERGENCE                                                  ¦
-¦      Build BGP/traffic config (IPv4 / IPv6 / IPv4v6, 250K routes)         ¦
-¦      Withdraw all routes ? start protocols ? start traffic                 ¦
-¦      Advertise all routes ? measure control-planedata-plane convergence   ¦
+¦      Build BGP/traffic config (IPv4 / IPv6 / IPv4v6, 250K routes)           ¦
+¦      Withdraw all routes, start protocols and start traffic                 ¦
+¦      Advertise all routes and measure control-planedata-plane convergence   ¦
 ¦      Log/convergence time (ms)                                              ¦
 ¦                                                                             ¦
 ¦  3. REVERT                                                                  ¦
-¦      Restore config_db from backup ? config reload                        ¦
-¦      Restore orchagent.sh from backup                                      ¦
+¦      Restore config_db from backup and config reload                        ¦
+¦      Restore orchagent.sh from backup                                       ¦
 +-----------------------------------------------------------------------------+
 ```
 
@@ -70,7 +70,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 |-----------|------|
 | **Test modules** | Pytest parametrization; setup/revert helpers; call into helper for convergence run |
 | **bgp_convergence_helper** | BGP/traffic config (e.g. `__tgen_bgp_config`), `run_rib_in_convergence_test`, `get_rib_in_convergence`; Snappi control/state and metrics |
-| **fine-tunings.yml** | Named profiles ? DEVICE_METADATA sections (e.g. ZMQ on/off, synchronous_mode, suppress-fib-pending, nexthop_group) |
+| **fine-tunings.yml** | Named profiles for DEVICE_METADATA sections (e.g. ZMQ on/off, synchronous_mode, suppress-fib-pending, nexthop_group) |
 | **bk_values.json** | List of [bulk_value, batch_value] pairs for orchagent `-b` and `-k` |
 | **DUT** | SONiC device; config_db; swss/orchagent; reboot |
 | **Snappi / TGEN** | Traffic generator; BGP emulation; convergence metrics |
@@ -84,6 +84,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 - **Mark**: `pytest.mark.topology('tgen')`
 - **Logical**: TGEN1  DUT  TGEN(2..N); multipath = 1; number_of_routes = 250,000.
 - **Route types**: IPv4, IPv6, or IPv4v6 (e.g. 125K v4 + 125K v6 for IPv4v6).
+- **pytest-skip**: skip for single DUT multi-asic setup.
 
 ### 4.2 Fixed Test Parameters (in code)
 
@@ -99,7 +100,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 ### 4.3 Parameterization (from files + route_type)
 
 - **profile_name**: From `fine-tunings.yml` (each key with a DEVICE_METADATA section).
-- **bulk_value, batch_value**: One pair per test from `bk_values.json` ? `pairs` (e.g. `["default","default"]`, `[5000,5200]`, `[10000,10500]`, ).
+- **bulk_value, batch_value**: One pair per test from `bk_values.json` | `pairs` (e.g. `["default","default"]`, `[5000,5200]`, `[10000,10500]`, ).
 - **route_type**: `IPv4` | `IPv6` | `IPv4v6`.
 
 Total cases = |profiles| × |pairs| × 3 (route types).
@@ -113,6 +114,12 @@ Total cases = |profiles| × |pairs| × 3 (route types).
 - **Purpose**: Define named profiles whose DEVICE_METADATA is merged into the DUTs config_db (localhost section) before reboot.
 - **Structure**: Top-level keys = profile names; each value must contain a `DEVICE_METADATA.localhost` map.
 - **Example knobs**: `orch_northbond_route_zmq_enabled`, `synchronous_mode`, `suppress-fib-pending`, `nexthop_group`.
+- **Default-config_db**: Use of customized profile-name with following key `skip_config_db: true`.
+Example:
+`
+baseline_config_db:
+	skip_config_db: true
+`
 - **Usage**: Test backs up config_db, merges selected profile into a copy, copies merged config to DUT; after test, config_db is reverted from backup.
 
 ### 5.2 bk_values.json
@@ -158,7 +165,7 @@ When `--bgp_pc_config` is set, the fixture uses an internal helper **`_tgen_port
 
 - Reads **PORTCHANNEL_INTERFACE** and **PORTCHANNEL_MEMBER** from config_db (supports key formats such as `PortChannel1` or `PortChannel1|ip/prefix` and member keys such as `PortChannel1|Ethernet0` or nested dict).
 - Builds one tgen_ports entry per PortChannel: `peer_port` = PortChannel name (e.g. `PortChannel1`); IPs from PORTCHANNEL_INTERFACE; location/speed from the first members Snappi port.
-- **TGEN (neighbor) IP** for each PortChannel: preferred source is **config_db `BGP_NEIGHBOR`**: for each neighbor, key = neighbor (TGEN) IP, value has `local_addr` = DUT IP; the fixture maps `local_addr` ? neighbor IP and uses it for `entry['ip']` and `entry['ipv6']`. If no matching BGP neighbor exists, it falls back to deriving an IP in the same subnet (e.g. via `get_addrs_in_subnet`).
+- **TGEN (neighbor) IP** for each PortChannel: preferred source is **config_db `BGP_NEIGHBOR`**: for each neighbor, key = neighbor (TGEN) IP, value has `local_addr` = DUT IP; the fixture maps `local_addr` to neighbor IP and uses it for `entry['ip']` and `entry['ipv6']`. If no matching BGP neighbor exists, it falls back to deriving an IP in the same subnet (e.g. via `get_addrs_in_subnet`).
 
 The **tgen_ports output format is unchanged** in both code paths so downstream code (e.g. `__tgen_bgp_config`) does not need to branch.
 
@@ -167,6 +174,11 @@ The **tgen_ports output format is unchanged** in both code paths so downstream c
 - **`skip_duthost_bgp_config`** (default `False`): When `True`, `duthost_bgp_config` is not called (port-channels/BGP preconfigured).
 - **`temp_tg_port`**: Global used by `__tgen_bgp_config` (and related TGEN config). It is set at the start of `run_rib_in_convergence_test`: `temp_tg_port = tgen_ports`, so TGEN BGP config always has correct port data whether or not `duthost_bgp_config` runs.
 
+### 6.7 Setup requirement with --bgp_pc_config` set
+
+- The DUT requires at least 2 portchannels with IPv4/IPv6 address set in **`PORTCHANNEL_INTERFACE`**.
+- Each portchannel requires at least one member connected to IXIA and present in *links.csv file.
+- BGP ASN config on DUT needs to be compatible with DUT_AS_NUM = 65100 and TGEN_AS_NUM = 65200.
 
 ---
 
@@ -210,7 +222,7 @@ The **tgen_ports output format is unchanged** in both code paths so downstream c
 ### 9.2 File Paths
 
 - **Config files**: Under `tests/snappi_tests/bgp/files/` (e.g. `fine-tunings.yml`, `bk_values.json`).
-- **DUT backup**: config_db backup at e.g. `/etc/sonic/config_db_rib_combo_bkup.json` (or v1-specific path) so it survives reboot; removed after revert.
+- **DUT backup**: config_db backup at e.g. `/etc/sonic/config_db_rib_combo_bkup.json` so it survives reboot; removed after revert.
 
 ### 9.3 Assumptions
 
@@ -218,15 +230,19 @@ The **tgen_ports output format is unchanged** in both code paths so downstream c
 - DUT has writable config_db and swss container with orchagent.sh; default orchagent args contain the expected pattern (e.g. `-b 1024`) so sed replacement is correct.
 - Reboot and service wait timeouts are sufficient for the platform.
 - fine-tunings.yml and bk_values.json are present and well-formed; fallbacks exist in code if load fails (e.g. default profile list, default pairs).
+- If DUT portchannel and BGP configuration is used, DUT_ASN=65100 and peer_ASNs=65200 are pre-configured.
 
 ---
 
 ## 10. Possible enhancements
 
 Following possible enhancements can be added:
-  - Support for extended BGP messages with MTU of 9100 bytes via Snappi along .
+  - Support for extended BGP messages with MTU of 9100 bytes via Snappi.
   - Measure route-capacity for routes with optimization parameters.
-  - Parameterize the max-routes (e.g. - 250k, 500k and so on).
+  - Parameterize the max-routes (e.g. - 250k, 500k and so on), and MULTIPATH variable.
+  - Remove reboot after configuration change to config_reload to save time.
+  - When --bgp_pc_config is set, check for the local and peer ASNs configured on DUT and use them for TGEN configuration. If flag is not set, use DUT_AS_NUM and TGEN_AS_NUM present in the helper file.
+  - Make the test available for single-dut multi-asic and multi-DUT topologies.
 
 
 ## 11. Summary
@@ -237,5 +253,4 @@ The RIB-IN optimization and performance tests provide a parameterized framework 
 - **Orchagent tuning** (bulk/batch pairs from bk_values.json),
 - **Route type** (IPv4, IPv6, IPv4v6).
 
-Each test applies a single (profile, bulk, batch, route_type), reboots the DUT, runs the convergence scenario once, then reverts config and orchagent. Two structural variants exist: inline setup/revert in the test (combo and route_optimztn_perf) and fixture-based setup/revert (rib_combo_v1) for memory delta analysis on the same boot. The **`--bgp_pc_config`** option (Section 6) allows using preconfigured port-channels and BGP on the testbed via port data from config_db and skipping DUT BGP configuration in the helper.
-
+Each test applies a single (profile, bulk, batch, route_type), reboots the DUT, runs the convergence scenario once, then reverts config and orchagent. There is fixture-based setup/revert to include memory delta analysis on the same boot. The **`--bgp_pc_config`** option (Section 6) allows using preconfigured port-channels and BGP on the testbed via port data from config_db and skipping DUT BGP configuration in the helper.

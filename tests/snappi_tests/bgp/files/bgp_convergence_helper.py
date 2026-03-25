@@ -346,7 +346,8 @@ def __tgen_bgp_config(snappi_api,
         ipv4.address = temp_tg_port[0]['ip']
         ipv4.gateway = temp_tg_port[0]['peer_ip']
         ipv4.prefix = int(temp_tg_port[0]['prefix'])
-        rx_flow_name = []
+        tx_flow_name = [ipv4.name]
+        rx_flow_names = []
         for i in range(2, port_count+1):
             NG_LIST.append('Network_Group%s' % i)
             if len(str(hex(i).split('0x')[1])) == 1:
@@ -379,8 +380,8 @@ def __tgen_bgp_config(snappi_api,
             as_path_segment = as_path.segments.add()
             as_path_segment.type = as_path_segment.AS_SEQ
             as_path_segment.as_numbers = aspaths
-            rx_flow_name.append(route_range.name)
-        return rx_flow_name
+            rx_flow_names.append(route_range.name)
+        return (tx_flow_name, rx_flow_names)
 
     def create_v6_topo():
         eth = config.devices[0].ethernets.add()
@@ -392,7 +393,8 @@ def __tgen_bgp_config(snappi_api,
         ipv6.address = temp_tg_port[0]['ipv6']
         ipv6.gateway = temp_tg_port[0]['peer_ipv6']
         ipv6.prefix = int(temp_tg_port[0]['ipv6_prefix'])
-        rx_flow_name = []
+        tx_flow_name = [ipv6.name]
+        rx_flow_names = []
         for i in range(2, port_count+1):
             NG_LIST.append('Network_Group%s' % i)
             if len(str(hex(i).split('0x')[1])) == 1:
@@ -425,8 +427,8 @@ def __tgen_bgp_config(snappi_api,
             as_path_segment = as_path.segments.add()
             as_path_segment.type = as_path_segment.AS_SEQ
             as_path_segment.as_numbers = aspaths
-            rx_flow_name.append(route_range.name)
-        return rx_flow_name
+            rx_flow_names.append(route_range.name)
+        return (tx_flow_name, rx_flow_names)
 
     def create_v4v6_topo():
         """Create topology with 125k IPv4 and 125k IPv6 routes (250k total)."""
@@ -446,8 +448,10 @@ def __tgen_bgp_config(snappi_api,
         ipv6.address = temp_tg_port[0]['ipv6']
         ipv6.gateway = temp_tg_port[0]['peer_ipv6']
         ipv6.prefix = int(temp_tg_port[0]['ipv6_prefix'])
-        v4_rx_flow_name = [ipv4.name]
-        v6_rx_flow_name = [ipv6.name]
+        v4_tx_flow_name = [ipv4.name]
+        v6_tx_flow_name = [ipv6.name]
+        v4_rx_flow_names = []
+        v6_rx_flow_names = []
         for i in range(2, port_count+1):
             NG_LIST.append('Network_Group_v4_%s' % i)
             if len(str(hex(i).split('0x')[1])) == 1:
@@ -484,7 +488,7 @@ def __tgen_bgp_config(snappi_api,
             as_path_segment_v4 = as_path_v4.segments.add()
             as_path_segment_v4.type = as_path_segment_v4.AS_SEQ
             as_path_segment_v4.as_numbers = aspaths
-            v4_rx_flow_name.append(route_range_v4.name)
+            v4_rx_flow_names.append(route_range_v4.name)
 
             NG_LIST.append('Network_Group_v6_%s' % i)
             bgpv6 = config.devices[i-1].bgp
@@ -502,28 +506,28 @@ def __tgen_bgp_config(snappi_api,
             as_path_segment_v6 = as_path_v6.segments.add()
             as_path_segment_v6.type = as_path_segment_v6.AS_SEQ
             as_path_segment_v6.as_numbers = aspaths
-            v6_rx_flow_name.append(route_range_v6.name)
-        return (v4_rx_flow_name, v6_rx_flow_name)
+            v6_rx_flow_names.append(route_range_v6.name)
+        return (v4_tx_flow_name, v6_tx_flow_name, v4_rx_flow_names, v6_rx_flow_names)
 
     def createTrafficItem(traffic_name, src, dest, rate):
         flow1 = config.flows.flow(name=str(traffic_name))[-1]
-        flow1.tx_rx.device.tx_names = [src]
-        flow1.tx_rx.device.rx_names = [dest]
+        flow1.tx_rx.device.tx_names = src
+        flow1.tx_rx.device.rx_names = dest
         flow1.size.fixed = 1024
         flow1.rate.percentage = rate
         flow1.metrics.enable = True
         flow1.metrics.loss = True
 
     if route_type == 'IPv4':
-        rx_flows = create_v4_topo()
-        createTrafficItem("IPv4 Traffic", rx_flows[0], rx_flows[1], 100)
+        tx_flow, rx_flow = create_v4_topo()
+        createTrafficItem("IPv4 Traffic", tx_flow, rx_flow, 100)
     elif route_type == 'IPv6':
-        rx_flows = create_v6_topo()
-        createTrafficItem("IPv6 Traffic", rx_flows[0], rx_flows[1], 100)
+        tx_flow, rx_flow = create_v6_topo()
+        createTrafficItem("IPv6 Traffic", tx_flow, rx_flow, 100)
     elif route_type == 'IPv4v6':
-        v4_rx_flows, v6_rx_flows = create_v4v6_topo()
-        createTrafficItem("IPv4 Traffic", v4_rx_flows[0], v4_rx_flows[1], 50)
-        createTrafficItem("IPv6 Traffic", v6_rx_flows[0], v6_rx_flows[1], 50)
+        v4_tx_flow, v6_tx_flow, v4_rx_flow, v6_rx_flow = create_v4v6_topo()
+        createTrafficItem("IPv4 Traffic", v4_tx_flow, v4_rx_flow, 50)
+        createTrafficItem("IPv6 Traffic", v6_tx_flow, v6_rx_flow, 50)
     else:
         raise Exception('Invalid route type given')
     return config
