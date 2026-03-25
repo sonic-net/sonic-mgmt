@@ -244,12 +244,12 @@ def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
     localhost.shell(local_command)
 
 
-def create_gnmi_certs(duthost, localhost, ptfhost):
+def create_gnmi_certs(duthost, localhost, ptfhost, dut_ip=None):
     '''
     Create GNMI client certificates
     '''
     prepare_root_cert(localhost)
-    prepare_server_cert(duthost, localhost)
+    prepare_server_cert(duthost, localhost, dut_ip=dut_ip)
     prepare_client_cert(localhost)
     create_revoked_cert_and_crl(localhost, ptfhost)
     copy_certificate_to_dut(duthost)
@@ -279,10 +279,10 @@ def create_root_cert(localhost, days):
     localhost.shell(local_command)
 
 
-def prepare_server_cert(duthost, localhost, days="825"):
+def prepare_server_cert(duthost, localhost, days="825", dut_ip=None):
     create_server_key(localhost)
     create_server_csr(localhost)
-    sign_server_certificate(duthost, localhost, days)
+    sign_server_certificate(duthost, localhost, days, dut_ip=dut_ip)
 
 
 def create_server_key(localhost):
@@ -299,8 +299,8 @@ def create_server_csr(localhost):
     localhost.shell(local_command)
 
 
-def sign_server_certificate(duthost, localhost, days):
-    create_ext_conf(duthost.mgmt_ip, "extfile.cnf")
+def sign_server_certificate(duthost, localhost, days, dut_ip=None):
+    create_ext_conf(dut_ip or duthost.mgmt_ip, "extfile.cnf")
     local_command = "openssl x509 \
                             -req \
                             -in gnmiserver.csr \
