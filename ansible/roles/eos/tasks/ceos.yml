@@ -32,16 +32,40 @@
   delegate_to: "{{ VM_host[0] }}"
   when: ceos_registry is defined
 
+- name: Discover ceos_image locally (plain or from any registry)
+  # Searches all local docker images for one matching ceos_image. This single grep covers:
+  # - Plain local image: ceosimage:4.32.5M-1
+  # - Image pre-pulled from any registry: soniccr1.azurecr.io/ceosimage:4.32.5M-1
+  # When ceos_registry is defined, this task is skipped — the explicit registry check above is used.
+  become: yes
+  shell: >-
+    docker images --format
+    '{% raw %}{{.Repository}}:{{.Tag}}{% endraw %}'
+    | grep -m1 '{{ ceos_image }}$'
+  register: ceos_image_discovery_result
+  delegate_to: "{{ VM_host[0] }}"
+  ignore_errors: yes
+  changed_when: no
+  when: ceos_registry is not defined
+
 - name: Set ceos_effective_image
   set_fact:
-    # Use registry-prefixed image name when the registry image is available locally (was pulled
-    # from registry). This avoids creating a local alias and ensures containers always reference
-    # the registry image, satisfying security requirements (e.g. Microsoft ACR/MCR policy).
-    # Fall back to the plain ceos_image name when no registry is configured or registry image
-    # is not available (e.g. pull failed and image was built from ceos_image_orig instead).
+    # Priority order for determining the effective ceos image:
+    # 1. When ceos_registry is defined and the registry image is available locally, use the
+    #    registry-prefixed image name. This ensures containers always reference the registry
+    #    image, satisfying security requirements (e.g. Microsoft ACR/MCR policy).
+    # 2. When ceos_registry is not defined, use whatever local image matches ceos_image
+    #    (plain or from any registry). Preferring a pre-pulled registry image avoids building
+    #    a local image and triggering S360 alerts.
+    # 3. Fall back to the plain ceos_image name when no image is discovered.
     ceos_effective_image: >-
       {{ ceos_registry + '/' + ceos_image
          if (ceos_registry is defined and ceos_registry_image_info.images | length > 0)
+         else (ceos_image_discovery_result.stdout | trim)
+              if (ceos_registry is not defined and
+                  ceos_image_discovery_result is not skipped and
+                  ceos_image_discovery_result.rc == 0 and
+                  ceos_image_discovery_result.stdout | trim != '')
          else ceos_image }}
 
 - name: Create cEOS container
