@@ -8,6 +8,11 @@ behavior, and warm boot guards.
 These tests address the bug reported in ADO 36697420:
     "[202511.08] Config Reload is Run during warm-boot up"
 
+The test harness auto-detects whether pending_config_migration lives in
+/tmp/ (old builds) or /etc/sonic/ (after sonic-buildimage PR #25215,
+which fixes issue #25202). This makes the test compatible with both
+old and new SONiC images without code changes.
+
 The fix is in sonic-buildimage PR #25463 which updates
 files/image_config/config-setup/config-setup to:
 1. Prefer minigraph.xml over ZTP/factory-default when config_db.json is missing
@@ -88,17 +93,6 @@ rm -rf "${FAKE_ROOT}"
 mkdir -p "${FAKE_ROOT}/etc/sonic"
 mkdir -p "${FAKE_ROOT}/tmp"
 
-# Create fake files based on test parameters
-if [ "$FAKE_CONFIG_DB_EXISTS" = "true" ]; then
-    echo '{}' > "${FAKE_ROOT}/etc/sonic/config_db.json"
-fi
-if [ "$FAKE_MINIGRAPH_EXISTS" = "true" ]; then
-    echo '<fake/>' > "${FAKE_ROOT}/etc/sonic/minigraph.xml"
-fi
-if [ "$FAKE_PENDING_MIGRATION" = "true" ]; then
-    touch "${FAKE_ROOT}/tmp/pending_config_migration"
-fi
-
 # --- Step 1: Extract functions from the DUT's actual config-setup script ---
 # We cannot source config-setup directly because it has an execution block
 # at the bottom. Instead, extract everything up to "### Execution starts
@@ -107,11 +101,38 @@ EXTRACTED="${HARNESS_DIR}/config_setup_functions.sh"
 sed -n '1,/^### Execution starts here ###/p' \
     /usr/bin/config-setup | head -n -1 > "${EXTRACTED}"
 
+# Detect where the DUT's config-setup stores pending_config_migration.
+# Older builds use /tmp/pending_config_migration; newer builds (after
+# sonic-buildimage PR #25215, fixing issue #25202) use
+# /etc/sonic/pending_config_migration to survive reboots.
+if grep -q '/etc/sonic/pending_config_migration' "${EXTRACTED}"; then
+    PENDING_DIR="/etc/sonic"
+else
+    PENDING_DIR="/tmp"
+fi
+echo "Detected pending_config dir: ${PENDING_DIR}"
+
+# Create fake files based on test parameters
+if [ "$FAKE_CONFIG_DB_EXISTS" = "true" ]; then
+    echo '{}' > "${FAKE_ROOT}/etc/sonic/config_db.json"
+fi
+if [ "$FAKE_MINIGRAPH_EXISTS" = "true" ]; then
+    echo '<fake/>' > "${FAKE_ROOT}/etc/sonic/minigraph.xml"
+fi
+if [ "$FAKE_PENDING_MIGRATION" = "true" ]; then
+    touch "${FAKE_ROOT}${PENDING_DIR}/pending_config_migration"
+fi
+
 # Rewrite hardcoded paths in the extracted script to use our fake root.
-# The DUT script uses /tmp/pending_* paths directly; redirect to fake root.
-sed -i "s|/tmp/pending_config_migration|${FAKE_ROOT}/tmp/pending_config_migration|g" \
+# Handle both /tmp/ and /etc/sonic/ locations — only the matching sed
+# will have effect; the other is a harmless no-op.
+sed -i "s|/etc/sonic/pending_config_migration|${FAKE_ROOT}${PENDING_DIR}/pending_config_migration|g" \
     "${EXTRACTED}"
-sed -i "s|/tmp/pending_config_initialization|${FAKE_ROOT}/tmp/pending_config_initialization|g" \
+sed -i "s|/etc/sonic/pending_config_initialization|${FAKE_ROOT}${PENDING_DIR}/pending_config_initialization|g" \
+    "${EXTRACTED}"
+sed -i "s|/tmp/pending_config_migration|${FAKE_ROOT}${PENDING_DIR}/pending_config_migration|g" \
+    "${EXTRACTED}"
+sed -i "s|/tmp/pending_config_initialization|${FAKE_ROOT}${PENDING_DIR}/pending_config_initialization|g" \
     "${EXTRACTED}"
 sed -i "s|/tmp/pending_ztp_restart|${FAKE_ROOT}/tmp/pending_ztp_restart|g" \
     "${EXTRACTED}"

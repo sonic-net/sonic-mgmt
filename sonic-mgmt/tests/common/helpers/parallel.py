@@ -41,7 +41,6 @@ os.register_at_fork(before=logging._acquireLock,
                     after_in_parent=logging._releaseLock,
                     after_in_child=logging._releaseLock)
 
-
 def fix_logging_handler_fork_lock():
     """Prevent logging handlers from deadlocking after fork."""
     if sys.version_info < (3, 9):

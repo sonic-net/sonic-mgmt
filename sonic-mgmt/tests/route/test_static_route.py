@@ -34,7 +34,7 @@ from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_int
 COUNT = 10
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx'),
+    pytest.mark.topology('t0', 'm0', 'mx', 'c0'),
     pytest.mark.device_type('vs')
 ]
 
@@ -189,9 +189,9 @@ def check_route_redistribution(duthost, prefix, ipv6, removed=False):
 #        nexthop via fc00::2e dev PortChannel104 weight 1 pref medium
 def check_static_route(duthost, prefix, nexthop_addrs, ipv6):
     if ipv6:
-        SHOW_STATIC_ROUTE_CMD = "ip -6 route show {}".format(prefix)
+        SHOW_STATIC_ROUTE_CMD = "show ipv6 route {}".format(prefix)
     else:
-        SHOW_STATIC_ROUTE_CMD = "ip route show {}".format(prefix)
+        SHOW_STATIC_ROUTE_CMD = "show ip route {}".format(prefix)
     output = duthost.shell(SHOW_STATIC_ROUTE_CMD, module_ignore_errors=True)["stdout"].split("\n")
 
     def _check_nh_in_output(nexthop):
