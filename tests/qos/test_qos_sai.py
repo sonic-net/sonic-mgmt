@@ -83,6 +83,27 @@ def _sai_profile_has_lossy_hr_enabled(duthost):
         return False
 
 
+@pytest.fixture(autouse=False)
+def enable_lossy_pg_headroom(get_src_dst_asic_and_duts):
+    duthost = get_src_dst_asic_and_duts["src_dut"]
+    is_enable_lossy_pg_headroom = _sai_profile_has_lossy_hr_enabled(duthost)
+    if is_enable_lossy_pg_headroom:
+        watermark_stat_type = "PG_WATERMARK_STAT"
+        original_interval = duthost.get_counter_poll_status()[watermark_stat_type]["interval"]
+        original_status = duthost.get_counter_poll_status()[watermark_stat_type]["status"]
+        if original_status == "disable":
+            duthost.set_counter_poll_status(watermark_stat_type, "enable")
+        new_poll_interval = 5000  # 5 seconds
+        duthost.set_counter_poll_interval(watermark_stat_type, new_poll_interval)
+
+    yield is_enable_lossy_pg_headroom
+
+    if is_enable_lossy_pg_headroom:
+        duthost.set_counter_poll_interval(watermark_stat_type, original_interval)
+        if original_status == "disable":
+            duthost.set_counter_poll_status(watermark_stat_type, "disable")
+
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(get_src_dst_asic_and_duts, loganalyzer, duthosts):
     """ignore the syslog ERR syncd0#syncd: [03:00.0] brcm_sai_set_switch_
@@ -1211,7 +1232,8 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiLossyQueue(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile, skip_src_dst_different_asic, change_lag_lacp_timer, blockGrpcTraffic
+        ingressLossyProfile, skip_src_dst_different_asic, change_lag_lacp_timer, blockGrpcTraffic,
+        enable_lossy_pg_headroom
     ):
         """
             Test QoS SAI Lossy queue, shared buffer dynamic allocation
@@ -1278,7 +1300,6 @@ class TestQosSai(QosSaiBase):
             testParams["pkts_num_margin"] = qosConfig["lossy_queue_1"]["pkts_num_margin"]
 
         duthost = get_src_dst_asic_and_duts["src_dut"]
-        enable_lossy_pg_headroom = _sai_profile_has_lossy_hr_enabled(duthost)
 
         if enable_lossy_pg_headroom:
             clear_pg_headroom_cmd = "sudo sonic-clear priority-group watermark headroom"
