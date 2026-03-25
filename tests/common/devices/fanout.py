@@ -39,6 +39,7 @@ class FanoutHost(object):
             self.os = os
             self.fanout_port_alias_to_name = {}
             self.host = SonicHost(ansible_adhoc, hostname,
+                                  ansible_connection='multi_passwd_ssh',
                                   ssh_user=user,
                                   ssh_passwd=passwd)
         elif os == 'onyx':

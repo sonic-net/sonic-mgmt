@@ -60,15 +60,22 @@ class SonicHost(AnsibleHostBase):
     """
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
-                 ssh_user=None, ssh_passwd=None):
-        AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
+                 ssh_user=None, ssh_passwd=None,
+                 ansible_connection=None):
+        init_kwargs = {}
+        if ansible_connection:
+            init_kwargs["connection"] = ansible_connection
+        AnsibleHostBase.__init__(self, ansible_adhoc, hostname, **init_kwargs)
 
         self.DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
+
+        if ansible_connection:
+            self._set_host_variable('ansible_connection', ansible_connection)
 
         if shell_user and shell_passwd:
             im = self.host.options['inventory_manager']
             vm = self.host.options['variable_manager']
-            sonic_conn = vm.get_vars(
+            sonic_conn = ansible_connection or vm.get_vars(
                 host=im.get_hosts(pattern='sonic')[0]
             )['ansible_connection']
             hostvars = vm.get_vars(host=im.get_host(hostname=self.hostname))
