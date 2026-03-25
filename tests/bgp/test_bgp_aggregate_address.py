@@ -273,4 +273,3 @@ def test_bgp_aggregate_address_when_bbr_changed(
         config_bbr_by_gcu(duthost, "disabled")
     else:
         config_bbr_by_gcu(duthost, "enabled")
-        
