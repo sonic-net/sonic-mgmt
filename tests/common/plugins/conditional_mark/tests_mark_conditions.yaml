@@ -4074,11 +4074,10 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pQueueMapping:
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpEcn:
   skip:
-    reason: "Unsupported testbed type or test fails on all topologies. https://github.com/sonic-net/sonic-mgmt/issues/23059"
+    reason: "Unsupported testbed type"
     conditions_logical_operator: or
     conditions:
       - "platform not in ['x86_64-nokia_ixr7250e_36x400g-r0']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/23059"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
   skip:
