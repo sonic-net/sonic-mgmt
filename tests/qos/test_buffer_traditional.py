@@ -132,12 +132,24 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
         default_lossless_pgs = ['3', '4']
 
         if expected_profile:
+            if not profile_in_pg:
+                if not _check_condition(False,
+                                        "No BUFFER_PG|{}|3-4 profile configured, expected {}".format(
+                                            port, expected_profile),
+                                        use_assert):
+                    return None, False
+
             if not _check_condition(profile_in_pg == expected_profile, "Buffer profile of lossless PG of port {} isn't the expected ({})".format(port, expected_profile), use_assert):
                 return None, False
 
             if pg_name_map:
                 for pg in default_lossless_pgs:
-                    buffer_pg_asic_oid = pg_name_map['{}:{}'.format(port, pg)]
+                    pg_key = '{}:{}'.format(port, pg)
+                    if pg_key not in pg_name_map:
+                        logging.info("Port {} PG {} not found in COUNTERS_PG_NAME_MAP, skipping ASIC_DB check".format(
+                            port, pg))
+                        continue
+                    buffer_pg_asic_oid = pg_name_map[pg_key]
                     buffer_pg_asic_key = duthost.shell('redis-cli -n 1 keys *{}*'.format(buffer_pg_asic_oid))['stdout']
                     buffer_profile_oid_in_pg = duthost.shell('redis-cli -n 1 hget {} SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE'.format(buffer_pg_asic_key))['stdout']
                     logging.info("Checking admin-up port {} lossless PG {} in ASIC_DB ({})".format(port, pg, buffer_profile_oid_in_pg))
@@ -153,7 +165,12 @@ def test_buffer_pg(duthosts, rand_one_dut_hostname, conn_graph_facts):
                 return None, False
             if pg_name_map:
                 for pg in default_lossless_pgs:
-                    buffer_pg_asic_oid = pg_name_map['{}:{}'.format(port, pg)]
+                    pg_key = '{}:{}'.format(port, pg)
+                    if pg_key not in pg_name_map:
+                        logging.info("Port {} PG {} not found in COUNTERS_PG_NAME_MAP, skipping ASIC_DB check".format(
+                            port, pg))
+                        continue
+                    buffer_pg_asic_oid = pg_name_map[pg_key]
                     buffer_pg_asic_key = duthost.shell('redis-cli -n 1 keys *{}*'.format(buffer_pg_asic_oid))['stdout']
                     buffer_profile_oid_in_pg = duthost.shell('redis-cli -n 1 hget {} SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE'.format(buffer_pg_asic_key))['stdout']
                     logging.info("Checking admin-down port {} lossless PG {}".format(port, pg))
