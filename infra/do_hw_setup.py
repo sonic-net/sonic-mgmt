@@ -257,7 +257,7 @@ def image_install(args):
     build_id = os.getenv('BUILD_ID')
 
     if install_mode == "default" or install_mode == None:
-        install_mode = testbed_info_dict["installer_mode"] if "installer_mode" in testbed_info_dict else "onie"
+        install_mode = testbed_info_dict["installer_mode"] if "installer_mode" in testbed_info_dict else "sonic"
     if len(testbed_info_dict['dut_ssh']) >= 1:
         i = 0
         while i<len(testbed_info_dict['dut_ssh']):
@@ -779,7 +779,7 @@ def deploy_mg(args):
         log.debug("Deploy minigraph not needed or parameter missing.")
         return  
     if install_mode == "default" or install_mode == None:
-        install_mode = testbed_info_dict["installer_mode"] if "installer_mode" in testbed_info_dict else "onie"
+        install_mode = testbed_info_dict["installer_mode"] if "installer_mode" in testbed_info_dict else "sonic"
 
     deploy_mg_cmd = f'./testbed-cli.sh deploy-mg {testbed_info_dict["ucs_tb"]} ./lab ./password.txt'
 
