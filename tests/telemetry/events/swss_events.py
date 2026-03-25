@@ -46,7 +46,7 @@ def test_event(duthost, tbinfo, gnxi_path, ptfhost, ptfadapter, data_dir, valida
         skip_pfc_hwskus = [*BROADCOM_LOSSY_ONLY_HWSKUS, *BROADCOM_NO_QOS_HWSKUS]
     elif asic_type == "marvell-prestera":
         skip_pfc_hwskus = MARVELL_PRESTERA_NO_QOS_HWSKUS
-    elif asic_type == "marvell-prestera":
+    elif asic_type == "nokia-vs":
         skip_pfc_hwskus = NOKIA_NO_QOS_HWSKUS
     else:
         skip_pfc_hwskus = []
