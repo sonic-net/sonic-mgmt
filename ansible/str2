@@ -1338,7 +1338,7 @@ sonic_arista_lc_400G:
       sonic_hw_platform: x86_64-arista_7800r3a_36dm2_lc
       model: 7800R3A-36DM2-LC
       slot_num: slot5
-      switchids: [2, 4]
+      switchids: [4, 6]
       voq_inband_ip: [3.3.3.2/32, 3.3.3.3/32]
       voq_inband_ipv6: [3333::3:2/128, 3333::3:3/128]
       loopback4096_ip: [192.0.0.2/32, 192.0.0.3/32]
@@ -1369,7 +1369,7 @@ sonic_arista_lc_400G:
       sonic_hwsku:  Arista-7800R3AK-36DM2-C36
       sonic_hw_platform: x86_64-arista_7800r3ak_36dm2_lc
       slot_num: slot3
-      switchids: [6,8]
+      switchids: [0, 2]
       voq_inband_ip: [3.3.3.4/32, 3.3.3.5/32]
       voq_inband_ipv6: [3333::3:4/128, 3333::3:5/128]
       loopback4096_ip: [192.0.0.4/32, 192.0.0.5/32]
@@ -1399,7 +1399,7 @@ sonic_arista_lc_400G:
       sonic_hwsku: Arista-7800R3A-36DM2-C36
       sonic_hw_platform: x86_64-arista_7800r3a_36dm2_lc
       slot_num: slot7
-      switchids: [10, 12]
+      switchids: [8, 10]
       voq_inband_ip: [3.3.3.6/32, 3.3.3.7/32]
       voq_inband_ipv6: [3333::3:6/128, 3333::3:7/128]
       loopback4096_ip: [192.0.0.6/32,192.0.0.7/32]
@@ -1805,7 +1805,7 @@ sonic_nokia_lc_400G:
       sonic_hwsku: Nokia-IXR7250E-36x400G
       sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
       slot_num: slot2
-      switchids: [6, 8]
+      switchids: [4, 6]
       voq_inband_ip: [3.3.3.6/32, 3.3.3.8/32]
       voq_inband_ipv6: [3333::3:6/128, 3333::3:8/128]
       loopback4096_ip: [192.0.0.6/32, 192.0.0.8/32]
@@ -1898,7 +1898,7 @@ sonic_nokia_lc_100G:
       sonic_hwsku: Nokia-IXR7250E-36x100G
       sonic_hw_platform: x86_64-nokia_ixr7250e_36x400g-r0
       slot_num: slot2
-      switchids: [6, 8]
+      switchids: [4, 6]
       voq_inband_ip: [3.3.3.6/32, 3.3.3.8/32]
       voq_inband_ipv6: [3333::3:6/128, 3333::3:8/128]
       loopback4096_ip: [192.0.0.6/32, 192.0.0.8/32]

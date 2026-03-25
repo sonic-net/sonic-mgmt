@@ -884,7 +884,7 @@ sonic_nokia_lc_400G:
       sonic_hwsku: Nokia-IXR7250E-36x400G
       sonic_hw_platform:  x86_64-nokia_ixr7250e_36x400g-r0
       slot_num: slot2
-      switchids: [6,8]
+      switchids: [4,6]
       voq_inband_ip: [3.3.3.6/32,3.3.3.8/32]
       voq_inband_ipv6: [3333::3:6/128,3333::3:8/128]
       loopback4096_ip: [192.0.0.6/32,192.0.0.8/32]

@@ -44,8 +44,8 @@ def pytest_generate_tests(metafunc):
 
 
 def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request,
-                                get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,          # noqa: F811
-                                verify_dut_health, consistency_checker_provider):                       # noqa: F811
+                                get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,  # noqa: F811
+                                upgrade_strategy_fixture):  # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
@@ -74,7 +74,7 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
         to_image = upgrade_path_urls[hop_index]
         logger.info("Installing hop {} image {}".format(hop_index, to_image))
         if metadata_process:
-            sonic_update_firmware(duthost, localhost, to_image, upgrade_type)
+            sonic_update_firmware(duthost, localhost, to_image, upgrade_type, upgrade_strategy_fixture)
         else:
             install_sonic(duthost, to_image, tbinfo)
 
@@ -116,7 +116,7 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
                                          get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,  # noqa: F811
                                          verify_dut_health, nbrhosts, fanouthosts, vmhost,               # noqa: F811
                                          backup_and_restore_config_db, advanceboot_neighbor_restore,     # noqa: F811
-                                         sad_case_type, consistency_checker_provider):                   # noqa: F811
+                                         sad_case_type, upgrade_strategy_fixture):  # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
@@ -146,7 +146,7 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
         to_image = upgrade_path_urls[hop_index]
         logger.info("Installing hop {} image {}".format(hop_index, to_image))
         if metadata_process:
-            sonic_update_firmware(duthost, localhost, to_image, upgrade_type)
+            sonic_update_firmware(duthost, localhost, to_image, upgrade_type, upgrade_strategy_fixture)
         else:
             install_sonic(duthost, to_image, tbinfo)
 
