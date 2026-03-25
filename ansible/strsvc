@@ -295,7 +295,7 @@ sonic_nokia_lc_100G:
       sonic_hwsku: Nokia-IXR7250E-36x100G
       sonic_hw_platform:  x86_64-nokia_ixr7250e_36x400g-r0
       slot_num: slot1
-      switchids: [0,2]
+      switchids: [0, 2]
       voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
       voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
       loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
@@ -318,7 +318,7 @@ sonic_nokia_lc_100G:
       sonic_hwsku: Nokia-IXR7250E-36x100G
       sonic_hw_platform:  x86_64-nokia_ixr7250e_36x400g-r0
       slot_num: slot2
-      switchids: [6,8]
+      switchids: [4, 6]
       voq_inband_ip: [3.3.3.6/32,3.3.3.8/32]
       voq_inband_ipv6: [3333::3:6/128,3333::3:8/128]
       loopback4096_ip: [192.0.0.6/32,192.0.0.8/32]
@@ -341,7 +341,7 @@ sonic_nokia_lc_100G:
       sonic_hwsku: Nokia-IXR7250E-36x100G
       sonic_hw_platform:  x86_64-nokia_ixr7250e_36x400g-r0
       slot_num: slot3
-      switchids: [10,12]
+      switchids: [8, 10]
       voq_inband_ip: [3.3.3.10/32,3.3.3.12/32]
       voq_inband_ipv6: [3333::3:a/128,3333::3:c/128]
       loopback4096_ip: [192.0.0.10/32,192.0.0.12/32]
