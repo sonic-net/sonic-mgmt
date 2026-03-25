@@ -2653,10 +2653,13 @@ generic_config_updater/test_pg_headroom_update.py:
 
 generic_config_updater/test_srv6:
   skip:
-    reason: "Unsupported topology."
+    reason: "SRv6 is not supported on older ASICs (TH/TH2/TD3, SPC1-3). Skip for unsupported topologies and platforms."
     conditions_logical_operator: "OR"
     conditions:
       - "topo_name in ['t0-isolated-d96u32s2']"
+      - "asic_type not in ['mellanox', 'broadcom', 'cisco', 'cisco-8000', 'vs'] or (release != 'master' and release < '202511')"
+      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
+      - "asic_type == 'broadcom' and asic_gen not in ['th5']"
 
 generic_config_updater/test_vlan_interface.py::test_vlan_interface_tc1_suite:
   xfail:
