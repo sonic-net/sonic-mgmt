@@ -680,6 +680,7 @@ def get_ip_version_from_option(ip_version_option):
     else:
         return [ip_version_option]
 
+
 def get_reboot_type_from_option(request, reboot_option):
     """
     Generate the reboot type to test based on the pytest option.
