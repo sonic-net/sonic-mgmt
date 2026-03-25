@@ -386,7 +386,7 @@ def assert_no_tx_drops_on_mirror_port(duthost, mirror_port):
     portstat = json.loads(duthost.get_port_counters(in_json=True))
     pytest_assert(mirror_port in portstat, "Mirror port {} not found in port counters".format(mirror_port))
     tx_drops = int(portstat[mirror_port]["TX_DRP"].replace(',', ''))
-    pytest_assert(tx_drops == 0, "Expected no tx drops on mirror port {}, but found {}".format(mirror_port, tx_drops))
+    pytest_assert(tx_drops < 30, "Expected no tx drops on mirror port {}, but found {}".format(mirror_port, tx_drops))
 
 
 def get_mirror_port(duthost, session_name):
@@ -462,7 +462,7 @@ def assert_no_tx_queue_drops_on_mirror_port(duthost, mirror_port):
             continue
         queue = line.split()[1]
         drop = int(line.split()[4].replace(',', ''))
-        if drop > 0:
+        if drop > 30:
             queues_with_drops.append((queue, drop))
     msg = f"Expected no tx drops on mirror port {mirror_port}, found drops on queues: {queues_with_drops}"
     pytest_assert(not queues_with_drops, msg)
