@@ -1,3 +1,4 @@
+import re
 import pytest
 import logging
 
@@ -5,7 +6,6 @@ from tests.common.fixtures.duthost_utils import stop_route_checker_on_duthost
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 from tests.common import config_reload
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 pytestmark = [
     pytest.mark.disable_route_check,
@@ -100,38 +100,30 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
     lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
     port_channel_intfs = list(lag_facts['names'].keys())
 
-    # Add start marker to the DUT syslog
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='port_channel_cleanup')
-    loganalyzer.expect_regex = []
-    for pc in port_channel_intfs:
-        loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format(pc))
+    # Record current syslog size so we only search new entries later.
+    # We avoid the LogAnalyzer context manager here because its start/end
+    # markers are sent through the syslog UDP socket (/dev/log).  Under
+    # heavy CPU load combined with the syslog storm from restarting all
+    # containers, the host rsyslogd UDP receive buffer overflows and
+    # silently drops marker messages, causing a spurious RuntimeError.
+    # Grepping the syslog directly is immune to this.
+    start_line = int(duthost.shell("wc -l /var/log/syslog")['stdout'].split()[0])
 
     try:
         # Make CPU high
         for i in range(host_vcpus):
             duthost.shell("nohup yes > /dev/null 2>&1 & sleep 1")
 
-        # Stop rsyslogd in the swss container for this test case. This is because in the
-        # shutdown path, there will be a flood of syslogs from orchagent with messages
-        # like "removeLag: Failed to remove ref count 3 LAG PortChannel101". On scale
-        # setups, this can potentially cause some syslogs from other containers to get
-        # missed (because rsyslog is all using UDP, so if the RX buffer on the host's
-        # rsyslogd gets full, messages will get dropped. This test case is looking for
-        # specific logs from the teamd container, and if those logs happen to get dropped,
-        # this test case will incorrectly fail.
-        #
-        # Since we don't care about logs from swss for this test case, stop rsyslogd in
-        # the swss container completely.
-        for asic_id in duthost.get_asic_ids():
-            if asic_id is None:
-                asic_id = ""
-            duthost.command("docker exec swss{} supervisorctl stop rsyslogd".format(asic_id))
+        logging.info("Reloading config..")
+        config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
+    finally:
+        duthost.shell("killall yes", module_ignore_errors=True)
 
-        with loganalyzer:
-            logging.info("Reloading config..")
-            config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
-
-        duthost.shell("killall yes")
-    except Exception:
-        duthost.shell("killall yes")
-        raise
+    # Verify that port channel cleanup logs appeared during the reload.
+    syslog_tail = duthost.shell(
+        "tail -n +{} /var/log/syslog".format(start_line),
+        module_ignore_errors=True)['stdout']
+    for pc in port_channel_intfs:
+        pattern = LOG_EXPECT_PO_CLEANUP_RE.format(pc)
+        assert re.search(pattern, syslog_tail), \
+            "Missing port channel cleanup log for {}".format(pc)
