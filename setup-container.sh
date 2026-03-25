@@ -140,7 +140,7 @@ function show_local_container_login() {
 
     echo "******************************************************************************"
     echo "EXEC: docker exec --user ${USER} -ti ${CONTAINER_NAME} bash"
-    echo "SSH:  ssh -i ~/.ssh/id_rsa_docker_sonic_mgmt ${USER}@${CONTAINER_IPV4}"
+    echo "SSH:  ssh -i ~/.ssh/id_ed25519_docker_sonic_mgmt ${USER}@${CONTAINER_IPV4}"
     echo "******************************************************************************"
 
     if [[ -n ${SELECTED_DEBUG_PORT} ]]; then
@@ -159,10 +159,8 @@ function pull_sonic_mgmt_docker_image() {
         DOCKER_IMAGES_CMD="docker images --format \"{{.Repository}}:{{.Tag}}\""
         DOCKER_PULL_CMD="docker pull \"${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}\""
 
-        if eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_SONIC_MGMT}:latest$"; then
+        if eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_SONIC_MGMT}$"; then
             IMAGE_ID="${DOCKER_SONIC_MGMT}"
-        elif eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}:latest$"; then
-            IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
         elif log_info "pulling docker image from a registry ..." && eval "${DOCKER_PULL_CMD}"; then
             IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
         else
@@ -175,12 +173,12 @@ function pull_sonic_mgmt_docker_image() {
 
 function setup_local_image() {
     AUTHKEY_FILE="${HOME}/.ssh/authorized_keys"
-    PRIVKEY_FILE="${HOME}/.ssh/id_rsa_docker_sonic_mgmt"
-    PUBKEY_FILE="${HOME}/.ssh/id_rsa_docker_sonic_mgmt.pub"
+    PRIVKEY_FILE="${HOME}/.ssh/id_ed25519_docker_sonic_mgmt"
+    PUBKEY_FILE="${HOME}/.ssh/id_ed25519_docker_sonic_mgmt.pub"
 
     if [[ ! -f "${PRIVKEY_FILE}" ]]; then
         log_info "generate SSH key pair: $(basename "${PRIVKEY_FILE}")/$(basename "${PUBKEY_FILE}")"
-        ssh-keygen -t rsa -q -N "" -f "${PRIVKEY_FILE}" || \
+        ssh-keygen -t ed25519 -q -N "" -f "${PRIVKEY_FILE}" || \
         exit_failure "failed to generate SSH key pair: $(basename "${PRIVKEY_FILE}")/$(basename "${PUBKEY_FILE}")"
     fi
 
@@ -199,14 +197,19 @@ function setup_local_image() {
     log_info "setup a temporary dir: ${TMP_DIR}"
 
     log_info "copy SSH key pair: $(basename "${PRIVKEY_FILE}")/$(basename "${PUBKEY_FILE}")"
-    eval "cp -fv \"${PRIVKEY_FILE}\" \"${TMP_DIR}/id_rsa\" ${SILENT_HOOK}"
-    eval "cp -fv \"${PUBKEY_FILE}\" \"${TMP_DIR}/id_rsa.pub\" ${SILENT_HOOK}"
+    eval "cp -fv \"${PRIVKEY_FILE}\" \"${TMP_DIR}/id_ed25519\" ${SILENT_HOOK}"
+    eval "cp -fv \"${PUBKEY_FILE}\" \"${TMP_DIR}/id_ed25519.pub\" ${SILENT_HOOK}"
 
     log_info "prepare a Dockerfile template: ${TMP_DIR}/Dockerfile.j2"
     cat <<'EOF' > "${TMP_DIR}/Dockerfile.j2"
 FROM {{ IMAGE_ID }}
 
 USER root
+
+# Remove possible default ubuntu user of Ubuntu 24.04
+RUN if getent passwd ubuntu; \
+then userdel -r ubuntu; \
+fi
 
 # Group configuration
 RUN if getent group {{ GROUP_NAME }}; \
@@ -254,11 +257,11 @@ ENV HOME=/home/{{ USER_NAME }}
 ENV USER={{ USER_NAME }}
 
 # Passwordless SSH access
-COPY --chown={{ USER_ID }}:{{ GROUP_ID }} id_rsa id_rsa.pub ${HOME}/.ssh/
+COPY --chown={{ USER_ID }}:{{ GROUP_ID }} id_ed25519 id_ed25519.pub ${HOME}/.ssh/
 RUN chmod 0700 ${HOME}/.ssh
-RUN chmod 0600 ${HOME}/.ssh/id_rsa
-RUN chmod 0644 ${HOME}/.ssh/id_rsa.pub
-RUN cat ${HOME}/.ssh/id_rsa.pub >> ${HOME}/.ssh/authorized_keys
+RUN chmod 0600 ${HOME}/.ssh/id_ed25519
+RUN chmod 0644 ${HOME}/.ssh/id_ed25519.pub
+RUN cat ${HOME}/.ssh/id_ed25519.pub >> ${HOME}/.ssh/authorized_keys
 RUN chmod 0600 ${HOME}/.ssh/authorized_keys
 
 WORKDIR ${HOME}
@@ -269,9 +272,11 @@ WORKDIR ${HOME}
 # 2. The user is not AzDevOps. By default python3 virtual env is installed for AzDevOps user.
 #    No need to install it again when current user is AzDevOps.
 # 3. The python3 virtual env is not installed for AzDevOps. Then, it is not required for other users either.
-RUN if ! pip3 list | grep -c pytest >/dev/null && \
-[ '{{ USER_NAME }}' != 'AzDevOps' ] && \
-[ -d /var/AzDevOps/env-python3 ]; then \
+# As of 2025, python3 is installed globally in the docker-sonic-mgmt image. So, this step is not really required.
+# Adjust the conditions to fail faster to skip this step.
+RUN if [ -d /var/AzDevOps/env-python3 ] \
+ && [ '{{ USER_NAME }}' != 'AzDevOps' ] \
+ && ! pip3 list | grep -c pytest >/dev/null; then \
 /bin/bash -c 'python3 -m venv ${HOME}/env-python3'; \
 /bin/bash -c '${HOME}/env-python3/bin/pip install pip --upgrade'; \
 /bin/bash -c '${HOME}/env-python3/bin/pip install wheel'; \
@@ -364,7 +369,7 @@ function start_local_container() {
         docker start ${CONTAINER_NAME}
     else
         log_info "creating a container: ${CONTAINER_NAME} ..."
-        eval "docker run -d -t ${PUBLISH_PORTS} ${ENV_VARS} -h ${CONTAINER_NAME} \
+        eval "docker run --cap-add=SYS_PTRACE -d -t ${PUBLISH_PORTS} ${ENV_VARS} -h ${CONTAINER_NAME} \
         -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
         --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
         exit_failure "failed to start a container: ${CONTAINER_NAME}"

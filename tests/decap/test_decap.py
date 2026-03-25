@@ -3,7 +3,7 @@ IPinIP Decap configs for different ASICs:
 Table Name in APP_DB: TUNNEL_DECAP_TABLE:IPINIP_TUNNEL
 
 Config          Mellanox <= [202411]        Mellanox >= [202505]        Broadcom <= [201911]        Broadcom >= [202012]     Innovium               # noqa: E501
-dscp_mode       uniform                     uniform                     pipe                        uniform                  pipe                   # noqa: E501
+dscp_mode       uniform                     pipe                        pipe                        uniform                  pipe                   # noqa: E501
 ecn_mode        standard                    copy_from_outer             copy_from_outer             copy_from_outer          copy_from_outer        # noqa: E501
 ttl_mode        pipe                        pipe                        pipe                        pipe                     pipe                   # noqa: E501
 '''
@@ -27,6 +27,7 @@ from tests.common.fixtures.fib_utils import single_fib_for_duts             # no
 from tests.ptf_runner import ptf_runner
 from tests.common.dualtor.mux_simulator_control import mux_server_url       # noqa: F401
 from tests.common.utilities import wait, setup_ferret
+from tests.common.utilities import is_ipv6_only_topology
 from tests.common.dualtor.dual_tor_common import active_active_ports                                # noqa: F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports                               # noqa: F401
 from tests.common.dualtor.dual_tor_common import mux_config                                         # noqa: F401
@@ -81,13 +82,21 @@ def restore_default_decap_cfg(duthosts):
 
 
 @pytest.fixture(scope='module')
-def ip_ver(request):
-    return {
-        "outer_ipv4": to_bool(request.config.getoption("outer_ipv4")),
-        "outer_ipv6": to_bool(request.config.getoption("outer_ipv6")),
-        "inner_ipv4": to_bool(request.config.getoption("inner_ipv4")),
-        "inner_ipv6": to_bool(request.config.getoption("inner_ipv6")),
-    }
+def ip_ver(request, tbinfo):
+    if is_ipv6_only_topology(tbinfo):
+        return {
+            "outer_ipv4": False,
+            "outer_ipv6": to_bool(request.config.getoption("outer_ipv6")),
+            "inner_ipv4": False,
+            "inner_ipv6": to_bool(request.config.getoption("inner_ipv6")),
+        }
+    else:
+        return {
+            "outer_ipv4": to_bool(request.config.getoption("outer_ipv4")),
+            "outer_ipv6": to_bool(request.config.getoption("outer_ipv6")),
+            "inner_ipv4": to_bool(request.config.getoption("inner_ipv4")),
+            "inner_ipv6": to_bool(request.config.getoption("inner_ipv6")),
+        }
 
 
 @pytest.fixture(scope='module')

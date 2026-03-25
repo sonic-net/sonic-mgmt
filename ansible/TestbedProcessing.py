@@ -297,7 +297,8 @@ error handling: checks if attribute values are None type or string "None"
 
 
 def makeTestbed(data, outfile):
-    csv_columns = "# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment"
+    csv_columns = ("# conf-name,group-name,topo,ptf_image_name,ptf,ptf_ip,ptf_ipv6,server,vm_base,dut,comment,"
+                   "use_converged_peers")
     topology = data
     csv_file = outfile
 
@@ -316,6 +317,7 @@ def makeTestbed(data, outfile):
                 dut = groupDetails.get("dut")
                 ptf = groupDetails.get("ptf")
                 comment = groupDetails.get("comment")
+                use_converged_peers = str(groupDetails.get("use_converged_peers", False)).lower()
 
                 # catch empty types
                 if not groupName:
@@ -346,7 +348,7 @@ def makeTestbed(data, outfile):
 
                 row = confName + "," + groupName + "," + topo + "," + ptf_image_name + "," + ptf + \
                     "," + ptf_ip + "," + ptf_ipv6 + "," + server + \
-                    "," + vm_base + "," + dut + "," + comment
+                    "," + vm_base + "," + dut + "," + comment + "," + use_converged_peers
                 f.write(row + "\n")
     except IOError:
         print("I/O error: issue creating testbed.yaml")
@@ -688,30 +690,20 @@ def makeLab(data, devices, testbed, outfile):
                                             (asic_id * num_cores_per_asic) for asic_id in range(num_asics)]
                                     entry += "\tswitchids=\"" + str(switchids) + "\""
 
-                                    if voq_inband_ip is None:
-                                        voq_inband_ip = [
-                                            "1.1.1.{}/32"
-                                            .format(start_switchid + asic_id) for asic_id in range(num_asics)]
-                                    entry += "\tvoq_inband_ip=\"" + \
-                                        str(voq_inband_ip) + "\""
+                                    if voq_inband_ip is not None:
+                                        entry += "\tvoq_inband_ip=\"" + \
+                                            str(voq_inband_ip) + "\""
 
-                                    if voq_inband_ipv6 is None:
-                                        voq_inband_ipv6 = [
-                                            "1111::1:{}/128"
-                                            .format(start_switchid + asic_id) for asic_id in range(num_asics)]
-                                    entry += "\tvoq_inband_ipv6=\"" + \
-                                        str(voq_inband_ipv6) + "\""
+                                    if voq_inband_ipv6 is not None:
+                                        entry += "\tvoq_inband_ipv6=\"" + \
+                                            str(voq_inband_ipv6) + "\""
 
-                                    if voq_inband_intf is None:
-                                        voq_inband_intf = [
-                                            "Ethernet-IB{}"
-                                            .format(asic_id) for asic_id in range(num_asics)]
-                                    entry += "\tvoq_inband_intf=\"" + \
-                                        str(voq_inband_intf) + "\""
+                                    if voq_inband_intf is not None:
+                                        entry += "\tvoq_inband_intf=\"" + \
+                                            str(voq_inband_intf) + "\""
 
-                                    if voq_inband_type is None:
-                                        voq_inband_type = "port"
-                                    entry += "\tvoq_inband_type=" + voq_inband_type
+                                    if voq_inband_type is not None:
+                                        entry += "\tvoq_inband_type=" + voq_inband_type
 
                                     if max_cores is None:
                                         max_cores = 48

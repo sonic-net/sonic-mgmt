@@ -15,7 +15,7 @@ steps:
         pip install pyenchant
         pip install pre-commit
         pip install pylint # required as pylint is run in local mode
-        pip install -r tests/common2/requirements_pylint_prereq.txt
+        pip install -r tests/common2/requirements.txt
 
         pre-commit install
         pre-commit install-hooks

@@ -26,7 +26,6 @@ MEMORY_CHECKER_CYCLES = 60
 SUBMODE_ONCHANGE = 1
 CFG_DB_PATH = "/etc/sonic/config_db.json"
 ORIG_CFG_DB = "/etc/sonic/orig_config_db.json"
-MAX_UC_CNT = 7
 
 
 def load_new_cfg(duthost, data):
@@ -37,24 +36,19 @@ def load_new_cfg(duthost, data):
     setup_telemetry_forpyclient(duthost)
 
 
-def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface, gnmi_port):
-    cnt = 0
-    for i in range(MAX_UC_CNT):
-        cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} \
-            -p {1} -m get -x COUNTERS_QUEUE_NAME_MAP/{2}:{3} \
-            -xt COUNTERS_DB -o "ndastreamingservertest" \
-            '.format(dut_ip, gnmi_port, interface, i)
-
-        cmd_output = ptfhost.shell(cmd, module_ignore_errors=True)
-
-        if not cmd_output["failed"]:
-            cnt += 1
-
+def get_buffer_queues_cnt(duthost, ptfhost, gnxi_path, interface):
+    xpath = "COUNTERS_QUEUE_NAME_MAP"
+    cmd = generate_client_cli(duthost, gnxi_path, "get", xpath, "COUNTERS_DB")
+    cmd_output = ptfhost.shell(cmd, module_ignore_errors=True)
+    if cmd_output["failed"]:
+        return 0
+    output = str(cmd_output["stdout"])
+    cnt = len(re.findall(r'{}:\d+'.format(re.escape(interface)), output))
     return cnt
 
 
-def check_buffer_queues_cnt_cmd_output(ptfhost, gnxi_path, dut_ip, interface_to_check, gnmi_port):
-    cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, gnmi_port)
+def check_buffer_queues_cnt_cmd_output(duthost, ptfhost, gnxi_path, interface_to_check):
+    cnt = get_buffer_queues_cnt(duthost, ptfhost, gnxi_path, interface_to_check)
     if cnt > 0:
         return True
     else:
@@ -123,14 +117,11 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     """Run pyclient from ptfdocker and show gnmi server outputself.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     if duthost.is_supervisor_node():
         pytest.skip(
             "Skipping test as no Ethernet0 frontpanel port on supervisor")
     logger.info('start telemetry output testing')
-    dut_ip = duthost.mgmt_ip
-    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt \
-        COUNTERS_DB -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
+    cmd = generate_client_cli(duthost, gnxi_path, method="get", xpath="COUNTERS/Ethernet0", target="COUNTERS_DB")
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.info("GNMI Server output")
     logger.info(show_gnmi_out)
@@ -158,12 +149,10 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     https://github.com/sonic-net/sonic-buildimage/issues/17448
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     if duthost.is_supervisor_node():
         pytest.skip(
             "Skipping test as no Ethernet0 frontpanel port on supervisor")
     logger.info('start telemetry output testing')
-    dut_ip = duthost.mgmt_ip
 
     interfaces = duthost.get_interfaces_status()
     pattern = re.compile(r'^Ethernet[0-9]{1,3}$')
@@ -173,6 +162,9 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     duthost.shell("sonic-cfggen -d --print-data > {}".format(ORIG_CFG_DB))
     data = json.loads(duthost.shell("cat {}".format(ORIG_CFG_DB),
                                     verbose=False)['stdout'])
+
+    if 'BUFFER_QUEUE' not in data or not data['BUFFER_QUEUE']:
+        pytest.skip("Skipping test as BUFFER_QUEUE table is not present in config db")
 
     buffer_queues = list(data['BUFFER_QUEUE'].keys())
     buffer_queues_interfaces = [bq.split('|')[0] for bq in buffer_queues]
@@ -185,7 +177,7 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
     if interface_to_check is None:
         pytest.skip("Skipping test as there are none interfaces in admin'up' state with buffer queues to check")
 
-    interface_buffer_queues = [bq for bq in buffer_queues if any(val in interface_to_check for val in bq.split('|'))]
+    interface_buffer_queues = [bq for bq in buffer_queues if bq.split('|')[0] == interface_to_check]
     if len(interface_buffer_queues) == 0:
         pytest.skip("No valid entry for any interface:queue entry")
 
@@ -220,19 +212,19 @@ def test_telemetry_queue_buffer_cnt(duthosts, enum_rand_one_per_hwsku_hostname, 
         data['DEVICE_METADATA']["localhost"]["create_only_config_db_buffers"] \
             = "true"
         load_new_cfg(duthost, data)
-        pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
-                                 dut_ip, interface_to_check, env.gnmi_port),
+        pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, duthost, ptfhost, gnxi_path,
+                                 interface_to_check),
                       "Unable to get count of buffer queues from COUNTERS_QUEUE_NAME_MAP")
-        pre_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
+        pre_del_cnt = get_buffer_queues_cnt(duthost, ptfhost, gnxi_path, interface_to_check)
 
         # Remove buffer queue and reload and get new number of queue counters
         del data['BUFFER_QUEUE'][bq_entry]
         load_new_cfg(duthost, data)
         if not is_single_queue:
-            pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, ptfhost, gnxi_path,
-                                     dut_ip, interface_to_check, env.gnmi_port),
+            pytest_assert(wait_until(120, 20, 0, check_buffer_queues_cnt_cmd_output, duthost, ptfhost, gnxi_path,
+                                     interface_to_check),
                           "Unable to get count of buffer queues from COUNTERS_QUEUE_NAME_MAP")
-        post_del_cnt = get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface_to_check, env.gnmi_port)
+        post_del_cnt = get_buffer_queues_cnt(duthost, ptfhost, gnxi_path, interface_to_check)
 
         pytest_assert(pre_del_cnt > post_del_cnt,
                       "Number of queue counters count differs from expected")
@@ -269,11 +261,8 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
     """
     logger.info("start test the dataset 'system uptime'")
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     skip_201911_and_older(duthost)
-    dut_ip = duthost.mgmt_ip
-    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
-           -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
+    cmd = generate_client_cli(duthost, gnxi_path, method="get", xpath="proc/uptime", target="OTHERS")
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
     system_uptime_1st = 0
     found_system_uptime_field = False
@@ -338,7 +327,8 @@ def test_virtualdb_table_streaming(duthosts, enum_rand_one_per_hwsku_hostname, p
 def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
     ret = ptfhost.shell(cmd)
     assert ret["rc"] == 0, "PTF docker did not get a response"
-    callback(ret["stdout"])
+    if callback is not None:
+        callback(ret["stdout"])
 
 
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
@@ -380,7 +370,13 @@ def test_on_change_updates(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, 
     client_thread = threading.Thread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
     client_thread.start()
 
-    wait_until(5, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
+    logger.info("Checking telemetry service status on DUT.")
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    duthost.shell("systemctl status {}".format(env.gnmi_container))
+    duthost.shell("docker ps | grep {}".format(env.gnmi_container))
+    duthost.shell("docker logs {}".format(env.gnmi_container))
+
+    wait_until(60, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
     cmd = "sonic-db-cli STATE_DB HSET \"NEIGH_STATE_TABLE|{}\" \"state\" {}".format(bgp_neighbor,
                                                                                     new_state)
     cmd = duthost.get_cli_cmd_for_namespace(cmd, ns)

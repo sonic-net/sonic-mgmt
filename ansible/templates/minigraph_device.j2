@@ -9,12 +9,17 @@
           <AlternateSpeeds i:nil="true"/>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
+          {% if num_asics > 1 %}
           <InterfaceName>{{ port_alias[index] }}</InterfaceName>
+          {% else %}
+          <InterfaceName>{{ port_alias_map[port_alias[index]] }}</InterfaceName>
+          {% endif %}
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
           <Priority>0</Priority>
-{% if subtype is defined and subtype == 'SmartSwitch' and index > 27 %}
+{% set intf = port_name[index] %}
+{% if subtype is defined and subtype == 'SmartSwitch' and intf[8:]|int >= 224 %}
           <role>Dpc</role>
 {% endif %}
 {% if port_speed[port_alias[index]] is defined %}

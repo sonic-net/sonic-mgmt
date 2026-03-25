@@ -86,18 +86,44 @@ class MemoryMonitor:
                             previous_values, current_values, is_current=True
                         )
 
-                # Get increase threshold and determine if it's a percentage or absolute value
+                # Get increase thresholds: warning (soft) and fail (hard)
+                # memory_increase_threshold: warning level (log warning but don't fail)
+                # memory_increase_fail_threshold: fail level (store error, fail the test)
+                # If memory_increase_fail_threshold is not set, memory_increase_threshold acts as the fail level
+                # (backward compatible)
                 increase_threshold_raw = normalized_thresholds.get("memory_increase_threshold", float('inf'))
                 logger.debug("Raw increase threshold for {}:{}: {}".format(name, mem_item, increase_threshold_raw))
                 increase_threshold = self._parse_threshold(increase_threshold_raw, previous_value)
                 logger.info("Calculated increase threshold for {}:{}: {}".format(name, mem_item, increase_threshold))
 
+                increase_fail_threshold_raw = normalized_thresholds.get("memory_increase_fail_threshold", None)
+                if increase_fail_threshold_raw is not None:
+                    increase_fail_threshold = self._parse_threshold(increase_fail_threshold_raw, previous_value)
+                    logger.info("Calculated increase fail threshold for {}:{}: {}".format(
+                        name, mem_item, increase_fail_threshold))
+                else:
+                    increase_fail_threshold = None
+
                 increase = current_value - previous_value
-                if increase > increase_threshold:
-                    self._handle_memory_threshold_exceeded(
-                        name, mem_item, increase, increase_threshold_raw,
-                        previous_values, current_values, is_increase=True
-                    )
+                if increase_fail_threshold is not None:
+                    # Two-tier mode: warn at lower threshold, fail at higher threshold
+                    if increase > increase_fail_threshold:
+                        self._handle_memory_threshold_exceeded(
+                            name, mem_item, increase, increase_fail_threshold_raw,
+                            previous_values, current_values, is_increase=True
+                        )
+                    elif increase > increase_threshold:
+                        self._handle_memory_warning(
+                            name, mem_item, increase, increase_threshold_raw,
+                            previous_values, current_values
+                        )
+                else:
+                    # Legacy single-tier mode: threshold acts as fail level
+                    if increase > increase_threshold:
+                        self._handle_memory_threshold_exceeded(
+                            name, mem_item, increase, increase_threshold_raw,
+                            previous_values, current_values, is_increase=True
+                        )
 
     def _normalize_thresholds(self, thresholds):
         """
@@ -314,6 +340,24 @@ class MemoryMonitor:
             # Store error instead of failing immediately
             self.memory_errors.append(message)
             logger.debug("Stored memory error: {}".format(message))
+
+    def _handle_memory_warning(self, name, mem_item, value, threshold,
+                               previous_values, current_values):
+        """Handle memory increase that exceeds warning threshold but not fail threshold.
+
+        Logs a warning for visibility but does not store an error or fail the test.
+        This is used in two-tier mode where memory_increase_threshold is the warning level
+        and memory_increase_fail_threshold is the fail level.
+        """
+        prev_val = previous_values.get(name, {}).get(mem_item, 0)
+        curr_val = current_values.get(name, {}).get(mem_item, 0)
+
+        threshold_str = self._format_threshold_for_display(threshold)
+        logger.warning(
+            "[WARNING]: {}:{} memory usage increased by {:.1f} MB, exceeds warning threshold {} "
+            "(previous: {:.1f} MB, current: {:.1f} MB). Not failing - within fail threshold."
+            .format(name, mem_item, value, threshold_str, prev_val, curr_val)
+        )
 
     def get_memory_errors(self):
         return self.memory_errors
@@ -575,25 +619,63 @@ def parse_frr_memory_output(output, memory_params):
         'GiB': 1024 * 1024 * 1024
     }
 
+    # Initialize values for the three lines
+    holding_block_headers = 0.0
+    used_small_blocks = 0.0
+    used_ordinary_blocks = 0.0
+
     for line in output.split('\n'):
-        if "Used ordinary blocks:" in line:
+        line = line.strip()
+        if "Holding block headers:" in line:
             parts = line.split()
-            if len(parts) >= 5:
+            if len(parts) >= 4:
                 try:
                     value = float(parts[3])
-                    unit = parts[4]
-
+                    unit = parts[4] if len(parts) > 4 else 'bytes'
+                    logger.debug(f"Parsed 'Holding block headers': {value} {unit}")
                     if unit in unit_multipliers:
-                        memory_bytes = value * unit_multipliers[unit]
-                        # Convert to MB for consistent measurement
-                        memory_values['used'] = round(memory_bytes / (1024 * 1024), 1)
+                        holding_block_headers = value * unit_multipliers[unit]
                     else:
-                        logger.warning("Unknown memory unit: {}, treating as bytes".format(unit))
-                        memory_values['used'] = round(value / (1024 * 1024), 1)
-
+                        logger.warning(f"Unknown memory unit in 'Holding block headers': {unit}, treating as bytes")
+                        holding_block_headers = value
                 except (ValueError, TypeError) as e:
-                    logger.error("Failed to parse FRR memory value: {}".format(e))
-                break
+                    logger.error(f"Failed to parse 'Holding block headers' value: {e}")
+        elif "Used small blocks:" in line:
+            parts = line.split()
+            if len(parts) >= 4:
+                try:
+                    value = float(parts[3])
+                    unit = parts[4] if len(parts) > 4 else 'bytes'
+                    logger.debug(f"Parsed 'Used small blocks': {value} {unit}")
+                    if unit in unit_multipliers:
+                        used_small_blocks = value * unit_multipliers[unit]
+                    else:
+                        logger.warning(f"Unknown memory unit in 'Used small blocks': {unit}, treating as bytes")
+                        used_small_blocks = value
+                except (ValueError, TypeError) as e:
+                    logger.error(f"Failed to parse 'Used small blocks' value: {e}")
+        elif "Used ordinary blocks:" in line:
+            parts = line.split()
+            if len(parts) >= 4:
+                try:
+                    value = float(parts[3])
+                    unit = parts[4] if len(parts) > 4 else 'bytes'
+                    logger.debug(f"Parsed 'Used ordinary blocks': {value} {unit}")
+                    if unit in unit_multipliers:
+                        used_ordinary_blocks = value * unit_multipliers[unit]
+                    else:
+                        logger.warning(f"Unknown memory unit in 'Used ordinary blocks': {unit}, treating as bytes")
+                        used_ordinary_blocks = value
+                except (ValueError, TypeError) as e:
+                    logger.error(f"Failed to parse 'Used ordinary blocks' value: {e}")
+
+    # Sum the three values and convert to MB
+    total_bytes = holding_block_headers + used_small_blocks + used_ordinary_blocks
+    memory_values['used'] = round(total_bytes / (1024 * 1024), 1)
+    logger.info(f"Total FRR memory used: {memory_values['used']} MB, "
+                f"holding: {holding_block_headers} bytes, "
+                f"small: {used_small_blocks} bytes, "
+                f"ordinary: {used_ordinary_blocks} bytes")
 
     logger.debug("Parsed FRR memory values: {}".format(memory_values))
     return memory_values

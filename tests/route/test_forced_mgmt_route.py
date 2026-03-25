@@ -11,7 +11,7 @@ from tests.common.utilities import wait_until, wait_for_file_changed, backup_con
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
-    pytest.mark.topology('t0', 't2'),
+    pytest.mark.topology('t0', 't2', 'lt2', 'ft2'),
     pytest.mark.device_type('vs')
 ]
 

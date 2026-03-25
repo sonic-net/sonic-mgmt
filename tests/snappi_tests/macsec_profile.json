@@ -1,0 +1,23 @@
+{
+    "256_XPN_SCI": {
+        "priority": 64,
+        "cipher_suite": "GCM-AES-XPN-256",
+        "primary_cak": "207b757a60617745504e5a20747a7c76725e524a450d0d01040a0c752978222",
+        "primary_ckn": "6162636465666768696A6B6C6D6E6F707172737475767778797A303132333435",
+        "policy": "security",
+        "send_sci": "true",
+        "rekey_period": 240
+    },
+    "snappi": {
+        "tx_pn_choice": "fixed_pn",
+        "key_derivation_function": "aes_cmac_256",
+        "actor_priority": "0x16",
+        "cak_name": "0x112233445566778899AABBCCDD",
+        "cak_value": "0x112233445566778899AABBCCDDEEFF00",
+        "mka_rekey_mode_choice": "timer_based",
+        "mka_rekey_timer_interval": 240,
+        "mka_rekey_timer_choice": "continuous",
+        "cipher_suite": "gcm_aes_256",
+        "confidentiality_offset": "confidentiality_offset_30_octets"
+    }
+}

@@ -4,6 +4,7 @@ import time
 import logging
 import pytest
 import ipaddress
+import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -26,6 +27,7 @@ ETHERTYPE_RANGE = [0x0801, 0x0900]
 ENCAPSULATION = ['ipinip', 'vxlan', 'nvgre']
 MELLANOX_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT']
 CISCO_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT']
+MARVELL_TERALYNX_HASH_ALGORITHM = ['CRC', 'XOR']
 DEFAULT_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT', 'RANDOM', 'XOR']
 
 MELLANOX_ECMP_HASH_FIELDS = [
@@ -44,6 +46,14 @@ CISCO_ECMP_HASH_FIELDS = [
 CISCO_LAG_HASH_FIELDS = [
     'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
 ]
+MARVELL_TERALYNX_ECMP_HASH_FIELDS = [
+    'SRC_IP', 'DST_IP', 'VLAN_ID', 'IP_PROTOCOL', 'ETHERTYPE', 'L4_SRC_PORT', 'L4_DST_PORT', 'SRC_MAC',
+    'DST_MAC', 'IN_PORT'
+]
+MARVELL_TERALYNX_LAG_HASH_FIELDS = [
+    'SRC_IP', 'DST_IP', 'VLAN_ID', 'IP_PROTOCOL', 'ETHERTYPE', 'L4_SRC_PORT', 'L4_DST_PORT', 'SRC_MAC',
+    'DST_MAC', 'IN_PORT'
+]
 DEFAULT_ECMP_HASH_FIELDS = [
     'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT',
     'L4_DST_PORT', 'INNER_SRC_IP', 'INNER_DST_IP', 'INNER_IP_PROTOCOL', 'INNER_ETHERTYPE', 'INNER_L4_SRC_PORT',
@@ -59,7 +69,9 @@ HASH_CAPABILITIES = {'mellanox': {'ecmp': MELLANOX_ECMP_HASH_FIELDS,
                      'default': {'ecmp': DEFAULT_ECMP_HASH_FIELDS,
                                  'lag': DEFAULT_LAG_HASH_FIELDS},
                      'cisco-8000': {'ecmp': CISCO_ECMP_HASH_FIELDS,
-                                    'lag': CISCO_LAG_HASH_FIELDS}}
+                                    'lag': CISCO_LAG_HASH_FIELDS},
+                     'marvell-teralynx': {'ecmp': MARVELL_TERALYNX_ECMP_HASH_FIELDS,
+                                          'lag': MARVELL_TERALYNX_LAG_HASH_FIELDS}}
 
 logger = logging.getLogger(__name__)
 vlan_member_to_restore = {}
@@ -67,8 +79,8 @@ ip_interface_to_restore = []
 l2_ports = set()
 vlans_to_remove = []
 interfaces_to_startup = []
-balancing_test_times = 480
-balancing_range = 0.25
+base_balancing_test_times = 480
+base_balancing_range = 0.3
 balancing_range_in_port = 0.8
 vxlan_ecmp_utils = VxLAN_Ecmp_Utils()
 vxlan_port_list = [13330, 4789]
@@ -82,6 +94,8 @@ def get_supported_hash_algorithms(request):
         supported_hash_algorithm_list = MELLANOX_SUPPORTED_HASH_ALGORITHM[:]
     elif asic_type in 'cisco-8000':
         supported_hash_algorithm_list = CISCO_SUPPORTED_HASH_ALGORITHM[:]
+    elif asic_type in 'marvell-teralynx':
+        supported_hash_algorithm_list = MARVELL_TERALYNX_HASH_ALGORITHM[:]
     else:
         supported_hash_algorithm_list = DEFAULT_SUPPORTED_HASH_ALGORITHM[:]
     return supported_hash_algorithm_list
@@ -92,6 +106,33 @@ def skip_vs_setups(rand_selected_dut):
     """ Fixture to skip the test on vs setups. """
     if rand_selected_dut.facts['asic_type'] in ["vs"]:
         pytest.skip("Generic hash test only runs on physical setups.")
+
+
+@pytest.fixture(scope="function", autouse=True)
+def skip_lag_tests_on_no_lag_topos(request, rand_selected_dut):
+    if "lag" in request.node.name and \
+            "PORTCHANNEL" not in rand_selected_dut.get_running_config_facts():
+        pytest.skip("The topology doesn't have portchannels, skip the lag test cases.")
+
+
+@pytest.fixture(scope="function", autouse=True)
+def skip_tests_on_isolated_topos(request, tbinfo):
+    if 'isolated' in tbinfo['topo']['name']:
+        uplink_count = re.search(r'u(\d+)', tbinfo['topo']['name'])
+        downlink_count = re.search(r'd(\d+)', tbinfo['topo']['name'])
+        if uplink_count:
+            uplink_count = int(uplink_count.group(1))
+        else:
+            pytest.skip("Isolated topologies with no uplinks is not supported by the test.")
+        if downlink_count:
+            downlink_count = int(downlink_count.group(1))
+        else:
+            pytest.skip("Isolated topologies with no downlinks is not supported by the test.")
+        if uplink_count > 32 and "IP_PROTOCOL" in request.node.name:
+            pytest.skip("IP_PROTOCOL hash field is not supported on topos with more than 32 uplinks.")
+        if downlink_count / uplink_count < 2 and "IN_PORT" in request.node.name:
+            pytest.skip("At least twice the number of downlinks compared"
+                        " to uplinks is required for IN_PORT hash test.")
 
 
 @pytest.fixture(scope="module")
@@ -300,6 +341,27 @@ def check_default_route(duthost, expected_nexthops):
     return set(nexthops) == set(expected_nexthops)
 
 
+def check_default_route_asic_db(duthost):
+    """
+    Check the default route exists in the asic db.
+    Args:
+        duthost (AnsibleHost): Device Under Test (DUT)
+    Returns:
+        True if the default route and nexthop id exist in the asic db.
+    """
+    logger.info("Check if the default route exists in the asic db.")
+    route_entry = duthost.shell(
+        'redis-cli -n 1 keys "*ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*0.0.0.0/0*"',
+        module_ignore_errors=True)["stdout"]
+    if not route_entry:
+        return False
+    route_entry_content = duthost.shell(f"redis-cli -n 1 hgetall '{route_entry}'")["stdout"]
+    if "SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID" in route_entry_content:
+        return True
+    else:
+        return False
+
+
 def get_ptf_port_indices(mg_facts, downlink_interfaces, uplink_interfaces):
     """
     Get the ptf port indices for the interfaces under test.
@@ -317,10 +379,10 @@ def get_ptf_port_indices(mg_facts, downlink_interfaces, uplink_interfaces):
     for interface in downlink_interfaces:
         sending_ports.append(mg_facts['minigraph_ptf_indices'][interface])
     expected_port_groups = []
-    for index, portchannel in enumerate(uplink_interfaces.keys()):
+    for index, interface in enumerate(uplink_interfaces.keys()):
         expected_port_groups.append([])
-        for interface in uplink_interfaces[portchannel]:
-            expected_port_groups[index].append(mg_facts['minigraph_ptf_indices'][interface])
+        for port in uplink_interfaces[interface]:
+            expected_port_groups[index].append(mg_facts['minigraph_ptf_indices'][port])
         expected_port_groups[index].sort()
     return sending_ports, expected_port_groups
 
@@ -441,6 +503,33 @@ def get_interfaces_for_test(duthost, mg_facts, hash_field):
     return uplink_interfaces, downlink_interfaces
 
 
+def get_updated_balancing_test_times_and_range(uplink_interfaces):
+    """
+    Update the balancing test times and range based on the number of uplink interfaces.
+    When the number of egress ports gets larger, the variations in some of the fields
+    may be not enough to get a perfect balancing result.
+    For example the IP_PROTOCOL field has only 256 values and VLAN_ID field has only 4096 values.
+    So we relax the threshold based on the number of egress ports.
+    Args:
+        uplink_interfaces: a dictionary of the uplink interfaces
+    Returns:
+        the new balancing test times and range
+    """
+    uplink_physicalport_count = sum(len(members) for members in uplink_interfaces.values())
+    balancing_test_times = base_balancing_test_times
+    balancing_range = base_balancing_range
+    if uplink_physicalport_count >= 32 and uplink_physicalport_count < 64:
+        balancing_test_times = int(base_balancing_test_times * 0.75)
+        balancing_range = round(balancing_range + 0.05, 2)
+    elif uplink_physicalport_count >= 64 and uplink_physicalport_count < 128:
+        balancing_test_times = int(base_balancing_test_times * 0.5)
+        balancing_range = round(balancing_range + 0.1, 2)
+    elif uplink_physicalport_count >= 128:
+        balancing_test_times = int(base_balancing_test_times * 0.25)
+        balancing_range = round(balancing_range + 0.15, 2)
+    return balancing_test_times, balancing_range
+
+
 def get_asic_type(request):
     metadata = get_testbed_metadata(request)
     if metadata is None:
@@ -497,6 +586,8 @@ def get_hash_algorithm_from_option(request, hash_algorithm_identifier):
         supported_hash_algorithm_list = MELLANOX_SUPPORTED_HASH_ALGORITHM[:]
     elif asic_type in 'cisco-8000':
         supported_hash_algorithm_list = CISCO_SUPPORTED_HASH_ALGORITHM[:]
+    elif asic_type in 'marvell-teralynx':
+        supported_hash_algorithm_list = MARVELL_TERALYNX_HASH_ALGORITHM[:]
     else:
         supported_hash_algorithm_list = DEFAULT_SUPPORTED_HASH_ALGORITHM[:]
     if hash_algorithm_identifier == 'all':
@@ -706,6 +797,11 @@ def generate_test_params(duthost, tbinfo, mg_facts, hash_field, ipver, inner_ipv
         dest_mac = get_vlan_intf_mac(duthost)
     else:
         dest_mac = duthost.facts['router_mac']
+    # Update the balancing_test_times and balancing_range based on the number of uplink interfaces
+    # The test will run too long time if the balancing_test_times is big when
+    # the number of uplink interfaces is large
+    # Meanwhile relax the balancing_range to make sure the test is still stable.
+    balancing_test_times, balancing_range = get_updated_balancing_test_times_and_range(uplink_interfaces)
     ptf_params = {"router_mac": dest_mac,
                   "sending_ports": ptf_sending_ports,
                   "expected_port_groups": ptf_expected_port_groups,

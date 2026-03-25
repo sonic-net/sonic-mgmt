@@ -16,6 +16,7 @@ import six
 from ptf import mask
 from ptf import testutils
 from scapy.all import Ether, IP
+from tests.common import config_reload
 from tests.common.dualtor.dual_tor_mock import *        # noqa: F403
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # noqa: F401
@@ -240,25 +241,8 @@ def setup_uplink(rand_selected_dut, tbinfo, enable_feature_autorestart):
 
     yield mg_facts['minigraph_ptf_indices'][up_member]
 
-    # Startup the uplinks that were shutdown
-    for pc in portchannels:
-        if pc != up_portchannel:
-            cmd = "config interface startup {}".format(pc)
-            rand_selected_dut.shell(cmd)
-    # Restore the LAG
-    if len(pc_members) > 1:
-        cmds = [
-            # Update min_links
-            "sonic-db-cli CONFIG_DB hset 'PORTCHANNEL|{}' 'min_links' 2".format(up_portchannel),
-            # Add back portchannel member
-            "config portchannel member add {} {}".format(up_portchannel, pc_members[1]),
-            # Unmask the service
-            "systemctl unmask teamd",
-            # Resart teamd
-            "systemctl restart teamd"
-        ]
-        rand_selected_dut.shell_cmds(cmds=cmds)
-        _wait_portchannel_up(rand_selected_dut, up_portchannel)
+    # Teardown: Restore the original config
+    config_reload(rand_selected_dut, config_source="running_golden_config", safe_reload=True)
 
 
 @pytest.fixture

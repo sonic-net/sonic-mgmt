@@ -198,8 +198,8 @@ def check_bgp(duthosts, tbinfo):
 
         def _check_default_route(version, dut):
             # Return True if successfully get default route
-            res = dut.shell("ip {} route show default".format("" if version == 4 else "-6"),
-                            module_ignore_errors=True)
+            res = dut.shell("show ip{} route {}/0".format("" if version == 4 else "v6",
+                            "0.0.0.0" if version == 4 else "::"), module_ignore_errors=True)
             return not res["rc"] and len(res["stdout"].strip()) != 0
 
         def _restart_bgp(dut):
@@ -394,15 +394,20 @@ def check_dbmemory(duthosts):
 
 def _check_monit_services_status(check_result, monit_services_status):
     """
-    @summary: Check whether each type of service which was monitored by Monit was in correct status or not.
-              If a service was in "Not monitored" status, sanity check will skip it since this service
-              was temporarily set to not be monitored by Monit.
-    @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
+    @summary: Check whether each type of service which was monitored by Monit
+              was in correct status or not. If a service was in "Not monitored"
+              status, sanity check will skip it since this service was
+              temporarily set to not be monitored by Monit.
+    @return: A dictionary contains the testing result (failed or not failed)
+             and the status of each service.
     """
     check_result["services_status"] = {}
     for service_name, service_info in list(monit_services_status.items()):
         check_result["services_status"].update({service_name: service_info["service_status"]})
         if service_info["service_status"] == "Not monitored":
+            continue
+        # Newer versions of Monit have standardized on OK as a success result
+        if service_info["service_status"] == "OK":
             continue
         if ((service_info["service_type"] == "Filesystem" and service_info["service_status"] != "Accessible")
                 or (service_info["service_type"] == "Process" and service_info["service_status"] != "Running")
@@ -759,8 +764,18 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
                 check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
                 return check_passed
 
+            # try to recover the mux config back to auto mode
+            if "'show mux config' output differs between two ToRs" in err_msg:
+                duthosts.shell("config mux mode auto all")
+
             logger.warning('Mux state check failed, trying to recover via linkmgrd restart')
-            duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+
+            try:
+                duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+            except RunAnsibleModuleFail as e:
+                logger.error("Failed to restart linkmgrd %s" % (str(e)))
+                return check_passed
+
             wait_until(30, 5, 0, _verify_mux_simulator_status_passed)
 
         if not check_passed:

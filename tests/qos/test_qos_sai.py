@@ -28,8 +28,8 @@ import re
 from tabulate import tabulate
 
 from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts, get_graph_facts    # noqa: F401
-from tests.common.fixtures.duthost_utils import dut_qos_maps, \
-    separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map                                 # noqa: F401
+from tests.common.fixtures.duthost_utils import (dut_qos_maps,  # noqa: F401
+                                                 separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map)
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa: F401
@@ -42,8 +42,9 @@ from tests.common.helpers.pfcwd_helper import set_pfc_timers, start_wd_on_ports
 from tests.common.platform.device_utils import list_dut_fanout_connections
 from tests.common.utilities import wait_until
 from .qos_sai_base import QosSaiBase
-from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
-    get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown, fetch_test_logs_ptf   # noqa: F401
+from tests.common.helpers.ptf_tests_helper import (downstream_links, upstream_links, select_random_link,  # noqa: F401
+                                                   get_stream_ptf_ports, apply_dscp_cfg_setup, apply_dscp_cfg_teardown,
+                                                   fetch_test_logs_ptf)
 from tests.common.utilities import get_ipv4_loopback_ip
 from tests.common.helpers.base_helper import read_logs
 
@@ -198,7 +199,8 @@ class TestQosSai(QosSaiBase):
         'Arista-7260CX3-Q64',
         'Arista-7050CX3-32S-C32',
         'Arista-7050CX3-32S-C28S4',
-        'Arista-7050CX3-32S-D48C8'
+        'Arista-7050CX3-32S-D48C8',
+        'dbmvtx9180_64osfp_128x400G_lab'
     ]
 
     @pytest.fixture(scope="class", autouse=True)
@@ -378,6 +380,39 @@ class TestQosSai(QosSaiBase):
                     startPos += 1
         logger.debug('updateTestPortIdIp dutConfig["testPorts"]: {}'.format(dutConfig["testPorts"]))
 
+    def check_and_set_ecn_status(self, duthost, qosConfig, expected_status='on'):
+        ecn_status = ''
+        if duthost.sonichost.is_multi_asic:
+            status = []
+            for asic in duthost.asics:
+                cmd_output = duthost.shell("sudo ecnconfig -n asic{} -q {}".format(
+                    asic.asic_index, qosConfig["dscp"]), module_ignore_errors=True)
+                if cmd_output['rc'] != 0:
+                    pytest.skip("command failed for ecnconfig on/off status")
+                else:
+                    ecn_status = cmd_output['stdout_lines'][1].split(':')[1].strip()
+                    if ecn_status != expected_status:
+                        duthost.shell("sudo ecnconfig -n asic{} -q {} {}".format(
+                            asic.asic_index, qosConfig["dscp"], expected_status), module_ignore_errors=True)
+                cmd_output = duthost.shell("sudo ecnconfig -n asic{} -q {}".format(
+                    asic.asic_index, qosConfig["dscp"]), module_ignore_errors=True)
+                status.append(cmd_output['stdout_lines'][1].split(':')[1].strip())
+            ecn_status = 'on' if all("on" in status for status in status) else 'off'
+
+        else:
+            cmd_output = duthost.shell("sudo ecnconfig -q {}".format(qosConfig["dscp"]), module_ignore_errors=True)
+            if cmd_output['rc'] != 0:
+                pytest.skip("command failed for ecnconfig on/off status")
+            else:
+                ecn_status = cmd_output['stdout_lines'][1].split(':')[1].strip()
+                if ecn_status != expected_status:
+                    duthost.shell("sudo ecnconfig -q {} {}".format(qosConfig["dscp"], expected_status),
+                                  module_ignore_errors=True)
+                cmd_output = duthost.shell("sudo ecnconfig -q {}".format(qosConfig["dscp"]), module_ignore_errors=True)
+            ecn_status = 'on' if "on" in cmd_output['stdout_lines'][1].split(':')[1].strip() else 'off'
+
+        return ecn_status
+
     def testParameter(
         self, duthosts, get_src_dst_asic_and_duts, dutConfig, dutQosConfig, ingressLosslessProfile,
         ingressLossyProfile, egressLosslessProfile, dualtor_ports_for_duts
@@ -433,6 +468,7 @@ class TestQosSai(QosSaiBase):
         testParams.update(dutTestParams["basicParams"])
         testParams.update({"test_port_ids": dutConfig["testPortIds"]})
         testParams.update({
+            "dut_asic": dutConfig["dutAsic"],
             "dscp": qosConfig[xoffProfile]["dscp"],
             "ecn": qosConfig[xoffProfile]["ecn"],
             "pg": qosConfig[xoffProfile]["pg"],
@@ -893,7 +929,7 @@ class TestQosSai(QosSaiBase):
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
 
         if ('platform_asic' in dutTestParams["basicParams"] and
-                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx") and (dutConfig["dutAsic"] != 'q3d'):
             # for 100G port speed the number of ports required to fill headroom is huge,
             # hence skipping the test with speed 100G or cable length of 2k
             if portSpeedCableLength not in ['400000_120000m']:
@@ -919,9 +955,12 @@ class TestQosSai(QosSaiBase):
             else:
                 qosConfig["hdrm_pool_size"]["dst_port_id"] = dutConfig['testPortIds'][dst_dut_index][dst_asic_index][0]
 
-            src_port_vlans = [testPortIps[src_dut_index][src_asic_index][port]['vlan_id']
-                              if 'vlan_id' in testPortIps[src_dut_index][src_asic_index][port]
-                              else None for port in qosConfig["hdrm_pool_size"]["src_port_ids"]]
+        src_port_vlans = [
+            testPortIps[src_dut_index][src_asic_index][port]['vlan_id']
+            if port in testPortIps[src_dut_index][src_asic_index] and
+            'vlan_id' in testPortIps[src_dut_index][src_asic_index][port]
+            else None for port in qosConfig["hdrm_pool_size"]["src_port_ids"]]
+
         self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts, qosConfig["hdrm_pool_size"])
 
         testParams = dict()
@@ -1195,7 +1234,7 @@ class TestQosSai(QosSaiBase):
         disableTest = request.config.getoption("--disable_test")
         if dutTestParams["basicParams"]["sonic_asic_type"] == 'cisco-8000' or \
                 ('platform_asic' in dutTestParams["basicParams"] and
-                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
+                 dutTestParams["basicParams"]["platform_asic"] in ["broadcom-dnx", "marvell-teralynx"]):
             disableTest = False
         if disableTest:
             pytest.skip("Buffer Pool watermark test is disabled")
@@ -1262,7 +1301,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiLossyQueue(
         self, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        ingressLossyProfile, skip_src_dst_different_asic, change_lag_lacp_timer
+        ingressLossyProfile, skip_src_dst_different_asic, change_lag_lacp_timer, blockGrpcTraffic
     ):
         """
             Test QoS SAI Lossy queue, shared buffer dynamic allocation
@@ -1308,7 +1347,9 @@ class TestQosSai(QosSaiBase):
             "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
             "pkts_num_trig_egr_drp": qosConfig["lossy_queue_1"]["pkts_num_trig_egr_drp"],
-            "hwsku": dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku'],
+            "ip_type": dutConfig["ip_type"],
+            "dut_asic": dutConfig["dutAsic"],
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -1476,7 +1517,8 @@ class TestQosSai(QosSaiBase):
             "hwsku": dutTestParams['hwsku'],
             "dual_tor": dutConfig['dualTor'],
             "dual_tor_scenario": dutConfig['dualTorScenario'],
-            "tc_to_dscp_count_map": tc_to_dscp_count
+            "tc_to_dscp_count_map": tc_to_dscp_count,
+            'ip_type': dutConfig["ip_type"]
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -1710,7 +1752,8 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("pgProfile", ["wm_pg_shared_lossless", "wm_pg_shared_lossy"])
     def testQosSaiPgSharedWatermark(
         self, pgProfile, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, skip_src_dst_different_asic, change_lag_lacp_timer, blockGrpcTraffic
+        resetWatermark, skip_src_dst_different_asic, change_lag_lacp_timer, blockGrpcTraffic,
+        iptables_drop_ipv6_tx  # noqa: F811
     ):
         """
             Test QoS SAI PG shared watermark test for lossless/lossy traffic
@@ -1783,7 +1826,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_fill_min": qosConfig[pgProfile]["pkts_num_fill_min"],
             "pkts_num_fill_shared": pktsNumFillShared,
             "cell_size": qosConfig[pgProfile]["cell_size"],
-            "hwsku": dutTestParams['hwsku']
+            "hwsku": dutTestParams['hwsku'],
+            "ip_type": dutConfig["ip_type"]
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -1927,11 +1971,90 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.PGDropTest", testParams=testParams
         )
 
+    def testQosSaiPgMinThreshold(
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        get_src_dst_asic_and_duts
+    ):
+        """
+            Test QoS SAI PG MIN threshold behavior
+
+            This test validates that:
+            1. PG without MIN threshold can use shared pool but drops excess packets
+            2. PG with MIN threshold gets guaranteed bandwidth
+
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                get_src_dst_asic_and_duts: Fixture for getting source/destination ASIC and DUTs
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        qosConfig = dutQosConfig["param"]
+
+        if "pg_min_threshold" not in qosConfig:
+            pytest.skip("PG MIN threshold test parameters not configured for this platform")
+
+        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+        dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
+        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+
+        src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+        dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+        src_testPortIds = list(src_testPortIps.keys())
+        dst_testPortIds = list(dst_testPortIps.keys())
+
+        # Use first available source and destination ports
+        src_port_id = src_testPortIds[0]
+        dst_port_id = dst_testPortIds[0]
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "testbed_type": dutTestParams["topo"],
+            "pg0_dscp": qosConfig["pg_min_threshold"]["pg0_dscp"],
+            "pg1_dscp": qosConfig["pg_min_threshold"]["pg1_dscp"],
+            "pg0": qosConfig["pg_min_threshold"]["pg0"],
+            "pg1": qosConfig["pg_min_threshold"]["pg1"],
+            "src_port_id": src_port_id,
+            "src_port_ip": src_testPortIps[src_port_id]['peer_addr'],
+            "dst_port_id": dst_port_id,
+            "dst_port_ip": dst_testPortIps[dst_port_id]['peer_addr'],
+            "shared_pool_size": qosConfig["pg_min_threshold"]["shared_pool_size"],
+            "pg1_min_size": qosConfig["pg_min_threshold"]["pg1_min_size"],
+            "pg0_pkts_to_fill": qosConfig["pg_min_threshold"]["pg0_pkts_to_fill"],
+            "pg0_pkts_to_drop": qosConfig["pg_min_threshold"]["pg0_pkts_to_drop"],
+            "pg1_pkts_to_fill": qosConfig["pg_min_threshold"]["pg1_pkts_to_fill"],
+            "pg1_pkts_to_drop": qosConfig["pg_min_threshold"]["pg1_pkts_to_drop"],
+        })
+
+        if "packet_size" in qosConfig["pg_min_threshold"]:
+            testParams["packet_size"] = qosConfig["pg_min_threshold"]["packet_size"]
+
+        if "cell_size" in qosConfig["pg_min_threshold"]:
+            testParams["cell_size"] = qosConfig["pg_min_threshold"]["cell_size"]
+
+        if "pkts_num_margin" in qosConfig["pg_min_threshold"]:
+            testParams["pkts_num_margin"] = qosConfig["pg_min_threshold"]["pkts_num_margin"]
+
+        # Note: Not passing log_file to avoid pcap generation for this high-volume test
+        # With 2M packets, pcap files become too large and cause OOM during compression
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.PgMinThresholdTest",
+            testParams=testParams,
+            skip_pcap=True
+        )
+
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic, change_lag_lacp_timer,
-        blockGrpcTraffic
+        blockGrpcTraffic, iptables_drop_ipv6_tx  # noqa: F811
     ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
@@ -1992,7 +2115,8 @@ class TestQosSai(QosSaiBase):
             "pkts_num_trig_drp": triggerDrop,
             "cell_size": qosConfig[queueProfile]["cell_size"],
             "hwsku": dutTestParams['hwsku'],
-            "dut_asic": dutConfig["dutAsic"]
+            "dut_asic": dutConfig["dutAsic"],
+            "ip_type": dutConfig["ip_type"]
         })
 
         if "platform_asic" in dutTestParams["basicParams"]:
@@ -2260,6 +2384,12 @@ class TestQosSai(QosSaiBase):
         if "pkts_num_egr_mem" in list(qosConfig[portSpeedCableLength].keys()):
             testParams["pkts_num_egr_mem"] = qosConfig[portSpeedCableLength]["pkts_num_egr_mem"]
 
+        testParams["dry_run"] = True
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
+        )
+
+        testParams["dry_run"] = False
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.WRRtest", testParams=testParams
         )
@@ -2579,3 +2709,73 @@ class TestQosSai(QosSaiBase):
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.XonHysteresisTest",
             testParams=test_params)
+
+    @pytest.mark.parametrize("ecn", ["ecn_1", "ecn_2", "ecn_3", "ecn_4", "ecn_5"])
+    def testQosSaiDscpEcn(
+        self, ecn, duthosts, get_src_dst_asic_and_duts,
+        ptfhost, dutTestParams, dutConfig, dutQosConfig, ecnLosslessProfile, enableECN,
+        change_lag_lacp_timer
+    ):
+        """
+            Test QoS SAI ECN CONFIG
+
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                ecnLosslessProfile (Fxiture): Map of ecn marking for lossless queue
+                enable_ecn (Fixture): enables the ecnconfig on each asic
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        duthost = dutConfig["dstDutInstance"]
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        else:
+            qosConfig = dutQosConfig["param"][ecn]
+
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
+        testParams.update({
+            "dscp": qosConfig["dscp"],
+            "ecn": qosConfig["ecn"],
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "num_of_pkts": qosConfig["num_of_pkts"],
+            "limit": qosConfig["limit"],
+            "min_limit": qosConfig["min_limit"],
+            "cell_size": qosConfig["cell_size"],
+            "hwsku": dutTestParams['hwsku']
+        })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+            testParams["ecn_queue_status"] = self.check_and_set_ecn_status(duthost, qosConfig)
+        else:
+            testParams["platform_asic"] = None
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.DscpEcnSend", testParams=testParams
+        )
+        # Run ecn_3 scenario with ecn_status off
+        if ecn == "ecn_3":
+            testParams["ecn_queue_status"] = self.check_and_set_ecn_status(duthost, qosConfig, 'off')
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.DscpEcnSend", testParams=testParams
+            )
+            self.check_and_set_ecn_status(duthost, qosConfig, 'on')
+        elif ecn == "ecn_5":
+            self.check_and_set_ecn_status(duthost, qosConfig, 'off')

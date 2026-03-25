@@ -9,7 +9,9 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
+                            "setup_gnmi_rotated_server", "check_dut_timestamp")
 ]
 
 
@@ -38,21 +40,10 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost):
     # ------  -------------  ---------------  -------------  --------------  --------
     # DPU0            N/A              N/A         Online              up       N/A
     target = None
-    result = duthost.shell("show chassis module status")
-    headers = result['stdout_lines'][0].split()
-    name_idx = None
-    oper_status_idx = None
-    for i, header in enumerate(headers):
-        if header == "Name":
-            name_idx = i
-        if header == "Oper-Status":
-            oper_status_idx = i
-    assert name_idx is not None, "Can't locate Name in the headers"
-    assert oper_status_idx is not None, "Can't locate Oper-Status in the headers"
-    for line in result['stdout_lines']:
-        module_status = line.split()
-        if module_status[oper_status_idx] == "Online":
-            target = module_status[name_idx].lower()
+    result = duthost.show_and_parse("show chassis module status")
+    for dpu_status_line in result:
+        if dpu_status_line["oper-status"] == "Online":
+            target = dpu_status_line["name"].lower()
             logger.info("target is {}".format(target))
             break
     assert target is not None, "Can't locate online DPU"

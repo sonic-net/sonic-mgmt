@@ -24,14 +24,16 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module", autouse=True)
-def set_polling_interval(duthost):
+def set_polling_interval(duthosts):
     wait_time = 2
-    duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
+    for duthost in duthosts.frontend_nodes:
+        duthost.command("crm config polling interval {}".format(CRM_POLLING_INTERVAL))
     wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
     yield
 
-    duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
+    for duthost in duthosts.frontend_nodes:
+        duthost.command("crm config polling interval {}".format(CRM_DEFAULT_POLL_INTERVAL))
     wait(wait_time, "Waiting {} sec for CRM counters to become updated".format(wait_time))
 
 
@@ -71,11 +73,19 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     po2 = None
 
     is_storage_backend = 'backend' in tbinfo['topo']['name']
+    is_isolated_topo = 'isolated' in tbinfo['topo']['name']
 
     if tbinfo['topo']['type'] == 't0':
         if is_storage_backend:
             vlan_sub_intfs = mg_facts['minigraph_vlan_sub_interfaces']
             intfs_to_t1 = [_['attachto'].split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0] for _ in vlan_sub_intfs]
+            ports_for_test = [_ for _ in ports if _ not in intfs_to_t1]
+
+            intf1 = ports_for_test[0]
+            intf2 = ports_for_test[1]
+        elif is_isolated_topo:
+            upstream_intfs = mg_facts['minigraph_interfaces']
+            intfs_to_t1 = [_intf['attachto'] for _intf in upstream_intfs]
             ports_for_test = [_ for _ in ports if _ not in intfs_to_t1]
 
             intf1 = ports_for_test[0]
@@ -145,13 +155,15 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
         intf2_indice = mg_facts['minigraph_ptf_indices'][intf2]
 
-    asic.config_ip_intf(intf1, "10.10.1.2/28", "add")
-    asic.config_ip_intf(intf2, "10.10.1.20/28", "add")
+    if tbinfo['topo']['type'] != 't0':
+        asic.config_ip_intf(intf1, "10.10.1.2/28", "add")
+        asic.config_ip_intf(intf2, "10.10.1.20/28", "add")
 
     yield intf1, intf2, intf1_indice, intf2_indice
 
-    asic.config_ip_intf(intf1, "10.10.1.2/28", "remove")
-    asic.config_ip_intf(intf2, "10.10.1.20/28", "remove")
+    if tbinfo['topo']['type'] != 't0':
+        asic.config_ip_intf(intf1, "10.10.1.2/28", "remove")
+        asic.config_ip_intf(intf2, "10.10.1.20/28", "remove")
 
     if tbinfo['topo']['type'] != 't0':
         if po1:
@@ -272,7 +284,7 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
 
 
 @pytest.fixture
-def proxy_arp_enabled(rand_selected_dut, config_facts):
+def proxy_arp_enabled(request, rand_selected_dut, config_facts):
     """
     Tries to enable proxy ARP for each VLAN on the ToR
 
@@ -304,6 +316,10 @@ def proxy_arp_enabled(rand_selected_dut, config_facts):
         logger.info("Enabled proxy ARP for Vlan{}".format(vid))
         new_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
         new_proxy_arp_vals.append(new_proxy_arp_res['stdout'])
+
+    if 'ipv6' in request.node.name:
+        # Allow time for ndppd to reset and startup
+        time.sleep(30)
 
     yield all('enabled' in val for val in new_proxy_arp_vals)
 

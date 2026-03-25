@@ -6,6 +6,7 @@ import random
 import time
 
 from tests.common.platform.device_utils import fanout_switch_port_lookup, __get_dut_if_status
+from tests.common.utilities import get_day_of_week_distributed_ports_from_buckets
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,8 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
 
         if completeness_level == 'debug':
             candidates = random.sample(candidates, 1)
+        elif completeness_level == 'confident':
+            candidates = get_day_of_week_distributed_ports_from_buckets(candidates, 32)
 
     return candidates
 
@@ -119,7 +122,7 @@ def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_co
     """
     MAX_DIFF = 5
 
-    sumv4, sumv6 = dut.get_ip_route_summary(skip_kernel_tunnel=True)
+    sumv4, sumv6 = dut.get_ip_route_summary(skip_kernel_tunnel=True, skip_kernel_linkdown=True)
     totalsv4 = sumv4.get('Totals', {})
     totalsv6 = sumv6.get('Totals', {})
     routesv4 = totalsv4.get('routes', 0)
