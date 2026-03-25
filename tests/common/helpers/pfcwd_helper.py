@@ -600,6 +600,9 @@ def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state):
     pfcwd_stat = parser_show_pfcwd_stat(dut, port, queue)
     if dut.facts['asic_type'] == 'vs':
         return True
+    if not pfcwd_stat:
+        logger.info(f'Port {port} Storm verification : no watchdog stats')
+        return False
     if expected_state == "storm":
         if ("storm" in pfcwd_stat[0]['status']) and \
                 int(pfcwd_stat[0]['storm_detect_count']) > int(pfcwd_stat[0]['restored_count']):
