@@ -1,5 +1,6 @@
 StartDevice,StartPort,EndDevice,Console_type,Console_menu_type,Proxy
 str43-0101-0400-07c0,48,str3-8111-04,ssh,cisco_config,
+console-184,8,str3-8111-03,ssh,cisco_config,
 console-184,33,str3-8101-fanout-05,ssh,cisco_config,
 console-184,34,str3-8101-fanout-06,ssh,cisco_config,
 str43-0101-0400-07c0,36,str3-8101-fanout-10,ssh,cisco_config,
