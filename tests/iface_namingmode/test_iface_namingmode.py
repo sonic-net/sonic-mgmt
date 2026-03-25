@@ -1401,13 +1401,12 @@ class TestConfigInterface():
         _verify_speed(native_speed)
 
 
+@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
 def test_show_acl_table(setup, setup_config_mode, tbinfo):
     """
     Checks whether 'show acl table DATAACL' lists the interface names
     as per the configured naming mode
     """
-    if tbinfo['topo']['type'] not in ['t1', 't2', 'lt2', 'ft2']:
-        pytest.skip('Unsupported topology')
 
     if not setup['physical_interfaces']:
         pytest.skip('No non-portchannel member interface present')
