@@ -98,23 +98,22 @@ class MultiAsicSonicHost(object):
         if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
             service_list.append("dhcp_server")
 
-        if config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu' and 'snmp' in service_list:
+        is_dpu = config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
+        if is_dpu and 'snmp' in service_list:
             service_list.remove('snmp')
 
         # Update the asic service based on feature table state and asic flag
-        for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
-            if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
-                logger.info("Removing teamd from default services for switch_type DPU")
-                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-                continue
+        filtered_asic_services = []
+        for service in self.sonichost.DEFAULT_ASIC_SERVICES:
             if service not in config_facts['FEATURE']:
-                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                 continue
             if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
-                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+                continue
             if config_facts['FEATURE'][service]['state'] == "disabled":
-                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-        if not self.get_facts().get("modular_chassis"):
+                continue
+            filtered_asic_services.append(service)
+        self.sonichost.DEFAULT_ASIC_SERVICES = filtered_asic_services
+        if not self.get_facts().get("modular_chassis") and not is_dpu:
             service_list.append("lldp")
 
         for asic in active_asics:
@@ -124,10 +123,11 @@ class MultiAsicSonicHost(object):
     def get_default_critical_services_list(self):
         return self._DEFAULT_SERVICES
 
-    def _run_on_asics(self, *module_args, **complex_args):
+    def _run_on_asics(self, multi_asic_attr, *module_args, **complex_args):
         """ Run an asible module on asics based on 'asic_index' keyword in complex_args
 
         Args:
+            multi_asic_attr: name of the ansible module to run
             module_args: other ansible module args passed from the caller
             complex_args: other ansible keyword args
 
@@ -148,7 +148,7 @@ class MultiAsicSonicHost(object):
         """
         if "asic_index" not in complex_args:
             # Default ASIC/namespace
-            return getattr(self.sonichost, self.multi_asic_attr)(*module_args, **complex_args)
+            return getattr(self.sonichost, multi_asic_attr)(*module_args, **complex_args)
         else:
             asic_complex_args = copy.deepcopy(complex_args)
             asic_index = asic_complex_args.pop("asic_index")
@@ -157,11 +157,11 @@ class MultiAsicSonicHost(object):
                 if self.sonichost.facts['num_asic'] == 1:
                     if asic_index != 0:
                         raise ValueError("Trying to run module '{}' against asic_index '{}' on a single asic dut '{}'"
-                                         .format(self.multi_asic_attr, asic_index, self.sonichost.hostname))
-                return getattr(self.asic_instance(asic_index), self.multi_asic_attr)(*module_args, **asic_complex_args)
+                                         .format(multi_asic_attr, asic_index, self.sonichost.hostname))
+                return getattr(self.asic_instance(asic_index), multi_asic_attr)(*module_args, **asic_complex_args)
             elif type(asic_index) == str and asic_index.lower() == "all":
                 # All ASICs/namespace
-                return [getattr(asic, self.multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
+                return [getattr(asic, multi_asic_attr)(*module_args, **asic_complex_args) for asic in self.asics]
             else:
                 raise ValueError("Argument 'asic_index' must be an int or string 'all'.")
 
@@ -358,8 +358,9 @@ class MultiAsicSonicHost(object):
         """
         sonic_asic_attr = getattr(SonicAsic, attr, None)
         if not attr.startswith("_") and sonic_asic_attr and callable(sonic_asic_attr):
-            self.multi_asic_attr = attr
-            return self._run_on_asics
+            def _run_on_asics_wrapper(*module_args, **complex_args):
+                return self._run_on_asics(attr, *module_args, **complex_args)
+            return _run_on_asics_wrapper
         else:
             return getattr(self.sonichost, attr)  # For backward compatibility
 

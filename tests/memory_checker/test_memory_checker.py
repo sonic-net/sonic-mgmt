@@ -244,7 +244,7 @@ def test_setup_and_cleanup(memory_checker_dut_and_container, request):
 
 @pytest.fixture
 def remove_and_restart_container(memory_checker_dut_and_container):
-    """Removes and restarts 'telemetry' container from DuT.
+    """Removes and restarts 'gnmi' container from DuT.
 
     Args:
         memory_checker_dut_and_container: Fixture providing the duthost and container to test
@@ -262,14 +262,6 @@ def remove_and_restart_container(memory_checker_dut_and_container):
     container.post_check()
 
 
-def get_test_container(duthost):
-    test_container = "gnmi"
-    cmd = "docker images | grep -w sonic-telemetry"
-    if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-        test_container = "telemetry"
-    return test_container
-
-
 @pytest.fixture
 def memory_checker_dut_and_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Perform some checks and return applicable duthost and container name
@@ -284,7 +276,10 @@ def memory_checker_dut_and_container(duthosts, enum_rand_one_per_hwsku_frontend_
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    container_name = get_test_container(duthost)
+    # Always test gnmi — telemetry is deprecated and may be masked via
+    # systemd even when its Docker image is present.
+    # See: https://github.com/sonic-net/sonic-mgmt/issues/22349
+    container_name = "gnmi"
     container = MemoryCheckerContainer(container_name, duthost)
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
