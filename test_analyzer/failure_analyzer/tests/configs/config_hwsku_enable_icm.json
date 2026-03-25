@@ -1,11 +1,11 @@
 {
-    "icm_decision_config": { 
-        "common": { 
-            "enable_icm": true, 
-            "threshold": 50 
-        }, 
-        "hwsku": { 
-            "enable_icm": false, 
+    "icm_decision_config": {
+        "common": {
+            "enable_icm": true,
+            "threshold": 50
+        },
+        "hwsku": {
+            "enable_icm": false,
             "threshold": 50
         }
     },
@@ -25,13 +25,13 @@
         "fuzzy_rate": 95,
         "summary_expiration_days": 3
     },
-    "level_priority": [ 
-        "branch",   
-        "os_version", 
-        "topology", 
-        "asic", 
-        "hwsku", 
+    "level_priority": [
+        "branch",
+        "os_version",
+        "topology",
+        "asic",
+        "hwsku",
         "hwsku_osversion",
         "topology_hwsku"
-    ] 
+    ]
 }

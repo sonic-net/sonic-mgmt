@@ -1,12 +1,12 @@
 import unittest
 import logging
-import os, sys
+import os
+import sys
 sys.path.append("..")
-from data_deduplicator import DataDeduplicator
-import pandas as pd
-from unittest.mock import patch
-from unittest.mock import Mock
-from helper import load_config
+from data_deduplicator import DataDeduplicator  # noqa: E402
+import pandas as pd  # noqa: E402
+from unittest.mock import patch  # noqa: E402
+from helper import load_config  # noqa: E402
 
 logging.basicConfig(
     stream=sys.stdout,
@@ -20,10 +20,12 @@ ICM_PREFIX = '[SONiC_Nightly][Failed_Case]'
 current_file_path = os.path.abspath(__file__)
 current_folder = os.path.dirname(current_file_path)
 
+
 class TestDeduplicator(unittest.TestCase):
 
     def setUp(self):
-        with patch('data_deduplicator.configuration', load_config('{}/configs/config_default.json'.format(current_folder))):
+        config_path = '{}/configs/config_default.json'.format(current_folder)
+        with patch('data_deduplicator.configuration', load_config(config_path)):
             self.deduplicator = DataDeduplicator()
 
     def test_check_deduplicates_1(self):
@@ -118,7 +120,8 @@ class TestDeduplicator(unittest.TestCase):
 
     def test_check_deduplicator_7(self):
         """
-            check if [case_a][20240510][topologyA_hwskuC] is duplicated with [case_a][20240510][topologyA][asicB][hwskuC]
+            check if [case_a][20240510][topologyA_hwskuC] is duplicated
+            with [case_a][20240510][topologyA][asicB][hwskuC]
         """
         icm = {
             'subject': '[case_a][20240510][topologyA_hwskuC]',
@@ -133,7 +136,8 @@ class TestDeduplicator(unittest.TestCase):
 
     def test_check_deduplicator_8(self):
         """
-            check if [case_a][20240510][hwskuA_20240510.16] is duplicated with [case_a][20240510][topologyA][asicB][hwskuA]
+            check if [case_a][20240510][hwskuA_20240510.16] is duplicated
+            with [case_a][20240510][topologyA][asicB][hwskuA]
         """
         icm = {
             'subject': '[case_a][20240510][hwskuA_20240510.16]',
@@ -148,8 +152,10 @@ class TestDeduplicator(unittest.TestCase):
 
     def test_check_deduplicator_9(self):
         """
-            check if [hash.test_generic_hash][test_reboot][20241110][T0][mellanox][Mellanox-SN4600C-C64] is not duplicated with
-            [bgp.test_bgp_sentinel][test_bgp_sentinel][20241110][Mellanox-SN4600C-C64_20241110.12]
+            check if [hash.test_generic_hash][test_reboot][20241110]
+            [T0][mellanox][Mellanox-SN4600C-C64] is not duplicated with
+            [bgp.test_bgp_sentinel][test_bgp_sentinel][20241110]
+            [Mellanox-SN4600C-C64_20241110.12]
         """
         icm = {
             'subject': '[bgp.test_bgp_sentinel][test_bgp_sentinel][20241110][Mellanox-SN4600C-C64_20241110.12]',
@@ -158,7 +164,10 @@ class TestDeduplicator(unittest.TestCase):
             }
         }
         actual_duplicated_flag = self.deduplicator.check_duplicates(
-            active_icm_title='{}[hash.test_generic_hash][test_reboot][20241110][T0][mellanox][Mellanox-SN4600C-C64]'.format(ICM_PREFIX), icm=icm)
+            active_icm_title=(
+                '{}[hash.test_generic_hash][test_reboot]'
+                '[20241110][T0][mellanox][Mellanox-SN4600C-C64]'.format(ICM_PREFIX)
+            ), icm=icm)
         expected_duplicated_flag = False
         self.assertEqual(actual_duplicated_flag, expected_duplicated_flag)
 
@@ -176,7 +185,9 @@ class TestDeduplicator(unittest.TestCase):
         ]
         icm_count_dict = {'everflow_count': 3, 'qos_sai_count': 26, 'acl_count': 6}
         active_icm_df = pd.read_csv('{}/tests_df/active_icm_df_1.csv'.format(current_folder), dtype=object)
-        actual_new_icm_list, actual_duplicated_icm_list, actual_updated_icm_count_dict = self.deduplicator.deduplicate_limit_with_active_icm(kusto_data_list, icm_count_dict, active_icm_df)
+        (actual_new_icm_list, actual_duplicated_icm_list,
+         actual_updated_icm_count_dict) = self.deduplicator.deduplicate_limit_with_active_icm(
+            kusto_data_list, icm_count_dict, active_icm_df)
         expected_new_icm_list = []
         expected_duplicated_icm_list = kusto_data_list
         self.assertCountEqual(actual_new_icm_list, expected_new_icm_list)
@@ -196,7 +207,9 @@ class TestDeduplicator(unittest.TestCase):
         ]
         icm_count_dict = {'everflow_count': 3, 'qos_sai_count': 26, 'acl_count': 6}
         active_icm_df = pd.read_csv('{}/tests_df/active_icm_df_1.csv'.format(current_folder), dtype=object)
-        actual_new_icm_list, actual_duplicated_icm_list, actual_updated_icm_count_dict = self.deduplicator.deduplicate_limit_with_active_icm(kusto_data_list, icm_count_dict, active_icm_df)
+        (actual_new_icm_list, actual_duplicated_icm_list,
+         actual_updated_icm_count_dict) = self.deduplicator.deduplicate_limit_with_active_icm(
+            kusto_data_list, icm_count_dict, active_icm_df)
         expected_new_icm_list = []
         expected_duplicated_icm_list = kusto_data_list
         self.assertCountEqual(actual_new_icm_list, expected_new_icm_list)
@@ -209,7 +222,8 @@ class TestDeduplicator(unittest.TestCase):
                 'testcase': 'test_soft_reboot',
                 'branch': '20240510',
                 'module_path': 'platform_tests.test_reboot',
-                'subject': '[platform_tests.test_reboot][test_soft_reboot][20240510][Mellanox-SN4700-O8V48_20240510.23]',
+                'subject': ('[platform_tests.test_reboot][test_soft_reboot]'
+                            '[20240510][Mellanox-SN4700-O8V48_20240510.23]'),
                 'failure_summary': '',
                 'failure_level_info': {
                     'hwsku': 'Mellanox-SN4700-O8V48',
@@ -220,7 +234,9 @@ class TestDeduplicator(unittest.TestCase):
         ]
         icm_count_dict = {'everflow_count': 3, 'qos_sai_count': 26, 'acl_count': 6}
         active_icm_df = pd.read_csv('{}/tests_df/active_icm_df_1.csv'.format(current_folder), dtype=object)
-        actual_new_icm_list, actual_duplicated_icm_list, actual_updated_icm_count_dict = self.deduplicator.deduplicate_limit_with_active_icm(kusto_data_list, icm_count_dict, active_icm_df)
+        (actual_new_icm_list, actual_duplicated_icm_list,
+         actual_updated_icm_count_dict) = self.deduplicator.deduplicate_limit_with_active_icm(
+            kusto_data_list, icm_count_dict, active_icm_df)
         expected_new_icm_list = []
         expected_duplicated_icm_list = kusto_data_list
         self.assertCountEqual(actual_new_icm_list, expected_new_icm_list)
@@ -242,7 +258,9 @@ class TestDeduplicator(unittest.TestCase):
         ]
         icm_count_dict = {'everflow_count': 3, 'qos_sai_count': 26, 'acl_count': 6}
         active_icm_df = pd.read_csv('{}/tests_df/active_icm_df_1.csv'.format(current_folder), dtype=object)
-        actual_new_icm_list, actual_duplicated_icm_list, actual_updated_icm_count_dict = self.deduplicator.deduplicate_limit_with_active_icm(kusto_data_list, icm_count_dict, active_icm_df)
+        (actual_new_icm_list, actual_duplicated_icm_list,
+         actual_updated_icm_count_dict) = self.deduplicator.deduplicate_limit_with_active_icm(
+            kusto_data_list, icm_count_dict, active_icm_df)
         expected_new_icm_list = []
         expected_duplicated_icm_list = kusto_data_list
         self.assertCountEqual(actual_new_icm_list, expected_new_icm_list)
@@ -262,15 +280,15 @@ class TestDeduplicator(unittest.TestCase):
         ]
         icm_count_dict = {'everflow_count': 3, 'qos_sai_count': 26, 'acl_count': 6}
         active_icm_df = pd.read_csv('{}/tests_df/active_icm_df_1.csv'.format(current_folder), dtype=object)
-        actual_new_icm_list, actual_duplicated_icm_list, actual_updated_icm_count_dict = self.deduplicator.deduplicate_limit_with_active_icm(kusto_data_list, icm_count_dict, active_icm_df)
+        (actual_new_icm_list, actual_duplicated_icm_list,
+         actual_updated_icm_count_dict) = self.deduplicator.deduplicate_limit_with_active_icm(
+            kusto_data_list, icm_count_dict, active_icm_df)
         expected_new_icm_list = kusto_data_list
         expected_duplicated_icm_list = []
         self.assertCountEqual(actual_new_icm_list, expected_new_icm_list)
         self.assertCountEqual(actual_duplicated_icm_list, expected_duplicated_icm_list)
 
-
     def test_deduplication(self):
-        common_summary_new_icm_table = []
         original_failure_dict = [
             {'table': [
                 {
@@ -348,7 +366,7 @@ class TestDeduplicator(unittest.TestCase):
                     'subject': '[case_a][20240510][topologyA_hwskuC]',
                     'failure_summary': '',
                     'failure_level_info': {
-                    'is_combined': True
+                        'is_combined': True
                     }
                 },
                 {
@@ -359,7 +377,7 @@ class TestDeduplicator(unittest.TestCase):
                     'subject': '[case_a][20240510][topologyB_hwskuC]',
                     'failure_summary': '',
                     'failure_level_info': {
-                    'is_combined': True
+                        'is_combined': True
                     }
                 },
                 {
@@ -372,11 +390,11 @@ class TestDeduplicator(unittest.TestCase):
                     'failure_level_info': {}
                 }
             ],
-            'type': 'general'}
+                'type': 'general'}
         ]
         branches = ['master', 'internal', '202012', '202205', '202305', '202311', '202405']
-        _, actual_final_icm_list, actual_duplicated_icm_list = self.deduplicator.deduplication(common_summary_new_icm_table,
-                                                                                 original_failure_dict, branches)
+        actual_final_icm_list, actual_duplicated_icm_list = self.deduplicator.deduplication(
+            original_failure_dict, branches)
         expected_final_icm_list = [
             {
                 'trigger_icm': True,
@@ -422,7 +440,7 @@ class TestDeduplicator(unittest.TestCase):
                 'subject': '[case_a][20240510][topologyB_hwskuC]',
                 'failure_summary': '',
                 'failure_level_info': {
-                'is_combined': True
+                    'is_combined': True
                 }
             },
             {
@@ -475,7 +493,7 @@ class TestDeduplicator(unittest.TestCase):
                 'subject': '[case_a][20240510][topologyA_hwskuC]',
                 'failure_summary': '',
                 'failure_level_info': {
-                'is_combined': True
+                    'is_combined': True
                 }
             },
         ]

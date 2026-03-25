@@ -170,7 +170,9 @@
         "icm_202311_limit": 10,
         "icm_202405_limit": 100,
         "new_icm_number_limit": 30,
-        "max_icm_count_per_module": 40
+        "max_icm_count_per_module": 40,
+        "max_ai_flaky_icm_limit": 3,
+        "max_flaky_icm_limit": 3
     },
     "auto_blame_branch": {
         "branches": ["master", "internal", "20201231", "20220531", "20230531", "20231110", "20240531", "20240510"],

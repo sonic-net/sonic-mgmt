@@ -1444,6 +1444,7 @@ class DataAnalyzer(BasicAnalyzer):
                                 case_name_branch, latest_osversion))
                     else:
                         # kusto_row_data['failure_level_info']['is_regression'] = True
+                        kusto_row_data['failure_level_info']['os_version'] = latest_osversion
                         kusto_row_data['subject'] = self.build_icm_subject(
                             case_name_branch, case_info_dict, prev_level_value=branch, level_value=None)
                         kusto_row_data['trigger_icm'] = True
