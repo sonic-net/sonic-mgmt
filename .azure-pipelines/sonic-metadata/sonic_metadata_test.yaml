@@ -72,6 +72,7 @@ parameters:
   values:
   - test_upgrade_path
   - test_upgrade_path_t2
+  - test_upgrade_path_t2_delayed
   - test_warm_upgrade_sad_path
   - test_cancelled_upgrade_path
   - test_double_upgrade_path
