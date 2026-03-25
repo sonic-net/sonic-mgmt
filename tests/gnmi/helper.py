@@ -6,7 +6,6 @@ from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import get_dpu_ip, get_dpu_port
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name, \
                                             dump_gnmi_log, dump_system_status
-from tests.common.helpers.gnmi_utils import gnmi_container   # noqa: F401
 from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
 from tests.common.helpers.dut_utils import check_container_state
 
@@ -19,7 +18,12 @@ GNMI_PORT = 0
 GNMI_SERVER_START_WAIT_TIME = 15
 
 
-def apply_cert_config(duthost):
+def is_mgmt_vrf_enabled(duthost):
+    res = duthost.shell('sudo sonic-db-cli CONFIG_DB HGET "MGMT_VRF_CONFIG|vrf_global" "mgmtVrfEnabled"')["stdout"]
+    return res == "true"
+
+
+def apply_cert_config(duthost, vrf_name=None):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     # Get subtype
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -50,6 +54,8 @@ def apply_cert_config(duthost):
     dut_command += "--enable_crl=true "
     if subtype == 'SmartSwitch':
         dut_command += "--zmq_address=tcp://127.0.0.1:8100 "
+    if vrf_name:
+        dut_command += "--gnmi_vrf %s " % vrf_name
     dut_command += "--ca_crt /etc/sonic/telemetry/gnmiCA.pem -gnmi_native_write=true -v=10 >/root/gnmi.log 2>&1 &\""
     duthost.shell(dut_command)
 
@@ -193,7 +199,7 @@ def check_system_time_sync(duthost):
         return False
 
 
-def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None):
+def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None, ip=None):
     """
     Send GNMI set request with GNMI client
 
@@ -207,7 +213,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     Returns:
     """
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
+    ip = ip or duthost.mgmt_ip
     port = env.gnmi_port
     cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
@@ -276,7 +282,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
         raise Exception(f"py_gnmicli failed rc={rc}\nSTDOUT:\n{stdout}\nSTDERR:\n{stderr}")
 
 
-def gnmi_get(duthost, ptfhost, path_list):
+def gnmi_get(duthost, ptfhost, path_list, ip=None):
     """
     Send GNMI get request with GNMI client
 
@@ -289,7 +295,7 @@ def gnmi_get(duthost, ptfhost, path_list):
         msg_list: list for get result
     """
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
+    ip = ip or duthost.mgmt_ip
     port = env.gnmi_port
     cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
@@ -325,7 +331,7 @@ def gnmi_get(duthost, ptfhost, path_list):
 
 # py_gnmicli does not fully support POLLING mode
 # Use gnmi_cli instead
-def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count):
+def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count, ip=None, vrf_name=None):
     """
     Send GNMI subscribe request with GNMI client
 
@@ -335,6 +341,9 @@ def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count):
         path_list: list for get path
         interval_ms: interval, unit is ms
         count: update count
+        ip: server IP to connect to (defaults to duthost.mgmt_ip)
+        vrf_name: when set, run gnmi_cli on the DUT inside the given VRF
+            (using `ip vrf exec`) instead of inside the gnmi container.
 
     Returns:
         msg: gnmi client output
@@ -343,12 +352,18 @@ def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count):
         logger.error("path_list is None")
         return "", ""
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
-    ip = f"[{duthost.mgmt_ip}]" if dut_facts.get('is_mgmt_ipv6_only', False) else duthost.mgmt_ip
+    if ip is None:
+        dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
+        ip = f"[{duthost.mgmt_ip}]" if dut_facts.get('is_mgmt_ipv6_only', False) else duthost.mgmt_ip
     port = env.gnmi_port
     interval = interval_ms / 1000.0
-    # Run gnmi_cli in gnmi container as workaround
-    cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
+    # For a non-default VRF the gnmi container does not have `ip vrf exec`
+    # privileges, so run gnmi_cli on the DUT host in the target VRF instead.
+    if vrf_name and vrf_name != "default":
+        cmd = "sudo ip vrf exec %s /tmp/gnmi_cli -client_types=gnmi -a %s:%s " % (vrf_name, ip, port)
+    else:
+        # Run gnmi_cli in gnmi container as workaround
+        cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
     cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
     cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
     cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "
@@ -364,7 +379,8 @@ def gnmi_subscribe_polling(duthost, ptfhost, path_list, interval_ms, count):
     return output['stdout'], output['stderr']
 
 
-def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, count, origin=None, target=None):
+def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, count, origin=None, target=None,
+                                    ip=None):
     """
     Send GNMI subscribe request with GNMI client
 
@@ -382,7 +398,7 @@ def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, co
         logger.error("path_list is None")
         return "", ""
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
+    ip = ip or duthost.mgmt_ip
     port = env.gnmi_port
     cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
@@ -407,7 +423,7 @@ def gnmi_subscribe_streaming_sample(duthost, ptfhost, path_list, interval_ms, co
     return msg, output['stderr']
 
 
-def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
+def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count, ip=None):
     """
     Send GNMI subscribe request with GNMI client
 
@@ -424,7 +440,7 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
         logger.error("path_list is None")
         return "", ""
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
+    ip = ip or duthost.mgmt_ip
     port = env.gnmi_port
     cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 120 '

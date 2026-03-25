@@ -118,7 +118,7 @@ t0:
   - generic_config_updater/test_vlan_interface.py
   - gnmi/test_gnmi.py
   - gnmi/test_gnmi_appldb.py
-  - gnmi/test_gnmi_configdb.py
+  - gnmi/vrf_aware_tests/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
   - gnmi/test_gnmi_smartswitch.py
   - gnmi/test_gnoi_killprocess.py
@@ -457,7 +457,7 @@ t1-lag:
   - generic_config_updater/test_syslog.py
   - gnmi/test_gnmi.py
   - gnmi/test_gnmi_appldb.py
-  - gnmi/test_gnmi_configdb.py
+  - gnmi/vrf_aware_tests/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
   - gnmi/test_gnmi_smartswitch.py
   - gnmi/test_gnoi_killprocess.py
@@ -818,7 +818,7 @@ onboarding_t1_multi_asic:
   - generic_config_updater/test_syslog.py
   - gnmi/test_gnmi.py
   - gnmi/test_gnmi_appldb.py
-  - gnmi/test_gnmi_configdb.py
+  - gnmi/vrf_aware_tests/test_gnmi_configdb.py
   - gnmi/test_gnmi_countersdb.py
   - iface_loopback_action/test_iface_loopback_action.py
   - log_fidelity/test_bgp_shutdown.py
