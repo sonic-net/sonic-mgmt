@@ -3251,9 +3251,9 @@ ip/test_ip_packet.py::TestIPPacket::
 
 ip/test_ip_packet.py::TestIPPacket::test_drop_l3_ip_packet_non_dut_mac:
   skip:
-    reason: "vpp dpdk driver runs in non-promiscuous mode and drops packets that are not 
-            / destined to DUT MAC address. The packets are not seen by vpp so won't reflect in 
-            / drop counters."
+    reason: "vpp dpdk driver runs in non-promiscuous mode and drops packets that are not
+             destined to DUT MAC address. The packets are not seen by vpp so won't reflect in
+             drop counters."
     conditions:
       - "asic_type in ['vpp']"
 
