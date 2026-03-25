@@ -11,7 +11,6 @@ t0:
   - arp/test_tagged_arp.py
   - arp/test_unknown_mac.py
   - arp/test_wr_arp.py
-  - auditd/test_auditd.py
   - autorestart/test_container_autorestart.py
   - bgp/test_bgp_command.py
   - bgp/test_bgp_dual_asn.py
@@ -140,7 +139,6 @@ t0:
   - k8s/test_config_reload.py
   - k8s/test_disable_flag.py
   - k8s/test_join_available_master.py
-  - kubesonic/test_k8s_join_disjoin.py
   - l2/test_l2_configure.py
   - layer1/test_port_error.py
   - lldp/test_lldp.py
@@ -373,7 +371,6 @@ t1-lag:
   - arp/test_arpall.py
   - arp/test_neighbor_mac.py
   - arp/test_neighbor_mac_noptf.py
-  - auditd/test_auditd.py
   - autorestart/test_container_autorestart.py
   - bfd/test_bfd.py
   - bgp/test_bgp_allow_list.py
@@ -483,7 +480,6 @@ t1-lag:
   - k8s/test_config_reload.py
   - k8s/test_disable_flag.py
   - k8s/test_join_available_master.py
-  - kubesonic/test_k8s_join_disjoin.py
   - layer1/test_port_error.py
   - lldp/test_lldp.py
   - lldp/test_lldp_syncd.py
@@ -637,6 +633,7 @@ t1-lag:
 
 
 t1-lag-vpp:
+  - acl/test_acl.py
   - arp/test_neighbor_mac_noptf.py
   - arp/test_arpall.py
   - arp/test_arp_update.py
@@ -688,6 +685,7 @@ t1-lag-vpp:
   - bgp/test_traffic_shift_sup.py
   - fib/test_fib.py
   - test_interfaces.py
+  - http/test_http_copy.py
   - ip/test_ip_packet.py
   - ip/test_mgmt_ipv6_only.py
   - ipfwd/test_dir_bcast.py
@@ -701,6 +699,7 @@ t1-lag-vpp:
   - pc/test_lag_member_forwarding.py
   - pc/test_lag_2.py
   - pc/test_retry_count.py
+  - portstat/test_portstat.py
   - route/test_default_route.py
   - route/test_static_route.py
   - route/test_forced_mgmt_route.py

@@ -1,10 +1,13 @@
-Hostname,ManagementIp,HwSku,Type,Protocol,Os
+Hostname,ManagementIp,HwSku,Type,Protocol,Os,AuthType
 str-msn2700-01,10.251.0.188/23,Mellanox-2700,DevSonic,,sonic
 str-7260-10,10.251.0.13/23,Arista-7260QX-64,FanoutLeaf,,sonic
 str-7260-11,10.251.0.234/23,Arista-7260QX-64,FanoutRoot,,eos
 str-acs-serv-01,10.251.0.245/23,TestServ,Server,,ubuntu
 pdu-1,192.168.9.2,Apc,Pdu,snmp,
 pdu-2,192.168.9.3,Sentry,Pdu,snmp,
-console-1,192.168.10.1/23,Cisco,ConsoleServer,ssh,sonic
-console-2,192.168.10.2/23,Sonic,ConsoleServer,ssh,cisco
+console-1,192.168.10.1/23,Cisco,ConsoleServer,ssh,sonic,tacacs
+console-2,192.168.10.2/23,Sonic,ConsoleServer,ssh,cisco,
 management-1,192.168.10.3/23,Sonic,MgmtTsToRRouter,,sonic
+switch01,192.168.0.100/24,SKU,DevSonic,,sonic
+switch01-bmc,192.168.0.101/24,bmc,DevSonic,,sonic
+switch01-bmc-con,192.168.0.101/24,bmc,ConsoleServer,ssh,sonic

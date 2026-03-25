@@ -1,5 +1,6 @@
 import logging
 import pytest
+import re
 import time
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.utilities import wait_until
@@ -11,7 +12,7 @@ logger = logging.getLogger(__name__)
 vrfname = 'default'
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", 'm1', 'lt2', 'ft2'),
+    pytest.mark.topology("t0", "t1", 'm1', 'lt2', 'ft2', 'c0'),
 ]
 
 
@@ -162,12 +163,119 @@ def verify_bgp_session_down(duthost, bgp_neighbor):
     )
 
 
+def _shutdown_interfaces(fanouthosts, duthost, local_interfaces):
+    """Shutdown fanout interfaces for the given local interfaces."""
+    for port in local_interfaces:
+        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
+        if fanout and fanout_port:
+            logger.info("shutdown interface fanout {} port {}".format(fanout, fanout_port))
+            fanout.shutdown(fanout_port)
+            time.sleep(1)
+
+
+def _restore_interfaces(fanouthosts, duthost, local_interfaces):
+    """Restore fanout interfaces for the given local interfaces."""
+    for port in local_interfaces:
+        fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
+        if fanout and fanout_port:
+            logger.info("no shutdown interface fanout {} port {}".format(fanout, fanout_port))
+            fanout.no_shutdown(fanout_port)
+            time.sleep(1)
+
+
+def _shutdown_neighbors(nbrhosts, setup, neighbor_name, local_interfaces):
+    """Shutdown neighbor ports for the given local interfaces."""
+    for port in local_interfaces:
+        neighbor_port = setup['neighhosts'][setup['test_neighbor']]['interface'][port]['port']
+        nbr_data = nbrhosts[neighbor_name]
+        if nbr_data.get('is_multi_vrf_peer', False):
+            offset = nbr_data['multi_vrf_data']['intf_offset']
+            intf_prefix, intf_num = re.findall(r"(\D+)(\d+)", neighbor_port)[0]
+            neighbor_port = intf_prefix + str(int(intf_num) + offset)
+
+        logger.info("shutdown interface neighbor {} port {}".format(neighbor_name, neighbor_port))
+        nbrhosts[neighbor_name]['host'].shutdown(neighbor_port)
+        time.sleep(1)
+
+
+def _restore_neighbors(nbrhosts, setup, neighbor_name, local_interfaces):
+    """Restore neighbor ports for the given local interfaces."""
+    for port in local_interfaces:
+        neighbor_port = setup['neighhosts'][setup['test_neighbor']]['interface'][port]['port']
+        nbr_data = nbrhosts[neighbor_name]
+        if nbr_data.get('is_multi_vrf_peer', False):
+            offset = nbr_data['multi_vrf_data']['intf_offset']
+            intf_prefix, intf_num = re.findall(r"(\D+)(\d+)", neighbor_port)[0]
+            neighbor_port = intf_prefix + str(int(intf_num) + offset)
+
+        logger.info("no shutdown interface neighbor {} port {}".format(neighbor_name, neighbor_port))
+        nbrhosts[neighbor_name]['host'].no_shutdown(neighbor_port)
+        time.sleep(1)
+
+
+@pytest.fixture
+def failure_injection(duthosts, rand_one_dut_hostname, fanouthosts, nbrhosts, setup):
+    """Fixture to guarantee cleanup of injected failures.
+
+    The test body calls inject() to apply the failure after skip checks pass.
+    Cleanup always runs in teardown regardless of test outcome.
+
+    See: https://github.com/sonic-net/sonic-mgmt/issues/22246
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    state = {'injected': False, 'failure_type': None}
+
+    class FailureContext:
+        def inject(self, failure_type):
+            neighbor = setup['test_neighbor']
+            neighbor_name = setup['neighhosts'][neighbor]['name']
+            local_interfaces = list(setup['neighhosts'][neighbor]['interface'].keys())
+
+            state['failure_type'] = failure_type
+            state['neighbor_name'] = neighbor_name
+            state['local_interfaces'] = local_interfaces
+            state['injected'] = True
+
+            if failure_type == "interface":
+                _shutdown_interfaces(fanouthosts, duthost, local_interfaces)
+            elif failure_type == "neighbor":
+                _shutdown_neighbors(nbrhosts, setup, neighbor_name, local_interfaces)
+            else:
+                raise ValueError("Unsupported failure_type: {}".format(failure_type))
+
+            duthost.shell('show ip bgp summary', module_ignore_errors=True)
+            duthost.shell('show ipv6 bgp summary', module_ignore_errors=True)
+
+        def restore(self):
+            """Explicitly restore injected failures so the test can verify recovery.
+
+            Safe to call multiple times; fixture teardown will skip if already restored.
+            """
+            if not state['injected']:
+                return
+            if state['failure_type'] == "interface":
+                _restore_interfaces(fanouthosts, duthost, state['local_interfaces'])
+            elif state['failure_type'] == "neighbor":
+                _restore_neighbors(nbrhosts, setup, state['neighbor_name'], state['local_interfaces'])
+            state['injected'] = False
+
+    yield FailureContext()
+
+    # Teardown — safety net in case test aborts before calling restore()
+    if state['injected']:
+        if state['failure_type'] == "interface":
+            _restore_interfaces(fanouthosts, duthost, state['local_interfaces'])
+        elif state['failure_type'] == "neighbor":
+            _restore_neighbors(nbrhosts, setup, state['neighbor_name'], state['local_interfaces'])
+
+
 @pytest.mark.parametrize("test_type", ["bgp_docker", "swss_docker", "reboot"])
 @pytest.mark.parametrize("failure_type", ["interface", "neighbor"])
 @pytest.mark.disable_loganalyzer
 def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts, localhost,
                                     enable_container_autorestart,
-                                    nbrhosts, setup, test_type, failure_type, tbinfo):
+                                    nbrhosts, setup, test_type, failure_type, tbinfo,
+                                    failure_injection):
     '''
     1: check all bgp sessions are up
     2: inject failure, shutdown fanout physical interface or neighbor port or neighbor session
@@ -188,7 +296,7 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
 
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
     asic_type = duthost.facts['asic_type']
-    if asic_type == "vs" and (failure_type == "interface" or test_type == "reboot"):
+    if (asic_type == "vs" or asic_type == "vpp") and (failure_type == "interface" or test_type == "reboot"):
         pytest.skip("BGP session test is not supported on Virtual Switch")
 
     # Skip the test if BGP or SWSS autorestart is disabled
@@ -200,69 +308,43 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
         pytest.skip("BGP or SWSS autorestart is disabled")
 
     neighbor = setup['test_neighbor']
-    neighbor_name = setup['neighhosts'][neighbor]['name']
-    local_interfaces = list(setup['neighhosts'][neighbor]['interface'].keys())
 
-    logger.debug("duthost {} neighbor {} interface {} test type {} inject failure type {}".format(
-        duthost, neighbor_name, local_interfaces, test_type, failure_type))
+    # Inject the failure — cleanup is guaranteed by the fixture teardown
+    failure_injection.inject(failure_type)
 
-    if failure_type == "interface":
-        for port in local_interfaces:
-            fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
-            if fanout and fanout_port:
-                logger.info("shutdown interface fanout {} port {}".format(fanout, fanout_port))
-                fanout.shutdown(fanout_port)
-                time.sleep(1)
-
-    elif failure_type == "neighbor":
-        for port in local_interfaces:
-            neighbor_port = setup['neighhosts'][neighbor]['interface'][port]['port']
-            logger.info("shutdown interface neighbor {} port {}".format(neighbor_name, neighbor_port))
-            nbrhosts[neighbor_name]['host'].shutdown(neighbor_port)
-            time.sleep(1)
-
-    duthost.shell('show ip bgp summary', module_ignore_errors=True)
     # default keepalive is 60 seconds, timeout 180 seconds. Hence wait for 180 seconds before timeout.
     pytest_assert(
         wait_until(180, 10, 0, verify_bgp_session_down, duthost, neighbor),
         "neighbor {} state is still established".format(neighbor)
     )
 
-    try:
-        if test_type == "bgp_docker":
-            duthost.shell("systemctl restart bgp")
-        elif test_type == "swss_docker":
-            duthost.shell("systemctl restart swss")
-        elif test_type == "reboot":
-            # Use warm reboot for t0, cold reboot for others
-            topo_name = tbinfo["topo"]["name"]
-            logger.info("Rebooting DUT {} with type {}".format(duthost.hostname, topo_name))
-            if topo_name.startswith("t0"):
-                reboot_type = "warm"
-            else:
-                reboot_type = "cold"
-            reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True,
-                   warmboot_finalizer_timeout=360)
+    if test_type == "bgp_docker":
+        duthost.shell("systemctl restart bgp")
+    elif test_type == "swss_docker":
+        duthost.shell("systemctl restart swss")
+    elif test_type == "reboot":
+        # Use warm reboot for t0, cold reboot for others
+        topo_name = tbinfo["topo"]["name"]
+        logger.info("Rebooting DUT {} with type {}".format(duthost.hostname, topo_name))
+        if topo_name.startswith("t0"):
+            reboot_type = "warm"
+        else:
+            reboot_type = "cold"
+        reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True,
+               warmboot_finalizer_timeout=360)
 
-        pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
-                      "Not all critical services are fully started")
-    finally:
-        if failure_type == "interface":
-            for port in local_interfaces:
-                fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, port)
-                if fanout and fanout_port:
-                    logger.info("no shutdown interface fanout {} port {}".format(fanout, fanout_port))
-                    fanout.no_shutdown(fanout_port)
-                    time.sleep(1)
+    pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
 
-        elif failure_type == "neighbor":
-            for port in local_interfaces:
-                neighbor_port = setup['neighhosts'][neighbor]['interface'][port]['port']
-                logger.info("no shutdown interface neighbor {} port {}".format(neighbor_name, neighbor_port))
-                nbrhosts[neighbor_name]['host'].no_shutdown(neighbor_port)
-                time.sleep(1)
+    # Restore interfaces/neighbors before verifying BGP recovery
+    failure_injection.restore()
 
     pytest_assert(wait_until(120, 10, 30, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
-    pytest_assert(wait_until(120, 10, 0, duthost.check_bgp_session_state, list(setup['neighhosts'].keys())),
+
+    timeout = 120
+    if test_type == "swss_docker":
+        # It may take up to 6 minutes after restarting swss for BGP sessions to be up
+        timeout = 360
+    pytest_assert(wait_until(timeout, 10, 0, duthost.check_bgp_session_state, list(setup['neighhosts'].keys())),
                   "Not all BGP sessions are established on DUT")
