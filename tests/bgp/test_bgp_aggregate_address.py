@@ -34,7 +34,7 @@ pytestmark = [pytest.mark.topology("t1", "m1"), pytest.mark.device_type("vs"), p
 # ---- Constants & helper structures ----
 CONSTANTS_FILE = "/etc/sonic/constants.yml"
 
-# Aggregate prefixes (Groups 1 & 2 — single /24 aggregate used for DB/FRR validation)
+# Aggregate prefixes
 AGGR_V4 = "172.16.51.0/24"
 AGGR_V6 = "2000:172:16:50::/64"
 BGP_AGGREGATE_ADDRESS = "BGP_AGGREGATE_ADDRESS"
@@ -273,6 +273,3 @@ def test_bgp_aggregate_address_when_bbr_changed(
         config_bbr_by_gcu(duthost, "disabled")
     else:
         config_bbr_by_gcu(duthost, "enabled")
-
-
-
