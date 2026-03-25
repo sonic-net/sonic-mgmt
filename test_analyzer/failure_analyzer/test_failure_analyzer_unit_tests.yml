@@ -5,6 +5,7 @@ pr:
    paths:
      include:
        - test_analyzer/failure_analyzer/**
+       - test_analyzer/owner/**
 
 trigger:
   branches:
@@ -13,6 +14,7 @@ trigger:
   paths:
     include:
     - test_analyzer/failure_analyzer/**
+    - test_analyzer/owner/**
 
 variables:
 - group: KUSTO_SECRETS
@@ -47,7 +49,7 @@ jobs:
       echo "------------------"
       echo ""
 
-      if echo "$CHANGED_FILES" | grep -q '^$(projectSubDirectory)/'; then
+      if echo "$CHANGED_FILES" | grep -qE '^(test_analyzer/failure_analyzer/|test_analyzer/owner/)'; then
         echo "Test failure analyzer code has been modified, running unit tests"
         echo "##vso[task.setvariable variable=RUN_PIPELINE;isOutput=true]true"
       else
