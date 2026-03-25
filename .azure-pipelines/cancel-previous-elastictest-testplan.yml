@@ -1,3 +1,10 @@
+parameters:
+  - name: MGMT_URL
+    type: string
+    default: "https://raw.githubusercontent.com/sonic-net/sonic-mgmt"
+  - name: MGMT_BRANCH
+    type: string
+    default: ""
 steps:
   - ${{ if not(contains(variables['BUILD.REPOSITORY.NAME'], 'sonic-mgmt')) }}:
       - script: |
