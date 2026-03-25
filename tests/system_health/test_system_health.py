@@ -41,6 +41,8 @@ DEFAULT_INTERVAL = 62
 FAST_INTERVAL = 10
 THERMAL_CHECK_INTERVAL = 70
 PSU_CHECK_INTERVAL = FAST_INTERVAL + 5
+LED_CHECK_INTERVAL = 5
+LED_WAIT_TIMEOUT = 60
 WAIT_TIMEOUT = 180
 STATE_DB = 6
 
@@ -161,11 +163,26 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
 
                 assert result is True, '{} is not recorded'.format(
                     critical_process)
+                summary_result = wait_until(
+                    WAIT_TIMEOUT, 10, 2, check_system_health_info, duthost, 'summary', SUMMARY_NOT_OK)
                 summary = redis_get_field_value(
                     duthost, STATE_DB, HEALTH_TABLE_NAME, 'summary')
-                assert summary == SUMMARY_NOT_OK, 'Expect summary {}, got {}'.format(
+                assert summary_result is True, 'Expect summary {}, got {}'.format(
                     SUMMARY_NOT_OK, summary)
-                check_system_health_led_info(duthost)
+                led_result = wait_until(
+                    LED_WAIT_TIMEOUT, LED_CHECK_INTERVAL, 0,
+                    check_system_health_led_info, duthost
+                )
+                if not led_result:
+                    system_health_summary = duthost.shell(
+                        'show system-health summary'
+                    )['stdout']
+                    pytest.fail(
+                        'System status LED did not converge to expected fault '
+                        'color in {} seconds. Latest summary:\n{}'.format(
+                            LED_WAIT_TIMEOUT, system_health_summary
+                        )
+                    )
             break
 
 
