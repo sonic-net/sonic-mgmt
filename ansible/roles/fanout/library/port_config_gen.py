@@ -1,5 +1,6 @@
 #!/usr/bin/python
 """Generate the port config for the fanout device."""
+import json
 import os
 import re
 import shutil
@@ -12,6 +13,12 @@ from copy import deepcopy
 from collections import OrderedDict
 from natsort import natsorted
 from ansible.module_utils.basic import AnsibleModule
+
+try:
+    from portconfig import parse_platform_json_file
+except ImportError:
+    print("Failed to import parse_platform_json_file")
+    parse_platform_json_file = None
 
 
 DOCUMENTATION = """
@@ -69,6 +76,9 @@ class PortConfigGenerator(object):
     SONIC_VERSION_FILE = "/etc/sonic/sonic_version.yml"
     HWSKU_DIR_PREFIX = "/usr/share/sonic/device/"
     PORT_CONF_FILENAME = "port_config.ini"
+    PLATFORM_JSON = "platform.json"
+    HWSKU_JSON = "hwsku.json"
+    INTF_KEY = "interfaces"
     PORT_ALIAS_PATTERNS = (
         re.compile(r"^etp(?P<port_index>\d+)(?P<lane>[a-d]?)"),
         re.compile(r"^Ethernet(?P<port_index>\d+)(/)?(?(2)(?P<lane>[1-4]+))")
@@ -170,11 +180,47 @@ class PortConfigGenerator(object):
         return port_config
 
     @staticmethod
+    def _read_from_json(platform_json_path, hwsku_json_path):
+        """Parse platform.json + hwsku.json and return the same alias-keyed dict
+        format as _read_from_port_config()."""
+        (ports, _, _) = parse_platform_json_file(hwsku_json_path, platform_json_path)
+        port_config = {}
+        for name, data in ports.items():
+            alias = data.get('alias', name)
+            entry = dict(data)
+            entry['name'] = name
+            port_config[alias] = entry
+        return port_config
+
+    @staticmethod
     def _prettify(xml_elem):
         """Output a xml element with indentation."""
         xml_output = ET.tostring(xml_elem, encoding="utf-8")
         reparsed_output = minidom.parseString(xml_output)
         return reparsed_output.toprettyxml(indent="  ")
+
+    def _read_hwsku_port_config(self, hwsku_name):
+        """Read port config for a given hwsku, preferring platform.json + hwsku.json
+        over port_config.ini when both JSON files are present and valid."""
+        hwsku_dir = os.path.join(self.HWSKU_DIR_PREFIX, hwsku_name)
+        hwsku_json_path = os.path.join(hwsku_dir, self.HWSKU_JSON)
+
+        if parse_platform_json_file is not None and os.path.isfile(hwsku_json_path):
+            platform_json_path = os.path.join(self.HWSKU_DIR_PREFIX, self.PLATFORM_JSON)
+            if os.path.isfile(platform_json_path):
+                try:
+                    with open(platform_json_path) as f:
+                        platform_data = json.load(f)
+                    interfaces = platform_data.get(self.INTF_KEY, None)
+                    if interfaces is not None and len(interfaces) > 0:
+                        return self._read_from_json(platform_json_path, hwsku_json_path)
+                except (json.JSONDecodeError, ValueError, KeyError):
+                    # platform.json is unreadable or malformed;
+                    # fall through to port_config.ini.
+                    pass
+
+        ini_path = os.path.join(hwsku_dir, self.PORT_CONF_FILENAME)
+        return self._read_from_port_config(ini_path)
 
     def init_platform(self):
         self.fanout_asic_type = self._get_asic_type()
@@ -204,8 +250,7 @@ class PortConfigGenerator(object):
 
         elif self.fanout_hwsku_type == "dynamic":
             # fill missing ports in device_conn from the default port config file
-            default_hwsku_port_config = self._read_from_port_config(os.path.join(
-                self.HWSKU_DIR_PREFIX, self.platform_default_hwsku, self.PORT_CONF_FILENAME))
+            default_hwsku_port_config = self._read_hwsku_port_config(self.platform_default_hwsku)
             default_hwsku_port_index_to_port_config = {
                 self._parse_interface_alias(port_alias)[0]: port_config for
                 port_alias, port_config in default_hwsku_port_config.items()
@@ -253,8 +298,7 @@ class PortConfigGenerator(object):
             if "broadcom" in self.fanout_asic_type:
                 self._use_flex_bcm_config()
 
-        hwsku_port_config = self._read_from_port_config(os.path.join(
-            self.HWSKU_DIR_PREFIX, self.fanout_hwsku, self.PORT_CONF_FILENAME))
+        hwsku_port_config = self._read_hwsku_port_config(self.fanout_hwsku)
 
         self.fanout_port_config = self.fanout_connections.copy()
         fanout_port_name_to_alias_map = dict(
