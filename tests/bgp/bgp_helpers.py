@@ -372,12 +372,24 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
     downstream_asn = tbinfo['topo']['properties']['configuration'][downstream]['bgp']['asn']
     downstream_peers = tbinfo['topo']['properties']['configuration'][downstream]['bgp']['peers']
 
-    # By default, EOS does not send community, this is to config EOS to send community
-    cmds = []
+    # By default, EOS does not send community; enable it per neighbor under the correct AF.
+    # EOS 4.x rejects `neighbor ... send-community` directly under `router bgp` (% Invalid input);
+    # it must be applied under `address-family ipv4 unicast` / `address-family ipv6 unicast`.
+    ipv4_cmds = []
+    ipv6_cmds = []
     for peer_ips in list(downstream_peers.values()):
         for peer_ip in peer_ips:
-            cmds.append('neighbor {} send-community'.format(peer_ip))
-    nbrhosts[downstream]['host'].config(lines=cmds, parents='router bgp {}'.format(downstream_asn))
+            line = 'neighbor {} send-community'.format(peer_ip)
+            if ':' in peer_ip:
+                ipv6_cmds.append(line)
+            else:
+                ipv4_cmds.append(line)
+    r_bgp = 'router bgp {}'.format(downstream_asn)
+    eos_host = nbrhosts[downstream]['host']
+    if ipv4_cmds:
+        eos_host.config(lines=ipv4_cmds, parents=[r_bgp, 'address-family ipv4 unicast'])
+    if ipv6_cmds:
+        eos_host.config(lines=ipv6_cmds, parents=[r_bgp, 'address-family ipv6 unicast'])
 
     for route in routes:
         if ipaddress.IPNetwork(route['prefix']).version == 4:
@@ -393,9 +405,15 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
             update_routes('withdraw', ptfhost.mgmt_ip, downstream_exabgp_port, route)
         else:
             update_routes('withdraw', ptfhost.mgmt_ip, downstream_exabgp_port_v6, route)
-    # Restore EOS config
-    no_cmds = ['no {}'.format(cmd) for cmd in cmds]
-    nbrhosts[downstream]['host'].config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
+    # Restore EOS config (same address-family context as apply)
+    if ipv4_cmds:
+        eos_host.config(
+            lines=['no {}'.format(c) for c in ipv4_cmds],
+            parents=[r_bgp, 'address-family ipv4 unicast'])
+    if ipv6_cmds:
+        eos_host.config(
+            lines=['no {}'.format(c) for c in ipv6_cmds],
+            parents=[r_bgp, 'address-family ipv6 unicast'])
 
 
 def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):
