@@ -9,6 +9,7 @@ import binascii
 import pytest
 import yaml
 import six
+import re
 
 import ptf.testutils as testutils
 import ptf.packet as packet
@@ -368,6 +369,41 @@ def erspan_ip_ver(request):
     return request.param
 
 
+def clear_interface_counters(duthost):
+    """
+    Clear the interface counters for the host
+    """
+    duthost.command("portstat -c")
+
+
+def assert_no_tx_drops_on_mirror_port(duthost, mirror_port):
+    """
+    Assert that there are no tx drops on the mirror port.
+
+    Args:
+        duthost: DUT fixture
+        mirror_port: The mirror port to check for tx drops
+    """
+    portstat = json.loads(duthost.get_port_counters(in_json=True))
+    pytest_assert(mirror_port in portstat, "Mirror port {} not found in port counters".format(mirror_port))
+    tx_drops = int(portstat[mirror_port]["TX_DRP"].replace(',', ''))
+    pytest_assert(tx_drops < 30, "Expected no tx drops on mirror port {}, but found {}".format(mirror_port, tx_drops))
+
+
+def get_mirror_port(duthost, session_name):
+    mirror_port = None
+    port_re = r"Ethernet\d+"
+    cmd = "show mirror_session"
+    output = duthost.command(cmd)['stdout_lines']
+    if not output:
+        pytest_assert(False, "Failed to get mirror session information for session {}".format(session_name))
+    mirror_line = next((line for line in output if session_name in line), "")
+    mirror_port = re.search(port_re, mirror_line)
+    if not mirror_port:
+        pytest_assert(False, "Failed to get mirror port for session {}".format(session_name))
+    return mirror_port.group()
+
+
 def clear_queue_counters(duthost, asic_ns):
     """
     @summary: Clear the queue counters for the host
@@ -404,6 +440,33 @@ def get_queue_counters(dut, asic_ns, port, queue):
         if fields[1] == txq:
             return int(fields[2].replace(',', ''))
     return -1
+
+
+def assert_no_tx_queue_drops_on_mirror_port(duthost, mirror_port):
+    """
+    Assert that there are no tx drops on the mirror port.
+
+    Args:
+        duthost: DUT fixture
+        mirror_port: The mirror port to check
+    """
+    cmd = f"show queue counters {mirror_port}"
+    output = duthost.command(cmd)['stdout']
+
+    if (not output) or mirror_port not in output:
+        pytest_assert(False, f"Mirror port {mirror_port} not in queue counters output")
+
+    output = output.splitlines()
+    queues_with_drops = []
+    for line in output:
+        if "Ethernet" not in line or "cached" in line:
+            continue
+        queue = line.split()[1]
+        drop = int(line.split()[4].replace(',', ''))
+        if drop > 30:
+            queues_with_drops.append((queue, drop))
+    msg = f"Expected no tx drops on mirror port {mirror_port}, found drops on queues: {queues_with_drops}"
+    pytest_assert(not queues_with_drops, msg)
 
 
 @pytest.fixture(scope="module")
