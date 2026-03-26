@@ -172,7 +172,7 @@ class ThresholdRangeProbingAlgorithm:
                 if self.enable_precise_detection:
                     precision_reached = range_size <= self.precise_detection_range_limit
                 else:
-                    precision_reached = range_size <= max(1, candidate_threshold * self.precision_target_ratio)
+                    precision_reached = range_size <= max(1, int(candidate_threshold * self.precision_target_ratio))
 
                 if precision_reached:
                     iteration_time, phase_time = self.observer.on_iteration_complete(
@@ -206,7 +206,7 @@ class ThresholdRangeProbingAlgorithm:
 
                         # Nudge in the direction opposite to parent's last move
                         if parent_dir in ('right', 'init'):
-                            merged_start -= nudge  # Soften right-move
+                            merged_start = max(0, merged_start - nudge)  # Soften right-move
                         else:
                             merged_end += nudge    # Soften left-move
 
