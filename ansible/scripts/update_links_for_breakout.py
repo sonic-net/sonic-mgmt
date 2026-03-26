@@ -119,6 +119,45 @@ def get_cage_base(port_num, lanes_per_cage):
     return (port_num // lanes_per_cage) * lanes_per_cage
 
 
+def parse_vlan_field(vlan_str):
+    """Parse VLAN field like '1681', '1681-1712', or '1681,1690-1700' into a set of VLAN IDs."""
+    vlans = set()
+    if not vlan_str or not vlan_str.strip():
+        return vlans
+    for part in vlan_str.strip().split(','):
+        part = part.strip()
+        if '-' in part:
+            start, end = part.split('-', 1)
+            vlans.update(range(int(start), int(end) + 1))
+        else:
+            try:
+                vlans.add(int(part))
+            except ValueError:
+                pass
+    return vlans
+
+
+def format_vlan_range(vlans):
+    """Format a set of VLAN IDs into a compact range string.
+
+    Produces contiguous ranges separated by commas.
+    E.g., {1, 2, 3, 5, 6, 8} -> '1-3,5-6,8'
+    """
+    if not vlans:
+        return ''
+    sorted_vlans = sorted(vlans)
+    ranges = []
+    start = end = sorted_vlans[0]
+    for v in sorted_vlans[1:]:
+        if v == end + 1:
+            end = v
+        else:
+            ranges.append(str(start) if start == end else f'{start}-{end}')
+            start = end = v
+    ranges.append(str(start) if start == end else f'{start}-{end}')
+    return ','.join(ranges)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description='Update links.csv for generic HwSku breakout change',
@@ -148,11 +187,38 @@ def main():
     with open(args.links_csv) as f:
         lines = f.readlines()
 
+    # --- Pre-scan: collect existing VLANs and DUT fanout info ---
+    all_vlans_in_file = set()
+    old_dut_vlans = set()
+    dut_fanout_devices = set()
+
+    for line in lines:
+        parts = line.rstrip('\n').split(',')
+        if len(parts) > 5 and parts[5].strip():
+            all_vlans_in_file.update(parse_vlan_field(parts[5]))
+        if f'{args.hostname},' in line and len(parts) > 2:
+            port_str = parts[1].strip()
+            if port_str.startswith('Ethernet'):
+                port_num = int(port_str.replace('Ethernet', ''))
+                vlan_mode = parts[6].strip() if len(parts) > 6 else ''
+                if port_num not in mgmt_ports and vlan_mode != 'Trunk':
+                    if len(parts) > 5:
+                        old_dut_vlans.update(parse_vlan_field(parts[5]))
+                    if parts[2].strip():
+                        dut_fanout_devices.add(parts[2].strip())
+
+    max_vlan = max(all_vlans_in_file) if all_vlans_in_file else 0
+    next_vlan = max_vlan + 1
+
+    # --- Main processing: remap existing DUT entries ---
     new_lines = []
     seen_target_ports = set()
+    cage_info = {}
+    new_dut_vlans = set()
     dut_lines_original = 0
     dut_lines_new = 0
     skipped = 0
+    last_dut_access_idx = -1
 
     for line in lines:
         # Keep non-DUT lines unchanged
@@ -182,26 +248,88 @@ def main():
         cage_base = get_cage_base(port_num, args.lanes_per_cage)
         target_port_num = cage_base + ((port_num - cage_base) // lanes_per_port) * lanes_per_port
 
+        # Track cage info for expansion
+        if cage_base not in cage_info:
+            all_targets = set(cage_base + i * lanes_per_port for i in range(num_ports))
+            cage_info[cage_base] = {
+                'template': parts[:],
+                'covered': set(),
+                'all_targets': all_targets,
+                'speed_mbps': speed_mbps,
+            }
+
         # Skip if we already have a link for this target port
         if target_port_num in seen_target_ports:
             skipped += 1
             continue
 
         seen_target_ports.add(target_port_num)
+        cage_info[cage_base]['covered'].add(target_port_num)
         target_port = f'Ethernet{target_port_num}'
 
-        # Update: DUT port name and speed
+        # Update: DUT port name and speed (VlanID preserved from source)
         parts[1] = target_port
         parts[4] = str(speed_mbps)
+        if len(parts) > 5 and parts[5].strip():
+            new_dut_vlans.update(parse_vlan_field(parts[5]))
+
+        last_dut_access_idx = len(new_lines)
         new_lines.append(','.join(parts) + '\n')
         dut_lines_new += 1
 
+    # --- Generate expansion entries for target ports missing a source entry ---
+    expansion_entries = []
+    for cage_base in sorted(cage_info):
+        info = cage_info[cage_base]
+        missing = sorted(info['all_targets'] - info['covered'])
+        for port_num in missing:
+            entry = info['template'][:]
+            entry[1] = f'Ethernet{port_num}'
+            entry[4] = str(info['speed_mbps'])
+            entry[5] = str(next_vlan)
+            if len(entry) > 6:
+                entry[6] = 'Access'
+            new_dut_vlans.add(next_vlan)
+            next_vlan += 1
+            expansion_entries.append(','.join(entry) + '\n')
+            dut_lines_new += 1
+
+    if expansion_entries:
+        insert_pos = last_dut_access_idx + 1 if last_dut_access_idx >= 0 else len(new_lines)
+        for i, entry in enumerate(expansion_entries):
+            new_lines.insert(insert_pos + i, entry)
+
+    # --- Update trunk/root fanout VLAN range ---
+    trunk_updated = False
+    if dut_fanout_devices and new_dut_vlans:
+        for i, line in enumerate(new_lines):
+            parts = line.rstrip('\n').split(',')
+            if len(parts) > 6 and parts[6].strip() == 'Trunk':
+                start_dev = parts[0].strip()
+                end_dev = parts[2].strip()
+                if start_dev in dut_fanout_devices or end_dev in dut_fanout_devices:
+                    trunk_vlans = parse_vlan_field(parts[5])
+                    trunk_vlans -= old_dut_vlans
+                    trunk_vlans |= new_dut_vlans
+                    # Trunk lines use min-max range to avoid commas in CSV
+                    vlan_min = min(trunk_vlans)
+                    vlan_max = max(trunk_vlans)
+                    parts[5] = f'{vlan_min}-{vlan_max}'
+                    new_lines[i] = ','.join(parts) + '\n'
+                    trunk_updated = True
+
     # Summary
-    total_non_mgmt = len(seen_target_ports)
+    total_non_mgmt = len(seen_target_ports) + len(expansion_entries)
     print(f"Results:")
     print(f"  Original DUT entries: {dut_lines_original}")
     print(f"  New DUT entries: {dut_lines_new} ({total_non_mgmt} ports + {len(mgmt_ports)} mgmt)")
     print(f"  Skipped duplicates: {skipped}")
+    if expansion_entries:
+        vlan_start = next_vlan - len(expansion_entries)
+        print(f"  Expansion: {len(expansion_entries)} new entries added "
+              f"(VLANs {vlan_start}-{next_vlan - 1})")
+    if trunk_updated:
+        print(f"  Trunk VLAN range updated for root fanout")
     print()
 
     # Show sample entries
