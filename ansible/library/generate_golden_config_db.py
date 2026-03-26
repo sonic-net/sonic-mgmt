@@ -637,6 +637,7 @@ class GenerateGoldenConfigDBModule(object):
             # Enable link_training for server facing ports
             if "Server" in config.get("description", ""):
                 config["link_training"] = "on"
+                config["autoneg"] = "off"
 
         return json.dumps({'PORT': golden_config['PORT']}, indent=4)
 
