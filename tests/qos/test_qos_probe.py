@@ -457,16 +457,8 @@ class TestQosProbe(QosSaiBase):
             probing_port_ids = src_testPortIds
 
         logger.info(
-            f"sonicport_to_testport {sonicport_to_testport},\n"
-            f"sonicport_to_pc {sonicport_to_pc},\n"
-            f"bcmport_to_sonicport {bcmport_to_sonicport},\n"
-            f"xpe_to_bcmports {xpe_to_bcmports},\n"
-            f"sonicports_in_upstate {sonicports_in_upstate},\n"
-            f"xpe_to_sonicports {xpe_to_sonicports},\n"
-            f"xpe_to_sonicports_in_upstate {xpe_to_sonicports_in_upstate},\n"
-            f"xpe_to_unique_sonicports {xpe_to_unique_sonicports},\n"
-            f"xpe_to_testports {xpe_to_testports},\n"
             f"probing_port_ids {probing_port_ids},\n"
+            f"sonic_asic_type {sonic_asic_type},\n"
             f"test_port_ids {dutConfig['testPortIds']},\n"
             f"testPortIps {dutConfig['testPortIps']}"
         )
