@@ -2935,9 +2935,9 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
 
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
-    reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
+    reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx and VPP use unified hash fields for ECMP and LAG.'
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx', 'vpp']"
   xfail:
     reason: 'ECMP hash skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/18304 Or xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20733'
     conditions_logical_operator: or
@@ -2966,9 +2966,9 @@ hash/test_generic_hash.py::test_hash_capability:
 
 hash/test_generic_hash.py::test_lag_hash:
   skip:
-    reason: 'LAG hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx uses unified hash fields for ECMP and LAG.'
+    reason: 'LAG hash not supported in broadcom SAI and Cisco 8000. Marvell-Teralynx and VPP use unified hash fields for ECMP and LAG.'
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx']"
+      - "asic_type in ['broadcom', 'cisco-8000', 'marvell-teralynx', 'vpp']"
   xfail:
     reason: 'xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20733'
     conditions:
@@ -3430,6 +3430,10 @@ ipfwd/test_mtu.py:
       - "topo_type not in ['t1', 't2', 'lt2', 'ft2']"
 
 ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
+  skip:
+    reason: "VPP virtual platform has no fanout switch to flap interfaces"
+    conditions:
+      - "asic_type in ['vpp'] and platform in ['x86_64-kvm_x86_64-r0']"
   xfail:
     reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/16218 on mellanox platform"
     conditions:
@@ -3442,6 +3446,10 @@ ipfwd/test_nhop_group.py::test_nhop_group_member_count:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20731 and '-v6-' in topo_name"
 
 ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
+  skip:
+    reason: "VPP does not support ordered ECMP feature"
+    conditions:
+      - "asic_type in ['vpp']"
   xfail:
     reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20731"
     conditions:
@@ -5638,6 +5646,10 @@ vxlan/test_vxlan_ecmp.py:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+  xfail:
+    reason: "xfail due to consistent VPP failures https://github.com/sonic-net/sonic-mgmt/issues/22659"
+    conditions:
+      - "asic_type == 'vpp'"
 
 vxlan/test_vxlan_ecmp_switchover.py:
   skip:
