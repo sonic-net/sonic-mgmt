@@ -981,7 +981,13 @@ def sonic_install(args, index):
             log.error("Execution failed in sonic_pre_install_commands")
 
     rc = nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], testbed_info_dict["dut_ssh"][index], username, password, cmd_list, False)
-    time.sleep(120)
+    if rc:
+        raise RuntimeError("Error when trying to install the image via sonic-installer. Please check logs.")
+
+    rc = reboot_all_DUTs(testbed)
+    if rc:
+        raise RuntimeError(f"Rebooting DUTs failed. Please check logs.")
+
     log.debug("Image loaded, log into dut again and check for docker count")
 
     if 'sonic_post_install_commands' in testbed_info_dict:
@@ -1143,15 +1149,15 @@ def nested_ssh(bastion_host, bastion_user, bastion_key, target_host, target_user
         log.error("Second ssh failed!")
         return -1
     log.debug("Second ssh done. Executing commands...")
-    log.debug(cmd_list)
+    log.debug(f"Command list to execute via nested_ssh: {cmd_list}")
     
     # Execute commands on the target host
     
     image = ""
     for cmd in cmd_list:
+        log.debug(f"Processing command: `{cmd}`")
         if cmd == 'sudo sonic-installer set-next-boot':
             cmd = f'sudo sonic-installer set-next-boot {image}'
-        log.debug(cmd)
         # channel = target_client.get_transport().open_session()
         stdin, stdout, stderr = target_client.exec_command(cmd)
         if cmd == 'sudo sonic-installer list':
@@ -1166,20 +1172,11 @@ def nested_ssh(bastion_host, bastion_user, bastion_key, target_host, target_user
                 if (index==5 and image_type == "B") or (index==6 and image_type == "A"):
                     image = line
             log.debug(image)
-            stdout.channel.recv_exit_status()
+            rc = stdout.channel.recv_exit_status()
             error = stderr.read()
             if error:
-                print('There was an error pulling the runtime: {}'.format(error))
-        elif cmd.startswith('sudo sonic-installer install'):
-            answer = 'y'
-            stdin.write(answer + '\n')
-            stdin.flush()
-            time.sleep(5)
-            log.debug(stdout.read().strip())
-            stdout.channel.recv_exit_status()
-            error = stderr.read()
-            if error:
-                print('There was an error pulling the runtime: {}'.format(error))
+                log.error('There was an error pulling the runtime: {}'.format(error))
+                return rc
         elif cmd == 'docker ps -a | wc':
             docker_count = int(docker_count) if docker_count is not None else DEFAULT_DOCKER_COUNT
             for line in iter(stdout.readline, ""):
@@ -1199,9 +1196,11 @@ def nested_ssh(bastion_host, bastion_user, bastion_key, target_host, target_user
                 log.debug(int(line_docker_count))
                 log.debug(int(docker_count))
                 log.debug("All dockers are up.")
+                rc = stdout.channel.recv_exit_status()
                 error = stderr.read()
                 if error:
-                    print('There was an error pulling the runtime: {}'.format(error))
+                    log.error('There was an error pulling the runtime: {}'.format(error))
+                    return rc
         elif cmd == "show int po":
             int_down = "LACP(A)(Dw)"
             for line in iter(stdout.readline, ""):
@@ -1212,12 +1211,24 @@ def nested_ssh(bastion_host, bastion_user, bastion_key, target_host, target_user
                     bastion_client.close()
                     return -1
             log.debug("All port channels are up.")
-            stdout.channel.recv_exit_status()
+            rc = stdout.channel.recv_exit_status()
             error = stderr.read()
             if error:
-                print('There was an error pulling the runtime: {}'.format(error))
+                log.error('There was an error pulling the runtime: {}'.format(error))
+                return rc
         else:
-            debug_cmd_exec(stdout.channel)
+            stdout.channel.settimeout(60)
+            rc = stdout.channel.recv_exit_status()
+            output = stdout.read().decode('utf-8').strip()
+            error = stderr.read().decode('utf-8').strip()
+            if output:
+                log.debug(f"STDOUT: {output}")
+            if error:
+                log.warning(f"STDERR: {error}")
+            if rc:
+                log.error(f"Error during cmd execution `{cmd}`")
+                return rc
+
     # Close the connections
     closeConnections(bastion_client, target_client, sock_channel)
     return 0
@@ -1249,6 +1260,7 @@ def reboot_all_DUTs(testbed, wait_seconds_for_reboot=60*5):
     """
     send `sudo reboot` on all DuTs in parallel then sleep some time (5 min by default)
     """
+    log.info(f"Entered reboot_all_DUTs function for testbed '{testbed}'")
     testbed_info_dict = getTestbedInfoDict(testbed)
 
     from functools import partial
@@ -1286,6 +1298,7 @@ def reboot_all_DUTs(testbed, wait_seconds_for_reboot=60*5):
         log.error(f"Couldn't reboot all DUTs successfully. ")
         return 1
     else:
+        log.info(f"Rebooted all DUTs successfully.")
         return 0
 
 
@@ -1321,43 +1334,6 @@ def cisco_system_health(testbed):
         log.debug(f'Parsed results for cisco system health for dut {dut_mgmt_ip_addr}:'
                   f'{results[dut_mgmt_ip_addr]}')
     return results
-
-def debug_cmd_exec(channel):
-    # timeout for 60 seconds
-    timeout = 60
-    start_time = time.time()
-
-    try:
-        while True:
-            if channel.recv_ready():
-                # Read a chunk of data
-                output = channel.recv(1024).decode('utf-8')
-                if output:
-                    log.debug(f"STDOUT: {output.strip()}")
-            
-            if channel.recv_stderr_ready():
-                # Read error data
-                error = channel.recv_stderr(1024).decode('utf-8')
-                if error:
-                    log.debug(f"STDERR: {error.strip()}")
-
-            if channel.exit_status_ready():
-                # Command execution finished
-                log.debug("Command execution complete.")
-                break
-            else:
-                # Check for timeout
-                if time.time() - start_time > timeout:
-                    log.error("Command execution timed out.")
-                    raise TimeoutError("Command execution exceeded the timeout period.")
-
-            time.sleep(0.1)  # Avoid busy-waiting
-    except Exception as e:
-        log.error(f"Error while processing output: {e}")
-    finally:
-        log.debug("Command execution complete.")
-    return
-
 
 def read_stream(stream, name):
     for line in iter(stream.readline, b''):

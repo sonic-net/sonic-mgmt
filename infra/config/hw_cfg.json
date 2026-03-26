@@ -3,9 +3,8 @@
     {
         "sonic_installer_commands": [
             "sudo show boot",
-            "sudo sonic-installer install $image_url",
-            "sudo show boot",
-            "sudo reboot"
+            "sudo sonic-installer install $image_url -y",
+            "sudo show boot"
         ]
     },
     "testbed-info":
@@ -44,9 +43,8 @@
                 "logs_path_202505": "/home/sonic/test_logs/",
                 "sonic_installer_commands":[
                     "sudo show boot",
-                    "sudo sonic-installer install $image_url --skip-package-migration",
-                    "sudo show boot",
-                    "sudo reboot"
+                    "sudo sonic-installer install $image_url -y --skip-package-migration",
+                    "sudo show boot"
                 ],
                 "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
                 "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
@@ -92,9 +90,8 @@
             "sonic_mgmt_container_202511": "cicd_prod_202511",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo chu-t1-56-lag password.txt",
@@ -131,9 +128,8 @@
             "sonic_mgmt_container_202405c": "cicd_prod_202405c",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo chu-t1-56-lag password.txt",
@@ -165,9 +161,8 @@
             "skip_folder": "cisco ixia mvrf pfc_asym vrf",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo super-t0 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo super-t0 ./lab",
@@ -203,9 +198,8 @@
             "sonic_mgmt_container_202511": "cicd_prod_202511",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo 400g-t1 ./lab -e 'root_fanout_connect=false'",
@@ -250,9 +244,8 @@
             "telnet_flag": "False",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "testbed-setup": {
@@ -316,9 +309,8 @@
             "sonic_mgmt_container_master": "202311-sonic-mgmt",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo cmono_t1 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo cmono_t1 ./lab",
@@ -365,9 +357,8 @@
             "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo cmono_t1 ./lab",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo cmono_t1 ./lab",
@@ -411,9 +402,8 @@
             "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py qos/test_qos_sai.py acl/test_acl.py",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo cmono_t1 ./lab",
@@ -464,9 +454,8 @@
             "docker_prompt":"@sonic-ucs-m6-29",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo trndo-t0 ./lab",
@@ -508,9 +497,8 @@
             "docker_prompt":"@sonic-ucs-m6-2",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo t0-64-2 ./lab",
@@ -544,9 +532,8 @@
             "docker_prompt":"@sonic-ucs-m6-3",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo t0-64-3 password.txt",
@@ -596,9 +583,8 @@
             ],
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ]
         },
         "b2b-ipfabric-apple": {
@@ -675,11 +661,10 @@
                 "sudo rm /image-*/old_config/config_db.json",
                 "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json",
                 "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json",
-                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer install $image_url -y",
                 "sudo sonic-installer list",
                 "sudo sonic-installer set-next-boot",
-                "sudo rm /etc/sonic/config_db.json",
-                "sudo reboot"
+                "sudo rm /etc/sonic/config_db.json"
             ],
             "optional_run_params": {
                 "optional_params":{
@@ -739,11 +724,10 @@
                 "sudo rm /image-*/old_config/config_db.json",
                 "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json",
                 "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json",
-                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer install $image_url -y",
                 "sudo sonic-installer list",
                 "sudo sonic-installer set-next-boot",
-                "sudo rm /etc/sonic/config_db.json",
-                "sudo reboot"
+                "sudo rm /etc/sonic/config_db.json"
             ],
             "optional_run_params": {
                 "optional_params":{
@@ -799,11 +783,10 @@
                 "sudo rm /image-*/old_config/config_db.json",
                 "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json",
                 "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json",
-                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer install $image_url -y",
                 "sudo sonic-installer list",
                 "sudo sonic-installer set-next-boot",
-                "sudo rm /etc/sonic/config_db.json",
-                "sudo reboot"
+                "sudo rm /etc/sonic/config_db.json"
             ]
         },
         "b2b-tu-2-siren3": {
@@ -829,11 +812,10 @@
                 "sudo rm /image-*/old_config/config_db.json",
                 "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json",
                 "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json",
-                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer install $image_url -y",
                 "sudo sonic-installer list",
                 "sudo sonic-installer set-next-boot",
-                "sudo rm /etc/sonic/config_db.json",
-                "sudo reboot"
+                "sudo rm /etc/sonic/config_db.json"
             ]
         },
         "b2b-tu-2-carib2": {
@@ -859,11 +841,10 @@
                 "sudo rm /image-*/old_config/config_db.json",
                 "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json",
                 "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json",
-                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer install $image_url -y",
                 "sudo sonic-installer list",
                 "sudo sonic-installer set-next-boot",
-                "sudo rm /etc/sonic/config_db.json",
-                "sudo reboot"
+                "sudo rm /etc/sonic/config_db.json"
             ]
         },
         "b2b-m3-2-m64": {
@@ -988,9 +969,8 @@
             "run_type_check": "run_tests",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo tor40 ./lab",
@@ -1023,9 +1003,8 @@
             "run_type_check": "run_tests",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo tornado-dualtor ./lab",
@@ -1056,9 +1035,8 @@
             "run_type_check": "run_tests",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo tornado-dualtor ./lab",
@@ -1093,9 +1071,8 @@
             "run_type_check": "run_tests",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
@@ -1134,9 +1111,8 @@
             "sonic_mgmt_container_202511": "cicd_prod_202511",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo chbm-t1 ./lab",
@@ -1253,9 +1229,8 @@
             ],
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ]
         },
         "t0-m6-8-croc": {
@@ -1282,9 +1257,8 @@
             "skip_folder": "cisco ixia mvrf pfc_asym vrf",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo croc-t0 ./password.txt",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo croc-t0 ./password.txt",
@@ -1324,9 +1298,8 @@
             "skip_folder": "snappi_tests/cisco snappi_tests/multidut",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ]
         },
         "ixia-m5-14-lighting": {
@@ -1368,9 +1341,8 @@
             "skip_folder": "snappi_tests/cisco snappi_tests/multidut",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ]
         },
         "ixia-m5-14-churchill": {
@@ -1411,9 +1383,8 @@
             "skip_folder": "snappi_tests/cisco snappi_tests/multidut",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ]
         },
         "t1-m4-3-croc": {
@@ -1440,9 +1411,8 @@
             "skip_folder": "cisco ixia mvrf pfc_asym vrf",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo croc-t1 ./password.txt",
             "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo croc-t1 ./password.txt",
@@ -1480,9 +1450,8 @@
             "skip_folder": "ixia pfc_asym",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo ucs-m5-2 ./lab",
@@ -1521,9 +1490,8 @@
             "skip_folder": "ixia pfc_asym",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo t1-64-4 password.txt",
@@ -1559,9 +1527,8 @@
             "skip_folder": "ixia pfc_asym",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo super-t0 ./lab",
@@ -1592,9 +1559,8 @@
             "skip_folder": "cisco ixia mvrf pfc_asym vrf",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo light-t0 ./lab",
@@ -1629,9 +1595,8 @@
             "skip_folder": "ixia pfc_asym",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo super-t1 ./lab",
@@ -1840,9 +1805,8 @@
             "skip_folder": "cisco ixia mvrf pfc_asym vrf",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo light-t0 ./lab",
@@ -1871,12 +1835,11 @@
             "allure_flag": "false",
             "collect_spytest_flag":"true",
             "sonic_installer_commands":[
-                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer install $image_url -y",
                 "sudo sonic-installer list",
                 "sudo sonic-installer set-next-boot",
                 "sudo rm /etc/sonic/frr/frr.conf",
-                "sudo rm /etc/sonic/config_db.json",
-                "sudo reboot"
+                "sudo rm /etc/sonic/config_db.json"
             ],
             "optional_run_params": {
                 "optional_params":{
@@ -1919,12 +1882,11 @@
             "allure_flag": "false",
             "collect_spytest_flag":"true",
             "sonic_installer_commands":[
-                "sudo sonic-installer install $image_url",
+                "sudo sonic-installer install $image_url -y",
                 "sudo sonic-installer list",
                 "sudo sonic-installer set-next-boot",
                 "sudo rm /etc/sonic/frr/frr.conf",
-                "sudo rm /etc/sonic/config_db.json",
-                "sudo reboot"
+                "sudo rm /etc/sonic/config_db.json"
             ],
             "optional_run_params": {
                 "optional_params":{
@@ -1972,9 +1934,8 @@
             "skip_folder": "cisco ixia mvrf pfc_asym vrf",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo light-tb ./lab",
@@ -2010,9 +1971,8 @@
             "logs_path_default": "/home/sonic/test_logs/",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
@@ -2044,9 +2004,8 @@
             "sonic_mgmt_container_202501": "cicd_prod_202411",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
@@ -2079,9 +2038,8 @@
             "sonic_mgmt_container_202511": "cicd_prod_202511",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
@@ -2111,9 +2069,8 @@
             "run_type_check": "mtfuji-spytest-plat_dev-cicd-b2b",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ],
             "onie_pre_install_commands": [[
                 "ifconfig eth0 172.25.43.89 netmask 255.255.255.0",
@@ -2158,9 +2115,8 @@
             "run_type_check": "arctos-spytest-plat_dev-cicd-b2b",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ],
             "sonic_pre_install_commands": [[
                 "ifconfig eth0 172.26.235.238 netmask 255.255.255.0",
@@ -2214,9 +2170,8 @@
             "run_type_check": "lightning-spytest-plat_dev-cicd-b2b",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ],
             "onie_pre_install_commands": [[
                 "ifconfig eth0 172.26.235.56 netmask 255.255.255.0",
@@ -2273,9 +2228,8 @@
             "sonic_mgmt_container_202511": "cicd_prod_202511",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "skip_tests": "platform_tests/test_advanced_reboot.py snappi_tests/cisco/test_ecn_marking_cisco8000.py",
             "skip_folder": "ixia pfc_asym",
@@ -2308,9 +2262,8 @@
             "sonic_mgmt_container_202511": "cicd_prod_202511",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "skip_tests": "",
@@ -2341,9 +2294,8 @@
             "sonic_mgmt_container_202505": "cicd-202505-sonic-mgmt",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url --skip-package-migration",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y --skip-package-migration",
+                "sudo show boot"
             ],
             "extra_sonic_commands": ["" ,"sudo sonic-installer cleanup -y"],
             "skip_tests": "",
@@ -2373,9 +2325,8 @@
             "run_type_check": "superbolt-titan-spytest-plat_dev-cicd-b2b",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ],
             "onie_pre_install_commands": [[
                 "ifconfig eth0 172.25.168.104 netmask 255.255.255.0",
@@ -2435,9 +2386,8 @@
             "run_type_check": "mtfuji-cmono-spytest-plat_dev-cicd-b2b",
             "sonic_installer_commands":[
                 "sudo show boot",
-                "sudo sonic-installer install $image_url",
-                "sudo show boot",
-                "sudo reboot"
+                "sudo sonic-installer install $image_url -y",
+                "sudo show boot"
             ],
             "onie_pre_install_commands": [[
                 "ifconfig eth0 172.26.235.249 netmask 255.255.255.0",
