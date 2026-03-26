@@ -77,7 +77,10 @@ class SimPfcXoffProbingExecutor:
 
     def check(self, src_port: int, dst_port: int, value: int, attempts: int = 1,
               drain_buffer: bool = True, iteration: int = 0, **traffic_keys):
-        """
+        """Normal scenario: simple threshold comparison.
+
+        Args:
+            src_port: Source port (unused in mock)
             dst_port: Destination port (unused in mock)
             value: Threshold value to test
             attempts: Number of verification attempts (default 1)
