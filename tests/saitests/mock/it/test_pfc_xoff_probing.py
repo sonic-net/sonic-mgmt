@@ -1125,7 +1125,7 @@ class TestPfcXoffProbing:
         # After fix: lower bound returns 1 instead of None, so probing should succeed
         # BUG: currently returns None → probe fails
         assert result.success, \
-            f"Probe should succeed when threshold=1 (lower bound=1), but got failure"
+            "Probe should succeed when threshold=1 (lower bound=1), but got failure"
         assert result.lower_bound <= actual_threshold, \
             f"Lower bound {result.lower_bound} should be <= threshold {actual_threshold}"
         print(f"[PASS] Lower bound at threshold=1: result=[{result.lower_bound}, {result.upper_bound}]")
