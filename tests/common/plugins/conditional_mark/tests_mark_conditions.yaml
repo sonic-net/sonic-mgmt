@@ -4523,12 +4523,6 @@ scripts:
 #######################################
 #####              sflow          #####
 #######################################
-sflow/test_sflow.py:
-  skip:
-    reason: "The testcase is skipped due to github issue #21701"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/21701"
-
 sflow/test_sflow.py::TestReboot::testFastreboot:
   skip:
     reason: "Dualtor topology doesn't support advanced-reboot"
