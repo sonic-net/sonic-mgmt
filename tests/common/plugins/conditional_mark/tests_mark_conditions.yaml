@@ -3342,6 +3342,12 @@ ipfwd/test_dip_sip.py::test_dip_sip:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
+ipfwd/test_dip_sip.py::test_ipv4_forwarding:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 ipfwd/test_dir_bcast.py:
   skip:
     reason: "Unsupported topology."
