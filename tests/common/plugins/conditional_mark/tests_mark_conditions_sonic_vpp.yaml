@@ -409,14 +409,6 @@ everflow:
 #######################################
 #####           FIB               #####
 #######################################
-fib/test_fib.py::test_ecmp_group_member_flap:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 fib/test_fib.py::test_ipinip_hash:
   skip:
     reason: >
@@ -1229,42 +1221,9 @@ read_mac/test_read_mac_metadata.py::ReadMACMetadata:
 #######################################
 #####           Route             #####
 #######################################
-route/test_duplicate_route.py::test_duplicate_routes:
+route/test_route_flow_counter.py:
   skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-route/test_route_consistency.py::TestRouteConsistency::test_critical_process_crash_and_recover:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-route/test_route_flap.py::test_route_flap:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-route/test_route_flow_counter.py::TestRouteCounter::test_max_match_count:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-route/test_route_flow_counter.py::TestRouteCounter::test_update_route_pattern:
-  skip:
-    reason: >
-            Failed/Errored: To be included
+    reason: "per route counter is not supported in sonic-vpp but is supported in vpp dataplane. To be included after per route counter support is added in sonic-vpp."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
