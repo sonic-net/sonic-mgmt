@@ -1,0 +1,30 @@
+{
+    "x86_64-8102_64h_o-r0": {
+        "platform_name": "mth-64",
+        "project": "Q200"
+    }, 
+    "x86_64-8101_32fh_o-r0" : { 
+        "platform_name": "churchill-mono", 
+        "project": "Q200"
+    }, 
+    "x86_64-8101_32fh_o_c01-r0": { 
+        "platform_name": "Tornado", 
+        "project": "Q200"
+    },
+    "x86_64-8102_28fh_dpu_o-r0": {
+        "platform_name": "MtFuji",
+        "project": "Q200"
+    }, 
+    "x86_64-8201_32fh_o-r0": {
+        "platform_name": "churchill-hbm",
+        "project": "Q200"
+    }, 
+    "x86_64-8122_64eh_o-r0": {
+        "platform_name": "lightning", 
+        "project": "G200"
+    }, 
+    "x86_64-8122_64ehf_o-r0": {
+        "platform_name": "superbolt", 
+        "project": ["G200", "OCI"]
+    }
+}

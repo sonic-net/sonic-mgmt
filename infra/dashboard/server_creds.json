@@ -1,0 +1,179 @@
+{
+    "tu2": {
+        "host": "10.29.158.30", 
+        "user": "sonic", 
+        "password": "roZes@123"       
+    }, 
+    "tu4": {
+        "host": "10.29.158.34", 
+        "user": "sonic", 
+        "password": "roZes@123" 
+    }, 
+    "sonic-ucs-m3-2": {
+        "host": "172.27.146.35", 
+        "user": "rraghav", 
+        "password": "roZes@123"  
+    }, 
+    "sonic-ucs-m3-4": {
+        "host": "172.27.147.237",
+        "user": "sonic", 
+        "password": "roZes@123"
+    }, 
+    "sonic-ucs-m4-3": {
+        "host": "172.27.147.253", 
+        "user": "sonic", 
+        "password": "roZes@123"  
+    },
+    "sonic-ucs-m5-2": {
+        "host": "172.27.147.154", 
+        "user": "lab",
+        "password": "roZes@123" 
+    }, 
+    "sonic-ucs-m5-3": {
+        "host": "172.27.147.151", 
+        "user": "ubuntu", 
+        "password": "cicd_sonic"
+    }, 
+    "sonic-ucs-m5-5": {
+        "host": "172.27.147.43", 
+        "user": "sonic", 
+        "password": "roZes@123"
+    }, 
+    "sonic-ucs-m5-10": {
+        "host": "172.27.145.101", 
+        "user": "sonic", 
+        "password": "roZes@123"
+    }, 
+    "sonic-ucs-m5-11": {
+        "user": "sonic", 
+        "password": "roZes@123"
+    }, 
+    "sonic-ucs-m5-14": {
+        "host": "172.26.235.44",
+        "user": "sonic", 
+        "password": "roZes@123"    
+    }, 
+    "sonic-ucs-m5-16": {
+        "host": "172.26.235.12",
+        "user": "sonic", 
+        "password": "roZes@123" 
+    }, 
+    "sonic-ucs-m6-1": {
+        "host": "172.27.147.204", 
+        "user": "sonic", 
+        "password": "roZes@123"        
+    },
+    "sonic-ucs-m6-2": {
+        "host": "172.27.147.206", 
+        "user": "sonic", 
+        "password": "roZes@123"
+    },
+    "sonic-ucs-m6-3": {
+        "user": "sonic", 
+        "password": "roZes@123"
+    }, 
+    "sonic-ucs-m6-4": {
+        "user": "sonic", 
+        "password": "roZes@123" 
+    },
+    "sonic-ucs-m6-5": {
+        "host": "172.27.147.210", 
+        "user": "sonic", 
+        "password": "roZes@123"
+    },
+    "sonic-ucs-m6-8": {
+        "host": "172.27.148.250", 
+        "user": "sonic", 
+        "password": "roZes@123"         
+    }, 
+    "sonic-ucs-m6-13": {
+        "host": "172.27.145.103",
+        "user": "sonic", 
+        "password": "roZes@123"  
+    }, 
+    "sonic-ucs-m6-16": {
+        "user": "sonic", 
+        "password": "roZes@123"
+    },
+    "sonic-ucs-m6-18": {
+        "host": "10.194.89.129", 
+        "user": "sonic", 
+        "password": "roZes@123"
+    }, 
+    "sonic-ucs-m6-19": {
+        "host": "sonic-ucs-m6-19", 
+        "user": "sonic", 
+        "password": "roZes@123"
+    },  
+    "sonic-ucs-m6-20": {
+        "host": "172.26.235.20", 
+        "user": "sonic", 
+        "password": "roZes@123" 
+    }, 
+    "sonic-ucs-m6-22": {
+        "host": "sonic-ucs-m6-22",
+        "user": "sonic", 
+        "password": "roZes@123"
+    }, 
+    "sonic-ucs-m6-23": {
+        "host": "172.26.235.40",
+        "user": "sonic", 
+        "password": "roZes@123" 
+    }, 
+    "sonic-ucs-m6-26": {
+        "user": "sonic", 
+        "password": "roZes@123" 
+    }, 
+    "sonic-ucs-m6-28": {
+        "host": "172.26.235.47", 
+        "user": "sonic", 
+        "password": "roZes@123" 
+    }, 
+    "sonic-ucs-m6-29": {
+        "user": "sonic", 
+        "password": "roZes@123" 
+    },
+    "sonic-ucs-m6-31": {
+        "user": "sonic",
+        "password": "roZes@123"
+    }, 
+    "sonic-ucs-m6-33": {
+        "host": "172.26.235.84", 
+        "user": "sonic", 
+        "password": "roZes@123"
+    }, 
+    "sonic-ucs-m6-42": {
+        "user": "sonic",
+        "password": "roZes@123"
+    },
+    "sonic-ucs-m6-44": {
+        "user": "sonic",
+        "password": "roZes@123"
+    },
+    "sonic-ucs-m7-42": {
+        "user": "sonic", 
+        "password": "roZes@123"
+    }, 
+    "sonic-ucs-m7-43": {
+        "user": "sonic",
+        "password": "roZes@123"
+   },
+    "light13": {
+        "host": "10.28.109.54",
+        "user": "sonic",
+        "password": "roZes@123"
+    },
+    "light14": {
+        "host": "10.28.109.58", 
+        "user": "sonic", 
+        "password": "roZes@123"
+    }, 
+    "light15": {
+        "user": "sonic", 
+        "password": "roZes@123"
+    },
+    "10.81.124.127": {
+        "user": "cisco",
+        "password": "cisco.123"
+    }
+}
