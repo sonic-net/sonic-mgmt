@@ -259,6 +259,39 @@ The local NTP server is configured as the primary NTP source in:
    docker exec sonic-mgmt-ntp chronyc tracking
    ```
 
+## Running Tests in IPv6-Only Management Mode
+
+When running tests against a DUT configured with IPv6-only management, you must tell the test framework to use IPv6 addresses.
+
+### Using run_tests.sh
+
+Use the `-6` flag to enable IPv6-only management mode:
+
+```bash
+./run_tests.sh -6 -n vms-kvm-t0 -d vlab-01 -c bgp/test_bgp_fact.py -f vtestbed.yaml -i ../ansible/veos_vtb
+```
+
+### Using pytest directly
+
+Use the `--ipv6_only_mgmt` option:
+
+```bash
+pytest --ipv6_only_mgmt --testbed vms-kvm-t0 --testbed_file vtestbed.yaml --inventory ../ansible/veos_vtb --host-pattern vlab-01 bgp/test_bgp_fact.py
+```
+
+### What the IPv6-only flag does
+
+When enabled, the test framework will:
+- Use `ansible_hostv6` as the DUT management IP instead of `ansible_host`
+- Skip IPv4 management connectivity sanity checks
+- Use `ping6` for management reachability tests
+
+### Important notes
+
+- The `--ipv6_only_mgmt` / `-6` flag only affects test execution, not deployment
+- The DUT must already be configured with IPv6 management (via `deploy-mg --ipv6-only-mgmt`)
+- Ensure `ansible_hostv6` is defined in the inventory for all DUTs
+
 ## Reverting to IPv4 Management
 
 To switch back to IPv4 management, simply run `deploy-mg` without the `--ipv6-only-mgmt` flag:
