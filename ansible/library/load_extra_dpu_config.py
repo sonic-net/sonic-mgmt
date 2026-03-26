@@ -17,6 +17,7 @@ GEN_FULL_CONFIG_CMD = "jq -s '.[0] * .[1]' {} {} > {}".format(
     DEFAULT_CONFIG_FILE, DST_DPU_CONFIG_FILE, DST_FULL_CONFIG_FILE)
 CONFIG_RELOAD_CMD = "sudo config reload {} -y -f".format(DST_FULL_CONFIG_FILE)
 CONFIG_SAVE_CMD = "sudo config save -y"
+CONFIG_SETUP_FACTORY_CMD = "sudo config-setup factory"
 # Need to add retry for Cisco SS since DPU takes longer to admin up
 MAX_RETRIES = 5
 RETRY_DELAY = 60  # sec
@@ -183,13 +184,12 @@ class LoadExtraDpuConfigModule(object):
                     self.module.warn("Failed to configure DPU {} at {}".format(i + 1, dpu_ip))
                     continue
 
-                # Wait for DEFAULT_CONFIG_FILE, if missing run config save to create it
-                if not self.wait_for_dpu_path(ssh, dpu_ip, DEFAULT_CONFIG_FILE):
-                    self.module.log("DEFAULT_CONFIG_FILE missing on DPU {}, running config save".format(dpu_ip))
-                    if not self.execute_command(ssh, dpu_ip, CONFIG_SAVE_CMD):
-                        failure_count += 1
-                        self.module.warn("Failed to configure DPU {} at {}".format(i + 1, dpu_ip))
-                        continue
+                # Run config-setup factory to generate factory default config_db.json
+                self.module.log("Running config-setup factory on DPU {}".format(dpu_ip))
+                if not self.execute_command(ssh, dpu_ip, CONFIG_SETUP_FACTORY_CMD):
+                    failure_count += 1
+                    self.module.warn("Failed to configure DPU {} at {}".format(i + 1, dpu_ip))
+                    continue
 
                 if (self.execute_command(ssh, dpu_ip, GEN_FULL_CONFIG_CMD) and
                         self.execute_command(ssh, dpu_ip, CONFIG_RELOAD_CMD) and
