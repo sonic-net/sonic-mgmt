@@ -129,12 +129,13 @@ class LowerBoundProbingAlgorithm:
                 else:
                     # Continue logarithmic reduction
                     if current <= 1:
-                        # Cannot reduce below 1 — threshold is reached even at minimum
-                        break
+                        # Cannot reduce below 1 — lower bound is 1
+                        # (threshold triggered even at minimum packet count)
+                        return (1, phase_time)
                     current = current // 2
 
             self.observer.on_error(
-                "Lower bound detection exceeded maximum iterations or reached minimum value")
+                "Lower bound detection exceeded maximum iterations")
             return (None, phase_time)
 
         except Exception as e:
