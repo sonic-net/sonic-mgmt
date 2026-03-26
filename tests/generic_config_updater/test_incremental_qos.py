@@ -273,7 +273,7 @@ def test_buffer_profile_create_remove_rollback(duthost, ensure_dut_readiness, cl
     if "master" not in os_version and "internal" not in os_version:
         is_chassis = duthost.get_facts().get("modular_chassis")
         min_version = "202405" if is_chassis else "202605"
-        if os_version.split('.')[0][:6] <= min_version:
+        if os_version.split('.')[0][:6] < min_version:
             pytest.skip("Test requires SONiC version >= {} (chassis: {}), current version: {}"
                         .format(min_version, bool(is_chassis), os_version))
 
