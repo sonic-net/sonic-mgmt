@@ -437,6 +437,9 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
         elif hwsku in ["Celestica-E1031-T48S4", "Nokia-7215", "Nokia-M0-7215"] or hwsku.startswith("Nokia-7215-A1"):
             for i in range(1, 53):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1))
+        elif hwsku in ["Nokia-7215-C1", "Nokia-7215-C1-G3"]:
+            for i in range(1, 4):
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i - 1)
         elif hwsku == "et6448m":
             for i in range(0, 52):
                 port_alias_to_name_map["Ethernet%d" % i] = "Ethernet%d" % i
