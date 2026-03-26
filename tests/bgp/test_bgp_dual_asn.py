@@ -103,6 +103,22 @@ def setup_env(
         delete_checkpoint(duthost)
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
+    """Ignore transient monit routeCheck ERR lines during BGP peer-range churn.
+
+    Peer range add/delete and session up/down can briefly desynchronize ROUTE_TABLE
+    vs FRR; other route tests use the same ignore (see test_route_consistency.py).
+    """
+    if loganalyzer:
+        for duthost in duthosts:
+            loganalyzer[duthost.hostname].ignore_regex.extend(
+                [
+                    r".*ERR.* 'routeCheck' status failed.*",
+                ]
+            )
+
+
 class BgpDualAsn:
     def __init__(self):
         self.local_asn = ""
