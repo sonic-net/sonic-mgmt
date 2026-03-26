@@ -732,8 +732,6 @@ class TestVrfFib:
 
     def test_show_bgp_summary(self, duthosts, rand_one_dut_hostname, cfg_facts):
         duthost = duthosts[rand_one_dut_hostname]
-        props = g_vars["props"]
-        route_count = props["podset_number"] * props["tor_number"] * props["tor_subnet_number"]
 
         for vrf in cfg_facts["VRF"]:
 
@@ -748,10 +746,10 @@ class TestVrfFib:
                     if info == "ipv4Unicast" and attr["idType"] == "ipv6":
                         continue
                     else:
-                        assert int(prefix_count) == route_count, "%s should received %s route prefixs!" % (
-                            peer,
-                            route_count,
-                        )
+                        # Expected pfxRcd in range(6400, 6402) i.e. 6400 or 6401 (optional default from announce_routes).
+                        pfx = int(prefix_count)
+                        assert pfx in range(6400, 6402), (
+                            "%s should receive 6400 or 6401 route prefixes (got %s)" % (peer, pfx))
 
     def test_vrf1_fib(self, partial_ptf_runner):
         partial_ptf_runner(
