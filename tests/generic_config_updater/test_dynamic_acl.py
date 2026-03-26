@@ -168,6 +168,16 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
         't1-isolated-d28u1',
         't1-isolated-d28',
         't0-d18u8s4',
+        't0-isolated-v6-d256u256s2',
+        't0-isolated-v6-d128u128s2',
+        't0-isolated-v6-d96u32s2',
+        't0-isolated-v6-d32u32s2',
+        't0-isolated-v6-d16u16s1',
+        't0-isolated-v6-d16u16s2',
+        't1-isolated-v6-d224u8',
+        't1-isolated-v6-d128',
+        't1-isolated-v6-d56u2',
+        't1-isolated-v6-d28u1',
     )
 
     if topo == "m0_l3" or tbinfo['topo']['name'] in topos_no_portchannels:
