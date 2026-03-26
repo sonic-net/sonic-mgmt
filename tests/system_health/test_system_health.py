@@ -70,6 +70,21 @@ DEFAULT_LED_CONFIG = {
 }
 
 
+# Similar colors treated as equivalent fault indicators (e.g. red/orange/amber).
+FAULT_COLOR_GROUPS = [
+    {'red', 'orange', 'amber'},
+    {'red_blink', 'orange_blink', 'amber_blink'},
+]
+
+
+def _get_color_group(color):
+    """Return the color group for the given color, or None."""
+    for group in FAULT_COLOR_GROUPS:
+        if color in group:
+            return group
+    return None
+
+
 @pytest.fixture(autouse=True, scope="module")
 def check_image_version(duthost):
     """Skip the test for unsupported images."""
@@ -520,8 +535,12 @@ def check_system_health_led_info(duthost):
         assert system_status_lower == expected_normal, \
             f"System status LED is not the configured 'normal' color ({expected_normal}), but it is {system_led_status}"
     else:
-        # Logic for faulted system: Iterate through led_cfg to find a match among non-normal keys
+        # Faulted system: LED must match a configured non-normal color or similar equivalent.
         not_normal = {color for key, color in led_cfg.items() if key != "normal"}
+        for color in list(not_normal):
+            color_group = _get_color_group(color)
+            if color_group:
+                not_normal.update(color_group)
         assert system_status_lower in not_normal, \
             f"System status LED '{system_led_status}' does not match any colors defined in config: {not_normal}"
 
