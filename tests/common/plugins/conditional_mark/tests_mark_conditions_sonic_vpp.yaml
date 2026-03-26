@@ -552,17 +552,6 @@ golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rend
       - "asic_type in ['vpp']"
 
 #######################################
-#####           Hash              #####
-#######################################
-hash/test_generic_hash.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####      Iface Namingmode       #####
 #######################################
 iface_namingmode/test_iface_namingmode.py::TestShowLLDP::test_show_lldp_neighbor:
