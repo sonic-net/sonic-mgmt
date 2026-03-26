@@ -445,6 +445,9 @@ class TestQosProbe(QosSaiBase):
                     if sonicport in sonicport_to_testport:
                         xpe_to_testports[xpe].append(sonicport_to_testport[sonicport])
 
+            if not xpe_to_testports:
+                pytest.skip("No available test ports found for probing (empty XPE mapping)")
+
             max_ports_xpe = max(xpe_to_testports.keys(),
                                 key=lambda xpe: len(xpe_to_testports[xpe]))
             probing_port_ids = xpe_to_testports[max_ports_xpe]
