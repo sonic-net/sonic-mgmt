@@ -16,6 +16,8 @@ import ptf.packet as scapy
 from tests.ptf_runner import ptf_runner
 from .everflow_test_utilities import TARGET_SERVER_IP, BaseEverflowTest, DOWN_STREAM, UP_STREAM, get_default_server_ip
 from retry.api import retry_call
+from .everflow_test_utilities import clear_interface_counters, assert_no_tx_drops_on_mirror_port, get_mirror_port
+from .everflow_test_utilities import assert_no_tx_queue_drops_on_mirror_port, clear_queue_counters
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                   # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory                                   # noqa: F401
@@ -802,6 +804,10 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                        config_method,
                                        rules=EVERFLOW_DSCP_RULES)
 
+            # Clear counters before test
+            clear_interface_counters(everflow_dut)
+            clear_queue_counters(everflow_dut, None)
+
             # Run test with expected CIR/CBS in packets/sec and tolerance %
             partial_ptf_runner(setup_info,
                                dest_port_type,
@@ -818,6 +824,11 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                cbs=rate_limit,
                                send_time=send_time,
                                tolerance=everflow_tolerance)
+
+            # Verify that packets dropped by policer do not increment TX_DROP counters
+            mirror_port = get_mirror_port(everflow_dut, "TEST_POLICER_SESSION")
+            assert_no_tx_drops_on_mirror_port(everflow_dut, mirror_port)
+            assert_no_tx_queue_drops_on_mirror_port(everflow_dut, mirror_port)
         finally:
             # Clean up ACL rules and routes
             BaseEverflowTest.remove_acl_rule_config(everflow_dut, table_name, config_method)
