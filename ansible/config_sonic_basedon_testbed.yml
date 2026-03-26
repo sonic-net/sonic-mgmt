@@ -981,6 +981,10 @@
           - name: Wait for chrony.service restart after reload minigraph
             become: true
             service: name=chrony state=started
+            register: chrony_start_result
+            retries: 12
+            delay: 10
+            until: chrony_start_result is succeeded
 
           - name: Stop chrony.service on DUT
             become: true
