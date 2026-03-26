@@ -460,9 +460,14 @@ def test_bgp_update_timer_session_down(
         for _, route in enumerate(constants.routes):
             withdraw_intervals.append(-1)
             n0.announce_route(route)
-            time.sleep(constants.sleep_interval)
-            dut_route = duthost.get_route(route["prefix"], n0.namespace)
-            if not dut_route:
+            # Route install can lag announce (suppress-fib-pending, slow orchagent). A fixed
+            # sleep is flaky; poll until the prefix appears in BGP like test_bgp_peer_shutdown.
+            if not wait_until(
+                WAIT_TIMEOUT,
+                5,
+                0,
+                lambda: bool(duthost.get_route(route["prefix"], n0.namespace)),
+            ):
                 pytest.fail("announce route %s from n0 to dut failed" % route["prefix"])
         # close bgp session n0, monitor withdraw info from dut to n1
         bgp_pcap = BGP_DOWN_LOG_TMPL
