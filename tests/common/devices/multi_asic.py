@@ -344,6 +344,23 @@ class MultiAsicSonicHost(object):
         output = self.command(cmd)
         return json.loads(output['stdout'])
 
+    def get_bmc_host(self):
+        """Get the SonicHost instance of the associated host (CPU) for this BMC.
+
+        The host-side device is resolved from the 'bmc_host' field defined in
+        the testbed YAML file.
+
+        Returns:
+            SonicHost: A SonicHost instance representing the host (CPU) side.
+
+        Raises:
+            AssertionError: If the current device is not a BMC or bmc_host is not defined.
+        """
+        pytest_assert(self.sonichost.is_bmc(), "get_bmc_host() can only be called on a BMC device")
+        bmc_host_hostname = self.duthosts.tbinfo.get('bmc_host')
+        pytest_assert(bmc_host_hostname, "bmc_host field not defined in testbed YAML")
+        return SonicHost(self.duthosts.ansible_adhoc, bmc_host_hostname)
+
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.
 

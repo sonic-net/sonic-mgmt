@@ -109,6 +109,14 @@ class SonicHost(AnsibleHostBase):
 
         router_type = self._facts.get('router_type', '')
         router_subtype = self._facts.get('router_subtype', '')
+
+        if router_type == 'NetworkBmc':
+            logger.info("Removing bgp, swss, syncd and teamd from default services for NetworkBmc")
+            self.DEFAULT_ASIC_SERVICES.remove("bgp")
+            self.DEFAULT_ASIC_SERVICES.remove("swss")
+            self.DEFAULT_ASIC_SERVICES.remove("syncd")
+            self.DEFAULT_ASIC_SERVICES.remove("teamd")
+
         if (router_type == 'UpperSpineRouter') or (router_subtype in ['UpstreamLC', 'DownstreamLC']):
             self.DEFAULT_ASIC_SERVICES.append("macsec")
         # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
@@ -261,6 +269,14 @@ class SonicHost(AnsibleHostBase):
         im = self.host.options['inventory_manager']
         inv_files = im._sources
         return is_supervisor_node(inv_files, self.hostname)
+
+    def is_bmc(self):
+        """Check if the current SONiC host is a BMC.
+
+        Returns:
+            bool: True if this host is a BMC device, False otherwise.
+        """
+        return self._facts.get('router_type', '') == 'NetworkBmc'
 
     def is_frontend_node(self):
         """Check if the current node is a frontend node in case of multi-DUT.
