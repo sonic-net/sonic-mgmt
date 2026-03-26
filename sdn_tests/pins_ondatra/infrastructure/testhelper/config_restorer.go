@@ -2,21 +2,21 @@ package testhelper
 
 import (
 	"context"
-        "errors"
+	"errors"
 	"fmt"
-	"strings"
-        "sync"
-	"testing"
-	"time"
 
 	log "github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
-        syspb "github.com/openconfig/gnoi/system"
+	syspb "github.com/openconfig/gnoi/system"
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/openconfig/ygot/ygot"
 	"google.golang.org/grpc"
+	"strings"
+	"sync"
+	"testing"
+	"time"
 )
 
 var (
@@ -242,7 +242,8 @@ func (cr *ConfigRestorer) restoreConfigOnDiff(ctx context.Context, t *testing.T,
 	log.InfoContextf(ctx, "Trying to restore config for device: %v by pushing default config\n", dutName)
 	configPushAndConvergenceCtx, configPushAndConvergenceCancel := context.WithTimeout(ctx, configPushAndConvergenceTimeout)
 	defer configPushAndConvergenceCancel()
-	if err := ConfigPushAndWaitForConvergence(configPushAndConvergenceCtx, t, device, nil /*(config)*/); err != nil {
+	if err := ConfigPushAndWaitForConvergence(configPushAndConvergenceCtx, t, device,
+ 			nil /*(config)*/, nil /*(ignorePathsWithPrefix)*/); err != nil {
 		log.InfoContextf(ctx, "ConfigPushAndWaitForConvergence(dut=%v) failed, err: %v", dutName, err)
 		return cr.reboot(ctx, t, device)
 	}

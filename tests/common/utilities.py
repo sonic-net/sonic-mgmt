@@ -171,6 +171,38 @@ def wait_until(timeout, interval, delay, condition, *args, **kwargs):
         return False
 
 
+def ping_ip(host, dst_ip, count=4, cmd_prefix=""):
+    """Ping an IP address from a host with an optional command prefix.
+
+    The *host* is expected to be an AnsibleHost-like object exposing a
+    ``command`` method (for example, ``duthost``, ``ptfhost`` or a localhost
+    wrapper).
+
+    This helper is designed to be used with wait_until: it returns True on
+    success and False on failure so callers can retry.
+
+    The cmd_prefix parameter can be used to run ping inside a namespace or
+    other wrapper context (for example, "sudo ip netns exec <ns>").
+    """
+    base_cmd = "ping -c {} {}".format(count, dst_ip)
+    cmd = "{} {}".format(cmd_prefix, base_cmd) if cmd_prefix else base_cmd
+    host_name = getattr(host, "hostname", repr(host))
+    logger.info("Pinging %s from host %s with command: %s", dst_ip, host_name, cmd)
+    result = host.command(cmd, module_ignore_errors=True)
+
+    if result.get("failed", False):
+        logger.info(
+            "Ping to %s from host %s failed: rc=%s, stderr=%s",
+            dst_ip,
+            host_name,
+            result.get("rc"),
+            result.get("stderr"),
+        )
+        return False
+
+    return True
+
+
 async def async_wait_until(timeout, interval, delay, condition, *args, **kwargs):
     """
     @summary: Same as wait_until but async
@@ -1360,6 +1392,17 @@ def get_dut_current_passwd(ipv4_address, ipv6_address, username, passwords):
     except Exception:
         _, passwd = _paramiko_ssh(ipv6_address, username, passwords)
     return passwd
+
+
+def update_console_creds(creds, console_auth_type):
+    # Load creds for console based on auth type (e.g. tacacs, xpme)
+    if console_auth_type and console_auth_type in creds.get("console_login_options", {}):
+        console_login_creds = creds["console_login_options"][console_auth_type]
+        creds["console_user"] = {}
+        creds["console_password"] = {}
+        for k, v in list(console_login_creds.items()):
+            creds["console_user"][k] = v["user"]
+            creds["console_password"][k] = v["passwd"]
 
 
 def check_msg_in_syslog(duthost, log_msg):

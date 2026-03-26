@@ -22,10 +22,17 @@
     {% if fanout_hwsku == "Arista-720DT-G48S4" and (fanout_port_config[port_name]['lanes'] | int) <= 24 %}
             "autoneg": "on",
     {% endif %}
-    {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
+    {% if fanout_port_config[port_name]['speed'] | default('100000') in ["100000", "200000", "400000", "800000"] %}
             "fec" : "rs",
     {% endif %}
     {% if port_name in device_conn[inventory_hostname] %}
+        {% if 'linktraining' in device_conn[inventory_hostname][port_name] %}
+            {% if 'on' in device_conn[inventory_hostname][port_name]['linktraining'] %}
+                "link_training": "on",
+            {% elif 'off' in device_conn[inventory_hostname][port_name]['linktraining'] %}
+                "link_training": "off",
+            {% endif %}
+        {% endif %}
         {% if 'autoneg' in device_conn[inventory_hostname][port_name] %}
                 {% if 'on' in device_conn[inventory_hostname][port_name]['autoneg'] %}
                     "autoneg": "on",
@@ -208,7 +215,7 @@
 {% endif %}
 {% set no_buffer_hwsku = (
     "Nokia-7215", "Nokia-7215-A1", "Nokia-7215-A1-G48S4", "Nokia-7215-A1-MGX-G48S4",
-    "Arista-720DT-G48S4",
+    "NH-5010-F-O64", "Arista-720DT-G48S4",
     "Arista-7050CX3-32S-S128", "Arista-7050CX3-32S-C6S104", "Arista-7050CX3-32S-C28S16"
 ) %}
 {% if 'marvell-teralynx' not in fanout_sonic_version["asic_type"] and not (fanout_hwsku in no_buffer_hwsku or "Arista-7060X6" in fanout_hwsku) %}
@@ -227,7 +234,7 @@
     {% endfor %}
     },
 {% endif %}
-{% if 'marvell-teralynx' in fanout_sonic_version["asic_type"] or fanout_hwsku == "Arista-720DT-G48S4" or "Nokia-7215" in fanout_hwsku %}
+{% if 'marvell-teralynx' in fanout_sonic_version["asic_type"] or fanout_hwsku == "Arista-720DT-G48S4" or "Nokia-7215" in fanout_hwsku or fanout_hwsku == "NH-5010-F-O64" %}
 
     "FLEX_COUNTER_TABLE": {
         "ACL": {

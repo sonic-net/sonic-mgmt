@@ -9,6 +9,7 @@ import binascii
 import pytest
 import yaml
 import six
+import re
 
 import ptf.testutils as testutils
 import ptf.packet as packet
@@ -26,6 +27,7 @@ from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEI
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 from tests.common.dualtor.dual_tor_common import mux_config              # noqa: F401
 from tests.common.helpers.sonic_db import AsicDbCli
+from tests.common.fixtures.duthost_utils import shutdown_ebgp          # noqa: F401
 import json
 
 logger = logging.getLogger(__name__)
@@ -367,6 +369,41 @@ def erspan_ip_ver(request):
     return request.param
 
 
+def clear_interface_counters(duthost):
+    """
+    Clear the interface counters for the host
+    """
+    duthost.command("portstat -c")
+
+
+def assert_no_tx_drops_on_mirror_port(duthost, mirror_port):
+    """
+    Assert that there are no tx drops on the mirror port.
+
+    Args:
+        duthost: DUT fixture
+        mirror_port: The mirror port to check for tx drops
+    """
+    portstat = json.loads(duthost.get_port_counters(in_json=True))
+    pytest_assert(mirror_port in portstat, "Mirror port {} not found in port counters".format(mirror_port))
+    tx_drops = int(portstat[mirror_port]["TX_DRP"].replace(',', ''))
+    pytest_assert(tx_drops < 30, "Expected no tx drops on mirror port {}, but found {}".format(mirror_port, tx_drops))
+
+
+def get_mirror_port(duthost, session_name):
+    mirror_port = None
+    port_re = r"Ethernet\d+"
+    cmd = "show mirror_session"
+    output = duthost.command(cmd)['stdout_lines']
+    if not output:
+        pytest_assert(False, "Failed to get mirror session information for session {}".format(session_name))
+    mirror_line = next((line for line in output if session_name in line), "")
+    mirror_port = re.search(port_re, mirror_line)
+    if not mirror_port:
+        pytest_assert(False, "Failed to get mirror port for session {}".format(session_name))
+    return mirror_port.group()
+
+
 def clear_queue_counters(duthost, asic_ns):
     """
     @summary: Clear the queue counters for the host
@@ -405,8 +442,36 @@ def get_queue_counters(dut, asic_ns, port, queue):
     return -1
 
 
+def assert_no_tx_queue_drops_on_mirror_port(duthost, mirror_port):
+    """
+    Assert that there are no tx drops on the mirror port.
+
+    Args:
+        duthost: DUT fixture
+        mirror_port: The mirror port to check
+    """
+    cmd = f"show queue counters {mirror_port}"
+    output = duthost.command(cmd)['stdout']
+
+    if (not output) or mirror_port not in output:
+        pytest_assert(False, f"Mirror port {mirror_port} not in queue counters output")
+
+    output = output.splitlines()
+    queues_with_drops = []
+    for line in output:
+        if "Ethernet" not in line or "cached" in line:
+            continue
+        queue = line.split()[1]
+        drop = int(line.split()[4].replace(',', ''))
+        if drop > 30:
+            queues_with_drops.append((queue, drop))
+    msg = f"Expected no tx drops on mirror port {mirror_port}, found drops on queues: {queues_with_drops}"
+    pytest_assert(not queues_with_drops, msg)
+
+
 @pytest.fixture(scope="module")
-def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
+def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario,
+               shutdown_ebgp):  # noqa: F811
     """
     Gather all required test information.
 
@@ -431,30 +496,19 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
 
     setup_information = gen_setup_information(duthost, downstream_duthost, upstream_duthost, tbinfo, topo_scenario)
 
-    # Disable BGP so that we don't keep on bouncing back mirror packets
-    # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
-
     if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
         for dut_host in duthosts.frontend_nodes:
-            dut_host.command("sudo config bgp shutdown all")
             dut_host.command("mkdir -p {}".format(DUT_RUN_DIR))
     else:
-        duthost.command("sudo config bgp shutdown all")
         duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
-
-    time.sleep(60)
 
     yield setup_information
 
-    # Enable BGP again
     if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
         for dut_host in duthosts.frontend_nodes:
-            dut_host.command("sudo config bgp startup all")
             dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
     else:
-        duthost.command("sudo config bgp startup all")
         duthost.command("rm -rf {}".format(DUT_RUN_DIR))
-    time.sleep(60)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -1274,9 +1328,9 @@ class BaseEverflowTest(object):
         src_port_metadata_map = {}
 
         if 't2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo']:
+            src_port_set.add(src_port)
+            src_port_metadata_map[src_port] = (None, 1)
             if valid_across_namespace is True:
-                src_port_set.add(src_port)
-                src_port_metadata_map[src_port] = (None, 1)
                 # Add the dest_port to src_port_set only in non MACSEC testbed scenarios
                 if not MACSEC_INFO:
                     if duthost.facts['switch_type'] == "voq":

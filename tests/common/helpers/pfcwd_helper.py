@@ -20,8 +20,8 @@ EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
 VENDOR_SPEC_ADDITIONAL_INFO_RE = {
     "mellanox":
         r"additional info: occupancy:[0-9]+\|packets:[0-9]+\|packets_last:[0-9]+\|pfc_rx_packets:[0-9]+\|"
-        r"pfc_rx_packets_last:[0-9]+\|pfc_duration:[0-9]+\|pfc_duration_last:[0-9]+\|timestamp:[0-9]+\.[0-9]+\|"
-        r"timestamp_last:[0-9]+\.[0-9]+\|(effective|real)_poll_time:[0-9]+"
+        r"pfc_rx_packets_last:[0-9]+\|pfc_duration:[0-9]+\|pfc_duration_last:[0-9]+\|timestamp:[0-9]+(?:\.[0-9]+)?\|"
+        r"timestamp_last:[0-9]+(?:\.[0-9]+)?\|(?:effective|real)_poll_time:[0-9]+(?:\.[0-9]+)?"
     }
 
 EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
@@ -600,6 +600,9 @@ def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state):
     pfcwd_stat = parser_show_pfcwd_stat(dut, port, queue)
     if dut.facts['asic_type'] == 'vs':
         return True
+    if not pfcwd_stat:
+        logger.info(f'Port {port} Storm verification : no watchdog stats')
+        return False
     if expected_state == "storm":
         if ("storm" in pfcwd_stat[0]['status']) and \
                 int(pfcwd_stat[0]['storm_detect_count']) > int(pfcwd_stat[0]['restored_count']):
@@ -653,14 +656,20 @@ def _get_storm_test_ports(storm_hndle):
     return ports
 
 
-def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_state, baseline_counters=None,
-                                                 threshold_percentage=100, stormed_ports_list=None):
+def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_state, selected_test_ports,
+                                                 baseline_counters=None, threshold_percentage=100,
+                                                 stormed_ports_list=None):
     """Verify if threshold percentage of ports reached expected PFC storm state."""
     if dut.facts['asic_type'] == 'vs':
         return True
 
     # Get all ports to check and current stats
     ports_to_check = _get_storm_test_ports(storm_hndle)
+
+    # Filter to only ports with background traffic if selected_test_ports is provided
+    if selected_test_ports:
+        ports_to_check = [(p, q) for p, q in ports_to_check if p in selected_test_ports]
+        logger.debug(f"Filtered to {len(ports_to_check)} ports with background traffic")
 
     # For restore, only check ports that actually stormed
     if expected_state == "restore" and stormed_ports_list:
