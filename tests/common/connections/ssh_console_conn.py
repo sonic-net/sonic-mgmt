@@ -159,7 +159,10 @@ class SSHConsoleConn(BaseConsoleConn):
                     msg = "Login failed: {}".format(self.host)
                     raise NetMikoAuthenticationException(msg)
 
-                self.write_channel(self.RETURN)
+                # Only send blank CR to wake up terminal when still waiting for username prompt;
+                # once username has been sent, stop sending CRs so no empty password arrives before 'Password:' prompt
+                if not user_sent:
+                    self.write_channel(self.RETURN)
                 time.sleep(0.5 * delay_factor)
                 i += 1
             except EOFError:
