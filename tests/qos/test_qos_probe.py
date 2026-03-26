@@ -370,85 +370,88 @@ class TestQosProbe(QosSaiBase):
             for member in pc_info['members']:
                 sonicport_to_pc[member] = pc_name
 
-        bcmport_to_sonicport = {}
-        cmd = " | ".join(("bcmcmd 'knetctrl netif show'",
-                          "grep Interface",
-                          "awk '{print $4 \"=\" $7}'",
-                          "awk -F= '{print $4 \" \" $2}'"))
-        result = duthost.shell(cmd)['stdout'].strip('"\'"')
-        for line in result.split("\n"):
-            if line:
-                parts = line.split()
-                if len(parts) == 2:
-                    bcmport_to_sonicport[parts[0]] = parts[1]
-
-        xpe_to_bcmports = defaultdict(list)
-        cmd = " | ".join(("bcmcmd 'show pmap'",
-                          "grep -vE 'drivshell|show pmap|===|pipe'",
-                          "awk '{ print $2 \" \" $1}'"))
-        result = duthost.shell(cmd)['stdout'].strip('"\'"')
-        for line in result.split("\n"):
-            if line:
-                parts = line.split()
-                if len(parts) == 2:
-                    xpe_to_bcmports[parts[0]].append(parts[1])
-        if dutTestParams["basicParams"]["sonic_asic_type"] == "broadcom" and dutConfig["dutAsic"] in ("td2", "td3"):
-            all_ports = []
-            for xpe in list(xpe_to_bcmports.keys()):
-                all_ports.extend(xpe_to_bcmports[xpe])
-                if xpe != '0':
-                    del xpe_to_bcmports[xpe]
-            xpe_to_bcmports['0'] = all_ports
-
-        cmd = " | ".join(("show int des",
-                          r"grep -E 'Ethernet[0-9]+\s+up\s+up'",
-                          " awk ' { print $1 } '"))
-        sonicports_in_upstate = [intf for intf in duthost.shell(cmd)['stdout'].strip('"\'"').split("\n") if intf]
-
-        xpe_to_sonicports = defaultdict(list)
-        for xpe, bcmports in xpe_to_bcmports.items():
-            for bcmport in bcmports:
-                if bcmport in bcmport_to_sonicport:
-                    xpe_to_sonicports[xpe].append(bcmport_to_sonicport[bcmport])
-
-        xpe_to_sonicports_in_upstate = defaultdict(list)
-        for xpe, bcmports in xpe_to_bcmports.items():
-            for bcmport in bcmports:
-                if bcmport in bcmport_to_sonicport:
-                    if bcmport_to_sonicport[bcmport] in sonicports_in_upstate:
-                        xpe_to_sonicports_in_upstate[xpe].append(bcmport_to_sonicport[bcmport])
-
         src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
         src_testPortIds = dutConfig["testPortIds"][src_dut_index][src_asic_index]
 
-        xpe_to_sonicports_in_testPortIds = defaultdict(list)
-        for xpe, ports in xpe_to_sonicports_in_upstate.items():
-            for port in ports:
-                if sonicport_to_testport[port] in src_testPortIds:
-                    xpe_to_sonicports_in_testPortIds[xpe].append(port)
+        sonic_asic_type = dutTestParams["basicParams"].get("sonic_asic_type", "")
 
-        xpe_to_unique_sonicports = defaultdict(list)
-        for xpe, ports in xpe_to_sonicports_in_testPortIds.items():
-            # sort by sonic port number
-            sorted_ports = sorted(ports, key=lambda port: int(port.replace("Ethernet", "")))
-            included_pcs = set()
-            for port in sorted_ports:
-                pc = sonicport_to_pc.get(port, None)
-                if pc is None or pc not in included_pcs:
-                    xpe_to_unique_sonicports[xpe].append(port)
-                    if pc:
-                        included_pcs.add(pc)
+        if sonic_asic_type == "broadcom":
+            # Broadcom: use bcmcmd to map ports to XPEs, select ports from the
+            # XPE with the most available test ports (required for multi-XPE ASICs
+            # like TH/TH2 where headroom pool is per-XPE)
+            bcmport_to_sonicport = {}
+            cmd = " | ".join(("bcmcmd 'knetctrl netif show'",
+                              "grep Interface",
+                              "awk '{print $4 \"=\" $7}'",
+                              "awk -F= '{print $4 \" \" $2}'"))
+            result = duthost.shell(cmd)['stdout'].strip('"\'"')
+            for line in result.split("\n"):
+                if line:
+                    parts = line.split()
+                    if len(parts) == 2:
+                        bcmport_to_sonicport[parts[0]] = parts[1]
 
-        xpe_to_testports = defaultdict(list)
-        for xpe, sonicports in xpe_to_unique_sonicports.items():
-            for sonicport in sonicports:
-                if sonicport in sonicport_to_testport:
-                    xpe_to_testports[xpe].append(sonicport_to_testport[sonicport])
+            xpe_to_bcmports = defaultdict(list)
+            cmd = " | ".join(("bcmcmd 'show pmap'",
+                              "grep -vE 'drivshell|show pmap|===|pipe'",
+                              "awk '{ print $2 \" \" $1}'"))
+            result = duthost.shell(cmd)['stdout'].strip('"\'"')
+            for line in result.split("\n"):
+                if line:
+                    parts = line.split()
+                    if len(parts) == 2:
+                        xpe_to_bcmports[parts[0]].append(parts[1])
+            if dutConfig["dutAsic"] in ("td2", "td3"):
+                all_ports = []
+                for xpe in list(xpe_to_bcmports.keys()):
+                    all_ports.extend(xpe_to_bcmports[xpe])
+                    if xpe != '0':
+                        del xpe_to_bcmports[xpe]
+                xpe_to_bcmports['0'] = all_ports
 
-        max_ports_xpe = max(xpe_to_testports.keys(),
-                            key=lambda xpe: len(xpe_to_testports[xpe]))
-        probing_port_ids = xpe_to_testports[max_ports_xpe]
+            cmd = " | ".join(("show int des",
+                              r"grep -E 'Ethernet[0-9]+\s+up\s+up'",
+                              " awk ' { print $1 } '"))
+            sonicports_in_upstate = [intf for intf in duthost.shell(cmd)['stdout'].strip('"\'"').split("\n") if intf]
+
+            xpe_to_sonicports_in_upstate = defaultdict(list)
+            for xpe, bcmports in xpe_to_bcmports.items():
+                for bcmport in bcmports:
+                    if bcmport in bcmport_to_sonicport:
+                        if bcmport_to_sonicport[bcmport] in sonicports_in_upstate:
+                            xpe_to_sonicports_in_upstate[xpe].append(bcmport_to_sonicport[bcmport])
+
+            xpe_to_sonicports_in_testPortIds = defaultdict(list)
+            for xpe, ports in xpe_to_sonicports_in_upstate.items():
+                for port in ports:
+                    if sonicport_to_testport[port] in src_testPortIds:
+                        xpe_to_sonicports_in_testPortIds[xpe].append(port)
+
+            xpe_to_unique_sonicports = defaultdict(list)
+            for xpe, ports in xpe_to_sonicports_in_testPortIds.items():
+                sorted_ports = sorted(ports, key=lambda port: int(port.replace("Ethernet", "")))
+                included_pcs = set()
+                for port in sorted_ports:
+                    pc = sonicport_to_pc.get(port, None)
+                    if pc is None or pc not in included_pcs:
+                        xpe_to_unique_sonicports[xpe].append(port)
+                        if pc:
+                            included_pcs.add(pc)
+
+            xpe_to_testports = defaultdict(list)
+            for xpe, sonicports in xpe_to_unique_sonicports.items():
+                for sonicport in sonicports:
+                    if sonicport in sonicport_to_testport:
+                        xpe_to_testports[xpe].append(sonicport_to_testport[sonicport])
+
+            max_ports_xpe = max(xpe_to_testports.keys(),
+                                key=lambda xpe: len(xpe_to_testports[xpe]))
+            probing_port_ids = xpe_to_testports[max_ports_xpe]
+        else:
+            # Non-Broadcom (Mellanox, Cisco, etc.): no XPE concept,
+            # use all available test ports directly
+            probing_port_ids = src_testPortIds
 
         logger.info(
             f"sonicport_to_testport {sonicport_to_testport},\n"
