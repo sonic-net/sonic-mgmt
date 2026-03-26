@@ -873,9 +873,11 @@ decap/test_decap.py:
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
   xfail:
-    reason: "Xfail due to github issue 20982"
+    reason: "Xfail due to github issue 20982. Or decap is not supported on x86_64-nvidia_sn5640-r0."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20982 and asic_type in ['mellanox', 'nvidia']"
+      - "platform in ['x86_64-nvidia_sn5640-r0']"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
   skip:
@@ -5342,6 +5344,12 @@ vxlan/test_vnet_bgp_route_precedence.py:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23824"
       - "https://github.com/sonic-net/sonic-mgmt/issues/21895 and '-v6-' in topo_name and asic_type in ['mellanox']"
+
+vxlan/test_vnet_decap.py::test_vnet_decap:
+  xfail:
+    reason: "Decap is not supported on x86_64-nvidia_sn5640-r0."
+    conditions:
+      - "platform in ['x86_64-nvidia_sn5640-r0']"
 
 vxlan/test_vnet_decap.py::test_vnet_decap[inner_ipv4-outer_ipv4]:
   xfail:
