@@ -226,7 +226,7 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_hostname, neighbor_ip, mirror_se
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     if duthost.facts['asic_type'] == 'vpp':
-        pytest.skip('Memory mirroring is not supported on VPP platform')
+        pytest.skip('Mirroring is not supported on VPP platform')
     logger.info("Adding mirror_session to DUT")
     acl_rule_file = os.path.join(mirror_setup['dut_tmp_dir'], ACL_RULE_PERSISTENT_FILE)
     extra_vars = {
