@@ -542,6 +542,90 @@ def validate_mirror_session_up(duthost, session_name):
     return False
 
 
+def validate_acl_rule_rids(duthost):
+    """
+    Validate that the ACL rule RIDs are not empty.
+    For multi-ASIC DUTs, validates ACL rule RIDs in each frontend ASIC's ASIC_DB.
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        bool: True if all ACL rule RIDs are valid in all frontend ASICs, False otherwise
+    """
+    # Get all frontend ASIC instances
+    if duthost.is_multi_asic:
+        asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
+    else:
+        asic_instances = [duthost]
+
+    # Validate ACL rule RIDs in each ASIC
+    for asic in asic_instances:
+        asicdb = AsicDbCli(asic)
+        acl_entry_table = asicdb.dump("ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY")
+        entry_vids = []
+        for key, value in acl_entry_table.items():
+            if 'SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_INGRESS' in value['value'] or \
+               'SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_EGRESS' in value['value']:
+                # Extract OID from key format "ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:oid:0x8000000000abe"
+                oid = key.split(":")[-1] if "oid:" in key else None
+                if oid is not None:
+                    entry_vids.append(oid)
+
+        # Validate VIDs for this ASIC
+        if entry_vids:
+            vidtorid_table = asicdb.dump("VIDTORID")["VIDTORID"]["value"]
+            for vid in entry_vids:
+                vid = "oid:" + vid
+                if vid not in vidtorid_table or vidtorid_table[vid] is None:
+                    logging.error("ACL entry VID {} not found or has None RID in ASIC {}".format(
+                        vid, asic.asic_index if duthost.is_multi_asic else "single"))
+                    return False
+    return True
+
+
+def validate_acl_rules_in_asic_db(duthost):
+    """
+    Validate that the number of ACL rules in ASIC DB is the same as the number of ACL rules in CONFIG DB.
+    Also check that the ACL rule RIDs are not empty.
+    For multi-ASIC DUTs, validates ACL rules in each frontend ASIC's ASIC_DB and CONFIG_DB.
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        bool: True if ACL rules count matches and RIDs are valid in all frontend ASICs, False otherwise
+    """
+    # Get all frontend ASIC instances
+    if duthost.is_multi_asic:
+        asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
+    else:
+        asic_instances = [duthost]
+
+    # Validate ACL rules in each ASIC
+    for asic in asic_instances:
+        # Get namespace-specific command prefix
+        if duthost.is_multi_asic:
+            namespace = asic.get_asic_namespace()
+            config_cmd = "sonic-db-cli -n {} CONFIG_DB KEYS *ACL_RULE*".format(namespace)
+            asic_cmd = "sonic-db-cli -n {} ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*".format(namespace)
+        else:
+            config_cmd = "sonic-db-cli CONFIG_DB KEYS *ACL_RULE*"
+            asic_cmd = "sonic-db-cli ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*"
+
+        config_rules = asic.shell(config_cmd)['stdout_lines']
+        asic_rules = asic.shell(asic_cmd)['stdout_lines']
+
+        if len(config_rules) != len(asic_rules):
+            logging.error("ACL rules count mismatch in ASIC {}: CONFIG_DB={}, ASIC_DB={}".format(
+                asic.asic_index if duthost.is_multi_asic else "single",
+                len(config_rules), len(asic_rules)))
+            return False
+
+    # Validate ACL rule RIDs across all ASICs
+    return validate_acl_rule_rids(duthost)
+
+
 # TODO: This should be refactored to some common area of sonic-mgmt.
 def add_route(duthost, prefix, nexthop, namespace):
     """
