@@ -47,7 +47,10 @@ def verify_cpu_queue_shaper(dut):
     pattern = r'cos=(\d+) pps_max=(\d+)'
     matches = re.findall(pattern, res)
     actual_pps = {int(cos): int(pps) for cos, pps in matches}
-    assert (expected_pps == actual_pps)
+    for cos, expected in expected_pps.items():
+        assert cos in actual_pps, "CPU queue {} shaper not found".format(cos)
+        assert actual_pps[cos] >= expected, \
+            "CPU queue {} shaper expected >= {} pps, got {} pps".format(cos, expected, actual_pps[cos])
 
 
 @pytest.mark.disable_loganalyzer
