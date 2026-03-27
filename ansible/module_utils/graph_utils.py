@@ -213,6 +213,7 @@ class LabGraph(object):
             end_port_mac = link.get("EndPortMac", None)
             autoneg_mode = link.get("AutoNeg")
             fec_disable = link.get("FECDisable", False)
+            linktraining_mode = link.get("LinkTraining", "")
 
             links.setdefault(start_device, {})
             links.setdefault(end_device, {})
@@ -241,6 +242,10 @@ class LabGraph(object):
             if autoneg_mode:
                 start_port_linked_port.update({"autoneg": autoneg_mode})
                 end_port_linked_port.update({"autoneg": autoneg_mode})
+
+            if linktraining_mode:
+                start_port_linked_port.update({"linktraining": linktraining_mode})
+                end_port_linked_port.update({"linktraining": linktraining_mode})
 
             if start_port_mac:
                 start_port_linked_port.update({"mac": start_port_mac})
