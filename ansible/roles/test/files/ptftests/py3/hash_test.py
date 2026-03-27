@@ -836,6 +836,9 @@ class IPinIPHashTest(HashTest):
             if self.ecmp_inner_header_hash_supported:
                 for next_hop in next_hops:
                     self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
+            else:
+                logging.warning("Skipping balance check for hash_key={} because inner header hashing not supported."
+                                .format(hash_key))
 
 
 class VxlanHashTest(HashTest):
@@ -1231,3 +1234,6 @@ class NvgreHashTest(HashTest):
         if self.ecmp_inner_header_hash_supported:
             for next_hop in next_hops:
                 self.check_balancing(next_hop.get_next_hop(), hit_count_map, src_port, hash_key)
+        else:
+            logging.warning("Skipping balance check for hash_key={} because inner header hashing not supported."
+                            .format(hash_key))
