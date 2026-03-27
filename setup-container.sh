@@ -220,7 +220,7 @@ fi
 if getent passwd ${USER}; then
     userdel ${USER}
 fi
-useradd -l -g "\$user_group" -u ${HOST_UID} -m -d /home/${USER} -s /bin/bash ${USER}
+useradd -o -l -g "\$user_group" -u ${HOST_UID} -m -d /home/${USER} -s /bin/bash ${USER}
 
 # Docker socket access: find the group owning the host docker GID, or create it.
 # Using the existing group (regardless of name) is safe since socket access depends on GID only.
@@ -346,8 +346,7 @@ function parse_arguments() {
 
     if [[ -z "${CONTAINER_NAME}" ]]; then
         get_existing_container
-    if [[ -z "${EXISTING_CONTAINER_NAME}" ]]
-        then
+        if [[ -z "${EXISTING_CONTAINER_NAME}" ]]; then
             exit_failure "container name is not set."
         else
             exit_failure "found existing container (\"docker start $EXISTING_CONTAINER_NAME\")"
