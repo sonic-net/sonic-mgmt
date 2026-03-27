@@ -9,10 +9,11 @@ from datetime import datetime
 from tests.common.config_reload import config_reload
 from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action, select_test_mux_ports      # noqa: F401
 from tests.common.dualtor.dual_tor_common import cable_type                                                 # noqa: F401
-from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                              # noqa: F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
                                                 change_mac_addresses               # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 
 import logging
 
@@ -20,6 +21,19 @@ import logging
 pytestmark = [
     pytest.mark.topology("dualtor")
 ]
+
+
+def set_mux_state(duthost, interface, state):
+    """
+    @summary: Sets mux state for given dut and interface.
+        force_standby_tor is causing issues when toggling same interface multiple times.
+    @param duthost: dut host to toggle mux interface.
+    @param interface (str): interface to toggle (or 'all').
+    @param state (str): state to set interface.
+    """
+    duthost.shell(f"sudo config muxcable mode auto {interface}")
+    duthost.shell(f"sudo config muxcable mode {state} {interface}")
+    duthost.shell(f"sudo config muxcable mode auto {interface}")
 
 
 @pytest.mark.enable_active_active
@@ -251,3 +265,79 @@ def test_tor_switchover_impact(request,                                         
     record_results(logs)
     failure_message = f"Failure detected, check logs/test_tor_switchover_traffic_impact-{switchover}.json."
     pytest_assert(not logs["failures"], failure_message)
+
+
+def test_tor_switchover_impact_bulk(request,                                               # noqa: F811
+                                    upper_tor_host, lower_tor_host,                        # noqa: F811
+                                    cable_type,                                            # noqa: F811
+                                    select_test_mux_ports,                                 # noqa: F811
+                                    pytestconfig):                                         # noqa: F811
+    """
+    Stress-test bulk MUX switchover and detect syslog errors.
+
+    Steps:
+        1. Select a fixed pool of num_ports MUX interfaces.
+        2. Force all ports to active once as a known baseline.
+        3. Each iteration: toggle all ports based on tracked state
+           (active→standby or standby→active).
+        4. After each iteration, analyze syslog on both ToRs for any errors.
+    """
+
+    from tests.common.dualtor.dual_tor_common import CableType  # noqa: F401
+
+    if not request.config.getoption('--enable_switchover_impact_test'):
+        pytest.skip("Bulk switchover impact test disabled. "
+                    "To enable the test, run with '--enable_switchover_impact_test'")
+
+    if cable_type != CableType.active_standby:
+        pytest.skip("test_tor_switchover_impact_bulk requires active-standby cable type")
+
+    iterations = request.config.getoption("--iterations", default=100)
+    num_ports = request.config.getoption("--num_ports", default=8)
+
+    # Verify the testbed has enough active-standby MUX ports to run the bulk test.
+    available_mux_ports = select_test_mux_ports(cable_type, num_ports)
+    if len(available_mux_ports) < num_ports:
+        pytest.skip(
+            f"test_tor_switchover_impact_bulk requires at least {num_ports} active-standby MUX ports, "
+            f"but only {len(available_mux_ports)} are available."
+        )
+
+    # One LogAnalyzer per ToR using common match/ignore config.
+    analyzers = {}
+    for label, host in [("UpperToR", upper_tor_host), ("LowerToR", lower_tor_host)]:
+        la = LogAnalyzer(ansible_host=host, marker_prefix=f"test_tor_switchover_impact_bulk_{label}:")
+        la.load_common_config()
+        analyzers[label] = la
+
+    def check_syslog_errors():
+        """Analyze syslog on both ToRs since the last marker, then advance the marker."""
+        for label, la in analyzers.items():
+            try:
+                la.analyze(markers[label])
+            except LogAnalyzerError as err:
+                pytest.fail(f"Syslog errors detected on {label}:\n{err}")
+        for label, la in analyzers.items():
+            markers[label] = la.init()
+
+    # Place initial markers before any toggling begins.
+    markers = {label: la.init() for label, la in analyzers.items()}
+
+    duthost = upper_tor_host
+    port_pool = available_mux_ports[:num_ports]
+    port_states = {port: True for port in port_pool}  # True = active, False = standby
+    duthost.shell("sudo config muxcable mode active all")
+    time.sleep(10)
+
+    for i in range(1, iterations + 1):
+        ports_to_standby = [p for p in port_pool if port_states[p]]
+        ports_to_active = [p for p in port_pool if not port_states[p]]
+
+        for p in ports_to_standby:
+            set_mux_state(duthost, p, 'standby')
+            port_states[p] = False
+        for p in ports_to_active:
+            set_mux_state(duthost, p, 'active')
+            port_states[p] = True
+
+        check_syslog_errors()
