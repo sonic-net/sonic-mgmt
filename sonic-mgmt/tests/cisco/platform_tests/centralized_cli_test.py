@@ -2,6 +2,7 @@ import json
 import logging
 import re
 import time
+from pathlib import Path
 
 
 def does_result_contain(result, match_str):
@@ -591,3 +592,56 @@ def parse_invalid_linecard_all_option_error(result):
 
     return bool(has_linecard_hint)
 
+
+RP_LC_SHOW_TESTCASE_CHOICES_FILENAME = "test_rp_lc_testcase_choices.json"
+
+
+def load_rp_lc_testcase_choices():
+    """
+    Load testcase entries from test_rp_lc_testcase_choices.json (next to this module or testbed path).
+    Used by test_rp_lc_show_platform_npu, test_show_platform_npu_matrix, and similar.
+
+    Returns:
+        list: testcase dicts, or [] if the file is missing or invalid.
+    """
+    candidates = [
+        Path(__file__).resolve().parent / RP_LC_SHOW_TESTCASE_CHOICES_FILENAME,
+        Path("/data/tests/cisco/platform_tests") / RP_LC_SHOW_TESTCASE_CHOICES_FILENAME,
+    ]
+    for path in candidates:
+        try:
+            with path.open("r") as f:
+                data = json.load(f)
+
+            testcases = data["testcases"] if isinstance(data, dict) and "testcases" in data else data
+            if not isinstance(testcases, list):
+                logging.error(
+                    "Invalid testcase choices format in %s: expected list or dict with 'testcases'",
+                    path,
+                )
+                return []
+
+            if not testcases:
+                logging.error("No testcases found in testcase choices file: %s", path)
+                return []
+
+            logging.info("Loaded %s testcases from %s", len(testcases), path.name)
+            return testcases
+        except FileNotFoundError:
+            continue
+        except json.JSONDecodeError as e:
+            logging.error("Invalid JSON in testcase choices file %s: %s", path, e)
+            return []
+        except Exception as e:
+            logging.error("Error loading testcase choices file %s: %s", path, e)
+            return []
+    logging.error("Testcase choices file not found (tried: %s)", candidates)
+    return []
+
+
+def rp_lc_testcase_choices_case_id(case):
+    """Pytest param id for a testcase dict from load_rp_lc_testcase_choices()."""
+    return case.get("tcname") or case.get("name") or case.get("id") or str(case)
+
+
+RP_LC_TESTCASE_CHOICES_CASES = load_rp_lc_testcase_choices()

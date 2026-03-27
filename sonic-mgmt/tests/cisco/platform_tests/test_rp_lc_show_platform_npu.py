@@ -1,4 +1,3 @@
-import json
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.platform_tests.cli.util import get_skip_mod_list
@@ -7,9 +6,14 @@ import re
 import time
 import centralized_cli_test
 
+CASES = centralized_cli_test.RP_LC_TESTCASE_CHOICES_CASES
+_case_id = centralized_cli_test.rp_lc_testcase_choices_case_id
+RP_LC_SHOW_TESTCASE_FILE = centralized_cli_test.RP_LC_SHOW_TESTCASE_CHOICES_FILENAME
+
 pytestmark = [
     pytest.mark.topology('t2')
 ]
+
 
 @pytest.fixture(autouse=True, scope="module")
 def get_parameter(request):
@@ -17,8 +21,9 @@ def get_parameter(request):
     Fixture to get parameter platform_npu_tc_name
     """
     global platform_npu_tc_name
-    platform_npu_tc_name = request.config.getoption("--platform_npu_tc_name")
+    platform_npu_tc_name = request.config.getoption("--platform_npu_tc_name", default="all")
     return platform_npu_tc_name
+
 
 def sup_platform_npu_tests(duthosts, duthost, tc_dict, results):
     """
@@ -323,40 +328,6 @@ def lc_platform_npu_tests(duthosts, duthost, tc_dict, results):
     centralized_cli_test.update_results(results, tc_dict["tcname"], "PASSED", "PASSED")
     return
 
-def test_rp_lc_show_platform_npu(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo):
-    """
-    Test case function to run Platform NPU tests
-    """
-    pytest_assert(platform_npu_tc_name != None, "Test case name argument was not passed!!!")
-    dlist = None
-    tc_found = False
-    results = []
-
-    with open("/data/tests/cisco/platform_tests/test_rp_lc_testcase_choices.json", "r") as f:
-        dlist = json.load(f)['testcases']
-    pytest_assert(len(dlist) != 0, "Testcase choices input file is empty!!!")
-
-    if platform_npu_tc_name == "all":
-        for item in dlist:
-            if item['supported'] == 'yes':
-                try: 
-                    rp_lc_show_platform_npu_testcase(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, item, results)
-                except Exception as e:
-                    error_msg = str(e)
-                    centralized_cli_test.update_results(results, item["tcname"], "ERROR", error_msg)
-    else:
-        for item in dlist:
-            if item['tcname'] == platform_npu_tc_name:
-                tc_found = True
-                try: 
-                    rp_lc_show_platform_npu_testcase(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, item, results)
-                except Exception as e:
-                    error_msg = str(e)
-                    centralized_cli_test.update_results(results, item["tcname"], "ERROR", error_msg)
-                break
-        pytest_assert(tc_found == True, f"Testcase name parameter {platform_npu_tc_name} passed does not exist!!!")
-    centralized_cli_test.print_result_summary(results)
-
 def rp_lc_show_platform_npu_testcase(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, tc_dict, results):
     """
     Function to run Platform NPU tests based on Supervisor or Linecard
@@ -371,3 +342,32 @@ def rp_lc_show_platform_npu_testcase(duthosts, enum_rand_one_per_hwsku_hostname,
         sup_platform_npu_tests(duthosts, duthost, tc_dict, results)
     else:
         lc_platform_npu_tests(duthosts, duthost, tc_dict, results)
+
+
+@pytest.mark.parametrize("tc_dict", CASES, ids=_case_id)
+def test_rp_lc_show_platform_npu(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, tc_dict):
+    """
+    Parametrized test: one pytest item per JSON testcase (same pattern as test_rp_lc_config_platform_npu).
+    """
+    pytest_assert(platform_npu_tc_name is not None, "Test case name argument was not passed!!!")
+    results = []
+
+    pytest_assert(
+        len(CASES) != 0,
+        f"Testcase choices input file {RP_LC_SHOW_TESTCASE_FILE} is empty or not found!!!",
+    )
+
+    tc_name = tc_dict.get("tcname")
+    if platform_npu_tc_name != "all" and tc_name != platform_npu_tc_name:
+        pytest.skip(f"Skipped by --platform_npu_tc_name filter: {platform_npu_tc_name}")
+
+    if "yes" not in tc_dict.get("supported", []):
+        pytest.skip(f"Test case {tc_name} is not supported")
+
+    try:
+        rp_lc_show_platform_npu_testcase(duthosts, enum_rand_one_per_hwsku_hostname, tbinfo, tc_dict, results)
+    except Exception as e:
+        error_msg = str(e)
+        centralized_cli_test.update_results(results, tc_dict["tcname"], "ERROR", error_msg)
+
+    centralized_cli_test.print_result_summary(results)
