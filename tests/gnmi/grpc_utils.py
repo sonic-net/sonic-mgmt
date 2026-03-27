@@ -39,7 +39,8 @@ def create_grpc_channel(duthost):
     ip = duthost.mgmt_ip
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     port = env.gnmi_port
-    target = f"{ip}:{port}"
+    mgmt_ipv6_only = duthost.get_mgmt_ip()['version'] == 'v6'
+    target = f"{ip}:{port}" if not mgmt_ipv6_only else f"[{ip}]:{port}"
 
     # Load the TLS certificates
     with open("gnmiCA.pem", "rb") as f:
