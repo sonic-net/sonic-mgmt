@@ -318,6 +318,10 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
 
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+        pytest.skip("Test is only for DPU")
+
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
     pytest_assert(
         wait_until(60, 5, 0, check_pmon_daemon_status, duthost),
@@ -351,6 +355,10 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     @summary: Verify output of `show platform psustatus --json`
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
+
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+        pytest.skip("Test is only for DPU")
 
     if "201811" in duthost.os_version or "201911" in duthost.os_version:
         pytest.skip("JSON output not available in this version")
@@ -499,7 +507,7 @@ def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
     cmds_list = [CMD_SHOW_PLATFORM, "ssdhealth"]
-    supported_disks = ["SATA", "NVME", "EMMC"]
+    supported_disks = ["SATA", "NVME", "EMMC", "MMC"]
 
     platform_ssd_device_path_dict = {BF_3_PLATFORM: "/dev/nvme0"}
     unsupported_ssd_values_per_platform = {AMD_ELBA_PLATFORM: ["Temperature"]}
