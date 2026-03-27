@@ -77,14 +77,6 @@ bfd/test_bfd_traffic.py:
 #######################################
 #####           BGP               #####
 #######################################
-bgp/test_bgp_allow_list.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 bgp/test_bgp_bbr.py::test_bbr_enabled_dut_asn_in_aspath:
   skip:
     reason: >
@@ -110,14 +102,6 @@ bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
       - "asic_type in ['vpp']"
 
 bgp/test_bgp_multipath_relax.py::test_bgp_multipath_relax:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown:
   skip:
     reason: >
             Failed/Errored: To be included
