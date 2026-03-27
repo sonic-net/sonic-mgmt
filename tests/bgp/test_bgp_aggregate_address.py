@@ -22,7 +22,7 @@ import pytest
 # Functions
 from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_enabled
 
-from tests.common.gcu_utils import apply_gcu_patch
+from tests.common.gcu_utils import apply_gcu_patch, apply_patch, generate_tmpfile, delete_tmpfile
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
 
@@ -121,6 +121,57 @@ def gcu_add_aggregate(duthost, aggregate_cfg: AggregateCfg):
 def gcu_remove_aggregate(duthost, prefix):
     patch = [{"op": "remove", "path": f"/BGP_AGGREGATE_ADDRESS/{prefix.replace('/', '~1')}"}]
 
+    apply_gcu_patch(duthost, patch)
+
+
+def safe_remove_aggregate(duthost, prefix):
+    """Best-effort removal for cleanup — never raises."""
+    try:
+        patch = [{"op": "remove", "path": f"/BGP_AGGREGATE_ADDRESS/{prefix.replace('/', '~1')}"}]
+        tmpfile = generate_tmpfile(duthost)
+        try:
+            apply_patch(duthost, json_data=patch, dest_file=tmpfile)
+        finally:
+            delete_tmpfile(duthost, tmpfile)
+    except Exception:
+        logger.debug(f"Cleanup: aggregate {prefix} already absent or will be recovered by rollback")
+
+
+def gcu_add_multiple_aggregates(duthost, cfgs):
+    """Add several aggregate entries in a single GCU patch."""
+    patch = [
+        {
+            "op": "add",
+            "path": f"/BGP_AGGREGATE_ADDRESS/{c.prefix.replace('/', '~1')}",
+            "value": {
+                "bbr-required": "true" if c.bbr_required else "false",
+                "summary-only": "true" if c.summary_only else "false",
+                "as-set": "true" if c.as_set else "false",
+            },
+        }
+        for c in cfgs
+    ]
+    apply_gcu_patch(duthost, patch)
+
+
+def gcu_remove_multiple_aggregates(duthost, prefixes):
+    """Remove several aggregate entries in a single GCU patch."""
+    patch = [
+        {"op": "remove", "path": f"/BGP_AGGREGATE_ADDRESS/{p.replace('/', '~1')}"}
+        for p in prefixes
+    ]
+    apply_gcu_patch(duthost, patch)
+
+
+def gcu_update_aggregate_field(duthost, prefix, field, value):
+    """Update a single field of an existing aggregate via GCU."""
+    patch = [
+        {
+            "op": "replace",
+            "path": f"/BGP_AGGREGATE_ADDRESS/{prefix.replace('/', '~1')}/{field}",
+            "value": value,
+        }
+    ]
     apply_gcu_patch(duthost, patch)
 
 
