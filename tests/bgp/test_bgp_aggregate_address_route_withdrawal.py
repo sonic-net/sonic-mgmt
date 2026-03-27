@@ -18,7 +18,6 @@ from natsort import natsorted
 from test_bgp_aggregate_address import (
     AggregateCfg,
     gcu_add_aggregate,
-    gcu_remove_aggregate,
     safe_remove_aggregate,
 )
 # Import autouse fixture so pytest discovers it for this module
@@ -123,7 +122,7 @@ def test_aggregate_no_contributing_routes(
         verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=True)
     finally:
         inject_routes(setup, ptfhost, contributing, "withdraw")
-        safe_remove_aggregate(duthost, agg_prefix)
+        _safe_remove_aggregate(duthost, agg_prefix)
 
 
 # ===========================================================================
@@ -169,7 +168,7 @@ def test_aggregate_all_contributing_withdrawn(
         verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=True)
     finally:
         inject_routes(setup, ptfhost, contributing, "withdraw")
-        safe_remove_aggregate(duthost, agg_prefix)
+        _safe_remove_aggregate(duthost, agg_prefix)
 
 
 # ===========================================================================
@@ -212,7 +211,7 @@ def test_aggregate_partial_contributing_withdrawal(
         verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=True)
     finally:
         inject_routes(setup, ptfhost, set_a + set_b, "withdraw")
-        safe_remove_aggregate(duthost, agg_prefix)
+        _safe_remove_aggregate(duthost, agg_prefix)
 
 
 # ===========================================================================
@@ -259,4 +258,4 @@ def test_aggregate_new_contributing_route_added(
         verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], new_contributing[0], expected_present=True)
     finally:
         inject_routes(setup, ptfhost, initial_contributing + new_contributing, "withdraw")
-        safe_remove_aggregate(duthost, agg_prefix)
+        _safe_remove_aggregate(duthost, agg_prefix)
