@@ -994,20 +994,19 @@
             delay: 10
             until: chrony_start_result is succeeded
 
-          - name: Stop chrony.service on DUT
+          - name: Force rapid NTP polling with chrony
             become: true
-            service: name=chrony state=stopped
+            command: chronyc burst 4/4
 
-          - name: Sync DUT system time with NTP server
+          - name: Wait for chrony synchronization (remaining correction < 0.5s)
             become: true
-            command: chronyd -F 1 -q
             ignore_errors: true
-            async: 60
-            poll: 10
+            command: chronyc waitsync 12 0.5 10.0 5
 
-          - name: Start chrony.service on DUT
+          - name: Force immediate time step with chrony
             become: true
-            service: name=chrony state=restarted enabled=true
+            command: chronyc makestep
+
         when: chrony_service.status.LoadState != "not-found"
 
       - name: Check if "config bmp" is supported
