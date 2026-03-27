@@ -1,0 +1,17 @@
+# PFC VXLAN fan-in test parameters
+# rate_percent: IXIA line rate percentage per stream
+#   At 99%, VXLAN encap overhead (50 bytes/frame) causes spine link
+#   oversubscription: 2 x 400G x 0.99 x (1050/1000) = ~830 Gbps > 800G
+#   95% fits within a single 800G spine link with small margin
+#   90% gives comfortable headroom on spine links
+# frame_size: Ethernet frame size in bytes (before VXLAN encap)
+# tc: Traffic class for PFC-enabled queue
+# run_time: Traffic duration in seconds
+{
+    "PFC_VXLAN_FANIN": {
+        "rate_percent": "95",
+        "frame_size": "1350",
+        "tc": "3",
+        "run_time": "60"
+    }
+}

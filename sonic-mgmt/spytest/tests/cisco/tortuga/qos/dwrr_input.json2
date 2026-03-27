@@ -9,7 +9,7 @@
 	    # DWRR weight for each stream
 	    "dwrr_wt" : "40",
 	    # Stream speeds are percent of line rate
-	    "stream_rates" : [["60", "60"]],
+	    "stream_rates" : [["75", "75"]],
 	    "frame_sizes" : ["8192"]
     }
 }

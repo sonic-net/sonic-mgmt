@@ -20,8 +20,6 @@ def init_test_info(dut, dut_if):
     test_info['src'] = [key_str + 'P1', key_str + 'P2']
     test_info['dst'] = key_str + 'P3'
     test_info['dut_if'] = dut_if
-    stream_api.traffic_api_init(key_str,
-                                ['0', '0', '1', '2', '3', '0', '0', '0'])
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_topo():
@@ -79,6 +77,7 @@ def setup_topo():
     st.log("setup topology Done")
     yield
     common_util.cleanup_ip_interfaces(test_info['dut'])
+    st.config(test_info['dut'], 'config qos reload', skip_tmpl=True)
 
 lossy = [0, 1, 2, 5, 6]
 lossless = [3, 4]
@@ -134,6 +133,11 @@ def run_traffic_test(gbps_pair, tc_pair):
                      f"show queue counters {test_info['dut_if']}",
                      skip_tmpl=True)
 
+    # Post-traffic interface counters for diagnostics
+    for iface in [vars.if1, vars.if2, test_info['dut_if']]:
+        st.show(test_info['dut'],
+                f"show int count -i {iface}", skip_tmpl=True)
+
     # Each stream handle will have an entry in the stats dictionary
     item_stats = stats['traffic_item']
     stats1 = item_stats[str1['stream_id']]
@@ -181,12 +185,11 @@ def get_scheduler_cfg(tc):
         test_info['dwrr_wt'], new_name, new_name, test_info['dut_if'], tc)
 
 def apply_dwrr(tc_pair):
-    test_info['cfg'] = 'config qos reload\n'
+    stream_api.init_qos_on_dut(test_info['dut'])
+    test_info['cfg'] = ''
     get_scheduler_cfg(tc_pair[0])
     if tc_pair[0] != tc_pair[1]:
         get_scheduler_cfg(tc_pair[1])
-    test_info['cfg'] += ('config tc-to-priority-group-map update --maps ' +
-              '0:0,1:0,2:1,3:2,4:3,5:0,6:0,7:0 AZURE\n')
     st.config(test_info['dut'], test_info['cfg'], skip_tmpl=True)
 
 def test_deficit_weighted_round_robin():
@@ -203,7 +206,6 @@ def test_deficit_weighted_round_robin():
                 test_info['frame_size'] = int(frame_size)
                 run_traffic_test(gbps_pair, tc_pair)
 
-    st.config(test_info['dut'], 'config qos reload', skip_tmpl=True)
 
     # Print the final disposition of the test execution
     final_msg = 'Test Cases: Passed={} Failed={}'.format(

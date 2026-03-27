@@ -807,57 +807,201 @@ def convert_tc_to_dscp(dut, tc, asic_str=''):
             return k
     return None
 
+def _parse_redis_key(line, table_prefix):
+    """Parse a redis-cli key line, stripping numbering and quotes.
+
+    Returns the portion after the table prefix, split by '|', or None
+    if the line does not match.
+    """
+    line = line.strip()
+    if not line or table_prefix not in line:
+        return None
+    if ')' in line:
+        line = line.split(')', 1)[1].strip()
+    line = line.strip('"')
+    return line.replace(table_prefix, '').split('|')
+
+
+def _cleanup_static_routes(dut):
+    """Remove all static routes from CONFIG_DB.
+
+    Must run before removing interface IPs so the nexthops are still
+    reachable during deletion.
+    """
+    result = st.show(dut, "redis-cli -n 4 keys 'STATIC_ROUTE|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'STATIC_ROUTE|')
+        if parts is None or len(parts) != 2:
+            continue
+        vrf, prefix = parts
+        if vrf == 'default':
+            st.config(dut, "sudo config route del prefix {}".format(prefix),
+                     skip_tmpl=True, skip_error_check=True)
+        else:
+            st.config(dut, "sudo config route del prefix {} vrf {}".format(prefix, vrf),
+                     skip_tmpl=True, skip_error_check=True)
+
+
+def _cleanup_l3_interfaces(dut):
+    """Remove IPs and VRF bindings from physical L3 interfaces (INTERFACE table)."""
+    skip_interfaces = ['eth0', 'lo', 'docker0', 'Loopback', 'Management']
+    result = st.show(dut, "redis-cli -n 4 keys 'INTERFACE|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'INTERFACE|')
+        if parts is None:
+            continue
+        intf = parts[0]
+        if any(skip in intf for skip in skip_interfaces):
+            continue
+        if len(parts) > 1:
+            st.config(dut, "sudo config interface ip remove {} {}".format(intf, parts[1]),
+                     skip_tmpl=True, skip_error_check=True)
+        else:
+            st.config(dut, "sudo config interface vrf unbind {}".format(intf),
+                     skip_tmpl=True, skip_error_check=True)
+
+
+def _cleanup_vlan_interfaces(dut):
+    """Remove IPs and VRF bindings from VLAN SVIs (VLAN_INTERFACE table)."""
+    result = st.show(dut, "redis-cli -n 4 keys 'VLAN_INTERFACE|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VLAN_INTERFACE|')
+        if parts is None:
+            continue
+        intf = parts[0]
+        if len(parts) > 1:
+            st.config(dut, "sudo config interface ip remove {} {}".format(intf, parts[1]),
+                     skip_tmpl=True, skip_error_check=True)
+        else:
+            st.config(dut, "sudo config interface vrf unbind {}".format(intf),
+                     skip_tmpl=True, skip_error_check=True)
+
+
+def _cleanup_vxlan_mappings(dut):
+    """Remove all VxLAN tunnel mappings.
+
+    Must run before removing VLANs, since VxLAN maps reference VLANs.
+    Key format: VXLAN_TUNNEL_MAP|<tunnel>|map_<vni>_Vlan<vid>
+    CLI syntax: config vxlan map del <tunnel> <vid> <vni>
+    """
+    result = st.show(dut, "redis-cli -n 4 keys 'VXLAN_TUNNEL_MAP|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VXLAN_TUNNEL_MAP|')
+        if parts is None or len(parts) != 2:
+            continue
+        tunnel_name, map_name = parts
+        # Parse map_name like "map_5502_Vlan502" -> vni=5502, vid=502
+        m = re.match(r'map_(\d+)_Vlan(\d+)', map_name)
+        if not m:
+            st.log("Skipping unrecognized vxlan map: {}".format(map_name))
+            continue
+        vni, vid = m.group(1), m.group(2)
+        st.config(dut, "sudo config vxlan map del {} {} {}".format(tunnel_name, vid, vni),
+                 skip_tmpl=True, skip_error_check=True)
+
+    # Remove EVPN NVO entries (must happen before tunnel deletion)
+    result = st.show(dut, "redis-cli -n 4 keys 'VXLAN_EVPN_NVO|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VXLAN_EVPN_NVO|')
+        if parts is None or len(parts) != 1:
+            continue
+        nvo_name = parts[0]
+        st.config(dut, "sudo config vxlan evpn_nvo del {}".format(nvo_name),
+                 skip_tmpl=True, skip_error_check=True)
+
+    # Remove the tunnel itself
+    result = st.show(dut, "redis-cli -n 4 keys 'VXLAN_TUNNEL|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VXLAN_TUNNEL|')
+        if parts is None or len(parts) != 1:
+            continue
+        tunnel_name = parts[0]
+        st.config(dut, "sudo config vxlan del {}".format(tunnel_name),
+                 skip_tmpl=True, skip_error_check=True)
+
+
+def _cleanup_vlans(dut):
+    """Remove all VLAN members and then the VLANs themselves."""
+    # Members first
+    result = st.show(dut, "redis-cli -n 4 keys 'VLAN_MEMBER|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VLAN_MEMBER|')
+        if parts is None or len(parts) != 2:
+            continue
+        vlan_name, member_intf = parts
+        vlan_id = vlan_name.replace('Vlan', '')
+        if vlan_id.isdigit():
+            st.config(dut, "sudo config vlan member del {} {}".format(vlan_id, member_intf),
+                     skip_tmpl=True, skip_error_check=True)
+
+    # VLANs
+    result = st.show(dut, "redis-cli -n 4 keys 'VLAN|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'VLAN|')
+        if parts is None or len(parts) != 1:
+            continue
+        vlan_id = parts[0].replace('Vlan', '')
+        if vlan_id.isdigit():
+            st.config(dut, "sudo config vlan del {}".format(vlan_id),
+                     skip_tmpl=True, skip_error_check=True)
+
+
+def _cleanup_portchannels(dut):
+    """Remove all PortChannel members and then the PortChannels themselves."""
+    # Members first
+    result = st.show(dut, "redis-cli -n 4 keys 'PORTCHANNEL_MEMBER|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        parts = _parse_redis_key(line, 'PORTCHANNEL_MEMBER|')
+        if parts is None or len(parts) != 2:
+            continue
+        pc_name, member_intf = parts
+        st.config(dut, "sudo config portchannel member del {} {}".format(pc_name, member_intf),
+                 skip_tmpl=True, skip_error_check=True)
+
+    # PortChannels
+    result = st.show(dut, "redis-cli -n 4 keys 'PORTCHANNEL|*'", skip_tmpl=True)
+    for line in result.splitlines():
+        line = line.strip()
+        if not line or 'PORTCHANNEL|' not in line or 'PORTCHANNEL_MEMBER|' in line:
+            continue
+        if ')' in line:
+            line = line.split(')', 1)[1].strip()
+        line = line.strip('"')
+        pc_name = line.replace('PORTCHANNEL|', '')
+        if pc_name.startswith('PortChannel'):
+            st.config(dut, "sudo config portchannel del {}".format(pc_name),
+                     skip_tmpl=True, skip_error_check=True)
+
+
 def cleanup_ip_interfaces(dut):
-    """Clean up IP interfaces - removes static routes and L3 config from CONFIG_DB"""
-    # Clear counters
+    """Clean up IP interfaces and memberships.
+
+    Removes static routes, L3 config, VLAN members, PortChannel members,
+    VLANs, and PortChannels from CONFIG_DB.  Also clears hardware counters.
+    """
     st.config(dut, '''sonic-clear counters
 sonic-clear dropcounters
 sonic-clear queuecounters
-sonic-clear pfccounters''', skip_tmpl=True)
-    
-    skip_interfaces = ['eth0', 'lo', 'docker0', 'Loopback', 'Management']
-    
-    # Clean static routes from CONFIG_DB (handles 'config route add')
-    result = st.show(dut, "redis-cli -n 4 keys 'STATIC_ROUTE|*'", skip_tmpl=True)
+sonic-clear pfccounters''', skip_tmpl=True, skip_error_check=True)
+
+    _cleanup_static_routes(dut)
+    _cleanup_l3_interfaces(dut)
+    _cleanup_vlan_interfaces(dut)
+    _cleanup_vxlan_mappings(dut)
+    _cleanup_vlans(dut)
+    _cleanup_portchannels(dut)
+
+
+def get_if_speed(dut, if_str):
+    # First few tokens in sample output of show int status <if_name> 
+    # Ethernet1_48_1  3080,3081,3082,3083     400G   9100
+    result = st.show(dut, "show int status {}".format(if_str), skip_tmpl=True)
     for line in result.splitlines():
-        line = line.strip()
-        if not line or 'STATIC_ROUTE|' not in line:
-            continue
-        # Parse redis-cli format: 1) "STATIC_ROUTE|default|10.0.0.0/24" or "STATIC_ROUTE|Vrf01|10.0.0.0/24"
-        if ')' in line:
-            line = line.split(')', 1)[1].strip()
-        line = line.strip('"')
-        
-        parts = line.replace('STATIC_ROUTE|', '').split('|')
-        if len(parts) == 2:
-            # Format: STATIC_ROUTE|<vrf>|prefix where vrf can be 'default' or actual VRF name
-            vrf, prefix = parts
-            if vrf == 'default':
-                st.config(dut, "sudo config route del prefix {}".format(prefix), skip_tmpl=True)
-            else:
-                st.config(dut, "sudo config route del prefix {} vrf {}".format(prefix, vrf), skip_tmpl=True)
-    
-    # Clean L3 interfaces from CONFIG_DB (IPs and VRF bindings)
-    result = st.show(dut, "redis-cli -n 4 keys 'INTERFACE|*'", skip_tmpl=True)
-    for line in result.splitlines():
-        line = line.strip()
-        if not line or 'INTERFACE|' not in line:
-            continue
-        # Parse redis-cli format: 1) "INTERFACE|Ethernet1_64_2|11.1.1.1/24"
-        if ')' in line:
-            line = line.split(')', 1)[1].strip()
-        line = line.strip('"')
-        
-        parts = line.replace('INTERFACE|', '').split('|')
-        intf = parts[0]
-        
-        if any(skip in intf for skip in skip_interfaces):
-            continue
-            
-        if len(parts) > 1:
-            st.config(dut, "sudo config interface ip remove {} {}".format(intf, parts[1]), skip_tmpl=True)
-        else:
-            st.config(dut, "sudo config interface vrf unbind {}".format(intf), skip_tmpl=True)
+        if if_str in line:
+            # Trim the trailing G and return integer value
+            speed_str = line.split()[2]
+            return int(speed_str[:-1])
+    return 10
 
 def get_pfc_tx_count(dut, if_name, qnum):
     result = st.show(dut, "show pfc counters | grep {}".format(if_name), 

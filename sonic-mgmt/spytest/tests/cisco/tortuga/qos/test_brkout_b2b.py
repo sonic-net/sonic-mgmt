@@ -34,40 +34,6 @@ def dut_to_tgen_str(dut):
         return 'D4T1P1'
     return ''
 
-def check_dut_tgen_ports():
-    for entry in vars.tgen_str:
-        stream_api.traffic_api_init(entry,
-                                    ['0', '0', '1', '2', '3', '0', '0', '0'])
-
-    for dut in vars.b2b_dut:
-        port_list = []
-        port_key = dut_to_tgen_str(dut)
-        ctr = 1
-
-        # First build a list of DUT ports connected to tgen
-        while port_key in tb_dict:
-            port_list.append(tb_dict[port_key])
-            ctr += 1
-            port_key = port_key[:-1] + str(ctr)
-
-        # Now make sure these ports exist on the DUT
-        cfg_dut = ''
-        result = st.show(dut, 'show int status', skip_tmpl=True)
-        lines = result.splitlines()
-        for line in lines:
-            tokens = line.split()
-            if 'Ethernet' not in tokens[0]:
-                # ignore extraneous lines
-                continue
-            if tokens[0] in port_list:
-                cfg_dut += 'config interface startup {}\n'.format(tokens[0])
-                port_list.remove(tokens[0])
-
-        if len(port_list) > 0:
-            return False
-        st.config(dut, cfg_dut, skip_tmpl=True)
-        st.wait(15)
-
 @pytest.fixture(scope="module", autouse=True)
 def setup_topo():
     global vars
@@ -88,17 +54,15 @@ def setup_topo():
         st.report_fail('msg', 'Failed to get input json dictionary')
         return
 
+    # Make sure router ports connected to tgen exist. Sometimes the parent
+    # has to be broken for the child ports to be instantiated
     if vars.test_info['Traffic_test'] == 'True' and 'D3D4P1' in tb_dict:
         # This is a non standard connection between the 2 leaves
-        vars.b2b_link = [vars.D3D4P1, vars.D4D3P1]
         vars.b2b_dut = [vars.D3, vars.D4]
+        vars.b2b_link = [vars.D3D4P1, vars.D4D3P1]
         vars.tgen_str = ['T1D3', 'T1D4']
-        # Make sure router ports connected to tgen exist. Sometimes the parent
-        # has to be broken for the child ports to be instantiated
-        if check_dut_tgen_ports() == False:
-            st.report_fail('msg', 
-                           'Ports specified in yaml file do not exist on DUT')
-            return
+        vars.tgen_speed = common_util.get_if_speed(vars.D3, vars.D3T1P1)
+        st.log(f'tgen port speed is {vars.tgen_speed}G')
     else:
         # Conn between first spine and first leaf will be used for breakouts
         vars.b2b_link = [vars.D1D3P1, vars.D3D1P1]
@@ -121,7 +85,7 @@ def setup_topo():
                                                      False)
         vars.if_dict.append(full_brk_dict[if_name])
         st.config(dut, 'config feature state lldp enabled', skip_tmpl=True)
-        st.config(dut, 'config qos reload', skip_tmpl=True)
+        stream_api.init_qos_on_dut(dut)
 
     # There are some platform specific restrictions on breakout modes
     # These restrictions are given in the input json file
@@ -181,8 +145,6 @@ def config_b2b_link_pair(if1, if2, ctr):
     for i in range(2):
         st.config(vars.b2b_dut[i], 'config interface ip add {} {}/24'
                   .format(intf_name, ip_list[i]), skip_tmpl=True)
-        vars.addr_uncfg[i] += 'config interface ip remove {} {}/24\n'\
-                              .format(intf_name, ip_list[i])
         intf_name = if2
     vars.if_map.append(ip_list)
 
@@ -191,7 +153,6 @@ def collect_lldp_neighor_info(intf_cnt):
     # This is always done on DUT1 side
     ctr = 0
     vars.if_map = []
-    vars.addr_uncfg = ['', '']
     link = vars.b2b_link[0]
     st.wait(32)
     result = st.show(vars.b2b_dut[0],
@@ -242,15 +203,6 @@ def perform_ping_test():
             return 'Patchy ping to {}'.format(pair[1])
     return 'OK'
 
-def get_if_speed(tgen_src_if):
-    if_str = tgen_src_if[2:4] + tgen_src_if[0:2] + tgen_src_if[4:]
-    temp = st.show(vars.b2b_dut[0],
-                   "show int status {} | tail -1 | awk '{{print $3}}'".format(
-                   tb_dict[if_str]), skip_tmpl=True)
-    temp = temp.splitlines()[0]
-    if temp[-1].upper() == 'G':
-        temp = temp[:-1]
-    return int(temp) if temp.isdigit() else 10
 
 def get_timestamp(tstamp_str):
     idx = tstamp_str.rfind(':')
@@ -274,7 +226,7 @@ def perform_traffic_test(frame_sz):
     TGEN_PORT_CNT = 4
     tgen_src_if = vars.tgen_str[0] + 'P1'
     tgen_dst_if = vars.tgen_str[1] + 'P1'
-    pps = stream_api.gbps_to_pps(get_if_speed(tgen_src_if) * 0.98, frame_sz)
+    pps = stream_api.gbps_to_pps(vars.tgen_speed * 0.99, frame_sz)
     for pair in vars.if_map:
         st.log('Creating stream for link {}'.format(pair))
         s1 = stream_api.create_traffic_stream(tb_dict,
@@ -292,14 +244,23 @@ def perform_traffic_test(frame_sz):
                   skip_tmpl=True)
         st.wait(1)
 
-        cntr1 = common_util.get_pfc_tx_count(vars.b2b_dut[0], vars.D3T1P1, 3)
+        # Get PFC counters before traffic for both IXIA port and leaf-to-leaf link
+        cntr1_tgen = common_util.get_pfc_tx_count(vars.b2b_dut[0], vars.D3T1P1, 3)
+        cntr1_b2b = common_util.get_pfc_tx_count(vars.b2b_dut[1], vars.b2b_link[1], 3)
         stream_api.start_traffic_stream(s1)
         st.wait(30)
         stream_api.stop_traffic_stream(s1)
         stats = stream_api.collect_traffic_stream_stats()
         stream_api.delete_traffic_stream(s1)
-        cntr2 = common_util.get_pfc_tx_count(vars.b2b_dut[0], vars.D3T1P1, 3)
+        # Get PFC counters after traffic for both interfaces
+        cntr2_tgen = common_util.get_pfc_tx_count(vars.b2b_dut[0], vars.D3T1P1, 3)
+        cntr2_b2b = common_util.get_pfc_tx_count(vars.b2b_dut[1], vars.b2b_link[1], 3)
         if 'traffic_item' not in stats:
+            # Cleanup routes before returning on error
+            st.config(vars.b2b_dut[0],
+                      'config route del prefix {}/24'.format(dst_net))
+            st.config(vars.b2b_dut[1],
+                      'config route del prefix {}/24'.format(src_net))
             return 'Frame size={}: Failed to find traffic_item in stats'\
                     .format(frame_sz)
         else:
@@ -307,17 +268,25 @@ def perform_traffic_test(frame_sz):
             rx_stats = stats['traffic_item'][s1['stream_id']]['rx']
             loss = float(rx_stats['loss_percent'])
             tx_time = calc_tx_time(rx_stats)
+            pfc_rate_tgen = (1000 * (cntr2_tgen - cntr1_tgen)) / tx_time
+            pfc_rate_b2b = (1000 * (cntr2_b2b - cntr1_b2b)) / tx_time
             st.banner(f"Tx={tx_stats['total_pkts']} "
                       f"Rx={rx_stats['total_pkts']} "
                       f"Loss%={loss:.2f} "
-                      f"PFC Rate={(1000 * (cntr2 - cntr1)) / tx_time:.2f}/sec")
+                      f"PFC(IXIA)={pfc_rate_tgen:.2f}/sec "
+                      f"PFC(L2L)={pfc_rate_b2b:.2f}/sec")
             if loss > 1:
+                # Cleanup routes before returning on error
+                st.config(vars.b2b_dut[0],
+                          'config route del prefix {}/24'.format(dst_net))
+                st.config(vars.b2b_dut[1],
+                          'config route del prefix {}/24'.format(src_net))
                 return 'Frame size={}: Stream loss% {:.2f}'.format(frame_sz, loss)
         # All config should now be removed to prepare for next breakout
         st.config(vars.b2b_dut[0],
-                  'config route del prefix {}/24 nexthop {}\n'.format(dst_net, pair[1]))
+                  'config route del prefix {}/24'.format(dst_net))
         st.config(vars.b2b_dut[1],
-                  'config route del prefix {}/24 nexthop {}\n'.format(src_net, pair[0]))
+                  'config route del prefix {}/24'.format(src_net))
     return 'OK'
 
 def perform_one_breakout(mode):
@@ -446,8 +415,9 @@ def test_all_breakout():
         # Now run all breakouts on both sides of a b2b link
         for mode in vars.supported_modes:
             cnt = perform_one_breakout(mode)
-            for i in range(2):
-                st.config(vars.b2b_dut[i], vars.addr_uncfg[i], skip_tmpl=True)
+            # Cleanup IP interfaces and routes after each breakout cycle
+            for dut in vars.b2b_dut:
+                common_util.cleanup_ip_interfaces(dut)
         process_brkout_result()
 
     # Restore to original breakout mode

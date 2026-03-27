@@ -419,7 +419,7 @@ def config_tgen_interface(int_dict, addr_family='ipv4'):
     return handles
 
 
-def config_traffic_item(stream_list, handles, int_dict, data, ping=True):
+def config_traffic_item(stream_list, handles, int_dict, data, ping=True, dscp=None, bidirectional=1):
     '''
     Author:Ramsiddarth Ragurajan (rraguraj@cisco.com)
 
@@ -435,15 +435,21 @@ def config_traffic_item(stream_list, handles, int_dict, data, ping=True):
     '''
     traffic_item_dict = {}
     for item in stream_list:
-        receive = handles[item[0]]["tg_handle"].tg_traffic_config(
+        tg_kwargs = dict(
                     port_handle=handles[item[0]]["port_handle"], port_handle2=handles[item[1]]["port_handle"], 
-                    mode='create', bidirectional=1, transmit_mode=data.transmit_mode,
+                    mode='create', bidirectional=bidirectional, transmit_mode=data.transmit_mode,
                     pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent, 
                     circuit_endpoint_type=data.circuit_endpoint_type, 
                     frame_size=data.frame_size, emulation_src_handle=handles[item[0]]["int_handle"], 
                     emulation_dst_handle=handles[item[1]]["int_handle"])
+        if dscp is not None:
+            if getattr(data, 'addr_family', 'ipv4') == 'ipv6':
+                tg_kwargs['ipv6_traffic_class'] = dscp << 2
+            else:
+                tg_kwargs['ip_dscp'] = dscp
+        receive = handles[item[0]]["tg_handle"].tg_traffic_config(**tg_kwargs)
         stream_id = receive["stream_id"]
-        traffic_item_dict[item[0]+"<-->"+item[1]] = {"stream_id":stream_id, "port_handle": handles[item[0]]["port_handle"] , "tg_handle": handles[item[0]]["tg_handle"]}
+        traffic_item_dict[item[0]+"<-->"+item[1]] = {"stream_id":stream_id, "port_handle": handles[item[0]]["port_handle"] , "tg_handle": handles[item[0]]["tg_handle"], "traffic_result": receive}
         st.wait(7)
         if ping:
             ###PING TEST###
@@ -681,6 +687,7 @@ def traffic_setup(data, addr_family='ipv4'):
 
     handles = config_tgen_interface(int_dict, addr_family)
     stream_list = [("T1D3P1","T1D4P1")]
+    data.addr_family = addr_family
     streams = config_traffic_item(stream_list, handles, int_dict, data, ping=True)
     return streams
 

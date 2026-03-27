@@ -47,12 +47,16 @@ topology:
             Ethernet1_13: {EndDevice: spine1, EndPort: Ethernet1_31, params: def_link}
             Ethernet1_15: {EndDevice: spine1, EndPort: Ethernet1_32, params: def_link}
             Ethernet1_17: {EndDevice: spine2, EndPort: Ethernet1_31, params: def_link}
-            Ethernet1_7_1: {EndDevice: T1, EndPort: 1/61, params: def_tg_link}
-            Ethernet1_7_2: {EndDevice: T1, EndPort: 1/62, params: def_tg_link}
-            Ethernet1_7_3: {EndDevice: T1, EndPort: 1/63, params: def_tg_link}
-            Ethernet1_7_4: {EndDevice: T1, EndPort: 1/64, params: def_tg_link}
+            Ethernet1_7_1: {EndDevice: T1, EndPort: 1/57, params: def_tg_link}
+            Ethernet1_7_2: {EndDevice: T1, EndPort: 1/58, params: def_tg_link}
+            Ethernet1_7_3: {EndDevice: T1, EndPort: 1/59, params: def_tg_link}
+            Ethernet1_7_4: {EndDevice: T1, EndPort: 1/60, params: def_tg_link}
     leaf2:
         interfaces:
             Ethernet1_13: {EndDevice: spine1, EndPort: Ethernet1_33, params: def_link}
             Ethernet1_15: {EndDevice: spine1, EndPort: Ethernet1_34, params: def_link}
             Ethernet1_17: {EndDevice: spine2, EndPort: Ethernet1_33, params: def_link}
+            Ethernet1_7_1: {EndDevice: T1, EndPort: 1/61, params: def_tg_link}
+            Ethernet1_7_2: {EndDevice: T1, EndPort: 1/62, params: def_tg_link}
+            Ethernet1_7_3: {EndDevice: T1, EndPort: 1/63, params: def_tg_link}
+            Ethernet1_7_4: {EndDevice: T1, EndPort: 1/64, params: def_tg_link}

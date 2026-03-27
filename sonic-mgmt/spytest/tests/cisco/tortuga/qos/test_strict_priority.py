@@ -14,139 +14,8 @@ sys.path.insert(0, os.path.abspath(module_dir))
 min_keys = ["leaf", "tc", "frame_sizes", "pirs", "stream_rates"]
 
 
-def remove_interface_from_vlan(dut, interface):
-    """
-    Remove interface from any VLAN membership.
-
-    Example 'show vlan brief' output:
-    +-----------+--------------+--------------+----------------+-------------+...
-    |   VLAN ID | IP Address   | Ports        | Port Tagging   | Proxy ARP   |...
-    +===========+==============+==============+================+=============+...
-    |        10 |              | Ethernet1_49 | untagged       | disabled    |...
-    |           |              | Ethernet1_50 | tagged         |             |...
-    +-----------+--------------+--------------+----------------+-------------+...
-    """
-    st.log("Checking if {} is a member of any VLAN...".format(interface))
-
-    output = st.show(dut, "show vlan brief", skip_tmpl=True)
-    if not output:
-        st.log("No VLAN configuration found.")
-        return True
-
-    vlans_to_remove = []
-    current_vlan_id = None
-
-    for line in output.split('\n'):
-        # Skip header/separator lines
-        if '===' in line or '---' in line or 'VLAN ID' in line or not line.strip():
-            continue
-
-        if '|' not in line:
-            continue
-
-        # Split by '|' and strip each field
-        fields = [f.strip() for f in line.split('|')]
-
-        # fields[0] is empty, fields[1] is VLAN ID
-        if len(fields) > 1 and fields[1].isdigit():
-            current_vlan_id = fields[1]
-
-        # Check if interface is in this line
-        if interface in line and current_vlan_id:
-            if current_vlan_id not in vlans_to_remove:
-                vlans_to_remove.append(current_vlan_id)
-
-    if not vlans_to_remove:
-        st.log("{} is not a member of any VLAN.".format(interface))
-        return True
-
-    st.log("Found {} in VLAN(s): {}".format(interface, vlans_to_remove))
-
-    for vlan_id in vlans_to_remove:
-        st.log("Removing {} from VLAN {}...".format(interface, vlan_id))
-        st.config(dut, "config vlan member del {} {}".format(vlan_id, interface),
-                  skip_error_check=True)
-
-    return True
-
-
-def remove_interface_from_portchannel(dut, interface):
-    """
-    Remove interface from any PortChannel membership.
-
-    Example 'show interfaces portchannel' output:
-    Flags: A - active, I - inactive, Up - up, Dw - Down, N/A - not available,
-           S - selected, D - deselected, * - not synced
-      No.  Team Dev      Protocol     Ports
-    -----  ------------  -----------  --------------
-        2  PortChannel2  LACP(A)(Dw)  Ethernet1_4(D)
-    """
-    st.log("Checking if {} is a member of any PortChannel...".format(interface))
-
-    output = st.show(dut, "show interfaces portchannel", skip_tmpl=True)
-    if not output:
-        st.log("No PortChannel configuration found.")
-        return True
-
-    portchannel_name = None
-
-    for line in output.split('\n'):
-        # Interface appears with suffix like Ethernet1_4(D)
-        if interface in line:
-            parts = line.split()
-            for part in parts:
-                if part.startswith('PortChannel'):
-                    portchannel_name = part
-                    break
-            if portchannel_name:
-                break
-
-    if not portchannel_name:
-        st.log("{} is not a member of any PortChannel.".format(interface))
-        return True
-
-    st.log("Found {} in PortChannel: {}".format(interface, portchannel_name))
-    st.log("Removing {} from {}...".format(interface, portchannel_name))
-    st.config(dut, "config portchannel member del {} {}".format(portchannel_name, interface),
-              skip_error_check=True)
-
-    return True
-
-
-def remove_interface_from_all_memberships(dut, interface):
-    """
-    Remove interface from both VLAN and PortChannel memberships.
-    """
-    st.log("Removing {} from all memberships (VLAN and PortChannel)...".format(interface))
-
-    vlan_result = remove_interface_from_vlan(dut, interface)
-    pc_result = remove_interface_from_portchannel(dut, interface)
-
-    return vlan_result and pc_result
-
 def calc_gbps(gbps_percnt):
     return int(gbps_percnt) * test_info['if_speed'] / 100.0
-
-def tgen_ports_check():
-    st.config(vars.D3, "config qos reload", skip_tmpl=True)
-    st.config(vars.D4, "config qos reload", skip_tmpl=True)
-    for src in ['T1D4P1', 'T1D4P2', 'T1D4P3', 'T1D4P4']:
-        for dst in ['T1D4P1', 'T1D4P2', 'T1D4P3', 'T1D4P4']:
-            if src == dst:
-                continue
-
-            str_id = stream_api.create_traffic_stream(tb_dict, src, dst, 8192,
-                         stream_api.gbps_to_pps(99.9, 8192), 3)
-            if str_id == None:
-                st.error('Stream creation failed')
-                continue
-            st.log('stream_id ', str_id)
-            stream_api.start_traffic_stream(str_id)
-            st.wait(10)
-            stream_api.stop_traffic_stream(str_id)
-            st.wait(5)
-            stats = stream_api.collect_traffic_stream_stats()
-            stream_api.delete_traffic_stream(str_id)
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_topo():
@@ -178,35 +47,16 @@ def setup_topo():
                         'T1' + test_info['leaf'] + 'P2']
     test_info['dst'] = 'T1' + test_info['leaf'] + 'P3'
     test_info['dut_if'] = tb_dict[test_info['leaf'] + 'T1' + 'P3']
-    stream_api.traffic_api_init('T1' + test_info['leaf'],
-                                ['0', '1', '2', '3', '0', '0', '0', '0'])
-    temp = st.show(test_info['dut'],
-                "show int status {} | tail -1 | awk '{{print $3}}'".format(\
-                test_info['dut_if']), skip_tmpl=True)
-    temp = temp.splitlines()[0]
-    if temp[-1].upper() == 'G':
-        temp = temp[:-1]
-    test_info['if_speed'] = int(temp) if temp.isdigit() else 10
+    test_info['if_speed'] = common_util.get_if_speed(test_info['dut'],
+                                                     test_info['dut_if'])
     test_info['gbps_table'] = []
     for r in test_info['stream_rates']:
         test_info['gbps_table'].append((calc_gbps(r[0]), calc_gbps(r[1])))
 
     common_util.cleanup_ip_interfaces(test_info['dut'])
-    if test_info['dut'] == vars.D3:
-        remove_interface_from_all_memberships(test_info['dut'], vars.D3T1P1)
-        remove_interface_from_all_memberships(test_info['dut'], vars.D3T1P2)
-        remove_interface_from_all_memberships(test_info['dut'], vars.D3T1P3)
-        remove_interface_from_all_memberships(test_info['dut'], vars.D3T1P4)
-    elif test_info['dut'] == vars.D4:
-        remove_interface_from_all_memberships(test_info['dut'], vars.D4T1P1)
-        remove_interface_from_all_memberships(test_info['dut'], vars.D4T1P2)
-        remove_interface_from_all_memberships(test_info['dut'], vars.D4T1P3)
-        remove_interface_from_all_memberships(test_info['dut'], vars.D4T1P4)
     stream_api.config_one_leaf(tb_dict, test_info)
     st.log("setup topology Done")
             
-    if test_info['test_tgen'] == 'True':
-        tgen_ports_check()
     yield
     common_util.cleanup_ip_interfaces(test_info['dut'])
 
@@ -343,7 +193,8 @@ def get_scheduler_cfg(tc):
 def apply_pir(pir):
     test_info['pir'] = (int(pir) * test_info['if_speed']) / 100.0
     test_info['pir_bytes'] = stream_api.gbps_to_bytes(test_info['pir'])
-    test_info['cfg'] = 'config qos reload\n'
+    stream_api.init_qos_on_dut(test_info['dut'])
+    test_info['cfg'] = ''
     get_scheduler_cfg(test_info['tc'][0])
     get_scheduler_cfg(test_info['tc'][1])
     st.config(test_info['dut'], test_info['cfg'], skip_tmpl=True)
