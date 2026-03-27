@@ -1,3 +1,5 @@
+"""Tests for ECN/WRED configuration updates via Generic Config Updater.
+"""
 import ast
 from functools import cmp_to_key
 import logging
