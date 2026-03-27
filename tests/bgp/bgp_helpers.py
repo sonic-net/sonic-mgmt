@@ -995,7 +995,9 @@ def initial_tsa_check_before_and_after_test(duthosts):
                               "Supervisor {} tsa_enabled config is enabled".format(duthost.hostname))
 
     def run_tsb_on_linecard_and_verify(lc):
-        if verify_dut_configdb_tsa_value(lc) is not False or get_tsa_chassisdb_config(lc) != 'false' or \
+        is_chassis = not lc.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_chassis_config_absent")
+        if verify_dut_configdb_tsa_value(lc) is not False or \
+                (is_chassis and get_tsa_chassisdb_config(lc) != 'false') or \
                 get_traffic_shift_state(lc, cmd='TSC no-stats') != TS_NORMAL:
             lc.shell('TSB')
             lc.shell('sudo config save -y')
