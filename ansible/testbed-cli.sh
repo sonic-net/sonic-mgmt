@@ -54,9 +54,12 @@ function usage
   echo "To deploy topology for specified testbed on a server: $0 add-topo 'testbed-name' ~/.password"
   echo "    Optional argument for add-topo:"
   echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
+  echo "        --parallel               # Deploy topology on multiple servers in parallel"
   echo "To deploy topology with the help of the last cached deployed topology for the specified testbed on a server:"
   echo "        $0 deploy-topo-with-cache 'testbed-name' 'inventory' ~/.password"
   echo "To remove topology for specified testbed on a server: $0 remove-topo 'testbed-name' ~/.password"
+  echo "    Optional arguments for remove-topo:"
+  echo "        --parallel                    # Remove topology on multiple servers in parallel"
   echo "To remove topology and keysight-api-server container for specified testbedon a server:"
   echo "        $0 remove-topo 'testbed-name' ~/.password remove_keysight_api_server"
   echo "To renumber topology for specified testbed on a server: $0 renumber-topo 'testbed-name' ~/.password"
@@ -192,13 +195,13 @@ function converge_topo_if_needed
 
         if [[ -f "$backup_file" ]];then
             echo "Backup file exists, recover..."
-            cp "$backup_file" "$topo_file"
+            sudo cp "$backup_file" "$topo_file"
         elif [[ -f "$topo_file" ]]; then
             echo "Back up topo file"
-            cp "$topo_file" "$backup_file"
+            sudo cp "$topo_file" "$backup_file"
         fi
 
-        python -m ceos_topo_converger "$backup_file" "$topo_file"
+        sudo python -m ceos_topo_converger "$backup_file" "$topo_file"
     fi
 }
 
@@ -376,6 +379,58 @@ function parse_servers
   fi
 }
 
+# Parse parallel execution arguments
+function parse_parallel_args() {
+  # Check for parallel execution flag
+  parallel_execution=false
+  for arg in "$@"; do
+    if [[ "$arg" == "--parallel" ]]; then
+      parallel_execution=true
+      break
+    fi
+  done
+
+  # Remove --parallel from arguments if present
+  args=()
+  for arg in "$@"; do
+    if [[ "$arg" != "--parallel" ]]; then
+      args+=("$arg")
+    fi
+  done
+}
+
+# Wait for all parallel processes to complete and output logs
+function wait_parallel_processes() {
+  local operation_type=$1
+  local -n pids_ref=$2
+  local server_count=$3
+
+  # Wait for all parallel processes to complete
+  if [[ "$parallel_execution" == "true" ]]; then
+    for i in $(seq 0 $(($server_count-1))); do
+      if [[ -n "${pids_ref[$i]}" ]]; then
+        wait ${pids_ref[$i]}
+      fi
+    done
+
+    # Output logs from parallel execution
+    for i in $(seq 0 $(($server_count-1)))
+    do
+      if [ -n "$servers" ]; then
+        parse_servers "$i" "$servers"
+        echo "${operation_type}_topo output for server $server:"
+      else
+        echo "${operation_type}_topo output for server $i:"
+      fi
+      if [ -f "/tmp/${operation_type}_topo_$i.log" ]; then
+        cat "/tmp/${operation_type}_topo_$i.log"
+      else
+        echo "Warning: Log file /tmp/${operation_type}_topo_$i.log not found"
+      fi
+    done
+  fi
+}
+
 function add_topo
 {
   testbed_name=$1
@@ -383,6 +438,9 @@ function add_topo
   shift
   shift
   echo "Deploying topology for testbed '${testbed_name}'"
+
+  # Parse parallel execution arguments
+  parse_parallel_args "$@"
 
   read_file ${testbed_name}
 
@@ -401,6 +459,9 @@ function add_topo
     server_count=$(python -c "from __future__ import print_function; print(len(eval(\"$servers\")))")
   fi
 
+  # Array to store process IDs for parallel execution
+  declare -a pids
+
   for i in $(seq 0 $(($server_count-1)))
   do
     if [ -n "$servers" ]; then
@@ -408,14 +469,35 @@ function add_topo
       ansible_options+=" -e dut_interfaces=$dut_interfaces"
     fi
 
-    ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -i ${inv_name} testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
-          -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
-          -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
-          -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
-          -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" \
-          -e upstream_neighbor_groups="$upstream_neighbor_groups" -e downstream_neighbor_groups="$downstream_neighbor_groups" \
-          -e use_converged_peers="$use_converged_peers" \
-          $ansible_options $@
+    # Build the ansible-playbook command
+    ansible_cmd="ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -i ${inv_name} testbed_add_vm_topology.yml --vault-password-file=\"${passwd}\" -l \"$server\" \
+          -e testbed_name=\"$testbed_name\" -e duts_name=\"$duts\" -e VM_base=\"$vm_base\" \
+          -e ptf_ip=\"$ptf_ip\" -e topo=\"$topo\" -e vm_set_name=\"$vm_set_name\" \
+          -e ptf_imagename=\"$ptf_imagename\" -e vm_type=\"$vm_type\" -e ptf_ipv6=\"$ptf_ipv6\" \
+          -e ptf_extra_mgmt_ip=\"$ptf_extra_mgmt_ip\" -e netns_mgmt_ip=\"$netns_mgmt_ip\" \
+          -e upstream_neighbor_groups=\"$upstream_neighbor_groups\" -e downstream_neighbor_groups=\"$downstream_neighbor_groups\" \
+	  -e use_converged_peers=\"$use_converged_peers\" \
+          $ansible_options ${args[*]}"
+
+    if [[ "$parallel_execution" == "true" ]]; then
+      # Parallel execution: run in background and capture PID
+      eval "$ansible_cmd" > "/tmp/add_topo_$i.log" 2>&1 &
+      pids[$i]=$!
+    else
+      # Serial execution: run synchronously
+      eval "$ansible_cmd"
+    fi
+  done
+
+  # Wait for all parallel processes to complete
+  wait_parallel_processes "add" pids "$server_count"
+
+  # Execute fanout connection and cleanup steps
+  for i in $(seq 0 $(($server_count-1)))
+  do
+    if [ -n "$servers" ]; then
+      parse_servers "$i" "$servers"
+    fi
 
     if [ $i -eq 0 ]; then
       fanout_options+=" -e clean_before_add=y"
@@ -462,6 +544,9 @@ function remove_topo
     fi
   done
 
+  # Parse parallel execution arguments
+  parse_parallel_args "$@"
+
   if [ -n "$sonic_vm_dir" ]; then
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
   fi
@@ -471,6 +556,9 @@ function remove_topo
     server_count=$(python -c "from __future__ import print_function; print(len(eval(\"$servers\")))")
   fi
 
+  # Array to store process IDs for parallel execution
+  declare -a pids
+
   for i in $(seq 0 $(($server_count-1)))
   do
     if [ -n "$servers" ]; then
@@ -478,15 +566,27 @@ function remove_topo
       ansible_options+=" -e dut_interfaces=$dut_interfaces"
     fi
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -i ${inv_name} testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
-      -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
-      -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
-      -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
-      -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" \
-      -e remove_keysight_api_server="$remove_keysight_api_server" \
-      $ansible_options $@
+    # Build the ansible-playbook command
+    ansible_cmd="ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -i ${inv_name} testbed_remove_vm_topology.yml --vault-password-file=\"${passwd}\" -l \"$server\" \
+          -e testbed_name=\"$testbed_name\" -e duts_name=\"$duts\" -e VM_base=\"$vm_base\" \
+          -e ptf_ip=\"$ptf_ip\" -e topo=\"$topo\" -e vm_set_name=\"$vm_set_name\" \
+          -e ptf_imagename=\"$ptf_imagename\" -e vm_type=\"$vm_type\" -e ptf_ipv6=\"$ptf_ipv6\" \
+          -e ptf_extra_mgmt_ip=\"$ptf_extra_mgmt_ip\" -e netns_mgmt_ip=\"$netns_mgmt_ip\" \
+          -e remove_keysight_api_server=\"$remove_keysight_api_server\" \
+          $ansible_options ${args[*]}"
 
+    if [[ "$parallel_execution" == "true" ]]; then
+      # Parallel execution: run in background and capture PID
+      eval "$ansible_cmd" > "/tmp/remove_topo_$i.log" 2>&1 &
+      pids[$i]=$!
+    else
+      # Serial execution: run synchronously
+      eval "$ansible_cmd"
+    fi
   done
+
+  # Wait for all parallel processes to complete
+  wait_parallel_processes "remove" pids "$server_count"
 
   echo Done
 }
@@ -1167,6 +1267,6 @@ esac
 
 if [[ -f "$backup_file" ]];then
     echo "Backup exists, restore backup file"
-    rm -f "$topo_file"
-    mv "$backup_file" "$topo_file"
+    sudo rm -f "$topo_file"
+    sudo mv "$backup_file" "$topo_file"
 fi

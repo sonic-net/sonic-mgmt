@@ -3,15 +3,18 @@ Test to verify hardware watchdog is enabled on the device.
 
 This test addresses the test gap described in:
 https://github.com/sonic-net/sonic-mgmt/issues/21686
+https://github.com/sonic-net/sonic-mgmt/issues/22491
 
 SONiC requires the hardware watchdog to be enabled on all platforms.
-This test validates that the watchdog utility is available and that
-the hardware watchdog is armed.
+This test validates that the watchdog utility is available, that
+the hardware watchdog is armed, and that the remaining timeout is
+within a reasonable range.
 
 By default, an unarmed watchdog produces a warning and skips.
 Use --strict_watchdog to make it a test failure.
 """
 import logging
+import re
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
@@ -77,3 +80,49 @@ def test_hw_watchdog_armed(duthosts, enum_rand_one_per_hwsku_hostname, strict_wa
             pytest.skip("Watchdog is not armed (use --strict_watchdog to enforce)")
 
     logger.info("Hardware watchdog is armed on '{}'".format(duthost.hostname))
+
+
+# Reasonable range for watchdog timeout (seconds).
+# The default arm timeout in SONiC is 180s; values outside 30-300s
+# indicate a misconfiguration that could cause premature reboots or
+# ineffective watchdog protection.
+MIN_REMAINING_TIME = 30
+MAX_REMAINING_TIME = 300
+
+
+def test_hw_watchdog_remaining_time(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Verify that the hardware watchdog remaining time is within a
+              reasonable range (30-300 seconds).
+
+              Platforms occasionally misconfigure absurdly short or long
+              watchdog timeouts. This test catches such misconfigurations.
+
+              Addresses: https://github.com/sonic-net/sonic-mgmt/issues/22491
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    result = duthost.command(WATCHDOG_STATUS_CMD, module_ignore_errors=True)
+
+    if result["rc"] != 0 or result["stdout"].strip() == "":
+        pytest.skip("watchdogutil is not supported on this platform")
+
+    status_output = result["stdout"].strip()
+
+    if "Unarmed" in status_output or "Armed" not in status_output:
+        pytest.skip("Watchdog is not armed; cannot check remaining time")
+
+    # Parse "Time remaining: <N> seconds" from watchdogutil status output
+    match = re.search(r"Time remaining:\s*(\d+)\s*seconds", status_output)
+    pytest_assert(match is not None,
+                  "Could not parse remaining time from watchdogutil output: {}".format(status_output))
+
+    remaining = int(match.group(1))
+    logger.info("Watchdog remaining time on '{}': {} seconds".format(duthost.hostname, remaining))
+
+    pytest_assert(remaining >= MIN_REMAINING_TIME,
+                  "Watchdog remaining time {}s is below minimum {}s on '{}'".format(
+                      remaining, MIN_REMAINING_TIME, duthost.hostname))
+    pytest_assert(remaining <= MAX_REMAINING_TIME,
+                  "Watchdog remaining time {}s exceeds maximum {}s on '{}'".format(
+                      remaining, MAX_REMAINING_TIME, duthost.hostname))

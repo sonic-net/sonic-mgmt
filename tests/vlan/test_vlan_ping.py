@@ -182,7 +182,25 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
         exclude_ip = [vlan_ip_network_v4.network_address, vlan_ip_network_v4.broadcast_address, vlan_ip_address_v4]
         ips_in_vlan = [x for x in vlan_ip_network_v4 if x not in exclude_ip]
 
+    # Prepare IPv6 address pool if VLAN has IPv6, mirroring the IPv4 approach
+    # to guarantee distinct addresses for each PTF member.
+    # See: https://github.com/sonic-net/sonic-mgmt/issues/22461
+    ips_in_vlan_v6 = []
+    if ip6:
+        ipv6_iface = ipaddress.IPv6Interface(ip6)
+        ipv6_network = ipv6_iface.network
+        vlan_ipv6_addr = ipv6_iface.ip
+        # Use a compact pool: first N+1 host addresses excluding the VLAN IP itself.
+        # network[0] is the network address, so start from network[1].
+        for i in range(1, len(rand_vlan_member_list) + 2):
+            addr = ipv6_network[i]
+            if addr != vlan_ipv6_addr:
+                ips_in_vlan_v6.append(addr)
+            if len(ips_in_vlan_v6) >= len(rand_vlan_member_list):
+                break
+
     # getting port index, mac, ipv4 and ipv6 of ptf ports into a dict
+    ipv6_assign_idx = 0
     for member in rand_vlan_member_list:
         ptfhost_info[member] = {}
         ptfhost_info[member]["Vlanid"] = vlanid
@@ -198,8 +216,8 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
 
         # Assign IPv6 address if VLAN has IPv6
         if ip6:
-            ptfhost_info[member]["ipv6"] = str(
-                ipaddress.IPv6Interface(ip6).network[ptfhost_info[member]["port_index_list"][0]])
+            ptfhost_info[member]["ipv6"] = str(ips_in_vlan_v6[ipv6_assign_idx])
+            ipv6_assign_idx += 1
 
     yield vm_host_info, ptfhost_info
 

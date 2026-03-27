@@ -2,16 +2,13 @@
     "DEVICE_METADATA": {
         "localhost": {
             "bgp_asn": "65100",
-            "hostname": "DPU_HOSTNAME_PLACEHOLDER",
+            "hostname": "dpu",
             "subtype": "SmartSwitch",
             "switch_type": "dpu",
             "type": "SmartSwitchDPU"
         }
     },
     "FEATURE": {
-        "acms": {
-            "state": "disabled"
-        },
         "lldp": {
             "state": "disabled"
         },
@@ -26,6 +23,11 @@
         "gnmi": {
             "log_level": "2",
             "port": "50052"
+        }
+    },
+    "SYSTEM_DEFAULTS": {
+        "software_bfd": {
+            "status": "enabled"
         }
     }
 }
