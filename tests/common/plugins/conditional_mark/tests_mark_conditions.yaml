@@ -2656,7 +2656,7 @@ generic_config_updater/test_srv6:
       - "topo_name in ['t0-isolated-d96u32s2']"
       - "asic_type not in ['mellanox', 'broadcom', 'cisco', 'cisco-8000', 'vs'] or (release != 'master' and release < '202511')"
       - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
-      - "asic_type == 'broadcom' and asic_gen not in ['th5']"
+      - "asic_type == 'broadcom' and asic_gen not in ['th5', 'th6', 'q3d']"
 
 generic_config_updater/test_vlan_interface.py::test_vlan_interface_tc1_suite:
   xfail:
