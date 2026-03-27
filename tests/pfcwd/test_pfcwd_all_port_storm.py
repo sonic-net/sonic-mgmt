@@ -235,11 +235,13 @@ class TestPfcwdAllPortStorm(object):
             port_type = "ports" if action == "storm" else "stormed ports"
             logger.info(f"Waiting for {threshold}% of {port_type} to reach {action} state")
 
-            timeout = 60
-            # Increase the timeout for LT2/FT2 topo as the pfc_gen script takes
-            # longer time to generate storm on all ports
+            # Scale timeout with port count to allow sufficient time on high port-count platforms.
+            num_ports = len(stormed_ports_list) if stormed_ports_list else len(selected_test_ports)
+            timeout = max(60, num_ports * 2)
+            # LT2/FT2 topologies need at least 120s because the traffic generator
+            # takes longer to spin up on those setups.
             if tbinfo and tbinfo['topo']['type'] in ["lt2", "ft2"]:
-                timeout = 120
+                timeout = max(timeout, 120)
             pytest_assert(
                 wait_until(timeout, 2, 5, verify_all_ports_pfc_storm_in_expected_state, duthost,
                            storm_hndle, action, selected_test_ports, baseline_counters, threshold,
