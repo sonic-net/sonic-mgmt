@@ -42,6 +42,10 @@ parameters:
   type: string
   default: "all"
 
+- name: OVERRIDE_PARAMS
+  type: object
+  default: {}
+
 stages:
 - stage: Test
   variables:
@@ -64,3 +68,4 @@ stages:
         MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
         INCLUDE_JOBS: ${{ parameters.INCLUDE_JOBS }}
+        OVERRIDE_PARAMS: ${{ parameters.OVERRIDE_PARAMS }}
