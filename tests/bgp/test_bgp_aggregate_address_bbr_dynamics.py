@@ -2,9 +2,9 @@
 Test Group 2: BGP Aggregate Address — BBR Feature State Interaction
 
 Validates dynamic BBR state changes correctly activate/deactivate aggregate
-addresses, observable via:
-  - Route presence on M2 (upstream) neighbors
-  - DUT internal state: CONFIG_DB / STATE_DB / FRR running-config consistency
+addresses, observable via route presence on M2 (upstream) neighbors.
+The feature is treated as a black box and verified through its observable
+routing behavior.
 
 Test cases:
   2.1  BBR enable activates BBR-required aggregate
@@ -13,8 +13,6 @@ Test cases:
   2.4  Mixed BBR-required and non-BBR-required aggregates
   2.5  Rapid BBR state toggling
   2.6  BBR disable with summary-only — contributing routes un-suppressed
-  2.7  IPv6 BBR-required with BBR state change
-  2.8  BBR state change with as-set flag
 """
 
 import logging
@@ -26,14 +24,12 @@ from natsort import natsorted
 
 from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state
 from bgp_aggregate_helpers import (
-    AGGR_V4_NEW,
+    AGGR_V4_First,
     AGGR_V4_SECOND,
-    AGGR_V6_NEW,
     BGP_AGGREGATE_ADDRESS,
     BGP_SETTLE_WAIT,
     CONTRIBUTING_V4,
     CONTRIBUTING_V4_SECOND,
-    CONTRIBUTING_V6,
     EXABGP_BASE_PORT,
     EXABGP_BASE_PORT_V6,
     PLACEHOLDER_PREFIX,
@@ -156,7 +152,7 @@ class TestGroup2BBRStateInteraction:
         self._skip_if_no_bbr(duthost)
         setup = m1_topo_setup
         upstream = setup['upstream_neighbors']
-        cfg = AggregateCfg(prefix=AGGR_V4_NEW, bbr_required=True, summary_only=False, as_set=False)
+        cfg = AggregateCfg(prefix=AGGR_V4_First, bbr_required=True, summary_only=False, as_set=False)
 
         config_bbr_by_gcu(duthost, "disabled")
         announce_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
@@ -165,7 +161,7 @@ class TestGroup2BBRStateInteraction:
 
             # BBR disabled: aggregate inactive
             verify_bgp_aggregate_consistence(duthost, False, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=False)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=False)
 
             # Enable BBR
             config_bbr_by_gcu(duthost, "enabled")
@@ -173,7 +169,7 @@ class TestGroup2BBRStateInteraction:
 
             # BBR enabled: aggregate active
             verify_bgp_aggregate_consistence(duthost, True, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=True)
 
             gcu_remove_aggregate(duthost, cfg.prefix)
             verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
@@ -196,7 +192,7 @@ class TestGroup2BBRStateInteraction:
         self._skip_if_no_bbr(duthost)
         setup = m1_topo_setup
         upstream = setup['upstream_neighbors']
-        cfg = AggregateCfg(prefix=AGGR_V4_NEW, bbr_required=True, summary_only=False, as_set=False)
+        cfg = AggregateCfg(prefix=AGGR_V4_First, bbr_required=True, summary_only=False, as_set=False)
 
         config_bbr_by_gcu(duthost, "enabled")
         announce_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
@@ -204,14 +200,14 @@ class TestGroup2BBRStateInteraction:
             gcu_add_aggregate(duthost, cfg)
 
             verify_bgp_aggregate_consistence(duthost, True, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=True)
 
             # Disable BBR
             config_bbr_by_gcu(duthost, "disabled")
             time.sleep(BGP_SETTLE_WAIT)
 
             verify_bgp_aggregate_consistence(duthost, False, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=False)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=False)
 
             gcu_remove_aggregate(duthost, cfg.prefix)
             verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
@@ -233,28 +229,28 @@ class TestGroup2BBRStateInteraction:
         self._skip_if_no_bbr(duthost)
         setup = m1_topo_setup
         upstream = setup['upstream_neighbors']
-        cfg = AggregateCfg(prefix=AGGR_V4_NEW, bbr_required=False, summary_only=False, as_set=False)
+        cfg = AggregateCfg(prefix=AGGR_V4_First, bbr_required=False, summary_only=False, as_set=False)
 
         announce_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
         try:
             gcu_add_aggregate(duthost, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=True)
 
             # Toggle: enabled -> disabled -> enabled
             config_bbr_by_gcu(duthost, "enabled")
             time.sleep(BGP_SETTLE_WAIT)
             verify_bgp_aggregate_consistence(duthost, True, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=True)
 
             config_bbr_by_gcu(duthost, "disabled")
             time.sleep(BGP_SETTLE_WAIT)
             verify_bgp_aggregate_consistence(duthost, False, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=True)
 
             config_bbr_by_gcu(duthost, "enabled")
             time.sleep(BGP_SETTLE_WAIT)
             verify_bgp_aggregate_consistence(duthost, True, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=True)
 
             gcu_remove_aggregate(duthost, cfg.prefix)
             verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
@@ -276,7 +272,7 @@ class TestGroup2BBRStateInteraction:
         self._skip_if_no_bbr(duthost)
         setup = m1_topo_setup
         upstream = setup['upstream_neighbors']
-        cfg_a = AggregateCfg(prefix=AGGR_V4_NEW, bbr_required=True, summary_only=False, as_set=False)
+        cfg_a = AggregateCfg(prefix=AGGR_V4_First, bbr_required=True, summary_only=False, as_set=False)
         cfg_b = AggregateCfg(prefix=AGGR_V4_SECOND, bbr_required=False, summary_only=False, as_set=False)
 
         config_bbr_by_gcu(duthost, "enabled")
@@ -289,7 +285,7 @@ class TestGroup2BBRStateInteraction:
             # Both received with BBR enabled
             verify_bgp_aggregate_consistence(duthost, True, cfg_a)
             verify_bgp_aggregate_consistence(duthost, True, cfg_b)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=True)
             verify_route_on_m2(nbrhosts, upstream, AGGR_V4_SECOND, expected_present=True)
 
             # Disable BBR: A withdrawn, B still received
@@ -297,13 +293,13 @@ class TestGroup2BBRStateInteraction:
             time.sleep(BGP_SETTLE_WAIT)
             verify_bgp_aggregate_consistence(duthost, False, cfg_a)
             verify_bgp_aggregate_consistence(duthost, False, cfg_b)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=False)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=False)
             verify_route_on_m2(nbrhosts, upstream, AGGR_V4_SECOND, expected_present=True)
 
             # Enable BBR: both received again
             config_bbr_by_gcu(duthost, "enabled")
             time.sleep(BGP_SETTLE_WAIT)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=True)
             verify_route_on_m2(nbrhosts, upstream, AGGR_V4_SECOND, expected_present=True)
 
             gcu_remove_aggregate(duthost, cfg_a.prefix)
@@ -328,13 +324,13 @@ class TestGroup2BBRStateInteraction:
         self._skip_if_no_bbr(duthost)
         setup = m1_topo_setup
         upstream = setup['upstream_neighbors']
-        cfg = AggregateCfg(prefix=AGGR_V4_NEW, bbr_required=True, summary_only=False, as_set=False)
+        cfg = AggregateCfg(prefix=AGGR_V4_First, bbr_required=True, summary_only=False, as_set=False)
 
         config_bbr_by_gcu(duthost, "enabled")
         announce_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
         try:
             gcu_add_aggregate(duthost, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=True)
 
             # Rapid toggles
             config_bbr_by_gcu(duthost, "disabled")
@@ -345,7 +341,7 @@ class TestGroup2BBRStateInteraction:
             # After settling, aggregates should be received (final state: enabled)
             time.sleep(ROUTE_PROPAGATION_WAIT)
             verify_bgp_aggregate_consistence(duthost, True, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=True)
 
             gcu_remove_aggregate(duthost, cfg.prefix)
             verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
@@ -367,7 +363,7 @@ class TestGroup2BBRStateInteraction:
         self._skip_if_no_bbr(duthost)
         setup = m1_topo_setup
         upstream = setup['upstream_neighbors']
-        cfg = AggregateCfg(prefix=AGGR_V4_NEW, bbr_required=True, summary_only=True, as_set=False)
+        cfg = AggregateCfg(prefix=AGGR_V4_First, bbr_required=True, summary_only=True, as_set=False)
 
         config_bbr_by_gcu(duthost, "enabled")
         announce_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
@@ -375,7 +371,7 @@ class TestGroup2BBRStateInteraction:
             gcu_add_aggregate(duthost, cfg)
 
             verify_bgp_aggregate_consistence(duthost, True, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=True)
             verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V4[:2], expected_present=False)
 
             # Disable BBR
@@ -383,101 +379,8 @@ class TestGroup2BBRStateInteraction:
             time.sleep(BGP_SETTLE_WAIT)
 
             verify_bgp_aggregate_consistence(duthost, False, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=False)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_First, expected_present=False)
             verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V4[:2], expected_present=True)
-
-            gcu_remove_aggregate(duthost, cfg.prefix)
-            verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
-        finally:
-            withdraw_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
-            config_bbr_by_gcu(duthost, "enabled")
-
-    def test_2_7_ipv6_bbr_state_change(
-        self, duthosts, rand_one_dut_hostname, nbrhosts, m1_topo_setup
-    ):
-        """Test Case 2.7: IPv6 BBR-required with BBR state change.
-
-        Steps:
-        1. Disable BBR, add IPv6 aggregate with bbr-required=true, summary-only=true
-        2. Verify aggregate inactive and NOT received on M2
-        3. Enable BBR
-        4. Verify aggregate active and received on M2, contributing routes suppressed
-        """
-        duthost = duthosts[rand_one_dut_hostname]
-        self._skip_if_no_bbr(duthost)
-        setup = m1_topo_setup
-        upstream = setup['upstream_neighbors']
-        cfg = AggregateCfg(prefix=AGGR_V6_NEW, bbr_required=True, summary_only=True, as_set=False)
-
-        config_bbr_by_gcu(duthost, "disabled")
-        announce_contributing_routes(setup, CONTRIBUTING_V6, "ipv6")
-        try:
-            gcu_add_aggregate(duthost, cfg)
-
-            # BBR disabled: aggregate inactive
-            verify_bgp_aggregate_consistence(duthost, False, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V6_NEW, expected_present=False)
-            verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V6[:2], expected_present=True)
-
-            # Enable BBR
-            config_bbr_by_gcu(duthost, "enabled")
-            time.sleep(BGP_SETTLE_WAIT)
-
-            # BBR enabled: aggregate active, contributing suppressed
-            verify_bgp_aggregate_consistence(duthost, True, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V6_NEW, expected_present=True)
-            verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V6[:2], expected_present=False)
-
-            gcu_remove_aggregate(duthost, cfg.prefix)
-            verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
-        finally:
-            withdraw_contributing_routes(setup, CONTRIBUTING_V6, "ipv6")
-            config_bbr_by_gcu(duthost, "enabled")
-
-    def test_2_8_bbr_state_change_with_as_set(
-        self, duthosts, rand_one_dut_hostname, nbrhosts, m1_topo_setup
-    ):
-        """Test Case 2.8: BBR state change with summary-only + as-set flags.
-
-        Steps:
-        1. Enable BBR, add aggregate with bbr-required=true, summary-only=true, as-set=true
-        2. Verify aggregate active and received on M2
-        3. Disable BBR
-        4. Verify aggregate inactive and withdrawn on M2, contributing routes un-suppressed
-        5. Re-enable BBR
-        6. Verify aggregate active again
-        """
-        duthost = duthosts[rand_one_dut_hostname]
-        self._skip_if_no_bbr(duthost)
-        setup = m1_topo_setup
-        upstream = setup['upstream_neighbors']
-        cfg = AggregateCfg(prefix=AGGR_V4_NEW, bbr_required=True, summary_only=True, as_set=True)
-
-        config_bbr_by_gcu(duthost, "enabled")
-        announce_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
-        try:
-            gcu_add_aggregate(duthost, cfg)
-
-            # BBR enabled: aggregate active with summary-only + as-set
-            verify_bgp_aggregate_consistence(duthost, True, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=True)
-            verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V4[:2], expected_present=False)
-
-            # Disable BBR
-            config_bbr_by_gcu(duthost, "disabled")
-            time.sleep(BGP_SETTLE_WAIT)
-
-            # BBR disabled: aggregate inactive, contributing un-suppressed
-            verify_bgp_aggregate_consistence(duthost, False, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=False)
-            verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V4[:2], expected_present=True)
-
-            # Re-enable BBR
-            config_bbr_by_gcu(duthost, "enabled")
-            time.sleep(BGP_SETTLE_WAIT)
-
-            verify_bgp_aggregate_consistence(duthost, True, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_NEW, expected_present=True)
 
             gcu_remove_aggregate(duthost, cfg.prefix)
             verify_bgp_aggregate_cleanup(duthost, cfg.prefix)

@@ -25,18 +25,12 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 # ---- Constants ----
-CONSTANTS_FILE = "/etc/sonic/constants.yml"
-
-# Aggregate prefixes (used by legacy DUT-side-only tests)
-AGGR_V4 = "172.16.51.0/24"
-AGGR_V6 = "2000:172:16:50::/64"
-
 BGP_AGGREGATE_ADDRESS = "BGP_AGGREGATE_ADDRESS"
 PLACEHOLDER_PREFIX = "192.0.2.0/32"  # RFC5737 TEST-NET-1
 
 # Aggregate prefixes for neighbor-validated tests (Groups 1 & 2)
-AGGR_V4_NEW = "10.100.0.0/16"
-AGGR_V6_NEW = "2001:db8:100::/48"
+AGGR_V4_First = "10.100.0.0/16"
+AGGR_V6 = "2001:db8:100::/48"
 CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
 CONTRIBUTING_V6 = ["2001:db8:100:1::/64", "2001:db8:100:2::/64", "2001:db8:100:3::/64"]
 
