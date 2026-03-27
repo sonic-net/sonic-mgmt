@@ -448,31 +448,55 @@ jobs:
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
-  - job: t1_lag_vpp_elastictest
-    displayName: "kvmtest-t1-lag-vpp by Elastictest [OPTIONAL]"
+  - job: impacted_area_t1_lag_vpp_elastictest
+    displayName: "impacted-area-kvmtest-t1-lag-vpp by Elastictest"
     dependsOn:
     - get_impacted_area
     - cancel_previous_test_plan_for_same_pr
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      IMPACTED_FEATURES: $[ dependencies.get_impacted_area.outputs['SetVariableTask.IMPACTED_FEATURES'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't1_job')) }}
+    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
-    continueOnError: true
-    condition: not(canceled())
+    continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
     steps:
+      - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
+        - checkout: ${{ parameters.SONIC_MGMT_NAME }}
+          displayName: "Checkout sonic-mgmt repository"
+
+      - template: impacted_area_testing/calculate-instance-numbers.yml
+        parameters:
+          TOPOLOGY: t1
+          BUILD_BRANCH: $(BUILD_BRANCH)
+
+      - script: |
+          if [[ -z "$(IMPACTED_FEATURES)" ]]; then
+            echo "No impacted features found. Use default t1-lag-vpp scripts from pr_test_scripts.yaml."
+            echo "##vso[task.setvariable variable=SCRIPTS]"
+          fi
+        displayName: "Use default VPP scripts when no impacted features"
+
       - template: run-test-elastictest-template.yml
         parameters:
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
           PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
           EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t1-lag-vpp
-          MIN_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
-          MAX_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
+          SCRIPTS: $(SCRIPTS)
+          MIN_WORKER: $(INSTANCE_NUMBER)
+          MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           ASIC_TYPE: "vpp"
           KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
           COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer"
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
