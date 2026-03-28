@@ -7,6 +7,22 @@ from pytest_ansible.results import AdHocResult, ModuleResult
 
 from tests.common.errors import RunAnsibleModuleFail
 
+
+# Patch load_extra_vars to return a copy instead of the shared cached dict.
+# Without this, any code that calls variable_manager.extra_vars.update() (e.g., EosHost)
+# permanently pollutes the cache, causing all subsequent VariableManagers to inherit
+# stale connection variables (wrong ansible_user, ansible_connection, etc.).
+import ansible.vars.manager as _avm
+_original_load_extra_vars = _avm.load_extra_vars
+
+
+def _safe_load_extra_vars(loader):
+    return dict(_original_load_extra_vars(loader))
+
+
+_avm.load_extra_vars = _safe_load_extra_vars
+
+
 logger = logging.getLogger(__name__)
 
 
