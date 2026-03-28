@@ -285,8 +285,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                            "Decline": dhcp_server_sum, "Release": dhcp_server_sum}
                 }
                 validate_dhcpmon_counters(dhcp_relay, duthost,
-                                                expected_uplink_counter,
-                                                expected_downlink_counter)
+                                          expected_uplink_counter,
+                                          expected_downlink_counter)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
@@ -395,8 +395,8 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                            "Decline": dhcp_server_sum, "Release": dhcp_server_sum}
                 }
                 validate_dhcpmon_counters(dhcp_relay, duthost,
-                                                expected_uplink_counter,
-                                                expected_downlink_counter)
+                                          expected_uplink_counter,
+                                          expected_downlink_counter)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
@@ -646,8 +646,8 @@ def test_dhcp_relay_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, va
                 "RX": {"Malformed": 3}
             }
             validate_dhcpmon_counters(dhcp_relay, duthost,
-                                            expected_uplink_counter,
-                                            expected_downlink_counter)
+                                      expected_uplink_counter,
+                                      expected_downlink_counter)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
