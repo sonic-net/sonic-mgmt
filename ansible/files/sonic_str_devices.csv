@@ -103,3 +103,4 @@ str-8101-d04-u36,10.64.246.197/25,Cisco-8101-O32,DevSonic,,sonic
 str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
 str43-0101-0400-01c0,10.3.158.19,Cisco,ConsoleServer,ssh,
+str43-0101-0801-01c0,10.3.150.230,Cisco,ConsoleServer,ssh,
