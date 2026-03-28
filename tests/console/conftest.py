@@ -41,7 +41,8 @@ def setup_c0(request, duthost, tbinfo):
 
     if tbinfo["topo"]["name"] == "c0":
         fanouthosts = request.getfixturevalue("fanouthosts")
-        console_fanouts = list(filter(lambda fanouthost: fanouthost.is_console_switch(), fanouthosts))
+        console_fanouts = list(filter(lambda fh: fh.get_fanout_os() == 'sonic' and fh.is_console_switch(),
+                                      fanouthosts.values()))
         if len(console_fanouts) != 1:
             pytest.fail("Test requires exactly one console switch fanout device (could be dut itself)")
         console_fanout = console_fanouts[0]
