@@ -93,7 +93,7 @@ def compare_dhcp_counters(dhcp_relay_counter, expected_counter, error_in_percent
 
 
 def validate_dhcpmon_counters(dhcp_relay, duthost, expected_uplink_counter,
-                                    expected_downlink_counter, error_in_percentage=0.0):
+                              expected_downlink_counter, error_in_percentage=0.0):
     """Validate the dhcpmon relay counters"""
     logger.info("Expected uplink counters: {}, expected downlink counters: {}, error in percentage: {}%".format(
         expected_uplink_counter, expected_downlink_counter, error_in_percentage))
@@ -116,11 +116,11 @@ def validate_dhcpmon_counters(dhcp_relay, duthost, expected_uplink_counter,
         if portchannel_name in portchannels.keys():
             uplink_interfaces.extend(portchannels[portchannel_name]['members'])
             portchannel_counters = query_and_sum_dhcpmon_counters(duthost,
-                                                                        downlink_vlan_iface,
-                                                                        [portchannel_name])
+                                                                  downlink_vlan_iface,
+                                                                  [portchannel_name])
             members_counters = query_and_sum_dhcpmon_counters(duthost,
-                                                                    downlink_vlan_iface,
-                                                                    portchannels[portchannel_name]['members'])
+                                                              downlink_vlan_iface,
+                                                              portchannels[portchannel_name]['members'])
 
             # If the portchannel counters and its members' counters are not equal, yield a warning message
             compare_dhcp_counters_with_warning(
@@ -219,11 +219,11 @@ def validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_
         if portchannel_name in portchannels.keys():
             uplink_interfaces.extend(portchannels[portchannel_name]['members'])
             portchannel_counters = query_and_sum_dhcpmon_counters(duthost,
-                                                                        downlink_vlan_iface,
-                                                                        [portchannel_name])
+                                                                  downlink_vlan_iface,
+                                                                  [portchannel_name])
             members_counters = query_and_sum_dhcpmon_counters(duthost,
-                                                                    downlink_vlan_iface,
-                                                                    portchannels[portchannel_name]['members'])
+                                                              downlink_vlan_iface,
+                                                              portchannels[portchannel_name]['members'])
 
             # If the portchannel counters and its members' counters are not equal, yield a warning message
 
