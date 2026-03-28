@@ -1250,10 +1250,8 @@ drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr:
 #######################################
 dualtor:
   skip:
-    reason: "It is skipped for '202412' for now. Not supported on lossy topologies."
-    conditions_logical_operator: or
+    reason: "Not supported on lossy topologies."
     conditions:
-      - "release in ['202412']"
       - *lossyTopos
 
 dualtor/test_bgp_block_loopback1.py:
