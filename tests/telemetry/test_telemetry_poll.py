@@ -145,7 +145,7 @@ def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=6, update_count=0, timeout=30, namespace=namespace)
+                              max_sync_count=15, update_count=0, timeout=30, namespace=namespace)
 
     def callback(show_gnmi_out):
         result = str(show_gnmi_out)
