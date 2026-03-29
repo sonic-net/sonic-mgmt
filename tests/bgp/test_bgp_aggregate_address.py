@@ -25,6 +25,7 @@ from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_ena
 from tests.common.gcu_utils import apply_gcu_patch
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -124,9 +125,54 @@ def gcu_remove_aggregate(duthost, prefix):
     apply_gcu_patch(duthost, patch)
 
 
+# ---- Polling timeout for bgpcfgd propagation (CONFIG_DB -> STATE_DB / FRR) ----
+BGPCFGD_TIMEOUT = 30  # seconds
+BGPCFGD_INTERVAL = 2  # seconds
+
+
+# ---- Polling helpers for wait_until ----
+def _check_state_db_aggregate(duthost, cfg, bbr_enabled):
+    """Return True when STATE_DB reflects the expected aggregate state.
+
+    After GCU writes to CONFIG_DB, bgpcfgd asynchronously propagates to
+    STATE_DB.  This helper is meant to be polled via wait_until().
+    """
+    state_db = dump_db(duthost, "STATE_DB", BGP_AGGREGATE_ADDRESS)
+    if cfg.prefix not in state_db:
+        return False
+    expected_state = "inactive" if (cfg.bbr_required and not bbr_enabled) else "active"
+    return state_db[cfg.prefix].get("state") == expected_state
+
+
+def _check_running_config_aggregate(duthost, cfg, bbr_enabled):
+    """Return True when FRR running-config matches the expected aggregate flags.
+
+    After GCU writes to CONFIG_DB, bgpcfgd asynchronously configures FRR.
+    This helper is meant to be polled via wait_until().
+    """
+    running_config = running_bgp_has_aggregate(duthost, cfg.prefix)
+
+    if cfg.bbr_required and not bbr_enabled:
+        # Aggregate should NOT be present in FRR when bbr is required but disabled
+        return cfg.prefix not in running_config
+
+    # Aggregate should be present with correct flags
+    if cfg.prefix not in running_config:
+        return False
+    if cfg.summary_only and "summary-only" not in running_config:
+        return False
+    if not cfg.summary_only and "summary-only" in running_config:
+        return False
+    if cfg.as_set and "as-set" not in running_config:
+        return False
+    if not cfg.as_set and "as-set" in running_config:
+        return False
+    return True
+
+
 # ---- Common Validator for Every Case ----
 def verify_bgp_aggregate_consistence(duthost, bbr_enabled, cfg: AggregateCfg):
-    # CONFIG_DB validation
+    # CONFIG_DB validation (synchronous — GCU blocks until CONFIG_DB is written)
     config_db = dump_db(duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS)
     pytest_assert(cfg.prefix in config_db, f"Aggregate row {cfg.prefix} not found in CONFIG_DB")
     pytest_assert(
@@ -139,46 +185,46 @@ def verify_bgp_aggregate_consistence(duthost, bbr_enabled, cfg: AggregateCfg):
     )
     pytest_assert(config_db[cfg.prefix].get("as-set") == ("true" if cfg.as_set else "false"), "as-set flag mismatch")
 
-    # STATE_DB validation
+    # STATE_DB validation — poll until bgpcfgd propagates the change
+    pytest_assert(
+        wait_until(BGPCFGD_TIMEOUT, BGPCFGD_INTERVAL, 0, _check_state_db_aggregate, duthost, cfg, bbr_enabled),
+        f"Aggregate row {cfg.prefix} not found or state mismatch in STATE_DB after {BGPCFGD_TIMEOUT}s",
+    )
+
+    # Running-config validation — poll until bgpcfgd configures FRR
+    pytest_assert(
+        wait_until(BGPCFGD_TIMEOUT, BGPCFGD_INTERVAL, 0, _check_running_config_aggregate, duthost, cfg, bbr_enabled),
+        f"FRR running-config mismatch for aggregate {cfg.prefix} after {BGPCFGD_TIMEOUT}s",
+    )
+
+
+def _check_state_db_aggregate_removed(duthost, prefix):
+    """Return True when the aggregate row is gone from STATE_DB."""
     state_db = dump_db(duthost, "STATE_DB", BGP_AGGREGATE_ADDRESS)
-    pytest_assert(cfg.prefix in state_db, f"Aggregate row {cfg.prefix} not found in STATE_DB")
+    return prefix not in state_db
 
-    # Running-config validation
-    running_config = running_bgp_has_aggregate(duthost, cfg.prefix)
 
-    if cfg.bbr_required and not bbr_enabled:
-        pytest_assert(state_db[cfg.prefix].get("state") == "inactive", "state flag mismatch")
-        pytest_assert(
-            cfg.prefix not in running_config,
-            f"aggregate-address {cfg.prefix} should not present in FRR running-config when bbr is disabled",
-        )
-    else:
-        pytest_assert(state_db[cfg.prefix].get("state") == "active", "state flag mismatch")
-        pytest_assert(cfg.prefix in running_config, f"aggregate-address {cfg.prefix} not present in FRR running-config")
-        if cfg.summary_only:
-            pytest_assert("summary-only" in running_config, "summary-only expected in running-config")
-        else:
-            pytest_assert("summary-only" not in running_config, "summary-only should NOT be present for this scenario")
-        if cfg.as_set:
-            pytest_assert("as-set" in running_config, "as_set expected in running-config")
-        else:
-            pytest_assert("as-set" not in running_config, "as_set should NOT be present for this scenario")
+def _check_running_config_aggregate_removed(duthost, prefix):
+    """Return True when the aggregate is gone from FRR running-config."""
+    running_config = running_bgp_has_aggregate(duthost, prefix)
+    return prefix.split("/")[0] not in running_config
 
 
 def verify_bgp_aggregate_cleanup(duthost, prefix):
-    # CONFIG_DB validation
+    # CONFIG_DB validation (synchronous)
     config_db = dump_db(duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS)
-    pytest_assert(prefix not in config_db, f"Aggregate row {prefix} should be clean up from CONFIG_DB")
+    pytest_assert(prefix not in config_db, f"Aggregate row {prefix} should be cleaned up from CONFIG_DB")
 
-    # STATE_DB validation
-    state_db = dump_db(duthost, "STATE_DB", BGP_AGGREGATE_ADDRESS)
-    pytest_assert(prefix not in state_db, f"Aggregate row {prefix} should be clean up from  STATE_DB")
-
-    # Running-config validation
-    running_config = running_bgp_has_aggregate(duthost, prefix)
+    # STATE_DB validation — poll until bgpcfgd removes the entry
     pytest_assert(
-        prefix.split("/")[0] not in running_config,
-        f"aggregate-address {prefix} should not present in FRR running-config",
+        wait_until(BGPCFGD_TIMEOUT, BGPCFGD_INTERVAL, 0, _check_state_db_aggregate_removed, duthost, prefix),
+        f"Aggregate row {prefix} should be cleaned up from STATE_DB after {BGPCFGD_TIMEOUT}s",
+    )
+
+    # Running-config validation — poll until bgpcfgd removes from FRR
+    pytest_assert(
+        wait_until(BGPCFGD_TIMEOUT, BGPCFGD_INTERVAL, 0, _check_running_config_aggregate_removed, duthost, prefix),
+        f"aggregate-address {prefix} should not be present in FRR running-config after {BGPCFGD_TIMEOUT}s",
     )
 
 
