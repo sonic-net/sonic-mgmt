@@ -270,7 +270,7 @@ class DHCPTest(DataplaneBaseTest):
         relay_forward_packet = packet.Ether(
             src=self.client_mac, dst=self.BROADCAST_MAC)
         relay_forward_packet /= IPv6(src=self.client_link_local,
-                                     dst=self.BROADCAST_IP)
+                                     dst=self.vlan_ip)
         relay_forward_packet /= packet.UDP(
             sport=self.DHCP_CLIENT_PORT, dport=self.DHCP_SERVER_PORT)
         relay_forward_packet /= DHCP6_RelayForward(

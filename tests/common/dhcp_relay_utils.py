@@ -20,6 +20,35 @@ SUPPORTED_DHCPV6_TYPE = [
 SUPPORTED_DIR = ["TX", "RX"]
 
 
+def restart_dhcpmon_in_debug(duthost):
+    program_name = "dhcpmon"
+    program_pid_list = []
+    program_list = duthost.shell("ps aux | grep {}".format(program_name))
+    matches = re.findall(r'/usr/sbin/dhcpmon.*', program_list["stdout"])
+
+    for program_info in program_list["stdout_lines"]:
+        if program_name in program_info:
+            program_pid = int(program_info.split()[1])
+            program_pid_list.append(program_pid)
+
+    for program_pid in program_pid_list:
+        kill_cmd_result = duthost.shell("sudo kill -9 {} || true".format(program_pid), module_ignore_errors=True)
+        # Get the exit code of 'kill' command
+        exit_code = kill_cmd_result["rc"]
+        if exit_code != 0:
+            stderr = kill_cmd_result.get("stderr", "")
+            if "No such process" not in stderr:
+                pytest.fail("Failed to stop program '{}' before test. Error: {}".format(program_name, stderr))
+
+    if matches:
+        for dhcpmon_cmd in matches:
+            if "-D" not in dhcpmon_cmd:
+                dhcpmon_cmd += " -D"
+            duthost.shell("docker exec -d dhcp_relay %s" % dhcpmon_cmd)
+    else:
+        assert False, "Failed to start dhcpmon in debug counter mode\n"
+
+
 def restart_dhcp_service(duthost):
     duthost.shell('systemctl reset-failed dhcp_relay')
     duthost.shell('systemctl restart dhcp_relay')
