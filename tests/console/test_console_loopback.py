@@ -15,7 +15,7 @@ console_lines = list(map(str, range(1, 49)))
 
 @pytest.mark.parametrize("target_line", console_lines)
 @pytest.mark.parametrize("baud_rate", ["9600", "115200"])
-def test_console_loopback_echo(setup_c0, creds, target_line, baud_rate):
+def test_console_loopback_echo(setup_c0, creds, target_line, baud_rate, cleanup_modules):
     """
     Test data transfer is working as expect.
     Verify data can go out through the console switch and come back through the console switch
@@ -69,7 +69,7 @@ def test_console_loopback_echo(setup_c0, creds, target_line, baud_rate):
 @pytest.mark.topology('c0')
 @pytest.mark.parametrize("src_line,dst_line", [random.sample(console_lines, 2) for _ in range(4)])
 @pytest.mark.parametrize("baud_rate", ["9600", "115200"])
-def test_console_loopback_pingpong(setup_c0, creds, src_line, dst_line, baud_rate):
+def test_console_loopback_pingpong(setup_c0, creds, src_line, dst_line, baud_rate, cleanup_modules):
     """
     Test data transfer is working as expect.
     Verify data can go out through the console switch and come back through the console switch

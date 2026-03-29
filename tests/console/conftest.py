@@ -61,3 +61,26 @@ def setup_c0(request, duthost, tbinfo):
 @pytest.fixture(scope='module')
 def console_facts(duthost):
     return duthost.console_facts()['ansible_facts']['console_facts']
+
+
+@pytest.fixture(scope="module")
+def cleanup_modules(setup_c0):
+    '''
+    Reset all console lines before and after the script runs. Sometime socat or
+    other programs can leave the lines inaccessible.
+    '''
+    duthost, console_fanout = setup_c0
+    duthost.shell("rmmod nim_async_lite; rmmod tty_async; modprobe nim_async_lite ")
+    duthost.shell("sudo killall socat", module_ignore_errors=True)
+
+    if console_fanout != duthost:
+        console_fanout.shell("rmmod nim_async_lite; rmmod tty_async; modprobe nim_async_lite ")
+        console_fanout.shell("sudo killall socat", module_ignore_errors=True)
+
+    yield
+    duthost.shell("sudo killall socat", module_ignore_errors=True)
+    duthost.shell("rmmod nim_async_lite; rmmod tty_async; modprobe nim_async_lite ")
+
+    if console_fanout != duthost:
+        console_fanout.shell("sudo killall socat", module_ignore_errors=True)
+        console_fanout.shell("rmmod nim_async_lite; rmmod tty_async; modprobe nim_async_lite ")
