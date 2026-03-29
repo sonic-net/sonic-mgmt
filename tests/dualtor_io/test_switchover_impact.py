@@ -14,6 +14,7 @@ from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_ser
                                                 change_mac_addresses               # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.utilities import wait_until
 
 import logging
 
@@ -34,6 +35,21 @@ def set_mux_state(duthost, interface, state):
     duthost.shell(f"sudo config muxcable mode auto {interface}")
     duthost.shell(f"sudo config muxcable mode {state} {interface}")
     duthost.shell(f"sudo config muxcable mode auto {interface}")
+
+
+def wait_for_mux_state(duthost, port, expected_state, timeout=30):
+    """
+    @summary: Waits until a MUX port reaches the expected state.
+    @param duthost: dut host to check mux state on.
+    @param port (str): interface to check.
+    @param expected_state (str): expected mux state ('active' or 'standby').
+    @param timeout (int): maximum seconds to wait.
+    """
+    def check():
+        result = duthost.show_and_parse(f"show mux status {port}")
+        return any(r.get('status', '').lower() == expected_state for r in result)
+    pytest_assert(wait_until(timeout, 5, 0, check),
+                  f"Port {port} did not reach {expected_state}")
 
 
 @pytest.mark.enable_active_active
@@ -101,18 +117,6 @@ def test_tor_switchover_impact(request,                                         
                 cmds.append(f"ip -6 neigh del {ip} lladdr {mac} dev {vlan}")
         upper_tor_host.shell_cmds(cmds=cmds)
         lower_tor_host.shell_cmds(cmds=cmds)
-
-    def set_mux_state(duthost, interface, state):
-        """
-        @summary: Sets mux state for given dut and interface.
-            force_standby_tor is causing issues when toggling same interface multiple times.
-        @param duthost: dut host to toggle mux interface.
-        @param interface (str): interface to toggle.
-        @param state (str): state to set interface.
-        """
-        duthost.shell(f"sudo config muxcable mode auto {interface}")
-        duthost.shell(f"sudo config muxcable mode {state} {interface}")
-        duthost.shell(f"sudo config muxcable mode auto {interface}")
 
     def get_metric_data(metrics):
         """
@@ -267,33 +271,29 @@ def test_tor_switchover_impact(request,                                         
     pytest_assert(not logs["failures"], failure_message)
 
 
+@pytest.mark.skip_active_active
+@pytest.mark.topology("dualtor")
 def test_tor_switchover_impact_bulk(request,                                               # noqa: F811
                                     upper_tor_host, lower_tor_host,                        # noqa: F811
                                     cable_type,                                            # noqa: F811
-                                    select_test_mux_ports,                                 # noqa: F811
-                                    pytestconfig):                                         # noqa: F811
+                                    select_test_mux_ports):                                # noqa: F811
     """
     Stress-test bulk MUX switchover and detect syslog errors.
 
     Steps:
         1. Select a fixed pool of num_ports MUX interfaces.
         2. Force all ports to active once as a known baseline.
-        3. Each iteration: toggle all ports based on tracked state
-           (active→standby or standby→active).
+        3. Each iteration: randomly select a subset of ports and toggle them
+           (active→standby or standby→active) for realistic stress coverage.
         4. After each iteration, analyze syslog on both ToRs for any errors.
     """
-
-    from tests.common.dualtor.dual_tor_common import CableType  # noqa: F401
 
     if not request.config.getoption('--enable_switchover_impact_test'):
         pytest.skip("Bulk switchover impact test disabled. "
                     "To enable the test, run with '--enable_switchover_impact_test'")
 
-    if cable_type != CableType.active_standby:
-        pytest.skip("test_tor_switchover_impact_bulk requires active-standby cable type")
-
-    iterations = request.config.getoption("--iterations", default=100)
-    num_ports = request.config.getoption("--num_ports", default=8)
+    iterations = request.config.getoption("--switchover_iterations", default=100)
+    num_ports = request.config.getoption("--switchover_num_ports", default=8)
 
     # Verify the testbed has enough active-standby MUX ports to run the bulk test.
     available_mux_ports = select_test_mux_ports(cable_type, num_ports)
@@ -323,21 +323,46 @@ def test_tor_switchover_impact_bulk(request,                                    
     # Place initial markers before any toggling begins.
     markers = {label: la.init() for label, la in analyzers.items()}
 
-    duthost = upper_tor_host
+    # Randomly pick one ToR to issue mux toggle commands from.
+    duthost = random.choice([upper_tor_host, lower_tor_host])
+    logging.info("test_tor_switchover_impact_bulk: using %s as duthost", duthost.hostname)
     port_pool = available_mux_ports[:num_ports]
     port_states = {port: True for port in port_pool}  # True = active, False = standby
     duthost.shell("sudo config muxcable mode active all")
-    time.sleep(10)
+    for p in port_pool:
+        wait_for_mux_state(duthost, p, 'active')
 
-    for i in range(1, iterations + 1):
-        ports_to_standby = [p for p in port_pool if port_states[p]]
-        ports_to_active = [p for p in port_pool if not port_states[p]]
+    try:
+        for i in range(1, iterations + 1):
+            # Toggle all ports each iteration, alternating between standby and active
+            # based on their current tracked state.
+            ports_to_standby = [p for p in port_pool if port_states[p]]
+            ports_to_active = [p for p in port_pool if not port_states[p]]
 
-        for p in ports_to_standby:
-            set_mux_state(duthost, p, 'standby')
-            port_states[p] = False
-        for p in ports_to_active:
-            set_mux_state(duthost, p, 'active')
-            port_states[p] = True
+            logging.info(
+                "test_tor_switchover_impact_bulk: iteration %d/%d, toggling to standby: %s, to active: %s",
+                i, iterations, ports_to_standby, ports_to_active
+            )
 
-        check_syslog_errors()
+            for p in ports_to_standby:
+                set_mux_state(duthost, p, 'standby')
+                wait_for_mux_state(duthost, p, 'standby')
+                port_states[p] = False
+            for p in ports_to_active:
+                set_mux_state(duthost, p, 'active')
+                wait_for_mux_state(duthost, p, 'active')
+                port_states[p] = True
+
+            check_syslog_errors()
+    finally:
+        # Restore all ports to active before releasing to auto to ensure
+        # a clean testbed state even if the test failed mid-iteration.
+        logging.info("test_tor_switchover_impact_bulk: restoring all ports to active")
+        duthost.shell("sudo config muxcable mode active all")
+        for p in port_pool:
+            try:
+                wait_for_mux_state(duthost, p, 'active')
+            except Exception as e:
+                logging.warning("test_tor_switchover_impact_bulk: port %s did not reach active during cleanup: %s",
+                                p, e)
+        duthost.shell("sudo config muxcable mode auto all")

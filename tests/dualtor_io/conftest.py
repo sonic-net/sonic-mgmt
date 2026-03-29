@@ -14,6 +14,10 @@ def pytest_configure(config):
     )
 
     config.addinivalue_line(
+        "markers", "skip_active_active: mark test to skip running with 'active_active' ports"
+    )
+
+    config.addinivalue_line(
         "markers", "last: mark fixture to run last"
     )
 
@@ -28,10 +32,10 @@ def pytest_addoption(parser):
     dual_tor_io_group.addoption("--enable_switchover_impact_test", action="store_true", default=False,
                                 help="Enable switchover impact test to be run.")
 
-    dual_tor_io_group.addoption("--iterations", type=int, default=100,
+    dual_tor_io_group.addoption("--switchover_iterations", type=int, default=100,
                                 help="Number of iterations to run for switchover impact tests (default: 100).")
 
-    dual_tor_io_group.addoption("--num_ports", type=int, default=8,
+    dual_tor_io_group.addoption("--switchover_num_ports", type=int, default=8,
                                 help="Number of MUX ports to use in the bulk switchover impact test (default: 8).")
 
 
