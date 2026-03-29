@@ -299,6 +299,16 @@ def test_aggregate_persists_warm_reboot(
     bbr_enabled = is_bbr_enabled(duthost)
     cfg = AggregateCfg(prefix=AGGR_V4, bbr_required=False, summary_only=False, as_set=False)
 
+    # On KVM/VS the warm-reboot script's 1 s docker-exec health check is too
+    # tight, causing fpmsyncd/orchagent crashes.  Apply the same timeout bump
+    # that AdvancedReboot uses (tests/common/fixtures/advanced_reboot.py).
+    if duthost.facts.get("platform") == "x86_64-kvm_x86_64-r0":
+        warmboot_script = duthost.shell("which warm-reboot")["stdout"].strip()
+        cmd_format = "sed -i 's/{}/{}/' {}"
+        original_line = 'timeout 1s docker exec $container echo "success"'
+        replaced_line = 'timeout 5s docker exec $container echo "success"'
+        duthost.shell(cmd_format.format(original_line, replaced_line, warmboot_script))
+
     try:
         gcu_add_aggregate(duthost, cfg)
         duthost.shell("sudo config save -y")
