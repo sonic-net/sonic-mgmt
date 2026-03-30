@@ -78,7 +78,6 @@ str-nh5010-ut2-2,10.3.152.67/26,NH-5010-F-O64,DevSonic,sonic
 console-185,10.3.145.185,Cisco,ConsoleServer,ssh
 console-194,10.3.145.194,Cisco,ConsoleServer,ssh
 console-201,10.3.145.201,Cisco,ConsoleServer,ssh
-console-212,10.3.145.212,Cisco,ConsoleServer,ssh
 pdu-85,10.3.154.84,ApcRPDU,Pdu,snmp
 pdu-86,10.3.154.85,ApcRPDU,Pdu,snmp
 pdu-88,10.3.154.86,ApcRPDU,Pdu,snmp
