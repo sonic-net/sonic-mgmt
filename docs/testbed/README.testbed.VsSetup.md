@@ -21,8 +21,6 @@ First, we need to prepare the host where we will be configuring the virtual test
    2. Option : If your host is **Ubuntu 18.04**
         ```
         sudo apt install python python-pip openssh-server
-        # v0.3.10 Jinja2 is required, lower version may cause uncompatible issue
-        sudo pip install j2cli==0.3.10
         ```
 
 3. Run the host setup script to install required packages and initialize the management bridge network
@@ -186,7 +184,7 @@ cd sonic-mgmt
 You can enter your sonic-mgmt container with the following command:
 
 ```
-docker exec -it <container name> bash
+docker exec --user $USER -it <container name> bash
 ```
 
 You will find your sonic-mgmt directory mounted at `/data/sonic-mgmt`:

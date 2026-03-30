@@ -6,15 +6,12 @@ declare -r SCRIPT_DIR="$(dirname "${SCRIPT_PATH}")"
 
 declare -r DOCKER_REGISTRY="sonicdev-microsoft.azurecr.io:443"
 declare -r DOCKER_SONIC_MGMT="docker-sonic-mgmt:latest"
-declare -r LOCAL_IMAGE_NAME="docker-sonic-mgmt-$(echo "${USER}" | tr '[:upper:]' '[:lower:]')"
-declare -r LOCAL_IMAGE_TAG="master"
-declare -r LOCAL_IMAGE="${LOCAL_IMAGE_NAME}:${LOCAL_IMAGE_TAG}"
 
 declare -r ROOT_PASS="root"
 declare -r USER_PASS="12345"
 
 declare -r HOST_DGNAME="docker"
-declare -r HOST_DGID="$(getent group | grep docker | awk -F: '{print $3}')"
+declare -r HOST_DGID="$(getent group docker | awk -F: '{print $3}')"
 
 declare -r HOST_GID="$(id -g)"
 declare -r HOST_UID="$(id -u)"
@@ -49,6 +46,7 @@ PUBLISH_PORTS=""
 FORCE_REMOVAL="${NO_PARAM}"
 VERBOSE_LEVEL="${VERBOSE_MIN}"
 SILENT_HOOK="&> /dev/null"
+ENABLE_DEBUG=0
 
 # Sonic-mgmt remote debug feature
 DEBUG_PORT_START_RANGE=50000
@@ -108,8 +106,7 @@ function show_help_and_exit() {
     echo "  -i <image_id>        specify Docker image to use. This can be an image ID (hashed value) or an image name."
     echo "                       If no value is provided, defaults to the following images in the specified order:"
     echo "                         1. The local image named \"docker-sonic-mgmt\""
-    echo "                         2. The local image named \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\""
-    echo "                         3. The remote image at \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt\""
+    echo "                         2. The remote image at \"sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:latest\""
     echo "  -d <directory>       specify directory inside container to bind mount to sonic-mgmt root (default: \"/var/src\")"
     echo "  -m <mount_point>     specify directory to bind mount to container"
     echo "  -p <port>            publish container port to the host"
@@ -132,18 +129,16 @@ function show_help_and_exit() {
 }
 
 function show_local_container_login() {
-    CONTAINER_EXEC_CMD="docker exec --user root \"${CONTAINER_NAME}\""
-    CONTAINER_INTF_CMD="bash -c \"ip -4 route ls | grep 'default' | grep -Po '(?<=dev )(\S+)'\""
-    CONTAINER_INTF="$(eval "${CONTAINER_EXEC_CMD} ${CONTAINER_INTF_CMD}")"
-    CONTAINER_IPV4_CMD="bash -c \"ip -4 addr show dev \"${CONTAINER_INTF}\" | grep 'inet' | awk '{print \\\$2}' | cut -d'/' -f1\""
-    CONTAINER_IPV4="$(eval "${CONTAINER_EXEC_CMD} ${CONTAINER_IPV4_CMD}")"
+    local CONTAINER_IPV4
+    CONTAINER_IPV4="$(docker exec --user root "${CONTAINER_NAME}" \
+        bash -c "ip -4 route get 1 | grep -Po '(?<=src )(\S+)'")"
 
     echo "******************************************************************************"
     echo "EXEC: docker exec --user ${USER} -ti ${CONTAINER_NAME} bash"
     echo "SSH:  ssh -i ~/.ssh/id_ed25519_docker_sonic_mgmt ${USER}@${CONTAINER_IPV4}"
     echo "******************************************************************************"
 
-    if [[ -n ${SELECTED_DEBUG_PORT} ]]; then
+    if [[ -n "${SELECTED_DEBUG_PORT}" ]]; then
         echo
         echo "*********************************[IMPORTANT]*********************************"
         echo "DEBUG PORT: $SELECTED_DEBUG_PORT"
@@ -156,12 +151,9 @@ function show_local_container_login() {
 
 function pull_sonic_mgmt_docker_image() {
     if [[ -z "${IMAGE_ID}" ]]; then
-        DOCKER_IMAGES_CMD="docker images --format \"{{.Repository}}:{{.Tag}}\""
-        DOCKER_PULL_CMD="docker pull \"${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}\""
-
-        if eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_SONIC_MGMT}$"; then
+        if docker image inspect "${DOCKER_SONIC_MGMT}" &> /dev/null; then
             IMAGE_ID="${DOCKER_SONIC_MGMT}"
-        elif log_info "pulling docker image from a registry ..." && eval "${DOCKER_PULL_CMD}"; then
+        elif log_info "pulling docker image from a registry ..." && docker pull "${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"; then
             IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
         else
             exit_failure "unable to find a usable default docker image, please specify one manually"
@@ -171,10 +163,11 @@ function pull_sonic_mgmt_docker_image() {
     fi
 }
 
-function setup_local_image() {
-    AUTHKEY_FILE="${HOME}/.ssh/authorized_keys"
-    PRIVKEY_FILE="${HOME}/.ssh/id_ed25519_docker_sonic_mgmt"
-    PUBKEY_FILE="${HOME}/.ssh/id_ed25519_docker_sonic_mgmt.pub"
+PRIVKEY_FILE="${HOME}/.ssh/id_ed25519_docker_sonic_mgmt"
+PUBKEY_FILE="${HOME}/.ssh/id_ed25519_docker_sonic_mgmt.pub"
+
+function generate_ssh_keys() {
+    local AUTHKEY_FILE="${HOME}/.ssh/authorized_keys"
 
     if [[ ! -f "${PRIVKEY_FILE}" ]]; then
         log_info "generate SSH key pair: $(basename "${PRIVKEY_FILE}")/$(basename "${PUBKEY_FILE}")"
@@ -190,170 +183,127 @@ function setup_local_image() {
         grep -q "${SSH_PUBKEY}" "${AUTHKEY_FILE}" || echo "${SSH_PUBKEY}" >> "${AUTHKEY_FILE}"
     else
         echo "${SSH_PUBKEY}" > "${AUTHKEY_FILE}"
-        chmod 0644 "${AUTHKEY_FILE}"
+        chmod 0600 "${AUTHKEY_FILE}"
     fi
+}
 
-    TMP_DIR="$(mktemp -d)"
-    log_info "setup a temporary dir: ${TMP_DIR}"
+function configure_container_user() {
+    log_info "configuring user ${USER} inside container ..."
 
-    log_info "copy SSH key pair: $(basename "${PRIVKEY_FILE}")/$(basename "${PUBKEY_FILE}")"
-    eval "cp -fv \"${PRIVKEY_FILE}\" \"${TMP_DIR}/id_ed25519\" ${SILENT_HOOK}"
-    eval "cp -fv \"${PUBKEY_FILE}\" \"${TMP_DIR}/id_ed25519.pub\" ${SILENT_HOOK}"
+    # Write setup script to a temp file; host-side variables are substituted by the heredoc.
+    # Variables that must survive as literals inside the container (e.g. loop vars, sed anchors)
+    # are escaped with \$ so they reach the container shell unexpanded.
+    local TMP_SETUP
+    TMP_SETUP="$(mktemp)"
+    trap "rm -f '${TMP_SETUP}'" RETURN
+    cat > "${TMP_SETUP}" << SETUP_EOF
+#!/bin/bash
+set -e
 
-    log_info "prepare a Dockerfile template: ${TMP_DIR}/Dockerfile.j2"
-    cat <<'EOF' > "${TMP_DIR}/Dockerfile.j2"
-FROM {{ IMAGE_ID }}
+# Remove default ubuntu user if present (Ubuntu 24.04)
+getent passwd ubuntu && userdel -r ubuntu || true
 
-USER root
-
-# Remove possible default ubuntu user of Ubuntu 24.04
-RUN if getent passwd ubuntu; \
-then userdel -r ubuntu; \
-fi
-
-# Group configuration
-RUN if getent group {{ GROUP_NAME }}; \
-then groupmod -o -g {{ GROUP_ID }} {{ GROUP_NAME }}; \
-else groupadd -o -g {{ GROUP_ID }} {{ GROUP_NAME }}; \
+# Group configuration: reuse whichever group already owns the host GID, or create a new one.
+# This avoids groupmod/groupadd failures from duplicate GIDs (e.g. systemd-network sharing a GID).
+user_group=\$(getent group ${HOST_GID} | awk -F: '{print \$1}')
+if [ -z "\$user_group" ]; then
+    if getent group ${USER}; then
+        groupmod -g ${HOST_GID} ${USER}
+    else
+        groupadd -g ${HOST_GID} ${USER}
+    fi
+    user_group=${USER}
 fi
 
 # User configuration
-RUN if getent passwd {{ USER_NAME }}; \
-# Usermod will hang when user_id is large (https://github.com/moby/moby/issues/5419), and it can not work around this issue itself.
-# So, we first delete the user and use `useradd -l` to work around this issue.
-#then usermod -o -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} {{ USER_NAME }}; \
-then userdel {{ USER_NAME }}; \
+# useradd -l works around https://github.com/moby/moby/issues/5419 for large UIDs
+if getent passwd ${USER}; then
+    userdel ${USER}
 fi
-RUN useradd -o -l -g {{ GROUP_ID }} -u {{ USER_ID }} -m -d /home/{{ USER_NAME }} -s /bin/bash {{ USER_NAME }};
+useradd -o -l -g "\$user_group" -u ${HOST_UID} -m -d /home/${USER} -s /bin/bash ${USER}
 
-# Docker configuration
-RUN if getent group {{ DGROUP_NAME }}; \
-then groupmod -o -g {{ DGROUP_ID }} {{ DGROUP_NAME }}; \
-else groupadd -o -g {{ DGROUP_ID }} {{ DGROUP_NAME }}; \
+# Docker socket access: find the group owning the host docker GID, or create it.
+# Using the existing group (regardless of name) is safe since socket access depends on GID only.
+docker_group=\$(getent group ${HOST_DGID} | awk -F: '{print \$1}')
+if [ -z "\$docker_group" ]; then
+    if getent group ${HOST_DGNAME}; then
+        groupmod -g ${HOST_DGID} ${HOST_DGNAME}
+    else
+        groupadd -g ${HOST_DGID} ${HOST_DGNAME}
+    fi
+    docker_group=${HOST_DGNAME}
 fi
 
-# Environment configuration, skip python virtual environments
-RUN if [ '{{ USER_NAME }}' != 'AzDevOps' ]; then \
-/bin/bash -O extglob -c 'cp -a -f /var/AzDevOps/!(env-*) /home/{{ USER_NAME }}/'; \
-for hidden_stuff in '.profile .local .ssh'; do \
-/bin/bash -c 'cp -a -f /var/AzDevOps/$hidden_stuff /home/{{ USER_NAME }}/ || true'; done \
+# Copy AzDevOps environment baseline (skip python virtual envs)
+if [ '${USER}' != 'AzDevOps' ]; then
+    /bin/bash -O extglob -c 'cp -a -f /var/AzDevOps/!(env-*) /home/${USER}/ 2>/dev/null || true'
+    for hidden_stuff in .profile .local .ssh; do
+        cp -a -f "/var/AzDevOps/\${hidden_stuff}" /home/${USER}/ 2>/dev/null || true
+    done
 fi
 
 # Permissions configuration
-RUN usermod -a -G sudo {{ USER_NAME }}
-RUN usermod -a -G {{ DGROUP_NAME }} {{ USER_NAME }}
-RUN echo '{{ USER_NAME }} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/{{ USER_NAME }}
-RUN chmod 0440 /etc/sudoers.d/{{ USER_NAME }}
-RUN chown -R '{{ USER_ID }}:{{ GROUP_ID }}' /home/{{ USER_NAME }}
+usermod -a -G sudo ${USER}
+usermod -a -G "\$docker_group" ${USER}
+echo '${USER} ALL=(ALL) NOPASSWD:ALL' > /etc/sudoers.d/${USER}
+chmod 0440 /etc/sudoers.d/${USER}
+chown -R ${HOST_UID}:${HOST_GID} /home/${USER}
 
-# SSH/PASS configuration
-RUN sed -i -E 's/^#?PermitRootLogin.*$/PermitRootLogin yes/g' /etc/ssh/sshd_config
-RUN echo 'root:{{ ROOT_PASS }}' | chpasswd
-RUN echo '{{ USER_NAME }}:{{ USER_PASS }}' | chpasswd
+# SSH/password configuration
+sed -i -E 's/^#?PermitRootLogin.*\$/PermitRootLogin yes/g' /etc/ssh/sshd_config
+echo 'root:${ROOT_PASS}' | chpasswd
+echo '${USER}:${USER_PASS}' | chpasswd
 
-USER {{ USER_NAME }}
+# SSH key setup
+mkdir -p /home/${USER}/.ssh
+cat /tmp/ssh_pubkey_to_add >> /home/${USER}/.ssh/authorized_keys
+mv /tmp/id_ed25519 /home/${USER}/.ssh/id_ed25519
+mv /tmp/id_ed25519.pub /home/${USER}/.ssh/id_ed25519.pub
+chmod 0700 /home/${USER}/.ssh
+chmod 0600 /home/${USER}/.ssh/id_ed25519
+chmod 0644 /home/${USER}/.ssh/id_ed25519.pub
+chmod 0600 /home/${USER}/.ssh/authorized_keys
+chown -R ${HOST_UID}:${HOST_GID} /home/${USER}/.ssh
+SETUP_EOF
 
-ENV HOME=/home/{{ USER_NAME }}
-ENV USER={{ USER_NAME }}
+    docker cp "${TMP_SETUP}" "${CONTAINER_NAME}:/tmp/setup_user.sh"
+    docker cp "${PRIVKEY_FILE}" "${CONTAINER_NAME}:/tmp/id_ed25519"
+    docker cp "${PUBKEY_FILE}" "${CONTAINER_NAME}:/tmp/id_ed25519.pub"
+    echo "${SSH_PUBKEY}" | docker exec -i --user root "${CONTAINER_NAME}" tee /tmp/ssh_pubkey_to_add > /dev/null
+    rm -f "${TMP_SETUP}"
+    trap - RETURN
 
-# Passwordless SSH access
-COPY --chown={{ USER_ID }}:{{ GROUP_ID }} id_ed25519 id_ed25519.pub ${HOME}/.ssh/
-RUN chmod 0700 ${HOME}/.ssh
-RUN chmod 0600 ${HOME}/.ssh/id_ed25519
-RUN chmod 0644 ${HOME}/.ssh/id_ed25519.pub
-RUN cat ${HOME}/.ssh/id_ed25519.pub >> ${HOME}/.ssh/authorized_keys
-RUN chmod 0600 ${HOME}/.ssh/authorized_keys
+    eval "docker exec --user root \"${CONTAINER_NAME}\" bash /tmp/setup_user.sh ${SILENT_HOOK}" || \
+        exit_failure "failed to configure user in container"
 
-WORKDIR ${HOME}
-
-# Setup python3 virtual env if some conditions are met:
-# 1. pytest is not globally installed. If pytest is gloablly installed, this assumes that all the packages in
-#    the python3 virtual env are installed globally. No need to create python3 virtual env.
-# 2. The user is not AzDevOps. By default python3 virtual env is installed for AzDevOps user.
-#    No need to install it again when current user is AzDevOps.
-# 3. The python3 virtual env is not installed for AzDevOps. Then, it is not required for other users either.
-# As of 2025, python3 is installed globally in the docker-sonic-mgmt image. So, this step is not really required.
-# Adjust the conditions to fail faster to skip this step.
-RUN if [ -d /var/AzDevOps/env-python3 ] \
- && [ '{{ USER_NAME }}' != 'AzDevOps' ] \
- && ! pip3 list | grep -c pytest >/dev/null; then \
-/bin/bash -c 'python3 -m venv ${HOME}/env-python3'; \
-/bin/bash -c '${HOME}/env-python3/bin/pip install pip --upgrade'; \
-/bin/bash -c '${HOME}/env-python3/bin/pip install wheel'; \
-/bin/bash -c '${HOME}/env-python3/bin/pip install $(/var/AzDevOps/env-python3/bin/pip freeze | grep -vE "distro|PyGObject|python-apt|unattended-upgrades|dbus-python")'; \
-fi
-
-# Remote debug port setup
-{% if SONIC_MGMT_DEBUG_PORT %}
-ENV SONIC_MGMT_DEBUG_PORT={{ SONIC_MGMT_DEBUG_PORT }}
-{% endif %}
-EOF
-
-    log_info "prepare an environment file: ${TMP_DIR}/data.env"
-    cat <<EOF > "${TMP_DIR}/data.env"
-IMAGE_ID=${IMAGE_ID}
-DGROUP_NAME=${HOST_DGNAME}
-DGROUP_ID=${HOST_DGID}
-GROUP_ID=${HOST_GID}
-USER_ID=${HOST_UID}
-GROUP_NAME=${USER}
-USER_NAME=${USER}
-USER_PASS=${USER_PASS}
-ROOT_PASS=${ROOT_PASS}
-SONIC_MGMT_DEBUG_PORT=${SELECTED_DEBUG_PORT}
-EOF
-
-    log_info "generate a Dockerfile: ${TMP_DIR}/Dockerfile"
-    j2 -o "${TMP_DIR}/Dockerfile" "${TMP_DIR}/Dockerfile.j2" "${TMP_DIR}/data.env" || \
-    log_error "failed to generate a Dockerfile: ${TMP_DIR}/Dockerfile"
-
-    log_info "building docker image from ${TMP_DIR}: ${LOCAL_IMAGE} ..."
-    build_args=""
-    if [[ -n ${http_proxy} ]]; then
-        build_args="--build-arg http_proxy=${http_proxy}"
-    fi
-    if [[ -n ${https_proxy} ]]; then
-        build_args="${build_args} --build-arg https_proxy=${https_proxy}"
-    fi
-    eval "docker build -t \"${LOCAL_IMAGE}\" \"${TMP_DIR}\" ${SILENT_HOOK} ${build_args}" || \
-    log_error "failed to build docker image: ${LOCAL_IMAGE}"
-
-    log_info "cleanup a temporary dir: ${TMP_DIR}"
-    rm -rf "${TMP_DIR}"
-
-    if ! docker images --format "{{.Repository}}:{{.Tag}}" | grep -q "^${LOCAL_IMAGE}$"; then
-        exit_failure "failed to build docker image: ${LOCAL_IMAGE}"
+    if [[ -n "${SELECTED_DEBUG_PORT}" ]]; then
+        eval "docker exec --user root \"${CONTAINER_NAME}\" \
+            bash -c \"echo 'export SONIC_MGMT_DEBUG_PORT=${SELECTED_DEBUG_PORT}' >> /home/${USER}/.profile\" \
+            ${SILENT_HOOK}"
     fi
 }
 
 function container_exists() {
-    container_id=`docker ps --all --filter name=^$CONTAINER_NAME\$ --format '{{.ID}}'`
-    count=`echo $container_id | wc -w`
-    return $count
+    local count
+    count=$(docker ps --all --filter "name=^${CONTAINER_NAME}$" --format '{{.ID}}' | wc -l)
+    [[ "$count" -gt 0 ]]
 }
 
 function get_existing_container() {
-    img_id=${IMAGE_ID}
-    if [ -z ${img_id} ]
-    then
-        img_id=${LOCAL_IMAGE}
-    fi
-    container_id=`docker container ls --all --filter=ancestor=${img_id} --format '{{.ID}}'`
-    count=`echo $container_id | wc -w`
+    local container_ids
+    mapfile -t container_ids < <(docker container ls --all --filter="ancestor=${IMAGE_ID}" --format '{{.ID}}')
+    local count=${#container_ids[@]}
     case $count in
         0)
             EXISTING_CONTAINER_NAME=""
             ;;
         1)
-            container_name=`docker inspect $container_id --format '{{.Name}}'`
-            if [[ $container_name == /* ]]
-            then
-                container_name="${container_name:1}"
-            fi
-            EXISTING_CONTAINER_NAME=${container_name}
+            local container_name
+            container_name=$(docker inspect "${container_ids[0]}" --format '{{.Name}}')
+            EXISTING_CONTAINER_NAME="${container_name#/}"
             ;;
         *)
-            echo "Multiple container IDs found: ${container_id}"
+            echo "Multiple container IDs found: ${container_ids[*]}"
             EXISTING_CONTAINER_NAME=""
             ;;
     esac
@@ -361,18 +311,18 @@ function get_existing_container() {
 
 function start_local_container() {
 
-    container_exists
-    local exists=$?
-    if [ $exists -eq 1 ]
+    if container_exists
     then
         log_info "starting existing container ${CONTAINER_NAME} ..."
-        docker start ${CONTAINER_NAME}
+        docker start "${CONTAINER_NAME}"
     else
         log_info "creating a container: ${CONTAINER_NAME} ..."
         eval "docker run --cap-add=SYS_PTRACE -d -t ${PUBLISH_PORTS} ${ENV_VARS} -h ${CONTAINER_NAME} \
         -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
-        --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
+        --name \"${CONTAINER_NAME}\" \"${IMAGE_ID}\" /bin/bash ${SILENT_HOOK}" || \
         exit_failure "failed to start a container: ${CONTAINER_NAME}"
+
+        configure_container_user
     fi
 
     eval "docker exec --user root \"${CONTAINER_NAME}\" \
@@ -396,8 +346,7 @@ function parse_arguments() {
 
     if [[ -z "${CONTAINER_NAME}" ]]; then
         get_existing_container
-        if [ -z $EXISTING_CONTAINER_NAME ]
-        then
+        if [[ -z "${EXISTING_CONTAINER_NAME}" ]]; then
             exit_failure "container name is not set."
         else
             exit_failure "found existing container (\"docker start $EXISTING_CONTAINER_NAME\")"
@@ -513,16 +462,12 @@ if docker ps -a --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
         eval "docker rm -f \"${CONTAINER_NAME}\" ${SILENT_HOOK}"
     else
         show_local_container_login
-        exit_success "container is already exists: ${CONTAINER_NAME}"
+        exit_success "container already exists: ${CONTAINER_NAME}"
     fi
 fi
 
-if ! which j2 &> /dev/null; then
-    exit_failure "missing Jinja2 templates support: make sure j2cli package is installed"
-fi
-
 pull_sonic_mgmt_docker_image
-setup_local_image
+generate_ssh_keys
 start_local_container
 show_local_container_login
 
