@@ -159,12 +159,12 @@ class ControlPlaneBaseTest(BaseTest):
 
         send_count = 0
         started = False
-        delayed_start_time = datetime.timedelta(seconds=5) # allow time for dut to reach steady state rate limiting
+        delayed_start_time = datetime.timedelta(seconds=5)  # allow time for dut to reach steady state rate limiting
         start_time = datetime.datetime.now() + delayed_start_time
         end_time = start_time + datetime.timedelta(seconds=self.DEFAULT_SEND_INTERVAL_SEC)
         while True:
             testutils.send_packet(self, send_intf, packet)
-            if started: # don't start counting until after the dataplane has been flushed
+            if started:  # don't start counting until after the dataplane has been flushed
                 send_count += 1
 
             if not started and datetime.datetime.now() > start_time:
@@ -188,7 +188,7 @@ class ControlPlaneBaseTest(BaseTest):
             time.sleep(1.0 / float(self.default_server_send_rate_limit_pps))
 
         recv_count = testutils.count_matched_packets_all_ports(self, packet, [recv_intf[1]], recv_intf[0],
-            self.DEFAULT_RECEIVE_WAIT_TIME)
+                                                               self.DEFAULT_RECEIVE_WAIT_TIME)
         measure_time = datetime.datetime.now()
 
         ptf_tx_count = int(post_test_ptf_tx_counter[1] - pre_test_ptf_tx_counter[1])
