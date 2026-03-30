@@ -536,63 +536,9 @@ golden_config_infra/test_config_reload_with_rendered_golden_config.py::test_rend
       - "asic_type in ['vpp']"
 
 #######################################
-#####      Iface Namingmode       #####
-#######################################
-iface_namingmode/test_iface_namingmode.py::TestShowLLDP::test_show_lldp_neighbor:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-iface_namingmode/test_iface_namingmode.py::TestShowLLDP::test_show_lldp_table:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_watermark_unicast:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-iface_namingmode/test_iface_namingmode.py::TestShowVlan::test_show_vlan_brief:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           IP                #####
 #######################################
 ip/test_mgmt_ipv6_only.py::test_ntp_ipv6_only:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
-#####         LLDP                #####
-#######################################
-lldp/test_lldp.py::test_lldp_neighbor_post_swss_reboot:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-lldp/test_lldp_syncd.py::test_lldp_entry_table_after_syncd_orchagent:
   skip:
     reason: >
             Failed/Errored: To be included
@@ -798,85 +744,22 @@ route/test_route_flow_counter.py:
 #######################################
 #####           SNMP              #####
 #######################################
-snmp/test_snmp_interfaces.py::test_snmp_interfaces_mibs:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-snmp/test_snmp_lldp.py::test_snmp_lldp:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-snmp/test_snmp_memory.py::test_snmp_memory_load:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-snmp/test_snmp_memory.py::test_snmp_swap:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
 
 snmp/test_snmp_phy_entity.py:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Not supported on virtual platform
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and platform in ['x86_64-kvm_x86_64-r0']"
 
-snmp/test_snmp_psu.py::test_snmp_numpsu:
+snmp/test_snmp_psu.py:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Not supported on virtual platform
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
-
-snmp/test_snmp_psu.py::test_snmp_psu_status:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-snmp/test_snmp_psu.py::test_snmp_queues:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-snmp/test_snmp_queue.py::test_snmp_queues:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-snmp/test_snmp_queue_counters.py::test_snmp_queue_counters:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and platform in ['x86_64-kvm_x86_64-r0']"
 
 #######################################
 #####          Stress             #####
