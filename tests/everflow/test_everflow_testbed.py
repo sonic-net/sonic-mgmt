@@ -1122,7 +1122,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         pytest_assert(
             wait_until(
                 120, 10, 0,
-                everflow_utils.validate_asic_route, remote_dut, session_prefixes[0]
+                everflow_utils.validate_asic_route, remote_dut, setup_mirror_session["session_prefixes"][0]
             )
         )
         pytest_assert(wait_until(120, 10, 0, everflow_utils.validate_acl_rules_in_asic_db, remote_dut))
@@ -1156,11 +1156,11 @@ class EverflowIPv4Tests(BaseEverflowTest):
                 valid_across_namespace=everflow_dut.is_multi_asic
             )
         finally:
-            everflow_utils.remove_route(remote_dut, session_prefixes[0],
-                                        peer_ip, setup_info[dest_port_type]["remote_namespace"])
             remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
                 "vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"",
                 setup_info[dest_port_type]["remote_namespace"]))
+            everflow_utils.remove_route(remote_dut, setup_mirror_session["session_prefixes"][0],
+                                        peer_ip, setup_info[dest_port_type]["remote_namespace"])
 
     def _run_everflow_test_scenarios(self, ptfadapter, setup, mux_config, mirror_session, duthost, rx_port,  # noqa F811
                                      tx_ports, direction, expect_recv=True, valid_across_namespace=True,
