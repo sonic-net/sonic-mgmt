@@ -520,7 +520,7 @@ def collect_results(args):
         else:
             result["status"] = FAILURE_STATUS
             result["failure_reason"] = FAILURE_RESONS.TEST_CASES_FAILED
-            rc = -1
+            rc = 2  # test cases failed, but we were able to collect results and generate report successfully
     files_to_move = [SANITY_LOG_TARBALL]
     log_url = upload_log_files_to_log_server(files_to_move)
     log.debug(log_url)
