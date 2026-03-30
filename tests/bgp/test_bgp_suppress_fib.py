@@ -1044,7 +1044,7 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
 
         with allure.step("Get route and traffic data"):
             ipv4_route_list, ipv6_route_list, traffic_data_ipv4_forward, traffic_data_ipv6_forward, \
-            traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
+                traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
 
         with allure.step("Config bgp suppress-fib-pending function"):
             config_bgp_suppress_fib(duthost_down)
@@ -1174,7 +1174,7 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
 
     with allure.step("Get route and traffic data"):
         ipv4_route_list, ipv6_route_list, traffic_data_ipv4_forward, traffic_data_ipv6_forward, \
-        traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
+            traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
 
     for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
         try:
