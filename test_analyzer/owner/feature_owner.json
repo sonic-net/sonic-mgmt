@@ -1453,6 +1453,22 @@
         ]
     },
     {
+        "feature": "saitests",
+        "owner": "Xu Chen",
+        "email": "xuchen3@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "saitests.mock.it.test_headroom_pool_probing",
+                    "saitests.mock.it.test_ingress_drop_probing",
+                    "saitests.mock.it.test_pfc_xoff_probing"
+                ],
+                "owner": "Xu Chen",
+                "email": "xuchen3@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "smartswitch",
         "owner": "Vasundhara Volam",
         "email": "vvolam@microsoft.com",
