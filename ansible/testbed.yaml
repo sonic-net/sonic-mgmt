@@ -5723,3 +5723,20 @@
   inv_name: str
   auto_recover: 'True'
   comment: v-shankam
+
+- conf-name: ptp-robot-sn2700-1
+  group-name:
+  topo: ptp-32
+  robot_server: str43-3po-robot
+  robot_id: 2
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - 3pos-sn2700-e11-34
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-shankam

@@ -927,3 +927,11 @@ str43-3po-robot-7060,Ethernet40,str43-3po-robot-7060,Ethernet32,100000,,Access,o
 str43-3po-robot-7060,Ethernet56,str43-3po-robot-7060,Ethernet48,100000,,Access,off
 str43-3po-robot-7060,Ethernet72,str43-3po-robot-7060,Ethernet64,100000,,Access,off
 str43-3po-robot-7060,Ethernet88,str43-3po-robot-7060,Ethernet80,100000,,Access,off
+3pos-sn2700-e11-34,Ethernet24,3pos-sn2700-e11-34,Ethernet48,100000,,Access,off
+3pos-sn2700-e11-34,Ethernet32,3pos-sn2700-e11-34,Ethernet56,100000,,Access,off
+3pos-sn2700-e11-34,Ethernet64,3pos-sn2700-e11-34,Ethernet72,100000,,Access,off
+3pos-sn2700-e11-34,Ethernet88,3pos-sn2700-e11-34,Ethernet96,100000,,Access,off
+3pos-sn2700-e11-34,Ethernet48,3pos-sn2700-e11-34,Ethernet24,100000,,Access,off
+3pos-sn2700-e11-34,Ethernet56,3pos-sn2700-e11-34,Ethernet32,100000,,Access,off
+3pos-sn2700-e11-34,Ethernet72,3pos-sn2700-e11-34,Ethernet64,100000,,Access,off
+3pos-sn2700-e11-34,Ethernet96,3pos-sn2700-e11-34,Ethernet88,100000,,Access,off

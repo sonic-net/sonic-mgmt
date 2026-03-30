@@ -336,6 +336,27 @@ sonic_mlnx_40:
         "0x2A": "128"
         "0x2B": "Mellanox"
         "0xFE": "0xA394E79E"
+    3pos-sn2700-e11-34:
+      hwsku: Mellanox-SN2700
+      ansible_host: 10.3.150.206
+      ansible_hostv6: 2a01:111:e210:87::a03:96ce
+      mgmt_subnet_mask_length: 27
+      mgmt_subnet_v6_mask_length: 64
+      model: MSN2700-CS2ROS
+      serial: MT2306T005KE
+      base_mac: 9C:05:91:63:B6:C0
+      syseeprom_info:
+        "0x21": "MSN2700"
+        "0x22": "MSN2700-CS2R2OS"
+        "0x23": "MT2306T005KE"
+        "0x24": "9C:05:91:63:B6:C0"
+        "0x25": "02/13/2023 04:59:25"
+        "0x26": "18"
+        "0x28": "x86_64-mlnx_msn2700-r0"
+        "0x29": "2021.05-5.3.0008-9600"
+        "0x2A": "128"
+        "0x2B": "Mellanox"
+        "0xFE": "0xA717CE6B"
   vars:
     hwsku: Mellanox-SN2700
     iface_speed: 100000
