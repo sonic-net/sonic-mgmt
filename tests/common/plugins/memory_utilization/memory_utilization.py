@@ -344,7 +344,7 @@ class MemoryMonitor:
             )
 
         asic_type = self.ansible_host.facts['asic_type']
-        if asic_type == "vs":
+        if asic_type == "vs" or (asic_type == "vpp" and name == "free"):
             logger.warning(message)
         else:
             logger.error(message)
