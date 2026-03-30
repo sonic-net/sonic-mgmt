@@ -72,6 +72,7 @@ def setup_topo():
     for r in test_info['stream_rates']:
         test_info['gbps_table'].append((calc_gbps(r[0]), calc_gbps(r[1])))
 
+    stream_api.init_qos_on_dut(test_info['dut'])
     common_util.cleanup_ip_interfaces(test_info['dut'])
     stream_api.config_one_leaf(tb_dict, test_info)
     st.log("setup topology Done")
@@ -185,8 +186,7 @@ def get_scheduler_cfg(tc):
         test_info['dwrr_wt'], new_name, new_name, test_info['dut_if'], tc)
 
 def apply_dwrr(tc_pair):
-    stream_api.init_qos_on_dut(test_info['dut'])
-    test_info['cfg'] = ''
+    test_info['cfg'] = 'config qos reload\n'
     get_scheduler_cfg(tc_pair[0])
     if tc_pair[0] != tc_pair[1]:
         get_scheduler_cfg(tc_pair[1])

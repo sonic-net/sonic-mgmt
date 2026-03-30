@@ -183,7 +183,7 @@ def build_tc_to_pg_map(tc_list):
         pg_map[int(tc)] = str(idx + 1)     # PG 1, 2, 3 ...
     return pg_map
 
-def set_tc_to_pg_map(dut, pg_map, map_name='AZURE'):
+def configure_tc_to_pg_map(dut, pg_map, map_name='AZURE'):
     """
     Set the router's TC-to-Priority-Group map using CLI.
     
@@ -255,10 +255,17 @@ def init_qos_on_dut(dut, tc_list=[3, 4]):
     if len(pg_map_cache) == 0:
         pg_map_cache = build_tc_to_pg_map(tc_list)
     st.config(dut, "config qos reload", skip_error_check=True)
-    set_tc_to_pg_map(dut, pg_map_cache)
-    tgen_handle,_ = tgapi.get_handle_byname('T1D3P1')
+    if tgen_handle is None:
+        tgen_handle,_ = tgapi.get_handle_byname('T1D3P1')
+    if leaf is None:
+        return
 
-    return 0
+    for i in range(1, 5):
+        key = f'T1{leaf}P{i}'
+        if not hasattr(vars, key):
+            break
+        _,port_handle = tgapi.get_handle_byname(key)
+        _configure_pfc_raw(port_handle)
 
 def _wait_for_vport_link_up(ixnet, vport, port_handle, timeout=30):
     """Poll vport state until the link is up or timeout expires."""
@@ -272,12 +279,10 @@ def _wait_for_vport_link_up(ixnet, vport, port_handle, timeout=30):
              f"(state={state})")
     return False
 
-def _configure_pfc_raw(port_handle, tc):
+def _configure_pfc_raw(port_handle):
     """Enable PFC/FCoE on a port using the raw ixnet API."""
-    pg_map = ['-1'] * 8
-    pg_map[tc] = pg_map_cache[tc]
     st.log(f"Configuring PFC via raw ixnet on port {port_handle} "
-           f"with pg_map={pg_map}")
+           f"with pg_map={pg_map_cache}")
     ixiangpf = ixia_handle()
     ixnet = ixiangpf.ixnet
     root = ixnet.getRoot()
@@ -300,7 +305,7 @@ def _configure_pfc_raw(port_handle, tc):
         '-flowControlType', 'ieee802.1Qbb',
         '-enablePFCPauseDelay', 'false',
         '-pfcPauseDelay', '1',
-        '-pfcQueueGroups', pg_map,
+        '-pfcQueueGroups', pg_map_cache,
         '-pfcQueueGroupSize', 'pfcQueueGroupSize-4'
     )
     ixnet.commit()
@@ -690,8 +695,7 @@ def dealloc_tgen_ip(ip_str):
 
 def set_pfc_priority_group(tg_handle, traffic_result, tc):
     """Set the PFC queue field in the Ethernet header of a traffic item."""
-    pg_map = build_tc_to_pg_map(lossless)
-    pg_value = int(pg_map[int(tc)])
+    pg_value = int(pg_map_cache[int(tc)])
     ethernet_stack = traffic_result[traffic_result['traffic_item']]['headers'].split()[0]
     tg_handle.tg_traffic_config(
         mode='set_field_values',
@@ -716,10 +720,6 @@ def create_traffic_stream(tb_dict, tgen_src_port, tgen_dst_port, frame_size, pps
     dst_dut, d_key = parse_tgen_port(tb_dict, tgen_dst_port)
     _, src_port_h = tgapi.get_handle_byname(tgen_src_port)
     _, dst_port_h = tgapi.get_handle_byname(tgen_dst_port)
-
-    # Configure PFC/FCoE on both ports (idempotent via _pfc_configured_ports)
-    _configure_pfc_raw(src_port_h, tc)
-    _configure_pfc_raw(dst_port_h, tc)
 
     # tgen_src_port is like 'T1D2P1'
     src_leaf_port = tb_dict[s_key]
@@ -843,6 +843,12 @@ def collect_traffic_stream_stats():
 
 def clear_all_stats():
     tgen_handle.tg_traffic_control(action='clear_stats')
+
+def modify_stream_rate(stream_info, gbps, frame_size=1350):
+    """Modify the rate of an existing traffic stream in-place."""
+    pps = gbps_to_pps(gbps, frame_size)
+    tgen_handle.tg_traffic_config(mode='modify',
+        stream_id=stream_info['stream_id'], rate_pps=pps)
 
 # Gigabits per second to packets per second with given frame size
 def gbps_to_pps(gbps, frame_size):

@@ -124,18 +124,6 @@ def initial_setup():
     for dut in st.get_dut_names():
         stream_api.init_qos_on_dut(dut)
 
-    # Configure PFC/FCoE on IXIA-facing ports for lossless traffic
-    for leaf in ['D3', 'D4']:
-        for i in range(1, 5):
-            tgen_key = f'T1{leaf}P{i}'
-            try:
-                _, port_h = tgapi.get_handle_byname(tgen_key)
-            except Exception:
-                break
-            stream_api._configure_pfc_raw(port_h, 3)
-
-    st.wait(5)
-    
     # Set traffic parameters based on HW or SIM
     dut_type = vxlan_obj.check_hw_or_sim(st.get_dut_names()[0])
     if dut_type == "sim":

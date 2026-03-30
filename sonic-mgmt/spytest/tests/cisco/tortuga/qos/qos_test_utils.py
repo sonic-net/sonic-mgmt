@@ -539,3 +539,67 @@ def format_speed(gbps):
     if gbps >= 1000:
         return f"{gbps / 1000:.1f}Tbps"
     return f"{gbps}G"
+
+
+def dump_mid_traffic_debug(dut, interfaces, tc):
+    """
+    Dump debug info while traffic is running.
+    Shows PFC counters, queue counters, PG watermarks, and buffer PG config.
+    All output goes to the log as-is — no parsing.
+
+    Args:
+        dut: DUT handle (the leaf under test)
+        interfaces: list of interface names to check (e.g. ingress + egress ports)
+        tc: traffic class (e.g. 3)
+    """
+    st.banner(f"MID-TRAFFIC DEBUG DUMP (TC {tc})")
+
+    st.log("=== Counterpoll status ===")
+    st.show(dut, "counterpoll show", skip_tmpl=True)
+
+    st.log("=== PFC counters ===")
+    st.show(dut, "show pfc counters", skip_tmpl=True)
+    st.show(dut, "show pfc priority", skip_tmpl=True)
+
+    st.log("=== Priority-group watermark (shared) ===")
+    st.show(dut, "show priority-group watermark shared", skip_tmpl=True)
+
+    st.log("=== Priority-group watermark (headroom) ===")
+    st.show(dut, "show priority-group watermark headroom", skip_tmpl=True)
+
+    st.log("=== Priority-group drop counters ===")
+    st.show(dut, "show priority-group drop counters", skip_tmpl=True)
+
+    for intf in interfaces:
+        st.log(f"=== Queue counters: {intf} ===")
+        st.show(dut, f"show queue counters {intf}", skip_tmpl=True)
+
+    st.log("=== TC_TO_PRIORITY_GROUP_MAP|AZURE ===")
+    st.config(dut, "redis-cli -n 4 hgetall 'TC_TO_PRIORITY_GROUP_MAP|AZURE'",
+              skip_error_check=True)
+
+    st.log("=== Buffer PG config (CONFIG_DB) ===")
+    for intf in interfaces:
+        st.config(dut, f"redis-cli -n 4 hgetall 'BUFFER_PG|{intf}|3-4'",
+                  skip_error_check=True)
+
+    st.log("=== WRED profile on queues (CONFIG_DB) ===")
+    for intf in interfaces:
+        st.config(dut,
+                  f"redis-cli -n 4 keys 'QUEUE|{intf}|*'",
+                  skip_error_check=True)
+    st.config(dut, "redis-cli -n 4 keys 'WRED_PROFILE|*'",
+              skip_error_check=True)
+
+    st.log("=== Scheduler config (CONFIG_DB) ===")
+    st.config(dut, "redis-cli -n 4 keys 'SCHEDULER|*'",
+              skip_error_check=True)
+
+    st.log("=== Buffer pool usage ===")
+    st.show(dut, "show buffer_pool watermark", skip_tmpl=True,
+            skip_error_check=True)
+
+    st.log("=== PFC enable on ports (CONFIG_DB) ===")
+    for intf in interfaces:
+        st.config(dut, f"redis-cli -n 4 hgetall 'PORT_QOS_MAP|{intf}'",
+                  skip_error_check=True)

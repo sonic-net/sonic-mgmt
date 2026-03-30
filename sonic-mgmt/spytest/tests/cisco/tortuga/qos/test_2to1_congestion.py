@@ -195,19 +195,23 @@ def run_traffic_and_collect_stats(streams, duration):
 def analyze_results(streams, stats):
     """
     Analyze traffic statistics and report pass/fail for each stream.
-    
+
     For 2:1 congestion with TC3 (lossless queue):
     - PFC should be triggered to pause senders
     - Expect very low loss (<1%) due to PFC backpressure
+
+    Returns:
+        (passed, loss_info): passed is bool, loss_info is summary string
     """
     if 'traffic_item' not in stats:
         st.error("Failed to find traffic_item in stats")
-        return False
+        return False, "no traffic stats"
 
     item_stats = stats['traffic_item']
     all_passed = True
     total_tx = 0
     total_rx = 0
+    loss_parts = []
 
     st.banner("Traffic Results Summary (2:1 Congestion Test)")
 
@@ -216,6 +220,7 @@ def analyze_results(streams, stats):
         if stream_id not in item_stats:
             st.error(f"No stats found for stream {stream_id}")
             all_passed = False
+            loss_parts.append(f"{stream['src_port']}->no_stats")
             continue
 
         stream_stats = item_stats[stream_id]
@@ -225,6 +230,7 @@ def analyze_results(streams, stats):
 
         total_tx += tx_pkts
         total_rx += rx_pkts
+        loss_parts.append(f"{stream['src_port']}: {loss_percent:.2f}%")
 
         st.log(f"Stream {stream['src_port']} -> {stream['dst_port']}: "
                f"TX={tx_pkts}, RX={rx_pkts}, Loss%={loss_percent:.2f}")
@@ -240,9 +246,10 @@ def analyze_results(streams, stats):
 
     # Summary
     overall_loss = ((total_tx - total_rx) / total_tx * 100) if total_tx > 0 else 0
+    loss_info = f"Loss[{', '.join(loss_parts)}] Overall={overall_loss:.2f}%"
     st.log(f"Overall: TX={total_tx}, RX={total_rx}, Loss%={overall_loss:.2f}")
 
-    return all_passed
+    return all_passed, loss_info
 
 
 def cleanup_streams(streams):
@@ -335,23 +342,39 @@ def test_2to1_congestion_tc3():
         st.report_fail('msg', 'Failed to create all 2 traffic streams')
         return
 
+    # Ingress ports on D3 facing IXIA sources (where PFC TX happens)
+    pfc_intfs = [vars.D3T1P1, vars.D3T1P2]
+
     try:
         # Collect counters before traffic
         collect_counters("BEFORE TRAFFIC")
-        
+
+        # Snapshot PFC TX before traffic
+        pre_pfc = {intf: common_util.get_pfc_tx_count(vars.D3, intf, TRAFFIC_CLASS)
+                   for intf in pfc_intfs}
+
         # Run traffic and collect stats
         stats = run_traffic_and_collect_stats(streams, TRAFFIC_DURATION)
 
+        # Snapshot PFC TX after traffic
+        post_pfc = {intf: common_util.get_pfc_tx_count(vars.D3, intf, TRAFFIC_CLASS)
+                    for intf in pfc_intfs}
+        pfc_deltas = {intf: post_pfc[intf] - pre_pfc[intf] for intf in pfc_intfs}
+
         # Collect counters after traffic
         collect_counters("AFTER TRAFFIC")
-        
-        # Analyze results
-        passed = analyze_results(streams, stats)
 
+        # Analyze results
+        passed, loss_info = analyze_results(streams, stats)
+
+        # Build result message with PFC deltas
+        pfc_str = ' '.join(f'{intf}={pfc_deltas[intf]}' for intf in pfc_intfs)
         if passed:
-            st.report_pass('msg', '2:1 congestion test passed - PFC prevented packet loss')
+            st.report_pass('msg',
+                f'2:1 congestion test passed - {loss_info} PFC Tx: {pfc_str}')
         else:
-            st.report_fail('msg', 'One or more streams had excessive loss - PFC may not be working')
+            st.report_fail('msg',
+                f'2:1 congestion test FAILED - {loss_info} PFC Tx: {pfc_str}')
 
     except Exception as e:
         st.error(f"Test failed with exception: {e}")

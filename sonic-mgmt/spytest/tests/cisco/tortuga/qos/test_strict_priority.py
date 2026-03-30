@@ -53,6 +53,7 @@ def setup_topo():
     for r in test_info['stream_rates']:
         test_info['gbps_table'].append((calc_gbps(r[0]), calc_gbps(r[1])))
 
+    stream_api.init_qos_on_dut(test_info['dut'])
     common_util.cleanup_ip_interfaces(test_info['dut'])
     stream_api.config_one_leaf(tb_dict, test_info)
     st.log("setup topology Done")
@@ -193,8 +194,7 @@ def get_scheduler_cfg(tc):
 def apply_pir(pir):
     test_info['pir'] = (int(pir) * test_info['if_speed']) / 100.0
     test_info['pir_bytes'] = stream_api.gbps_to_bytes(test_info['pir'])
-    stream_api.init_qos_on_dut(test_info['dut'])
-    test_info['cfg'] = ''
+    test_info['cfg'] = 'config qos reload\n'
     get_scheduler_cfg(test_info['tc'][0])
     get_scheduler_cfg(test_info['tc'][1])
     st.config(test_info['dut'], test_info['cfg'], skip_tmpl=True)

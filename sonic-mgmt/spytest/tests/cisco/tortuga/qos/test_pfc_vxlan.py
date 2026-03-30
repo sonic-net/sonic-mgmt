@@ -53,12 +53,14 @@ def shutdown_links_for_congestion(nodes):
     # Shut all links to Spine1 to force traffic through Spine0
     st.log(f"Shutting down {vars.D3D2P1} on Leaf0 (to Spine1)")
     st.config(nodes['leaf0'], f"sudo config interface shutdown {vars.D3D2P1}")
-    st.log(f"Shutting down {vars.D3D2P2} on Leaf0 (to Spine1)")
-    st.config(nodes['leaf0'], f"sudo config interface shutdown {vars.D3D2P2}")
+    if hasattr(vars, 'D3D2P2'):
+        st.log(f"Shutting down {vars.D3D2P2} on Leaf0 (to Spine1)")
+        st.config(nodes['leaf0'], f"sudo config interface shutdown {vars.D3D2P2}")
     st.log(f"Shutting down {vars.D4D2P1} on Leaf1 (to Spine1)")
     st.config(nodes['leaf1'], f"sudo config interface shutdown {vars.D4D2P1}")
-    st.log(f"Shutting down {vars.D4D2P2} on Leaf1 (to Spine1)")
-    st.config(nodes['leaf1'], f"sudo config interface shutdown {vars.D4D2P2}")
+    if hasattr(vars, 'D4D2P2'):
+        st.log(f"Shutting down {vars.D4D2P2} on Leaf1 (to Spine1)")
+        st.config(nodes['leaf1'], f"sudo config interface shutdown {vars.D4D2P2}")
 
     # Shut Leaf0↔Leaf1 direct link if it exists (prevents bypassing spine)
     qos_test_utils.shutdown_leaf_to_leaf_links(nodes)
@@ -82,12 +84,14 @@ def startup_links_after_test(nodes):
     # Bring up Spine1 links
     st.log(f"Starting up {vars.D3D2P1} on Leaf0 (to Spine1)")
     st.config(nodes['leaf0'], f"sudo config interface startup {vars.D3D2P1}")
-    st.log(f"Starting up {vars.D3D2P2} on Leaf0 (to Spine1)")
-    st.config(nodes['leaf0'], f"sudo config interface startup {vars.D3D2P2}")
+    if hasattr(vars, 'D3D2P2'):
+        st.log(f"Starting up {vars.D3D2P2} on Leaf0 (to Spine1)")
+        st.config(nodes['leaf0'], f"sudo config interface startup {vars.D3D2P2}")
     st.log(f"Starting up {vars.D4D2P1} on Leaf1 (to Spine1)")
     st.config(nodes['leaf1'], f"sudo config interface startup {vars.D4D2P1}")
-    st.log(f"Starting up {vars.D4D2P2} on Leaf1 (to Spine1)")
-    st.config(nodes['leaf1'], f"sudo config interface startup {vars.D4D2P2}")
+    if hasattr(vars, 'D4D2P2'):
+        st.log(f"Starting up {vars.D4D2P2} on Leaf1 (to Spine1)")
+        st.config(nodes['leaf1'], f"sudo config interface startup {vars.D4D2P2}")
     
     st.wait(5) 
 
@@ -101,16 +105,6 @@ def initial_setup():
     st.banner("Reloading QoS configuration on all DUTs")
     for dut in st.get_dut_names():
         stream_api.init_qos_on_dut(dut)
-
-    # Configure PFC/FCoE on IXIA-facing ports for lossless traffic
-    for leaf in ['D3', 'D4']:
-        for i in range(1, 5):
-            tgen_key = f'T1{leaf}P{i}'
-            try:
-                _, port_h = tgapi.get_handle_byname(tgen_key)
-            except Exception:
-                break
-            stream_api._configure_pfc_raw(port_h, 3)
 
     if  dut_type == "sim":
         data.transmit_mode = "single_burst"
@@ -837,8 +831,12 @@ def test_pfc_vxlan_multiple_vni():
         }
         l2l = qos_test_utils.get_leaf_to_leaf_interfaces()
         expected_down = {
-            'leaf0': [vars.D3D1P2, vars.D3D2P1, vars.D3D2P2] + l2l.get('leaf0', []),
-            'leaf1': [vars.D4D1P2, vars.D4D2P1, vars.D4D2P2] + l2l.get('leaf1', [])
+            'leaf0': [vars.D3D1P2, vars.D3D2P1] + 
+                      ([vars.D3D2P2] if hasattr(vars, 'D3D2P2') else [])
+                      + l2l.get('leaf0', []),
+            'leaf1': [vars.D4D1P2, vars.D4D2P1] +
+                      ([vars.D4D2P2] if hasattr(vars, 'D4D2P2') else [])
+                      + l2l.get('leaf1', [])
         }
         qos_test_utils.verify_link_states(nodes, expected_up, expected_down)
 
@@ -1127,12 +1125,14 @@ def test_pfc_vxlan_fanin_same_egress():
         # Shut ALL Spine1 links
         st.log(f"Shutting down {vars.D3D2P1} on Leaf0 (to Spine1)")
         st.config(nodes['leaf0'], f"sudo config interface shutdown {vars.D3D2P1}")
-        st.log(f"Shutting down {vars.D3D2P2} on Leaf0 (to Spine1)")
-        st.config(nodes['leaf0'], f"sudo config interface shutdown {vars.D3D2P2}")
+        if hasattr(vars, 'D3D2P2'):
+            st.log(f"Shutting down {vars.D3D2P2} on Leaf0 (to Spine1)")
+            st.config(nodes['leaf0'], f"sudo config interface shutdown {vars.D3D2P2}")
         st.log(f"Shutting down {vars.D4D2P1} on Leaf1 (to Spine1)")
         st.config(nodes['leaf1'], f"sudo config interface shutdown {vars.D4D2P1}")
-        st.log(f"Shutting down {vars.D4D2P2} on Leaf1 (to Spine1)")
-        st.config(nodes['leaf1'], f"sudo config interface shutdown {vars.D4D2P2}")
+        if hasattr(vars, 'D4D2P2'):
+            st.log(f"Shutting down {vars.D4D2P2} on Leaf1 (to Spine1)")
+            st.config(nodes['leaf1'], f"sudo config interface shutdown {vars.D4D2P2}")
         # Shut leaf-to-leaf
         qos_test_utils.shutdown_leaf_to_leaf_links(nodes)
         st.wait(5)
@@ -1144,8 +1144,12 @@ def test_pfc_vxlan_fanin_same_egress():
         }
         l2l = qos_test_utils.get_leaf_to_leaf_interfaces()
         expected_down = {
-            'leaf0': [vars.D3D2P1, vars.D3D2P2] + l2l.get('leaf0', []),
-            'leaf1': [vars.D4D1P2, vars.D4D2P1, vars.D4D2P2] + l2l.get('leaf1', [])
+            'leaf0': [vars.D3D2P1] +
+                     ([vars.D3D2P2] if hasattr(vars, 'D3D2P2') else []) +
+                     l2l.get('leaf0', []),
+            'leaf1': [vars.D4D1P2, vars.D4D2P1] +
+                      ([vars.D4D2P2] if hasattr(vars, 'D4D2P2') else []) +
+                      l2l.get('leaf1', [])
         }
         qos_test_utils.verify_link_states(nodes, expected_up, expected_down)
 
