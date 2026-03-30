@@ -378,7 +378,7 @@ def pytest_addoption(parser):
     #################################
     #   YANG validation options     #
     #################################
-    parser.addoption("--skip_yang", action="store_true", default=False,
+    parser.addoption("--skip-yang", "--skip_yang", action="store_true", default=False,
                      help="Skip YANG validation")
 
 
@@ -3953,7 +3953,7 @@ def yang_validation_check(request, duthosts):
     """
     YANG validation check that runs before and after each test module
     """
-    skip_yang = request.config.getoption("--skip_yang")
+    skip_yang = request.config.getoption("skip_yang")
 
     if skip_yang:
         logger.info("Skipping YANG validation pre-check due to --skip_yang flag")
