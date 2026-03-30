@@ -50,7 +50,7 @@ except ImportError:
     PORT_TX_CTRL_DELAY = 2
     PFC_TRIGGER_DELAY = 2
 
-    def sai_thrift_read_port_counters(*args):
+    def sai_thrift_read_port_counters(client, asic_type, port):
         return [0] * 20, [0] * 10
 
     port_list = {"src": {}}

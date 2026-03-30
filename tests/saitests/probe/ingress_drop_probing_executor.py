@@ -60,10 +60,10 @@ except ImportError:
     INGRESS_DROP = 1
     INGRESS_PORT_BUFFER_DROP = 12
 
-    def sai_thrift_read_port_counters(*args):
+    def sai_thrift_read_port_counters(client, asic_type, port):
         return [0] * 20, [0] * 10
 
-    def sai_thrift_read_pg_drop_counters(*args):
+    def sai_thrift_read_pg_drop_counters(client, port):
         return [0] * 8
 
     port_list = {"src": {}}
