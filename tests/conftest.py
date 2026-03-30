@@ -27,7 +27,6 @@ from tests.common.devices.local import Localhost
 from tests.common.devices.ptf import PTFHost
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
-from tests.common.devices.csonic import CsonicHost
 from tests.common.devices.fanout import FanoutHost
 from tests.common.devices.k8s import K8sMasterHost
 from tests.common.devices.k8s import K8sMasterCluster
@@ -53,7 +52,8 @@ from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
 from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
-from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers
+from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers, \
+    is_pfcwd_hw_recovery_enabled
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, wait_until
@@ -119,8 +119,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.conditional_mark',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
-                  'tests.common.fixtures.duthost_utils',
-                  'tests.common.plugins.parallel_fixture')
+                  'tests.common.fixtures.duthost_utils')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
@@ -135,8 +134,6 @@ fix_logging_handler_fork_lock()
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
-    parser.addoption("--ipv6_only_mgmt", action="store_true", default=False,
-                     help="Use IPv6-only management network. DUT mgmt_ip will be set to IPv6 address.")
     parser.addoption("--uhd_config", action="store", help="Enable UHD config mode")
     parser.addoption("--save_uhd_config", action="store_true", help="Save UHD config mode")
     parser.addoption("--npu_dpu_startup", action="store_true", help="Startup NPU and DPUs and install configurations")
@@ -159,8 +156,7 @@ def pytest_addoption(parser):
                      help="Name of k8s master group used in k8s inventory, format: k8s_vms{msetnumber}_{servernumber}")
 
     # neighbor device type
-    parser.addoption("--neighbor_type", action="store", default="eos", type=str,
-                     choices=["eos", "sonic", "cisco", "csonic"],
+    parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic", "cisco"],
                      help="Neighbor devices type")
 
     # ceos neighbor lacp multiplier
@@ -178,17 +174,11 @@ def pytest_addoption(parser):
     parser.addoption('--minigraph2', action='store', type=str, help='path to the minigraph2')
 
     #####################################
-    # ha, dash, vxlan, route shared options #
+    # dash, vxlan, route shared options #
     #####################################
     parser.addoption("--skip_cleanup", action="store_true", help="Skip config cleanup after test (tests: dash, vxlan)")
     parser.addoption("--num_routes", action="store", default=None, type=int,
                      help="Number of routes (tests: route, vxlan)")
-    parser.addoption("--skip_cert_cleanup", action="store_true", help="Skip certificates cleanup after test")
-    parser.addoption("--skip_config", action="store_true", help="Don't apply configurations on DUT")
-    parser.addoption("--vxlan_udp_dport", action="store", default="random",
-                     help="The vxlan udp dst port used in the test")
-    parser.addoption("--dpu_index", action="store", default=0, type=int,
-                     help="The default dpu used for the test")
 
     ############################
     # sflow options            #
@@ -220,16 +210,12 @@ def pytest_addoption(parser):
                      help="Skip sanity check")
     parser.addoption("--skip_pre_sanity", action="store_true", default=False,
                      help="Skip pre-test sanity check")
-    parser.addoption("--enable_pre_sanity", action="store_true", default=False,
-                     help="Enable pre-test sanity check (override default skip)")
     parser.addoption("--allow_recover", action="store_true", default=False,
                      help="Allow recovery attempt in sanity check in case of failure")
     parser.addoption("--check_items", action="store", default=False,
                      help="Change (add|remove) check items in the check list")
     parser.addoption("--post_check", action="store_true", default=False,
                      help="Perform post test sanity check if sanity check is enabled")
-    parser.addoption("--skip_post_check", action="store_true", default=False,
-                     help="Skip post-test sanity check (override default enable)")
     parser.addoption("--post_check_items", action="store", default=False,
                      help="Change (add|remove) post test check items based on pre test check items")
     parser.addoption("--recover_method", action="store", default="adaptive",
@@ -329,25 +315,7 @@ def pytest_addoption(parser):
     #   SmartSwitch options    #
     ############################
     parser.addoption("--dpu-pattern", action="store", default="all", help="dpu host name")
-    parser.addoption(
-        "--ss_target_index",
-        action="store",
-        default="",
-        help="Single SmartSwitch target DPU index (e.g. 0 or 3)",
-    )
-    parser.addoption(
-        "--ss_target_indices",
-        action="store",
-        default="",
-        help="Comma-separated SmartSwitch target DPU indices for parallel tests (e.g. 0,1,2)",
-    )
-    parser.addoption(
-        "--ss-max-workers",
-        action="store",
-        type=int,
-        default=4,
-        help="Max parallel workers for SmartSwitch gNOI upgrade tests (default: 4)",
-    )
+
     ##################################
     #   Container Upgrade options    #
     ##################################
@@ -389,28 +357,6 @@ def pytest_configure(config):
             config.pluginmanager.register(MacsecPluginT2())
         else:
             config.pluginmanager.register(MacsecPluginT0())
-
-
-@pytest.fixture(scope="session")
-def ipv6_only_mgmt_enabled(request):
-    """
-    Fixture to check and configure IPv6-only management mode.
-
-    When --ipv6_only_mgmt is passed to pytest (or -6 to run_tests.sh),
-    this enables IPv6-only management mode where DUT mgmt_ip will use
-    the IPv6 address (ansible_hostv6) instead of IPv4 (ansible_host).
-
-    This fixture must be used before duthosts fixture to ensure the
-    mode is configured before SonicHost objects are created.
-
-    Returns:
-        bool: True if IPv6-only management mode is enabled, False otherwise.
-    """
-    from tests.common.devices.base import AnsibleHostBase
-
-    enabled = request.config.getoption("ipv6_only_mgmt", default=False)
-    AnsibleHostBase.set_ipv6_only_mgmt(enabled)
-    return enabled
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -535,9 +481,6 @@ def get_specified_device_info(request, device_pattern):
         return [get_target_hostname(request)]
 
     host_pattern = request.config.getoption(device_pattern)
-    # When no DPUs specified (None/"None"/empty), return [] so DPU tests skip instead of fail
-    if device_pattern == '--dpu-pattern' and (host_pattern is None or host_pattern == 'None' or host_pattern == ''):
-        return []
     if host_pattern == 'all':
         if device_pattern == '--dpu-pattern':
             testbed_duts = [dut for dut in testbed_duts if 'dpu' in dut]
@@ -589,7 +532,7 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request, ipv6_only_mgmt_enabled):
+def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param enhance_inventory: fixture to enhance the capability of parsing the value of pytest cli argument
@@ -598,7 +541,6 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request, ipv6_onl
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     @param request: pytest request object
-    @param ipv6_only_mgmt_enabled: fixture to configure IPv6-only management mode before DUT initialization
     """
     try:
         host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_duts(request),
@@ -707,6 +649,8 @@ def macsec_duthost(duthosts, tbinfo):
             if duthost.is_macsec_capable_node():
                 macsec_dut = duthost
                 break
+        if not macsec_dut:
+            pytest.skip("macsec capable dut not found, skipping tests")
     else:
         return duthosts[0]
     return macsec_dut
@@ -859,7 +803,7 @@ def ptfhost(ptfhosts):
 @pytest.fixture(scope="session")
 def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
     _hosts = []
-    if 'ptp' in tbinfo['topo']['name']:
+    if tbinfo['topo']['name'] in ['ptp', 'isolated']:
         return None
     if tbinfo['topo']['name'].startswith("nut-"):
         return None
@@ -986,15 +930,6 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         creds['cisco_login'],
                         creds['cisco_password'],
                     ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                }
-            )
-        elif neighbor_type == "csonic":
-            vm_set_name = tbinfo.get('group-name', '')
-            container_name = "csonic_{}_{}".format(vm_set_name, vm_name)
-            device = NeighborDevice(
-                {
-                    'host': CsonicHost(container_name),
                     'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
             )
@@ -1228,7 +1163,7 @@ def vmhost(vmhosts):
 def vmhosts(enhance_inventory, ansible_adhoc, request, tbinfo):
     hosts = []
     inv_files = get_inventory_files(request)
-    if 'ptp' in tbinfo['topo']['name']:
+    if tbinfo['topo']['name'] in ['ptp', 'isolated']:
         return None
     elif "servers" in tbinfo:
         for server in tbinfo["servers"].keys():
@@ -1292,7 +1227,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             action='generate',
             path="../ansible/",
             log_path=log_path,
-            dut_interfaces=servers_dut_interfaces.get(ptf_ip, '') if servers_dut_interfaces else '',
+            dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
             verbose=False
         )
         if 'topo_routes' not in res:
@@ -1419,7 +1354,7 @@ def collect_techsupport_all_duts(request, duthosts):
 @pytest.fixture
 def collect_techsupport_all_nbrs(request, nbrhosts):
     yield
-    if request.config.getoption("neighbor_type") in ("sonic", "csonic"):
+    if request.config.getoption("neighbor_type") == "sonic":
         [collect_techsupport_on_dut(request, nbrhosts[nbrhost]['host']) for nbrhost in nbrhosts]
 
 
@@ -2921,6 +2856,102 @@ def compare_running_config(pre_running_config, cur_running_config):
             return False
 
 
+def detect_bgp_schema_migration(pre_running_config, cur_running_config):
+    """
+    Detect if BGP configuration has migrated between separated and unified FRR management modes.
+
+    This function checks for three key indicators of BGP schema migration:
+    1. BGP_NEIGHBOR key format change (flat "IP" vs VRF-based "VRF|IP")
+    2. DEVICE_METADATA docker_routing_config_mode change (separated <-> unified)
+    3. New unified FRR management tables added/removed
+
+    Args:
+        pre_running_config: Configuration before test
+        cur_running_config: Configuration after test
+
+    Returns:
+        tuple: (is_migrated: bool, migration_details: dict)
+    """
+    migration_details = {
+        'bgp_neighbor_migrated': False,
+        'device_metadata_changed': False,
+        'new_bgp_tables_added': False,
+        'bgp_tables_removed': False,
+        'migration_direction': None,  # 'to_unified' or 'to_separated'
+        'new_tables': [],
+        'removed_tables': []
+    }
+
+    # Check 1: BGP_NEIGHBOR schema migration (flat <-> VRF-based)
+    if 'BGP_NEIGHBOR' in pre_running_config and 'BGP_NEIGHBOR' in cur_running_config:
+        pre_keys = list(pre_running_config['BGP_NEIGHBOR'].keys())
+        cur_keys = list(cur_running_config['BGP_NEIGHBOR'].keys())
+
+        if pre_keys and cur_keys:
+            pre_has_vrf = any('|' in key for key in pre_keys)
+            cur_has_vrf = any('|' in key for key in cur_keys)
+
+            # Detect migration direction
+            if not pre_has_vrf and cur_has_vrf:
+                migration_details['bgp_neighbor_migrated'] = True
+                migration_details['migration_direction'] = 'to_unified'
+            elif pre_has_vrf and not cur_has_vrf:
+                migration_details['bgp_neighbor_migrated'] = True
+                migration_details['migration_direction'] = 'to_separated'
+
+    # Check 2: DEVICE_METADATA docker_routing_config_mode change
+    if 'DEVICE_METADATA' in pre_running_config and 'DEVICE_METADATA' in cur_running_config:
+        pre_metadata = pre_running_config.get('DEVICE_METADATA', {}).get('localhost', {})
+        cur_metadata = cur_running_config.get('DEVICE_METADATA', {}).get('localhost', {})
+
+        pre_mode = pre_metadata.get('docker_routing_config_mode', '')
+        cur_mode = cur_metadata.get('docker_routing_config_mode', '')
+        cur_frr_mgmt = cur_metadata.get('frr_mgmt_framework_config', '')
+
+        # Detect separated -> unified migration
+        if pre_mode == 'separated' and cur_mode == 'unified' and cur_frr_mgmt == 'true':
+            migration_details['device_metadata_changed'] = True
+            if not migration_details['migration_direction']:
+                migration_details['migration_direction'] = 'to_unified'
+        # Detect unified -> separated migration
+        elif pre_mode == 'unified' and cur_mode == 'separated':
+            migration_details['device_metadata_changed'] = True
+            if not migration_details['migration_direction']:
+                migration_details['migration_direction'] = 'to_separated'
+
+    # Check 3: Unified FRR management tables added/removed
+    unified_frr_tables = [
+        'BGP_PEER_GROUP', 'BGP_PEER_GROUP_AF', 'BGP_NEIGHBOR_AF',
+        'BGP_GLOBALS', 'BGP_GLOBALS_AF_NETWORK',
+        'PREFIX', 'PREFIX_SET', 'COMMUNITY_SET',
+        'ROUTE_MAP', 'ROUTE_MAP_SET'
+    ]
+
+    for table in unified_frr_tables:
+        # Table added (separated -> unified)
+        if table not in pre_running_config and table in cur_running_config:
+            migration_details['new_bgp_tables_added'] = True
+            migration_details['new_tables'].append(table)
+            if not migration_details['migration_direction']:
+                migration_details['migration_direction'] = 'to_unified'
+        # Table removed (unified -> separated)
+        elif table in pre_running_config and table not in cur_running_config:
+            migration_details['bgp_tables_removed'] = True
+            migration_details['removed_tables'].append(table)
+            if not migration_details['migration_direction']:
+                migration_details['migration_direction'] = 'to_separated'
+
+    # Migration is detected if any of the three indicators are present
+    is_migrated = (
+        migration_details['bgp_neighbor_migrated'] or
+        migration_details['device_metadata_changed'] or
+        migration_details['new_bgp_tables_added'] or
+        migration_details['bgp_tables_removed']
+    )
+
+    return is_migrated, migration_details
+
+
 @pytest.fixture(scope="module", autouse=True)
 def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                                # make sure the tear down of sanity_check happened after core_dump_and_config_check
@@ -3047,6 +3078,7 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
 
         core_dump_check_failed = False
         config_db_check_failed = False
+        config_db_check_skipped_due_to_migration = False
 
         check_result = {}
 
@@ -3199,9 +3231,27 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                     if pre_only_config[duthost.hostname][cfg_context] or \
                             cur_only_config[duthost.hostname][cfg_context] or \
                             inconsistent_config[duthost.hostname][cfg_context]:
-                        config_db_check_failed = True
 
-            if core_dump_check_failed or config_db_check_failed:
+                        # Check if this is a BGP schema migration (expected change)
+                        is_bgp_migration, migration_details = detect_bgp_schema_migration(
+                            pre_running_config, cur_running_config
+                        )
+
+                        if is_bgp_migration:
+                            logger.info(
+                                "BGP schema migration detected on {} ({}), skipping config check "
+                                "but will restore config to ensure consistency. "
+                                "Migration details: {}".format(
+                                    duthost.hostname,
+                                    cfg_context if cfg_context else "default",
+                                    json.dumps(migration_details)
+                                )
+                            )
+                            config_db_check_skipped_due_to_migration = True
+                        else:
+                            config_db_check_failed = True
+
+            if core_dump_check_failed or config_db_check_failed or config_db_check_skipped_due_to_migration:
                 check_result = {
                     "core_dump_check": {
                         "failed": core_dump_check_failed,
@@ -3209,22 +3259,35 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                     },
                     "config_db_check": {
                         "failed": config_db_check_failed,
+                        "skipped_due_to_migration": config_db_check_skipped_due_to_migration,
                         "pre_only_config": pre_only_config,
                         "cur_only_config": cur_only_config,
                         "inconsistent_config": inconsistent_config
                     }
                 }
-                logger.warning("Core dump or config check failed for {}, results: {}"
-                               .format(module_name, json.dumps(check_result)))
+
+                # Log appropriately based on status
+                if config_db_check_skipped_due_to_migration:
+                    logger.info(
+                        "Config check skipped for {} due to expected BGP schema migration. "
+                        "Restoring config to ensure DUT consistency. Details: {}".format(
+                            module_name, json.dumps(check_result)
+                        )
+                    )
+                else:
+                    logger.warning("Core dump or config check failed for {}, results: {}"
+                                   .format(module_name, json.dumps(check_result)))
 
                 restore_config_db_and_config_reload(duts_data, duthosts, request)
             else:
                 logger.info("Core dump and config check passed for {}".format(module_name))
 
         if check_result:
-            logger.debug("core_dump_and_config_check failed, check_result: {}".format(json.dumps(check_result)))
+            logger.debug("core_dump_and_config_check result: {}".format(json.dumps(check_result)))
             add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.core_dump_check_failed", core_dump_check_failed)
             add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.config_db_check_failed", config_db_check_failed)
+            add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.config_db_check_skipped_due_to_migration",
+                           config_db_check_skipped_due_to_migration)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -3528,29 +3591,15 @@ def setup_pfc_test(
         if expected_vlan_ifaces:
             mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
 
-        # Select the VLAN interface matching the requested IP version.
-        expected_ip_ver = 4 if ip_version == "IPv4" else 6
-        vlan_iface = next(
-            (iface for iface in mg_facts['minigraph_vlan_interfaces']
-             if ip_interface(str(iface['addr'])).version == expected_ip_ver),
-            None
-        )
-        if vlan_iface is None:
-            msg = "No {} VLAN interface found in minigraph_vlan_interfaces: {}".format(
-                ip_version, mg_facts['minigraph_vlan_interfaces'])
-            logger.error(msg)
-            pytest.fail(msg)
-        vlan_addr = vlan_iface['addr']
-        vlan_prefix = vlan_iface['prefixlen']
-        vlan_dev = vlan_iface['attachto']
+        # gather all vlan specific info
+        ip_index = 0 if ip_version == "IPv4" else 1
+        vlan_addr = mg_facts['minigraph_vlan_interfaces'][ip_index]['addr']
+        vlan_prefix = mg_facts['minigraph_vlan_interfaces'][ip_index]['prefixlen']
+        vlan_dev = mg_facts['minigraph_vlan_interfaces'][ip_index]['attachto']
         vlan_ips = duthost.get_ip_in_range(
             num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix),
             exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
         vlan_nw = vlan_ips[0].split('/')[0]
-        logger.debug(
-            "setup_pfc_test: ip_version={} vlan_addr={} vlan_prefix={} "
-            "vlan_dev={} vlan_ips={} vlan_nw={}".format(
-                ip_version, vlan_addr, vlan_prefix, vlan_dev, vlan_ips, vlan_nw))
 
     topo = tbinfo["topo"]["name"]
     # build the port list for the test
@@ -3594,8 +3643,12 @@ def setup_pfc_test(
     logger.info("--- Stopping Pfcwd ---")
     duthost.command("pfcwd stop")
 
-    # set poll interval
-    duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
+    # set poll interval (only for software recovery mechanism)
+    if is_pfcwd_hw_recovery_enabled(duthost):
+        logger.info("--- Hardware recovery mechanism detected - poll interval not supported ---")
+    else:
+        logger.info("--- Setting poll interval for software recovery mechanism ---")
+        duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
 
     # set bulk counter chunk size
     logger.info("--- Setting bulk counter polling chunk size ---")
@@ -3956,9 +4009,7 @@ def yang_validation_check(request, duthosts):
     skip_yang = request.config.getoption("--skip_yang")
 
     if skip_yang:
-        logger.info("Skipping YANG validation pre-check due to --skip_yang flag")
-        yield
-        logger.info("Skipping YANG validation post-check due to --skip_yang flag")
+        logger.info("Skipping YANG validation check due to --skip_yang flag")
         return
 
     def run_yang_validation_all(stage):

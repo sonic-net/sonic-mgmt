@@ -8,6 +8,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.config_reload import config_reload
 from tests.common.utilities import update_pfcwd_default_state
+from tests.common.helpers.pfcwd_helper import is_pfcwd_hw_recovery_enabled, get_pfcwd_hw_timer_limits
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +25,9 @@ pytestmark = [
 ]
 
 
+
+
+
 def create_run_dir():
     """
     Creates a temp run dir 'testrun' within the pfcwd folder
@@ -34,12 +38,13 @@ def create_run_dir():
         pytest.fail("Failed to create a temp run dir: {}".format(str(err)))
 
 
-def generate_cfg_templates(test_port):
+def generate_cfg_templates(test_port, hw_limits=None):
     """
     Build all the config templates that will be used for the config validation test
 
     Args:
         test_port (string): a random port selected from the test port list
+        hw_limits (dict): hardware timer limits from STATE_DB (optional)
 
     Returns:
         cfg_params (dict): all config templates
@@ -47,6 +52,51 @@ def generate_cfg_templates(test_port):
     create_run_dir()
     with open(os.path.join(TEMPLATES_DIR, "pfc_config_params.json"), "r") as read_file:
         cfg_params = json.load(read_file)
+
+    # If hardware limits are provided, adjust test values
+    if hw_limits:
+        logger.info("Adjusting test parameters for hardware mode with limits: {}".format(hw_limits))
+
+        # Adjust forward action timer values to be within hardware limits
+        # This ensures the test focuses on forward action support, not timer validation
+        if 'pfc_wd_forward_action' in cfg_params:
+            detect_time = cfg_params['pfc_wd_forward_action']['pfc_wd_detection_time']
+            restore_time = cfg_params['pfc_wd_forward_action']['pfc_wd_restoration_time']
+
+            # Clamp detection time to hardware range
+            if detect_time < hw_limits['detection_min']:
+                cfg_params['pfc_wd_forward_action']['pfc_wd_detection_time'] = hw_limits['detection_min']
+                logger.info(f"Adjusted forward action detection time to hw_min: {hw_limits['detection_min']}")
+            elif detect_time > hw_limits['detection_max']:
+                cfg_params['pfc_wd_forward_action']['pfc_wd_detection_time'] = hw_limits['detection_max']
+                logger.info(f"Adjusted forward action detection time to hw_max: {hw_limits['detection_max']}")
+
+            # Clamp restoration time to hardware range
+            if restore_time < hw_limits['restoration_min']:
+                cfg_params['pfc_wd_forward_action']['pfc_wd_restoration_time'] = hw_limits['restoration_min']
+                logger.info(f"Adjusted forward action restoration time to hw_min: {hw_limits['restoration_min']}")
+            elif restore_time > hw_limits['restoration_max']:
+                cfg_params['pfc_wd_forward_action']['pfc_wd_restoration_time'] = hw_limits['restoration_max']
+                logger.info(f"Adjusted forward action restoration time to hw_max: {hw_limits['restoration_max']}")
+
+        # Adjust boundary test values to be OUTSIDE hardware limits for testing rejection/auto-adjustment
+        # Adjust low detection time to be below hardware minimum
+        if 'pfc_wd_low_detect_time' in cfg_params:
+            cfg_params['pfc_wd_low_detect_time']['pfc_wd_detection_time'] = max(1, hw_limits['detection_min'] - 100)
+
+        # Adjust high detection time to be above hardware maximum
+        if 'pfc_wd_high_detect_time' in cfg_params:
+            cfg_params['pfc_wd_high_detect_time']['pfc_wd_detection_time'] = hw_limits['detection_max'] + 100000
+
+        # Adjust low restoration time to be below hardware minimum
+        if 'pfc_wd_low_restore_time' in cfg_params:
+            cfg_params['pfc_wd_low_restore_time']['pfc_wd_restoration_time'] = (
+                max(1, hw_limits['restoration_min'] - 100)
+            )
+
+        # Adjust high restoration time to be above hardware maximum
+        if 'pfc_wd_high_restore_time' in cfg_params:
+            cfg_params['pfc_wd_high_restore_time']['pfc_wd_restoration_time'] = hw_limits['restoration_max'] + 100000
 
     for key in cfg_params:
         write_file = key
@@ -109,8 +159,16 @@ def cfg_setup(setup_pfc_test, duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     setup_info = setup_pfc_test
     pfc_wd_test_port = list(setup_info['test_ports'].keys())[0]
+
+    # Check if hardware mode is enabled and get limits
+    hw_limits = None
+    if is_pfcwd_hw_recovery_enabled(duthost):
+        hw_limits = get_pfcwd_hw_timer_limits(duthost)
+        if hw_limits:
+            logger.info("Hardware mode detected with limits: {}".format(hw_limits))
+
     logger.info("Creating json templates for all config tests")
-    cfg_params = generate_cfg_templates(pfc_wd_test_port)
+    cfg_params = generate_cfg_templates(pfc_wd_test_port, hw_limits)
     logger.info("Copying templates over to the DUT")
     copy_templates_to_dut(duthost, cfg_params)
 
@@ -215,6 +273,22 @@ class TestPfcConfig(object):
             None
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        # Check if hardware mode is enabled
+        is_hw_mode = is_pfcwd_hw_recovery_enabled(duthost)
+
+        if is_hw_mode:
+            # Check platform - Cisco 8000 doesn't support forward action in hardware mode
+            platform = duthost.facts.get('platform', '')
+            if 'cisco-8000' in platform.lower():
+                pytest.skip("Forward action not supported on Cisco 8000 in hardware mode")
+
+        # Apply the forward-action configuration and validate that it is accepted
+        # cleanly and does not produce unexpected syslog errors. We intentionally
+        # keep this test focused on the configuration + syslog behavior; detailed
+        # hardware/state validation is covered in dedicated hardware PFCWD tests.
+        # Note: In hardware mode, timer values were adjusted to be within HW limits
+        # during cfg_setup to ensure deterministic behavior.
         self.execute_test(duthost, "pfc_wd_fwd_action", "config_test_ignore_messages")
 
     def test_invalid_action_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
@@ -246,7 +320,10 @@ class TestPfcConfig(object):
 
     def test_low_detect_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
-        Tests for syslog error when detect time < lower bound is configured
+        Tests boundary validation when detect time < lower bound is configured
+
+        Both hardware and software modes reject out-of-range values with error message.
+        In hardware mode, config template values are adjusted to be below HW min limits.
 
         Args:
             duthost(AnsibleHost): instance
@@ -259,7 +336,10 @@ class TestPfcConfig(object):
 
     def test_high_detect_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
-        Tests for syslog error when detect time > higher bound is configured
+        Tests boundary validation when detect time > higher bound is configured
+
+        Both hardware and software modes reject out-of-range values with error message.
+        In hardware mode, config template values are adjusted to be above HW max limits.
 
         Args:
             duthost(AnsibleHost): instance
@@ -286,7 +366,10 @@ class TestPfcConfig(object):
 
     def test_low_restore_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
-        Tests for syslog error when restore time < lower bound is configured
+        Tests boundary validation when restore time < lower bound is configured
+
+        Both hardware and software modes reject out-of-range values with error message.
+        In hardware mode, config template values are adjusted to be below HW min limits.
 
         Args:
             duthost(AnsibleHost): instance
@@ -299,7 +382,10 @@ class TestPfcConfig(object):
 
     def test_high_restore_time_cfg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
-        Tests for syslog error when restore time > higher bound is configured
+        Tests boundary validation when restore time > higher bound is configured
+
+        Both hardware and software modes reject out-of-range values with error message.
+        In hardware mode, config template values are adjusted to be above HW max limits.
 
         Args:
             duthost(AnsibleHost): instance
@@ -316,6 +402,7 @@ class TestDefaultPfcConfig(object):
     def test_default_cfg_after_load_mg(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         """
         Tests for checking if pfcwd gets started after load_minigraph
+        For hardware mode, also verifies STATE_DB entries
 
         Args:
             duthost(AnsibleHost): instance
@@ -330,6 +417,38 @@ class TestDefaultPfcConfig(object):
         res = duthost.command('pfcwd show config')
         for port_config in res['stdout_lines']:
             if "ethernet" in port_config.lower():
+                # Verify hardware mode STATE_DB entries if applicable
+                if is_pfcwd_hw_recovery_enabled(duthost):
+                    logger.info("Hardware mode detected, verifying STATE_DB entries")
+
+                    # Verify RECOVERY_MECHANISM
+                    cmd = 'sonic-db-cli STATE_DB HGET "PFC_WD_STATE_TABLE|PFC_WD" "RECOVERY_MECHANISM"'
+                    result = duthost.shell(cmd, module_ignore_errors=True)
+                    if result['rc'] == 0:
+                        recovery_mechanism = result['stdout'].strip().strip('"')
+                        pytest_assert(
+                            recovery_mechanism.upper() == 'HARDWARE',
+                            "Expected RECOVERY_MECHANISM=HARDWARE, got: {}".format(recovery_mechanism)
+                        )
+                        logger.info("Hardware mode RECOVERY_MECHANISM verified")
+
+                    # Verify hardware timer limits are published
+                    hw_limits = get_pfcwd_hw_timer_limits(duthost)
+                    if hw_limits:
+                        logger.info("Hardware timer limits verified: {}".format(hw_limits))
+                        pytest_assert(hw_limits['detection_min'] > 0, "Detection time min should be > 0")
+                        pytest_assert(
+                            hw_limits['detection_max'] > hw_limits['detection_min'],
+                            "Detection time max should be > min"
+                        )
+                        pytest_assert(hw_limits['restoration_min'] > 0, "Restoration time min should be > 0")
+                        pytest_assert(
+                            hw_limits['restoration_max'] > hw_limits['restoration_min'],
+                            "Restoration time max should be > min"
+                        )
+                    else:
+                        logger.warning("Could not retrieve hardware timer limits from STATE_DB")
+
                 return
         # If no ethernet port existing in stdout, failed this case.
         pytest.fail("Failed to start pfcwd after load_minigraph")

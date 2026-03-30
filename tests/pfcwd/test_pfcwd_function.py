@@ -12,7 +12,7 @@ from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.pfcwd_helper import start_wd_on_ports
 from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, \
-    fetch_vendor_specific_diagnosis_re
+    fetch_vendor_specific_diagnosis_re, is_pfcwd_hw_recovery_enabled
 from tests.common.helpers.pfcwd_helper import has_neighbor_device
 from tests.ptf_runner import ptf_runner
 from tests.common import port_toggle
@@ -510,12 +510,16 @@ class SetupPfcwdFunc(object):
 
 class SendVerifyTraffic():
     """ PTF test """
-    def __init__(self, ptf, router_mac, tx_mac, pfc_params, is_dualtor, ip_version='IPv4'):
+    def __init__(self, ptf, router_mac, tx_mac, pfc_params, is_dualtor, is_hw_recovery=False, ip_version='IPv4'):
         """
         Args:
             ptf(AnsibleHost) : ptf instance
             router_mac(string) : router mac address
-            ptf_params(dict) : all PFC test params specific to the DUT port
+            tx_mac(string) : tx mac address
+            pfc_params(dict) : all PFC test params specific to the DUT port
+            is_dualtor(bool) : whether the DUT is a dual ToR setup
+            is_hw_recovery(bool) : whether hardware-based PFC recovery is enabled
+            ip_version(string) : IP version to use (IPv4 or IPv6)
         """
         self.ptf = ptf
         self.tx_mac = router_mac
@@ -535,6 +539,7 @@ class SendVerifyTraffic():
         self.port_id_to_type_map = pfc_params['port_id_to_type_map']
         self.port_type = pfc_params['port_type']
         self.is_dualtor = is_dualtor
+        self.is_hw_recovery = is_hw_recovery
         if is_dualtor:
             self.vlan_mac = "00:aa:bb:cc:dd:ee"
         else:
@@ -727,7 +732,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         Returns:
             loganalyzer(Loganalyzer) : instance
         """
-        restore_time = self.timers['pfc_wd_restore_time_large']
+        restore_time = self.timers['pfc_wd_restore_time_hw'] if self.is_hw_recovery \
+            else self.timers['pfc_wd_restore_time_large']
         detect_time = self.timers['pfc_wd_detect_time']
 
         loganalyzer = LogAnalyzer(ansible_host=self.dut,
@@ -860,7 +866,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         loganalyzer.match_regex = []
         loganalyzer.match_regex.extend([EXPECT_PFC_WD_DETECT_RE + fetch_vendor_specific_diagnosis_re(dut)])
 
-        restore_time = self.timers['pfc_wd_restore_time_large']
+        restore_time = self.timers['pfc_wd_restore_time_hw'] if self.is_hw_recovery \
+            else self.timers['pfc_wd_restore_time_large']
         detect_time = self.timers['pfc_wd_detect_time']
         start_wd_on_ports(dut, port, restore_time, detect_time, "drop")
         self.storm_hndle.start_storm()
@@ -873,7 +880,10 @@ class TestPfcwdFunc(SetupPfcwdFunc):
     def set_traffic_action(self, duthost, action):
         action = action if action != "dontcare" else "drop"
         if duthost.facts["asic_type"] in ["mellanox", "cisco-8000", "innovium"] \
-                or is_tunnel_qos_remap_enabled(duthost):
+                or is_tunnel_qos_remap_enabled(duthost) \
+                or self.is_hw_recovery:
+            if self.is_hw_recovery:
+                logger.info("Hardware recovery supports action on egress only, so ingress will always forward")
             self.rx_action = "forward"
         else:
             self.rx_action = action
@@ -928,6 +938,11 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.tx_action = None
         self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
 
+        # Check if hardware-based PFC recovery is enabled
+        self.is_hw_recovery = is_pfcwd_hw_recovery_enabled(duthost)
+        logger.info("PFC watchdog recovery mode: {}".format(
+            "Hardware-based (TX/egress only)" if self.is_hw_recovery else "Software-based (TX and RX)"))
+
         # skip the pytest when the device does not have neighbors
         # 'rx_port' being None indicates there are no ports available to receive frames for pfc storm
         if not has_neighbor_device(setup_pfc_test):
@@ -944,15 +959,23 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                 self.pfc_wd,
                 self.is_dualtor,
+                self.is_hw_recovery,
                 ip_version)
 
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
             self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
-            actions = ['dontcare', 'drop', 'forward']
+            # actions = ['dontcare', 'drop', 'forward']
+            # Temporarily disable forward action until NOS-463 is fixed
+            actions = ['dontcare', 'drop']
             # A temporary workaround for TH5 platform as forward action is not working
             if duthost.sonichost._facts['asic_type'] == "cisco-8000" or "7060X6" in duthost.facts['hwsku'].upper():
                 actions = ['dontcare', 'drop']
+            # Hardware recovery doesn't support dontcare action
+            if self.is_hw_recovery:
+                actions.remove('dontcare')
+                self.fake_storm = False
+
             for action in actions:
                 try:
                     self.set_traffic_action(duthost, action)
@@ -1029,6 +1052,16 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.rx_action = None
         self.tx_action = None
         self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
+
+        # Check if hardware-based PFC recovery is enabled
+        self.is_hw_recovery = is_pfcwd_hw_recovery_enabled(duthost)
+        logger.info("PFC watchdog recovery mode: {}".format(
+            "Hardware-based (TX/egress only)" if self.is_hw_recovery else "Software-based (TX and RX)"))
+
+        # Hardware recovery doesn't support fake storm
+        if self.is_hw_recovery:
+            self.fake_storm = False
+
         self.set_traffic_action(duthost, "drop")
         self.stats = PfcPktCntrs(self.dut, self.rx_action, self.tx_action)
 
@@ -1051,6 +1084,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                                                           duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                                                           self.pfc_wd,
                                                           self.is_dualtor,
+                                                          self.is_hw_recovery,
                                                           ip_version)
                     self.run_test(self.dut, port, "drop", restore=False)
                 for idx, port in enumerate(selected_ports):
@@ -1120,6 +1154,16 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.fake_storm = fake_storm
         self.storm_hndle = None
         self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
+
+        # Check if hardware-based PFC recovery is enabled (once at initialization)
+        self.is_hw_recovery = is_pfcwd_hw_recovery_enabled(duthost)
+        logger.info("PFC watchdog recovery mode: {}".format(
+            "Hardware-based (TX/egress only)" if self.is_hw_recovery else "Software-based (TX and RX)"))
+
+        # Hardware recovery doesn't support fake storm
+        if self.is_hw_recovery:
+            self.fake_storm = False
+
         logger.info("---- Testing on port {} ----".format(port))
         self.setup_test_params(port, setup_info['vlan'], init=True, mmu_params=True, dual_tor_ports=dualtor_ports,
                                ip_version=ip_version)
@@ -1142,6 +1186,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                     self.pfc_wd,
                     self.is_dualtor,
+                    self.is_hw_recovery,
                     ip_version)
                 pfc_wd_restore_time_large = request.config.getoption("--restore-time")
                 # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
@@ -1155,6 +1200,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                     duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                     self.pfc_wd,
                     self.is_dualtor,
+                    self.is_hw_recovery,
                     ip_version)
                 self.run_test(self.dut, port, "drop", mmu_action=mmu_action)
                 self.dut.command("pfcwd stop")
@@ -1219,7 +1265,18 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.rx_action = None
         self.tx_action = None
         self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
-        action = "dontcare"
+
+        # Check if hardware-based PFC recovery is enabled (once at initialization)
+        self.is_hw_recovery = is_pfcwd_hw_recovery_enabled(duthost)
+        logger.info("PFC watchdog recovery mode: {}".format(
+            "Hardware-based (TX/egress only)" if self.is_hw_recovery else "Software-based (TX and RX)"))
+
+        # Hardware recovery doesn't support fake storm or dontcare action
+        if self.is_hw_recovery:
+            self.fake_storm = False
+            action = "drop"
+        else:
+            action = "dontcare"
 
         # skip the pytest when the device does not have neighbors
         # 'rx_port' being None indicates there are no ports available to receive frames for pfc storm
@@ -1238,6 +1295,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
                 self.pfc_wd,
                 self.is_dualtor,
+                self.is_hw_recovery,
                 ip_version)
             pfc_wd_restore_time_large = request.config.getoption("--restore-time")
             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.

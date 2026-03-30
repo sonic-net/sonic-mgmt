@@ -20,8 +20,8 @@ EXPECT_PFC_WD_DETECT_RE = ".* detected PFC storm .*"
 VENDOR_SPEC_ADDITIONAL_INFO_RE = {
     "mellanox":
         r"additional info: occupancy:[0-9]+\|packets:[0-9]+\|packets_last:[0-9]+\|pfc_rx_packets:[0-9]+\|"
-        r"pfc_rx_packets_last:[0-9]+\|pfc_duration:[0-9]+\|pfc_duration_last:[0-9]+\|timestamp:[0-9]+(?:\.[0-9]+)?\|"
-        r"timestamp_last:[0-9]+(?:\.[0-9]+)?\|(?:effective|real)_poll_time:[0-9]+(?:\.[0-9]+)?"
+        r"pfc_rx_packets_last:[0-9]+\|pfc_duration:[0-9]+\|pfc_duration_last:[0-9]+\|timestamp:[0-9]+\.[0-9]+\|"
+        r"timestamp_last:[0-9]+\.[0-9]+\|(effective|real)_poll_time:[0-9]+"
     }
 
 EXPECT_PFC_WD_RESTORE_RE = ".*storm restored.*"
@@ -321,6 +321,7 @@ def set_pfc_timers():
     """
     pfc_timers = {'pfc_wd_detect_time': 400,
                   'pfc_wd_restore_time': 400,
+                  'pfc_wd_restore_time_hw': 1000,
                   'pfc_wd_restore_time_large': 3000,
                   'pfc_wd_poll_time': 400
                   }
@@ -328,6 +329,13 @@ def set_pfc_timers():
 
 
 def update_pfc_poll_interval(duthost, poll_interval):
+    """
+    Update PFC watchdog poll interval on the DUT
+
+    Args:
+        duthost: DUT host object
+        poll_interval (int): Poll interval in milliseconds (100-3000)
+    """
     logger.info("Setting PFC watchdog poll interval to {}ms".format(poll_interval))
     duthost.command("pfcwd interval {}".format(poll_interval))
 
@@ -381,6 +389,31 @@ def start_wd_on_ports(duthost, port, restore_time, detect_time, action="drop"):
                     .format(action, restore_time, port, detect_time))
 
 
+def verify_pfcwd_status(duthost, port, restore_time, detect_time, action="drop"):
+    """Verify PFC watchdog configuration in Redis"""
+    if duthost.shell(f'redis-cli -n 4 EXISTS "PFC_WD|{port}"')['stdout'].strip() == '0':
+        logger.error(f"PFC_WD entry not found for port {port}")
+        return False
+
+    values = duthost.shell(
+        f'redis-cli -n 4 HMGET "PFC_WD|{port}" action restoration_time detection_time'
+    )['stdout'].strip().split('\n')
+    actual_action, actual_restore_time, actual_detect_time = (values + [None] * 3)[:3]
+
+    checks = [
+        (actual_action, action, "Action"),
+        (actual_restore_time, str(restore_time), "Restore time"),
+        (actual_detect_time, str(detect_time), "Detect time")
+    ]
+
+    for actual, expected, name in checks:
+        if actual != expected:
+            logger.error(f"{name} mismatch: expected {expected}, got {actual}")
+            return False
+
+    return True
+
+
 def fetch_vendor_specific_diagnosis_re(duthost):
     """
     Fetch regular expression of vendor specific diagnosis information
@@ -392,6 +425,103 @@ def fetch_vendor_specific_diagnosis_re(duthost):
         return ""
 
     return VENDOR_SPEC_ADDITIONAL_INFO_RE.get(duthost.facts["asic_type"], "")
+
+
+def is_pfcwd_hw_recovery_enabled(duthost):
+    """
+    Check if PFC watchdog is using hardware-based recovery mechanism.
+
+    Hardware-based recovery uses ASIC-level PFC DLR (Deadlock Recovery) which only
+    controls egress/TX traffic by ignoring PFC XOFF. It does not have the capability
+    to control ingress/RX traffic.
+
+    This function queries the STATE_DB to check the RECOVERY_MECHANISM attribute
+    in the PFC_WD_STATE_TABLE|PFC_WD entry.
+
+    Args:
+        duthost(AnsibleHost): DUT instance
+
+    Returns:
+        bool: True if RECOVERY_MECHANISM is "hardware", False otherwise (software recovery)
+    """
+    try:
+        cmd = 'sonic-db-cli STATE_DB HGET "PFC_WD_STATE_TABLE|PFC_WD" "RECOVERY_MECHANISM"'
+        result = duthost.shell(cmd, module_ignore_errors=True)
+
+        # Get output and clean it up
+        output = result.get('stdout', '').strip().strip('"').strip("'").lower()
+
+        # Return True only if output is "hardware"
+        is_hardware = (output == "hardware")
+        logger.info("PFC watchdog recovery mechanism: {} (hardware={})".format(
+            output or "not set", is_hardware))
+        return is_hardware
+
+    except Exception as e:
+        logger.error("Exception while checking recovery mechanism: {}".format(str(e)))
+        return False
+
+
+def get_pfcwd_hw_timer_limits(duthost):
+    """
+    Get hardware PFC watchdog timer limits from STATE_DB.
+
+    When hardware-based PFC watchdog is enabled, the platform publishes the supported
+    detection and restoration time ranges to STATE_DB. This function retrieves those
+    limits, which can be used to validate or adjust test parameters.
+
+    Args:
+        duthost (AnsibleHost): DUT instance
+
+    Returns:
+        dict: Dictionary with hardware timer limits in milliseconds:
+            {
+                'detection_min': int,
+                'detection_max': int,
+                'restoration_min': int,
+                'restoration_max': int
+            }
+        None: If hardware mode is not enabled or limits are not available
+    """
+    try:
+        cmd = 'sonic-db-cli STATE_DB HGETALL "PFC_WD_STATE_TABLE|PFC_WD"'
+        result = duthost.shell(cmd, module_ignore_errors=True)
+
+        if result.get('rc', 1) != 0:
+            logger.warning("Failed to read PFC_WD_STATE_TABLE from STATE_DB")
+            return None
+
+        # Parse HGETALL output (alternating key-value pairs)
+        lines = result['stdout'].strip().split('\n')
+        state_data = {}
+        for i in range(0, len(lines), 2):
+            if i + 1 < len(lines):
+                key = lines[i].strip().strip('"')
+                value = lines[i + 1].strip().strip('"')
+                state_data[key] = value
+
+        # Only return limits if this is hardware mode
+        if state_data.get('RECOVERY_MECHANISM', '').upper() != 'HARDWARE':
+            logger.info("Hardware recovery not enabled, no timer limits available")
+            return None
+
+        # Extract and validate timer limits
+        limits = {
+            'detection_min': int(state_data.get('DETECTION_TIME_MIN', 0)),
+            'detection_max': int(state_data.get('DETECTION_TIME_MAX', 0)),
+            'restoration_min': int(state_data.get('RESTORATION_TIME_MIN', 0)),
+            'restoration_max': int(state_data.get('RESTORATION_TIME_MAX', 0)),
+        }
+
+        logger.info("Hardware PFCWD timer limits: {}".format(limits))
+        return limits
+
+    except (ValueError, KeyError) as e:
+        logger.error("Failed to parse hardware timer limits: {}".format(str(e)))
+        return None
+    except Exception as e:
+        logger.error("Exception while getting hardware timer limits: {}".format(str(e)))
+        return None
 
 
 @pytest.fixture(scope='class', autouse=False)
@@ -593,35 +723,51 @@ def check_pfc_storm_state(dut, port, queue):
     return None
 
 
-def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state):
+def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state, baseline_counters=None):
     """
     Helper function to verify if PFC storm on a specific queue is in expected state
     """
     pfcwd_stat = parser_show_pfcwd_stat(dut, port, queue)
     if dut.facts['asic_type'] == 'vs':
         return True
+
+    # Check if pfcwd_stat is empty (port/queue not found or not configured)
     if not pfcwd_stat:
-        logger.info(f'Port {port} Storm verification : no watchdog stats')
+        logger.debug(f"No PFC watchdog stats found for port {port} queue {queue}")
         return False
+
+    current_detect_count = int(pfcwd_stat[0]['storm_detect_count'])
+    current_restored_count = int(pfcwd_stat[0]['restored_count'])
+    current_status = pfcwd_stat[0]['status']
+
     if expected_state == "storm":
-        if ("storm" in pfcwd_stat[0]['status']) and \
-                int(pfcwd_stat[0]['storm_detect_count']) > int(pfcwd_stat[0]['restored_count']):
-            return True
+        # For storm state verification:
+        # 1. If baseline_counters provided, check if detect_count increased since baseline
+        # 2. Otherwise, accept only if currently in storm
+        if baseline_counters is not None:
+            baseline_detect = baseline_counters.get(port, 0)
+            if current_detect_count > baseline_detect:
+                logger.debug(f"Port {port} queue {queue} has new storm detection "
+                             f"(baseline={baseline_detect}, current={current_detect_count}, "
+                             f"status={current_status})")
+                return True
+        else:
+            if ("storm" in current_status) and (current_detect_count > current_restored_count):
+                return True
     else:
-        if ("storm" not in pfcwd_stat[0]['status']) and \
-                int(pfcwd_stat[0]['storm_detect_count']) == int(pfcwd_stat[0]['restored_count']):
+        if ("storm" not in current_status) and (current_detect_count == current_restored_count):
             return True
     return False
 
 
 def _parse_pfcwd_stats(dut):
     """
-    Parse 'show pfcwd stat' output into a lookup dictionary.
+    Parse 'show pfcwd stats' output into a lookup dictionary.
 
     Returns:
         dict: {(port, queue): {'status': str, 'storm_detect_count': int, 'restored_count': int}}
     """
-    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stats')
     stats_dict = {}
 
     for item in pfcwd_stat_output:
@@ -656,20 +802,14 @@ def _get_storm_test_ports(storm_hndle):
     return ports
 
 
-def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_state, selected_test_ports,
-                                                 baseline_counters=None, threshold_percentage=100,
-                                                 stormed_ports_list=None):
+def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_state, baseline_counters=None,
+                                                 threshold_percentage=100, stormed_ports_list=None):
     """Verify if threshold percentage of ports reached expected PFC storm state."""
     if dut.facts['asic_type'] == 'vs':
         return True
 
     # Get all ports to check and current stats
     ports_to_check = _get_storm_test_ports(storm_hndle)
-
-    # Filter to only ports with background traffic if selected_test_ports is provided
-    if selected_test_ports:
-        ports_to_check = [(p, q) for p, q in ports_to_check if p in selected_test_ports]
-        logger.debug(f"Filtered to {len(ports_to_check)} ports with background traffic")
 
     # For restore, only check ports that actually stormed
     if expected_state == "restore" and stormed_ports_list:
@@ -752,7 +892,7 @@ def parser_show_pfcwd_stat(dut, select_port, select_queue):
     admin@bjw-can-7060-1:~$
     """
     logger.info("port {} queue {}".format(select_port, select_queue))
-    pfcwd_stat_output = dut.show_and_parse('show pfcwd stat')
+    pfcwd_stat_output = dut.show_and_parse('show pfcwd stats')
 
     pfcwd_stat = []
     for item in pfcwd_stat_output:
