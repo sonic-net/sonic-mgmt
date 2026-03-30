@@ -50,7 +50,7 @@ LOG_PREFIX = TC_NAME
 SSH_CONN_RESTORE_TIMEOUT = 10    # seconds to wait for SSH restoration
 SSH_CONN_MONITOR_TIMEOUT = 10    # seconds to monitor for SSH disconnection
 NUM_FLAP_CYCLES = 10             # number of iterations for stress test
-CYCLE_GAP_SECONDS = 2            # seconds to wait between flap cycles
+STABILIZATION_WAIT_SECONDS = 2   # seconds to wait for state stabilization
 RECOVERY_REBOOT_CMD = "sudo reboot"    # console fallback reboot command
 RECOVERY_SSH_REBOOT_TIMEOUT = 300      # seconds to wait for DUT SSH startup after reboot
 RECOVERY_SSH_REBOOT_DELAY = 10         # seconds between SSH startup checks after reboot
@@ -161,7 +161,7 @@ def verify_mgmt_port_status_up(duthost_console):
     try:
         # Get management port status using eth_mgmt_ctrl status-mgmt command
         logging.info("Verifying management port status via console...")
-        result = duthost_console.send_command(f"sudo {ETH_MGMT_CTRL_PATH} status-mgmt")
+        result = duthost_console.send_command("sudo {} status-mgmt".format(ETH_MGMT_CTRL_PATH))
 
         # status-mgmt command returns "Up", "Down", "UP", "DOWN", "UNKNOWN", or "NOT_FOUND"
         status = result.strip().upper()  # Convert to uppercase for consistent comparison
@@ -177,13 +177,12 @@ def verify_mgmt_port_status_up(duthost_console):
         return False
 
 
-def check_runtime_console_state(duthost_console, duthost):
+def check_runtime_console_state(duthost_console):
     """
     Check console connection
 
     Args:
         duthost_console: Console connection object (from fixture)
-        duthost: DUT host object
 
     Raises:
         pytest.skip: If console connection verification or CLI tool verification fails
@@ -206,8 +205,6 @@ def check_runtime_console_state(duthost_console, duthost):
     except Exception as console_test_error:
         logging.error("{} - Console connectivity test failed: {}".format(LOG_PREFIX, str(console_test_error)))
         pytest.skip("Console connectivity test failed: {}".format(str(console_test_error)))
-
-    return None
 
 
 def execute_flap_and_monitor_ssh(duthost_console, localhost, supervisor_ip, num_cycles=1):
@@ -249,6 +246,8 @@ def execute_flap_and_monitor_ssh(duthost_console, localhost, supervisor_ip, num_
         'error_message': None
     }
 
+    start_time = time.time()
+
     try:
         # Step2a: Verify baseline SSH connectivity
         logging.info("{} - STEP2_a: Verifying baseline SSH connectivity to: {}".format(LOG_PREFIX, supervisor_ip))
@@ -256,8 +255,6 @@ def execute_flap_and_monitor_ssh(duthost_console, localhost, supervisor_ip, num_
         if not baseline_ssh_ok:
             test_results['error_message'] = "SSH connectivity not working initially"
             return test_results
-
-        start_time = time.time()
         successful_cycles = 0
         ssh_disconnections = 0
         connectivity_checks = 0
@@ -279,7 +276,7 @@ def execute_flap_and_monitor_ssh(duthost_console, localhost, supervisor_ip, num_
 
             # Step2b: Execute shut command via console
             logging.info("{} - STEP2_b: Executing management port SHUT via console".format(cycle_prefix))
-            shut_result = duthost_console.send_command(f"sudo {ETH_MGMT_CTRL_PATH} shut")
+            shut_result = duthost_console.send_command("sudo {} shut".format(ETH_MGMT_CTRL_PATH))
 
             if "error" in shut_result.lower() or "failed" in shut_result.lower():
                 logging.error("{} - SHUT command failed. Output: {}".format(cycle_prefix, shut_result))
@@ -326,7 +323,7 @@ def execute_flap_and_monitor_ssh(duthost_console, localhost, supervisor_ip, num_
 
             # Execute NOSHUT immediately after disconnect detection OR after timeout
             logging.info("{} - STEP2_d: Executing management port NOSHUT via console".format(cycle_prefix))
-            noshut_result = duthost_console.send_command(f"sudo {ETH_MGMT_CTRL_PATH} noshut")
+            noshut_result = duthost_console.send_command("sudo {} noshut".format(ETH_MGMT_CTRL_PATH))
 
             if "error" in noshut_result.lower() or "failed" in noshut_result.lower():
                 logging.error("{} - NOSHUT command failed. Output: {}".format(cycle_prefix, noshut_result))
@@ -376,14 +373,14 @@ def execute_flap_and_monitor_ssh(duthost_console, localhost, supervisor_ip, num_
 
             # Brief rest between cycles in stress test
             if num_cycles > 1 and cycle < num_cycles:
-                logging.info("{} - Resting for {}s before next cycle...".format(LOG_PREFIX, CYCLE_GAP_SECONDS))
-                time.sleep(CYCLE_GAP_SECONDS)
+                logging.info("{} - Resting for {}s before next cycle...".format(LOG_PREFIX, STABILIZATION_WAIT_SECONDS))
+                time.sleep(STABILIZATION_WAIT_SECONDS)
 
         # Update test results
         sync_results(partial_ssh_restored=True)  # If we get here, all cycles restored SSH
 
         # Final verification: Check management port status
-        time.sleep(3)  # Brief wait for stabilization
+        time.sleep(STABILIZATION_WAIT_SECONDS)  # Brief wait for stabilization
         logging.info("{} - STEP2_f: Final verification - checking management port status".format(LOG_PREFIX))
         final_status_ok = verify_mgmt_port_status_up(duthost_console)
         test_results['final_status_ok'] = final_status_ok
@@ -408,7 +405,7 @@ def execute_flap_and_monitor_ssh(duthost_console, localhost, supervisor_ip, num_
 
     except Exception as e:
         test_results['error_message'] = "Exception during flap execution: {}".format(str(e))
-        test_results['execution_time'] = time.time() - start_time if 'start_time' in locals() else 0
+        test_results['execution_time'] = time.time() - start_time
         logging.error("{} - STEP2 FAILED: Exception during flap execution: {}".format(LOG_PREFIX, str(e)))
         return test_results
 
@@ -489,7 +486,7 @@ def recovery_console_reboot(duthost_console, duthost, localhost):
             LOG_PREFIX, RECOVERY_REBOOT_CMD))
         try:
             duthost_console.write_channel(RECOVERY_REBOOT_CMD + "\n")
-            time.sleep(2)
+            time.sleep(STABILIZATION_WAIT_SECONDS)
         except Exception as console_reboot_error:
             logging.info("{} - Recovery NOTE: console channel changed during reboot send (non-fatal): {}".format(
                 LOG_PREFIX, str(console_reboot_error)))
@@ -542,6 +539,25 @@ def recovery_console_reboot(duthost_console, duthost, localhost):
         logging.error("{} - Recovery: console reboot failed: {}".format(LOG_PREFIX, str(reboot_error)))
         return False
 
+
+@pytest.fixture
+def ensure_mgmt_port_noshut(duthost_console):
+    """
+    Best-effort teardown guard to restore management port state.
+    This runs even when the test exits unexpectedly after setup.
+    """
+    yield
+    try:
+        logging.info("{} - Finalizer: enforcing management port NOSHUT".format(LOG_PREFIX))
+        noshut_result = duthost_console.send_command("sudo {} noshut".format(ETH_MGMT_CTRL_PATH))
+        if "error" in noshut_result.lower() or "failed" in noshut_result.lower():
+            logging.warning("{} - Finalizer NOSHUT may have failed. Output: {}".format(
+                LOG_PREFIX, noshut_result))
+        time.sleep(STABILIZATION_WAIT_SECONDS)
+    except Exception as finalizer_error:
+        logging.warning("{} - Finalizer NOSHUT encountered exception: {}".format(
+            LOG_PREFIX, str(finalizer_error)))
+
 #=============================================================
 # Test Case: Stress test on management port flap using console
 # This test will:
@@ -551,7 +567,8 @@ def recovery_console_reboot(duthost_console, duthost, localhost):
 # 4. Verify SSH connectivity is restored after stress test
 #=============================================================
 
-def test_mgmt_interface_stress_flap_console(duthost_console, duthosts, enum_supervisor_dut_hostname, localhost):
+def test_mgmt_interface_stress_flap_console(
+    duthost_console, duthosts, enum_supervisor_dut_hostname, localhost, ensure_mgmt_port_noshut):
     """
     Test stress management port flaps (10 iterations) using console commands
 
@@ -565,10 +582,6 @@ def test_mgmt_interface_stress_flap_console(duthost_console, duthosts, enum_supe
 
     duthost = duthosts[enum_supervisor_dut_hostname]
 
-    # STEP0: Restrict to verify on RP
-    if not duthost.is_supervisor_node():
-        pytest.skip("This test is RP-only and must run on a supervisor node")
-
     logging.info(
         "{} - Starting management interface stress test on {} (ASIC: {}, Supervisor Node) - DUT: {} IP: {}".format(
             LOG_PREFIX,
@@ -580,20 +593,34 @@ def test_mgmt_interface_stress_flap_console(duthost_console, duthosts, enum_supe
     )
 
     # STEP1: Check console echo
-    check_runtime_console_state(duthost_console, duthost)
+    check_runtime_console_state(duthost_console)
 
-    # Step2: Execute stress flaps and monitor SSH
-    test_results = execute_flap_and_monitor_ssh(
-        duthost_console, localhost, duthost.mgmt_ip, num_cycles=NUM_FLAP_CYCLES)
+    # STEP2: Execute stress flaps and monitor SSH
+    test_results = {
+        'success': False,
+        'ssh_restored': False,
+        'final_status_ok': False,
+        'successful_cycles': 0,
+        'total_cycles': NUM_FLAP_CYCLES,
+        'ssh_disconnections': 0,
+        'connectivity_checks': 0,
+        'execution_time': 0,
+        'error_message': "Test interrupted before execution completed"
+    }
+    error_message = None
 
-    # Step3: Cleanup and report
-    error_message = cleanup_and_report(
-        duthost_console,
-        test_results,
-        num_cycles=NUM_FLAP_CYCLES,
-        duthost=duthost,
-        localhost=localhost,
-    )
+    try:
+        test_results = execute_flap_and_monitor_ssh(
+            duthost_console, localhost, duthost.mgmt_ip, num_cycles=NUM_FLAP_CYCLES)
+    finally:
+        # Always run cleanup/recovery to avoid leaving management port in a bad state.
+        error_message = cleanup_and_report(
+            duthost_console,
+            test_results,
+            num_cycles=NUM_FLAP_CYCLES,
+            duthost=duthost,
+            localhost=localhost,
+        )
 
     # Assert test result
     if error_message:
