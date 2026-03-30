@@ -196,6 +196,7 @@ def remove_orig_dut_port_config(duthost, orig_ports_configuration):
     :param orig_ports_configuration: original ports configuration parameters
     """
     remove_acl_tables(duthost)
+    ports_to_verify_rif_removal = []
     for _, port_dict in list(orig_ports_configuration.items()):
         port = port_dict['port']
         if port_dict['vlan']:
@@ -212,6 +213,16 @@ def remove_orig_dut_port_config(duthost, orig_ports_configuration):
         elif port_dict['ip_addr']:
             for ip in port_dict['ip_addr']:
                 remove_dut_ip_from_port(duthost, port, ip)
+            ports_to_verify_rif_removal.append(port)
+
+    for port in ports_to_verify_rif_removal:
+        verify_port_rif_removed_asic_db(
+            duthost,
+            port,
+            timeout=90,
+            interval=2,
+            exact=True
+        )
 
 
 def get_portchannel_peer_port_map(duthost, orig_ports_configuration, tbinfo, nbrhosts):
@@ -685,3 +696,116 @@ def is_rif_counters_ready(duthost):
     if len(result['stdout_lines']) == 2 or 'N/A' in result['stdout']:
         return False
     return True
+
+
+def get_port_oid_from_counters_db(duthost, port_name):
+    """
+    Resolve a SONiC port name to its SAI PORT object id (OID) via COUNTERS_DB.
+    COUNTERS_DB keeps a hash `COUNTERS_PORT_NAME_MAP` that maps a SONiC port name
+    (e.g. 'Ethernet100') to the corresponding SAI PORT OID string (e.g. 'oid:0x1...')
+    :param duthost: DUT host object
+    :param port_name: SONiC port name (e.g. 'Ethernet100')
+    :return: Port OID string (e.g. 'oid:0x1...') or None if not present/available
+    """
+    cmd = f"redis-cli -n 2 HGET COUNTERS_PORT_NAME_MAP {port_name}"
+    res = duthost.shell(cmd, module_ignore_errors=True)
+    rc = res.get("rc", 0)
+    if rc != 0:
+        stderr = res.get("stderr", "").strip()
+        logger.error(
+            f"failed to query COUNTERS_DB for {port_name}: rc={rc}, stderr='{stderr}'"
+        )
+        # Treat redis failure as a hard error, not as “no mapping”.
+        pytest_assert(
+            False,
+            f"redis-cli failed when querying COUNTERS_PORT_NAME_MAP for {port_name} (rc={rc})",
+        )
+    oid = res.get("stdout", "").strip()
+
+    if not oid:
+        # Some platforms / images may not populate this map. Treat as best-effort.
+        logger.info(
+            f"COUNTERS_DB has no PORT OID for {port_name}; skip ASIC_DB port-RIF removal verification"
+        )
+        return None
+
+    logger.info(f"Port {port_name} has PORT OID {oid} in COUNTERS_DB")
+    return oid
+
+
+def rif_exists_for_port_oid_asic_db(duthost, port_oid):
+    """
+    Check whether any router interface in ASIC_DB is bound to the given PORT OID.
+    We enumerate all `ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:*` keys and read
+    `SAI_ROUTER_INTERFACE_ATTR_PORT_ID`. If any value equals `port_oid`, then a
+    port router-interface (RIF) still exists for that port.
+    :param duthost: DUT host object
+    :param port_oid: PORT OID string 'oid:0x1...'
+    :return: True if a port RIF exists for this port_oid, False otherwise
+    """
+    # Enumerate all router interfaces in ASIC_DB
+    cmd = "redis-cli -n 1 KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE*'"
+    res = duthost.shell(cmd, module_ignore_errors=True)
+    rc = res.get("rc", 0)
+    if rc != 0:
+        stderr = res.get("stderr", "").strip()
+        logger.error(
+            f"failed to list router interfaces from ASIC_DB: rc={rc}, stderr='{stderr}'"
+        )
+        pytest_assert(False, "redis-cli KEYS failed in ASIC_DB")
+    keys = [k.strip() for k in res.get("stdout", "").splitlines() if k.strip()]
+
+    if not keys:
+        logger.debug(f"ASIC_DB has no router interfaces; no port RIF for PORT OID {port_oid}")
+        return False
+
+    for key in keys:
+        # For each RIF, get its bound PORT OID
+        cmd = (
+            f"redis-cli -n 1 HGET '{key}' "
+            "SAI_ROUTER_INTERFACE_ATTR_PORT_ID"
+        )
+        val = duthost.shell(cmd, module_ignore_errors=True).get("stdout", "").strip()
+
+        if not val:
+            continue
+
+        if val == port_oid:
+            logger.debug(f"Found router interface {key} bound to PORT OID {port_oid} in ASIC_DB")
+            return True
+
+    logger.info(f"No router interface bound to PORT OID {port_oid} in ASIC_DB")
+    return False
+
+
+def verify_port_rif_removed_asic_db(
+    duthost, port_name, timeout=40, interval=2, exact=True
+):
+    """
+    Verify that no port router-interface (RIF) in ASIC_DB is bound to `port_name`.
+    Flow:
+      port_name -> COUNTERS_DB : `COUNTERS_PORT_NAME_MAP` -> PORT OID (oid:0x1...)
+      PORT OID  -> ASIC_DB : `ASIC_STATE:SAI_OBJECT_TYPE_ROUTER_INTERFACE:*`
+                   and verify no object has `SAI_ROUTER_INTERFACE_ATTR_PORT_ID == PORT OID`
+    :param duthost: DUT host object
+    :param port_name: SONiC port name (e.g. 'Ethernet100')
+    :param timeout: Maximum time to wait for RIF removal (seconds)
+    :param interval: Time between checks (seconds)
+    :param exact:
+        - True  → fail the test if RIF still exists after timeout
+        - False → log a warning only (best-effort check)
+    """
+    port_oid = get_port_oid_from_counters_db(duthost, port_name)
+    if not port_oid:
+        logger.info(f"No PORT OID for {port_name} in COUNTERS_DB; skip ASIC_DB RIF removal verification")
+        return
+
+    logger.info(
+        f"Start ASIC_DB RIF removal verification for {port_name} (PORT OID {port_oid})"
+    )
+
+    def rif_removed():
+        return not rif_exists_for_port_oid_asic_db(duthost, port_oid)
+
+    pytest_assert(wait_until(timeout, interval, 0, rif_removed),
+                  f"Port RIF for {port_name} (PORT OID {port_oid}) still exists in ASIC_DB after {timeout} seconds")
