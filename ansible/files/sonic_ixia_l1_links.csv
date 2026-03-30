@@ -281,3 +281,6 @@ msr-ixia-4,Card2/Port8,str-ocs-dlx64-acs-07,17|18|19|20
 str-msn2700-22,Ethernet100,str-ocs-dlx64-acs-07,29|30|31|32
 str-msn2700-22,Ethernet104,str-ocs-dlx64-acs-07,33|34|35|36
 str-msn2700-22,Ethernet108,str-ocs-dlx64-acs-07,37|38|39|40
+STR-SN2700-C19-U38,Ethernet0,str-ocs-dlx64-acs-07,53|54|55|56
+STR-SN2700-C19-U38,Ethernet4,str-ocs-dlx64-acs-07,57|58|59|60
+STR-SN2700-C19-U38,Ethernet8,str-ocs-dlx64-acs-07,61|62|63|64

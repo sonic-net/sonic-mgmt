@@ -645,7 +645,9 @@ sonic_mlnx_100:
   hosts:
     str-msn2700-22:
       ansible_host: 10.64.247.236
-    vars:
+    STR-SN2700-C19-U38:
+      ansible_host: 10.3.147.94
+  vars:
       iface_speed: 100000
       msft_an_enabled: True
 
