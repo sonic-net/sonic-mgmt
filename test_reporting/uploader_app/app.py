@@ -2,6 +2,7 @@
 
 from flask import Flask, render_template, request, jsonify, session, redirect, url_for, send_from_directory
 import os
+import sys
 import pyotp
 import qrcode
 import io
@@ -15,18 +16,22 @@ from datetime import datetime, timezone
 import zipfile
 import subprocess
 import shutil
+import uuid
 
 app = Flask(__name__, template_folder='templates')
 
 # Configure upload settings
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), 'uploads')
+INGEST_FOLDER = os.path.join(os.path.dirname(__file__), 'ingest')
 ALLOWED_EXTENSIONS = {'xml', 'zip'}
 MAX_CONTENT_LENGTH = 200 * 1024 * 1024  # 200MB max file size
 
-# Ensure upload directory exists
+# Ensure upload and ingest directories exist
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(INGEST_FOLDER, exist_ok=True)
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['INGEST_FOLDER'] = INGEST_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = MAX_CONTENT_LENGTH
 
 
@@ -52,6 +57,50 @@ def setup_logging():
 
 # Initialize logging
 setup_logging()
+
+
+def cleanup_old_session_folders():
+    """Clean up any orphaned session folders on startup.
+
+    Removes session folders older than 1 hour that may have been
+    left behind due to crashes or restarts.
+    """
+    try:
+        ingest_folder = INGEST_FOLDER
+        if not os.path.exists(ingest_folder):
+            app.logger.info('Ingest folder does not exist, skipping session cleanup')
+            return
+
+        cutoff_time = datetime.now().timestamp() - 3600  # 1 hour ago
+        cleaned_count = 0
+
+        for item in os.listdir(ingest_folder):
+            if not item.startswith('session_'):
+                continue
+
+            folder_path = os.path.join(ingest_folder, item)
+            if os.path.isdir(folder_path):
+                try:
+                    folder_mtime = os.path.getmtime(folder_path)
+                    if folder_mtime < cutoff_time:
+                        shutil.rmtree(folder_path)
+                        cleaned_count += 1
+                        app.logger.info(f'Cleaned up orphaned session folder: {item}')
+                except Exception as e:
+                    app.logger.warning(f'Failed to clean up session folder {item}: {e}')
+
+        if cleaned_count > 0:
+            app.logger.info(f'Startup cleanup: removed {cleaned_count} orphaned session folder(s)')
+        else:
+            app.logger.info('Startup cleanup: no orphaned session folders found')
+
+    except Exception as e:
+        app.logger.error(f'Error during startup session folder cleanup: {e}')
+
+
+# Run startup cleanup (replaces deprecated @app.before_first_request)
+cleanup_old_session_folders()
+
 
 # TOTP configuration
 APP_NAME = 'SONiC Test Results Uploader'
@@ -211,107 +260,168 @@ def get_user_cluster_config(username: str, database_override: str = None) -> tup
     return default_cluster, default_database
 
 
-def extract_zip_files(upload_folder: str, uploaded_files: list) -> list:
-    """Extract all ZIP files in the uploaded files list.
+def prepare_files_for_ingestion(upload_folder: str, ingest_folder: str, uploaded_files: list) -> dict:
+    """Prepare files for ingestion by copying XML files and extracting ZIP files to a session-specific subfolder.
 
     Args:
         upload_folder: Directory containing uploaded files
+        ingest_folder: Base ingest directory where session subfolder will be created
         uploaded_files: List of uploaded file info dictionaries
 
     Returns:
-        list: List of extraction results with status and details
+        dict: Preparation results with success status, processed files, session folder path, and errors
     """
-    extraction_results = []
+    preparation_results = {
+        'success': True,
+        'xml_files_copied': [],
+        'zip_files_extracted': [],
+        'errors': [],
+        'total_files_prepared': 0,
+        'session_folder': None
+    }
+
+    # Create unique session subfolder to avoid race conditions
+    try:
+        # Ensure base ingest folder exists
+        os.makedirs(ingest_folder, exist_ok=True)
+
+        # Create unique session folder using timestamp and UUID
+        timestamp = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
+        session_id = str(uuid.uuid4())[:8]
+        session_folder_name = f"session_{timestamp}_{session_id}"
+        session_folder = os.path.join(ingest_folder, session_folder_name)
+
+        os.makedirs(session_folder, exist_ok=True)
+        preparation_results['session_folder'] = session_folder
+        app.logger.info(f'Created session ingest folder: {session_folder}')
+    except Exception as e:
+        app.logger.error(f'Failed to create session ingest folder: {str(e)}')
+        preparation_results['success'] = False
+        preparation_results['errors'].append(f'Failed to create session ingest folder: {str(e)}')
+        return preparation_results
 
     for file_info in uploaded_files:
-        filename = file_info['filename']
-        if not filename.lower().endswith('.zip'):
+        filename = file_info.get('filename')
+        if not filename:
+            app.logger.warning('Filename key missing in file_info, skipping')
             continue
 
         file_path = os.path.join(upload_folder, filename)
-        extract_dir = os.path.join(upload_folder, f"{filename}_extracted")
 
         try:
-            with zipfile.ZipFile(file_path, 'r') as zip_ref:
-                # Create extraction directory
-                os.makedirs(extract_dir, exist_ok=True)
+            if filename.lower().endswith('.xml'):
+                # Copy XML file to session folder
+                dest_path = os.path.join(session_folder, filename)
+                shutil.copy2(file_path, dest_path)
+                preparation_results['xml_files_copied'].append(filename)
+                app.logger.info(f'Copied XML file to session folder: {filename}')
 
-                # Extract all files
-                zip_ref.extractall(extract_dir)
-
-                # Get list of extracted files
-                extracted_files = []
-                for root, dirs, files in os.walk(extract_dir):
-                    for file in files:
-                        extracted_files.append(os.path.relpath(os.path.join(root, file), extract_dir))
-
-                extraction_results.append({
-                    'zip_file': filename,
-                    'success': True,
-                    'extract_dir': extract_dir,
-                    'extracted_files': extracted_files,
-                    'extracted_count': len(extracted_files)
-                })
-
-                app.logger.info(f'Successfully extracted {len(extracted_files)} files from {filename}')
+            elif filename.lower().endswith('.zip'):
+                # Extract ZIP file to session folder
+                with zipfile.ZipFile(file_path, 'r') as zip_ref:
+                    extracted_files = []
+                    for zip_info in zip_ref.infolist():
+                        # Skip directory entries
+                        if zip_info.is_dir():
+                            continue
+                        # Normalize the path and check for path traversal
+                        extracted_path = os.path.normpath(zip_info.filename)
+                        if (extracted_path in ('.', '')
+                                or os.path.isabs(extracted_path)
+                                or extracted_path.startswith('..')):
+                            app.logger.warning(
+                                f'Skipping potentially unsafe file in ZIP: {zip_info.filename}'
+                            )
+                            continue
+                        # Construct safe path within session folder
+                        safe_path = os.path.join(session_folder, extracted_path)
+                        # Ensure parent directory exists
+                        parent_dir = os.path.dirname(safe_path)
+                        if parent_dir:
+                            os.makedirs(parent_dir, exist_ok=True)
+                        # Extract file to safe path
+                        with zip_ref.open(zip_info) as source, open(safe_path, 'wb') as target:
+                            shutil.copyfileobj(source, target)
+                        extracted_files.append(extracted_path)
+                    preparation_results['zip_files_extracted'].append({
+                        'zip_file': filename,
+                        'extracted_files': extracted_files,
+                        'extracted_count': len(extracted_files)
+                    })
+                    app.logger.info(f'Extracted {len(extracted_files)} files from {filename} to session folder')
 
         except Exception as e:
-            extraction_results.append({
-                'zip_file': filename,
-                'success': False,
-                'error': str(e)
-            })
-            app.logger.error(f'Failed to extract {filename}: {str(e)}')
+            error_msg = f'Failed to process {filename}: {str(e)}'
+            app.logger.error(error_msg)
+            preparation_results['errors'].append(error_msg)
+            preparation_results['success'] = False
 
-    return extraction_results
+    # Calculate total files prepared
+    preparation_results['total_files_prepared'] = (
+        len(preparation_results['xml_files_copied']) +
+        sum(item['extracted_count'] for item in preparation_results['zip_files_extracted'])
+    )
+
+    app.logger.info(
+        f'File preparation completed: {preparation_results["total_files_prepared"]} files ready for ingestion'
+    )
+
+    return preparation_results
 
 
-def cleanup_extracted_files(extraction_results: list) -> dict:
-    """Delete extracted directories after processing is complete.
+def cleanup_ingest_folder(session_folder: str) -> dict:
+    """Clean up the session ingest folder after processing.
 
     Args:
-        extraction_results: List of extraction results from extract_zip_files
+        session_folder: Session-specific directory to clean up
 
     Returns:
-        dict: Cleanup results with deleted directories and any errors
+        dict: Cleanup results with success status
     """
     cleanup_results = {
-        'deleted_directories': [],
-        'errors': []
+        'success': False,
+        'error': None
     }
 
-    for result in extraction_results:
-        if not result.get('success', False):
-            continue
+    try:
+        if os.path.exists(session_folder):
+            # Ensure the session folder is within the ingest folder
+            real_ingest = os.path.realpath(INGEST_FOLDER)
+            real_session = os.path.realpath(session_folder)
+            if not real_session.startswith(real_ingest + os.sep):
+                app.logger.error(f'Attempted cleanup of folder outside ingest directory: {session_folder}')
+                cleanup_results['error'] = f'Invalid session folder path: {session_folder}'
+                return cleanup_results
 
-        extract_dir = result.get('extract_dir')
-        if not extract_dir:
-            continue
+            # Delete the session folder
+            shutil.rmtree(session_folder)
+            app.logger.info(f'Session ingest folder cleaned up successfully: {session_folder}')
+        else:
+            app.logger.info(f'Session ingest folder does not exist, nothing to cleanup: {session_folder}')
 
-        try:
-            if os.path.exists(extract_dir):
-                shutil.rmtree(extract_dir)
-                cleanup_results['deleted_directories'].append(extract_dir)
-                app.logger.info(f'Deleted extracted directory: {extract_dir}')
-            else:
-                app.logger.warning(f'Extracted directory not found for cleanup: {extract_dir}')
-        except Exception as e:
-            error_msg = f'Failed to delete {extract_dir}: {str(e)}'
-            app.logger.error(error_msg)
-            cleanup_results['errors'].append(error_msg)
+        cleanup_results['success'] = True
+
+    except Exception as e:
+        error_msg = f'Failed to cleanup session ingest folder: {str(e)}'
+        app.logger.error(error_msg)
+        cleanup_results['error'] = error_msg
 
     return cleanup_results
 
 
-def cleanup_old_files(upload_folder: str, max_size_gb: float = 5.0) -> dict:
-    """Delete oldest uploaded files (.xml and .zip) if upload folder exceeds size limit.
+def cleanup_old_files(upload_folder: str, max_size_gb: float = 5.0, retention_days: int = 180) -> dict:
+    """Delete uploaded files based on age and size limits.
+
+    Files are kept for debugging/troubleshooting purposes, but cleaned up based on:
+    1. Age: Files older than retention_days are always deleted
+    2. Size: If folder exceeds max_size_gb, delete oldest files until under limit
 
     Only processes files directly in upload_folder, not in subdirectories.
-    Extracted directories are handled separately by cleanup_extracted_files().
 
     Args:
         upload_folder: Directory containing uploaded files
-        max_size_gb: Maximum size in GB before cleanup (default: 5.0)
+        max_size_gb: Maximum size in GB before size-based cleanup (default: 5.0)
+        retention_days: Maximum age in days before age-based cleanup (default: 180, ~6 months)
 
     Returns:
         dict: Cleanup results with total size, deleted files, and space freed
@@ -319,8 +429,12 @@ def cleanup_old_files(upload_folder: str, max_size_gb: float = 5.0) -> dict:
     cleanup_results = {
         'total_size_gb': 0.0,
         'deleted_files': [],
+        'deleted_by_age': [],
+        'deleted_by_size': [],
         'space_freed_gb': 0.0,
-        'cleanup_triggered': False
+        'cleanup_triggered': False,
+        'age_cleanup_triggered': False,
+        'size_cleanup_triggered': False
     }
 
     try:
@@ -335,6 +449,8 @@ def cleanup_old_files(upload_folder: str, max_size_gb: float = 5.0) -> dict:
         # Track only files directly in upload_folder for potential deletion
         # (not in subdirectories like extracted directories)
         file_list = []
+        cutoff_time = datetime.now().timestamp() - (retention_days * 24 * 3600)  # Age cutoff
+
         for file in os.listdir(upload_folder):
             file_path = os.path.join(upload_folder, file)
             # Only process regular files (not directories)
@@ -346,26 +462,61 @@ def cleanup_old_files(upload_folder: str, max_size_gb: float = 5.0) -> dict:
                     file_list.append({
                         'path': file_path,
                         'size': file_size,
-                        'mtime': file_mtime
+                        'mtime': file_mtime,
+                        'is_old': file_mtime < cutoff_time
                     })
 
         total_size_gb = total_size / (1024 ** 3)  # Convert to GB
         cleanup_results['total_size_gb'] = round(total_size_gb, 2)
 
-        app.logger.info(f'Upload folder total size: {cleanup_results["total_size_gb"]} GB')
+        app.logger.info(
+            f'Upload folder total size: {cleanup_results["total_size_gb"]} GB, '
+            f'{len(file_list)} files tracked, retention: {retention_days} days'
+        )
 
-        # Check if cleanup is needed
-        if total_size_gb > max_size_gb:
+        space_freed = 0
+
+        # Step 1: Age-based cleanup - Delete files older than retention_days
+        old_files = [f for f in file_list if f['is_old']]
+        if old_files:
+            cleanup_results['age_cleanup_triggered'] = True
             cleanup_results['cleanup_triggered'] = True
-            app.logger.warning(
-                f'Upload folder size ({cleanup_results["total_size_gb"]} GB) exceeds limit '
-                f'({max_size_gb} GB). Starting cleanup...'
+            app.logger.info(
+                f'Age-based cleanup: Found {len(old_files)} files older than {retention_days} days'
             )
 
-            # Sort files by modification time (oldest first)
+            for file_info in old_files:
+                try:
+                    os.remove(file_info['path'])
+                    space_freed += file_info['size']
+                    total_size -= file_info['size']
+                    filename = os.path.basename(file_info['path'])
+                    cleanup_results['deleted_files'].append(filename)
+                    cleanup_results['deleted_by_age'].append(filename)
+
+                    file_age_days = (datetime.now().timestamp() - file_info['mtime']) / (24 * 3600)
+                    app.logger.info(
+                        f'Deleted old file (age: {file_age_days:.1f} days): {filename} '
+                        f'({file_info["size"] / (1024 ** 2):.2f} MB)'
+                    )
+                    # Remove from file_list so it's not processed again
+                    file_list.remove(file_info)
+                except Exception as e:
+                    app.logger.error(f'Failed to delete old file {file_info["path"]}: {str(e)}')
+
+        # Step 2: Size-based cleanup - If still over limit, delete oldest files
+        current_size_gb = total_size / (1024 ** 3)
+        if current_size_gb > max_size_gb:
+            cleanup_results['size_cleanup_triggered'] = True
+            cleanup_results['cleanup_triggered'] = True
+            app.logger.warning(
+                f'Upload folder size ({current_size_gb:.2f} GB) exceeds limit '
+                f'({max_size_gb} GB). Starting size-based cleanup...'
+            )
+
+            # Sort remaining files by modification time (oldest first)
             file_list.sort(key=lambda x: x['mtime'])
 
-            space_freed = 0
             current_size = total_size
 
             # Delete oldest files until we're back under the limit
@@ -377,23 +528,29 @@ def cleanup_old_files(upload_folder: str, max_size_gb: float = 5.0) -> dict:
                     os.remove(file_info['path'])
                     space_freed += file_info['size']
                     current_size -= file_info['size']
-                    cleanup_results['deleted_files'].append(os.path.basename(file_info['path']))
+                    filename = os.path.basename(file_info['path'])
+                    cleanup_results['deleted_files'].append(filename)
+                    cleanup_results['deleted_by_size'].append(filename)
                     app.logger.info(
-                        f'Deleted old file: {os.path.basename(file_info["path"])} '
+                        f'Deleted file (size limit): {filename} '
                         f'({file_info["size"] / (1024 ** 2):.2f} MB)'
                     )
                 except Exception as e:
                     app.logger.error(f'Failed to delete {file_info["path"]}: {str(e)}')
 
-            cleanup_results['space_freed_gb'] = round(space_freed / (1024 ** 3), 2)
+        cleanup_results['space_freed_gb'] = round(space_freed / (1024 ** 3), 2)
+
+        if cleanup_results['cleanup_triggered']:
             app.logger.info(
-                f'Cleanup completed: {len(cleanup_results["deleted_files"])} files deleted, '
+                f'Cleanup completed: {len(cleanup_results["deleted_files"])} files deleted '
+                f'({len(cleanup_results["deleted_by_age"])} by age, '
+                f'{len(cleanup_results["deleted_by_size"])} by size), '
                 f'{cleanup_results["space_freed_gb"]} GB freed'
             )
         else:
             app.logger.info(
-                f'No cleanup needed. Current size ({cleanup_results["total_size_gb"]} GB) '
-                f'is below limit ({max_size_gb} GB)'
+                f'No cleanup needed. Size: {cleanup_results["total_size_gb"]} GB (limit: {max_size_gb} GB), '
+                f'all files within {retention_days} day retention period'
             )
 
     except Exception as e:
@@ -403,11 +560,11 @@ def cleanup_old_files(upload_folder: str, max_size_gb: float = 5.0) -> dict:
     return cleanup_results
 
 
-def run_report_uploader(upload_folder: str, database_name: str, cluster_url: str) -> dict:
+def run_report_uploader(ingest_folder: str, database_name: str, cluster_url: str) -> dict:
     """Run the report_uploader.py script to upload test results to Kusto.
 
     Args:
-        upload_folder: Directory containing uploaded files
+        ingest_folder: Directory containing files to ingest
         database_name: Kusto database name
         cluster_url: Kusto cluster URL
 
@@ -422,10 +579,10 @@ def run_report_uploader(upload_folder: str, database_name: str, cluster_url: str
         # Construct command
         script_path = os.path.join(os.path.dirname(__file__), '../report_uploader.py')
         cmd = [
-            'python', script_path,
+            sys.executable, script_path,
             '--category', 'test_result',
             '--auth_method', 'defaultCred',
-            upload_folder,
+            ingest_folder,
             database_name
         ]
 
@@ -825,10 +982,10 @@ def validate_file_path(filename: str, upload_folder: str, admin_user: str) -> tu
         app.logger.warning(f'File operation without filename by admin: {admin_user}')
         return None, (jsonify({'error': 'Filename parameter is required'}), 400)
 
-    # Security: Check for path traversal patterns
-    # Check for directory traversal sequences like '../', '..\\', or path separators
-    if '../' in filename or '..\\' in filename or filename.startswith(('/', '\\')) or os.sep in filename:
-        app.logger.warning(f'Potential path traversal attempt by admin {admin_user}: {filename}')
+    # Security: Reject any path separators or parent directory references
+    # This ensures filename is a simple basename without path components
+    if any(char in filename for char in ['/', '\\', '..']):
+        app.logger.warning(f'Invalid filename containing path separators by admin {admin_user}: {filename}')
         return None, (jsonify({'error': 'Invalid filename'}), 400)
 
     # Check if file exists
@@ -1327,45 +1484,101 @@ def upload_file():
 
         # Post-processing results
         processing_results = {
-            'zip_extraction': [],
-            'report_upload': None
+            'file_preparation': None,
+            'report_upload': None,
+            'ingest_cleanup': None,
+            'disk_cleanup': None
         }
 
         if successful_uploads:
-            # Step 1: Extract ZIP files
-            app.logger.info(f'Starting ZIP file extraction for {len(successful_uploads)} files...')
-            extraction_results = extract_zip_files(app.config['UPLOAD_FOLDER'], successful_uploads)
-            processing_results['zip_extraction'] = extraction_results
-            app.logger.info(f'ZIP extraction completed: {len(extraction_results)} results')
-
-            # Step 2: Run report uploader
-            app.logger.info(f'Starting report upload to Kusto for user {username}...')
-            upload_result = run_report_uploader(
-                app.config['UPLOAD_FOLDER'],
-                database_name,
-                cluster_url
-            )
-            processing_results['report_upload'] = upload_result
-            app.logger.info(f'Report upload completed with status: {upload_result.get("success", False)}')
-
-            # Step 3: Cleanup extracted files after upload completes
-            app.logger.info('Starting cleanup of extracted files...')
-            cleanup_result = cleanup_extracted_files(extraction_results)
-            processing_results['cleanup'] = cleanup_result
-            app.logger.info(
-                f'Cleanup completed: {len(cleanup_result["deleted_directories"])} directories deleted, '
-                f'{len(cleanup_result["errors"])} errors'
-            )
-
-            # Step 4: Cleanup old files (.xml and .zip) if disk usage exceeds 5GB
-            app.logger.info('Checking disk usage and cleaning up old files if needed...')
-            disk_cleanup_result = cleanup_old_files(app.config['UPLOAD_FOLDER'], max_size_gb=5.0)
-            processing_results['disk_cleanup'] = disk_cleanup_result
-            if disk_cleanup_result['cleanup_triggered']:
-                app.logger.info(
-                    f'Disk cleanup completed: {len(disk_cleanup_result["deleted_files"])} files deleted, '
-                    f'{disk_cleanup_result["space_freed_gb"]} GB freed'
+            session_folder = None
+            try:
+                # Step 1: Prepare files for ingestion (copy XML, extract ZIP to session folder)
+                app.logger.info(f'Preparing {len(successful_uploads)} files for ingestion...')
+                preparation_result = prepare_files_for_ingestion(
+                    app.config['UPLOAD_FOLDER'],
+                    app.config['INGEST_FOLDER'],
+                    successful_uploads
                 )
+                processing_results['file_preparation'] = preparation_result
+
+                # Get the session folder path from preparation result
+                session_folder = preparation_result.get('session_folder')
+
+                # Validate session folder exists
+                if not session_folder:
+                    app.logger.error('Session folder not created')
+                    return jsonify({
+                        'success': False,
+                        'message': 'Session folder creation failed',
+                        'uploaded_files': successful_uploads,
+                        'processing_results': processing_results
+                    }), 500
+
+                # Check if ALL files failed preparation
+                if preparation_result['total_files_prepared'] == 0:
+                    app.logger.error('All files failed during preparation')
+                    return jsonify({
+                        'success': False,
+                        'message': 'All files failed during preparation',
+                        'uploaded_files': successful_uploads,
+                        'processing_results': processing_results
+                    }), 500
+
+                # Validate session folder exists and is a directory
+                if not os.path.isdir(session_folder):
+                    app.logger.error(f'Invalid session folder: {session_folder}')
+                    return jsonify({
+                        'success': False,
+                        'message': 'Invalid session folder created',
+                        'uploaded_files': successful_uploads,
+                        'processing_results': processing_results
+                    }), 500
+
+                # Handle partial success - some files may have failed but others succeeded
+                if preparation_result['errors']:
+                    app.logger.warning(
+                        f'Partial preparation success: {preparation_result["total_files_prepared"]} files prepared, '
+                        f'{len(preparation_result["errors"])} errors encountered'
+                    )
+                    for error in preparation_result['errors']:
+                        app.logger.warning(f'  - {error}')
+
+                app.logger.info(
+                    f'File preparation completed: {preparation_result["total_files_prepared"]} files ready '
+                    f'in session folder: {session_folder}'
+                )
+
+                # Step 2: Run report uploader on session folder
+                app.logger.info(f'Starting report upload to Kusto for user {username}...')
+                upload_result = run_report_uploader(
+                    session_folder,
+                    database_name,
+                    cluster_url
+                )
+                processing_results['report_upload'] = upload_result
+                app.logger.info(f'Report upload completed with status: {upload_result.get("success", False)}')
+
+                # Step 3: Cleanup old files (.xml and .zip) if disk usage exceeds 5GB
+                app.logger.info('Checking disk usage and cleaning up old files if needed...')
+                disk_cleanup_result = cleanup_old_files(app.config['UPLOAD_FOLDER'], max_size_gb=5.0)
+                processing_results['disk_cleanup'] = disk_cleanup_result
+                if disk_cleanup_result['cleanup_triggered']:
+                    app.logger.info(
+                        f'Disk cleanup completed: {len(disk_cleanup_result["deleted_files"])} files deleted, '
+                        f'{disk_cleanup_result["space_freed_gb"]} GB freed'
+                    )
+
+            finally:
+                # ALWAYS cleanup session folder if it was created (even on exceptions)
+                if session_folder and os.path.exists(session_folder):
+                    app.logger.info(f'Cleaning up session folder: {session_folder}')
+                    ingest_cleanup_result = cleanup_ingest_folder(session_folder)
+                    processing_results['ingest_cleanup'] = ingest_cleanup_result
+                    if ingest_cleanup_result['success']:
+                        app.logger.info('Session ingest cleanup completed successfully')
+                    else:
+                        app.logger.error(f'Session cleanup failed: {ingest_cleanup_result.get("error")}')
 
         if successful_uploads and not failed_uploads:
             # All files uploaded successfully

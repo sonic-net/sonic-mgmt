@@ -825,25 +825,60 @@
                 details += `<div class="mb-3"><small class="text-muted"><i class="fas fa-database me-1"></i><strong>Target:</strong> ${databaseName} @ ${clusterUrl}</small></div>`;
             }
 
-            // ZIP extraction results
-            if (processingResults.zip_extraction && processingResults.zip_extraction.length > 0) {
-                details += '<div class="mb-3"><strong class="text-info"><i class="fas fa-file-archive me-2"></i>ZIP Extraction Results:</strong>';
-                details += '<div class="ms-3 mt-2">';
-                processingResults.zip_extraction.forEach(extraction => {
-                    if (extraction.success) {
-                        details += `<div class="text-success mb-1"><i class="fas fa-check me-1"></i><strong>${extraction.zip_file}:</strong> extracted ${extraction.extracted_count} files</div>`;
+            // File preparation results (XML copying and ZIP extraction)
+            if (processingResults.file_preparation) {
+                const preparation = processingResults.file_preparation;
+
+                // Show session folder info
+                if (preparation.session_folder) {
+                    const sessionId = preparation.session_folder.split('session_').pop();
+                    details += `<div class="mb-3"><small class="text-muted"><i class="fas fa-folder me-1"></i><strong>Session ID:</strong> ${sessionId}</small></div>`;
+                }
+
+                // XML files copied
+                if (preparation.xml_files_copied && preparation.xml_files_copied.length > 0) {
+                    details += '<div class="mb-3"><strong class="text-success"><i class="fas fa-file-code me-2"></i>XML Files Prepared:</strong>';
+                    details += '<div class="ms-3 mt-2">';
+                    details += `<div class="text-success mb-1"><i class="fas fa-check me-1"></i>Copied ${preparation.xml_files_copied.length} XML file(s)</div>`;
+                    details += '<div class="ms-3"><small class="text-muted">' + preparation.xml_files_copied.slice(0, 5).join(', ');
+                    if (preparation.xml_files_copied.length > 5) {
+                        details += ` ... and ${preparation.xml_files_copied.length - 5} more`;
+                    }
+                    details += '</small></div>';
+                    details += '</div></div>';
+                }
+
+                // ZIP extraction results
+                if (preparation.zip_files_extracted && preparation.zip_files_extracted.length > 0) {
+                    details += '<div class="mb-3"><strong class="text-info"><i class="fas fa-file-archive me-2"></i>ZIP Extraction Results:</strong>';
+                    details += '<div class="ms-3 mt-2">';
+                    preparation.zip_files_extracted.forEach(extraction => {
+                        details += `<div class="text-success mb-1"><i class="fas fa-check me-1"></i><strong>${extraction.zip_file}:</strong> extracted ${extraction.extracted_count} file(s)</div>`;
                         if (extraction.extracted_files && extraction.extracted_files.length > 0) {
-                            details += '<div class="ms-3 mb-2"><small class="text-muted">Extracted files: ' + extraction.extracted_files.slice(0, 5).join(', ');
+                            details += '<div class="ms-3 mb-2"><small class="text-muted">Extracted: ' + extraction.extracted_files.slice(0, 5).join(', ');
                             if (extraction.extracted_files.length > 5) {
                                 details += ` ... and ${extraction.extracted_files.length - 5} more`;
                             }
                             details += '</small></div>';
                         }
-                    } else {
-                        details += `<div class="text-danger mb-1"><i class="fas fa-times me-1"></i><strong>${extraction.zip_file}:</strong> ${extraction.error}</div>`;
-                    }
-                });
-                details += '</div></div>';
+                    });
+                    details += '</div></div>';
+                }
+
+                // Show total files prepared
+                if (preparation.total_files_prepared) {
+                    details += `<div class="mb-3"><strong class="text-primary"><i class="fas fa-check-double me-1"></i>Total files prepared for ingestion: ${preparation.total_files_prepared}</strong></div>`;
+                }
+
+                // Show errors if any
+                if (preparation.errors && preparation.errors.length > 0) {
+                    details += '<div class="mb-3"><strong class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Preparation Errors:</strong>';
+                    details += '<div class="ms-3 mt-2">';
+                    preparation.errors.forEach(error => {
+                        details += `<div class="text-danger mb-1"><i class="fas fa-times me-1"></i>${error}</div>`;
+                    });
+                    details += '</div></div>';
+                }
             }
 
             // Report upload results
