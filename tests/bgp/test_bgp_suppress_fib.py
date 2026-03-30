@@ -680,16 +680,16 @@ def validate_route_process_perf(pcap_file, ipv4_route_list, ipv6_route_list):
     )
 
     assert withdraw_middle_time < UPDATE_WITHDRAW_THRESHOLD, (
-       "Route withdraw middle time exceeded threshold. "
-       "Expected withdraw_middle_time < {}, but got {}."
+        "Route withdraw middle time exceeded threshold. "
+        "Expected withdraw_middle_time < {}, but got {}."
     ).format(
         UPDATE_WITHDRAW_THRESHOLD,
         withdraw_middle_time
     )
 
     assert withdraw_average_time < UPDATE_WITHDRAW_THRESHOLD, (
-       "Route withdraw average time exceeded threshold: "
-       "Expected withdraw_average_time < {}, but got {}."
+        "Route withdraw average time exceeded threshold: "
+        "Expected withdraw_average_time < {}, but got {}."
     ).format(
         UPDATE_WITHDRAW_THRESHOLD,
         withdraw_average_time
@@ -981,7 +981,7 @@ def perf_sniffer_prepare(tcpdump_sniffer_down, tcpdump_sniffer_up, duthost, nbrh
 
 
 def upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6, tbinfo, nbrhosts,
-                         queue, vrf_type=DEFAULT):
+                          queue, vrf_type=DEFAULT):
     if queue == EMPTY:
         with allure.step("Validate announced BGP ipv4 and ipv6 routes are in {} state".format(queue)):
             for asichost in duthost_up.asics:
@@ -1044,7 +1044,7 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
 
         with allure.step("Get route and traffic data"):
             ipv4_route_list, ipv6_route_list, traffic_data_ipv4_forward, traffic_data_ipv6_forward, \
-                traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
+            traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
 
         with allure.step("Config bgp suppress-fib-pending function"):
             config_bgp_suppress_fib(duthost_down)
@@ -1060,7 +1060,7 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
         for continous_boot_index in range(continuous_boot_times):
             if continuous_boot_times > 1:
                 logger.info("======== Continuous boot needed - this is the {} time boot test ========".
-                            format(continous_boot_index+1))
+                            format(continous_boot_index + 1))
 
             with allure.step("Do reload"):
                 param_reboot(request, duthost_down, localhost, loganalyzer)
@@ -1084,8 +1084,8 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                         if multi_dut:
                             """ For Multi Dut Scenario """
                             upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port,
-                                                 exabgp_port_v6,
-                                                 tbinfo, nbrhosts, queue=EMPTY, vrf_type=vrf_type)
+                                                  exabgp_port_v6,
+                                                  tbinfo, nbrhosts, queue=EMPTY, vrf_type=vrf_type)
 
                     with allure.step("Validate BGP ipv4 and ipv6 routes are not announced to Upstream VM peer"):
                         validate_route_propagate(duthost_up, nbrhosts, tbinfo,
@@ -1122,13 +1122,13 @@ def test_bgp_route_with_suppress(duthosts, enum_downstream_dut_hostname, enum_up
                     if multi_dut:
                         """ For Multi Dut Scenario """
                         upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
-                                             tbinfo, nbrhosts, queue=True, vrf_type=vrf_type)
+                                              tbinfo, nbrhosts, queue=True, vrf_type=vrf_type)
 
                         with allure.step("Restore orchagent process on Upstream"):
                             operate_orchagent(duthost_up, action=ACTION_CONTINUE)
 
                         upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
-                                             tbinfo, nbrhosts, queue=False, vrf_type=vrf_type)
+                                              tbinfo, nbrhosts, queue=False, vrf_type=vrf_type)
 
                     with allure.step("Validate BGP ipv4 and ipv6 routes are announced to Upstream VM peer"):
                         validate_route_propagate(duthost_up, nbrhosts, tbinfo,
@@ -1174,7 +1174,7 @@ def test_bgp_route_without_suppress(duthosts, enum_downstream_dut_hostname, enum
 
     with allure.step("Get route and traffic data"):
         ipv4_route_list, ipv6_route_list, traffic_data_ipv4_forward, traffic_data_ipv6_forward, \
-            traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
+        traffic_data_ipv4_drop, traffic_data_ipv6_drop = generate_route_and_traffic_data[FUNCTION]
 
     for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
         try:
@@ -1275,8 +1275,8 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
                     if multi_dut:
                         """ For Multi Dut Scenario """
                         upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port,
-                                             exabgp_port_v6,
-                                             tbinfo, nbrhosts, queue=EMPTY)
+                                              exabgp_port_v6,
+                                              tbinfo, nbrhosts, queue=EMPTY)
 
                 with allure.step("Validate BGP ipv4 and ipv6 routes are not announced to Upstream VM peer"):
                     validate_route_propagate(duthost_up, nbrhosts, tbinfo, ipv4_route_list,
@@ -1339,13 +1339,13 @@ def test_bgp_route_with_suppress_negative_operation(duthosts, enum_downstream_du
                 if multi_dut:
                     """ For Multi Dut Scenario """
                     upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
-                                         tbinfo, nbrhosts, queue=True)
+                                          tbinfo, nbrhosts, queue=True)
 
                     with allure.step("Restore orchagent process on Upstream"):
                         operate_orchagent(duthost_up, action=ACTION_CONTINUE)
 
                     upstream_verification(duthost_up, ipv4_route_list, ipv6_route_list, exabgp_port, exabgp_port_v6,
-                                         tbinfo, nbrhosts, queue=False)
+                                          tbinfo, nbrhosts, queue=False)
 
                 with allure.step("Validate BGP ipv4 and ipv6 routes are announced to Upstream VM peer"):
                     validate_route_propagate(duthost_up, nbrhosts, tbinfo, ipv4_route_list,
