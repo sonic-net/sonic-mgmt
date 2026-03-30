@@ -616,10 +616,6 @@ configlet/test_add_rack.py:
     reason: "AddRack is not yet supported on multi-ASIC platform"
     conditions:
       - "is_multi_asic==True"
-  xfail:
-    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20728"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20728 and '-v6-' in topo_name"
 
 container_hardening/test_container_hardening.py::test_container_privileged:
   skip:
@@ -2288,10 +2284,10 @@ generic_config_updater/test_dynamic_acl.py::test_gcu_acl_forward_rule_removal:
 
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
-    reason: "This test is not run on this asic type, topology, or version currently"
+    reason: "WRED dynamic config updates not implemented in SAI for PAC/GR2 ASICs"
     conditions_logical_operator: "OR"
     conditions:
-      - "hwsku in ['Cisco-8800-LC-48H-C48']"
+      - "hwsku in ['Cisco-8800-LC-48H-C48', 'Cisco-8122-O128S2', 'Cisco-8122-O64']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
   xfail:
@@ -2431,10 +2427,13 @@ generic_config_updater/test_pg_headroom_update.py:
 
 generic_config_updater/test_srv6:
   skip:
-    reason: "Unsupported topology."
+    reason: "SRv6 is not supported on older ASICs (TH/TH2/TD3, SPC1-3). Skip for unsupported topologies and platforms."
     conditions_logical_operator: "OR"
     conditions:
       - "topo_name in ['t0-isolated-d96u32s2']"
+      - "asic_type not in ['mellanox', 'broadcom', 'cisco', 'cisco-8000', 'vs'] or (release != 'master' and release < '202511')"
+      - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
+      - "asic_type == 'broadcom' and asic_gen not in ['th5']"
 
 generic_config_updater/test_vlan_interface.py::test_vlan_interface_tc1_suite:
   xfail:
@@ -3490,6 +3489,12 @@ pfcwd/test_pfcwd_all_port_storm.py::TestPfcwdAllPortStorm::test_all_port_storm_r
      conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21067 and 't0-56' in topo_type and asic_type in ['mellanox']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and topo_name in ['t0-88-o8c80', 't1-48-lag', 't1-lag', 't1-32-lag', 't1-64-lag'] and asic_type in ['mellanox']"
+
+pfcwd/test_pfcwd_cli.py:
+  xfail:
+     reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21466 on Mellanox platform"
+     conditions:
+        - "https://github.com/sonic-net/sonic-mgmt/issues/21466 and asic_type in ['mellanox']"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
   xfail:

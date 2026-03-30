@@ -77,12 +77,12 @@ function converge_topo_if_needed
 
         if [[ -f "$backup_file" ]];then
             echo "Backup file exists, recover..."
-            cp "$backup_file" "$topo_file"
+            sudo cp "$backup_file" "$topo_file"
         elif [[ -f "$topo_file" ]]; then
             echo "Back up topo file"
-            cp "$topo_file" "$backup_file"
+            sudo cp "$topo_file" "$backup_file"
         fi
-        PYTHONPATH="$ANSIBLE_DIR:$PYTHONPATH" python -m ceos_topo_converger "$backup_file" "$topo_file"
+        sudo PYTHONPATH="$ANSIBLE_DIR:$PYTHONPATH" python -m ceos_topo_converger "$backup_file" "$topo_file"
     fi
 }
 
@@ -578,8 +578,8 @@ fi
 
 if [[ -f "$backup_file" ]];then
     echo "Backup exists, restore backup file"
-    rm -f "$topo_file"
-    mv "$backup_file" "$topo_file"
+    sudo rm -f "$topo_file"
+    sudo mv "$backup_file" "$topo_file"
 fi
 
 exit ${RC}
