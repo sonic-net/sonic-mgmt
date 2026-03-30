@@ -82,6 +82,8 @@ parameters:
   - $(IMAGE_BRCM_ABOOT_202405_SLIM)
   - $(IMAGE_BRCM_ABOOT_202411)
   - $(IMAGE_BRCM_ABOOT_202411_SLIM)
+  - $(IMAGE_BRCM_ABOOT_202505)
+  - $(IMAGE_BRCM_ABOOT_202511)
   - $(IMAGE_BRCM_ABOOT_INTERNAL)
   - $(IMAGE_BRCM_ABOOT_PUBLIC)
   - custom
@@ -162,7 +164,7 @@ parameters:
 - name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS
   type: string
   displayName: "Additional Upgrade Hop Locations - (comma separated values zipped with image numbers e.g. IMAGE_BRCM_ABOOT_202405,IMAGE_BRCM_ABOOT_202411)"
-  default: IMAGE_BRCM_ABOOT_202505
+  default: IMAGE_BRCM_ABOOT_202511
 
 - name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS
   type: string

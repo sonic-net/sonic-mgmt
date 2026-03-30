@@ -10,13 +10,13 @@ resources:
     name: sonic-metadata
     ref: master
 
-#schedules:
-#  - cron: "0 0,12 * * *"
-#    displayName: Nightly Scheduler
-#    branches:
-#      include:
-#        - internal
-#    always: true
+schedules:
+  - cron: "0 0,12 * * *"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal-202511
+    always: true
 
 variables:
   - group: SONIC_IMAGE_URLS
@@ -25,12 +25,12 @@ variables:
 parameters:
 - name: TESTBED_NAME
   type: string
-  default: vms28-t0-7050-12
+  default: testbed-bjw3-can-t0-7060-8
   displayName: "Testbed Name"
 
 - name: POOL
   type: string
-  default: nightly
+  default: nightly-bjw
   displayName: "Agent pool name"
   values:
     - nightly
@@ -59,35 +59,32 @@ parameters:
 
 - name: FROM_IMAGE_LIST
   type: string
-  default: prev
+  default: 30
   displayName: "All base image numbers (space separated)"
 
 - name: FROM_IMAGE_URL
   displayName: "Base image location"
   type: string
-  default: $(IMAGE_BRCM_ABOOT_202411)
+  default: $(BJW_IMAGE_BRCM_ABOOT_202505)
   values:
-  - $(IMAGE_BRCM_ABOOT_201811)
-  - $(IMAGE_BRCM_ABOOT_201911)
-  - $(IMAGE_BRCM_ABOOT_202012)
-  - $(IMAGE_BRCM_ABOOT_202012_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202106)
-  - $(IMAGE_BRCM_ABOOT_202205)
-  - $(IMAGE_BRCM_ABOOT_202205_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202305)
-  - $(IMAGE_BRCM_ABOOT_202305_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202311)
-  - $(IMAGE_BRCM_ABOOT_202311_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202405)
-  - $(IMAGE_BRCM_ABOOT_202405_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202411)
-  - $(IMAGE_BRCM_ABOOT_202411_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202505)
-  - $(IMAGE_BRCM_ABOOT_202505_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202511)
-  - $(IMAGE_BRCM_ABOOT_202511_SLIM)
-  - $(IMAGE_BRCM_ABOOT_INTERNAL)
-  - $(IMAGE_BRCM_ABOOT_PUBLIC)
+  - $(BJW_IMAGE_BRCM_ABOOT_201811)
+  - $(BJW_IMAGE_BRCM_ABOOT_201911)
+  - $(BJW_IMAGE_BRCM_ABOOT_202012)
+  - $(BJW_IMAGE_BRCM_ABOOT_202012_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202106)
+  - $(BJW_IMAGE_BRCM_ABOOT_202205)
+  - $(BJW_IMAGE_BRCM_ABOOT_202205_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202305)
+  - $(BJW_IMAGE_BRCM_ABOOT_202305_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202311)
+  - $(BJW_IMAGE_BRCM_ABOOT_202311_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202405)
+  - $(BJW_IMAGE_BRCM_ABOOT_202405_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202411)
+  - $(BJW_IMAGE_BRCM_ABOOT_202411_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202505)
+  - $(BJW_IMAGE_BRCM_ABOOT_INTERNAL)
+  - $(BJW_IMAGE_BRCM_ABOOT_PUBLIC)
   - custom
 
 - name: TO_IMAGE_LIST
@@ -98,35 +95,34 @@ parameters:
 - name: TO_IMAGE_URL
   displayName: "Target image location"
   type: string
-  default: $(IMAGE_BRCM_ABOOT_202411)
+  default: $(BJW_IMAGE_BRCM_ABOOT_LEGACY_TH_202511)
   values:
-  - $(IMAGE_BRCM_ABOOT_201811)
-  - $(IMAGE_BRCM_ABOOT_201911)
-  - $(IMAGE_BRCM_ABOOT_202012)
-  - $(IMAGE_BRCM_ABOOT_202012_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202106)
-  - $(IMAGE_BRCM_ABOOT_202205)
-  - $(IMAGE_BRCM_ABOOT_202205_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202305)
-  - $(IMAGE_BRCM_ABOOT_202305_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202311)
-  - $(IMAGE_BRCM_ABOOT_202311_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202405)
-  - $(IMAGE_BRCM_ABOOT_202405_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202411)
-  - $(IMAGE_BRCM_ABOOT_202411_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202505)
-  - $(IMAGE_BRCM_ABOOT_202505_SLIM)
-  - $(IMAGE_BRCM_ABOOT_202511)
-  - $(IMAGE_BRCM_ABOOT_202511_SLIM)
-  - $(IMAGE_BRCM_ABOOT_INTERNAL)
-  - $(IMAGE_BRCM_ABOOT_PUBLIC)
+  - $(BJW_IMAGE_BRCM_ABOOT_201811)
+  - $(BJW_IMAGE_BRCM_ABOOT_201911)
+  - $(BJW_IMAGE_BRCM_ABOOT_202012)
+  - $(BJW_IMAGE_BRCM_ABOOT_202012_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202106)
+  - $(BJW_IMAGE_BRCM_ABOOT_202205)
+  - $(BJW_IMAGE_BRCM_ABOOT_202205_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202305)
+  - $(BJW_IMAGE_BRCM_ABOOT_202305_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202311)
+  - $(BJW_IMAGE_BRCM_ABOOT_202311_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202405)
+  - $(BJW_IMAGE_BRCM_ABOOT_202405_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202411)
+  - $(BJW_IMAGE_BRCM_ABOOT_202411_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_202505)
+  - $(BJW_IMAGE_BRCM_ABOOT_202505_SLIM)
+  - $(BJW_IMAGE_BRCM_ABOOT_LEGACY_TH_202511)
+  - $(BJW_IMAGE_BRCM_ABOOT_INTERNAL)
+  - $(BJW_IMAGE_BRCM_ABOOT_PUBLIC)
   - custom
 
 - name: VSONIC_NEIGHBOR_IMAGE_URL
   displayName: "SONiC image URL (used only for vsonic neighbors)"
   type: string
-  default: https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=202311&platform=vs&target=target%2Fsonic-vs.img.gz
+  default: https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=master&platform=vs&target=target%2Fsonic-vs.img.gz
 
 - name: RUN_REBOOT_CASE
   default: "test_upgrade_path"
@@ -145,7 +141,7 @@ parameters:
 
 - name: ITERATIONS
   type: string
-  default: "22"
+  default: "27"
   values:
   - "1"
   - "10"
@@ -170,7 +166,7 @@ parameters:
 - name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS
   type: string
   displayName: "Additional Upgrade Hop Locations - (comma separated values zipped with image numbers e.g. IMAGE_BRCM_ABOOT_202405,IMAGE_BRCM_ABOOT_202411)"
-  default: IMAGE_BRCM_ABOOT_202511
+  default: BJW_IMAGE_BRCM_ABOOT_LEGACY_TH_202511
 
 - name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS
   type: string
@@ -179,10 +175,10 @@ parameters:
 
 - name: MULTI_HOP_BASE_UPGRADE_PATH
   type: string
-  default: SONiC-Arista-7050CX3-ToRRouter
+  default: SONiC-Arista-7060-ToRRouter
   displayName: "Multi-hop base upgrade path"
   values:
-  - SONiC-Arista-7050CX3-ToRRouter
+  - SONiC-Arista-7060-ToRRouter
   - " "
 
 
@@ -190,7 +186,6 @@ parameters:
   displayName: "Skip locking testbed (Please reserve the testbed manually)"
   type: boolean
   default: false
-
 
 stages:
   - template: ../metadata_upgrade_template.yml
@@ -207,7 +202,7 @@ stages:
       VSONIC_NEIGHBOR_IMAGE_URL: ${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}
       RUN_REBOOT_CASE: ${{ parameters.RUN_REBOOT_CASE }}
       SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
-      ITERATIONS : ${{ parameters.ITERATIONS }}
+      ITERATIONS: ${{ parameters.ITERATIONS }}
       SKIP_LOCKING_TESTBED: ${{ parameters.SKIP_LOCKING_TESTBED }}
       RUN_DOUBLE_UPGRADE: ${{ parameters.RUN_DOUBLE_UPGRADE }}
       RUN_MULTI_HOP_UPGRADE: ${{ parameters.RUN_MULTI_HOP_UPGRADE }}
