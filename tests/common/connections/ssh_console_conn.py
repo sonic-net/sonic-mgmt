@@ -135,7 +135,9 @@ class SSHConsoleConn(BaseConsoleConn):
                     user_sent = True
 
                 # Search for password pattern / send password
-                if user_sent and not password_sent and re.search(pwd_pattern, output, flags=re.I):
+                # Use return_msg (accumulated) instead of output to handle cases where
+                # 'Password:' prompt is split across multiple TCP reads (e.g. 'Pa' + 'ssword:')
+                if user_sent and not password_sent and re.search(pwd_pattern, return_msg, flags=re.I):
                     self.write_channel(password + self.RETURN)
                     time.sleep(0.5 * delay_factor)
                     output = self.read_channel()
