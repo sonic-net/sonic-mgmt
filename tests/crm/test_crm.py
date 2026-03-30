@@ -8,7 +8,7 @@ import logging
 import os
 import tempfile
 
-from jinja2 import Template
+from jinja2 import Environment, Template
 from tests.common.cisco_data import is_cisco_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
@@ -271,7 +271,7 @@ def verify_thresholds(duthost, asichost, **kwargs):
         loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='crm_test')
         for key, value in list(THR_VERIFY_CMDS.items()):
             logger.info("Verifying CRM threshold '{}'".format(key))
-            template = Template(value)
+            template = Environment(autoescape=True).from_string(value)
             if "exceeded" in key:
                 loganalyzer.expect_regex = [EXPECT_EXCEEDED]
             elif "clear" in key:
