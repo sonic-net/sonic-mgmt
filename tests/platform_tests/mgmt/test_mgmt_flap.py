@@ -558,17 +558,22 @@ def ensure_mgmt_port_noshut(duthost_console):
         logging.warning("{} - Finalizer NOSHUT encountered exception: {}".format(
             LOG_PREFIX, str(finalizer_error)))
 
-#=============================================================
+# =============================================================
 # Test Case: Stress test on management port flap using console
 # This test will:
 # 1. Verify management port is initially UP via console
 # 2. Execute stress management interface flap via console (10 cycles)
 # 3. Monitor SSH connectivity during stress test execution
 # 4. Verify SSH connectivity is restored after stress test
-#=============================================================
+# =============================================================
+
 
 def test_mgmt_interface_stress_flap_console(
-    duthost_console, duthosts, enum_supervisor_dut_hostname, localhost, ensure_mgmt_port_noshut):
+    duthost_console,
+    duthosts,
+    enum_supervisor_dut_hostname,
+    localhost,
+    ensure_mgmt_port_noshut):
     """
     Test stress management port flaps (10 iterations) using console commands
 
@@ -595,7 +600,7 @@ def test_mgmt_interface_stress_flap_console(
     # STEP1: Check console echo
     check_runtime_console_state(duthost_console)
 
-    # STEP2: Execute stress flaps and monitor SSH
+    # Step2: Execute stress flaps and monitor SSH
     test_results = {
         'success': False,
         'ssh_restored': False,
