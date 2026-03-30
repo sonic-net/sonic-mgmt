@@ -5057,25 +5057,33 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if (platform_asic and
-                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
-                    if cntr == 1:
-                        log_message("recv_counters_base: {}, recv_counters: {}".format(
-                            recv_counters_base[cntr], recv_counters[cntr]), to_stderr=True)
+                dnx_asics = ["broadcom-dnx", "marvell-teralynx"]
+                counter_margin = COUNTER_MARGIN if (
+                    platform_asic and platform_asic in dnx_asics) else 0
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    if (platform_asic and
+                            platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
+                        if cntr == 1:
+                            log_message("recv_counters_base: {}, recv_counters: {}".format(
+                                recv_counters_base[cntr], recv_counters[cntr]), to_stderr=True)
+                            qos_test_assert(
+                                self,
+                                recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                                "Ingress drop encountered: {} packets dropped on "
+                                "counter {} ({})".format(
+                                    recv_counters[cntr] - recv_counters_base[cntr],
+                                    cntr, port_counter_fields[cntr]))
+                    else:
                         qos_test_assert(
-                            self,
-                            recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                            self, recv_counters[cntr] == recv_counters_base[cntr],
                             "Ingress drop encountered: {} packets dropped on "
                             "counter {} ({})".format(
                                 recv_counters[cntr] - recv_counters_base[cntr],
                                 cntr, port_counter_fields[cntr]))
-                else:
-                    qos_test_assert(
-                        self, recv_counters[cntr] == recv_counters_base[cntr],
-                        "Ingress drop encountered: {} packets dropped on "
-                        "counter {} ({})".format(
-                            recv_counters[cntr] - recv_counters_base[cntr],
-                            cntr, port_counter_fields[cntr]))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
@@ -5126,12 +5134,16 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                                     recv_counters[cntr] - recv_counters_base[cntr],
                                     cntr, port_counter_fields[cntr]))
                 else:
-                    qos_test_assert(
-                        self, recv_counters[cntr] == recv_counters_base[cntr],
-                        "Ingress drop encountered: {} packets dropped on "
-                        "counter {} ({})".format(
-                            recv_counters[cntr] - recv_counters_base[cntr],
-                            cntr, port_counter_fields[cntr]))
+                    # Check if ingress drop is caused by environmental non-unicast noise
+                    if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                            self.src_client, port_list['src'][src_port_id],
+                            recv_counters, recv_counters_base, cntr):
+                        qos_test_assert(
+                            self, recv_counters[cntr] == recv_counters_base[cntr],
+                            "Ingress drop encountered: {} packets dropped on "
+                            "counter {} ({})".format(
+                                recv_counters[cntr] - recv_counters_base[cntr],
+                                cntr, port_counter_fields[cntr]))
 
             # xmit port egress drop
             if platform_asic and platform_asic == "broadcom-dnx" and dut_asic != 'q3d':
