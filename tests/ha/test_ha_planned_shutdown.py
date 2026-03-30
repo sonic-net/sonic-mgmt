@@ -107,7 +107,7 @@ def test_ha_planned_shutdown(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("Set primary to dead")
-        set_dead_dash_ha_scope(localhost, ptfhost, duthosts[0], "vdpu0_0:haset0_0")
+        set_dead_dash_ha_scope(localhost, duthosts[0], ptfhost, "vdpu0_0:haset0_0")
 
     t = threading.Thread(target=primary_ha_action, name="primary_ha_action_thread")
     t.start()
@@ -152,7 +152,7 @@ def test_ha_planned_shutdown(
         while packet_sending_flag.empty() or (not packet_sending_flag.get()):
             time.sleep(0.2)
         logging.info("Set standby to dead")
-        set_dead_dash_ha_scope(localhost, ptfhost, duthosts[1], "vdpu1_0:haset0_0")
+        set_dead_dash_ha_scope(localhost, duthosts[1], ptfhost, "vdpu1_0:haset0_0")
 
     t = threading.Thread(target=standby_ha_action, name="standby_ha_action_thread")
     t.start()
