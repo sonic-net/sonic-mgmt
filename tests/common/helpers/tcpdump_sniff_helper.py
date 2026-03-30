@@ -102,7 +102,7 @@ class TcpdumpSniffHelper(object):
     def run_background_cmd(self, command):
         return "nohup " + command + " &"
 
-    def start_sniffer(self, host='ptf', asic_ns="None"):
+    def start_sniffer(self, host='ptf', asic_ns=None):
         """
         Start tcpdump sniffer
         """
