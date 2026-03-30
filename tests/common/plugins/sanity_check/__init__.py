@@ -221,11 +221,11 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         return
 
     skip_sanity = False
-    skip_pre_sanity = False
+    skip_pre_sanity = True
     allow_recover = False
     recover_method = "adaptive"
     pre_check_items = copy.deepcopy(SUPPORTED_CHECKS)  # Default check items
-    post_check = False
+    post_check = True
     nbr_hosts = None
 
     customized_sanity_check = None
@@ -239,7 +239,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         logger.info("Process marker {} in script. m.args={}, m.kwargs={}"
                     .format(customized_sanity_check.name, customized_sanity_check.args, customized_sanity_check.kwargs))
         skip_sanity = customized_sanity_check.kwargs.get("skip_sanity", False)
-        skip_pre_sanity = customized_sanity_check.kwargs.get("skip_pre_sanity", False)
+        skip_pre_sanity = customized_sanity_check.kwargs.get("skip_pre_sanity", True)
         allow_recover = customized_sanity_check.kwargs.get("allow_recover", False)
         recover_method = customized_sanity_check.kwargs.get("recover_method", "adaptive")
         if allow_recover and recover_method not in constants.RECOVER_METHODS:
@@ -252,7 +252,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
             customized_sanity_check.kwargs.get("check_items", []),
             SUPPORTED_CHECKS)
 
-        post_check = customized_sanity_check.kwargs.get("post_check", False)
+        post_check = customized_sanity_check.kwargs.get("post_check", True)
 
     if skip_sanity:
         logger.info("Skip sanity check according to configuration of test script.")
@@ -261,6 +261,9 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
 
     if request.config.option.skip_pre_sanity:
         skip_pre_sanity = True
+
+    if request.config.option.enable_pre_sanity:
+        skip_pre_sanity = False
 
     if request.config.option.allow_recover:
         allow_recover = True
@@ -271,6 +274,9 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
 
     if request.config.option.post_check:
         post_check = True
+
+    if request.config.option.skip_post_check:
+        post_check = False
 
     if not request.config.option.enable_macsec:
         pre_check_items.remove("check_neighbor_macsec_empty")
