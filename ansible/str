@@ -245,6 +245,7 @@ sonic:
     sonic_arista32_100:
     sonic_agc7648:
     sonic_mlnx_4700:
+    sonic_arista_7050cx3:
     sonic_arista_7060c6:
     sonic_arista_7280dr3_400G:
     sonic_nokia_7250x3b_400G:
@@ -271,6 +272,24 @@ sonic_cisco_8101:
         "0x28": "x86_64-8101_32fh_o-r0"
         "0x2D": "Cisco"
         "0xFE": "0x4F48A22C"
+    str-8101-temp01:
+      ansible_host: 10.3.156.27
+      ansible_hostv6: 2a01:111:e210:4000::a03:9c1b
+      mgmt_subnet_mask_length: 25
+      mgmt_subnet_v6_mask_length: 121
+      hwsku: Cisco-8101-O8C48
+      model: 8101-32FH-O
+      serial: FLM264100S4
+      base_mac: 98:A2:C0:26:EE:00
+      syseeprom_info:
+        "0x21": "8101-32FH-O"
+        "0x22": "477691"
+        "0x23": "FLM264100S4"
+        "0x24": "98:A2:C0:26:EE:00"
+        "0x26": "2"
+        "0x28": "x86_64-8101_32fh_o-r0"
+        "0x2D": "Cisco"
+        "0xFE": "0x4A406B0B"
   vars:
     iface_speed: 400000
 
@@ -509,6 +528,23 @@ sonic_agc7648:
   vars:
     hwsku: Delta-AGC7648
     iface_speed: 10000
+
+sonic_arista_7050cx3:
+  hosts:
+    str-7050cx3-c17-u39:
+      ansible_host: 10.3.146.211
+      ansible_hostv6: 2a01:111:e210:3000::a03:92d3
+      mgmt_subnet_mask_length: 24
+      hwsku: Arista-7050CX3-32S-C32
+      model: DCS-7050CX3-32S-SSD
+      serial: JPW20280878
+      base_mac: d4:af:f7:4c:eb:28
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S-SSD"
+        "0x23": "JPW20280878"
+        "0x24": "d4:af:f7:4c:eb:28"
+        "0x2D": "Arista Networks"
+        "0x2B": "Arista Networks"
 
 sonic_arista_7060c6:
   hosts:
