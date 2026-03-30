@@ -229,7 +229,7 @@ arp/test_unknown_mac.py::TestUnknownMac::test_unknown_mac:
 
 arp/test_wr_arp.py:
   skip:
-    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos / Warm reboot is not required for 202412 and this test is not run on this asic type or version or topology currently"
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos / Warm reboot is not required for 202412 and this test is not run on this asic type or version or topology currently. Not supported on lossy topologies."
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
@@ -238,6 +238,7 @@ arp/test_wr_arp.py:
       - "'isolated' in topo_name"
       - "topo_type not in ['t0']"
       - "'f2' in topo_name"
+      - *lossyTopos
 
 ########################################
 ######        autorestart          #####
@@ -254,9 +255,11 @@ autorestart/test_container_autorestart.py::test_containers_autorestart.*teamd.*:
 #######################################
 bfd:
   skip:
-    reason: "It is skipped for '202412' for now"
+    reason: "It is skipped for '202412' for now. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
       - "release in ['202412']"
+      - *lossyTopos
 
 bfd/test_bfd.py:
   skip:
@@ -691,9 +694,11 @@ clock/test_clock.py::test_config_clock_timezone:
 #######################################
 configlet:
   skip:
-    reason: "It is skipped for '202412' for now"
+    reason: "It is skipped for '202412' for now. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
       - "release in ['202412']"
+      - *lossyTopos
 
 configlet/test_add_rack.py:
   skip:
@@ -776,6 +781,12 @@ crm/test_crm_available.py:
 #######################################
 #####           dash              #####
 #######################################
+dash:
+  skip:
+    reason: "Not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
+
 dash/crm/test_dash_crm.py:
   skip:
     reason: "Currently dash tests are not supported on KVM"
@@ -957,9 +968,11 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 dhcp_relay:
   skip:
-    reason: "It is skipped for '202412' for now"
+    reason: "It is skipped for '202412' for now. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
       - "release in ['202412']"
+      - *lossyTopos
 
 dhcp_relay/test_dhcp_counter_stress.py::test_dhcpmon_relay_counters_stress:
   xfail:
@@ -1175,9 +1188,11 @@ dhcp_relay/test_dhcpv6_relay.py::test_interface_binding:
 #######################################
 dhcp_server:
   skip:
-    reason: "It is skipped for '202412' for now"
+    reason: "It is skipped for '202412' for now. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
       - "release in ['202412']"
+      - *lossyTopos
 
 #####             disk            #####
 #######################################
@@ -1237,9 +1252,9 @@ drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr:
 #######################################
 dualtor:
   skip:
-    reason: "It is skipped for '202412' for now"
+    reason: "Not supported on lossy topologies."
     conditions:
-      - "release in ['202412']"
+      - *lossyTopos
 
 dualtor/test_bgp_block_loopback1.py:
   skip:
@@ -1362,9 +1377,11 @@ dualtor/test_tunnel_memory_leak.py::test_tunnel_memory_leak:
 
 dualtor_io:
   skip:
-    reason: "Testcase could only be executed on dualtor testbed."
+    reason: "Testcase could only be executed on dualtor testbed. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' not in topo_name"
+      - *lossyTopos
 
 dualtor_io/test_grpc_server_failure.py:
   skip:
@@ -1446,9 +1463,11 @@ dualtor_io/test_tor_failure.py:
 
 dualtor_mgmt:
   skip:
-    reason: "It is skipped for '202412' for now"
+    reason: "It is skipped for '202412' for now. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
       - "release in ['202412']"
+      - *lossyTopos
 
 dualtor_mgmt/test_dualtor_bgp_update_delay.py:
   xfail:
@@ -3194,9 +3213,11 @@ high_frequency_telemetry/test_high_frequency_telemetry.py::test_hft_full_counter
 #######################################
 http:
   skip:
-    reason: "It is skipped for '202412' for now"
+    reason: "It is skipped for '202412' for now. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
       - "release in ['202412']"
+      - *lossyTopos
 
 #######################################
 #####    iface_loopback_action    #####
@@ -3400,11 +3421,12 @@ ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
 #######################################
 ixia:
   skip:
-    reason: "Ixia test only support on physical ixia testbed and it is not tested for now"
+    reason: "Ixia test only support on physical ixia testbed and it is not tested for now. Not supported on lossy topologies."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
       - "True"
+      - *lossyTopos
 
 #######################################
 #####            k8s              #####
@@ -3477,9 +3499,11 @@ lldp/test_lldp_syncd.py::test_lldp_entry_table_after_lldp_restart:
 #######################################
 macsec:
   skip:
-    reason: "Skip running on dualtor testbed"
+    reason: "Skip running on dualtor testbed. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
+      - *lossyTopos
 
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
   skip:
@@ -3504,9 +3528,11 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_snmp:
 #######################################
 mclag:
   skip:
-    reason: "Skip running on dualtor testbed"
+    reason: "Skip running on dualtor testbed. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
-       - "'dualtor' in topo_name"
+      - "'dualtor' in topo_name"
+      - *lossyTopos
 
 mclag/test_mclag_l3.py:
   skip:
@@ -3530,9 +3556,11 @@ memory_checker/test_memory_checker.py:
 #######################################
 mpls:
   skip:
-    reason: "MPLS feature is not enabled with image version, skipped"
+    reason: "MPLS feature is not enabled with image version, skipped. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
       - "'mpls' not in feature_status"
+      - *lossyTopos
 
 #######################################
 #####           mvrf              #####
@@ -3572,9 +3600,11 @@ mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
 #######################################
 mx:
   skip:
-    reason: "Test is only applicable to m0, mx, and m1 topologies"
+    reason: "Test is only applicable to m0, mx, and m1 topologies. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
       - "topo_type not in ['m0', 'mx', 'm1']"
+      - *lossyTopos
 
 #######################################
 #####           nat               #####
@@ -3592,11 +3622,12 @@ nat:
 #######################################
 ospf:
   skip:
-    reason: "Neighbor type must be sonic, skip in PR testing and it is skipped for '202412' for now"
+    reason: "Neighbor type must be sonic, skip in PR testing and it is skipped for '202412' for now. Not supported on lossy topologies."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
       - "release in ['202412']"
+      - *lossyTopos
 
 #######################################
 #####    override_config_table    #####
@@ -3715,9 +3746,11 @@ pfc/test_unknown_mac.py:
 #######################################
 pfc_asym:
   skip:
-    reason: "It is not tested for now"
+    reason: "It is not tested for now. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
       - "True"
+      - *lossyTopos
 
 pfc_asym/test_pfc_asym.py:
   skip:
@@ -3856,6 +3889,18 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
+platform_tests/test_advanced_reboot.py:
+  skip:
+    reason: "Not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
+
+platform_tests/test_cont_warm_reboot.py:
+  skip:
+    reason: "Not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
+
 platform_tests/test_reload_config.py::test_reload_configuration:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
@@ -3914,12 +3959,13 @@ qos:
 
 qos/test_buffer.py:
   skip:
-    reason: "These tests don't apply to cisco 8000 platforms or T2 or M* since they support only traditional model and it is skipped for '202412' for now"
+    reason: "These tests don't apply to cisco 8000 platforms or T2 or M* since they support only traditional model and it is skipped for '202412' for now. Not supported on lossy topologies."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000'] or topo_type == 't2'"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202412']"
+      - *lossyTopos
 
 qos/test_buffer.py::test_buffer_model_test:
   skip:
@@ -3953,12 +3999,13 @@ qos/test_oq_watchdog.py:
 
 qos/test_pfc_counters.py:
   skip:
-    reason: "Not supported on SKU and It is skipped for '202412' for now"
+    reason: "Not supported on SKU and It is skipped for '202412' for now. Not supported on lossy topologies."
     conditions_logical_operator: or
     conditions:
       - "hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2',
                    'Mellanox-SN5640-C448O16']"
       - "release in ['202412']"
+      - *lossyTopos
 
 qos/test_pfc_counters.py::test_pfc_unpause:
   # The test case expects both XON and XOFF frames to be supported.
@@ -3970,11 +4017,12 @@ qos/test_pfc_counters.py::test_pfc_unpause:
 
 qos/test_pfc_pause.py:
   skip:
-    reason: "This test is not run on this asic type or version or topology currently and also skip for 202412 for now"
+    reason: "This test is not run on this asic type or version or topology currently and also skip for 202412 for now. Not supported on lossy topologies."
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t0']"
       - "release in ['202412']"
+      - *lossyTopos
 
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
@@ -4018,12 +4066,13 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
 
 qos/test_qos_masic.py:
   skip:
-    reason: "QoS tests for multi-ASIC only. Supported topos: t1-lag, t1-64-lag, t1-56-lag, t1-backend. / M* topo does not support qos. / KVM do not support swap syncd."
+    reason: "QoS tests for multi-ASIC only. Supported topos: t1-lag, t1-64-lag, t1-56-lag, t1-backend. / M* topo does not support qos. / KVM do not support swap syncd. Not supported on lossy topologies."
     conditions_logical_operator: or
     conditions:
       - "is_multi_asic==False or topo_name not in ['t1-lag', 't1-64-lag', 't1-56-lag', 't1-backend']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "asic_type in ['vs']"
+      - *lossyTopos
 
 qos/test_qos_sai.py:
   skip:
@@ -4314,6 +4363,12 @@ radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
 #######################################
 #####          read_mac           #####
 #######################################
+read_mac:
+  skip:
+    reason: "Not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
+
 read_mac/test_read_mac_metadata.py:
   skip:
     reason: "Read_mac test needs specific variables and image urls, currently do not support on KVM and regular nightly test."
@@ -4323,6 +4378,12 @@ read_mac/test_read_mac_metadata.py:
 #######################################
 #####      reset_factory          #####
 #######################################
+reset_factory:
+  skip:
+    reason: "Not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
+
 reset_factory/test_reset_factory.py:
   skip:
     reason: "This case has a known issue which leaves the DUT in a bad state. Skipping until the issue is addressed."
@@ -4587,13 +4648,24 @@ show_techsupport/test_techsupport.py::test_techsupport:
 
 
 #######################################
+#####        smartswitch           #####
+#######################################
+smartswitch:
+  skip:
+    reason: "Not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
+
+#######################################
 #####         snappi_tests        #####
 #######################################
 snappi_tests:
   skip:
-    reason: "Snappi test only support on physical tgen testbed"
+    reason: "Snappi test only support on physical tgen testbed. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
+      - *lossyTopos
 
 snappi_tests/dash:
   skip:
@@ -4670,6 +4742,12 @@ snappi_tests/reboot:
 #######################################
 #####            snmp             #####
 #######################################
+snmp:
+  skip:
+    reason: "Not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
+
 snmp/test_snmp_default_route.py:
   xfail:
     reason: "xfail for IPv6-only topologies, need add support for IPv6-only"
@@ -5116,6 +5194,12 @@ test_nbr_health.py:
 #######################################
 #####         pktgen              #####
 #######################################
+test_pktgen:
+  skip:
+    reason: "Not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
+
 test_pktgen.py:
   skip:
     reason: "No need in M0/Mx/M1"
@@ -5134,6 +5218,12 @@ test_pretest.py::test_disable_rsyslog_rate_limit:
 #######################################
 #####         vs_chassis          #####
 #######################################
+test_vs_chassis_setup:
+  skip:
+    reason: "Not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
+
 test_vs_chassis_setup.py:
   skip:
     reason: "Skip vs_chassis setup on non-vs testbeds"
@@ -5153,6 +5243,7 @@ upgrade_path:
     conditions:
       - "asic_type in ['vs']"
       - "'t1' in topo_type and asic_type in ['marvell-teralynx']"
+      - *lossyTopos
 
 upgrade_path/test_multi_hop_upgrade_path.py:
   skip:
@@ -5198,11 +5289,12 @@ vlan/test_vlan_ping.py:
 #######################################
 voq:
   skip:
-    reason: "Cisco 8800 doesn't support voq tests and not supported on this DUT topology"
+    reason: "Cisco 8800 doesn't support voq tests and not supported on this DUT topology. Not supported on lossy topologies."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000']"
       - "'t2' not in topo_name"
+      - *lossyTopos
 
 voq/test_fabric_cli_and_db.py:
   skip:
@@ -5597,6 +5689,12 @@ vxlan/test_vxlan_underlay_ecmp.py:
 #######################################
 #####           wan_lacp          #####
 #######################################
+wan:
+  skip:
+    reason: "Not supported on lossy topologies."
+    conditions:
+      - *lossyTopos
+
 wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
   skip:
     reason: "Skip test due to there isn't enough port channel or members exists in current topology."
@@ -5610,9 +5708,11 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
 #######################################
 wol:
   skip:
-    reason: "Not supported on this DUT topology"
+    reason: "Not supported on this DUT topology. Not supported on lossy topologies."
+    conditions_logical_operator: or
     conditions:
       - "topo_type not in ['mx', 'm0']"
+      - *lossyTopos
 
 #######################################
 #####             zmq             #####
