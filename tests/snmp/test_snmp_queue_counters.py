@@ -353,6 +353,7 @@ def test_snmp_queue_counters(duthosts,
     # or included multicast:
     # - UC only: removed_queues * 4 (statsTypes 1,2,5,6)
     # - UC + MC: removed_queues * 8 (statsTypes 1-8)
+
     else:
         range_str = str(buffer_queue_to_del.split('|')[-1])
         if '-' in range_str:
