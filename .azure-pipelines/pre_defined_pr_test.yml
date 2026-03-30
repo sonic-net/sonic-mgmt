@@ -38,6 +38,10 @@ parameters:
   type: string
   default: ""
 
+- name: INCLUDE_JOBS
+  type: string
+  default: "all"
+
 stages:
 - stage: Test
   variables:
@@ -59,3 +63,4 @@ stages:
         TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
         MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+        INCLUDE_JOBS: ${{ parameters.INCLUDE_JOBS }}
