@@ -7,9 +7,14 @@ import os
 import time
 import paramiko
 from tests.conftest import add_custom_msg
-from tests.snappi_tests.variables import snappi_community_for_t1_drop, t2_uplink_fanout_info, \
-    t1_dut_info, fanout_presence    # noqa: F401
-from tests.snappi_tests.bgp.files.bgp_outbound_helper import get_hw_platform    # noqa: F401
+from tests.snappi_tests.variables import (
+    COMMUNITY_LOWER_TIER_DROP,
+    TOPOLOGY_T2_PIZZABOX,
+    FANOUT_PRESENCE,
+    detect_topology_and_vendor,
+    get_lower_tier_info,
+    get_uplink_fanout_info
+)
 from tests.common.utilities import wait_until
 from _pytest.runner import TestReport
 
@@ -100,24 +105,27 @@ def validate_critical_containers(ssh):
     logger.info("All critical containers are running.")
 
 
-def apply_t1_config_on_dut(device_ip, creds,
-                           remote_tmp_path="/tmp/config_db.json.tmp",
-                           final_path="/etc/sonic/config_db.json", **kwargs):
-    """Move the file to /etc/sonic, rename it, reload config, and validate containers."""
+def apply_lower_tier_config_on_dut(device_ip, creds, topology_type,
+                                   remote_tmp_path="/tmp/config_db.json.tmp",
+                                   final_path="/etc/sonic/config_db.json", **kwargs):
+    """Move the file to /etc/sonic, rename it, reload config, and validate containers for lower tier DUT."""
     username = creds.get('sonicadmin_user')
     password = creds.get('sonicadmin_password')
 
     ssh = ssh_connect(device_ip, username, password)
     exist_prefix_deny = False
 
+    # Route-map prefix is same for both topologies
+    route_map_prefix = "FROM_TIER2"
+
     try:
-        logger.info(f"Applying configuration on T1 DUT: {device_ip}...")
+        logger.info(f"Applying configuration on Lower Tier DUT: {device_ip}...")
         execute_command(
             ssh, f"sudo mv {remote_tmp_path} {final_path}", password)
         logger.info(f"Moved {remote_tmp_path} to {final_path}")
 
         execute_command(ssh, "sudo config reload -y", password)
-        logger.info("T1 DUT Config reload command executed")
+        logger.info("Lower Tier DUT Config reload command executed")
 
         time.sleep(10)
 
@@ -128,15 +136,15 @@ def apply_t1_config_on_dut(device_ip, creds,
 
         if not exist_prefix_deny:
             logger.info(
-                f"Apply filter for T1 community {snappi_community_for_t1_drop[0]}")
+                f"Apply filter for lower tier community {COMMUNITY_LOWER_TIER_DROP[0]}")
             execute_command(ssh, "vtysh -c " + " -c ".join(
                 [
                     "'config t'",
-                    f"'bgp community-list standard UPSTREAM_PREFIX_DENY permit {snappi_community_for_t1_drop[0]}'",
-                    "'route-map FROM_TIER2_V4 deny 10'",
+                    f"'bgp community-list standard UPSTREAM_PREFIX_DENY permit {COMMUNITY_LOWER_TIER_DROP[0]}'",
+                    f"'route-map {route_map_prefix}_V4 deny 10'",
                     "'match community UPSTREAM_PREFIX_DENY'",
                     "'exit'",
-                    "'route-map FROM_TIER2_V6 deny 10'",
+                    f"'route-map {route_map_prefix}_V6 deny 10'",
                     "'match community UPSTREAM_PREFIX_DENY'"
                 ])
             )
@@ -145,7 +153,7 @@ def apply_t1_config_on_dut(device_ip, creds,
         validate_critical_containers(ssh)
 
         logger.info(
-            f"T1 DUT Configuration applied successfully on {device_ip}")
+            f"Lower Tier DUT Configuration applied successfully on {device_ip}")
     finally:
         ssh.close()
 
@@ -182,27 +190,50 @@ def apply_fanout_config_on_dut(device_ip, creds,
         ssh.close()
 
 
-def configure_dut(hw_platform, creds, role, **kwargs):
-    """Configure T1 or Fanout DUT based on the given role."""
-    config_filename = f"config_db.json.{role}.{hw_platform}"  # Example: "config_db.json.t1.ARISTA"
+def configure_lower_tier_or_fanout(topology_type, vendor, creds, role, **kwargs):
+    """
+    Unified function to configure lower tier or Fanout DUT.
+
+    Args:
+        topology_type: TOPOLOGY_T2_CHASSIS or TOPOLOGY_T2_PIZZABOX
+        vendor: Vendor identifier (e.g., 'ARISTA', 'NOKIA', 'CISCO')
+        creds: Credentials dictionary
+        role: 'lower_tier' or 'fanout'
+        **kwargs: Additional arguments (e.g., context for lower tier config)
+    """
+    # Determine config file name based on topology and role
+    if role == "lower_tier":
+        if topology_type == TOPOLOGY_T2_PIZZABOX:
+            config_role = "lower_tier.pizzabox"
+        else:
+            config_role = "lower_tier.chassis"
+    elif role == "fanout":
+        if topology_type == TOPOLOGY_T2_PIZZABOX:
+            config_role = "fanout.pizzabox"
+        else:
+            config_role = "fanout.chassis"
+    else:
+        pytest.fail(f"Unknown role: {role}")
+
+    config_filename = f"config_db.json.{config_role}.{vendor}"
     config_source_path = os.path.join(BASE_DIR, "configs", config_filename)
 
     if not os.path.exists(config_source_path):
         logger.error(f"Config file '{config_source_path}' not found.")
-        pytest.fail(
-            f"Missing config file: {config_source_path} for platform: {hw_platform}")
+        pytest.fail(f"Missing config file: {config_source_path} for vendor: {vendor}")
 
-    if role == "t1":
-        device_ip = t1_dut_info[hw_platform]["dut_ip"]
+    # Get device IP based on role
+    if role == "lower_tier":
+        device_ip = get_lower_tier_info(topology_type, vendor)["dut_ip"]
     elif role == "fanout":
-        device_ip = t2_uplink_fanout_info[hw_platform]["fanout_ip"]
+        device_ip = get_uplink_fanout_info(topology_type, vendor)["fanout_ip"]
 
-    # Copy to /tmp on DUT
+    # Copy config to /tmp on DUT
     scp_to_dut(device_ip, creds, config_source_path)
 
     # Apply configuration based on role
-    if role == "t1":
-        apply_t1_config_on_dut(device_ip, creds, **kwargs)
+    if role == "lower_tier":
+        apply_lower_tier_config_on_dut(device_ip, creds, topology_type, **kwargs)
     elif role == "fanout":
         apply_fanout_config_on_dut(device_ip, creds)
 
@@ -283,50 +314,50 @@ def initial_setup(duthosts, creds, tbinfo):
         yield
         return
 
-    """Perform initial DUT configurations (T1, Fanout) for convergence tests (runs once per test session)."""
+    """Perform initial DUT configurations for convergence tests (runs once per test session)."""
     patch_facts = patch_conn_graph_facts(duthosts, tbinfo)
     patch_facts.patch()
 
     context = {'exist-prefix-deny': False}
 
-    logger.info("Starting initial DUT setup for T2 Convergence tests")
+    logger.info("Starting initial DUT setup for Convergence tests")
 
-    # Get Hardware platform
+    # Get Hardware platform and topology type using new unified function
     ansible_dut_hostnames = [duthost.hostname for duthost in duthosts]
-    hw_platform = get_hw_platform(ansible_dut_hostnames)
+    topology_type, vendor = detect_topology_and_vendor(ansible_dut_hostnames)
 
-    if hw_platform is None:
-        pytest.fail("Unknown HW Platform")
-    logger.info(f"HW Platform: {hw_platform}")
+    if vendor is None:
+        pytest.fail("Unknown Vendor/HW Platform")
+    logger.info(f"Vendor: {vendor}")
+    logger.info(f"Topology Type: {topology_type}")
 
-    # Configure T1 DUT
-    configure_dut(hw_platform, creds, "t1", context=context)
+    # Configure lower tier and fanout using unified function
+    configure_lower_tier_or_fanout(topology_type, vendor, creds, "lower_tier", context=context)
+    if FANOUT_PRESENCE:
+        configure_lower_tier_or_fanout(topology_type, vendor, creds, "fanout")
 
-    # Configure Fanout DUT (if applicable)
-    if fanout_presence:
-        configure_dut(hw_platform, creds, "fanout")
-
-    # execute TSB on DUTs
+    # Execute TSB on all DUTs
     for duthost in duthosts:
         apply_tsb(duthost)
 
-    logger.info("T2 Convergence test setup complete")
+    logger.info(f"{topology_type} Convergence test setup complete")
 
     yield
 
+    # Cleanup
     if not context['exist-prefix-deny']:
-        ssh = ssh_connect(t1_dut_info[hw_platform]["dut_ip"],
-                          creds.get('sonicadmin_user'),
+        lower_tier_info = get_lower_tier_info(topology_type, vendor)
+        device_ip = lower_tier_info["dut_ip"]
+        route_map_prefix = "FROM_TIER2"
+
+        ssh = ssh_connect(device_ip, creds.get('sonicadmin_user'),
                           creds.get('sonicadmin_password'))
-        logger.info(
-            f"Remove filter for T1 community {snappi_community_for_t1_drop[0]}")
-        execute_command(ssh, "vtysh -c " + " -c ".join(
-            [
-                "'config t'",
-                f"'no bgp community-list standard UPSTREAM_PREFIX_DENY permit {snappi_community_for_t1_drop[0]}'",
-                "'no route-map FROM_TIER2_V4 deny 10'",
-                "'no route-map FROM_TIER2_V6 deny 10'",
-            ])
-        )
+        logger.info(f"Remove filter for community {COMMUNITY_LOWER_TIER_DROP[0]}")
+        execute_command(ssh, "vtysh -c " + " -c ".join([
+            "'config t'",
+            f"'no bgp community-list standard UPSTREAM_PREFIX_DENY permit {COMMUNITY_LOWER_TIER_DROP[0]}'",
+            f"'no route-map {route_map_prefix}_V4 deny 10'",
+            f"'no route-map {route_map_prefix}_V6 deny 10'",
+        ]))
 
     patch_facts.undo()

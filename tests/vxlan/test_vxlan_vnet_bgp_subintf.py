@@ -8,6 +8,7 @@ import pytest
 import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
+from tests.common.utilities import wait_until
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 
 ecmp_utils = Ecmp_Utils()
@@ -349,7 +350,19 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, 
         pytest_assert(len(vnet_bgps) > 0 and vnet_bgps[0]["neighborname"] == "WLPARTNER_PASSIVE_V4"
                       and vnet_bgps[0]["state/pfxrcd"].isdigit(), f"BGP neighbor not found for vnet {VNET_NAME}.")
 
-        # Check acl table and rules are set
+        # Wait for ACL table and rule to become active (e.g. after config_reload on slower platforms)
+        def _acl_table_and_rule_active(duthost):
+            acl_table = duthost.shell(
+                f"sonic-db-cli STATE_DB HGET 'ACL_TABLE_TABLE|{ACL_TABLE_NAME}' 'status'",
+                module_ignore_errors=True)
+            if acl_table.get('stdout', '').strip().lower() != "active":
+                return False
+            acl_rule = duthost.shell(
+                f"sonic-db-cli STATE_DB HGET 'ACL_RULE_TABLE|{ACL_TABLE_NAME}|rule_1' 'status'",
+                module_ignore_errors=True)
+            return acl_rule.get('stdout', '').strip().lower() == "active"
+
+        wait_until(60, 2, 0, _acl_table_and_rule_active, duthost)
         acl_table = duthost.shell(f"sonic-db-cli STATE_DB HGET 'ACL_TABLE_TABLE|{ACL_TABLE_NAME}' 'status'")
         pytest_assert(acl_table['stdout'].strip().lower() == "active", f"ACL table {ACL_TABLE_NAME} not active.")
 
@@ -363,17 +376,24 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, 
         pytest_assert(route_tunnel['stdout'].strip().lower() == "active",
                       f"VNET route tunnel for {VNET_NAME} not active.")
 
-        # Get ptf eth of portchannels
+        # Get ptf eth of portchannels (only ports present in this DUT's ptf_map, e.g. dualtor)
         wl_ptf_port_num = []
         t1_ptf_port_num = []
         portchannel_members = config_facts.get("PORTCHANNEL_MEMBER", {})
         for key in portchannel_members:
             members = list(portchannel_members[key].keys())
             for intf in members:
+                dut_port_idx = port_indexes.get(intf)
+                if dut_port_idx is None:
+                    continue
+                ptf_port = ptf_ports_available_in_topo.get(dut_port_idx)
+                if ptf_port is None:
+                    # Port not in this DUT's ptf_map (e.g. dualtor: port on other ToR)
+                    continue
                 if key == wl_intf_info["wl_portchannel"]:
-                    wl_ptf_port_num.append(ptf_ports_available_in_topo[port_indexes[intf]])
+                    wl_ptf_port_num.append(ptf_port)
                 else:
-                    t1_ptf_port_num.append(ptf_ports_available_in_topo[port_indexes[intf]])
+                    t1_ptf_port_num.append(ptf_port)
 
         test_configs = {
             "wl_portchannel": wl_intf_info["wl_portchannel"],

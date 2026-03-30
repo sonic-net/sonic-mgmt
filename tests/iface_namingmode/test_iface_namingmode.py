@@ -2,6 +2,7 @@ import logging
 import pytest
 import re
 import ipaddress
+from copy import deepcopy
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.platform.device_utils import fanout_switch_port_lookup
@@ -112,6 +113,11 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     portchannel_members = [member for portchannel in list(minigraph_portchannels.values())
                            for member in portchannel['members']]
     physical_interfaces = [item for item in up_ports if item not in portchannel_members]
+
+    multi_vrf_info = None
+    if tbinfo.get('use_converged_peers', False):
+        multi_vrf_info = deepcopy(tbinfo['topo']['properties']['convergence_data'])
+
     setup_info = {
          'default_interfaces': default_interfaces,
          'minigraph_facts': minigraph_facts,
@@ -121,7 +127,8 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
          'port_alias_map': port_alias_map,
          'port_speed': port_speed,
          'up_ports': up_ports,
-         'upport_alias_list': upport_alias_list
+         'upport_alias_list': upport_alias_list,
+         'multi_vrf_info': multi_vrf_info,
     }
 
     yield setup_info
@@ -296,31 +303,45 @@ class TestShowLLDP():
         lldp_table = dutHostGuest.shell('SONIC_CLI_IFACE_MODE={} show lldp table'.format(ifmode))['stdout']
         logger.info('lldp_table:\n{}'.format(lldp_table))
 
+        vrf_map = {}
+        multi_vrf = False
+        if setup.get('multi_vrf_info'):
+            multi_vrf = True
+            for host, vrfs in setup['multi_vrf_info']['convergence_mapping'].items():
+                for vrf in vrfs:
+                    vrf_map[vrf] = host
+
         if mode == 'alias':
             for alias in lldp_interfaces['alias']:
+                peer = minigraph_neighbors[setup['port_alias_map'][alias]]['name']
+                if multi_vrf:
+                    peer = vrf_map[peer]
                 assert re.search(
-                    r'{}.*\s+{}'.format(alias, minigraph_neighbors[setup['port_alias_map'][alias]]['name']),
+                    r'{}.*\s+{}'.format(alias, peer),
                     lldp_table
                 ) is not None, (
                      "Expected alias '{}' with neighbor '{}' not found in LLDP table.\n"
                      "- LLDP Table Output: \n{}"
                 ).format(
                     alias,
-                    minigraph_neighbors[setup['port_alias_map'][alias]]['name'],
+                    peer,
                     lldp_table
                 )
 
         elif mode == 'default':
             for intf in lldp_interfaces['interface']:
+                peer = minigraph_neighbors[intf]['name']
+                if multi_vrf:
+                    peer = vrf_map[peer]
                 assert re.search(
-                        r'{}.*\s+{}'.format(intf, minigraph_neighbors[intf]['name']),
+                        r'{}.*\s+{}'.format(intf, peer),
                         lldp_table
                 ) is not None, (
                     "Expected LLDP entry for interface '{}' with neighbor '{}' not found.\n"
                     "- LLDP Table Output:\n{}"
                 ).format(
                     intf,
-                    minigraph_neighbors[intf]['name'],
+                    peer,
                     lldp_table
                 )
 
@@ -705,7 +726,8 @@ class TestShowPriorityGroup():
 
 class TestShowQueue():
 
-    def test_show_queue_counters(self, setup, setup_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def test_show_queue_counters(self, setup, setup_config_mode, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                 tbinfo):
         """
         Checks whether 'show queue counters' lists the interface names as
         per the configured naming mode
@@ -736,7 +758,10 @@ class TestShowQueue():
                         if hostname != duthost.hostname:
                             continue
                     # The interface name is always the last but one field in the BUFFER_QUEUE entry key
-                    interfaces.add(fields[-2])
+                    t2_multi_asic_match = duthost.is_multi_asic and fields[-3] == asic.namespace and \
+                        tbinfo['topo']['type'] == 't2'
+                    if tbinfo['topo']['type'] not in ['t2'] or t2_multi_asic_match:
+                        interfaces.add(fields[-2])
                 except IndexError:
                     pass
 
@@ -1376,13 +1401,12 @@ class TestConfigInterface():
         _verify_speed(native_speed)
 
 
+@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
 def test_show_acl_table(setup, setup_config_mode, tbinfo):
     """
     Checks whether 'show acl table DATAACL' lists the interface names
     as per the configured naming mode
     """
-    if tbinfo['topo']['type'] not in ['t1', 't2', 'lt2', 'ft2']:
-        pytest.skip('Unsupported topology')
 
     if not setup['physical_interfaces']:
         pytest.skip('No non-portchannel member interface present')
@@ -1414,14 +1438,13 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
                 ).format(item, acl_table)
 
 
+@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
 def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, duthosts,
                                            enum_rand_one_per_hwsku_frontend_hostname):
     """
     Checks whether 'show interfaces neighbor expected' lists the
     interface names as per the configured naming mode
     """
-    if tbinfo['topo']['type'] not in ['t1', 't2', 'lt2', 'ft2']:
-        pytest.skip('Unsupported topology')
 
     dutHostGuest, mode, ifmode = setup_config_mode
     minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']

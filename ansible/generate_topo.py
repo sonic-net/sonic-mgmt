@@ -120,6 +120,11 @@ hw_port_cfg = {
                          'peer_ports': [64, 65],
                          'skip_ports': [],
                          "panel_port_step": 1},
+    'c448o16':          {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': PortList(12, 13, 16, 17, 44, 45, 48, 49),
+                         'peer_ports': [],
+                         'skip_ports': [],
+                         "panel_port_step": 1},
     'c448o16-lag':      {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(LagPort(12), 13, 16, 17, 44, 45, 48, 49),
                          'peer_ports': [],
@@ -135,6 +140,12 @@ hw_port_cfg = {
                              'peer_ports': [],
                              'skip_ports': [13, 16, 17, 44, 45, 48, 49],
                              "panel_port_step": 1},
+    'o256-u32d224lt2':  {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': PortList(*list(range(45, 61))),
+                         'peer_ports': [],
+                         'skip_ports': PortList(126, 127),
+                         'continuous_vms': True,
+                         "panel_port_step": 1},
     'o128lt2':          {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(45, 46, 47, 48, 49, 50, 51, 52),
                          'peer_ports': [],
@@ -153,12 +164,11 @@ hw_port_cfg = {
                          "panel_port_step": 1},
     'p32v128f2':        {"ds_breakout": 4, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(*list(range(0, 32))),
-                         'lag_list': LinkList(LagLink(0, 1), LagLink(2, 3), LagLink(4, 5), LagLink(6, 7),
+                         'lag_list': LinkList(LagLink(8, 9), LagLink(10, 11), LagLink(12, 13), LagLink(14, 15),
                                               LagLink(16, 17), LagLink(18, 19), LagLink(20, 21), LagLink(22, 23)),
-                         'skip_ports': PortList(*list(range(8, 16)), *list(range(24, 32)),
-                                                34, 35, 36, 37, 38, 57, 58, 59, 62, 63),
-                         'skip_links': ([33, 34, 35, 37, 38, 39, 145, 146, 147, 149, 150, 151] +
-                                        [link for port in range(39, 57)
+                         'skip_ports': PortList(*list(range(0, 8)), *list(range(24, 32))),
+                         'skip_links': (
+                                        [link for port in range(32, 64)
                                          for link in [32 + (port - 32) * 4 + 2, 32 + (port - 32) * 4 + 3]]),
                          'peer_ports': [],
                          'continuous_vms': True,
@@ -183,6 +193,10 @@ overwrite_file_name = {
     'lt2': {
         'p32o64': "lt2-p32o64",
         'o128': "lt2-o128",
+        'o256-u32d224': "lt2-o256-u32d224",
+    },
+    't0': {
+        'f2': "t0-f2-d40u8"
     }
 }
 

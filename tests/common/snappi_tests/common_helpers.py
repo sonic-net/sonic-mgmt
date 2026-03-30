@@ -25,10 +25,10 @@ from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from ipaddress import IPv6Network, IPv6Address
 import ipaddress
 from random import getrandbits
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
 from tests.conftest import parse_override
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -891,12 +891,13 @@ def enable_packet_aging(duthost, asic_value=None):
                     duthost.shell('bcmcmd -n {} "BCMSAI credit-watchdog enable"'.format(asic_value[-1]))
 
 
-def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
+def get_ipv6_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
     """
     Get N IPv6 addresses in a subnet.
     Args:
         subnet (str): IPv6 subnet, e.g., '2001::1/64'
         number_of_ip (int): Number of IP addresses to get
+        exclude_ips (list): Optional list of IPs to exclude
     Return:
         Return n IPv6 addresses in this subnet in a list.
     """
@@ -904,12 +905,16 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
     subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
     subnet = subnet.encode().decode("utf-8")
     ipv6_list = []
-    for i in range(number_of_ip):
+    exclude_set = set(exclude_ips) if exclude_ips else set()
+    while len(ipv6_list) < number_of_ip:
         network = IPv6Network(subnet)
         address = IPv6Address(
             network.network_address + getrandbits(
                 network.max_prefixlen - network.prefixlen))
-        ipv6_list.append(str(address))
+        addr_str = str(address)
+        if addr_str in exclude_set or addr_str in ipv6_list:
+            continue
+        ipv6_list.append(addr_str)
 
     return ipv6_list
 
@@ -1322,12 +1327,13 @@ def start_pfcwd_fwd(duthost, asic_value=None):
                       format(asic_value))
 
 
-def clear_counters(duthost, port):
+def clear_counters(duthost, port=None, namespace=None):
     """
     Clear PFC, Queuecounters, Drop and generic counters from SONiC CLI.
     Args:
         duthost (Ansible host instance): Device under test
         port (str): port name
+        namespace (str): namespace name in case of multi asic duthost
     Returns:
         None
     """
@@ -1343,8 +1349,15 @@ def clear_counters(duthost, port):
     duthost.command("sonic-clear queue watermark all \n")
 
     if (duthost.is_multi_asic):
-        asic = duthost.get_port_asic_instance(port).get_asic_namespace()
-        duthost.command("sudo ip netns exec {} sonic-clear dropcounters \n".format(asic))
+        pytest_assert(
+            port or namespace,
+            'Cannot clear counters in case of multi asic, either port or namespace needs to be provided.'
+            )
+        if not namespace:
+            namespace = duthost.get_port_asic_instance(port).get_asic_namespace()
+        duthost.command("sudo ip netns exec {} sonic-clear dropcounters \n".format(namespace))
+    else:
+        duthost.command("sonic-clear dropcounters \n")
 
 
 def get_interface_stats(duthost, port):

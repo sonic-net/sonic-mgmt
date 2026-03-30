@@ -31,6 +31,7 @@ function show_help_and_exit()
     echo "    -u             : bypass util group"
     echo "    -w             : warm run, don't clear cache before running tests"
     echo "    -x             : print commands and their arguments as they are executed"
+    echo "    -6             : IPv6-only management mode (use IPv6 for DUT mgmt connectivity)"
 
     exit $1
 }
@@ -56,7 +57,33 @@ function get_dut_from_testbed_file() {
             IFS=$'+' read -r -a tb_lines <<< $content
             tb_line=${tb_lines[0]}
             DUT_NAME=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(\",\".join(tb[\"dut\"]))")
+
+            topo_name=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('topo', ''))")
+            use_converged_peers=$(python3 -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('use_converged_peers', ''))")
+            converge_topo_if_needed "$topo_name" "$use_converged_peers"
         fi
+    fi
+}
+
+function converge_topo_if_needed
+{
+    topo_name="$1"
+    use_converged_peers="$2"
+    ANSIBLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)/ansible"
+    VARS_DIR="$ANSIBLE_DIR/vars"
+    topo_file="$VARS_DIR/topo_${topo_name}.yml"
+    backup_file="${topo_file}".bak
+    if [[ "$use_converged_peers" == "True" ]]; then
+        echo "use_converged_peers is true, converging topo..."
+
+        if [[ -f "$backup_file" ]];then
+            echo "Backup file exists, recover..."
+            sudo cp "$backup_file" "$topo_file"
+        elif [[ -f "$topo_file" ]]; then
+            echo "Back up topo file"
+            sudo cp "$topo_file" "$backup_file"
+        fi
+        sudo PYTHONPATH="$ANSIBLE_DIR:$PYTHONPATH" python -m ceos_topo_converger "$backup_file" "$topo_file"
     fi
 }
 
@@ -124,6 +151,7 @@ function setup_environment()
     TEST_MAX_FAIL=0
     DPU_NAME="None"
     NO_CLEAR_CACHE="False"
+    IPV6_ONLY_MGMT="False"
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
@@ -203,6 +231,10 @@ function setup_test_options()
 
     if [[ x"${AUTO_RECOVER}" == x"True" ]]; then
         PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --allow_recover"
+    fi
+
+    if [[ x"${IPV6_ONLY_MGMT}" == x"True" ]]; then
+        PYTEST_COMMON_OPTS="${PYTEST_COMMON_OPTS} --ipv6_only_mgmt"
     fi
 
     for skip in ${SKIP_SCRIPTS} ${SKIP_FOLDERS}; do
@@ -314,15 +346,15 @@ function pre_post_extra_params()
 function prepare_dut()
 {
     echo "=== Preparing DUT for subsequent tests ==="
-    echo Running: ${PYTEST_EXEC} ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
-    ${PYTEST_EXEC} ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
+    echo Running: ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
+    ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} ${PRET_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m pretest
 }
 
 function cleanup_dut()
 {
     echo "=== Cleaning up DUT after tests ==="
-    echo Running: ${PYTEST_EXEC} ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
-    ${PYTEST_EXEC} ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
+    echo Running: ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
+    ${PYTEST_EXEC} ${SCRIPT_PATH} ${PYTEST_UTIL_OPTS} ${POST_LOGGING_OPTIONS} ${UTIL_TOPOLOGY_OPTIONS} $(pre_post_extra_params) -m posttest
 }
 
 function run_group_tests()
@@ -396,8 +428,8 @@ function run_individual_tests()
 function run_bsl_tests()
 {
     echo "=== Running BSL tests ==="
-    echo Running: python3 -m pytest ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
-    python3 -m pytest ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+    echo Running: python3 -m pytest ${SCRIPT_PATH} ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
+    python3 -m pytest ${SCRIPT_PATH} ${PYTEST_COMMON_OPTS} --skip_sanity --disable_loganalyzer --junit-xml=logs/bsl.xml --log-file logs/bsl.log -m bsl
 }
 
 setup_environment
@@ -423,7 +455,7 @@ for arg in "$@"; do
     fi
 done
 
-while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:uxw" opt; do
+while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:uxw6" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -513,6 +545,9 @@ while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:uxw" opt; do
         x )
             set -x
             ;;
+        6 )
+            IPV6_ONLY_MGMT="True"
+            ;;
     esac
 done
 
@@ -548,6 +583,12 @@ fi
 
 if [[ x"${TEST_METHOD}" != x"debug" && x"${BYPASS_UTIL}" == x"False" ]]; then
     cleanup_dut
+fi
+
+if [[ -f "$backup_file" ]];then
+    echo "Backup exists, restore backup file"
+    sudo rm -f "$topo_file"
+    sudo mv "$backup_file" "$topo_file"
 fi
 
 exit ${RC}

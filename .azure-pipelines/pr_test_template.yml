@@ -1,7 +1,44 @@
 parameters:
-- name: TIMEOUT_IN_MINUTES_PR_TEST
+- name: AGENT_POOL
+  type: object
+  default:
+    name: sonic-ubuntu-1c-2
+
+- name: BUILD_REASON
+  type: string
+  default: "PullRequest"
+
+- name: RETRY_TIMES
+  type: string
+  default: "2"
+
+- name: STOP_ON_FAILURE
+  type: string
+  default: "True"
+
+- name: TEST_PLAN_NUM
+  type: string
+  default: "1"
+
+- name: MAX_RUN_TEST_MINUTES
   type: number
   default: 480
+
+- name: MGMT_COMMIT_HASH
+  type: string
+  default: ""
+
+- name: PTF_MODIFIED
+  type: string
+  default: "False"
+
+- name: EXPECTED_RESULT
+  type: string
+  default: ""
+
+- name: TIMEOUT_IN_MINUTES_PR_TEST
+  type: number
+  default: 640
 
 - name: CHECKOUT_SONIC_MGMT
   type: boolean
@@ -17,27 +54,24 @@ parameters:
   type: object
   default: {}
 
-- name: GLOBAL_PARAMS
-  type: object
-  default:
-    BUILD_REASON: "PullRequest"
-    RETRY_TIMES: "2"
-    STOP_ON_FAILURE: "True"
-    TEST_PLAN_NUM: "1"
-    MAX_RUN_TEST_MINUTES: 240
-    MGMT_COMMIT_HASH: ""
-    PTF_MODIFIED: "False"
-
 - name: OVERRIDE_PARAMS
   type: object
   default: {}
+
+- name: KVM_BUILD_ID
+  type: string
+  default: ""
+
+- name: INCLUDE_JOBS
+  type: string
+  default: "t0_job,t1_job,t2_job"
 
 jobs:
   - job: get_impacted_area
     displayName: "Get impacted area"
     timeoutInMinutes: 20
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -48,16 +82,28 @@ jobs:
           BUILD_BRANCH: $(BUILD_BRANCH)
           IMPACT_AREA_INFO: ${{ parameters.IMPACT_AREA_INFO }}
 
+  - job: cancel_previous_test_plan_for_same_pr
+    displayName: "Cancel previous test plans for same PR"
+    continueOnError: true
+    pool: ${{ parameters.AGENT_POOL }}
+    timeoutInMinutes: 10
+    steps:
+      - template: cancel-previous-elastictest-testplan.yml
+        parameters:
+          MGMT_BRANCH: $(BUILD_BRANCH)
+
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker')
+    - cancel_previous_test_plan_for_same_pr
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't0_job')) }}
+    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -70,13 +116,20 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
@@ -86,12 +139,14 @@ jobs:
     displayName: "impacted-area-kvmtest-t0-2vlans by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-2vlans_checker')
+    - cancel_previous_test_plan_for_same_pr
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't0_2vlans_job')) }}
+    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-2vlans_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -104,14 +159,21 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
@@ -121,12 +183,14 @@ jobs:
     displayName: "impacted-area-kvmtest-t1-lag by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
+    - cancel_previous_test_plan_for_same_pr
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't1_job')) }}
+    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -139,13 +203,20 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t1-lag
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
@@ -155,12 +226,14 @@ jobs:
     displayName: "impacted-area-kvmtest-dualtor by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dualtor_checker')
+    - cancel_previous_test_plan_for_same_pr
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 'dualtor_job')) }}
+    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dualtor_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -173,14 +246,21 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: dualtor
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer --disable_sai_validation "
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
@@ -189,12 +269,14 @@ jobs:
     displayName: "impacted-area-kvmtest-t0-sonic by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-sonic_checker')
+    - cancel_previous_test_plan_for_same_pr
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't0_sonic_job')) }}
+    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-sonic_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -207,13 +289,20 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t0-64-32
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           COMMON_EXTRA_PARAMS: "--neighbor_type=sonic --disable_sai_validation "
           VM_TYPE: vsonic
           MGMT_BRANCH: $(BUILD_BRANCH)
@@ -228,12 +317,14 @@ jobs:
     displayName: "impacted-area-kvmtest-dpu by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dpu_checker')
+    - cancel_previous_test_plan_for_same_pr
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 'dpu_job')) }}
+    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dpu_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -246,13 +337,20 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: dpu
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           SPECIFIC_PARAM: '[
@@ -266,12 +364,14 @@ jobs:
     displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
+    - cancel_previous_test_plan_for_same_pr
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't1_multi_asic_job')) }}
+    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -284,14 +384,21 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t1-8-lag
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           NUM_ASIC: 4
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
@@ -301,12 +408,14 @@ jobs:
     displayName: "impacted-area-kvmtest-t2 by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't2_checker')
+    - cancel_previous_test_plan_for_same_pr
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't2_job')) }}
+    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't2_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -320,14 +429,50 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ each param in parameters.GLOBAL_PARAMS }}:
-            ${{ param.key }}: ${{ param.value }}
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
           TOPOLOGY: t2
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
+
+  - job: t1_lag_vpp_elastictest
+    displayName: "kvmtest-t1-lag-vpp by Elastictest [OPTIONAL]"
+    dependsOn:
+    - get_impacted_area
+    - cancel_previous_test_plan_for_same_pr
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
+    continueOnError: true
+    condition: not(canceled())
+    pool: ${{ parameters.AGENT_POOL }}
+    steps:
+      - template: run-test-elastictest-template.yml
+        parameters:
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
+          TOPOLOGY: t1-lag-vpp
+          MIN_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
+          MAX_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          MGMT_BRANCH: $(BUILD_BRANCH)
+          ASIC_TYPE: "vpp"
+          KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
+          COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer"

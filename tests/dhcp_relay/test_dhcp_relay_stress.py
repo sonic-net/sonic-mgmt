@@ -4,7 +4,8 @@ import ptf.packet as scapy
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.dhcp_relay.dhcp_relay_utils import restart_dhcp_service, check_dhcp_stress_status
+from tests.common.dhcp_relay_utils import check_dhcp_stress_status
+from tests.common.dhcp_relay_utils import restart_dhcp_service
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
 from tests.ptf_runner import ptf_runner

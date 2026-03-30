@@ -54,7 +54,8 @@ class Ecmp_Utils(object):
                             minigraph_data,
                             af,
                             tunnel_name=None,
-                            src_ip=None):
+                            src_ip=None,
+                            ttl_mode=None):
         '''
             Function to create a vxlan tunnel. The arguments:
                 duthost       : The DUT ansible host object.
@@ -64,6 +65,7 @@ class Ecmp_Utils(object):
                                 local ip address in the DUT. Default: Loopback
                                 ip address.
                 af : Address family : v4 or v6.
+                ttl_mode      : Decap TTL mode. Can be set to "pipe" or "uniform".
         '''
         if tunnel_name is None:
             tunnel_name = "tunnel_{}".format(af)
@@ -71,13 +73,17 @@ class Ecmp_Utils(object):
         if src_ip is None:
             src_ip = self.get_dut_loopback_address(duthost, minigraph_data, af)
 
+        ttl_entry = ""
+        if ttl_mode:
+            ttl_entry = f',\n"ttl_mode": "{ttl_mode}"\n'
+
         config = '''{{
             "VXLAN_TUNNEL": {{
                 "{}": {{
-                    "src_ip": "{}"
+                    "src_ip": "{}"{}
                 }}
             }}
-        }}'''.format(tunnel_name, src_ip)
+        }}'''.format(tunnel_name, src_ip, ttl_entry)
 
         self.apply_config_in_dut(duthost, config, name="vxlan_tunnel_" + af)
         return tunnel_name

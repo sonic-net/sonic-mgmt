@@ -164,8 +164,6 @@ Then we can see, the docker id is identical `8d3f7f4475cd`.
 ## References
 For this article, some of the reference docs as:
 
-- [```Testbed Topologies```](/docs/testbed/README.testbed.Topology.md): Testbed topologies.
-- [```Testbed Configuration```](/docs/testbed/README.testbed.Config.md): Introduction about Testbed configuration, mainly about the testbed.csv (Will be replaced by testbed.yaml).
 - [```New Testbed Configuration```](/docs/testbed/README.new.testbed.Configuration.md): Introduction about Testbed configuration, mainly about the Testbed.yaml.
 - [```KVM Testbed Setup```](/docs/testbed/README.testbed.VsSetup.md)
 - [```Testbed TACACS server```](/docs/testbed/README.testbed.TACACS.md)

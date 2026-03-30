@@ -198,8 +198,8 @@ def check_bgp(duthosts, tbinfo):
 
         def _check_default_route(version, dut):
             # Return True if successfully get default route
-            res = dut.shell("ip {} route show default".format("" if version == 4 else "-6"),
-                            module_ignore_errors=True)
+            res = dut.shell("show ip{} route {}/0".format("" if version == 4 else "v6",
+                            "0.0.0.0" if version == 4 else "::"), module_ignore_errors=True)
             return not res["rc"] and len(res["stdout"].strip()) != 0
 
         def _restart_bgp(dut):
@@ -769,7 +769,13 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
                 duthosts.shell("config mux mode auto all")
 
             logger.warning('Mux state check failed, trying to recover via linkmgrd restart')
-            duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+
+            try:
+                duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
+            except RunAnsibleModuleFail as e:
+                logger.error("Failed to restart linkmgrd %s" % (str(e)))
+                return check_passed
+
             wait_until(30, 5, 0, _verify_mux_simulator_status_passed)
 
         if not check_passed:
@@ -1128,6 +1134,13 @@ def check_ipv4_mgmt(duthosts, localhost):
 
         if dut.mgmt_ip is None or dut.mgmt_ip == "":
             logger.info("%s doesn't have ipv4 mgmt configured. Skip the ipv4 mgmt reachability check." % dut.hostname)
+            results[dut.hostname] = check_result
+            return
+
+        # Skip IPv4 check if mgmt_ip is an IPv6 address (IPv6-only management mode)
+        if is_ipv6_address(dut.mgmt_ip):
+            logger.info("%s is using IPv6 management address (%s). Skip the ipv4 mgmt reachability check."
+                        % (dut.hostname, dut.mgmt_ip))
             results[dut.hostname] = check_result
             return
 

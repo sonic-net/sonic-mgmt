@@ -293,7 +293,7 @@ class ContinuousReboot:
         pytest_assert(self.test_failures == 0, "Continuous reboot test failed {}/{} times".
                       format(self.test_failures, self.reboot_count))
 
-    def start_continuous_reboot(self, request, duthosts, duthost, ptfhost, localhost, tbinfo, creds):
+    def start_continuous_reboot(self, request, duthosts, duthost, ptfhost, localhost, vmhost, tbinfo, creds):
         self.test_set_up()
         # Start continuous warm/fast reboot on the DUT
         for count in range(self.continuous_reboot_count):
@@ -306,8 +306,8 @@ class ContinuousReboot:
                 .format(self.reboot_count, self.continuous_reboot_count, self.reboot_type))
             reboot_type = self.reboot_type + "-reboot"
             try:
-                self.advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds,
-                                                     rebootType=reboot_type, moduleIgnoreErrors=True)
+                self.advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, vmhost, tbinfo,
+                                                     creds, rebootType=reboot_type, moduleIgnoreErrors=True)
             except Exception:
                 self.sub_test_result = False
                 self.test_failures = self.test_failures + 1
@@ -355,7 +355,7 @@ class ContinuousReboot:
 
 @pytest.mark.device_type('vs')
 def test_continuous_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                           ptfhost, localhost, conn_graph_facts, tbinfo, creds):
+                           ptfhost, localhost, vmhost, conn_graph_facts, tbinfo, creds):
     """
     @summary: This test performs continuous reboot cycles on images that are provided as an input.
     Supported parameters for this test can be modified at runtime:
@@ -380,5 +380,5 @@ def test_continuous_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_h
     continuous_reboot = ContinuousReboot(
         request, duthost, ptfhost, localhost, conn_graph_facts)
     continuous_reboot.start_continuous_reboot(
-        request, duthosts, duthost, ptfhost, localhost, tbinfo, creds)
+        request, duthosts, duthost, ptfhost, localhost, vmhost, tbinfo, creds)
     continuous_reboot.test_teardown()

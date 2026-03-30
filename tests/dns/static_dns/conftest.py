@@ -2,6 +2,7 @@ import pytest
 import logging
 
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
+from tests.common.config_reload import config_reload
 from .static_dns_util import RESOLV_CONF_FILE, get_nameserver_from_config_db, get_nameserver_from_resolvconf, \
     config_mgmt_ip, clear_nameserver_from_resolvconf
 
@@ -58,9 +59,17 @@ def static_dns_setup(duthost):
 
     yield
 
+    with allure.step("Clear all test-added DNS nameserver from config db"):
+        nameservers_db = get_nameserver_from_config_db(duthost)
+        for nameserver in nameservers_db:
+            duthost.shell(f"config dns nameserver del {nameserver}")
+
     with allure.step("Recover DNS nameserver in config db"):
         for nameserver in nameservers:
             duthost.shell(f"config dns nameserver add {nameserver}")
+
+    with allure.step("Config reload to recover the original state"):
+        config_reload(duthost, safe_reload=True)
 
 
 @pytest.fixture(autouse=False)

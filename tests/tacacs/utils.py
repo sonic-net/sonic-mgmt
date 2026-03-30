@@ -100,9 +100,16 @@ def ssh_run_command(ssh_client, command, expect_exit_code=0, verify=False):
     stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
     exit_code = stdout.channel.recv_exit_status()
     if verify is True:
-        pytest_assert(
-            exit_code == expect_exit_code,
-            f"Command: '{command}' failed with exit code: {exit_code}, stdout: {stdout}, stderr: {stderr}")
+        if exit_code != expect_exit_code:
+            # This if-block is here so that stdout.readlines() and
+            # stderr.readlines() get evaluated if and only if the exit code
+            # doesn't match the expected exit code. If they do match, and they
+            # do get evaluated, then the state of the object will be different,
+            # which will cause issues for other functions that use those
+            # objects.
+            pytest.fail(
+                f"Command: '{command}' failed with exit code: {exit_code}, "
+                f"stdout: {stdout.readlines()}, stderr: {stderr.readlines()}")
     return exit_code, stdout, stderr
 
 
