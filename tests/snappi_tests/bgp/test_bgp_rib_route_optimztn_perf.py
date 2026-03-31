@@ -15,12 +15,13 @@ import yaml
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology('tgen')]
+pytestmark = [
+    pytest.mark.topology('tgen'),
+    pytest.mark.disable_memory_utilization,
+]
 
 # Test parameters (not from files)
-MULTIPATH = 1
 CONVERGENCE_TEST_ITERATIONS = 1
-NUMBER_OF_ROUTES = 250000
 RIB_TIMEOUT = 90
 
 CONTAINER = 'swss'
@@ -170,6 +171,8 @@ def dut_ready_for_rib_combo(duthost, localhost, profile_name, bulk_value, batch_
 @pytest.mark.parametrize('profile_name', PROFILE_NAMES)
 @pytest.mark.parametrize('bulk_value,batch_value', _BK_PAIRS)
 @pytest.mark.parametrize('route_type', ['IPv4', 'IPv6', 'IPv4v6'])
+@pytest.mark.parametrize('MULTIPATH', [1])
+@pytest.mark.parametrize('NUMBER_OF_ROUTES', [250000])
 def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
                             duthost,
                             tgen_ports,                 # noqa: F811
@@ -179,8 +182,9 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
                             request,
                             profile_name,
                             bulk_value,
+                            MULTIPATH,
+                            NUMBER_OF_ROUTES,
                             batch_value,
-                            memory_utilization,
                             route_type,):
     """
     Run RIB-IN convergence test for one (profile, bulk_value, batch_value, route_type).
@@ -207,26 +211,6 @@ def test_rib_route_opt_perf(snappi_api,                    # noqa: F811
 
     if route_type == 'IPv4v6':
         pytest.skip("Skipping test for route_type IPv4v6")
-
-    memory_monitors, memory_values = memory_utilization
-    monitor = memory_monitors[duthost.hostname]
-
-    # Override thresholds for this test (before teardown runs)
-    for name, cmd, memory_params, memory_check_fn in monitor.commands:
-        if name == 'frr_bgp':
-            if 'used' in memory_params:
-                memory_params['used']['memory_high_threshold'] = {"type": "value", "value": 512}
-                continue
-        if name == 'top':
-            if 'bgpd' in memory_params:
-                memory_params['bgpd']['memory_increase_threshold'] = {"type": "value", "value": 512}
-            if 'zebra' in memory_params:
-                memory_params['zebra']['memory_increase_threshold'] = {"type": "value", "value": 512}
-            continue
-        if name == 'free':
-            if 'used' in memory_params:
-                memory_params['used']['memory_increase_threshold'] = {"type": "percentage", "value": "50%"}
-            continue
 
     use_bgp_pc_config = request.config.getoption("--bgp_pc_config", default=False)
 
