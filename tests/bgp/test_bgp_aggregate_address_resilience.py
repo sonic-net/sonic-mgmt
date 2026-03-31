@@ -28,16 +28,17 @@ from test_bgp_aggregate_address import (
     AGGR_V4,
     AGGR_V6,
     BGP_AGGREGATE_ADDRESS,
+    PLACEHOLDER_PREFIX,
     dump_db,
     gcu_add_aggregate,
+    gcu_add_placeholder_aggregate,
     gcu_remove_aggregate,
     verify_bgp_aggregate_consistence,
     verify_bgp_aggregate_cleanup,
 )
-# Reuse the module-scoped autouse fixture for checkpoint/rollback (PR #23202 pattern)
-from test_bgp_aggregate_address import setup_teardown  # noqa: F401
 
 from tests.common.config_reload import config_reload
+from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
@@ -46,13 +47,37 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("t1", "m1"),
-    pytest.mark.device_type("vs"),
     pytest.mark.disable_loganalyzer,
 ]
 
 # ---- Constants ----
 BGP_SESSION_WAIT_TIMEOUT = 300
 BGP_SESSION_POLL_INTERVAL = 10
+
+
+# ---- Module-scoped setup/teardown ----
+@pytest.fixture(scope="module", autouse=True)
+def setup_teardown(duthost):
+    """Checkpoint before tests, rollback + re-save config after.
+
+    TC5.2/TC5.3/TC5.5 run 'config save -y' before a disruption.  If the test
+    fails after save but before per-test cleanup, the aggregate persists in the
+    on-disk config_db.json.  Re-saving after rollback ensures the saved config
+    matches the rolled-back (clean) state.
+    """
+    create_checkpoint(duthost)
+
+    default_aggregates = dump_db(duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS)
+    if not default_aggregates:
+        gcu_add_placeholder_aggregate(duthost, PLACEHOLDER_PREFIX)
+
+    yield
+
+    try:
+        rollback_or_reload(duthost, fail_on_rollback_error=False)
+        duthost.shell("sudo config save -y")
+    finally:
+        delete_checkpoint(duthost)
 
 
 # ---- Fixtures ----
