@@ -1312,7 +1312,7 @@ def capture_and_check_packet_on_dut(
     pkts_validator_args=[],
     pkts_validator_kwargs={},
     wait_time=1,
-    tcpdump_buffer_size=102400
+    tcpdump_buffer_size=4096
 ):
     """
     Capture packets on DUT and check if the packet is expected
