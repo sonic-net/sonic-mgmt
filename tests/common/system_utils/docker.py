@@ -126,6 +126,8 @@ def swap_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
 
     if duthost.facts.get("platform_asic") == 'broadcom-dnx':
         docker_syncd_name = docker_syncd_name + "-dnx"
+    elif duthost.facts.get("platform_asic") == "broadcom-legacy-th":
+        docker_syncd_name = docker_syncd_name + "-legacy-th"
 
     docker_rpc_image = docker_syncd_name + "-rpc"
 
@@ -191,6 +193,8 @@ def restore_default_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
 
     if duthost.facts.get("platform_asic") == 'broadcom-dnx':
         docker_syncd_name = docker_syncd_name + "-dnx"
+    elif duthost.facts.get("platform_asic") == "broadcom-legacy-th":
+        docker_syncd_name = docker_syncd_name + "-legacy-th"
 
     for asic in asics_list:
         asic.stop_service("swss")
