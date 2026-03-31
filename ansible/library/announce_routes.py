@@ -1734,7 +1734,13 @@ def main():
     if not topo:
         module.fail_json(msg='Unable to load topology "{}"'.format(topo_name))
     if dut_interfaces:
+        # Save original vm_offsets before filtering, because get_vms_by_dut_interfaces()
+        # remaps offsets starting from 0. The original offsets must be preserved to match
+        # the exabgp ports assigned by the Ansible playbook (which uses the full topology).
+        original_vm_offsets = {vm: attr['vm_offset'] for vm, attr in topo['topology']['VMs'].items()}
         topo['topology']['VMs'] = MultiServersUtils.get_vms_by_dut_interfaces(topo['topology']['VMs'], dut_interfaces)
+        for vm_name in topo['topology']['VMs']:
+            topo['topology']['VMs'][vm_name]['vm_offset'] = original_vm_offsets[vm_name]
         for vm_name in list(topo['configuration'].keys()):
             if vm_name not in topo['topology']['VMs']:
                 topo['configuration'].pop(vm_name)
