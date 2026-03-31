@@ -232,21 +232,23 @@ def check_ptf_bfd_status(ptfhost, neighbor_addr, local_addr, expected_state):
 
 def check_dut_bfd_status(duthost, neighbor_addr, expected_state, max_attempts=12, retry_interval=10):
     logger.info(f'in check_dut_bfd_status will run for {max_attempts} every {retry_interval} seconds')
-    timeout = max_attempts * retry_interval
-
-    def _check_bfd_state():
+    for i in range(max_attempts + 1):
         bfd_state = duthost.shell("sonic-db-cli STATE_DB HGET 'BFD_SESSION_TABLE|default|default|{}' 'state'"
                                   .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
         logger.info(f'Query state of BFD_SESSION_TABLE|default|default|{neighbor_addr} = {bfd_state}')
-        if bfd_state and expected_state in bfd_state[0]:
-            logger.info('returning as bfd state matches expected state')
-            return True
-        logger.error("BFD state check failed: {} - {}".format(neighbor_addr, bfd_state[0] if bfd_state else "empty"))
-        return False
+        logger.info("BFD state check: {} - {}".format(neighbor_addr, bfd_state[0]))
 
-    assert wait_until(timeout, retry_interval, 0, _check_bfd_state), (
-        "BFD session state verification failed for {}: expected '{}'."
-        .format(neighbor_addr, expected_state)
+        if expected_state in bfd_state[0]:
+            logger.info('returning as bfd state matches expected state')
+            return  # Success, no need to retry
+
+        logger.error("BFD state check failed: {} - {}".format(neighbor_addr, bfd_state[0]))
+        if i < max_attempts:
+            time.sleep(retry_interval)
+
+    assert expected_state in bfd_state[0], (
+        "BFD session state verification failed: expected '{}', got '{}'."
+        .format(expected_state, bfd_state[0] if bfd_state else "No state found")
     )
 
 
@@ -340,13 +342,9 @@ def create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neig
         ptfhost.command('cat /tmp/bfd_responder.err.log')
         raise e
     logger.info("Waiting for bfd session to be in Up state")
-
-    def _check_bfd_sessions_up():
-        temp = duthost.shell('show bfd summary')
-        logger.info("BFD Summary dump: {}".format(temp['stdout']))
-        return 'Up' in temp['stdout']
-
-    wait_until(30, 5, 0, _check_bfd_sessions_up)
+    time.sleep(30)
+    temp = duthost.shell('show bfd summary')
+    logger.info("BFD Summary dump: {}".format(temp['stdout']))
 
 
 def remove_bfd_sessions(duthost, neighbor_addrs):
@@ -419,16 +417,15 @@ def warm_up_ipv6_neighbors(duthost, neighbor_addrs):
         logger.info(f"Warming up IPv6 neighbor {addr}")
         duthost.shell(f"ping -6 -c 1 -W 1 {addr}", module_ignore_errors=True)
 
-    def _check_ndp_reachable():
-        ndp_output = duthost.shell("ip -6 neigh show", module_ignore_errors=False)['stdout']
-        for addr in neighbor_addrs:
-            if not any(addr in line and "REACHABLE" in line for line in ndp_output.splitlines()):
-                return False
-        return True
-
-    assert wait_until(30, 5, 0, _check_ndp_reachable), (
-        "Not all IPv6 neighbors reached REACHABLE state. Neighbor addresses: {}".format(neighbor_addrs)
-    )
+    time.sleep(5)  # Wait for NDP entries to be populated
+    ndp_output = duthost.shell("ip -6 neigh show", module_ignore_errors=False)['stdout']
+    logger.info(f"NDP entries:\n{ndp_output}")
+    for addr in neighbor_addrs:
+        assert any(addr in line and "REACHABLE" in line for line in ndp_output.splitlines()), (
+            "None of the neighbors are in the 'REACHABLE' state. Neighbor addresses: {}. NDP output: {}".format(
+                neighbor_addrs, ndp_output
+            )
+        )
 
 
 @pytest.mark.parametrize('dut_init_first', [True, False], ids=['dut_init_first', 'ptf_init_first'])
@@ -592,17 +589,18 @@ def test_bfd_scale(request, rand_selected_dut, ptfhost, tbinfo, ipv6):
         add_ipaddr(ptfhost, neighbor_addrs, prefix_len, neighbor_interfaces, ipv6)
         create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, False, True)
 
-        def _check_bfd_sessions_created():
-            bfd_state = ptfhost.shell("bfdd-control status")
-            dut_state = duthost.shell("show bfd summary")
-            for itr in local_addrs:
-                if itr not in bfd_state['stdout'] or itr not in dut_state['stdout']:
-                    return False
-            return True
-
-        assert wait_until(30, 5, 0, _check_bfd_sessions_created), (
-            "Not all BFD sessions found in bfdd-control status or show bfd summary"
-        )
+        time.sleep(10)
+        bfd_state = ptfhost.shell("bfdd-control status")
+        dut_state = duthost.shell("show bfd summary")
+        for itr in local_addrs:
+            assert itr in bfd_state['stdout'], (
+                "BFD session with local address '{}' not found in output of bfdd-control status on PTF"
+                "Full BFD state output: {}".format(itr, bfd_state['stdout'])
+            )
+            assert itr in dut_state['stdout'], (
+                "BFD session with local address '{}' not found in output of show bfd summary on DUT"
+                "Full DUT state output: {}".format(itr, dut_state['stdout'])
+            )
     finally:
         time.sleep(10)
         stop_ptf_bfd(ptfhost)
@@ -628,13 +626,8 @@ def test_bfd_multihop(request, rand_selected_dut, ptfhost, tbinfo,
         create_bfd_sessions_multihop(ptfhost, duthost, loopback_addr, ptf_intf, neighbor_addrs)
 
         duthost.shell("sonic-clear queuecounters")
-        # wait for queue counters to accumulate BFD traffic
-
-        def _check_bfd_queue_nonzero():
-            queue_pkt_count, _ = get_egress_queue_count(duthost, dut_intf, 7)
-            return queue_pkt_count > 0
-
-        wait_until(30, 5, 0, _check_bfd_queue_nonzero)
+        # sleep for 10 seconds to check queue counters
+        time.sleep(10)
         verify_bfd_queue_counters(duthost, dut_intf)
 
         for neighbor_addr in neighbor_addrs:

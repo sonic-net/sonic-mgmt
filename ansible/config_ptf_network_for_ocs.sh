@@ -7,7 +7,6 @@
 #   -v, --vm-set-name <name>            VM set name
 #   -i, --ptf-ip <IP/mask>              PTF container management IP address and mask (e.g., 10.255.0.254/23)
 #   -g, --mgmt-gw <IP>                  Management network gateway IP address
-#   -d, --dns <DNS>                     DNS servers (space-separated, e.g., '192.168.1.1 192.168.1.2')
 #   -h, --help                          Display this help message
 
 # Default values
@@ -15,37 +14,18 @@ SERVER_INTERFACE=""
 VM_SET_NAME="ptf"
 PTF_IP=""
 MGMT_GW=""
-DNS_SERVERS=""
 MGMT_BRIDGE="br0"
-
-# Variables for rollback mechanism
-ORIGINAL_IP=""
-ORIGINAL_GW=""
-ROLLBACK_REQUIRED=false
-SCRIPT_EXITED=false
 
 # Display help message
 show_help() {
     echo "Script to configure PTF container network"
-    echo ""
     echo "Usage: ./config_ptf_network.sh [OPTIONS]"
-    echo ""
     echo "Options:"
     echo "  -s, --server-interface <interface>  Server physical interface name (e.g., eth0, eno1)"
     echo "  -v, --vm-set-name <name>            VM set name"
     echo "  -i, --ptf-ip <IP/mask>              PTF container management IP address and mask (e.g., 10.255.0.254/23)"
     echo "  -g, --mgmt-gw <IP>                  Management network gateway IP address"
-    echo "  -d, --dns <DNS>                     DNS servers (space-separated, e.g., '192.168.1.1 192.168.1.2')"
     echo "  -h, --help                          Display this help message"
-    echo ""
-    echo "WARNING:"
-    echo "  This script modifies server network configuration by bridging the physical"
-    echo "  interface. If executed remotely, network connectivity may be lost if the"
-    echo "  script fails. It is recommended to run this script locally or with console"
-    echo "  access. The script includes automatic rollback on failure."
-    echo ""
-    echo "Example:"
-    echo "  ./config_ptf_network_for_ocs.sh -s eth0 -i 10.255.0.254/23 -g 10.255.0.1"
     exit 0
 }
 
@@ -69,10 +49,6 @@ parse_args() {
                 MGMT_GW="$2"
                 shift 2
                 ;;
-            -d|--dns)
-                DNS_SERVERS="$2"
-                shift 2
-                ;;
             -h|--help)
                 show_help
                 ;;
@@ -93,92 +69,6 @@ parse_args() {
         echo "Error: Management network gateway IP address must be specified"
         show_help
     fi
-}
-
-# Rollback function to restore original network configuration
-rollback_network_config() {
-    # Capture the exit code from the command that triggered the trap
-    # Note: This may not always be accurate when called from trap
-    local exit_code=$?
-
-    # Don't rollback if script completed successfully
-    if [[ $SCRIPT_EXITED -eq 1 ]]; then
-        return 0
-    fi
-
-    echo ""
-    echo "!!! ERROR DETECTED - Attempting to rollback network configuration !!!"
-    echo ""
-
-    if [[ "$ROLLBACK_REQUIRED" == "false" ]]; then
-        echo "No rollback needed - network configuration not yet modified"
-        return 0
-    fi
-
-    if [[ -z "$SERVER_INTERFACE" ]]; then
-        echo "No server interface specified, skipping rollback"
-        return 0
-    fi
-
-    echo "Rolling back network configuration for interface: $SERVER_INTERFACE"
-
-    # Remove interface from bridge
-    if brctl show $MGMT_BRIDGE 2>/dev/null | grep -q $SERVER_INTERFACE; then
-        echo "Removing $SERVER_INTERFACE from bridge $MGMT_BRIDGE"
-        brctl delif $MGMT_BRIDGE $SERVER_INTERFACE
-    fi
-
-    # Restore original IP address to physical interface
-    if [[ -n "$ORIGINAL_IP" ]]; then
-        echo "Restoring original IP address to $SERVER_INTERFACE: $ORIGINAL_IP"
-        ip addr flush dev $SERVER_INTERFACE 2>/dev/null
-        if ! ip addr add $ORIGINAL_IP dev $SERVER_INTERFACE; then
-            echo "Warning: Failed to restore IP address to $SERVER_INTERFACE"
-        fi
-    fi
-
-    # Restore original gateway
-    if [[ -n "$ORIGINAL_GW" ]]; then
-        echo "Restoring original gateway: $ORIGINAL_GW"
-        ip route del default dev $MGMT_BRIDGE 2>/dev/null
-        if ! ip route add default via $ORIGINAL_GW dev $SERVER_INTERFACE; then
-            echo "Warning: Failed to restore default gateway"
-        fi
-    fi
-
-    # Bring interface up
-    echo "Bringing interface $SERVER_INTERFACE up"
-    if ! ip link set $SERVER_INTERFACE up; then
-        echo "Warning: Failed to bring interface $SERVER_INTERFACE up"
-    fi
-
-    # Remove bridge IP if it was added
-    if [[ -n "$ORIGINAL_IP" ]] && ip addr show $MGMT_BRIDGE 2>/dev/null | grep -q 'inet\s+'; then
-        echo "Removing IP address from bridge $MGMT_BRIDGE"
-        ip addr flush dev $MGMT_BRIDGE 2>/dev/null
-    fi
-
-    echo ""
-    echo "Rollback completed. Please verify network connectivity."
-    echo "If connectivity issues persist, you may need to manually restore configuration."
-
-    # Return the original exit code if it indicates failure, otherwise return 1
-    if [[ $exit_code -ne 0 ]]; then
-        return $exit_code
-    else
-        return 1
-    fi
-}
-
-# Setup trap for cleanup and rollback
-setup_trap() {
-    # Trap EXIT to handle script termination
-    # The EXIT trap will be called with the exit status of the command that terminated the script
-    trap 'rollback_network_config' EXIT
-
-    # Trap INT (Ctrl+C) and TERM signals
-    # Save the exit code before calling rollback
-    trap 'echo "Interrupted by user"; SCRIPT_EXITED=0; exit 130' INT TERM
 }
 
 # Create mgmt_bridge if it doesn't exist
@@ -283,26 +173,8 @@ configure_ptf_network() {
     nsenter -t $PTF_PID -n ip route add default via $MGMT_GW dev $INT_IF
 
     # Configure DNS
-    # Preserve existing DNS configuration and append new DNS servers
-    if [[ -n "$DNS_SERVERS" ]]; then
-        echo "Configuring custom DNS servers: $DNS_SERVERS"
-        # Backup original resolv.conf
-        nsenter -t $PTF_PID -n -m cp /etc/resolv.conf /etc/resolv.conf.backup 2>/dev/null || true
-        # Append custom DNS servers
-        for dns in $DNS_SERVERS; do
-            nsenter -t $PTF_PID -n -m bash -c "echo 'nameserver $dns' >> /etc/resolv.conf"
-        done
-    else
-        # No custom DNS provided, check if existing DNS configuration is present
-        existing_dns=$(nsenter -t $PTF_PID -n -m grep -c "^nameserver" /etc/resolv.conf 2>/dev/null || echo "0")
-        if [[ "$existing_dns" -eq 0 ]]; then
-            echo "No existing DNS configuration found, adding Google Public DNS"
-            nsenter -t $PTF_PID -n -m bash -c "echo 'nameserver 8.8.8.8' >> /etc/resolv.conf"
-            nsenter -t $PTF_PID -n -m bash -c "echo 'nameserver 8.8.4.4' >> /etc/resolv.conf"
-        else
-            echo "Existing DNS configuration preserved ($existing_dns nameservers found)"
-        fi
-    fi
+    nsenter -t $PTF_PID -n bash -c "echo 'nameserver 8.8.8.8' > /etc/resolv.conf"
+    nsenter -t $PTF_PID -n bash -c "echo 'nameserver 8.8.4.4' >> /etc/resolv.conf"
 
     # Test connectivity
     echo "Testing connectivity from PTF container to gateway $MGMT_GW"
@@ -359,75 +231,49 @@ bridge_server_interface() {
     echo "Original IP: $ORIGINAL_IP"
     echo "Original gateway: $ORIGINAL_GW"
 
-    # Validate that we have valid original configuration before proceeding
-    if [[ -z "$ORIGINAL_IP" ]]; then
-        echo "Warning: Could not determine original IP address of $SERVER_INTERFACE"
-        echo "Proceeding with caution - rollback may not be possible"
-    fi
-
-    # Mark that rollback will be required from this point
-    ROLLBACK_REQUIRED=true
-
     # Disable interface
-    echo "Disabling interface $SERVER_INTERFACE"
     ip link set $SERVER_INTERFACE down
 
     # Add interface to mgmt_bridge
     echo "Adding $SERVER_INTERFACE to bridge $MGMT_BRIDGE"
-    if ! brctl addif $MGMT_BRIDGE $SERVER_INTERFACE; then
+    brctl addif $MGMT_BRIDGE $SERVER_INTERFACE
+    if [[ $? -ne 0 ]]; then
         echo "Error: Failed to add server interface to bridge"
         # Re-enable interface
         ip link set $SERVER_INTERFACE up
-        ROLLBACK_REQUIRED=false
         return 1
     fi
 
     # Enable interface
-    echo "Enabling interface $SERVER_INTERFACE"
     ip link set $SERVER_INTERFACE up
 
     # Enable bridge
-    echo "Enabling bridge $MGMT_BRIDGE"
-    if ! ip link set $MGMT_BRIDGE up; then
-        echo "Error: Failed to enable bridge $MGMT_BRIDGE"
-        return 1
-    fi
+    ip link set $MGMT_BRIDGE up
 
     # Enable STP (Spanning Tree Protocol) to prevent network loops
     echo "Enabling STP on bridge $MGMT_BRIDGE"
     brctl stp $MGMT_BRIDGE on
 
-    # Configure IP address on bridge (CRITICAL STEP - after this point, network may be disrupted)
+    # Configure IP address on bridge
     if [[ -n "$ORIGINAL_IP" ]]; then
         if ! ip addr show $MGMT_BRIDGE | grep -q 'inet\s+'; then
             echo "Configuring IP address on bridge $MGMT_BRIDGE: $ORIGINAL_IP"
-            if ! ip addr add $ORIGINAL_IP dev $MGMT_BRIDGE; then
-                echo "Error: Failed to add IP address to bridge"
-                echo "Attempting immediate rollback..."
-                return 1
-            fi
+            ip addr add $ORIGINAL_IP dev $MGMT_BRIDGE
         fi
     fi
 
-    # Add default route (CRITICAL STEP)
+    # Add default route
     if [[ -n "$ORIGINAL_GW" ]]; then
         if ! ip route show default | grep -q "dev\s+$MGMT_BRIDGE"; then
             echo "Adding default route on bridge $MGMT_BRIDGE: $ORIGINAL_GW"
-            if ! ip route add default via $ORIGINAL_GW dev $MGMT_BRIDGE; then
-                echo "Error: Failed to add default route"
-                echo "Attempting immediate rollback..."
-                return 1
-            fi
+            ip route add default via $ORIGINAL_GW dev $MGMT_BRIDGE
         fi
     fi
 
-    # Clear IP address from physical interface (POINT OF NO RETURN)
-    # After this step, the physical interface no longer has an IP address
+    # Clear IP address from physical interface
     if [[ -n "$ORIGINAL_IP" ]]; then
         echo "Clearing IP address from interface $SERVER_INTERFACE"
         ip addr flush dev $SERVER_INTERFACE
-        echo "Network configuration migration completed successfully"
-        echo "Interface $SERVER_INTERFACE is now part of bridge $MGMT_BRIDGE"
     fi
 
     # Display STP status
@@ -448,9 +294,6 @@ bridge_server_interface() {
 
 # Main function
 main() {
-    # Setup trap for rollback mechanism
-    setup_trap
-
     # Parse command line arguments
     parse_args "$@"
 
@@ -461,25 +304,17 @@ main() {
     fi
 
     # Execute steps
-    echo "=== Starting PTF network configuration ==="
-
     create_mgmt_bridge
-
-    if ! configure_ptf_network; then
-        echo "=== PTF network configuration failed at configure_ptf_network step ==="
+    configure_ptf_network
+    if [[ $? -eq 0 ]]; then
+        bridge_server_interface
+        echo "=== PTF network configuration completed ==="
+    else
+        echo "=== PTF network configuration failed ==="
         exit 1
     fi
-
-    if ! bridge_server_interface; then
-        echo "=== PTF network configuration failed at bridge_server_interface step ==="
-        exit 1
-    fi
-
-    echo "=== PTF network configuration completed successfully ==="
-    # Mark script as completed successfully to prevent rollback
-    SCRIPT_EXITED=1
-    ROLLBACK_REQUIRED=false
 }
 
 # Run main function
+
 main "$@"

@@ -393,19 +393,6 @@ def db_comp(duthost, test_db_dir, ref_db_dir, ctx):
     return True
 
 
-def is_bgp_session_established(duthost, ip):
-    """Check if BGP session is established. Returns True/False for use with wait_until."""
-    if sys.version_info[0] > 2:
-        info = duthost.get_bgp_neighbor_info(ip)
-    else:
-        info = duthost.get_bgp_neighbor_info(ip.decode('utf-8'))
-    bgp_state = info.get("bgpState", "")
-    if bgp_state != "Established":
-        log_info("BGP session for {} is '{}', waiting for 'Established'".format(ip, bgp_state))
-        return False
-    return True
-
-
 def chk_bgp_session(duthost, ip, msg):
     if sys.version_info[0] > 2:
         info = duthost.get_bgp_neighbor_info(ip)
@@ -414,17 +401,6 @@ def chk_bgp_session(duthost, ip, msg):
     bgp_state = info.get("bgpState", "")
     assert bgp_state == "Established", \
         "{}: BGP session for {} = {}; expect established".format(msg, ip, bgp_state)
-
-
-def chk_any_bgp_session(duthost, msg):
-    v4_remote = tor_data.get("ip", {}).get("remote")
-    v6_remote = tor_data.get("ipv6", {}).get("remote")
-    if v4_remote:
-        chk_bgp_session(duthost, v4_remote, msg)
-    elif v6_remote:
-        chk_bgp_session(duthost, v6_remote.lower(), msg)
-    else:
-        report_error("{}: No neighbors detected".format(msg))
 
 
 def main():

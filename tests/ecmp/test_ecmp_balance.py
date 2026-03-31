@@ -64,12 +64,12 @@ def validate_testbed_for_ecmp_test(duthost, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def setup(duthosts, duthost, tbinfo):
+def setup(duthosts, rand_selected_dut, tbinfo):
     """Gather all required test information from DUT and tbinfo.
 
     Args:
         duthosts: All DUTs belong to the testbed.
-        duthost: The DUT host running the test.
+        rand_one_dut_hostname: hostname of a random chosen dut to run test.
         tbinfo: A fixture to gather information about the testbed.
 
     Yields:
@@ -78,26 +78,12 @@ def setup(duthosts, duthost, tbinfo):
     """
     # Validate testbed configuration for ECMP hash testing
     # This replaces the original hardcoded ASIC and topology checks
-    validate_testbed_for_ecmp_test(duthost, tbinfo)
+    validate_testbed_for_ecmp_test(rand_selected_dut, tbinfo)
 
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
 
     vlan_mac = None
-
-    # Get VLAN MAC for dual-ToR topologies
-    vlan_intf = mg_facts.get("minigraph_vlan_interfaces", [])
-    if vlan_intf:
-        vlan_name = list(mg_facts.get("minigraph_vlans", {}).keys())[0] if mg_facts.get("minigraph_vlans") else None
-        if vlan_name:
-            # Fetch VLAN MAC from the switch
-            vlan_mac_result = duthost.shell(
-                f"ip link show {vlan_name} | grep -o 'link/ether [^ ]*' | awk '{{print $2}}'",
-                module_ignore_errors=True
-            )
-            if vlan_mac_result["rc"] == 0 and vlan_mac_result["stdout"].strip():
-                vlan_mac = vlan_mac_result["stdout"].strip()
-                logger.info(f"Using VLAN MAC: {vlan_mac} for downstream traffic on {vlan_name}")
 
     # Get the list of upstream/downstream ports
     downstream_ports = defaultdict(list)
@@ -112,7 +98,7 @@ def setup(duthosts, duthost, tbinfo):
     # For M0_VLAN/MX/T0/dual ToR scenario, we need to use the VLAN MAC to interact with downstream ports
     # For T1/M0_L3 scenario, no VLANs are present so using the router MAC is acceptable
     downlink_dst_mac = (
-        vlan_mac if vlan_mac is not None else duthost.facts["router_mac"]
+        vlan_mac if vlan_mac is not None else rand_selected_dut.facts["router_mac"]
     )
 
     upstream_neigh_type = get_upstream_neigh_type(tbinfo)
@@ -122,7 +108,6 @@ def setup(duthosts, duthost, tbinfo):
         "Cannot get neighbor type for unsupported topo: {}".format(topo),
     )
 
-    # Gather downstream ports from current DUT only
     for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
         port_id = mg_facts["minigraph_ptf_indices"][interface]
         if downstream_neigh_type in neighbor["name"].upper():
@@ -130,18 +115,13 @@ def setup(duthosts, duthost, tbinfo):
             downstream_port_ids.append(port_id)
             downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
             downstream_port_id_to_interface_map[port_id] = interface
-
-    # For dual-ToR active-active, gather upstream ports from BOTH ToRs
-    # This allows test to accept packets exiting via either ToR
-    for dut in duthosts:
-        dut_mg_facts = dut.get_extended_minigraph_facts(tbinfo)
-        for interface, neighbor in list(dut_mg_facts["minigraph_neighbors"].items()):
-            port_id = dut_mg_facts["minigraph_ptf_indices"][interface]
-            if upstream_neigh_type in neighbor["name"].upper():
-                upstream_ports[neighbor["namespace"]].append(interface)
-                upstream_port_ids.append(port_id)
-                upstream_port_id_to_router_mac_map[port_id] = dut.facts["router_mac"]
-                upstream_port_id_to_interface_map[port_id] = interface
+        elif upstream_neigh_type in neighbor["name"].upper():
+            upstream_ports[neighbor["namespace"]].append(interface)
+            upstream_port_ids.append(port_id)
+            upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts[
+                "router_mac"
+            ]
+            upstream_port_id_to_interface_map[port_id] = interface
 
     setup_information = {
         "destination_mac": downstream_port_id_to_router_mac_map,
@@ -163,37 +143,34 @@ def setup(duthosts, duthost, tbinfo):
 
 
 @pytest.fixture(scope="function")
-def set_ecmp_offset(duthosts, duthost, tbinfo):
+def set_ecmp_offset(duthost, tbinfo):
     """
     Change the ECMP hash offset temporarily for test, then restore it.
-    Sets offset on ALL ToRs in Active-Active to ensure consistent hashing.
+    Platform-independent implementation using ECMPHashManager.
 
     Args:
-        duthosts: All DUT hosts in the testbed
-        duthost: The primary DUT host object
-        tbinfo: Testbed info
+        duthost: The DUT host object
     """
-    managers = []
-    original_values = {}
+    # Create platform-specific ECMP hash manager
+    ecmp_manager = ECMPHashManager(duthost, tbinfo)
 
-    for dut in duthosts:
-        ecmp_manager = ECMPHashManager(dut, tbinfo)
+    # Check if platform is supported
+    if not ecmp_manager.is_supported():
+        pytest.skip(f"ECMP hash offset test not supported for hardware SKU: {ecmp_manager.hwsku}")
 
-        if not ecmp_manager.is_supported():
-            pytest.skip(f"ECMP hash offset test not supported for hardware SKU: {ecmp_manager.hwsku}")
-
-        original_value = ecmp_manager.backup_current_offset()
-        original_values[dut.hostname] = original_value
-        managers.append((dut, ecmp_manager))
+    # Backup original value
+    original_value = ecmp_manager.backup_current_offset()
+    logger.info(f"Original ECMP hash offset value: {original_value}")
 
     try:
-        for dut, ecmp_manager in managers:
-            ecmp_manager.set_test_offset()
+        # Set test offset value
+        ecmp_manager.set_test_offset()
 
+        # Yield control back to the test
         yield
     finally:
-        for dut, ecmp_manager in managers:
-            ecmp_manager.restore_original_offset()
+        # Restore the original value
+        ecmp_manager.restore_original_offset()
 
 
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])

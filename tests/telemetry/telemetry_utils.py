@@ -179,7 +179,6 @@ def rotate_telemetry_certs(duthost, localhost):
               -x509 \
               -sha256 \
               -nodes \
-              -days 365 \
               -newkey rsa:2048 \
               -keyout streamingtelemetryserver.key \
               -subj '/CN=ndastreamingservertest' \
@@ -189,7 +188,6 @@ def rotate_telemetry_certs(duthost, localhost):
               -x509 \
               -sha256 \
               -nodes \
-              -days 365 \
               -newkey rsa:2048 \
               -keyout dsmsroot.key \
               -subj '/CN=ndastreamingclienttest' \

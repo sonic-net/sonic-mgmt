@@ -11,7 +11,7 @@ pytestmark = [
 
 
 @pytest.mark.parametrize("target_line", ["1", "2", "3", "4"])
-def test_console_availability(duthost, creds, target_line, cleanup_modules):
+def test_console_availability(duthost, creds, target_line):
     """
     Test console are well functional.
     Verify console access is available after connecting from DUT

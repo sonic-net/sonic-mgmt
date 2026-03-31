@@ -1,4 +1,4 @@
-import time
+from datetime import time
 import ipaddress
 import json
 import pytest

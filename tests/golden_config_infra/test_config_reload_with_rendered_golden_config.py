@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.disable_memory_utilization,
 ]
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"

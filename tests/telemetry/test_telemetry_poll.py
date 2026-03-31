@@ -95,9 +95,9 @@ def test_poll_mode_present_table_delayed_key(duthosts, enum_rand_one_per_hwsku_h
     pytest_assert(len(update_responses_match) == 5, "Missing update responses")
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
-                              subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
+                              subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=1,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=-1, update_count=20, timeout=60, namespace=namespace)
+                              max_sync_count=-1, update_count=10, timeout=30, namespace=namespace)
 
     def callback(show_gnmi_out):
         result = str(show_gnmi_out)
@@ -111,7 +111,7 @@ def test_poll_mode_present_table_delayed_key(duthosts, enum_rand_one_per_hwsku_h
     wait_until(5, 1, 0, check_gnmi_cli_running, duthost, ptfhost)
 
     modify_fake_appdb_table(duthost, True, 2)  # Add second table data
-    client_thread.join(60)
+    client_thread.join(30)
 
     modify_fake_appdb_table(duthost, False, 2)  # Remove all added tables
 
@@ -145,7 +145,7 @@ def test_poll_mode_delete(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
                               xpath="FAKE_APPL_DB_TABLE_0 FAKE_APPL_DB_TABLE_1/fake_key1", target="APPL_DB",
-                              max_sync_count=15, update_count=0, timeout=30, namespace=namespace)
+                              max_sync_count=6, update_count=0, timeout=30, namespace=namespace)
 
     def callback(show_gnmi_out):
         result = str(show_gnmi_out)
