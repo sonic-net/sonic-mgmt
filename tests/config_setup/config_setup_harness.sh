@@ -3,7 +3,8 @@ set -e
 
 HARNESS_DIR="/tmp/config_setup_test"
 ACTION_LOG="${HARNESS_DIR}/actions.log"
-> "${ACTION_LOG}"
+rm -f "${ACTION_LOG}"
+touch "${ACTION_LOG}"
 
 # Parse test parameters
 TEST_FUNC="$1"
