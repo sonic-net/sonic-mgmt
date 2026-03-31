@@ -14,7 +14,7 @@ def get_flow_array(flow_table):
 def parse_pdsctl_show_flow_output(output):
     keys = [
         "Session", "LookupId", "Dir", "SIP", "DIP",
-        "Proto", "Sport", "Dport", "Role", "Action"
+        "Proto", "Sport", "Dport", "Role", "Action", "Vni", "RegionId"
     ]
 
     lines = output.strip().splitlines()
@@ -48,8 +48,8 @@ def parse_pdsctl_show_flow_output(output):
 
 def compare_flow_tables_pdsctl(dpuhost1, dpuhost2):
     if 'pensando' not in dpuhost1.facts['asic_type'] or 'pensando' not in dpuhost2.facts['asic_type']:
-        logger.warning("Only Pensando is supported for this function")
-        return False
+        logger.warning("Only Pensando is supported - return true")
+        return True
 
     output1 = dpuhost1.shell("pdsctl show flow")["stdout"]
     output2 = dpuhost2.shell("pdsctl show flow")["stdout"]
@@ -63,8 +63,8 @@ def compare_flow_tables_pdsctl(dpuhost1, dpuhost2):
         logger.warning(f" flows table for {dpuhost2.hostname} is empty")
         return False
 
-    logger.debug(f"flows on primary: {flow_table1}")
-    logger.debug(f"flows on standby: {flow_table2}")
+    logger.info(f"flows on primary: {flow_table1}")
+    logger.info(f"flows on standby: {flow_table2}")
 
     if flow_table1 == flow_table2:
         logger.info(f" flows for {dpuhost1.hostname} and {dpuhost2.hostname} are identical")

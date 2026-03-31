@@ -4,6 +4,7 @@ import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
 import concurrent.futures
+from tests.common.helpers.assertions import pytest_assert
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
@@ -107,7 +108,6 @@ def test_privatelink_basic_transform(
     testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
     testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[0][REMOTE_PTF_RECV_INTF])
     flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
-    if not flow_op:
-        logger.error("Flow tables are different")
+    pytest_assert(flow_op, "Expected identical flow tables on primary and standby")
     testutils.send(ptfadapter, dash_pl_config[0][REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
     testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[0][LOCAL_PTF_INTF])
