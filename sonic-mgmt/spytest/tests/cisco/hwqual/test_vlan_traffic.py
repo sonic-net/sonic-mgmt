@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-test_snt_vrf_traffic.py
+test_vlan_traffic.py
 
 Description:
-    Platform agnostic test script to configure VRF based snake traffic.
+    Platform agnostic test script to configure VLAN based snake traffic.
     This module provides functions to consume platform configuration from
     platform_snt_cfg.py and setup traffic streams for hardware qualification testing.
 
@@ -17,12 +17,7 @@ Dependencies:
 
 Usage:
     This module can be imported and used within the spytest framework for
-    SNT (Snake Traffic) VRF testing on Cisco platforms.
-
-Traffic Types:
-    - fixed_traffic: Fixed frame size traffic
-    - mixed_traffic: Variable frame size traffic
-    - killer_traffic: Stress test traffic patterns
+    SNT (Snake Traffic) VLAN testing on Cisco platforms.
 """
 
 import os
@@ -31,7 +26,6 @@ import time
 import pytest
 import spytest
 import apis.routing.ip as ipapi
-import apis.routing.bgp as bgpapi
 import apis.system.port as papi
 import apis.system.basic as basic_obj
 import apis.system.interface as intapi
@@ -45,14 +39,14 @@ from tests.cisco.hwqual.platform_snt_cfg import get_platform_traffic_config
 from apis.common.sonic_hooks import SonicHooks
 
 @pytest.fixture(scope="module", autouse=True)
-def snt_vrf_traffic_hooks(request):
+def snt_vlan_traffic_hooks(request):
     global TBDataG
     global CfgDataG
 
     TBDataG = st.get_testbed_vars()
     CfgDataG = SpyTestDict()
 
-    CfgDataG.logprefix = "*** VRF TRAFFIC *** :"
+    CfgDataG.logprefix = "*** VLAN TRAFFIC *** :"
     CfgDataG.username = st.get_username(TBDataG.D1)
     CfgDataG.password = st.get_password(TBDataG.D1)
     CfgDataG.homedir = "/home/" + CfgDataG.username + "/"
@@ -205,31 +199,27 @@ def initialize_cfgdata():
         return False
 
     CfgDataG.cfg_reload_timer = platform_cfg.get("cfg_reload_timer")
-    CfgDataG.D1T1P1_ipv4 = platform_cfg.get("dutp1_ipv4")
-    #CfgDataG.D1T1P2_ipv4 = platform_cfg.get("dutp2_ipv4")
 
     # Initialize TGEN details
-    #CfgDataG.tg_handler = tgapi.get_handles(TBDataG, [TBDataG.T1D1P1, TBDataG.T1D1P2])
-    CfgDataG.tg_handler = tgapi.get_handles(TBDataG, [TBDataG.T1D1P1])
+    CfgDataG.tg_handler = tgapi.get_handles(TBDataG, [TBDataG.T1D1P1, TBDataG.T1D1P2])
+    #CfgDataG.tg_handler = tgapi.get_handles(TBDataG, [TBDataG.T1D1P1])
     CfgDataG.tg = CfgDataG.tg_handler["tg"]
     CfgDataG.tg_ph1 = CfgDataG.tg_handler["tg_ph_1"]
-    #CfgDataG.tg_ph2 = CfgDataG.tg_handler["tg_ph_2"]
+    CfgDataG.tg_ph2 = CfgDataG.tg_handler["tg_ph_2"]
 
-    CfgDataG.T1D1P1_ipv4 = platform_cfg.get("tgenp1_ipv4")
-    #CfgDataG.T1D1P2_ipv4 = platform_cfg.get("tgenp2.ipv4")
     CfgDataG.T1D1P1_mac= platform_cfg.get("tgenp1_mac")
-    #CfgDataG.T1D1P2_mac= platform_cfg.get("tgenp2_mac")
+    CfgDataG.T1D1P2_mac= platform_cfg.get("tgenp2_mac")
     return True
 
-def setup_dut_vrf_config(dut):
+def setup_dut_vlan_config(dut):
 
-    # Check if Vrf0 with required interfaces exists
-    if hwqual_common.is_vrf_configured(CfgDataG.dut, "Vrf0", CfgDataG.D1T1P1):
-        st.log(f"{CfgDataG.logprefix} Target already configured for VRF traffic")
+    # Check if Vlan10 with required interfaces exists
+    if hwqual_common.is_vlan_configured(CfgDataG.dut, "Vlan10", CfgDataG.D1T1P1):
+        st.log(f"{CfgDataG.logprefix} Target already configured for VLAN traffic")
         return True
 
     traffic_cfggen = "/opt/cisco/bin/traffic-cfggen.py"
-    cmd = f"{traffic_cfggen} vrf -e -i {CfgDataG.D1T1P1} -o {CfgDataG.D1T1P2} -s 3.3.3.3 -a"
+    cmd = f"{traffic_cfggen} vlan -p -i {CfgDataG.D1T1P1} -o {CfgDataG.D1T1P2} -m -a"
     st.config(dut, cmd, max_time=1800)
     return True
 
@@ -237,43 +227,40 @@ def setup_tgen_interface_config():
 
     CfgDataG.tg.tg_traffic_control(
         action='reset',
-        #port_handle=[CfgDataG.tg_ph1, CfgDataG.tg_ph2]
-        port_handle=[CfgDataG.tg_ph1]
+        port_handle=[CfgDataG.tg_ph1, CfgDataG.tg_ph2]
     )
 
     #Configure tgen interface T1D1P1
     res1=CfgDataG.tg.tg_interface_config(
             port_handle=CfgDataG.tg_ph1,
             mode='config',
-            intf_ip_addr=CfgDataG.T1D1P1_ipv4,
-            gateway=CfgDataG.D1T1P1_ipv4,
-            src_mac_addr=CfgDataG.T1D1P1_mac,
-            arp_send_req='1'
+            src_mac_addr=CfgDataG.T1D1P1_mac
     )
     st.log("INTFCONF: "+str(res1))
-    CfgDataG.tg_ipv4h1 = res1['ipv4_handle']
+    CfgDataG.tg_vlanh1 = res1['ethernet_handle']
 
     #Configure tgen interface T1D1P2
-    #res2=CfgDataG.tg.tg_interface_config(
-    #        port_handle=CfgDataG.tg_ph2,
-    #        mode='config',
-    #        intf_ip_addr=CfgDataG.T1D1P2_ipv4,
-    #        gateway=CfgDataG.D1T1P2_ipv4,
-    #        src_mac_addr=CfgDataG.T1D1P2_mac,
-    #        arp_send_req='1'
-    #)
-    #st.log("INTFCONF: "+str(res2))
-    #CfgDataG.tg_ipv4h2 = res2['ipv4_handle']
+    res2=CfgDataG.tg.tg_interface_config(
+            port_handle=CfgDataG.tg_ph2,
+            mode='config',
+            src_mac_addr=CfgDataG.T1D1P2_mac
+    )
+    st.log("INTFCONF: "+str(res2))
+    CfgDataG.tg_vlanh2 = res2['ethernet_handle']
     return True
 
 def verify_tgen_traffic_stats(k):
 
     ph1_traffic_stats = tgapi.get_traffic_stats(CfgDataG.tg, port_handle=CfgDataG.tg_ph1)
-    #ph2_traffic_stats = tgapi.get_traffic_stats(CfgDataG.tg, port_handle=CfgDataG.tg_ph2)
-    #if int(ph2_traffic_stats.rx.total_packets) < int(ph1_traffic_stats.tx.total_packets):
-    if int(ph1_traffic_stats.rx.total_packets) < int(ph1_traffic_stats.tx.total_packets):
-        #pkt_loss = int(ph2_traffic_stats.rx.total_packets) - int(ph1_traffic_stats.tx.total_packets)
-        pkt_loss = int(ph1_traffic_stats.rx.total_packets) - int(ph1_traffic_stats.tx.total_packets)
+    ph2_traffic_stats = tgapi.get_traffic_stats(CfgDataG.tg, port_handle=CfgDataG.tg_ph2)
+    if int(ph2_traffic_stats.rx.total_packets) < int(ph1_traffic_stats.tx.total_packets):
+        pkt_loss = int(ph2_traffic_stats.rx.total_packets) - int(ph1_traffic_stats.tx.total_packets)
+        report_fail(f" {CfgDataG.logprefix} Traffic drop for {CfgDataG.traffic_cfg_type}:{k} - {pkt_loss} packets")
+    else:
+        st.log(f" {CfgDataG.logprefix} No Traffic drop for {CfgDataG.traffic_cfg_type}:{k}")
+
+    if int(ph1_traffic_stats.rx.total_packets) < int(ph2_traffic_stats.tx.total_packets):
+        pkt_loss = int(ph1_traffic_stats.rx.total_packets) - int(ph2_traffic_stats.tx.total_packets)
         report_fail(f" {CfgDataG.logprefix} Traffic drop for {CfgDataG.traffic_cfg_type}:{k} - {pkt_loss} packets")
     else:
         st.log(f" {CfgDataG.logprefix} No Traffic drop for {CfgDataG.traffic_cfg_type}:{k}")
@@ -301,16 +288,23 @@ def run_tgen_traffic(k, v):
             rate_percent=v.get('util'),
             mode='create',
             l2_encap='ethernet_ii',
-            ip_src_addr= CfgDataG.T1D1P1_ipv4,
-            ip_dst_addr=v.get('stream_addr'),
-            l3_protocol= v.get('stream_type'),
-	    ip_ttl=v.get('ttl'),
             length_mode=stream.get('length_mode'),
-            data_pattern = stream.get('pattern'),
-            data_pattern_mode = stream.get('pattern_mode'),
 	    frame_size_min=stream.get('minframelength'),
 	    frame_size_max=stream.get('maxframelength'),
-            mac_discovery_gw=CfgDataG.D1T1P1_ipv4,
+	    transmit_mode='continuous'
+        )
+        CfgDataG.stream_ids.append(res['stream_id'])
+
+        res = CfgDataG.tg.tg_traffic_config(
+            port_handle=CfgDataG.tg_ph2,
+	    mac_dst=CfgDataG.dut_base_mac,
+            mac_src=CfgDataG.T1D1P2_mac,
+            rate_percent=v.get('util'),
+            mode='create',
+            l2_encap='ethernet_ii',
+            length_mode=stream.get('length_mode'),
+	    frame_size_min=stream.get('minframelength'),
+	    frame_size_max=stream.get('maxframelength'),
 	    transmit_mode='continuous'
         )
         CfgDataG.stream_ids.append(res['stream_id'])
@@ -322,7 +316,7 @@ def run_tgen_traffic(k, v):
     else:
         st.log(f"{CfgDataG.logprefix} Traffic control for {CfgDataG.traffic_cfg_type}:{k} Success")
 
-    st.log(f"{CfgDataG.logprefix} Running traffic {CfgDataG.traffic_cfg_type}:{k} for {v.get('duration')}Sec")
+    st.log(f"{CfgDataG.logprefix} Running bidirectional traffic {CfgDataG.traffic_cfg_type}:{k} for {v.get('duration')}Sec")
     #st.tg_wait(int(v.get('duration')))
     #stop_tgen_traffic(k)
     #verify_tgen_traffic_stats(k)
@@ -346,45 +340,13 @@ def start_tgen_traffic():
                 report_fail(f"{CfgDataG.logprefix} SNT traffic cfg not defined for {CfgDataG.traffic_cfg_type}:{key}")
                 continue
 
-            # Handle pre-action dynamically
-            if traffic_cfg.get('pre-action') is not None:
-                pre_action_func = traffic_cfg.get('pre-action')
-                st.log(f"{CfgDataG.logprefix} Calling pre-action: {pre_action_func}")
-                
-                try:
-                    # Dynamically get the function from snt_bgp module
-                    if hasattr(snt_bgp, pre_action_func):
-                        func = getattr(snt_bgp, pre_action_func)
-                        func(CfgDataG, TBDataG)
-                    else:
-                        st.error(f"{CfgDataG.logprefix} Function {pre_action_func} not found in snt_bgp module")
-                        return False
-                except Exception as e:
-                    st.error(f"{CfgDataG.logprefix} Error executing pre-action {pre_action_func}: {e}")
-                    return False
-
             res = run_tgen_traffic(key, traffic_cfg)
             if not res:
                 return False
-            else:
-                # Handle inline-action dynamically
-                if traffic_cfg.get('inline-action') is not None:
-                    inline_action_func = traffic_cfg.get('inline-action')
-                    st.log(f"{CfgDataG.logprefix} Calling inline-action: {inline_action_func}")
-                    
-                    try:
-                        if hasattr(snt_bgp, inline_action_func):
-                            func = getattr(snt_bgp, inline_action_func)
-                            func(CfgDataG, TBDataG)
-                        else:
-                            st.error(f"{CfgDataG.logprefix} Function {inline_action_func} not found in snt_bgp module")
-                            return False
-                    except Exception as e:
-                        st.error(f"{CfgDataG.logprefix} Error executing inline-action {inline_action_func}: {e}")
-                        return False
-                st.tg_wait(int(traffic_cfg.get('duration')))
-                stop_tgen_traffic(key)
-                verify_tgen_traffic_stats(key)
+
+            st.tg_wait(int(traffic_cfg.get('duration')))
+            stop_tgen_traffic(key)
+            verify_tgen_traffic_stats(key)
 
     return True
 
@@ -397,34 +359,34 @@ def install_hwqual_pkg():
         if not hwqual_common.deploy_hwqual_pkg(CfgDataG):
             return False
     except Exception as e:
-        report_fail(f"{CfgDataG.logprefix} VRF traffic test failed: {e}")
+        report_fail(f"{CfgDataG.logprefix} VLAN traffic test failed: {e}")
         return False
 
     return True
 
-def test_snt_vrf_traffic():
+def test_vlan_traffic():
     """
-    Main test function for VRF traffic
+    Main test function for VLAN traffic
     """
-    st.log(f"{CfgDataG.logprefix} Starting VRF traffic test")
+    st.log(f"{CfgDataG.logprefix} Starting VLAN traffic test")
 
     try:
-        # Initialize VRF configuration data
+        # Initialize VLAN configuration data
         if not initialize_cfgdata():
-            report_fail(f"{CfgDataG.logprefix} VRF initialize cfgdata failed")
+            report_fail(f"{CfgDataG.logprefix} VLAN initialize cfgdata failed")
             return False
-        st.log(f"{CfgDataG.logprefix} VRF initialize cfgdata success")
+        st.log(f"{CfgDataG.logprefix} VLAN initialize cfgdata success")
 
         if not install_hwqual_pkg():
             report_fail(f"{CfgDataG.logprefix} hwqual dpkg install failed")
             return False
         st.log(f"{CfgDataG.logprefix} hwqual dpkg install success")
 
-        # Setup DUT VRF configuration
-        if not setup_dut_vrf_config(TBDataG.D1):
-            report_fail(f"{CfgDataG.logprefix} Setup dut VRF config Failed")
+        # Setup DUT VLAN configuration
+        if not setup_dut_vlan_config(TBDataG.D1):
+            report_fail(f"{CfgDataG.logprefix} Setup dut VLAN config Failed")
             return False
-        st.log(f"{CfgDataG.logprefix} Setup dut VRF config Success")
+        st.log(f"{CfgDataG.logprefix} Setup dut VLAN config Success")
 
         # Setup traffic generator interface
         if not setup_tgen_interface_config():
@@ -434,16 +396,16 @@ def test_snt_vrf_traffic():
 
         # Start traffic
         if not start_tgen_traffic():
-            report_fail(f"{CfgDataG.logprefix} VRF traffic test Failed")
+            report_fail(f"{CfgDataG.logprefix} VLAN traffic test Failed")
             return False
-        st.log(f"{CfgDataG.logprefix} VRF traffic test completed successfully")
+        st.log(f"{CfgDataG.logprefix} VLAN traffic test completed successfully")
         st.report_pass(f"{CfgDataG.logprefix} Test Passed", CfgDataG.dut)
 
     except Exception as e:
-        report_fail(f"{CfgDataG.logprefix} VRF traffic test failed: {e}")
+        report_fail(f"{CfgDataG.logprefix} VLAN traffic test failed: {e}")
         return False
 
     return True
 
 if __name__ == "__main__":
-    test_snt_vrf_traffic()
+    test_snt_vlan_traffic()

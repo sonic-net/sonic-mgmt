@@ -512,7 +512,7 @@ def check_fan_data(CfgDataG, entity):
                 return False
 
         case _:  # Default case
-            st.error(f"Unknown test type: {test_type}")
+            st.error(f"Unknown test type: {entity}")
             return False
 
     return True

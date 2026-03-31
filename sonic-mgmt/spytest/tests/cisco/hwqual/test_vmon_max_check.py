@@ -226,7 +226,7 @@ def validate_all_margin_percentages(voltage_data: List[Dict[str, str]], toleranc
         'pass_rate': (results['pass_count'] / results['valid_devices'] * 100) if results['valid_devices'] > 0 else 0,
         'overall_status': 'PASS' if results['fail_count'] == 0 else 'FAIL'
     }
-    results['overall_valid']: True if results['fail_count'] == 0 else False
+    results['overall_valid'] = True if results['fail_count'] == 0 else False
     
     return results
 
@@ -297,7 +297,7 @@ def verify_vmon_max_state(output):
     """
     try:
         # Parse voltage margin data
-        voltage_data = parse_voltage_margin_data(input_data)
+        voltage_data = parse_voltage_margin_data(output)
         
         if not voltage_data:
             print("ERROR: No voltage margin data found in input")

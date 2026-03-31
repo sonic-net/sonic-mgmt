@@ -119,6 +119,12 @@ sensor_check = [
    "current"
 ]
 
+sensor_warning_check = [
+   "temperature_warning",
+   "voltage_warning",
+   "current_warning"
+]
+
 """
 Docker Container Service Validation Check
 

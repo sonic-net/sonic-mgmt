@@ -210,7 +210,7 @@ def validate_all_voltages(voltage_data: List[Dict[str, str]], tolerance: float =
         'pass_rate': (results['pass_count'] / results['valid_devices'] * 100) if results['valid_devices'] > 0 else 0,
         'overall_status': 'PASS' if results['fail_count'] == 0 else 'FAIL'
     }
-    results['overall_valid']: True if results['fail_count'] == 0 else False
+    results['overall_valid'] = True if results['fail_count'] == 0 else False
     
     return results
 

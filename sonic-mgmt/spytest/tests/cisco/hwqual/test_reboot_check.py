@@ -47,7 +47,7 @@ def check_reboot_state(CfgDataG, reboot_type):
             st.tg_wait(60)
             
         case _:  # Default case
-            st.error(f"Unknown test type: {test_type}")
+            st.error(f"Unknown test type: {reboot_type}")
             return False
 
     return True

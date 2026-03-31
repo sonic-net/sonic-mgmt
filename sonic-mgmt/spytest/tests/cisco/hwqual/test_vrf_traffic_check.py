@@ -126,7 +126,7 @@ def start_cont_tgen_traffic(CfgDataG):
 def setup_dut_vrf_config(CfgDataG):
 
     # Check if Vrf0 with required interfaces exists
-    if hwqual_common.is_vrf_configured(CfgDataG.dut, "Vrf0", "Ethernet0"):
+    if hwqual_common.is_vrf_configured(CfgDataG.dut, "Vrf0", CfgDataG.D1T1P1):
         st.log(f"{CfgDataG.logprefix} Target already configured for VRF traffic")
         return True
 

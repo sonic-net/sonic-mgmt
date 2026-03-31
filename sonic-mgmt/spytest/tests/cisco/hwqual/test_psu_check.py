@@ -421,7 +421,7 @@ def check_psu_data(CfgDataG, entity):
             pass 
 
         case _:  # Default case
-            st.error(f"Unknown test type: {test_type}")
+            st.error(f"Unknown test type: {entity}")
             return False
 
     return True

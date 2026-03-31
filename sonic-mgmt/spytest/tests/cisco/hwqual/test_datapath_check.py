@@ -218,7 +218,7 @@ def analyze_interface_status(CfgDataG, interface_data: List[Dict[str, str]]) -> 
         'oper_up_percentage': (len(results['oper_up_interfaces']) / results['total_interfaces'] * 100) if results['total_interfaces'] > 0 else 0,
         'health_status': 'HEALTHY' if len(results['mismatched_interfaces']) == 0 else 'ISSUES_DETECTED'
     }
-    results['overall_valid']: True if len(results['mismatched_interfaces']) == 0 else False
+    results['overall_valid'] = True if len(results['mismatched_interfaces']) == 0 else False
     
     return results
 
@@ -390,7 +390,7 @@ def check_datapath_state(CfgDataG, type):
                     report_fail(f"{CfgDataG.logprefix}: Validation of intf status failed")
 
         case _:  # Default case
-            st.error(f"Unknown test type: {test_type}")
+            st.error(f"Unknown test type: {type}")
             return False
 
     return True

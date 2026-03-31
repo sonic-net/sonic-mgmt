@@ -822,7 +822,7 @@ def check_idprom_data(CfgDataG, entity):
             st.log(f"Idprom validation completed successfully for {len(psu_trays)} PSUs")
         
         case _:  # Default case
-            st.error(f"Unknown test type: {test_type}")
+            st.error(f"Unknown test type: {entity}")
             return False
 
     return True

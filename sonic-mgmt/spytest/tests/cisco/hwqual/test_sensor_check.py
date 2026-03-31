@@ -281,7 +281,7 @@ def validate_all_temperature_sensors(sensor_data: List[Dict[str, str]]) -> Dict[
         'warning_rate': (results['warning_sensors'] / results['valid_sensors'] * 100) if results['valid_sensors'] > 0 else 0,
         'overall_status': 'FAIL' if results['warning_sensors'] > 0 else 'PASS'
     }
-    results['overall_valid']: False if results['warning_sensors'] > 0 else True
+    results['overall_valid'] = False if results['warning_sensors'] > 0 else True
     
     return results
 
@@ -704,7 +704,7 @@ def validate_all_voltage_sensors(sensor_data: List[Dict[str, str]]) -> Dict[str,
         'warning_rate': (results['warning_sensors'] / results['valid_sensors'] * 100) if results['valid_sensors'] > 0 else 0,
         'overall_status': 'FAIL' if results['warning_sensors'] > 0 else 'PASS'
     }
-    results['overall_valid']: False if results['warning_sensors'] > 0 else True
+    results['overall_valid'] = False if results['warning_sensors'] > 0 else True
     
     return results
 
@@ -1151,7 +1151,7 @@ def validate_all_current_sensors(sensor_data: List[Dict[str, str]]) -> Dict[str,
         'total_current_consumption': results['current_stats']['total_current'],
         'overall_status': 'FAIL' if results['warning_sensors'] > 0 else 'PASS'
     }
-    results['overall_valid']: False if results['warning_sensors'] > 0 else True
+    results['overall_valid'] = False if results['warning_sensors'] > 0 else True
     
     return results
 
@@ -1331,9 +1331,23 @@ def check_sensor_data(CfgDataG, entity):
                 st.error("Failed to get temperature sensor data from device")
                 return False
             result = verify_temperature_sensor_data(output)
-            if not result['overall_valid']: 
+            if result.get('total_sensors', 0) == 0 or result.get('skipped_sensors', 0) > 0:
                 report_fail(f"{CfgDataG.logprefix}: Validation of temperature sensor failed")
-            
+
+        case "temperature_warning":
+            cmd = "show platform temperature"
+            output = st.config(CfgDataG.dut, cmd)
+            if not output:
+                st.error("Failed to get temperature sensor data from device")
+                return False
+            result = verify_temperature_sensor_data(output)
+
+            total = result.get('total_sensors', 0)
+            skipped = result.get('skipped_sensors', 0)
+            overall_valid = result.get('overall_valid', False)
+            if total == 0 or skipped > 0 or not overall_valid:
+                report_fail(f"{CfgDataG.logprefix}: Validation of temperature sensor failed")
+
         case "voltage":
             cmd = "show platform voltage"
             output = st.config(CfgDataG.dut, cmd)
@@ -1341,7 +1355,21 @@ def check_sensor_data(CfgDataG, entity):
                 st.error("Failed to get voltage sensor data from device")
                 return False
             result = verify_voltage_sensor_data(output)
-            if not result['overall_valid']: 
+            if result.get('total_sensors', 0) == 0 or result.get('skipped_sensors', 0) > 0:
+                report_fail(f"{CfgDataG.logprefix}: Validation of voltage sensor failed")
+
+        case "voltage_warning":
+            cmd = "show platform voltage"
+            output = st.config(CfgDataG.dut, cmd)
+            if not output:
+                st.error("Failed to get voltage sensor data from device")
+                return False
+            result = verify_voltage_sensor_data(output)
+
+            total = result.get('total_sensors', 0)
+            skipped = result.get('skipped_sensors', 0)
+            overall_valid = result.get('overall_valid', False)
+            if total == 0 or skipped > 0 or not overall_valid:
                 report_fail(f"{CfgDataG.logprefix}: Validation of voltage sensor failed")
             
         case "current":
@@ -1351,11 +1379,25 @@ def check_sensor_data(CfgDataG, entity):
                 st.error("Failed to get current sensor data from device")
                 return False
             result = verify_current_sensor_data(output)
-            if not result['overall_valid']: 
+            if result.get('total_sensors', 0) == 0 or result.get('skipped_sensors', 0) > 0:
+                report_fail(f"{CfgDataG.logprefix}: Validation of current sensor failed")
+
+        case "current_warning":
+            cmd = "show platform current"
+            output = st.config(CfgDataG.dut, cmd)
+            if not output:
+                st.error("Failed to get current sensor data from device")
+                return False
+            result = verify_current_sensor_data(output)
+
+            total = result.get('total_sensors', 0)
+            skipped = result.get('skipped_sensors', 0)
+            overall_valid = result.get('overall_valid', False)
+            if total == 0 or skipped > 0 or not overall_valid:
                 report_fail(f"{CfgDataG.logprefix}: Validation of current sensor failed")
             
         case _:  # Default case
-            st.error(f"Unknown test type: {test_type}")
+            st.error(f"Unknown test type: {entity}")
             return False
 
     return True

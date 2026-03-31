@@ -169,7 +169,7 @@ def group_ports_by_status(port_data: List[Dict[str, str]]) -> Dict[str, any]:
         'health_percentage': (ok_ports / results['total_ports'] * 100) if results['total_ports'] > 0 else 0,
         'overall_health': 'HEALTHY' if error_ports == 0 else 'ERRORS_DETECTED'
     }
-    results['overall_valid']: True if error_ports == 0 else False
+    results['overall_valid'] = True if error_ports == 0 else False
     
     return results
 

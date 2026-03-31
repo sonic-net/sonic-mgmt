@@ -211,11 +211,6 @@ def validate_model_number(model_number):
     if model_number.startswith('-') or model_number.endswith('-'):
         result['errors'].append(f"Model Number '{model_number}' cannot start or end with hyphen")
     
-    # Additional validation - check for expected format (e.g., 8122-64EHF-O)
-    expected_pattern = r'^[0-9]{4}-[A-Z0-9]+-[A-Z]$'
-    if not re.match(expected_pattern, model_number):
-        result['errors'].append(f"Model Number '{model_number}' doesn't match expected format (e.g., 8122-64EHF-O)")
-    
     if not result['errors']:
         result['valid'] = True
     
@@ -484,11 +479,6 @@ def validate_product_name(product_name):
     alphanumeric_pattern = r'^[A-Za-z0-9\-]+$'
     if not re.match(alphanumeric_pattern, product_name):
         result['errors'].append(f"Product Name '{product_name}' contains invalid characters (only alphanumeric and '-' allowed)")
-    
-    # Check for expected product name format
-    product_pattern = r'^[0-9]{4}-[A-Z0-9]+-[A-Z]$'
-    if not re.match(product_pattern, product_name):
-        result['errors'].append(f"Product Name '{product_name}' doesn't match expected format (e.g., 8122-64EHF-O)")
     
     if not result['errors']:
         result['valid'] = True

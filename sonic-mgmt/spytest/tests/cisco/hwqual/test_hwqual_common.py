@@ -70,13 +70,13 @@ def read_thermal_zone_yaml_from_device(dut):
         yaml_file_path = "/opt/cisco/etc/thermal_zone.yaml"
         
         # Check if file exists
-        file_check_cmd = f"test -f {yaml_file_path} && echo 'EXISTS' || echo 'NOT_EXISTS'"
-        file_exists = st.show(dut, file_check_cmd, skip_error_check=True)
-        
-        if "NOT_EXISTS" in file_exists:
+        cmd = f"test -f {yaml_file_path} && echo EXISTS || echo NOT_EXISTS"
+        result = st.config(dut, cmd, skip_error_check=True)
+
+        if "NOT_EXISTS" in str(result):
             st.error(f"Thermal zone YAML file not found: {yaml_file_path}")
             return None
-        
+
         # Read the YAML file content
         read_cmd = f"cat {yaml_file_path}"
         yaml_content = st.show(dut, read_cmd, skip_error_check=True)
@@ -740,4 +740,132 @@ def is_vrf_configured(dut, vrf_name, interface_name):
             st.error(f"VRF validation error: {e}")
         return False
 
+def parse_vlan_output(input_text):
+    """
+    Parse VLAN output into structured data
+
+    Args:
+        input_text (str): Raw Vlan output from 'show vlan config'
+
+    Returns:
+        Dict[str, List[str]]: Dictionary mapping VLAN names to interface lists
+    """
+    vlan_data = {}
+    lines = input_text.strip().split('\n')
+
+    # Find header line
+    header_line = -1
+    for i, line in enumerate(lines):
+        if 'VID' in line and 'Member' in line:
+            header_line = i
+            break
+
+    if header_line == -1:
+        print("ERROR: Could not find VLAN table headers")
+        return {}
+
+    # Skip header and separator line
+    data_start = header_line + 2
+
+    for line in lines[data_start:]:
+        line = line.strip()
+        if not line or line.startswith('-'):
+            continue
+
+        # Split by whitespace, handling multiple spaces
+        #parts = re.split(r'\s+', line, 1)  # Split into max 2 parts
+        parts = line.split()
+
+        if len(parts) >= 4:
+            vlan_name = parts[0]
+            interfaces_str = parts[2]
+
+            if vlan_name in vlan_data:
+                continue
+
+            # Parse interfaces (could be comma-separated or space-separated)
+            interfaces = [iface.strip() for iface in re.split(r'[,\s]+', interfaces_str) if iface.strip()]
+
+            vlan_data[vlan_name] = interfaces
+        elif len(parts) == 1:
+            # Handle case where VRF has no interfaces
+            vlan_name = parts[0]
+            vlan_data[vlan_name] = []
+
+    return vlan_data
+
+def check_vlan_interface_entry(vlan_data, target_vlan, target_interface):
+    """
+    Check if a specific VLAN contains a specific interface
+
+    Args:
+        vlan_data (Dict): Parsed VLAN data
+        target_vlan (str): VLAN name to check for
+        target_interface (str): Interface name to check for
+
+    Returns:
+        bool: True if the VLAN contains the interface, False otherwise
+    """
+    if target_vlan not in vlan_data:
+        return False
+
+    interfaces = vlan_data[target_vlan]
+    return target_interface in interfaces
+
+
+def validate_vlan_entry(input_text, vid, interface_name):
+    """
+    Main validation function to check for VLAN entry
+
+    Args:
+        input_text (str): Raw VLAN output
+        vid (str): VLAN num to validate (default: "Vlan10")
+        interface_name (str): Interface name to validate (default: "Ethernet0")
+
+    Returns:
+        bool: True if entry exists, False otherwise
+    """
+    vlan_data = parse_vlan_output(input_text)
+
+    if not vlan_data:
+        print("ERROR: No VLAN data found")
+        return False
+
+    return check_vlan_interface_entry(vlan_data, vid, interface_name)
+
+def is_vlan_configured(dut, vid, interface_name):
+    """
+    Spytest integration function for VLAN interface validation
+
+    Args:
+        dut: Device under test
+        vid (str): VLAN number to validate
+        interface_name (str): Interface name to validate
+
+    Returns:
+        bool: True if VLAN entry exists, False otherwise
+    """
+    try:
+
+        # Get VLAN data from device
+        vlan_output = st.config(dut, "show vlan config", skip_error_check=True)
+
+        if not vlan_output:
+            st.error("Failed to get VLAN data from device")
+            return False
+
+        # Validate VLAN entry
+        entry_exists = validate_vlan_entry(vlan_output, vid, interface_name)
+
+        if entry_exists:
+            st.log(f"✓ VLAN configuration exist")
+        else:
+            st.log(f"✗ VLAN configuration not found")
+
+        return entry_exists
+
+    except Exception as e:
+        if 'st' in locals():
+            st.error(f"VLAN validation error: {e}")
+        return False
 
