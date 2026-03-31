@@ -394,7 +394,7 @@ def test_unknown_unicast(traffic_setup):
     ):
         report_fail(ndf_node, "Unknown unicast traffic is not dropped in NDF")
     # Validate Unknown unicast traffic is ingress replicated towards df and ndf
-    elif not (
+    elif vxlan_utils.tunnel_counters_supported(nodes["leaf2"]) and not (
         leaf2_df_vxlan_rx_curr >= int(const.spytest_data.pkts_per_burst)
         and leaf2_ndf_vxlan_rx_curr >= int(const.spytest_data.pkts_per_burst)
         and leaf2_df_vxlan_tx_curr >= int(const.spytest_data.pkts_per_burst)
@@ -453,7 +453,7 @@ def test_inter_subnet_ping(traffic_setup):
             )
         )
 
-        if not (
+        if vxlan_utils.tunnel_counters_supported(nodes["leaf0"]) and not (
             leaf0_evpn_int_counters >= 0.98 * int(const.spytest_data.pkts_per_burst)
             and leaf0_evpn_int_counters <= 1.2 * int(const.spytest_data.pkts_per_burst)
             and leaf2_evpn_int_counters >= 0.98 * int(const.spytest_data.pkts_per_burst)
@@ -498,7 +498,7 @@ def test_inter_subnet_ping(traffic_setup):
             )
         )
 
-        if not (
+        if vxlan_utils.tunnel_counters_supported(nodes["leaf0"]) and not (
             leaf0_evpn_int_counters >= 0.98 * int(const.spytest_data.pkts_per_burst)
             and leaf0_evpn_int_counters <= 1.2 * int(const.spytest_data.pkts_per_burst)
             and leaf2_evpn_int_counters >= 0.98 * int(const.spytest_data.pkts_per_burst)

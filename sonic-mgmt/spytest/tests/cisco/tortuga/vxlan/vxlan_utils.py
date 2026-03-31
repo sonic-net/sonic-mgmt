@@ -906,7 +906,19 @@ def tunnel_counters_supported(node):
         st.log("Running on gr2 so currently there is no support for tunnel counters")
         return False
 
-    st.log("Running on non-gr2, tunnel counters are supported")
+    cmd = "apt-cache search \"Cisco NX\" | awk '{print $1}'"
+
+    try:
+        pkg_name = st.show(node, cmd, skip_tmpl=True, skip_error_check=True, remove_prompt=True).strip()
+    except Exception as e:
+        st.log("Unable to search in apt-cache to gather NX asic type")
+        return True
+
+    if 'sundown2' in pkg_name:
+        st.log("Running on FX3/sundown2 so currently there is no support for tunnel counters")
+        return False
+
+    st.log("Tunnel counters are supported")
     return True
 
 def check_bullseye(node):
