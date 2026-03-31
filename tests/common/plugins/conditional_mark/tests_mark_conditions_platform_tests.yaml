@@ -382,6 +382,15 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_spe
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
 #######################################
+#####   test_liquid_cooling_leakage.py   #####
+#######################################
+platform_tests/api/test_liquid_cooling_leakage.py:
+  skip:
+    reason: "Liquid cooling leakage tests not applicable to m0, mx, m1, c0 topologies"
+    conditions:
+      - "topo_type in ['m0', 'mx', 'm1', 'c0']"
+
+#######################################
 ##### api/test_module.py #####
 #######################################
 platform_tests/api/test_module.py:
@@ -1242,6 +1251,15 @@ platform_tests/test_kdump.py:
     reason: "Not supported on Nokia-7215 platform"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
+
+#######################################
+#####   test_liquid_cooling_leakage_detection.py   #####
+#######################################
+platform_tests/test_liquid_cooling_leakage_detection.py:
+  skip:
+    reason: "Liquid cooling leakage detection tests not applicable to m0, mx, m1, c0 topologies"
+    conditions:
+      - "topo_type in ['m0', 'mx', 'm1', 'c0']"
 
 #######################################
 ####  test_memory_exhaustion.py   #####
