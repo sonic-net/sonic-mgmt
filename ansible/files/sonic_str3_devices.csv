@@ -201,7 +201,7 @@ str3-nvidia-4280-E04-U22-dpu-0,10.3.156.98/27,Nvidia-bf3-com-dpu,DevSonic,,sonic
 str3-nvidia-4280-E04-U22-dpu-1,10.3.156.98/27,Nvidia-bf3-com-dpu,DevSonic,,sonic
 str3-nvidia-4280-E04-U22-dpu-2,10.3.156.98/27,Nvidia-bf3-com-dpu,DevSonic,,sonic
 str3-nvidia-4280-E04-U22-dpu-3,10.3.156.98/27,Nvidia-bf3-com-dpu,DevSonic,,sonic
-str3-cisco-8102-E04-U26,10.3.156.99/27,Cisco-8102-28FH-DPU-O,DevSonic,,sonic
+str3-cisco-8102-E04-U26,10.3.156.99/27,Cisco-8102-28FH-DPU-C28,DevSonic,,sonic
 str3-cisco-8102-E04-U26-dpu-0,10.3.156.99/27,Pensando-elba,DevSonic,,sonic
 str3-cisco-8102-E04-U26-dpu-1,10.3.156.99/27,Pensando-elba,DevSonic,,sonic
 str3-cisco-8102-E04-U26-dpu-2,10.3.156.99/27,Pensando-elba,DevSonic,,sonic

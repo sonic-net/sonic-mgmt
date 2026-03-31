@@ -469,6 +469,7 @@ sonic:
   children:
     sonic_cisco_8102:
     sonic_cisco_8102_smartswitch:
+    sonic_cisco_8102_smartswitch_100g:
     sonic_pensando_elba_smartswitch_dpu:
     sonic_cisco_8101_O8C48:
     sonic_cisco_8101_O8V48:
@@ -644,6 +645,12 @@ sonic_cisco_8102_smartswitch:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+
+sonic_cisco_8102_smartswitch_100g:
+  vars:
+    hwsku: Cisco-8102-28FH-DPU-C28
+    iface_speed: 100000
+  hosts:
     str3-cisco-8102-E04-U26:
       ansible_host: 10.3.156.99
       ansible_hostv6: 2a01:111:e210:86::c3
