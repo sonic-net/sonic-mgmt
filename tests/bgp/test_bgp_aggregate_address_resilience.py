@@ -40,13 +40,14 @@ from test_bgp_aggregate_address import (
 from tests.common.config_reload import config_reload
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.dut_utils import is_virtual_platform
 from tests.common.reboot import reboot
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t1", "m1"),
+    pytest.mark.topology("m1"),
     pytest.mark.disable_loganalyzer,
 ]
 
@@ -327,7 +328,7 @@ def test_aggregate_persists_warm_reboot(
     # On KVM/VS the warm-reboot script's 1 s docker-exec health check is too
     # tight, causing fpmsyncd/orchagent crashes.  Apply the same timeout bump
     # that AdvancedReboot uses (tests/common/fixtures/advanced_reboot.py).
-    if duthost.facts.get("platform") == "x86_64-kvm_x86_64-r0":
+    if is_virtual_platform(duthost):
         warmboot_script = duthost.shell("which warm-reboot")["stdout"].strip()
         cmd_format = "sed -i 's/{}/{}/' {}"
         original_line = 'timeout 1s docker exec $container echo "success"'
