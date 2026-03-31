@@ -129,23 +129,38 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
             pass
 
     logger.info("Copying vxlan_switch.json")
-    render_template_to_host("vxlan_switch.j2", duthost, DUT_VXLAN_PORT_JSON)
-    duthost.shell(
-        "docker cp {} swss:/vxlan.switch.json".format(DUT_VXLAN_PORT_JSON))
-    duthost.shell("docker exec swss sh -c \"swssconfig /vxlan.switch.json\"")
+    is_dualtor_aa = "dualtor-aa" in tbinfo["topo"]["name"]
+    if is_dualtor_aa:
+        for d in duthosts:
+            render_template_to_host("vxlan_switch.j2", d, DUT_VXLAN_PORT_JSON)
+            d.shell(
+                "docker cp {} swss:/vxlan.switch.json".format(DUT_VXLAN_PORT_JSON))
+            d.shell("docker exec swss sh -c \"swssconfig /vxlan.switch.json\"")
+    else:
+        render_template_to_host("vxlan_switch.j2", duthost, DUT_VXLAN_PORT_JSON)
+        duthost.shell(
+            "docker cp {} swss:/vxlan.switch.json".format(DUT_VXLAN_PORT_JSON))
+        duthost.shell("docker exec swss sh -c \"swssconfig /vxlan.switch.json\"")
     sleep(3)
 
     logger.info("Prepare PTF")
-    if "dualtor-aa" in tbinfo["topo"]["name"]:
+    if is_dualtor_aa:
         prepare_ptf(ptfhost, mg_facts, duthost, unslctd_mg_facts)
     else:
         prepare_ptf(ptfhost, mg_facts, duthost)
 
     logger.info("Generate VxLAN config files")
-    generate_vxlan_config_files(duthost, mg_facts)
+    if is_dualtor_aa:
+        for d in duthosts:
+            d_mg_facts = d.get_extended_minigraph_facts(tbinfo)
+            generate_vxlan_config_files(d, d_mg_facts)
+    else:
+        generate_vxlan_config_files(duthost, mg_facts)
 
     setup_info = {
-        "mg_facts": mg_facts
+        "mg_facts": mg_facts,
+        "is_dualtor_aa": is_dualtor_aa,
+        "duthosts": duthosts,
     }
 
     yield setup_info
@@ -156,31 +171,37 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
     logger.info(
         "Always try to remove any possible VxLAN tunnel and map configuration")
-    for vlan in mg_facts["minigraph_vlans"]:
-        duthost.shell(
-            'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"' % vlan)
-    duthost.shell(
-        'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tlVxlan"')
+    cleanup_duthosts = setup_info.get("duthosts", [duthost])
+    for d in cleanup_duthosts:
+        for vlan in mg_facts["minigraph_vlans"]:
+            d.shell(
+                'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"' % vlan)
+        d.shell(
+            'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tlVxlan"')
 
 
 @pytest.fixture(params=["NoVxLAN", "Enabled", "Removed"])
 def vxlan_status(setup, request, duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
+    target_duthosts = setup["duthosts"] if setup.get("is_dualtor_aa") else [duthost]
     if request.param == "Enabled":
-        duthost.shell(
-            "sonic-cfggen -j /tmp/vxlan_db.tunnel.json --write-to-db")
-        duthost.shell("sonic-cfggen -j /tmp/vxlan_db.maps.json --write-to-db")
+        for d in target_duthosts:
+            d.shell(
+                "sonic-cfggen -j /tmp/vxlan_db.tunnel.json --write-to-db")
+            d.shell("sonic-cfggen -j /tmp/vxlan_db.maps.json --write-to-db")
         return True, request.param
     elif request.param == "Removed":
-        for vlan in setup["mg_facts"]["minigraph_vlans"]:
-            duthost.shell(
-                'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"' % vlan)
-        duthost.shell(
-            'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tlVxlan"')
+        for d in target_duthosts:
+            for vlan in setup["mg_facts"]["minigraph_vlans"]:
+                d.shell(
+                    'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL_MAP|tlVxlan|map%s"' % vlan)
+            d.shell(
+                'docker exec -i database redis-cli -n 4 -c DEL "VXLAN_TUNNEL|tlVxlan"')
         return False, request.param
     else:
-        # clear FDB and arp cache on DUT
-        duthost.shell('sonic-clear arp; fdbclear')
+        # clear FDB and arp cache on DUT(s)
+        for d in target_duthosts:
+            d.shell('sonic-clear arp; fdbclear')
         return False, request.param
 
 
