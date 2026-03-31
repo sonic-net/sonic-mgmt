@@ -36,7 +36,6 @@ ROUTE_RANGES = {
 @pytest.mark.parametrize("frame_rate", [10, 100])
 @pytest.mark.parametrize("frame_size", [64, 128, 256, 512, 1024, 4096, 8192])
 @pytest.mark.parametrize("event_type", ["config_reload", "all_ports_startup", "bgp_container_restart"])
-@pytest.mark.parametrize("unisolation_device_hostname", ['sonic-s6100-dut3'])
 def test_bgp_sessions(
     duthosts,
     snappi_api,
@@ -49,8 +48,7 @@ def test_bgp_sessions(
     tbinfo,
     frame_rate,
     frame_size,
-    event_type,
-    unisolation_device_hostname
+    event_type
 ):
     """
     Test to check if packets get dropped on injecting fec errors
@@ -68,12 +66,12 @@ def test_bgp_sessions(
     rx_ports = snappi_ports[1::2]
 
     for dut in duthosts:
-        if dut.hostname == unisolation_device_hostname:
+        if 't1' in dut.hostname:
             snappi_extra_params.unisolation_device = dut
             break
     pytest_assert(
         hasattr(snappi_extra_params, 'unisolation_device'),
-        "Failing test as unable to find the unisolation device hostname: {}".format(unisolation_device_hostname)
+        "Failing test as unable to find the unisolation device hostname that contains t1"
     )
     snappi_extra_params.protocol_config = {
         "Tx": {
