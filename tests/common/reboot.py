@@ -10,7 +10,7 @@ from collections import deque
 
 from .helpers.assertions import pytest_assert
 from .helpers.parallel_utils import synchronized_reboot
-from .platform.interface_utils import check_interface_status_of_up_ports
+from .platform.interface_utils import check_interface_status_of_up_ports, get_last_intf_up_ports_failure_detail
 from .platform.processes_utils import wait_critical_processes
 from .plugins.loganalyzer.utils import support_ignore_loganalyzer
 from .utilities import wait_until, get_plt_reboot_ctrl, is_ipv6_address
@@ -451,8 +451,12 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         wait_critical_processes(duthost)
 
         if check_intf_up_ports:
-            pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, duthost),
-                          "{}: Not all ports that are admin up on are operationally up".format(hostname))
+            intf_ok = wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, duthost)
+            intf_detail = get_last_intf_up_ports_failure_detail(duthost)
+            intf_msg = "{}: Not all ports that are admin up on are operationally up".format(hostname)
+            if intf_detail:
+                intf_msg = "{}. {}".format(intf_msg, intf_detail)
+            pytest_assert(intf_ok, intf_msg)
 
         if duthost.facts['asic_type'] == "cisco-8000":
             # Wait dshell initialization finish

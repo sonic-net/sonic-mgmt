@@ -8,7 +8,7 @@ from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.configlet.utils import chk_for_pfc_wd
-from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports, get_last_intf_up_ports_failure_detail
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 
 logger = logging.getLogger(__name__)
@@ -316,8 +316,12 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
                 pytest_assert(wait_until(wait + 300, 20, 0, chk_for_pfc_wd, sonic_host),
                               "PFC_WD is missing in CONFIG-DB")
         if check_intf_up_ports:
-            pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, sonic_host),
-                          "Not all ports that are admin up on are operationally up")
+            intf_ok = wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, sonic_host)
+            intf_detail = get_last_intf_up_ports_failure_detail(sonic_host)
+            intf_msg = "Not all ports that are admin up on are operationally up"
+            if intf_detail:
+                intf_msg = "{}. {}".format(intf_msg, intf_detail)
+            pytest_assert(intf_ok, intf_msg)
     else:
         time.sleep(wait)
 
