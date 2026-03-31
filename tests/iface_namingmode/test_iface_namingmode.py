@@ -6,7 +6,7 @@ from copy import deepcopy
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.platform.device_utils import fanout_switch_port_lookup
-from tests.common.utilities import wait, wait_until
+from tests.common.utilities import testbed_is_multi_vrf, wait, wait_until
 from netaddr import IPAddress
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import SonicDbCli
@@ -115,7 +115,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     physical_interfaces = [item for item in up_ports if item not in portchannel_members]
 
     multi_vrf_info = None
-    if tbinfo.get('use_converged_peers', False):
+    if testbed_is_multi_vrf(tbinfo):
         multi_vrf_info = deepcopy(tbinfo['topo']['properties']['convergence_data'])
 
     setup_info = {

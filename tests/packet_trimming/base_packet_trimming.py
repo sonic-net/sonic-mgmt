@@ -7,14 +7,15 @@ from tests.common.utilities import wait_until, configure_packet_aging
 from tests.common.mellanox_data import is_mellanox_device
 from tests.packet_trimming.constants import (
     DEFAULT_PACKET_SIZE, DEFAULT_DSCP, MIN_PACKET_SIZE, CONFIG_TOGGLE_COUNT,
-    JUMBO_PACKET_SIZE, PORT_TOGGLE_COUNT)
+    JUMBO_PACKET_SIZE, PORT_TOGGLE_COUNT, TRIMMING_COUNTER_INTERVAL)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 from tests.packet_trimming.packet_trimming_helper import (
     configure_trimming_action, configure_trimming_acl, verify_srv6_packet_with_trimming, cleanup_trimming_acl,
     verify_trimmed_packet, reboot_dut, check_connected_route_ready, get_switch_trim_counters_json,
     get_port_trim_counters_json, disable_egress_data_plane, enable_egress_data_plane,
     verify_queue_and_port_trim_counter_consistency, get_queue_trim_counters_json, compare_counters,
-    configure_port_mirror_session, remove_port_mirror_session, check_trim_drop_counter_zero)
+    has_non_zero_trim_counters, configure_port_mirror_session, remove_port_mirror_session,
+    check_trim_drop_counter_zero)
 
 logger = logging.getLogger(__name__)
 
@@ -359,6 +360,9 @@ class BasePacketTrimming:
             # Verify the consistency of the trim counter on the queue and the port level
             for egress_port in test_params['egress_ports']:
                 for port in egress_port['dut_members']:
+                    pytest_assert(wait_until(5 * TRIMMING_COUNTER_INTERVAL, TRIMMING_COUNTER_INTERVAL, 0,
+                                             has_non_zero_trim_counters, duthost, port),
+                                  f"port level trim counters are zero for {port}")
                     verify_queue_and_port_trim_counter_consistency(duthost, port)
 
         with allure.step("Verify TrimSent counters on switch level"):

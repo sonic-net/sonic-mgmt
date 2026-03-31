@@ -89,6 +89,8 @@ jobs:
     timeoutInMinutes: 10
     steps:
       - template: cancel-previous-elastictest-testplan.yml
+        parameters:
+          MGMT_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
@@ -410,7 +412,7 @@ jobs:
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
       RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't2_job')) }}
-    condition: and(not(canceled()), succeeded(), not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't2_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
+    condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't2_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: ${{ parameters.AGENT_POOL }}
@@ -446,30 +448,31 @@ jobs:
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
-#   - job: t1_lag_vpp_elastictest
-#     displayName: "kvmtest-t1-lag-vpp by Elastictest [OPTIONAL]"
-#     dependsOn:
-#     - get_impacted_area
-#     - cancel_previous_test_plan_for_same_pr
-#     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
-#     continueOnError: true
-#     pool: ${{ parameters.AGENT_POOL }}
-#     steps:
-#       - template: run-test-elastictest-template.yml
-#         parameters:
-#           BUILD_REASON: ${{ parameters.BUILD_REASON }}
-#           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-#           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
-#           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-#           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
-#           PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
-#           EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
-#           TOPOLOGY: t1-lag-vpp
-#           MIN_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
-#           MAX_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
-#           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-#           KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
-#           MGMT_BRANCH: $(BUILD_BRANCH)
-#           ASIC_TYPE: "vpp"
-#           KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
-#           COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer"
+  - job: t1_lag_vpp_elastictest
+    displayName: "kvmtest-t1-lag-vpp by Elastictest [OPTIONAL]"
+    dependsOn:
+    - get_impacted_area
+    - cancel_previous_test_plan_for_same_pr
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
+    continueOnError: true
+    condition: not(canceled())
+    pool: ${{ parameters.AGENT_POOL }}
+    steps:
+      - template: run-test-elastictest-template.yml
+        parameters:
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          EXPECTED_RESULT: ${{ parameters.EXPECTED_RESULT }}
+          TOPOLOGY: t1-lag-vpp
+          MIN_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
+          MAX_WORKER: $(T1_LAG_VPP_INSTANCE_NUM)
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
+          MGMT_BRANCH: $(BUILD_BRANCH)
+          ASIC_TYPE: "vpp"
+          KVM_IMAGE_BUILD_PIPELINE_ID: "2818"
+          COMMON_EXTRA_PARAMS: "--disable_sai_validation --disable_loganalyzer"
