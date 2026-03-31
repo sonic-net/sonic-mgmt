@@ -1,0 +1,5081 @@
+{
+    "ASIC_SENSORS": {
+        "ASIC_SENSORS_POLLER_INTERVAL": {
+            "interval": "10"
+        },
+        "ASIC_SENSORS_POLLER_STATUS": {
+            "admin_status": "enable"
+        }
+    },
+    "AUTO_TECHSUPPORT": {
+        "GLOBAL": {
+            "available_mem_threshold": "10.0",
+            "max_core_limit": "5.0",
+            "max_techsupport_limit": "10.0",
+            "min_available_mem": "200",
+            "rate_limit_interval": "180",
+            "since": "2 days ago",
+            "state": "enabled"
+        }
+    },
+    "AUTO_TECHSUPPORT_FEATURE": {
+        "apm": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "bgp": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "database": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "dhcp_relay": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "eventd": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "gnmi": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "lldp": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "macsec": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "mgmt-framework": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "mux": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "nat": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "pmon": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "radv": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "sflow": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "snmp": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "stp": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "swss": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "syncd": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        },
+        "teamd": {
+            "available_mem_threshold": "10.0",
+            "rate_limit_interval": "600",
+            "state": "enabled"
+        }
+    },
+    "BANNER_MESSAGE": {
+        "global": {
+            "login": "Debian GNU/Linux 11",
+            "logout": "",
+            "motd": "You are on\n  ____   ___  _   _ _  ____\n / ___| / _ \\| \\ | (_)/ ___|\n \\___ \\| | | |  \\| | | |\n  ___) | |_| | |\\  | | |___\n |____/ \\___/|_| \\_|_|\\____|\n\n-- Software for Open Networking in the Cloud --\n\nUnauthorized access and/or use are prohibited.\nAll access and/or use are subject to monitoring.\n\nHelp:    https://sonic-net.github.io/SONiC/\n\n",
+            "state": "disabled"
+        }
+    },
+    "BGP_DEVICE_GLOBAL": {
+        "STATE": {
+            "idf_isolation_state": "unisolated",
+            "tsa_enabled": "false"
+        }
+    },
+    "BUFFER_POOL": {
+        "egress_lossy_pool": {
+            "mode": "dynamic",
+            "size": "39022464",
+            "type": "egress"
+        }
+    },
+    "BUFFER_PROFILE": {
+        "egress_lossy_profile_dwrr": {
+            "dynamic_th": "27",
+            "pool": "egress_lossy_pool",
+            "size": "0"
+        },
+        "egress_lossy_profile_sp": {
+            "dynamic_th": "27",
+            "pool": "egress_lossy_pool",
+            "size": "0"
+        }
+    },
+    "BUFFER_QUEUE": {
+        "Ethernet1_1|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_1|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_1|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_1|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_1|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_1|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_1|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_1|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_2|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_2|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_2|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_2|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_2|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_2|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_2|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_2|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_3|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_3|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_3|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_3|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_3|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_3|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_3|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_3|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_4|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_4|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_4|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_4|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_4|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_4|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_4|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_4|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_5|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_5|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_5|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_5|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_5|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_5|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_5|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_5|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_6|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_6|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_6|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_6|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_6|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_6|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_6|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_6|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_7|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_7|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_7|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_7|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_7|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_7|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_7|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_7|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_8|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_8|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_8|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_8|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_8|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_8|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_8|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_8|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_9|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_9|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_9|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_9|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_9|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_9|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_9|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_9|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_10|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_10|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_10|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_10|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_10|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_10|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_10|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_10|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_11|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_11|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_11|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_11|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_11|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_11|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_11|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_11|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_12|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_12|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_12|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_12|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_12|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_12|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_12|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_12|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_13|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_13|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_13|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_13|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_13|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_13|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_13|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_13|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_14|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_14|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_14|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_14|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_14|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_14|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_14|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_14|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_15|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_15|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_15|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_15|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_15|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_15|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_15|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_15|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_16|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_16|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_16|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_16|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_16|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_16|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_16|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_16|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_17|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_17|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_17|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_17|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_17|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_17|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_17|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_17|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_18|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_18|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_18|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_18|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_18|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_18|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_18|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_18|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_19|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_19|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_19|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_19|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_19|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_19|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_19|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_19|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_20|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_20|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_20|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_20|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_20|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_20|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_20|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_20|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_21|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_21|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_21|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_21|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_21|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_21|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_21|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_21|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_22|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_22|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_22|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_22|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_22|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_22|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_22|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_22|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_23|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_23|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_23|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_23|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_23|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_23|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_23|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_23|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_24|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_24|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_24|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_24|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_24|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_24|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_24|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_24|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_25|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_25|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_25|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_25|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_25|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_25|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_25|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_25|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_26|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_26|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_26|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_26|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_26|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_26|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_26|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_26|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_27|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_27|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_27|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_27|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_27|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_27|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_27|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_27|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_28|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_28|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_28|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_28|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_28|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_28|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_28|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_28|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_29|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_29|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_29|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_29|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_29|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_29|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_29|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_29|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_30|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_30|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_30|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_30|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_30|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_30|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_30|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_30|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_31|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_31|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_31|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_31|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_31|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_31|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_31|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_31|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_32|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_32|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_32|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_32|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_32|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_32|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_32|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_32|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_33|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_33|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_33|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_33|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_33|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_33|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_33|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_33|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_34|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_34|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_34|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_34|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_34|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_34|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_34|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_34|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_35|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_35|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_35|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_35|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_35|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_35|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_35|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_35|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_36|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_36|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_36|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_36|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_36|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_36|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_36|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_36|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_37|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_37|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_37|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_37|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_37|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_37|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_37|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_37|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_38|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_38|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_38|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_38|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_38|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_38|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_38|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_38|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_39|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_39|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_39|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_39|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_39|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_39|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_39|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_39|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_40|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_40|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_40|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_40|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_40|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_40|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_40|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_40|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_41|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_41|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_41|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_41|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_41|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_41|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_41|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_41|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_42|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_42|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_42|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_42|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_42|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_42|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_42|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_42|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_43|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_43|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_43|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_43|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_43|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_43|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_43|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_43|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_44|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_44|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_44|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_44|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_44|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_44|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_44|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_44|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_45|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_45|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_45|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_45|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_45|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_45|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_45|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_45|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_46|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_46|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_46|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_46|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_46|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_46|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_46|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_46|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_47|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_47|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_47|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_47|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_47|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_47|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_47|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_47|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_48|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_48|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_48|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_48|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_48|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_48|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_48|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_48|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_49|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_49|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_49|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_49|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_49|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_49|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_49|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_49|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_50|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_50|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_50|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_50|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_50|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_50|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_50|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_50|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_51|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_51|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_51|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_51|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_51|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_51|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_51|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_51|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_52|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_52|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_52|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_52|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_52|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_52|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_52|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_52|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_53|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_53|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_53|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_53|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_53|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_53|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_53|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_53|7": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_54|0": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_54|1": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_54|2": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_54|3": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_54|4": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_54|5": {
+            "profile": "egress_lossy_profile_dwrr"
+        },
+        "Ethernet1_54|6": {
+            "profile": "egress_lossy_profile_sp"
+        },
+        "Ethernet1_54|7": {
+            "profile": "egress_lossy_profile_sp"
+        }
+    },
+    "CABLE_LENGTH": {
+        "AZURE": {
+            "Ethernet1_1": "5m",
+            "Ethernet1_10": "5m",
+            "Ethernet1_11": "5m",
+            "Ethernet1_12": "5m",
+            "Ethernet1_13": "5m",
+            "Ethernet1_14": "5m",
+            "Ethernet1_15": "5m",
+            "Ethernet1_16": "5m",
+            "Ethernet1_17": "5m",
+            "Ethernet1_18": "5m",
+            "Ethernet1_19": "5m",
+            "Ethernet1_2": "5m",
+            "Ethernet1_20": "5m",
+            "Ethernet1_21": "5m",
+            "Ethernet1_22": "5m",
+            "Ethernet1_23": "5m",
+            "Ethernet1_24": "5m",
+            "Ethernet1_25": "5m",
+            "Ethernet1_26": "5m",
+            "Ethernet1_27": "5m",
+            "Ethernet1_28": "5m",
+            "Ethernet1_29": "5m",
+            "Ethernet1_3": "5m",
+            "Ethernet1_30": "5m",
+            "Ethernet1_31": "5m",
+            "Ethernet1_32": "5m",
+            "Ethernet1_33": "5m",
+            "Ethernet1_34": "5m",
+            "Ethernet1_35": "5m",
+            "Ethernet1_36": "5m",
+            "Ethernet1_37": "5m",
+            "Ethernet1_38": "5m",
+            "Ethernet1_39": "5m",
+            "Ethernet1_4": "5m",
+            "Ethernet1_40": "5m",
+            "Ethernet1_41": "5m",
+            "Ethernet1_42": "5m",
+            "Ethernet1_43": "5m",
+            "Ethernet1_44": "5m",
+            "Ethernet1_45": "5m",
+            "Ethernet1_46": "5m",
+            "Ethernet1_47": "5m",
+            "Ethernet1_48": "5m",
+            "Ethernet1_49": "5m",
+            "Ethernet1_5": "5m",
+            "Ethernet1_50": "5m",
+            "Ethernet1_51": "5m",
+            "Ethernet1_52": "5m",
+            "Ethernet1_53": "5m",
+            "Ethernet1_54": "5m",
+            "Ethernet1_6": "5m",
+            "Ethernet1_7": "5m",
+            "Ethernet1_8": "5m",
+            "Ethernet1_9": "5m"
+        }
+    },
+    "CRM": {
+        "Config": {
+            "acl_counter_high_threshold": "85",
+            "acl_counter_low_threshold": "70",
+            "acl_counter_threshold_type": "percentage",
+            "acl_entry_high_threshold": "85",
+            "acl_entry_low_threshold": "70",
+            "acl_entry_threshold_type": "percentage",
+            "acl_group_high_threshold": "85",
+            "acl_group_low_threshold": "70",
+            "acl_group_threshold_type": "percentage",
+            "acl_table_high_threshold": "85",
+            "acl_table_low_threshold": "70",
+            "acl_table_threshold_type": "percentage",
+            "dnat_entry_high_threshold": "85",
+            "dnat_entry_low_threshold": "70",
+            "dnat_entry_threshold_type": "percentage",
+            "fdb_entry_high_threshold": "85",
+            "fdb_entry_low_threshold": "70",
+            "fdb_entry_threshold_type": "percentage",
+            "ipmc_entry_high_threshold": "85",
+            "ipmc_entry_low_threshold": "70",
+            "ipmc_entry_threshold_type": "percentage",
+            "ipv4_neighbor_high_threshold": "85",
+            "ipv4_neighbor_low_threshold": "70",
+            "ipv4_neighbor_threshold_type": "percentage",
+            "ipv4_nexthop_high_threshold": "85",
+            "ipv4_nexthop_low_threshold": "70",
+            "ipv4_nexthop_threshold_type": "percentage",
+            "ipv4_route_high_threshold": "85",
+            "ipv4_route_low_threshold": "70",
+            "ipv4_route_threshold_type": "percentage",
+            "ipv6_neighbor_high_threshold": "85",
+            "ipv6_neighbor_low_threshold": "70",
+            "ipv6_neighbor_threshold_type": "percentage",
+            "ipv6_nexthop_high_threshold": "85",
+            "ipv6_nexthop_low_threshold": "70",
+            "ipv6_nexthop_threshold_type": "percentage",
+            "ipv6_route_high_threshold": "85",
+            "ipv6_route_low_threshold": "70",
+            "ipv6_route_threshold_type": "percentage",
+            "mpls_inseg_high_threshold": "85",
+            "mpls_inseg_low_threshold": "70",
+            "mpls_inseg_threshold_type": "percentage",
+            "mpls_nexthop_high_threshold": "85",
+            "mpls_nexthop_low_threshold": "70",
+            "mpls_nexthop_threshold_type": "percentage",
+            "nexthop_group_high_threshold": "85",
+            "nexthop_group_low_threshold": "70",
+            "nexthop_group_member_high_threshold": "85",
+            "nexthop_group_member_low_threshold": "70",
+            "nexthop_group_member_threshold_type": "percentage",
+            "nexthop_group_threshold_type": "percentage",
+            "polling_interval": "300",
+            "snat_entry_high_threshold": "85",
+            "snat_entry_low_threshold": "70",
+            "snat_entry_threshold_type": "percentage"
+        }
+    },
+    "DEVICE_METADATA": {
+        "localhost": {
+            "buffer_model": "traditional",
+            "default_bgp_status": "up",
+            "default_pfcwd_status": "enable",
+            "hwsku": "Cisco-N9K-C93108TC-FX3",
+            "mac": "80:61:32:1A:4E:B0",
+            "platform": "x86_64-N9K-C93108TC-FX3-r0",
+            "timezone": "UTC"
+        }
+    },
+    "DSCP_TO_TC_MAP": {
+        "AZURE": {
+            "0": "0",
+            "1": "1",
+            "10": "0",
+            "11": "0",
+            "12": "0",
+            "13": "0",
+            "14": "0",
+            "15": "0",
+            "16": "0",
+            "17": "0",
+            "18": "0",
+            "19": "0",
+            "2": "2",
+            "20": "0",
+            "21": "0",
+            "22": "0",
+            "23": "0",
+            "24": "0",
+            "25": "0",
+            "26": "0",
+            "27": "0",
+            "28": "0",
+            "29": "0",
+            "3": "3",
+            "30": "0",
+            "31": "0",
+            "32": "0",
+            "33": "0",
+            "34": "0",
+            "35": "0",
+            "36": "0",
+            "37": "0",
+            "38": "0",
+            "39": "0",
+            "4": "4",
+            "40": "0",
+            "41": "0",
+            "42": "0",
+            "43": "0",
+            "44": "0",
+            "45": "0",
+            "46": "5",
+            "47": "1",
+            "48": "6",
+            "49": "7",
+            "5": "2",
+            "50": "1",
+            "51": "1",
+            "52": "1",
+            "53": "1",
+            "54": "1",
+            "55": "1",
+            "56": "1",
+            "57": "1",
+            "58": "1",
+            "59": "1",
+            "6": "1",
+            "60": "1",
+            "61": "1",
+            "62": "1",
+            "63": "1",
+            "7": "1",
+            "8": "0",
+            "9": "0"
+        }
+    },
+    "FEATURE": {
+        "apm": {
+            "auto_restart": "enabled",
+            "delayed": "False",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "bgp": {
+            "auto_restart": "enabled",
+            "check_up_status": "false",
+            "delayed": "False",
+            "has_global_scope": "False",
+            "has_per_asic_scope": "True",
+            "high_mem_alert": "disabled",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "database": {
+            "auto_restart": "always_enabled",
+            "delayed": "False",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "True",
+            "high_mem_alert": "disabled",
+            "state": "always_enabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "dhcp_relay": {
+            "auto_restart": "enabled",
+            "check_up_status": "False",
+            "delayed": "False",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "enabled",
+            "support_syslog_rate_limit": "True"
+        },
+        "eventd": {
+            "auto_restart": "enabled",
+            "delayed": "False",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "gnmi": {
+            "auto_restart": "enabled",
+            "delayed": "True",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "lldp": {
+            "auto_restart": "enabled",
+            "delayed": "True",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "True",
+            "high_mem_alert": "disabled",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "macsec": {
+            "auto_restart": "enabled",
+            "check_up_status": "False",
+            "delayed": "False",
+            "has_global_scope": "False",
+            "has_per_asic_scope": "True",
+            "high_mem_alert": "disabled",
+            "set_owner": "local",
+            "state": "disabled",
+            "support_syslog_rate_limit": "True"
+        },
+        "mgmt-framework": {
+            "auto_restart": "enabled",
+            "delayed": "True",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "mux": {
+            "auto_restart": "enabled",
+            "delayed": "False",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "state": "always_disabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "nat": {
+            "auto_restart": "enabled",
+            "delayed": "False",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "state": "disabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "pmon": {
+            "auto_restart": "enabled",
+            "check_up_status": "false",
+            "delayed": "True",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "radv": {
+            "auto_restart": "enabled",
+            "delayed": "False",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "sflow": {
+            "auto_restart": "enabled",
+            "delayed": "True",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "state": "disabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "snmp": {
+            "auto_restart": "enabled",
+            "delayed": "True",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "stp": {
+            "auto_restart": "enabled",
+            "delayed": "False",
+            "has_global_scope": "True",
+            "has_per_asic_scope": "False",
+            "high_mem_alert": "disabled",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "swss": {
+            "auto_restart": "enabled",
+            "check_up_status": "false",
+            "delayed": "False",
+            "has_global_scope": "False",
+            "has_per_asic_scope": "True",
+            "high_mem_alert": "disabled",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "syncd": {
+            "auto_restart": "enabled",
+            "delayed": "False",
+            "has_global_scope": "False",
+            "has_per_asic_scope": "True",
+            "high_mem_alert": "disabled",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        },
+        "teamd": {
+            "auto_restart": "enabled",
+            "delayed": "False",
+            "has_global_scope": "False",
+            "has_per_asic_scope": "True",
+            "high_mem_alert": "disabled",
+            "state": "enabled",
+            "support_syslog_rate_limit": "true"
+        }
+    },
+    "FLEX_COUNTER_TABLE": {
+        "ACL": {
+            "FLEX_COUNTER_DELAY_STATUS": "false",
+            "FLEX_COUNTER_STATUS": "disable",
+            "POLL_INTERVAL": "10000"
+        },
+        "BUFFER_POOL_WATERMARK": {
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "PFCWD": {
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "PG_DROP": {
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "PG_WATERMARK": {
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "PORT": {
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "PORT_BUFFER_DROP": {
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "QUEUE": {
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "QUEUE_WATERMARK": {
+            "FLEX_COUNTER_STATUS": "enable"
+        },
+        "RIF": {
+            "FLEX_COUNTER_STATUS": "enable"
+        }
+    },
+    "INTERFACE": {
+        "Ethernet1_49": {},
+        "Ethernet1_49|10.10.10.1/24": {},
+        "Ethernet1_50": {},
+        "Ethernet1_50|10.10.11.1/24": {},
+        "Ethernet1_51": {},
+        "Ethernet1_51|20.20.20.1/24": {}
+    },
+    "KDUMP": {
+        "config": {
+            "enabled": "true",
+            "memory": "0M-2G:256M,2G-4G:320M,4G-8G:384M,8G-:448M",
+            "num_dumps": "3"
+        }
+    },
+    "LOGGER": {
+        "SAI_API_ACL": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_ARS": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_ARS_PROFILE": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_BFD": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_BMTOR": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_BRIDGE": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_BUFFER": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_COUNTER": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_DASH_ACL": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_DASH_DIRECTION_LOOKUP": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_DASH_ENI": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_DASH_INBOUND_ROUTING": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_DASH_METER": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_DASH_OUTBOUND_CA_TO_PA": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_DASH_OUTBOUND_ROUTING": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_DASH_PA_VALIDATION": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_DASH_VIP": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_DASH_VNET": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_DEBUG_COUNTER": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_DTEL": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_FDB": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_GENERIC_PROGRAMMABLE": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_HASH": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_HOSTIF": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_IPM": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_IPMC": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_IPMC_GROUP": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_IPSEC": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_ISOLATION_GROUP": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_L2MC": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_L2MC_GROUP": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_LAG": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_MACSEC": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_MCAST_FDB": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_MIRROR": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_MPLS": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_MY_MAC": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_NAT": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_NEIGHBOR": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_NEXT_HOP": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_NEXT_HOP_GROUP": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_POE": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_POLICER": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_PORT": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_QOS_MAP": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_QUEUE": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_ROUTE": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_ROUTER_INTERFACE": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_RPF_GROUP": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_SAMPLEPACKET": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_SCHEDULER": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_SCHEDULER_GROUP": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_SRV6": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_STP": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_SWITCH": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_SYSTEM_PORT": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_TAM": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_TUNNEL": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_TWAMP": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_UDF": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_VIRTUAL_ROUTER": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_VLAN": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "SAI_API_WRED": {
+            "LOGLEVEL": "SAI_LOG_LEVEL_NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "apm": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "bfdsyncd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "buffermgrd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "coppmgrd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "fabricmgrd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "fdbsyncd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "fpmsyncd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "gearsyncd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "intfmgrd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "ipmmgrd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "nbrmgrd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "neighsyncd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "orchagent": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "portmgrd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "portsyncd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "stpd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "stpmgrd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "syncd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "teammgrd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "teamsyncd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "telemetry": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "tlm_teamd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "tunnelmgrd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "vlanmgrd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "vrfmgrd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        },
+        "vxlanmgrd": {
+            "LOGLEVEL": "NOTICE",
+            "LOGOUTPUT": "SYSLOG"
+        }
+    },
+    "MAP_PFC_PRIORITY_TO_QUEUE": {
+        "AZURE": {
+            "0": "0",
+            "1": "1",
+            "2": "2",
+            "3": "3",
+            "4": "4",
+            "5": "5",
+            "6": "6",
+            "7": "7"
+        }
+    },
+    "NTP": {
+        "global": {
+            "admin_state": "enabled",
+            "authentication": "disabled",
+            "dhcp": "enabled",
+            "server_role": "disabled",
+            "src_intf": "eth0",
+            "vrf": "default"
+        }
+    },
+    "PASSW_HARDENING": {
+        "POLICIES": {
+            "digits_class": "true",
+            "expiration": "180",
+            "expiration_warning": "15",
+            "history_cnt": "10",
+            "len_min": "8",
+            "lower_class": "true",
+            "reject_user_passw_match": "true",
+            "special_class": "true",
+            "state": "disabled",
+            "upper_class": "true"
+        }
+    },
+    "PORT": {
+        "Ethernet1_1": {
+            "admin_status": "up",
+            "alias": "Ethernet1_1",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "0",
+            "lanes": "1",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_2": {
+            "admin_status": "up",
+            "alias": "Ethernet1_2",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "4",
+            "lanes": "5",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_3": {
+            "admin_status": "up",
+            "alias": "Ethernet1_3",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "8",
+            "lanes": "9",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_4": {
+            "admin_status": "up",
+            "alias": "Ethernet1_4",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "12",
+            "lanes": "13",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_5": {
+            "admin_status": "up",
+            "alias": "Ethernet1_5",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "16",
+            "lanes": "17",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_6": {
+            "admin_status": "up",
+            "alias": "Ethernet1_6",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "20",
+            "lanes": "21",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_7": {
+            "admin_status": "up",
+            "alias": "Ethernet1_7",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "24",
+            "lanes": "25",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_8": {
+            "admin_status": "up",
+            "alias": "Ethernet1_8",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "28",
+            "lanes": "29",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_9": {
+            "admin_status": "up",
+            "alias": "Ethernet1_9",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "32",
+            "lanes": "33",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_10": {
+            "admin_status": "up",
+            "alias": "Ethernet1_10",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "36",
+            "lanes": "37",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_11": {
+            "admin_status": "up",
+            "alias": "Ethernet1_11",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "40",
+            "lanes": "41",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_12": {
+            "admin_status": "up",
+            "alias": "Ethernet1_12",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "44",
+            "lanes": "45",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_13": {
+            "admin_status": "up",
+            "alias": "Ethernet1_13",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "48",
+            "lanes": "49",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_14": {
+            "admin_status": "up",
+            "alias": "Ethernet1_14",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "52",
+            "lanes": "53",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_15": {
+            "admin_status": "up",
+            "alias": "Ethernet1_15",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "56",
+            "lanes": "57",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_16": {
+            "admin_status": "up",
+            "alias": "Ethernet1_16",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "60",
+            "lanes": "61",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_17": {
+            "admin_status": "up",
+            "alias": "Ethernet1_17",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "64",
+            "lanes": "65",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_18": {
+            "admin_status": "up",
+            "alias": "Ethernet1_18",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "68",
+            "lanes": "69",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_19": {
+            "admin_status": "up",
+            "alias": "Ethernet1_19",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "72",
+            "lanes": "73",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_20": {
+            "admin_status": "up",
+            "alias": "Ethernet1_20",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "76",
+            "lanes": "77",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_21": {
+            "admin_status": "up",
+            "alias": "Ethernet1_21",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "80",
+            "lanes": "81",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_22": {
+            "admin_status": "up",
+            "alias": "Ethernet1_22",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "84",
+            "lanes": "85",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_23": {
+            "admin_status": "up",
+            "alias": "Ethernet1_23",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "88",
+            "lanes": "89",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_24": {
+            "admin_status": "up",
+            "alias": "Ethernet1_24",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "92",
+            "lanes": "93",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_25": {
+            "admin_status": "up",
+            "alias": "Ethernet1_25",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "96",
+            "lanes": "97",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_26": {
+            "admin_status": "up",
+            "alias": "Ethernet1_26",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "100",
+            "lanes": "101",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_27": {
+            "admin_status": "up",
+            "alias": "Ethernet1_27",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "104",
+            "lanes": "105",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_28": {
+            "admin_status": "up",
+            "alias": "Ethernet1_28",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "108",
+            "lanes": "109",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_29": {
+            "admin_status": "up",
+            "alias": "Ethernet1_29",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "112",
+            "lanes": "113",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_30": {
+            "admin_status": "up",
+            "alias": "Ethernet1_30",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "116",
+            "lanes": "117",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_31": {
+            "admin_status": "up",
+            "alias": "Ethernet1_31",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "120",
+            "lanes": "121",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_32": {
+            "admin_status": "up",
+            "alias": "Ethernet1_32",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "124",
+            "lanes": "125",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_33": {
+            "admin_status": "up",
+            "alias": "Ethernet1_33",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "128",
+            "lanes": "129",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_34": {
+            "admin_status": "up",
+            "alias": "Ethernet1_34",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "132",
+            "lanes": "133",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_35": {
+            "admin_status": "up",
+            "alias": "Ethernet1_35",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "136",
+            "lanes": "137",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_36": {
+            "admin_status": "up",
+            "alias": "Ethernet1_36",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "140",
+            "lanes": "141",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_37": {
+            "admin_status": "up",
+            "alias": "Ethernet1_37",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "144",
+            "lanes": "145",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_38": {
+            "admin_status": "up",
+            "alias": "Ethernet1_38",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "148",
+            "lanes": "149",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_39": {
+            "admin_status": "up",
+            "alias": "Ethernet1_39",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "152",
+            "lanes": "153",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_40": {
+            "admin_status": "up",
+            "alias": "Ethernet1_40",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "156",
+            "lanes": "157",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_41": {
+            "admin_status": "up",
+            "alias": "Ethernet1_41",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "160",
+            "lanes": "161",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_42": {
+            "admin_status": "up",
+            "alias": "Ethernet1_42",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "164",
+            "lanes": "165",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_43": {
+            "admin_status": "up",
+            "alias": "Ethernet1_43",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "168",
+            "lanes": "169",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_44": {
+            "admin_status": "up",
+            "alias": "Ethernet1_44",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "172",
+            "lanes": "173",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_45": {
+            "admin_status": "up",
+            "alias": "Ethernet1_45",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "176",
+            "lanes": "177",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_46": {
+            "admin_status": "up",
+            "alias": "Ethernet1_46",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "180",
+            "lanes": "181",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_47": {
+            "admin_status": "up",
+            "alias": "Ethernet1_47",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "184",
+            "lanes": "185",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_48": {
+            "admin_status": "up",
+            "alias": "Ethernet1_48",
+            "autoneg": "on",
+            "fec": "none",
+            "index": "188",
+            "lanes": "189",
+            "mtu": "9100",
+            "speed": "10000"
+        },
+        "Ethernet1_49": {
+            "admin_status": "up",
+            "alias": "Ethernet1_49",
+            "autoneg": "on",
+            "fec": "rs",
+            "index": "192",
+            "lanes": "193,194,195,196",
+            "mtu": "9100",
+            "speed": "100000"
+        },
+        "Ethernet1_50": {
+            "admin_status": "up",
+            "alias": "Ethernet1_50",
+            "autoneg": "on",
+            "fec": "rs",
+            "index": "196",
+            "lanes": "197,198,199,200",
+            "mtu": "9100",
+            "speed": "100000"
+        },
+        "Ethernet1_51": {
+            "admin_status": "up",
+            "alias": "Ethernet1_51",
+            "autoneg": "on",
+            "fec": "rs",
+            "index": "200",
+            "lanes": "201,202,203,204",
+            "mtu": "9100",
+            "speed": "100000"
+        },
+        "Ethernet1_52": {
+            "admin_status": "up",
+            "alias": "Ethernet1_52",
+            "autoneg": "on",
+            "fec": "rs",
+            "index": "204",
+            "lanes": "205,206,207,208",
+            "mtu": "9100",
+            "speed": "100000"
+        },
+        "Ethernet1_53": {
+            "admin_status": "up",
+            "alias": "Ethernet1_53",
+            "autoneg": "on",
+            "fec": "rs",
+            "index": "208",
+            "lanes": "209,210,211,212",
+            "mtu": "9100",
+            "speed": "100000"
+        },
+        "Ethernet1_54": {
+            "admin_status": "up",
+            "alias": "Ethernet1_54",
+            "autoneg": "on",
+            "fec": "rs",
+            "index": "212",
+            "lanes": "213,214,215,216",
+            "mtu": "9100",
+            "speed": "100000"
+        }
+    },
+    "PORT_QOS_MAP": {
+        "Ethernet1_1": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_2": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_3": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_4": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_5": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_6": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_7": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_8": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_9": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_10": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_11": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_12": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_13": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_14": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_15": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_16": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_17": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_18": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_19": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_20": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_21": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_22": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_23": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_24": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_25": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_26": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_27": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_28": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_29": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_30": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_31": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_32": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_33": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_34": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_35": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_36": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_37": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_38": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_39": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_40": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_41": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_42": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_43": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_44": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_45": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_46": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_47": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_48": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_49": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_50": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_51": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_52": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_53": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        },
+        "Ethernet1_54": {
+            "dscp_to_tc_map": "AZURE",
+            "pfc_enable": "",
+            "pfc_to_queue_map": "AZURE",
+            "pfcwd_sw_enable": "",
+            "tc_to_pg_map": "AZURE",
+            "tc_to_queue_map": "AZURE"
+        }
+    },
+    "QUEUE": {
+        "Ethernet1_1|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_1|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_1|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_1|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_1|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_1|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_1|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_1|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_2|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_2|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_2|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_2|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_2|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_2|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_2|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_2|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_3|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_3|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_3|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_3|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_3|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_3|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_3|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_3|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_4|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_4|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_4|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_4|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_4|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_4|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_4|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_4|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_5|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_5|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_5|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_5|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_5|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_5|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_5|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_5|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_6|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_6|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_6|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_6|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_6|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_6|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_6|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_6|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_7|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_7|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_7|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_7|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_7|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_7|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_7|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_7|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_8|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_8|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_8|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_8|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_8|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_8|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_8|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_8|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_9|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_9|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_9|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_9|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_9|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_9|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_9|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_9|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_10|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_10|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_10|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_10|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_10|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_10|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_10|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_10|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_11|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_11|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_11|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_11|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_11|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_11|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_11|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_11|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_12|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_12|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_12|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_12|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_12|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_12|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_12|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_12|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_13|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_13|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_13|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_13|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_13|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_13|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_13|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_13|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_14|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_14|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_14|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_14|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_14|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_14|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_14|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_14|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_15|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_15|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_15|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_15|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_15|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_15|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_15|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_15|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_16|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_16|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_16|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_16|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_16|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_16|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_16|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_16|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_17|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_17|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_17|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_17|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_17|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_17|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_17|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_17|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_18|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_18|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_18|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_18|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_18|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_18|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_18|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_18|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_19|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_19|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_19|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_19|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_19|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_19|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_19|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_19|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_20|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_20|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_20|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_20|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_20|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_20|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_20|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_20|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_21|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_21|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_21|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_21|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_21|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_21|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_21|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_21|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_22|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_22|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_22|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_22|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_22|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_22|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_22|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_22|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_23|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_23|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_23|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_23|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_23|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_23|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_23|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_23|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_24|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_24|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_24|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_24|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_24|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_24|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_24|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_24|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_25|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_25|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_25|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_25|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_25|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_25|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_25|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_25|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_26|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_26|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_26|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_26|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_26|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_26|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_26|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_26|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_27|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_27|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_27|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_27|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_27|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_27|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_27|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_27|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_28|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_28|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_28|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_28|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_28|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_28|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_28|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_28|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_29|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_29|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_29|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_29|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_29|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_29|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_29|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_29|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_30|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_30|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_30|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_30|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_30|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_30|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_30|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_30|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_31|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_31|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_31|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_31|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_31|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_31|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_31|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_31|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_32|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_32|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_32|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_32|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_32|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_32|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_32|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_32|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_33|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_33|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_33|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_33|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_33|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_33|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_33|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_33|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_34|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_34|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_34|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_34|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_34|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_34|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_34|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_34|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_35|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_35|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_35|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_35|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_35|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_35|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_35|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_35|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_36|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_36|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_36|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_36|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_36|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_36|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_36|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_36|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_37|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_37|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_37|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_37|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_37|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_37|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_37|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_37|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_38|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_38|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_38|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_38|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_38|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_38|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_38|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_38|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_39|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_39|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_39|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_39|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_39|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_39|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_39|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_39|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_40|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_40|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_40|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_40|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_40|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_40|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_40|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_40|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_41|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_41|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_41|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_41|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_41|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_41|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_41|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_41|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_42|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_42|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_42|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_42|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_42|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_42|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_42|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_42|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_43|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_43|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_43|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_43|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_43|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_43|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_43|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_43|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_44|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_44|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_44|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_44|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_44|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_44|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_44|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_44|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_45|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_45|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_45|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_45|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_45|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_45|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_45|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_45|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_46|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_46|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_46|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_46|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_46|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_46|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_46|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_46|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_47|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_47|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_47|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_47|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_47|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_47|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_47|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_47|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_48|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_48|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_48|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_48|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_48|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_48|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_48|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_48|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_49|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_49|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_49|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_49|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_49|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_49|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_49|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_49|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_50|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_50|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_50|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_50|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_50|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_50|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_50|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_50|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_51|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_51|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_51|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_51|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_51|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_51|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_51|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_51|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_52|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_52|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_52|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_52|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_52|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_52|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_52|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_52|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_53|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_53|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_53|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_53|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_53|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_53|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_53|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_53|7": {
+            "scheduler": "scheduler.7"
+        },
+        "Ethernet1_54|0": {
+            "scheduler": "scheduler.0",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_54|1": {
+            "scheduler": "scheduler.1",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_54|2": {
+            "scheduler": "scheduler.2",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_54|3": {
+            "scheduler": "scheduler.3",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_54|4": {
+            "scheduler": "scheduler.4",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_54|5": {
+            "scheduler": "scheduler.5",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_54|6": {
+            "scheduler": "scheduler.6",
+            "wred_profile": "AZURE_LOSSY"
+        },
+        "Ethernet1_54|7": {
+            "scheduler": "scheduler.7"
+        }
+    },
+    "SCHEDULER": {
+        "scheduler.0": {
+            "type": "DWRR",
+            "weight": "20"
+        },
+        "scheduler.1": {
+            "type": "DWRR",
+            "weight": "20"
+        },
+        "scheduler.2": {
+            "type": "DWRR",
+            "weight": "20"
+        },
+        "scheduler.3": {
+            "type": "DWRR",
+            "weight": "40"
+        },
+        "scheduler.4": {
+            "type": "DWRR",
+            "weight": "40"
+        },
+        "scheduler.5": {
+            "type": "DWRR",
+            "weight": "30"
+        },
+        "scheduler.6": {
+            "meter_type": "bytes",
+            "type": "STRICT"
+        },
+        "scheduler.7": {
+            "meter_type": "bytes",
+            "type": "STRICT"
+        }
+    },
+    "SYSLOG_CONFIG": {
+        "GLOBAL": {
+            "rate_limit_burst": "0",
+            "rate_limit_interval": "0"
+        }
+    },
+    "SYSLOG_CONFIG_FEATURE": {
+        "apm": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "bgp": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "database": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "dhcp_relay": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "eventd": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "gnmi": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "lldp": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "macsec": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "mgmt-framework": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "mux": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "nat": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "pmon": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "radv": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "sflow": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "snmp": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "stp": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "swss": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "syncd": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        },
+        "teamd": {
+            "rate_limit_burst": "20000",
+            "rate_limit_interval": "300"
+        }
+    },
+    "SYSTEM_DEFAULTS": {
+        "mux_tunnel_egress_acl": {
+            "status": "disabled"
+        }
+    },
+    "TC_TO_PRIORITY_GROUP_MAP": {
+        "AZURE": {
+            "0": "0",
+            "1": "0",
+            "2": "0",
+            "3": "0",
+            "4": "0",
+            "5": "0",
+            "6": "0",
+            "7": "7"
+        }
+    },
+    "TC_TO_QUEUE_MAP": {
+        "AZURE": {
+            "0": "0",
+            "1": "1",
+            "2": "2",
+            "3": "3",
+            "4": "4",
+            "5": "5",
+            "6": "6",
+            "7": "7"
+        }
+    },
+    "VERSIONS": {
+        "DATABASE": {
+            "VERSION": "version_202405_01"
+        }
+    },
+    "WRED_PROFILE": {
+        "AZURE_LOSSY": {
+            "ecn": "ecn_none",
+            "green_drop_probability": "5",
+            "green_max_threshold": "3145728",
+            "green_min_threshold": "1048576",
+            "wred_green_enable": "true"
+        }
+    }
+}

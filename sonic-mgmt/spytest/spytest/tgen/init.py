@@ -100,7 +100,9 @@ def tg_ixia_load(version, logger, logs_path=None):
                         "9.24": "9.24", "9.31": "9.31",
                         "9.27": "9.27", "9.28": "9.28",
                         "9.3": "9.30", "9.30": "9.30", 
-                        "10.0": "10.00", "10.25":"10.25"}
+                        "10.0": "10.00", "10.25":"10.25",
+                        "11.0": "11.00", "11.00": "11.00",
+                        "11.1": "11.10", "11.10": "11.10"}
     version_string = str(version)
     version_string = ixia_version_map.get(version_string, version_string)
     if (version_string not in ixia_version_map
@@ -122,7 +124,9 @@ def tg_ixia_load(version, logger, logs_path=None):
                        '9.30': 'HLTSET259',
                        '9.31': 'HLTSET261',
                        '10.00': 'HLTSET273',
-                       '10.25': 'HLTSET281'
+                       '10.25': 'HLTSET281',
+                       '11.00': 'HLTSET285',
+                       '11.10': 'HLTSET287'
                        }
 
     ix_path = '' if os.path.exists(os.path.join(tgen_path, version_string)) else "ixia"

@@ -1829,10 +1829,11 @@ class TGIxia(TGBase):
             return None
         self.ports_fec_disable = []
         res = dict()
-        for _ in range(3):
-            res = self.ixia_eval('traffic_stats')
-            if res.get('status') == '1':
-                break
+        if self.tg_version not in [11.1]:
+            for _ in range(3):
+                res = self.ixia_eval('traffic_stats')
+                if res.get('status') == '1':
+                    break
         if not isinstance(self.tg_ip, list):
             for port in self.tg_port_list:
                 # ixia output is different for key 'port_handle': {'10': {'59': {'130': {'4': {'1/5': '1/1/5'}}}}}
@@ -1846,12 +1847,12 @@ class TGIxia(TGBase):
                 # For topology_handle.
                 self.topo_handle[self.tg_port_handle[port]] = None
                 # To get 100G ports.
-                if not res.get(self.tg_port_handle[port]):
+                if res and not res.get(self.tg_port_handle[port]):
                     logger.info('Traffic Stats Info: {}'.format(res))
                     logger.info("Failed to get port {} from the traffic stats info..retrying connect again".format(self.tg_port_handle[port]))
                     self.tg_disconnect()
                     return ret_ds
-                if res[self.tg_port_handle[port]]['aggregate']['tx']['line_speed'] in ['100GE', '25GE']:
+                if res and res[self.tg_port_handle[port]]['aggregate']['tx']['line_speed'] in ['100GE', '25GE']:
                     self.ports_fec_disable.append(self.tg_port_handle[port])
         else:
             tg_ip = utils.make_list(self.tg_ip)
@@ -1886,12 +1887,12 @@ class TGIxia(TGBase):
                     # For topology_handle.
                     self.topo_handle[self.tg_port_handle[vport]] = None
                     # To get 100G ports.
-                    if not res.get(self.tg_port_handle[vport]):
+                    if res and not res.get(self.tg_port_handle[vport]):
                         logger.info('Traffic Stats Info: {}'.format(ret_ds))
                         logger.info("Failed to get port {} from the traffic stats info..retrying connect again".format(self.tg_port_handle[vport]))
                         self.tg_disconnect()
                         return ret_ds
-                    if res[self.tg_port_handle[vport]]['aggregate']['tx']['line_speed'] in ['100GE', '25GE']:
+                    if res and res[self.tg_port_handle[vport]]['aggregate']['tx']['line_speed'] in ['100GE', '25GE']:
                         self.ports_fec_disable.append(self.tg_port_handle[vport])
 
         if not params.get('config_file'):
@@ -3461,6 +3462,10 @@ def load_tgen_int(tgen_dict):
                     sys.path.append("/opt/ixia/ixnetwork/10.25.2405.75/lib/PythonApi")
                     sys.path.append("/opt/ixia/hlapi/10.25.2405.23/library/common/ixiangpf/python")
                     os.environ['TCLLIBPATH'] = "/opt/ixia/hlapi/10.25.2405.23/library/common/ixia_hl_lib-10.25/ /opt/ixia/ixnetwork/10.25.2405.75/lib/TclApi /opt/ixia/hlapi/10.25.2405.23/"
+                elif tg_version == 11.1:
+                    sys.path.append("/opt/ixia/ixnetwork/11.10.2508.10/lib/PythonApi")
+                    sys.path.append("/opt/ixia/hlapi/11.10.2508.40/library/common/ixiangpf/python")
+                    os.environ['TCLLIBPATH'] = "/opt/ixia/hlapi/11.10.2508.40/library/common/ixia_hl_lib-11.10/ /opt/ixia/ixnetwork/11.10.2508.10/lib/TclApi /opt/ixia/hlapi/11.10.2508.40/"
                 else:
                     sys.path.append("/opt/ixia/ixnetwork/9.20.2201.70/lib/PythonApi")
                     sys.path.append("/opt/ixia/hlapi/9.20.2201.38/library/common/ixiangpf/python")

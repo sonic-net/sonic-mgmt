@@ -1,97 +1,171 @@
-# Some Useful Links
 
-<https://wiki.cisco.com/pages/viewpage.action?pageId=789404612> -- Sonic Test Pytest/Spytest/Sim based wiki
+QoS Spytest Validation Summary (FX3)
 
-<https://wiki.cisco.com/display/HEROBU/Sonic-Mgmt+Pytest+Automation> - Helpful automation tips
+This PR validates DSCP mapping, Scheduler (DWRR/SP), and WRED behavior on FX3
+under realistic traffic conditions using SpyTest + IXIA.
 
-## TB Reservation Link
+Scheduler (DWRR / SP) Validation
+DWRR weight distribution validated across queues (Q0–Q5)
+Observed TX share aligns with configured weights within ±20% tolerance
+All queues passed share validation (6/6 PASS)
+Strict Priority queues (Q6–Q7) verified:
+No packet drops observed
+Behavior consistent with SP expectations
 
-[TB Reservation Link](https://cisco.sharepoint.com/:x:/r/sites/SONIC_on_SF/_layouts/15/doc2.aspx?sourcedoc=%7B535cf1e9-0fb7-4a26-b2aa-44a4d7d80c38%7D&action=edit&activeCell=%27Reservations%27!A5&wdinitialsession=4305bfce-d2c1-40c0-9d03-b1d9a5e908fc&wdrldsc=16&wdrldc=1&wdrldr=AccessTokenExpiredWarning%2CRefreshingExpiredAccessT)
+✅  Result: Scheduler behavior validated (DWRR + SP)
 
-## How to bring up a T0-64/T1-64-lag/T2 Sim based Sonic-mgmt setup
+WRED Validation (Linearity & Threshold Behavior)
+Traffic oversubscription used to trigger WRED (100% → ~105.5%)
+Queue depth observed to increase from ~1.1MB → ~3.0MB
+WRED drop probability increases linearly with queue depth
+Measured drop rate closely matches expected probability
 
-1. Pull sonic-test repo: [sonic-test repo](https://wwwin-github.cisco.com/gplatforms/sonic-test)
-2. Navigate to the infra directory:
+Key Observations:
+WRED operates in linear region (Zone B) as expected
+Drop behavior matches configured min/max thresholds
+No unexpected drop anomalies observed
 
-    ```bash
-    cd sonic-test/infra
-    ```
+✅  Result: WRED linearity and threshold behavior validated
 
-3. Build the testbed:
+Test Coverage
+The following test scenarios are covered:
 
-    ```bash
-    ./create_sonic_topo.py -f <topo file> -c -u cisco -p cisco123 -t <topo_type>
-    ```
+Scheduler
+test_scheduler_dwrr_validation_ipv4
+test_scheduler_dwrr_validation_ipv6
 
-    - `-c`: clean any pre-existing sim
-    - `-u`: dut username
-    - `-p`: dut password
-    - `-f`: pyvxr yaml file describing the topology
-    - `-t`: topology type, For now we support t0 and t1
-    - `-d`: device type, options are sherman, mth32 (default)
-    - `-b`: specify the location of your sonic-test tar ball. the tar ball will be pulled in and uploaded to the sonic-mgmt vm.
+WRED
+test_wred_active_zone_ipv4/ipv6
+test_wred_below_min_ipv4/ipv6
+test_wred_linearity_ipv4/ipv6
+test_wred_tail_drop_ipv4/ipv6
 
-    Note that you should edit the yaml file to specify the SONiC image to load. If you are using DE workspace build, please see Troubleshooting #1 below.
+✅  Environment
+Platform: FX3
+ASIC: Tahoe (Sundown1)
+SDK: Nexus SDK
+SAI Version: 1.16.4
+Testbed: IXIA-based (2×100G ingress → 1×100G egress)
+Conclusion
+Scheduler (DWRR/SP) behavior is validated and stable
+WRED operates correctly across threshold regions with expected linearity
+End-to-end validation confirms correct integration across SONiC → SAI → DCHAL → ASIC
+Description of PR
+Summary:
 
-4. For T1-64-lag:
+✅  Test Result Examples
+Scheduler CLI:
+cd /data/sonic-mgmt/spytest && bin/spytest \
+  --testbed testbeds/fx3/fx3_qos_testbed.yaml \
+  --device-feature-group master \
+  --module-init-max-timeout=72000 \
+  --tc-max-timeout=72000 \
+  --port-init-wait 1 \
+  --skip-init-checks \
+  --logs-path run_logs/ \
+  cisco/fx3/qos/test_fx3_qos_integration.py -k 'test_scheduler_dwrr_validation'
 
-    ```bash
-    ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml -c -u cisco -p cisco123 -t t1-64-lag
-    ```
+========================================================================
+  DWRR TX-SHARE VALIDATION  —  DWRR validation
+  Tolerance  : 20%  (±20% of expected share)
+  Total weight: 170  (Q0=20  Q1=20  Q2=20  Q3=40  Q4=40  Q5=30)
+========================================================================
+  Queue    Weight      Before (pkts)     After (pkts)       Tx Delta     Drop Delta
+  ------------------------------------------------------------------------
+  Q0       20                      0       84,387,397     84,387,397     86,065,657
+  Q1       20                      0       84,387,385     84,387,385     86,065,669
+  Q2       20                      0       84,387,389     84,387,389     86,065,665
+  Q3       40                      0      170,453,054    170,453,054              0
+  Q4       40                      0      170,453,054    170,453,054              0
+  Q5       30                      0      130,370,050    130,370,050     40,083,004
+  ------------------------------------------------------------------------
+  Total Tx delta: 724,438,329 pkts
 
-    - T1 YAML location: [mth64_sonic_t1_64_lag_topo.yaml](https://wwwin-github.cisco.com/gplatforms/sonic-test/blob/master/pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml)
+  Queue    Weight       Expected %       Actual %     Acceptable Range Result
+  ------------------------------------------------------------------------
+  Q0       20                11.8%          11.6%  [9.4% .. 14.1%]   PASS
+  Q1       20                11.8%          11.6%  [9.4% .. 14.1%]   PASS
+  Q2       20                11.8%          11.6%  [9.4% .. 14.1%]   PASS
+  Q3       40                23.5%          23.5%  [18.8% .. 28.2%]   PASS
+  Q4       40                23.5%          23.5%  [18.8% .. 28.2%]   PASS
+  Q5       30                17.6%          18.0%  [14.1% .. 21.2%]   PASS
+  ------------------------------------------------------------------------
+  DWRR share result : 6 passed,  0 failed
 
-5. For T0-64:
+  Strict-Priority Queues (zero drops expected):
+  ------------------------------------------------------------------------
+  Queue         Before (drop)     After (drop)     Drop Delta Result
+  ------------------------------------------------------------------------
+  Q6                        0                0              0 PASS
+  Q7                        0                0              0 PASS
+  ------------------------------------------------------------------------
+========================================================================
 
-    ```bash
-    ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth32_sonic_t0_topo.yaml -c -u cisco -p cisco123 t t0 64
-    ```
 
-    - T0 YAML location: mth64_sonic_t0-64_topo.yaml
 
-6. For T2 reduced topology:
+WRED CLI:
+cd /data/sonic-mgmt/spytest && bin/spytest \
+  --testbed testbeds/fx3/fx3_qos_testbed.yaml \
+  --device-feature-group master \
+  --module-init-max-timeout=72000 \
+  --tc-max-timeout=72000 \
+  --port-init-wait 1 \
+  --skip-init-checks \
+  --logs-path run_logs/ \
+  cisco/fx3/qos/test_fx3_qos_integration.py -k 'test_wred_linearity'
 
-    ```bash
-    ./create_sonic_topo.py -f ../pyvxr_yaml_files/sonic_t2_2lc_min_ports-masic.yaml -u cisco -p cisco123 -t t2-min -d sfd -c -b http://172.29.93.10/sonic-images/golden-code/golden_code_202205.tar.gz
-    ```
+ ==========================================================================================
+   WRED LINEARITY SUMMARY (egress 100000M)
+ ==========================================================================================
+     Margin    Port A    Port B     Rate% Avg Depth  Est. Prob  WRED Drop   Zone   Status
+   ----------------------------------------------------------------------------------------
+       250M   50.125%   50.125%  100.250%    1.12MB      0.30%      0.25%      B       OK
+       500M   50.250%   50.250%  100.500%    1.20MB      0.51%      0.50%      B       OK
+      1000M   50.500%   50.500%  101.000%    1.43MB      1.06%      0.99%      B       OK
+      2000M   51.000%   51.000%  102.000%    1.80MB      2.00%      1.96%      B       OK
+      3000M   51.500%   51.500%  103.000%    2.18MB      2.94%      2.91%      B       OK
+      4000M   52.000%   52.000%  104.000%    2.59MB      3.98%      3.85%      B       OK
+      5000M   52.500%   52.500%  105.000%    2.90MB      4.74%      4.76%      B       OK
+      5250M   52.625%   52.625%  105.250%    2.98MB      4.95%      4.99%      B       OK
+      5500M   52.750%   52.750%  105.500%    3.00MB      5.00%      5.29%      B       OK
+ ==========================================================================================
 
-7. For running on 202205 Image:
+Approach
+What is the motivation for this PR?
+To validate FX3 Tortuga QoS DSCP, Scheduler, WRED behavior on FX3 under realistic traffic conditions
+and ensure correct implementation across SAI, DCHAL, and ASIC layers, especially for threshold-based drop behavior.
 
-    ```bash
-    ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml -c -u cisco -p cisco123 -t t1-64-lag -b http://172.29.93.10/sonic-images/golden-code/golden_code_202205.tar.gz
-    ```
+How did you do it?
+Added Scheduler validation helper functions in fx3_qos_helpers.py
+Added WRED validation helper functions in fx3_qos_helpers.py
+Implemented SpyTest-based WRED test cases
+Generated congestion using IXIA traffic to trigger WRED behavior
+Verified queue mapping and WRED profile application via SAI and DCHAL
 
-8. For T2:
+How did you verify/test it?
+Ran SAI regression tests (PASS)
+Validated min/max thresholds and drop behavior
+Monitored queue depth and drop counters via ASIC/DCHAL CLI
+Repeated traffic runs (multiple iterations) to confirm consistency
 
-    ```bash
-    ./create_sonic_topo.py -f ../pyvxr_yaml_files/sonic_t2_2lc_min_ports-masic.yaml -u cisco -p cisco123 -t t2-min -d sfd -c -b http://172.29.93.10/sonic-images/golden-code/golden_code_202205.tar.gz -r -s sanity-scripts/sanity_scripts.txt
-    ```
+Any platform specific information?
+Platform: FX3
+ASIC: Tahoe (Sundown1)
+SDK: Nexus SDK
+SAI Version: 1.16.4
 
-    Note: Only Gauntlet LC is supported. Work is in progress to support Vanguard.
+Supported testbed topology if it's a new test case?
+test_scheduler_dwrr_validation_ipv4
+test_scheduler_dwrr_validation_ipv6
+test_wred_active_zone_ipv4
+test_wred_active_zone_ipv6
+test_wred_below_min_ipv4
+test_wred_below_min_ipv6
+test_wred_linearity_ipv4
+test_wred_linearity_ipv6
+test_wred_tail_drop_ipv4
+test_wred_tail_drop_ipv6
 
-    If you want to run sanity script while bringing up the testbed, use these additional options:
-    - `-s sanity_script.txt`
-    - `-r run sanity`
-
-    Example:
-
-    ```bash
-    ./create_sonic_topo.py -f <topo file> -c -u cisco -p cisco123 -t <topo_type> -r -s sanity_script.txt
-    ```
-
-    At the end of the script, it will print the device details.
-
-9. Log into the sonic-mgmt vm using VXR machine address as `cisco` user and `cisco123` password.
-
-    ```bash
-    ssh cisco@<vxr_machine_address>
-    ```
-
-10. Enter docker container:
-
-    ```bash
-    docker exec -it docker-sonic-mgmt /bin/bash
-    ```
-
-11. Testbed name: `docker-ptf`
-12. DUT name: `sherman-01/mathilda-01`
+Documentation
+https://wwwin-github.cisco.com/whitebox/cisco-nx-sai/pull/333
+https://ciscoteams.atlassian.net/wiki/spaces/WHITEBOX/pages/967479575/Testbed+Setup
