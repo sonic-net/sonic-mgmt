@@ -32,7 +32,7 @@ def parse_pdsctl_show_flow_output(output):
         elif re.match(r'^\d+', line):
             elements = list(filter(None, line.split()))
             if len(elements) != len(keys):
-                logger.warning("Column lenght mismatch")
+                logger.warning(f"Column length mismatch: elements {len(elements)}, keys {len(keys)}")
                 continue
             entry = dict(zip(keys, elements))
             current_table_data.append(entry)
@@ -54,12 +54,12 @@ def compare_flow_tables_pdsctl(dpuhost1, dpuhost2):
     output1 = dpuhost1.shell("pdsctl show flow")["stdout"]
     output2 = dpuhost2.shell("pdsctl show flow")["stdout"]
     flow_table1 = parse_pdsctl_show_flow_output(output1)
-    if (flow_table1 is None):
+    if (flow_table1 is None or len(flow_table1) == 0):
         logger.warning(f" flows table for {dpuhost1.hostname} is empty")
         return False
 
     flow_table2 = parse_pdsctl_show_flow_output(output2)
-    if (flow_table2 is None):
+    if (flow_table2 is None or len(flow_table2) == 0):
         logger.warning(f" flows table for {dpuhost2.hostname} is empty")
         return False
 

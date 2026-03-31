@@ -3,10 +3,12 @@ import logging
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
+import concurrent.futures
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
 from tests.common.config_reload import config_reload
+from ha_dash_flow_utils import compare_flow_tables_pdsctl
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,11 @@ pytestmark = [
 Test prerequisites:
 - Assign IPs to DPU-NPU dataplane interfaces
 """
+
+
+def reload_config_for_host(dpuhost):
+    logger.info(f"config reload on {dpuhost.hostname}")
+    config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -80,19 +87,15 @@ def common_setup_teardown(
         apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
 
     yield
-
-    for dpuhost in dpuhosts:
-        config_reload(dpuhost, safe_reload=True, yang_validate=False)
-    # apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
-    # apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
+    with concurrent.futures.ThreadPoolExecutor(max_workers=len(dpuhosts)) as executor:
+        # Map the reload_config_for_host function to the dpuhosts list
+        executor.map(reload_config_for_host, dpuhosts)
 
 
 @pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
 def test_privatelink_basic_transform(
     ptfadapter,
+    dpuhosts,
     activate_dash_ha_from_json,
     dash_pl_config,
     encap_proto
@@ -103,5 +106,8 @@ def test_privatelink_basic_transform(
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_pl_config[0][LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
     testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[0][REMOTE_PTF_RECV_INTF])
+    flow_op = compare_flow_tables_pdsctl(dpuhosts[0], dpuhosts[1])
+    if not flow_op:
+        logger.error("Flow tables are different")
     testutils.send(ptfadapter, dash_pl_config[0][REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
     testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[0][LOCAL_PTF_INTF])
