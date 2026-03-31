@@ -5776,6 +5776,36 @@
   auto_recover: 'True'
   comment: v-shankam
 
+- conf-name: ptp-nh5010-1
+  group-name:
+  topo: ptp-66-upper-spine-router
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str43-ut2-nh5010-01
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-shankam
+
+- conf-name: ptp-nh5010-2
+  group-name:
+  topo: ptp-66-upper-spine-router
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str43-ut2-nh5010-02
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-shankam
+
 - conf-name: tbtk5-lt2-7060x6-1
   group-name: tk5-7-3
   topo: lt2-o128

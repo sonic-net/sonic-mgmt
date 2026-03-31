@@ -64,8 +64,12 @@ pdu-99,11,str-4700-d04-u09,PSU1
 pdu-100,11,str-4700-d04-u09,PSU2
 pdu-98,12,str-4700-d04-u10,PSU1
 pdu-99,12,str-4700-d04-u10,PSU2
+pdu-118,40,str43-ut2-nh5010-01,PSU1
+pdu-115,41,str43-ut2-nh5010-01,PSU2
 pdu-117,44,str43-7060x6-64pe-lt2,PSU1
 pdu-118,44,str43-7060x6-64pe-lt2,PSU2
+pdu-118,45,str43-ut2-nh5010-02,PSU1
+pdu-119,45,str43-ut2-nh5010-02,PSU2
 pdu-99,30,str-4700-d04-u43,PSU1
 pdu-100,30,str-4700-d04-u43,PSU2
 pdu-102,24,str43-msn4700-d05-u23,PSU1
