@@ -248,9 +248,11 @@ class TestbedHealthChecker:
 
         logger.info("======================= pre_check starts =======================")
 
+        group = os.path.basename(self.inventory[0]) if self.inventory else None
         # Retrieve the connection graph facts of localhost
         conn_graph_facts = self.localhost.conn_graph_facts(hosts=self.sonichosts.hostnames,
-                                                           filepath=os.path.join(ansible_path, "files"))
+                                                           filepath=os.path.join(ansible_path, "files"),
+                                                           group=group)
 
         # Check hosts reachability
         hosts_reachable = True
