@@ -19,25 +19,17 @@ import time
 
 import pytest
 
-from natsort import natsorted
-
 from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state
 from bgp_aggregate_helpers import (
     AGGR_V4_First,
     AGGR_V4_SECOND,
-    BGP_AGGREGATE_ADDRESS,
     BGP_SETTLE_WAIT,
     CONTRIBUTING_V4,
     CONTRIBUTING_V4_SECOND,
-    EXABGP_BASE_PORT,
-    EXABGP_BASE_PORT_V6,
-    PLACEHOLDER_PREFIX,
     ROUTE_PROPAGATION_WAIT,
     AggregateCfg,
     announce_contributing_routes,
-    dump_db,
     gcu_add_aggregate,
-    gcu_add_placeholder_aggregate,
     gcu_remove_aggregate,
     verify_bgp_aggregate_cleanup,
     verify_bgp_aggregate_consistence,
@@ -45,77 +37,7 @@ from bgp_aggregate_helpers import (
     withdraw_contributing_routes,
 )
 
-from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
-
 pytestmark = [pytest.mark.topology("m1"), pytest.mark.device_type("vs"), pytest.mark.disable_loganalyzer]
-
-
-@pytest.fixture(scope="module", autouse=True)
-def setup_teardown(duthost):
-    if duthost.is_multi_asic:
-        pytest.skip("BGP aggregate-address tests do not support multi-ASIC")
-
-    create_checkpoint(duthost)
-
-    default_aggregates = dump_db(duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS)
-    if not default_aggregates:
-        gcu_add_placeholder_aggregate(duthost, PLACEHOLDER_PREFIX)
-
-    yield
-
-    try:
-        rollback_or_reload(duthost, fail_on_rollback_error=False)
-    finally:
-        delete_checkpoint(duthost)
-
-
-@pytest.fixture(scope="module")
-def m1_topo_setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts, ptfhost):
-    """Setup M0 (downstream) and M2 (upstream) neighbor info.
-
-    Provides:
-      - downstream M0 neighbors and their ExaBGP ports
-      - upstream M2 (MA) neighbors for route verification
-      - nhipv4 / nhipv6 for ExaBGP route announcements
-    """
-    topo_type = tbinfo["topo"]["type"]
-    if topo_type not in UPSTREAM_NEIGHBOR_MAP or topo_type not in DOWNSTREAM_NEIGHBOR_MAP:
-        pytest.skip(f"Topology type {topo_type} not supported for neighbor-validated tests")
-
-    upstream_type = UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
-    downstream_type = DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper()
-
-    upstream_neighbors = natsorted(
-        [n for n in nbrhosts.keys() if n.endswith(upstream_type)]
-    )
-    downstream_neighbors = natsorted(
-        [n for n in nbrhosts.keys() if n.endswith(downstream_type)]
-    )
-
-    if not upstream_neighbors:
-        pytest.skip(f"No upstream ({upstream_type}) neighbors found in topology")
-    if not downstream_neighbors:
-        pytest.skip(f"No downstream ({downstream_type}) neighbors found in topology")
-
-    downstream = downstream_neighbors[0]
-    downstream_offset = tbinfo['topo']['properties']['topology']['VMs'][downstream]['vm_offset']
-    downstream_exabgp_port = EXABGP_BASE_PORT + downstream_offset
-    downstream_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + downstream_offset
-
-    nhipv4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
-    nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
-
-    return {
-        'upstream_neighbors': upstream_neighbors,
-        'downstream': downstream,
-        'downstream_neighbors': downstream_neighbors,
-        'downstream_exabgp_port': downstream_exabgp_port,
-        'downstream_exabgp_port_v6': downstream_exabgp_port_v6,
-        'nhipv4': nhipv4,
-        'nhipv6': nhipv6,
-        'ptfip': ptfhost.mgmt_ip,
-    }
 
 
 class TestGroup2BBRStateInteraction:

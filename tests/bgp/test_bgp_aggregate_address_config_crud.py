@@ -13,7 +13,21 @@ import logging
 import pytest
 from natsort import natsorted
 
-from test_bgp_aggregate_address import (
+from bgp_aggregate_helpers import (  # noqa: F401
+    AGGR_V4_First,
+    AGGR_V6,
+    CONTRIBUTING_V4,
+    CONTRIBUTING_V6,
+    EXABGP_BASE_PORT,
+    EXABGP_BASE_PORT_V6,
+    EXTRA_AGGR_V4_1,
+    EXTRA_AGGR_V4_2,
+    EXTRA_AGGR_V6_1,
+    EXTRA_AGGR_V6_2,
+    CONTRIBUTING_EXTRA_V4_1,
+    CONTRIBUTING_EXTRA_V4_2,
+    CONTRIBUTING_EXTRA_V6_1,
+    CONTRIBUTING_EXTRA_V6_2,
     AggregateCfg,
     gcu_add_aggregate,
     gcu_remove_aggregate,
@@ -22,7 +36,6 @@ from test_bgp_aggregate_address import (
     gcu_update_aggregate_field,
     safe_remove_aggregate,
 )
-from test_bgp_aggregate_address import setup_teardown  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp_routing import inject_routes, verify_route_on_neighbors
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
@@ -30,25 +43,6 @@ from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEI
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology("t1", "m1"), pytest.mark.device_type("vs"), pytest.mark.disable_loganalyzer]
-
-EXABGP_BASE_PORT = 5000
-EXABGP_BASE_PORT_V6 = 6000
-
-# --- Test data ---
-AGGR_V4 = "10.100.0.0/16"
-AGGR_V6 = "2001:db8:100::/48"
-CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
-CONTRIBUTING_V6 = ["2001:db8:100:1::/64", "2001:db8:100:2::/64", "2001:db8:100:3::/64"]
-
-# Additional aggregates for multi-aggregate / overlapping tests
-EXTRA_AGGR_V4_1 = "10.200.0.0/16"
-EXTRA_AGGR_V4_2 = "10.150.0.0/16"
-EXTRA_AGGR_V6_1 = "2001:db8:200::/48"
-EXTRA_AGGR_V6_2 = "2001:db8:150::/48"
-CONTRIBUTING_EXTRA_V4_1 = ["10.200.1.0/24"]
-CONTRIBUTING_EXTRA_V4_2 = ["10.150.1.0/24"]
-CONTRIBUTING_EXTRA_V6_1 = ["2001:db8:200:1::/64"]
-CONTRIBUTING_EXTRA_V6_2 = ["2001:db8:150:1::/64"]
 
 
 @pytest.fixture(scope="module")
@@ -95,20 +89,20 @@ def test_add_and_remove_single_aggregate(
     """
     duthost = duthosts[rand_one_dut_hostname]
     setup = crud_setup
-    cfg = AggregateCfg(prefix=AGGR_V4, bbr_required=False, summary_only=False, as_set=False)
+    cfg = AggregateCfg(prefix=AGGR_V4_First, bbr_required=False, summary_only=False, as_set=False)
 
     try:
         inject_routes(setup, ptfhost, CONTRIBUTING_V4[:2], "announce")
         gcu_add_aggregate(duthost, cfg)
 
-        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4, expected_present=True)
+        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4_First, expected_present=True)
 
-        gcu_remove_aggregate(duthost, AGGR_V4)
+        gcu_remove_aggregate(duthost, AGGR_V4_First)
 
-        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4, expected_present=False)
+        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4_First, expected_present=False)
     finally:
         inject_routes(setup, ptfhost, CONTRIBUTING_V4[:2], "withdraw")
-        safe_remove_aggregate(duthost, AGGR_V4)
+        safe_remove_aggregate(duthost, AGGR_V4_First)
 
 
 # ===========================================================================
@@ -124,26 +118,26 @@ def test_remove_aggregate_restores_contributing(
     duthost = duthosts[rand_one_dut_hostname]
     setup = crud_setup
     contributing = CONTRIBUTING_V4[:2]
-    cfg = AggregateCfg(prefix=AGGR_V4, bbr_required=False, summary_only=True, as_set=False)
+    cfg = AggregateCfg(prefix=AGGR_V4_First, bbr_required=False, summary_only=True, as_set=False)
 
     try:
         inject_routes(setup, ptfhost, contributing, "announce")
         gcu_add_aggregate(duthost, cfg)
 
         # Aggregate present, contributing suppressed
-        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4, expected_present=True)
+        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4_First, expected_present=True)
         for route in contributing:
             verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], route, expected_present=False, timeout=15)
 
         # Remove aggregate
-        gcu_remove_aggregate(duthost, AGGR_V4)
+        gcu_remove_aggregate(duthost, AGGR_V4_First)
 
         # Contributing routes must reappear
         for route in contributing:
             verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], route, expected_present=True)
     finally:
         inject_routes(setup, ptfhost, contributing, "withdraw")
-        safe_remove_aggregate(duthost, AGGR_V4)
+        safe_remove_aggregate(duthost, AGGR_V4_First)
 
 
 # ===========================================================================
@@ -160,33 +154,33 @@ def test_update_toggle_summary_only(
     duthost = duthosts[rand_one_dut_hostname]
     setup = crud_setup
     contributing = CONTRIBUTING_V4[:2]
-    cfg = AggregateCfg(prefix=AGGR_V4, bbr_required=False, summary_only=False, as_set=False)
+    cfg = AggregateCfg(prefix=AGGR_V4_First, bbr_required=False, summary_only=False, as_set=False)
 
     try:
         inject_routes(setup, ptfhost, contributing, "announce")
         gcu_add_aggregate(duthost, cfg)
 
         # Step 1-2: both aggregate and contributing visible
-        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4, expected_present=True)
+        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4_First, expected_present=True)
         for route in contributing:
             verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], route, expected_present=True)
 
         # Step 3: update to summary-only=true
-        gcu_update_aggregate_field(duthost, AGGR_V4, "summary-only", "true")
+        gcu_update_aggregate_field(duthost, AGGR_V4_First, "summary-only", "true")
 
         # Step 4: contributing now suppressed
         for route in contributing:
             verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], route, expected_present=False, timeout=15)
 
         # Step 5: update back to summary-only=false
-        gcu_update_aggregate_field(duthost, AGGR_V4, "summary-only", "false")
+        gcu_update_aggregate_field(duthost, AGGR_V4_First, "summary-only", "false")
 
         # Step 6: contributing visible again
         for route in contributing:
             verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], route, expected_present=True)
     finally:
         inject_routes(setup, ptfhost, contributing, "withdraw")
-        safe_remove_aggregate(duthost, AGGR_V4)
+        safe_remove_aggregate(duthost, AGGR_V4_First)
 
 
 # ===========================================================================
@@ -204,7 +198,7 @@ def test_add_multiple_aggregates_single_patch(
     setup = crud_setup
 
     cfgs = [
-        AggregateCfg(prefix=AGGR_V4, bbr_required=False, summary_only=False, as_set=False),
+        AggregateCfg(prefix=AGGR_V4_First, bbr_required=False, summary_only=False, as_set=False),
         AggregateCfg(prefix=EXTRA_AGGR_V4_1, bbr_required=False, summary_only=False, as_set=False),
         AggregateCfg(prefix=EXTRA_AGGR_V4_2, bbr_required=False, summary_only=False, as_set=False),
         AggregateCfg(prefix=AGGR_V6, bbr_required=False, summary_only=False, as_set=False),
@@ -252,7 +246,7 @@ def test_overlapping_aggregates_sequential(
     contributing_a = CONTRIBUTING_V4[:2]
     contributing_b = CONTRIBUTING_EXTRA_V4_1
 
-    cfg_a = AggregateCfg(prefix=AGGR_V4, bbr_required=False, summary_only=False, as_set=False)
+    cfg_a = AggregateCfg(prefix=AGGR_V4_First, bbr_required=False, summary_only=False, as_set=False)
     cfg_b = AggregateCfg(prefix=EXTRA_AGGR_V4_1, bbr_required=False, summary_only=False, as_set=False)
 
     try:
@@ -260,22 +254,22 @@ def test_overlapping_aggregates_sequential(
 
         # Step 1: add first aggregate
         gcu_add_aggregate(duthost, cfg_a)
-        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4, expected_present=True)
+        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4_First, expected_present=True)
 
         # Step 2: add second aggregate
         gcu_add_aggregate(duthost, cfg_b)
         verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], EXTRA_AGGR_V4_1, expected_present=True)
 
         # Step 3: both present
-        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4, expected_present=True)
+        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4_First, expected_present=True)
 
         # Step 4: remove first aggregate
-        gcu_remove_aggregate(duthost, AGGR_V4)
-        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4, expected_present=False, timeout=15)
+        gcu_remove_aggregate(duthost, AGGR_V4_First)
+        verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], AGGR_V4_First, expected_present=False, timeout=15)
 
         # Step 5: second still present
         verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], EXTRA_AGGR_V4_1, expected_present=True)
     finally:
         inject_routes(setup, ptfhost, contributing_a + contributing_b, "withdraw")
-        for prefix in (AGGR_V4, EXTRA_AGGR_V4_1):
+        for prefix in (AGGR_V4_First, EXTRA_AGGR_V4_1):
             safe_remove_aggregate(duthost, prefix)

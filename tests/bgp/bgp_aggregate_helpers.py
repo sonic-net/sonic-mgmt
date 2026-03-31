@@ -4,7 +4,7 @@ Provides:
   - Constants (aggregate prefixes, DB table names, ExaBGP ports)
   - AggregateCfg namedtuple
   - DB dump / FRR running-config helpers
-  - GCU JSON patch helpers (add/remove aggregate)
+  - GCU JSON patch helpers (add/remove/update/batch/safe-remove aggregate)
   - ExaBGP route announce/withdraw helpers
   - M2 (upstream) route verification helpers
   - Common Validators (CONFIG_DB / STATE_DB / FRR consistency, cleanup)
@@ -18,7 +18,12 @@ from collections import namedtuple
 import requests
 
 from tests.common.devices.eos import EosHost
-from tests.common.gcu_utils import apply_gcu_patch
+from tests.common.gcu_utils import (
+    apply_gcu_patch,
+    apply_patch,
+    generate_tmpfile,
+    delete_tmpfile,
+)
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
@@ -37,6 +42,16 @@ CONTRIBUTING_V6 = ["2001:db8:100:1::/64", "2001:db8:100:2::/64", "2001:db8:100:3
 # A second aggregate prefix for mixed-aggregate tests (Group 2.4)
 AGGR_V4_SECOND = "10.200.0.0/16"
 CONTRIBUTING_V4_SECOND = ["10.200.1.0/24", "10.200.2.0/24"]
+
+# Additional aggregates for multi-aggregate / overlapping tests (Group 4)
+EXTRA_AGGR_V4_1 = "10.200.0.0/16"
+EXTRA_AGGR_V4_2 = "10.150.0.0/16"
+EXTRA_AGGR_V6_1 = "2001:db8:200::/48"
+EXTRA_AGGR_V6_2 = "2001:db8:150::/48"
+CONTRIBUTING_EXTRA_V4_1 = ["10.200.1.0/24"]
+CONTRIBUTING_EXTRA_V4_2 = ["10.150.1.0/24"]
+CONTRIBUTING_EXTRA_V6_1 = ["2001:db8:200:1::/64"]
+CONTRIBUTING_EXTRA_V6_2 = ["2001:db8:150:1::/64"]
 
 EXABGP_BASE_PORT = 5000
 EXABGP_BASE_PORT_V6 = 6000
@@ -108,6 +123,69 @@ def gcu_add_aggregate(duthost, aggregate_cfg):
 
 def gcu_remove_aggregate(duthost, prefix):
     patch = [{"op": "remove", "path": f"/BGP_AGGREGATE_ADDRESS/{prefix.replace('/', '~1')}"}]
+    apply_gcu_patch(duthost, patch)
+
+
+def safe_remove_aggregate(duthost, prefix):
+    """Best-effort removal for cleanup — never raises."""
+    try:
+        patch = [
+            {
+                "op": "remove",
+                "path": f"/BGP_AGGREGATE_ADDRESS/{prefix.replace('/', '~1')}",
+            }
+        ]
+        tmpfile = generate_tmpfile(duthost)
+        try:
+            apply_patch(duthost, json_data=patch, dest_file=tmpfile)
+        finally:
+            delete_tmpfile(duthost, tmpfile)
+    except Exception:
+        logger.debug(
+            "Cleanup: aggregate %s already absent "
+            "or will be recovered by rollback",
+            prefix,
+        )
+
+
+def gcu_add_multiple_aggregates(duthost, cfgs):
+    """Add several aggregate entries in a single GCU patch."""
+    patch = [
+        {
+            "op": "add",
+            "path": f"/BGP_AGGREGATE_ADDRESS/{c.prefix.replace('/', '~1')}",
+            "value": {
+                "bbr-required": "true" if c.bbr_required else "false",
+                "summary-only": "true" if c.summary_only else "false",
+                "as-set": "true" if c.as_set else "false",
+            },
+        }
+        for c in cfgs
+    ]
+    apply_gcu_patch(duthost, patch)
+
+
+def gcu_remove_multiple_aggregates(duthost, prefixes):
+    """Remove several aggregate entries in a single GCU patch."""
+    patch = [
+        {
+            "op": "remove",
+            "path": f"/BGP_AGGREGATE_ADDRESS/{p.replace('/', '~1')}",
+        }
+        for p in prefixes
+    ]
+    apply_gcu_patch(duthost, patch)
+
+
+def gcu_update_aggregate_field(duthost, prefix, field, value):
+    """Update a single field of an existing aggregate via GCU."""
+    patch = [
+        {
+            "op": "replace",
+            "path": f"/BGP_AGGREGATE_ADDRESS/{prefix.replace('/', '~1')}/{field}",
+            "value": value,
+        }
+    ]
     apply_gcu_patch(duthost, patch)
 
 
