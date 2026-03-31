@@ -71,6 +71,7 @@ LEAF1_VXLAN_IP = '10.200.200.201'
 
 SAG1_VLAN = '3'
 SAG2_VLAN = '4'
+VRF_VLAN = '43'
 
 SAG_MAC = "00:11:22:33:44:55"
 SAG1_IP = data.d3tp3_ip_addr
@@ -265,6 +266,9 @@ def test_l2vni_sym_irb_sag_unbind_vrf():
     st.config(nodes['leaf1'], 'sudo config interface vrf unbind {}'.format('Vlan' + SAG1_VLAN))
     st.config(nodes['leaf1'], 'sudo config interface vrf unbind {}'.format('Vlan' + SAG2_VLAN))
 
+    st.config(nodes['leaf0'], 'sudo config interface vrf unbind {}'.format('Vlan' + VRF_VLAN))
+    st.config(nodes['leaf1'], 'sudo config interface vrf unbind {}'.format('Vlan' + VRF_VLAN))
+
     st.wait(2)
 
     '''
@@ -298,6 +302,9 @@ def test_l2vni_sym_irb_sag_unbind_vrf():
     st.config(nodes['leaf0'], 'sudo config interface vrf bind {} {}'.format('Vlan' + SAG2_VLAN, VRF_NAME))
     st.config(nodes['leaf1'], 'sudo config interface vrf bind {} {}'.format('Vlan' + SAG1_VLAN, VRF_NAME))
     st.config(nodes['leaf1'], 'sudo config interface vrf bind {} {}'.format('Vlan' + SAG2_VLAN, VRF_NAME))
+
+    st.config(nodes['leaf0'], 'sudo config interface vrf bind {} {}'.format('Vlan' + VRF_VLAN, VRF_NAME))
+    st.config(nodes['leaf1'], 'sudo config interface vrf bind {} {}'.format('Vlan' + VRF_VLAN, VRF_NAME))
 
     '''
     re-config vrf to vni map

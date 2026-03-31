@@ -352,6 +352,9 @@ def test_l2vni_ipv6_sym_irb_sag_unbind_vrf():
     st.config(nodes['leaf1'], 'sudo config interface vrf unbind {}'.format('Vlan' + SAG1_VLAN))
     st.config(nodes['leaf1'], 'sudo config interface vrf unbind {}'.format('Vlan' + SAG2_VLAN))
 
+    st.config(nodes['leaf0'], 'sudo config interface vrf unbind {}'.format('Vlan' + VRF_VLAN))
+    st.config(nodes['leaf1'], 'sudo config interface vrf unbind {}'.format('Vlan' + VRF_VLAN))
+
     st.wait(2)
     '''
     Remove VRF
