@@ -5,7 +5,8 @@
     "Arista-7060X6": ["Arista-7060X6-64PE-B-C512S2", "Arista-7060X6-64PE-B-C448O16", "Arista-7060X6-16PE-384C-B-O128S2", "Arista-7060X6-64PE-B-O128"],
     "Mellanox-SN5640": ["Mellanox-SN5640-C448O16", "Mellanox-SN5640-C512S2"],
     "Arista-7060CX": ["Arista-7060CX-32S-C32", "Arista-7060CX-32S-D48C8"],
-    "Arista-7260CX3": ["Arista-7260CX3-C64", "Arista-7260CX3-D108C8", "Arista-7260CX3-D108C10"]
+    "Arista-7260CX3": ["Arista-7260CX3-C64", "Arista-7260CX3-D108C8", "Arista-7260CX3-D108C10"],
+    "Nokia-IXR7220": ["Nokia-IXR7220-H6-O256"]
   },
   "COMMON": [
     {
@@ -357,6 +358,26 @@
         }
       },
       "memory_check": "parse_docker_stats_output"
+    }
+  ],
+  "Nokia-IXR7220": [
+    {
+      "name": "frr_bgp",
+      "cmd": "vtysh -c \"show memory bgp\"",
+      "memory_params": {
+        "used": {
+          "memory_increase_threshold": [
+            {"type": "percentage", "value": "50%"},
+            {"type": "value", "value": 64},
+            {"type": "comparison", "value": "max"}
+          ],
+          "memory_high_threshold": {
+            "type": "value",
+            "value": 384
+          }
+        }
+      },
+      "memory_check": "parse_frr_memory_output"
     }
   ]
 }
