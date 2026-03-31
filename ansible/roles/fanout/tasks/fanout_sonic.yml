@@ -26,6 +26,41 @@
     fanout_sonic_version: "{{ fanout_sonic_version | default({}) | combine([dict(['key', 'value'] | zip(item.split(':') | map('trim')))] | items2dict) }}"
   with_items: "{{ sonic_version_content['stdout_lines'] }}"
 
+# Derive the broadcom fanout asic_gen by checking all hwsku mappings
+- name: derive asic_gen for broadcom hwsku's
+  block:
+    - name: load ASIC generation mapping from group_vars
+      include_vars:
+        file: "{{ playbook_dir }}/group_vars/sonic/variables"
+        name: asic_map
+      delegate_to: localhost
+      run_once: true
+
+    - name: compute asic_gen from hwsku and attach to fanout_sonic_version
+      vars:
+        matching_asic_keys: >-
+          {{
+            asic_map | dict2items
+            | selectattr('key', 'string')
+            | selectattr('key', 'search', 'broadcom_')
+            | selectattr('value', 'defined')
+            | selectattr('value', 'contains', device_info[inventory_hostname]['HwSku'])
+            | map(attribute='key')
+            | list
+          }}
+      set_fact:
+        fanout_sonic_version: >-
+          {{
+            fanout_sonic_version
+            | combine({'asic_gen': (matching_asic_keys | first).split('_')[1]})
+          }}
+      when:
+        - device_info[inventory_hostname]['HwSku'] is defined
+        - matching_asic_keys | length > 0
+  when:
+    - fanout_sonic_version.asic_type is defined
+    - "'broadcom' in fanout_sonic_version.asic_type"
+
 - fail: msg="sonic version other than 202205 does not support incremental update and dry run"
   when: "'20220531' not in fanout_sonic_version['build_version'] and (incremental is defined or dry_run is defined)"
 
