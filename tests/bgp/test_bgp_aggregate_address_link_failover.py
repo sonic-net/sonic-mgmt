@@ -32,8 +32,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t1", "m1"),
-    pytest.mark.device_type("vs"),
+    pytest.mark.topology("m1"),
     pytest.mark.disable_loganalyzer,
 ]
 
