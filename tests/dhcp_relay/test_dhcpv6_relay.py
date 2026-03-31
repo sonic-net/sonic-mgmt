@@ -273,15 +273,15 @@ def setup_and_teardown_no_servers_vlan(duthosts, rand_one_dut_hostname):
 
 def get_dhcptest_expected_counters(dhcp_server_num):
     """Expected dhcpmon counters for DHCPTest PTF class.
-    DHCPTest sends 3 client messages (Solicit, Request, Relay-Forward)
+    DHCPTest sends 2 client messages (Solicit, Request)
     and 3 server messages (Relay-Reply with Advertise, Reply, Relay-Reply).
     """
     expected_downlink = {
-        "RX": {"Solicit": 1, "Request": 1, "Relay-Forward": 1},
+        "RX": {"Solicit": 1, "Request": 1},
         "TX": {"Advertise": 1, "Reply": 1, "Relay-Reply": 1}
     }
     expected_uplink = {
-        "TX": {"Relay-Forward": dhcp_server_num * 3},
+        "TX": {"Relay-Forward": dhcp_server_num * 2},
         "RX": {"Relay-Reply": 3}
     }
     return expected_downlink, expected_uplink
@@ -424,10 +424,14 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
                     # on downlink_vlan_iface.
                     check_dhcpv6_relay_counter(duthost, dhcp_relay['downlink_vlan_iface']['name'], type, "RX")
                 if type in ["Unknown"]:
-                    # Two packets counted as Unknown by dhcp6relay:
-                    # 1. Relay-Reply with no relay-msg option (malformed to dhcpmon, unknown to dhcp6relay)
-                    # 2. Packet with unrecognized message type 20 (unknown to both)
-                    check_dhcpv6_relay_counter(duthost, dhcp_relay['downlink_vlan_iface']['name'], type, "RX", 2)
+                    # dhcp6relay counts two packets as Unknown:
+                    # 1. Relay-Reply with no relay-msg option (bare Relay-Reply)
+                    # 2. Relay-Reply wrapping an unrecognized inner message type (msgtype=20)
+                    # Note: dhcpmon counts #1 as Malformed instead (see dhcpmon expected counters
+                    # below), which is arguably more correct since the packet structure is invalid
+                    # (relay messages must contain a relay-msg option per RFC 8415), not just an
+                    # unrecognized type.
+                    check_dhcpv6_relay_counter(duthost, dhcp_relay['downlink_vlan_iface']['name'], type, "RX")
                 if type in ["Advertise", "Reply", "Reconfigure"]:
                     check_dhcpv6_relay_counter(duthost, dhcp_relay['downlink_vlan_iface']['name'], type, "TX")
                     check_dhcpv6_relay_counter(duthost, dhcp_relay['client_iface']['name'], type, "TX")
@@ -444,19 +448,26 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
                         check_dhcpv6_relay_counter(duthost, dhcp_relay['downlink_vlan_iface']['name'], type, "RX")
 
             # Validate dhcpmon counters (COUNTERS_DB DHCPV6_COUNTER_TABLE)
-            # dhcpmon distinguishes: bad msg type = Unknown, bad structure = Malformed
-            # dhcp6relay counts both server bad packets as "Unknown"
+            # Downlink RX: 8 valid client messages + 1 malformed Solicit (optcode=300
+            # fails sanity check since code > DHCPV6_OPTION_CODE_MAX).
+            # No Unknown on downlink -- all client packets have valid message types.
             expected_downlink_counter = {
                 "RX": {"Solicit": 1, "Request": 1, "Confirm": 1, "Renew": 1, "Rebind": 1,
-                       "Release": 1, "Decline": 1, "Information-Request": 1,
-                       "Malformed": 1},  # client malformed Solicit (optcode=300)
+                       "Release": 1, "Decline": 1, "Information-Request": 1, "Malformed": 1},
                 "TX": {"Advertise": 1, "Reply": 1, "Reconfigure": 1}
             }
+            # Uplink RX: 5 server packets, classified by dhcpmon as:
+            # - Relay-Reply=3: valid Relay-Replies (Advertise, Reply, Reconfigure)
+            # - Malformed=1: bare Relay-Reply with no relay-msg option. dhcpmon validates
+            #   that relay messages must contain relay-msg and rejects structurally invalid
+            #   packets as Malformed (dhcp6relay counts this as Unknown instead, but
+            #   Malformed is more precise since the packet structure itself is invalid
+            #   per RFC 8415, not just an unrecognized type).
+            # - Unknown=1: packet with msgtype=20 (beyond valid range 1-13), rejected
+            #   before sanity check since msg_type > RELAY_REPL.
             expected_uplink_counter = {
                 "TX": {"Relay-Forward": dhcp_server_num * 8},
-                "RX": {"Relay-Reply": 3,  # 3 valid wrapped Relay-Replies (Advertise, Reply, Reconf)
-                       "Malformed": 1,    # bare Relay-Reply missing relay-msg option
-                       "Unknown": 1}      # server packet with msgtype=20 (beyond valid range)
+                "RX": {"Relay-Reply": 3, "Malformed": 1, "Unknown": 1}
             }
             time.sleep(36)  # dhcpmon: health check every 18s, DB write every 20s
             validate_dhcpmon_counters(dhcp_relay, duthost,
