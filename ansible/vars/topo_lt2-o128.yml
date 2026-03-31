@@ -192,171 +192,171 @@ topology:
       vlans:
         - 47
       vm_offset: 47
-    ARISTA49T1:
+    ARISTA01T0:
       vlans:
         - 48
       vm_offset: 48
-    ARISTA50T1:
+    ARISTA02T0:
       vlans:
         - 49
       vm_offset: 49
-    ARISTA51T1:
+    ARISTA03T0:
       vlans:
         - 50
       vm_offset: 50
-    ARISTA52T1:
+    ARISTA04T0:
       vlans:
         - 51
       vm_offset: 51
-    ARISTA53T1:
+    ARISTA05T0:
       vlans:
         - 52
       vm_offset: 52
-    ARISTA54T1:
+    ARISTA06T0:
       vlans:
         - 53
       vm_offset: 53
-    ARISTA55T1:
+    ARISTA07T0:
       vlans:
         - 54
       vm_offset: 54
-    ARISTA56T1:
+    ARISTA08T0:
       vlans:
         - 55
       vm_offset: 55
-    ARISTA57T1:
+    ARISTA09T0:
       vlans:
         - 56
       vm_offset: 56
-    ARISTA58T1:
+    ARISTA10T0:
       vlans:
         - 57
       vm_offset: 57
-    ARISTA59T1:
+    ARISTA11T0:
       vlans:
         - 58
       vm_offset: 58
-    ARISTA60T1:
+    ARISTA12T0:
       vlans:
         - 59
       vm_offset: 59
-    ARISTA61T1:
+    ARISTA13T0:
       vlans:
         - 60
       vm_offset: 60
-    ARISTA62T1:
+    ARISTA14T0:
       vlans:
         - 61
       vm_offset: 61
-    ARISTA63T1:
+    ARISTA15T0:
       vlans:
         - 62
       vm_offset: 62
-    ARISTA64T1:
+    ARISTA16T0:
       vlans:
         - 63
       vm_offset: 63
-    ARISTA65T1:
+    ARISTA01FT2:
       vlans:
         - 64
       vm_offset: 64
-    ARISTA66T1:
+    ARISTA02FT2:
       vlans:
         - 65
       vm_offset: 65
-    ARISTA67T1:
+    ARISTA03FT2:
       vlans:
         - 66
       vm_offset: 66
-    ARISTA68T1:
+    ARISTA04FT2:
       vlans:
         - 67
       vm_offset: 67
-    ARISTA69T1:
+    ARISTA05FT2:
       vlans:
         - 68
       vm_offset: 68
-    ARISTA70T1:
+    ARISTA06FT2:
       vlans:
         - 69
       vm_offset: 69
-    ARISTA71T1:
+    ARISTA07FT2:
       vlans:
         - 70
       vm_offset: 70
-    ARISTA72T1:
+    ARISTA08FT2:
       vlans:
         - 71
       vm_offset: 71
-    ARISTA73T1:
+    ARISTA09FT2:
       vlans:
         - 72
       vm_offset: 72
-    ARISTA74T1:
+    ARISTA10FT2:
       vlans:
         - 73
       vm_offset: 73
-    ARISTA75T1:
+    ARISTA11FT2:
       vlans:
         - 74
       vm_offset: 74
-    ARISTA76T1:
+    ARISTA12FT2:
       vlans:
         - 75
       vm_offset: 75
-    ARISTA77T1:
+    ARISTA13FT2:
       vlans:
         - 76
       vm_offset: 76
-    ARISTA78T1:
+    ARISTA14FT2:
       vlans:
         - 77
       vm_offset: 77
-    ARISTA79T1:
+    ARISTA15FT2:
       vlans:
         - 78
       vm_offset: 78
-    ARISTA80T1:
+    ARISTA16FT2:
       vlans:
         - 79
       vm_offset: 79
-    ARISTA81T1:
+    ARISTA17FT2:
       vlans:
         - 80
       vm_offset: 80
-    ARISTA82T1:
+    ARISTA18FT2:
       vlans:
         - 81
       vm_offset: 81
-    ARISTA83T1:
+    ARISTA19FT2:
       vlans:
         - 82
       vm_offset: 82
-    ARISTA84T1:
+    ARISTA20FT2:
       vlans:
         - 83
       vm_offset: 83
-    ARISTA85T1:
+    ARISTA21FT2:
       vlans:
         - 84
       vm_offset: 84
-    ARISTA86T1:
+    ARISTA22FT2:
       vlans:
         - 85
       vm_offset: 85
-    ARISTA87T1:
+    ARISTA23FT2:
       vlans:
         - 86
       vm_offset: 86
-    ARISTA88T1:
+    ARISTA24FT2:
       vlans:
         - 87
       vm_offset: 87
-    ARISTA89T1:
+    ARISTA25FT2:
       vlans:
         - 88
       vm_offset: 88
-    ARISTA90T1:
+    ARISTA26FT2:
       vlans:
         - 89
       vm_offset: 89
@@ -376,138 +376,148 @@ topology:
       vlans:
         - 93
       vm_offset: 93
-    ARISTA05UT2:
+    ARISTA27FT2:
       vlans:
         - 94
       vm_offset: 94
-    ARISTA06UT2:
+    ARISTA28FT2:
       vlans:
         - 95
       vm_offset: 95
-    ARISTA07UT2:
+    ARISTA29FT2:
       vlans:
         - 96
       vm_offset: 96
-    ARISTA08UT2:
+    ARISTA30FT2:
       vlans:
         - 97
       vm_offset: 97
-    ARISTA09UT2:
+    ARISTA05UT2:
       vlans:
         - 98
       vm_offset: 98
-    ARISTA10UT2:
+    ARISTA06UT2:
       vlans:
         - 99
       vm_offset: 99
-    ARISTA11UT2:
+    ARISTA07UT2:
       vlans:
         - 100
       vm_offset: 100
-    ARISTA12UT2:
+    ARISTA08UT2:
       vlans:
         - 101
       vm_offset: 101
-    ARISTA13UT2:
+    ARISTA31FT2:
       vlans:
         - 102
       vm_offset: 102
-    ARISTA14UT2:
+    ARISTA32FT2:
       vlans:
         - 103
       vm_offset: 103
-    ARISTA15UT2:
+    ARISTA33FT2:
       vlans:
         - 104
       vm_offset: 104
-    ARISTA16UT2:
+    ARISTA34FT2:
       vlans:
         - 105
       vm_offset: 105
-    ARISTA91T1:
+    ARISTA35FT2:
       vlans:
         - 106
       vm_offset: 106
-    ARISTA92T1:
+    ARISTA36FT2:
       vlans:
         - 107
       vm_offset: 107
-    ARISTA93T1:
+    ARISTA37FT2:
       vlans:
         - 108
       vm_offset: 108
-    ARISTA94T1:
+    ARISTA38FT2:
       vlans:
         - 109
       vm_offset: 109
-    ARISTA95T1:
+    ARISTA39FT2:
       vlans:
         - 110
       vm_offset: 110
-    ARISTA96T1:
+    ARISTA40FT2:
       vlans:
         - 111
       vm_offset: 111
-    ARISTA97T1:
+    ARISTA41FT2:
       vlans:
         - 112
       vm_offset: 112
-    ARISTA98T1:
+    ARISTA42FT2:
       vlans:
         - 113
       vm_offset: 113
-    ARISTA99T1:
+    ARISTA43FT2:
       vlans:
         - 114
       vm_offset: 114
-    ARISTA100T1:
+    ARISTA44FT2:
       vlans:
         - 115
       vm_offset: 115
-    ARISTA101T1:
+    ARISTA45FT2:
       vlans:
         - 116
       vm_offset: 116
-    ARISTA102T1:
+    ARISTA46FT2:
       vlans:
         - 117
       vm_offset: 117
-    ARISTA103T1:
+    ARISTA47FT2:
       vlans:
         - 118
       vm_offset: 118
-    ARISTA104T1:
+    ARISTA48FT2:
       vlans:
         - 119
       vm_offset: 119
-    ARISTA105T1:
+    ARISTA49FT2:
       vlans:
         - 120
       vm_offset: 120
-    ARISTA106T1:
+    ARISTA50FT2:
       vlans:
         - 121
       vm_offset: 121
-    ARISTA107T1:
+    ARISTA51FT2:
       vlans:
         - 122
       vm_offset: 122
-    ARISTA108T1:
+    ARISTA52FT2:
       vlans:
         - 123
       vm_offset: 123
-    ARISTA109T1:
+    ARISTA53FT2:
       vlans:
         - 124
       vm_offset: 124
-    ARISTA110T1:
+    ARISTA54FT2:
       vlans:
         - 125
       vm_offset: 125
+    ARISTA55FT2:
+      vlans:
+        - 126
+      vm_offset: 126
+    ARISTA56FT2:
+      vlans:
+        - 127
+      vm_offset: 127
 
 configuration_properties:
   common:
-    dut_asn: 4200100000
+    dut_asn: 4200200000
+    dut_confed_asn: 4200100000
+    dut_confed_peers: "4200300000 4200400000"
     dut_type: LowerSpineRouter
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
@@ -520,6 +530,8 @@ configuration_properties:
     swrole: spine
   leaf:
     swrole: leaf
+  tor:
+    swrole: tor
 
 configuration:
   ARISTA01T1:
@@ -529,6 +541,7 @@ configuration:
     tornum: 1
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.0
@@ -552,6 +565,7 @@ configuration:
     tornum: 2
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.2
@@ -575,6 +589,7 @@ configuration:
     tornum: 3
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.4
@@ -598,6 +613,7 @@ configuration:
     tornum: 4
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.6
@@ -621,6 +637,7 @@ configuration:
     tornum: 5
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.8
@@ -644,6 +661,7 @@ configuration:
     tornum: 6
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.10
@@ -667,6 +685,7 @@ configuration:
     tornum: 7
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.12
@@ -690,6 +709,7 @@ configuration:
     tornum: 8
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.14
@@ -713,6 +733,7 @@ configuration:
     tornum: 9
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.16
@@ -736,6 +757,7 @@ configuration:
     tornum: 10
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.18
@@ -759,6 +781,7 @@ configuration:
     tornum: 11
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.20
@@ -782,6 +805,7 @@ configuration:
     tornum: 12
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.22
@@ -805,6 +829,7 @@ configuration:
     tornum: 13
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.24
@@ -828,6 +853,7 @@ configuration:
     tornum: 14
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.26
@@ -851,6 +877,7 @@ configuration:
     tornum: 15
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.28
@@ -874,6 +901,7 @@ configuration:
     tornum: 16
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.30
@@ -897,6 +925,7 @@ configuration:
     tornum: 17
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.32
@@ -920,6 +949,7 @@ configuration:
     tornum: 18
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.34
@@ -943,6 +973,7 @@ configuration:
     tornum: 19
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.36
@@ -966,6 +997,7 @@ configuration:
     tornum: 20
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.38
@@ -989,6 +1021,7 @@ configuration:
     tornum: 21
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.40
@@ -1012,6 +1045,7 @@ configuration:
     tornum: 22
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.42
@@ -1035,6 +1069,7 @@ configuration:
     tornum: 23
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.44
@@ -1058,6 +1093,7 @@ configuration:
     tornum: 24
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.46
@@ -1081,6 +1117,7 @@ configuration:
     tornum: 25
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.48
@@ -1104,6 +1141,7 @@ configuration:
     tornum: 26
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.50
@@ -1127,6 +1165,7 @@ configuration:
     tornum: 27
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.52
@@ -1150,6 +1189,7 @@ configuration:
     tornum: 28
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.54
@@ -1173,6 +1213,7 @@ configuration:
     tornum: 29
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.56
@@ -1196,6 +1237,7 @@ configuration:
     tornum: 30
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.58
@@ -1219,6 +1261,7 @@ configuration:
     tornum: 31
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.60
@@ -1242,6 +1285,7 @@ configuration:
     tornum: 32
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.62
@@ -1265,6 +1309,7 @@ configuration:
     tornum: 33
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.64
@@ -1288,6 +1333,7 @@ configuration:
     tornum: 34
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.66
@@ -1311,6 +1357,7 @@ configuration:
     tornum: 35
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.68
@@ -1334,6 +1381,7 @@ configuration:
     tornum: 36
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.70
@@ -1357,6 +1405,7 @@ configuration:
     tornum: 37
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.72
@@ -1380,6 +1429,7 @@ configuration:
     tornum: 38
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.74
@@ -1403,6 +1453,7 @@ configuration:
     tornum: 39
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.76
@@ -1426,6 +1477,7 @@ configuration:
     tornum: 40
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.78
@@ -1449,6 +1501,7 @@ configuration:
     tornum: 41
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.80
@@ -1472,6 +1525,7 @@ configuration:
     tornum: 42
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.82
@@ -1495,6 +1549,7 @@ configuration:
     tornum: 43
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.84
@@ -1518,6 +1573,7 @@ configuration:
     tornum: 44
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.86
@@ -1541,6 +1597,7 @@ configuration:
     tornum: 45
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.88
@@ -1564,6 +1621,7 @@ configuration:
     tornum: 46
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.90
@@ -1587,6 +1645,7 @@ configuration:
     tornum: 47
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.92
@@ -1610,6 +1669,7 @@ configuration:
     tornum: 48
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.94
@@ -1626,13 +1686,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.49/24
       ipv6: fc0a::31/64
-  ARISTA49T1:
+  ARISTA01T0:
     properties:
     - common
-    - leaf
-    tornum: 49
+    - tor
+    tornum: 1
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.96
@@ -1649,13 +1710,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.50/24
       ipv6: fc0a::32/64
-  ARISTA50T1:
+  ARISTA02T0:
     properties:
     - common
-    - leaf
-    tornum: 50
+    - tor
+    tornum: 2
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.98
@@ -1672,13 +1734,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.51/24
       ipv6: fc0a::33/64
-  ARISTA51T1:
+  ARISTA03T0:
     properties:
     - common
-    - leaf
-    tornum: 51
+    - tor
+    tornum: 3
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.100
@@ -1695,13 +1758,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.52/24
       ipv6: fc0a::34/64
-  ARISTA52T1:
+  ARISTA04T0:
     properties:
     - common
-    - leaf
-    tornum: 52
+    - tor
+    tornum: 4
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.102
@@ -1718,13 +1782,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.53/24
       ipv6: fc0a::35/64
-  ARISTA53T1:
+  ARISTA05T0:
     properties:
     - common
-    - leaf
-    tornum: 53
+    - tor
+    tornum: 5
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.104
@@ -1741,13 +1806,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.54/24
       ipv6: fc0a::36/64
-  ARISTA54T1:
+  ARISTA06T0:
     properties:
     - common
-    - leaf
-    tornum: 54
+    - tor
+    tornum: 6
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.106
@@ -1764,13 +1830,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.55/24
       ipv6: fc0a::37/64
-  ARISTA55T1:
+  ARISTA07T0:
     properties:
     - common
-    - leaf
-    tornum: 55
+    - tor
+    tornum: 7
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.108
@@ -1787,13 +1854,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.56/24
       ipv6: fc0a::38/64
-  ARISTA56T1:
+  ARISTA08T0:
     properties:
     - common
-    - leaf
-    tornum: 56
+    - tor
+    tornum: 8
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.110
@@ -1810,13 +1878,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.57/24
       ipv6: fc0a::39/64
-  ARISTA57T1:
+  ARISTA09T0:
     properties:
     - common
-    - leaf
-    tornum: 57
+    - tor
+    tornum: 9
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.112
@@ -1833,13 +1902,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.58/24
       ipv6: fc0a::3a/64
-  ARISTA58T1:
+  ARISTA10T0:
     properties:
     - common
-    - leaf
-    tornum: 58
+    - tor
+    tornum: 10
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.114
@@ -1856,13 +1926,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.59/24
       ipv6: fc0a::3b/64
-  ARISTA59T1:
+  ARISTA11T0:
     properties:
     - common
-    - leaf
-    tornum: 59
+    - tor
+    tornum: 11
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.116
@@ -1879,13 +1950,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.60/24
       ipv6: fc0a::3c/64
-  ARISTA60T1:
+  ARISTA12T0:
     properties:
     - common
-    - leaf
-    tornum: 60
+    - tor
+    tornum: 12
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.118
@@ -1902,13 +1974,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.61/24
       ipv6: fc0a::3d/64
-  ARISTA61T1:
+  ARISTA13T0:
     properties:
     - common
-    - leaf
-    tornum: 61
+    - tor
+    tornum: 13
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.120
@@ -1925,13 +1998,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.62/24
       ipv6: fc0a::3e/64
-  ARISTA62T1:
+  ARISTA14T0:
     properties:
     - common
-    - leaf
-    tornum: 62
+    - tor
+    tornum: 14
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.122
@@ -1948,13 +2022,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.63/24
       ipv6: fc0a::3f/64
-  ARISTA63T1:
+  ARISTA15T0:
     properties:
     - common
-    - leaf
-    tornum: 63
+    - tor
+    tornum: 15
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.124
@@ -1971,13 +2046,14 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.64/24
       ipv6: fc0a::40/64
-  ARISTA64T1:
+  ARISTA16T0:
     properties:
     - common
-    - leaf
-    tornum: 64
+    - tor
+    tornum: 16
     bgp:
       asn: 4200000000
+      peer_in_bgp_confed: true
       peers:
         4200100000:
           - 10.0.0.126
@@ -1994,15 +2070,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.65/24
       ipv6: fc0a::41/64
-  ARISTA65T1:
+  ARISTA01FT2:
     properties:
     - common
     - leaf
-    tornum: 65
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.128
           - fc00::101
     interfaces:
@@ -2010,22 +2087,21 @@ configuration:
         ipv4: 100.1.0.65/32
         ipv6: 2064:100:0:41::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.129/31
         ipv6: fc00::102/126
     bp_interface:
       ipv4: 10.10.246.66/24
       ipv6: fc0a::42/64
-  ARISTA66T1:
+  ARISTA02FT2:
     properties:
     - common
     - leaf
-    tornum: 66
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.130
           - fc00::105
     interfaces:
@@ -2033,22 +2109,21 @@ configuration:
         ipv4: 100.1.0.66/32
         ipv6: 2064:100:0:42::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.131/31
         ipv6: fc00::106/126
     bp_interface:
       ipv4: 10.10.246.67/24
       ipv6: fc0a::43/64
-  ARISTA67T1:
+  ARISTA03FT2:
     properties:
     - common
     - leaf
-    tornum: 67
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.132
           - fc00::109
     interfaces:
@@ -2056,22 +2131,21 @@ configuration:
         ipv4: 100.1.0.67/32
         ipv6: 2064:100:0:43::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.133/31
         ipv6: fc00::10a/126
     bp_interface:
       ipv4: 10.10.246.68/24
       ipv6: fc0a::44/64
-  ARISTA68T1:
+  ARISTA04FT2:
     properties:
     - common
     - leaf
-    tornum: 68
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.134
           - fc00::10d
     interfaces:
@@ -2079,22 +2153,21 @@ configuration:
         ipv4: 100.1.0.68/32
         ipv6: 2064:100:0:44::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.135/31
         ipv6: fc00::10e/126
     bp_interface:
       ipv4: 10.10.246.69/24
       ipv6: fc0a::45/64
-  ARISTA69T1:
+  ARISTA05FT2:
     properties:
     - common
     - leaf
-    tornum: 69
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.136
           - fc00::111
     interfaces:
@@ -2102,22 +2175,21 @@ configuration:
         ipv4: 100.1.0.69/32
         ipv6: 2064:100:0:45::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.137/31
         ipv6: fc00::112/126
     bp_interface:
       ipv4: 10.10.246.70/24
       ipv6: fc0a::46/64
-  ARISTA70T1:
+  ARISTA06FT2:
     properties:
     - common
     - leaf
-    tornum: 70
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.138
           - fc00::115
     interfaces:
@@ -2125,22 +2197,21 @@ configuration:
         ipv4: 100.1.0.70/32
         ipv6: 2064:100:0:46::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.139/31
         ipv6: fc00::116/126
     bp_interface:
       ipv4: 10.10.246.71/24
       ipv6: fc0a::47/64
-  ARISTA71T1:
+  ARISTA07FT2:
     properties:
     - common
     - leaf
-    tornum: 71
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.140
           - fc00::119
     interfaces:
@@ -2148,22 +2219,21 @@ configuration:
         ipv4: 100.1.0.71/32
         ipv6: 2064:100:0:47::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.141/31
         ipv6: fc00::11a/126
     bp_interface:
       ipv4: 10.10.246.72/24
       ipv6: fc0a::48/64
-  ARISTA72T1:
+  ARISTA08FT2:
     properties:
     - common
     - leaf
-    tornum: 72
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.142
           - fc00::11d
     interfaces:
@@ -2171,22 +2241,21 @@ configuration:
         ipv4: 100.1.0.72/32
         ipv6: 2064:100:0:48::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.143/31
         ipv6: fc00::11e/126
     bp_interface:
       ipv4: 10.10.246.73/24
       ipv6: fc0a::49/64
-  ARISTA73T1:
+  ARISTA09FT2:
     properties:
     - common
     - leaf
-    tornum: 73
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.144
           - fc00::121
     interfaces:
@@ -2194,22 +2263,21 @@ configuration:
         ipv4: 100.1.0.73/32
         ipv6: 2064:100:0:49::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.145/31
         ipv6: fc00::122/126
     bp_interface:
       ipv4: 10.10.246.74/24
       ipv6: fc0a::4a/64
-  ARISTA74T1:
+  ARISTA10FT2:
     properties:
     - common
     - leaf
-    tornum: 74
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.146
           - fc00::125
     interfaces:
@@ -2217,22 +2285,21 @@ configuration:
         ipv4: 100.1.0.74/32
         ipv6: 2064:100:0:4a::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.147/31
         ipv6: fc00::126/126
     bp_interface:
       ipv4: 10.10.246.75/24
       ipv6: fc0a::4b/64
-  ARISTA75T1:
+  ARISTA11FT2:
     properties:
     - common
     - leaf
-    tornum: 75
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.148
           - fc00::129
     interfaces:
@@ -2240,22 +2307,21 @@ configuration:
         ipv4: 100.1.0.75/32
         ipv6: 2064:100:0:4b::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.149/31
         ipv6: fc00::12a/126
     bp_interface:
       ipv4: 10.10.246.76/24
       ipv6: fc0a::4c/64
-  ARISTA76T1:
+  ARISTA12FT2:
     properties:
     - common
     - leaf
-    tornum: 76
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.150
           - fc00::12d
     interfaces:
@@ -2263,22 +2329,21 @@ configuration:
         ipv4: 100.1.0.76/32
         ipv6: 2064:100:0:4c::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.151/31
         ipv6: fc00::12e/126
     bp_interface:
       ipv4: 10.10.246.77/24
       ipv6: fc0a::4d/64
-  ARISTA77T1:
+  ARISTA13FT2:
     properties:
     - common
     - leaf
-    tornum: 77
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.152
           - fc00::131
     interfaces:
@@ -2286,22 +2351,21 @@ configuration:
         ipv4: 100.1.0.77/32
         ipv6: 2064:100:0:4d::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.153/31
         ipv6: fc00::132/126
     bp_interface:
       ipv4: 10.10.246.78/24
       ipv6: fc0a::4e/64
-  ARISTA78T1:
+  ARISTA14FT2:
     properties:
     - common
     - leaf
-    tornum: 78
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.154
           - fc00::135
     interfaces:
@@ -2309,22 +2373,21 @@ configuration:
         ipv4: 100.1.0.78/32
         ipv6: 2064:100:0:4e::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.155/31
         ipv6: fc00::136/126
     bp_interface:
       ipv4: 10.10.246.79/24
       ipv6: fc0a::4f/64
-  ARISTA79T1:
+  ARISTA15FT2:
     properties:
     - common
     - leaf
-    tornum: 79
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.156
           - fc00::139
     interfaces:
@@ -2332,22 +2395,21 @@ configuration:
         ipv4: 100.1.0.79/32
         ipv6: 2064:100:0:4f::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.157/31
         ipv6: fc00::13a/126
     bp_interface:
       ipv4: 10.10.246.80/24
       ipv6: fc0a::50/64
-  ARISTA80T1:
+  ARISTA16FT2:
     properties:
     - common
     - leaf
-    tornum: 80
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.158
           - fc00::13d
     interfaces:
@@ -2355,22 +2417,21 @@ configuration:
         ipv4: 100.1.0.80/32
         ipv6: 2064:100:0:50::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.159/31
         ipv6: fc00::13e/126
     bp_interface:
       ipv4: 10.10.246.81/24
       ipv6: fc0a::51/64
-  ARISTA81T1:
+  ARISTA17FT2:
     properties:
     - common
     - leaf
-    tornum: 81
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.160
           - fc00::141
     interfaces:
@@ -2378,22 +2439,21 @@ configuration:
         ipv4: 100.1.0.81/32
         ipv6: 2064:100:0:51::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.161/31
         ipv6: fc00::142/126
     bp_interface:
       ipv4: 10.10.246.82/24
       ipv6: fc0a::52/64
-  ARISTA82T1:
+  ARISTA18FT2:
     properties:
     - common
     - leaf
-    tornum: 82
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.162
           - fc00::145
     interfaces:
@@ -2401,22 +2461,21 @@ configuration:
         ipv4: 100.1.0.82/32
         ipv6: 2064:100:0:52::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.163/31
         ipv6: fc00::146/126
     bp_interface:
       ipv4: 10.10.246.83/24
       ipv6: fc0a::53/64
-  ARISTA83T1:
+  ARISTA19FT2:
     properties:
     - common
     - leaf
-    tornum: 83
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.164
           - fc00::149
     interfaces:
@@ -2424,22 +2483,21 @@ configuration:
         ipv4: 100.1.0.83/32
         ipv6: 2064:100:0:53::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.165/31
         ipv6: fc00::14a/126
     bp_interface:
       ipv4: 10.10.246.84/24
       ipv6: fc0a::54/64
-  ARISTA84T1:
+  ARISTA20FT2:
     properties:
     - common
     - leaf
-    tornum: 84
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.166
           - fc00::14d
     interfaces:
@@ -2447,22 +2505,21 @@ configuration:
         ipv4: 100.1.0.84/32
         ipv6: 2064:100:0:54::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.167/31
         ipv6: fc00::14e/126
     bp_interface:
       ipv4: 10.10.246.85/24
       ipv6: fc0a::55/64
-  ARISTA85T1:
+  ARISTA21FT2:
     properties:
     - common
     - leaf
-    tornum: 85
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.168
           - fc00::151
     interfaces:
@@ -2470,22 +2527,21 @@ configuration:
         ipv4: 100.1.0.85/32
         ipv6: 2064:100:0:55::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.169/31
         ipv6: fc00::152/126
     bp_interface:
       ipv4: 10.10.246.86/24
       ipv6: fc0a::56/64
-  ARISTA86T1:
+  ARISTA22FT2:
     properties:
     - common
     - leaf
-    tornum: 86
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.170
           - fc00::155
     interfaces:
@@ -2493,22 +2549,21 @@ configuration:
         ipv4: 100.1.0.86/32
         ipv6: 2064:100:0:56::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.171/31
         ipv6: fc00::156/126
     bp_interface:
       ipv4: 10.10.246.87/24
       ipv6: fc0a::57/64
-  ARISTA87T1:
+  ARISTA23FT2:
     properties:
     - common
     - leaf
-    tornum: 87
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.172
           - fc00::159
     interfaces:
@@ -2516,22 +2571,21 @@ configuration:
         ipv4: 100.1.0.87/32
         ipv6: 2064:100:0:57::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.173/31
         ipv6: fc00::15a/126
     bp_interface:
       ipv4: 10.10.246.88/24
       ipv6: fc0a::58/64
-  ARISTA88T1:
+  ARISTA24FT2:
     properties:
     - common
     - leaf
-    tornum: 88
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.174
           - fc00::15d
     interfaces:
@@ -2539,22 +2593,21 @@ configuration:
         ipv4: 100.1.0.88/32
         ipv6: 2064:100:0:58::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.175/31
         ipv6: fc00::15e/126
     bp_interface:
       ipv4: 10.10.246.89/24
       ipv6: fc0a::59/64
-  ARISTA89T1:
+  ARISTA25FT2:
     properties:
     - common
     - leaf
-    tornum: 89
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.176
           - fc00::161
     interfaces:
@@ -2562,22 +2615,21 @@ configuration:
         ipv4: 100.1.0.89/32
         ipv6: 2064:100:0:59::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.177/31
         ipv6: fc00::162/126
     bp_interface:
       ipv4: 10.10.246.90/24
       ipv6: fc0a::5a/64
-  ARISTA90T1:
+  ARISTA26FT2:
     properties:
     - common
     - leaf
-    tornum: 90
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.178
           - fc00::165
     interfaces:
@@ -2585,8 +2637,6 @@ configuration:
         ipv4: 100.1.0.90/32
         ipv6: 2064:100:0:5a::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.179/31
         ipv6: fc00::166/126
     bp_interface:
@@ -2597,9 +2647,11 @@ configuration:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      asn: 4200400000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.180
           - fc00::169
     interfaces:
@@ -2617,9 +2669,11 @@ configuration:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      asn: 4200400000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.182
           - fc00::16d
     interfaces:
@@ -2637,9 +2691,11 @@ configuration:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      asn: 4200400000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.184
           - fc00::171
     interfaces:
@@ -2657,9 +2713,11 @@ configuration:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      asn: 4200400000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.186
           - fc00::175
     interfaces:
@@ -2672,14 +2730,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.95/24
       ipv6: fc0a::5f/64
-  ARISTA05UT2:
+  ARISTA27FT2:
     properties:
     - common
-    - spine
+    - leaf
     bgp:
-      asn: 4200200000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.188
           - fc00::179
     interfaces:
@@ -2692,14 +2752,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.96/24
       ipv6: fc0a::60/64
-  ARISTA06UT2:
+  ARISTA28FT2:
     properties:
     - common
-    - spine
+    - leaf
     bgp:
-      asn: 4200200000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.190
           - fc00::17d
     interfaces:
@@ -2712,14 +2774,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.97/24
       ipv6: fc0a::61/64
-  ARISTA07UT2:
+  ARISTA29FT2:
     properties:
     - common
-    - spine
+    - leaf
     bgp:
-      asn: 4200200000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.192
           - fc00::181
     interfaces:
@@ -2732,14 +2796,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.98/24
       ipv6: fc0a::62/64
-  ARISTA08UT2:
+  ARISTA30FT2:
     properties:
     - common
-    - spine
+    - leaf
     bgp:
-      asn: 4200200000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.194
           - fc00::185
     interfaces:
@@ -2752,14 +2818,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.99/24
       ipv6: fc0a::63/64
-  ARISTA09UT2:
+  ARISTA05UT2:
     properties:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      asn: 4200400000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.196
           - fc00::189
     interfaces:
@@ -2772,14 +2840,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.100/24
       ipv6: fc0a::64/64
-  ARISTA10UT2:
+  ARISTA06UT2:
     properties:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      asn: 4200400000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.198
           - fc00::18d
     interfaces:
@@ -2792,14 +2862,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.101/24
       ipv6: fc0a::65/64
-  ARISTA11UT2:
+  ARISTA07UT2:
     properties:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      asn: 4200400000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.200
           - fc00::191
     interfaces:
@@ -2812,14 +2884,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.102/24
       ipv6: fc0a::66/64
-  ARISTA12UT2:
+  ARISTA08UT2:
     properties:
     - common
     - spine
     bgp:
-      asn: 4200200000
+      asn: 4200400000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200300000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.202
           - fc00::195
     interfaces:
@@ -2832,14 +2906,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.103/24
       ipv6: fc0a::67/64
-  ARISTA13UT2:
+  ARISTA31FT2:
     properties:
     - common
-    - spine
+    - leaf
     bgp:
-      asn: 4200200000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.204
           - fc00::199
     interfaces:
@@ -2852,14 +2928,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.104/24
       ipv6: fc0a::68/64
-  ARISTA14UT2:
+  ARISTA32FT2:
     properties:
     - common
-    - spine
+    - leaf
     bgp:
-      asn: 4200200000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.206
           - fc00::19d
     interfaces:
@@ -2872,14 +2950,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.105/24
       ipv6: fc0a::69/64
-  ARISTA15UT2:
+  ARISTA33FT2:
     properties:
     - common
-    - spine
+    - leaf
     bgp:
-      asn: 4200200000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.208
           - fc00::1a1
     interfaces:
@@ -2892,14 +2972,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.106/24
       ipv6: fc0a::6a/64
-  ARISTA16UT2:
+  ARISTA34FT2:
     properties:
     - common
-    - spine
+    - leaf
     bgp:
-      asn: 4200200000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.210
           - fc00::1a5
     interfaces:
@@ -2912,15 +2994,16 @@ configuration:
     bp_interface:
       ipv4: 10.10.246.107/24
       ipv6: fc0a::6b/64
-  ARISTA91T1:
+  ARISTA35FT2:
     properties:
     - common
     - leaf
-    tornum: 91
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.212
           - fc00::1a9
     interfaces:
@@ -2928,22 +3011,21 @@ configuration:
         ipv4: 100.1.0.107/32
         ipv6: 2064:100:0:6b::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.213/31
         ipv6: fc00::1aa/126
     bp_interface:
       ipv4: 10.10.246.108/24
       ipv6: fc0a::6c/64
-  ARISTA92T1:
+  ARISTA36FT2:
     properties:
     - common
     - leaf
-    tornum: 92
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.214
           - fc00::1ad
     interfaces:
@@ -2951,22 +3033,21 @@ configuration:
         ipv4: 100.1.0.108/32
         ipv6: 2064:100:0:6c::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.215/31
         ipv6: fc00::1ae/126
     bp_interface:
       ipv4: 10.10.246.109/24
       ipv6: fc0a::6d/64
-  ARISTA93T1:
+  ARISTA37FT2:
     properties:
     - common
     - leaf
-    tornum: 93
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.216
           - fc00::1b1
     interfaces:
@@ -2974,22 +3055,21 @@ configuration:
         ipv4: 100.1.0.109/32
         ipv6: 2064:100:0:6d::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.217/31
         ipv6: fc00::1b2/126
     bp_interface:
       ipv4: 10.10.246.110/24
       ipv6: fc0a::6e/64
-  ARISTA94T1:
+  ARISTA38FT2:
     properties:
     - common
     - leaf
-    tornum: 94
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.218
           - fc00::1b5
     interfaces:
@@ -2997,22 +3077,21 @@ configuration:
         ipv4: 100.1.0.110/32
         ipv6: 2064:100:0:6e::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.219/31
         ipv6: fc00::1b6/126
     bp_interface:
       ipv4: 10.10.246.111/24
       ipv6: fc0a::6f/64
-  ARISTA95T1:
+  ARISTA39FT2:
     properties:
     - common
     - leaf
-    tornum: 95
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.220
           - fc00::1b9
     interfaces:
@@ -3020,22 +3099,21 @@ configuration:
         ipv4: 100.1.0.111/32
         ipv6: 2064:100:0:6f::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.221/31
         ipv6: fc00::1ba/126
     bp_interface:
       ipv4: 10.10.246.112/24
       ipv6: fc0a::70/64
-  ARISTA96T1:
+  ARISTA40FT2:
     properties:
     - common
     - leaf
-    tornum: 96
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.222
           - fc00::1bd
     interfaces:
@@ -3043,22 +3121,21 @@ configuration:
         ipv4: 100.1.0.112/32
         ipv6: 2064:100:0:70::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.223/31
         ipv6: fc00::1be/126
     bp_interface:
       ipv4: 10.10.246.113/24
       ipv6: fc0a::71/64
-  ARISTA97T1:
+  ARISTA41FT2:
     properties:
     - common
     - leaf
-    tornum: 97
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.224
           - fc00::1c1
     interfaces:
@@ -3066,22 +3143,21 @@ configuration:
         ipv4: 100.1.0.113/32
         ipv6: 2064:100:0:71::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.225/31
         ipv6: fc00::1c2/126
     bp_interface:
       ipv4: 10.10.246.114/24
       ipv6: fc0a::72/64
-  ARISTA98T1:
+  ARISTA42FT2:
     properties:
     - common
     - leaf
-    tornum: 98
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.226
           - fc00::1c5
     interfaces:
@@ -3089,22 +3165,21 @@ configuration:
         ipv4: 100.1.0.114/32
         ipv6: 2064:100:0:72::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.227/31
         ipv6: fc00::1c6/126
     bp_interface:
       ipv4: 10.10.246.115/24
       ipv6: fc0a::73/64
-  ARISTA99T1:
+  ARISTA43FT2:
     properties:
     - common
     - leaf
-    tornum: 99
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.228
           - fc00::1c9
     interfaces:
@@ -3112,22 +3187,21 @@ configuration:
         ipv4: 100.1.0.115/32
         ipv6: 2064:100:0:73::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.229/31
         ipv6: fc00::1ca/126
     bp_interface:
       ipv4: 10.10.246.116/24
       ipv6: fc0a::74/64
-  ARISTA100T1:
+  ARISTA44FT2:
     properties:
     - common
     - leaf
-    tornum: 100
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.230
           - fc00::1cd
     interfaces:
@@ -3135,22 +3209,21 @@ configuration:
         ipv4: 100.1.0.116/32
         ipv6: 2064:100:0:74::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.231/31
         ipv6: fc00::1ce/126
     bp_interface:
       ipv4: 10.10.246.117/24
       ipv6: fc0a::75/64
-  ARISTA101T1:
+  ARISTA45FT2:
     properties:
     - common
     - leaf
-    tornum: 101
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.232
           - fc00::1d1
     interfaces:
@@ -3158,22 +3231,21 @@ configuration:
         ipv4: 100.1.0.117/32
         ipv6: 2064:100:0:75::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.233/31
         ipv6: fc00::1d2/126
     bp_interface:
       ipv4: 10.10.246.118/24
       ipv6: fc0a::76/64
-  ARISTA102T1:
+  ARISTA46FT2:
     properties:
     - common
     - leaf
-    tornum: 102
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.234
           - fc00::1d5
     interfaces:
@@ -3181,22 +3253,21 @@ configuration:
         ipv4: 100.1.0.118/32
         ipv6: 2064:100:0:76::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.235/31
         ipv6: fc00::1d6/126
     bp_interface:
       ipv4: 10.10.246.119/24
       ipv6: fc0a::77/64
-  ARISTA103T1:
+  ARISTA47FT2:
     properties:
     - common
     - leaf
-    tornum: 103
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.236
           - fc00::1d9
     interfaces:
@@ -3204,22 +3275,21 @@ configuration:
         ipv4: 100.1.0.119/32
         ipv6: 2064:100:0:77::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.237/31
         ipv6: fc00::1da/126
     bp_interface:
       ipv4: 10.10.246.120/24
       ipv6: fc0a::78/64
-  ARISTA104T1:
+  ARISTA48FT2:
     properties:
     - common
     - leaf
-    tornum: 104
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.238
           - fc00::1dd
     interfaces:
@@ -3227,22 +3297,21 @@ configuration:
         ipv4: 100.1.0.120/32
         ipv6: 2064:100:0:78::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.239/31
         ipv6: fc00::1de/126
     bp_interface:
       ipv4: 10.10.246.121/24
       ipv6: fc0a::79/64
-  ARISTA105T1:
+  ARISTA49FT2:
     properties:
     - common
     - leaf
-    tornum: 105
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.240
           - fc00::1e1
     interfaces:
@@ -3250,22 +3319,21 @@ configuration:
         ipv4: 100.1.0.121/32
         ipv6: 2064:100:0:79::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.241/31
         ipv6: fc00::1e2/126
     bp_interface:
       ipv4: 10.10.246.122/24
       ipv6: fc0a::7a/64
-  ARISTA106T1:
+  ARISTA50FT2:
     properties:
     - common
     - leaf
-    tornum: 106
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.242
           - fc00::1e5
     interfaces:
@@ -3273,22 +3341,21 @@ configuration:
         ipv4: 100.1.0.122/32
         ipv6: 2064:100:0:7a::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.243/31
         ipv6: fc00::1e6/126
     bp_interface:
       ipv4: 10.10.246.123/24
       ipv6: fc0a::7b/64
-  ARISTA107T1:
+  ARISTA51FT2:
     properties:
     - common
     - leaf
-    tornum: 107
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.244
           - fc00::1e9
     interfaces:
@@ -3296,22 +3363,21 @@ configuration:
         ipv4: 100.1.0.123/32
         ipv6: 2064:100:0:7b::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.245/31
         ipv6: fc00::1ea/126
     bp_interface:
       ipv4: 10.10.246.124/24
       ipv6: fc0a::7c/64
-  ARISTA108T1:
+  ARISTA52FT2:
     properties:
     - common
     - leaf
-    tornum: 108
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.246
           - fc00::1ed
     interfaces:
@@ -3319,22 +3385,21 @@ configuration:
         ipv4: 100.1.0.124/32
         ipv6: 2064:100:0:7c::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.247/31
         ipv6: fc00::1ee/126
     bp_interface:
       ipv4: 10.10.246.125/24
       ipv6: fc0a::7d/64
-  ARISTA109T1:
+  ARISTA53FT2:
     properties:
     - common
     - leaf
-    tornum: 109
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.248
           - fc00::1f1
     interfaces:
@@ -3342,22 +3407,21 @@ configuration:
         ipv4: 100.1.0.125/32
         ipv6: 2064:100:0:7d::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.249/31
         ipv6: fc00::1f2/126
     bp_interface:
       ipv4: 10.10.246.126/24
       ipv6: fc0a::7e/64
-  ARISTA110T1:
+  ARISTA54FT2:
     properties:
     - common
     - leaf
-    tornum: 110
     bgp:
-      asn: 4200000000
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
       peers:
-        4200100000:
+        4200200000:
           - 10.0.0.250
           - fc00::1f5
     interfaces:
@@ -3365,10 +3429,52 @@ configuration:
         ipv4: 100.1.0.126/32
         ipv6: 2064:100:0:7e::/128
       Ethernet1:
-        lacp: 1
-      Port-Channel1:
         ipv4: 10.0.0.251/31
         ipv6: fc00::1f6/126
     bp_interface:
       ipv4: 10.10.246.127/24
       ipv6: fc0a::7f/64
+  ARISTA55FT2:
+    properties:
+    - common
+    - leaf
+    bgp:
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      peers:
+        4200200000:
+          - 10.0.0.252
+          - fc00::1f9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.127/32
+        ipv6: 2064:100:0:7f::/128
+      Ethernet1:
+        ipv4: 10.0.0.253/31
+        ipv6: fc00::1fa/126
+    bp_interface:
+      ipv4: 10.10.246.128/24
+      ipv6: fc0a::80/64
+  ARISTA56FT2:
+    properties:
+    - common
+    - leaf
+    bgp:
+      asn: 4200300000
+      confed_asn: 4200100000
+      confed_peers: "4200200000,4200400000"
+      peers:
+        4200200000:
+          - 10.0.0.254
+          - fc00::1fd
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.128/32
+        ipv6: 2064:100:0:80::/128
+      Ethernet1:
+        ipv4: 10.0.0.255/31
+        ipv6: fc00::1fe/126
+    bp_interface:
+      ipv4: 10.10.246.129/24
+      ipv6: fc0a::81/64

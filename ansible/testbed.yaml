@@ -2993,22 +2993,6 @@
   auto_recover: 'True'
   comment: tbtk5-t1-8101-2
 
-- conf-name: tbtk5-dualtor-4600-1
-  group-name: tk5-7-3
-  topo: dualtor-64
-  ptf_image_name: docker-ptf
-  ptf: ptf7-3
-  ptf_ip: 10.212.65.93/24
-  ptf_ipv6: 2603:10e2:140:3000::11d/122
-  server: server_tk5_7
-  vm_base: VM80072
-  dut:
-  - strtk5-4600c-07
-  - strtk5-4600c-08
-  inv_name: strtk5
-  auto_recover: 'True'
-  comment: tbtk5-dualtor-4600-1
-
 - conf-name: testbed-bjw-can-t0-7260-11
   group-name: bjw13-5
   topo: t0-118
@@ -5791,3 +5775,18 @@
   inv_name: str
   auto_recover: 'True'
   comment: v-shankam
+
+- conf-name: tbtk5-lt2-7060x6-1
+  group-name: tk5-7-3
+  topo: lt2-o128
+  ptf_image_name: docker-ptf
+  ptf: ptf7-3
+  ptf_ip: 10.212.65.93/24
+  ptf_ipv6: 2603:10e2:140:3000::11d/122
+  server: server_tk5_7
+  vm_base: VM80100
+  dut:
+  - strtk5-7060x6-512-01
+  inv_name: strtk5
+  auto_recover: 'True'
+  comment: austinpham

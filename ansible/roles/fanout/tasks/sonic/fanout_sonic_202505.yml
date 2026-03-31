@@ -177,6 +177,7 @@
   - name: Remove ipv6 parameter
     lineinfile:
       path: /etc/sysctl.conf
+      create: yes
       line: 'net.ipv6.conf.all.disable_ipv6 = 0'
       state: absent
     become: yes
@@ -184,6 +185,7 @@
   - name: Update IPv6 parameter
     lineinfile:
       path: /etc/sysctl.conf
+      create: yes
       line: 'net.ipv6.conf.all.disable_ipv6 = 1'
       state: present
     become: yes

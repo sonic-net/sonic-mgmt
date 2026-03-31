@@ -319,9 +319,6 @@ fanout:
     strtk5-7260-fanout-32:
       ansible_host: 10.212.69.156
       ansible_hostv6: 2603:10e2:140:3000::dc
-    strtk5-7260-fanout-33:
-      ansible_host: 10.212.69.157
-      ansible_hostv6: 2603:10e2:140:3000::dd
     strtk5-7260-fanout-34:
       ansible_host: 10.212.70.2
       ansible_hostv6: 2603:10e2:140:3000::1c2
@@ -363,6 +360,9 @@ fanout:
     strtk5-z9332f-fanout-06:
       ansible_host: 10.212.70.27
       os: sonic
+    strtk5-7060x6-512-fanout-01:
+      ansible_host: 10.212.70.11
+      os: sonic
 
 sonic:
   vars:
@@ -391,6 +391,7 @@ sonic:
     sonic_cisco_lc_400G:
     sonic_cisco_sup:
     sonic_arista_7050:
+    sonic_arista_7060:
 
 sonic_arista_40:
   hosts:
@@ -1064,42 +1065,6 @@ sonic_mlnx_4600C:
         "0x2A": "254"
         "0x2B": "Mellanox"
         "0xFE": "0x35984B80"
-    strtk5-4600c-07:
-      ansible_host: 10.212.70.10
-      ansible_hostv6: 2603:10e2:140:3000::1ca
-      model: MSN4600-CS2ROS
-      serial: MT2207X25064
-      base_mac: 90:0A:84:11:96:00
-      syseeprom_info:
-        "0x21": "MSN4600C"
-        "0x22": "MSN4600-CS2ROS"
-        "0x23": "MT2207X25064"
-        "0x24": "90:0A:84:11:96:00"
-        "0x25": "02/20/2022 19:38:59"
-        "0x26": "0"
-        "0x28": "x86_64-mlnx_msn4600C-r0"
-        "0x29": "2020.11-5.3.0005-115200"
-        "0x2A": "254"
-        "0x2B": "Mellanox"
-        "0xFE": "0xC03AD379"
-    strtk5-4600c-08:
-      ansible_host: 10.212.70.11
-      ansible_hostv6: 2603:10e2:140:3000::1cb
-      model: MSN4600-CS2ROS
-      serial: MT2115X26255
-      base_mac: 1C:34:DA:BB:8C:00
-      syseeprom_info:
-        "0x21": "MSN4600C"
-        "0x22": "MSN4600-CS2ROS"
-        "0x23": "MT2115X26255"
-        "0x24": "1C:34:DA:BB:8C:00"
-        "0x25": "04/21/2021 19:31:12"
-        "0x26": "0"
-        "0x28": "x86_64-mlnx_msn4600C-r0"
-        "0x29": "2019.11-5.2.0020-9600"
-        "0x2A": "254"
-        "0x2B": "Mellanox"
-        "0xFE": "0x6FD3FEB1"
 
 sonic_arista_7800_sup:
   vars:
@@ -1767,3 +1732,27 @@ sonic_arista_7050:
         '0x2f': 'JPN2426P03J'
         '0xfe': '0xdeadbeef'
       msft_an_enabled: True
+
+sonic_arista_7060:
+  vars:
+    hwsku: Arista-7060X6-64PE-O128
+    iface_speed: 400000
+  hosts:
+    strtk5-7060x6-512-01:
+      ansible_host: 10.212.70.10
+      ansible_hostv6: 2603:10e2:140:3000::ad4:460a
+      model: DCS-7060X6-64PE-B
+      serial: HBG254712XL
+      base_mac: 8c:01:9d:c7:d9:e1
+      syseeprom_info:
+        '0x21': 'DCS-7060X6-64PE-B'
+        '0x22': 'SY0899401B0'
+        '0x23': 'HBG254712XL'
+        '0x24': '8c:01:9d:c7:d9:e1'
+        '0x25': '2025/11/28 18:28:05'
+        '0x26': '01'
+        '0x27': '02.00'
+        '0x28': 'x86_64-arista_7060x6_64pe_b'
+        '0x2A': '0xffff'
+        '0x2B': 'Arista Networks'
+        '0x2F': 'HBG254712XL'
