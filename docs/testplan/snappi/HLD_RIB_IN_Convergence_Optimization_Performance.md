@@ -13,7 +13,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
   - **Orchagent bulk/batch pair** (e.g. `-b` / `-k` from `bk_values.json`)
   - **Route type** (IPv4, IPv6, IPv4v6)
 - **Clean state**: Each test applies profile + b/k, reboots, runs the convergence test, then reverts config and orchagent so the next parameterized run starts from a known state.
-- **Memory observability**: A fixture-based variant allows memory utilization plugin to capture before/after on the same boot for meaningful delta.
+- **Memory observability**: The memory-utilization is disabled for this test using pytest.marker functionality.
 
 ---
 
@@ -32,7 +32,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 
 ### 2.2 Out of Scope
 
-- RIB capacity tests, outbound convergence, or other BGP tests not part of this combo flow.
+- RIB capacity tests, outbound convergence, or other BGP tests not part of this test.
 - Changes to Snappi API or testbed topology definition (assumed existing).
 - Definition of new fine-tuning knobs beyond what is already in DEVICE_METADATA / orchagent.
 
@@ -81,7 +81,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 
 ### 4.1 Topology
 
-- **Mark**: `pytest.mark.topology('tgen')`
+- **Mark**: `pytest.mark.topology('tgen')` and `pytest.mark.disable_memory_utilization`.
 - **Logical**: TGEN1  DUT  TGEN(2..N); multipath = 1; number_of_routes = 250,000.
 - **Route types**: IPv4, IPv6, or IPv4v6 (e.g. 125K v4 + 125K v6 for IPv4v6).
 - **pytest-skip**: skip for single DUT multi-asic setup.
@@ -102,8 +102,10 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 - **profile_name**: From `fine-tunings.yml` (each key with a DEVICE_METADATA section).
 - **bulk_value, batch_value**: One pair per test from `bk_values.json` | `pairs` (e.g. `["default","default"]`, `[5000,5200]`, `[10000,10500]`, ).
 - **route_type**: `IPv4` | `IPv6` | `IPv4v6`.
+- **NUMBER_OF_ROUTES**: `250000`.
+- **MULTIPATH**: `1`
 
-Total cases = |profiles| × |pairs| × 3 (route types).
+Total cases = |profiles| × |pairs| × 3 (route types) x |NUMBER_OF_ROUTES| x |MULTIPATH|
 
 ---
 
@@ -184,7 +186,7 @@ The **tgen_ports output format is unchanged** in both code paths so downstream c
 
 ## 7. Test Enhancements
 
-- **Utilization**: Test case monitors the various processes but has increased the memory thresholds for certain processes to display the utilization. The testcase will monitor the processes after each iteration, before the reload/reboot to avoid false-positives.
+- **Choice of pre-configured DUT vs dynamic configuration**: Test case uses flag to choose between static config present on DUT vs dynamic configuration of portchannels and BGP on the DUT.
 - **Addition of IPv4v6 Routes**: 'create_v4v6_topo' is added in the helper file to test withdrawal of IPv4v6 routes.
 
 ---
@@ -251,6 +253,8 @@ The RIB-IN optimization and performance tests provide a parameterized framework 
 
 - **Profiles** (DEVICE_METADATA from fine-tunings.yml),
 - **Orchagent tuning** (bulk/batch pairs from bk_values.json),
-- **Route type** (IPv4, IPv6, IPv4v6).
+- **Route type** (IPv4, IPv6, IPv4v6),
+- **MULTIPATH** (1),
+- **NUMBER_OF_ROUTES** (250000).
 
 Each test applies a single (profile, bulk, batch, route_type), reboots the DUT, runs the convergence scenario once, then reverts config and orchagent. There is fixture-based setup/revert to include memory delta analysis on the same boot. The **`--bgp_pc_config`** option (Section 6) allows using preconfigured port-channels and BGP on the testbed via port data from config_db and skipping DUT BGP configuration in the helper.
