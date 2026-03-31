@@ -573,7 +573,8 @@ def test_mgmt_interface_stress_flap_console(
     duthosts,
     enum_supervisor_dut_hostname,
     localhost,
-    ensure_mgmt_port_noshut):
+    ensure_mgmt_port_noshut,
+):
     """
     Test stress management port flaps (10 iterations) using console commands
 
