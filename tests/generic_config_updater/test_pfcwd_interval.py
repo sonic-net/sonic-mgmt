@@ -139,7 +139,7 @@ def get_detection_restoration_times(duthost, ip_netns_namespace_prefix, cli_name
 
             return int(detection_time), int(restoration_time)
 
-    pytest_assert(True, "Failed to read detection_time and/or restoration time")
+    pytest_assert(False, "Failed to read detection_time and/or restoration time")
 
 
 def get_new_interval(duthost, is_valid, ip_netns_namespace_prefix, cli_namespace_prefix):
