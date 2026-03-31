@@ -82,7 +82,11 @@ devices:
       router bgp 7000
        neighbor 43.216.11.10 remote-as 6001
        address-family ipv4 unicast
+       neighbor 43.216.12.10 remote-as 6001
+       address-family ipv4 unicast
        neighbor 43.216.21.10 remote-as 6002
+       address-family ipv4 unicast
+       neighbor 43.216.22.10 remote-as 6002
        address-family ipv4 unicast
 
   L0: &switch

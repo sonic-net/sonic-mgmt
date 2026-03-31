@@ -61,11 +61,11 @@ IPSLA=true       # Enable IpSla tests.
 SB_PEER=true     # Add southbound peers.
 SB_SPINE=true    # Use spine as southbound peer.
 DSCP="no-dscp"   # Enable DSCP/QoS tests.
-SCALE_VLANS=10   # Number of host Vlans to be added.
-SCALE_VNIS=10    # Number of VNIs to be added for scale testing.
+SCALE_VLANS=8    # Number of host Vlans to be added.
+SCALE_VNIS=8     # Number of VNIs to be added for scale testing.
 SCALE_PCS=5      # Number of PortChannels to be added for scale testing.
-SCALE_SUBINFS=2  # Number of host/switch routed sub-interfaces.
-SCALE_ROUTES=10  # Number of FRR routes (Loopback IP + Static routes).
+SCALE_SUBINFS=8  # Number of host/switch routed sub-interfaces.
+SCALE_ROUTES=8   # Number of FRR routes (Loopback IP + Static routes).
 
 # Test ports.
 STP_PORT1="Ethernet1_16"
@@ -238,10 +238,12 @@ elif [[ ${LENGTH} -gt 2 ]]; then
   V6HOST=host9
   V6LEAF=leaf2
 fi
-PYVXR_PORTS="${PYVXR_PORTS},${V6LEAF}|${SUBINF_PORT}#50.50.50.1/28#5000::1/112#Vrf40000"
-PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|ipv6-nb#5000#*#${V6HOST}@50.50.50.2/28@5000::2/112@eth1#${V6LEAF}|5000::2/128#5500|${V6LEAF}#${SUBINF_PORT}"
-PYVXR_ROUTES="${PYVXR_ROUTES},*#${V6HOST}|fc00:dead:face::0/96#5000::1"
-PYVXR_IPS="50.50.50.2#5000::2"
+
+# Add second northbound BGP peer with IPv6 address family. This peer uses default BGP policies.
+PYVXR_PORTS="${PYVXR_PORTS},${V6LEAF}|${SUBINF_PORT}#50.50.50.1/28#5000::0/127#Vrf40000"
+PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|ipv6-nb#5000#*#${V6HOST}@50.50.50.2/28@5000::1/127@eth1#${V6LEAF}|5000::1/128#5500|${V6LEAF}#${SUBINF_PORT}"
+PYVXR_ROUTES="${PYVXR_ROUTES},*#${V6HOST}|fc00:dead:face::0/96#5000::0"
+PYVXR_IPS="50.50.50.2#5000::1/127"
 
 # We use leaf0 Loopback for southbound peering when spine based peering is disabled.
 SB_ANNOTATIONS="host1@41.216.1.2#leaf0"
@@ -315,9 +317,9 @@ else
 fi
 
 # Set up DHCP relay configs. DHCP server is on the fourth host of leaf0.
-# Fourth host has an untagged Vlan 40. Vrf40000 has a Loopback with 41.216.230.1 as IP.
+# Fourth host has an untagged Vlan 40. Vrf40000 has a Loopback with 41.217.217.0/24 as IP.
 if [[ "${DHCP}" == "vlan" ]]; then
-  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20#40|41.216.230.0/24#7000::2:0/112"
+  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20#40|41.217.217.0/24#7000::2:0/112"
   PYVXR_DHCPS="Vrf40000|relay-20|41.216.3.2|20"
 
   # Extend Vlan of DHCP relay to all leaves.
@@ -328,9 +330,9 @@ if [[ "${DHCP}" == "vlan" ]]; then
     HOST_SPECS="${HOST_SPECS},dummy/eth1|leaf2|none|40|false"
   fi
 elif [[ "${DHCP}" == "port" ]]; then
-  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20|41.216.230.0/24#7000::2:0/112"
+  PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20|41.217.217.0/24#7000::2:0/112"
   PYVXR_DHCPS="Vrf40000|relay-20|41.216.3.2|20"
-  PYVXR_PORTS="${PYVXR_PORTS},leaf0|${DHCP_PORT}#41.216.3.1/24#dead:face::3:1/112#Vrf40000"
+  PYVXR_PORTS="${PYVXR_PORTS},leaf0|${DHCP_PORT}#41.216.3.1/24#fc00:dead:face::3:1/112#Vrf40000"
 fi
 
 if [[ -z "${PYVXR_VRFS}" ]]; then
