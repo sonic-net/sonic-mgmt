@@ -524,7 +524,7 @@ topology:
 configuration_properties:
   common:
     dut_asn: 4200200000
-    dut_type: SpineRouter
+    dut_type: BackEndSpineRouter
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
     podset_number: 400
