@@ -1,264 +1,524 @@
 topology:
   VMs:
     ARISTA01T1:
+      vlans:
+        - 0
       vm_offset: 0
     ARISTA02T1:
+      vlans:
+        - 1
       vm_offset: 1
     ARISTA03T1:
+      vlans:
+        - 2
       vm_offset: 2
     ARISTA04T1:
+      vlans:
+        - 3
       vm_offset: 3
     ARISTA05T1:
+      vlans:
+        - 4
       vm_offset: 4
     ARISTA06T1:
+      vlans:
+        - 5
       vm_offset: 5
     ARISTA07T1:
+      vlans:
+        - 6
       vm_offset: 6
     ARISTA08T1:
+      vlans:
+        - 7
       vm_offset: 7
     ARISTA09T1:
+      vlans:
+        - 8
       vm_offset: 8
     ARISTA10T1:
+      vlans:
+        - 9
       vm_offset: 9
     ARISTA11T1:
+      vlans:
+        - 10
       vm_offset: 10
     ARISTA12T1:
+      vlans:
+        - 11
       vm_offset: 11
     ARISTA13T1:
+      vlans:
+        - 12
       vm_offset: 12
     ARISTA14T1:
+      vlans:
+        - 13
       vm_offset: 13
     ARISTA15T1:
+      vlans:
+        - 14
       vm_offset: 14
     ARISTA16T1:
+      vlans:
+        - 15
       vm_offset: 15
     ARISTA17T1:
+      vlans:
+        - 16
       vm_offset: 16
     ARISTA18T1:
+      vlans:
+        - 17
       vm_offset: 17
     ARISTA19T1:
+      vlans:
+        - 18
       vm_offset: 18
     ARISTA20T1:
+      vlans:
+        - 19
       vm_offset: 19
     ARISTA21T1:
+      vlans:
+        - 20
       vm_offset: 20
     ARISTA22T1:
+      vlans:
+        - 21
       vm_offset: 21
     ARISTA23T1:
+      vlans:
+        - 22
       vm_offset: 22
     ARISTA24T1:
+      vlans:
+        - 23
       vm_offset: 23
     ARISTA25T1:
+      vlans:
+        - 24
       vm_offset: 24
     ARISTA26T1:
+      vlans:
+        - 25
       vm_offset: 25
     ARISTA27T1:
+      vlans:
+        - 26
       vm_offset: 26
     ARISTA28T1:
+      vlans:
+        - 27
       vm_offset: 27
     ARISTA29T1:
+      vlans:
+        - 28
       vm_offset: 28
     ARISTA30T1:
+      vlans:
+        - 29
       vm_offset: 29
     ARISTA31T1:
+      vlans:
+        - 30
       vm_offset: 30
     ARISTA32T1:
+      vlans:
+        - 31
       vm_offset: 31
     ARISTA33T1:
+      vlans:
+        - 32
       vm_offset: 32
     ARISTA34T1:
+      vlans:
+        - 33
       vm_offset: 33
     ARISTA35T1:
+      vlans:
+        - 34
       vm_offset: 34
     ARISTA36T1:
+      vlans:
+        - 35
       vm_offset: 35
     ARISTA37T1:
+      vlans:
+        - 36
       vm_offset: 36
     ARISTA38T1:
+      vlans:
+        - 37
       vm_offset: 37
     ARISTA39T1:
+      vlans:
+        - 38
       vm_offset: 38
     ARISTA40T1:
+      vlans:
+        - 39
       vm_offset: 39
     ARISTA41T1:
+      vlans:
+        - 40
       vm_offset: 40
     ARISTA42T1:
+      vlans:
+        - 41
       vm_offset: 41
     ARISTA43T1:
+      vlans:
+        - 42
       vm_offset: 42
     ARISTA44T1:
+      vlans:
+        - 43
       vm_offset: 43
     ARISTA45T1:
+      vlans:
+        - 44
       vm_offset: 44
     ARISTA46T1:
+      vlans:
+        - 45
       vm_offset: 45
     ARISTA47T1:
+      vlans:
+        - 46
       vm_offset: 46
     ARISTA48T1:
+      vlans:
+        - 47
       vm_offset: 47
     ARISTA49T1:
+      vlans:
+        - 48
       vm_offset: 48
     ARISTA50T1:
+      vlans:
+        - 49
       vm_offset: 49
     ARISTA51T1:
+      vlans:
+        - 50
       vm_offset: 50
     ARISTA52T1:
+      vlans:
+        - 51
       vm_offset: 51
     ARISTA53T1:
+      vlans:
+        - 52
       vm_offset: 52
     ARISTA54T1:
+      vlans:
+        - 53
       vm_offset: 53
     ARISTA55T1:
+      vlans:
+        - 54
       vm_offset: 54
     ARISTA56T1:
+      vlans:
+        - 55
       vm_offset: 55
     ARISTA57T1:
+      vlans:
+        - 56
       vm_offset: 56
     ARISTA58T1:
+      vlans:
+        - 57
       vm_offset: 57
     ARISTA59T1:
+      vlans:
+        - 58
       vm_offset: 58
     ARISTA60T1:
+      vlans:
+        - 59
       vm_offset: 59
     ARISTA61T1:
+      vlans:
+        - 60
       vm_offset: 60
     ARISTA62T1:
+      vlans:
+        - 61
       vm_offset: 61
     ARISTA63T1:
+      vlans:
+        - 62
       vm_offset: 62
     ARISTA64T1:
+      vlans:
+        - 63
       vm_offset: 63
     ARISTA65T1:
+      vlans:
+        - 64
       vm_offset: 64
     ARISTA66T1:
+      vlans:
+        - 65
       vm_offset: 65
     ARISTA67T1:
+      vlans:
+        - 66
       vm_offset: 66
     ARISTA68T1:
+      vlans:
+        - 67
       vm_offset: 67
     ARISTA69T1:
+      vlans:
+        - 68
       vm_offset: 68
     ARISTA70T1:
+      vlans:
+        - 69
       vm_offset: 69
     ARISTA71T1:
+      vlans:
+        - 70
       vm_offset: 70
     ARISTA72T1:
+      vlans:
+        - 71
       vm_offset: 71
     ARISTA73T1:
+      vlans:
+        - 72
       vm_offset: 72
     ARISTA74T1:
+      vlans:
+        - 73
       vm_offset: 73
     ARISTA75T1:
+      vlans:
+        - 74
       vm_offset: 74
     ARISTA76T1:
+      vlans:
+        - 75
       vm_offset: 75
     ARISTA77T1:
+      vlans:
+        - 76
       vm_offset: 76
     ARISTA78T1:
+      vlans:
+        - 77
       vm_offset: 77
     ARISTA79T1:
+      vlans:
+        - 78
       vm_offset: 78
     ARISTA80T1:
+      vlans:
+        - 79
       vm_offset: 79
     ARISTA81T1:
+      vlans:
+        - 80
       vm_offset: 80
     ARISTA82T1:
+      vlans:
+        - 81
       vm_offset: 81
     ARISTA83T1:
+      vlans:
+        - 82
       vm_offset: 82
     ARISTA84T1:
+      vlans:
+        - 83
       vm_offset: 83
     ARISTA85T1:
+      vlans:
+        - 84
       vm_offset: 84
     ARISTA86T1:
+      vlans:
+        - 85
       vm_offset: 85
     ARISTA87T1:
+      vlans:
+        - 86
       vm_offset: 86
     ARISTA88T1:
+      vlans:
+        - 87
       vm_offset: 87
     ARISTA89T1:
+      vlans:
+        - 88
       vm_offset: 88
     ARISTA90T1:
+      vlans:
+        - 89
       vm_offset: 89
     ARISTA91T1:
+      vlans:
+        - 90
       vm_offset: 90
     ARISTA92T1:
+      vlans:
+        - 91
       vm_offset: 91
     ARISTA93T1:
+      vlans:
+        - 92
       vm_offset: 92
     ARISTA94T1:
+      vlans:
+        - 93
       vm_offset: 93
     ARISTA95T1:
+      vlans:
+        - 94
       vm_offset: 94
     ARISTA96T1:
+      vlans:
+        - 95
       vm_offset: 95
     ARISTA97T1:
+      vlans:
+        - 96
       vm_offset: 96
     ARISTA98T1:
+      vlans:
+        - 97
       vm_offset: 97
     ARISTA99T1:
+      vlans:
+        - 98
       vm_offset: 98
     ARISTA100T1:
+      vlans:
+        - 99
       vm_offset: 99
     ARISTA101T1:
+      vlans:
+        - 100
       vm_offset: 100
     ARISTA102T1:
+      vlans:
+        - 101
       vm_offset: 101
     ARISTA103T1:
+      vlans:
+        - 102
       vm_offset: 102
     ARISTA104T1:
+      vlans:
+        - 103
       vm_offset: 103
     ARISTA105T1:
+      vlans:
+        - 104
       vm_offset: 104
     ARISTA106T1:
+      vlans:
+        - 105
       vm_offset: 105
     ARISTA107T1:
+      vlans:
+        - 106
       vm_offset: 106
     ARISTA108T1:
+      vlans:
+        - 107
       vm_offset: 107
     ARISTA109T1:
+      vlans:
+        - 108
       vm_offset: 108
     ARISTA110T1:
+      vlans:
+        - 109
       vm_offset: 109
     ARISTA111T1:
+      vlans:
+        - 110
       vm_offset: 110
     ARISTA112T1:
+      vlans:
+        - 111
       vm_offset: 111
     ARISTA113T1:
+      vlans:
+        - 112
       vm_offset: 112
     ARISTA114T1:
+      vlans:
+        - 113
       vm_offset: 113
     ARISTA115T1:
+      vlans:
+        - 114
       vm_offset: 114
     ARISTA116T1:
+      vlans:
+        - 115
       vm_offset: 115
     ARISTA117T1:
+      vlans:
+        - 116
       vm_offset: 116
     ARISTA118T1:
+      vlans:
+        - 117
       vm_offset: 117
     ARISTA119T1:
+      vlans:
+        - 118
       vm_offset: 118
     ARISTA120T1:
+      vlans:
+        - 119
       vm_offset: 119
     ARISTA121T1:
+      vlans:
+        - 120
       vm_offset: 120
     ARISTA122T1:
+      vlans:
+        - 121
       vm_offset: 121
     ARISTA123T1:
+      vlans:
+        - 122
       vm_offset: 122
     ARISTA124T1:
+      vlans:
+        - 123
       vm_offset: 123
     ARISTA125T1:
+      vlans:
+        - 124
       vm_offset: 124
     ARISTA126T1:
+      vlans:
+        - 125
       vm_offset: 125
     ARISTA127T1:
+      vlans:
+        - 126
       vm_offset: 126
     ARISTA128T1:
+      vlans:
+        - 127
       vm_offset: 127
     ARISTA01PT1:
+      vlans:
+        - 128
       vm_offset: 128
     ARISTA02PT1:
+      vlans:
+        - 129
       vm_offset: 129
 
 configuration_properties:
