@@ -373,10 +373,6 @@ class SflowTest(BaseTest):
                         last_update_time = time.time()
                     logging.info("%s/%s packets received, waiting for more..." % (
                         last_packet_count, self.total_expected_flow_samples))
-                elif last_packet_count > 0:
-                    # We're not receiving any new packets, time to count the samples
-                    logging.info("No new packets received, stopping...")
-                    break
 
         stop_collector.set()
         thr1.join()
