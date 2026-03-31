@@ -378,7 +378,7 @@ def pytest_addoption(parser):
     #################################
     #   YANG validation options     #
     #################################
-    parser.addoption("--skip-yang", "--skip_yang", action="store_true", default=False,
+    parser.addoption("--skip-yang", "--skip_yang", action="store_true", default=False, dest="skip_yang",
                      help="Skip YANG validation")
 
 
