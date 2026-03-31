@@ -84,6 +84,7 @@ pdu-116,10.3.154.117,Sentry,Pdu,snmp,
 pdu-117,10.3.154.118,Sentry,Pdu,snmp,
 pdu-118,10.3.154.119,Sentry,Pdu,snmp,
 pdu-119,10.3.154.120,Sentry4,Pdu,snmp,
+pdu-189,10.3.154.189,Sentry4,Pdu,snmp
 pdu-120,10.3.154.121,Sentry4,Pdu,snmp,
 pdu-121,10.3.154.122,Sentry4,Pdu,snmp,
 pdu-122,10.3.154.123,Sentry4,Pdu,snmp,
