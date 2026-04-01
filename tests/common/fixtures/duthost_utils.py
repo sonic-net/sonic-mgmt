@@ -657,6 +657,37 @@ def frontend_asic_index_with_portchannel(request, duthosts, tbinfo):
         return None
 
 
+def get_pdb_num(duthost):
+    """Return pdb_num from chassis_info in STATE_DB."""
+    command = 'sonic-db-cli STATE_DB HGET "CHASSIS_INFO|chassis 1" pdb_num'
+    result = duthost.shell(command, module_ignore_errors=True)
+    if result['rc'] != 0:
+        stderr = result.get('stderr', '').strip()
+        logger.warning("Failed to query pdb_num on '%s' via '%s': rc=%s, stderr=%s",
+                       duthost.hostname, command, result['rc'], stderr)
+        raise RuntimeError(
+            "Failed to query pdb_num from STATE_DB on '{}'".format(duthost.hostname)
+        )
+
+    pdb_num_str = result['stdout'].strip()
+    if pdb_num_str and pdb_num_str.isdigit():
+        return int(pdb_num_str)
+    return 0
+
+
+def check_pdb_support(duthost):
+    """Check if duthost has PDB by querying STATE_DB. Returns True if pdb_num > 0."""
+    return get_pdb_num(duthost) > 0
+
+
+@pytest.fixture(scope='module')
+def is_support_pdb(duthosts, rand_one_dut_hostname):
+    """
+    Check if dut has PDB (Power Distribution Board) by querying chassis_info in STATE_DB.
+    """
+    return check_pdb_support(duthosts[rand_one_dut_hostname])
+
+
 def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
     """
     A helper function to check if separated DSCP_TO_TC_MAP is applied to

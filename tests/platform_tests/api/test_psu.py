@@ -1,26 +1,11 @@
 import logging
 import pytest
 
-from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.platform_api import chassis, psu
+from tests.common.helpers.platform_api import psu
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.utilities import skip_release
-from tests.platform_tests.cli.util import get_skip_mod_list
-from .platform_api_test_base import PlatformApiTestBase
 from tests.common.utilities import skip_release_for_platform, wait_until
-from tests.platform_tests.api.conftest import skip_absent_psu
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
-
-
-###################################################
-# TODO: Remove this after we transition to Python 3
-import sys
-if sys.version_info.major >= 3:
-    STRING_TYPE = str
-else:
-    STRING_TYPE = basestring    # noqa: F821
-# END Remove this after we transition to Python 3
-###################################################
+from .power_api_test_base import TestPowerApi, STRING_TYPE
 
 
 logger = logging.getLogger(__name__)
@@ -35,39 +20,12 @@ STATUS_LED_COLOR_RED = "red"
 STATUS_LED_COLOR_OFF = "off"
 
 
-class TestPsuApi(PlatformApiTestBase):
+class TestPsuApi(TestPowerApi):
     ''' Platform API test cases for the PSU class'''
 
-    num_psus = None
-    chassis_facts = None
-
-    @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa: F811
-        if self.num_psus is None:
-            try:
-                self.num_psus = int(chassis.get_num_psus(platform_api_conn))
-            except Exception:
-                pytest.fail("num_psus is not an integer")
-            else:
-                if self.num_psus == 0:
-                    pytest.skip("No psus found on device")
-
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        self.psu_skip_list = get_skip_mod_list(duthost, ['psus'])
-
-    def compare_value_with_platform_facts(self, duthost, key, value, psu_idx):
-        expected_value = None
-        if duthost.facts.get("chassis"):
-            expected_psus = duthost.facts.get("chassis").get("psus")
-            if expected_psus:
-                expected_value = expected_psus[psu_idx].get(key)
-
-        if self.expect(expected_value is not None,
-                       "Unable to get expected value for '{}' from platform.json file for PSU {}"
-                       .format(key, psu_idx)):
-            self.expect(value == expected_value,
-                        "'{}' value is incorrect. Got '{}', expected '{}' for PSU {}"
-                        .format(key, value, expected_value, psu_idx))
+    power_unit_api = psu
+    power_unit_label = "PSU"
+    facts_key = "psus"
 
     def get_psu_facts(self, duthost, psu_idx, def_value, *keys):
         if duthost.facts.get("chassis"):
@@ -90,9 +48,9 @@ class TestPsuApi(PlatformApiTestBase):
             data = get_data(psu_info["api"], psu_info["psu_id"])
             if not is_mellanox_device(self.duthost):
                 if self.expect(
-                        data is not None, "Failed to retrieve {} of PSU {}".format(message, psu_info["psu_id"])):
+                        data is not None, f"Failed to retrieve {message} of PSU {psu_info['psu_id']}"):
                     self.expect(
-                        isinstance(data, float), "PSU {} {} appears incorrect".format(psu_info["psu_id"], message))
+                        isinstance(data, float), f"PSU {psu_info['psu_id']} {message} appears incorrect")
 
         return data
 
@@ -100,89 +58,26 @@ class TestPsuApi(PlatformApiTestBase):
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        for i in range(self.num_psus):
-            if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
-                continue
-            name = psu.get_name(platform_api_conn, i)
-            if self.expect(name is not None, "Unable to retrieve PSU {} name".format(i)):
-                self.expect(isinstance(name, STRING_TYPE), "PSU {} name appears incorrect".format(i))
-                self.compare_value_with_platform_facts(duthost, 'name', name, i)
-        self.assert_expectations()
-
-    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
-        for i in range(self.num_psus):
-            presence = psu.get_presence(platform_api_conn, i)
-            name = psu.get_name(platform_api_conn, i)
-            if self.expect(presence is not None, "Unable to retrieve PSU {} presence".format(i)):
-                if self.expect(isinstance(presence, bool), "PSU {} presence appears incorrect".format(i)):
-                    if name not in self.psu_skip_list:
-                        self.expect(presence is True, "PSU {} is not present".format(i))
-                    # NOTE: It is possible for a PSU to be populated but not being
-                    #       connected to external power, we therefore cannot assert
-                    #       that the psu is not present when in the skip list
-        self.assert_expectations()
-
-    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa: F811
-        for i in range(self.num_psus):
-            if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
-                continue
-            model = psu.get_model(platform_api_conn, i)
-            if self.expect(model is not None, "Unable to retrieve PSU {} model".format(i)):
-                self.expect(isinstance(model, STRING_TYPE), "PSU {} model appears incorrect".format(i))
-        self.assert_expectations()
-
-    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
-        for i in range(self.num_psus):
-            if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
-                continue
-            serial = psu.get_serial(platform_api_conn, i)
-            if self.expect(serial is not None, "Unable to retrieve PSU {} serial number".format(i)):
-                self.expect(isinstance(serial, STRING_TYPE), "PSU {} serial number appears incorrect".format(i))
-        self.assert_expectations()
-
-    def test_get_revision(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
-        duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        skip_release(duthost, ["201811", "201911", "202012"])
-        for i in range(self.num_psus):
-            if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
-                continue
-            revision = psu.get_revision(platform_api_conn, i)
-            if self.expect(revision is not None, "Unable to retrieve PSU {} serial number".format(i)):
-                self.expect(isinstance(revision, STRING_TYPE), "PSU {} serial number appears incorrect".format(i))
-        self.assert_expectations()
-
-    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
-        for i in range(self.num_psus):
-            if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
-                continue
-            status = psu.get_status(platform_api_conn, i)
-            if self.expect(status is not None, "Unable to retrieve PSU {} status".format(i)):
-                self.expect(isinstance(status, bool), "PSU {} status appears incorrect".format(i))
-                self.expect(status is True, "PSU {} status is not True (Power Not Good)".format(i))
-        self.assert_expectations()
-
     def test_get_position_in_parent(self, platform_api_conn):     # noqa: F811
-        for psu_id in range(self.num_psus):
-            if skip_absent_psu(psu_id, platform_api_conn, self.psu_skip_list, logger):
+        for device_id in range(self.num_power_units):
+            if self._skip_absent_power_unit(device_id, platform_api_conn):
                 continue
-            position = psu.get_position_in_parent(platform_api_conn, psu_id)
+            position = self.power_unit_api.get_position_in_parent(platform_api_conn, device_id)
             if self.expect(position is not None,
-                           "Failed to perform get_position_in_parent for psu id {}".format(psu_id)):
+                           f"Failed to perform get_position_in_parent for {self.power_unit_label} {device_id}"):
                 self.expect(isinstance(position, int),
-                            "Position value must be an integer value for psu id {}".format(psu_id))
+                            f"Position value must be an integer value for {self.power_unit_label} {device_id}")
         self.assert_expectations()
 
     def test_is_replaceable(self, platform_api_conn):     # noqa: F811
-        for psu_id in range(self.num_psus):
-            if skip_absent_psu(psu_id, platform_api_conn, self.psu_skip_list, logger):
+        for device_id in range(self.num_power_units):
+            if self._skip_absent_power_unit(device_id, platform_api_conn):
                 continue
-            replaceable = psu.is_replaceable(platform_api_conn, psu_id)
+            replaceable = self.power_unit_api.is_replaceable(platform_api_conn, device_id)
             if self.expect(replaceable is not None,
-                           "Failed to perform is_replaceable for psu id {}".format(psu_id)):
+                           f"Failed to perform is_replaceable for {self.power_unit_label} {device_id}"):
                 self.expect(isinstance(replaceable, bool),
-                            "Replaceable value must be a bool value for psu id {}".format(psu_id))
+                            f"Replaceable value must be a bool value for {self.power_unit_label} {device_id}")
         self.assert_expectations()
 
     #
@@ -191,21 +86,21 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         ''' PSU fan test '''
-        for psu_id in range(self.num_psus):
+        for psu_id in range(self.num_power_units):
             try:
                 num_fans = int(psu.get_num_fans(platform_api_conn, psu_id))
             except Exception:
                 pytest.fail("num_fans is not an integer!")
 
             fan_list = psu.get_all_fans(platform_api_conn, psu_id)
-            if self.expect(fan_list is not None, "Failed to retrieve fans of PSU {}".format(psu_id)):
+            if self.expect(fan_list is not None, f"Failed to retrieve fans of PSU {psu_id}"):
                 self.expect(isinstance(fan_list, list) and len(fan_list) == num_fans,
-                            "Fans of PSU {} appear to be incorrect".format(psu_id))
+                            f"Fans of PSU {psu_id} appear to be incorrect")
 
             for i in range(num_fans):
                 fan = psu.get_fan(platform_api_conn, psu_id, i)
-                if self.expect(fan is not None, "Failed to retrieve fan {} of PSU {}".format(i, psu_id)):
-                    self.expect(fan and fan == fan_list[i], "Fan {} of PSU {} is incorrect".format(i, psu_id))
+                if self.expect(fan is not None, f"Failed to retrieve fan {i} of PSU {psu_id}"):
+                    self.expect(fan and fan == fan_list[i], f"Fan {i} of PSU {psu_id} is incorrect")
         self.assert_expectations()
 
     def test_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa: F811
@@ -237,29 +132,31 @@ class TestPsuApi(PlatformApiTestBase):
                 if not failure_occured and not is_within_tolerance:
                     return False
 
-                self.expect(is_within_tolerance, "PSU {} reading does not make sense \
-                    (power:{}, voltage:{}, current:{})".format(psu_id, power, voltage, current))
+                self.expect(is_within_tolerance,
+                            f"PSU {psu_id} reading does not make sense "
+                            f"(power:{power}, voltage:{voltage}, current:{current})")
 
             return True
 
-        for psu_id in range(self.num_psus):
+        for psu_id in range(self.num_power_units):
             failure_count = self.get_len_failed_expectations()
             psu_info['psu_id'] = psu_id
             name = psu.get_name(platform_api_conn, psu_id)
-            if name in self.psu_skip_list:
-                logger.info("skipping check for {}".format(name))
+            if name in self.power_unit_skip_list:
+                logger.info(f"skipping check for {name}")
             else:
                 check_result = wait_until(30, 10, 0, check_psu_power, failure_count)
-                self.expect(check_result, "PSU {} reading does not make sense \
-                (power:{}, voltage:{}, current:{})".format(psu_id, power, voltage, current))
+                self.expect(check_result,
+                            f"PSU {psu_id} reading does not make sense "
+                            f"(power:{power}, voltage:{voltage}, current:{current})")
 
                 self.get_psu_parameter(psu_info, "max_power", psu.get_maximum_supplied_power,
                                        "maximum supplied power")
 
                 powergood_status = psu.get_powergood_status(platform_api_conn, psu_id)
                 if self.expect(powergood_status is not None,
-                               "Failed to retrieve operational status of PSU {}".format(psu_id)):
-                    self.expect(powergood_status is True, "PSU {} is not operational".format(psu_id))
+                               f"Failed to retrieve operational status of PSU {psu_id}"):
+                    self.expect(powergood_status is True, f"PSU {psu_id} is not operational")
 
                 high_threshold = self.get_psu_parameter(psu_info, "voltage_high_threshold",
                                                         psu.get_voltage_high_threshold, "high voltage threshold")
@@ -269,8 +166,8 @@ class TestPsuApi(PlatformApiTestBase):
                 if not is_mellanox_device(self.duthost):
                     if high_threshold and low_threshold:
                         self.expect(voltage < high_threshold and voltage > low_threshold,
-                                    "Voltage {} of PSU {} is not in between {} and {}"
-                                    .format(voltage, psu_id, low_threshold, high_threshold))
+                                    f"Voltage {voltage} of PSU {psu_id} is not in between "
+                                    f"{low_threshold} and {high_threshold}")
 
         self.assert_expectations()
 
@@ -280,31 +177,31 @@ class TestPsuApi(PlatformApiTestBase):
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
         psus_skipped = 0
 
-        for psu_id in range(self.num_psus):
+        for psu_id in range(self.num_power_units):
             name = psu.get_name(platform_api_conn, psu_id)
-            if name in self.psu_skip_list:
-                logger.info("skipping check for {}".format(name))
+            if name in self.power_unit_skip_list:
+                logger.info(f"skipping check for {name}")
             else:
                 temperature_supported = self.get_psu_facts(duthost, psu_id, True, "temperature")
                 if not temperature_supported:
-                    logger.info("test_set_fans_speed: Skipping chassis fan {} (speed not controllable)".format(psu_id))
+                    logger.info(f"test_set_fans_speed: Skipping chassis fan {psu_id} (speed not controllable)")
                     psus_skipped += 1
                     continue
 
                 temperature = psu.get_temperature(platform_api_conn, psu_id)
-                if self.expect(temperature is not None, "Failed to retrieve temperature of PSU {}".format(psu_id)):
-                    self.expect(isinstance(temperature, float), "PSU {} temperature appears incorrect".format(psu_id))
+                if self.expect(temperature is not None, f"Failed to retrieve temperature of PSU {psu_id}"):
+                    self.expect(isinstance(temperature, float), f"PSU {psu_id} temperature appears incorrect")
 
                 temp_threshold = psu.get_temperature_high_threshold(platform_api_conn, psu_id)
                 if self.expect(temp_threshold is not None,
-                               "Failed to retrieve temperature threshold of PSU {}".format(psu_id)):
+                               f"Failed to retrieve temperature threshold of PSU {psu_id}"):
                     if self.expect(isinstance(temp_threshold, float),
-                                   "PSU {} temperature high threshold appears incorrect".format(psu_id)):
+                                   f"PSU {psu_id} temperature high threshold appears incorrect"):
                         self.expect(temperature < temp_threshold,
-                                    "Temperature {} of PSU {} is over the threshold {}"
-                                    .format(temperature, psu_id, temp_threshold))
+                                    f"Temperature {temperature} of PSU {psu_id} is over the "
+                                    f"threshold {temp_threshold}")
 
-        if psus_skipped == self.num_psus:
+        if psus_skipped == self.num_power_units:
             pytest.skip("skipped as all chassis psus' temperature sensor is not supported")
 
         self.assert_expectations()
@@ -341,15 +238,15 @@ class TestPsuApi(PlatformApiTestBase):
         }
 
         psus_skipped = 0
-        for psu_id in range(self.num_psus):
-            if skip_absent_psu(psu_id, platform_api_conn, self.psu_skip_list, logger):
+        for psu_id in range(self.num_power_units):
+            if self._skip_absent_power_unit(psu_id, platform_api_conn):
                 continue
             name = psu.get_name(platform_api_conn, psu_id)
             led_support = duthost.facts.get("chassis").get("psus")[psu_id].get("led")
             if led_support == "N/A":
-                logger.info("led not supported for this psu {}".format(name))
-            elif name in self.psu_skip_list:
-                logger.info("skipping check for {}".format(name))
+                logger.info(f"led not supported for this psu {name}")
+            elif name in self.power_unit_skip_list:
+                logger.info(f"skipping check for {name}")
                 psus_skipped += 1
             else:
                 led_controllable = self.get_psu_facts(duthost, psu_id, True, "status_led", "controllable")
@@ -362,8 +259,9 @@ class TestPsuApi(PlatformApiTestBase):
                             led_type = set(led_type) & set(led_supported_colors)
                             if not led_type:
                                 logger.warning(
-                                    "test_status_led: Skipping PSU {} set status_led to {} (No supported colors)"
-                                    .format(psu_id, LED_COLOR_TYPES_DICT[index]))
+                                    f"test_status_led: Skipping PSU {psu_id} set status_led to "
+                                    f"{LED_COLOR_TYPES_DICT[index]} (No supported colors)"
+                                )
                                 led_type_skipped += 1
                                 continue
 
@@ -371,54 +269,33 @@ class TestPsuApi(PlatformApiTestBase):
                         for color in led_type:
                             result = psu.set_status_led(platform_api_conn, psu_id, color)
                             if self.expect(result is not None,
-                                           "Failed to perform set_status_led of PSU {}".format(psu_id)):
+                                           f"Failed to perform set_status_led of PSU {psu_id}"):
                                 led_type_result = result or led_type_result
                             if ((result is None) or (not result)):
                                 continue
                             color_actual = psu.get_status_led(platform_api_conn, psu_id)
                             if self.expect(color_actual is not None,
-                                           "Failed to retrieve status_led of PSU {}".format(psu_id)):
+                                           f"Failed to retrieve status_led of PSU {psu_id}"):
                                 if self.expect(isinstance(color_actual, STRING_TYPE),
-                                               "PSU {} status LED color appears incorrect".format(psu_id)):
+                                               f"PSU {psu_id} status LED color appears incorrect"):
                                     self.expect(color == color_actual,
-                                                "Status LED color incorrect (expected: {}, actual: {}) from PSU {}"
-                                                .format(color, color_actual, psu_id))
+                                                f"Status LED color incorrect (expected: {color}, "
+                                                f"actual: {color_actual}) from PSU {psu_id}")
                         self.expect(led_type_result is True,
-                                    "Failed to set status_led of PSU {} to {}"
-                                    .format(psu_id, LED_COLOR_TYPES_DICT[index]))
+                                    f"Failed to set status_led of PSU {psu_id} to "
+                                    f"{LED_COLOR_TYPES_DICT[index]}")
 
                     if led_type_skipped == len(LED_COLOR_TYPES):
-                        logger.info("test_status_led: Skipping PSU {} (no supported colors for all types)"
-                                    .format(psu_id))
+                        logger.info(f"test_status_led: Skipping PSU {psu_id} "
+                                    "(no supported colors for all types)")
                         psus_skipped += 1
 
                 else:
-                    logger.info("test_status_led: Skipping PSU {} (LED is not controllable)".format(psu_id))
+                    logger.info(f"test_status_led: Skipping PSU {psu_id} (LED is not controllable)")
                     psus_skipped += 1
 
-        if psus_skipped == self.num_psus:
+        if psus_skipped == self.num_power_units:
             pytest.skip("skipped as all PSUs' LED is not controllable/no supported colors/in skip list")
-
-        self.assert_expectations()
-
-    def test_thermals(self, platform_api_conn):   # noqa: F811
-        for psu_id in range(self.num_psus):
-            if skip_absent_psu(psu_id, platform_api_conn, self.psu_skip_list, logger):
-                continue
-            try:
-                num_thermals = int(psu.get_num_thermals(platform_api_conn, psu_id))
-            except Exception:
-                pytest.fail("PSU {}: num_thermals is not an integer".format(psu_id))
-
-            thermal_list = psu.get_all_thermals(platform_api_conn, psu_id)
-            pytest_assert(thermal_list is not None, "Failed to retrieve thermals for psu {}".format(psu_id))
-            pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals,
-                          "Thermals appear to be incorrect for psu {}".format(psu_id))
-
-            for i in range(num_thermals):
-                thermal = psu.get_thermal(platform_api_conn, psu_id, i)
-                self.expect(thermal and thermal == thermal_list[i],
-                            "Thermal {} is incorrect for psu {}".format(i, psu_id))
 
         self.assert_expectations()
 
@@ -449,8 +326,8 @@ class TestPsuApi(PlatformApiTestBase):
             2: "off"
         }
         supported_colors = []
-        if self.num_psus == 0:
-            pytest.skip("No psus found on device skipping for device {}".format(duthost))
+        if self.num_power_units == 0:
+            pytest.skip(f"No psus found on device skipping for device {duthost}")
 
         supported_colors = duthost.facts.get("chassis").get("master_psu_led_color")
         if supported_colors:
@@ -459,9 +336,9 @@ class TestPsuApi(PlatformApiTestBase):
                     if color not in supported_colors:
                         LED_COLOR_TYPES[index].remove(color)
 
-        for psu_id in range(self.num_psus):
+        for psu_id in range(self.num_power_units):
             name = psu.get_name(platform_api_conn, psu_id)
-            if name in self.psu_skip_list:
+            if name in self.power_unit_skip_list:
                 continue
             for index, led_type in enumerate(LED_COLOR_TYPES):
                 led_type_result = False
@@ -477,9 +354,9 @@ class TestPsuApi(PlatformApiTestBase):
                         if self.expect(isinstance(color_actual, STRING_TYPE),
                                        "Status of master LED color appears incorrect"):
                             self.expect(color == color_actual,
-                                        "Status LED color incorrect (expected: {}, actual: {}) for master led"
-                                        .format(color, color_actual))
+                                        f"Status LED color incorrect (expected: {color}, "
+                                        f"actual: {color_actual}) for master led")
                     self.expect(led_type_result is True,
-                                "Failed to set status_led of master LED to {}".format(LED_COLOR_TYPES_DICT[index]))
+                                f"Failed to set status_led of master LED to {LED_COLOR_TYPES_DICT[index]}")
 
             self.assert_expectations()

@@ -12,6 +12,7 @@ import time
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.fixtures.duthost_utils import get_pdb_num
 from tests.common.platform.daemon_utils import check_pmon_daemon_enable_status
 from tests.common.platform.processes_utils import check_critical_processes
 from tests.common.utilities import compose_dict_from_cli, skip_release, wait_until
@@ -93,11 +94,21 @@ def collect_data(duthost):
     dev_data = {}
     for k in keys:
         data = duthost.shell(
-            'sonic-db-cli STATE_DB HGETALL "{}"'.format(k))['stdout']
+            f'sonic-db-cli STATE_DB HGETALL "{k}"')['stdout']
         data = compose_dict_from_cli(data)
         dev_data[k] = data
 
-    return {'keys': keys, 'data': dev_data}
+    temp_keys = duthost.shell(
+        'sonic-db-cli STATE_DB KEYS "TEMPERATURE_INFO|PDB*"')['stdout_lines']
+    temp_data = {}
+    for k in temp_keys:
+        data = duthost.shell(
+            f'sonic-db-cli STATE_DB HGETALL "{k}"')['stdout']
+        data = compose_dict_from_cli(data)
+        temp_data[k] = data
+
+    return {'keys': keys, 'data': dev_data,
+            'temp_keys': temp_keys, 'temp_data': temp_data}
 
 
 def wait_data(duthost):
@@ -129,7 +140,7 @@ def verify_data(data_before, data_after):
     """
     ignore_fields = ["power", "temp", "current",
                      "voltage", "input_current", "input_voltage"]
-    msg = 'Data_before_restart {} dont match data_after_restart {} for field {}'
+    temp_ignore_fields = ["temperature", "maximum_temperature", "timestamp"]
     for psu_key in data_before['data']:
         for field in data_before['data'][psu_key]:
             if field not in ignore_fields:
@@ -141,7 +152,21 @@ def verify_data(data_before, data_after):
 
                 value_after = data_after['data'][psu_key][field]
                 if value_before != value_after:
-                    logger.info(msg.format(value_before, value_after, field))
+                    logger.info(f"Data_before_restart {value_before} dont match "
+                                f"data_after_restart {value_after} for field {field}")
+                    return False
+
+    for temp_key in data_before.get('temp_data', {}):
+        for field in data_before['temp_data'][temp_key]:
+            if field not in ignore_fields and field not in temp_ignore_fields:
+                value_before = data_before['temp_data'][temp_key][field]
+                if temp_key not in data_after.get("temp_data", {}) or \
+                        field not in data_after["temp_data"][temp_key]:
+                    return False
+                value_after = data_after['temp_data'][temp_key][field]
+                if value_before != value_after:
+                    logger.info(f"Data_before_restart {value_before} dont match "
+                                f"data_after_restart {value_after} for field {field}")
                     return False
     return True
 
@@ -151,23 +176,61 @@ def get_and_verify_data(duthost, data_before_restart):
     return verify_data(data_before_restart, data_after_restart)
 
 
+def _get_pdb_keys(data):
+    """Return PSU_INFO keys that belong to PDB entries (e.g. 'PSU_INFO|PDB 1')."""
+    return [k for k in data.get('keys', []) if '|PDB ' in k]
+
+
 def test_pmon_psud_running_status(duthosts, enum_supervisor_dut_hostname, data_before_restart):
     """
     @summary: This test case is to check psud status on dut
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
     daemon_status, daemon_pid = duthost.get_pmon_daemon_status(daemon_name)
-    logger.info("{} daemon is {} with pid {}".format(daemon_name, daemon_status, daemon_pid))
+    logger.info(f"{daemon_name} daemon is {daemon_status} with pid {daemon_pid}")
     pytest_assert(daemon_status == expected_running_status,
-                  "{} expected running status is {} but is {}"
-                  .format(daemon_name, expected_running_status, daemon_status))
+                  f"{daemon_name} expected running status is {expected_running_status} "
+                  f"but is {daemon_status}")
     pytest_assert(daemon_pid != -1,
-                  "{} expected pid is a positive integer but is {}".format(daemon_name, daemon_pid))
+                  f"{daemon_name} expected pid is a positive integer but is {daemon_pid}")
 
     pytest_assert(data_before_restart['keys'],
                   "DB keys is not available on daemon running")
     pytest_assert(data_before_restart['data'],
                   "DB data is not available on daemon running")
+
+    pdb_num = get_pdb_num(duthost)
+    if pdb_num > 0:
+        pdb_keys = _get_pdb_keys(data_before_restart)
+        pytest_assert(len(pdb_keys) > 0,
+                      "PDB platform detected but no PSU_INFO|PDB * keys found in STATE_DB")
+        pytest_assert(pdb_num == len(pdb_keys),
+                      f"chassis_info pdb_num ({pdb_num}) does not match PSU_INFO|PDB * count "
+                      f"({len(pdb_keys)})")
+        logger.info(f"PDB keys found in STATE_DB: {pdb_keys}")
+
+        for pdb_key in pdb_keys:
+            pdb_data = data_before_restart['data'][pdb_key]
+            pytest_assert('presence' in pdb_data,
+                          f"PDB entry {pdb_key} missing 'presence' field")
+            pytest_assert('status' in pdb_data,
+                          f"PDB entry {pdb_key} missing 'status' field")
+
+        pdb_temp_keys = data_before_restart.get('temp_keys', [])
+        pytest_assert(len(pdb_temp_keys) > 0,
+                      "PDB platform detected but no TEMPERATURE_INFO|PDB * keys found")
+        logger.info(f"PDB temperature keys found: {pdb_temp_keys}")
+
+        temp_required_fields = ["temperature", "maximum_temperature", "timestamp"]
+        temp_threshold_alternatives = ["high_threshold", "critical_high_threshold"]
+        for tk in pdb_temp_keys:
+            td = data_before_restart['temp_data'][tk]
+            for field in temp_required_fields:
+                pytest_assert(field in td,
+                              f"PDB temperature entry {tk} missing '{field}' field")
+            pytest_assert(any(f in td for f in temp_threshold_alternatives),
+                          f"PDB temperature entry {tk} missing threshold field "
+                          f"(expected one of {temp_threshold_alternatives})")
 
 
 def test_pmon_psud_psu_status_and_led(duthosts, enum_supervisor_dut_hostname, data_before_restart):

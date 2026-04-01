@@ -88,7 +88,9 @@ def get_dut_psu_line_pattern(dut):
     elif dut.facts['platform'] == "x86_64-dellemc_z9332f_d1508-r0":
         psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(N/A)")
     elif dut.facts["asic_type"] in ["mellanox"]:
-        psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
+        psu_line_pattern = re.compile(
+            r"(?:PSU|PDB)\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)"
+        )
     else:
         # Changed the pattern to match different PSU name formats and status patterns.
         # Supports various PSU naming conventions:
@@ -101,9 +103,10 @@ def get_dut_psu_line_pattern(dut):
         #     psutray0.psu1  N/A      N/A               12.01           4.12        49.50  OK        green
         # example 3:
         #     PSU 9  PSU6.3KW-20A-HV  DTM273501QU      1.00  55.052         11.359         626.386      OK        green
-        #
+        # Supports PSU and PDB naming conventions:
+        #   PSU 1, PSU 9, PDB 1, PDB 2, psu1, etc.
         psu_line_pattern = re.compile(
-            r"^(PSU\s+\d+|\S+)\s+.*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
+            r"^(PSU\s+\d+|PDB\s+\d+|\S+)\s+.*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
     return psu_line_pattern
 
 

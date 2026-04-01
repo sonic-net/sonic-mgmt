@@ -20,6 +20,8 @@ from tests.common.helpers.sensor_control_test_helper import mocker_factory  # no
 from tests.common.helpers.thermal_control_test_helper import ThermalPolicyFileContext,\
     check_cli_output_with_mocker, restart_thermal_control_daemon, check_thermal_algorithm_status, \
     disable_thermal_policy  # noqa: F401
+from tests.common.helpers.pdb_mocker import create_pdb_mocker
+from tests.common.fixtures.duthost_utils import is_support_pdb, check_pdb_support  # noqa: F401
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -82,8 +84,15 @@ SKIP_ERROR_LOG_PSU_ABSENCE = [
     r'.*ERR pmon#sensord: Error getting sensor data: pmbus\/#\d: Can\'t read',
     r'.*ERR pmon#sensord: Error getting sensor data: dps\d+\/#\d: Kernel interface error']
 
+SKIP_ERROR_LOG_PDB_ABSENCE = [
+    r'.*ERR pmon#psud.*PDB.*not present.*',
+    r'.*ERR pmon#psud.*PDB.*out of power.*',
+    r'.*ERR pmon#psud.*Failed to read.*PDB.*',
+    r'.*WARNING pmon#psud.*PDB.*absence.*']
+
 SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP.extend(SKIP_ERROR_LOG_COMMON)
 SKIP_ERROR_LOG_PSU_ABSENCE.extend(SKIP_ERROR_LOG_COMMON)
+SKIP_ERROR_LOG_PDB_ABSENCE.extend(SKIP_ERROR_LOG_COMMON)
 
 
 def check_sensord_status(ans_host):
@@ -218,6 +227,9 @@ def check_vendor_specific_psustatus(dut, psu_status_line, psu_line_pattern):
     @summary: Vendor specific psu status check
     """
     if dut.facts["asic_type"] in ["mellanox"]:
+        if get_power_status_line_type(psu_status_line) != "PSU":
+            return
+
         from .mellanox.check_sysfs import check_psu_sysfs
 
         psu_match = psu_line_pattern.match(psu_status_line)
@@ -225,6 +237,13 @@ def check_vendor_specific_psustatus(dut, psu_status_line, psu_line_pattern):
         psu_status = psu_match.group(2)
 
         check_psu_sysfs(dut, psu_id, psu_status)
+
+
+def get_power_status_line_type(psu_status_line):
+    """
+    @summary: Return the device type for a shared psustatus CLI row.
+    """
+    return "PDB" if psu_status_line.lstrip().startswith("PDB") else "PSU"
 
 
 def get_psu_name_and_check_skip(psu_identifier, skip_psu_list):
@@ -373,6 +392,8 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
             cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
 
             for line in cli_psu_status["stdout_lines"][2:]:
+                if get_power_status_line_type(line) != "PSU":
+                    continue
                 psu_match = psu_line_pattern.match(line)
                 pytest_assert(psu_match, "Unexpected PSU status output")
                 # Skip PSUs that are in the skip list
@@ -393,6 +414,8 @@ def test_turn_on_off_psu_and_check_psustatus(duthosts, enum_rand_one_per_hwsku_h
 
             cli_psu_status = duthost.command(CMD_PLATFORM_PSUSTATUS)
             for line in cli_psu_status["stdout_lines"][2:]:
+                if get_power_status_line_type(line) != "PSU":
+                    continue
                 psu_match = psu_line_pattern.match(line)
                 pytest_assert(psu_match, "Unexpected PSU status output")
                 # Skip PSUs that are in the skip list
@@ -605,3 +628,77 @@ def test_thermal_control_fan_status(duthosts, enum_rand_one_per_hwsku_hostname, 
             single_fan_mocker.mock_normal_speed()
             check_cli_output_with_mocker(
                 duthost, single_fan_mocker, CMD_PLATFORM_FANSTATUS, THERMAL_CONTROL_TEST_WAIT_TIME, 2)
+
+
+@pytest.mark.disable_loganalyzer
+def test_pdb_error_status_and_log(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Mock PDB power status error via sysfs, verify CLI status, then restore.
+    PDB is not removable, so mock sysfs power status is used.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if not check_pdb_support(duthost):
+        pytest.skip("No PDB support on this platform, skip the case")
+    device_mocker = create_pdb_mocker(duthost)
+    if device_mocker is None:
+        pytest.skip("No PDB mocker defined for this platform")
+    psu_line_pattern = get_dut_psu_line_pattern(duthost)
+
+    try:
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='pdb_error')
+        loganalyzer.expect_regex = [r'.*PDB.*out of power.*']
+        loganalyzer.ignore_regex = [p for p in SKIP_ERROR_LOG_PDB_ABSENCE if 'out of power' not in p]
+        marker = loganalyzer.init()
+
+        # Step 1: Mock PDB power status bad
+        mock_result, pdb_name = device_mocker.mock_pdb_status(False)
+        if not mock_result:
+            pytest.skip("Platform does not support PDB status mock, skipping")
+
+        logging.info(f'Mocked PDB power error for {pdb_name}, waiting for effect...')
+        time.sleep(PDU_WAIT_TIME)
+
+        # Step 2: Check CLI shows the PDB error
+        psu_status_output = duthost.command(CMD_PLATFORM_PSUSTATUS, module_ignore_errors=True)
+        pytest_assert(psu_status_output['rc'] == 0,
+                      f"Run command '{CMD_PLATFORM_PSUSTATUS}' failed")
+
+        pdb_found_error = False
+        for line in psu_status_output["stdout_lines"][2:]:
+            match = psu_line_pattern.match(line)
+            if match and line.lstrip().startswith("PDB") and match.group(1).strip() in (pdb_name, pdb_name.split()[-1]):
+                status = match.group(2)
+                if status in ("NOT OK", "NOT PRESENT", "WARNING"):
+                    pdb_found_error = True
+                    logging.info(f"PDB {pdb_name} shows error status: {status}")
+                break
+
+        pytest_assert(pdb_found_error,
+                      f"Expected PDB {pdb_name} to show error status after mock power failure")
+
+        # Step 3: Restore PDB power status
+        mock_result, pdb_name = device_mocker.mock_pdb_status(True)
+        logging.info(f'Restored PDB power for {pdb_name}, waiting for recovery...')
+        time.sleep(PDU_WAIT_TIME)
+
+        # Step 4: Verify PDB status recovers to OK
+        psu_status_output = duthost.command(CMD_PLATFORM_PSUSTATUS, module_ignore_errors=True)
+        pytest_assert(psu_status_output['rc'] == 0,
+                      f"Run command '{CMD_PLATFORM_PSUSTATUS}' failed")
+
+        pdb_recovered = False
+        for line in psu_status_output["stdout_lines"][2:]:
+            match = psu_line_pattern.match(line)
+            if match and line.lstrip().startswith("PDB") and match.group(1).strip() in (pdb_name, pdb_name.split()[-1]):
+                status = match.group(2)
+                if status == "OK":
+                    pdb_recovered = True
+                    logging.info(f"PDB {pdb_name} recovered to OK status")
+                break
+
+        pytest_assert(pdb_recovered,
+                      f"Expected PDB {pdb_name} to recover to OK status after restoring power")
+
+        loganalyzer.analyze(marker)
+    finally:
+        device_mocker.deinit()
