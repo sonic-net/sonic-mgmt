@@ -990,7 +990,6 @@ PFC: #Alpesh Patel / Sonum Mathur
   t1-lag:
     churchill-mono:
       hw:
-        t1-64-lag:
         - qos/test_pfc_counters.py
         - qos/test_ecn_config.py
         - qos/test_qos_dscp_mapping.py
