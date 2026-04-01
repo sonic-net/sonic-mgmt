@@ -1,0 +1,47 @@
+---
+# IPv6-only management network configuration for Starlab str4
+# This file contains IPv6 equivalents of management services when using --ipv6-only-mgmt
+
+# IPv6 NTP servers
+# Based on existing NTP server configuration similar to other str labs
+ntp_servers_ipv6:
+  - '2a01:111:e210:b000::a40:f6e1'  # IPv6 equivalent of primary NTP server
+  - '2a01:111:e210:b000::a40:f6e2'  # IPv6 equivalent of secondary NTP server
+
+# IPv6 DNS servers
+# Using Google IPv6 DNS and lab IPv6 DNS equivalents
+dns_servers_ipv6:
+  - '2a01:111:e210:3000::a03:9162'  # IPv6 equivalent of 10.3.145.98
+  - '2a01:111:e210:3000::a03:9163'  # IPv6 equivalent of 10.3.145.99
+
+# IPv6 syslog servers
+# IPv6 equivalent of existing syslog server
+syslog_servers_ipv6:
+  - '2a01:111:e210:3000::a40:f65f'  # IPv6 equivalent of 10.64.246.95
+
+# IPv6 TACACS servers
+# Note: These will be overridden to use PTF IPv6 address when use_ptf_tacacs_server is enabled
+# IPv6 equivalents of existing TACACS servers
+tacacs_servers_ipv6:
+  - '2a01:111:e210:3000::a03:914e'  # IPv6 equivalent of 10.3.145.14
+  - '2a01:111:e210:3000::a03:914f'  # IPv6 equivalent of 10.3.145.15
+
+# IPv6 SNMP servers
+# IPv6 equivalent of existing SNMP server
+snmp_servers_ipv6:
+  - '2a01:111:e210:3000::a03:9162'  # IPv6 equivalent of 10.3.145.98
+
+# Keep existing TACACS settings
+tacacs_group_ipv6: 'Starlab'
+tacacs_passkey_ipv6: starlab
+tacacs_enabled_by_default_ipv6: false
+
+# IPv6 forced management routes
+# Include existing IPv6 routes plus additional ones for IPv6-only management
+forced_mgmt_routes_ipv6:
+  - '2603:10b0:11d:1::400/118'
+  - '2603:10b0:b17:18::400/118'
+  - '2a01:111:e210:b000::1/64'
+  - '2a01:111:e210:3000::1/64'
+  - '2a01:111:e210:b000::/64'        # PTF/Server network
+  - '2a01:111:e210:3000::/64'        # Lab management network
