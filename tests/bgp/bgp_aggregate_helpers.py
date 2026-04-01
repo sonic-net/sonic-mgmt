@@ -65,7 +65,7 @@ def dump_db(duthost, dbname, tablename):
         logger.info(f"all fields:{fields} for key: {k}")
         prefix = k.removeprefix(f"{tablename}|")
         res[prefix] = ast.literal_eval(fields)
-        logger.info("dump config db result: {}".format(res))
+    logger.info(f"dump {dbname} table {tablename} result: {res}")
     return res
 
 
@@ -112,24 +112,49 @@ def gcu_remove_aggregate(duthost, prefix):
 
 
 # ---- ExaBGP route announcement helpers ----
+EXABGP_MAX_RETRIES = 3
+
+
 def exabgp_announce_route(ptfip, port, prefix, nexthop):
-    """Announce a route via ExaBGP HTTP API."""
+    """Announce a route via ExaBGP HTTP API with retry."""
     msg = 'announce route {} next-hop {}'.format(prefix, nexthop)
     url = 'http://{}:{}'.format(ptfip, port)
     data = {'commands': msg}
     logger.info("ExaBGP announce: url={}, data={}".format(url, data))
-    r = requests.post(url, data=data, proxies={"http": None, "https": None})
-    assert r.status_code == 200
+    for attempt in range(1, EXABGP_MAX_RETRIES + 1):
+        try:
+            r = requests.post(url, data=data, timeout=10, proxies={"http": None, "https": None})
+            if r.status_code == 200:
+                return
+            logger.warning("ExaBGP announce attempt %d/%d for %s returned %d",
+                           attempt, EXABGP_MAX_RETRIES, prefix, r.status_code)
+        except requests.exceptions.RequestException as e:
+            logger.warning("ExaBGP announce attempt %d/%d for %s failed: %s",
+                           attempt, EXABGP_MAX_RETRIES, prefix, e)
+        if attempt < EXABGP_MAX_RETRIES:
+            time.sleep(1)
+    raise AssertionError(f"ExaBGP announce failed for {prefix} after {EXABGP_MAX_RETRIES} attempts")
 
 
 def exabgp_withdraw_route(ptfip, port, prefix, nexthop):
-    """Withdraw a route via ExaBGP HTTP API."""
+    """Withdraw a route via ExaBGP HTTP API with retry."""
     msg = 'withdraw route {} next-hop {}'.format(prefix, nexthop)
     url = 'http://{}:{}'.format(ptfip, port)
     data = {'commands': msg}
     logger.info("ExaBGP withdraw: url={}, data={}".format(url, data))
-    r = requests.post(url, data=data, proxies={"http": None, "https": None})
-    assert r.status_code == 200
+    for attempt in range(1, EXABGP_MAX_RETRIES + 1):
+        try:
+            r = requests.post(url, data=data, timeout=10, proxies={"http": None, "https": None})
+            if r.status_code == 200:
+                return
+            logger.warning("ExaBGP withdraw attempt %d/%d for %s returned %d",
+                           attempt, EXABGP_MAX_RETRIES, prefix, r.status_code)
+        except requests.exceptions.RequestException as e:
+            logger.warning("ExaBGP withdraw attempt %d/%d for %s failed: %s",
+                           attempt, EXABGP_MAX_RETRIES, prefix, e)
+        if attempt < EXABGP_MAX_RETRIES:
+            time.sleep(1)
+    raise AssertionError(f"ExaBGP withdraw failed for {prefix} after {EXABGP_MAX_RETRIES} attempts")
 
 
 def announce_contributing_routes(setup, prefixes, ip_version="ipv4"):
