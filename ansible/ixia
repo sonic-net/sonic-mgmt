@@ -55,7 +55,8 @@ sonic:
     sonic_nvidia_sn5640_stress:
     sonic_arista_7060x6_512_stress:
     sonic_arista_7280dr3_400G:
-    sonic_mlnx_100:
+    sonic_str_mlnx_2700:
+    sonic_str3_mlnx_4700:
     sonic_nexthop_ut2:
 
 sonic_str_cisco_8111_O32:
@@ -641,15 +642,25 @@ sonic_str2_arista_7808:
     hwsku: Arista-7800R3A-36DM2-C36
     iface_speed: 100000
 
-sonic_mlnx_100:
+sonic_str_mlnx_2700:
   hosts:
     str-msn2700-22:
       ansible_host: 10.64.247.236
     STR-SN2700-C19-U38:
       ansible_host: 10.3.147.94
   vars:
-      iface_speed: 100000
-      msft_an_enabled: True
+    hwsku: Mellanox-SN2700
+    iface_speed: 100000
+    msft_an_enabled: True
+
+sonic_str3_mlnx_4700:
+  hosts:
+    str3-SN4700-D11-U39:
+      ansible_host: 10.3.146.106
+  vars:
+    hwsku: Mellanox-SN4700-O8V48
+    iface_speed: 100000
+    msft_an_enabled: True
 
 sonic_nexthop_ut2:
   vars:
