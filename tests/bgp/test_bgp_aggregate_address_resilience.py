@@ -23,10 +23,8 @@ import pytest
 
 from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_enabled
 
-from test_bgp_aggregate_address import (
+from bgp_aggregate_helpers import (
     AggregateCfg,
-    AGGR_V4,
-    AGGR_V6,
     BGP_AGGREGATE_ADDRESS,
     PLACEHOLDER_PREFIX,
     dump_db,
@@ -35,6 +33,11 @@ from test_bgp_aggregate_address import (
     gcu_remove_aggregate,
     verify_bgp_aggregate_consistence,
     verify_bgp_aggregate_cleanup,
+)
+
+from test_bgp_aggregate_address import (
+    AGGR_V4,
+    AGGR_V6,
 )
 
 from tests.common.config_reload import config_reload
