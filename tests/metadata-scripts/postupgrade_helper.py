@@ -32,21 +32,27 @@ def run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_p
         return
     base_path = os.path.dirname(__file__)
     if "sonic-mgmt-int" in base_path:
-        metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
-        postupgrade_actions_data_dir_path = os.path.join(base_path,
-                                                         "../../../sonic-metadata/scripts/postupgrade_actions_data")
-        postupgrade_actions_path = os.path.join(base_path, "../../../sonic-metadata/scripts/postupgrade_actions")
+        metadata_scripts_path = os.path.join(base_path, "../../../sonic-upgrade-scripts/sonic-upgrade-scripts")
+        postupgrade_actions_data_dir_path = os.path.join(
+            base_path,
+            "../../../sonic-upgrade-scripts/sonic-upgrade-scripts/postupgrade_actions_data")
+        postupgrade_actions_path = os.path.join(
+            base_path,
+            "../../../sonic-upgrade-scripts/sonic-upgrade-scripts/postupgrade_actions")
     else:
-        metadata_scripts_path = os.path.join(base_path, "../../sonic-metadata/scripts")
-        postupgrade_actions_data_dir_path = os.path.join(base_path,
-                                                         "../../sonic-metadata/scripts/postupgrade_actions_data")
-        postupgrade_actions_path = os.path.join(base_path, "../../sonic-metadata/scripts/postupgrade_actions")
-    pytest_assert(os.path.exists(metadata_scripts_path), "SONiC Metadata scripts not found in {}"
+        metadata_scripts_path = os.path.join(base_path, "../../sonic-upgrade-scripts/sonic-upgrade-scripts")
+        postupgrade_actions_data_dir_path = os.path.join(
+            base_path,
+            "../../sonic-upgrade-scripts/sonic-upgrade-scripts/postupgrade_actions_data")
+        postupgrade_actions_path = os.path.join(
+            base_path,
+            "../../sonic-upgrade-scripts/sonic-upgrade-scripts/postupgrade_actions")
+    pytest_assert(os.path.exists(metadata_scripts_path), "SONiC upgrade scripts not found in {}"
                   .format(metadata_scripts_path))
-    pytest_assert(os.path.exists(postupgrade_actions_path), "SONiC Metadata postupgrade_action script not found in {}"
+    pytest_assert(os.path.exists(postupgrade_actions_path), "SONiC upgrade postupgrade_action script not found in {}"
                   .format(postupgrade_actions_path))
     pytest_assert(os.path.exists(postupgrade_actions_data_dir_path),
-                  "SONiC Metadata postupgrade_action data directory not found in {}"
+                  "SONiC upgrade scripts postupgrade_action data directory not found in {}"
                   .format(postupgrade_actions_data_dir_path))
 
     logger.info("Step 1 Copy the scripts and data directory to the DUT")
