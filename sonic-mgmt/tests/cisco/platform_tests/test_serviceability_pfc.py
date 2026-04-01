@@ -212,6 +212,21 @@ def test_show_platform_npu_rx(enum_rand_one_per_hwsku_hostname, request, cached_
                             "Empty output for 'npu rx {opt}' on DOWN port {port} tc {t}, {asic}.\nCommand: {cmd}".format(
                                 opt=option, port=port, t=t, asic=asic, cmd=cmd)
 
+                # Check internal ports "CPU" and "RECYCLE" for cgm_profile option
+                if option == "cgm_profile":
+                    internal_ports = ["CPU", "RECYCLE"]
+                    logging.info("Checking Internal Ports for cgm_profile: {}".format(internal_ports))
+                    for port in internal_ports:
+                        cmd = show_command.format(option, port, t, asic_namespace_string)
+                        result = duthost.command(cmd)
+                        traceback_found = "Traceback" in result["stdout"]
+                        assert not traceback_found, \
+                            "Traceback found in 'npu rx {opt}' for internal port {port} tc {t} on {asic}.\nCommand: {cmd}\nOutput:\n{out}".format(
+                                opt=option, port=port, t=t, asic=asic, cmd=cmd, out=result["stdout"])
+                        assert result["stdout"], \
+                            "Empty output for 'npu rx {opt}' on internal port {port} tc {t}, {asic}.\nCommand: {cmd}".format(
+                                opt=option, port=port, t=t, asic=asic, cmd=cmd)
+
 def test_show_platform_npu_voq(duthosts, enum_rand_one_per_hwsku_hostname, request, cached_asic_facts):
     """
     @summary: Verify output of `show platform npu voq`
