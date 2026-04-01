@@ -282,6 +282,9 @@ class BasePacketTrimming:
         with allure.step("Verify packet trimming counter"):
             for egress_port in test_params['egress_ports']:
                 for port in egress_port['dut_members']:
+                    pytest_assert(wait_until(5 * TRIMMING_COUNTER_INTERVAL, TRIMMING_COUNTER_INTERVAL, 0,
+                                             has_non_zero_trim_counters, duthost, port),
+                                  f"port level trim counters are zero for {port}")
                     verify_queue_and_port_trim_counter_consistency(duthost, port)
 
     def test_trimming_with_reload_and_reboot(self, duthost, ptfadapter, test_params, localhost, request):
@@ -335,6 +338,9 @@ class BasePacketTrimming:
         with allure.step("Verify packet trimming counter"):
             for egress_port in test_params['egress_ports']:
                 for port in egress_port['dut_members']:
+                    pytest_assert(wait_until(5 * TRIMMING_COUNTER_INTERVAL, TRIMMING_COUNTER_INTERVAL, 0,
+                                             has_non_zero_trim_counters, duthost, port),
+                                  f"port level trim counters are zero for {port}")
                     verify_queue_and_port_trim_counter_consistency(duthost, port)
 
     def test_trimming_counters(self, duthost, ptfadapter, test_params, trim_counter_params):
