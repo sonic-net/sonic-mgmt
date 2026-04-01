@@ -433,15 +433,41 @@ def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost, tbinfo
         if collector_ips:
             wait_until_hsflowd_ready(duthost, collector_ips)
 
-        return ptf_runner(host=ptfhost,
-                          testdir="ptftests",
-                          platform_dir="ptftests",
-                          testname="sflow_test",
-                          params=params,
-                          socket_recv_size=16384,
-                          log_file="/tmp/{}.{}.log".format(
-                              request.cls.__name__, request.function.__name__),
-                          is_python3=True)
+        def _tc_filter_pkts(interfaces):
+            """Read TC ingress filter matched-packet counters for the given interfaces."""
+            counts = {}
+            for intf in interfaces:
+                out = duthost.shell(
+                    f'sudo tc -s filter show dev {intf} ingress 2>/dev/null',
+                    module_ignore_errors=True
+                )['stdout']
+                m = re.search(r'Sent \d+ bytes (\d+) pkts', out)
+                counts[intf] = int(m.group(1)) if m else None
+            return counts
+
+        tc_before = _tc_filter_pkts(var['sflow_ports'])
+
+        result = ptf_runner(host=ptfhost,
+                            testdir="ptftests",
+                            platform_dir="ptftests",
+                            testname="sflow_test",
+                            params=params,
+                            socket_recv_size=16384,
+                            log_file="/tmp/{}.{}.log".format(
+                                request.cls.__name__, request.function.__name__),
+                            is_python3=True)
+
+        tc_after = _tc_filter_pkts(var['sflow_ports'])
+        for intf, before in tc_before.items():
+            after = tc_after.get(intf)
+            if before is not None and after is not None:
+                delta = after - before
+                sent = var['sflow_ports'][intf]['sample_rate'] * 100
+                logger.warn(
+                    f'TC filter [{intf}]: matched {delta} pkts, PTF sent ~{sent} '
+                    f'({100 * delta // sent if sent else 0}% reached TC filter)')
+
+        return result
 
     return _partial_ptf_runner
 
