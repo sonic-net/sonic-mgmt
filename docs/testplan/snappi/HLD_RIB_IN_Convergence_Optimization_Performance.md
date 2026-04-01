@@ -127,8 +127,8 @@ baseline_config_db:
 ### 5.2 bk_values.json
 
 - **Purpose**: Define (bulk, batch) pairs for orchagent `-b` and `-k` arguments.
-- **Structure**:  
-  `"pairs": [ [bulk, batch], ... ]`  
+- **Structure**:\
+  `"pairs": [ [bulk, batch], ... ]`\
   Values are either the string `"default"` or integers (e.g. 5000, 5200).
 - **Legacy support**: Loader also accepts a single list (same value for both) or separate `bulk_values` / `batch_values` arrays (zipped into pairs).
 - **DUT impact**: orchagent.sh is backed up; if either value is not `"default"`, the script is patched (e.g. replace default `-b 1024` with `-b <bulk> -k <batch>`); revert restores from backup.
@@ -145,7 +145,7 @@ For testbeds where **port-channels and BGP are already configured** (e.g. minigr
 
 - **Flag**: `--bgp_pc_config` (defined in `tests/conftest.py`).
 - **Type**: Store-true (boolean); default `False`.
-- **Usage**: Pass at test start, e.g.  
+- **Usage**: Pass at test start, e.g.\
   `pytest tests/snappi_tests/bgp/test_bgp_rib_route_optimztn_perf_new.py --bgp_pc_config ...`
 
 ### 6.3 Behavior When Flag Is Set
