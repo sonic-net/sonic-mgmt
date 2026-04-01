@@ -1134,6 +1134,18 @@ platform_tests/mellanox/test_reboot_cause.py:
       - "asic_type in ['mellanox'] and 'sn6600_ld' in platform"
 
 #######################################
+#####           mgmt              #####
+#######################################
+platform_tests/mgmt/test_mgmt_flap.py::test_mgmt_interface_stress_flap_console:
+  skip:
+    reason: "Skip test unless it is Cisco t2 and eth_mgmt_ctrl available"
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+      - "topo_type not in ['t2']"
+      - "eth_mgmt_ctrl_available==False"
+
+#######################################
 #####            sfp              #####
 #######################################
 platform_tests/sfp/test_sfputil.py:
