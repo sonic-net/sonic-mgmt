@@ -1,7 +1,7 @@
-- name: Create net base container net_{{ vm_set_name }}_{{ item }}
+- name: Create net base container net_{{ vm_set_name }}_{{ vm_item }}
   become: yes
   docker_container:
-    name: net_{{ vm_set_name }}_{{ item }}
+    name: net_{{ vm_set_name }}_{{ vm_item }}
     image: debian:jessie
     pull: yes
     state: started
@@ -12,13 +12,13 @@
     capabilities:
       - net_admin
     privileged: yes
-- name: Create network for csonic container csonic_{{ vm_set_name }}_{{ item }}
+- name: Create network for csonic container csonic_{{ vm_set_name }}_{{ vm_item }}
   become: yes
   csonic_network:
-    name: net_{{ vm_set_name }}_{{ item }}
-    vm_name:    "{{ item }}"
+    name: net_{{ vm_set_name }}_{{ vm_item }}
+    vm_name:    "{{ vm_item }}"
     fp_mtu:     "{{ fp_mtu_size }}"
     max_fp_num: "{{ max_fp_num }}"
     mgmt_bridge: "{{ mgmt_bridge }}"
-    vm_offset:  "{{ topology.VMs[item].vm_offset }}"
-    bp_bridge:  "br-b-{{ vm_set_name }}"
+    vm_offset:  "{{ topology.VMs[vm_inv_to_topo[vm_item]].vm_offset }}"
+    sonic_naming: false

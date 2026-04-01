@@ -8,7 +8,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters, \
                                           validate_counters_and_pkts_consistency
 from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
-from tests.dhcp_relay.dhcp_relay_utils import check_dhcp_stress_status
+from tests.common.dhcp_relay_utils import check_dhcp_stress_status
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 
@@ -21,7 +21,7 @@ BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
 DUAL_TOR_MODE = 'dual'
-BUFFER_SIZE = 1024 * 1024  # 1MB
+BUFFER_SIZE = 1024  # 1 MiB (tcpdump --buffer-size is in KiB)
 logger = logging.getLogger(__name__)
 PACKET_RATE_PER_SEC_MAP = {
     "Mellanox-SN2700": 20

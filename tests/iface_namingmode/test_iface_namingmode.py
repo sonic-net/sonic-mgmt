@@ -6,7 +6,7 @@ from copy import deepcopy
 
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.platform.device_utils import fanout_switch_port_lookup
-from tests.common.utilities import wait, wait_until
+from tests.common.utilities import testbed_is_multi_vrf, wait, wait_until
 from netaddr import IPAddress
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import SonicDbCli
@@ -115,7 +115,7 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     physical_interfaces = [item for item in up_ports if item not in portchannel_members]
 
     multi_vrf_info = None
-    if tbinfo.get('use_converged_peers', False):
+    if testbed_is_multi_vrf(tbinfo):
         multi_vrf_info = deepcopy(tbinfo['topo']['properties']['convergence_data'])
 
     setup_info = {
@@ -1401,13 +1401,12 @@ class TestConfigInterface():
         _verify_speed(native_speed)
 
 
+@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
 def test_show_acl_table(setup, setup_config_mode, tbinfo):
     """
     Checks whether 'show acl table DATAACL' lists the interface names
     as per the configured naming mode
     """
-    if tbinfo['topo']['type'] not in ['t1', 't2', 'lt2', 'ft2']:
-        pytest.skip('Unsupported topology')
 
     if not setup['physical_interfaces']:
         pytest.skip('No non-portchannel member interface present')
@@ -1439,14 +1438,13 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
                 ).format(item, acl_table)
 
 
+@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
 def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, duthosts,
                                            enum_rand_one_per_hwsku_frontend_hostname):
     """
     Checks whether 'show interfaces neighbor expected' lists the
     interface names as per the configured naming mode
     """
-    if tbinfo['topo']['type'] not in ['t1', 't2', 'lt2', 'ft2']:
-        pytest.skip('Unsupported topology')
 
     dutHostGuest, mode, ifmode = setup_config_mode
     minigraph_neighbors = setup['minigraph_facts']['minigraph_neighbors']

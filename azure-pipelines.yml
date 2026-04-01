@@ -47,7 +47,7 @@ stages:
     displayName: "Static Analysis"
     timeoutInMinutes: 10
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: sonic-ubuntu-1c-2
     steps:
     - template: .azure-pipelines/pre-commit-check.yml
 
@@ -55,7 +55,7 @@ stages:
     displayName: "Validate Test Cases"
     timeoutInMinutes: 30
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: sonic-ubuntu-1c-2
     steps:
     - template: .azure-pipelines/pytest-collect-only.yml
       parameters:
@@ -64,28 +64,28 @@ stages:
   - job: dependency_check
     displayName: "Dependency Check"
     timeoutInMinutes: 10
-    pool: sonic-ubuntu-1c
+    pool: sonic-ubuntu-1c-2
     steps:
       - template: .azure-pipelines/dependency-check.yml
 
   - job: markers_check
     displayName: "Markers Check"
     timeoutInMinutes: 10
-    pool: sonic-ubuntu-1c
+    pool: sonic-ubuntu-1c-2
     steps:
       - template: .azure-pipelines/markers-check.yml
 
   - job: meta_check
     displayName: "Meta check"
     timeoutInMinutes: 10
-    pool: sonic-ubuntu-1c
+    pool: sonic-ubuntu-1c-2
     steps:
       - template: .azure-pipelines/meta-check.yml
 
 
 - stage: Test
   dependsOn: Pre_test
-  condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
+  condition: and(succeeded(), not(canceled()), in(dependencies.Pre_test.result, 'Succeeded'))
   variables:
   - group: SONiC-Elastictest
   - name: BUILD_BRANCH
