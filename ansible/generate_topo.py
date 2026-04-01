@@ -76,7 +76,7 @@ roles_cfg = {
     "t2": {
         "asn": 4200200000,
         "asn_v6": 4200200000,
-        "downlink": {"role": "t1", "asn": 4200100000, "asn_v6": 4200100000, "asn_increment": 0},
+        "downlink": {"role": "t1", "asn": 4200100000, "asn_v6": 4200100000, "asn_increment": 1},
         "uplink": None,
         "peer": {"role": "pt1", "asn": 65000, "asn_v6": 65000, "asn_increment": 1},
     },
