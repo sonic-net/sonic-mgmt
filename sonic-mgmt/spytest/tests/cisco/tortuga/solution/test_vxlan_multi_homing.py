@@ -96,6 +96,21 @@ def copy_default_config_db():
         st.config(dut, cmd, skip_error_check=True)
 
 @pytest.fixture(scope="module", autouse=True)
+def copy_spytest_helper():
+    for dut in st.get_dut_names():
+        st.config(dut, "cp /etc/spytest/remote/spytest-helper.py /etc/sonic/spytest-helper.py ")
+        st.config(dut, " ls -lrt  /etc/spytest/remote/")
+        st.config(dut, " ls -lrt /etc/sonic/")
+    yield
+    for dut in st.get_dut_names():
+        st.config(dut,"rm /etc/sonic/spytest-helper.py")
+
+def restore_helper_file(dut):
+    st.config(dut, "mkdir -p /etc/spytest/remote")
+    st.config(dut, "cp /etc/sonic/spytest-helper.py /etc/spytest/remote/spytest-helper.py")
+    st.config(dut, "ls -lrt /etc | grep spytest")
+
+@pytest.fixture(scope="module", autouse=True)
 def vxlan_multi_homing_config():
     global tgen_handles
     
@@ -7745,11 +7760,6 @@ def tgen_ext_conn_preconfig():
     topology_handles = [ext_topo_handles['external_router'][ext_tgen_intf['external_router'][0]]['topology_handle']]
     for topology in topology_handles:
         tg_handle.tg_topology_config(topology_handle =topology, mode = 'destroy')
-
-def restore_helper_file(dut):
-    st.config(dut, "mkdir -p /etc/spytest/remote")
-    st.config(dut, "cp /etc/sonic/spytest-helper.py /etc/spytest/remote/spytest-helper.py")
-    st.config(dut, "ls -lrt /etc | grep spytest")
 
 @pytest.mark.usefixtures('tgen_health_check_class', 'configure_external_router', 'tgen_ext_conn_preconfig')
 class TestVxlanExternalConnectivity():
