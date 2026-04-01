@@ -47,6 +47,9 @@ r, ".* ERR swss#orchagent: :- querySwitchEcmpHashAlgorithmEnumCapabilities: Fail
 r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Failed to get attribute.*"
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
 
+# Errors for config reload on broadcom platform on 202511
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed - port: \d+, rc: -16.*"
+
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec\d*#wpa_supplicant.*l2_packet_send.*Network is down.*"
 r, ".* ERR macsec\d*#wpa_supplicant.*could not process SIGINT or SIGTERM in two seconds.*"
