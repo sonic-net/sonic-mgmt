@@ -44,7 +44,17 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
 
     assert int(snmp_facts['ansible_ChStackUnitCpuUtil5sec'])
 
+    watchdog_pid = None
     try:
+        # Start a watchdog that guarantees cleanup even if the test times out or aborts.
+        # Without this, 'yes' processes can leak on weak-per-core platforms (e.g. armhf)
+        # where the test may be killed before reaching the finally block.
+        # See: https://github.com/sonic-net/sonic-mgmt/issues/21517
+        watchdog_timeout = 300  # 5 minutes — well beyond the test's expected duration
+        watchdog_cmd = "nohup sh -c 'sleep {}; pkill -x -9 yes' >/dev/null 2>&1 & echo $!".format(
+            watchdog_timeout)
+        watchdog_pid = duthost.shell(watchdog_cmd)['stdout'].strip()
+
         for i in range(host_vcpus):
             duthost.shell("nohup yes > /dev/null 2>&1 & sleep 1")
 
@@ -79,3 +89,6 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
         raise
     finally:
         duthost.shell("killall yes")
+        # Cancel the watchdog so it doesn't fire during later tests
+        if watchdog_pid:
+            duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)

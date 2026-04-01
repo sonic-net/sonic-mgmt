@@ -172,12 +172,17 @@ def generic_patch_add_t0(duthost, skip_load=False, hack_apply=False):
     # Wait for BGP sessions to establish BEFORE DB comparison.
     # After adding T0 config, BGP needs to converge and populate app-db route entries.
     # Comparing DBs before BGP convergence causes spurious mismatches in app-db.
-    assert wait_until(DB_COMP_WAIT_TIME, 20, 0, is_bgp_session_established,
-                      duthost, tor_data["ip"]["remote"]), \
-        "BGP IPv4 session for {} not established before DB comparison".format(tor_data["ip"]["remote"])
-    assert wait_until(DB_COMP_WAIT_TIME, 20, 0, is_bgp_session_established,
-                      duthost, tor_data["ipv6"]["remote"].lower()), \
-        "BGP IPv6 session for {} not established before DB comparison".format(tor_data["ipv6"]["remote"].lower())
+    v4_remote = tor_data.get("ip", {}).get("remote")
+    v6_remote = tor_data.get("ipv6", {}).get("remote")
+    if v4_remote:
+        assert wait_until(DB_COMP_WAIT_TIME, 20, 0, is_bgp_session_established,
+                          duthost, v4_remote), \
+            "BGP IPv4 session for {} not established before DB comparison".format(v4_remote)
+    if v6_remote:
+        assert wait_until(DB_COMP_WAIT_TIME, 20, 0, is_bgp_session_established,
+                          duthost, v6_remote.lower()), \
+            "BGP IPv6 session for {} not established before DB comparison".format(v6_remote.lower())
+    assert v4_remote or v6_remote, "No BGP neighbors detected for convergence check"
 
     assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, patch_add_t0_dir,
                       orig_db_dir, "generic_patch_add_t0"), \

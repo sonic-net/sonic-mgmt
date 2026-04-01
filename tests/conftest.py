@@ -119,7 +119,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.conditional_mark',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
-                  'tests.common.fixtures.duthost_utils')
+                  'tests.common.fixtures.duthost_utils',
+                  'tests.common.plugins.parallel_fixture')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
@@ -134,6 +135,8 @@ fix_logging_handler_fork_lock()
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
+    parser.addoption("--ipv6_only_mgmt", action="store_true", default=False,
+                     help="Use IPv6-only management network. DUT mgmt_ip will be set to IPv6 address.")
     parser.addoption("--uhd_config", action="store", help="Enable UHD config mode")
     parser.addoption("--save_uhd_config", action="store_true", help="Save UHD config mode")
     parser.addoption("--npu_dpu_startup", action="store_true", help="Startup NPU and DPUs and install configurations")
@@ -217,12 +220,16 @@ def pytest_addoption(parser):
                      help="Skip sanity check")
     parser.addoption("--skip_pre_sanity", action="store_true", default=False,
                      help="Skip pre-test sanity check")
+    parser.addoption("--enable_pre_sanity", action="store_true", default=False,
+                     help="Enable pre-test sanity check (override default skip)")
     parser.addoption("--allow_recover", action="store_true", default=False,
                      help="Allow recovery attempt in sanity check in case of failure")
     parser.addoption("--check_items", action="store", default=False,
                      help="Change (add|remove) check items in the check list")
     parser.addoption("--post_check", action="store_true", default=False,
                      help="Perform post test sanity check if sanity check is enabled")
+    parser.addoption("--skip_post_check", action="store_true", default=False,
+                     help="Skip post-test sanity check (override default enable)")
     parser.addoption("--post_check_items", action="store", default=False,
                      help="Change (add|remove) post test check items based on pre test check items")
     parser.addoption("--recover_method", action="store", default="adaptive",
@@ -382,6 +389,28 @@ def pytest_configure(config):
             config.pluginmanager.register(MacsecPluginT2())
         else:
             config.pluginmanager.register(MacsecPluginT0())
+
+
+@pytest.fixture(scope="session")
+def ipv6_only_mgmt_enabled(request):
+    """
+    Fixture to check and configure IPv6-only management mode.
+
+    When --ipv6_only_mgmt is passed to pytest (or -6 to run_tests.sh),
+    this enables IPv6-only management mode where DUT mgmt_ip will use
+    the IPv6 address (ansible_hostv6) instead of IPv4 (ansible_host).
+
+    This fixture must be used before duthosts fixture to ensure the
+    mode is configured before SonicHost objects are created.
+
+    Returns:
+        bool: True if IPv6-only management mode is enabled, False otherwise.
+    """
+    from tests.common.devices.base import AnsibleHostBase
+
+    enabled = request.config.getoption("ipv6_only_mgmt", default=False)
+    AnsibleHostBase.set_ipv6_only_mgmt(enabled)
+    return enabled
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -560,7 +589,7 @@ def pytest_sessionfinish(session, exitstatus):
 
 
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
+def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request, ipv6_only_mgmt_enabled):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param enhance_inventory: fixture to enhance the capability of parsing the value of pytest cli argument
@@ -569,6 +598,7 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     @param request: pytest request object
+    @param ipv6_only_mgmt_enabled: fixture to configure IPv6-only management mode before DUT initialization
     """
     try:
         host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_duts(request),
@@ -1262,7 +1292,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             action='generate',
             path="../ansible/",
             log_path=log_path,
-            dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
+            dut_interfaces=servers_dut_interfaces.get(ptf_ip, '') if servers_dut_interfaces else '',
             verbose=False
         )
         if 'topo_routes' not in res:
