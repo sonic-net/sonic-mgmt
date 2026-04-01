@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 config_sources = ['config_db', 'minigraph', 'running_golden_config']
 
+
 # Timeouts for smartswitch DPU state transitions (in seconds)
 DPU_STATE_TIMEOUT = 360
 DPU_STATE_INTERVAL = 30
@@ -250,6 +251,15 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)
         sonic_host.shell(cmd, executable="/bin/bash")
+        # Restore zebra_nexthop using minigraph_facts (parsed on controller) instead of
+        # copying a DUT-side script, eliminating duplicated XML parsing.
+        mg_facts = sonic_host.minigraph_facts(host=sonic_host.hostname)['ansible_facts']
+        zebra_nexthop = mg_facts.get('minigraph_device_metadata', {}).get('zebra_nexthop')
+        if zebra_nexthop:
+            logger.info("Setting zebra_nexthop='{}' in CONFIG_DB DEVICE_METADATA".format(zebra_nexthop))
+            sonic_host.shell(
+                'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
+            )
         time.sleep(60)
         if start_bgp:
             sonic_host.shell('config bgp startup all')

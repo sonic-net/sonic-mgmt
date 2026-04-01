@@ -6,7 +6,7 @@ from tests.common.helpers.platform_api import liquid_cooling_leakage
 from .platform_api_test_base import PlatformApiTestBase
 from tests.common.platform.device_utils import platform_api_conn    # noqa: F401
 from tests.common.platform.device_utils import start_platform_api_service    # noqa: F401
-from tests.common.mellanox_data import get_platform_data
+from tests.common.helpers.liquid_leakage_control_test_helper import is_liquid_cooling_system_supported
 
 logger = logging.getLogger(__name__)
 
@@ -23,10 +23,13 @@ class TestLiquidCoolingLeakage(PlatformApiTestBase):
     chassis_facts = None
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa: F811
+    def setup(self, platform_api_conn, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-        platform_data = get_platform_data(duthost)
-        self.leak_sensors_num = platform_data['leak_sensors']['number']
+        if not is_liquid_cooling_system_supported(duthost):
+            pytest.skip("No liquid cooling system supported on this platform")
+        self.leak_sensors_num = duthost.facts.get("leak_sensors", {}).get("number")
+        if self.leak_sensors_num is None:
+            pytest.fail("Unable to get number of leak sensors from platform.json")
 
     def test_get_name(self, platform_api_conn):    # noqa: F811
         for leak_sensor_id in range(0, self.leak_sensors_num):
@@ -58,8 +61,11 @@ class TestLiquidCoolingLeakage(PlatformApiTestBase):
 
     def test_get_num_leak_sensors(self, platform_api_conn):    # noqa: F811
         api_leak_sensor_num = liquid_cooling_leakage.get_num_leak_sensors(platform_api_conn)
-        assert api_leak_sensor_num == self.leak_sensors_num, \
-            f"Leak sensor number mismatch, expected: {self.leak_sensors_num}, actual: {api_leak_sensor_num}"
+        if self.expect(api_leak_sensor_num is not None, "Unable to retrieve number of leak sensors"):
+            self.expect(api_leak_sensor_num == self.leak_sensors_num,
+                        f"Number of leak sensors mismatch, expected: {self.leak_sensors_num}, "
+                        f"actual: {api_leak_sensor_num}")
+        self.assert_expectations()
 
     def test_get_all_leak_sensors(self, platform_api_conn):    # noqa: F811
         api_leak_sensor_list = liquid_cooling_leakage.get_all_leak_sensors(platform_api_conn)

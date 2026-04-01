@@ -6,27 +6,26 @@ def pins_deps():
         git_repository(
           name = "com_github_sonic_net_sonic_pins",
           remote = "https://github.com/sonic-net/sonic-pins.git",
-          # Updates to December 9, 2025
-          commit = "ce8d3b3d6d08298ba3b03614b2e29eb40729d734",
+          # Updates to March 18, 2026
+          commit = "1933f98f72b7989d4a8c15bc8519cd854480a0b5"
         )
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            url = "https://github.com/grpc/grpc/archive/v1.58.0.zip",
-            strip_prefix = "grpc-1.58.0",
-            sha256 = "aa329c7de707a03511c88206ef4483e9346ab6336b6be4378d294060aa7400b3",
+            url = "https://github.com/grpc/grpc/archive/v1.63.0.zip",
+            strip_prefix = "grpc-1.63.0",
+            sha256 = "daa1b06a19b5f7e4603e1f8980eeab43cf69b6e89bee3b2547f275fa5af7f480",
             patch_args = ["-p1"],
             patches = [
-                "//:bazel/patches/grpc-001-fix_file_watcher_race_condition.patch",
                 "//:bazel/patches/grpc-003-fix_go_gazelle_register_toolchain.patch",
             ],
-        )
+     )
     if not native.existing_rule("com_google_absl"):
         http_archive(
             name = "com_google_absl",
-            url = "https://github.com/abseil/abseil-cpp/archive/20230802.0.tar.gz",
-            strip_prefix = "abseil-cpp-20230802.0",
-            sha256 = "59d2976af9d6ecf001a81a35749a6e551a335b949d34918cfade07737b9d93c5",
+            url = "https://github.com/abseil/abseil-cpp/archive/20240116.2.tar.gz",
+            strip_prefix = "abseil-cpp-20240116.2",
+            sha256 = "733726b8c3a6d39a4120d7e45ea8b41a434cdacde401cba500f14236c49b39dc",
         )
     if not native.existing_rule("com_google_googletest"):
         http_archive(
@@ -45,9 +44,9 @@ def pins_deps():
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            url = "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v23.1.zip",
-            strip_prefix = "protobuf-23.1",
-            sha256 = "c0ea9f4d75b37ea8e9d78ce4c670d066bcb7cebdba190fa5fc8c57b1f00c0c2c",
+            url = "https://github.com/protocolbuffers/protobuf/archive/refs/tags/v25.2.zip",
+            strip_prefix = "protobuf-25.2",
+            sha256 = "ddd0f5271f31b549efc74eb39061e142132653d5d043071fcec265bd571e73c4",
         )
     if not native.existing_rule("com_googlesource_code_re2"):
         http_archive(

@@ -252,13 +252,31 @@ def verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
             testutils.verify_no_packet_any(test=ptfadapter, pkt=exp_pkt, ports=ptf_dst_ports)
 
 
+def acl_table_created(rand_selected_dut, table_name):
+    acl_table_infos = rand_selected_dut.show_and_parse("show acl table {}".format(table_name))
+    for info in acl_table_infos:
+        if info.get('name') == table_name:
+            if info.get('status', '').lower() != 'active':
+                logger.debug("ACL table {} exists but not yet active (status: {})".format(
+                    table_name, info.get('status')))
+                return False
+            return True
+    return False
+
+
 def acl_rule_loaded(rand_selected_dut, acl_rule_list):
     acl_rule_infos = rand_selected_dut.show_and_parse("show acl rule")
     acl_id_list = []
+    inactive_rules = []
     for acl_info in acl_rule_infos:
         acl_id = int(acl_info['rule'][len('RULE_'):])
         acl_id_list.append(acl_id)
+        if acl_info.get('status', '').lower() != 'active':
+            inactive_rules.append(acl_id)
     if sorted(acl_id_list) != sorted(acl_rule_list):
+        return False
+    if inactive_rules:
+        logger.debug("ACL rules not yet active: {}".format(inactive_rules))
         return False
     return True
 
@@ -282,6 +300,7 @@ def test_acl_add_del_stress(rand_selected_dut, tbinfo, ptfadapter, prepare_test_
 
     rand_selected_dut.shell(cmd_create_table)
     acl_rule_list = list(range(1, ACL_RULE_NUMS + 1))
+    wait_until(wait_timeout, 2, 0, acl_table_created, rand_selected_dut, "STRESS_ACL")
     verify_acl_rules(rand_selected_dut, ptfadapter, ptf_src_port, ptf_dst_ports,
                      acl_rule_list, 0, "forward", dst_ip_addr=dst_ip_addr)
     try:

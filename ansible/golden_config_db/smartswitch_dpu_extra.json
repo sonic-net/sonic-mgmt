@@ -9,9 +9,6 @@
         }
     },
     "FEATURE": {
-        "acms": {
-            "state": "disabled"
-        },
         "lldp": {
             "state": "disabled"
         },
@@ -26,6 +23,11 @@
         "gnmi": {
             "log_level": "2",
             "port": "50052"
+        }
+    },
+    "SYSTEM_DEFAULTS": {
+        "software_bfd": {
+            "status": "enabled"
         }
     }
 }

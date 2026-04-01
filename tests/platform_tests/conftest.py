@@ -20,7 +20,7 @@ def skip_on_simx(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     platform = duthost.facts["platform"]
     hwsku = duthost.facts['hwsku']
-    support_platform_simx_hwsku_list = ['ACS-MSN4700', 'ACS-SN4280']
+    support_platform_simx_hwsku_list = ['ACS-MSN4700', 'ACS-SN4280', 'ACS-SN5640', 'ACS-SN6600', 'ACS-SN6600_LD']
     if "simx" in platform and hwsku not in support_platform_simx_hwsku_list:
         pytest.skip('skipped on this platform: {}'.format(platform))
 
@@ -50,6 +50,9 @@ def xcvr_skip_list(duthosts, dpu_npu_port_list, tbinfo):
             dut.has_sku = False
             logging.debug(
                 "hwsku.json absent or port_type for interfaces not included for hwsku {}".format(hwsku))
+
+        if platform in ['arm64-c8220tg_48a_o-r0']:
+            intf_skip_list[dut.hostname] = ['Ethernet1']
 
         # No hwsku.json for Arista-7050-QX-32S/Arista-7050QX-32S-S4Q31
         if hwsku in ['Arista-7050-QX-32S', 'Arista-7050QX-32S-S4Q31']:
