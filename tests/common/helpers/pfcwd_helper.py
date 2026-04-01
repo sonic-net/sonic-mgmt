@@ -11,6 +11,8 @@ from tests.ptf_runner import ptf_runner
 from tests.common import constants
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
 if sys.version_info[0] >= 3:
@@ -429,6 +431,52 @@ def fetch_vendor_specific_diagnosis_re(duthost):
         return ""
 
     return VENDOR_SPEC_ADDITIONAL_INFO_RE.get(duthost.facts["asic_type"], "")
+
+
+def pfcwd_stats(dut):
+    result = dut.shell("show pfcwd stats", module_ignore_errors=True, verbose=False)
+    if result['rc'] != 0:
+        return {}
+    return parse_pfcwd_stats(result['stdout_lines'])
+
+
+def parse_pfcwd_stats(lines):
+    stats = {}
+    for line in lines:
+        tokens = line.split()
+        queue = tokens[0]
+        if queue.startswith('Ether'):
+            status = tokens[1]
+            stats[queue] = status
+    return stats
+
+
+def is_pfcwd_port_restored(dut, storm_port):
+    stats = pfcwd_stats(dut)
+    for queue, status in stats.items():
+        if queue.startswith(storm_port) and status == 'operational':
+            return True
+    return False
+
+
+def wait_until_pfcwd_restored(dut, storm_port):
+    is_restored = wait_until(10 * 60, 5, 0, is_pfcwd_port_restored, dut, storm_port)
+    pytest_assert(is_restored, f"Port {storm_port} did not restore storm!")
+
+
+def get_storm_detected_count(dut):
+    result = dut.shell("show pfcwd stats", module_ignore_errors=True, verbose=False)
+    if result['rc'] != 0:
+        return 0
+    lines = result['stdout_lines']
+    for line in lines:
+        tokens = line.split()
+        queue = tokens[0]
+        if queue.startswith('Ether'):
+            storm_detected_restored_count = tokens[2]
+            storm_detected_count = storm_detected_restored_count.split('/')[0]
+            return int(storm_detected_count)
+    return 0
 
 
 @pytest.fixture(scope='class', autouse=False)
