@@ -556,7 +556,7 @@
   ptf_image_name: docker-ptf
   ptf: ptf-10
   ptf_ip: 10.250.0.121/24
-  ptf_ipv6: fec0::ffff:afa:10/64
+  ptf_ipv6: fec0::ffff:afb:10/64
   netns_mgmt_ip: 10.250.0.122/24
   server: server_1
   vm_base: VM0148
