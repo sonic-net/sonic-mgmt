@@ -2472,15 +2472,24 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if (platform_asic and
-                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
-                    qos_test_assert(
-                        self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
-                else:
-                    qos_test_assert(
-                        self, recv_counters[cntr] == recv_counters_base[cntr],
-                        'unexpectedly RX drop counter increase, {}'.format(test_stage))
+                dnx_asics = ["broadcom-dnx", "marvell-teralynx"]
+                counter_margin = COUNTER_MARGIN if (
+                    platform_asic and platform_asic in dnx_asics) else 0
+                # Check if ingress drop is caused by environmental non-unicast noise
+                if not ignore_ingress_drop_caused_by_nonunicast_noise(
+                        self.src_client, port_list['src'][src_port_id],
+                        recv_counters, recv_counters_base, cntr,
+                        counter_margin=counter_margin):
+                    # Legitimate ingress drop, should fail test
+                    if (platform_asic and
+                            platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
+                        qos_test_assert(
+                            self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
+                            'unexpectedly RX drop counter increase, {}'.format(test_stage))
+                    else:
+                        qos_test_assert(
+                            self, recv_counters[cntr] == recv_counters_base[cntr],
+                            'unexpectedly RX drop counter increase, {}'.format(test_stage))
             # xmit port no egress drop
             for cntr in egress_counters:
                 qos_test_assert(
