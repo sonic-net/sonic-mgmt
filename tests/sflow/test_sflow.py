@@ -441,7 +441,7 @@ def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost, tbinfo
                     f'sudo tc -s filter show dev {intf} ingress 2>/dev/null',
                     module_ignore_errors=True
                 )['stdout']
-                m = re.search(r'Sent \d+ bytes (\d+) pkts', out)
+                m = re.search(r'Sent \d+ bytes (\d+) pkts?', out)
                 counts[intf] = int(m.group(1)) if m else None
             return counts
 
