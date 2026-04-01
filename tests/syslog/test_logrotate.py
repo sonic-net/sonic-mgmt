@@ -115,29 +115,39 @@ def create_temp_syslog_file(duthost, size):
     duthost.shell('sudo fallocate -l {} /var/log/syslog'.format(size))
 
 
-def get_tail_syslog_files(duthost, num):
-    files = duthost.shell('sudo ls -lt --full-time /var/log/syslog.* | tail -n {}'.format(num),
-                          module_ignore_errors=True)['stdout_lines']
+def get_oldest_syslog_files(duthost, num):
+    files = duthost.shell(
+        'sudo ls -lt --full-time /var/log/syslog.* | tail -n {} '.format(num),
+        module_ignore_errors=True)['stdout_lines']
     logger.debug(files)
     return files
 
 
 def files_time_shifted(before, after):
-    fl1 = before.splitlines()
-    fl2 = after.splitlines()
     '''
     get syslog files timestamp, when the file number limit is reached.
-    after log rotation, the total log file numner does not change, but
+    after log rotation, the total log file number does not change, but
     timestamp of those files should be shifted one position.
+    -rw-r----- 1 root adm    456629 2026-03-31 10:31:40.823978020 +0000 /var/log/syslog.245.gz
+    -rw-r----- 1 root adm     19788 2026-03-31 09:17:40.083889562 +0000 /var/log/syslog.246.gz
+    pickup "10:31:40.823978020" and "09:17:40.083889562" for above two files
+    no two syslog files can have the same timestamp
     '''
-    time_fl1 = [item.split()[6] for item in fl1]
-    time_fl2 = [item.split()[6] for item in fl2]
+    time_fl1 = [item.split()[6] for item in before]
+    time_fl2 = [item.split()[6] for item in after]
     logger.debug("=========== Syslog file imestamps before rotate =======")
     logger.debug(time_fl1)
     logger.debug("=========== Syslog file timestamps after rotate =======")
     logger.debug(time_fl2)
-    # Return true if sure oldest syslog files timestamp shifted
-    return time_fl1[:-1] == time_fl2[1:]
+    # Return 0 means all files are the same, no log rotate happened
+    # Return 1 means files timestamp shifted one position, log rotation happened
+    # Return -1 if no any of above two happened.
+    if time_fl1 == time_fl2:
+        return 0
+    elif time_fl1[:-1] == time_fl2[1:]:
+        return 1
+    else:
+        return -1
 
 
 def run_logrotate(duthost, force=False):
@@ -183,30 +193,39 @@ def validate_logrotate_function(duthost, logrotate_threshold, small_size, num_of
             create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 0.5))
         else:
             create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 0.9))
-        run_logrotate(duthost)
-        syslog_number_no_rotate = get_syslog_file_count(duthost)
-        logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_no_rotate))
-        assert syslog_number_origin == syslog_number_no_rotate, \
-            'Unexpected logrotate happens, there should be no logrotate executed'
-
-    with allure.step('There will be logrotate process when rsyslog size is larger than threshold {}'.format(
-            logrotate_threshold)):
         # When the total number of syslog file smaller than num_of_file to list, set to smaller value
         if syslog_number_origin < num_of_file:
             num_of_file = syslog_number_origin
-        tail_files_before_rotate = get_tail_syslog_files(duthost, num_of_file)
+        syslog_files_before_rotate = get_oldest_syslog_files(duthost, num_of_file)
+        run_logrotate(duthost)
+        syslog_number_no_rotate = get_syslog_file_count(duthost)
+        syslog_files_after_rotate = get_oldest_syslog_files(duthost, num_of_file)
+        logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_no_rotate))
+        # No syslog rotation has to satisfy following two conditions at the same time
+        assert syslog_number_origin == syslog_number_no_rotate, \
+            'Unexpected logrotate happens, the syslog file number changed'
+        assert files_time_shifted(syslog_files_before_rotate, syslog_files_after_rotate) == 0, \
+            'Unexpected logrotate happens, the syslog files timestamp shifted'
+
+    with allure.step('There will be logrotate process when rsyslog size is larger than threshold {}'.format(
+            logrotate_threshold)):
         create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 1.1))
+        syslog_files_before_rotate = get_oldest_syslog_files(duthost, num_of_file)
         run_logrotate(duthost)
         syslog_number_with_rotate = get_syslog_file_count(duthost)
         logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_with_rotate))
-        # Handle the corner case when number of syslog files reach its configured limit
+        syslog_files_after_rotate = get_oldest_syslog_files(duthost, num_of_file)
+        # We know syslog rotate should happen if either of two following conditions satisfied
+        # case 1: if syslog number not changed, but the log files timestamp shifted one position
+        # case 2: syslog number exactly increase 1
+        # Otherwise, we assume the syslog rotate does not happen
         if syslog_number_origin == syslog_number_with_rotate:
-            tail_files_after_rotate = get_tail_syslog_files(duthost, num_of_file)
-            assert files_time_shifted(tail_files_before_rotate, tail_files_after_rotate) == 1, \
+            syslog_files_after_rotate = get_oldest_syslog_files(duthost, num_of_file)
+            assert files_time_shifted(syslog_files_before_rotate, syslog_files_after_rotate) == 1, \
                 'No logrotate happens, both syslog file number and timestamp are the same'
         else:
             assert syslog_number_origin + 1 == syslog_number_with_rotate, \
-                'No logrotate happens, there should be one time logrotate executed'
+                'No logrotate happens, the number of syslog files does not increase by 1'
 
 
 def get_threshold_based_on_memory(duthost):
