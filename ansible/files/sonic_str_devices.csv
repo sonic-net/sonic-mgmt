@@ -49,6 +49,7 @@ str-4700-d04-u43,10.64.246.98/25,Mellanox-SN4700-O8V48,DevSonic,,sonic
 str43-msn4700-d05-u23,10.64.246.204/25,Mellanox-SN4700-O8V48,DevSonic,,sonic
 str-sn4700-f04-u31,10.3.146.182/24,Mellanox-SN4700-O8V48,DevSonic,,sonic
 str-7060x6-c09-u25,10.64.247.228/25,Arista-7060X6-64PE-B-P64,DevSonic,,sonic
+str-7060x6-d08-u10,10.3.147.19/24,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic
 str43-7060x6-64pe-b-ehw-f-c09-u39,10.64.247.116/26,Arista-7060X6-64PE-B-P64,DevSonic,,sonic
 str43-7060x6-64pe-lt2,10.64.247.68/26,Arista-7060X6-64PE-P32O64,DevSonic,,sonic
 str43-ut2-nh5010-01,10.64.247.69/26,NH-5010-F-O64,DevSonic,,sonic
@@ -88,6 +89,7 @@ pdu-120,10.3.154.121,Sentry4,Pdu,snmp,
 pdu-121,10.3.154.122,Sentry4,Pdu,snmp,
 pdu-122,10.3.154.123,Sentry4,Pdu,snmp,
 pdu-144,10.3.155.144,Sentry4,Pdu,snmp,
+pdu-159,10.3.153.159,Sentry4,Pdu,snmp,
 pdu-177,10.195.161.177,Sentry4,Pdu,snmp,
 pdu-178,10.195.160.178,Sentry4,Pdu,snmp,
 pdu-143,10.3.154.143,Sentry4,Pdu,snmp,

@@ -83,5 +83,7 @@ Sentry_6224b9,23,str43-7060x6-64pe-b-ehw-f-c09-u39,PSU2
 pdu-80,9,str-8101-temp01,PSU1
 pdu-90,19,str-7050cx3-c17-u39,PSU1
 pdu-90,22,str-7050cx3-c17-u39,PSU2
+pdu-159,19,str-7060x6-d08-u10,PSU1
+pdu-159,20,str-7060x6-d08-u10,PSU2
 pdu-143,1,3pos-sn2700-e11-34,PSU1
 pdu-144,1,3pos-sn2700-e11-34,PSU2
