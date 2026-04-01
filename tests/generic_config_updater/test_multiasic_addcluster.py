@@ -82,6 +82,12 @@ LOGANALYZER_IGNORE_REGEX = [
     ".*doPortTask: Unsupported port .* speed.*",
     ".*createEntry: Failed to start PFC Watchdog on port.*",
     ".*Unable to find key NPU_SI_SETTINGS_SYNC_STATUS.*",
+    # YANG validation errors during GCU patch sorting - GCU tries multiple
+    # orderings and intermediate states may fail validation (e.g., PORT
+    # without 'lanes', references to ports not yet created). These are
+    # transient and resolve when a valid ordering is found.
+    # See: https://github.com/sonic-net/sonic-buildimage/issues/24577
+    ".*ERR sonic_yang.*",
 ]
 
 
