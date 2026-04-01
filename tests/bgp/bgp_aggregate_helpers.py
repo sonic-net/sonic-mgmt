@@ -4,7 +4,7 @@ Provides:
   - Constants (aggregate prefixes, DB table names, ExaBGP ports)
   - AggregateCfg namedtuple
   - DB dump / FRR running-config helpers
-  - GCU JSON patch helpers (add/remove/update/batch/safe-remove aggregate)
+  - GCU JSON patch helpers (add/remove aggregate)
   - ExaBGP route announce/withdraw helpers
   - M2 (upstream) route verification helpers
   - Common Validators (CONFIG_DB / STATE_DB / FRR consistency, cleanup)
@@ -15,6 +15,7 @@ import logging
 import time
 from collections import namedtuple
 
+import pytest
 import requests
 
 from tests.common.devices.eos import EosHost
@@ -23,6 +24,9 @@ from tests.common.gcu_utils import (
     apply_patch,
     generate_tmpfile,
     delete_tmpfile,
+    create_checkpoint,
+    rollback_or_reload,
+    delete_checkpoint,
 )
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -30,10 +34,16 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 # ---- Constants ----
+CONSTANTS_FILE = "/etc/sonic/constants.yml"
+
+# Aggregate prefixes (used by legacy DUT-side-only tests)
+AGGR_V4 = "172.16.51.0/24"
+AGGR_V6_LEGACY = "2000:172:16:50::/64"
+
 BGP_AGGREGATE_ADDRESS = "BGP_AGGREGATE_ADDRESS"
 PLACEHOLDER_PREFIX = "192.0.2.0/32"  # RFC5737 TEST-NET-1
 
-# Aggregate prefixes for neighbor-validated tests (Groups 1 & 2)
+# Aggregate prefixes for neighbor-validated tests (Groups 1-4)
 AGGR_V4_First = "10.100.0.0/16"
 AGGR_V6 = "2001:db8:100::/48"
 CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
@@ -142,8 +152,7 @@ def safe_remove_aggregate(duthost, prefix):
             delete_tmpfile(duthost, tmpfile)
     except Exception:
         logger.debug(
-            "Cleanup: aggregate %s already absent "
-            "or will be recovered by rollback",
+            "Cleanup: aggregate %s already absent or will be recovered by rollback",
             prefix,
         )
 
@@ -190,49 +199,24 @@ def gcu_update_aggregate_field(duthost, prefix, field, value):
 
 
 # ---- ExaBGP route announcement helpers ----
-EXABGP_MAX_RETRIES = 3
-
-
 def exabgp_announce_route(ptfip, port, prefix, nexthop):
-    """Announce a route via ExaBGP HTTP API with retry."""
+    """Announce a route via ExaBGP HTTP API."""
     msg = 'announce route {} next-hop {}'.format(prefix, nexthop)
     url = 'http://{}:{}'.format(ptfip, port)
     data = {'commands': msg}
     logger.info("ExaBGP announce: url={}, data={}".format(url, data))
-    for attempt in range(1, EXABGP_MAX_RETRIES + 1):
-        try:
-            r = requests.post(url, data=data, timeout=10, proxies={"http": None, "https": None})
-            if r.status_code == 200:
-                return
-            logger.warning("ExaBGP announce attempt %d/%d for %s returned %d",
-                           attempt, EXABGP_MAX_RETRIES, prefix, r.status_code)
-        except requests.exceptions.RequestException as e:
-            logger.warning("ExaBGP announce attempt %d/%d for %s failed: %s",
-                           attempt, EXABGP_MAX_RETRIES, prefix, e)
-        if attempt < EXABGP_MAX_RETRIES:
-            time.sleep(1)
-    raise AssertionError(f"ExaBGP announce failed for {prefix} after {EXABGP_MAX_RETRIES} attempts")
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
+    assert r.status_code == 200
 
 
 def exabgp_withdraw_route(ptfip, port, prefix, nexthop):
-    """Withdraw a route via ExaBGP HTTP API with retry."""
+    """Withdraw a route via ExaBGP HTTP API."""
     msg = 'withdraw route {} next-hop {}'.format(prefix, nexthop)
     url = 'http://{}:{}'.format(ptfip, port)
     data = {'commands': msg}
     logger.info("ExaBGP withdraw: url={}, data={}".format(url, data))
-    for attempt in range(1, EXABGP_MAX_RETRIES + 1):
-        try:
-            r = requests.post(url, data=data, timeout=10, proxies={"http": None, "https": None})
-            if r.status_code == 200:
-                return
-            logger.warning("ExaBGP withdraw attempt %d/%d for %s returned %d",
-                           attempt, EXABGP_MAX_RETRIES, prefix, r.status_code)
-        except requests.exceptions.RequestException as e:
-            logger.warning("ExaBGP withdraw attempt %d/%d for %s failed: %s",
-                           attempt, EXABGP_MAX_RETRIES, prefix, e)
-        if attempt < EXABGP_MAX_RETRIES:
-            time.sleep(1)
-    raise AssertionError(f"ExaBGP withdraw failed for {prefix} after {EXABGP_MAX_RETRIES} attempts")
+    r = requests.post(url, data=data, proxies={"http": None, "https": None})
+    assert r.status_code == 200
 
 
 def announce_contributing_routes(setup, prefixes, ip_version="ipv4"):
@@ -393,3 +377,27 @@ def verify_bgp_aggregate_cleanup(duthost, prefix):
         prefix.split("/")[0] not in running_config,
         f"aggregate-address {prefix} should not present in FRR running-config",
     )
+
+
+# ---- Fixtures for BGP aggregate-address tests ----
+@pytest.fixture(scope="module", autouse=True)
+def setup_teardown(duthost):
+    """Create checkpoint before tests, rollback after."""
+    if duthost.is_multi_asic:
+        pytest.skip("BGP aggregate-address tests do not support multi-ASIC")
+
+    create_checkpoint(duthost)
+
+    # add placeholder aggregate to avoid GCU removing empty table
+    default_aggregates = dump_db(
+        duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS
+    )
+    if not default_aggregates:
+        gcu_add_placeholder_aggregate(duthost, PLACEHOLDER_PREFIX)
+
+    yield
+
+    try:
+        rollback_or_reload(duthost, fail_on_rollback_error=False)
+    finally:
+        delete_checkpoint(duthost)

@@ -21,10 +21,14 @@ import pytest
 from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_enabled
 
 from bgp_aggregate_helpers import (  # noqa: F401
+    BGP_AGGREGATE_ADDRESS,
+    PLACEHOLDER_PREFIX,
     AggregateCfg,
+    dump_db,
     gcu_add_aggregate,
+    gcu_add_placeholder_aggregate,
     gcu_remove_aggregate,
-    setup_teardown,  # noqa: F401
+    setup_teardown,
     verify_bgp_aggregate_consistence,
     verify_bgp_aggregate_cleanup,
 )
