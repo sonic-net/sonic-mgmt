@@ -74,6 +74,28 @@ BGP_SETTLE_WAIT = 5
 AggregateCfg = namedtuple("AggregateCfg", ["prefix", "bbr_required", "summary_only", "as_set"])
 
 
+# ---- Fixtures for BGP aggregate-address tests ----
+@pytest.fixture(scope="module", autouse=True)
+def setup_teardown(duthost):
+    """Create checkpoint before tests, rollback after."""
+
+    create_checkpoint(duthost)
+
+    # add placeholder aggregate to avoid GCU removing empty table
+    default_aggregates = dump_db(
+        duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS
+    )
+    if not default_aggregates:
+        gcu_add_placeholder_aggregate(duthost, PLACEHOLDER_PREFIX)
+
+    yield
+
+    try:
+        rollback_or_reload(duthost, fail_on_rollback_error=False)
+    finally:
+        delete_checkpoint(duthost)
+
+
 # ---- DB & running-config helpers ----
 def dump_db(duthost, dbname, tablename):
     """Return current DB content as dict."""
@@ -377,27 +399,3 @@ def verify_bgp_aggregate_cleanup(duthost, prefix):
         prefix.split("/")[0] not in running_config,
         f"aggregate-address {prefix} should not present in FRR running-config",
     )
-
-
-# ---- Fixtures for BGP aggregate-address tests ----
-@pytest.fixture(scope="module", autouse=True)
-def setup_teardown(duthost):
-    """Create checkpoint before tests, rollback after."""
-    if duthost.is_multi_asic:
-        pytest.skip("BGP aggregate-address tests do not support multi-ASIC")
-
-    create_checkpoint(duthost)
-
-    # add placeholder aggregate to avoid GCU removing empty table
-    default_aggregates = dump_db(
-        duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS
-    )
-    if not default_aggregates:
-        gcu_add_placeholder_aggregate(duthost, PLACEHOLDER_PREFIX)
-
-    yield
-
-    try:
-        rollback_or_reload(duthost, fail_on_rollback_error=False)
-    finally:
-        delete_checkpoint(duthost)

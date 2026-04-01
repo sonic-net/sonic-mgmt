@@ -21,14 +21,12 @@ import logging
 
 import pytest
 
-from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_enabled
-
-from test_bgp_aggregate_address import (
-    AggregateCfg,
+from bgp_aggregate_helpers import (
     AGGR_V4,
-    AGGR_V6,
+    AGGR_V6_LEGACY,
     BGP_AGGREGATE_ADDRESS,
     PLACEHOLDER_PREFIX,
+    AggregateCfg,
     dump_db,
     gcu_add_aggregate,
     gcu_add_placeholder_aggregate,
@@ -36,6 +34,7 @@ from test_bgp_aggregate_address import (
     verify_bgp_aggregate_consistence,
     verify_bgp_aggregate_cleanup,
 )
+from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_enabled
 
 from tests.common.config_reload import config_reload
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
@@ -232,7 +231,7 @@ def test_aggregate_persists_config_save_and_reboot(
     """
     duthost = duthosts[rand_one_dut_hostname]
     bbr_enabled = is_bbr_enabled(duthost)
-    cfg = AggregateCfg(prefix=AGGR_V6, bbr_required=False, summary_only=False, as_set=False)
+    cfg = AggregateCfg(prefix=AGGR_V6_LEGACY, bbr_required=False, summary_only=False, as_set=False)
 
     try:
         gcu_add_aggregate(duthost, cfg)
