@@ -174,9 +174,12 @@ from tests.common.snappi_tests.variables import (
     dut_ipv6_start,
     snappi_ipv6_start,
     v6_prefix_length,
+)   # noqa: F403, F401, F405
+
+from tests.snappi_tests.variables import (
     pfcQueueGroupSize,
     pfcQueueValueDict,
-)   # noqa: F403, F401, F405
+)    # noqa: F403, F401, F405
 
 # ==============================
 # MAC Management
