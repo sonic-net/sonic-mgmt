@@ -59,11 +59,11 @@ roles_cfg = {
         "peer": {"role": "pt0", "asn": 65100, "asn_v6": 64620, "asn_increment": 1},
     },
     "t1": {
-        "asn": 65100,
+        "asn": 4200100000,
         "asn_v6": 4200100000,
-        "downlink": {"role": "t0", "asn": 64000, "asn_v6": 4200000000, "asn_increment": 1},
-        "uplink": {"role": "t2", "asn": 65200, "asn_v6": 4200200000, "asn_increment": 0},
-        "peer": None,
+        "downlink": {"role": "t0", "asn": 4200000000, "asn_v6": 4200000000, "asn_increment": 1},
+        "uplink": {"role": "t2", "asn": 4200200000, "asn_v6": 4200200000, "asn_increment": 0},
+        "peer": {"role": "pt1", "asn": 65100, "asn_v6": 65100, "asn_increment": 1},
     },
     "lt2": {
         "asn": 4200100000,
@@ -187,6 +187,11 @@ hw_port_cfg = {
                           'continuous_vms': True,
                           "panel_port_step": 1,
                           "link_based": True},
+    'd508u1s2':         {"ds_breakout": 1, "us_breakout": 1, "ds_link_step": 1, "us_link_step": 1,
+                         "uplink_ports": [508],
+                         "peer_ports": [509, 510],
+                         "skip_ports": [],
+                         "panel_port_step": 1},
 }
 
 overwrite_file_name = {
@@ -250,7 +255,7 @@ class VM:
         self.link_id = link_id
         self.vm_offset = vm_id
         self.ip_offset = vm_id if ip_offset is None else ip_offset
-        self.name = f"ARISTA{name_id:02d}{self.role.upper()}"
+        self.name = f"ARISTA{name_id:02d}{self.role.upper()}"  # noqa: E231
         self.tornum = tornum
 
         # VLAN configuration
@@ -356,7 +361,6 @@ def generate_topo_link_based(role: str,
                              ) -> Tuple[List[VM], List[HostInterface]]:
 
     def _find_lag_link(link_id: int) -> bool:
-        nonlocal port_cfg
         if not isinstance(port_cfg["lag_list"], LinkList):
             return False, None
 
@@ -485,7 +489,6 @@ def generate_topo(role: str,
                   ) -> Tuple[List[VM], List[HostInterface]]:
 
     def _find_lag_port(port_id: int) -> bool:
-        nonlocal port_cfg
         if not isinstance(port_cfg["uplink_ports"], PortList):
             return False, None
 
@@ -718,6 +721,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2-sparse'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag-sparse'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 509 -l 'd508u1s2'
     - ./generate_topo.py -r lt2 -k o128 -t lt2_128 -c 64 -l 'o128lt2'
     - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'
     - ./generate_topo.py -r t0 -k f2 -t t0 -c 64 -l 'p32v128f2'
