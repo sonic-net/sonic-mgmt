@@ -1,10 +1,14 @@
+import logging
+
 from ..device_mocker import DeviceMocker
 from pkg_resources import parse_version
 from tests.common.mellanox_data import get_platform_data, get_hw_management_version
+from tests.common.helpers.pdb_mocker import PdbData
 from tests.common.helpers.mellanox_thermal_control_test_helper import MockerHelper, FanDrawerData, FanData, \
     FAN_NAMING_RULE
 
 HW_MANAGE_VER = '7.0030.2003'
+logger = logging.getLogger(__name__)
 
 
 class AsicData(object):
@@ -36,7 +40,7 @@ class PsuData(object):
     def __init__(self, mock_helper, index):
         self.helper = mock_helper
         self.index = index
-        self.name = 'PSU {}'.format(self.index)
+        self.name = f'PSU {self.index}'
         power_status_file = PsuData.PSU_POWER_STATUS_FILE.format(index)
         out = self.helper.dut.stat(path=power_status_file)
         if out['stat']['exists']:
@@ -86,6 +90,16 @@ class MellanoxDeviceMocker(DeviceMocker):
             self.psu_data = PsuData(self.mock_helper, i + 1)
             if self.psu_data.power_on:
                 break
+
+        self.pdb_data = self._init_pdb_data()
+
+    def _init_pdb_data(self):
+        for i in range(1, 5):
+            pdb_file = f'/run/hw-management/system/pdb{i}_pwr_status'
+            out = self.mock_helper.dut.stat(path=pdb_file)
+            if out['stat']['exists']:
+                return PdbData(self.mock_helper, i)
+        return None
 
     def deinit(self):
         self.mock_helper.deinit()
@@ -154,6 +168,30 @@ class MellanoxDeviceMocker(DeviceMocker):
     def mock_psu_voltage(self, good):
         # Not Supported for now
         return False, None
+
+    def mock_pdb_status(self, status):
+        if self.pdb_data is None:
+            logger.warning("Unable to mock PDB power status: no PDB data discovered on '%s'",
+                           self.mock_helper.dut.hostname)
+            return False, None
+        self.pdb_data.mock_status(status)
+        logger.info("Mocked PDB power status for %s to '%s'", self.pdb_data.name, status)
+        return True, self.pdb_data.name
+
+    def mock_pdb_presence(self, status):
+        if self.pdb_data is None:
+            logger.warning("Unable to mock PDB presence: no PDB data discovered on '%s'",
+                           self.mock_helper.dut.hostname)
+            return False, None
+
+        mock_result = self.pdb_data.mock_presence(status)
+        if not mock_result:
+            logger.warning("PDB presence mock is not supported for %s on '%s'",
+                           self.pdb_data.name, self.mock_helper.dut.hostname)
+            return False, self.pdb_data.name
+
+        logger.info("Mocked PDB presence for %s to '%s'", self.pdb_data.name, status)
+        return True, self.pdb_data.name
 
     def mock_fan_direction(self, good):
         platform_data = get_platform_data(self.mock_helper.dut)
