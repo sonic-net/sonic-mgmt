@@ -2715,10 +2715,11 @@ generic_config_updater/test_pfcwd_status.py:
 
 generic_config_updater/test_pg_headroom_update.py:
   skip:
-    reason: "Unsupported topology."
+    reason: "Unsupported topology or platform."
     conditions_logical_operator: "OR"
     conditions:
       - "topo_type in ['bmc', 'm0', 'm1', 'mx']"
+      - "asic_type in ['cisco-8000'] and topo_type in ['t2']"
 
 generic_config_updater/test_srv6:
   skip:
