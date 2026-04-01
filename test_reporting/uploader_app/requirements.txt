@@ -3,6 +3,7 @@ gunicorn
 pyotp
 qrcode
 Pillow
+PyYAML
 azure-data-tables
 azure-keyvault-secrets
 azure-identity
