@@ -55,7 +55,5 @@ def pytest_generate_tests(metafunc):
                                  p.get('testcase_file', 'None')),
             scope="module"
         )
-    elif "test_container_upgrade_nightly" in metafunc.module.__name__:
-        pass  # Nightly test reads params directly via request.config.getoption
     else:
         pytest.fail("required_container_upgrade_params fixture should exist")
