@@ -101,6 +101,12 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
   skip:
     reason: "The test refers to a stale implementation of GNOI.System.Reboot."
 
+telemetry/test_events.py:
+  skip:
+    reason: "Skipping test_event only for 202405; Blocked in community aswell by https://github.com/sonic-net/sonic-mgmt/pull/13740."
+    conditions:
+      - "release in ['202405']"
+
 #######################################
 #####           pc               #####
 #######################################
