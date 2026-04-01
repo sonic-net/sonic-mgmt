@@ -5,6 +5,7 @@ import pytest
 import yaml
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
+from tests.redfish.redfish_utils import RedfishClient
 
 logger = logging.getLogger(__name__)
 
@@ -58,3 +59,16 @@ def bmc_creds():
 @pytest.fixture(scope="module")
 def redfish_base_url(bmc_ip):
     return "https://{}{}".format(bmc_ip, REDFISH_ROOT)
+
+
+@pytest.fixture(scope="module")
+def redfish_client(bmc_ip, bmc_creds):
+    """Return a RedfishClient instance configured with BMC credentials."""
+    return RedfishClient(bmc_ip, bmc_creds["user"], bmc_creds["password"])
+
+
+@pytest.fixture(scope="module")
+def bmc_duthost(duthosts, tbinfo):
+    """Return the DUT host object for the BMC device (for SSH-based checks)."""
+    dut_name = tbinfo["duts"][0]
+    return duthosts[dut_name]
