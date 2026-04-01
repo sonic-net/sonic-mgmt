@@ -328,6 +328,37 @@ class DHCPTopoT1Test(PolicyTest):
         self.log("DHCPTopoT1Test")
         self.run_suite()
 
+    def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
+        """
+        Use packet-matched recv_count instead of unfiltered NN counter rx_pps.
+        The NN counter (AF_PACKET ETH_P_ALL) captures all traffic on the interface
+        including BGP keepalives, LLDP, and TCP ACKs that are unrelated to DHCP.
+        recv_count is matched against the exact DHCP packet template and correctly
+        verifies that DHCP is not being punted to CPU on T1 topology.
+        """
+        self.log("")
+        if self.is_smartswitch_light_mode:
+            self.log("Checking constraints (PolicyApplied - SmartSwitch):")
+            self.log(
+                "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
+                (int(self.PPS_LIMIT_MIN),
+                 int(rx_pps),
+                 int(self.PPS_LIMIT_MAX),
+                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+            )
+            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, (
+                "Copp policer constraint check failed, Actual PPS: {} "
+                "Expected PPS range: {} - {}".format(
+                    rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX))
+        else:
+            self.log("Checking constraints (NoPolicyApplied - T1 DHCP):")
+            self.log(
+                "DHCP-matched recv_count (%d) should be 0 (DHCP not punted on T1)" % recv_count
+            )
+            assert recv_count == 0, (
+                "Copp policer constraint check failed, Expected 0 DHCP packets punted "
+                "to CPU on T1, but received {} packets".format(recv_count))
+
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
 
@@ -456,6 +487,37 @@ class DHCP6TopoT1Test(PolicyTest):
     def runTest(self):
         self.log("DHCP6TopoT1Test")
         self.run_suite()
+
+    def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
+        """
+        Use packet-matched recv_count instead of unfiltered NN counter rx_pps.
+        The NN counter (AF_PACKET ETH_P_ALL) captures all traffic on the interface
+        including BGP keepalives, LLDP, and TCP ACKs that are unrelated to DHCP.
+        recv_count is matched against the exact DHCP packet template and correctly
+        verifies that DHCP is not being punted to CPU on T1 topology.
+        """
+        self.log("")
+        if self.is_smartswitch_light_mode:
+            self.log("Checking constraints (PolicyApplied - SmartSwitch):")
+            self.log(
+                "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
+                (int(self.PPS_LIMIT_MIN),
+                 int(rx_pps),
+                 int(self.PPS_LIMIT_MAX),
+                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+            )
+            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, (
+                "Copp policer constraint check failed, Actual PPS: {} "
+                "Expected PPS range: {} - {}".format(
+                    rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX))
+        else:
+            self.log("Checking constraints (NoPolicyApplied - T1 DHCP):")
+            self.log(
+                "DHCP-matched recv_count (%d) should be 0 (DHCP not punted on T1)" % recv_count
+            )
+            assert recv_count == 0, (
+                "Copp policer constraint check failed, Expected 0 DHCP packets punted "
+                "to CPU on T1, but received {} packets".format(recv_count))
 
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
