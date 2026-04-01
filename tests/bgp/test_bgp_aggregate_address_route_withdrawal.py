@@ -15,7 +15,7 @@ import pytest
 from natsort import natsorted
 
 # Shared helpers from the aggregate-address helpers module
-from bgp_aggregate_helpers import (
+from bgp_aggregate_helpers import (  # noqa: F401
     AGGR_V4_First,
     CONTRIBUTING_V4,
     EXABGP_BASE_PORT,
@@ -23,6 +23,7 @@ from bgp_aggregate_helpers import (
     AggregateCfg,
     gcu_add_aggregate,
     safe_remove_aggregate,
+    setup_teardown,  # noqa: F401
 )
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp_routing import inject_routes, verify_route_on_neighbors

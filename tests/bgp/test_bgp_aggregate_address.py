@@ -24,7 +24,7 @@ from bgp_aggregate_helpers import (  # noqa: F401
     AggregateCfg,
     gcu_add_aggregate,
     gcu_remove_aggregate,
-    setup_teardown,
+    setup_teardown,  # noqa: F401
     verify_bgp_aggregate_consistence,
     verify_bgp_aggregate_cleanup,
 )

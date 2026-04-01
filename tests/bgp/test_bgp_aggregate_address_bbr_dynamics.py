@@ -20,24 +20,72 @@ import time
 import pytest
 
 from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state
-from bgp_aggregate_helpers import (
+from natsort import natsorted
+
+from bgp_aggregate_helpers import (  # noqa: F401
     AGGR_V4_First,
     AGGR_V4_SECOND,
     BGP_SETTLE_WAIT,
     CONTRIBUTING_V4,
     CONTRIBUTING_V4_SECOND,
+    EXABGP_BASE_PORT,
+    EXABGP_BASE_PORT_V6,
     ROUTE_PROPAGATION_WAIT,
     AggregateCfg,
     announce_contributing_routes,
     gcu_add_aggregate,
     gcu_remove_aggregate,
+    setup_teardown,  # noqa: F401
     verify_bgp_aggregate_cleanup,
     verify_bgp_aggregate_consistence,
     verify_route_on_m2,
     withdraw_contributing_routes,
 )
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 
 pytestmark = [pytest.mark.topology("m1"), pytest.mark.device_type("vs"), pytest.mark.disable_loganalyzer]
+
+
+@pytest.fixture(scope="module")
+def m1_topo_setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts, ptfhost):
+    """Setup M0 (downstream) and M2 (upstream) neighbor info."""
+    topo_type = tbinfo["topo"]["type"]
+    if topo_type not in UPSTREAM_NEIGHBOR_MAP or topo_type not in DOWNSTREAM_NEIGHBOR_MAP:
+        pytest.skip(f"Topology type {topo_type} not supported for neighbor-validated tests")
+
+    upstream_type = UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
+    downstream_type = DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper()
+
+    upstream_neighbors = natsorted(
+        [n for n in nbrhosts.keys() if n.endswith(upstream_type)]
+    )
+    downstream_neighbors = natsorted(
+        [n for n in nbrhosts.keys() if n.endswith(downstream_type)]
+    )
+
+    if not upstream_neighbors:
+        pytest.skip(f"No upstream ({upstream_type}) neighbors found in topology")
+    if not downstream_neighbors:
+        pytest.skip(f"No downstream ({downstream_type}) neighbors found in topology")
+
+    downstream = downstream_neighbors[0]
+    downstream_offset = tbinfo['topo']['properties']['topology']['VMs'][downstream]['vm_offset']
+    downstream_exabgp_port = EXABGP_BASE_PORT + downstream_offset
+    downstream_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + downstream_offset
+
+    nhipv4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
+    nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
+
+    return {
+        'upstream_neighbors': upstream_neighbors,
+        'downstream': downstream,
+        'downstream_neighbors': downstream_neighbors,
+        'downstream_exabgp_port': downstream_exabgp_port,
+        'downstream_exabgp_port_v6': downstream_exabgp_port_v6,
+        'nhipv4': nhipv4,
+        'nhipv6': nhipv6,
+        'ptfip': ptfhost.mgmt_ip,
+    }
 
 
 class TestGroup2BBRStateInteraction:

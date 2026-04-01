@@ -35,6 +35,7 @@ from bgp_aggregate_helpers import (  # noqa: F401
     gcu_remove_multiple_aggregates,
     gcu_update_aggregate_field,
     safe_remove_aggregate,
+    setup_teardown,  # noqa: F401
 )
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp_routing import inject_routes, verify_route_on_neighbors
