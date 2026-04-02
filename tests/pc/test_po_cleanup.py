@@ -1,10 +1,9 @@
-import time
 import pytest
 import logging
 
 from tests.common.fixtures.duthost_utils import stop_route_checker_on_duthost
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, wait_for_syslog_stable
 from tests.common import config_reload
 from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronContext, LogAnalyzer
 
@@ -155,20 +154,8 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
                     # the marker.
                     duthost.shell("killall yes", module_ignore_errors=True)
                     # Wait for rsyslogd to drain the /dev/log socket buffer
-                    # backlog.  Under CPU stress, config_reload floods the socket
-                    # and the backlog can take minutes to drain even after the
-                    # stress ends.  Poll until /var/log/syslog stops growing
-                    # (stable for two consecutive 10-second intervals), meaning
-                    # rsyslogd has caught up and it is safe to place the end marker.
-                    prev_size = None
-                    for _ in range(30):
-                        result = duthost.shell("stat -c %s /var/log/syslog",
-                                               module_ignore_errors=True)
-                        curr_size = result.get('stdout', '').strip()
-                        if curr_size == prev_size:
-                            break
-                        prev_size = curr_size
-                        time.sleep(10)
+                    # backlog before loganalyzer places the end marker.
+                    wait_for_syslog_stable(duthost)
         # Cancel the watchdog so it doesn't fire during later tests
         if watchdog_pid:
             duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)

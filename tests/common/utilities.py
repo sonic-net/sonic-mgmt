@@ -1749,3 +1749,49 @@ def group_interfaces_by_asic(duthost, interfaces: list) -> dict:
         namespace = duthost.get_port_asic_instance(interface).get_asic_namespace()
         asic_interface_map["-n {}".format(namespace)].append(interface)
     return dict(asic_interface_map)
+
+
+def wait_for_syslog_stable(duthost, interval=10, stable_count=2, max_iterations=30):
+    """Wait for /var/log/syslog to stop growing, indicating rsyslogd has drained its buffer.
+
+    Under heavy syslog load (e.g. after config_reload with CPU stress), rsyslogd may
+    have a large backlog in its socket buffer.  This function polls the syslog file size
+    and waits until it remains unchanged for ``stable_count`` consecutive checks spaced
+    ``interval`` seconds apart.
+
+    This is useful before placing loganalyzer end markers to avoid marker loss caused
+    by rsyslogd buffer overflow.
+
+    Args:
+        duthost: DUT host object.
+        interval: Seconds between consecutive size checks (default 10).
+        stable_count: Number of consecutive unchanged checks required (default 2).
+        max_iterations: Maximum number of polling iterations (default 30).
+
+    Returns:
+        True if syslog stabilized within the limit, False otherwise.
+    """
+    import time
+    import logging
+
+    logger = logging.getLogger(__name__)
+    prev_size = None
+    unchanged = 0
+
+    for i in range(max_iterations):
+        result = duthost.shell("stat -c %s /var/log/syslog", module_ignore_errors=True)
+        curr_size = result.get('stdout', '').strip()
+
+        if curr_size == prev_size:
+            unchanged += 1
+            if unchanged >= stable_count:
+                logger.info("Syslog stable after %d checks (size=%s)", i + 1, curr_size)
+                return True
+        else:
+            unchanged = 0
+
+        prev_size = curr_size
+        time.sleep(interval)
+
+    logger.warning("Syslog did not stabilize after %d iterations", max_iterations)
+    return False
