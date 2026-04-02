@@ -7,3 +7,6 @@ PyYAML
 azure-data-tables
 azure-keyvault-secrets
 azure-identity
+azure-kusto-data
+azure-kusto-ingest
+defusedxml
