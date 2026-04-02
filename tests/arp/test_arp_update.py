@@ -13,6 +13,7 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.constants import PTF_TIMEOUT
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+from tests.common.utilities import is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
 
@@ -195,6 +196,9 @@ def test_ptf_arp_learns_mac(
     simulate ARP request from PTF to DUT,
     verify DUT replies and learns PTF MAC in FDB
     """
+    if is_ipv6_only_topology(tbinfo):
+        pytest.skip("ARP is IPv4-only; IPv6 uses NDP. Skipping on IPv6-only topology.")
+
     # Setup PTF and DUT info
     ptf_info = ptf_interface_info
     dut_info = dut_interface_info
