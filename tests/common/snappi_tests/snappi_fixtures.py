@@ -11,6 +11,9 @@ import subprocess
 import csv
 import json
 import os
+import yaml
+from ansible.utils.unsafe_proxy import AnsibleUnsafeText
+yaml.SafeDumper.add_representer(AnsibleUnsafeText, yaml.SafeDumper.represent_str)
 from copy import copy
 from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
@@ -77,26 +80,25 @@ def snappi_api(snappi_api_serv_ip,
         tbinfo (pytest fixture): fixture provides information about testbed.
     """
 
-    if "ptf_image_name" not in tbinfo:
-        logger.error('Cannot get ptf_image_name in tbinfo {}'.format(tbinfo))
-        return None
+    ptf_image_name = tbinfo.get("ptf_image_name", "")
+    if not ptf_image_name:
+        logger.warning('Cannot get ptf_image_name in tbinfo {}, defaulting to ixnetwork'.format(tbinfo))
 
-    if "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
+    if "docker-stc-api-server" in ptf_image_name:
+        logger.info("for docker-stc-api-server")
+        location = snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
+        api = snappi.api(location=location, transport="grpc")
+        api.request_timeout = 300
+    else:
         logger.info("for docker-keysight-api-server")
         location = "https://" + snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
         api = snappi.api(location=location, ext="ixnetwork")
 
         # TODO - Uncomment to use. Prefer to use environment vars to retrieve this information
-        # api._username = "<please mention the username if other than default username>"
-        # api._password = "<please mention the password if other than default password>"
-        yield api
+        api._username = "admin"
+        api._password = "admin"
 
-    if "docker-stc-api-server" in tbinfo["ptf_image_name"]:
-        logger.info("for docker-stc-api-server")
-        location = snappi_api_serv_ip + ":" + str(snappi_api_serv_port)
-        api = snappi.api(location=location, transport="grpc")
-        api.request_timeout = 300
-        yield api
+    yield api
 
     if getattr(api, 'assistant', None) is not None:
         api.assistant.Session.remove()

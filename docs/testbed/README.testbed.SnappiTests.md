@@ -54,7 +54,7 @@ Key fields:
 |-----------------|-----------------------------------------------------------------------------------------------------------------------|
 | `conf-name`     | Referred to as the **testbed-name** in CLI scripts.                                                                   |
 | `topo`          | Specifies the SONiC topology (e.g., `t0`, `t1`).                                                                      |
-| `ptf_image_name`| Name of the API Docker server; can be arbitrary.                                                                      |
+| `ptf_image_name`| Name of the API Docker server; can be arbitrary. Set to `docker-stc-api-server` to use STC as the traffic-generator backend.                          |
 | `ptf`           | Not relevant for Snappi tests; can be any value.                                                                      |
 | `ptf_ip`        | IP address (IPv4/6) accessible from the testbed server running the Docker API Server.                                 |
 | `vm_base`       | Not relevant for Snappi tests; can be any value.                                                                      |
@@ -222,7 +222,7 @@ To install `snappi-trex` on your testbed server and run tests using your physica
 
 ### 3.4 Viavi STC Path
 
-#### 3.3.1 Deploying the STC OTG Service
+#### 3.4.1 Deploying the STC OTG Service
 
 To deploy the STC OTG service, follow these [steps](https://github.com/Spirent-STC/stc-otg-setup/blob/main/README.md).
 
@@ -299,7 +299,7 @@ sequenceDiagram
     Server-->>Api: Flow status & counters
     Api-->>Host: Test results
 ```
-### 6.2 STC
+### 6.3 STC
 
 ```mermaid
 sequenceDiagram
