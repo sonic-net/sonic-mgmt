@@ -948,7 +948,10 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
         
         # Test a reasonable subset of rules - focus on early rules (most likely to be active)
         test_rule_count = SCALE_RULE_COUNT
-        logger.info(f"Testing packet forwarding for {test_rule_count} rules with unique priorities (5000-{5000+test_rule_count-1})")
+        logger.info(
+            f"Testing packet forwarding for {test_rule_count} rules with unique priorities "
+            f"(5000-{5000+test_rule_count-1})"
+        )
         logger.info("Sending ONE packet per rule to test both MAC rewrite AND counter increment")
         logger.info("This will help identify which rules are ACTIVE vs INACTIVE due to hardware limits")
         logger.info("Note: With 9000 total rules, expect significant hardware resource limits")
