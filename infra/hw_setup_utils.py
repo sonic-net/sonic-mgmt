@@ -116,10 +116,22 @@ MAX_PARTS_IMAGE_NAME = 6
 START_INDEX_IMAGE = 2
 IMAGE_INDEX = 4
 
-streams_list = ["202205", "202305", "202311", "master", "202405c", "202405", "202411", "202501", "202505", "202511"]
-STREAM_BRANCH_OVERRIDE = {
-    "c-master.ztp": "202505",
-}
+# order matters -- first match in stream will be used
+streams_list = ["202205",
+                "202305",
+                "202311",
+                "202405c",
+                "202405",
+                "202411",
+                "202501",
+                "202505",
+                "202511",
+                "c-master",
+                "master",
+                ]
+
+# overrides must use full stream names like "cisco.202511.1.signed"
+STREAM_BRANCH_OVERRIDE = {}
 
 BIN_FILE = "sonic-cisco-8000.bin"
 
@@ -337,9 +349,9 @@ def getBranchFromStream(stream):
         log.warning(f"For stream {stream} overriding with branch value {override} because it's hardcoded!")
         return override
     
-    for str in streams_list:
-        if stream.find(str)>0:
-            return str
+    for stream_marker in streams_list:
+        if stream_marker in stream:
+            return stream_marker
     
     return "master"
 

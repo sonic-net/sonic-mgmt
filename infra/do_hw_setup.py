@@ -625,6 +625,7 @@ def load_docker_ptf_image(stream, docker_ptf_url=None):
         '202501': 'http://172.26.235.76/MISC/docker-ptf_anukverm-202411-27Jun2025-mix.gz',
         '202505': 'http://172.26.235.76/MISC/docker_ptf_202505_8Oct_azure_tagged_latest.tar',
         '202511': 'http://172.26.235.76/MISC/docker_ptf_202511_9Dec2025_azure_tagged_latest.tar',
+        'c-master': 'http://172.26.235.76/MISC/docker_ptf_202505_8Oct_azure_tagged_latest.tar',
         'master': 'http://172.26.235.76/MISC/docker-ptf_anukverm-master-27Jun2025-mix.gz'
     }
 
