@@ -73,6 +73,13 @@ roles_cfg = {
         "fabric": {"role": "ft2", "asn": 4200100000, "asn_v6": 4200100000, "asn_increment": 0},
         "peer": None
     },
+    "t2": {
+        "asn": 4200200000,
+        "asn_v6": 4200200000,
+        "downlink": {"role": "t1", "asn": 4200100000, "asn_v6": 4200100000, "asn_increment": 1},
+        "uplink": None,
+        "peer": {"role": "pt1", "asn": 65000, "asn_v6": 65000, "asn_increment": 1},
+    },
 }
 
 hw_port_cfg = {
@@ -96,6 +103,11 @@ hw_port_cfg = {
     'o128t1':           {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': [],
                          'peer_ports': [],
+                         'skip_ports': [],
+                         "panel_port_step": 1},
+    'o128t2':           {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': [],
+                         'peer_ports': [64, 65],
                          'skip_ports': [],
                          "panel_port_step": 1},
     'c256-sparse':      {"ds_breakout": 8, "us_breakout": 8, "ds_link_step": 8, "us_link_step": 8,
@@ -685,7 +697,7 @@ def write_topo_file(role: str,
 
 
 @click.command()
-@click.option("--role", "-r", required=True, type=click.Choice(['t0', 't1', 'lt2']), help="Role of the device")
+@click.option("--role", "-r", required=True, type=click.Choice(['t0', 't1', 't2', 'lt2']), help="Role of the device")
 @click.option("--keyword", "-k", required=False, type=str, default="", help="Keyword for the topology file")
 @click.option("--template", "-t", required=True, type=str, help="Path to the Jinja template file")
 @click.option("--port-count", "-c", required=True, type=int, help="Number of physical ports used on the device")
