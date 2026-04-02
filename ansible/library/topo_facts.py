@@ -332,6 +332,12 @@ class ParseTestbedTopoinfo():
             elif 't0' in topo_name:
                 vm_topo_config['dut_type'] = "BackEndToRRouter"
 
+        # Fallback: read dut_type from configuration_properties when no VMs (e.g., BMC topo)
+        if 'dut_type' not in vm_topo_config and 'configuration_properties' in topo_definition:
+            common = topo_definition['configuration_properties'].get('common', {})
+            if 'dut_type' in common:
+                vm_topo_config['dut_type'] = common['dut_type']
+
         for slot, asic_definition in slot_definition.items():
             asic_topo_config[slot] = dict()
             for asic in asic_definition:
