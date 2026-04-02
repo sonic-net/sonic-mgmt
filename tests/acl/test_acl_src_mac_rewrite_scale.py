@@ -211,6 +211,7 @@ def check_rule_counters(duthost):
     else:
         return True
 
+
 def get_acl_counters(duthost, table_name):
     """
     Get ACL counter packets value for all rules in a table.
@@ -238,6 +239,7 @@ def get_acl_counters(duthost, table_name):
             counters[rule_name] = 0
 
     return counters
+
 
 def setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE):
     """
@@ -456,10 +458,6 @@ def setup_bulk_acl_rules(duthost, rule_count, vni=str(VXLAN_VNI), start_index=0)
             "INNER_SRC_MAC_REWRITE_ACTION": new_src_mac,
             "PRIORITY": str(priority)
         }
-
-        # Log first 3 rules for debugging
-        if i < 3:
-            logger.info(f"Rule {rule_name}: IP={inner_src_ip}, MAC={new_src_mac}, Priority={priority} (UNIQUE for each rule)")
 
     generation_time = time.time() - generation_start
     logger.info(f"Generated {rule_count} rule configurations in {generation_time:.2f} seconds")
@@ -892,8 +890,11 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
         # STEP 3: Verify rule status and behavior with unique priorities
         # ===================================================================
         logger.info("STEP 3: Verifying rule status and behavior with UNIQUE PRIORITIES")
-        logger.info(f"All {SCALE_RULE_COUNT} rules programmed with priorities 5000-{5000+SCALE_RULE_COUNT-1} - verifying active status")
-        
+        logger.info(
+            f"All {SCALE_RULE_COUNT} rules programmed with priorities "
+            f"5000-{5000+SCALE_RULE_COUNT-1} - verifying active status"
+        )
+
         # Check rule status distribution
         logger.info("Checking rule status distribution...")
         show_acl_result = duthost.shell("show acl rule", module_ignore_errors=True)
@@ -903,7 +904,7 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
             active_count = output.count("Active")
             inactive_count = output.count("Inactive")
             
-            logger.info(f"=== UNIQUE PRIORITY BEHAVIOR ANALYSIS ===")
+            logger.info("=== UNIQUE PRIORITY BEHAVIOR ANALYSIS ===")
             logger.info(f"Total rules found: {total_rules}")
             logger.info(f"Active rules: {active_count}")
             logger.info(f"Inactive rules: {inactive_count}")
@@ -948,9 +949,9 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
         # Test a reasonable subset of rules - focus on early rules (most likely to be active)
         test_rule_count = SCALE_RULE_COUNT
         logger.info(f"Testing packet forwarding for {test_rule_count} rules with unique priorities (5000-{5000+test_rule_count-1})")
-        logger.info(f"Sending ONE packet per rule to test both MAC rewrite AND counter increment")
-        logger.info(f"This will help identify which rules are ACTIVE vs INACTIVE due to hardware limits")
-        logger.info(f"Note: With 9000 total rules, expect significant hardware resource limits")
+        logger.info("Sending ONE packet per rule to test both MAC rewrite AND counter increment")
+        logger.info("This will help identify which rules are ACTIVE vs INACTIVE due to hardware limits")
+        logger.info("Note: With 9000 total rules, expect significant hardware resource limits")
         
         packet_test_start = time.time()
         successful_tests = 0
@@ -959,13 +960,12 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
         # Get ACL counters before testing
         counter_before = get_acl_counters(duthost, ACL_TABLE_NAME)
 
-
         for i in range(test_rule_count):
             rule_name = f"scale_rule_{i + 1:04d}"
             inner_src_ip = generate_ip_address(i, SCALE_IP_BASE, SCALE_IP_PREFIX)
             expected_new_src_mac = generate_mac_address(i)
             
-            logger.info(f"Testing rule {i+1}/{test_rule_count}: {rule_name} (IP: {inner_src_ip}, MAC: {expected_new_src_mac})")
+            logger.info(f"Testing rule {i+1}/{test_rule_count}: {rule_name}")
             
             try:
                 # Send single packet to test both MAC rewrite AND counter increment
@@ -1007,16 +1007,22 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
             counter_before_value = counter_before.get(rule_name, 0)
             counter_after_value = counter_after.get(rule_name, 0)
             if counter_after_value > counter_before_value:
-                logger.info(f"✓ ACTIVE rule {rule_name} counter incremented: {counter_before_value} → {counter_after_value}")
+                logger.info(
+                    f"✓ ACTIVE rule {rule_name} counter incremented: "
+                    f"{counter_before_value} → {counter_after_value}"
+                )
                 counter_increment_successes += 1
             else:
                 counter_increment_failures += 1
-                logger.warning(f"✗ ACTIVE rule {rule_name} counter did not increment: {counter_before_value} → {counter_after_value}")
+                logger.warning(
+                    f"✗ ACTIVE rule {rule_name} counter did not increment: "
+                    f"{counter_before_value} → {counter_after_value}"
+                )
 
         packet_test_time = time.time() - packet_test_start
         success_rate = (successful_tests / test_rule_count) * 100
         
-        logger.info(f"=== PACKET TESTING RESULTS ===")
+        logger.info("=== PACKET TESTING RESULTS ===")
         logger.info(f"Total rules tested: {test_rule_count}")
         logger.info(f"Successful packet tests: {successful_tests}")
         logger.info(f"Failed packet tests: {failed_tests}")
@@ -1027,7 +1033,7 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
         logger.info(f"Average time per test: {(packet_test_time/test_rule_count):.2f} seconds")
         
         if success_rate < 100:
-            logger.warning(f"Some packet tests failed - this may be expected at scale due to hardware limits")
+            logger.warning("Some packet tests failed - this may be expected at scale due to hardware limits")
             logger.warning("Failed tests likely correspond to Inactive rules due to resource constraints")
         else:
             logger.info("All packet tests passed successfully!")
@@ -1070,12 +1076,15 @@ def test_acl_src_mac_rewrite_scale_9000_rules(setUpScale):
         logger.info("Skipping ACL counter verification for same-priority behavior test")
 
         logger.info("=== 9000-RULE SCALE TEST COMPLETED ===")
-        logger.info(f"SCALE TEST SUMMARY:")
-        logger.info(f"- Programmed {SCALE_RULE_COUNT} ACL rules with UNIQUE priorities (5000-{5000+SCALE_RULE_COUNT-1})")
-        logger.info(f"- Tested system limits with 5K rule scale and unique priority handling")
-        logger.info(f"- Packet testing performed for sample rules to identify active vs inactive patterns") 
-        logger.info(f"- Check logs above for rule installation, active/inactive ratios, and performance results")
-        logger.info(f"- This scale test provides insights into hardware ACL capacity limits")
+        logger.info("SCALE TEST SUMMARY:")
+        logger.info(
+            f"- Programmed {SCALE_RULE_COUNT} ACL rules with UNIQUE priorities "
+            f"(5000-{5000+SCALE_RULE_COUNT-1})"
+        )
+        logger.info("- Tested system limits with 5K rule scale and unique priority handling")
+        logger.info("- Packet testing performed for sample rules to identify active vs inactive patterns") 
+        logger.info("- Check logs above for rule installation, active/inactive ratios, and performance results")
+        logger.info("- This scale test provides insights into hardware ACL capacity limits")
 
     finally:
         # ===================================================================
