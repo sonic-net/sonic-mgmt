@@ -164,6 +164,16 @@ class LoadExtraDpuConfigModule(object):
                 }
             }
 
+            # Override port config for Mellanox SmartSwitch hwskus
+            if self.hwsku.startswith("Mellanox"):
+                if "PORT" in dpu_config:
+                    for port_name in dpu_config["PORT"]:
+                        dpu_config["PORT"][port_name]["autoneg"] = "on"
+                        dpu_config["PORT"][port_name]["speed"] = "400000"
+                        dpu_config["PORT"][port_name]["index"] = "1"
+                        dpu_config["PORT"][port_name]["role"] = "Dpc"
+                        dpu_config["PORT"][port_name]["subport"] = "0"
+
             with open(SRC_DPU_CONFIG_FILE, 'w') as f:
                 json.dump(dpu_config, f, indent=4)
 
