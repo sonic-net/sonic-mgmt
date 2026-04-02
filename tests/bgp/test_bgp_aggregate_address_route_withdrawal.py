@@ -1,5 +1,5 @@
 """
-Tests for BGP aggregate-address route lifecycle behavior.
+Tests for BGP aggregate-address route withdrawal behavior.
 
 Test Group 3: Route Presence and Withdrawal Behavior
   Validates that the aggregate route on upstream neighbors depends on the
@@ -14,22 +14,20 @@ import logging
 import pytest
 from natsort import natsorted
 
-# Shared helpers from the base aggregate-address test module
-from test_bgp_aggregate_address import (
+# Shared helpers from the aggregate-address helpers module
+from bgp_aggregate_helpers import (  # noqa: F401
     AggregateCfg,
     gcu_add_aggregate,
-    gcu_remove_aggregate,
+    safe_remove_aggregate,
+    setup_teardown,
 )
-# Import autouse fixture so pytest discovers it for this module
-from test_bgp_aggregate_address import setup_teardown  # noqa: F401
-
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp_routing import inject_routes, verify_route_on_neighbors
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology("t1", "m1"), pytest.mark.device_type("vs"), pytest.mark.disable_loganalyzer]
+pytestmark = [pytest.mark.topology("m1"), pytest.mark.device_type("vs"), pytest.mark.disable_loganalyzer]
 
 # ExaBGP base ports (downstream PTF ports)
 EXABGP_BASE_PORT = 5000
@@ -123,10 +121,7 @@ def test_aggregate_no_contributing_routes(
         verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=True)
     finally:
         inject_routes(setup, ptfhost, contributing, "withdraw")
-        try:
-            gcu_remove_aggregate(duthost, agg_prefix)
-        except Exception:
-            logger.warning(f"Cleanup: failed to remove aggregate {agg_prefix}, will be recovered by rollback")
+        safe_remove_aggregate(duthost, agg_prefix)
 
 
 # ===========================================================================
@@ -172,10 +167,7 @@ def test_aggregate_all_contributing_withdrawn(
         verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=True)
     finally:
         inject_routes(setup, ptfhost, contributing, "withdraw")
-        try:
-            gcu_remove_aggregate(duthost, agg_prefix)
-        except Exception:
-            logger.warning(f"Cleanup: failed to remove aggregate {agg_prefix}, will be recovered by rollback")
+        safe_remove_aggregate(duthost, agg_prefix)
 
 
 # ===========================================================================
@@ -218,10 +210,7 @@ def test_aggregate_partial_contributing_withdrawal(
         verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], agg_prefix, expected_present=True)
     finally:
         inject_routes(setup, ptfhost, set_a + set_b, "withdraw")
-        try:
-            gcu_remove_aggregate(duthost, agg_prefix)
-        except Exception:
-            logger.warning(f"Cleanup: failed to remove aggregate {agg_prefix}, will be recovered by rollback")
+        safe_remove_aggregate(duthost, agg_prefix)
 
 
 # ===========================================================================
@@ -268,7 +257,4 @@ def test_aggregate_new_contributing_route_added(
         verify_route_on_neighbors(nbrhosts, setup["m2_neighbors"], new_contributing[0], expected_present=True)
     finally:
         inject_routes(setup, ptfhost, initial_contributing + new_contributing, "withdraw")
-        try:
-            gcu_remove_aggregate(duthost, agg_prefix)
-        except Exception:
-            logger.warning(f"Cleanup: failed to remove aggregate {agg_prefix}, will be recovered by rollback")
+        safe_remove_aggregate(duthost, agg_prefix)

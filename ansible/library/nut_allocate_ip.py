@@ -6,6 +6,16 @@ import traceback
 from ipaddress import ip_network
 import logging
 from collections import defaultdict
+try:
+    from natsort import natsorted
+except ImportError:
+    import re as _re
+
+    def natsorted(seq, key=None):
+        def _key(s):
+            s = key(s) if key else s
+            return [int(c) if c.isdigit() else c.lower() for c in _re.split(r'(\d+)', str(s))]
+        return sorted(seq, key=_key)
 
 try:
     from ansible.module_utils.debug_utils import config_module_logging
@@ -498,6 +508,214 @@ class GenerateDeviceConfig():
                     pending_devices.append(peer_device)
 
 
+class L2SnakeVlanAllocator():
+    """L2 snake strategy — VLAN pair allocation, no IP/BGP.
+
+    Traces parallel snake chains through a single DUT using lockstep algorithm,
+    then assigns per-chain VLAN IDs for L2 bridging.
+    """
+
+    def __init__(self, testbed_facts, device_info, device_port_links, device_port_vrfs):
+        self.testbed_facts = testbed_facts
+        self.device_info = device_info
+        self.device_port_links = device_port_links
+        self.device_port_vrfs = device_port_vrfs
+
+        self.device_meta = defaultdict(dict)
+        self.device_interfaces = {}
+        self.device_bgp_neighbor_devices = defaultdict(dict)
+        self.device_bgp_neighbor_ports = defaultdict(dict)
+
+        # L2 snake specific outputs
+        self.device_vlans = {}
+        self.device_vlan_list = {}
+        self.device_port_vlans = {}
+        self.device_vrfs = {}
+        self.device_conn = {}
+
+    def run(self):
+        topo_props = self.testbed_facts['topo']['properties']
+        vlan_base = topo_props.get('vlan_base')
+        if vlan_base is None:
+            raise ValueError("L2 snake topo YAML must specify 'vlan_base'.")
+        duts = self.testbed_facts['duts']
+        tgs = self.testbed_facts['tgs']
+        tg_set = set(tgs)
+
+        for dut in duts:
+            self._process_dut(dut, tg_set, vlan_base)
+
+        # Set TG device meta
+        for tg in tgs:
+            self.device_meta[tg]['type'] = 'Server'
+
+    def _process_dut(self, dut, tg_set, vlan_base):
+        links = self.device_port_links[dut]
+
+        # Set device meta - type from device_info or default
+        self.device_meta[dut]['type'] = self.device_info[dut].get('Type', 'ToRRouter')
+
+        # Initialize empty outputs for this device
+        self.device_interfaces[dut] = {}
+        self.device_vrfs[dut] = {}
+        self.device_conn[dut] = links
+
+        # Step 1: Classify ports
+        tgen_ports = []
+        loopback_map = {}  # port -> peerport (bidirectional)
+
+        for port, link in links.items():
+            if link['peerdevice'] in tg_set:
+                tgen_ports.append(port)
+            elif link['peerdevice'] == dut:
+                loopback_map[port] = link['peerport']
+
+        # Sort TGen ports naturally
+        tgen_ports = natsorted(tgen_ports)
+        t = len(tgen_ports)
+
+        # Validation: even number of TG ports
+        if t % 2 != 0:
+            raise ValueError(
+                f"L2 snake requires an even number of TG-connected ports, but found {t} on {dut}."
+            )
+
+        if t == 0:
+            raise ValueError(f"L2 snake requires at least 2 TG-connected ports, but found 0 on {dut}.")
+
+        half = t // 2
+        tx_ports = tgen_ports[:half]
+        rx_ports = tgen_ports[half:]
+        rx_set = set(rx_ports)
+
+        # Step 2: Build all linked ports sorted
+        all_linked_ports = natsorted(links.keys())
+
+        # Build index lookup for scanning forward
+        port_index = {p: i for i, p in enumerate(all_linked_ports)}
+
+        # Step 3: Initialize chains
+        used = set(tgen_ports)  # reserve all TGen ports
+        chains = []
+        for k in range(half):
+            chains.append({
+                'current': tx_ports[k],
+                'pairs': [],
+                'complete': False,
+                'tx_port': tx_ports[k],
+                'rx_port': None,
+            })
+
+        # Step 4: Lockstep tracing
+        port_vlan_assignment = {}  # port -> vlan tracking for single-VLAN-per-port validation
+        max_rounds = len(all_linked_ports)  # safety bound
+
+        for _round in range(max_rounds):
+            all_complete = True
+            for k, chain in enumerate(chains):
+                if chain['complete']:
+                    continue
+                all_complete = False
+
+                current = chain['current']
+                current_idx = port_index[current]
+
+                # Forward-only scan: partner must appear after current port
+                # in natsorted order (HLD Section 5 assumption)
+                partner = None
+                for i in range(current_idx + 1, len(all_linked_ports)):
+                    candidate = all_linked_ports[i]
+                    if candidate not in used:
+                        partner = candidate
+                        break
+
+                if partner is None:
+                    raise ValueError(
+                        f"Chain {k} dead end at {current}: no available port forward in natsorted order."
+                    )
+
+                used.add(partner)
+                chain['pairs'].append((current, partner))
+
+                if partner in rx_set:
+                    chain['complete'] = True
+                    chain['rx_port'] = partner
+                elif partner in loopback_map:
+                    next_port = loopback_map[partner]
+                    if next_port in used:
+                        raise ValueError(
+                            f"Chain {k}: loopback peer {next_port} of {partner} is already used."
+                        )
+                    used.add(next_port)
+                    chain['current'] = next_port
+                else:
+                    raise ValueError(
+                        f"Chain {k} dead end at {partner}: no loopback cable and not an RX port."
+                    )
+
+            if all_complete:
+                break
+
+        # Check all chains completed
+        for k, chain in enumerate(chains):
+            if not chain['complete']:
+                raise ValueError(f"Chain {k} did not reach an RX port.")
+
+        # Step 5: Assign VLAN IDs per-chain
+        total_vlans = sum(len(c['pairs']) for c in chains)
+        if vlan_base + total_vlans - 1 > 4094:
+            raise ValueError(
+                f"VLAN range overflow: need VLANs {vlan_base}–{vlan_base + total_vlans - 1}, "
+                f"but max VLAN ID is 4094."
+            )
+
+        vlan_id = vlan_base
+        device_chains = []
+        all_vlan_ids = []
+        port_vlans = {}
+
+        for k, chain in enumerate(chains):
+            chain_info = {
+                'chain_id': k,
+                'tx_port': chain['tx_port'],
+                'rx_port': chain['rx_port'],
+                'vlan_pairs': [],
+            }
+
+            for port_a, port_b in chain['pairs']:
+                # Defense-in-depth: should never trigger given chain tracing
+                # guarantees, but guards against future refactors
+                for p in (port_a, port_b):
+                    if p in port_vlan_assignment:
+                        raise ValueError(
+                            f"Port {p} already assigned to VLAN {port_vlan_assignment[p]}, "
+                            f"cannot assign to VLAN {vlan_id}."
+                        )
+                    port_vlan_assignment[p] = vlan_id
+
+                chain_info['vlan_pairs'].append({
+                    'vlan_id': vlan_id,
+                    'ports': [port_a, port_b],
+                })
+
+                all_vlan_ids.append(vlan_id)
+
+                # Build port_vlans for vlan_members.json.j2
+                for p in (port_a, port_b):
+                    port_vlans[p] = {
+                        'vlanlist': [vlan_id],
+                        'mode': 'Access',
+                    }
+
+                vlan_id += 1
+
+            device_chains.append(chain_info)
+
+        self.device_vlans[dut] = {'chains': device_chains}
+        self.device_vlan_list[dut] = all_vlan_ids
+        self.device_port_vlans[dut] = port_vlans
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -516,14 +734,31 @@ def main():
     device_port_vrfs = m_args['device_port_vrfs']
 
     try:
-        device_config_gen = GenerateDeviceConfig(testbed_facts, device_info, device_port_links, device_port_vrfs)
+        topo_type = testbed_facts.get('topo', {}).get('properties', {}).get('type', 'nut')
+        if topo_type == 'l2-snake':
+            device_config_gen = L2SnakeVlanAllocator(testbed_facts, device_info, device_port_links, device_port_vrfs)
+        else:
+            device_config_gen = GenerateDeviceConfig(testbed_facts, device_info, device_port_links, device_port_vrfs)
         device_config_gen.run()
-        module.exit_json(ansible_facts={
+
+        facts = {
             'device_meta': device_config_gen.device_meta,
             'device_interfaces': device_config_gen.device_interfaces,
             'device_bgp_neighbor_devices': device_config_gen.device_bgp_neighbor_devices,
-            'device_bgp_neighbor_ports': device_config_gen.device_bgp_neighbor_ports
-        })
+            'device_bgp_neighbor_ports': device_config_gen.device_bgp_neighbor_ports,
+        }
+        # Add L2 snake specific facts if available
+        if hasattr(device_config_gen, 'device_vlans'):
+            facts['device_vlans'] = device_config_gen.device_vlans
+        if hasattr(device_config_gen, 'device_vlan_list'):
+            facts['device_vlan_list'] = device_config_gen.device_vlan_list
+        if hasattr(device_config_gen, 'device_port_vlans'):
+            facts['device_port_vlans'] = device_config_gen.device_port_vlans
+        if hasattr(device_config_gen, 'device_vrfs'):
+            facts['device_vrfs'] = device_config_gen.device_vrfs
+        if hasattr(device_config_gen, 'device_conn'):
+            facts['device_conn'] = device_config_gen.device_conn
+        module.exit_json(ansible_facts=facts)
     except Exception:
         module.fail_json(msg=traceback.format_exc())
 

@@ -220,12 +220,16 @@ def pytest_addoption(parser):
                      help="Skip sanity check")
     parser.addoption("--skip_pre_sanity", action="store_true", default=False,
                      help="Skip pre-test sanity check")
+    parser.addoption("--enable_pre_sanity", action="store_true", default=False,
+                     help="Enable pre-test sanity check (override default skip)")
     parser.addoption("--allow_recover", action="store_true", default=False,
                      help="Allow recovery attempt in sanity check in case of failure")
     parser.addoption("--check_items", action="store", default=False,
                      help="Change (add|remove) check items in the check list")
     parser.addoption("--post_check", action="store_true", default=False,
                      help="Perform post test sanity check if sanity check is enabled")
+    parser.addoption("--skip_post_check", action="store_true", default=False,
+                     help="Skip post-test sanity check (override default enable)")
     parser.addoption("--post_check_items", action="store", default=False,
                      help="Change (add|remove) post test check items based on pre test check items")
     parser.addoption("--recover_method", action="store", default="adaptive",
@@ -1288,7 +1292,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             action='generate',
             path="../ansible/",
             log_path=log_path,
-            dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
+            dut_interfaces=servers_dut_interfaces.get(ptf_ip, '') if servers_dut_interfaces else '',
             verbose=False
         )
         if 'topo_routes' not in res:
