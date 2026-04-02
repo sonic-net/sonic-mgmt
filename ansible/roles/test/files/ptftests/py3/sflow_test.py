@@ -305,6 +305,12 @@ class SflowTest(BaseTest):
         src_ip_addr_templ = '192.168.{}.1'
         ip_dst_addr = '192.168.0.4'
         pktlen = 100
+        # VS tap interfaces have limited kernel receive queue depth.
+        # Sending large bursts (e.g. 512 packets) all at once causes ~20% drops
+        # before packets reach the TC ingress filter/sampler.
+        # Send in small batches with a brief pause to allow the queue to drain.
+        BATCH_SIZE = 32
+        BATCH_SLEEP = 0.001  # 1ms between batches
         # send NUM_SAMPLES * sampling_rate packets in each interface for better analysis
         for _ in range(0, NUM_SAMPLES, 1):
             index = 0
@@ -319,7 +325,13 @@ class SflowTest(BaseTest):
                                                       ip_dst=ip_dst_addr,
                                                       ip_ttl=64)
                 no_of_packets = self.interfaces[intf]['sample_rate']
-                testutils.send(self, src_port, tcp_pkt, count=no_of_packets)
+                remaining = no_of_packets
+                while remaining > 0:
+                    burst = min(BATCH_SIZE, remaining)
+                    testutils.send(self, src_port, tcp_pkt, count=burst)
+                    remaining -= burst
+                    if remaining > 0:
+                        time.sleep(BATCH_SLEEP)
                 index += 1
             pktlen += 10  # send traffic with different packet sizes
 
