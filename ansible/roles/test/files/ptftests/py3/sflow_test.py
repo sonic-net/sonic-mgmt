@@ -35,7 +35,9 @@ import subprocess
 
 # Checking samples with tolerance of 40 % as the sampling is random and not deterministic.
 # Over many samples it should converge to a mean of 1:N
-NUM_SAMPLES = 100
+# Use 200 samples so the ±40% bounds are ~5.7σ away (vs ~4σ at 100), making flaky
+# bound violations essentially impossible.
+NUM_SAMPLES = 200
 MIN_EXPECTED_SAMPLES = 0.6 * NUM_SAMPLES
 MAX_EXPECTED_SAMPLES = 1.4 * NUM_SAMPLES
 
