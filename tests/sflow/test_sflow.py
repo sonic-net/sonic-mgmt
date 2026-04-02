@@ -447,25 +447,26 @@ def partial_ptf_runner(request, duthosts, rand_one_dut_hostname, ptfhost, tbinfo
 
         tc_before = _tc_filter_pkts(var['sflow_ports'])
 
-        result = ptf_runner(host=ptfhost,
-                            testdir="ptftests",
-                            platform_dir="ptftests",
-                            testname="sflow_test",
-                            params=params,
-                            socket_recv_size=16384,
-                            log_file="/tmp/{}.{}.log".format(
-                                request.cls.__name__, request.function.__name__),
-                            is_python3=True)
-
-        tc_after = _tc_filter_pkts(var['sflow_ports'])
-        for intf, before in tc_before.items():
-            after = tc_after.get(intf)
-            if before is not None and after is not None:
-                delta = after - before
-                sent = var['sflow_ports'][intf]['sample_rate'] * 100
-                logger.warn(
-                    f'TC filter [{intf}]: matched {delta} pkts, PTF sent ~{sent} '
-                    f'({100 * delta // sent if sent else 0}% reached TC filter)')
+        try:
+            result = ptf_runner(host=ptfhost,
+                                testdir="ptftests",
+                                platform_dir="ptftests",
+                                testname="sflow_test",
+                                params=params,
+                                socket_recv_size=16384,
+                                log_file="/tmp/{}.{}.log".format(
+                                    request.cls.__name__, request.function.__name__),
+                                is_python3=True)
+        finally:
+            tc_after = _tc_filter_pkts(var['sflow_ports'])
+            for intf, before in tc_before.items():
+                after = tc_after.get(intf)
+                if before is not None and after is not None:
+                    delta = after - before
+                    sent = var['sflow_ports'][intf]['sample_rate'] * 100
+                    logger.warning(
+                        f'TC filter [{intf}]: matched {delta} pkts, PTF sent ~{sent} '
+                        f'({100 * delta // sent if sent else 0}% reached TC filter)')
 
         return result
 
