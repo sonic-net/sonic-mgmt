@@ -17,7 +17,6 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.constants import PTF_TIMEOUT
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.utilities import is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
 
@@ -196,8 +195,7 @@ def test_ptf_arp_learns_mac(
     ptf_interface_info,
     dut_interface_info,
     clean_environment,
-    ptfadapter,
-    tbinfo
+    ptfadapter
 ):
     """
     After fdb_cleanup and clearing DUT ARP/neighbor cache,
@@ -207,8 +205,8 @@ def test_ptf_arp_learns_mac(
     ptf_info = ptf_interface_info
     dut_info = dut_interface_info
 
-    if is_ipv6_only_topology(tbinfo):
-        # IPv6-only: send NDP Neighbor Solicitation
+    if dut_info['ipv4'] is None:
+        # No IPv4 on VLAN — send NDP Neighbor Solicitation instead of ARP
         pt_assert(dut_info['ipv6'] is not None, "No IPv6 address on DUT VLAN interface")
 
         tgt_addr = str(dut_info['ipv6'])
