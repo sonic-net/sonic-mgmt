@@ -22,8 +22,8 @@ logger = logging.getLogger(__name__)
 @pytest.fixture(scope="module")
 def xcvr_skip_list(duthosts):
     """Return empty transceiver skip list per DUT. Shared across upgrade-related test suites."""
+    # Required by reboot_and_check(); empty list = no transceivers skipped during post-reboot health check.
     return {dut.hostname: [] for dut in duthosts}
-
 
 TMP_VLAN_PORTCHANNEL_FILE = '/tmp/portchannel_interfaces.json'
 TMP_VLAN_FILE = '/tmp/vlan_interfaces.json'
