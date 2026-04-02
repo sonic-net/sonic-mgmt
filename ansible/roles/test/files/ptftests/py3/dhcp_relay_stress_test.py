@@ -86,6 +86,7 @@ class DHCPStressTest(DHCPTest):
             for pid in pids:
                 os.kill(int(pid), signal.SIGINT)
         except subprocess.CalledProcessError:
+            # No tcpdump processes running; safe to ignore
             pass
         time.sleep(2)
 
@@ -95,10 +96,12 @@ class DHCPStressTest(DHCPTest):
                 wc_output = subprocess.check_output("wc -l < {}".format(log_file), shell=True)
                 total_count += int(wc_output.decode().strip())
             except (subprocess.CalledProcessError, ValueError):
+                # Log file may not exist or be empty; skip this interface's count
                 pass
             try:
                 os.remove(log_file)
             except OSError:
+                # File already removed or never created; nothing to clean up
                 pass
 
         subprocess.check_output(
