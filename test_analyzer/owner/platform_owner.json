@@ -386,48 +386,48 @@
     {
         "hwsku": "Mellanox-SN2700",
         "topo": "t0",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Ze Gan",
+        "email": "zegan@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
     {
         "hwsku": "Mellanox-SN2700",
         "topo": "t1",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Ze Gan",
+        "email": "zegan@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
     {
         "hwsku": "Mellanox-SN2700-A1",
         "topo": "t0",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Ze Gan",
+        "email": "zegan@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
     {
         "hwsku": "Mellanox-SN2700-A1",
         "topo": "t1",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Ze Gan",
+        "email": "zegan@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
     {
         "hwsku": "Mellanox-SN2700-D40C8S8",
         "topo": "t0",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Ze Gan",
+        "email": "zegan@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
     {
         "hwsku": "Mellanox-SN2700-D48C8",
         "topo": "t0",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Ze Gan",
+        "email": "zegan@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
@@ -442,16 +442,16 @@
     {
         "hwsku": "Mellanox-SN4600C-C64",
         "topo": "t0",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Ze Gan",
+        "email": "zegan@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
     {
         "hwsku": "Mellanox-SN4600C-C64",
         "topo": "t1",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Ze Gan",
+        "email": "zegan@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
@@ -466,32 +466,32 @@
     {
         "hwsku": "Mellanox-SN4700-O8C48",
         "topo": "t1",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Sourabh Kumar",
+        "email": "kumarsourabh@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
     {
         "hwsku": "Mellanox-SN4700-O8V48",
         "topo": "t0",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Sourabh Kumar",
+        "email": "kumarsourabh@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
     {
         "hwsku": "Mellanox-SN4700-O28",
         "topo": "t1",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Sourabh Kumar",
+        "email": "kumarsourabh@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
     {
         "hwsku": "Mellanox-SN4700-O32",
         "topo": "t1",
-        "owner": "Bing Wang",
-        "email": "bingwang@microsoft.com",
+        "owner": "Sourabh Kumar",
+        "email": "kumarsourabh@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
