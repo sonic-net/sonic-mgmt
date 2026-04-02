@@ -9,6 +9,7 @@ from tests.common.gu_utils import format_json_patch_for_multiasic
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.disable_route_check,
 ]
 
 

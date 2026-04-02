@@ -89,7 +89,7 @@ class ControlPlaneBaseTest(BaseTest):
         self.topo_type = test_params.get('topo_type', None)
         self.ip_version = test_params.get('ip_version', None)
         self.neighbor_miss_trap_supported = test_params.get('neighbor_miss_trap_supported', False)
-        self.is_smartswitch = test_params.get('is_smartswitch', False)
+        self.is_smartswitch_light_mode = test_params.get('is_smartswitch_light_mode', False)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -320,13 +320,44 @@ class DHCPTopoT1Test(PolicyTest):
         # T1 DHCP no packet to packet to CPU so police rate is 0
         self.PPS_LIMIT_MIN = 0
         self.PPS_LIMIT_MAX = 0
-        if self.is_smartswitch:
+        if self.is_smartswitch_light_mode:
             self.PPS_LIMIT_MIN = 90
             self.PPS_LIMIT_MAX = 130
 
     def runTest(self):
         self.log("DHCPTopoT1Test")
         self.run_suite()
+
+    def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
+        """
+        Use packet-matched recv_count instead of unfiltered NN counter rx_pps.
+        The NN counter (AF_PACKET ETH_P_ALL) captures all traffic on the interface
+        including BGP keepalives, LLDP, and TCP ACKs that are unrelated to DHCP.
+        recv_count is matched against the exact DHCP packet template and correctly
+        verifies that DHCP is not being punted to CPU on T1 topology.
+        """
+        self.log("")
+        if self.is_smartswitch_light_mode:
+            self.log("Checking constraints (PolicyApplied - SmartSwitch):")
+            self.log(
+                "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
+                (int(self.PPS_LIMIT_MIN),
+                 int(rx_pps),
+                 int(self.PPS_LIMIT_MAX),
+                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+            )
+            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, (
+                "Copp policer constraint check failed, Actual PPS: {} "
+                "Expected PPS range: {} - {}".format(
+                    rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX))
+        else:
+            self.log("Checking constraints (NoPolicyApplied - T1 DHCP):")
+            self.log(
+                "DHCP-matched recv_count (%d) should be 0 (DHCP not punted on T1)" % recv_count
+            )
+            assert recv_count == 0, (
+                "Copp policer constraint check failed, Expected 0 DHCP packets punted "
+                "to CPU on T1, but received {} packets".format(recv_count))
 
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]
@@ -449,13 +480,44 @@ class DHCP6TopoT1Test(PolicyTest):
         # T1 DHCP6 no packet to packet to CPU so police rate is 0
         self.PPS_LIMIT_MIN = 0
         self.PPS_LIMIT_MAX = 0
-        if self.is_smartswitch:
+        if self.is_smartswitch_light_mode:
             self.PPS_LIMIT_MIN = 90
             self.PPS_LIMIT_MAX = 130
 
     def runTest(self):
         self.log("DHCP6TopoT1Test")
         self.run_suite()
+
+    def check_constraints(self, send_count, recv_count, time_delta_ms, rx_pps):
+        """
+        Use packet-matched recv_count instead of unfiltered NN counter rx_pps.
+        The NN counter (AF_PACKET ETH_P_ALL) captures all traffic on the interface
+        including BGP keepalives, LLDP, and TCP ACKs that are unrelated to DHCP.
+        recv_count is matched against the exact DHCP packet template and correctly
+        verifies that DHCP is not being punted to CPU on T1 topology.
+        """
+        self.log("")
+        if self.is_smartswitch_light_mode:
+            self.log("Checking constraints (PolicyApplied - SmartSwitch):")
+            self.log(
+                "PPS_LIMIT_MIN (%d) <= rx_pps (%d) <= PPS_LIMIT_MAX (%d): %s" %
+                (int(self.PPS_LIMIT_MIN),
+                 int(rx_pps),
+                 int(self.PPS_LIMIT_MAX),
+                 str(self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX))
+            )
+            assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, (
+                "Copp policer constraint check failed, Actual PPS: {} "
+                "Expected PPS range: {} - {}".format(
+                    rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX))
+        else:
+            self.log("Checking constraints (NoPolicyApplied - T1 DHCP):")
+            self.log(
+                "DHCP-matched recv_count (%d) should be 0 (DHCP not punted on T1)" % recv_count
+            )
+            assert recv_count == 0, (
+                "Copp policer constraint check failed, Expected 0 DHCP packets punted "
+                "to CPU on T1, but received {} packets".format(recv_count))
 
     def construct_packet(self, port_number):
         src_mac = self.my_mac[port_number]

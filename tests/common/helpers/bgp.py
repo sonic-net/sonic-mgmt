@@ -146,7 +146,7 @@ class BGPNeighbor(object):
         self.is_passive = is_passive
         self.is_multihop = not is_passive and is_multihop
         self.debug = debug
-        self.is_ipv6_neighbor = is_ipv6_only
+        self.is_ipv6_neighbor = is_ipv6_only or ipaddress.ip_address(self.ip).version == 6
         if not self.is_ipv6_neighbor:
             self.router_id = router_id or self.ip
         else:

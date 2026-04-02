@@ -6,25 +6,22 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
+	log "github.com/golang/glog"
+	"github.com/openconfig/ondatra"
+	"github.com/openconfig/ondatra/gnmi"
+	"github.com/openconfig/ygnmi/ygnmi"
+	p4infopb "github.com/p4lang/p4runtime/go/p4/config/v1"
+	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+	"github.com/pkg/errors"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/protobuf/encoding/prototext"
 	"os"
 	"path"
 	"strconv"
 	"sync"
 	"testing"
 	"time"
-
-	log "github.com/golang/glog"
-
-	"github.com/openconfig/ondatra"
-	"github.com/openconfig/ondatra/gnmi"
-	"github.com/openconfig/ygnmi/ygnmi"
-	"github.com/pkg/errors"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/protobuf/encoding/prototext"
-
-	"github.com/bazelbuild/rules_go/go/tools/bazel"
-	p4infopb "github.com/p4lang/p4runtime/go/p4/config/v1"
-	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
 )
 
 var (

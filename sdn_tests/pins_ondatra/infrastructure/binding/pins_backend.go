@@ -6,20 +6,20 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"os"
-	"time"
 	"flag"
 
 	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	log "github.com/golang/glog"
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ondatra/binding"
-    "github.com/openconfig/ondatra/binding/introspect"
+	"github.com/openconfig/ondatra/binding/introspect"
 	opb "github.com/openconfig/ondatra/proto"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/bindingbackend"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"os"
+	"time"
 )
 
 var insecureMode = flag.Bool("use_binding_insecure_mode", true, "set the flag if the server doesn't support gRPC mTLS.")
