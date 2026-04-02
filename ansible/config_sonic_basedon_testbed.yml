@@ -148,6 +148,11 @@
         topo: "{{ testbed_facts['topo'] }}"
       tags: always
 
+    - name: set BMC mode flag
+      set_fact:
+        is_bmc_topo: "{{ 'bmc' in topo }}"
+      tags: always
+
     - name: set lit mode
       set_fact:
         is_lit_mode: "{{ testbed_facts.get('is_lit_mode', topo in ['t1-smartswitch-ha', 't1-28-lag', 'smartswitch-t1', 't1-48-lag']) }}"
@@ -234,7 +239,7 @@
       switchids: "{{ switchids | default([]) }}"
       num_asic: "{{ num_asics }}"
       sort_by_index: "{{ sort_by_index | default(true) }}"
-    when: deploy is defined and deploy|bool == true
+    when: deploy is defined and deploy|bool == true and not (is_bmc_topo | bool)
 
   - name: find interface name mapping and individual interface speed if defined with local data
     port_alias:
@@ -246,7 +251,7 @@
       slotid: "{{ slot_num | default(None) }}"
       sort_by_index: "{{ sort_by_index | default(true) }}"
     delegate_to: localhost
-    when: deploy is not defined or deploy|bool == false
+    when: (deploy is not defined or deploy|bool == false) and not (is_bmc_topo | bool)
 
   - name: find and generate fabric ASIC information
     fabric_info:
@@ -388,13 +393,13 @@
     set_fact:
       interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
-    when: "'cable' not in topo"
+    when: "'cable' not in topo and not (is_bmc_topo | bool)"
 
   - name: find all interface indexes connecting to VM
     set_fact:
       ifindex_to_vms: "{{ ifindex_to_vms|default([]) + item.value['interface_indexes'][dut_index|int] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
-    when: "'cable' not in topo"
+    when: "'cable' not in topo and not (is_bmc_topo | bool)"
 
   - name: find all interface names
     set_fact:
@@ -402,7 +407,7 @@
     with_subelements:
       - "{{ interface_to_vms | default([]) }}"
       - "ports"
-    when: "'cable' not in topo"
+    when: "'cable' not in topo and not (is_bmc_topo | bool)"
 
   # create map of VM to asic interface names
   - name: find all interface asic names

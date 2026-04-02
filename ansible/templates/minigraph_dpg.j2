@@ -1,6 +1,7 @@
   <DpgDec>
     <DeviceDataPlaneInfo>
       <IPSecTunnels/>
+{% if not (is_bmc_topo | bool) %}
       <LoopbackIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% if card_type is not defined or card_type != 'supervisor' %}
         <a:LoopbackIPInterface>
@@ -62,6 +63,9 @@
       {%- endif -%}
 {% endif %}
 </LoopbackIPInterfaces>
+{% else %}
+      <LoopbackIPInterfaces i:nil="true" />
+{% endif %}
       <ManagementIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% if use_ipv6_mgmt is not defined or not use_ipv6_mgmt|bool %}
         <a:ManagementIPInterface>
@@ -292,7 +296,7 @@
           <InAcl>ssh-only</InAcl>
           <Type>SSH</Type>
         </AclInterface>
-{% if card_type is not defined or card_type != 'supervisor' %}
+{% if (card_type is not defined or card_type != 'supervisor') and not (is_bmc_topo | bool) %}
         <AclInterface>
           <AttachTo>ERSPAN</AttachTo>
           <InAcl>Everflow</InAcl>
