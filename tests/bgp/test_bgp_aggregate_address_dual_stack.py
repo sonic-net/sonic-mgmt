@@ -129,6 +129,16 @@ def setup_teardown(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     create_checkpoint(duthost)
 
+    # bgpcfgd's AggregateAddressMgr always reads BGP_BBR status when
+    # processing aggregate-address entries, even for bbr_required=false.
+    # Ensure BGP_BBR exists so bgpcfgd does not crash with KeyError.
+    bbr_exists = int(duthost.shell(
+        'redis-cli -n 4 HEXISTS "BGP_BBR|all" "status"',
+        module_ignore_errors=True,
+    )["stdout"])
+    if not bbr_exists:
+        config_bbr_by_gcu(duthost, "disabled")
+
     # Verify the DUT supports BGP_AGGREGATE_ADDRESS by attempting to add a probe entry.
     try:
         default_aggregates = dump_db(duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS)
@@ -279,7 +289,7 @@ def test_dual_stack_simultaneous_aggregates(
         for prefix in (agg_v4, agg_v6):
             try:
                 gcu_remove_aggregate(duthost, prefix)
-            except Exception:
+            except BaseException:
                 pass  # best-effort cleanup; rollback will recover
 
 
@@ -356,11 +366,11 @@ def test_dual_stack_bbr_toggle(
         for prefix in (agg_v4, agg_v6):
             try:
                 gcu_remove_aggregate(duthost, prefix)
-            except Exception:
+            except BaseException:
                 pass  # best-effort cleanup; rollback will recover
         try:
             config_bbr_by_gcu(duthost, bbr_default_state)
-        except Exception:
+        except BaseException:
             logger.warning("Cleanup: failed to restore BBR state, will be recovered by rollback")
 
 
@@ -442,9 +452,9 @@ def test_dual_stack_mixed_bbr_required(
         for prefix in (agg_v4, agg_v6):
             try:
                 gcu_remove_aggregate(duthost, prefix)
-            except Exception:
+            except BaseException:
                 pass  # best-effort cleanup; rollback will recover
         try:
             config_bbr_by_gcu(duthost, bbr_default_state)
-        except Exception:
+        except BaseException:
             logger.warning("Cleanup: failed to restore BBR state, will be recovered by rollback")
