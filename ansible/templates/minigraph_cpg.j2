@@ -154,7 +154,7 @@
 {% endif %}
     </PeeringSessions>
     <Routers xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
-{% if ((card_type is not defined or card_type != 'supervisor') and vm_topo_config['topo_type'] != 'wan') %}
+{% if ((card_type is not defined or card_type != 'supervisor') and vm_topo_config['topo_type'] != 'wan') and 'dut_asn' in vm_topo_config %}
       <a:BGPRouterDeclaration>
         <a:ASN>{{ vm_topo_config['dut_asn'] }}</a:ASN>
         <a:Hostname>{{ inventory_hostname }}</a:Hostname>
