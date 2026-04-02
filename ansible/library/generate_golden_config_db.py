@@ -647,26 +647,13 @@ class GenerateGoldenConfigDBModule(object):
         ori_config_db = json.loads(config)
         if "DEVICE_METADATA" not in ori_config_db or \
                 "localhost" not in ori_config_db["DEVICE_METADATA"]:
-            # DEVICE_METADATA is absent from the golden_config_db (e.g. for t1
-            # topologies where golden config starts empty). Read the full
-            # localhost entry from the minigraph so that
-            # config override-config-table receives a *complete* entry
-            # (preserving hwsku, mac, hostname, etc.) rather than a bare
-            # {"zebra_nexthop": ...} stub that would wipe those fields.
-            rc, out, err = self.module.run_command(
-                "sonic-cfggen -H -m --var-json DEVICE_METADATA"
-            )
-            if rc != 0 or not out.strip():
-                return config
-            try:
-                device_metadata = json.loads(out)
-            except ValueError:
-                return config
-            if "localhost" not in device_metadata:
-                return config
-            if "DEVICE_METADATA" not in ori_config_db:
-                ori_config_db["DEVICE_METADATA"] = {}
-            ori_config_db["DEVICE_METADATA"]["localhost"] = device_metadata["localhost"]
+            # For topologies where golden config has no DEVICE_METADATA (e.g. T0/T1),
+            # do not inject a minigraph-derived entry. Injecting a full localhost entry
+            # from sonic-cfggen would cause config override-config-table to REPLACE the
+            # CONFIG_DB localhost entry, wiping fields like default_pfcwd_status that
+            # are only present via init_cfg.json (not in minigraph).
+            # zebra_nexthop is restored separately by config_reload.py via hset.
+            return config
         ori_config_db["DEVICE_METADATA"]["localhost"]["zebra_nexthop"] = zebra_nexthop
         return json.dumps(ori_config_db, indent=4)
 
