@@ -6,6 +6,7 @@
 | Rev | Date            | Author      | Change Description                                 |
 | ----- | ----------------- | ------------- | ---------------------------------------------------- |
 | 1   | 26th March 2026 | Chinmoy Dey | Initial Version of SONiC BMC Redfish API test plan |
+| 2   | 2nd April 2026  | Shreyansh Jain | Add certificate-based authentication test cases    |
 
 # Related documents
 
@@ -53,7 +54,8 @@ This test plan validates the Redfish API endpoints exposed by sonic-redfish on S
 
 This test plan covers:
 
-- Authentication (basic auth, certificate-based)
+- Authentication (basic auth, certificate-based mTLS)
+- Certificate generation, installation, and TLSStrict enforcement
 - Redfish service root discovery (`/redfish/v1`)
 - Chassis inventory and identity (`/redfish/v1/Chassis`)
 - System inventory (`/redfish/v1/Systems`)
@@ -107,6 +109,7 @@ sonic-mgmt/tests/redfish/
 ├── test_redfish_event_subscription.py   # EventService subscription tests
 ├── test_redfish_dbus_health.py          # D-Bus infrastructure tests
 └── test_redfish_graceful_degradation.py # Degradation behavior tests
+└── test_redfish_cert_auth.py            # Certificate-based authentication tests
 ```
 
 # Supported Topology
@@ -682,24 +685,104 @@ busctl call xyz.openbmc_project.ObjectMapper \
 
 ---
 
+## Section 12: Certificate-Based Authentication (mTLS)
+
+Certificate-based tests use a `bmc_tls_certs` pytest fixture that handles the full lifecycle:
+
+1. **Setup** — Generates CA, server, and client certificates using `openssl` inside the sonic-mgmt container. Copies them to the BMC via `sshpass+scp`, installs them into the `redfish` Docker container, and enables `TLSStrict` in bmcweb.
+2. **Tests run** — All tests in this section use the generated client certificate.
+3. **Teardown** — Removes the CA certificate from the BMC truststore, restores `TLSStrict=false` in bmcweb, and restarts the service, leaving the BMC in Basic Auth mode.
+
+### Test Case \#30 — Certificates are installed on the BMC
+
+| Field        | Value                          |
+| :------------- | :------------------------------- |
+| **Test ID**  | `test_cert_installed_on_bmc`   |
+| **Priority** | P0                             |
+
+**Steps:**
+
+1. Verify the server certificate exists at `redfish:/etc/ssl/certs/https/server.pem`
+2. Verify the CA certificate exists at `redfish:/etc/ssl/certs/authority/CA-cert.pem`
+3. Verify bmcweb is running (`supervisorctl status bmcweb` shows `RUNNING`)
+
+### Test Case \#31 — Valid client certificate is accepted
+
+| Field        | Value                          |
+| :------------- | :------------------------------- |
+| **Test ID**  | `test_valid_cert_accepted`     |
+| **Priority** | P0                             |
+| **Endpoint** | `GET /redfish/v1`              |
+
+**Steps:**
+
+1. Send `GET /redfish/v1` with the generated client certificate and key, verified against the CA certificate
+2. Validate HTTP status is `200`
+
+### Test Case \#32 — Certificate auth works for authenticated endpoints
+
+| Field        | Value                                     |
+| :------------- | :------------------------------------------ |
+| **Test ID**  | `test_cert_auth_on_authenticated_endpoint` |
+| **Priority** | P0                                        |
+| **Endpoint** | `GET /redfish/v1/Chassis/chassis`         |
+
+**Steps:**
+
+1. Send `GET /redfish/v1/Chassis/chassis` using only the client certificate (no Basic Auth credentials)
+2. Validate HTTP status is `200`
+3. Validate the response contains `@odata.id`
+
+### Test Case \#33 — Missing certificate is rejected when TLSStrict is enabled
+
+| Field        | Value                        |
+| :------------- | :----------------------------- |
+| **Test ID**  | `test_no_cert_rejected`      |
+| **Priority** | P0                           |
+| **Endpoint** | `GET /redfish/v1`            |
+
+**Steps:**
+
+1. Send `GET /redfish/v1` with no client certificate (TLSStrict is enabled)
+2. Validate the request fails with `TLSV13_ALERT_CERTIFICATE_REQUIRED` (TLS handshake error) or HTTP `401`/`403`
+
+### Test Case \#34 — Certificate signed by untrusted CA is rejected
+
+| Field        | Value                        |
+| :------------- | :----------------------------- |
+| **Test ID**  | `test_wrong_ca_rejected`     |
+| **Priority** | P1                           |
+| **Endpoint** | `GET /redfish/v1`            |
+
+**Steps:**
+
+1. Generate a fresh self-signed certificate not signed by the BMC's trusted CA
+2. Send `GET /redfish/v1` with the untrusted certificate
+3. Validate the request fails with `SSLV3_ALERT_BAD_CERTIFICATE` (TLS error) or HTTP `401`/`403`
+
+---
+
 # Test Execution Summary
 
 
-| Section                         | \# Tests | Priority | Status |
-| :-------------------------------- | :--------- | :--------- | :------- |
-| Service Root Discovery          | 3        | P0       | NA  |
-| Chassis Inventory               | 3        | P0/P1    | NA  |
-| Systems Inventory               | 2        | P0       | NA  |
-| Firmware Inventory              | 2        | P1       | NA  |
-| Computer System Reset           | 5        | P0/P1    | NA  |
-| Rack Manager Alert              | 2        | P0/P1    | NA  |
-| Rack Manager Telemetry          | 2        | P0/P1    | NA  |
-| Rack Manager Event Subscription | 3        | P1       | NA  |
-| D-Bus Infrastructure Health     | 3        | P0       | NA  |
-| Graceful Degradation            | 2        | P1       | NA  |
-| Error Handling                  | 2        | P1       | NA  |
-| **Total**                       | **29**   |          |        |
+| Section                              | \# Tests | Priority | Status |
+| :------------------------------------- | :--------- | :--------- | :------- |
+| Service Root Discovery               | 3        | P0       | NA     |
+| Chassis Inventory                    | 3        | P0/P1    | NA     |
+| Systems Inventory                    | 2        | P0       | NA     |
+| Firmware Inventory                   | 2        | P1       | NA     |
+| Computer System Reset                | 5        | P0/P1    | NA     |
+| Rack Manager Alert                   | 2        | P0/P1    | NA     |
+| Rack Manager Telemetry               | 2        | P0/P1    | NA     |
+| Rack Manager Event Subscription      | 3        | P1       | NA     |
+| D-Bus Infrastructure Health          | 3        | P0       | NA     |
+| Graceful Degradation                 | 2        | P1       | NA     |
+| Error Handling                       | 2        | P1       | NA     |
+| Certificate-Based Authentication     | 5        | P0/P1    | NA     |
+| **Total**                            | **34**   |          |        |
 
 # Open Items
 
-1. **Certificate-based authentication tests** — To be added once certificate installation workflow is finalized.
+1. No open items at this time.
+
+
