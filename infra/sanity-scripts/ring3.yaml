@@ -129,6 +129,23 @@ FWD:
     titan:
       sim:
         - acl/test_acl.py
+    superbolt:
+      hw:
+        - acl/test_acl.py
+        - acl/test_stress_acl.py
+        - bfd/test_bfd.py
+        - crm/test_crm.py::test_crm_neighbor
+        - crm/test_crm_available.py
+        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
+        - drop_packets/test_drop_counters.py
+        - everflow/test_everflow_ipv6.py
+        - everflow/test_everflow_testbed.py
+        - everflow/test_everflow_per_interface.py
+        - fib/test_fib.py
+        - hash/test_generic_hash.py
+        - ip/test_ip_packet.py
+        - ipfwd/test_dip_sip.py
+        - ipfwd/test_dir_bcast.py
   t1-64-lag:
     mth64:
       hw:

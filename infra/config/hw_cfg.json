@@ -2242,15 +2242,15 @@
                 "vms_count": 72
             }
         },
-        "t0-m6-02-10-bolt": {
+        "superbolt-t0-m6-2-10": {
             "ucs_host_name": "sonic-m6-02-10",
             "ucs_host": "172.25.168.48",
             "ucs_username": "sonic",
             "ucs_password": "roZes@123",
-            "mth_tb": "bolt-dut-aal-07",
-            "scp_ip":"5.5.5.3",
+            "mth_tb": "bolt-t0-dut",
+            "scp_ip":"5.5.5.2",
             "installer_mode":"sonic",
-            "ucs_tb": "bolt-dut-aal-07",
+            "ucs_tb": "bolt-t0",
             "telnet_host": ["172.25.168.52"],
             "telnet_port": ["2004"],
             "telnet_details": ["172.25.168.52 2004"],
@@ -2538,6 +2538,7 @@
         "ixia-m5-14-churchill": "None",
         "t0-m6-13-cmono": "None",
         "t1-m5-11-hbm": "None",
+        "superbolt-t0-m6-2-10": "None",
         "t1-m5-2-m64": [
             "cisco.202405.signed",
             "cisco.202405.unsigned",
@@ -2643,7 +2644,7 @@
         ]
     },
     "testbeds": {
-        "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-16-MtFuji", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64", "t0-m6-33-laguna", "cmono-t0-2", "t0-m6-41-titan"],
+        "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-16-MtFuji", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64", "t0-m6-33-laguna", "cmono-t0-2", "t0-m6-41-titan", "superbolt-t0-m6-2-10"],
         "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m6-27-m64", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning", "t1-m5-11-hbm", "t1-m6-26-cmono"],
         "t2" : ["aaa14-t2", "t2-m6-30-titan"],
         "dualtor" : ["dualtor-m6-30-tornado", "dualtor-m6-31-tornado", "mathilda-dualtor-t0-1", "mathilda-dualtor-m5-6"],
@@ -2703,7 +2704,8 @@
         "t2-m6-30-titan": "ucs_ttan_m6_30",
         "t0-m6-41-titan": "ucs_ttan_m6_41",
         "superbolt-titan-spytest-plat": "m6_platform",
-        "mtfuji-cmono-spytest-plat": "m6_platform"
+        "mtfuji-cmono-spytest-plat": "m6_platform",
+        "superbolt-t0-m6-2-10": "ucs_m6_02_bolt"
     },
     "file_server_dict" : {
         "ucs_m3_1" : {
@@ -2982,6 +2984,15 @@
             "username": "sonic",
             "password": "roZes@123",
             "scp_prompt" : "sonic@172.26.235.248:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "http_proxy= https_proxy= wget"
+        },
+        "ucs_m6_02_bolt": {
+            "host": "sonic-m6-02-10",
+            "ip": "5.5.5.2",
+            "username": "sonic",
+            "password": "roZes@123",
+            "scp_prompt" : "sonic@5.5.5.2:/var/www/html/IMAGES",
             "images_folder" : "/var/www/html/IMAGES",
             "wget" : "http_proxy= https_proxy= wget"
         }
