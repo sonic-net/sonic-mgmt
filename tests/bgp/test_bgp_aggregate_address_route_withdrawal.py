@@ -16,7 +16,7 @@ from natsort import natsorted
 
 # Shared helpers from the aggregate-address helpers module
 from bgp_aggregate_helpers import (  # noqa: F401
-    AGGR_V4_First,
+    AGGR_V4_1,
     CONTRIBUTING_V4,
     EXABGP_BASE_PORT,
     EXABGP_BASE_PORT_V6,
@@ -98,7 +98,7 @@ def test_aggregate_no_contributing_routes(
     """
     duthost = duthosts[rand_one_dut_hostname]
     setup = route_propagation_setup
-    agg_prefix = AGGR_V4_First
+    agg_prefix = AGGR_V4_1
     contributing = CONTRIBUTING_V4[:1]  # single /24 is enough to trigger aggregation
 
     cfg = AggregateCfg(prefix=agg_prefix, bbr_required=False, summary_only=False, as_set=False)
@@ -143,7 +143,7 @@ def test_aggregate_all_contributing_withdrawn(
     """
     duthost = duthosts[rand_one_dut_hostname]
     setup = route_propagation_setup
-    agg_prefix = AGGR_V4_First
+    agg_prefix = AGGR_V4_1
     contributing = CONTRIBUTING_V4  # all three /24 routes
 
     cfg = AggregateCfg(prefix=agg_prefix, bbr_required=False, summary_only=False, as_set=False)
@@ -186,7 +186,7 @@ def test_aggregate_partial_contributing_withdrawal(
     """
     duthost = duthosts[rand_one_dut_hostname]
     setup = route_propagation_setup
-    agg_prefix = AGGR_V4_First
+    agg_prefix = AGGR_V4_1
     # Two logical "sets" representing different M0 sources
     set_a = CONTRIBUTING_V4[:2]    # 10.100.1.0/24, 10.100.2.0/24
     set_b = CONTRIBUTING_V4[2:]    # 10.100.3.0/24
@@ -231,7 +231,7 @@ def test_aggregate_new_contributing_route_added(
     """
     duthost = duthosts[rand_one_dut_hostname]
     setup = route_propagation_setup
-    agg_prefix = AGGR_V4_First
+    agg_prefix = AGGR_V4_1
     initial_contributing = CONTRIBUTING_V4[:1]   # 10.100.1.0/24
     new_contributing = CONTRIBUTING_V4[1:2]      # 10.100.2.0/24
 

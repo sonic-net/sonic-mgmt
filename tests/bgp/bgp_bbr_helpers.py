@@ -69,7 +69,14 @@ def config_bbr_by_gcu(duthost, status):
     try:
         apply_gcu_patch(duthost, json_patch)
     except Exception as e:
-        logger.warning("GCU patch for BGP_BBR failed: %s. Falling back to redis-cli HSET.", e)
+        # The redis-cli fallback bypasses GCU schema validation.  If the GCU
+        # failure is due to a schema violation this could put CONFIG_DB into an
+        # inconsistent state, so log at error level for post-run diagnosis.
+        logger.error(
+            "GCU patch for BGP_BBR failed (possible schema drift): %s. "
+            "Falling back to direct redis-cli HSET — CONFIG_DB may be inconsistent.",
+            e,
+        )
         duthost.shell(
             'redis-cli -n 4 HSET "BGP_BBR|all" "status" "{}"'.format(status),
             module_ignore_errors=True,

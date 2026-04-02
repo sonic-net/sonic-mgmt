@@ -32,7 +32,9 @@ from bgp_aggregate_helpers import (  # noqa: F401
 logger = logging.getLogger(__name__)
 
 # ---- Topology & device-type markers (register in pytest.ini to avoid warnings) ----
-pytestmark = [pytest.mark.topology("m1"), pytest.mark.device_type("vs"), pytest.mark.disable_loganalyzer]
+pytestmark = [
+    pytest.mark.topology("m1"),
+]
 
 # ---- Constants ----
 CONSTANTS_FILE = "/etc/sonic/constants.yml"

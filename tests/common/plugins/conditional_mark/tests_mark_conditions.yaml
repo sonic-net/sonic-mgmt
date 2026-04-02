@@ -337,13 +337,37 @@ bgp/reliable_tsa/test_reliable_tsa_stable.py:
     conditions:
       - "is_chassis==False"
 
+bgp/test_bgp_aggregate_address.py:
+  skip:
+    reason: "Skip for multi-ASIC testbed"
+    conditions:
+      - "is_multi_asic==True"
+
 bgp/test_bgp_aggregate_address_bbr_dynamics.py:
   skip:
     reason: "Skip for multi-ASIC testbed"
     conditions:
       - "is_multi_asic==True"
 
+bgp/test_bgp_aggregate_address_config_crud.py:
+  skip:
+    reason: "Skip for multi-ASIC testbed"
+    conditions:
+      - "is_multi_asic==True"
+
 bgp/test_bgp_aggregate_address_functional_params.py:
+  skip:
+    reason: "Skip for multi-ASIC testbed"
+    conditions:
+      - "is_multi_asic==True"
+
+bgp/test_bgp_aggregate_address_resilience.py:
+  skip:
+    reason: "Skip for multi-ASIC testbed"
+    conditions:
+      - "is_multi_asic==True"
+
+bgp/test_bgp_aggregate_address_route_withdrawal.py:
   skip:
     reason: "Skip for multi-ASIC testbed"
     conditions:
