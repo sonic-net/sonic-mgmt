@@ -2,6 +2,7 @@
     <DeviceInfo>
       <EthernetInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% if switch_type is not defined or switch_type != 'fabric' %}
+{% if port_alias is defined and port_alias | length > 0 %}
 {% set num_of_intf = port_alias | length %}
 {% for index in range(num_of_intf) %}
         <a:EthernetInterface>
@@ -33,6 +34,7 @@
 {% endif %}
         </a:EthernetInterface>
 {% endfor %}
+{% endif %}
 {% endif %}
       </EthernetInterfaces>
 {% if switch_type is defined and switch_type == 'voq' %}
