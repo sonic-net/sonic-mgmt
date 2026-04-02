@@ -15,21 +15,14 @@ import logging
 import time
 from collections import namedtuple
 
-import pytest
 import requests
 
-from natsort import natsorted
-
 from tests.common.devices.eos import EosHost
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.gcu_utils import (
     apply_gcu_patch,
     apply_patch,
     generate_tmpfile,
     delete_tmpfile,
-    create_checkpoint,
-    rollback_or_reload,
-    delete_checkpoint,
 )
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -37,36 +30,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 # ---- Constants ----
-CONSTANTS_FILE = "/etc/sonic/constants.yml"
-
-# Aggregate prefixes (used by legacy DUT-side-only tests)
-AGGR_V4 = "172.16.51.0/24"
-AGGR_V6_LEGACY = "2000:172:16:50::/64"
-
 BGP_AGGREGATE_ADDRESS = "BGP_AGGREGATE_ADDRESS"
-PLACEHOLDER_PREFIX = "192.0.2.0/32"  # RFC5737 TEST-NET-1
-
-# Aggregate prefixes for neighbor-validated tests (Groups 1-4)
-AGGR_V4_1 = "10.100.0.0/16"
-AGGR_V6 = "2001:db8:100::/48"
-CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
-CONTRIBUTING_V6 = ["2001:db8:100:1::/64", "2001:db8:100:2::/64", "2001:db8:100:3::/64"]
-
-# Additional aggregates for multi-aggregate / mixed / overlapping tests (Groups 2, 4)
-# CONTRIBUTING_V4_SECOND has 2 routes (used by bbr_dynamics mixed-aggregate test)
-# CONTRIBUTING_EXTRA_V4_1 has 1 route (used by config_crud batch tests)
-EXTRA_AGGR_V4_1 = "10.200.0.0/16"
-CONTRIBUTING_V4_SECOND = ["10.200.1.0/24", "10.200.2.0/24"]
-EXTRA_AGGR_V4_2 = "10.150.0.0/16"
-EXTRA_AGGR_V6_1 = "2001:db8:200::/48"
-EXTRA_AGGR_V6_2 = "2001:db8:150::/48"
-CONTRIBUTING_EXTRA_V4_1 = ["10.200.1.0/24"]
-CONTRIBUTING_EXTRA_V4_2 = ["10.150.1.0/24"]
-CONTRIBUTING_EXTRA_V6_1 = ["2001:db8:200:1::/64"]
-CONTRIBUTING_EXTRA_V6_2 = ["2001:db8:150:1::/64"]
-
-EXABGP_BASE_PORT = 5000
-EXABGP_BASE_PORT_V6 = 6000
 
 # Convergence wait times
 ROUTE_PROPAGATION_WAIT = 10
@@ -74,70 +38,6 @@ BGP_SETTLE_WAIT = 5
 
 # ---- AggregateCfg ----
 AggregateCfg = namedtuple("AggregateCfg", ["prefix", "bbr_required", "summary_only", "as_set"])
-
-
-# ---- Fixtures for BGP aggregate-address tests ----
-@pytest.fixture(scope="module", autouse=True)
-def setup_teardown(duthost):
-    """Create checkpoint before tests, rollback after."""
-
-    create_checkpoint(duthost)
-
-    # add placeholder aggregate to avoid GCU removing empty table
-    default_aggregates = dump_db(
-        duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS
-    )
-    if not default_aggregates:
-        gcu_add_placeholder_aggregate(duthost, PLACEHOLDER_PREFIX)
-
-    yield
-
-    try:
-        rollback_or_reload(duthost, fail_on_rollback_error=False)
-    finally:
-        delete_checkpoint(duthost)
-
-
-@pytest.fixture(scope="module")
-def m1_topo_setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts, ptfhost):
-    """Setup M0 (downstream) and M2 (upstream) neighbor info."""
-    topo_type = tbinfo["topo"]["type"]
-    if topo_type not in UPSTREAM_NEIGHBOR_MAP or topo_type not in DOWNSTREAM_NEIGHBOR_MAP:
-        pytest.skip(f"Topology type {topo_type} not supported for neighbor-validated tests")
-
-    upstream_type = UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
-    downstream_type = DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper()
-
-    upstream_neighbors = natsorted(
-        [n for n in nbrhosts.keys() if n.endswith(upstream_type)]
-    )
-    downstream_neighbors = natsorted(
-        [n for n in nbrhosts.keys() if n.endswith(downstream_type)]
-    )
-
-    if not upstream_neighbors:
-        pytest.skip(f"No upstream ({upstream_type}) neighbors found in topology")
-    if not downstream_neighbors:
-        pytest.skip(f"No downstream ({downstream_type}) neighbors found in topology")
-
-    downstream = downstream_neighbors[0]
-    downstream_offset = tbinfo['topo']['properties']['topology']['VMs'][downstream]['vm_offset']
-    downstream_exabgp_port = EXABGP_BASE_PORT + downstream_offset
-    downstream_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + downstream_offset
-
-    nhipv4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
-    nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
-
-    return {
-        'upstream_neighbors': upstream_neighbors,
-        'downstream': downstream,
-        'downstream_neighbors': downstream_neighbors,
-        'downstream_exabgp_port': downstream_exabgp_port,
-        'downstream_exabgp_port_v6': downstream_exabgp_port_v6,
-        'nhipv4': nhipv4,
-        'nhipv6': nhipv6,
-        'ptfip': ptfhost.mgmt_ip,
-    }
 
 
 # ---- DB & running-config helpers ----

@@ -22,10 +22,7 @@ import logging
 import pytest
 
 from bgp_aggregate_helpers import (
-    AGGR_V4,
-    AGGR_V6_LEGACY,
     BGP_AGGREGATE_ADDRESS,
-    PLACEHOLDER_PREFIX,
     AggregateCfg,
     dump_db,
     gcu_add_aggregate,
@@ -51,6 +48,9 @@ pytestmark = [
 ]
 
 # ---- Constants ----
+AGGR_V4 = "172.16.51.0/24"
+AGGR_V6 = "2000:172:16:50::/64"
+PLACEHOLDER_PREFIX = "192.0.2.0/32"
 BGP_SESSION_WAIT_TIMEOUT = 300
 BGP_SESSION_POLL_INTERVAL = 10
 
@@ -231,7 +231,7 @@ def test_aggregate_persists_config_save_and_reboot(
     """
     duthost = duthosts[rand_one_dut_hostname]
     bbr_enabled = is_bbr_enabled(duthost)
-    cfg = AggregateCfg(prefix=AGGR_V6_LEGACY, bbr_required=False, summary_only=False, as_set=False)
+    cfg = AggregateCfg(prefix=AGGR_V6, bbr_required=False, summary_only=False, as_set=False)
 
     try:
         gcu_add_aggregate(duthost, cfg)

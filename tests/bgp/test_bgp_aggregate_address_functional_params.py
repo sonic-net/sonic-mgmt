@@ -24,28 +24,94 @@ import pytest
 
 from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_enabled
 
-from bgp_aggregate_helpers import (  # noqa: F401
-    AGGR_V4_1,
-    AGGR_V6,
-    CONTRIBUTING_V4,
-    CONTRIBUTING_V6,
+from bgp_aggregate_helpers import (
+    BGP_AGGREGATE_ADDRESS,
     AggregateCfg,
     announce_contributing_routes,
+    dump_db,
     gcu_add_aggregate,
+    gcu_add_placeholder_aggregate,
     gcu_remove_aggregate,
-    setup_teardown,  # noqa: F401
     verify_bgp_aggregate_cleanup,
     verify_bgp_aggregate_consistence,
     verify_contributing_routes_on_m2,
     verify_route_on_m2,
     withdraw_contributing_routes,
 )
+from natsort import natsorted
+from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("m1"),
 ]
+
+# ---- Test data ----
+AGGR_V4 = "10.100.0.0/16"
+AGGR_V6 = "2001:db8:100::/48"
+CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
+CONTRIBUTING_V6 = ["2001:db8:100:1::/64", "2001:db8:100:2::/64", "2001:db8:100:3::/64"]
+PLACEHOLDER_PREFIX = "192.0.2.0/32"
+EXABGP_BASE_PORT = 5000
+EXABGP_BASE_PORT_V6 = 6000
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_teardown(duthost):
+    """Create checkpoint before tests, rollback after."""
+    create_checkpoint(duthost)
+    default_aggregates = dump_db(duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS)
+    if not default_aggregates:
+        gcu_add_placeholder_aggregate(duthost, PLACEHOLDER_PREFIX)
+    yield
+    try:
+        rollback_or_reload(duthost, fail_on_rollback_error=False)
+    finally:
+        delete_checkpoint(duthost)
+
+
+@pytest.fixture(scope="module")
+def m1_topo_setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts, ptfhost):
+    """Setup M0 (downstream) and M2 (upstream) neighbor info."""
+    topo_type = tbinfo["topo"]["type"]
+    if topo_type not in UPSTREAM_NEIGHBOR_MAP or topo_type not in DOWNSTREAM_NEIGHBOR_MAP:
+        pytest.skip(f"Topology type {topo_type} not supported for neighbor-validated tests")
+
+    upstream_type = UPSTREAM_NEIGHBOR_MAP[topo_type].upper()
+    downstream_type = DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper()
+
+    upstream_neighbors = natsorted(
+        [n for n in nbrhosts.keys() if n.endswith(upstream_type)]
+    )
+    downstream_neighbors = natsorted(
+        [n for n in nbrhosts.keys() if n.endswith(downstream_type)]
+    )
+
+    if not upstream_neighbors:
+        pytest.skip(f"No upstream ({upstream_type}) neighbors found in topology")
+    if not downstream_neighbors:
+        pytest.skip(f"No downstream ({downstream_type}) neighbors found in topology")
+
+    downstream = downstream_neighbors[0]
+    downstream_offset = tbinfo['topo']['properties']['topology']['VMs'][downstream]['vm_offset']
+    downstream_exabgp_port = EXABGP_BASE_PORT + downstream_offset
+    downstream_exabgp_port_v6 = EXABGP_BASE_PORT_V6 + downstream_offset
+
+    nhipv4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
+    nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
+
+    return {
+        'upstream_neighbors': upstream_neighbors,
+        'downstream': downstream,
+        'downstream_neighbors': downstream_neighbors,
+        'downstream_exabgp_port': downstream_exabgp_port,
+        'downstream_exabgp_port_v6': downstream_exabgp_port_v6,
+        'nhipv4': nhipv4,
+        'nhipv6': nhipv6,
+        'ptfip': ptfhost.mgmt_ip,
+    }
 
 
 class TestGroup1ParameterCombination:
@@ -68,7 +134,7 @@ class TestGroup1ParameterCombination:
         duthost = duthosts[rand_one_dut_hostname]
         setup = m1_topo_setup
         upstream = setup['upstream_neighbors']
-        cfg = AggregateCfg(prefix=AGGR_V4_1, bbr_required=False, summary_only=False, as_set=False)
+        cfg = AggregateCfg(prefix=AGGR_V4, bbr_required=False, summary_only=False, as_set=False)
 
         announce_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
         try:
@@ -79,14 +145,14 @@ class TestGroup1ParameterCombination:
             verify_bgp_aggregate_consistence(duthost, bbr_enabled, cfg)
 
             # M2 route validation
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_1, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4, expected_present=True)
             verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V4[:2], expected_present=True)
 
             # Remove aggregate
             gcu_remove_aggregate(duthost, cfg.prefix)
 
             verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_1, expected_present=False)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4, expected_present=False)
             verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V4[:2], expected_present=True)
         finally:
             withdraw_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
@@ -103,7 +169,7 @@ class TestGroup1ParameterCombination:
         duthost = duthosts[rand_one_dut_hostname]
         setup = m1_topo_setup
         upstream = setup['upstream_neighbors']
-        cfg = AggregateCfg(prefix=AGGR_V4_1, bbr_required=False, summary_only=True, as_set=False)
+        cfg = AggregateCfg(prefix=AGGR_V4, bbr_required=False, summary_only=True, as_set=False)
 
         announce_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
         try:
@@ -112,7 +178,7 @@ class TestGroup1ParameterCombination:
             bbr_enabled = is_bbr_enabled(duthost)
             verify_bgp_aggregate_consistence(duthost, bbr_enabled, cfg)
 
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_1, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4, expected_present=True)
             verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V4[:2], expected_present=False)
 
             gcu_remove_aggregate(duthost, cfg.prefix)
@@ -140,14 +206,14 @@ class TestGroup1ParameterCombination:
 
         _, bbr_original_state = get_bbr_default_state(duthost)
         config_bbr_by_gcu(duthost, "enabled")
-        cfg = AggregateCfg(prefix=AGGR_V4_1, bbr_required=True, summary_only=False, as_set=False)
+        cfg = AggregateCfg(prefix=AGGR_V4, bbr_required=True, summary_only=False, as_set=False)
 
         announce_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
         try:
             gcu_add_aggregate(duthost, cfg)
 
             verify_bgp_aggregate_consistence(duthost, True, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_1, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4, expected_present=True)
 
             gcu_remove_aggregate(duthost, cfg.prefix)
             verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
@@ -173,14 +239,14 @@ class TestGroup1ParameterCombination:
             pytest.skip("BGP BBR is not supported")
 
         config_bbr_by_gcu(duthost, "disabled")
-        cfg = AggregateCfg(prefix=AGGR_V4_1, bbr_required=True, summary_only=False, as_set=False)
+        cfg = AggregateCfg(prefix=AGGR_V4, bbr_required=True, summary_only=False, as_set=False)
 
         announce_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
         try:
             gcu_add_aggregate(duthost, cfg)
 
             verify_bgp_aggregate_consistence(duthost, False, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_1, expected_present=False)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4, expected_present=False)
             verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V4[:2], expected_present=True)
 
             gcu_remove_aggregate(duthost, cfg.prefix)
@@ -207,14 +273,14 @@ class TestGroup1ParameterCombination:
             pytest.skip("BGP BBR is not supported")
 
         config_bbr_by_gcu(duthost, "disabled")
-        cfg = AggregateCfg(prefix=AGGR_V4_1, bbr_required=True, summary_only=True, as_set=False)
+        cfg = AggregateCfg(prefix=AGGR_V4, bbr_required=True, summary_only=True, as_set=False)
 
         announce_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
         try:
             gcu_add_aggregate(duthost, cfg)
 
             verify_bgp_aggregate_consistence(duthost, False, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_1, expected_present=False)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4, expected_present=False)
             verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V4[:2], expected_present=True)
 
             gcu_remove_aggregate(duthost, cfg.prefix)
@@ -241,14 +307,14 @@ class TestGroup1ParameterCombination:
 
         _, bbr_original_state = get_bbr_default_state(duthost)
         config_bbr_by_gcu(duthost, "enabled")
-        cfg = AggregateCfg(prefix=AGGR_V4_1, bbr_required=True, summary_only=True, as_set=False)
+        cfg = AggregateCfg(prefix=AGGR_V4, bbr_required=True, summary_only=True, as_set=False)
 
         announce_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
         try:
             gcu_add_aggregate(duthost, cfg)
 
             verify_bgp_aggregate_consistence(duthost, True, cfg)
-            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_1, expected_present=True)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4, expected_present=True)
             verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V4[:2], expected_present=False)
 
             gcu_remove_aggregate(duthost, cfg.prefix)
