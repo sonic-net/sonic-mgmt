@@ -1,10 +1,14 @@
 """
-Tests for LLDP on BMC management interface (eth0).
+Tests for LLDP on management interface (eth0).
 
-BMC has no ASIC and no swss; the only network interface is eth0.
-Lab management infrastructure does not forward LLDP frames, so we
-inject crafted LLDP packets via a macvlan interface in bridge mode
-to simulate a neighbor and verify lldpd processes them correctly.
+Lab management infrastructure typically does not forward LLDP frames,
+so we inject crafted LLDP packets using a veth pair with tc mirred
+ingress redirect to deliver frames directly into eth0's receive path.
+
+This bypasses the Linux kernel's IEEE 802.1D reserved multicast
+filtering (which blocks LLDP's 01:80:c2:00:00:0e in bridge/macvlan
+code) because tc mirred injects via netif_receive_skb() and eth0
+is not enslaved to any bridge.
 """
 
 import logging
@@ -27,7 +31,8 @@ MOCK_NEIGHBOR_PORT = "Ethernet0"
 MOCK_NEIGHBOR_MAC = "aa:bb:cc:00:11:22"
 LLDP_MULTICAST_MAC = "01:80:c2:00:00:0e"
 LLDP_TTL = 120
-MACVLAN_IFACE = "macvlan_test"
+VETH_INJECT = "veth_lldp_inj"
+VETH_SINK = "veth_lldp_sink"
 
 
 # ---------------------------------------------------------------------------
@@ -95,28 +100,42 @@ def build_lldp_frame(src_mac=MOCK_NEIGHBOR_MAC,
 # ---------------------------------------------------------------------------
 
 @pytest.fixture(scope="function")
-def lldp_macvlan(duthost):
+def lldp_inject(duthost):
     """
-    Create a macvlan interface on eth0 in bridge mode for LLDP packet
-    injection, and tear it down after the test.
+    Create a veth pair with tc mirred ingress redirect to inject LLDP
+    frames into eth0's receive path, bypassing IEEE 802.1D multicast
+    filtering.
+
+    Topology:
+        Send on veth_lldp_inj -> arrives on veth_lldp_sink (veth peer)
+        -> tc mirred ingress redirect -> eth0 RX -> lldpd
     """
-    # Clean up any stale interface from a previous failed run
-    duthost.shell(
-        "ip link del {} 2>/dev/null || true".format(MACVLAN_IFACE)
-    )
-    duthost.shell(
-        "ip link add {} link eth0 type macvlan mode bridge".format(
-            MACVLAN_IFACE)
-    )
-    duthost.shell("ip link set {} up".format(MACVLAN_IFACE))
-    logger.info("Created macvlan interface %s on eth0", MACVLAN_IFACE)
+    # Clean up stale interfaces from a previous failed run
+    duthost.shell("ip link del {} 2>/dev/null || true".format(VETH_INJECT))
 
-    yield MACVLAN_IFACE
-
+    # Create veth pair
     duthost.shell(
-        "ip link del {} 2>/dev/null || true".format(MACVLAN_IFACE)
+        "ip link add {} type veth peer name {}".format(VETH_INJECT, VETH_SINK)
     )
-    logger.info("Removed macvlan interface %s", MACVLAN_IFACE)
+    duthost.shell("ip link set {} up".format(VETH_INJECT))
+    duthost.shell("ip link set {} up".format(VETH_SINK))
+
+    # Set up tc on veth_sink: redirect ingress traffic to eth0's ingress
+    duthost.shell("tc qdisc add dev {} ingress".format(VETH_SINK))
+    duthost.shell(
+        "tc filter add dev {} ingress protocol 0x88cc u32 match u32 0 0 "
+        "action mirred ingress redirect dev eth0".format(VETH_SINK)
+    )
+    logger.info(
+        "Created veth pair %s <-> %s with tc mirred redirect to eth0",
+        VETH_INJECT, VETH_SINK
+    )
+
+    yield VETH_INJECT
+
+    # Removing the veth pair also removes the tc config
+    duthost.shell("ip link del {} 2>/dev/null || true".format(VETH_INJECT))
+    logger.info("Removed veth pair %s <-> %s", VETH_INJECT, VETH_SINK)
 
 
 # ---------------------------------------------------------------------------
@@ -232,62 +251,18 @@ class TestLldpMgmt:
             "No LLDP frame captured on eth0 within 35 seconds"
         )
 
-    def test_lldp_neighbor_on_mgmt(self, duthost, lldp_macvlan):
+    def test_lldp_neighbor_on_mgmt(self, duthost, lldp_inject):
         """
-        Inject a crafted LLDP frame via macvlan and verify the mock
-        neighbor appears in the LLDP neighbor table.
+        Inject a crafted LLDP frame via veth + tc mirred and verify
+        the mock neighbor appears in the LLDP neighbor table.
         """
         frame_hex = build_lldp_frame()
 
-        # Debug: check lldp container network mode
-        # Use raw() to avoid Ansible Jinja2 template interpretation
-        net_mode = duthost.shell(
-            "docker inspect lldp --format '{%raw%}{{.HostConfig.NetworkMode}}{%endraw%}'",
-            module_ignore_errors=True
-        ).get("stdout", "unknown").strip()
-        logger.info("lldp container network mode: %s", net_mode)
-
-        # Debug: verify macvlan interface exists and is up
-        macvlan_result = duthost.shell(
-            "ip link show {}".format(lldp_macvlan),
-            module_ignore_errors=True
-        )
-        logger.info("macvlan interface info:\n%s", macvlan_result.get("stdout", ""))
-
-        # Debug: start tcpdump on host eth0 in background to see if frames arrive
-        duthost.shell(
-            "nohup timeout 20 tcpdump -i eth0 'ether proto 0x88cc' "
-            "-c 5 -w /tmp/lldp_host_cap.pcap > /dev/null 2>&1 &",
-            module_ignore_errors=True
-        )
-
         # Send the frame multiple times to ensure lldpd picks it up
         for i in range(3):
-            _send_lldp_frame(duthost, lldp_macvlan, frame_hex)
-            logger.info("Sent LLDP frame %d/3 on %s", i + 1, lldp_macvlan)
+            _send_lldp_frame(duthost, lldp_inject, frame_hex)
+            logger.info("Sent LLDP frame %d/3 on %s", i + 1, lldp_inject)
             time.sleep(2)
-
-        # Debug: check what tcpdump captured on host eth0
-        time.sleep(3)
-        host_cap = duthost.shell(
-            "tcpdump -r /tmp/lldp_host_cap.pcap 2>&1 || echo 'no capture'",
-            module_ignore_errors=True
-        )
-        logger.info("tcpdump on host eth0:\n%s", host_cap.get("stdout", ""))
-
-        # Debug: dump lldpctl show neighbors (text) for readability
-        neighbors_text = duthost.shell(
-            "docker exec lldp lldpctl show neighbors",
-            module_ignore_errors=True
-        )
-        logger.info("lldpctl neighbors:\n%s", neighbors_text.get("stdout", ""))
-
-        # Debug: dump lldpctl JSON
-        neighbors_json = duthost.shell(
-            "docker exec lldp lldpctl -f json",
-            module_ignore_errors=True
-        )
-        logger.info("lldpctl JSON:\n%s", neighbors_json.get("stdout", ""))
 
         # Wait for lldpd to register the neighbor
         neighbor = _wait_for_neighbor(
@@ -308,7 +283,7 @@ class TestLldpMgmt:
                 MOCK_NEIGHBOR_NAME, neighbor["chassis_name"])
         )
 
-    def test_lldp_neighbor_timeout(self, duthost, lldp_macvlan):
+    def test_lldp_neighbor_timeout(self, duthost, lldp_inject):
         """
         Inject a crafted LLDP frame with a short TTL and verify the
         neighbor entry is removed after the TTL expires.
@@ -318,7 +293,7 @@ class TestLldpMgmt:
 
         # Send the frame
         for _ in range(3):
-            _send_lldp_frame(duthost, lldp_macvlan, frame_hex)
+            _send_lldp_frame(duthost, lldp_inject, frame_hex)
             time.sleep(2)
 
         # Verify neighbor appears
