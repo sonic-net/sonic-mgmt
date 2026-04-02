@@ -20,7 +20,6 @@ from bgp_aggregate_helpers import (
     AggregateCfg,
     gcu_add_aggregate,
     gcu_remove_aggregate,
-    setup_teardown,  # noqa: F401 — autouse fixture, must be imported for pytest discovery
 )
 
 from tests.common.helpers.assertions import pytest_assert
