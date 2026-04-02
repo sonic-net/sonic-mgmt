@@ -58,10 +58,12 @@ validators:
     exclude_devices:
       - sonic-s6100-dut1   # E3002 Device has no console connection
       - sonic-s6100-dut2   # E3002 Device has no console connection
+      - vnut-.*            # E3002 Virtual devices have no console connection
 - name: pdu
   enabled: true
   config:
     exclude_devices:
       - sonic-s6100-dut1   # E4002 Device has no PDU connection
       - sonic-s6100-dut2   # E4002 Device has no PDU connection
+      - vnut-.*            # E4002 Virtual devices have no PDU connection
 issue_severities: {}
