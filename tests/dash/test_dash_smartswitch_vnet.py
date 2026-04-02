@@ -83,8 +83,13 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
         {
             "SWITCH_TABLE:switch": {
                 "vxlan_sport": VXLAN_UDP_BASE_SRC_PORT,
-                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK,
-                "vxlan_security": "true"
+                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK
+            },
+            "OP": "SET"
+        },
+        {
+            "SWITCH_TABLE:switch": {
+                "vxlan_security": "false"
             },
             "OP": "SET"
         }
@@ -92,8 +97,9 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
 
     logger.info(f"Setting VXLAN source port config: {vxlan_sport_config}")
     config_path = "/tmp/vxlan_sport_config.json"
-    dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
-    apply_swssconfig_file(dpuhost, config_path)
+    for config in vxlan_sport_config:
+        dpuhost.copy(content=json.dumps([config], indent=4), dest=config_path, verbose=False)
+        apply_swssconfig_file(dpuhost, config_path)
     if 'pensando' in dpuhost.facts['asic_type']:
         logger.warning("Applying Pensando DPU VXLAN sport workaround")
         dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")

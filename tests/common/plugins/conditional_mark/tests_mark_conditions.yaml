@@ -841,6 +841,10 @@ dash/test_dash_privatelink.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
+dash/test_dash_privatelink.py::test_privatelink_udp_sport_range_negative:
+  skip:
+    reason: "The SONiC feature 'enable/disable VXLAN sport filtering' is not currently in the image. The skip will be removed when the feature is enabled."
+
 dash/test_dash_privatelink_redirect.py:
   skip:
     conditions_logical_operator: or
@@ -2711,10 +2715,11 @@ generic_config_updater/test_pfcwd_status.py:
 
 generic_config_updater/test_pg_headroom_update.py:
   skip:
-    reason: "Unsupported topology."
+    reason: "Unsupported topology or platform."
     conditions_logical_operator: "OR"
     conditions:
       - "topo_type in ['bmc', 'm0', 'm1', 'mx']"
+      - "asic_type in ['cisco-8000'] and topo_type in ['t2']"
 
 generic_config_updater/test_srv6:
   skip:
