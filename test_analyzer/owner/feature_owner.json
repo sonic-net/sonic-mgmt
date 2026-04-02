@@ -587,8 +587,8 @@
     },
     {
         "feature": "generic_config_updater",
-        "owner": "Xincun Li",
-        "email": "stli@microsoft.com",
+        "owner": "Vaibhav Hemant Dixit",
+        "email": "vadixit@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -611,16 +611,16 @@
                     "generic_config_updater.test_ipv6",
                     "generic_config_updater.test_pg_headroom_update"
                 ],
-                "owner": "Xincun Li",
-                "email": "stli@microsoft.com"
+                "owner": "Vaibhav Hemant Dixit",
+                "email": "vadixit@microsoft.com"
             },
             {
                 "scripts": [
                     "generic_config_updater.test_aaa",
                     "generic_config_updater.test_mgmt_interface"
                 ],
-                "owner": "Xincun Li",
-                "email": "stli@microsoft.com"
+                "owner": "Vaibhav Hemant Dixit",
+                "email": "vadixit@microsoft.com"
             },
             {
                 "scripts": [
