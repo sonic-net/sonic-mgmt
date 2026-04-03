@@ -10,7 +10,11 @@
         <EndDevice>{{ vms[index] }}</EndDevice>
         <EndPort>{{ vm_intfs[if_index] }}</EndPort>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
+        {% if num_asics > 1 %}
         <StartPort>{{ port_alias[dut_intfs[if_index]] }}</StartPort>
+        {% else %}
+        <StartPort>{{ port_alias_map[port_alias[dut_intfs[if_index]]] }}</StartPort>
+        {% endif %}
 {% if device_conn[inventory_hostname][port_alias_map[port_alias[dut_intfs[if_index]]]] is defined %}
         <Bandwidth>{{ device_conn[inventory_hostname][port_alias_map[port_alias[dut_intfs[if_index]]]]['speed'] }}</Bandwidth>
 {% endif %}
@@ -36,6 +40,9 @@
 {% endif %}
 {% endif %}
 {% if vm_topo_config['host_interfaces_by_dut'][dut_index|int] | length > 0 %}
+{% if 'ptp' in topo and (vlan_intfs is not defined or vlan_intfs | length == 0) %}
+{% set vlan_intfs = vm_topo_config['host_interfaces_by_dut'][dut_index|int] | map('extract', port_alias) | list %}
+{% endif %}
 {% for host_index in range(vlan_intfs | length) %}
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -93,6 +100,7 @@
 {% endfor %}
 {% endfor %}
 {% endif %}
+{% if front_panel_asic_ifnames is defined and front_panel_asic_ifnames | length > 0 %}
 {% for if_index in range(front_panel_asic_ifnames | length) %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -106,10 +114,15 @@
         <EndPort>{{ front_panel_asic_ifnames[if_index] }}</EndPort>
         <FlowControl>true</FlowControl>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
+        {% if num_asics > 1 %}
         <StartPort>{{ port_alias[loop.index - 1] }}</StartPort>
+        {% else %}
+        <StartPort>{{ port_alias_map[port_alias[loop.index - 1]] }}</StartPort>
+        {% endif %}
         <Validate>true</Validate>
       </DeviceLinkBase>
 {% endfor %}
+{% endif %}
 {% endif %}
     </DeviceInterfaceLinks>
     <Devices>

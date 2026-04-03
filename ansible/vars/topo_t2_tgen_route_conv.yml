@@ -1,0 +1,536 @@
+topology:
+  # 1 DUT - T2 Pizzabox (single node, multi-asic)
+  # T2 Pizzabox is a 36-port device:
+  #   - Ports 0-17 on asic0 (18 ports)
+  #   - Ports 18-35 on asic1 (18 ports)
+  #
+  # Uplink (T3/Spine side):
+  #   - 16 ports (port 0-15) connected to Ixia via Fanout (all on asic0)
+  #
+  # Downlink (Lower Tier side):
+  #   - 4 ports (port 32-35) connected to Lower Tier (Lt2) device (on asic1)
+  #
+  # No ptf ports, this is to setup the DUT for Ixia testing.
+
+  dut_num: 1
+  VMs:
+    # Uplink ports - via Fanout to Ixia (T3/Spine emulation)
+    # Ports 0-15 on asic0
+    Snappi_T3_1:
+      vlans:
+        - 0
+        - 1
+      vm_offset: 0
+    Snappi_T3_2:
+      vlans:
+        - 2
+      vm_offset: 1
+    Snappi_T3_3:
+      vlans:
+        - 3
+      vm_offset: 2
+    Snappi_T3_4:
+      vlans:
+        - 4
+      vm_offset: 3
+    Snappi_T3_5:
+      vlans:
+        - 5
+      vm_offset: 4
+    Snappi_T3_6:
+      vlans:
+        - 6
+      vm_offset: 5
+    Snappi_T3_7:
+      vlans:
+        - 7
+      vm_offset: 6
+    Snappi_T3_8:
+      vlans:
+        - 8
+      vm_offset: 7
+    Snappi_T3_9:
+      vlans:
+        - 9
+      vm_offset: 8
+    Snappi_T3_10:
+      vlans:
+        - 10
+      vm_offset: 9
+    Snappi_T3_11:
+      vlans:
+        - 11
+      vm_offset: 10
+    Snappi_T3_12:
+      vlans:
+        - 12
+      vm_offset: 11
+    Snappi_T3_13:
+      vlans:
+        - 13
+      vm_offset: 12
+    Snappi_T3_14:
+      vlans:
+        - 14
+      vm_offset: 13
+    Snappi_T3_15:
+      vlans:
+        - 15
+      vm_offset: 14
+    # Downlink ports - connected to LT2 (T1 emulation)
+    # Ports 32-35 on asic1
+    LT2_1:
+      vlans:
+        - 32
+      vm_offset: 15
+    LT2_2:
+      vlans:
+        - 33
+      vm_offset: 16
+    LT2_3:
+      vlans:
+        - 34
+      vm_offset: 17
+    LT2_4:
+      vlans:
+        - 35
+      vm_offset: 18
+
+  DUT:
+    loopback:
+      ipv4:
+        - 10.1.0.1/32
+      ipv6:
+        - FC00:10::1/128
+
+configuration_properties:
+  common:
+    podset_number: 400
+    tor_number: 16
+    tor_subnet_number: 8
+    max_tor_subnet_number: 32
+    tor_subnet_size: 128
+    dut_asn: 65100
+    dut_type: UpperSpineRouter
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+  core:
+    swrole: core
+  leaf:
+    swrole: leaf
+
+configuration:
+  # Uplink neighbors (T3/Spine) - connected via Fanout to Ixia
+  Snappi_T3_1:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.3.1.0
+          - 2000:1:1:4::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.1/32
+        ipv6: 2064:100::1/128
+      Ethernet1:
+        lacp: 1
+      Ethernet2:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.3.1.1/31
+        ipv6: 2000:1:1:4::2/126
+    bp_interface:
+      ipv4: 10.10.246.1/24
+      ipv6: fc0a::2/64
+  Snappi_T3_2:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.4.1.0
+          - 2000:1:1:5::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.2/32
+        ipv6: 2064:100::2/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.4.1.1/31
+        ipv6: 2000:1:1:5::2/126
+    bp_interface:
+      ipv4: 10.10.246.2/24
+      ipv6: fc0a::3/64
+  Snappi_T3_3:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.5.1.0
+          - 2000:1:1:6::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.3/32
+        ipv6: 2064:100::3/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.5.1.1/31
+        ipv6: 2000:1:1:6::2/126
+    bp_interface:
+      ipv4: 10.10.246.3/24
+      ipv6: fc0a::4/64
+  Snappi_T3_4:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.6.1.0
+          - 2000:1:1:7::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.4/32
+        ipv6: 2064:100::4/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.6.1.1/31
+        ipv6: 2000:1:1:7::2/126
+    bp_interface:
+      ipv4: 10.10.246.4/24
+      ipv6: fc0a::5/64
+  Snappi_T3_5:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.7.1.0
+          - 2000:1:1:8::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.5/32
+        ipv6: 2064:100::5/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.7.1.1/31
+        ipv6: 2000:1:1:8::2/126
+    bp_interface:
+      ipv4: 10.10.246.5/24
+      ipv6: fc0a::6/64
+  Snappi_T3_6:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.8.1.0
+          - 2000:1:1:9::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.6/32
+        ipv6: 2064:100::6/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.8.1.1/31
+        ipv6: 2000:1:1:9::2/126
+    bp_interface:
+      ipv4: 10.10.246.6/24
+      ipv6: fc0a::7/64
+  Snappi_T3_7:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.9.1.0
+          - 2000:1:1:a::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.7/32
+        ipv6: 2064:100::7/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.9.1.1/31
+        ipv6: 2000:1:1:a::2/126
+    bp_interface:
+      ipv4: 10.10.246.7/24
+      ipv6: fc0a::8/64
+  Snappi_T3_8:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.10.1.0
+          - 2000:1:1:b::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.8/32
+        ipv6: 2064:100::8/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.10.1.1/31
+        ipv6: 2000:1:1:b::2/126
+    bp_interface:
+      ipv4: 10.10.246.8/24
+      ipv6: fc0a::9/64
+  Snappi_T3_9:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.11.1.0
+          - 2000:1:1:c::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.9/32
+        ipv6: 2064:100::9/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.11.1.1/31
+        ipv6: 2000:1:1:c::2/126
+    bp_interface:
+      ipv4: 10.10.246.9/24
+      ipv6: fc0a::a/64
+  Snappi_T3_10:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.12.1.0
+          - 2000:1:1:d::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.10/32
+        ipv6: 2064:100::a/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.12.1.1/31
+        ipv6: 2000:1:1:d::2/126
+    bp_interface:
+      ipv4: 10.10.246.10/24
+      ipv6: fc0a::b/64
+  Snappi_T3_11:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.13.1.0
+          - 2000:1:1:e::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.11/32
+        ipv6: 2064:100::b/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.13.1.1/31
+        ipv6: 2000:1:1:e::2/126
+    bp_interface:
+      ipv4: 10.10.246.11/24
+      ipv6: fc0a::c/64
+  Snappi_T3_12:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.14.1.0
+          - 2000:1:1:f::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.12/32
+        ipv6: 2064:100::c/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.14.1.1/31
+        ipv6: 2000:1:1:f::2/126
+    bp_interface:
+      ipv4: 10.10.246.12/24
+      ipv6: fc0a::d/64
+  Snappi_T3_13:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.15.1.0
+          - 2000:1:1:10::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.13/32
+        ipv6: 2064:100::d/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.15.1.1/31
+        ipv6: 2000:1:1:10::2/126
+    bp_interface:
+      ipv4: 10.10.246.13/24
+      ipv6: fc0a::e/64
+  Snappi_T3_14:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.16.1.0
+          - 2000:1:1:11::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.14/32
+        ipv6: 2064:100::e/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.16.1.1/31
+        ipv6: 2000:1:1:11::2/126
+    bp_interface:
+      ipv4: 10.10.246.14/24
+      ipv6: fc0a::f/64
+  Snappi_T3_15:
+    properties:
+      - common
+      - core
+    bgp:
+      asn: 65400
+      peers:
+        65100:
+          - 20.17.1.0
+          - 2000:1:1:12::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.15/32
+        ipv6: 2064:100::f/128
+      Ethernet1:
+        lacp: 1
+      Port-Channel1:
+        ipv4: 20.17.1.1/31
+        ipv6: 2000:1:1:12::2/126
+    bp_interface:
+      ipv4: 10.10.246.15/24
+      ipv6: fc0a::10/64
+  # Downlink neighbors (LT2/T1) - connected to LT2 then Ixia
+  LT2_1:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 20.2.1.1
+          - 2000:1:1:3::2
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.51/32
+        ipv6: 2064:100::31/128
+      Ethernet1:
+        ipv4: 20.2.1.0/31
+        ipv6: 2000:1:1:3::1/126
+    bp_interface:
+      ipv4: 10.10.246.51/24
+      ipv6: fc0a::32/64
+  LT2_2:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 20.2.2.1
+          - 2000:1:1:13::2
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.52/32
+        ipv6: 2064:100::32/128
+      Ethernet1:
+        ipv4: 20.2.2.0/31
+        ipv6: 2000:1:1:13::1/126
+    bp_interface:
+      ipv4: 10.10.246.52/24
+      ipv6: fc0a::33/64
+  LT2_3:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 20.2.3.1
+          - 2000:1:1:14::2
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.53/32
+        ipv6: 2064:100::33/128
+      Ethernet1:
+        ipv4: 20.2.3.0/31
+        ipv6: 2000:1:1:14::1/126
+    bp_interface:
+      ipv4: 10.10.246.53/24
+      ipv6: fc0a::34/64
+  LT2_4:
+    properties:
+      - common
+      - leaf
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+          - 20.2.4.1
+          - 2000:1:1:15::2
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.54/32
+        ipv6: 2064:100::34/128
+      Ethernet1:
+        ipv4: 20.2.4.0/31
+        ipv6: 2000:1:1:15::1/126
+    bp_interface:
+      ipv4: 10.10.246.54/24
+      ipv6: fc0a::35/64

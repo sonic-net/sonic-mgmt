@@ -1,12 +1,30 @@
 import inspect
 import json
 import logging
-
+import collections
 from multiprocessing.pool import ThreadPool
+from pytest_ansible.results import AdHocResult, ModuleResult
 
 from tests.common.errors import RunAnsibleModuleFail
 
+
+# Patch load_extra_vars to return a copy instead of the shared cached dict.
+# Without this, any code that calls variable_manager.extra_vars.update() (e.g., EosHost)
+# permanently pollutes the cache, causing all subsequent VariableManagers to inherit
+# stale connection variables (wrong ansible_user, ansible_connection, etc.).
+import ansible.vars.manager as _avm
+_original_load_extra_vars = _avm.load_extra_vars
+
+
+def _safe_load_extra_vars(loader):
+    return dict(_original_load_extra_vars(loader))
+
+
+_avm.load_extra_vars = _safe_load_extra_vars
+
+
 logger = logging.getLogger(__name__)
+
 
 # HACK: This is a hack for issue https://github.com/sonic-net/sonic-mgmt/issues/1941 and issue
 # https://github.com/ansible/pytest-ansible/issues/47
@@ -32,10 +50,34 @@ class AnsibleHostBase(object):
     on the host.
     """
 
+    # Class-level flag for IPv6-only management mode.
+    # Set by the ipv6_only_mgmt_enabled fixture in conftest.py
+    _ipv6_only_mgmt_mode = False
+
+    @classmethod
+    def set_ipv6_only_mgmt(cls, enabled: bool):
+        """Set the IPv6-only management mode flag.
+
+        Called by the ipv6_only_mgmt_enabled fixture in conftest.py.
+        """
+        cls._ipv6_only_mgmt_mode = enabled
+        if enabled:
+            logger.info("IPv6-only management mode enabled")
+
+    @classmethod
+    def is_ipv6_only_mgmt(cls) -> bool:
+        """Check if running in IPv6-only management mode.
+
+        Returns True if --ipv6_only_mgmt pytest option was passed.
+        """
+        return cls._ipv6_only_mgmt_mode
+
     class CustomEncoder(json.JSONEncoder):
         def default(self, obj):
             if isinstance(obj, bytes):
                 return obj.decode('utf-8')
+            elif isinstance(obj, collections.UserDict):
+                return obj.data
             return super().default(obj)
 
     def __init__(self, ansible_adhoc, hostname, *args, **kwargs):
@@ -43,30 +85,46 @@ class AnsibleHostBase(object):
             self.host = ansible_adhoc(connection='local', host_pattern=hostname)[hostname]
         else:
             self.host = ansible_adhoc(become=True, *args, **kwargs)[hostname]
-            self.mgmt_ip = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_host"]
-            if "ansible_hostv6" in self.host.options["inventory_manager"].get_host(hostname).vars:
-                self.mgmt_ipv6 = self.host.options["inventory_manager"].get_host(hostname).vars["ansible_hostv6"]
-            else:
+            host_vars = self.host.options["inventory_manager"].get_host(hostname).vars
+            ansible_host = host_vars.get("ansible_host")
+            ansible_hostv6 = host_vars.get("ansible_hostv6")
+
+            # In IPv6-only management mode, use IPv6 address as the primary mgmt_ip
+            if self.is_ipv6_only_mgmt() and ansible_hostv6:
+                self.mgmt_ip = ansible_hostv6
+                self.mgmt_ipv6 = ansible_hostv6
+                # Keep IPv4 available for reference but it won't be used for connectivity
+                self._mgmt_ipv4 = ansible_host
+                logger.debug("IPv6-only management mode: using %s as mgmt_ip for %s", ansible_hostv6, hostname)
+            elif self.is_ipv6_only_mgmt():
+                logger.warning(
+                    "IPv6-only mode requested but ansible_hostv6 not defined for %s, "
+                    "falling back to IPv4.",
+                    hostname,
+                )
+                self.mgmt_ip = ansible_host
                 self.mgmt_ipv6 = None
+            else:
+                self.mgmt_ip = ansible_host
+                self.mgmt_ipv6 = ansible_hostv6
         self.hostname = hostname
 
     def __getattr__(self, module_name):
         if self.host.has_module(module_name):
-            self.module_name = module_name
-            self.module = getattr(self.host, module_name)
-
-            return self._run
+            def _run_wrapper(*module_args, **kwargs):
+                return self._run(module_name, *module_args, **kwargs)
+            return _run_wrapper
         raise AttributeError(
             "'%s' object has no attribute '%s'" % (self.__class__, module_name)
             )
 
-    def _run(self, *module_args, **complex_args):
+    def _run(self, module_name, *module_args, **complex_args):
 
         previous_frame = inspect.currentframe().f_back
         filename, line_number, function_name, lines, index = inspect.getframeinfo(previous_frame)
 
         verbose = complex_args.pop('verbose', True)
-
+        module = getattr(self.host, module_name)
         if verbose:
             logger.debug(
                 "{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}".format(
@@ -74,7 +132,7 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    self.module_name,
+                    module_name,
                     json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder),
                     json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder)
                 )
@@ -86,7 +144,7 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    self.module_name
+                    module_name
                 )
             )
 
@@ -95,14 +153,23 @@ class AnsibleHostBase(object):
 
         if module_async:
             def run_module(module_args, complex_args):
-                return self.module(*module_args, **complex_args)[self.hostname]
+                return module(*module_args, **complex_args)[self.hostname]
             pool = ThreadPool()
             result = pool.apply_async(run_module, (module_args, complex_args))
             return pool, result
 
         module_args = json.loads(json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder))
         complex_args = json.loads(json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder))
-        res = self.module(*module_args, **complex_args)[self.hostname]
+
+        adhoc_res: AdHocResult = module(*module_args, **complex_args)
+
+        if module_name == "meta":
+            # The meta module is special in Ansible - it doesn't execute on remote hosts, it controls Ansible's behavior
+            # There are no per-host ModuleResults contained within it
+            return
+
+        hostname_res: ModuleResult = adhoc_res[self.hostname]
+        hostname_res.encoder = AnsibleHostBase.CustomEncoder
 
         if verbose:
             logger.debug(
@@ -111,7 +178,7 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    self.module_name, json.dumps(res, cls=AnsibleHostBase.CustomEncoder)
+                    module_name, json.dumps(hostname_res, cls=AnsibleHostBase.CustomEncoder)
                 )
             )
         else:
@@ -121,16 +188,16 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    self.module_name,
-                    res.is_failed,
-                    res.get('rc', None)
+                    module_name,
+                    hostname_res.is_failed,
+                    hostname_res.get('rc', None)
                 )
             )
 
-        if (res.is_failed or 'exception' in res) and not module_ignore_errors:
-            raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), res)
+        if (hostname_res.is_failed or 'exception' in hostname_res) and not module_ignore_errors:
+            raise RunAnsibleModuleFail("run module {} failed".format(module_name), hostname_res)
 
-        return res
+        return hostname_res
 
 
 class NeighborDevice(dict):

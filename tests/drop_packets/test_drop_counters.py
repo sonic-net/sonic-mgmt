@@ -19,7 +19,7 @@ from .drop_packets import L2_COL_KEY, L3_COL_KEY, RX_ERR, RX_DRP, ACL_COUNTERS_U
     test_dst_ip_absent, test_src_ip_is_multicast_addr, test_src_ip_is_class_e, test_ip_is_zero_addr, \
     test_dst_ip_link_local, test_loopback_filter, test_ip_pkt_with_expired_ttl, test_broken_ip_header, \
     test_absent_ip_header, test_unicast_ip_incorrect_eth_dst, test_non_routable_igmp_pkts, test_acl_drop, \
-    test_acl_egress_drop  # noqa: F401
+    test_acl_egress_drop, drop_counter_config  # noqa: F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa: F401
 from ..common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -238,15 +238,6 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2', 'L3', 'ACL' or 'NO_DROPS'")
 
 
-def get_intf_mtu(duthost, intf, asic_index):
-    # Get namespace from asic_index.
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-
-    CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
-    return int(duthost.shell(
-        CMD_PREFIX + "/sbin/ifconfig {} | grep -i mtu | awk '{{print $NF}}'".format(intf))["stdout"])
-
-
 @pytest.fixture
 def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """ Fixture which prepare port MTU configuration for 'test_ip_pkt_with_exceeded_mtu' test case """
@@ -277,6 +268,14 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             if not cls.mtu:
                 cls.mtu = cls.default_mtu
 
+            def get_port_count_for_mtu():
+                CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+                cmd = CMD_PREFIX + 'sonic-db-dump -n ASIC_DB -y -k "*SAI_OBJECT_TYPE_ROUTER_INTERFACE*" \
+                    | grep -c \'"SAI_ROUTER_INTERFACE_ATTR_MTU": "{}"\' || true'.format(mtu)
+                return int(duthost.shell(cmd)["stdout"])
+
+            initial_ports_count_for_mtu = get_port_count_for_mtu()
+
             duthost.command(
                 "sonic-db-cli -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
                     namespace, cls.key, iface, mtu
@@ -287,10 +286,10 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             cls.iface = iface
 
             def check_mtu():
-                return get_intf_mtu(duthost, iface, asic_index) == mtu
+                return get_port_count_for_mtu() > initial_ports_count_for_mtu if int(cls.mtu) != mtu else True
 
             pytest_assert(
-                wait_until(5, 1, 0, check_mtu),
+                wait_until(10, 1, 1, check_mtu),
                 "MTU on interface {} not updated".format(iface)
             )
 
@@ -359,6 +358,10 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hws
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if not fanouthost:
         pytest.skip("Test case requires explicit fanout support")
+
+    # Marvell ASIC specific ACL rule injection
+    if fanouthost.facts["asic_type"] == "marvell-teralynx":
+        drop_counter_config(fanouthost)
 
     reserved_mac_addr = ["01:80:C2:00:00:05", "01:80:C2:00:00:08"]
     for reserved_dmac in reserved_mac_addr:

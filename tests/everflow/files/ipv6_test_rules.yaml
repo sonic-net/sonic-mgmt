@@ -179,3 +179,12 @@
     transport:
       source-port: "12002"
       destination-port: "12003"
+
+- qualifiers:
+    icmp:
+      type: 2
+
+- qualifiers:
+    icmp:
+      type: 3
+      code: 1

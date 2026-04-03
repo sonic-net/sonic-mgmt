@@ -244,7 +244,7 @@ def test_setup_and_cleanup(memory_checker_dut_and_container, request):
 
 @pytest.fixture
 def remove_and_restart_container(memory_checker_dut_and_container):
-    """Removes and restarts 'telemetry' container from DuT.
+    """Removes and restarts 'gnmi' container from DuT.
 
     Args:
         memory_checker_dut_and_container: Fixture providing the duthost and container to test
@@ -262,14 +262,6 @@ def remove_and_restart_container(memory_checker_dut_and_container):
     container.post_check()
 
 
-def get_test_container(duthost):
-    test_container = "telemetry"
-    cmd = "docker images | grep -w sonic-gnmi"
-    if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-        test_container = "gnmi"
-    return test_container
-
-
 @pytest.fixture
 def memory_checker_dut_and_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """Perform some checks and return applicable duthost and container name
@@ -284,7 +276,10 @@ def memory_checker_dut_and_container(duthosts, enum_rand_one_per_hwsku_frontend_
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    container_name = get_test_container(duthost)
+    # Always test gnmi — telemetry is deprecated and may be masked via
+    # systemd even when its Docker image is present.
+    # See: https://github.com/sonic-net/sonic-mgmt/issues/22349
+    container_name = "gnmi"
     container = MemoryCheckerContainer(container_name, duthost)
 
     pytest_require("Celestica-E1031" not in duthost.facts["hwsku"]
@@ -441,7 +436,7 @@ class MemoryCheckerContainer(object):
 
     def is_monit_mem_ok(self):
         status = self.get_monit_mem_status()
-        return status['status'] == 'Status ok'
+        return status['status'] in ('Status ok', 'OK')
 
     def is_monit_mem_failed(self):
         status = self.get_monit_mem_status()
@@ -450,11 +445,13 @@ class MemoryCheckerContainer(object):
 
     def is_monit_mem_last_ok(self):
         status = self.get_monit_mem_status()
-        return status['status'] == 'Status ok' and status['last_exit_value'] == '0'
+        return status['status'] in ('Status ok', 'OK') \
+            and status['last_exit_value'] == '0'
 
     def is_monit_mem_last_failed(self):
         status = self.get_monit_mem_status()
-        return status['status'] == 'Status ok' and status['last_exit_value'] != '0'
+        return status['status'] in ('Status ok', 'OK') \
+            and status['last_exit_value'] != '0'
 
     def remove(self):
         remove_container(self.duthost, self.name)
@@ -475,7 +472,8 @@ class MemoryCheckerContainer(object):
         cap_name = self.name.capitalize()
         if self.name == "gnmi":
             cap_name = "GNMI"
-        if "bookworm" in self.duthost.shell("grep VERSION_CODENAME /etc/os-release")['stdout'].lower():
+        debian_version = self.duthost.shell("grep VERSION_CODENAME /etc/os-release")['stdout'].lower()
+        if "bookworm" in debian_version or "trixie" in debian_version:
             return [
                 r".*restart_service.*Restarting service '{}'.*".format(self.name),
                 r".*Stopping {}.service - {} container.*".format(self.name, cap_name),

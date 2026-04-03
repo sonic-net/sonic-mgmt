@@ -2,7 +2,7 @@ import logging
 import pexpect
 import os
 
-CONSERVER_CLI_PROMPT = r"admin@[a-zA-Z0-9]{1,10}:~$"
+CONSERVER_CLI_PROMPT = "admin@[a-zA-Z0-9]{1,10}:~\\$"
 CONSERVER_DEBUG_FILE = "/tmp/conserver_console_debug.log"
 
 
@@ -51,6 +51,13 @@ class ConserverConsoleConn():
         self.console_cli.expect(expect_string, timeout=timeout)
         output = self.console_cli.before.decode()
         return output.split(self.console_cli.linesep.decode(), 1)[1].strip()
+
+    def write_channel(self, cmd):
+        self.console_cli.sendline(cmd)
+
+    def read_until_pattern(self, pattern):
+        timeout = self.default_timeout
+        self.console_cli.expect(pattern, timeout=timeout)
 
     def disconnect(self):
         assert self.console_cli.isalive()

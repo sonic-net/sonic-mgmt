@@ -11,3 +11,7 @@ pdu-2,5,str-7250-7,PSU1,A
 pdu-2,6,str-7250-7,PSU1,B
 pdu-2,7,str-7250-7,PSU2,A
 pdu-2,8,str-7250-7,PSU2,B
+pdu-1,5,switch01,PSU1,
+pdu-1,6,switch01,PSU2,
+pdu-1,5,switch01-bmc,PSU1,
+pdu-1,6,switch01-bmc,PSU2,

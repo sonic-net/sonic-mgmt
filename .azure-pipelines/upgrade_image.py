@@ -29,8 +29,8 @@ if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
 
-from devutil.devices.factory import init_localhost, init_testbed_sonichosts         # noqa: E402
-from devutil.devices.sonic import upgrade_image                                     # noqa: E402
+from devutil.devices.factory import init_localhost, init_testbed_sonichosts, init_sonichosts  # noqa: E402
+from devutil.devices.sonic import upgrade_image, enable_nat_for_dpuhosts             # noqa: E402
 
 
 logger = logging.getLogger(__name__)
@@ -90,6 +90,23 @@ def main(args):
 
     if not localhost or not sonichosts:
         sys.exit(RC_INIT_FAILED)
+
+    # Separate NPU and DPU hostnames.
+    # DPU hosts require NAT forwarding through their NPU and should not be
+    # included in upgrade/reboot operations (only the switch image is upgraded).
+    all_hostnames = sonichosts.hostnames
+    npu_hostnames = [h for h in all_hostnames if "dpu" not in h.lower()]
+    dpu_hostnames = [h for h in all_hostnames if "dpu" in h.lower()]
+
+    if dpu_hostnames:
+        logger.info("SmartSwitch detected. NPU hosts: %s, DPU hosts: %s", npu_hostnames, dpu_hostnames)
+        # Use NPU-only sonichosts for upgrade operations
+        sonichosts = init_sonichosts(
+            args.inventory, npu_hostnames, options={"verbosity": args.verbosity}
+        )
+        if not sonichosts:
+            logger.error("Failed to initialize NPU-only sonichosts")
+            sys.exit(RC_INIT_FAILED)
 
     conn_graph_facts = localhost.conn_graph_facts(
         hosts=sonichosts.hostnames,
@@ -157,6 +174,11 @@ def main(args):
         else:
             logger.info("Upgraded to prev_image {}.".format(args.prev_image_url))
 
+        # Re-enable NAT after reboot so DPU SSH proxy ports are reachable
+        if dpu_hostnames:
+            logger.info("Re-enabling NAT for DPU hosts after prev-image upgrade")
+            enable_nat_for_dpuhosts(sonichosts, args.inventory, dpu_hostnames)
+
         for hostname, version in sonichosts.sonic_version.items():
             logger.info("SONiC host {} current version {}".format(hostname, version.get("build_version")))
     else:
@@ -176,6 +198,11 @@ def main(args):
         sys.exit(RC_UPGRADE_FAILED)
     else:
         logger.info("Upgrad to target image {} done".format(args.image_url))
+
+    # Re-enable NAT after reboot so DPU SSH proxy ports are reachable
+    if dpu_hostnames:
+        logger.info("Re-enabling NAT for DPU hosts after target-image upgrade")
+        enable_nat_for_dpuhosts(sonichosts, args.inventory, dpu_hostnames)
 
     current_build_version = None
     for hostname, version in sonichosts.sonic_version.items():

@@ -370,15 +370,35 @@ def parse_dpg(dpg, hname):
             intfname = mgmtintf.find(str(QName(ns, "AttachTo"))).text
             ipprefix = mgmtintf.find(str(QName(ns1, "PrefixStr"))).text
             mgmtipn = ipaddress.IPNetwork(ipprefix)
-            # Ignore IPv6 management address
-            if mgmtipn.version == 6:
-                continue
-            ipaddr = mgmtipn.ip
-            prefix_len = str(mgmtipn.prefixlen)
-            ipmask = mgmtipn.netmask
             gwaddr = ipaddress.IPAddress(int(mgmtipn.network) + 1)
-            mgmt_intf = {'addr': ipaddr, 'alias': intfname,
-                         'prefixlen': prefix_len, 'mask': ipmask, 'gwaddr': gwaddr}
+            # Prefer IPv4 if present; otherwise fall back to IPv6 so that
+            # consumers (e.g., tests needing the alias) still have data.
+            if isinstance(mgmtipn, ipaddress.IPv4Network):
+                ipaddr = mgmtipn.ip
+                prefix_len = str(mgmtipn.prefixlen)
+                ipmask = mgmtipn.netmask
+                mgmt_intf = {
+                    'addr': ipaddr,
+                    'alias': intfname,
+                    'prefixlen': prefix_len,
+                    'mask': ipmask,
+                    'gwaddr': gwaddr
+                }
+                # Since IPv4 is preferred, we can break once found.
+                break
+            else:
+                # IPv6 management ip
+                if mgmt_intf is None:
+                    ipaddr = mgmtipn.ip
+                    prefix_len = str(mgmtipn.prefixlen)
+                    ipmask = str(mgmtipn.prefixlen)
+                    mgmt_intf = {
+                        'addr': ipaddr,
+                        'alias': intfname,
+                        'prefixlen': prefix_len,
+                        'mask': ipmask,
+                        'gwaddr': gwaddr
+                    }
 
         pcintfs = child.find(str(QName(ns, "PortChannelInterfaces")))
         pcs = {}
@@ -522,6 +542,7 @@ def parse_meta(meta, hname):
     mgmt_routes = []
     deployment_id = None
     resource_type = None
+    zebra_nexthop = None
     device_metas = meta.find(str(QName(ns, "Devices")))
     for device in device_metas.findall(str(QName(ns1, "DeviceMetadata"))):
         if device.find(str(QName(ns1, "Name"))).text == hname:
@@ -540,7 +561,9 @@ def parse_meta(meta, hname):
                     deployment_id = value
                 elif name == "ResourceType":
                     resource_type = value
-    return syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type
+                elif name == "ZebraNexthop":
+                    zebra_nexthop = value
+    return syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type, zebra_nexthop
 
 
 def get_console_info(devices, dev, port):
@@ -682,6 +705,7 @@ def parse_xml(filename, hostname, asic_name=None):
     mgmt_routes = []
     bgp_peers_with_range = []
     deployment_id = None
+    zebra_nexthop = None
     is_storage_device = None
     macsec_enabled_ports = []
     macsec_neighbors = []
@@ -730,7 +754,8 @@ def parse_xml(filename, hostname, asic_name=None):
             elif child.tag == str(QName(ns, "UngDec")):
                 (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
             elif child.tag == str(QName(ns, "MetadataDeclaration")):
-                (syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type) = parse_meta(child, hostname)
+                (syslog_servers, ntp_servers, mgmt_routes, deployment_id,
+                 resource_type, zebra_nexthop) = parse_meta(child, hostname)
             elif child.tag == str(QName(ns, "LinkMetadataDeclaration")):
                 macsec_enabled_ports, macsec_neighbors = parse_linkmeta(child, hostname)
         else:
@@ -813,6 +838,8 @@ def parse_xml(filename, hostname, asic_name=None):
     }
     if resource_type is not None:
         results['minigraph_device_metadata']['resource_type'] = resource_type
+    if zebra_nexthop is not None:
+        results['minigraph_device_metadata']['zebra_nexthop'] = zebra_nexthop
     results['minigraph_interfaces'] = sorted(
         phyport_intfs, key=lambda x: x['attachto'])
     results['minigraph_vlan_interfaces'] = sorted(

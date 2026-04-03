@@ -10,6 +10,8 @@ except ImportError:
     sys.path.append('..')
     from module_utils.parse_utils import parse_tabular_output
 
+import os
+
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info, multi_asic
 
@@ -51,6 +53,10 @@ def main():
         if hasattr(device_info, 'is_chassis'):
             results['is_chassis'] = device_info.is_chassis()
 
+        results['is_chassis_config_absent'] = False
+        if hasattr(device_info, 'is_chassis_config_absent'):
+            results['is_chassis_config_absent'] = device_info.is_chassis_config_absent()
+
         if results['is_multi_asic']:
             results['asic_index_list'] = []
             if results['is_chassis']:
@@ -64,6 +70,10 @@ def main():
         results['is_dpu'] = False
         if hasattr(device_info, 'is_dpu'):
             results['is_dpu'] = device_info.is_dpu()
+
+        results['eth_mgmt_ctrl_available'] = False
+        if os.path.exists('/usr/bin/eth_mgmt_ctrl'):
+            results['eth_mgmt_ctrl_available'] = True
 
         # In case a image does not have /etc/sonic/sonic_release, guess release from 'build_version'
         if 'release' not in results or not results['release'] or results['release'] == 'none':
@@ -94,6 +104,15 @@ def main():
 
         for state in result:
             results["feature_status"][state["feature"]] = state["state"]
+
+        # Get management IP
+        is_mgmt_ipv6_only = False
+        rc, out, _ = module.run_command("ip -4 addr show eth0")
+        if rc == 0 and not out.strip():
+            rc, out, _ = module.run_command("ip -6 addr show eth0")
+            if rc == 0 and out.strip():
+                is_mgmt_ipv6_only = True
+        results["is_mgmt_ipv6_only"] = is_mgmt_ipv6_only
 
         module.exit_json(ansible_facts={'dut_basic_facts': results})
     except Exception as e:

@@ -111,3 +111,46 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
     )
     consolidated_bughandler = get_bughandler_instance({"type": "consolidated"})
     consolidated_bughandler.bug_handler_wrapper(analyzers, duthosts, la_results)
+
+
+@pytest.fixture(autouse=True)
+def ignore_pkt_trim_errors(duthosts, loganalyzer):
+    ASIC_LIST = ["th5"]
+    if loganalyzer:
+        for duthost in duthosts:
+            platform_asic = duthost.facts["platform_asic"].lower()
+            asic_name = duthost.get_asic_name().lower()
+            if platform_asic == "broadcom" and asic_name not in ASIC_LIST:
+                # We should cleanup this code once CSP12420291 is fixed.
+                loganalyzer[duthost.hostname].ignore_regex.extend(
+                    [
+                        (r".*ERR syncd#syncd: .* SAI_API_SWITCH:_brcm_sai_xgs_pkt_trim_get_mapped_counter:"
+                         r"[\d]+ Packet trim feature is not supported.*"),
+                        (r".*ERR syncd#syncd: .* SAI_API_QUEUE:_brcm_sai_xgs_queue_pkt_trim_get_clear_ctr:"
+                         r"[\d]+ Get Trim mapped counter failed with error -2.*"),
+                        (r".*ERR syncd#syncd: .* SAI_API_QUEUE:_brcm_sai_cosq_stat_get:"
+                         r"[\d]+ Get Trim stats packets failed with error -2.*"),
+                        (r".*ERR syncd#syncd: .* SAI_API_SWITCH:sai_query_switch_attribute_enum_values_capability:"
+                         r"[\d]+ packet trim Enum Capability values get for [\d]+ failed with error -2.*")
+                    ]
+                )
+
+
+@pytest.fixture(autouse=True)
+def ignore_port_phy_attr_errors_on_vs(duthosts, loganalyzer):
+    """Ignore PORT_PHY_ATTR ERR on VS/KVM platforms.
+
+    VS SAI does not implement PHY attributes (RX_SIGNAL_DETECT,
+    FEC_ALIGNMENT_LOCK, RX_SNR), so orchagent logs ERR for every port.
+    Long-term fix tracked in sonic-net/sonic-swss#4242.
+    https://github.com/sonic-net/sonic-mgmt/issues/22510
+    """
+    if loganalyzer:
+        for duthost in duthosts:
+            if duthost.facts.get("asic_type") == "vs":
+                loganalyzer[duthost.hostname].ignore_regex.extend(
+                    [
+                        r".*ERR swss#orchagent.*verifyPortSupportsAllPhyAttr.*PORT_PHY_ATTR.*"
+                        r"does not support.*attribute.*"
+                    ]
+                )

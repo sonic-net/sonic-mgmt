@@ -92,6 +92,13 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
                 else:
                     continue
             else:
+                # queue1_group3 is used by neighbor_miss trap.
+                # test_copp.py tests the neighbor_miss trap with default CBS/CIR
+                # values on platforms that support it.
+                # The default value is 200 PPS for queue1_group3
+                if tg == "queue1_group3":
+                    if neighbor_miss_trap_supported:
+                        continue
                 if "cir" in group_config:
                     group_config["cir"] = pps_limit
                 if "cbs" in group_config:
@@ -112,5 +119,9 @@ if __name__ == "__main__":
         asic_type = ""
     else:
         asic_type = ARGS[4]
+    if len(ARGS) < 6:
+        neighbor_miss_trap_supported = False
+    else:
+        neighbor_miss_trap_supported = ARGS[5].lower() == "true"
 
     generate_limited_pps_config(ARGS[0], ARGS[1], ARGS[2], config_format, asic_type)

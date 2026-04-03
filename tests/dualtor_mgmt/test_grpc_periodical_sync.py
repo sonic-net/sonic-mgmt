@@ -135,7 +135,8 @@ def test_grpc_server_failure(init_port_state, setup_test_ports, test_duthost,
 @pytest.mark.skip_active_standby
 @pytest.mark.parametrize("mux_status", ["standby", "active"])
 def test_mux_forwarding_state_consistency(mux_status, test_mux_ports, test_duthost,
-                                          toggle_active_active_simulator_ports):             # noqa: F811
+                                          toggle_active_active_simulator_ports,       # noqa: F811
+                                          mux_status_from_nic_simulator):             # noqa: F811
     """
     This testcase aims to verify that, if the nic_simulator forwarding state changes incorrectly,
     SONiC could detect and recover the mux status.
@@ -164,8 +165,20 @@ def test_mux_forwarding_state_consistency(mux_status, test_mux_ports, test_dutho
                 return False
         return True
 
+    def check_forwarding_state_recovery(mux_ports, portid, expected_state):
+        mux_status = mux_status_from_nic_simulator(mux_ports)
+        logging.debug("Hardware forwarding state from nic_simulator:\n%s", json.dumps(mux_status))
+        for port in mux_status:
+            if mux_status[port][portid] != expected_state:
+                logging.debug("Port %s hardware state mismatch, expected %s", port, expected_state)
+                return False
+        return True
+
     duthost, portid = test_duthost
     mux_ports = test_mux_ports
+
+    # Convert mux_status string to ForwardingState enum
+    expected_hw_state = ForwardingState.STANDBY if mux_status == "standby" else ForwardingState.ACTIVE
 
     set_mux_ports_status(duthost, mux_ports, mux_status)
 
@@ -174,13 +187,26 @@ def test_mux_forwarding_state_consistency(mux_status, test_mux_ports, test_dutho
         "Failed to set mux status to %s" % mux_status
     )
 
+    # Verify hardware forwarding state matches the configured state
+    pytest_assert(
+        wait_until(30, 5, 5, check_forwarding_state_recovery, mux_ports, portid, expected_hw_state),
+        "Hardware forwarding state does not match configured %s" % mux_status
+    )
+
     if mux_status == "standby":
         toggle_active_active_simulator_ports(mux_ports, portid, ForwardingState.ACTIVE)
     elif mux_status == "active":
         toggle_active_active_simulator_ports(mux_ports, portid, ForwardingState.STANDBY)
 
+    # Delay 12s to allow periodic sync timer (~10s interval) to fire and detect mismatch
+    # Verify both State DB mux status and hardware forwarding state are corrected back
     pytest_assert(
-        wait_until(30, 5, 5, check_mux_status_recovery, duthost, mux_ports, mux_status),
+        wait_until(30, 5, 12, check_forwarding_state_recovery, mux_ports, portid, expected_hw_state),
+        "Failed to recover hardware forwarding state back to %s" % mux_status
+    )
+
+    pytest_assert(
+        wait_until(30, 5, 0, check_mux_status_recovery, duthost, mux_ports, mux_status),
         "Failed to change mux status back to %s" % mux_status
     )
 

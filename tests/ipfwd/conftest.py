@@ -48,6 +48,9 @@ def get_lag_facts(dut, lag_facts, switch_arptable, mg_facts, ignore_lags,
                     elif addr.version == 6:
                         selected_lag_facts[key + '_router_ipv6'] = intf['addr']
                         selected_lag_facts[key + '_host_ipv6'] = intf['peer_addr']
+                        selected_lag_facts[key + '_host_mac'] = (
+                            switch_arptable['arptable']['v6'][intf['peer_addr']]['macaddress']
+                        )
             logger.info("{} lag is {}".format(key, up_lag))
             break
 
@@ -96,6 +99,8 @@ def get_port_facts(dut, mg_facts, port_status, switch_arptable, ignore_intfs,
                     elif addr.version == 6:
                         selected_port_facts[key + '_router_ipv6'] = intf['addr']
                         selected_port_facts[key + '_host_ipv6'] = intf['peer_addr']
+                        selected_port_facts[key + '_host_mac'] = \
+                            switch_arptable['arptable']['v6'][intf['peer_addr']]['macaddress']
             if up_port:
                 logger.info("{} port is {}".format(key, up_port))
                 break

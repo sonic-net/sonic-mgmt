@@ -7,6 +7,7 @@ import json
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.utilities import is_ipv4_address
+from tests.common.utilities import is_ipv6_only_topology
 
 
 pytestmark = [
@@ -108,22 +109,34 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
     portchannels = config_facts.get('PORTCHANNEL_MEMBER', {})
     dev_nbrs = config_facts.get('DEVICE_NEIGHBOR', {})
     configurations = tbinfo['topo']['properties']['configuration_properties']
-    exabgp_ips = [configurations['common']['nhipv4'], configurations['common']['nhipv6']]
-    exabgp_sessions = ['exabgp_v4', 'exabgp_v6']
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
+    if is_v6_topo:
+        exabgp_ips = [configurations['common']['nhipv6']]
+        exabgp_sessions = ['exabgp_v6']
+    else:
+        exabgp_ips = [configurations['common']['nhipv4'], configurations['common']['nhipv6']]
+        exabgp_sessions = ['exabgp_v4', 'exabgp_v6']
+    vrf = "default"
 
     # select neighbor to test
-    if duthost.check_bgp_default_route():
+    if duthost.check_bgp_default_route(ipv4=not is_v6_topo):
         # if default route is present, select from default route nexthops
-        rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
-        rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_network("::/0"))
+        if is_v6_topo:
+            rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_network("::/0"))
+            ifnames_v6 = [nh[1] for nh in rtinfo_v6['nexthops']]
 
-        ifnames_v4 = [nh[1] for nh in rtinfo_v4['nexthops']]
-        ifnames_v6 = [nh[1] for nh in rtinfo_v6['nexthops']]
+            test_interface = ifnames_v6[0]
+        else:
+            rtinfo_v4 = duthost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
+            rtinfo_v6 = duthost.get_ip_route_info(ipaddress.ip_network("::/0"))
 
-        ifnames_common = [ifname for ifname in ifnames_v4 if ifname in ifnames_v6]
-        if len(ifnames_common) == 0:
-            pytest.skip("No common ifnames between ifnames_v4 and ifname_v6: %s and %s" % (ifnames_v4, ifnames_v6))
-        test_interface = ifnames_common[0]
+            ifnames_v4 = [nh[1] for nh in rtinfo_v4['nexthops']]
+            ifnames_v6 = [nh[1] for nh in rtinfo_v6['nexthops']]
+
+            ifnames_common = [ifname for ifname in ifnames_v4 if ifname in ifnames_v6]
+            if len(ifnames_common) == 0:
+                pytest.skip("No common ifnames between ifnames_v4 and ifname_v6: %s and %s" % (ifnames_v4, ifnames_v6))
+            test_interface = ifnames_common[0]
     else:
         # if default route is not present, randomly select a neighbor to test
         test_interface = random.sample(
@@ -140,7 +153,14 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
         nbr_ports.append(dev_nbrs[test_interface]['port'])
         test_neighbor_name = dev_nbrs[test_interface]['name']
 
-    test_neighbor_host = nbrhosts[test_neighbor_name]['host']
+    nbrhost = nbrhosts[test_neighbor_name]
+    if nbrhost['is_multi_vrf_peer']:
+        vrf = test_neighbor_name
+        exabgp_ips = [nbrhost['multi_vrf_data']['ptf_bp_config'].get("ipv4"),
+                      nbrhost['multi_vrf_data']['ptf_bp_config'].get("ipv6")]
+        exabgp_ips = list(filter(None, exabgp_ips))
+        exabgp_ips = [ip.split("/")[0] for ip in exabgp_ips]
+    test_neighbor_host = nbrhost['host']
 
     # get neighbor BGP peers
     test_bgp_neighbors = _find_test_bgp_neighbors(test_neighbor_name, bgp_neighbors)
@@ -155,7 +175,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
 
     # verify exabgp sessions to the neighbor are up before GR process
     pytest_assert(
-        test_neighbor_host.check_bgp_session_state(exabgp_ips, exabgp_sessions),
+        test_neighbor_host.check_bgp_session_state(exabgp_ips, exabgp_sessions, vrf=vrf),
         "exabgp sessions {} are not up before graceful restart".format(exabgp_sessions)
     )
 
@@ -194,7 +214,7 @@ def test_bgp_gr_helper_routes_perserved(duthosts, rand_one_dut_hostname, nbrhost
 
         # wait for exabgp sessions to establish
         pytest_assert(
-            wait_until(300, 10, 0, test_neighbor_host.check_bgp_session_state, exabgp_ips, exabgp_sessions),
+            wait_until(300, 10, 0, test_neighbor_host.check_bgp_session_state, exabgp_ips, exabgp_sessions, vrf=vrf),
             "exabgp sessions {} are not coming back".format(exabgp_sessions)
         )
 

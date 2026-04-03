@@ -23,11 +23,56 @@
 - include_vars: group_vars/vm_host/ceos.yml
 - include_tasks: ceos_config.yml
 
+- name: Check if ceos_image from registry is available locally
+  docker_image_info:
+    name:
+      - "{{ ceos_registry }}/{{ ceos_image }}"
+  become: yes
+  register: ceos_registry_image_info
+  delegate_to: "{{ VM_host[0] }}"
+  when: ceos_registry is defined
+
+- name: Discover ceos_image locally (plain or from any registry)
+  # Searches all local docker images for one matching ceos_image. This single grep covers:
+  # - Plain local image: ceosimage:4.32.5M-1
+  # - Image pre-pulled from any registry: soniccr1.azurecr.io/ceosimage:4.32.5M-1
+  # When ceos_registry is defined, this task is skipped — the explicit registry check above is used.
+  become: yes
+  shell: >-
+    docker images --format
+    '{% raw %}{{.Repository}}:{{.Tag}}{% endraw %}'
+    | grep -m1 '{{ ceos_image }}$'
+  register: ceos_image_discovery_result
+  delegate_to: "{{ VM_host[0] }}"
+  ignore_errors: yes
+  changed_when: no
+  when: ceos_registry is not defined
+
+- name: Set ceos_effective_image
+  set_fact:
+    # Priority order for determining the effective ceos image:
+    # 1. When ceos_registry is defined and the registry image is available locally, use the
+    #    registry-prefixed image name. This ensures containers always reference the registry
+    #    image, satisfying security requirements (e.g. Microsoft ACR/MCR policy).
+    # 2. When ceos_registry is not defined, use whatever local image matches ceos_image
+    #    (plain or from any registry). Preferring a pre-pulled registry image avoids building
+    #    a local image and triggering S360 alerts.
+    # 3. Fall back to the plain ceos_image name when no image is discovered.
+    ceos_effective_image: >-
+      {{ ceos_registry + '/' + ceos_image
+         if (ceos_registry is defined and ceos_registry_image_info.images | length > 0)
+         else (ceos_image_discovery_result.stdout | trim)
+              if (ceos_registry is not defined and
+                  ceos_image_discovery_result is not skipped and
+                  ceos_image_discovery_result.rc == 0 and
+                  ceos_image_discovery_result.stdout | trim != '')
+         else ceos_image }}
+
 - name: Create cEOS container
   become: yes
   docker_container:
     name: ceos_{{ vm_set_name }}_{{ inventory_hostname }}
-    image: "{{ ceos_image }}"
+    image: "{{ ceos_effective_image }}"
     command: /sbin/init systemd.setenv=INTFTYPE=eth systemd.setenv=ETBA=1 systemd.setenv=SKIP_ZEROTOUCH_BARRIER_IN_SYSDBINIT=1 systemd.setenv=CEOS=1 systemd.setenv=EOS_PLATFORM=ceoslab systemd.setenv=container=docker systemd.setenv=MGMT_INTF=eth0
     pull: no
     state: started
@@ -38,8 +83,8 @@
     capabilities:
       - net_admin
     privileged: yes
-    memory: 2G
-    memory_swap: 4G
+    memory: "{{ '10G' if use_converged_peers|bool else '2G' }}"
+    memory_swap: "{{ '20G' if use_converged_peers|bool else '4G' }}"
     env:
       CEOS=1
       container=docker

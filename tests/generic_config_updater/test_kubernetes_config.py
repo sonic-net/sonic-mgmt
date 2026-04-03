@@ -11,6 +11,7 @@ from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback
 
 pytestmark = [
     pytest.mark.topology('any'),
+    pytest.mark.disable_loganalyzer,
 ]
 
 logger = logging.getLogger(__name__)

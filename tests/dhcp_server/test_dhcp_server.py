@@ -10,10 +10,12 @@ from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CON
     verify_discover_and_request_then_release, send_and_verify, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
     DHCP_SERVER_SUPPORTED_OPTION_ID, DHCP_MESSAGE_TYPE_REQUEST_NUM, DHCP_DEFAULT_LEASE_TIME, \
     apply_dhcp_server_config_gcu, create_dhcp_client_packet, vlan_n2i
+from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
 
 
 pytestmark = [
     pytest.mark.topology('mx'),
+    pytest.mark.parametrize("relay_agent", ["isc-relay-agent", "sonic-relay-agent"]),
 ]
 
 
@@ -61,7 +63,9 @@ def test_dhcp_server_port_based_assignment_single_ip_tc1(
     ptfhost,
     ptfadapter,
     parse_vlan_setting_from_running_config,
-    config_tool
+    config_tool,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
+    relay_agent
 ):
     """
         Verify configured interface with client mac not in FDB table can successfully get IP
@@ -103,6 +107,8 @@ def test_dhcp_server_port_based_assignment_single_ip_tc2(
     ptfadapter,
     parse_vlan_setting_from_running_config,
     config_tool,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
+    relay_agent
 ):
     """
         Verify configured interface with client mac in FDB table can successfully get IP
@@ -144,7 +150,9 @@ def test_dhcp_server_port_based_assignment_single_ip_tc3(
     ptfhost,
     ptfadapter,
     parse_vlan_setting_from_running_config,
-    config_tool
+    config_tool,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
+    relay_agent
 ):
     """
         Verify configured interface with client mac in FDB table
@@ -188,7 +196,9 @@ def test_dhcp_server_port_based_assignment_single_ip_tc4(
     ptfhost,
     ptfadapter,
     parse_vlan_setting_from_running_config,
-    config_tool
+    config_tool,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
+    relay_agent
 ):
     """
         Verify no-configured interface cannot get IP
@@ -235,7 +245,9 @@ def test_dhcp_server_port_based_assignment_range_ip(
     ptfhost,
     ptfadapter,
     parse_vlan_setting_from_running_config,
-    config_tool
+    config_tool,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
+    relay_agent
 ):
     """
         Verify configured interface can successfully get IP from an IP range
@@ -280,7 +292,9 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_move(
     ptfhost,
     ptfadapter,
     parse_vlan_setting_from_running_config,
-    config_tool
+    config_tool,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
+    relay_agent
 ):
     """
         To test port based single ip assignment with client move to an interface has free IP to assign.
@@ -341,7 +355,9 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
     ptfhost,
     ptfadapter,
     parse_vlan_setting_from_running_config,
-    config_tool
+    config_tool,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
+    relay_agent
 ):
     """
         To test port based single ip assignment with two clients swap their interfaces.
@@ -430,7 +446,9 @@ def test_dhcp_server_port_based_customize_options(
     ptfhost,
     ptfadapter,
     parse_vlan_setting_from_running_config,
-    option_info
+    option_info,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
+    relay_agent
 ):
     """
         Test dhcp server packets if carry the customized options as expected
@@ -506,7 +524,9 @@ def test_dhcp_server_config_change_dhcp_interface(
     duthost,
     ptfhost,
     ptfadapter,
-    parse_vlan_setting_from_running_config
+    parse_vlan_setting_from_running_config,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
+    relay_agent
 ):
     """
         Test if config change on dhcp interface status can take effect
@@ -562,7 +582,9 @@ def test_dhcp_server_config_change_common(
     duthost,
     ptfhost,
     ptfadapter,
-    parse_vlan_setting_from_running_config
+    parse_vlan_setting_from_running_config,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
+    relay_agent
 ):
     """
         Test if config change on dhcp interface status can take effect
@@ -644,7 +666,9 @@ def test_dhcp_server_config_vlan_member_change(
     ptfhost,
     ptfadapter,
     parse_vlan_setting_from_running_config,
-    loganalyzer
+    loganalyzer,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
+    relay_agent
 ):
     """
         Test if config change on dhcp interface status can take effect
@@ -702,7 +726,9 @@ def test_dhcp_server_lease_config_change(
     duthost,
     ptfhost,
     ptfadapter,
-    parse_vlan_setting_from_running_config
+    parse_vlan_setting_from_running_config,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
+    relay_agent
 ):
     """
         Verify lease change won't effect the existing lease
@@ -749,7 +775,9 @@ def test_dhcp_server_config_vlan_intf_change(
     duthost,
     ptfhost,
     ptfadapter,
-    parse_vlan_setting_from_running_config
+    parse_vlan_setting_from_running_config,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
+    relay_agent
 ):
     """
         When dhcp server congifurate a subnet not belong to current VLAN,

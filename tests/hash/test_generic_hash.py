@@ -8,10 +8,12 @@ from generic_hash_helper import get_hash_fields_from_option, get_ip_version_from
     get_reboot_type_from_option, HASH_CAPABILITIES, check_global_hash_config, startup_interface, \
     get_interfaces_for_test, get_ptf_port_indices, check_default_route, generate_test_params, flap_interfaces, \
     PTF_QLEN, remove_ip_interface_and_config_vlan, config_custom_vxlan_port, shutdown_interface, \
-    remove_add_portchannel_member, get_hash_algorithm_from_option, check_global_hash_algorithm, get_diff_hash_algorithm
+    remove_add_portchannel_member, get_hash_algorithm_from_option, check_global_hash_algorithm, \
+    get_diff_hash_algorithm, check_default_route_asic_db, check_vpp_fib_paths
 from generic_hash_helper import restore_configuration, reload, global_hash_capabilities, restore_interfaces  # noqa:F401
 from generic_hash_helper import mg_facts, restore_init_hash_config, restore_vxlan_port, \
-    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor  # noqa:F401
+    get_supported_hash_algorithms, toggle_all_simulator_ports_to_upper_tor, skip_lag_tests_on_no_lag_topos  # noqa:F401
+from generic_hash_helper import skip_tests_on_isolated_topos  # noqa:F401
 from tests.common.utilities import wait_until
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
@@ -71,7 +73,7 @@ def pytest_generate_tests(metafunc):
     if 'params' in metafunc.fixturenames:
         metafunc.parametrize("params", params)
 
-    reboot_types = get_reboot_type_from_option(metafunc.config.getoption("--reboot"))
+    reboot_types = get_reboot_type_from_option(metafunc, metafunc.config.getoption("--reboot"))
     if 'reboot_type' in metafunc.fixturenames:
         metafunc.parametrize("reboot_type", reboot_types)
 
@@ -129,6 +131,10 @@ def test_hash_capability(rand_selected_dut, global_hash_capabilities):  # noqa:F
         expected_hash_capabilities = HASH_CAPABILITIES.get(asic_type, HASH_CAPABILITIES['default'])
         expected_ecmp_hash_capability = expected_hash_capabilities['ecmp']
         expected_lag_hash_capability = expected_hash_capabilities['lag']
+        logger.info(f"asic_type: {asic_type}, "
+                    f"expected_hash_capabilities: {expected_hash_capabilities}, "
+                    f"expected_ecmp_hash_capability: {expected_ecmp_hash_capability}, "
+                    f"expected_lag_hash_capability: {expected_lag_hash_capability}")
         pytest_assert(sorted(ecmp_hash_capability) == sorted(expected_ecmp_hash_capability),
                       'The ecmp hash capability is not as expected.')
         pytest_assert(sorted(lag_hash_capability) == sorted(expected_lag_hash_capability),
@@ -317,6 +323,10 @@ def test_ecmp_and_lag_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_f
         # Check the default route before the ptf test
         pytest_assert(check_default_route(rand_selected_dut, uplink_interfaces.keys()),
                       'The default route is not available or some nexthops are missing.')
+        if rand_selected_dut.facts['asic_type'] == 'vpp':
+            expected_path_count = len(ptf_params['expected_port_groups'])
+            pytest_assert(wait_until(120, 10, 0, check_vpp_fib_paths, rand_selected_dut, expected_path_count),
+                          f'VPP FIB paths not fully programmed, expected {expected_path_count} paths.')
         ptf_runner(
             ptfhost,
             "ptftests",
@@ -381,6 +391,10 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
         # Check the default route before the ptf test
         pytest_assert(check_default_route(rand_selected_dut, uplink_interfaces.keys()),
                       'The default route is not available or some nexthops are missing.')
+        if rand_selected_dut.facts['asic_type'] == 'vpp':
+            expected_path_count = len(ptf_params['expected_port_groups'])
+            pytest_assert(wait_until(120, 10, 0, check_vpp_fib_paths, rand_selected_dut, expected_path_count),
+                          f'VPP FIB paths not fully programmed, expected {expected_path_count} paths.')
         ptf_runner(
             ptfhost,
             "ptftests",
@@ -400,6 +414,10 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
         _, ptf_params['expected_port_groups'] = get_ptf_port_indices(
             mg_facts, downlink_interfaces=[], uplink_interfaces=remaining_uplink_interfaces)
         shutdown_interface(rand_selected_dut, interface)
+    if rand_selected_dut.facts['asic_type'] == 'vpp':
+        expected_path_count = len(ptf_params['expected_port_groups'])
+        pytest_assert(wait_until(120, 10, 0, check_vpp_fib_paths, rand_selected_dut, expected_path_count),
+                      f'VPP FIB paths not fully programmed, expected {expected_path_count} paths.')
     with allure.step('Start the ptf test, send traffic and check the balancing'):
         ptf_runner(
             ptfhost,
@@ -421,6 +439,10 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
         pytest_assert(wait_until(60, 2, 0, is_bgp_session_established, duthost, neighbor_ip),
                       "BGP session is not established on DUT after the flapping")
         ptf_params['expected_port_groups'] = origin_ptf_expected_port_groups
+        if rand_selected_dut.facts['asic_type'] == 'vpp':
+            expected_path_count = len(ptf_params['expected_port_groups'])
+            pytest_assert(wait_until(120, 10, 0, check_vpp_fib_paths, rand_selected_dut, expected_path_count),
+                          f'VPP FIB paths not fully programmed, expected {expected_path_count} paths.')
     with allure.step('Start the ptf test, send traffic and check the balancing'):
         ptf_runner(
             ptfhost,
@@ -495,6 +517,10 @@ def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_fac
         if not is_l2_test:
             pytest_assert(check_default_route(rand_selected_dut, uplink_interfaces.keys()),
                           'The default route is not available or some nexthops are missing.')
+        if rand_selected_dut.facts['asic_type'] == 'vpp':
+            expected_path_count = len(ptf_params['expected_port_groups'])
+            pytest_assert(wait_until(120, 10, 0, check_vpp_fib_paths, rand_selected_dut, expected_path_count),
+                          f'VPP FIB paths not fully programmed, expected {expected_path_count} paths.')
         ptf_runner(
             ptfhost,
             "ptftests",
@@ -520,6 +546,10 @@ def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_fac
         with allure.step('Wait for the default route to recover'):
             pytest_assert(wait_until(30, 5, 0, check_default_route, rand_selected_dut, uplink_interfaces.keys()),
                           'The default route is not available or some nexthops are missing.')
+    if rand_selected_dut.facts['asic_type'] == 'vpp':
+        expected_path_count = len(ptf_params['expected_port_groups'])
+        pytest_assert(wait_until(120, 10, 0, check_vpp_fib_paths, rand_selected_dut, expected_path_count),
+                      f'VPP FIB paths not fully programmed, expected {expected_path_count} paths.')
     with allure.step('Start the ptf test, send traffic and check the balancing'):
         ptf_runner(
             ptfhost,
@@ -596,6 +626,10 @@ def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, 
         if not is_l2_test:
             pytest_assert(check_default_route(rand_selected_dut, uplink_interfaces.keys()),
                           'The default route is not available or some nexthops are missing.')
+        if rand_selected_dut.facts['asic_type'] == 'vpp':
+            expected_path_count = len(ptf_params['expected_port_groups'])
+            pytest_assert(wait_until(120, 10, 0, check_vpp_fib_paths, rand_selected_dut, expected_path_count),
+                          f'VPP FIB paths not fully programmed, expected {expected_path_count} paths.')
         ptf_runner(
             ptfhost,
             "ptftests",
@@ -618,6 +652,11 @@ def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, 
         with allure.step('Wait for the default route to recover'):
             pytest_assert(wait_until(30, 5, 0, check_default_route, rand_selected_dut, uplink_interfaces.keys()),
                           'The default route is not available or some nexthops are missing.')
+
+    if rand_selected_dut.facts['asic_type'] == 'vpp':
+        expected_path_count = len(ptf_params['expected_port_groups'])
+        pytest_assert(wait_until(120, 10, 0, check_vpp_fib_paths, rand_selected_dut, expected_path_count),
+                      f'VPP FIB paths not fully programmed, expected {expected_path_count} paths.')
 
     with allure.step('Start the ptf test, send traffic and check the balancing'):
         ptf_runner(
@@ -677,6 +716,10 @@ def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_f
         # Check the default route before the ptf test
         pytest_assert(check_default_route(rand_selected_dut, uplink_interfaces.keys()),
                       'The default route is not available or some nexthops are missing.')
+        if rand_selected_dut.facts['asic_type'] == 'vpp':
+            expected_path_count = len(ptf_params['expected_port_groups'])
+            pytest_assert(wait_until(120, 10, 0, check_vpp_fib_paths, rand_selected_dut, expected_path_count),
+                          f'VPP FIB paths not fully programmed, expected {expected_path_count} paths.')
         ptf_runner(
             ptfhost,
             "ptftests",
@@ -708,6 +751,12 @@ def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_f
     with allure.step('Check the route is established'):
         pytest_assert(wait_until(60, 10, 0, check_default_route, rand_selected_dut, uplink_interfaces.keys()),
                       "The default route is not established after the cold reboot.")
+        pytest_assert(wait_until(120, 10, 0, check_default_route_asic_db, rand_selected_dut),
+                      'The default route are not installed to the asic db.')
+        if rand_selected_dut.facts['asic_type'] == 'vpp':
+            expected_path_count = len(ptf_params['expected_port_groups'])
+            pytest_assert(wait_until(120, 10, 0, check_vpp_fib_paths, rand_selected_dut, expected_path_count),
+                          f'VPP FIB paths not fully programmed after reboot, expected {expected_path_count} paths.')
     with allure.step('Start the ptf test, send traffic and check the balancing'):
         ptf_runner(
             ptfhost,

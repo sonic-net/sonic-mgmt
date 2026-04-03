@@ -86,6 +86,11 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
 
     # Select a random port to run traffic
     port_list = get_port_list(duthost, tbinfo)
+
+    # Skip test if no data ports are available (e.g., on supervisor cards)
+    if not port_list:
+        pytest.skip("No data ports available for packet generation test")
+
     port = random.choice(port_list)
     asichost = duthost.get_port_asic_instance(port)
 

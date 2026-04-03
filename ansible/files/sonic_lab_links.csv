@@ -33,3 +33,7 @@ str-msn2700-01,Ethernet120,str-7260-10,Ethernet31,40000,1711,Access,on
 str-msn2700-01,Ethernet124,str-7260-10,Ethernet32,40000,1712,Access,on
 str-7260-11,Ethernet19,str-acs-serv-01,p4p1,40000,,Trunk,on
 str-7260-11,Ethernet30,str-7260-10,Ethernet64,40000,1681-1712,Trunk,on
+vnut-t0-01,Ethernet0,vnut-tg-01,Ethernet0,10000,,,
+vnut-t0-01,Ethernet4,vnut-t1-01,Ethernet0,10000,,,
+vnut-t0-02,Ethernet0,vnut-tg-01,Ethernet4,10000,,,
+vnut-t0-02,Ethernet4,vnut-t1-01,Ethernet4,10000,,,

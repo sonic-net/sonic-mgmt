@@ -13,6 +13,11 @@
       2. [3.2.2. L1 switch cross connects](#322-l1-switch-cross-connects)
    3. [3.3. Apply config](#33-apply-config)
 4. [4. Testbed CLI and Run Test CLI](#4-testbed-cli-and-run-test-cli)
+5. [5. Using L1 with existing testbed.yaml testbeds](#5-using-l1-with-existing-testbedyaml-testbeds)
+   1. [5.1. Add new fields to testbed.yaml](#51-add-new-fields-to-testbedyaml)
+   2. [5.2. Define L1 links](#52-define-l1-links)
+   3. [5.3. Define device links](#53-define-device-links)
+   4. [5.4. Deploy L1 configuration](#54-deploy-l1-configuration)
 
 ## 1. Overview
 
@@ -292,3 +297,100 @@ testbed/finalize : include_tasks -----------------------------------------------
 testbed/finalize : include_tasks --------------------------------------------------------------------------------- 0.69s
 Done
 ```
+
+## 5. Using L1 with existing testbed.yaml testbeds
+
+If you already have an existing snappi testbed defined in `testbed.yaml`, you can integrate L1 switch support without migrating to `testbed.nut.yaml`. This allows you to continue using the standard `testbed.yaml` workflow while adding L1 (OCS) switching capabilities to share traffic generators across testbeds.
+
+### 5.1. Add new fields to testbed.yaml
+
+Add the following new fields to your existing testbed entry in `testbed.yaml`:
+
+- `test_tags`: Reserved for future use. Set to `[]` for now.
+- `l1s`: List of L1 (OCS) devices used by this testbed.
+- `tgs`: List of traffic generator (e.g. Ixia/snappi) devices used by this testbed.
+
+Here is an example of an existing testbed entry with the new fields added:
+
+```yaml
+- conf-name: vms-snappi-sonic
+  group-name: vms6-1
+  topo: ptf64
+  ptf_image_name: docker-ptf-snappi
+  ptf: snappi-sonic-ptf
+  ptf_ip: 10.251.0.232
+  ptf_ipv6:
+  server: Server_6
+  vm_base:
+  dut:
+    - sonic-s6100-dut1
+  inv_name: snappi-sonic
+  auto_recover: 'True'
+  comment: Batman
+  test_tags: []
+  l1s:
+    - ocs-1
+  tgs:
+    - tg-1
+```
+
+### 5.2. Define L1 links
+
+Create or update the `sonic_{inventory}_l1_links.csv` file to define the physical connections between your devices (DUTs and traffic generators) and the L1 switches. Keep the following rules in mind:
+
+1. The **StartDevice** is always the DUT or traffic generator.
+2. The **EndDevice** is always the L1 switch.
+3. When a single device port maps to multiple L1 ports (e.g. breakout cables), use the `|` separator in the **EndPort** column.
+
+Here is an example:
+
+```csv
+StartDevice,StartPort,EndDevice,EndPort
+switch-t0-1,Ethernet0,ocs-1,26
+switch-t0-1,Ethernet4,ocs-1,27
+switch-t0-1,Ethernet8,ocs-1,28
+switch-t0-1,Ethernet12,ocs-1,29
+switch-t0-1,Ethernet16,ocs-1,30
+switch-t0-1,Ethernet20,ocs-1,31
+switch-t0-1,Ethernet24,ocs-1,32
+tg-1,Card1/Port1,ocs-2,1|2|3|4
+tg-1,Card1/Port2,ocs-2,5|6|7|8
+tg-1,Card1/Port3,ocs-2,9|10|11|12
+tg-1,Card2/Port1,ocs-2,13|14|15|16
+tg-1,Card2/Port2,ocs-2,17|18|19|20
+tg-1,Card2/Port3,ocs-2,21|22|23|24
+switch-t0-2,Ethernet0,ocs-2,41|42|43|44
+switch-t0-2,Ethernet4,ocs-2,45|46|47|48
+switch-t0-2,Ethernet8,ocs-2,49|50|51|52
+switch-t0-3,Ethernet0,ocs-2,29|30|31|32
+switch-t0-3,Ethernet4,ocs-2,33|34|35|36
+switch-t0-3,Ethernet8,ocs-2,37|38|39|40
+```
+
+In this example, `tg-1,Card1/Port1` connects to 4 L1 ports (`1|2|3|4`) on `ocs-2`, which is typical for breakout cable scenarios.
+
+### 5.3. Define device links
+
+The `sonic_{inventory}_links.csv` file defines the logical links between DUTs and traffic generators, as if L1 switches were transparent. This file follows the standard format and does not reference L1 devices at all.
+
+```csv
+StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,AutoNeg
+switch-t0-3,Ethernet0,tg-1,Card1/Port1,100000,,Access,
+switch-t0-3,Ethernet4,tg-1,Card1/Port2,100000,,Access,
+switch-t0-3,Ethernet8,tg-1,Card1/Port3,100000,,Access,
+switch-t0-2,Ethernet0,tg-1,Card2/Port1,100000,,Access,
+switch-t0-2,Ethernet4,tg-1,Card2/Port2,100000,,Access,
+switch-t0-2,Ethernet8,tg-1,Card2/Port3,100000,,Access,
+```
+
+### 5.4. Deploy L1 configuration
+
+Once the testbed definition and link files are in place, deploy the L1 switch configuration using the testbed CLI:
+
+```bash
+./testbed-cli.sh -t testbed.yaml deploy-l1 <testbed-name> <inventory> password.txt
+```
+
+This will read the L1 link definitions, compute the required cross-connects on the L1 switches, and apply the configuration.
+
+After the L1 switches are configured, proceed with the standard testbed setup workflow as usual such as `add-topo`, `deploy-mg` and `run-test`

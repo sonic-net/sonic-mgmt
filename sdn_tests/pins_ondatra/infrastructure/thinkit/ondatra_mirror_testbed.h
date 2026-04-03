@@ -32,10 +32,12 @@ class OndatraMirrorTestbed : public thinkit::MirrorTestbed {
   OndatraMirrorTestbed(
       std::unique_ptr<thinkit::Switch> sut,
       std::unique_ptr<thinkit::Switch> control,
+      std::vector<std::string> connected_interfaces,
       std::function<void(const std::vector<std::string>&)> set_test_case_ids =
           [](auto&&) {})
       : sut_(std::move(sut)),
         control_(std::move(control)),
+        connected_interfaces_(std::move(connected_interfaces)),
         test_environment_(/*mask_known_failures=*/true,
                           std::move(set_test_case_ids)) {}
 
@@ -43,11 +45,16 @@ class OndatraMirrorTestbed : public thinkit::MirrorTestbed {
 
   thinkit::Switch& ControlSwitch() override { return *control_; }
 
+  std::vector<std::string> GetConnectedInterfaces() override {
+    return connected_interfaces_;
+  }
+
   thinkit::TestEnvironment& Environment() override { return test_environment_; }
 
  private:
   std::unique_ptr<thinkit::Switch> sut_;
   std::unique_ptr<thinkit::Switch> control_;
+  std::vector<std::string> connected_interfaces_;
   thinkit::BazelTestEnvironment test_environment_;
 };
 

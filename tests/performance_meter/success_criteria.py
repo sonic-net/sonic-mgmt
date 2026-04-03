@@ -51,7 +51,7 @@ def filter_vars(my_vars, prefix):
 
 
 # sample success criteria function, returns True 20% of times.
-def random_success_20_perc(duthost, test_result, **kwargs):
+def random_success_20_perc(request, test_result, **kwargs):
     return lambda: random.random() < 0.2
 
 
@@ -152,12 +152,14 @@ def display_variable_stats(passed_op_precheck, **kwargs):
     return display_variable_stats
 
 
-def bgp_up(duthost, test_result, **kwargs):
+def bgp_up(request, test_result, **kwargs):
+    duthost = request.getfixturevalue("duthost")
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     bgp_neighbors = config_facts.get("BGP_NEIGHBOR", {}).keys()
     return suppress_exception(lambda: duthost.check_bgp_session_state(bgp_neighbors))
 
 
+# utility function to extract timestamp from syslog line
 def _extract_timestamp(duthost, line):
     timestamp = line[:line.index(duthost.hostname) - 1]
     formats = ["%Y %b %d %H:%M:%S.%f", "%b %d %H:%M:%S.%f", "%b %d %H:%M:%S"]
@@ -169,12 +171,14 @@ def _extract_timestamp(duthost, line):
     raise ValueError("Unable to parse {}".format(timestamp))
 
 
+# utility function to get last syslog timestamp
 def _get_last_timestamp(duthost):
     stdout = duthost.shell("show logging | tail -n 1")["stdout"]
     return _extract_timestamp(duthost, stdout)
 
 
-def success_criteria_by_syslog(duthost, test_result, **kwargs):
+def success_criteria_by_syslog(request, test_result, **kwargs):
+    duthost = request.getfixturevalue("duthost")
     last_timestamp = _get_last_timestamp(duthost)
     syslog_start = None
     syslog_start_cmd = kwargs["syslog_start_cmd"]
@@ -198,16 +202,16 @@ def success_criteria_by_syslog(duthost, test_result, **kwargs):
     return syslog_checker
 
 
-def swss_up(duthost, test_result, **kwargs):
+def swss_up(request, test_result, **kwargs):
     swss_start_cmd = "show logging | grep 'docker cmd: start for swss' | grep -v ansible | tail -n 1"
     swss_end_cmd = "show logging | grep 'Feature swss is enabled and started' | grep -v ansible | tail -n 1"
     extra_vars = {"syslog_start_cmd": swss_start_cmd,
                   "syslog_end_cmd": swss_end_cmd,
                   "result_variable": "swss_start_time"}
-    return success_criteria_by_syslog(duthost, test_result, **{**kwargs, **extra_vars})
+    return success_criteria_by_syslog(request, test_result, **{**kwargs, **extra_vars})
 
 
-def swss_create_switch(duthost, test_result, **kwargs):
+def swss_create_switch(request, test_result, **kwargs):
     start_mark = "create: request switch create with context 0"
     start_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(start_mark)
     end_mark = "main: Create a switch, id:"
@@ -215,7 +219,7 @@ def swss_create_switch(duthost, test_result, **kwargs):
     extra_vars = {"syslog_start_cmd": start_cmd,
                   "syslog_end_cmd": end_cmd,
                   "result_variable": "swss_create_switch_start_time"}
-    return success_criteria_by_syslog(duthost, test_result, **{**kwargs, **extra_vars})
+    return success_criteria_by_syslog(request, test_result, **{**kwargs, **extra_vars})
 
 
 def swss_create_switch_stats(passed_op_precheck, **kwargs):
@@ -232,13 +236,15 @@ def swss_create_switch_stats(passed_op_precheck, **kwargs):
                   .format(start_time_stats["quantile_result"], kwargs["p100"]))
 
 
+# utility function to read /proc/meminfo item
 def read_meminfo(duthost, item):
     cmd = "cat /proc/meminfo | grep {} | egrep -o '[0-9]+'".format(item)
     return int(duthost.shell(cmd)["stdout"])
 
 
-def startup_mem_usage_after_bgp_up(duthost, test_result, **kwargs):
-    bgp_up_checker = bgp_up(duthost, test_result, **kwargs)
+def startup_mem_usage_after_bgp_up(request, test_result, **kwargs):
+    bgp_up_checker = bgp_up(request, test_result, **kwargs)
+    duthost = request.getfixturevalue("duthost")
     mem_total = read_meminfo(duthost, "MemTotal")
 
     @suppress_exception

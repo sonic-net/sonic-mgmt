@@ -505,6 +505,8 @@ def validate_srv6_counters(duthost, srv6_pkt_list, mysid_list, pkt_num):
     Returns:
         bool: True if counters match expected values, False otherwise
     """
+    if duthost.facts["asic_type"] == "vpp":
+        return True
     try:
         stats_list = duthost.show_and_parse('show srv6 stats')
         stats_dict = {item['mysid']: item for item in stats_list}

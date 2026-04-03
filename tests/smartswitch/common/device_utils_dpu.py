@@ -4,7 +4,9 @@ Helper script for DPU  operations
 import logging
 import pytest
 import re
-from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
+from tests.common.platform.device_utils import (  # noqa: F401,F403
+    platform_api_conn, start_platform_api_service, get_configured_dpu_names
+)
 from tests.common.helpers.platform_api import chassis, module
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -23,7 +25,8 @@ SWITCH_MAX_DELAY = 100
 SWITCH_MAX_TIMEOUT = 400
 INTF_MAX_TIMEOUT = 300
 INTF_TIME_INT = 5
-DPU_MAX_TIMEOUT = 360
+DPU_MAX_ONLINE_TIMEOUT = 360
+DPU_MAX_PROCESS_UP_TIMEOUT = 400
 DPU_MAX_TIME_INT = 30
 REBOOT_CAUSE_TIMEOUT = 30
 REBOOT_CAUSE_INT = 10
@@ -51,6 +54,29 @@ def skip_for_non_smartswitch(duthost):
     if not duthost.facts.get('is_smartswitch'):
         pytest.skip("Test is supported only on smartswitch testbeds. "
                     "is_smartswitch: {}".format(duthost.facts.get('is_smartswitch')))
+
+
+@pytest.fixture(scope='function')
+def dpu_setup(duthosts, enum_rand_one_per_hwsku_hostname,
+              platform_api_conn, num_dpu_modules):  # noqa F811
+    """
+    Performs pre_test_check() before the test and
+    guarantees that any DPUs that were UP prior to the test
+    are set back to UP afterward, even if the test fails.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    logging.info("Executing pre-test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+        duthost, platform_api_conn, num_dpu_modules
+    )
+
+    yield duthost, ip_address_list, dpu_on_list, dpu_off_list
+
+    for dpu in dpu_on_list:
+        iface = dpu.lower()
+        logging.info(f"Forcing UP {dpu} ({iface})")
+        duthost.shell(f"sudo ip link set {iface} up")
 
 
 @pytest.fixture(scope='function', autouse=True)
@@ -201,6 +227,24 @@ def check_dpu_module_status(duthost, power_status, dpu_name):
             return False
 
 
+def check_dpus_module_status(duthost, dpu_list, power_status, wait_timeout=30):
+    """
+    Check module status of given DPU list
+    Args:
+        duthost : Host handle
+        dpu_list: List of DPUs to be checked
+        power_status: status to be checked (on/off)
+        wait_timeout: timeout for the check
+    """
+    logging.info("Check module status of DPUs")
+    wait_interval = 10 if wait_timeout > 20 else wait_timeout // 3
+    for dpu_name in dpu_list:
+        pytest_assert(wait_until(wait_timeout, wait_interval, 0,
+                                 check_dpu_module_status, duthost,
+                                 power_status, dpu_name),
+                      f"DPU {dpu_name} is not {power_status}")
+
+
 def check_dpu_reboot_cause(duthost, dpu_name, reason):
     """
     Check reboot cause of all DPU modules
@@ -215,8 +259,8 @@ def check_dpu_reboot_cause(duthost, dpu_name, reason):
     output_reboot_cause = duthost.shell(
             'show reboot-cause all | grep %s' % (dpu_name))
 
-    output_str = output_reboot_cause["stdout"]
-    if reason in output_str.strip():
+    output_str = output_reboot_cause["stdout"].strip()
+    if (isinstance(reason, re.Pattern) and reason.search(output_str)) or reason in output_str:
         logging.info("'{}' - reboot cause is {} as expected".format(dpu_name,
                                                                     reason))
         return True
@@ -335,8 +379,17 @@ def get_dpu_link_status(duthost, num_dpu_modules,
     dpu_on_list = []
     dpu_off_list = []
 
+    configured_dpus = {name.lower() for name in get_configured_dpu_names(duthost)}
+    if configured_dpus:
+        logging.info("Configured DPUs from running config: %s", sorted(configured_dpus))
+    else:
+        logging.warning("No configured DPUs found in running config; falling back to platform API module list")
+
     for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
+        if configured_dpus and dpu_name.lower() not in configured_dpus:
+            logging.info("Skipping unconfigured module %s (index=%d)", dpu_name, index)
+            continue
         ip_address = module.get_midplane_ip(platform_api_conn, index)
         rc = check_dpu_module_status(duthost, "on", dpu_name)
         if rc:
@@ -360,7 +413,7 @@ def check_dpu_health_status(duthost, dpu_name,
        expected_oper_status: (Online/Offline)
        expected_oper_value: (up/down)
     Returns:
-       Returns Nothing
+       Returns: None
     """
     logging.info(f"Checking system-health status of {dpu_name}")
     output_dpu_health_status = duthost.show_and_parse(f"show system-health dpu {dpu_name}")
@@ -381,6 +434,23 @@ def check_dpu_health_status(duthost, dpu_name,
     return
 
 
+def _get_dpuhost_for_dpu(dpuhosts, dpu_id):
+    """
+    Get the dpuhost that corresponds to the given dpu_id.
+    dpuhosts may have fewer nodes than platform slots when the testbed
+    does not define SSH access for all DPUs. Tries integer index first,
+    then hostname match (e.g. *-dpu-0 for DPU0).
+    """
+    if dpu_id < len(dpuhosts):
+        return dpuhosts[dpu_id]
+    dpu_suffix = f"-dpu-{dpu_id}"
+    # If index lookup fails (e.g. dpu_id=3 but len(dpuhosts)=1), search by hostname.
+    for node in dpuhosts:
+        if dpu_suffix in getattr(node, 'hostname', ''):
+            return node
+    return None
+
+
 def check_dpu_critical_processes(dpuhosts, dpu_id):
 
     """
@@ -390,20 +460,33 @@ def check_dpu_critical_processes(dpuhosts, dpu_id):
        dpuhosts: DPU Host handle
        dpu_id: DPU ID
     Returns:
-       Nothing
+       True if check passes or DPU not in dpuhosts (skip), False if a critical process failed
     """
-
+    dpuhost = _get_dpuhost_for_dpu(dpuhosts, dpu_id)
+    if dpuhost is None:
+        logging.warning(
+            "DPU%d not in dpuhosts (len=%d); skipping critical process check. "
+            "Testbed may not have SSH access to this DPU.",
+            dpu_id, len(dpuhosts)
+        )
+        return True
     cmd = "sudo show system-health detail"
-    output_dpu_process = dpuhosts[dpu_id].show_and_parse(cmd)
+    output_dpu_process = dpuhost.show_and_parse(cmd)
 
     for index in range(len(output_dpu_process)):
         parse_output = output_dpu_process[index]
         if parse_output['status'].lower() == 'ok':
             continue
-        else:
-            logging.error("'{}' has failed in DPU{}"
-                          .format(parse_output["name"], dpu_id))
-            return False
+        name = parse_output.get("name", "")
+        logging.error(
+            "DPU%d critical process not OK: name=%r status=%r state-detail=%r state-value=%r",
+            dpu_id,
+            name,
+            parse_output.get("status"),
+            parse_output.get("state-detail"),
+            parse_output.get("state-value"),
+        )
+        return False
     return True
 
 
@@ -470,7 +553,7 @@ def post_test_switch_check(duthost, localhost,
     return
 
 
-def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause):
+def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause, extra_dpu_online_timeout=0):
     """
     Runs all required checks for a given DPU
     Args:
@@ -483,8 +566,9 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause):
     """
 
     logging.info(f"Checking {dpu_name} is UP post test")
+    dpu_online_timeout = DPU_MAX_ONLINE_TIMEOUT + extra_dpu_online_timeout
     pytest_assert(
-        wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
+        wait_until(dpu_online_timeout, DPU_MAX_TIME_INT, 0,
                    check_dpu_module_status, duthost, "on", dpu_name),
         f"DPU {dpu_name} is not operationally UP post the operation"
     )
@@ -493,21 +577,23 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause):
     logging.info(f"Checking critical processes on {dpu_name}")
     pytest_assert(
         wait_until(
-            DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
+            DPU_MAX_PROCESS_UP_TIMEOUT, DPU_MAX_TIME_INT, 0,
             check_dpu_critical_processes, dpuhosts, dpu_id),
-        f"Crictical process check for {dpu_name} has been failed"
+        f"Critical process check for {dpu_name} has been failed"
     )
 
-    logging.info(f"Checking reboot cause of {dpu_name}")
-    pytest_assert(
-        wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
-                   check_dpu_reboot_cause, duthost, dpu_name, reboot_cause),
-        f"Reboot cause for DPU {dpu_name} is incorrect"
-    )
+    if reboot_cause:
+        logging.info(f"Checking reboot cause of {dpu_name}")
+        pytest_assert(
+            wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
+                       check_dpu_reboot_cause, duthost,
+                       dpu_name, reboot_cause),
+            f"Reboot cause for DPU {dpu_name} is incorrect"
+        )
 
 
 def post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
-                         num_dpu_modules, reboot_cause):
+                         num_dpu_modules, reboot_cause, extra_dpu_online_timeout=0):
     """
     Checks DPU OFF/ON and reboot cause status Post Test
     Args:
@@ -520,12 +606,12 @@ def post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
     Returns:
        Returns Nothing
     """
-
     with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
         logging.info("Post test DPUs check in parallel")
         for dpu in dpu_on_list:
             executor.submit(post_test_dpu_check, duthost,
-                            dpuhosts, dpu, reboot_cause)
+                            dpuhosts, dpu, reboot_cause,
+                            extra_dpu_online_timeout)
 
     logging.info("Checking all powered on DPUs connectivity")
     ping_status = check_dpu_ping_status(duthost, ip_address_list)
@@ -553,7 +639,7 @@ def dpus_shutdown_and_check(duthost, dpu_list, num_dpu_modules):
                 f"sudo config chassis modules shutdown {dpu_name}"
             )
             executor.submit(
-                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
                 check_dpu_module_status, duthost, "off", dpu_name
             )
 
@@ -577,6 +663,59 @@ def dpus_startup_and_check(duthost, dpu_list, num_dpu_modules):
                 f"sudo config chassis modules startup {dpu_name}"
             )
             executor.submit(
-                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
                 check_dpu_module_status, duthost, "on", dpu_name
             )
+
+
+def check_midplane_status(duthost, dpu_ip, expected_status):
+    """
+    Check midplane reachability for a given DPU IP
+    Args:
+        duthost: DUT host handle
+        dpu_ip: IP address of the DPU to check
+        expected_status: "True" or "False" (string)
+    Returns:
+        True if the reachability matches expected_status, else False
+    """
+    output = duthost.show_and_parse("show chassis modules midplane-status")
+    for entry in output:
+        if entry.get('ip-address') == dpu_ip:
+            reachability = entry.get('reachability')
+            if reachability is not None:
+                return str(reachability).strip().lower() == expected_status.lower()
+    return False
+
+
+def check_dpus_reboot_cause(duthost, dpu_list, num_dpu_modules, reason):
+    """
+    Waits and checks in parallel the reboot cause of DPUs.
+    Args:
+       duthost: Host handle
+       dpu_list: List of DPUs
+       num_dpu_modules: Number of DPU modules
+       reason: Expected reboot cause to check for
+
+    Returns:
+       Returns Nothing
+    """
+    results = []
+
+    def collect_result(dpu_name):
+        result = wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
+                            check_dpu_reboot_cause, duthost, dpu_name, reason)
+        results.append((dpu_name, result))
+
+    with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
+        for dpu_name in dpu_list:
+            executor.submit(collect_result, dpu_name)
+
+    # Wait for all threads to finish
+    executor.shutdown(wait=True)
+
+    # Assert all DPUs passed
+    failed = [dpu for dpu, res in results if not res]
+    if failed:
+        pytest.fail(f"DPUs {failed} did not reboot due to '{reason}'")
+    else:
+        logging.info(f"All DPUs rebooted due to '{reason}' as expected")

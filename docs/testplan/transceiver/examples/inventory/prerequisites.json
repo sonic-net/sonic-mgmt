@@ -1,0 +1,21 @@
+{
+  "eeprom": [
+    {
+      "name": "transceiver_presence",
+      "module": "tests/transceiver/eeprom/test_eeprom_basic.py",
+      "function": "test_transceiver_presence"
+    },
+    {
+        "name": "gold_firmware_check",
+        "module": "tests/transceiver/firmware/test_eeprom_basic.py",
+        "function": "test_gold_firmware"
+    }
+  ],
+  "dom": [
+    {
+      "name": "transceiver_presence",
+      "module": "tests/transceiver/eeprom/test_eeprom_basic.py",
+      "function": "test_transceiver_presence"
+    }
+  ]
+}

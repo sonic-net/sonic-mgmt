@@ -7,7 +7,9 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('any'),
-    pytest.mark.disable_loganalyzer
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.usefixtures("setup_gnmi_ntp_client_server", "setup_gnmi_server",
+                            "setup_gnmi_rotated_server", "check_dut_timestamp")
 ]
 
 
@@ -41,7 +43,7 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost):
         logger.info("Failed to read path2: " + str(e))
     else:
         output = msg_list2[0]
-    assert output == "\"1000\"", output
+    assert output == "\"1000\"", "Unexpected output: '{}'".format(output)
 
     # Remove DASH_VNET_TABLE
     delete_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE/Vnet1"]

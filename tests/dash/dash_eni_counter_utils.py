@@ -2,6 +2,7 @@ from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 import logging
 import ast
 import pytest
+import re
 
 
 logger = logging.getLogger(__name__)
@@ -78,3 +79,34 @@ def eni_counter_setup(dpuhost):
     if original_eni_counter_status.get("FLEX_COUNTER_STATUS") != "enable":
         logger.info("enable eni counter")
         set_eni_counter_status(dpuhost, "disable")
+
+
+def get_eni_meter_counters(dpuhost):
+    _sai_meter_counters_dict = {}
+
+    cmd_get_counter_meter_name_map = 'sonic-db-cli COUNTERS_DB KEYS "*"'
+    _counter_map = dpuhost.shell(cmd_get_counter_meter_name_map)['stdout']
+
+    counter_eni_name_map = []
+    for eachline in _counter_map.split("\n"):
+        if re.search('meter', eachline.strip()):
+            counter_eni_name_map.append(eachline)
+
+    for eachkey in counter_eni_name_map:
+        if re.search('COUNTERS:', eachkey):
+            # Get Meter Class counter stats
+            cmd_get_counter_meter = f"sonic-db-cli COUNTERS_DB hgetall \'{eachkey}\'"
+            counter_meter_class = dpuhost.shell(cmd_get_counter_meter)['stdout']
+            _meter_stats = ast.literal_eval(counter_meter_class)
+
+            parse_key = ast.literal_eval(re.sub('COUNTERS:', '', eachkey))
+
+            if parse_key['eni_id'] not in _sai_meter_counters_dict:
+                _sai_meter_counters_dict[parse_key['eni_id']] = {}
+
+            _sai_meter_counters_dict[parse_key['eni_id']][parse_key['meter_class']] = {
+                              'counter_id': eachkey,
+                              'rx_bytes': _meter_stats['SAI_METER_BUCKET_ENTRY_STAT_INBOUND_BYTES'],
+                              'tx_bytes': _meter_stats['SAI_METER_BUCKET_ENTRY_STAT_OUTBOUND_BYTES']
+                              }
+    return _sai_meter_counters_dict

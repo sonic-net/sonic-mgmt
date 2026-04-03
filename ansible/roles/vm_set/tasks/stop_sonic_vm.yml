@@ -1,6 +1,6 @@
 - set_fact:
     sonic_vm_storage_location: "{{ home_path }}/sonic-vm"
-    when: sonic_vm_storage_location is not defined
+  when: sonic_vm_storage_location is not defined
 
 - set_fact:
     disk_image: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}.img"

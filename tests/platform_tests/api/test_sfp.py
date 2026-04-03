@@ -19,7 +19,7 @@ from tests.common.platform.transceiver_utils import is_sw_control_enabled,\
     get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
 from tests.common.mellanox_data import is_mellanox_device
 from collections import defaultdict
-
+from tests.platform_tests.mellanox.conftest import is_sw_control_feature_enabled  # noqa: F401
 
 from .platform_api_test_base import PlatformApiTestBase
 
@@ -118,11 +118,7 @@ class TestSfpApi(PlatformApiTestBase):
     EXPECTED_XCVR_NEW_CMIS_INFO_KEYS = ['host_lane_count',
                                         'media_lane_count',
                                         'cmis_rev',
-                                        'host_lane_assignment_option',
                                         'media_interface_technology',
-                                        'media_interface_code',
-                                        'host_electrical_interface',
-                                        'media_lane_assignment_option',
                                         'vdm_supported']
 
     EXPECTED_XCVR_NEW_CMIS_FIRMWARE_INFO_KEYS = ['active_firmware',
@@ -275,7 +271,34 @@ class TestSfpApi(PlatformApiTestBase):
 
     # xcvr to be skipped for lpmode test due to known issue
     LPMODE_SKIP_LIST = [
-        {'manufacturer': 'Cloud Light', 'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-01'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-02'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-05'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-0X'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-10'},
+    ]
+
+    # Keys supported for Amphenol 800G Backplane cartridge.
+    EXPECTED_AMPH_BACKPLANE_KEYS = [
+        "type",
+        "type_abbrv_name",
+        "hardware_rev",
+        "serial",
+        "cable_length",
+        "manufacturer",
+        "model",
+        "vendor_date",
+        "vendor_oui",
+        "vendor_rev",
+        "application_advertisement",
+        "host_electrical_interface",
+        "host_lane_count",
+        "host_lane_assignment_option",
+        "cable_type",
+        "cmis_rev",
+        "specification_compliance",
+        "vdm_supported",
+        "slot_id",
     ]
 
     chassis_facts = None
@@ -287,8 +310,7 @@ class TestSfpApi(PlatformApiTestBase):
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
         # For QSFP-DD specification compliance will return type as passive or active
-        if xcvr_info_dict["type_abbrv_name"] == "QSFP-DD" or xcvr_info_dict["type_abbrv_name"] == "OSFP-8X" \
-                or xcvr_info_dict["type_abbrv_name"] == "QSFP+C":
+        if xcvr_info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C", "BP"]:
             if xcvr_info_dict["specification_compliance"] == "Passive Copper Cable" or \
                     xcvr_info_dict["specification_compliance"] == "passive_copper_media_interface":
                 return False
@@ -308,6 +330,10 @@ class TestSfpApi(PlatformApiTestBase):
         return True
 
     def is_xcvr_resettable(self, request, xcvr_info_dict):
+        # Amphenol 800G Backplane cartridge is not resettable.
+        if xcvr_info_dict["type"] == "Backplane Cartridge" and xcvr_info_dict['manufacturer'].rstrip() == "Amphenol":
+            return False
+
         not_resettable_xcvr_type = request.config.getoption("--unresettable_xcvr_types")
         xcvr_type = xcvr_info_dict.get("type_abbrv_name")
         return xcvr_type not in not_resettable_xcvr_type
@@ -327,6 +353,10 @@ class TestSfpApi(PlatformApiTestBase):
     def is_xcvr_support_lpmode(self, xcvr_info_dict):
         """Returns True if transceiver is support low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
+        # Amphenol 800G Backplane cartridge does not support lpmode.
+        if xcvr_type == "Backplane Cartridge" and xcvr_info_dict['manufacturer'].rstrip() == "Amphenol":
+            return False
+
         ext_identifier = xcvr_info_dict["ext_identifier"]
         if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type) or "Power Class 1" in ext_identifier:
             return False
@@ -334,9 +364,9 @@ class TestSfpApi(PlatformApiTestBase):
         # Temporarily add this logic to skip lpmode test for some transceivers with known issue
         for xcvr_to_skip in self.LPMODE_SKIP_LIST:
             if (xcvr_info_dict["manufacturer"].strip() == xcvr_to_skip["manufacturer"] and
-                    xcvr_info_dict["host_electrical_interface"].strip() == xcvr_to_skip["host_electrical_interface"]):
-                logger.info("Temporarily skipping {} due to known issue".format(
-                    xcvr_info_dict["manufacturer"]))
+                    xcvr_info_dict["model"].strip() == xcvr_to_skip["model"]):
+                logger.info("Temporarily skipping {} - {} due to known issue".format(
+                    xcvr_info_dict["manufacturer"], xcvr_info_dict["model"]))
                 return False
 
         return True
@@ -463,9 +493,12 @@ class TestSfpApi(PlatformApiTestBase):
                     if duthost.sonic_release in ["201811", "201911", "202012", "202106", "202111"]:
                         UPDATED_EXPECTED_XCVR_INFO_KEYS = [
                             key if key != 'vendor_rev' else 'hardware_rev' for key in self.EXPECTED_XCVR_INFO_KEYS]
+                    elif info_dict["type"] == "Backplane Cartridge" and \
+                            info_dict['manufacturer'].rstrip() == "Amphenol":
+                        UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_AMPH_BACKPLANE_KEYS
                     else:
 
-                        if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
+                        if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
                             active_apsel_hostlane_count = 8
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
                                 self.EXPECTED_XCVR_NEW_CMIS_INFO_KEYS + \
@@ -477,7 +510,7 @@ class TestSfpApi(PlatformApiTestBase):
                                 if self.expect(isinstance(firmware_info_dict, dict),
                                                "Transceiver {} firmware info appears incorrect".format(i)):
                                     actual_keys.extend(list(firmware_info_dict.keys()))
-                            if 'ZR' in info_dict['media_interface_code']:
+                            if sfp.is_coherent_module(platform_api_conn, i):
                                 UPDATED_EXPECTED_XCVR_INFO_KEYS = UPDATED_EXPECTED_XCVR_INFO_KEYS + \
                                                                   self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
                         else:
@@ -498,8 +531,8 @@ class TestSfpApi(PlatformApiTestBase):
                     unexpected_keys = set(actual_keys) - set(UPDATED_EXPECTED_XCVR_INFO_KEYS +
                                                              self.NEWLY_ADDED_XCVR_INFO_KEYS)
                     for key in unexpected_keys:
-                        # hardware_rev is applicable only for QSFP-DD or OSFP
-                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
+                        # hardware_rev is applicable only for QSFP-DD, OSFP or QSFP+C
+                        if key == 'hardware_rev' and info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
                             continue
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
@@ -551,9 +584,9 @@ class TestSfpApi(PlatformApiTestBase):
                     actual_keys = list(thold_info_dict.keys())
 
                     expected_keys = list(self.EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS)
-                    if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
+                    if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
                         expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
-                        if 'ZR' in info_dict["media_interface_code"]:
+                        if sfp.is_coherent_module(platform_api_conn, i):
                             if 'INPHI CORP' in info_dict['manufacturer'] and 'IN-Q3JZ1-TC' in info_dict['model']:
                                 logger.info("INPHI CORP Transceiver is not populating the associated threshold fields \
                                              in redis TRANSCEIVER_DOM_THRESHOLD table. Skipping this transceiver")
@@ -775,12 +808,18 @@ class TestSfpApi(PlatformApiTestBase):
             logger.info("No interfaces to flap after SFP reset")
         self.assert_expectations()
 
-    def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
+    def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                        platform_api_conn, is_sw_control_feature_enabled):    # noqa: F811
         """This function tests both the get_tx_disable() and tx_disable() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
+        if is_mellanox_device(duthost):
+            port_indices_to_tested = self.get_port_indices_to_tested_for_mellanox_device(
+                duthost, is_sw_control_feature_enabled)
+        else:
+            port_indices_to_tested = self.sfp_setup["sfp_test_port_indices"]
 
-        for i in self.sfp_setup["sfp_test_port_indices"]:
+        for i in port_indices_to_tested:
             # First ensure that the transceiver type supports setting TX disable
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
@@ -803,12 +842,17 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_tx_disable_channel(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                platform_api_conn):     # noqa: F811
+                                platform_api_conn, is_sw_control_feature_enabled):     # noqa: F811
         """This function tests both the get_tx_disable_channel() and tx_disable_channel() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
+        if is_mellanox_device(duthost):
+            port_indices_to_tested = self.get_port_indices_to_tested_for_mellanox_device(
+                duthost, is_sw_control_feature_enabled)
+        else:
+            port_indices_to_tested = self.sfp_setup["sfp_test_port_indices"]
 
-        for i in self.sfp_setup["sfp_test_port_indices"]:
+        for i in port_indices_to_tested:
             # First ensure that the transceiver type supports setting TX disable on individual channels
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
             if not self.expect(info_dict is not None, "Unable to retrieve transceiver {} info".format(i)):
@@ -991,3 +1035,13 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(thermal and thermal == thermal_list[thermal_index],
                             "Thermal {} is incorrect for sfp {}".format(thermal_index, sfp_id))
         self.assert_expectations()
+
+    def get_port_indices_to_tested_for_mellanox_device(self, duthost, is_sw_control_feature_enabled):  # noqa: F811
+        port_indices_to_tested = []
+        if is_sw_control_feature_enabled:
+            port_indices_to_tested = [port_index for port_index in self.sfp_setup["sfp_test_port_indices"]
+                                      if is_sw_control_enabled(duthost, port_index)]
+        if not port_indices_to_tested:
+            pytest.skip("Skipping test on Mellanox device with no port indices to test")
+        logging.info(f"Port indices to tested for Mellanox device: {port_indices_to_tested}")
+        return port_indices_to_tested

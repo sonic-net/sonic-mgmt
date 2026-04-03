@@ -1404,6 +1404,7 @@ def show_muxcable_status(duthost):
     for port, muxcable in list(output['MUX_CABLE'].items()):
         ret[port] = {
             'status': muxcable['STATUS'],
+            'serverstatus': muxcable['SERVER_STATUS'],
             'health': muxcable['HEALTH'],
             'hwstatus': muxcable['HWSTATUS']
         }
@@ -1700,7 +1701,7 @@ def check_active_active_port_status(duthost, ports, status):
     for port in ports:
         if port not in show_mux_status_ret:
             return False
-        elif show_mux_status_ret[port]['status'] != status:
+        elif show_mux_status_ret[port]['status'] != status or show_mux_status_ret[port]['serverstatus'] != status:
             return False
     return True
 

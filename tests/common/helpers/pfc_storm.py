@@ -20,6 +20,13 @@ def get_chip_name_if_asic_pfc_storm_supported(fanout):
         "Arista DCS-7060PX5": "Tomahawk4",
         "Arista DCS-7060X6": "Tomahawk5",
         "Arista-7060X6": "Tomahawk5",
+        "Arista-7060X6-64PE-P32O64": "Tomahawk5",
+        "Arista-7060X6-64PE-O128": "Tomahawk5",
+        "Arista-7060X6-64PE-O128S2": "Tomahawk5",
+        "Arista-7060X6-64PE-P64": "Tomahawk5",
+        "Arista-7060X6-64PE-B-P32O64": "Tomahawk5",
+        "Arista-7060X6-64PE-B-O128": "Tomahawk5",
+        "Arista-7060X6-64PE-B-P64": "Tomahawk5",
         "Arista DCS-7060CX": "Tomahawk",
         "Arista-7060CX": "Tomahawk",
         "Arista DCS-7260CX3": "Tomahawk2",
@@ -246,7 +253,7 @@ class PFCStorm(object):
             self.extra_vars.update({"pfc_storm_stop_defer_time": self.pfc_storm_stop_defer_time})
         if getattr(self, "pfc_asym", None):
             self.extra_vars.update({"pfc_asym": self.pfc_asym})
-        if self.asic_type == "mellanox":
+        if self.asic_type in ["mellanox", "broadcom"]:
             self.extra_vars.update({"pfc_gen_multiprocess": True})
 
         if self.asic_type != 'vs':
