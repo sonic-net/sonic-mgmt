@@ -21,12 +21,9 @@ import logging
 
 import pytest
 
-from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_enabled
-
 from bgp_aggregate_helpers import (
-    AggregateCfg,
     BGP_AGGREGATE_ADDRESS,
-    PLACEHOLDER_PREFIX,
+    AggregateCfg,
     dump_db,
     gcu_add_aggregate,
     gcu_add_placeholder_aggregate,
@@ -35,10 +32,7 @@ from bgp_aggregate_helpers import (
     verify_bgp_aggregate_cleanup,
 )
 
-from test_bgp_aggregate_address import (
-    AGGR_V4,
-    AGGR_V6,
-)
+from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_enabled
 
 from tests.common.config_reload import config_reload
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
@@ -51,10 +45,12 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("m1"),
-    pytest.mark.disable_loganalyzer,
 ]
 
 # ---- Constants ----
+AGGR_V4 = "172.16.51.0/24"
+AGGR_V6 = "2000:172:16:50::/64"
+PLACEHOLDER_PREFIX = "192.0.2.0/32"
 BGP_SESSION_WAIT_TIMEOUT = 300
 BGP_SESSION_POLL_INTERVAL = 10
 
