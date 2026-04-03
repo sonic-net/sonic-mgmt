@@ -2,7 +2,7 @@ import re
 import logging
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from ipaddress import ip_interface
+from ipaddress import ip_interface, ip_network, IPv4Network
 
 
 logger = logging.getLogger(__name__)
@@ -95,14 +95,21 @@ def fdb_has_mac(duthost, mac):
     return any(mac in line.lower() for line in duthost.command("show mac")["stdout_lines"])
 
 
-def get_first_vlan_ipv4(config_facts):
+def get_vlan_last_ipv4(config_facts):
     """
-    Get first VLAN interface and its IPv4 address
+    Return (vlan_intf_name, ipv4) for the first VLAN_INTERFACE with IPv4,
+    using the last IPv4 in that interface's address list.
     """
     vlan_intfs = config_facts.get("VLAN_INTERFACE", {})
     for intf, addrs in vlan_intfs.items():
+        intf_ipv4 = None
         for addr in addrs:
-            if ":" in addr:
+            try:
+                if type(ip_network(addr, strict=False)) is IPv4Network:
+                    iface = ip_interface(addr)
+                    intf_ipv4 = (intf, iface.ip)
+            except ValueError:
                 continue
-            return intf, ip_interface(addr).ip
+        if intf_ipv4 is not None:
+            return intf_ipv4
     return None, None

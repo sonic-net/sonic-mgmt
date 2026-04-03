@@ -416,8 +416,8 @@ def vlan_interface_tc1_remove(duthost, vlan_info):
 def test_vlan_interface_tc1_suite(rand_selected_dut, vlan_info, loganalyzer, tbinfo, duthost):
     if loganalyzer:
         if tbinfo["topo"]["name"] == "m0-2vlan":
-            loganalyzer[duthost.hostname].ignore_regex.extend(IGNORE_REG_LIST)
-        loganalyzer[duthost.hostname].ignore_regex.extend([
+            loganalyzer[rand_selected_dut.hostname].ignore_regex.extend(IGNORE_REG_LIST)
+        loganalyzer[rand_selected_dut.hostname].ignore_regex.extend([
             ".*ERR GenericConfigUpdater: Change Applier: service invoked: "
             "generic_config_updater.services_validator.vlanintf_validator failed.*"
         ])

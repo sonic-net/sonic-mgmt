@@ -24,7 +24,8 @@ pytestmark = [
     pytest.mark.pretest,
     pytest.mark.topology('util', 'any'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.skip_check_dut_health
+    pytest.mark.skip_check_dut_health,
+    pytest.mark.sanity_check(skip_pre_sanity=False)
 ]
 
 
