@@ -20,9 +20,9 @@ from bgp_aggregate_helpers import (
     BGP_AGGREGATE_ADDRESS,
     PLACEHOLDER_PREFIX,
     dump_db,
-    gcu_remove_aggregate,
     gcu_add_placeholder_aggregate,
     running_bgp_has_aggregate,
+    safe_remove_aggregate,
     verify_bgp_aggregate_cleanup,
 )
 
@@ -287,10 +287,7 @@ def test_dual_stack_simultaneous_aggregates(
     finally:
         inject_routes(setup, ptfhost, CONTRIBUTING_V4 + CONTRIBUTING_V6, "withdraw")
         for prefix in (agg_v4, agg_v6):
-            try:
-                gcu_remove_aggregate(duthost, prefix)
-            except BaseException:
-                pass  # best-effort cleanup; rollback will recover
+            safe_remove_aggregate(duthost, prefix)
 
 
 # ===========================================================================
@@ -364,13 +361,10 @@ def test_dual_stack_bbr_toggle(
     finally:
         inject_routes(setup, ptfhost, CONTRIBUTING_V4 + CONTRIBUTING_V6, "withdraw")
         for prefix in (agg_v4, agg_v6):
-            try:
-                gcu_remove_aggregate(duthost, prefix)
-            except BaseException:
-                pass  # best-effort cleanup; rollback will recover
+            safe_remove_aggregate(duthost, prefix)
         try:
             config_bbr_by_gcu(duthost, bbr_default_state)
-        except BaseException:
+        except Exception:
             logger.warning("Cleanup: failed to restore BBR state, will be recovered by rollback")
 
 
@@ -450,11 +444,8 @@ def test_dual_stack_mixed_bbr_required(
     finally:
         inject_routes(setup, ptfhost, CONTRIBUTING_V4 + CONTRIBUTING_V6, "withdraw")
         for prefix in (agg_v4, agg_v6):
-            try:
-                gcu_remove_aggregate(duthost, prefix)
-            except BaseException:
-                pass  # best-effort cleanup; rollback will recover
+            safe_remove_aggregate(duthost, prefix)
         try:
             config_bbr_by_gcu(duthost, bbr_default_state)
-        except BaseException:
+        except Exception:
             logger.warning("Cleanup: failed to restore BBR state, will be recovered by rollback")
