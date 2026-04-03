@@ -22,7 +22,7 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 'bmc'),
+    pytest.mark.topology('bmc'),
 ]
 
 MOCK_NEIGHBOR_NAME = "mock-neighbor"
