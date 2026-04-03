@@ -15,7 +15,7 @@ Usage:          Examples of how to use log analyzer
                     --action analyze \
                     --run_id myTest114 \
                     --logs file3.log \
-                    -m /home/hrachya/projects/loganalyzer/match.file.1.log,/home/hrachya/projects/loganalyzer/match.file.2.log \    # noqa: E501 W605
+                    -m /home/hrachya/projects/loganalyzer/match.file.1.log,/home/hrachya/projects/loganalyzer/match.file.2.log \\    # noqa: E501
                     -i ignore.file.1.log,ignore.file.2.log -v
 '''
 

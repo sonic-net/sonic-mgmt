@@ -250,7 +250,7 @@ def test_poll_mode_default_route_supervisor(duthosts, enum_rand_one_per_hwsku_ho
         namespace = "asic0"
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
-                              xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\/0\"",  # noqa: W605
+                              xpath="\"FAKE_APPL_DB_TABLE_0\" \"ROUTE_TABLE/0.0.0.0\\/0\"",
                               target="APPL_DB", max_sync_count=-1, update_count=5, timeout=30, namespace=namespace)
     modify_fake_appdb_table(duthost)  # Add first table data
     ptf_result = ptfhost.shell(cmd)

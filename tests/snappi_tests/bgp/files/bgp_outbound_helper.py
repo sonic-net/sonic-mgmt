@@ -1026,7 +1026,7 @@ def get_container_names(duthost):
     Args:
         duthost (pytest fixture): duthost fixture
     """
-    container_names = duthost.shell('docker ps --format \{\{.Names\}\}')['stdout_lines']   # noqa: W605
+    container_names = duthost.shell('docker ps --format \\{\\{.Names\\}\\}')['stdout_lines']
     return container_names
 
 

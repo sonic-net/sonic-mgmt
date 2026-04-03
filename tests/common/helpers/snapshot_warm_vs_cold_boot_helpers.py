@@ -105,7 +105,7 @@ def backup_device_logs(duthost, backup_dir: str, fetch_logs_before_reboot=False)
     def fetch_logs_from_path(source_path: str, dest_dir: str):
         """Fetch log files from a specific path on the DUT to a local directory."""
         log_files_cmd = (f"sudo find {source_path} -type f -regex "
-                         "'.*/\(syslog.*\|sairedis.rec.*\|swss.rec.*\)'")  # noqa F401
+                         "'.*/\\(syslog.*\\|sairedis.rec.*\\|swss.rec.*\\)'")
         log_files = duthost.shell(log_files_cmd)["stdout_lines"]
         os.makedirs(dest_dir, exist_ok=True)
         for log_file in log_files:

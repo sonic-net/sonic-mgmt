@@ -41,7 +41,7 @@ def check_server_received(ptfhost, data, timeout=30):
                 In above log, the 'data[140] = 0xf8' is received data.
 
             2. Following sed command will extract the received data from tac_plus.log:
-                    sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log     # noqa: W605
+                    sed -n 's/.*-> 0x\\(..\\).*/\\1/p'  /var/log/tac_plus.log
 
             3. Following set command will join all received data to hex string:
                     sed ':a; N; $!ba; s/\\n//g'
@@ -53,7 +53,7 @@ def check_server_received(ptfhost, data, timeout=30):
             W605 : Invalid escape sequence. Flake8 can't handle sed command escape sequence, so will report false alert.
             E501 : Line too long. Following sed command difficult to split to multiple line.
     """
-    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)   # noqa: W605 E501
+    sed_command = "sed -n 's/.*-> 0x\\(..\\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)   # noqa: E501
 
     # After tacplus service receive data, it need take some time to update to log file.
     def log_exist(ptfhost, sed_command):
@@ -157,7 +157,7 @@ def cleanup_tacacs_log(ptfhost, rw_user_client):
 
 def count_authorization_request(ptfhost):
     hex_string = binascii.hexlify("cmd=/".encode('ascii')).decode()
-    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g'"  # noqa: W605 E501
+    sed_command = "sed -n 's/.*-> 0x\\(..\\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g'"  # noqa: E501
     res = ptfhost.shell(sed_command)["stdout"]
     logger.warning("TACACS authorization request hex: {}".format(res))
     return res.count(hex_string)
