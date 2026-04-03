@@ -1442,7 +1442,7 @@ def test_gcu_acl_dualtor_standby_drop_takes_priority_across_tables(rand_selected
 
     if not setup["is_dualtor"]:
         pytest.skip("Test only valid for active-standby dual ToR setups, skipping on non dual ToR device.")
-    if "dualtor-aa" in setup["topo"]:
+    if "dualtor-aa" in tbinfo["topo"]["name"]:
         pytest.skip("Test not valid for dualtor active-active setups, skipping on dualtor active-active device.")
 
     itfs, _ = rand_selected_interface
