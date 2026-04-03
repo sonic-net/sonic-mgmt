@@ -61,9 +61,9 @@ DOWNSTREAM_ALL_NEIGHBOR_MAP = {
     "m1": ["m0", "c0"],
     "m0": ["mx", "server"],
     "mx": ["server"],
-    "t2": ["t1"],
+    "t2": ["t1", "lt2"],
     "m0_vlan": ["mx", "server"],
     "m0_l3": ["mx", "server"],
-    "ft2": "lt2",
-    "lt2": "t1"
+    "ft2": ["lt2"],
+    "lt2": ["t1"]
 }
