@@ -18,7 +18,6 @@ from natsort import natsorted
 from bgp_aggregate_helpers import (
     AggregateCfg,
     BGP_AGGREGATE_ADDRESS,
-    PLACEHOLDER_PREFIX,
     dump_db,
     gcu_add_placeholder_aggregate,
     running_bgp_has_aggregate,
@@ -48,6 +47,7 @@ pytestmark = [
 # Aggregate prefixes and contributing routes per the test plan.
 AGGR_GRP9_V4 = "10.100.0.0/16"
 AGGR_GRP9_V6 = "2001:db8:100::/48"
+PLACEHOLDER_PREFIX = "192.0.2.0/32"
 
 # Contributing routes (more-specifics of the aggregate)
 CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
