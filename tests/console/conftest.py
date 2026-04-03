@@ -85,3 +85,15 @@ def cleanup_modules(setup_c0):
     if console_fanout != duthost:
         console_fanout.shell("sudo killall socat", module_ignore_errors=True)
         console_fanout.shell("rmmod nim_async_lite; rmmod tty_async; modprobe nim_async_lite ")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def prepare_hosts(setup_c0, localhost):
+    duthost, console_fanout = setup_c0
+    required_hosts = set([duthost, console_fanout])
+    for host in required_hosts:
+        host.copy(src="./console/socat", dest="/usr/local/bin/socat", mode=755)
+        assert duthost.shell("socat -V", module_ignore_errors=True)["rc"] == 0, \
+            f"socat installation failed on DUT host:{host}"
+
+    yield
