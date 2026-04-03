@@ -223,6 +223,8 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
         delta = determine_delta_values(ecn_data, fields)
         if all(delta[f] == 0 for f in fields):
             logger.info(f"Skipping WRED profile {wred_profile}: all deltas are 0, no real value change possible.")
+            # Still track current values so ASIC DB validation includes this profile
+            new_values[wred_profile] = {field: int(ecn_data[field]) for field in fields}
             continue
         new_values[wred_profile] = {}
         for field in fields:
