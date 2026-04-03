@@ -457,7 +457,7 @@ def get_dpuhost_for_dpu(dpuhosts, dpu_id):
     dpu_suffix = f"-dpu-{dpu_id}"
     # If index lookup fails (e.g. dpu_id=3 but len(dpuhosts)=1), search by hostname.
     for node in dpuhosts:
-        if dpu_suffix in getattr(node, 'hostname', ''):
+        if getattr(node, 'hostname', '').endswith(dpu_suffix):
             return node
     return None
 
