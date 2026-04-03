@@ -4020,71 +4020,11 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv6-async_storm:
 #####     platform_tests          #####
 #######################################
 
-platform_tests/api/test_sfp.py:
-  skip:
-    reason: 'SFP API tests require transceiver hardware, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
   xfail:
     reason: "Testcase ignored on nvidia sn4700 and sn4280 due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23426"
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
-
-platform_tests/broadcom/test_ser.py:
-  skip:
-    reason: 'Memory SER tests require Broadcom ASIC, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/counterpoll/:
-  skip:
-    reason: 'Counter poll tests require ASIC counters, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/link_flap/:
-  skip:
-    reason: 'Link flap tests require physical port interfaces, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/mellanox/test_check_sfp_eeprom.py:
-  skip:
-    reason: 'SFP EEPROM tests require transceiver hardware, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/mellanox/test_check_sfp_using_ethtool.py:
-  skip:
-    reason: 'SFP ethtool tests require transceiver hardware, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/sfp/:
-  skip:
-    reason: 'SFP tests require transceiver hardware, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/test_auto_negotiation.py:
-  skip:
-    reason: 'Auto negotiation tests require physical port interfaces, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/test_intf_fec.py:
-  skip:
-    reason: 'FEC tests require physical port interfaces, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
-
-platform_tests/test_port_toggle.py:
-  skip:
-    reason: 'Port toggle tests require ASIC interfaces, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
 
 platform_tests/test_reload_config.py::test_reload_configuration:
   xfail:
@@ -4101,12 +4041,6 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
-
-platform_tests/test_xcvr_info_in_db.py:
-  skip:
-    reason: 'Transceiver info tests require SFP hardware, not available on BMC'
-    conditions:
-      - "'bmc' in topo_type"
 
 portstat/test_portstat.py:
   skip:
