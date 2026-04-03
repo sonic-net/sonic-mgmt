@@ -31,6 +31,7 @@ def common_setup_teardown(
     dpuhosts,
     setup_ha_config,
     setup_dash_ha_from_json,
+    ha_owner,
     setup_gnmi_server,
     set_vxlan_udp_sport_range,
     setup_npu_dpu  # noqa: F811
@@ -94,6 +95,7 @@ def common_setup_teardown(
 def test_privatelink_basic_transform(
     ptfadapter,
     activate_dash_ha_from_json,
+    ha_owner,
     dash_pl_config,
     encap_proto
 ):
