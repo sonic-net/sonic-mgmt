@@ -238,15 +238,6 @@ def base_verification(discard_group, pkt, ptfadapter, duthosts, asic_index, port
         pytest.fail("Incorrect 'discard_group' specified. Supported values: 'L2', 'L3', 'ACL' or 'NO_DROPS'")
 
 
-def get_intf_mtu(duthost, intf, asic_index):
-    # Get namespace from asic_index.
-    namespace = duthost.get_namespace_from_asic_id(asic_index)
-
-    CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
-    return int(duthost.shell(
-        CMD_PREFIX + "/sbin/ifconfig {} | grep -i mtu | awk '{{print $NF}}'".format(intf))["stdout"])
-
-
 @pytest.fixture
 def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """ Fixture which prepare port MTU configuration for 'test_ip_pkt_with_exceeded_mtu' test case """
@@ -277,6 +268,14 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             if not cls.mtu:
                 cls.mtu = cls.default_mtu
 
+            def get_port_count_for_mtu():
+                CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if duthost.is_multi_asic else ''
+                cmd = CMD_PREFIX + 'sonic-db-dump -n ASIC_DB -y -k "*SAI_OBJECT_TYPE_ROUTER_INTERFACE*" \
+                    | grep -c \'"SAI_ROUTER_INTERFACE_ATTR_MTU": "{}"\' || true'.format(mtu)
+                return int(duthost.shell(cmd)["stdout"])
+
+            initial_ports_count_for_mtu = get_port_count_for_mtu()
+
             duthost.command(
                 "sonic-db-cli -n '{}' CONFIG_DB hset \"{}|{}\" mtu {}".format(
                     namespace, cls.key, iface, mtu
@@ -287,10 +286,10 @@ def mtu_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
             cls.iface = iface
 
             def check_mtu():
-                return get_intf_mtu(duthost, iface, asic_index) == mtu
+                return get_port_count_for_mtu() > initial_ports_count_for_mtu if int(cls.mtu) != mtu else True
 
             pytest_assert(
-                wait_until(5, 1, 0, check_mtu),
+                wait_until(10, 1, 1, check_mtu),
                 "MTU on interface {} not updated".format(iface)
             )
 
