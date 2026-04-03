@@ -40,9 +40,16 @@ def _check_route_check_pass(duthost):
 
 def _check_route_on_dut(duthost, route, prefix_type):
     """Check that a route is present on the DUT."""
-    cmd = f"show ip route {route}" if prefix_type == 'v4' else f"show ipv6 route {route}"
-    result = duthost.shell(cmd, module_ignore_errors=True)
-    return route in result.get('stdout', '')
+    # First check default VRF, then check VNET routes to avoid false negatives for VNET routes
+    ip_cmd = f"show ip route {route}" if prefix_type == 'v4' else f"show ipv6 route {route}"
+    result = duthost.shell(ip_cmd, module_ignore_errors=True)
+    if route in result.get('stdout', ''):
+        return True
+
+    # VNET routes live outside the default VRF, check VNET route table
+    vnet_cmd = f"show vnet routes all | grep -F '{route}'"
+    vnet_result = duthost.shell(vnet_cmd, module_ignore_errors=True)
+    return route in vnet_result.get('stdout', '')
 
 
 prefix_offset = 19
