@@ -746,7 +746,7 @@ def __is_container_running(duthost, container_name):
     """
     try:
         result = duthost.shell(
-            "docker inspect -f \{{\{{.State.Running\}}\}} {}"  # noqa: W605
+            "docker inspect -f \\{{\\{{.State.Running\\}}\\}} {}"
             .format(container_name))
         return result["stdout_lines"][0].strip() == "true"
     except Exception:
@@ -766,7 +766,7 @@ def __is_container_exists(duthost, container_name):
     """
     try:
         result = duthost.shell(
-            "docker inspect -f \{{\{{.State.Running\}}\}} {}"   # noqa: W605
+            "docker inspect -f \\{{\\{{.State.Running\\}}\\}} {}"
             .format(container_name))
         return bool(result["stdout_lines"][0].strip())
     except Exception:

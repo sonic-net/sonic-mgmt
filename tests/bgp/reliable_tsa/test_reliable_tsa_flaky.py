@@ -225,7 +225,7 @@ def is_container_running(duthost, container_name):
     @summary: Decide whether the container is running or not
     @return:  Boolean value. True represents the container is running
     """
-    result = duthost.shell("docker inspect -f \{{\{{.State.Running\}}\}} {}".format(container_name))  # noqa: W605
+    result = duthost.shell("docker inspect -f \\{{\\{{.State.Running\\}}\\}} {}".format(container_name))
     return result["stdout_lines"][0].strip() == "true"
 
 

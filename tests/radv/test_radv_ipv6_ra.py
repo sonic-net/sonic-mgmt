@@ -43,7 +43,7 @@ def radv_test_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
 
         # Obtain the link-local IPv6 address of the DUT's downlink VLAN interface
         downlink_vlan_iface['mac'] = duthost.get_dut_iface_mac(vlan_iface_name)
-        cmd = ("ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\\1/;t;d'"      # noqa W605
+        cmd = ("ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \\([^ ]*\\)\\/.*$/\\1/;t;d'"
                .format(vlan_iface_name))
         res = duthost.shell(cmd)
         ip6 = ipaddress.IPv6Address(str(res['stdout']))
@@ -56,7 +56,7 @@ def radv_test_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         ptf_port = {}
         ptf_port['port_idx'] = mg_facts['minigraph_ptf_indices'][vlan_info_dict['members'][0]]
         ptf_port['name'] = "eth" + str(ptf_port['port_idx'])
-        cmd = ("ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \([^ ]*\)\/.*$/\\1/;t;d'"      # noqa W605
+        cmd = ("ip -6 -o addr show dev {} scope link | sed -e's/^.*inet6 \\([^ ]*\\)\\/.*$/\\1/;t;d'"
                .format(ptf_port['name']))
         res = ptfhost.shell(cmd)
         ip6 = ipaddress.IPv6Address(str(res['stdout']))
@@ -77,7 +77,7 @@ def dut_update_ra_interval(duthost, ra, interval):
     @summary: Updates min/max RA interval in RADVd's config file
     """
     logging.info("Updating %s to %d in RADVd's config file:%s", ra, int(interval), RADV_CONF_FILE)
-    cmd = "sed -ie 's/\(.*\)\({}\) \([[:digit:]]\+\)/\\1\\2 {}/' {}".format(ra, interval, RADV_CONF_FILE)   # noqa W605
+    cmd = "sed -ie 's/\\(.*\\)\\({}\\) \\([[:digit:]]\\+\\)/\\1\\2 {}/' {}".format(ra, interval, RADV_CONF_FILE)
     duthost.shell("docker exec radv {}".format(cmd))
 
 
