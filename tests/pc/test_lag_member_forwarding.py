@@ -78,15 +78,50 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
         pytest.skip("No Lag found in this topology")
     if len(lag_facts['lags'].keys()) == 1:
         pytest.skip("Only one Lag found in this topology, skipping test")
-    portchannel_name = list(lag_facts['lags'].keys())[0]
+    portchannel_name = None
     portchannel_dest_name = None
     recv_port = []
-    if len(lag_facts['lags'].keys()) > 1:
-        portchannel_dest_name = list(lag_facts['lags'].keys())[1]
-        portchannel_dest_members = list(lag_facts['lags'][portchannel_dest_name]['po_stats']['ports'].keys())
-        assert len(portchannel_dest_members) > 0
-        for member in portchannel_dest_members:
-            recv_port.append(mg_facts['minigraph_ptf_indices'][member])
+
+    # Select PortChannels where all BGP neighbors are established.
+    # The test needs two: one to disable (portchannel_name) and one for
+    # forwarding verification (portchannel_dest_name).
+    all_pcs = list(lag_facts['lags'].keys())
+    bgp_fact_info = duthost.asic_instance_from_namespace(
+        lag_facts['names'][all_pcs[0]]).bgp_facts()
+
+    def pc_bgp_all_established(pc_name):
+        """Check if all BGP neighbors of a PortChannel are established."""
+        pc_members = list(lag_facts['lags'][pc_name]['po_stats']['ports'].keys())
+        if not pc_members:
+            return False
+        ns = lag_facts['names'][pc_name]
+        ah = duthost.asic_instance_from_namespace(ns)
+        cf = ah.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        bf = ah.bgp_facts()['ansible_facts']
+        member_device = cf.get('DEVICE_NEIGHBOR', {}).get(pc_members[0], {}).get('name', '')
+        neighbor_ips = [ip for ip, data in cf.get('BGP_NEIGHBOR', {}).items()
+                        if data.get('name') == member_device]
+        if len(neighbor_ips) < 2:
+            return False
+        return all(bf.get('bgp_neighbors', {}).get(ip, {}).get('state') == 'established'
+                   for ip in neighbor_ips)
+
+    for pc in all_pcs:
+        if pc_bgp_all_established(pc):
+            if portchannel_name is None:
+                portchannel_name = pc
+            elif portchannel_dest_name is None:
+                portchannel_dest_name = pc
+                break
+
+    if not portchannel_name or not portchannel_dest_name:
+        pytest.skip("Need two PortChannels with all BGP neighbors established, "
+                    "found: src={}, dst={}".format(portchannel_name, portchannel_dest_name))
+
+    portchannel_dest_members = list(lag_facts['lags'][portchannel_dest_name]['po_stats']['ports'].keys())
+    assert len(portchannel_dest_members) > 0
+    for member in portchannel_dest_members:
+        recv_port.append(mg_facts['minigraph_ptf_indices'][member])
 
     portchannel_members = list(lag_facts['lags'][portchannel_name]['po_stats']['ports'].keys())
     assert len(portchannel_members) > 0
@@ -179,10 +214,64 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
                 "Failed to apply lag member configuration file: {}".format(result["stderr"])
             )
 
+        # swssconfig returns before orchagent/syncd finishes applying the config.
+        # Wait for ASIC_DB to reflect that LAG members of the tested LAG are
+        # disabled before sending traffic, otherwise packets may still be forwarded.
+        def check_lag_members_disabled_in_asic_db():
+            """Check ASIC_DB for EGRESS_DISABLE=true on members of the LAG under test.
+
+            Instead of looking up the LAG's SAI OID (which may not exist in
+            COUNTERS_LAG_NAME_MAP on converged-peer testbeds), find the member
+            port SAI OIDs and match them against LAG_MEMBER entries.
+            """
+            # Get SAI OIDs for the member ports we disabled
+            member_port_oids = set()
+            for member_name in portchannel_members:
+                port_oid = asichost.shell(
+                    "sonic-db-cli COUNTERS_DB HGET COUNTERS_PORT_NAME_MAP {}".format(
+                        member_name),
+                    module_ignore_errors=True
+                )["stdout"].strip()
+                if port_oid:
+                    member_port_oids.add(port_oid)
+
+            if len(member_port_oids) != len(portchannel_members):
+                logger.warning("Could not find all port OIDs: expected %d, found %d",
+                               len(portchannel_members), len(member_port_oids))
+                return False
+
+            # Find LAG_MEMBER entries whose PORT_ID matches our member ports
+            all_member_keys = asichost.shell(
+                "sonic-db-cli ASIC_DB KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_LAG_MEMBER:*'"
+            )["stdout_lines"]
+
+            matched = 0
+            for key in all_member_keys:
+                port_id = asichost.shell(
+                    "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_PORT_ID".format(key)
+                )["stdout"].strip()
+                if port_id in member_port_oids:
+                    egress_disable = asichost.shell(
+                        "sonic-db-cli ASIC_DB HGET '{}' SAI_LAG_MEMBER_ATTR_EGRESS_DISABLE".format(
+                            key)
+                    )["stdout"].strip()
+                    if egress_disable != "true":
+                        return False
+                    matched += 1
+
+            return matched == len(member_port_oids)
+
+        pytest_assert(
+            wait_until(10, 0.5, 0, check_lag_members_disabled_in_asic_db),
+            "LAG members of {} not disabled in ASIC_DB within 10s after swssconfig".format(
+                portchannel_name)
+        )
+        logger.info("All LAG members of %s confirmed disabled in ASIC_DB", portchannel_name)
+
         if duthost.facts['asic_type'] == "vs":
-            # VS SAI stores LAG member EGRESS/INGRESS_DISABLE attributes in ASIC_DB
-            # but the Linux kernel teamdev doesn't enforce them, so packets still flow.
-            # Skip all forwarding/BGP verification on VS.
+            # VS SAI populates ASIC_DB but the Linux kernel teamdev doesn't
+            # enforce LAG member disable in the dataplane, so packets still flow.
+            # Skip traffic and BGP verification on VS.
             logger.info("KVM/VS SAI does not enforce LAG member disable in dataplane, "
                         "skip forwarding and BGP verify steps.")
             return
