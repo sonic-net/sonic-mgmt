@@ -343,6 +343,36 @@ bgp/test_bgp_aggregate_address.py:
     conditions:
       - "is_multi_asic==True"
 
+bgp/test_bgp_aggregate_address_bbr_dynamics.py:
+  skip:
+    reason: "Skip for multi-ASIC testbed"
+    conditions:
+      - "is_multi_asic==True"
+
+bgp/test_bgp_aggregate_address_config_crud.py:
+  skip:
+    reason: "Skip for multi-ASIC testbed"
+    conditions:
+      - "is_multi_asic==True"
+
+bgp/test_bgp_aggregate_address_functional_params.py:
+  skip:
+    reason: "Skip for multi-ASIC testbed"
+    conditions:
+      - "is_multi_asic==True"
+
+bgp/test_bgp_aggregate_address_resilience.py:
+  skip:
+    reason: "Skip for multi-ASIC testbed"
+    conditions:
+      - "is_multi_asic==True"
+
+bgp/test_bgp_aggregate_address_route_withdrawal.py:
+  skip:
+    reason: "Skip for multi-ASIC testbed"
+    conditions:
+      - "is_multi_asic==True"
+
 bgp/test_bgp_allow_list.py:
   skip:
     reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
