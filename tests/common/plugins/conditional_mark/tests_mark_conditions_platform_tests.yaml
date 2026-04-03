@@ -381,20 +381,15 @@ platform_tests/api/test_fan_drawer_fans.py::TestFanDrawerFans::test_set_fans_spe
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6512
 
-platform_tests/api/test_liquid_cooling_leakage.py:
-  skip:
-    reason: "Unsupported platform API"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['cisco-8000']"
-
 #######################################
 #####   test_liquid_cooling_leakage.py   #####
 #######################################
 platform_tests/api/test_liquid_cooling_leakage.py:
   skip:
-    reason: "Liquid cooling leakage tests not applicable to m0, mx, m1, c0 topologies"
+    reason: "Unsupported platform API on Cisco 8000, and liquid cooling leakage tests are not applicable to m0, mx, m1, c0 topologies"
+    conditions_logical_operator: or
     conditions:
+      - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1', 'c0']"
 
 #######################################
