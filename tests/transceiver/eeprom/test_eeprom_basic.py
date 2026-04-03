@@ -4,10 +4,6 @@ from tests.transceiver.utils.cli_parser_helper import parse_eeprom
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [
-    pytest.mark.topology('ptp-256', 'ptp-512')
-]
-
 CMD_SFP_EEPROM = "show interfaces transceiver info"
 
 # Mapping of CLI keys to attribute keys (expected naming from CLI parser)
