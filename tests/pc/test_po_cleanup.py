@@ -5,7 +5,7 @@ from tests.common.fixtures.duthost_utils import stop_route_checker_on_duthost
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 from tests.common import config_reload
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
+from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateAndWaitSyslogContext, LogAnalyzer
 
 pytestmark = [
     pytest.mark.disable_route_check,
@@ -138,15 +138,17 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
             duthost.command("docker exec swss{} supervisorctl stop rsyslogd".format(asic_id))
 
         with loganalyzer:
-            logging.info("Reloading config..")
-            config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
-
-        duthost.shell("killall yes")
+            with DisableLogrotateAndWaitSyslogContext(
+                duthost,
+                cleanup=lambda: duthost.shell("killall yes", module_ignore_errors=True),
+            ):
+                logging.info("Reloading config..")
+                config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
         # Cancel the watchdog so it doesn't fire during later tests
         if watchdog_pid:
             duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
     except Exception:
-        duthost.shell("killall yes")
+        duthost.shell("killall yes", module_ignore_errors=True)
         if watchdog_pid:
             duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)
         raise
