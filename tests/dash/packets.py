@@ -82,7 +82,7 @@ def rand_udp_port_packets(config, floating_nic=True, outbound_vni=None, outbound
         config, outbound_encap, floating_nic, inner_sport=sport, inner_dport=dport, vni=outbound_vni
     )
     pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(
-        config, floating_nic, inner_sport=dport, inner_dport=sport, exp_vni=outbound_vni
+        config, floating_nic, inner_sport=dport, inner_dport=sport
     )
     return vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt
 
