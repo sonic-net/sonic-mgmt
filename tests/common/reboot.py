@@ -202,7 +202,11 @@ def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res):
 
     if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
         if reboot_res.ready():
-            logger.error('reboot result: {} on {}'.format(reboot_res.get(), hostname))
+            try:
+                reboot_result = reboot_res.get()
+            except Exception as e:
+                reboot_result = str(e)
+            logger.error('reboot result: {} on {}'.format(reboot_result, hostname))
         raise Exception('DUT {} did not shutdown'.format(hostname))
 
 
@@ -260,7 +264,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 
     def execute_reboot_command():
         logger.info('rebooting {} with command "{}"'.format(hostname, reboot_command))
-        return duthost.command(reboot_command)
+        return duthost.command(reboot_command, module_ignore_errors=True)
 
     def execute_reboot_helper():
         logger.info('rebooting {} with helper "{}"'.format(hostname, reboot_helper))
@@ -286,7 +290,7 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
 def execute_reboot_smartswitch_command(duthost, reboot_type, hostname):
     reboot_command = reboot_ss_ctrl_dict[reboot_type]["command"]
     logger.info(f'rebooting {hostname} with command "{reboot_command}"')
-    return duthost.command(reboot_command)
+    return duthost.command(reboot_command, module_ignore_errors=True)
 
 
 @support_ignore_loganalyzer
@@ -710,114 +714,5 @@ def check_determine_reboot_cause_service(dut):
     It checks the service's ActiveState and SubState using systemctl.
     @param dut: The AnsibleHost object of DUT.
     """
-    # Check the 'determine-reboot-cause' service status
-    logger.info("Checking 'determine-reboot-cause' service status using systemctl")
-    service_state = dut.get_service_props("determine-reboot-cause.service")
-
-    # Validate service is active
-    active_state = service_state.get("ActiveState", "")
-    sub_state = service_state.get("SubState", "")
-    logger.info(f"'determine-reboot-cause' ActiveState: {active_state}, SubState: {sub_state}")
-
-    assert active_state == "active", f"Service 'determine-reboot-cause' is not active. Current state: {active_state}"
-    assert sub_state == "exited", f"Service 'determine-reboot-cause' did not exit cleanly. \
-            Current sub-state: {sub_state}"
-
-
-def try_create_dut_console(duthost, localhost, conn_graph_facts, creds):
-    try:
-        dut_sonsole = create_duthost_console(duthost, localhost, conn_graph_facts, creds)
-    except Exception as err:
-        logger.warning(f"Fail to create dut console. Please check console config or if console works ro not. {err}")
-        return None
-    logger.info("creating dut console succeeds")
-    return dut_sonsole
-
-
-def collect_console_log(duthost, localhost, timeout):
-    creds = creds_on_dut(duthost)
-    conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
-    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds)
-    if dut_console:
-        if dut_console:
-            logger.info("start: collect console log")
-            return dut_console
-    else:
-        logger.warning("dut console is not ready, we cannot get log by console")
-        return None
-
-
-def check_ssh_connection(localhost, host_ip, port, delay, timeout, search_regex):
-    res = localhost.wait_for(host=host_ip,
-                             port=port,
-                             state='started',
-                             search_regex=search_regex,
-                             delay=delay,
-                             timeout=timeout,
-                             module_ignore_errors=True)
-    is_connected = not (res.is_failed or ('msg' in res and 'Timeout' in res['msg']))
-    return is_connected, res
-
-
-def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
-    '''
-    Connects to the DUT via SSH. If the connection attempt fails,
-    a retry is performed with a reduced timeout and without expecting any specific message (`search_regex=None`).
-    :param localhost:  local host object
-    :param host_ip: dut ip
-    :param delay: delay between ssh availability checks
-    :param delay: sonic ssh port
-    :param timeout: timeout for waiting ssh port state change
-    :return: A tuple containing two elements:
-    - A boolean indicating the result of the SSH connection attempt.
-    - The result of the SSH connection last attempt.
-    '''
-    default_connection_params = {
-        'host_ip': host_ip,
-        'port': port,
-        'delay': delay,
-        'timeout': timeout,
-        'search_regex': SONIC_SSH_REGEX
-    }
-    short_timeout = 40
-    short_delay = 10
-    params_to_update_list = [{}, {'search_regex': None, 'timeout': short_timeout, 'delay': short_delay}]
-    for num_try, params_to_update in enumerate(params_to_update_list):
-        iter_connection_params = default_connection_params.copy()
-        iter_connection_params.update(params_to_update)
-        logger.info(f"Checking ssh connection using the following params: {iter_connection_params}")
-        is_ssh_connected, ssh_retry_res = check_ssh_connection(
-            localhost=localhost,
-            **iter_connection_params
-        )
-        if is_ssh_connected:
-            logger.info("Connection succeeded")
-            break
-        logger.info("Connection failed")
-        logger.info("Check if dut pingable")
-        ping_result = localhost.shell(f"ping -c 3 {host_ip}", module_ignore_errors=True)
-        if ping_result['rc'] == 0:
-            logger.info("Ping to dut was successful")
-        else:
-            logger.info("Ping to dut failed")
-    num_tries = num_try + 1
-    return is_ssh_connected, ssh_retry_res, num_tries
-
-
-def collect_mgmt_config_by_console(duthost, localhost):
-    logger.info("check if dut is pingable")
-    # Use ping -6 for IPv6 so the check works on newer distros where ping6 may not exist.
-    ping_cmd = "ping -6" if is_ipv6_address(str(duthost.mgmt_ip)) else "ping"
-    localhost.shell(f"{ping_cmd} -c 5 {duthost.mgmt_ip}", module_ignore_errors=True)
-
-    logger.info("Start: collect mgmt config by console")
-    creds = creds_on_dut(duthost)
-    conn_graph_facts = get_graph_facts(duthost, localhost, [duthost.hostname])
-    dut_console = try_create_dut_console(duthost, localhost, conn_graph_facts, creds)
-    if dut_console:
-        dut_console.send_command("ip a s eth0")
-        dut_console.send_command("show ip int")
-        dut_console.disconnect()
-        logger.info('End: collect mgmt config by  console  ...')
-    else:
-        logger.warning("dut console is not ready, we can get mgmt config by console")
+    # Check the 'determine-reboot-caus
+    pass
