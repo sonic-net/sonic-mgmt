@@ -33,7 +33,8 @@ class LoadExtraDpuConfigModule(object):
                 hostname=dict(type='str', required=True),
                 host_username=dict(type='str', required=True),
                 host_passwords=dict(type='list', elements='str', required=True, no_log=True),
-                npu_index=dict(type='int', required=False, default=0)
+                npu_index=dict(type='int', required=False, default=0),
+                target_dpu_index=dict(type='int', required=False, default=-1)
             ),
             supports_check_mode=False
         )
@@ -43,6 +44,7 @@ class LoadExtraDpuConfigModule(object):
         self.host_username = self.module.params['host_username']
         self.host_passwords = self.module.params['host_passwords']
         self.npu_index = self.module.params['npu_index']
+        self.target_dpu_index = self.module.params['target_dpu_index']
 
         try:
             self.hwsku_config = smartswitch_hwsku_config[self.hwsku]
@@ -110,13 +112,25 @@ class LoadExtraDpuConfigModule(object):
             return False
 
     def configure_dpus(self):
-        """Configure all DPUs based on the hardware SKU configuration"""
+        """Configure all DPUs (or a single DPU if target_dpu_index is set) based on the hardware SKU configuration"""
         if not os.path.isfile(SRC_DPU_CONFIG_FILE):
             self.module.fail_json(msg="DPU config file not found: {}".format(SRC_DPU_CONFIG_FILE))
 
+        # Determine which DPUs to configure
+        if self.target_dpu_index >= 0:
+            if self.target_dpu_index >= self.dpu_num:
+                self.module.fail_json(
+                    msg="target_dpu_index {} is out of range (dpu_num={})".format(
+                        self.target_dpu_index, self.dpu_num))
+            dpu_indices = [self.target_dpu_index]
+            total_to_configure = 1
+        else:
+            dpu_indices = list(range(0, self.dpu_num))
+            total_to_configure = self.dpu_num
+
         success_count = 0
         failure_count = 0
-        required_success_count = int(self.dpu_num * SUCCESS_THRESHOLD)
+        required_success_count = int(total_to_configure * SUCCESS_THRESHOLD)
 
         # Ensure at least 1 success is required when threshold < 1.0
         if SUCCESS_THRESHOLD < 1.0 and required_success_count == 0:
@@ -129,8 +143,8 @@ class LoadExtraDpuConfigModule(object):
                 .format(required_success_count, MAX_RETRIES)
             )
 
-        self.module.log("Configuring {} DPUs, requiring at least {} successful configurations".format(
-            self.dpu_num, required_success_count))
+        self.module.log("Configuring {} DPU(s), requiring at least {} successful configurations".format(
+            total_to_configure, required_success_count))
 
         # Backup the original template before modifications
         self.module.run_command("cp {} {}".format(SRC_DPU_CONFIG_FILE, SRC_DPU_CONFIG_TEMPLATE))
@@ -138,7 +152,7 @@ class LoadExtraDpuConfigModule(object):
         vlan_cfg = smartswitch_vlan_config.get(self.npu_index, smartswitch_vlan_config[0])
         gateway_ip = vlan_cfg["vlan_interface_ip"].split("/")[0]
 
-        for i in range(0, self.dpu_num):
+        for i in dpu_indices:
             # Copy fresh template for each DPU
             self.module.run_command("cp {} {}".format(SRC_DPU_CONFIG_TEMPLATE, SRC_DPU_CONFIG_FILE))
 
@@ -200,15 +214,15 @@ class LoadExtraDpuConfigModule(object):
         self.module.run_command("sudo rm -f {}".format(SRC_DPU_CONFIG_FILE))
         self.module.run_command("sudo rm -f {}".format(SRC_DPU_CONFIG_TEMPLATE))
 
-        self.module.log("Configuration completed: {} successful, {} failed out of {} total DPUs".format(
-            success_count, failure_count, self.dpu_num))
+        self.module.log("Configuration completed: {} successful, {} failed out of {} DPU(s)".format(
+            success_count, failure_count, total_to_configure))
 
         if success_count < required_success_count:
             self.module.fail_json(
                 msg="Failed to meet success threshold: {} successful configs required, "
-                    "but only {} succeeded out of {} DPUs. "
+                    "but only {} succeeded out of {} DPU(s). "
                     "Failures: {}".format(
-                        required_success_count, success_count, self.dpu_num, failure_count))
+                        required_success_count, success_count, total_to_configure, failure_count))
 
         self.module.log("Checking the number of DPUs fully online")
         if not self.wait_for_dpu_count_fully_online(required_success_count):
