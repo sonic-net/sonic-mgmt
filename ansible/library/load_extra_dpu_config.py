@@ -17,6 +17,7 @@ GEN_FULL_CONFIG_CMD = "jq -s '.[0] * .[1]' {} {} > {}".format(
     DEFAULT_CONFIG_FILE, DST_DPU_CONFIG_FILE, DST_FULL_CONFIG_FILE)
 CONFIG_RELOAD_CMD = "sudo config reload {} -y -f".format(DST_FULL_CONFIG_FILE)
 CONFIG_SAVE_CMD = "sudo config save -y"
+CONFIG_SETUP_FACTORY_CMD = "sudo config-setup factory"
 # Need to add retry for Cisco SS since DPU takes longer to admin up
 MAX_RETRIES = 5
 RETRY_DELAY = 60  # sec
@@ -177,6 +178,16 @@ class LoadExtraDpuConfigModule(object):
                 }
             }
 
+            # Override port config for Mellanox SmartSwitch hwskus
+            if self.hwsku.startswith("Mellanox"):
+                if "PORT" in dpu_config:
+                    for port_name in dpu_config["PORT"]:
+                        dpu_config["PORT"][port_name]["autoneg"] = "on"
+                        dpu_config["PORT"][port_name]["speed"] = "400000"
+                        dpu_config["PORT"][port_name]["index"] = "1"
+                        dpu_config["PORT"][port_name]["role"] = "Dpc"
+                        dpu_config["PORT"][port_name]["subport"] = "0"
+
             with open(SRC_DPU_CONFIG_FILE, 'w') as f:
                 json.dump(dpu_config, f, indent=4)
 
@@ -192,9 +203,19 @@ class LoadExtraDpuConfigModule(object):
 
             try:
                 # Attempt each step and track success
-                if (self.transfer_to_dpu(ssh, dpu_ip) and
-                        self.wait_for_dpu_path(ssh, dpu_ip, DEFAULT_CONFIG_FILE) and
-                        self.execute_command(ssh, dpu_ip, GEN_FULL_CONFIG_CMD) and
+                if not self.transfer_to_dpu(ssh, dpu_ip):
+                    failure_count += 1
+                    self.module.warn("Failed to configure DPU {} at {}".format(i + 1, dpu_ip))
+                    continue
+
+                # Run config-setup factory to generate factory default config_db.json
+                self.module.log("Running config-setup factory on DPU {}".format(dpu_ip))
+                if not self.execute_command(ssh, dpu_ip, CONFIG_SETUP_FACTORY_CMD):
+                    failure_count += 1
+                    self.module.warn("Failed to configure DPU {} at {}".format(i + 1, dpu_ip))
+                    continue
+
+                if (self.execute_command(ssh, dpu_ip, GEN_FULL_CONFIG_CMD) and
                         self.execute_command(ssh, dpu_ip, CONFIG_RELOAD_CMD) and
                         self.execute_command(ssh, dpu_ip, CONFIG_SAVE_CMD) and
                         self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_DPU_CONFIG_FILE)) and
