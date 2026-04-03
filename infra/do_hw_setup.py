@@ -985,7 +985,7 @@ def sonic_install(args, index):
     if rc:
         raise RuntimeError("Error when trying to install the image via sonic-installer. Please check logs.")
 
-    rc = reboot_all_DUTs(testbed)
+    rc = reboot_all_DUTs(testbed, username=username, password=password)
     if rc:
         raise RuntimeError(f"Rebooting DUTs failed. Please check logs.")
 
@@ -1257,7 +1257,7 @@ def execute_cmd_on_dut(bastion_host, bastion_user, bastion_key,
         sock_channel.close()
     return stdout_read, stderr_read, return_code
 
-def reboot_all_DUTs(testbed, wait_seconds_for_reboot=60*5):
+def reboot_all_DUTs(testbed, username=DUT_USERNAME, password=DUT_PASSWORD, wait_seconds_for_reboot=60*5):
     """
     send `sudo reboot` on all DuTs in parallel then sleep some time (5 min by default)
     """
@@ -1273,8 +1273,8 @@ def reboot_all_DUTs(testbed, wait_seconds_for_reboot=60*5):
         "bastion_host": testbed_info_dict["ucs_host_name"],
         "bastion_user": testbed_info_dict["ucs_username"],
         "bastion_key": testbed_info_dict["ucs_password"],
-        "dut_username": DUT_USERNAME,
-        "dut_ssh_password": DUT_PASSWORD,
+        "dut_username": username,
+        "dut_ssh_password": password,
         "cmd": "nohup sudo -n reboot >/dev/null 2>&1 &",
         "timeout": 60,
     }

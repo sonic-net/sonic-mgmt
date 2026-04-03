@@ -658,13 +658,13 @@
             "allure_flag": "false",
             "collect_spytest_flag":"true",
             "sonic_installer_commands":[
-                "sudo rm /image-*/old_config/config_db.json",
-                "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json",
-                "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json",
+                "sudo rm /image-*/old_config/config_db.json || true",
+                "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json || true",
+                "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json || true",
                 "sudo sonic-installer install $image_url -y",
                 "sudo sonic-installer list",
                 "sudo sonic-installer set-next-boot",
-                "sudo rm /etc/sonic/config_db.json"
+                "sudo rm /etc/sonic/config_db.json || true"
             ],
             "optional_run_params": {
                 "optional_params":{
@@ -721,13 +721,13 @@
             "allure_flag": "false",
             "collect_spytest_flag":"true",
             "sonic_installer_commands":[
-                "sudo rm /image-*/old_config/config_db.json",
-                "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json",
-                "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json",
+                "sudo rm /image-*/old_config/config_db.json || true",
+                "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json || true",
+                "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json || true",
                 "sudo sonic-installer install $image_url -y",
                 "sudo sonic-installer list",
                 "sudo sonic-installer set-next-boot",
-                "sudo rm /etc/sonic/config_db.json"
+                "sudo rm /etc/sonic/config_db.json || true"
             ],
             "optional_run_params": {
                 "optional_params":{
@@ -780,13 +780,13 @@
             "logs_folder":"/data/run_logs/",
             "allure_flag": "false",
             "sonic_installer_commands":[
-                "sudo rm /image-*/old_config/config_db.json",
-                "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json",
-                "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json",
+                "sudo rm /image-*/old_config/config_db.json || true",
+                "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json || true",
+                "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json || true",
                 "sudo sonic-installer install $image_url -y",
                 "sudo sonic-installer list",
                 "sudo sonic-installer set-next-boot",
-                "sudo rm /etc/sonic/config_db.json"
+                "sudo rm /etc/sonic/config_db.json || true"
             ]
         },
         "b2b-tu-2-siren3": {
@@ -809,13 +809,13 @@
             "logs_folder":"/data/run_logs/",
             "allure_flag": "false",
             "sonic_installer_commands":[
-                "sudo rm /image-*/old_config/config_db.json",
-                "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json",
-                "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json",
+                "sudo rm /image-*/old_config/config_db.json || true",
+                "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json || true",
+                "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json || true",
                 "sudo sonic-installer install $image_url -y",
                 "sudo sonic-installer list",
                 "sudo sonic-installer set-next-boot",
-                "sudo rm /etc/sonic/config_db.json"
+                "sudo rm /etc/sonic/config_db.json || true"
             ]
         },
         "b2b-tu-2-carib2": {
@@ -838,13 +838,13 @@
             "logs_folder":"/data/run_logs/",
             "allure_flag": "false",
             "sonic_installer_commands":[
-                "sudo rm /image-*/old_config/config_db.json",
-                "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json",
-                "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json",
+                "sudo rm /image-*/old_config/config_db.json || true",
+                "sudo rm /image-*/image-*/persistent_data/etc_sonic/config_db.json || true",
+                "sudo rm /image-*/image-*/persistent_data/etc_sonic/old_config/config_db.json || true",
                 "sudo sonic-installer install $image_url -y",
                 "sudo sonic-installer list",
                 "sudo sonic-installer set-next-boot",
-                "sudo rm /etc/sonic/config_db.json"
+                "sudo rm /etc/sonic/config_db.json || true"
             ]
         },
         "b2b-m3-2-m64": {
