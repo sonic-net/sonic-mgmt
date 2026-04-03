@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 
 # ---- Constants ----
 BGP_AGGREGATE_ADDRESS = "BGP_AGGREGATE_ADDRESS"
+PLACEHOLDER_PREFIX = "192.0.2.0/32"
 
 # Convergence wait times
 ROUTE_PROPAGATION_WAIT = 10
