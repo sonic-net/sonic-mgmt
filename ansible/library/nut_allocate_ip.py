@@ -97,10 +97,10 @@ EXAMPLES = '''
                     },
                 }
             },
-            "device_vlan_range": {
-                "VlanRange": "201-980,1041-1100"
+            "device_vlan_list": {
+                ...
             },
-            "device_vlan_port": {
+            "device_port_vlans": {
                 ...
                 "Ethernet44": {
                   "vlanids": "801-860",
@@ -539,8 +539,7 @@ class L2SnakeVlanAllocator():
 
         # L2 snake specific outputs
         self.device_vlans = {}
-        self.device_vlan_range = {}
-        self.device_vlan_port = {}
+        self.device_port_vlans = {}
         self.device_vlan_list = {}
         self.device_vrfs = {}
         self.device_conn = {}
@@ -561,14 +560,6 @@ class L2SnakeVlanAllocator():
         for tg in tgs:
             self.device_meta[tg]['type'] = 'Server'
 
-    def _trace_chain_global(self, duts, tg_set, vlan_base):
-        """Trace all L2 snake chains across the whole testbed in lockstep."""
-        dut_ports = self._classify_ports(duts, tg_set)
-        tx_ports, rx_ports = self._split_global_tgen_ports(duts, dut_ports)
-        chains = self._build_chains(tx_ports)
-        self._walk_chains(chains, dut_ports, set(rx_ports))
-        self._assign_vlan_outputs(duts, chains, vlan_base)
-
     def _initialize_device_facts(self, duts):
         """Initialize per-device outputs so all DUTs return deterministic facts."""
         for dut in duts:
@@ -577,8 +568,7 @@ class L2SnakeVlanAllocator():
             self.device_vrfs[dut] = {}
             self.device_conn[dut] = self.device_port_links[dut]
             self.device_vlans[dut] = {}
-            self.device_vlan_range[dut] = []
-            self.device_vlan_port[dut] = {}
+            self.device_port_vlans[dut] = {}
             self.device_vlan_list[dut] = []
 
     def _classify_ports(self, duts, tg_set):
@@ -623,6 +613,14 @@ class L2SnakeVlanAllocator():
 
         self._validate_tgen_port_count(global_tgen_ports)
         return dut_ports
+
+    def _trace_chain_global(self, duts, tg_set, vlan_base):
+        """Trace all L2 snake chains across the whole testbed in lockstep."""
+        dut_ports = self._classify_ports(duts, tg_set)
+        tx_ports, rx_ports = self._split_global_tgen_ports(duts, dut_ports)
+        chains = self._build_chains(tx_ports)
+        self._walk_chains(chains, dut_ports, set(rx_ports))
+        self._assign_vlan_outputs(duts, chains, vlan_base)
 
     def _validate_tgen_port_count(self, global_tgen_ports):
         if len(global_tgen_ports) < 2:
@@ -791,13 +789,12 @@ class L2SnakeVlanAllocator():
                     f"cannot assign to VLAN {vlan_id}."
                 )
             port_vlan_assignment[port_key] = vlan_id
-            self.device_vlan_port[dut][port] = {
+            self.device_port_vlans[dut][port] = {
                 'vlanlist': [vlan_id],
                 'mode': 'Access',
             }
 
         self.device_vlan_list[dut].append(vlan_id)
-        self.device_vlan_range[dut].append(str(vlan_id))
         return {
             'vlan_id': vlan_id,
             'ports': ports,
@@ -846,12 +843,10 @@ def main():
         # Add L2 snake specific facts if available
         if hasattr(device_config_gen, 'device_vlans'):
             facts['device_vlans'] = device_config_gen.device_vlans
-        if hasattr(device_config_gen, 'device_vlan_range'):
-            facts['device_vlan_range'] = device_config_gen.device_vlan_range
-        if hasattr(device_config_gen, 'device_vlan_port'):
-            facts['device_vlan_port'] = device_config_gen.device_vlan_port
         if hasattr(device_config_gen, 'device_vlan_list'):
             facts['device_vlan_list'] = device_config_gen.device_vlan_list
+        if hasattr(device_config_gen, 'device_port_vlans'):
+            facts['device_port_vlans'] = device_config_gen.device_port_vlans
         if hasattr(device_config_gen, 'device_vrfs'):
             facts['device_vrfs'] = device_config_gen.device_vrfs
         if hasattr(device_config_gen, 'device_conn'):

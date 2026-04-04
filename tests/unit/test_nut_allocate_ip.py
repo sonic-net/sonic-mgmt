@@ -65,9 +65,9 @@ def test_single_dut_l2_snake_keeps_existing_behavior():
         ],
     }
 
-    assert allocator.device_vlan_range['dut1'] == ['1001', '1002']
-    assert allocator.device_vlan_port['dut1'] == expected_vlan_port
-    assert not hasattr(allocator, 'device_port_vlans')
+    assert allocator.device_port_vlans['dut1'] == expected_vlan_port
+    assert not hasattr(allocator, 'device_vlan_range')
+    assert not hasattr(allocator, 'device_vlan_port')
     assert allocator.device_vlan_list['dut1'] == [1001, 1002]
     assert allocator.device_vlans['dut1'] == expected_vlans
 
@@ -179,8 +179,8 @@ def test_multi_device_l2_snake_supports_two_parallel_chains_with_eight_crossings
         2002, 2003, 2006, 2007, 2010, 2011, 2014, 2015,
         2018, 2019, 2022, 2023, 2026, 2027, 2030, 2031,
     ]
-    assert allocator.device_vlan_range['dut1'] == [str(vlan) for vlan in allocator.device_vlan_list['dut1']]
-    assert allocator.device_vlan_range['dut2'] == [str(vlan) for vlan in allocator.device_vlan_list['dut2']]
+    assert allocator.device_port_vlans['dut1']['Ethernet0'] == {'vlanlist': [2001], 'mode': 'Access'}
+    assert allocator.device_port_vlans['dut2']['Ethernet0'] == {'vlanlist': [2002], 'mode': 'Access'}
 
     assert allocator.device_vlans['dut1'] == {
         'vlans': [
