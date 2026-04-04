@@ -26,7 +26,7 @@
   duts:
     - vnut-l2snk-01
   tgs:
-    - vnut-l2snk-tg
+    - vnut-l2msnk-tg
   tg_api_server: 10.250.0.221:443
   auto_recover: 'True'
 
@@ -36,9 +36,9 @@
   topo: nut-l2-snake
   test_tags: []
   duts:
-    - vnut-l2snk-d1
-    - vnut-l2snk-d2
+    - vnut-l2msnk-01
+    - vnut-l2msnk-02
   tgs:
-    - vnut-l2snk-tg
+    - vnut-l2msnk-tg
   tg_api_server: 10.250.0.221:443
   auto_recover: 'True'

@@ -52,22 +52,24 @@ def test_single_dut_l2_snake_keeps_existing_behavior():
 
     allocator.run()
 
-    assert allocator.device_vlan_list['dut1'] == [1001, 1002]
-    assert allocator.device_port_vlans['dut1'] == {
+    expected_vlan_port = {
         'Ethernet0': {'vlanlist': [1001], 'mode': 'Access'},
         'Ethernet4': {'vlanlist': [1001], 'mode': 'Access'},
         'Ethernet8': {'vlanlist': [1002], 'mode': 'Access'},
         'Ethernet12': {'vlanlist': [1002], 'mode': 'Access'},
     }
-    assert allocator.device_vlans['dut1']['chains'] == [{
-        'chain_id': 0,
-        'tx_port': 'Ethernet0',
-        'rx_port': 'Ethernet12',
-        'vlan_pairs': [
+    expected_vlans = {
+        'vlans': [
             {'vlan_id': 1001, 'ports': ['Ethernet0', 'Ethernet4']},
             {'vlan_id': 1002, 'ports': ['Ethernet8', 'Ethernet12']},
         ],
-    }]
+    }
+
+    assert allocator.device_vlan_range['dut1'] == ['1001', '1002']
+    assert allocator.device_vlan_port['dut1'] == expected_vlan_port
+    assert allocator.device_port_vlans['dut1'] == expected_vlan_port
+    assert allocator.device_vlan_list['dut1'] == [1001, 1002]
+    assert allocator.device_vlans['dut1'] == expected_vlans
 
 
 def _build_dual_dut_two_chain_links():
@@ -177,71 +179,49 @@ def test_multi_device_l2_snake_supports_two_parallel_chains_with_eight_crossings
         2002, 2003, 2006, 2007, 2010, 2011, 2014, 2015,
         2018, 2019, 2022, 2023, 2026, 2027, 2030, 2031,
     ]
+    assert allocator.device_vlan_range['dut1'] == [str(vlan) for vlan in allocator.device_vlan_list['dut1']]
+    assert allocator.device_vlan_range['dut2'] == [str(vlan) for vlan in allocator.device_vlan_list['dut2']]
 
-    assert allocator.device_vlans['dut1']['chains'] == [
-        {
-            'chain_id': 0,
-            'tx_port': 'Ethernet0',
-            'rx_port': 'Ethernet64',
-            'vlan_pairs': [
-                {'vlan_id': 2001, 'ports': ['Ethernet0', 'Ethernet4']},
-                {'vlan_id': 2004, 'ports': ['Ethernet8', 'Ethernet12']},
-                {'vlan_id': 2005, 'ports': ['Ethernet16', 'Ethernet20']},
-                {'vlan_id': 2008, 'ports': ['Ethernet24', 'Ethernet28']},
-                {'vlan_id': 2009, 'ports': ['Ethernet32', 'Ethernet36']},
-                {'vlan_id': 2012, 'ports': ['Ethernet40', 'Ethernet44']},
-                {'vlan_id': 2013, 'ports': ['Ethernet48', 'Ethernet52']},
-                {'vlan_id': 2016, 'ports': ['Ethernet56', 'Ethernet64']},
-            ],
-        },
-        {
-            'chain_id': 1,
-            'tx_port': 'Ethernet60',
-            'rx_port': 'Ethernet124',
-            'vlan_pairs': [
-                {'vlan_id': 2017, 'ports': ['Ethernet60', 'Ethernet68']},
-                {'vlan_id': 2020, 'ports': ['Ethernet72', 'Ethernet76']},
-                {'vlan_id': 2021, 'ports': ['Ethernet80', 'Ethernet84']},
-                {'vlan_id': 2024, 'ports': ['Ethernet88', 'Ethernet92']},
-                {'vlan_id': 2025, 'ports': ['Ethernet96', 'Ethernet100']},
-                {'vlan_id': 2028, 'ports': ['Ethernet104', 'Ethernet108']},
-                {'vlan_id': 2029, 'ports': ['Ethernet112', 'Ethernet116']},
-                {'vlan_id': 2032, 'ports': ['Ethernet120', 'Ethernet124']},
-            ],
-        },
-    ]
-    assert allocator.device_vlans['dut2']['chains'] == [
-        {
-            'chain_id': 0,
-            'tx_port': None,
-            'rx_port': None,
-            'vlan_pairs': [
-                {'vlan_id': 2002, 'ports': ['Ethernet0', 'Ethernet4']},
-                {'vlan_id': 2003, 'ports': ['Ethernet8', 'Ethernet12']},
-                {'vlan_id': 2006, 'ports': ['Ethernet16', 'Ethernet20']},
-                {'vlan_id': 2007, 'ports': ['Ethernet24', 'Ethernet28']},
-                {'vlan_id': 2010, 'ports': ['Ethernet32', 'Ethernet36']},
-                {'vlan_id': 2011, 'ports': ['Ethernet40', 'Ethernet44']},
-                {'vlan_id': 2014, 'ports': ['Ethernet48', 'Ethernet52']},
-                {'vlan_id': 2015, 'ports': ['Ethernet56', 'Ethernet60']},
-            ],
-        },
-        {
-            'chain_id': 1,
-            'tx_port': None,
-            'rx_port': None,
-            'vlan_pairs': [
-                {'vlan_id': 2018, 'ports': ['Ethernet64', 'Ethernet68']},
-                {'vlan_id': 2019, 'ports': ['Ethernet72', 'Ethernet76']},
-                {'vlan_id': 2022, 'ports': ['Ethernet80', 'Ethernet84']},
-                {'vlan_id': 2023, 'ports': ['Ethernet88', 'Ethernet92']},
-                {'vlan_id': 2026, 'ports': ['Ethernet96', 'Ethernet100']},
-                {'vlan_id': 2027, 'ports': ['Ethernet104', 'Ethernet108']},
-                {'vlan_id': 2030, 'ports': ['Ethernet112', 'Ethernet116']},
-                {'vlan_id': 2031, 'ports': ['Ethernet120', 'Ethernet124']},
-            ],
-        },
-    ]
+    assert allocator.device_vlans['dut1'] == {
+        'vlans': [
+            {'vlan_id': 2001, 'ports': ['Ethernet0', 'Ethernet4']},
+            {'vlan_id': 2004, 'ports': ['Ethernet8', 'Ethernet12']},
+            {'vlan_id': 2005, 'ports': ['Ethernet16', 'Ethernet20']},
+            {'vlan_id': 2008, 'ports': ['Ethernet24', 'Ethernet28']},
+            {'vlan_id': 2009, 'ports': ['Ethernet32', 'Ethernet36']},
+            {'vlan_id': 2012, 'ports': ['Ethernet40', 'Ethernet44']},
+            {'vlan_id': 2013, 'ports': ['Ethernet48', 'Ethernet52']},
+            {'vlan_id': 2016, 'ports': ['Ethernet56', 'Ethernet64']},
+            {'vlan_id': 2017, 'ports': ['Ethernet60', 'Ethernet68']},
+            {'vlan_id': 2020, 'ports': ['Ethernet72', 'Ethernet76']},
+            {'vlan_id': 2021, 'ports': ['Ethernet80', 'Ethernet84']},
+            {'vlan_id': 2024, 'ports': ['Ethernet88', 'Ethernet92']},
+            {'vlan_id': 2025, 'ports': ['Ethernet96', 'Ethernet100']},
+            {'vlan_id': 2028, 'ports': ['Ethernet104', 'Ethernet108']},
+            {'vlan_id': 2029, 'ports': ['Ethernet112', 'Ethernet116']},
+            {'vlan_id': 2032, 'ports': ['Ethernet120', 'Ethernet124']},
+        ],
+    }
+    assert allocator.device_vlans['dut2'] == {
+        'vlans': [
+            {'vlan_id': 2002, 'ports': ['Ethernet0', 'Ethernet4']},
+            {'vlan_id': 2003, 'ports': ['Ethernet8', 'Ethernet12']},
+            {'vlan_id': 2006, 'ports': ['Ethernet16', 'Ethernet20']},
+            {'vlan_id': 2007, 'ports': ['Ethernet24', 'Ethernet28']},
+            {'vlan_id': 2010, 'ports': ['Ethernet32', 'Ethernet36']},
+            {'vlan_id': 2011, 'ports': ['Ethernet40', 'Ethernet44']},
+            {'vlan_id': 2014, 'ports': ['Ethernet48', 'Ethernet52']},
+            {'vlan_id': 2015, 'ports': ['Ethernet56', 'Ethernet60']},
+            {'vlan_id': 2018, 'ports': ['Ethernet64', 'Ethernet68']},
+            {'vlan_id': 2019, 'ports': ['Ethernet72', 'Ethernet76']},
+            {'vlan_id': 2022, 'ports': ['Ethernet80', 'Ethernet84']},
+            {'vlan_id': 2023, 'ports': ['Ethernet88', 'Ethernet92']},
+            {'vlan_id': 2026, 'ports': ['Ethernet96', 'Ethernet100']},
+            {'vlan_id': 2027, 'ports': ['Ethernet104', 'Ethernet108']},
+            {'vlan_id': 2030, 'ports': ['Ethernet112', 'Ethernet116']},
+            {'vlan_id': 2031, 'ports': ['Ethernet120', 'Ethernet124']},
+        ],
+    }
 
 
 def test_single_dut_l2_snake_traces_parallel_chains_in_lockstep():
@@ -273,28 +253,16 @@ def test_single_dut_l2_snake_traces_parallel_chains_in_lockstep():
 
     allocator.run()
 
-    assert allocator.device_vlans['dut1']['chains'] == [
-        {
-            'chain_id': 0,
-            'tx_port': 'Ethernet0',
-            'rx_port': 'Ethernet40',
-            'vlan_pairs': [
-                {'vlan_id': 4001, 'ports': ['Ethernet0', 'Ethernet8']},
-                {'vlan_id': 4002, 'ports': ['Ethernet12', 'Ethernet24']},
-                {'vlan_id': 4003, 'ports': ['Ethernet28', 'Ethernet40']},
-            ],
-        },
-        {
-            'chain_id': 1,
-            'tx_port': 'Ethernet4',
-            'rx_port': 'Ethernet44',
-            'vlan_pairs': [
-                {'vlan_id': 4004, 'ports': ['Ethernet4', 'Ethernet16']},
-                {'vlan_id': 4005, 'ports': ['Ethernet20', 'Ethernet32']},
-                {'vlan_id': 4006, 'ports': ['Ethernet36', 'Ethernet44']},
-            ],
-        },
-    ]
+    assert allocator.device_vlans['dut1'] == {
+        'vlans': [
+            {'vlan_id': 4001, 'ports': ['Ethernet0', 'Ethernet8']},
+            {'vlan_id': 4002, 'ports': ['Ethernet12', 'Ethernet24']},
+            {'vlan_id': 4003, 'ports': ['Ethernet28', 'Ethernet40']},
+            {'vlan_id': 4004, 'ports': ['Ethernet4', 'Ethernet16']},
+            {'vlan_id': 4005, 'ports': ['Ethernet20', 'Ethernet32']},
+            {'vlan_id': 4006, 'ports': ['Ethernet36', 'Ethernet44']},
+        ],
+    }
 
 
 def test_multi_device_tgen_split_is_done_per_dut():
@@ -327,21 +295,15 @@ def test_multi_device_tgen_split_is_done_per_dut():
 
     allocator.run()
 
-    assert allocator.device_vlans['dut1']['chains'] == [{
-        'chain_id': 0,
-        'tx_port': 'Ethernet0',
-        'rx_port': 'Ethernet12',
-        'vlan_pairs': [
+    assert allocator.device_vlans['dut1'] == {
+        'vlans': [
             {'vlan_id': 3001, 'ports': ['Ethernet0', 'Ethernet4']},
             {'vlan_id': 3002, 'ports': ['Ethernet8', 'Ethernet12']},
         ],
-    }]
-    assert allocator.device_vlans['dut2']['chains'] == [{
-        'chain_id': 1,
-        'tx_port': 'Ethernet0',
-        'rx_port': 'Ethernet12',
-        'vlan_pairs': [
+    }
+    assert allocator.device_vlans['dut2'] == {
+        'vlans': [
             {'vlan_id': 3003, 'ports': ['Ethernet0', 'Ethernet4']},
             {'vlan_id': 3004, 'ports': ['Ethernet8', 'Ethernet12']},
         ],
-    }]
+    }

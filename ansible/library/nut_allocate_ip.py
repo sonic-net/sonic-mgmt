@@ -539,8 +539,10 @@ class L2SnakeVlanAllocator():
 
         # L2 snake specific outputs
         self.device_vlans = {}
+        self.device_vlan_range = {}
+        self.device_vlan_port = {}
         self.device_vlan_list = {}
-        self.device_port_vlans = {}
+        self.device_port_vlans = self.device_vlan_port
         self.device_vrfs = {}
         self.device_conn = {}
 
@@ -554,30 +556,34 @@ class L2SnakeVlanAllocator():
         tgs = self.testbed_facts['tgs']
         tg_set = set(tgs)
 
-        # Initialize per-device facts up front so disconnected or transit-only
-        # DUTs still get deterministic empty outputs.
+        self._initialize_device_facts(duts)
+        self._trace_chain_global(duts, tg_set, vlan_base)
+
+        for tg in tgs:
+            self.device_meta[tg]['type'] = 'Server'
+
+    def _trace_chain_global(self, duts, tg_set, vlan_base):
+        """Trace all L2 snake chains across the whole testbed in lockstep."""
+        dut_ports = self._classify_ports(duts, tg_set)
+        tx_ports, rx_ports = self._split_global_tgen_ports(duts, dut_ports)
+        chains = self._build_chains(tx_ports)
+        self._walk_chains(chains, dut_ports, set(rx_ports))
+        self._assign_vlan_outputs(duts, chains, vlan_base)
+
+    def _initialize_device_facts(self, duts):
+        """Initialize per-device outputs so all DUTs return deterministic facts."""
         for dut in duts:
             self.device_meta[dut]['type'] = self.device_info[dut].get('Type', 'ToRRouter')
             self.device_interfaces[dut] = {}
             self.device_vrfs[dut] = {}
             self.device_conn[dut] = self.device_port_links[dut]
-            self.device_vlans[dut] = {'chains': []}
+            self.device_vlans[dut] = {}
+            self.device_vlan_range[dut] = []
+            self.device_vlan_port[dut] = {}
             self.device_vlan_list[dut] = []
-            self.device_port_vlans[dut] = {}
-
-        self._trace_chains_global(duts, tg_set, vlan_base)
-
-        # Set TG device meta
-        for tg in tgs:
-            self.device_meta[tg]['type'] = 'Server'
 
     def _classify_ports(self, duts, tg_set):
-        """Build global link metadata for L2 snake tracing.
-
-        Returns a dictionary keyed by DUT with naturally sorted local ports and
-        maps for loopback/inter-DUT transitions, plus a global ordered list of
-        TG-connected ports used to derive TX/RX chain endpoints.
-        """
+        """Build global link metadata for L2 snake tracing."""
         dut_set = set(duts)
         dut_ports = {}
         global_tgen_ports = []
@@ -616,6 +622,10 @@ class L2SnakeVlanAllocator():
                 'tgen_ports': tgen_ports,
             }
 
+        self._validate_tgen_port_count(global_tgen_ports)
+        return dut_ports
+
+    def _validate_tgen_port_count(self, global_tgen_ports):
         if len(global_tgen_ports) < 2:
             raise ValueError(
                 f"L2 snake requires at least 2 TG-connected ports across the testbed, found {len(global_tgen_ports)}."
@@ -627,15 +637,87 @@ class L2SnakeVlanAllocator():
                 f"but found {len(global_tgen_ports)}."
             )
 
-        return dut_ports, global_tgen_ports
+    def _split_global_tgen_ports(self, duts, dut_ports):
+        """Split TG-connected ports into global TX/RX lists using per-DUT halves."""
+        tx_ports = []
+        rx_ports = []
+
+        for dut in duts:
+            tgen_ports = dut_ports[dut]['tgen_ports']
+            if not tgen_ports:
+                continue
+
+            if len(tgen_ports) % 2 != 0:
+                raise ValueError(
+                    f"L2 snake requires an even number of TG-connected ports on {dut}, "
+                    f"but found {len(tgen_ports)}."
+                )
+
+            half = len(tgen_ports) // 2
+            tx_ports.extend((dut, port) for port in tgen_ports[:half])
+            rx_ports.extend((dut, port) for port in tgen_ports[half:])
+
+        return tx_ports, rx_ports
+
+    def _build_chains(self, tx_ports):
+        chains = []
+        for chain_id, tx_node in enumerate(tx_ports):
+            chains.append({
+                'chain_id': chain_id,
+                'current': tx_node,
+                'pairs': [],
+                'complete': False,
+                'tx_node': tx_node,
+                'rx_node': None,
+            })
+        return chains
+
+    def _walk_chains(self, chains, dut_ports, rx_set):
+        """Advance all chains in lockstep until they reach RX ports."""
+        used = {chain['tx_node'] for chain in chains}
+        max_steps = sum(len(meta['all_ports']) for meta in dut_ports.values())
+
+        for _step in range(max_steps):
+            progressed = False
+            for chain in chains:
+                if chain['complete']:
+                    continue
+
+                current_dut, current_port = chain['current']
+                partner = self._find_next_local_partner(current_dut, current_port, used, dut_ports, rx_set)
+                if partner is None:
+                    raise ValueError(
+                        f"Chain {chain['chain_id']} dead end at {current_dut}:{current_port}: "
+                        "no available port forward in natsorted order on the same DUT."
+                    )
+
+                used.add(partner)
+                chain['pairs'].append({
+                    'dut': current_dut,
+                    'ports': [current_port, partner[1]],
+                })
+                progressed = True
+
+                next_node, complete = self._get_transition_port(chain['chain_id'], partner, used, dut_ports, rx_set)
+                if complete:
+                    chain['complete'] = True
+                    chain['rx_node'] = partner
+                    continue
+
+                used.add(next_node)
+                chain['current'] = next_node
+
+            if all(chain['complete'] for chain in chains):
+                break
+            if not progressed:
+                break
+
+        for chain in chains:
+            if not chain['complete']:
+                raise ValueError(f"Chain {chain['chain_id']} did not reach an RX port.")
 
     def _find_next_local_partner(self, dut, current_port, used, dut_ports, rx_set):
-        """Find the next unused partner port on the same DUT.
-
-        The snake always moves forward in natural port order within a DUT.
-        Prefer non-RX ports when available so parallel chains do not terminate
-        prematurely on RX ports that belong to later rounds.
-        """
+        """Find the next unused partner port on the same DUT."""
         all_ports = dut_ports[dut]['all_ports']
         current_idx = dut_ports[dut]['port_index'][current_port]
         rx_candidate = None
@@ -680,89 +762,7 @@ class L2SnakeVlanAllocator():
 
         return next_node, False
 
-    def _split_global_tgen_ports(self, duts, dut_ports):
-        """Split TG-connected ports into global TX/RX lists using per-DUT halves."""
-        tx_ports = []
-        rx_ports = []
-
-        for dut in duts:
-            tgen_ports = dut_ports[dut]['tgen_ports']
-            if not tgen_ports:
-                continue
-
-            if len(tgen_ports) % 2 != 0:
-                raise ValueError(
-                    f"L2 snake requires an even number of TG-connected ports on {dut}, "
-                    f"but found {len(tgen_ports)}."
-                )
-
-            half = len(tgen_ports) // 2
-            tx_ports.extend((dut, port) for port in tgen_ports[:half])
-            rx_ports.extend((dut, port) for port in tgen_ports[half:])
-
-        return tx_ports, rx_ports
-
-    def _trace_chains_global(self, duts, tg_set, vlan_base):
-        """Trace all L2 snake chains across the whole testbed in lockstep."""
-        dut_ports, _ = self._classify_ports(duts, tg_set)
-
-        tx_ports, rx_ports = self._split_global_tgen_ports(duts, dut_ports)
-        rx_set = set(rx_ports)
-
-        # Reserve TX ports immediately; RX ports remain available so chains can
-        # terminate on them.
-        used = set(tx_ports)
-        chains = []
-        for chain_id, tx_node in enumerate(tx_ports):
-            chains.append({
-                'chain_id': chain_id,
-                'current': tx_node,
-                'pairs': [],
-                'complete': False,
-                'tx_node': tx_node,
-                'rx_node': None,
-            })
-
-        max_steps = sum(len(meta['all_ports']) for meta in dut_ports.values())
-        for _step in range(max_steps):
-            progressed = False
-            for chain in chains:
-                if chain['complete']:
-                    continue
-
-                current_dut, current_port = chain['current']
-                partner = self._find_next_local_partner(current_dut, current_port, used, dut_ports, rx_set)
-                if partner is None:
-                    raise ValueError(
-                        f"Chain {chain['chain_id']} dead end at {current_dut}:{current_port}: "
-                        "no available port forward in natsorted order on the same DUT."
-                    )
-
-                used.add(partner)
-                chain['pairs'].append({
-                    'dut': current_dut,
-                    'ports': [current_port, partner[1]],
-                })
-                progressed = True
-
-                next_node, complete = self._get_transition_port(chain['chain_id'], partner, used, dut_ports, rx_set)
-                if complete:
-                    chain['complete'] = True
-                    chain['rx_node'] = partner
-                    continue
-
-                used.add(next_node)
-                chain['current'] = next_node
-
-            if all(chain['complete'] for chain in chains):
-                break
-            if not progressed:
-                break
-
-        for chain in chains:
-            if not chain['complete']:
-                raise ValueError(f"Chain {chain['chain_id']} did not reach an RX port.")
-
+    def _assign_vlan_outputs(self, duts, chains, vlan_base):
         total_vlans = sum(len(chain['pairs']) for chain in chains)
         if total_vlans == 0:
             raise ValueError("L2 snake tracing produced no VLAN pairs.")
@@ -773,63 +773,48 @@ class L2SnakeVlanAllocator():
             )
 
         port_vlan_assignment = {}
+        chain_views = defaultdict(list)
         vlan_id = vlan_base
-        per_dut_chains = defaultdict(list)
 
         for chain in chains:
             for pair in chain['pairs']:
                 dut = pair['dut']
                 ports = pair['ports']
-
-                for port in ports:
-                    port_key = (dut, port)
-                    if port_key in port_vlan_assignment:
-                        raise ValueError(
-                            f"Port {dut}:{port} already assigned to VLAN {port_vlan_assignment[port_key]}, "
-                            f"cannot assign to VLAN {vlan_id}."
-                        )
-                    port_vlan_assignment[port_key] = vlan_id
-
-                    self.device_port_vlans[dut][port] = {
-                        'vlanlist': [vlan_id],
-                        'mode': 'Access',
-                    }
-
-                self.device_vlan_list[dut].append(vlan_id)
-                per_dut_chains[dut].append({
-                    'chain_id': chain['chain_id'],
-                    'tx_port': chain['tx_node'][1] if chain['tx_node'][0] == dut else None,
-                    'rx_port': chain['rx_node'][1] if chain['rx_node'] and chain['rx_node'][0] == dut else None,
-                    'vlan_pairs': [{
-                        'vlan_id': vlan_id,
-                        'ports': ports,
-                    }],
-                })
+                vlan_info = self._record_vlan_pair(dut, ports, vlan_id, port_vlan_assignment)
+                chain_views[dut].append(vlan_info)
                 vlan_id += 1
 
-        # Merge local VLAN pairs so each DUT reports one entry per global chain.
         for dut in duts:
-            merged = {}
-            for chain_info in per_dut_chains[dut]:
-                chain_id = chain_info['chain_id']
-                if chain_id not in merged:
-                    merged[chain_id] = {
-                        'chain_id': chain_id,
-                        'tx_port': chain_info['tx_port'],
-                        'rx_port': chain_info['rx_port'],
-                        'vlan_pairs': [],
-                    }
-                else:
-                    if chain_info['tx_port'] is not None:
-                        merged[chain_id]['tx_port'] = chain_info['tx_port']
-                    if chain_info['rx_port'] is not None:
-                        merged[chain_id]['rx_port'] = chain_info['rx_port']
+            self.device_vlans[dut] = self._merge_chain_views(chain_views[dut])
 
-                merged[chain_id]['vlan_pairs'].extend(chain_info['vlan_pairs'])
-
-            self.device_vlans[dut] = {
-                'chains': [merged[key] for key in sorted(merged.keys())]
+    def _record_vlan_pair(self, dut, ports, vlan_id, port_vlan_assignment):
+        for port in ports:
+            port_key = (dut, port)
+            if port_key in port_vlan_assignment:
+                raise ValueError(
+                    f"Port {dut}:{port} already assigned to VLAN {port_vlan_assignment[port_key]}, "
+                    f"cannot assign to VLAN {vlan_id}."
+                )
+            port_vlan_assignment[port_key] = vlan_id
+            self.device_vlan_port[dut][port] = {
+                'vlanlist': [vlan_id],
+                'mode': 'Access',
             }
+
+        self.device_vlan_list[dut].append(vlan_id)
+        self.device_vlan_range[dut].append(str(vlan_id))
+        return {
+            'vlan_id': vlan_id,
+            'ports': ports,
+        }
+
+    def _merge_chain_views(self, vlan_pairs):
+        """Preserve chain details as a compatibility/debug view."""
+        if not vlan_pairs:
+            return {}
+        return {
+            'vlans': vlan_pairs,
+        }
 
 
 def main():
@@ -866,6 +851,10 @@ def main():
         # Add L2 snake specific facts if available
         if hasattr(device_config_gen, 'device_vlans'):
             facts['device_vlans'] = device_config_gen.device_vlans
+        if hasattr(device_config_gen, 'device_vlan_range'):
+            facts['device_vlan_range'] = device_config_gen.device_vlan_range
+        if hasattr(device_config_gen, 'device_vlan_port'):
+            facts['device_vlan_port'] = device_config_gen.device_vlan_port
         if hasattr(device_config_gen, 'device_vlan_list'):
             facts['device_vlan_list'] = device_config_gen.device_vlan_list
         if hasattr(device_config_gen, 'device_port_vlans'):
