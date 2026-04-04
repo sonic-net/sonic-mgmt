@@ -314,7 +314,7 @@ No IP pools, DUT templates, or TG templates are required for the L2 snake alloca
 
 ## 7. Per-DUT VLAN output
 
-The allocator returns per-DUT chain data so deployment can render VLANs locally on each device.
+The allocator returns a per-DUT compatibility/debug view that flattens each DUT's VLAN pairs into a single list.
 
 Example shape:
 
@@ -322,27 +322,13 @@ Example shape:
 {
     "device_vlans": {
         "dut1": {
-            "chains": [
-                {
-                    "chain_id": 0,
-                    "tx_port": "Ethernet0",
-                    "rx_port": None,
-                    "vlan_pairs": [
-                        {"vlan_id": 1001, "ports": ["Ethernet0", "Ethernet4"]}
-                    ]
-                }
+            "vlans": [
+                {"vlan_id": 1001, "ports": ["Ethernet0", "Ethernet4"]}
             ]
         },
         "dut2": {
-            "chains": [
-                {
-                    "chain_id": 0,
-                    "tx_port": None,
-                    "rx_port": "Ethernet8",
-                    "vlan_pairs": [
-                        {"vlan_id": 1002, "ports": ["Ethernet4", "Ethernet8"]}
-                    ]
-                }
+            "vlans": [
+                {"vlan_id": 1002, "ports": ["Ethernet4", "Ethernet8"]}
             ]
         }
     }
@@ -353,8 +339,8 @@ Properties:
 
 - VLAN IDs are globally unique across the testbed.
 - Each DUT only receives the VLAN pairs that terminate on that DUT.
-- `tx_port` and `rx_port` are populated only on the DUT where those endpoints live.
-- A global chain may appear as partial segments on multiple DUTs.
+- Each DUT's `vlans` list is flattened; chain-level metadata such as `chain_id`, `tx_port`, and `rx_port` is not preserved in this view.
+- A global chain may appear as partial VLAN segments on multiple DUTs.
 
 ## 8. `deploy-cfg` flow for L2 snake
 
