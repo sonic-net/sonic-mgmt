@@ -629,20 +629,28 @@ class L2SnakeVlanAllocator():
 
         return dut_ports, global_tgen_ports
 
-    def _find_next_local_partner(self, dut, current_port, used, dut_ports):
+    def _find_next_local_partner(self, dut, current_port, used, dut_ports, rx_set):
         """Find the next unused partner port on the same DUT.
 
         The snake always moves forward in natural port order within a DUT.
+        Prefer non-RX ports when available so parallel chains do not terminate
+        prematurely on RX ports that belong to later rounds.
         """
         all_ports = dut_ports[dut]['all_ports']
         current_idx = dut_ports[dut]['port_index'][current_port]
+        rx_candidate = None
 
         for idx in range(current_idx + 1, len(all_ports)):
             candidate = (dut, all_ports[idx])
-            if candidate not in used:
-                return candidate
+            if candidate in used:
+                continue
+            if candidate in rx_set:
+                if rx_candidate is None:
+                    rx_candidate = candidate
+                continue
+            return candidate
 
-        return None
+        return rx_candidate
 
     def _get_transition_port(self, chain_id, partner_node, used, dut_ports, rx_set):
         """Follow the physical cable attached to a local egress port."""
@@ -716,13 +724,14 @@ class L2SnakeVlanAllocator():
             })
 
         max_steps = sum(len(meta['all_ports']) for meta in dut_ports.values())
-        for chain in chains:
-            for _step in range(max_steps):
+        for _step in range(max_steps):
+            progressed = False
+            for chain in chains:
                 if chain['complete']:
-                    break
+                    continue
 
                 current_dut, current_port = chain['current']
-                partner = self._find_next_local_partner(current_dut, current_port, used, dut_ports)
+                partner = self._find_next_local_partner(current_dut, current_port, used, dut_ports, rx_set)
                 if partner is None:
                     raise ValueError(
                         f"Chain {chain['chain_id']} dead end at {current_dut}:{current_port}: "
@@ -734,16 +743,23 @@ class L2SnakeVlanAllocator():
                     'dut': current_dut,
                     'ports': [current_port, partner[1]],
                 })
+                progressed = True
 
                 next_node, complete = self._get_transition_port(chain['chain_id'], partner, used, dut_ports, rx_set)
                 if complete:
                     chain['complete'] = True
                     chain['rx_node'] = partner
-                    break
+                    continue
 
                 used.add(next_node)
                 chain['current'] = next_node
 
+            if all(chain['complete'] for chain in chains):
+                break
+            if not progressed:
+                break
+
+        for chain in chains:
             if not chain['complete']:
                 raise ValueError(f"Chain {chain['chain_id']} did not reach an RX port.")
 

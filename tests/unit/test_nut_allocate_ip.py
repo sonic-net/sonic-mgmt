@@ -244,6 +244,59 @@ def test_multi_device_l2_snake_supports_two_parallel_chains_with_eight_crossings
     ]
 
 
+def test_single_dut_l2_snake_traces_parallel_chains_in_lockstep():
+    allocator = L2SnakeVlanAllocator(
+        testbed_facts={
+            'topo': {'properties': {'vlan_base': 4001}},
+            'duts': ['dut1'],
+            'tgs': ['tg1'],
+        },
+        device_info={'dut1': {'Type': 'ToRRouter'}},
+        device_port_links={
+            'dut1': {
+                'Ethernet0': {'peerdevice': 'tg1', 'peerport': 'Port1'},
+                'Ethernet4': {'peerdevice': 'tg1', 'peerport': 'Port2'},
+                'Ethernet8': {'peerdevice': 'dut1', 'peerport': 'Ethernet12'},
+                'Ethernet12': {'peerdevice': 'dut1', 'peerport': 'Ethernet8'},
+                'Ethernet16': {'peerdevice': 'dut1', 'peerport': 'Ethernet20'},
+                'Ethernet20': {'peerdevice': 'dut1', 'peerport': 'Ethernet16'},
+                'Ethernet24': {'peerdevice': 'dut1', 'peerport': 'Ethernet28'},
+                'Ethernet28': {'peerdevice': 'dut1', 'peerport': 'Ethernet24'},
+                'Ethernet32': {'peerdevice': 'dut1', 'peerport': 'Ethernet36'},
+                'Ethernet36': {'peerdevice': 'dut1', 'peerport': 'Ethernet32'},
+                'Ethernet40': {'peerdevice': 'tg1', 'peerport': 'Port3'},
+                'Ethernet44': {'peerdevice': 'tg1', 'peerport': 'Port4'},
+            }
+        },
+        device_port_vrfs={},
+    )
+
+    allocator.run()
+
+    assert allocator.device_vlans['dut1']['chains'] == [
+        {
+            'chain_id': 0,
+            'tx_port': 'Ethernet0',
+            'rx_port': 'Ethernet40',
+            'vlan_pairs': [
+                {'vlan_id': 4001, 'ports': ['Ethernet0', 'Ethernet8']},
+                {'vlan_id': 4002, 'ports': ['Ethernet12', 'Ethernet24']},
+                {'vlan_id': 4003, 'ports': ['Ethernet28', 'Ethernet40']},
+            ],
+        },
+        {
+            'chain_id': 1,
+            'tx_port': 'Ethernet4',
+            'rx_port': 'Ethernet44',
+            'vlan_pairs': [
+                {'vlan_id': 4004, 'ports': ['Ethernet4', 'Ethernet16']},
+                {'vlan_id': 4005, 'ports': ['Ethernet20', 'Ethernet32']},
+                {'vlan_id': 4006, 'ports': ['Ethernet36', 'Ethernet44']},
+            ],
+        },
+    ]
+
+
 def test_multi_device_tgen_split_is_done_per_dut():
     allocator = L2SnakeVlanAllocator(
         testbed_facts={
