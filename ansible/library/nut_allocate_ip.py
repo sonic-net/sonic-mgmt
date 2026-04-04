@@ -715,15 +715,12 @@ class L2SnakeVlanAllocator():
                 'rx_node': None,
             })
 
-        max_rounds = sum(len(meta['all_ports']) for meta in dut_ports.values())
-        for _round in range(max_rounds):
-            all_complete = True
-
-            for chain in chains:
+        max_steps = sum(len(meta['all_ports']) for meta in dut_ports.values())
+        for chain in chains:
+            for _step in range(max_steps):
                 if chain['complete']:
-                    continue
+                    break
 
-                all_complete = False
                 current_dut, current_port = chain['current']
                 partner = self._find_next_local_partner(current_dut, current_port, used, dut_ports)
                 if partner is None:
@@ -742,15 +739,11 @@ class L2SnakeVlanAllocator():
                 if complete:
                     chain['complete'] = True
                     chain['rx_node'] = partner
-                    continue
+                    break
 
                 used.add(next_node)
                 chain['current'] = next_node
 
-            if all_complete:
-                break
-
-        for chain in chains:
             if not chain['complete']:
                 raise ValueError(f"Chain {chain['chain_id']} did not reach an RX port.")
 
