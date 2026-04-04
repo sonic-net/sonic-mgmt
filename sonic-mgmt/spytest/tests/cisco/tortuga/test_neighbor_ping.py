@@ -45,7 +45,7 @@ def test_ping_neighbor ():
             v4_ping = 'ping -c 4 ' + ipv4
             v4_ping_output = st.config(dut, v4_ping)
             
-            if "0% packet loss" in str(v4_ping_output.encode('ascii','ignore')):
+            if " 0% packet loss" in str(v4_ping_output.encode('ascii','ignore')):
                 st.log("Ping4 Sucessful", dut)
             else:
                 st.log("Ping4 LLDP Failed, please check the connectivity",dut)
@@ -58,7 +58,7 @@ def test_ping_neighbor ():
             v6_ping = 'ping -v6 -c 4 ' + ipv6
             v6_ping_output = st.config(dut, v6_ping)
 
-            if "0% packet loss" in str(v6_ping_output.encode('ascii','ignore')):
+            if " 0% packet loss" in str(v6_ping_output.encode('ascii','ignore')):
                 st.log("Ping6 Sucessful", dut)
             else:
                 st.log("Ping6 LLDP Failed, please check the connectivity",dut)

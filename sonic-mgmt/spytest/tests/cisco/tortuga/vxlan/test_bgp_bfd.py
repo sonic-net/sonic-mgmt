@@ -41,6 +41,9 @@ def config_static(node, config_domain, add=True):
             config_node(nodes[node], config_list[node][config_domain]['config'], domain)
         else:
             config_node(nodes[node], config_list[node][config_domain]['deconfig'], domain)
+            if (config_domain == 'bgp') and ('leaf' in node):
+                st.wait(2)
+                config_node(nodes[node], config_list[node][config_domain]['deconfig1'], domain)
 
 @pytest.fixture(scope='module', autouse=True)
 def setup_teardown_l3vni():

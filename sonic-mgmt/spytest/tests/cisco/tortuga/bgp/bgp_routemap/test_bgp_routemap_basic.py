@@ -110,7 +110,7 @@ def test_ft_bgp_rmap(setup_teardown_bgp):
     st.wait(2)
 
     cmd = 'show ip route'
-    cmd_output = st.show(nodes['spine0'], cmd)
+    cmd_output = st.config(nodes['spine0'], cmd)
     parsed_output = st.parse_show(nodes['spine0'], cmd, cmd_output, 'show_ip_route.tmpl')
     for path in parsed_output:
         if path['ip_address'] == "134.5.6.0/24":
@@ -128,7 +128,7 @@ def test_ft_bgp_rmap(setup_teardown_bgp):
     st.wait(2)
 
     cmd = 'show ip route'
-    cmd_output = st.show(nodes['spine0'], cmd)
+    cmd_output = st.config(nodes['spine0'], cmd)
     parsed_output = st.parse_show(nodes['spine0'], cmd, cmd_output, 'show_ip_route.tmpl')
     for path in parsed_output:
         if path['ip_address'] == "134.5.6.0/24":
@@ -165,7 +165,7 @@ def test_bgp_route_map_with_community(setup_teardown_bgp):
     common_obj.config_frr(nodes['leaf0'], cmds)
 
     cmd = "vtysh -c 'show bgp ipv4 40.1.1.1/32'"
-    cmd_output = st.show(nodes['leaf0'], cmd)
+    cmd_output = st.config(nodes['leaf0'], cmd)
     parsed_output = st.parse_show(nodes['leaf0'], cmd, cmd_output, 'show_bgp_ipv4_prefix.tmpl')
     for path in parsed_output:
         if path['community'] != '100:100':

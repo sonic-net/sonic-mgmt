@@ -38,6 +38,16 @@ def global_config():
             st.config(device, "docker cp /tmp/vtysh.conf bgp:/etc/frr/vtysh.conf")
             st.config(device, "vtysh -c 'write memory'")
             st.config(device, "docker exec bgp bash -c 'cp /etc/frr/frr.conf /tmp/frr.conf'")
+    yield global_config
+    for device in vars['dut_list']:
+        if st.get_device_type(device) == "sonic":
+            devices.append(device)
+            '''
+            To clear up configs during tests
+            '''
+            config = "sudo config save -y"
+            st.config(device, config, skip_error_check=False, conf=True)
+
 
 
 @pytest.fixture(scope="module", autouse=True)

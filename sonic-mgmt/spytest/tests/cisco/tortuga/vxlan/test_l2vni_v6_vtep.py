@@ -144,13 +144,13 @@ def setup_and_teardown():
 
     # Wait until BGP sessions are up
     cmd = "show ip bgp summary"
-    for i in range(0, 2):
+    for i in range(0, 8):
         is_up = True
         for node, _ in config_list.items():
             cli_output = st.show(nodes[node], cmd, skip_tmpl=True)
             parsed_output = st.parse_show(nodes[node], cmd, cli_output, "show_ip_bgp_summary.tmpl")
             for entry in parsed_output:
-                if not entry['state'].isnumeric():
+                if entry['state'] != '' and not entry['state'].isnumeric():
                     is_up = False
                     break
             else:
@@ -161,7 +161,7 @@ def setup_and_teardown():
             break
         else:
             st.log("BGP session not established on {}. Retrying...".format(node))
-            st.wait(10)
+            st.wait(5)
 
     ###Get TGEN Handles ###
     handles = vxlan_obj.tgen_preconfig({"src_endpoint": {"port" : "T1D3P1", "host_ip": data.t1d3_ip6_addr, "gateway": data.d3t1_ip6_addr, "mac" : data.t1d3_mac_addr },

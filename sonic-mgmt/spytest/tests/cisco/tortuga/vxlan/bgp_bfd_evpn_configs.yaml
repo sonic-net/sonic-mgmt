@@ -188,6 +188,7 @@ leaf0:
         vrf Vrf01
         no vni 1000
         exit
+      deconfig1: |
         no router bgp 65000 vrf Vrf01
         no router bgp 65000
         end
@@ -291,6 +292,7 @@ leaf1:
         vrf Vrf01
         no vni 1000
         exit
+      deconfig1: |
         no router bgp 65001 vrf Vrf01
         no router bgp 65001
         end

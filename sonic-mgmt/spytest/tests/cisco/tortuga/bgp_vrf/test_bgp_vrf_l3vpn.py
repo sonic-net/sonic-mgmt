@@ -101,14 +101,14 @@ def test_bgp_vfr_nbr_reach():
     # Ping Loopback address of BGP neighbour
     cmd = "ping -c 5 192.168.1.1"
     cmd_output = st.config(nodes['leaf0'], cmd)
-    if "0% packet loss" in str(cmd_output.encode('ascii','ignore')):
+    if " 0% packet loss" in str(cmd_output.encode('ascii','ignore')):
         st.log("Ping to spine0 is Sucessful")
     else:
         st.report_fail("test_case_failed", nodes['leaf0'])
 
     cmd = "ping -I Vrf01 -c 5 192.168.1.3"
     cmd_output = st.config(nodes['leaf0'], cmd)
-    if "0% packet loss" in str(cmd_output.encode('ascii','ignore')):
+    if " 0% packet loss" in str(cmd_output.encode('ascii','ignore')):
         st.log("Ping to spine1 is Sucessful")
     else:
         st.report_fail("test_case_failed", nodes['leaf0'])
@@ -410,7 +410,7 @@ def test_bgp_vrf_check_ibgp_vrf_conn():
     # ping loopback addres of leaf1
     cmd = "ping -I Vrf02 -c 5 192.168.1.4"
     cmd_output = st.config(nodes['spine1'], cmd)
-    if "0% packet loss" in str(cmd_output.encode('ascii','ignore')):
+    if " 0% packet loss" in str(cmd_output.encode('ascii','ignore')):
         st.log("Ping to spine1 is Sucessful")
     else:
         st.report_fail("test_case_failed", nodes['spine1'])

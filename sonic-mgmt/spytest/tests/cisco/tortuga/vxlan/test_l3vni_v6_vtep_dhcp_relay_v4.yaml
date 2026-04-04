@@ -180,16 +180,16 @@ leaf0:
         vrf Vrf101
         no vni 5101
         exit-vrf
-        no router bgp 65200 vrf Vrf101 
-        exit
-        exit
-
-      deconfig2: |
         vrf Vrf102
         no vni 5102
         exit-vrf
-        no router bgp 65200 vrf Vrf102
+        end
         exit
+
+      deconfig2: |
+        no router bgp 65200 vrf Vrf101
+        no router bgp 65200 vrf Vrf102
+        end
         exit
 
       deconfig0: |
@@ -299,16 +299,16 @@ leaf1:
         vrf Vrf101
         no vni 5101
         exit-vrf
-        no router bgp 65201 vrf Vrf101
-        exit
-        exit
-
-      deconfig2: |
         vrf Vrf102
         no vni 5102
         exit-vrf
-        no router bgp 65201 vrf Vrf102
+        end
         exit
+
+      deconfig2: |
+        no router bgp 65201 vrf Vrf101
+        no router bgp 65201 vrf Vrf102
+        end
         exit
 
       deconfig0: |

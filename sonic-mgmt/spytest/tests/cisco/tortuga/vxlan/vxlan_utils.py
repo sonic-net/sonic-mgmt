@@ -460,7 +460,8 @@ def config_traffic_item(stream_list, handles, int_dict, data, ping=True, dscp=No
                 st.banner("Ping failed between endpoints for stream {} ".format(item[0]+"<-->"+item[1]))
                 st.report_fail('test_case_failed', "Ping failed between endpoints")
         ### Clear Statistics ###
-        handles[item[0]]["tg_handle"].tg_traffic_control(action="clear_stats", port_handle=[handles[item[0]]["port_handle"], handles[item[1]]["port_handle"]]) 
+        # Clear stats here is not needed here, it will be cleared when do traffic run. Removing it
+        #handles[item[0]]["tg_handle"].tg_traffic_control(action="clear_stats", port_handle=[handles[item[0]]["port_handle"], handles[item[1]]["port_handle"]])
     return traffic_item_dict
 
 def ping_gateway(handles, src_port, gateway_ip, int_handle):
