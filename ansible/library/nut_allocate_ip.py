@@ -672,13 +672,33 @@ class L2SnakeVlanAllocator():
 
         return next_node, False
 
+    def _split_global_tgen_ports(self, duts, dut_ports):
+        """Split TG-connected ports into global TX/RX lists using per-DUT halves."""
+        tx_ports = []
+        rx_ports = []
+
+        for dut in duts:
+            tgen_ports = dut_ports[dut]['tgen_ports']
+            if not tgen_ports:
+                continue
+
+            if len(tgen_ports) % 2 != 0:
+                raise ValueError(
+                    f"L2 snake requires an even number of TG-connected ports on {dut}, "
+                    f"but found {len(tgen_ports)}."
+                )
+
+            half = len(tgen_ports) // 2
+            tx_ports.extend((dut, port) for port in tgen_ports[:half])
+            rx_ports.extend((dut, port) for port in tgen_ports[half:])
+
+        return tx_ports, rx_ports
+
     def _trace_chains_global(self, duts, tg_set, vlan_base):
         """Trace all L2 snake chains across the whole testbed in lockstep."""
-        dut_ports, global_tgen_ports = self._classify_ports(duts, tg_set)
+        dut_ports, _ = self._classify_ports(duts, tg_set)
 
-        half = len(global_tgen_ports) // 2
-        tx_ports = global_tgen_ports[:half]
-        rx_ports = global_tgen_ports[half:]
+        tx_ports, rx_ports = self._split_global_tgen_ports(duts, dut_ports)
         rx_set = set(rx_ports)
 
         # Reserve TX ports immediately; RX ports remain available so chains can

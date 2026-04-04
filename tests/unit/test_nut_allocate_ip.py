@@ -85,10 +85,14 @@ def test_multi_device_l2_snake_traces_across_inter_dut_link():
             'dut1': {
                 'Ethernet0': {'peerdevice': 'tg1', 'peerport': 'Port1'},
                 'Ethernet4': {'peerdevice': 'dut2', 'peerport': 'Ethernet0'},
+                'Ethernet8': {'peerdevice': 'dut2', 'peerport': 'Ethernet12'},
+                'Ethernet16': {'peerdevice': 'tg1', 'peerport': 'Port2'},
             },
             'dut2': {
                 'Ethernet0': {'peerdevice': 'dut1', 'peerport': 'Ethernet4'},
-                'Ethernet4': {'peerdevice': 'tg1', 'peerport': 'Port2'},
+                'Ethernet4': {'peerdevice': 'dut2', 'peerport': 'Ethernet8'},
+                'Ethernet8': {'peerdevice': 'dut2', 'peerport': 'Ethernet4'},
+                'Ethernet12': {'peerdevice': 'dut1', 'peerport': 'Ethernet8'},
             },
         },
         device_port_vrfs={},
@@ -96,29 +100,85 @@ def test_multi_device_l2_snake_traces_across_inter_dut_link():
 
     allocator.run()
 
-    assert allocator.device_vlan_list['dut1'] == [2001]
-    assert allocator.device_vlan_list['dut2'] == [2002]
+    assert allocator.device_vlan_list['dut1'] == [2001, 2004]
+    assert allocator.device_vlan_list['dut2'] == [2002, 2003]
     assert allocator.device_port_vlans['dut1'] == {
         'Ethernet0': {'vlanlist': [2001], 'mode': 'Access'},
         'Ethernet4': {'vlanlist': [2001], 'mode': 'Access'},
+        'Ethernet8': {'vlanlist': [2004], 'mode': 'Access'},
+        'Ethernet16': {'vlanlist': [2004], 'mode': 'Access'},
     }
     assert allocator.device_port_vlans['dut2'] == {
         'Ethernet0': {'vlanlist': [2002], 'mode': 'Access'},
         'Ethernet4': {'vlanlist': [2002], 'mode': 'Access'},
+        'Ethernet8': {'vlanlist': [2003], 'mode': 'Access'},
+        'Ethernet12': {'vlanlist': [2003], 'mode': 'Access'},
     }
     assert allocator.device_vlans['dut1']['chains'] == [{
         'chain_id': 0,
         'tx_port': 'Ethernet0',
-        'rx_port': None,
+        'rx_port': 'Ethernet16',
         'vlan_pairs': [
             {'vlan_id': 2001, 'ports': ['Ethernet0', 'Ethernet4']},
+            {'vlan_id': 2004, 'ports': ['Ethernet8', 'Ethernet16']},
         ],
     }]
     assert allocator.device_vlans['dut2']['chains'] == [{
         'chain_id': 0,
         'tx_port': None,
-        'rx_port': 'Ethernet4',
+        'rx_port': None,
         'vlan_pairs': [
             {'vlan_id': 2002, 'ports': ['Ethernet0', 'Ethernet4']},
+            {'vlan_id': 2003, 'ports': ['Ethernet8', 'Ethernet12']},
+        ],
+    }]
+
+
+def test_multi_device_tgen_split_is_done_per_dut():
+    allocator = L2SnakeVlanAllocator(
+        testbed_facts={
+            'topo': {'properties': {'vlan_base': 3001}},
+            'duts': ['dut1', 'dut2'],
+            'tgs': ['tg1'],
+        },
+        device_info={
+            'dut1': {'Type': 'ToRRouter'},
+            'dut2': {'Type': 'ToRRouter'},
+        },
+        device_port_links={
+            'dut1': {
+                'Ethernet0': {'peerdevice': 'tg1', 'peerport': 'Port1'},
+                'Ethernet4': {'peerdevice': 'dut1', 'peerport': 'Ethernet8'},
+                'Ethernet8': {'peerdevice': 'dut1', 'peerport': 'Ethernet4'},
+                'Ethernet12': {'peerdevice': 'tg1', 'peerport': 'Port2'},
+            },
+            'dut2': {
+                'Ethernet0': {'peerdevice': 'tg1', 'peerport': 'Port3'},
+                'Ethernet4': {'peerdevice': 'dut2', 'peerport': 'Ethernet8'},
+                'Ethernet8': {'peerdevice': 'dut2', 'peerport': 'Ethernet4'},
+                'Ethernet12': {'peerdevice': 'tg1', 'peerport': 'Port4'},
+            },
+        },
+        device_port_vrfs={},
+    )
+
+    allocator.run()
+
+    assert allocator.device_vlans['dut1']['chains'] == [{
+        'chain_id': 0,
+        'tx_port': 'Ethernet0',
+        'rx_port': 'Ethernet12',
+        'vlan_pairs': [
+            {'vlan_id': 3001, 'ports': ['Ethernet0', 'Ethernet4']},
+            {'vlan_id': 3002, 'ports': ['Ethernet8', 'Ethernet12']},
+        ],
+    }]
+    assert allocator.device_vlans['dut2']['chains'] == [{
+        'chain_id': 1,
+        'tx_port': 'Ethernet0',
+        'rx_port': 'Ethernet12',
+        'vlan_pairs': [
+            {'vlan_id': 3003, 'ports': ['Ethernet0', 'Ethernet4']},
+            {'vlan_id': 3004, 'ports': ['Ethernet8', 'Ethernet12']},
         ],
     }]
