@@ -31,7 +31,7 @@
   auto_recover: 'True'
 
 - name: vnut-l2-snake-multi
-  comment: "L2 snake multi-device testbed"
+  comment: "Dual-DUT KVM/vNUT L2 snake testbed with inter-DUT link"
   inv_name: lab
   topo: nut-l2-snake
   test_tags: []
