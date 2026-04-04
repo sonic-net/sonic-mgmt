@@ -1624,7 +1624,7 @@ class QosSaiBase(QosBase):
 
         src_dut.shell("sudo config bgp start all")
         if src_asic != dst_asic:
-            updateFeatureState(dst_asic, "lldp", "enabled")
+            updateFeatureState(dst_dut, "lldp", "enabled")
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for service in dst_services:
                     executor.submit(updateDockerService, dst_dut, action="start", **service)
