@@ -1,7 +1,4 @@
-{%- if features | length > 0 %}
-{ "op": "add", "path": "/FEATURE", "value": {} },
 {%- for feature in features %}
-{ "op": "add", "path": "/FEATURE/{{ feature.name }}", "value": { "auto_restart": "{{ feature.auto_restart }}", "state": "{{ feature.state }}" } }{{ "," if not loop.last else "" }}
+{ "op": "add", "path": "/FEATURE/{{ feature.name }}/auto_restart", "value": "{{ feature.auto_restart }}" },
+{ "op": "add", "path": "/FEATURE/{{ feature.name }}/state", "value": "{{ feature.state }}" },
 {% endfor %}
-,
-{%- endif %}
