@@ -171,6 +171,21 @@ def common_setup_teardown(
         ),
     )
 
+    # Clear TSA maintenance mode if active. On platforms with startup_tsa_tsb
+    # service enabled, config_reload (from setup_interfaces) restarts swss which
+    # triggers TSA with a 15-minute TSB timer. This causes test failures because
+    # the DUT only advertises loopback routes while in TSA mode.
+    # See: https://github.com/sonic-net/sonic-mgmt/issues/23336
+    tsa_status = duthost.shell("TSC", module_ignore_errors=True)['stdout']
+    if 'maintenance' in tsa_status.lower():
+        logging.info("DUT is in TSA maintenance mode, running TSB to clear it")
+        duthost.shell("TSB")
+        pytest_assert(
+            wait_until(60, 5, 0, lambda: 'maintenance' not in
+                       duthost.shell("TSC", module_ignore_errors=True)['stdout'].lower()),
+            "DUT did not exit TSA maintenance mode after TSB"
+        )
+
     yield bgp_neighbors, use_vtysh
 
     # Cleanup suppress-fib-pending config
