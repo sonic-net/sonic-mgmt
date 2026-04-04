@@ -39,6 +39,6 @@
     - vnut-l2msnk-01
     - vnut-l2msnk-02
   tgs:
-    - vnut-l2msnk-tg
+    - vnut-l2snk-tg
   tg_api_server: 10.250.0.221:443
   auto_recover: 'True'

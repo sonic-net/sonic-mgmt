@@ -58,8 +58,6 @@ all:
           ansible_host: 10.250.0.220
         vnut-l2snk-tg:
           ansible_host: 10.250.0.221
-        vnut-l2msnk-tg:
-          ansible_host: 10.250.0.221
         ptf_ptf1:
           ansible_host: 10.255.0.188
           ansible_hostv6: 2001:db8:1::1/64
