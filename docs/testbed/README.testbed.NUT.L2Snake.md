@@ -314,7 +314,7 @@ No IP pools, DUT templates, or TG templates are required for the L2 snake alloca
 
 ## 7. Per-DUT VLAN output
 
-The allocator returns a per-DUT compatibility/debug view that flattens each DUT's VLAN pairs into a single list.
+The allocator returns a per-DUT compatibility/debug view that flattens each DUT's local VLAN pairs into a single `vlans` list.
 
 Example shape:
 
@@ -337,9 +337,12 @@ Example shape:
 
 Properties:
 
+- `device_vlans` is a dictionary keyed by DUT name.
+- Each DUT entry is a dictionary with a `vlans` list.
+- Every item in `vlans` has the shape `{"vlan_id": <int>, "ports": [<port_a>, <port_b>]}`.
 - VLAN IDs are globally unique across the testbed.
-- Each DUT only receives the VLAN pairs that terminate on that DUT.
-- Each DUT's `vlans` list is flattened; chain-level metadata such as `chain_id`, `tx_port`, and `rx_port` is not preserved in this view.
+- Each DUT only receives the local VLAN pairs that terminate on that DUT.
+- Chain-level metadata is intentionally not preserved in this flattened compatibility/debug view.
 - A global chain may appear as partial VLAN segments on multiple DUTs.
 
 ## 8. `deploy-cfg` flow for L2 snake

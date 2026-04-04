@@ -806,10 +806,10 @@ class L2SnakeVlanAllocator():
         }
 
     def _merge_chain_views(self, vlan_pairs):
-        """Flatten all VLAN pairs for a DUT into the exported ``device_vlans`` view.
+        """Flatten per-DUT VLAN pairs into a compatibility/debug ``device_vlans`` view.
 
-        Chain-level metadata is intentionally discarded here; the compatibility/debug
-        view only keeps the per-DUT VLAN list, for example::
+        This helper intentionally discards chain-level grouping and only keeps the
+        per-DUT VLAN list, for example::
 
             {
                 'vlans': [
