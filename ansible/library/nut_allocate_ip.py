@@ -819,10 +819,11 @@ class L2SnakeVlanAllocator():
                         'rx_port': chain_info['rx_port'],
                         'vlan_pairs': [],
                     }
-                elif chain_info['tx_port'] is not None:
-                    merged[chain_id]['tx_port'] = chain_info['tx_port']
-                elif chain_info['rx_port'] is not None:
-                    merged[chain_id]['rx_port'] = chain_info['rx_port']
+                else:
+                    if chain_info['tx_port'] is not None:
+                        merged[chain_id]['tx_port'] = chain_info['tx_port']
+                    if chain_info['rx_port'] is not None:
+                        merged[chain_id]['rx_port'] = chain_info['rx_port']
 
                 merged[chain_id]['vlan_pairs'].extend(chain_info['vlan_pairs'])
 
