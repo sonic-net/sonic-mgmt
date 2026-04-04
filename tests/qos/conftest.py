@@ -185,14 +185,16 @@ def pytest_sessionstart(session):
 
 
 def pytest_runtest_makereport(item, call):
-    """Record fixture failures during setup to skip subsequent tests in the same parameter set."""
+    """Record testParameter setup failures to cascade-skip subsequent tests in the same parameter set."""
     if not (hasattr(item, 'cls') and item.cls and item.cls.__name__ == 'TestQosSai'):
+        return
+    if 'fixture_seed' not in item.keywords:
         return
 
     if call.when == "setup" and call.excinfo is not None:
-        test_name = item.name
-        if '[' in test_name:
-            param_set = test_name.split('[')[1].rstrip(']')
+        callspec = getattr(item, 'callspec', None)
+        if callspec and 'select_src_dst_dut_and_asic' in callspec.params:
+            param_set = callspec.params['select_src_dst_dut_and_asic']
         else:
             param_set = 'default'
 
@@ -208,9 +210,9 @@ def pytest_runtest_setup(item):
     if 'fixture_seed' in item.keywords:
         return
 
-    test_name = item.name
-    if '[' in test_name:
-        param_set = test_name.split('[')[1].rstrip(']')
+    callspec = getattr(item, 'callspec', None)
+    if callspec and 'select_src_dst_dut_and_asic' in callspec.params:
+        param_set = callspec.params['select_src_dst_dut_and_asic']
     else:
         param_set = 'default'
 
