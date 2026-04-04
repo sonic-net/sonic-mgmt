@@ -75,6 +75,7 @@ Example: two DUTs, two parallel chains, TG connected to both DUTs.
 
 - Chain 0 starts on DUT1, crosses DUT2, exits on DUT2.
 - Chain 1 starts on DUT2, crosses DUT1, exits on DUT1.
+- Each DUT port belongs to exactly one chain in the illustration below.
 - A simpler deployment may also keep each chain local to a DUT; the allocator supports either as long as the graph is valid.
 
 ```mermaid
@@ -90,12 +91,14 @@ graph LR
         D1E0[Eth0]
         D1E4[Eth4]
         D1E8[Eth8]
+        D1E12[Eth12]
     end
 
     subgraph D2[DUT2]
         D2E0[Eth0]
         D2E4[Eth4]
         D2E8[Eth8]
+        D2E12[Eth12]
     end
 
     T0 --> D1E0
@@ -105,9 +108,9 @@ graph LR
     D2E8 --> T2
 
     T3 --> D2E0
-    D2E0 ---|VLAN 1003| D2E4
-    D2E4 -. inter-DUT .- D1E4
-    D1E4 ---|VLAN 1004| D1E8
+    D2E0 ---|VLAN 1003| D2E12
+    D2E12 -. inter-DUT .- D1E12
+    D1E12 ---|VLAN 1004| D1E8
     D1E8 --> T1
 ```
 
@@ -237,13 +240,13 @@ That can dead-end tracing because `dut1:Ethernet12` is actually an RX port, not 
 From `ansible/testbed.nut.yaml`:
 
 ```yaml
-- name: vnut-l2snk-01
+- name: vnut-l2-snake-single
   comment: "vNUT L2 snake testbed with 1 DUT and 1 TG"
   inv_name: lab
   topo: nut-l2-snake
   test_tags: []
   duts:
-    - vnut-l2snk-01
+    - vnut-l2-snake-single
   tgs:
     - vnut-l2snk-tg
   tg_api_server: 10.250.0.221:443
@@ -280,9 +283,9 @@ vnut-l2msnk-02,10.250.0.215/24,Force10-S6000,DevSonic,,sonic,
 vnut-l2snk-tg,10.250.0.221/24,IxiaChassis,DevIxiaChassis,,ixia,
 ```
 
-### 6.3. Lab link example
+### 6.3. Simplified lab link example
 
-Concrete deployable multi-device wiring from `ansible/files/sonic_lab_links.csv`:
+Illustrative multi-device wiring pattern inspired by `ansible/files/sonic_lab_links.csv` (not a literal dump of the full deployable CSV):
 
 ```csv
 vnut-l2msnk-01,Ethernet0,vnut-l2snk-tg,Ethernet0,10000,,,
