@@ -67,7 +67,7 @@ def test_single_dut_l2_snake_keeps_existing_behavior():
 
     assert allocator.device_vlan_range['dut1'] == ['1001', '1002']
     assert allocator.device_vlan_port['dut1'] == expected_vlan_port
-    assert allocator.device_port_vlans['dut1'] == expected_vlan_port
+    assert not hasattr(allocator, 'device_port_vlans')
     assert allocator.device_vlan_list['dut1'] == [1001, 1002]
     assert allocator.device_vlans['dut1'] == expected_vlans
 

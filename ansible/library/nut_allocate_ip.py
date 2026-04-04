@@ -542,7 +542,6 @@ class L2SnakeVlanAllocator():
         self.device_vlan_range = {}
         self.device_vlan_port = {}
         self.device_vlan_list = {}
-        self.device_port_vlans = self.device_vlan_port
         self.device_vrfs = {}
         self.device_conn = {}
 
@@ -678,7 +677,6 @@ class L2SnakeVlanAllocator():
         max_steps = sum(len(meta['all_ports']) for meta in dut_ports.values())
 
         for _step in range(max_steps):
-            progressed = False
             for chain in chains:
                 if chain['complete']:
                     continue
@@ -696,7 +694,6 @@ class L2SnakeVlanAllocator():
                     'dut': current_dut,
                     'ports': [current_port, partner[1]],
                 })
-                progressed = True
 
                 next_node, complete = self._get_transition_port(chain['chain_id'], partner, used, dut_ports, rx_set)
                 if complete:
@@ -708,8 +705,6 @@ class L2SnakeVlanAllocator():
                 chain['current'] = next_node
 
             if all(chain['complete'] for chain in chains):
-                break
-            if not progressed:
                 break
 
         for chain in chains:
@@ -857,8 +852,6 @@ def main():
             facts['device_vlan_port'] = device_config_gen.device_vlan_port
         if hasattr(device_config_gen, 'device_vlan_list'):
             facts['device_vlan_list'] = device_config_gen.device_vlan_list
-        if hasattr(device_config_gen, 'device_port_vlans'):
-            facts['device_port_vlans'] = device_config_gen.device_port_vlans
         if hasattr(device_config_gen, 'device_vrfs'):
             facts['device_vrfs'] = device_config_gen.device_vrfs
         if hasattr(device_config_gen, 'device_conn'):
