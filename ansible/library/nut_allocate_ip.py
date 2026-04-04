@@ -650,6 +650,9 @@ class L2SnakeVlanAllocator():
                     f"but found {len(tgen_ports)}."
                 )
 
+            # Intentional design constraint: TX/RX endpoints are derived from the first/second
+            # halves of each DUT's natsorted TG port list, so every participating DUT must
+            # contribute an even number of TG-connected ports.
             half = len(tgen_ports) // 2
             tx_ports.extend((dut, port) for port in tgen_ports[:half])
             rx_ports.extend((dut, port) for port in tgen_ports[half:])
@@ -720,6 +723,8 @@ class L2SnakeVlanAllocator():
             if candidate in used:
                 continue
             if candidate in rx_set:
+                # Prefer a non-RX forward hop when available so chains only terminate on RX
+                # after exhausting other valid local candidates.
                 if rx_candidate is None:
                     rx_candidate = candidate
                 continue
@@ -802,8 +807,6 @@ class L2SnakeVlanAllocator():
 
     def _merge_chain_views(self, vlan_pairs):
         """Preserve chain details as a compatibility/debug view."""
-        if not vlan_pairs:
-            return {}
         return {
             'vlans': vlan_pairs,
         }

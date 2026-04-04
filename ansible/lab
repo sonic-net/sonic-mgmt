@@ -56,6 +56,8 @@ all:
       hosts:
         vnut-tg-01:
           ansible_host: 10.250.0.220
+        vnut-l2snk-tg:
+          ansible_host: 10.250.0.221
         vnut-l2msnk-tg:
           ansible_host: 10.250.0.221
         ptf_ptf1:
