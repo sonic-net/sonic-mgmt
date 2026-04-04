@@ -29,3 +29,16 @@
     - vnut-l2snk-tg
   tg_api_server: 10.250.0.221:443
   auto_recover: 'True'
+
+- name: vnut-l2-snake-multi
+  comment: "L2 snake multi-device testbed"
+  inv_name: lab
+  topo: nut-l2-snake
+  test_tags: []
+  duts:
+    - vnut-l2snk-d1
+    - vnut-l2snk-d2
+  tgs:
+    - vnut-l2snk-tg
+  tg_api_server: 10.250.0.221:443
+  auto_recover: 'True'
