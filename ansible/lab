@@ -56,6 +56,8 @@ all:
       hosts:
         vnut-tg-01:
           ansible_host: 10.250.0.220
+        vnut-l2snk-tg:
+          ansible_host: 10.250.0.221
         ptf_ptf1:
           ansible_host: 10.255.0.188
           ansible_hostv6: 2001:db8:1::1/64
@@ -310,4 +312,10 @@ sonic_vnut:
       type: kvm
       hwsku: Force10-S6000
       serial_port: 9102
+      num_asics: 1
+    vnut-l2snk-01:
+      ansible_host: 10.250.0.213
+      type: kvm
+      hwsku: Force10-S6000
+      serial_port: 9103
       num_asics: 1
