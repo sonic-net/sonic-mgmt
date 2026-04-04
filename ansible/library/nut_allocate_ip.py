@@ -97,10 +97,10 @@ EXAMPLES = '''
                     },
                 }
             },
-            "device_vlan_list": {
-                ...
+            "device_vlan_range": {
+                "VlanRange": "201-980,1041-1100"
             },
-            "device_port_vlans": {
+            "device_vlan_port": {
                 ...
                 "Ethernet44": {
                   "vlanids": "801-860",
