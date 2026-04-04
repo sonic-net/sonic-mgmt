@@ -595,7 +595,9 @@ class L2SnakeVlanAllocator():
         port_index = {p: i for i, p in enumerate(all_linked_ports)}
 
         # Step 3: Initialize chains
-        used = set(tgen_ports)  # reserve all TGen ports
+        # Reserve TX ports immediately, but leave RX ports available so a chain
+        # can terminate on them during forward scanning.
+        used = set(tx_ports)
         chains = []
         for k in range(half):
             chains.append({

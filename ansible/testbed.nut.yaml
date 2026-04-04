@@ -17,3 +17,15 @@
     - ocs-01
     - ocs-02
   auto_recover: 'True'
+
+- name: vnut-l2snk-01
+  comment: "vNUT L2 snake testbed with 1 DUT and 1 TG"
+  inv_name: lab
+  topo: nut-l2-snake
+  test_tags: []
+  duts:
+    - vnut-l2snk-01
+  tgs:
+    - vnut-l2snk-tg
+  tg_api_server: 10.250.0.221:443
+  auto_recover: 'True'
