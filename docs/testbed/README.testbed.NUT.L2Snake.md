@@ -261,8 +261,8 @@ From `ansible/testbed.nut.yaml`:
   topo: nut-l2-snake
   test_tags: []
   duts:
-    - vnut-l2snk-d1
-    - vnut-l2snk-d2
+    - vnut-l2msnk-01
+    - vnut-l2msnk-02
   tgs:
     - vnut-l2snk-tg
   tg_api_server: 10.250.0.221:443
@@ -275,8 +275,8 @@ From `ansible/files/sonic_lab_devices.csv`:
 
 ```csv
 Hostname,ManagementIp,HwSku,Type,Protocol,Os,AuthType
-vnut-l2snk-d1,10.250.0.214/24,Force10-S6000,DevSonic,,sonic,
-vnut-l2snk-d2,10.250.0.215/24,Force10-S6000,DevSonic,,sonic,
+vnut-l2msnk-01,10.250.0.214/24,Force10-S6000,DevSonic,,sonic,
+vnut-l2msnk-02,10.250.0.215/24,Force10-S6000,DevSonic,,sonic,
 vnut-l2snk-tg,10.250.0.221/24,IxiaChassis,DevIxiaChassis,,ixia,
 ```
 
@@ -285,12 +285,12 @@ vnut-l2snk-tg,10.250.0.221/24,IxiaChassis,DevIxiaChassis,,ixia,
 Concrete deployable multi-device wiring from `ansible/files/sonic_lab_links.csv`:
 
 ```csv
-vnut-l2snk-d1,Ethernet0,vnut-l2snk-tg,Ethernet0,10000,,,
-vnut-l2snk-d1,Ethernet4,vnut-l2snk-d2,Ethernet4,10000,,,
-vnut-l2snk-d1,Ethernet8,vnut-l2snk-tg,Ethernet8,10000,,,
-vnut-l2snk-d2,Ethernet0,vnut-l2snk-tg,Ethernet4,10000,,,
-vnut-l2snk-d2,Ethernet4,vnut-l2snk-d1,Ethernet4,10000,,,
-vnut-l2snk-d2,Ethernet8,vnut-l2snk-tg,Ethernet12,10000,,,
+vnut-l2msnk-01,Ethernet0,vnut-l2snk-tg,Ethernet0,10000,,,
+vnut-l2msnk-01,Ethernet4,vnut-l2msnk-02,Ethernet4,10000,,,
+vnut-l2msnk-01,Ethernet8,vnut-l2snk-tg,Ethernet8,10000,,,
+vnut-l2msnk-02,Ethernet0,vnut-l2snk-tg,Ethernet4,10000,,,
+vnut-l2msnk-02,Ethernet4,vnut-l2msnk-01,Ethernet4,10000,,,
+vnut-l2msnk-02,Ethernet8,vnut-l2snk-tg,Ethernet12,10000,,,
 ```
 
 This example demonstrates:
