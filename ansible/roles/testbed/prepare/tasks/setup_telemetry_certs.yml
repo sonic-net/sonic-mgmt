@@ -1,0 +1,56 @@
+---
+- name: init telemetry keys
+  set_fact:
+    device_cert_telemetry:
+      server_key: ""
+      server_cer: ""
+      dsmsroot_key: ""
+      dsmsroot_cer: ""
+      dir_path: ""
+      subject_server: ""
+      subject_client: ""
+
+- name: read server key
+  set_fact:
+    device_cert_telemetry: "{{ device_cert_telemetry | combine({'server_key': telemetry_certs['server_key']}) }}"
+  when: telemetry_certs['server_key'] is defined
+
+- name: read server cer
+  set_fact:
+    device_cert_telemetry: "{{ device_cert_telemetry | combine({'server_cer': telemetry_certs['server_cer']}) }}"
+  when: telemetry_certs['server_cer'] is defined
+
+- name: read dsmsroot key
+  set_fact:
+    device_cert_telemetry: "{{ device_cert_telemetry | combine({'dsmsroot_key': telemetry_certs['dsmsroot_key']}) }}"
+  when: telemetry_certs['dsmsroot_key'] is defined
+
+- name: read dsmsroot cer
+  set_fact:
+    device_cert_telemetry: "{{ device_cert_telemetry | combine({'dsmsroot_cer': telemetry_certs['dsmsroot_cer']}) }}"
+  when: telemetry_certs['dsmsroot_cer'] is defined
+
+- name: read directory path
+  set_fact:
+    device_cert_telemetry: "{{ device_cert_telemetry | combine({'dir_path': telemetry_certs['dir_path']}) }}"
+  when: telemetry_certs['dir_path'] is defined
+
+- name: read server subject
+  set_fact:
+    device_cert_telemetry: "{{ device_cert_telemetry | combine({'subject_server': telemetry_certs['subject_server']}) }}"
+  when: telemetry_certs['subject_server'] is defined
+
+- name: read client subject
+  set_fact:
+    device_cert_telemetry: "{{ device_cert_telemetry | combine({'subject_client': telemetry_certs['subject_client']}) }}"
+  when: telemetry_certs['subject_client'] is defined
+
+- include_tasks: deploy_certs.yml
+  vars:
+    dir_path: "{{ device_cert_telemetry.dir_path }}"
+    server_crt: "{{ device_cert_telemetry.server_cer }}"
+    server_key: "{{ device_cert_telemetry.server_key }}"
+    dsmsroot_cer: "{{ device_cert_telemetry.dsmsroot_cer }}"
+    dsmsroot_key: "{{ device_cert_telemetry.dsmsroot_key }}"
+    cert_subject: "{{ device_cert_telemetry.subject_server }}"
+    root_subject: "{{ device_cert_telemetry.subject_client }}"
