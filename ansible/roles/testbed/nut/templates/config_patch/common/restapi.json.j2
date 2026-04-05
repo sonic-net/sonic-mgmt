@@ -1,0 +1,16 @@
+{
+  "op": "add",
+  "path": "/RESTAPI",
+  "value": {
+    "certs": {
+      "client_crt_cname": "{{ cert_restapi.subject }}",
+      "server_crt": "{{ cert_restapi.server_cer }}",
+      "server_key": "{{ cert_restapi.server_key }}"
+    },
+    "config": {
+      "allow_insecure": "false",
+      "client_auth": "true",
+      "log_level": "info"
+    }
+  }
+},
