@@ -319,3 +319,15 @@ sonic_vnut:
       hwsku: Force10-S6000
       serial_port: 9103
       num_asics: 1
+    vnut-l2msnk-01:
+      ansible_host: 10.250.0.214
+      type: kvm
+      hwsku: Force10-S6000
+      serial_port: 9104
+      num_asics: 1
+    vnut-l2msnk-02:
+      ansible_host: 10.250.0.215
+      type: kvm
+      hwsku: Force10-S6000
+      serial_port: 9105
+      num_asics: 1
