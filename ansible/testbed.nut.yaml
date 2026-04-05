@@ -18,13 +18,26 @@
     - ocs-02
   auto_recover: 'True'
 
-- name: vnut-l2snk-01
-  comment: "vNUT L2 snake testbed with 1 DUT and 1 TG"
+- name: vnut-l2-snake-single
+  comment: "Single-DUT KVM/vNUT L2 snake testbed with 3 loopback pairs"
   inv_name: lab
   topo: nut-l2-snake
   test_tags: []
   duts:
     - vnut-l2snk-01
+  tgs:
+    - vnut-l2snk-tg
+  tg_api_server: 10.250.0.221:443
+  auto_recover: 'True'
+
+- name: vnut-l2-snake-multi
+  comment: "Dual-DUT KVM/vNUT L2 snake testbed with 2 chains and 8 inter-DUT crossings per chain"
+  inv_name: lab
+  topo: nut-l2-snake
+  test_tags: []
+  duts:
+    - vnut-l2msnk-01
+    - vnut-l2msnk-02
   tgs:
     - vnut-l2snk-tg
   tg_api_server: 10.250.0.221:443
