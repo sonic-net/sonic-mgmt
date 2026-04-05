@@ -2123,6 +2123,22 @@
   auto_recover: 'True'
   comment: dashuaizhang
 
+
+- conf-name: moby-snake-1
+  group-name: ''
+  topo: ptp-130
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str-7060x6-moby-512-snake-1
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: dashuaizhang
+
 - conf-name: vms93-t0-sn5640-1
   group-name: vms93-2
   topo: t0-isolated-d32u32s2

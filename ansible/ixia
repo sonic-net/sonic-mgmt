@@ -3,6 +3,7 @@ all:
     ixia:
       children:
         sonic:
+        fanout:
         ixia_chassis:
         l1_switch:
 
@@ -54,10 +55,18 @@ sonic:
     sonic_nvidia_sn5600_stress:
     sonic_nvidia_sn5640_stress:
     sonic_arista_7060x6_512_stress:
+    sonic_arista_moby:
     sonic_arista_7280dr3_400G:
     sonic_str_mlnx_2700:
     sonic_str3_mlnx_4700:
     sonic_nexthop_ut2:
+
+fanout:
+  hosts:
+    str-7060x6-moby-512-snake-2:
+      ansible_host: 10.64.247.6
+      os: sonic
+      mgmt_subnet_mask_length: 26
 
 sonic_str_cisco_8111_O32:
   hosts:
@@ -629,6 +638,13 @@ sonic_arista_7060x6_512_stress:
   vars:
     iface_speed: 100000
     mgmt_subnet_mask_length: 25
+
+sonic_arista_moby:
+  hosts:
+    str-7060x6-moby-512-snake-1:
+      ansible_host: 10.64.247.3
+      hwsku: Arista-7060X6-16PE-384C-B-O128S2
+      mgmt_subnet_mask_length: 26
 
 sonic_str2_arista_7808:
   hosts:
