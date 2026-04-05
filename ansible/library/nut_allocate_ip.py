@@ -511,8 +511,19 @@ class GenerateDeviceConfig():
 class L2SnakeVlanAllocator():
     """L2 snake strategy — VLAN pair allocation, no IP/BGP.
 
-    Traces parallel snake chains through a single DUT using lockstep algorithm,
-    then assigns per-chain VLAN IDs for L2 bridging.
+    Trace parallel snake chains across the whole DUT set using a lockstep
+    algorithm, then assign VLAN IDs to each local per-DUT hop.
+
+    A chain always starts on a TG-connected TX port, bridges traffic to the
+    next available port on the same DUT, then follows the physical cable from
+    that egress port to either:
+      * another port on the same DUT (loopback cable),
+      * a port on a different DUT (inter-DUT cable), or
+      * a TG-connected RX port, which terminates the chain.
+
+    Each VLAN pair is local to one DUT. When a chain crosses between DUTs, the
+    current pair ends on the source DUT and the next pair starts on the peer
+    DUT port reached by the physical link.
     """
 
     def __init__(self, testbed_facts, device_info, device_port_links, device_port_vrfs):
@@ -528,8 +539,8 @@ class L2SnakeVlanAllocator():
 
         # L2 snake specific outputs
         self.device_vlans = {}
-        self.device_vlan_list = {}
         self.device_port_vlans = {}
+        self.device_vlan_list = {}
         self.device_vrfs = {}
         self.device_conn = {}
 
@@ -538,184 +549,278 @@ class L2SnakeVlanAllocator():
         vlan_base = topo_props.get('vlan_base')
         if vlan_base is None:
             raise ValueError("L2 snake topo YAML must specify 'vlan_base'.")
+
         duts = self.testbed_facts['duts']
         tgs = self.testbed_facts['tgs']
         tg_set = set(tgs)
 
-        for dut in duts:
-            self._process_dut(dut, tg_set, vlan_base)
+        self._initialize_device_facts(duts)
+        self._trace_chain_global(duts, tg_set, vlan_base)
 
-        # Set TG device meta
         for tg in tgs:
             self.device_meta[tg]['type'] = 'Server'
 
-    def _process_dut(self, dut, tg_set, vlan_base):
-        links = self.device_port_links[dut]
+    def _initialize_device_facts(self, duts):
+        """Initialize per-device outputs so all DUTs return deterministic facts."""
+        for dut in duts:
+            self.device_meta[dut]['type'] = self.device_info[dut].get('Type', 'ToRRouter')
+            self.device_interfaces[dut] = {}
+            self.device_vrfs[dut] = {}
+            self.device_conn[dut] = self.device_port_links[dut]
+            self.device_vlans[dut] = {}
+            self.device_port_vlans[dut] = {}
+            self.device_vlan_list[dut] = []
 
-        # Set device meta - type from device_info or default
-        self.device_meta[dut]['type'] = self.device_info[dut].get('Type', 'ToRRouter')
+    def _classify_ports(self, duts, tg_set):
+        """Build global link metadata for L2 snake tracing."""
+        dut_set = set(duts)
+        dut_ports = {}
+        global_tgen_ports = []
 
-        # Initialize empty outputs for this device
-        self.device_interfaces[dut] = {}
-        self.device_vrfs[dut] = {}
-        self.device_conn[dut] = links
+        for dut in duts:
+            links = self.device_port_links[dut]
+            sorted_ports = natsorted(links.keys())
+            port_index = {port: idx for idx, port in enumerate(sorted_ports)}
+            loopback_map = {}
+            inter_dut_map = {}
+            tgen_ports = []
 
-        # Step 1: Classify ports
-        tgen_ports = []
-        loopback_map = {}  # port -> peerport (bidirectional)
+            for port in sorted_ports:
+                link = links[port]
+                peer_device = link['peerdevice']
+                peer_port = link['peerport']
 
-        for port, link in links.items():
-            if link['peerdevice'] in tg_set:
-                tgen_ports.append(port)
-            elif link['peerdevice'] == dut:
-                loopback_map[port] = link['peerport']
+                if peer_device in tg_set:
+                    tgen_ports.append(port)
+                    global_tgen_ports.append((dut, port))
+                elif peer_device == dut:
+                    loopback_map[port] = (peer_device, peer_port)
+                elif peer_device in dut_set:
+                    inter_dut_map[port] = (peer_device, peer_port)
+                else:
+                    raise ValueError(
+                        f"Unsupported L2 snake link {dut}:{port} -> {peer_device}:{peer_port}. "
+                        "Peer must be a TG, the same DUT, or another DUT in the testbed."
+                    )
 
-        # Sort TGen ports naturally
-        tgen_ports = natsorted(tgen_ports)
-        t = len(tgen_ports)
+            dut_ports[dut] = {
+                'all_ports': sorted_ports,
+                'port_index': port_index,
+                'loopback_map': loopback_map,
+                'inter_dut_map': inter_dut_map,
+                'tgen_ports': tgen_ports,
+            }
 
-        # Validation: even number of TG ports
-        if t % 2 != 0:
+        self._validate_tgen_port_count(global_tgen_ports)
+        return dut_ports
+
+    def _trace_chain_global(self, duts, tg_set, vlan_base):
+        """Trace all L2 snake chains across the whole testbed in lockstep."""
+        dut_ports = self._classify_ports(duts, tg_set)
+        tx_ports, rx_ports = self._split_global_tgen_ports(duts, dut_ports)
+        chains = self._build_chains(tx_ports)
+        self._walk_chains(chains, dut_ports, set(rx_ports))
+        self._assign_vlan_outputs(duts, chains, vlan_base)
+
+    def _validate_tgen_port_count(self, global_tgen_ports):
+        if len(global_tgen_ports) < 2:
             raise ValueError(
-                f"L2 snake requires an even number of TG-connected ports, but found {t} on {dut}."
+                f"L2 snake requires at least 2 TG-connected ports across the testbed, found {len(global_tgen_ports)}."
             )
 
-        if t == 0:
-            raise ValueError(f"L2 snake requires at least 2 TG-connected ports, but found 0 on {dut}.")
+        if len(global_tgen_ports) % 2 != 0:
+            raise ValueError(
+                "L2 snake requires an even number of TG-connected ports across the testbed, "
+                f"but found {len(global_tgen_ports)}."
+            )
 
-        half = t // 2
-        tx_ports = tgen_ports[:half]
-        rx_ports = tgen_ports[half:]
-        rx_set = set(rx_ports)
+    def _split_global_tgen_ports(self, duts, dut_ports):
+        """Split TG-connected ports into global TX/RX lists using per-DUT halves."""
+        tx_ports = []
+        rx_ports = []
 
-        # Step 2: Build all linked ports sorted
-        all_linked_ports = natsorted(links.keys())
+        for dut in duts:
+            tgen_ports = dut_ports[dut]['tgen_ports']
+            if not tgen_ports:
+                continue
 
-        # Build index lookup for scanning forward
-        port_index = {p: i for i, p in enumerate(all_linked_ports)}
+            if len(tgen_ports) % 2 != 0:
+                raise ValueError(
+                    f"L2 snake requires an even number of TG-connected ports on {dut}, "
+                    f"but found {len(tgen_ports)}."
+                )
 
-        # Step 3: Initialize chains
-        # Reserve TX ports immediately, but leave RX ports available so a chain
-        # can terminate on them during forward scanning.
-        used = set(tx_ports)
+            # Intentional design constraint: TX/RX endpoints are derived from the first/second
+            # halves of each DUT's natsorted TG port list, so every participating DUT must
+            # contribute an even number of TG-connected ports.
+            half = len(tgen_ports) // 2
+            tx_ports.extend((dut, port) for port in tgen_ports[:half])
+            rx_ports.extend((dut, port) for port in tgen_ports[half:])
+
+        return tx_ports, rx_ports
+
+    def _build_chains(self, tx_ports):
         chains = []
-        for k in range(half):
+        for chain_id, tx_node in enumerate(tx_ports):
             chains.append({
-                'current': tx_ports[k],
+                'chain_id': chain_id,
+                'current': tx_node,
                 'pairs': [],
                 'complete': False,
-                'tx_port': tx_ports[k],
-                'rx_port': None,
+                'tx_node': tx_node,
+                'rx_node': None,
             })
+        return chains
 
-        # Step 4: Lockstep tracing
-        port_vlan_assignment = {}  # port -> vlan tracking for single-VLAN-per-port validation
-        max_rounds = len(all_linked_ports)  # safety bound
+    def _walk_chains(self, chains, dut_ports, rx_set):
+        """Advance all chains in lockstep until they reach RX ports."""
+        used = {chain['tx_node'] for chain in chains}
+        max_steps = sum(len(meta['all_ports']) for meta in dut_ports.values())
 
-        for _round in range(max_rounds):
-            all_complete = True
-            for k, chain in enumerate(chains):
+        for _step in range(max_steps):
+            for chain in chains:
                 if chain['complete']:
                     continue
-                all_complete = False
 
-                current = chain['current']
-                current_idx = port_index[current]
-
-                # Forward-only scan: partner must appear after current port
-                # in natsorted order (HLD Section 5 assumption)
-                partner = None
-                for i in range(current_idx + 1, len(all_linked_ports)):
-                    candidate = all_linked_ports[i]
-                    if candidate not in used:
-                        partner = candidate
-                        break
-
+                current_dut, current_port = chain['current']
+                partner = self._find_next_local_partner(current_dut, current_port, used, dut_ports, rx_set)
                 if partner is None:
                     raise ValueError(
-                        f"Chain {k} dead end at {current}: no available port forward in natsorted order."
+                        f"Chain {chain['chain_id']} dead end at {current_dut}:{current_port}: "
+                        "no available port forward in natsorted order on the same DUT."
                     )
 
                 used.add(partner)
-                chain['pairs'].append((current, partner))
-
-                if partner in rx_set:
-                    chain['complete'] = True
-                    chain['rx_port'] = partner
-                elif partner in loopback_map:
-                    next_port = loopback_map[partner]
-                    if next_port in used:
-                        raise ValueError(
-                            f"Chain {k}: loopback peer {next_port} of {partner} is already used."
-                        )
-                    used.add(next_port)
-                    chain['current'] = next_port
-                else:
-                    raise ValueError(
-                        f"Chain {k} dead end at {partner}: no loopback cable and not an RX port."
-                    )
-
-            if all_complete:
-                break
-
-        # Check all chains completed
-        for k, chain in enumerate(chains):
-            if not chain['complete']:
-                raise ValueError(f"Chain {k} did not reach an RX port.")
-
-        # Step 5: Assign VLAN IDs per-chain
-        total_vlans = sum(len(c['pairs']) for c in chains)
-        if vlan_base + total_vlans - 1 > 4094:
-            raise ValueError(
-                f"VLAN range overflow: need VLANs {vlan_base}–{vlan_base + total_vlans - 1}, "
-                f"but max VLAN ID is 4094."
-            )
-
-        vlan_id = vlan_base
-        device_chains = []
-        all_vlan_ids = []
-        port_vlans = {}
-
-        for k, chain in enumerate(chains):
-            chain_info = {
-                'chain_id': k,
-                'tx_port': chain['tx_port'],
-                'rx_port': chain['rx_port'],
-                'vlan_pairs': [],
-            }
-
-            for port_a, port_b in chain['pairs']:
-                # Defense-in-depth: should never trigger given chain tracing
-                # guarantees, but guards against future refactors
-                for p in (port_a, port_b):
-                    if p in port_vlan_assignment:
-                        raise ValueError(
-                            f"Port {p} already assigned to VLAN {port_vlan_assignment[p]}, "
-                            f"cannot assign to VLAN {vlan_id}."
-                        )
-                    port_vlan_assignment[p] = vlan_id
-
-                chain_info['vlan_pairs'].append({
-                    'vlan_id': vlan_id,
-                    'ports': [port_a, port_b],
+                chain['pairs'].append({
+                    'dut': current_dut,
+                    'ports': [current_port, partner[1]],
                 })
 
-                all_vlan_ids.append(vlan_id)
+                next_node, complete = self._get_transition_port(chain['chain_id'], partner, used, dut_ports, rx_set)
+                if complete:
+                    chain['complete'] = True
+                    chain['rx_node'] = partner
+                    continue
 
-                # Build port_vlans for vlan_members.json.j2
-                for p in (port_a, port_b):
-                    port_vlans[p] = {
-                        'vlanlist': [vlan_id],
-                        'mode': 'Access',
-                    }
+                used.add(next_node)
+                chain['current'] = next_node
 
+            if all(chain['complete'] for chain in chains):
+                break
+
+        for chain in chains:
+            if not chain['complete']:
+                raise ValueError(f"Chain {chain['chain_id']} did not reach an RX port.")
+
+    def _find_next_local_partner(self, dut, current_port, used, dut_ports, rx_set):
+        """Find the next unused partner port on the same DUT."""
+        all_ports = dut_ports[dut]['all_ports']
+        current_idx = dut_ports[dut]['port_index'][current_port]
+        rx_candidate = None
+
+        for idx in range(current_idx + 1, len(all_ports)):
+            candidate = (dut, all_ports[idx])
+            if candidate in used:
+                continue
+            if candidate in rx_set:
+                # Prefer a non-RX forward hop when available so chains only terminate on RX
+                # after exhausting other valid local candidates.
+                if rx_candidate is None:
+                    rx_candidate = candidate
+                continue
+            return candidate
+
+        return rx_candidate
+
+    def _get_transition_port(self, chain_id, partner_node, used, dut_ports, rx_set):
+        """Follow the physical cable attached to a local egress port."""
+        dut, partner_port = partner_node
+        partner_key = (dut, partner_port)
+
+        if partner_key in rx_set:
+            return None, True
+
+        loopback_map = dut_ports[dut]['loopback_map']
+        inter_dut_map = dut_ports[dut]['inter_dut_map']
+
+        if partner_port in loopback_map:
+            next_dut, next_port = loopback_map[partner_port]
+        elif partner_port in inter_dut_map:
+            next_dut, next_port = inter_dut_map[partner_port]
+        else:
+            raise ValueError(
+                f"Chain {chain_id} dead end at {dut}:{partner_port}: no loopback/inter-DUT cable and not an RX port."
+            )
+
+        next_node = (next_dut, next_port)
+        if next_node in used:
+            raise ValueError(
+                f"Chain {chain_id}: transition target {next_dut}:{next_port} from {dut}:{partner_port} is already used."
+            )
+
+        return next_node, False
+
+    def _assign_vlan_outputs(self, duts, chains, vlan_base):
+        total_vlans = sum(len(chain['pairs']) for chain in chains)
+        if total_vlans == 0:
+            raise ValueError("L2 snake tracing produced no VLAN pairs.")
+
+        if vlan_base + total_vlans - 1 > 4094:
+            raise ValueError(
+                f"VLAN range overflow: need VLANs {vlan_base}–{vlan_base + total_vlans - 1}, but max VLAN ID is 4094."
+            )
+
+        port_vlan_assignment = {}
+        chain_views = defaultdict(list)
+        vlan_id = vlan_base
+
+        for chain in chains:
+            for pair in chain['pairs']:
+                dut = pair['dut']
+                ports = pair['ports']
+                vlan_info = self._record_vlan_pair(dut, ports, vlan_id, port_vlan_assignment)
+                chain_views[dut].append(vlan_info)
                 vlan_id += 1
 
-            device_chains.append(chain_info)
+        for dut in duts:
+            self.device_vlans[dut] = self._merge_chain_views(chain_views[dut])
 
-        self.device_vlans[dut] = {'chains': device_chains}
-        self.device_vlan_list[dut] = all_vlan_ids
-        self.device_port_vlans[dut] = port_vlans
+    def _record_vlan_pair(self, dut, ports, vlan_id, port_vlan_assignment):
+        for port in ports:
+            port_key = (dut, port)
+            if port_key in port_vlan_assignment:
+                raise ValueError(
+                    f"Port {dut}:{port} already assigned to VLAN {port_vlan_assignment[port_key]}, "
+                    f"cannot assign to VLAN {vlan_id}."
+                )
+            port_vlan_assignment[port_key] = vlan_id
+            self.device_port_vlans[dut][port] = {
+                'vlanlist': [vlan_id],
+                'mode': 'Access',
+            }
+
+        self.device_vlan_list[dut].append(vlan_id)
+        return {
+            'vlan_id': vlan_id,
+            'ports': ports,
+        }
+
+    def _merge_chain_views(self, vlan_pairs):
+        """Flatten per-DUT VLAN pairs into a compatibility/debug ``device_vlans`` view.
+
+        This helper intentionally discards chain-level grouping and only keeps the
+        per-DUT VLAN list, for example::
+
+            {
+                'vlans': [
+                    {'vlan_id': 1000, 'ports': ['Ethernet0', 'Ethernet4']},
+                    {'vlan_id': 1001, 'ports': ['Ethernet8', 'Ethernet12']},
+                ]
+            }
+        """
+        return {
+            'vlans': vlan_pairs,
+        }
 
 
 def main():
