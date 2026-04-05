@@ -908,6 +908,10 @@ dash/test_fnic.py:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
+dash/test_fnic_basic.py:
+  skip:
+    reason: "Unsupported traffic scenario"
+
 dash/test_plnsg.py:
   skip:
     conditions_logical_operator: or
