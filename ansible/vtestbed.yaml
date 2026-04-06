@@ -533,3 +533,36 @@
   inv_name: veos_vtb
   auto_recover: 'False'
   comment: Tests virtual vpp switch vm
+
+- conf-name: vms-kvm-dual-vpp-t0-1
+  group-name: vms6-9
+  topo: dualtor
+  ptf_image_name: docker-ptf
+  ptf: ptf-09
+  ptf_ip: 10.250.0.120/24
+  ptf_ipv6: fec0::ffff:afb:9/64
+  server: server_1
+  vm_base: VM0144
+  dut:
+    - vlab-vpp-03
+    - vlab-vpp-04
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Dual-TOR VPP testbed
+
+- conf-name: vms-kvm-dual-vpp-t0-2
+  group-name: vms6-10
+  topo: dualtor-aa
+  ptf_image_name: docker-ptf
+  ptf: ptf-10
+  ptf_ip: 10.250.0.121/24
+  ptf_ipv6: fec0::ffff:afb:10/64
+  netns_mgmt_ip: 10.250.0.122/24
+  server: server_1
+  vm_base: VM0148
+  dut:
+    - vlab-vpp-05
+    - vlab-vpp-06
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Active-Active Dual-TOR VPP testbed
