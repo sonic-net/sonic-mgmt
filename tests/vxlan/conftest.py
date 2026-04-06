@@ -229,6 +229,15 @@ def pytest_addoption(parser):
              "(number of repeated addresses to use across all the routes)."
     )
 
+    vxlan_group.addoption(
+        "--num_samples",
+        action="store",
+        default=-1,
+        type=int,
+        help="Number of routes to run datapath test per VNET. If not set (default -1), "
+             "will test all configured routes."
+    )
+
 
 @pytest.fixture(scope="module")
 def scaled_vnet_params(request):

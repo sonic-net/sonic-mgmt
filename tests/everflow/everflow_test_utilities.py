@@ -9,6 +9,7 @@ import binascii
 import pytest
 import yaml
 import six
+import re
 
 import ptf.testutils as testutils
 import ptf.packet as packet
@@ -26,6 +27,7 @@ from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEI
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 from tests.common.dualtor.dual_tor_common import mux_config              # noqa: F401
 from tests.common.helpers.sonic_db import AsicDbCli
+from tests.common.fixtures.duthost_utils import shutdown_ebgp          # noqa: F401
 import json
 
 logger = logging.getLogger(__name__)
@@ -367,6 +369,41 @@ def erspan_ip_ver(request):
     return request.param
 
 
+def clear_interface_counters(duthost):
+    """
+    Clear the interface counters for the host
+    """
+    duthost.command("portstat -c")
+
+
+def assert_no_tx_drops_on_mirror_port(duthost, mirror_port):
+    """
+    Assert that there are no tx drops on the mirror port.
+
+    Args:
+        duthost: DUT fixture
+        mirror_port: The mirror port to check for tx drops
+    """
+    portstat = json.loads(duthost.get_port_counters(in_json=True))
+    pytest_assert(mirror_port in portstat, "Mirror port {} not found in port counters".format(mirror_port))
+    tx_drops = int(portstat[mirror_port]["TX_DRP"].replace(',', ''))
+    pytest_assert(tx_drops < 30, "Expected no tx drops on mirror port {}, but found {}".format(mirror_port, tx_drops))
+
+
+def get_mirror_port(duthost, session_name):
+    mirror_port = None
+    port_re = r"Ethernet\d+"
+    cmd = "show mirror_session"
+    output = duthost.command(cmd)['stdout_lines']
+    if not output:
+        pytest_assert(False, "Failed to get mirror session information for session {}".format(session_name))
+    mirror_line = next((line for line in output if session_name in line), "")
+    mirror_port = re.search(port_re, mirror_line)
+    if not mirror_port:
+        pytest_assert(False, "Failed to get mirror port for session {}".format(session_name))
+    return mirror_port.group()
+
+
 def clear_queue_counters(duthost, asic_ns):
     """
     @summary: Clear the queue counters for the host
@@ -405,8 +442,36 @@ def get_queue_counters(dut, asic_ns, port, queue):
     return -1
 
 
+def assert_no_tx_queue_drops_on_mirror_port(duthost, mirror_port):
+    """
+    Assert that there are no tx drops on the mirror port.
+
+    Args:
+        duthost: DUT fixture
+        mirror_port: The mirror port to check
+    """
+    cmd = f"show queue counters {mirror_port}"
+    output = duthost.command(cmd)['stdout']
+
+    if (not output) or mirror_port not in output:
+        pytest_assert(False, f"Mirror port {mirror_port} not in queue counters output")
+
+    output = output.splitlines()
+    queues_with_drops = []
+    for line in output:
+        if "Ethernet" not in line or "cached" in line:
+            continue
+        queue = line.split()[1]
+        drop = int(line.split()[4].replace(',', ''))
+        if drop > 30:
+            queues_with_drops.append((queue, drop))
+    msg = f"Expected no tx drops on mirror port {mirror_port}, found drops on queues: {queues_with_drops}"
+    pytest_assert(not queues_with_drops, msg)
+
+
 @pytest.fixture(scope="module")
-def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
+def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario,
+               shutdown_ebgp):  # noqa: F811
     """
     Gather all required test information.
 
@@ -431,30 +496,19 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
 
     setup_information = gen_setup_information(duthost, downstream_duthost, upstream_duthost, tbinfo, topo_scenario)
 
-    # Disable BGP so that we don't keep on bouncing back mirror packets
-    # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
-
     if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
         for dut_host in duthosts.frontend_nodes:
-            dut_host.command("sudo config bgp shutdown all")
             dut_host.command("mkdir -p {}".format(DUT_RUN_DIR))
     else:
-        duthost.command("sudo config bgp shutdown all")
         duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
-
-    time.sleep(60)
 
     yield setup_information
 
-    # Enable BGP again
     if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
         for dut_host in duthosts.frontend_nodes:
-            dut_host.command("sudo config bgp startup all")
             dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
     else:
-        duthost.command("sudo config bgp startup all")
         duthost.command("rm -rf {}".format(DUT_RUN_DIR))
-    time.sleep(60)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -486,6 +540,90 @@ def validate_mirror_session_up(duthost, session_name):
     if 'active' in mirror_status:
         return True
     return False
+
+
+def validate_acl_rule_rids(duthost):
+    """
+    Validate that the ACL rule RIDs are not empty.
+    For multi-ASIC DUTs, validates ACL rule RIDs in each frontend ASIC's ASIC_DB.
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        bool: True if all ACL rule RIDs are valid in all frontend ASICs, False otherwise
+    """
+    # Get all frontend ASIC instances
+    if duthost.is_multi_asic:
+        asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
+    else:
+        asic_instances = [duthost]
+
+    # Validate ACL rule RIDs in each ASIC
+    for asic in asic_instances:
+        asicdb = AsicDbCli(asic)
+        acl_entry_table = asicdb.dump("ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY")
+        entry_vids = []
+        for key, value in acl_entry_table.items():
+            if 'SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_INGRESS' in value['value'] or \
+               'SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_EGRESS' in value['value']:
+                # Extract OID from key format "ASIC_STATE:SAI_OBJECT_TYPE_ACL_ENTRY:oid:0x8000000000abe"
+                oid = key.split(":")[-1] if "oid:" in key else None
+                if oid is not None:
+                    entry_vids.append(oid)
+
+        # Validate VIDs for this ASIC
+        if entry_vids:
+            vidtorid_table = asicdb.dump("VIDTORID")["VIDTORID"]["value"]
+            for vid in entry_vids:
+                vid = "oid:" + vid
+                if vid not in vidtorid_table or vidtorid_table[vid] is None:
+                    logging.error("ACL entry VID {} not found or has None RID in ASIC {}".format(
+                        vid, asic.asic_index if duthost.is_multi_asic else "single"))
+                    return False
+    return True
+
+
+def validate_acl_rules_in_asic_db(duthost):
+    """
+    Validate that the number of ACL rules in ASIC DB is the same as the number of ACL rules in CONFIG DB.
+    Also check that the ACL rule RIDs are not empty.
+    For multi-ASIC DUTs, validates ACL rules in each frontend ASIC's ASIC_DB and CONFIG_DB.
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        bool: True if ACL rules count matches and RIDs are valid in all frontend ASICs, False otherwise
+    """
+    # Get all frontend ASIC instances
+    if duthost.is_multi_asic:
+        asic_instances = [duthost.asic_instance(asic_id) for asic_id in duthost.get_frontend_asic_ids()]
+    else:
+        asic_instances = [duthost]
+
+    # Validate ACL rules in each ASIC
+    for asic in asic_instances:
+        # Get namespace-specific command prefix
+        if duthost.is_multi_asic:
+            namespace = asic.get_asic_namespace()
+            config_cmd = "sonic-db-cli -n {} CONFIG_DB KEYS *ACL_RULE*".format(namespace)
+            asic_cmd = "sonic-db-cli -n {} ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*".format(namespace)
+        else:
+            config_cmd = "sonic-db-cli CONFIG_DB KEYS *ACL_RULE*"
+            asic_cmd = "sonic-db-cli ASIC_DB KEYS *SAI_OBJECT_TYPE_ACL_ENTRY*"
+
+        config_rules = asic.shell(config_cmd)['stdout_lines']
+        asic_rules = asic.shell(asic_cmd)['stdout_lines']
+
+        if len(config_rules) != len(asic_rules):
+            logging.error("ACL rules count mismatch in ASIC {}: CONFIG_DB={}, ASIC_DB={}".format(
+                asic.asic_index if duthost.is_multi_asic else "single",
+                len(config_rules), len(asic_rules)))
+            return False
+
+    # Validate ACL rule RIDs across all ASICs
+    return validate_acl_rule_rids(duthost)
 
 
 # TODO: This should be refactored to some common area of sonic-mgmt.

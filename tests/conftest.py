@@ -70,6 +70,7 @@ from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node,
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from pytest_ansible.errors import AnsibleConnectionFailure
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
@@ -97,7 +98,7 @@ from tests.common.helpers.yang_utils import run_yang_validation
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
-DUTHOSTS_FIXTURE_FAILED_RC = 15
+HOST_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
@@ -119,7 +120,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.conditional_mark',
                   'tests.common.plugins.random_seed',
                   'tests.common.plugins.memory_utilization',
-                  'tests.common.fixtures.duthost_utils')
+                  'tests.common.fixtures.duthost_utils',
+                  'tests.common.plugins.parallel_fixture')
 
 
 # NOTE: This is to backport fix https://github.com/python/cpython/pull/126098
@@ -134,6 +136,8 @@ fix_logging_handler_fork_lock()
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
+    parser.addoption("--ipv6_only_mgmt", action="store_true", default=False,
+                     help="Use IPv6-only management network. DUT mgmt_ip will be set to IPv6 address.")
     parser.addoption("--uhd_config", action="store", help="Enable UHD config mode")
     parser.addoption("--save_uhd_config", action="store_true", help="Save UHD config mode")
     parser.addoption("--npu_dpu_startup", action="store_true", help="Startup NPU and DPUs and install configurations")
@@ -217,12 +221,16 @@ def pytest_addoption(parser):
                      help="Skip sanity check")
     parser.addoption("--skip_pre_sanity", action="store_true", default=False,
                      help="Skip pre-test sanity check")
+    parser.addoption("--enable_pre_sanity", action="store_true", default=False,
+                     help="Enable pre-test sanity check (override default skip)")
     parser.addoption("--allow_recover", action="store_true", default=False,
                      help="Allow recovery attempt in sanity check in case of failure")
     parser.addoption("--check_items", action="store", default=False,
                      help="Change (add|remove) check items in the check list")
     parser.addoption("--post_check", action="store_true", default=False,
                      help="Perform post test sanity check if sanity check is enabled")
+    parser.addoption("--skip_post_check", action="store_true", default=False,
+                     help="Skip post-test sanity check (override default enable)")
     parser.addoption("--post_check_items", action="store", default=False,
                      help="Change (add|remove) post test check items based on pre test check items")
     parser.addoption("--recover_method", action="store", default="adaptive",
@@ -382,6 +390,28 @@ def pytest_configure(config):
             config.pluginmanager.register(MacsecPluginT2())
         else:
             config.pluginmanager.register(MacsecPluginT0())
+
+
+@pytest.fixture(scope="session")
+def ipv6_only_mgmt_enabled(request):
+    """
+    Fixture to check and configure IPv6-only management mode.
+
+    When --ipv6_only_mgmt is passed to pytest (or -6 to run_tests.sh),
+    this enables IPv6-only management mode where DUT mgmt_ip will use
+    the IPv6 address (ansible_hostv6) instead of IPv4 (ansible_host).
+
+    This fixture must be used before duthosts fixture to ensure the
+    mode is configured before SonicHost objects are created.
+
+    Returns:
+        bool: True if IPv6-only management mode is enabled, False otherwise.
+    """
+    from tests.common.devices.base import AnsibleHostBase
+
+    enabled = request.config.getoption("ipv6_only_mgmt", default=False)
+    AnsibleHostBase.set_ipv6_only_mgmt(enabled)
+    return enabled
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -554,13 +584,15 @@ def pytest_sessionstart(session):
 
 
 def pytest_sessionfinish(session, exitstatus):
-    if session.config.cache.get("duthosts_fixture_failed", None):
+    if (session.config.cache.get("duthosts_fixture_failed", None) or
+            session.config.cache.get("ptfhost_exception", None)):
         session.config.cache.set("duthosts_fixture_failed", None)
-        session.exitstatus = DUTHOSTS_FIXTURE_FAILED_RC
+        session.config.cache.set("ptfhost_exception", None)
+        session.exitstatus = HOST_FIXTURE_FAILED_RC
 
 
 @pytest.fixture(name="duthosts", scope="session")
-def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
+def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request, ipv6_only_mgmt_enabled):
     """
     @summary: fixture to get DUT hosts defined in testbed.
     @param enhance_inventory: fixture to enhance the capability of parsing the value of pytest cli argument
@@ -569,6 +601,7 @@ def fixture_duthosts(enhance_inventory, ansible_adhoc, tbinfo, request):
         mandatory argument for the class constructors.
     @param tbinfo: fixture provides information about testbed.
     @param request: pytest request object
+    @param ipv6_only_mgmt_enabled: fixture to configure IPv6-only management mode before DUT initialization
     """
     try:
         host = DutHosts(ansible_adhoc, tbinfo, request, get_specified_duts(request),
@@ -1262,7 +1295,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             action='generate',
             path="../ansible/",
             log_path=log_path,
-            dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
+            dut_interfaces=servers_dut_interfaces.get(ptf_ip, '') if servers_dut_interfaces else '',
             verbose=False
         )
         if 'topo_routes' not in res:
@@ -3273,13 +3306,20 @@ def on_exit():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def add_mgmt_test_mark(duthosts):
+def add_mgmt_test_mark(duthosts, request):
     '''
     @summary: Create mark file at /etc/sonic/mgmt_test_mark, and DUT can use this mark to detect mgmt test.
     @param duthosts: fixture to get DUT hosts
+    @param request: pytest request object
     '''
     mark_file = "/etc/sonic/mgmt_test_mark"
-    duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
+    try:
+        duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
+    except AnsibleConnectionFailure as e:
+        logger.error("Failed to create mgmt test mark on DUT, DUT may be unreachable.")
+        request.config.cache.set("duthosts_fixture_failed", True)
+        pt_assert(False, "!!!!!!!!!!!!!!!! add_mgmt_test_mark fixture failed !!!!!!!!!!!!!!!!"
+                  "Exception: {}".format(repr(e)))
 
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):

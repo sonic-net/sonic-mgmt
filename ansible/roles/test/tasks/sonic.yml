@@ -30,6 +30,11 @@
     sonic_asic_type: marvell
   when: sonic_hwsku in marvell_hwskus
 
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: nokia-vs
+  when: sonic_hwsku in nokia_hwskus
+
 ###########################################################################
 ##### run test using ansible tag when no testbedname specified       ######
 ###########################################################################

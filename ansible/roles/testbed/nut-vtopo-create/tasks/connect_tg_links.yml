@@ -1,0 +1,64 @@
+---
+# connect_tg_links.yml — Connect TG container interfaces to front-panel link bridges
+# For each link involving a TG device, create a veth pair with one end in the
+# TG container namespace and the other end attached to the link bridge.
+
+- name: Identify TG links
+  set_fact:
+    vnut_tg_links: >-
+      {{ (vnut_links | selectattr('StartDevice', 'in', testbed_tg_names) | list
+         + vnut_links | selectattr('EndDevice', 'in', testbed_tg_names) | list) | unique }}
+
+- name: Connect TG containers to link bridges
+  shell: |
+    {% for link in vnut_links %}
+    {% if link.StartDevice in testbed_tg_names %}
+    {# TG is the start device #}
+    BRIDGE="vbr_{{ testbed_name[:8] }}_{{ loop.index0 }}"
+    CONTAINER="{{ vnut_container_prefix }}_{{ testbed_name }}_{{ link.StartDevice }}"
+    PORT="{{ link.StartPort }}"
+    VETH_A="vtg{{ testbed_name[:6] }}_{{ loop.index0 }}a"
+    VETH_B="vtg{{ testbed_name[:6] }}_{{ loop.index0 }}b"
+    PID=$(docker inspect -f '{% raw %}{{.State.Pid}}{% endraw %}' "$CONTAINER")
+
+    # Check if port already exists in container
+    if nsenter -t "$PID" -n ip link show "$PORT" >/dev/null 2>&1; then
+      echo "Port $PORT already exists in $CONTAINER"
+    else
+      ip link show "$VETH_A" 2>/dev/null || ip link add "$VETH_A" type veth peer name "$VETH_B"
+      ip link set "$VETH_A" master "$BRIDGE"
+      ip link set "$VETH_A" up
+      ip link set "$VETH_B" netns "$PID"
+      nsenter -t "$PID" -n ip link set "$VETH_B" name "$PORT"
+      nsenter -t "$PID" -n ip link set "$PORT" up
+      echo "Connected $CONTAINER:$PORT to $BRIDGE"
+    fi
+
+    {% elif link.EndDevice in testbed_tg_names %}
+    {# TG is the end device #}
+    BRIDGE="vbr_{{ testbed_name[:8] }}_{{ loop.index0 }}"
+    CONTAINER="{{ vnut_container_prefix }}_{{ testbed_name }}_{{ link.EndDevice }}"
+    PORT="{{ link.EndPort }}"
+    VETH_A="vtg{{ testbed_name[:6] }}_{{ loop.index0 }}a"
+    VETH_B="vtg{{ testbed_name[:6] }}_{{ loop.index0 }}b"
+    PID=$(docker inspect -f '{% raw %}{{.State.Pid}}{% endraw %}' "$CONTAINER")
+
+    if nsenter -t "$PID" -n ip link show "$PORT" >/dev/null 2>&1; then
+      echo "Port $PORT already exists in $CONTAINER"
+    else
+      ip link show "$VETH_A" 2>/dev/null || ip link add "$VETH_A" type veth peer name "$VETH_B"
+      ip link set "$VETH_A" master "$BRIDGE"
+      ip link set "$VETH_A" up
+      ip link set "$VETH_B" netns "$PID"
+      nsenter -t "$PID" -n ip link set "$VETH_B" name "$PORT"
+      nsenter -t "$PID" -n ip link set "$PORT" up
+      echo "Connected $CONTAINER:$PORT to $BRIDGE"
+    fi
+
+    {% endif %}
+    {% endfor %}
+  args:
+    executable: /bin/bash
+  register: connect_tg_result
+  changed_when: "'Connected' in connect_tg_result.stdout"
+  when: vnut_tg_links | length > 0

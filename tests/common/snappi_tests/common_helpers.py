@@ -22,9 +22,8 @@ import json
 import re
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from ipaddress import IPv6Network, IPv6Address
+from ipaddress import IPv6Network
 import ipaddress
-from random import getrandbits
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
@@ -893,7 +892,8 @@ def enable_packet_aging(duthost, asic_value=None):
 
 def get_ipv6_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
     """
-    Get N IPv6 addresses in a subnet.
+    Get N IPv6 addresses in a subnet, sequentially iterating hosts
+    and skipping excluded IPs. Consistent with get_addrs_in_subnet behavior.
     Args:
         subnet (str): IPv6 subnet, e.g., '2001::1/64'
         number_of_ip (int): Number of IP addresses to get
@@ -904,18 +904,15 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
 
     subnet = str(IPNetwork(subnet).network) + "/" + str(subnet.split("/")[1])
     subnet = subnet.encode().decode("utf-8")
-    ipv6_list = []
+    network = IPv6Network(subnet)
     exclude_set = set(exclude_ips) if exclude_ips else set()
-    while len(ipv6_list) < number_of_ip:
-        network = IPv6Network(subnet)
-        address = IPv6Address(
-            network.network_address + getrandbits(
-                network.max_prefixlen - network.prefixlen))
-        addr_str = str(address)
-        if addr_str in exclude_set or addr_str in ipv6_list:
-            continue
-        ipv6_list.append(addr_str)
 
+    ipv6_list = []
+    for addr in network.hosts():
+        if str(addr) not in exclude_set:
+            ipv6_list.append(str(addr))
+            if len(ipv6_list) == number_of_ip:
+                break
     return ipv6_list
 
 
