@@ -549,6 +549,25 @@ sonic_arista_7050cx3:
         "0x24": "d4:af:f7:4c:eb:28"
         "0x2D": "Arista Networks"
         "0x2B": "Arista Networks"
+    str43-dcs-7050cx3-32s-f-d04-u02:
+      ansible_host: 10.3.146.113
+      ansible_hostv6: 2a01:111:e210:3000::a03:9271
+      mgmt_subnet_mask_length: 24
+      hwsku: Arista-7050CX3-32S-C32
+      model: DCS-7050CX3-32S
+      serial: JPN2426P08N
+      base_mac: 68:8b:f4:88:46:78
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32S"
+        "0x22": "ASY0288213A0"
+        "0x23": "JPN2426P08N"
+        "0x24": "68:8b:f4:88:46:78"
+        "0x25": "2020/01/01 00:00:00"
+        "0x26": "111"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32s-r0"
+        "0x2B": "Arista Networks"
+        "0x2D": "Arista Networks"
 
 sonic_arista_7060c6:
   hosts:

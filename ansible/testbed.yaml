@@ -5851,3 +5851,18 @@
   inv_name: strtk5
   auto_recover: 'True'
   comment: austinpham
+
+- conf-name: ptp-7050cx3-2
+  group-name:
+  topo: ptp-34
+  ptf_image_name: ''
+  ptf: ''
+  ptf_ip: ''
+  ptf_ipv6: ''
+  server: ''
+  vm_base: ''
+  dut:
+  - str43-dcs-7050cx3-32s-f-d04-u02
+  inv_name: str
+  auto_recover: 'True'
+  comment: v-shankam
