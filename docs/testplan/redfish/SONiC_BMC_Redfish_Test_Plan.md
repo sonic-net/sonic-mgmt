@@ -84,6 +84,10 @@ No scale and performance testing is involved in this test plan. Each Redfish end
 | Docker         | `docker-redfish` container running on BMC with bmcweb \+ sonic-dbus-bridge |
 | Authentication | Admin user credentials or certificates configured on BMC                   |
 
+## Rack Manager Simulator
+
+No external Rack Manager simulator is required for the current test scope.The test server running sonic-mgmt is sufficient for all Rack Manager tests (Sections 6, 7, 8). The Rack Manager tests (Sections 6, 7, 8) validate the **API surface only**, they verify that bmcweb correctly accepts valid payloads and rejects malformed ones by checking HTTP status codes and Redfish error objects.
+
 ## Test Utilities
 
 Tests use the `requests` Python library for REST API validation (no PTF/scapy needed, as these are management-plane API tests, not data-plane packet tests).
