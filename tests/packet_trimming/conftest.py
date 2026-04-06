@@ -231,6 +231,8 @@ def setup_trimming(duthost, test_params, trim_counter_params):
     with allure.step("Disable trimming in buffer profile"):
         for buffer_profile in test_params['trim_buffer_profiles']:
             configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "off")
+        for buffer_profile in trim_counter_params['trim_buffer_profiles']:
+            configure_trimming_action(duthost, trim_counter_params['trim_buffer_profiles'][buffer_profile], "off")
 
     with allure.step("Delete the blocking scheduler"):
         delete_blocking_scheduler(duthost)
