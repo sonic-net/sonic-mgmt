@@ -598,7 +598,7 @@ class GenerateGoldenConfigDBModule(object):
                 # Render the template using the profile
                 rendered_json = safe_open_template(GOLDEN_CONFIG_TEMPLATE_PATH).render(profile)
 
-        return rendered_json
+        return json.dumps(rendered_json, indent=4)
 
     def update_dns_config(self, config):
         # Generate dns_server related configuration
