@@ -19,28 +19,46 @@
 # END_LEGAL
 
 """
-FX3 QoS Scheduler Weight Change Tests — testbed end-to-end verification.
+FX3 QoS Scheduler Tests — testbed end-to-end verification (IPv4 + IPv6 dual-stack).
 
 Testbed (fx3_qos_testbed_2022.yaml):
   Ingress A: Ixia 1/9  -> DUT Ethernet1_49 (100G)
   Ingress B: Ixia 1/10 -> DUT Ethernet1_50 (100G)
   Egress:    DUT Ethernet1_51 -> Ixia 1/11 (100G)
 
-(test_fx3_scheduler_reordered_config):
+(test_fx3_scheduler_reordered_config)  — maps to test_plan test 23
   Remove all QUEUE->scheduler bindings, then re-apply in non-sequential order
-  [6,0,1,2,7,3,4,5].  Verify final CONFIG_DB state is identical to test 17.
-  Restores baseline via 'config qos reload' on completion.
+  [6,0,1,2,7,3,4,5].  Verify CONFIG_DB, DCHAL BW%, and Tx-pkt ratios are
+  identical to sequential binding.  Restores via 'config qos reload'.
 
-(test_fx3_scheduler_weight_change):
-  Start from FX3 baseline.  Step 1: change scheduler.2 weight 20->30 and
-  verify CONFIG_DB reads back 30.  Step 2: change scheduler.5 weight 30->20
-  and verify CONFIG_DB reads back 20.  Verify all other profiles are unchanged
-  at each step.  Restores baseline via 'config qos reload' on completion.
-  Maps to scheduler_test_plan.md test 24.
+(test_fx3_scheduler_weight_change)  — maps to test_plan test 24
+  Baseline → scheduler.2 weight 20->30 + queue rebind → scheduler.5 weight
+  30->20 + queue rebind → restore.  Verify CONFIG_DB, DCHAL BW%, and traffic
+  ratios at each step.  All other profiles must be unchanged.
+
+(test_fx3_bind_unbind_rebind_cycle)  — maps to SAI test_tortuga_bind_unbind_rebind_cycle
+  Unbind Q0 (HDEL QUEUE|0), then rebind Q0 to scheduler.4 (w=40).  Verify
+  CONFIG_DB, DCHAL BW%, and traffic ratios after each state change.
+
+(test_fx3_change_sg6_strict_to_dwrr)  — maps to SAI test_tortuga_change_bound_sg6_strict_to_dwrr
+  Change scheduler.6 from STRICT → DWRR(w=20) and re-bind QUEUE|6.  Verify
+  DCHAL and 7-queue traffic (Q6 DWRR ~10%, Q7 sole STRICT).  Requires explicit
+  QUEUE re-bind because sai_set(SCHEDULING_TYPE) is SW-only on FX3.
+
+(test_fx3_sg5_dwrr_to_strict)  — maps to SAI test_tortuga_sg5_DWRR_to_STRICT
+  Change scheduler.5 from DWRR(w=30) → STRICT.  Uses HDEL+HSET to force a
+  delete event so orchagent re-binds via the NULL→OID path and
+  program_dwrr_queues_scheduling_to_hw recalibrates Q0-Q4 BW%.
+
+(test_fx3_unbind_dwrr_sg2)  — maps to SAI test_tortuga_unbind_dwrr_sg2
+  Unbind Q2 entirely (HDEL QUEUE|2).  Verify remaining DWRR queues
+  Q0/Q1/Q3/Q4/Q5 redistribute DCHAL BW% and traffic ratios.
 
 FX3 constraints:
   - PFC and ECN are not supported on this platform.
   - clear_queue_stats is not supported; tests use snapshot-before/after deltas.
+  - sai_set(SCHEDULING_TYPE) is SW-only; HW reprogramming only happens on
+    set_queue_attribute(SCHEDULER_PROFILE_ID) re-bind.
 """
 
 import pytest
@@ -530,13 +548,12 @@ def scheduler_traffic_check(label, weight_map, fail_msgs, checkpoint_summary,
     """
     _rate = rate_pct if rate_pct is not None else STREAM_RATE_PCT
     egress = port_info['egress']
-    _ingress_roles = sorted(k for k in tg_ph if k != 'egress')
+    _ingress_roles = sorted(k for k in port_info if k != 'egress')
     # Build stream source list from all active ingress roles
     ports = [
         (tg_ph[r], IXIA_IPV4[r], macs[r])
         for r in _ingress_roles
     ]
-    _ingress_roles = sorted(k for k in port_info if k != 'egress')
     _topo_str = ", ".join(
         "{}={}({}G)".format(r, port_info.get(r, '?'), port_speeds.get(r, '?'))
         for r in _ingress_roles
@@ -642,7 +659,9 @@ def scheduler_traffic_check_v6(label, weight_map, fail_msgs, checkpoint_summary,
     to the AZURE dscp_to_tc_map used for IPv4.  All other validation logic
     (queue counter deltas, validate_dwrr_ratios, record_checkpoint) is unchanged.
 
-    6 DWRR queues × N ingress ports × STREAM_RATE_PCT% = >100% egress load (computed at runtime) → congested.
+    N DWRR queues × M ingress ports × STREAM_RATE_PCT% = >100% egress load → congested.
+    (N is len(weight_map); STREAM_RATE_PCT is calibrated for the baseline 6-queue case
+    but produces sufficient egress congestion for 5- and 7-queue variants as well.)
 
     macs: dict {role: dut_mac}  e.g. {'ingress_a': '00:...', 'ingress_b': '00:...'}
     strict_queues: queue indices expected to have zero drops (default (6,7)).
@@ -650,13 +669,12 @@ def scheduler_traffic_check_v6(label, weight_map, fail_msgs, checkpoint_summary,
     """
     _rate = rate_pct if rate_pct is not None else STREAM_RATE_PCT
     egress = port_info['egress']
-    _ingress_roles = sorted(k for k in tg_ph if k != 'egress')
+    _ingress_roles = sorted(k for k in port_info if k != 'egress')
     # Build stream source list from all active ingress roles
     ports = [
         (tg_ph[r], IXIA_IPV6[r], macs[r], IXIA_SRC_MAC[r], IXIA_GWV6[r])
         for r in _ingress_roles
     ]
-    _ingress_roles = sorted(k for k in port_info if k != 'egress')
     _topo_str = ", ".join(
         "{}={}({}G)".format(r, port_info.get(r, '?'), port_speeds.get(r, '?'))
         for r in _ingress_roles
@@ -1086,7 +1104,8 @@ def test_fx3_bind_unbind_rebind_cycle(setup_topo):
       1. Verify FX3 baseline CONFIG_DB bindings
       2. HDEL QUEUE|<egress>|0 scheduler  — Q0 unbound
       3. Verify CONFIG_DB Q0 has no scheduler binding
-      4. Log DCHAL (Q0 reverts to default, others redistribute)
+      4. Log DCHAL + validate Q1-Q5 BW% ratios (Q0 excluded — drops to HW fallback token)
+         IPv4 + IPv6 traffic check for Q1-Q5 proportional ratios
       5. HSET QUEUE|<egress>|0 scheduler=scheduler.4  — rebind Q0 to w=40
       6. Verify CONFIG_DB Q0 binding = scheduler.4
       7. DCHAL check: Q0 now ~w=40 proportion (same as Q3, Q4)
@@ -1179,8 +1198,18 @@ def test_fx3_bind_unbind_rebind_cycle(setup_topo):
 
     # ── Step 4: Log DCHAL after Q0 unbind ────────────────────────────────
     st.banner("STEP 4: DCHAL state after Q0 unbind (Q0 reverts to default weight)")
-    dchal_show_queuing(dut, "After Q0 unbind", egress)
-    # No validate_dchal_bw_vs_weights here — Q0 uses unknown default weight after unbind
+    _dchal_out_unbind = dchal_show_queuing(dut, "After Q0 unbind", egress)
+    # Q0 Bandwidth%=0 after unbind (FX3 ASIC drops it to minimum fallback token=81).
+    # Validate Q1–Q5 still maintain their expected proportional ratios (Q0 excluded).
+    w_unbind_q1_q5 = {1: 20, 2: 20, 3: 40, 4: 40, 5: 30}
+    validate_dchal_bw_vs_weights("After Q0 unbind (Q1-Q5 only)", _dchal_out_unbind,
+                                 w_unbind_q1_q5, fail_msgs)
+    scheduler_traffic_check("After Q0 unbind [IPv4]", w_unbind_q1_q5, fail_msgs,
+                            checkpoint_summary, macs, dchal_bw=None,
+                            note="Q0 unbound — validating Q1-Q5 ratios only")
+    scheduler_traffic_check_v6("After Q0 unbind [IPv6]", w_unbind_q1_q5, fail_msgs,
+                               checkpoint_summary, macs, dchal_bw=None,
+                               note="Q0 unbound — validating Q1-Q5 ratios only")
 
     # ── Step 5: Rebind Q0 to scheduler.4 (w=40) ───────────────────────────
     st.banner("STEP 5: Rebind Q0 to scheduler.4 (w=40)")
@@ -1257,5 +1286,418 @@ def test_fx3_bind_unbind_rebind_cycle(setup_topo):
             'Bind/unbind/rebind cycle PASSED (IPv4 + IPv6): '
             'Q0 unbound then rebound to scheduler.4 (w=40); '
             'DCHAL BW% and Tx-pkt ratios match expected weights')
+
+
+def test_fx3_change_sg6_strict_to_dwrr(setup_topo):
+    """Change scheduler.6 from STRICT to DWRR(w=20); verify DCHAL and 7-queue traffic.
+
+    Steps:
+      1. Verify FX3 baseline — scheduler.6 is STRICT
+      2. Change scheduler.6: STRICT → DWRR (w=20) + re-bind QUEUE|6
+      3. Verify CONFIG_DB scheduler.6 type=DWRR weight=20; scheduler.7 unchanged STRICT
+      4. DCHAL check — Q6 DWRR ~10%, Q7 STRICT 0%, sum≈100%
+      5. IPv4 traffic: weight_map {0:20, 1:20, 2:20, 3:40, 4:40, 5:30, 6:20}
+      6. IPv6 traffic
+      7. Restore: config qos reload
+    """
+    _ingress_roles = sorted(k for k in port_info if k != 'egress')
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_change_sg6_strict_to_dwrr  [IPv4 + IPv6  dual-stack]\n"
+        "  DUT      : {}\n"
+        "  Ingress  : {}\n"
+        "  Egress   : {}  ({}G)\n"
+        "  Plan     : Baseline → STRICT→DWRR(w=20) → DCHAL + 7-queue traffic → Restore".format(
+            dut,
+            "  ".join("{}={}({}G)".format(r, port_info[r], port_speeds.get(r, '?'))
+                      for r in _ingress_roles),
+            egress, port_speeds.get('egress', '?'))
+    )
+    fail_msgs = []
+    checkpoint_summary = {}
+
+    macs = {role: get_dut_mac(dut, port_info[role]) for role in _ingress_roles}
+    deploy_dchal_helper(dut)
+
+    w_baseline = {0: 20, 1: 20, 2: 20, 3: 40, 4: 40, 5: 30}
+    # After SG6 STRICT→DWRR(w=20): Q6 joins DWRR pool, Q7 remains STRICT
+    w_sg6_dwrr = {0: 20, 1: 20, 2: 20, 3: 40, 4: 40, 5: 30, 6: 20}
+
+    # ── Step 1: Verify FX3 baseline — scheduler.6 is STRICT ──────────────
+    st.banner("STEP 1: Verify FX3 baseline — scheduler.6 is STRICT")
+    out = st.show(dut,
+        'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|scheduler.6"',
+        skip_tmpl=True)
+    actual_s6 = parse_redis_hgetall(out)
+    st.log("  scheduler.6 baseline: {}".format(actual_s6))
+    if actual_s6.get('type') != 'STRICT':
+        fail_msgs.append("Baseline: scheduler.6 type='{}', expected 'STRICT'".format(
+            actual_s6.get('type', '')))
+        st.config(dut, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        st.report_fail('msg', 'Change SG6 STRICT→DWRR FAILED at baseline — scheduler.6 not STRICT')
+        return
+
+    # ── Step 2: Change scheduler.6: STRICT → DWRR (w=20) ─────────────────
+    st.banner("STEP 2: Change scheduler.6: STRICT → DWRR (w=20) + re-bind")
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HSET "SCHEDULER|scheduler.6" "type" "DWRR"',
+        skip_error_check=True)
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HSET "SCHEDULER|scheduler.6" "weight" "20"',
+        skip_error_check=True)
+    # Re-bind: write QUEUE entry to trigger orchagent → set_queue_scheduler → DCHAL HW
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|6" "scheduler" "scheduler.6"'.format(
+            port_info['egress']),
+        skip_error_check=True)
+    st.wait(2)
+
+    # ── Step 3: Verify CONFIG_DB scheduler.6 type=DWRR weight=20 ──────────
+    st.banner("STEP 3: Verify CONFIG_DB scheduler.6 type=DWRR weight=20")
+    out = st.show(dut,
+        'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|scheduler.6"',
+        skip_tmpl=True)
+    actual_s6 = parse_redis_hgetall(out)
+    st.log("  scheduler.6 after change: {}".format(actual_s6))
+    if actual_s6.get('type') != 'DWRR' or actual_s6.get('weight') != '20':
+        fail_msgs.append(
+            "scheduler.6 after change: {}, expected type=DWRR weight=20".format(actual_s6))
+    out = st.show(dut,
+        'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|scheduler.7"',
+        skip_tmpl=True)
+    actual_s7 = parse_redis_hgetall(out)
+    st.log("  scheduler.7 (must be unchanged STRICT): {}".format(actual_s7))
+    if actual_s7.get('type') != 'STRICT':
+        fail_msgs.append(
+            "scheduler.7 unexpectedly changed: {}, expected STRICT".format(actual_s7))
+    log_scheduler_state("After SG6 STRICT→DWRR")
+
+    # ── Step 4: DCHAL check ────────────────────────────────────────────────
+    st.banner("STEP 4: DCHAL check — Q6 DWRR ~10%, Q7 STRICT 0%, sum≈100%")
+    _dchal_out = dchal_show_queuing(dut, "SG6 STRICT→DWRR", egress)
+    _dchal_bw = validate_dchal_bw_vs_weights(
+        "SG6 STRICT→DWRR", _dchal_out, w_sg6_dwrr, fail_msgs)
+
+    # ── Step 5: IPv4 traffic ───────────────────────────────────────────────
+    scheduler_traffic_check(
+        "SG6 STRICT→DWRR [IPv4]", w_sg6_dwrr, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw, strict_queues=(7,),
+        note="Q6 now DWRR w=20; only Q7 remains STRICT")
+
+    # ── Step 6: IPv6 traffic ───────────────────────────────────────────────
+    scheduler_traffic_check_v6(
+        "SG6 STRICT→DWRR [IPv6]", w_sg6_dwrr, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw, strict_queues=(7,),
+        note="Q6 now DWRR w=20; only Q7 remains STRICT")
+
+    # ── Restore ────────────────────────────────────────────────────────────
+    st.banner("RESTORE: config qos reload")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    log_scheduler_state("Restore")
+
+    # ── Final summary ──────────────────────────────────────────────────────
+    print_scheduler_summary(checkpoint_summary)
+
+    # ── Verdict ────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  CHANGE SG6 STRICT→DWRR — FAILURES ({} total):".format(len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'Change SG6 STRICT→DWRR FAILED ({} failures) — see above'.format(len(fail_msgs)))
+    else:
+        st.log("  CHANGE SG6 STRICT→DWRR — ALL CHECKS PASSED (IPv4 + IPv6)")
+        st.log("  scheduler.6 STRICT→DWRR(w=20): DCHAL and traffic ratios correct")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'Change SG6 STRICT→DWRR PASSED (IPv4 + IPv6): '
+            'scheduler.6 changed to DWRR(w=20); DCHAL BW% and Tx-pkt ratios correct '
+            'for 7-queue DWRR pool with Q7 as sole STRICT queue')
+
+
+def test_fx3_sg5_dwrr_to_strict(setup_topo):
+    """Change scheduler.5 from DWRR(w=30) to STRICT; verify DCHAL and 5-queue traffic.
+
+    Steps:
+      1. Verify FX3 baseline — scheduler.5 is DWRR weight=30
+      2. Change scheduler.5: DWRR(w=30) → STRICT + re-bind QUEUE|5
+      3. Verify CONFIG_DB scheduler.5 type=STRICT, no weight field
+      4. DCHAL check — Q5 STRICT (prio=3), Q6/Q7 STRICT, Q0-Q4 DWRR redistribute
+      5. IPv4 traffic: weight_map {0:20, 1:20, 2:20, 3:40, 4:40} (5-queue DWRR pool)
+      6. IPv6 traffic
+      7. Restore: config qos reload
+    """
+    _ingress_roles = sorted(k for k in port_info if k != 'egress')
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_sg5_dwrr_to_strict  [IPv4 + IPv6  dual-stack]\n"
+        "  DUT      : {}\n"
+        "  Ingress  : {}\n"
+        "  Egress   : {}  ({}G)\n"
+        "  Plan     : Baseline → DWRR→STRICT → DCHAL + 5-queue traffic → Restore".format(
+            dut,
+            "  ".join("{}={}({}G)".format(r, port_info[r], port_speeds.get(r, '?'))
+                      for r in _ingress_roles),
+            egress, port_speeds.get('egress', '?'))
+    )
+    fail_msgs = []
+    checkpoint_summary = {}
+
+    macs = {role: get_dut_mac(dut, port_info[role]) for role in _ingress_roles}
+    deploy_dchal_helper(dut)
+
+    # After SG5 DWRR→STRICT: Q5 joins STRICT chain (Q7>Q6>Q5), DWRR pool = Q0-Q4 only
+    w_sg5_strict = {0: 20, 1: 20, 2: 20, 3: 40, 4: 40}
+
+    # ── Step 1: Verify baseline ────────────────────────────────────────────
+    st.banner("STEP 1: Verify FX3 baseline — scheduler.5 is DWRR weight=30")
+    out = st.show(dut,
+        'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|scheduler.5"',
+        skip_tmpl=True)
+    actual_s5 = parse_redis_hgetall(out)
+    st.log("  scheduler.5 baseline: {}".format(actual_s5))
+    if actual_s5.get('type') != 'DWRR' or actual_s5.get('weight') != '30':
+        fail_msgs.append("Baseline: scheduler.5={}, expected type=DWRR weight=30".format(actual_s5))
+        st.config(dut, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        st.report_fail('msg', 'SG5 DWRR→STRICT FAILED at baseline — scheduler.5 not DWRR(w=30)')
+        return
+
+    # ── Step 2: Change scheduler.5: DWRR(w=30) → STRICT ──────────────────
+    st.banner("STEP 2: Change scheduler.5: DWRR(w=30) → STRICT + re-bind")
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HSET "SCHEDULER|scheduler.5" "type" "STRICT"',
+        skip_error_check=True)
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HDEL "SCHEDULER|scheduler.5" "weight"',
+        skip_error_check=True)
+    # Unbind Q5 first (HDEL generates a real deletion event for the orchagent so it
+    # processes the unbind, setting Q5's SAI scheduler_profile_id to NULL).
+    # The subsequent HSET then creates a NEW field (Redis returns 1, not 0) triggering
+    # a fresh bind with old=NULL → new=sched5_oid (different-OID path). This correctly
+    # calls program_dwrr_queues_scheduling_to_hw with Q5 excluded from the DWRR pool,
+    # so Q0-Q4 DCHAL BW% are recalibrated to the new total_weight=140 percentages.
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HDEL "QUEUE|{}|5" "scheduler"'.format(port_info['egress']),
+        skip_error_check=True)
+    st.wait(1)
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|5" "scheduler" "scheduler.5"'.format(
+            port_info['egress']),
+        skip_error_check=True)
+    st.wait(2)
+
+    # ── Step 3: Verify CONFIG_DB scheduler.5 type=STRICT, no weight ───────
+    st.banner("STEP 3: Verify CONFIG_DB scheduler.5 type=STRICT, no weight; "
+              "scheduler.6/7 unchanged; QUEUE|5 binding intact")
+    out = st.show(dut,
+        'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|scheduler.5"',
+        skip_tmpl=True)
+    actual_s5 = parse_redis_hgetall(out)
+    st.log("  scheduler.5 after change: {}".format(actual_s5))
+    if actual_s5.get('type') != 'STRICT':
+        fail_msgs.append(
+            "scheduler.5 type='{}' after change, expected 'STRICT'".format(
+                actual_s5.get('type', '')))
+    if 'weight' in actual_s5:
+        fail_msgs.append(
+            "scheduler.5 still has weight='{}' after STRICT change".format(
+                actual_s5.get('weight')))
+
+    # Verify scheduler.6 and scheduler.7 are still STRICT and unmodified
+    for sname in ('scheduler.6', 'scheduler.7'):
+        out = st.show(dut,
+            'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|{}"'.format(sname),
+            skip_tmpl=True)
+        actual = parse_redis_hgetall(out)
+        st.log("  {} (must be unchanged STRICT): {}".format(sname, actual))
+        if actual.get('type') != 'STRICT':
+            fail_msgs.append(
+                "{} unexpectedly changed: {}, expected STRICT".format(sname, actual))
+
+    # Confirm QUEUE|5 binding is still present after HDEL+HSET sequence
+    out = st.show(dut,
+        'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|5" "scheduler"'.format(egress),
+        skip_tmpl=True)
+    actual_q5 = parse_redis_hget(out).strip()
+    st.log("  QUEUE|{}|5 binding after HDEL+HSET: '{}'  expected 'scheduler.5'  {}".format(
+        egress, actual_q5, "OK" if actual_q5 == 'scheduler.5' else "MISMATCH"))
+    if actual_q5 != 'scheduler.5':
+        fail_msgs.append(
+            "QUEUE|{}|5 binding='{}' after re-bind, expected 'scheduler.5'".format(
+                egress, actual_q5))
+
+    log_scheduler_state("After SG5 DWRR→STRICT")
+
+    # ── Step 4: DCHAL check ────────────────────────────────────────────────
+    st.banner("STEP 4: DCHAL check — Q5 STRICT prio=3; DWRR pool is Q0-Q4 only")
+    _dchal_out = dchal_show_queuing(dut, "SG5 DWRR→STRICT", egress)
+    _dchal_bw = validate_dchal_bw_vs_weights(
+        "SG5 DWRR→STRICT", _dchal_out, w_sg5_strict, fail_msgs)
+
+    # ── Step 5: IPv4 traffic ───────────────────────────────────────────────
+    scheduler_traffic_check(
+        "SG5 DWRR→STRICT [IPv4]", w_sg5_strict, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw, strict_queues=(5, 6, 7),
+        note="Q5 now STRICT; STRICT chain Q7>Q6>Q5; DWRR pool is Q0-Q4 only")
+
+    # ── Step 6: IPv6 traffic ───────────────────────────────────────────────
+    scheduler_traffic_check_v6(
+        "SG5 DWRR→STRICT [IPv6]", w_sg5_strict, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw, strict_queues=(5, 6, 7),
+        note="Q5 now STRICT; STRICT chain Q7>Q6>Q5; DWRR pool is Q0-Q4 only")
+
+    # ── Restore ────────────────────────────────────────────────────────────
+    st.banner("RESTORE: config qos reload")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    log_scheduler_state("Restore")
+
+    # ── Final summary ──────────────────────────────────────────────────────
+    print_scheduler_summary(checkpoint_summary)
+
+    # ── Verdict ────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  SG5 DWRR→STRICT — FAILURES ({} total):".format(len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'SG5 DWRR→STRICT FAILED ({} failures) — see above'.format(len(fail_msgs)))
+    else:
+        st.log("  SG5 DWRR→STRICT — ALL CHECKS PASSED (IPv4 + IPv6)")
+        st.log("  scheduler.5 DWRR(w=30)→STRICT: STRICT chain Q7>Q6>Q5; Q0-Q4 DWRR redistribute")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'SG5 DWRR→STRICT PASSED (IPv4 + IPv6): scheduler.5 changed to STRICT; '
+            'DCHAL and traffic ratios correct for Q0-Q4 DWRR pool')
+
+
+def test_fx3_unbind_dwrr_sg2(setup_topo):
+    """Unbind Q2 from its scheduler; verify remaining DWRR queues Q0/Q1/Q3/Q4/Q5 redistribute.
+
+    Steps:
+      1. Verify FX3 baseline — Q2 is bound to scheduler.2
+      2. Unbind Q2 — HDEL QUEUE|<egress>|2 scheduler
+      3. Verify Q2 has no scheduler binding; Q0/Q1/Q3/Q4/Q5 unchanged
+      4. DCHAL check — Q2 drops to ~0% (fallback token); Q0/Q1/Q3/Q4/Q5 redistribute
+      5. IPv4 traffic: weight_map {0:20, 1:20, 3:40, 4:40, 5:30} (Q2 excluded)
+      6. IPv6 traffic
+      7. Restore: config qos reload
+    """
+    _ingress_roles = sorted(k for k in port_info if k != 'egress')
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_unbind_dwrr_sg2  [IPv4 + IPv6  dual-stack]\n"
+        "  DUT      : {}\n"
+        "  Ingress  : {}\n"
+        "  Egress   : {}  ({}G)\n"
+        "  Plan     : Baseline → Unbind Q2 → DCHAL + Q0/Q1/Q3/Q4/Q5 traffic → Restore".format(
+            dut,
+            "  ".join("{}={}({}G)".format(r, port_info[r], port_speeds.get(r, '?'))
+                      for r in _ingress_roles),
+            egress, port_speeds.get('egress', '?'))
+    )
+    fail_msgs = []
+    checkpoint_summary = {}
+
+    macs = {role: get_dut_mac(dut, port_info[role]) for role in _ingress_roles}
+    deploy_dchal_helper(dut)
+
+    # After unbind Q2: remaining DWRR queues are Q0/Q1/Q3/Q4/Q5
+    w_unbind_q2 = {0: 20, 1: 20, 3: 40, 4: 40, 5: 30}
+
+    # ── Step 1: Verify baseline ────────────────────────────────────────────
+    st.banner("STEP 1: Verify FX3 baseline — Q2 is bound to scheduler.2")
+    out = st.show(dut,
+        'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|2" "scheduler"'.format(egress),
+        skip_tmpl=True)
+    actual_q2 = parse_redis_hget(out).strip()
+    st.log("  Q2 baseline binding: '{}'  expected 'scheduler.2'".format(actual_q2))
+    if actual_q2 != 'scheduler.2':
+        fail_msgs.append("Baseline: QUEUE|{}|2 = '{}', expected 'scheduler.2'".format(
+            egress, actual_q2))
+        st.config(dut, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        st.report_fail('msg', 'Unbind DWRR SG2 FAILED at baseline — Q2 not bound to scheduler.2')
+        return
+
+    # ── Step 2: Unbind Q2 ─────────────────────────────────────────────────
+    st.banner("STEP 2: Unbind Q2 — HDEL QUEUE|{}|2 scheduler".format(egress))
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HDEL "QUEUE|{}|2" "scheduler"'.format(egress),
+        skip_error_check=True)
+    st.wait(2)
+
+    # ── Step 3: Verify Q2 unbound; others unchanged ────────────────────────
+    st.banner("STEP 3: Verify Q2 has no scheduler binding in CONFIG_DB")
+    out = st.show(dut,
+        'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|2" "scheduler"'.format(egress),
+        skip_tmpl=True)
+    actual_q2 = parse_redis_hget(out).strip()
+    st.log("  Q2 binding after HDEL: '{}'  (expected empty)".format(actual_q2))
+    if actual_q2:
+        fail_msgs.append("After unbind: QUEUE|{}|2 still has scheduler='{}'".format(
+            egress, actual_q2))
+    for qi in [0, 1, 3, 4, 5, 6, 7]:
+        expected_sched = 'scheduler.{}'.format(qi)
+        out = st.show(dut,
+            'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|{}" "scheduler"'.format(egress, qi),
+            skip_tmpl=True)
+        actual = parse_redis_hget(out).strip()
+        if actual != expected_sched:
+            fail_msgs.append("After Q2 unbind: Q{} binding='{}', expected '{}' (should be unchanged)".format(
+                qi, actual, expected_sched))
+
+    # ── Step 4: DCHAL check after Q2 unbind ──────────────────────────────
+    st.banner("STEP 4: DCHAL check — Q2 at default ~0%; Q0/Q1/Q3/Q4/Q5 redistribute")
+    _dchal_out = dchal_show_queuing(dut, "After Q2 unbind", egress)
+    validate_dchal_bw_vs_weights("After Q2 unbind (Q0/Q1/Q3/Q4/Q5 only)", _dchal_out,
+                                 w_unbind_q2, fail_msgs)
+
+    # ── Step 5: IPv4 traffic ───────────────────────────────────────────────
+    scheduler_traffic_check(
+        "After Q2 unbind [IPv4]", w_unbind_q2, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=None,
+        note="Q2 unbound — validating Q0/Q1/Q3/Q4/Q5 ratios only")
+
+    # ── Step 6: IPv6 traffic ───────────────────────────────────────────────
+    scheduler_traffic_check_v6(
+        "After Q2 unbind [IPv6]", w_unbind_q2, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=None,
+        note="Q2 unbound — validating Q0/Q1/Q3/Q4/Q5 ratios only")
+
+    # ── Restore ────────────────────────────────────────────────────────────
+    st.banner("RESTORE: config qos reload")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    log_scheduler_state("Restore")
+
+    # ── Final summary ──────────────────────────────────────────────────────
+    print_scheduler_summary(checkpoint_summary)
+
+    # ── Verdict ────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  UNBIND DWRR SG2 — FAILURES ({} total):".format(len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'Unbind DWRR SG2 FAILED ({} failures) — see above'.format(len(fail_msgs)))
+    else:
+        st.log("  UNBIND DWRR SG2 — ALL CHECKS PASSED (IPv4 + IPv6)")
+        st.log("  Q2 unbound; DCHAL BW% and Tx-pkt ratios for remaining DWRR queues "
+               "(Q0/Q1/Q3/Q4/Q5) match expected weights")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'Unbind DWRR SG2 PASSED (IPv4 + IPv6): '
+            'Q2 unbound; DCHAL BW% and Tx-pkt ratios for remaining DWRR queues '
+            '(Q0/Q1/Q3/Q4/Q5) match expected weights')
 
 

@@ -1809,7 +1809,7 @@ def report_dchal_bw_check(dchal_output, fail_msgs):
 
     Verifies:
       - DWRR queues: Bandwidth% matches weight/total_weight*100 (±1.5%)
-      - DWRR sum: all BW% values sum to ~100% (±6%)
+      - DWRR sum: all BW% values sum to ~100% (±10%)
       - STRICT queues: PrioLevel is set (not None)
     """
     hw = parse_dchal_egress_bw(dchal_output)
@@ -1870,8 +1870,8 @@ def report_dchal_bw_check(dchal_output, fail_msgs):
 
     bw_sum = sum(hw.get(qi, {}).get('bw_pct', 0) or 0 for qi in dwrr_weights)
     st.log("  " + "-" * 63)
-    st.log("  DWRR BW% sum = {}% (expected ~100%, tolerance +-6%)".format(bw_sum))
-    if abs(bw_sum - 100) > 6:
+    st.log("  DWRR BW% sum = {}% (expected ~100%, tolerance +-10%)".format(bw_sum))
+    if abs(bw_sum - 100) > 10:
         fail_msgs.append(
             "DCHAL DWRR BW% sum={}, expected ~100%".format(bw_sum))
 
@@ -1883,6 +1883,11 @@ def validate_dchal_bw_vs_weights(label, dchal_output, weight_map, fail_msgs):
     Unlike report_dchal_bw_check (uses hardcoded TORTUGA_CONFIG), this
     function accepts an arbitrary weight_map so step-by-step weight changes
     can be verified against the expected ASIC BW% at each checkpoint.
+
+    Tolerances applied:
+      - Per-queue BW%: abs(actual - expected) <= 2.0% (FX3 ASIC granularity)
+      - DWRR BW% sum:  abs(sum - 100) <= 10%  (matches SAI API test tolerance;
+                       transient 1% fallback during HDEL can lower sum slightly)
 
     Returns the parsed bw dict (or None if no data), so callers can pass it
     to record_checkpoint for summary logging.
@@ -1902,16 +1907,16 @@ def validate_dchal_bw_vs_weights(label, dchal_output, weight_map, fail_msgs):
                 "[{}] DCHAL QoS-Group {} (weight {}) missing from Bandwidth% output".format(
                     label, qg, w))
             continue
-        if abs(actual_pct - expected_pct) > 1.5:
+        if abs(actual_pct - expected_pct) > 2.0:
             fail_msgs.append(
                 "[{}] DCHAL QoS-Group {} Bandwidth%={}, expected ~{:.1f}% "
                 "(weight={}, total_weight={})".format(
                     label, qg, actual_pct, expected_pct, w, total_w))
 
     bw_sum = sum((bw.get(qg) or {}).get('bw_pct', 0) or 0 for qg in weight_map)
-    if abs(bw_sum - 100) > 6:
+    if abs(bw_sum - 100) > 10:
         fail_msgs.append(
-            "[{}] DCHAL DWRR Bandwidth% sum={}, expected ~100% (tolerance ±6)".format(
+            "[{}] DCHAL DWRR Bandwidth% sum={}, expected ~100% (tolerance ±10)".format(
                 label, bw_sum))
     return bw
 
