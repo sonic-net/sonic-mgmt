@@ -530,6 +530,9 @@ class GenerateGoldenConfigDBModule(object):
             gold_config_db["DEVICE_METADATA"]["localhost"]["cluster"] = "cluster1"
             gold_config_db["DEVICE_METADATA"]["localhost"]["region"] = "west"
             ha_config = self._generate_ha_config(dpu_num)
+            # Merge FEATURE dict so we don't overwrite existing features
+            if "FEATURE" in ha_config and "FEATURE" in gold_config_db:
+                gold_config_db["FEATURE"].update(ha_config.pop("FEATURE"))
             gold_config_db.update(ha_config)
 
         rc, out, err = self.module.run_command("cat {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
