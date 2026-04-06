@@ -3,13 +3,13 @@ package bindingbackend
 
 import (
 	"context"
-	"time"
 
 	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	"github.com/openconfig/ondatra/binding"
-        "github.com/openconfig/ondatra/binding/introspect"
+	"github.com/openconfig/ondatra/binding/introspect"
 	opb "github.com/openconfig/ondatra/proto"
 	"google.golang.org/grpc"
+	"time"
 )
 
 // ReservedTestbed contains information about reserved testbed.

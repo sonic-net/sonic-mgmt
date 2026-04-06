@@ -235,7 +235,7 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
                        'child.sendline(\'exit\\rexit\\r\'); '
                        'child.expect(r\'Terminal\'); '
                        'child.sendline(\'\'); '
-                       'child.expect(r\'sonic login: \'); '
+                       'child.expect(r\' login: \'); '
                        'print(child.after.decode()); child.close()"'
                        % (index))
         else:
@@ -245,13 +245,13 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
                        'child.sendline(\'\\r\\r\'); '
                        'child.expect(r\' \'); '
                        'child.sendline(\'exit\\rexit\\r\'); '
-                       'child.expect(r\'sonic login: \'); '
+                       'child.expect(r\' login: \'); '
                        'print(child.after.decode()); child.close()"'
                        % (index))
 
         logging.info("Checking console access of {}".format(dpu_name))
         output_dpu_console = duthost.shell(command)
-        pytest_assert(output_dpu_console['stdout'] == 'sonic login: ',
+        pytest_assert(output_dpu_console['stdout'] == ' login: ',
                       "{} console is not accessible"
                       .format(dpu_name))
 

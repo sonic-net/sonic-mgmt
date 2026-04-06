@@ -20,6 +20,7 @@ from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHE
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
 from tests.common.devices.duthosts import DutHosts
 from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa: F401
+from tests.common.platform.controlplane_gating import controlplane_gating
 
 """
 Helper script for fanout switch operations
@@ -1023,6 +1024,17 @@ def advanceboot_loganalyzer_factory(duthost, request, marker_postfix=None):
             report_file_name = request.node.name + "_report.json"
             summary_file_name = request.node.name + "_summary.json"
 
+        # Prepare minimal dict for control plane gating logic
+        gating_input = {
+            "lacp_session_max_wait": result_summary.get("controlplane", {}).get("lacp_session_max_wait"),
+            "bgp": result_summary.get("time_span", {}).get("bgp"),
+            "HwSku": result_summary.get("hwsku"),
+            "BaseImage": result_summary.get("base_ver"),
+            "TargetImage": result_summary.get("target_ver")
+        }
+        # Run control plane gating
+        gating_failures = controlplane_gating(gating_input)
+
         report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),
                                            "../../logs/platform_tests/")))
         report_file_path = report_file_dir + "/" + report_file_name
@@ -1036,6 +1048,9 @@ def advanceboot_loganalyzer_factory(duthost, request, marker_postfix=None):
 
         # After generating timing data report, do some checks on the timing data
         verification_errors = list()
+        # Append the gating failures
+        if gating_failures:
+            verification_errors.extend(gating_failures)
         verify_mac_jumping(test_name, analyze_result, verification_errors)
         if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
             # TBD: expand this verification to KVM - extra port events in KVM which need to be filtered
@@ -1302,6 +1317,32 @@ def get_dpu_port(duthost, dpu_index):
         logger.error("gnmi_port not found in config_facts for dpu_index {}".format(dpu_index))
         return None
     return port
+
+
+def get_configured_dpu_names(duthost):
+    """
+    Return DPU names configured in the DUT running config (e.g. ["dpu0","dpu1"]).
+
+    This is used by tests to avoid targeting chassis modules that are present in
+    platform API but are not configured for DPU management (and thus have no
+    gNMI/gNOI settings in config DB).
+    """
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if not config_facts:
+        logger.error("Failed to retrieve config_facts from DUT")
+        return []
+
+    dpu_section = config_facts.get('DPU', {})
+    if not dpu_section:
+        return []
+
+    # Keep deterministic ordering (dpu0, dpu1, ...)
+    def _dpu_sort_key(name):
+        m = re.search(r'(\d+)$', str(name))
+        return int(m.group(1)) if m else 10**9
+
+    names = [str(k) for k in dpu_section.keys()]
+    return sorted(names, key=_dpu_sort_key)
 
 
 def check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
