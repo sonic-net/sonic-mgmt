@@ -358,7 +358,19 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
     else:
         if post_check_items:
             logger.info("Start post-test sanity check")
-            post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
+            try:
+                post_check_results = do_checks(request, post_check_items, stage=STAGE_POST_TEST)
+            except Exception as e:
+                logger.error(
+                    "Post-test sanity check crashed (DUT may be unreachable): %s", repr(e)
+                )
+                request.config.cache.set("post_sanity_check_failed", True)
+                add_custom_msg(request, f"{DUT_CHECK_NAMESPACE}.post_sanity_check_failed", True)
+                pt_assert(
+                    False,
+                    "!!!!!!!!!!!!!!!! Post-test sanity check crashed: !!!!!!!!!!!!!!!!\n{}".format(repr(e))
+                )
+                return
             logger.debug("Post-test sanity check results:\n%s" %
                          json.dumps(post_check_results, indent=4, default=fallback_serializer))
 

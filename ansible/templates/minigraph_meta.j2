@@ -6,7 +6,7 @@
 {% set snmp_servers_str = ';'.join(snmp_servers) %}
 {% set tacacs_servers_str = ';'.join(tacacs_servers) %}
 {% set radius_servers_str = ';'.join(radius_servers) %}
-{% set erspan_dest_str = ';'.join(erspan_dest) %}
+{% set erspan_dest_str = ';'.join(erspan_dest | default([])) %}
     <Devices xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
       <a:DeviceMetadata>
         <a:Name>{{ inventory_hostname }}</a:Name>
@@ -21,11 +21,13 @@
             <a:Reference i:nil="true"/>
             <a:Value>Public</a:Value>
           </a:DeviceProperty>
+{% if not (is_bmc_topo | bool) %}
           <a:DeviceProperty>
             <a:Name>QosProfile</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>Profile0</a:Value>
           </a:DeviceProperty>
+{% endif %}
 {% if sonic_qos_profile is defined and sonic_qos_profile != "DEFAULT" %}
           <a:DeviceProperty>
             <a:Name>SonicQosProfile</a:Name>
@@ -86,7 +88,7 @@
             <a:Value>ComputeAI</a:Value>
           </a:DeviceProperty>
 {% endif %}
-{% if dhcp_servers %}
+{% if dhcp_servers and not (is_bmc_topo | bool) %}
           <a:DeviceProperty>
             <a:Name>DhcpResources</a:Name>
             <a:Reference i:nil="true"/>
@@ -121,7 +123,7 @@
             <a:Value>{{ syslog_servers_str }}</a:Value>
           </a:DeviceProperty>
 {% endif %}
-{% if tacacs_group %}
+{% if tacacs_group is defined and tacacs_group %}
           <a:DeviceProperty>
             <a:Name>TacacsGroup</a:Name>
             <a:Reference i:nil="true"/>
@@ -142,7 +144,7 @@
             <a:Value>{{ forced_mgmt_routes_str }}</a:Value>
           </a:DeviceProperty>
 {% endif %}
-{% if erspan_dest %}
+{% if erspan_dest is defined and erspan_dest %}
           <a:DeviceProperty>
             <a:Name>ErspanDestinationIpv4</a:Name>
             <a:Reference i:nil="true"/>

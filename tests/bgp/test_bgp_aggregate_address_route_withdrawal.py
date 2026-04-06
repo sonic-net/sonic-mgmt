@@ -15,27 +15,45 @@ import pytest
 from natsort import natsorted
 
 # Shared helpers from the aggregate-address helpers module
-from bgp_aggregate_helpers import (  # noqa: F401
+from bgp_aggregate_helpers import (
+    BGP_AGGREGATE_ADDRESS,
     AggregateCfg,
+    dump_db,
     gcu_add_aggregate,
+    gcu_add_placeholder_aggregate,
     safe_remove_aggregate,
-    setup_teardown,
 )
+from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp_routing import inject_routes, verify_route_on_neighbors
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology("m1"), pytest.mark.device_type("vs"), pytest.mark.disable_loganalyzer]
+pytestmark = [
+    pytest.mark.topology("m1"),
+]
 
-# ExaBGP base ports (downstream PTF ports)
+# ---- Test data ----
+AGGR_V4 = "10.100.0.0/16"
+CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
+PLACEHOLDER_PREFIX = "192.0.2.0/32"
 EXABGP_BASE_PORT = 5000
 EXABGP_BASE_PORT_V6 = 6000
 
-# IPv4 /16 aggregate with three /24 contributing routes exercises the full lifecycle.
-AGGR_GRP3_V4 = "10.100.0.0/16"
-CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_teardown(duthost):
+    """Create checkpoint before tests, rollback after."""
+    create_checkpoint(duthost)
+    default_aggregates = dump_db(duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS)
+    if not default_aggregates:
+        gcu_add_placeholder_aggregate(duthost, PLACEHOLDER_PREFIX)
+    yield
+    try:
+        rollback_or_reload(duthost, fail_on_rollback_error=False)
+    finally:
+        delete_checkpoint(duthost)
 
 
 @pytest.fixture(scope="module")
@@ -102,7 +120,7 @@ def test_aggregate_no_contributing_routes(
     """
     duthost = duthosts[rand_one_dut_hostname]
     setup = route_propagation_setup
-    agg_prefix = AGGR_GRP3_V4
+    agg_prefix = AGGR_V4
     contributing = CONTRIBUTING_V4[:1]  # single /24 is enough to trigger aggregation
 
     cfg = AggregateCfg(prefix=agg_prefix, bbr_required=False, summary_only=False, as_set=False)
@@ -147,7 +165,7 @@ def test_aggregate_all_contributing_withdrawn(
     """
     duthost = duthosts[rand_one_dut_hostname]
     setup = route_propagation_setup
-    agg_prefix = AGGR_GRP3_V4
+    agg_prefix = AGGR_V4
     contributing = CONTRIBUTING_V4  # all three /24 routes
 
     cfg = AggregateCfg(prefix=agg_prefix, bbr_required=False, summary_only=False, as_set=False)
@@ -190,7 +208,7 @@ def test_aggregate_partial_contributing_withdrawal(
     """
     duthost = duthosts[rand_one_dut_hostname]
     setup = route_propagation_setup
-    agg_prefix = AGGR_GRP3_V4
+    agg_prefix = AGGR_V4
     # Two logical "sets" representing different M0 sources
     set_a = CONTRIBUTING_V4[:2]    # 10.100.1.0/24, 10.100.2.0/24
     set_b = CONTRIBUTING_V4[2:]    # 10.100.3.0/24
@@ -235,7 +253,7 @@ def test_aggregate_new_contributing_route_added(
     """
     duthost = duthosts[rand_one_dut_hostname]
     setup = route_propagation_setup
-    agg_prefix = AGGR_GRP3_V4
+    agg_prefix = AGGR_V4
     initial_contributing = CONTRIBUTING_V4[:1]   # 10.100.1.0/24
     new_contributing = CONTRIBUTING_V4[1:2]      # 10.100.2.0/24
 

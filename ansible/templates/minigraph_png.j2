@@ -100,6 +100,7 @@
 {% endfor %}
 {% endfor %}
 {% endif %}
+{% if front_panel_asic_ifnames is defined and front_panel_asic_ifnames | length > 0 %}
 {% for if_index in range(front_panel_asic_ifnames | length) %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -121,6 +122,7 @@
         <Validate>true</Validate>
       </DeviceLinkBase>
 {% endfor %}
+{% endif %}
 {% endif %}
     </DeviceInterfaceLinks>
     <Devices>

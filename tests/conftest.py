@@ -70,6 +70,7 @@ from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node,
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from pytest_ansible.errors import AnsibleConnectionFailure
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
@@ -97,7 +98,7 @@ from tests.common.helpers.yang_utils import run_yang_validation
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
-DUTHOSTS_FIXTURE_FAILED_RC = 15
+HOST_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
@@ -583,9 +584,11 @@ def pytest_sessionstart(session):
 
 
 def pytest_sessionfinish(session, exitstatus):
-    if session.config.cache.get("duthosts_fixture_failed", None):
+    if (session.config.cache.get("duthosts_fixture_failed", None) or
+            session.config.cache.get("ptfhost_exception", None)):
         session.config.cache.set("duthosts_fixture_failed", None)
-        session.exitstatus = DUTHOSTS_FIXTURE_FAILED_RC
+        session.config.cache.set("ptfhost_exception", None)
+        session.exitstatus = HOST_FIXTURE_FAILED_RC
 
 
 @pytest.fixture(name="duthosts", scope="session")
@@ -3303,13 +3306,20 @@ def on_exit():
 
 
 @pytest.fixture(scope="session", autouse=True)
-def add_mgmt_test_mark(duthosts):
+def add_mgmt_test_mark(duthosts, request):
     '''
     @summary: Create mark file at /etc/sonic/mgmt_test_mark, and DUT can use this mark to detect mgmt test.
     @param duthosts: fixture to get DUT hosts
+    @param request: pytest request object
     '''
     mark_file = "/etc/sonic/mgmt_test_mark"
-    duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
+    try:
+        duthosts.shell("touch %s" % mark_file, module_ignore_errors=True)
+    except AnsibleConnectionFailure as e:
+        logger.error("Failed to create mgmt test mark on DUT, DUT may be unreachable.")
+        request.config.cache.set("duthosts_fixture_failed", True)
+        pt_assert(False, "!!!!!!!!!!!!!!!! add_mgmt_test_mark fixture failed !!!!!!!!!!!!!!!!"
+                  "Exception: {}".format(repr(e)))
 
 
 def verify_packets_any_fixed(test, pkt, ports=[], device_number=0, timeout=None):
