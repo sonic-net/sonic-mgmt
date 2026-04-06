@@ -50,6 +50,42 @@ from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID
 from scapy.layers.inet6 import ICMPv6ND_NS, ICMPv6NDOptDstLLAddr
 
 
+def wait_until(timeout, interval, delay, condition, *args, **kwargs):
+    """
+    Wait until the specified condition is True or timeout.
+
+    @param timeout: Maximum time to wait
+    @param interval: Poll interval
+    @param delay: Delay time
+    @param condition: A function that returns False or True
+    @param *args: Extra args required by the 'condition' function.
+    @param **kwargs: Extra args required by the 'condition' function.
+    @return: If the condition function returns True before timeout, return True.
+             If the condition function raises an exception, print the error and keep waiting and polling.
+    """
+    if delay > 0:
+        time.sleep(delay)
+
+    start_time = time.time()
+    elapsed_time = 0
+    while elapsed_time < timeout:
+        try:
+            check_result = condition(*args, **kwargs)
+        except Exception as e:
+            print("Exception caught while checking {}: {}".format(
+                condition.__name__, str(e)), file=sys.stderr)
+            check_result = False
+
+        if check_result:
+            return True
+        else:
+            time.sleep(interval)
+            elapsed_time = time.time() - start_time
+
+    if elapsed_time >= timeout:
+        return False
+
+
 # Counters
 # The index number comes from the append order in sai_thrift_read_port_counters
 EGRESS_DROP = 0
@@ -1409,7 +1445,7 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                     pkt_dst_mac, src_port_mac, src_port_ip, dst_port_ip, dst_port_id,
                     src_port_id, exp_ttl, ip_ttl)
 
-                        start_time = time.time()
+            start_time = time.time()
             check_iteration = [0]  # Use list to allow modification in nested function
 
             def check_all_expected_counters_updated():

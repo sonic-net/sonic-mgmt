@@ -1503,7 +1503,7 @@ class QosSaiBase(QosBase):
 
         if dualTor:
             testPortIds = dualTorPortIndexes
-        
+
         # Build dutinterfaces mapping before calling __buildTestPorts
         # This is needed for cable length validation
         dutinterfaces = {}
