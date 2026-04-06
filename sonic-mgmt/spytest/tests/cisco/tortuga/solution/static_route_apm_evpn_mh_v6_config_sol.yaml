@@ -1,0 +1,538 @@
+leaf0:
+    pre-sonic-bgp:
+      config: |
+        evpn mh redirect-off
+        end
+        exit
+
+      deconfig: |
+        no evpn mh redirect-off
+        end
+        exit
+
+    sonic:
+      config: |
+        swssloglevel -l INFO -c orchagent
+        swssloglevel -l INFO -c fdbsyncd
+        sudo config interface startup D5D1P1
+        sudo config interface startup D5T1P1
+        sudo config interface startup D5T1P2
+        sudo config interface ipv6 enable use-link-local-only D5D1P1
+        sudo config interface ip add Loopback0 fd27::233:d0c6:fefb/128
+        sudo config vlan add 10
+        sudo config vlan member add -u 10 D5T1P1
+        sudo config portchannel add PortChannel2
+        sudo config portchannel member add PortChannel2 D5T1P2
+        sudo config vlan member add -u 10 PortChannel2
+        sudo config vxlan add VXLAN fd27::233:d0c6:fefb
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vxlan map add VXLAN 10 5010
+        sudo counterpoll tunnel enable
+        sudo counterpoll tunnel interval 2000
+        sudo config vlan add 30
+        sudo config vrf add Vrf01
+        sudo config interface vrf bind Vlan10 Vrf01
+        sudo config interface vrf bind Vlan30 Vrf01
+        sudo config vxlan map add VXLAN 30 5030
+        sudo config vrf add_vrf_vni_map Vrf01 5030
+        sudo config interface ip add Vlan10 10.212.10.10/24
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:11
+        sudo config vlan static-anycast-gateway enable 10
+        sudo config interface sys-mac add PortChannel2 00:44:33:22:11:00
+        sudo config interface evpn-esi add PortChannel2 auto-system-mac
+        sudo config portchannel add PortChannel5
+        sudo config portchannel member add PortChannel5 D5D2P2
+        sudo config interface sys-mac add PortChannel5 00:55:44:33:22:11
+        sudo config interface evpn-esi add PortChannel5 auto-system-mac
+        sudo config vlan member add 10 PortChannel5 -u
+        sudo config loopback add Loopback5
+        sudo config interface vrf bind Loopback5 Vrf01
+        sudo config interface ip add Loopback5 172.16.1.1/32
+
+      deconfig: |
+        sudo config interface ip remove Loopback5 172.16.1.1/32
+        sudo config interface vrf unbind Loopback5
+        sudo config vlan member del 10 PortChannel5
+        sudo config interface evpn-esi del PortChannel5
+        sudo config portchannel member del PortChannel5 D5D2P2
+        sudo config portchannel del PortChannel5
+        sudo config portchannel member del PortChannel2 D5T1P2
+        sudo config vlan member del 10 PortChannel2
+        sudo config vlan member del 10 D5T1P1
+        sudo config interface vrf unbind Vlan10
+        sudo config interface vrf unbind Vlan20
+        sudo config interface vrf unbind Vlan30
+        sudo config interface ip remove Vlan10 10.212.10.10/24
+        sudo config vrf del_vrf_vni_map Vrf01
+        sudo config vxlan map del VXLAN 30 5030
+        sudo config vxlan map del VXLAN 10 5010
+        sudo config vxlan evpn_nvo del NVO
+        sudo config vxlan del VXLAN
+        sudo config interface ip rem Loopback0 fd27::233:d0c6:fefb/128
+        sudo config interface ipv6 disable use-link-local-only D5D1P1
+        sudo config vrf del Vrf01
+        sudo config vlan del 10
+        sudo config vlan del 30
+        sudo config interface evpn-esi del PortChannel2
+        sudo config portchannel del PortChannel2
+        sudo config static-anycast-gateway mac_address del
+
+
+    bgp:
+      config: |
+        debug zebra kernel
+        debug zebra kernel msgdump
+        debug zebra rib
+        debug zebra rib detailed
+        debug zebra vxlan
+        debug zebra evpn mh mac
+        debug bgp evpn mh route
+        debug bgp evpn mh es
+        debug bgp zebra
+        debug zebra evpn mh neigh
+        debug zebra dplane detailed
+        log stdout
+        log syslog
+        router bgp 10
+        bgp router-id 100.100.100.1
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor fd27::2dc:c1c9:e17c peer-group OVERLAY
+        neighbor fd27::2d9:76fd:4c43 peer-group OVERLAY
+        neighbor D5D1P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        no use-es-l3nhg
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        advertise ipv6 unicast 
+        exit-address-family
+        exit
+        vrf Vrf01
+        vni 5030
+        exit
+        router bgp 10 vrf Vrf01
+        bgp bestpath as-path multipath-relax
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        no use-es-l3nhg
+        advertise ipv4 unicast
+        advertise ipv6 unicast 
+        exit-address-family
+        exit
+
+      deconfig: |
+        vrf Vrf01
+        no vni 5030
+        exit
+        no router bgp 10 vrf Vrf01
+        no router bgp 10
+        end
+        exit
+
+leaf1:
+    pre-sonic-bgp:
+        config: |
+            evpn mh redirect-off
+            end
+            exit
+
+        deconfig: |
+            no evpn mh redirect-off
+            end
+            exit
+
+    sonic:
+      config: |
+        swssloglevel -l INFO -c orchagent
+        swssloglevel -l INFO -c fdbsyncd
+        sudo config interface startup D6D1P1
+        sudo config interface startup D6T1P1
+        sudo config interface startup D6T1P2
+        sudo config interface ipv6 enable use-link-local-only D6D1P1
+        sudo config interface ip add Loopback0 fd27::2dc:c1c9:e17c/128
+        sudo config vlan add 10
+        sudo config portchannel add PortChannel2
+        sudo config portchannel member add PortChannel2 D6T1P1
+        sudo config vlan member add -u 10 PortChannel2
+        sudo config vlan member add -u 10 D6T1P2
+        sudo config vxlan add VXLAN fd27::2dc:c1c9:e17c
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vxlan map add VXLAN 10 5010
+        sudo counterpoll tunnel enable
+        sudo counterpoll tunnel interval 2000
+        sudo config vlan add 30
+        sudo config vrf add Vrf01
+        sudo config interface vrf bind Vlan10 Vrf01
+        sudo config interface vrf bind Vlan30 Vrf01
+        sudo config vxlan map add VXLAN 30 5030
+        sudo config vrf add_vrf_vni_map Vrf01 5030
+        sudo config interface ip add Vlan10 10.212.10.10/24
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:11
+        sudo config vlan static-anycast-gateway enable 10
+        sudo config interface sys-mac add PortChannel2 00:44:33:22:11:00
+        sudo config interface evpn-esi add PortChannel2 auto-system-mac
+        sudo config portchannel add PortChannel5
+        sudo config portchannel member add PortChannel5 D6D2P2
+        sudo config interface sys-mac add PortChannel5 00:55:44:33:22:11
+        sudo config interface evpn-esi add PortChannel5 auto-system-mac
+        sudo config vlan member add 10 PortChannel5 -u
+        sudo config loopback add Loopback5
+        sudo config interface vrf bind Loopback5 Vrf01
+        sudo config interface ip add Loopback5 172.16.2.1/32
+
+      deconfig: |
+        sudo config interface ip remove Loopback5 172.16.2.1/32
+        sudo config interface vrf unbind Loopback5
+        sudo config vlan member del 10 PortChannel5
+        sudo config interface evpn-esi del PortChannel5
+        sudo config portchannel member del PortChannel5 D6D2P2
+        sudo config portchannel del PortChannel5
+        sudo config portchannel member del PortChannel2 D6T1P1
+        sudo config vlan member del 10 PortChannel2
+        sudo config vlan member del 10 D6T1P2
+        sudo config interface vrf unbind Vlan10
+        sudo config interface vrf unbind Vlan20
+        sudo config interface vrf unbind Vlan30
+        sudo config interface ip remove Vlan10 10.212.10.10/24
+        sudo config vrf del_vrf_vni_map Vrf01
+        sudo config vxlan map del VXLAN 30 5030
+        sudo config vxlan map del VXLAN 10 5010
+        sudo config vxlan evpn_nvo del NVO
+        sudo config vxlan del VXLAN
+        sudo config interface ip rem Loopback0 fd27::2dc:c1c9:e17c/128
+        sudo config interface ipv6 disable use-link-local-only D6D1P1
+        sudo config vrf del Vrf01
+        sudo config vlan del 10
+        sudo config vlan del 30
+        sudo config interface evpn-esi del PortChannel2
+        sudo config portchannel del PortChannel2
+        sudo config static-anycast-gateway mac_address del
+
+    bgp:
+      config: |
+        debug zebra kernel
+        debug zebra kernel msgdump
+        debug zebra rib
+        debug zebra rib detailed
+        debug zebra vxlan
+        debug zebra evpn mh mac
+        debug bgp evpn mh route
+        debug bgp evpn mh es
+        debug bgp zebra
+        debug zebra evpn mh neigh
+        debug zebra dplane detailed
+        log stdout
+        log syslog
+        router bgp 20
+        bgp router-id 100.100.100.2
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor fd27::233:d0c6:fefb peer-group OVERLAY
+        neighbor fd27::2d9:76fd:4c43 peer-group OVERLAY
+        neighbor D6D1P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        no use-es-l3nhg
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        advertise ipv6 unicast 
+        exit-address-family
+        exit
+        vrf Vrf01
+        vni 5030
+        exit
+        router bgp 20 vrf Vrf01
+        bgp bestpath as-path multipath-relax
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        no use-es-l3nhg
+        advertise ipv4 unicast
+        advertise ipv6 unicast 
+        exit-address-family
+        exit
+
+      deconfig: |
+        vrf Vrf01
+        no vni 5030
+        exit
+        no router bgp 20 vrf Vrf01
+        no router bgp 20
+        end
+        exit
+
+leaf2:
+    pre-sonic-bgp:
+      config: |
+        evpn mh redirect-off
+        end
+        exit
+
+      deconfig: |
+        no evpn mh redirect-off
+        end
+        exit
+
+    sonic:
+      config: |
+        swssloglevel -l INFO -c orchagent
+        swssloglevel -l INFO -c fdbsyncd
+        sudo config interface startup D7D1P1
+        sudo config interface startup D7T1P1
+        sudo config interface startup D7T1P2
+        sudo config interface ipv6 enable use-link-local-only D7D1P1
+        sudo config interface ip add Loopback0 fd27::2d9:76fd:4c43/128
+        sudo config vlan add 10
+        sudo config vlan member add -u 10 D7T1P1
+        sudo config vlan add 20
+        sudo config vlan member add -u 20 D7T1P2
+        sudo config vxlan add VXLAN fd27::2d9:76fd:4c43
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vxlan map add VXLAN 10 5010
+        sudo config vxlan map add VXLAN 20 5020
+        sudo counterpoll tunnel enable
+        sudo counterpoll tunnel interval 2000
+        sudo config vlan add 30
+        sudo config vrf add Vrf01
+        sudo config interface vrf bind Vlan10 Vrf01
+        sudo config interface vrf bind Vlan20 Vrf01
+        sudo config interface vrf bind Vlan30 Vrf01
+        sudo config vxlan map add VXLAN 30 5030
+        sudo config vrf add_vrf_vni_map Vrf01 5030
+        sudo config interface ip add Vlan10 10.212.10.10/24
+        sudo config interface ip add Vlan20 10.212.20.10/24
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:11
+        sudo config vlan static-anycast-gateway enable 10
+        sudo config vlan add 40
+        sudo config vxlan map add VXLAN 40 5040
+        sudo config vrf add Vrf02
+        sudo config interface vrf bind Vlan40 Vrf02
+        sudo config vrf add_vrf_vni_map Vrf02 5040
+        sudo config interface ip add Vlan40 10.212.10.10/24
+
+      deconfig: |
+        sudo config vlan member del 10 D7T1P1
+        sudo config vlan member del 20 D7T1P2
+        sudo config interface vrf unbind Vlan10
+        sudo config interface vrf unbind Vlan20
+        sudo config interface vrf unbind Vlan30
+        sudo config interface ip remove Vlan10 10.212.10.10/24
+        sudo config interface ip remove Vlan20 10.212.20.10/24
+        sudo config vrf del_vrf_vni_map Vrf01
+        sudo config vxlan map del VXLAN 30 5030
+        sudo config vxlan map del VXLAN 20 5020
+        sudo config vxlan map del VXLAN 10 5010
+        sudo config vxlan evpn_nvo del NVO
+        sudo config vxlan del VXLAN
+        sudo config interface ip rem Loopback0 fd27::2d9:76fd:4c43/128
+        sudo config interface ipv6 disable use-link-local-only D7D1P1
+        sudo config vrf del Vrf01
+        sudo config interface vrf unbind Vlan40
+        sudo config interface ip remove Vlan40 10.212.10.10/24
+        sudo config vrf del_vrf_vni_map Vrf02
+        sudo config vxlan map del VXLAN 40 5040
+        sudo config vrf del Vrf02
+        sudo config static-anycast-gateway mac_address del
+        sudo config vlan del 10
+        sudo config vlan del 20
+        sudo config vlan del 30
+        sudo config vlan del 40
+
+    bgp:
+      config: |
+        debug zebra kernel
+        debug zebra kernel msgdump
+        debug zebra rib
+        debug zebra rib detailed
+        debug zebra vxlan
+        debug zebra evpn mh mac
+        debug bgp evpn mh route
+        debug bgp evpn mh es
+        debug bgp zebra
+        debug zebra evpn mh neigh
+        debug zebra dplane detailed
+        log stdout
+        log syslog
+        router bgp 30
+        bgp router-id 100.100.100.3
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor fd27::233:d0c6:fefb peer-group OVERLAY
+        neighbor fd27::2dc:c1c9:e17c peer-group OVERLAY
+        neighbor D7D1P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        no use-es-l3nhg
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        advertise ipv6 unicast 
+        exit-address-family
+        exit
+        vrf Vrf01
+        vni 5030
+        exit
+        router bgp 30 vrf Vrf01
+        bgp bestpath as-path multipath-relax
+        address-family ipv4 unicast
+        redistribute connected
+        redistribute static
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        redistribute static
+        exit-address-family
+        address-family l2vpn evpn
+        no use-es-l3nhg
+        advertise ipv4 unicast
+        advertise ipv6 unicast 
+        exit-address-family
+        end
+        exit
+        
+      deconfig: |
+        vrf Vrf01
+        no vni 5030
+        exit
+        no router bgp 30 vrf Vrf01
+        no router bgp 30
+        end
+        exit
+
+spine0:
+    pre-sonic-bgp:
+      config: |
+        evpn mh redirect-off
+        end
+        exit
+
+      deconfig: |
+        no evpn mh redirect-off
+        end
+        exit
+
+    sonic:
+      config: |
+        swssloglevel -l INFO -c orchagent
+        swssloglevel -l INFO -c fdbsyncd
+        sudo config interface startup D1D5P1
+        sudo config interface startup D1D6P1
+        sudo config interface startup D1D7P1
+        sudo config interface startup D1D8P1
+        sudo config interface ipv6 enable use-link-local-only D1D5P1
+        sudo config interface ipv6 enable use-link-local-only D1D6P1
+        sudo config interface ipv6 enable use-link-local-only D1D7P1
+        sudo config interface ipv6 enable use-link-local-only D1D8P1
+
+      deconfig: |
+        sudo config interface ipv6 disable use-link-local-only D1D5P1
+        sudo config interface ipv6 disable use-link-local-only D1D6P1
+        sudo config interface ipv6 disable use-link-local-only D1D7P1
+        sudo config interface ipv6 disable use-link-local-only D1D8P1
+
+    bgp:
+      config: |
+        debug zebra kernel
+        debug zebra kernel msgdump
+        debug zebra rib
+        debug zebra rib detailed
+        debug zebra vxlan
+        debug zebra evpn mh mac
+        debug bgp evpn mh route
+        debug bgp evpn mh es
+        debug bgp zebra
+        debug zebra evpn mh neigh
+        debug zebra dplane detailed
+        log stdout
+        log syslog
+        router bgp 80
+        bgp router-id 100.100.100.8
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor TRANSIT ebgp-multihop 1
+        neighbor D1D5P1 interface peer-group TRANSIT
+        neighbor D1D6P1 interface peer-group TRANSIT
+        neighbor D1D7P1 interface peer-group TRANSIT
+        neighbor D1D8P1 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        end
+        exit
+
+      deconfig: |
+        no router bgp 80
+        end
+        exit

@@ -15,43 +15,43 @@ configs:
 devices:
     spine0:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.25, port: 22}
+        access: {protocol: ssh, ip: 192.168.122.85, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     spine1:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.208, port: 22}
+        access: {protocol: ssh, ip: 192.168.122.127, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     spine2:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.246, port: 22}
+        access: {protocol: ssh, ip: 192.168.122.190, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     spine3:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.94, port: 22}
+        access: {protocol: ssh, ip: 192.168.122.34, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     leaf0:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.59, port: 22}
+        access: {protocol: ssh, ip: 192.168.122.228, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     leaf1:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.151, port: 22}
+        access: {protocol: ssh, ip: 192.168.122.135, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     leaf2:
         device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.244, port: 22}
+        access: {protocol: ssh, ip: 192.168.122.245, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
@@ -89,6 +89,7 @@ topology:
         interfaces:
             Ethernet1_1: {EndDevice: spine0, EndPort: Ethernet1_1, params: def_link}
             Ethernet1_2: {EndDevice: spine1, EndPort: Ethernet1_1, params: def_link}
+            Ethernet1_5: {EndDevice: spine1, EndPort: Ethernet1_5, params: def_link}
             Ethernet1_3: {EndDevice: spine2, EndPort: Ethernet1_1, params: def_link}
             Ethernet1_7: {EndDevice: T1, EndPort: 1/1, params: def_tg_link}
             Ethernet1_8: {EndDevice: T1, EndPort: 1/2, params: def_tg_link}      
@@ -97,6 +98,7 @@ topology:
         interfaces:
             Ethernet1_1: {EndDevice: spine0, EndPort: Ethernet1_2, params: def_link}
             Ethernet1_2: {EndDevice: spine1, EndPort: Ethernet1_2, params: def_link}
+            Ethernet1_5: {EndDevice: spine1, EndPort: Ethernet1_6, params: def_link}
             Ethernet1_3: {EndDevice: spine2, EndPort: Ethernet1_2, params: def_link}
             Ethernet1_7: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}
             Ethernet1_8: {EndDevice: T1, EndPort: 1/5, params: def_tg_link}
@@ -106,6 +108,7 @@ topology:
             Ethernet1_1: {EndDevice: spine0, EndPort: Ethernet1_3, params: def_link}
             Ethernet1_2: {EndDevice: spine1, EndPort: Ethernet1_3, params: def_link}
             Ethernet1_3: {EndDevice: spine2, EndPort: Ethernet1_3, params: def_link}
+            Ethernet1_5: {EndDevice: spine2, EndPort: Ethernet1_5, params: def_link}
             Ethernet1_7: {EndDevice: T1, EndPort: 1/7, params: def_tg_link}
             Ethernet1_8: {EndDevice: T1, EndPort: 1/8, params: def_tg_link}
             Ethernet1_9: {EndDevice: T1, EndPort: 1/9, params: def_tg_link}

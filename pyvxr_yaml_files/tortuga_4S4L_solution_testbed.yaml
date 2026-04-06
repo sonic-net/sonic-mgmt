@@ -26,11 +26,62 @@ devices:
         sudo systemctl disable azimuth
 
 
-  SD2:
+  SD2: &sonic_router_with_tcp
       <<: *sonic_router
+      cli_commands: |
+          rm -f /home/cisco/tcpserver.py
+          echo 'import socket' > /home/cisco/tcpserver.py
+          echo 'import threading' >> /home/cisco/tcpserver.py
+          echo 'import sys' >> /home/cisco/tcpserver.py
+          echo '' >> /home/cisco/tcpserver.py
+          echo 'def handle_client(conn, addr):' >> /home/cisco/tcpserver.py
+          echo '    print(f"Connected by {addr}")' >> /home/cisco/tcpserver.py
+          echo '    with conn:' >> /home/cisco/tcpserver.py
+          echo '        while True:' >> /home/cisco/tcpserver.py
+          echo '            data = conn.recv(1024)' >> /home/cisco/tcpserver.py
+          echo '            if not data:' >> /home/cisco/tcpserver.py
+          echo '                break' >> /home/cisco/tcpserver.py
+          echo '            conn.sendall(data)  # Echo back' >> /home/cisco/tcpserver.py
+          echo '' >> /home/cisco/tcpserver.py
+          echo 'def start_server(host, port):' >> /home/cisco/tcpserver.py
+          echo '    # Determine address family (IPv4 or IPv6)' >> /home/cisco/tcpserver.py
+          echo '    family = socket.AF_INET6 if ":" in host else socket.AF_INET' >> /home/cisco/tcpserver.py
+          echo '' >> /home/cisco/tcpserver.py
+          echo '    with socket.socket(family, socket.SOCK_STREAM) as s:' >> /home/cisco/tcpserver.py
+          echo '        # Allow immediate reuse of the address after restart' >> /home/cisco/tcpserver.py
+          echo '        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)' >> /home/cisco/tcpserver.py
+          echo '' >> /home/cisco/tcpserver.py
+          echo '        # Bind and listen' >> /home/cisco/tcpserver.py
+          echo '        s.bind((host, port))' >> /home/cisco/tcpserver.py
+          echo '        s.listen()' >> /home/cisco/tcpserver.py
+          echo '        print(f"Server listening on {host}:{port}")' >> /home/cisco/tcpserver.py
+          echo '' >> /home/cisco/tcpserver.py
+          echo '        while True:' >> /home/cisco/tcpserver.py
+          echo '            conn, addr = s.accept()' >> /home/cisco/tcpserver.py
+          echo '            print(f"Accepted connection from {addr}")' >> /home/cisco/tcpserver.py
+          echo '            client_thread = threading.Thread(target=handle_client, args=(conn, addr))' >> /home/cisco/tcpserver.py
+          echo '            client_thread.daemon = True' >> /home/cisco/tcpserver.py
+          echo '            client_thread.start()' >> /home/cisco/tcpserver.py
+          echo '' >> /home/cisco/tcpserver.py
+          echo 'if __name__ == "__main__":' >> /home/cisco/tcpserver.py
+          echo '    if len(sys.argv) != 3:' >> /home/cisco/tcpserver.py
+          echo '        print(f"Usage: python3 {sys.argv[0]} <port> <ip>")' >> /home/cisco/tcpserver.py
+          echo '        sys.exit(1)' >> /home/cisco/tcpserver.py
+          echo '' >> /home/cisco/tcpserver.py
+          echo '    try:' >> /home/cisco/tcpserver.py
+          echo '        PORT = int(sys.argv[1])' >> /home/cisco/tcpserver.py
+          echo '    except ValueError:' >> /home/cisco/tcpserver.py
+          echo '        print("Port must be an integer")' >> /home/cisco/tcpserver.py
+          echo '        sys.exit(1)' >> /home/cisco/tcpserver.py
+          echo '' >> /home/cisco/tcpserver.py
+          echo '    HOST = sys.argv[2]' >> /home/cisco/tcpserver.py
+          echo '' >> /home/cisco/tcpserver.py
+          echo '    start_server(HOST, PORT)' >> /home/cisco/tcpserver.py
+          chmod +x /home/cisco/tcpserver.py
+          echo "TCP server file created successfully"
 
   SD3:
-      <<: *sonic_router
+      <<: *sonic_router_with_tcp
 
   SD4:
       <<: *sonic_router
@@ -183,3 +234,12 @@ connections:
     hub30:
       - SD4.Ethernet7
       - ixia.data13
+    hub31:
+      - SD2.Ethernet4
+      - SD5.Ethernet4
+    hub32:
+      - SD2.Ethernet5
+      - SD6.Ethernet4
+    hub33:
+      - SD3.Ethernet4
+      - SD7.Ethernet4
