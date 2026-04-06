@@ -552,12 +552,17 @@ class GenerateGoldenConfigDBModule(object):
         self.dut_loopbacks (dict with 'ipv4' and 'ipv6' lists from topology).
         """
         switch_id = self.npu_index
-        if not self.duts_list or len(self.duts_list) < 2:
-            logger.warning("HA config generation skipped: duts_list requires at least 2 entries")
+        if not self.duts_list or len(self.duts_list) != 2:
+            logger.warning(
+                "HA config generation skipped: duts_list must have "
+                "exactly 2 entries, got %d",
+                len(self.duts_list) if self.duts_list else 0)
             return {}
 
-        if not self.dut_loopbacks or 'ipv4' not in self.dut_loopbacks or 'ipv6' not in self.dut_loopbacks:
-            logger.warning("HA config generation skipped: dut_loopbacks not provided")
+        if switch_id not in (0, 1):
+            logger.warning(
+                "HA config generation skipped: npu_index (switch_id) "
+                "must be 0 or 1, got %d", switch_id)
             return {}
 
         hostname = self.duts_list[switch_id]
@@ -565,7 +570,8 @@ class GenerateGoldenConfigDBModule(object):
         peer_hostname = self.duts_list[peer_switch_id]
 
         loopback_ip = self.dut_loopbacks['ipv4'][switch_id]
-        loopback_v6 = self.dut_loopbacks['ipv6'][switch_id]
+        loopback_v6 = (self.dut_loopbacks['ipv6'][switch_id]
+                       if 'ipv6' in self.dut_loopbacks else None)
         peer_loopback_ip = self.dut_loopbacks['ipv4'][peer_switch_id]
 
         vxlan_src_ip = loopback_ip.split("/")[0]
@@ -642,11 +648,12 @@ class GenerateGoldenConfigDBModule(object):
                     "dp_channel_probe_fail_threshold": "5"
                 }
             },
-            "LOOPBACK_INTERFACE": {
-                "Loopback0": {},
-                "Loopback0|{}".format(loopback_ip): {},
-                "Loopback0|{}".format(loopback_v6): {}
-            },
+            "LOOPBACK_INTERFACE": dict(
+                [("Loopback0", {}),
+                 ("Loopback0|{}".format(loopback_ip), {})]
+                + ([("Loopback0|{}".format(loopback_v6), {})]
+                   if loopback_v6 else [])
+            ),
             "FEATURE": {
                 "dash-ha": {
                     "auto_restart": "disabled",
