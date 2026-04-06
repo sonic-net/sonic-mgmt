@@ -53,7 +53,7 @@ class QosBase:
         "t0-isolated-d96u32s2",  "t0-isolated-d32u32s2",
         "t0-88-o8c80", "t0-f2-d40u8"
     ]
-    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
+    SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
                           "t1-f2-d10u8",
                           "t1-isolated-d28u1", "t1-isolated-v6-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d56u2",
                           "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag", "t1-isolated-d128", "t1-isolated-d32",
@@ -3414,8 +3414,11 @@ def clear_pg_watermark(interface):
             for duthost in get_src_dst_asic_and_duts['all_duts']:
                 for asic in duthost.asics:
                     namespace_arg = '-n asic{}'.format(asic.asic_index)
-                    duthost.command("sudo counterpoll wredqueue {} enable".format(namespace_arg))
-                    duthost.command("sudo counterpoll wredport {} enable".format(namespace_arg))
+                    try:
+                        duthost.command("sudo counterpoll wredqueue {} enable".format(namespace_arg))
+                        duthost.command("sudo counterpoll wredport {} enable".format(namespace_arg))
+                    except Exception:
+                        pass  # VS/KVM counterpoll may not support -n namespace
                 duthost.command("sudo config save -y")
         else:
             for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
@@ -3428,8 +3431,11 @@ def clear_pg_watermark(interface):
             for duthost in get_src_dst_asic_and_duts['all_duts']:
                 for asic in duthost.asics:
                     namespace_arg = '-n asic{}'.format(asic.asic_index)
-                    duthost.command("sudo counterpoll wredqueue {} disable".format(namespace_arg))
-                    duthost.command("sudo counterpoll wredport {} disable".format(namespace_arg))
+                    try:
+                        duthost.command("sudo counterpoll wredqueue {} disable".format(namespace_arg))
+                        duthost.command("sudo counterpoll wredport {} disable".format(namespace_arg))
+                    except Exception:
+                        pass  # VS/KVM counterpoll may not support -n namespace
                 duthost.command("sudo config save -y")
         else:
             for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
