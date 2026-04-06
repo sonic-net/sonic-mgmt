@@ -61,9 +61,9 @@ class GenerateGoldenConfigDBModule(object):
                                     hwsku=dict(required=False, type='str', default=None),
                                     vm_configuration=dict(required=False, type='dict', default={}),
                                     is_lit_mode=dict(required=False, type='bool', default=True),
-                                    npu_index=dict(required=False, type='int', default=0),
                                     bgp_confd_asn=dict(required=False, type='str', default=None),
-                                    bgp_confd_peers=dict(required=False, type='str', default=None)),
+                                    bgp_confd_peers=dict(required=False, type='str', default=None),
+                                    npu_index=dict(required=False, type='int', default=0)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -74,9 +74,9 @@ class GenerateGoldenConfigDBModule(object):
 
         self.vm_configuration = self.module.params['vm_configuration']
         self.is_lit_mode = self.module.params['is_lit_mode']
-        self.npu_index = self.module.params['npu_index']
         self.bgp_confd_asn = self.module.params['bgp_confd_asn']
         self.bgp_confd_peers = self.module.params['bgp_confd_peers']
+        self.npu_index = self.module.params['npu_index']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
