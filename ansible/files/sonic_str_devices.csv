@@ -41,8 +41,8 @@ str-acs-serv-08,10.64.247.0/26,TestServ,Server,,
 str-acs-serv-11,10.64.247.244/25,TestServ,Server,,
 str-acs-serv-14,10.64.247.30/26,TestServ,Server,,
 str-acs-serv-15,10.64.247.31/26,TestServ,Server,,
-str-dcs-7060x6-64pe-b-ehw-f-c09-u27,10.64.247.91/26,Arista-7060X6-64PE-B-P64,DevSonic,,sonic
-str-dcs-7060x6-64pe-b-ehw-f-c09-u29,10.64.247.92/26,Arista-7060X6-64PE-B-P64,DevSonic,,sonic
+str-dcs-7060x6-64pe-b-ehw-f-c09-u27,10.64.247.83/26,Arista-7060X6-64PE-B-P64,DevSonic,,sonic
+str-dcs-7060x6-64pe-b-ehw-f-c09-u29,10.64.247.73/26,Arista-7060X6-64PE-B-P64,DevSonic,,sonic
 str-4700-d04-u10,10.64.246.46/25,Mellanox-SN4700-O8V48,DevSonic,,sonic
 str-4700-d04-u09,10.64.247.94/26,Mellanox-SN4700-O8V48,DevSonic,,sonic
 str-4700-d04-u43,10.64.246.98/25,Mellanox-SN4700-O8V48,DevSonic,,sonic

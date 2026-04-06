@@ -867,8 +867,8 @@ sonic_mlnx_4700:
 sonic_arista_7060x6_512:
   hosts:
     str-dcs-7060x6-64pe-b-ehw-f-c09-u27:
-      ansible_host: 10.64.247.91
-      ansible_hostv6: 2a01:111:e210:b000::a40:f75b
+      ansible_host: 10.64.247.83
+      ansible_hostv6: 2a01:111:e210:b000::a40:f753
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
       hwsku: Arista-7060X6-64PE-B-P64
@@ -888,8 +888,8 @@ sonic_arista_7060x6_512:
         "0x2D": "Arista Networks"
         "0x2F": "HBG25160K1T"
     str-dcs-7060x6-64pe-b-ehw-f-c09-u29:
-      ansible_host: 10.64.247.92
-      ansible_hostv6: 2a01:111:e210:b000::a40:f75c
+      ansible_host: 10.64.247.73
+      ansible_hostv6: 2a01:111:e210:b000::a40:f749
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
       hwsku: Arista-7060X6-64PE-B-P64
