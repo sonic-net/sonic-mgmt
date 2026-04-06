@@ -98,32 +98,9 @@ class GenerateGoldenConfigDBModule(object):
                 return -1
         return 0
 
-    def generate_frr_config_mode_golden_config_db(self, config):
+    def should_use_unified_mode(self):
         frr_version = self.get_frr_version()
-
-        if not (frr_version and self.compare_frr_version(frr_version, "8.5.0") >= 0):
-            return config
-
-        if not isinstance(config, str):
-            return config
-
-        config_obj = json.loads(config)
-
-        if multi_asic.is_multi_asic():
-            for _, ns_data in config_obj.items():
-                device_metadata = ns_data.get("DEVICE_METADATA", {})
-                localhost_md = device_metadata.get("localhost")
-                if isinstance(localhost_md, dict) and \
-                   localhost_md.get("docker_routing_config_mode") != "unified":
-                    localhost_md["docker_routing_config_mode"] = "unified"
-        else:
-            device_metadata = config_obj.get("DEVICE_METADATA", {})
-            localhost_md = device_metadata.get("localhost")
-            if isinstance(localhost_md, dict) and \
-               localhost_md.get("docker_routing_config_mode") != "unified":
-                localhost_md["docker_routing_config_mode"] = "unified"
-
-        return json.dumps(config_obj, indent=4)
+        return frr_version is not None and self.compare_frr_version(frr_version, "8.5.0") >= 0
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -783,7 +760,7 @@ class GenerateGoldenConfigDBModule(object):
         config = self.update_zebra_nexthop_config(config)
 
         # update router_config_mode
-        if self.generate_frr_config_mode_golden_config_db() is True:
+        if self.should_use_unified_mode():
             if ("DEVICE_METADATA" in config and "localhost" in config["DEVICE_METADATA"]):
                 if config["DEVICE_METADATA"]["localhost"].get("docker_routing_config_mode") != "unified":
                     config["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
