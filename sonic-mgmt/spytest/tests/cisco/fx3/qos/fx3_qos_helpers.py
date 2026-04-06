@@ -90,6 +90,40 @@ from spytest import st
 _CONFIG_DB_JSON = os.path.join(os.path.dirname(__file__), 'config_db.json')
 
 
+# ── FX3 QoS testbed L3 addresses ─────────────────────────────────────────
+# Shared by all test modules using the fx3_qos_testbed.yaml fan-in topology
+# (2 ingress + 1 egress, each 100G).
+
+# DUT-side IPs (with prefix)
+V4_INGRESS_A_IP = '10.10.10.1/24'
+V4_INGRESS_B_IP = '10.10.11.1/24'
+V4_EGRESS_IP    = '20.20.20.1/24'
+V6_INGRESS_A_IP = '2001:db8:10::1/64'
+V6_INGRESS_B_IP = '2001:db8:11::1/64'
+V6_EGRESS_IP    = '2001:db8:20::1/64'
+
+# IXIA-side IPs (no prefix)
+IXIA_INGRESS_A_IP  = '10.10.10.2'
+IXIA_INGRESS_B_IP  = '10.10.11.2'
+IXIA_EGRESS_IP     = '20.20.20.2'
+IXIA_INGRESS_A_IP6 = '2001:db8:10::2'
+IXIA_INGRESS_B_IP6 = '2001:db8:11::2'
+IXIA_EGRESS_IP6    = '2001:db8:20::2'
+
+NETMASK       = '255.255.255.0'
+PREFIX_LEN_V6 = 64
+
+# ── Traffic / WRED defaults ─────────────────────────────────────────────
+NUM_QUEUES       = 8
+PKT_SIZE         = 128
+WRED_MIN_TH      = 1048576     # 1 MB — below this, 0% drop probability
+WRED_MAX_TH      = 3145728     # 3 MB — above this, 100% tail drop
+WRED_MAX_PROB    = 5           # 5% max drop probability at max_th
+WRED_TOLERANCE   = 2.0         # percentage-point tolerance for pass/fail
+WRED_DURATION    = 40          # seconds per margin point
+WRED_SETTLE_TIME = 5           # seconds before mid-traffic depth snapshot
+
+
 # ── Golden data (default global config) ──────────────────────────────────
 
 # DSCP value that maps to each queue under the default AZURE map (TC N = Q N).
@@ -213,6 +247,76 @@ def verify_queue_counters(dut, interfaces):
             st.log("verify_queue_counters: {} OK — queue counter rows present".format(
                 intf))
     return missing
+
+
+# ── Interface-membership helpers ──────────────────────────────────────────
+
+def remove_interface_from_vlan(dut_handle, interface):
+    """Remove *interface* from every VLAN it belongs to on *dut_handle*."""
+    output = st.show(dut_handle, "show vlan brief", skip_tmpl=True)
+    if not output:
+        return
+    vlans_to_remove = []
+    current_vlan_id = None
+    for line in output.split('\n'):
+        if '===' in line or '---' in line or 'VLAN ID' in line or not line.strip():
+            continue
+        if '|' not in line:
+            continue
+        fields = [f.strip() for f in line.split('|')]
+        if len(fields) > 1 and fields[1].isdigit():
+            current_vlan_id = fields[1]
+        if interface in line and current_vlan_id:
+            if current_vlan_id not in vlans_to_remove:
+                vlans_to_remove.append(current_vlan_id)
+    for vlan_id in vlans_to_remove:
+        st.log("Removing {} from VLAN {}".format(interface, vlan_id))
+        st.config(dut_handle, "config vlan member del {} {}".format(
+            vlan_id, interface), skip_error_check=True)
+
+
+def remove_interface_from_portchannel(dut_handle, interface):
+    """Remove *interface* from the first PortChannel it belongs to."""
+    output = st.show(dut_handle, "show interfaces portchannel", skip_tmpl=True)
+    if not output:
+        return
+    for line in output.split('\n'):
+        if interface in line:
+            parts = line.split()
+            for part in parts:
+                if part.startswith('PortChannel'):
+                    st.log("Removing {} from {}".format(interface, part))
+                    st.config(dut_handle,
+                              "config portchannel member del {} {}".format(
+                                  part, interface),
+                              skip_error_check=True)
+                    return
+
+
+def remove_interface_from_all_memberships(dut_handle, interface):
+    """Remove *interface* from any VLAN and PortChannel memberships."""
+    remove_interface_from_vlan(dut_handle, interface)
+    remove_interface_from_portchannel(dut_handle, interface)
+
+
+def _wait_for_interfaces(dut_handle, interfaces, timeout=30, poll=5):
+    """Poll until all *interfaces* are present in /sys/class/net/ on the DUT."""
+    for elapsed in range(0, timeout + 1, poll):
+        check = " && ".join(
+            "test -d /sys/class/net/{}".format(intf) for intf in interfaces)
+        out = st.show(dut_handle,
+                      "{} && echo READY || echo NOTREADY".format(check),
+                      skip_tmpl=True).strip()
+        if "READY" in out and "NOTREADY" not in out:
+            st.log("_wait_for_interfaces: all present after ~{}s".format(
+                elapsed))
+            return True
+        st.log("_wait_for_interfaces: waiting ({}s / {}s)".format(
+            elapsed, timeout))
+        if elapsed < timeout:
+            st.wait(poll)
+    st.warn("_wait_for_interfaces: timed out after {}s".format(timeout))
+    return False
 
 
 # ── Baseline config_db.json loader ────────────────────────────────────────
@@ -535,15 +639,20 @@ def verify_queue_bindings(dut, egress_intf, fail_msgs, baseline=None):
     return passed
 
 
-def verify_wred_profile(dut, fail_msgs, baseline=None):
-    """Verify WRED_PROFILE|AZURE_LOSSY fields against baseline config_db.json.
+def verify_wred_profile(dut, fail_msgs, baseline=None, wred_profile=None):
+    """Verify WRED_PROFILE|AZURE_LOSSY fields against expected values.
+
+    When *wred_profile* is provided, it is used as the expected values directly.
+    Otherwise the expected values come from the *baseline* config_db.json.
 
     Returns True if all fields match.
     """
-    if baseline is None:
-        baseline = load_config_db_baseline()
-
-    expected_wred = baseline.get('WRED_PROFILE', {}).get('AZURE_LOSSY', {})
+    if wred_profile is not None:
+        expected_wred = wred_profile
+    else:
+        if baseline is None:
+            baseline = load_config_db_baseline()
+        expected_wred = baseline.get('WRED_PROFILE', {}).get('AZURE_LOSSY', {})
     st.log("  Fetching WRED_PROFILE|AZURE_LOSSY ...")
     output = st.show(
         dut,
@@ -2267,13 +2376,17 @@ def report_queue_counters(egress_intf, q_deltas, q_drop_deltas,
     return total_egress
 
 
-def report_wred_linearity(data_points, egress_speed_mbps=10000):
+def report_wred_linearity(data_points, egress_speed_mbps=10000,
+                          wred_profile=GOLDEN_WRED_PROFILE):
     """Print formatted WRED linearity summary table with zone-based validation.
 
     *data_points* is a list of dicts, each with keys:
       margin_mbps, rate_pct, q_depth_bytes, egress_pkts, drop_pkts,
       total_pkts, drop_rate_pct
     *egress_speed_mbps* is used internally (sanity check only).
+    *wred_profile* is an optional dict with green_min_threshold,
+      green_max_threshold, and green_drop_probability keys (string values).
+      Defaults to GOLDEN_WRED_PROFILE when None.
 
     Validation is zone-based (proves WRED is working, not just traffic
     conservation):
@@ -2285,9 +2398,9 @@ def report_wred_linearity(data_points, egress_speed_mbps=10000):
     WRED Prob increases monotonically with margin.
     """
     egr_spd = egress_speed_mbps if egress_speed_mbps > 0 else 10000
-    min_th_bytes = int(GOLDEN_WRED_PROFILE.get('green_min_threshold', '1048576'))
-    max_th_bytes = int(GOLDEN_WRED_PROFILE.get('green_max_threshold', '3145728'))
-    max_prob = float(GOLDEN_WRED_PROFILE.get('green_drop_probability', '5'))
+    min_th_bytes = int(wred_profile.get('green_min_threshold', '1048576'))
+    max_th_bytes = int(wred_profile.get('green_max_threshold', '3145728'))
+    max_prob = float(wred_profile.get('green_drop_probability', '5'))
     min_th_mb = min_th_bytes / (1024.0 * 1024)
     max_th_mb = max_th_bytes / (1024.0 * 1024)
 
@@ -2444,12 +2557,86 @@ def report_wred_linearity(data_points, egress_speed_mbps=10000):
     st.log(sep)
 
     if any_drops and len(data_points) >= 3:
-        _print_wred_diagrams(data_points, egr_spd)
+        _print_wred_diagrams(data_points, egr_spd, wred_profile=wred_profile)
 
     return all_passed
 
 
-def _print_wred_diagrams(data_points, egr_spd):
+def run_wred_linearity(ctx, af, margins, verify_egress_neighbor_fn,
+                       duration=20, num_depth_samples=3, cooldown=5,
+                       wred_profile=GOLDEN_WRED_PROFILE):
+    """Run a full WRED linearity sweep and return (pass, fail_msgs, data_points).
+
+    Orchestrates config verification, neighbor resolution, fan-in traffic
+    at each margin point, monotonicity checking, and per-point sanity
+    validation.  Designed for reuse across multiple WRED linearity tests.
+
+    Parameters:
+        ctx: shared WRED context dict (dut, tg, port handles, speeds, etc.)
+        af: address family — 'ipv4' or 'ipv6'
+        margins: list of margin values in Mbps to sweep (e.g.
+            [0, 250, 500, 1000, 2000, 3000, 4000, 5000, 5250, 5500])
+        verify_egress_neighbor_fn: callable(af) -> bool that checks
+            ARP/NDP resolution for the egress next-hop.  Test modules
+            supply their own since the target IP is test-specific.
+        duration: seconds to send traffic per margin point (default 20)
+        num_depth_samples: number of mid-traffic ASIC queue depth
+            snapshots per margin point (default 3)
+        cooldown: seconds to wait between margin points for the queue
+            to drain (default 5)
+        wred_profile: optional dict with green_min_threshold,
+            green_max_threshold, and green_drop_probability keys
+            (string values).  Defaults to GOLDEN_WRED_PROFILE when None.
+
+    Returns:
+        (fail_msgs, data_points) where:
+          fail_msgs — list of failure description strings (empty on success)
+          data_points — list of per-margin measurement dicts from
+                        wred_fanin_send_and_measure()
+    """
+    _dut = ctx['dut']
+    egress_speed_mbps = ctx['egress_speed_mbps']
+    fail_msgs = []
+
+    st.log("Phase 1: Verifying WRED config")
+    verify_wred_config(ctx, fail_msgs, wred_profile=wred_profile)
+    deploy_dchal_helper(_dut)
+    if fail_msgs:
+        return False, fail_msgs, []
+
+    if not verify_egress_neighbor_fn(af):
+        fail_msgs.append(
+            'Egress neighbor resolution failed for {}'.format(af))
+        return False, fail_msgs, []
+
+    st.log("Phase 2: Running {} margin points".format(len(margins)))
+    data_points = []
+    for m in margins:
+        st.log("--- Margin {}M ---".format(m))
+        r = wred_fanin_send_and_measure(ctx, af, m, duration=duration,
+                                        num_depth_samples=num_depth_samples)
+        report_wred_result(ctx, r, "LINEARITY point {}M".format(m))
+        data_points.append(r)
+        st.wait(cooldown)
+
+    monotonic = report_wred_linearity(data_points, egress_speed_mbps,
+                                      wred_profile=wred_profile)
+
+    if not monotonic:
+        fail_msgs.append("Drop rates are NOT monotonically increasing")
+
+    for dp in data_points:
+        if dp['egress_pkts'] <= 0:
+            fail_msgs.append("Margin={}M: egress_pkts=0 — traffic not "
+                             "forwarded".format(dp['margin_mbps']))
+        if dp['margin_mbps'] > 0 and dp['drop_pkts'] <= 0:
+            fail_msgs.append("Margin={}M: 0 drops — WRED not active".format(
+                dp['margin_mbps']))
+
+    return fail_msgs, data_points
+
+
+def _print_wred_diagrams(data_points, egr_spd, wred_profile=GOLDEN_WRED_PROFILE):
     """Print ASCII diagrams: WRED prob vs margin, WRED prob vs queue depth.
 
     Each data point is plotted as '* <label>' where label shows the
@@ -2459,11 +2646,14 @@ def _print_wred_diagrams(data_points, egr_spd):
       prob = max_prob * (depth - min_th) / (max_th - min_th)
     This shows the actual WRED drop probability the ASIC applied,
     rather than the overall measured drop rate.
+
+    *wred_profile* is an optional dict with threshold/probability keys.
+      Defaults to GOLDEN_WRED_PROFILE when None.
     """
     sep = "=" * 78
-    min_th_bytes = int(GOLDEN_WRED_PROFILE.get('green_min_threshold', '1048576'))
-    max_th_bytes = int(GOLDEN_WRED_PROFILE.get('green_max_threshold', '3145728'))
-    max_prob = float(GOLDEN_WRED_PROFILE.get('green_drop_probability', '5'))
+    min_th_bytes = int(wred_profile.get('green_min_threshold', '1048576'))
+    max_th_bytes = int(wred_profile.get('green_max_threshold', '3145728'))
+    max_prob = float(wred_profile.get('green_drop_probability', '5'))
     min_th_mb = min_th_bytes / (1024.0 * 1024)
     max_th_mb = max_th_bytes / (1024.0 * 1024)
     sorted_pts = sorted(data_points, key=lambda d: d['margin_mbps'])
@@ -2684,18 +2874,20 @@ def resolve_ingress_neighbor(ctx, af):
     return False
 
 
-def verify_wred_config(ctx, fail_msgs):
+def verify_wred_config(ctx, fail_msgs, wred_profile=None):
     """Phase 1 common: verify WRED profile, queue binding, ASIC AQM, variance.
 
     ctx keys: dut, port_info, target_queue, wred_max_prob
     Also uses module-level: GOLDEN_WRED_PROFILE, TORTUGA_CONFIG, WRED_BOUND_QUEUES
     """
+    if wred_profile is None:
+        wred_profile = GOLDEN_WRED_PROFILE
     _dut = ctx['dut']
     egress = ctx['port_info']['egress']
     tq = ctx['target_queue']
     sep = "=" * 70
 
-    verify_wred_profile(_dut, fail_msgs)
+    verify_wred_profile(_dut, fail_msgs, wred_profile=wred_profile)
 
     if tq not in WRED_BOUND_QUEUES:
         fail_msgs.append("Q{} is not in WRED_BOUND_QUEUES {}".format(
@@ -2724,9 +2916,9 @@ def verify_wred_config(ctx, fail_msgs):
     st.log("  Scheduler:  {} (weight={})".format(
         stype, weight if weight else 'N/A'))
     st.log("  WRED:       AZURE_LOSSY (min={}B, max={}B, drop_prob={}%)".format(
-        GOLDEN_WRED_PROFILE.get('green_min_threshold', '?'),
-        GOLDEN_WRED_PROFILE.get('green_max_threshold', '?'),
-        GOLDEN_WRED_PROFILE.get('green_drop_probability', '?')))
+        wred_profile.get('green_min_threshold', '?'),
+        wred_profile.get('green_max_threshold', '?'),
+        wred_profile.get('green_drop_probability', '?')))
     st.log(sep)
 
     aqm_data = dchal_aqm_hw_info(_dut, egress)
@@ -3304,4 +3496,253 @@ def report_end_to_end(total_ixia_tx, total_egress, ixia_rx,
     st.log("    Total IXIA TX:           {:>14,} pkts".format(total_ixia_tx))
     st.log("    DUT queue egress total:  {:>14,} pkts".format(total_egress))
     st.log("    {:<25}{:>14,} pkts".format(rx_label + ":", ixia_rx))
+
+
+# ── Shared topology setup ──────────────────────────────────────────────
+
+def setup_topo_common(tgapi_module, target_queue):
+    """Shared topology setup: DUT L3, IXIA interfaces, QoS baseline, WRED ctx.
+
+    This is a generator (uses ``yield``), **not** a pytest fixture.  Each
+    test module wraps it in its own ``@pytest.fixture`` to populate
+    module-level globals.
+
+    Args:
+        tgapi_module: The ``tgapi`` module (``from spytest import tgapi``).
+                      Passed in to avoid adding a tgapi import to this
+                      library-only helpers file.
+        target_queue: Queue index under test (e.g. 1 or 3).
+
+    Yields:
+        dict with keys ``dut``, ``tg``, ``tg_ph``, ``port_info``,
+        ``port_speeds``, ``ingress_speed_mbps``, ``egress_speed_mbps``,
+        ``wred_ctx``, ``tb_vars``.
+
+    On teardown (after ``yield``) removes all IPv4/IPv6 L3 config from
+    the DUT.
+    """
+    st.log("setup_topo: establishing minimum topology D1T1:3")
+    tb_dict = st.ensure_min_topology("D1T1:3")
+    tb_vars = st.get_testbed_vars()
+    dut = tb_dict.D1
+
+    port_info = {
+        'ingress_a': tb_vars.D1T1P1,
+        'ingress_b': tb_vars.D1T1P2,
+        'egress':    tb_vars.D1T1P3,
+    }
+    st.log("setup_topo: ports -> {}".format(port_info))
+
+    st.log("setup_topo: checking interface admin status")
+    ensure_interfaces_admin_up(dut, port_info.values())
+
+    st.log("setup_topo: verifying queue counters")
+    missing = verify_queue_counters(dut, port_info.values())
+    if missing:
+        st.warn("setup_topo: queue counters missing for: {}".format(missing))
+
+    tg_handle, tg_ph_a = tgapi_module.get_handle_byname('T1D1P1')
+    _, tg_ph_b = tgapi_module.get_handle_byname('T1D1P2')
+    _, tg_ph_e = tgapi_module.get_handle_byname('T1D1P3')
+    tg = tg_handle
+    tg_ph = {'ingress_a': tg_ph_a, 'ingress_b': tg_ph_b, 'egress': tg_ph_e}
+
+    st.log("setup_topo: removing port memberships")
+    for intf in port_info.values():
+        remove_interface_from_all_memberships(dut, intf)
+
+    raw_speeds = get_intf_speeds(dut, port_info.values())
+    port_speeds = {}
+    for role, intf in port_info.items():
+        port_speeds[role] = raw_speeds.get(intf, 'N/A')
+    sep = "=" * 70
+    st.log(sep)
+    st.log("  PORT SPEED TABLE")
+    st.log(sep)
+    st.log("  {:<18} {:<12} {:>10}".format('Interface', 'Role', 'Speed'))
+    st.log("  " + "-" * 44)
+    for role, intf in port_info.items():
+        st.log("  {:<18} {:<12} {:>10}".format(intf, role, port_speeds[role]))
+    st.log(sep)
+
+    ingress_speed_mbps = parse_speed_to_mbps(port_speeds.get('ingress_a', ''))
+    egress_speed_mbps = parse_speed_to_mbps(port_speeds.get('egress', ''))
+    st.log("setup_topo: ingress_speed={}M, egress_speed={}M".format(
+        ingress_speed_mbps, egress_speed_mbps))
+
+    st.log("setup_topo: reloading QoS config")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    ensure_interfaces_admin_up(dut, port_info.values())
+
+    _wait_for_interfaces(dut, port_info.values(), timeout=30, poll=5)
+
+    st.log("setup_topo: configuring L3 interfaces on DUT (dual-stack)")
+    l3_cfg = (
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}\n'
+        'config interface ip add {} {}'
+    ).format(
+        port_info['ingress_a'], V4_INGRESS_A_IP,
+        port_info['ingress_b'], V4_INGRESS_B_IP,
+        port_info['egress'],    V4_EGRESS_IP,
+        port_info['ingress_a'], V6_INGRESS_A_IP,
+        port_info['ingress_b'], V6_INGRESS_B_IP,
+        port_info['egress'],    V6_EGRESS_IP,
+    )
+    st.config(dut, l3_cfg, skip_error_check=True)
+    st.wait(2)
+
+    st.log("setup_topo: configuring IXIA IPv4 interfaces")
+    ixia_v4_params = [
+        ('ingress_a', IXIA_INGRESS_A_IP, '10.10.10.1'),
+        ('ingress_b', IXIA_INGRESS_B_IP, '10.10.11.1'),
+        ('egress',    IXIA_EGRESS_IP,    '20.20.20.1'),
+    ]
+    for key, ip, gw in ixia_v4_params:
+        tg.tg_interface_config(
+            mode='config', port_handle=tg_ph[key],
+            intf_ip_addr=ip, netmask=NETMASK, gateway=gw,
+            arp_send_req=1, enable_ping_response=1, resolve_gateway_mac=1)
+
+    st.log("setup_topo: configuring IXIA IPv6 interfaces")
+    ixia_v6_params = [
+        ('ingress_a', IXIA_INGRESS_A_IP6, '2001:db8:10::1'),
+        ('ingress_b', IXIA_INGRESS_B_IP6, '2001:db8:11::1'),
+        ('egress',    IXIA_EGRESS_IP6,    '2001:db8:20::1'),
+    ]
+    for key, ip6, gw6 in ixia_v6_params:
+        tg.tg_interface_config(
+            mode='config', port_handle=tg_ph[key],
+            ipv6_intf_addr=ip6, ipv6_prefix_length=PREFIX_LEN_V6,
+            ipv6_gateway=gw6, ipv6_resolve_gateway_mac=1,
+            arp_send_req=1)
+
+    try:
+        tg.tg_topology_test_control(action='start_all_protocols')
+    except Exception:
+        st.warn("start_all_protocols unavailable; relying on arp_send_req")
+
+    st.wait(30)
+
+    ping_out = st.config(dut, "ping -c 5 -W 2 {}".format(IXIA_EGRESS_IP),
+                         skip_error_check=True)
+    ping_str = str(ping_out) if ping_out else ''
+    if '0 received' in ping_str or 'Unreachable' in ping_str:
+        st.warn("setup_topo: IPv4 ping to {} FAILED".format(IXIA_EGRESS_IP))
+        dump_l3_diag(dut, IXIA_EGRESS_IP)
+    else:
+        st.log("setup_topo: IPv4 ping to {} OK".format(IXIA_EGRESS_IP))
+
+    ping6_out = st.config(dut, "ping6 -c 5 -W 2 {}".format(IXIA_EGRESS_IP6),
+                          skip_error_check=True)
+    ping6_str = str(ping6_out) if ping6_out else ''
+    if '0 received' in ping6_str or 'Unreachable' in ping6_str:
+        st.warn("setup_topo: IPv6 ping to {} FAILED".format(IXIA_EGRESS_IP6))
+        dump_l3_diag(dut, IXIA_EGRESS_IP6)
+    else:
+        st.log("setup_topo: IPv6 ping to {} OK".format(IXIA_EGRESS_IP6))
+    st.wait(5)
+
+    router_mac = get_dut_mac(dut, port_info['ingress_a'])
+    st.log("setup_topo: DUT router MAC = {}".format(router_mac))
+    wred_ctx = build_wred_ctx(
+        dut, tg, tg_ph, port_info,
+        ingress_speed_mbps, egress_speed_mbps,
+        router_mac, target_queue=target_queue)
+
+    st.log("setup_topo: DONE")
+    yield {
+        'dut': dut,
+        'tg': tg,
+        'tg_ph': tg_ph,
+        'port_info': port_info,
+        'port_speeds': port_speeds,
+        'ingress_speed_mbps': ingress_speed_mbps,
+        'egress_speed_mbps': egress_speed_mbps,
+        'wred_ctx': wred_ctx,
+        'tb_vars': tb_vars,
+    }
+
+    st.log("setup_topo: teardown — removing L3 config (IPv4 + IPv6)")
+    cleanup_cfg = (
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}\n'
+        'config interface ip remove {} {}'
+    ).format(
+        port_info['ingress_a'], V4_INGRESS_A_IP,
+        port_info['ingress_b'], V4_INGRESS_B_IP,
+        port_info['egress'],    V4_EGRESS_IP,
+        port_info['ingress_a'], V6_INGRESS_A_IP,
+        port_info['ingress_b'], V6_INGRESS_B_IP,
+        port_info['egress'],    V6_EGRESS_IP,
+    )
+    st.config(dut, cleanup_cfg, skip_error_check=True)
+    st.log("setup_topo: teardown complete")
+
+
+# ── WRED context builder ────────────────────────────────────────────────
+
+def build_wred_ctx(dut, tg, tg_ph, port_info,
+                   ingress_speed_mbps, egress_speed_mbps,
+                   router_mac, target_queue=3):
+    """Build the shared context dict consumed by WRED helper functions.
+
+    Bakes in the FX3 QoS testbed L3 addresses and AZURE_LOSSY WRED
+    defaults so callers only need to pass runtime-discovered values.
+
+    Args:
+        dut:                 DUT handle from spytest topology.
+        tg:                  Traffic generator handle.
+        tg_ph:               Dict with keys 'ingress_a', 'ingress_b', 'egress'
+                             mapping to TG port handles.
+        port_info:           Dict with keys 'ingress_a', 'ingress_b', 'egress'
+                             mapping to DUT interface names.
+        ingress_speed_mbps:  Ingress port speed in Mbps.
+        egress_speed_mbps:   Egress port speed in Mbps.
+        router_mac:          DUT router MAC address string.
+        target_queue:        Queue index under test (default 3).
+
+    Returns:
+        dict suitable for passing as ``ctx`` to run_wred_linearity(),
+        wred_fanin_send_and_measure(), and related helpers.
+    """
+    return {
+        'dut': dut,
+        'tg': tg,
+        'tg_ph_ingress_a': tg_ph['ingress_a'],
+        'tg_ph_ingress_b': tg_ph['ingress_b'],
+        'port_info': port_info,
+        'ingress_speed_mbps': ingress_speed_mbps,
+        'egress_speed_mbps': egress_speed_mbps,
+        'target_queue': target_queue,
+        'target_dscp': QUEUE_TO_DSCP[target_queue],
+        'router_mac': router_mac,
+        'pkt_size': PKT_SIZE,
+        'num_queues': NUM_QUEUES,
+        'wred_min_th': WRED_MIN_TH,
+        'wred_max_th': WRED_MAX_TH,
+        'wred_max_prob': WRED_MAX_PROB,
+        'wred_tolerance': WRED_TOLERANCE,
+        'wred_duration': WRED_DURATION,
+        'wred_settle_time': WRED_SETTLE_TIME,
+        'ips': {
+            'v4_src_a': IXIA_INGRESS_A_IP,
+            'v4_src_b': IXIA_INGRESS_B_IP,
+            'v4_dst': IXIA_EGRESS_IP,
+            'v4_gw': '10.10.10.1',
+            'v4_mask': NETMASK,
+            'v6_src_a': IXIA_INGRESS_A_IP6,
+            'v6_src_b': IXIA_INGRESS_B_IP6,
+            'v6_dst': IXIA_EGRESS_IP6,
+            'v6_gw': '2001:db8:10::1',
+            'v6_prefix_len': PREFIX_LEN_V6,
+        },
+    }
 

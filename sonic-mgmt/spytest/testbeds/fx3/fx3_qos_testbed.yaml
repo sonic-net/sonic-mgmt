@@ -16,7 +16,7 @@ devices:
     dut1:
         device_type: DevSonic
         access: {protocol: ssh, ip: 172.26.235.252, port: 22}
-        rps: {model: Raritan, ip: 10.28.105.117, outlet: 24, username: admin, password: raritan}
+        rps: {model: Raritan, ip: 10.28.105.119, outlet: 24, username: admin, password: raritan}
         credentials: {username: admin, password: password, altpassword: ""}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     T1:
