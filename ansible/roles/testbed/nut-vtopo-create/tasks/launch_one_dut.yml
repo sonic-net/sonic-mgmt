@@ -1,0 +1,98 @@
+---
+# launch_one_dut.yml — Create and start a SONiC KVM VM for a DUT
+# Called with: device (dict with Hostname, ManagementIp, HwSku, etc.), device_idx
+
+- name: "Set VM facts for {{ device.Hostname }}"
+  set_fact:
+    vm_name: "{{ device.Hostname }}"
+    disk_image: "{{ vnut_vm_disk_dir }}/sonic_{{ device.Hostname }}.img"
+    serial_port: "{{ vnut_vm_serial_port_base + device_idx }}"
+
+- name: "Map interfaces to bridges for {{ device.Hostname }}"
+  set_fact:
+    vm_interfaces: >-
+      {%- set ns = namespace(items=[]) -%}
+      {%- for link in vnut_links -%}
+        {%- if link.StartDevice == device.Hostname -%}
+          {%- set ns.items = ns.items + [{"name": link.StartPort, "bridge": "vbr_" ~ testbed_name[:8] ~ "_" ~ loop.index0}] -%}
+        {%- endif -%}
+        {%- if link.EndDevice == device.Hostname -%}
+          {%- set ns.items = ns.items + [{"name": link.EndPort, "bridge": "vbr_" ~ testbed_name[:8] ~ "_" ~ loop.index0}] -%}
+        {%- endif -%}
+      {%- endfor -%}
+      {{ ns.items }}
+
+- name: "Create VM disk directories"
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - "{{ vnut_sonic_vm_storage }}/images"
+    - "{{ vnut_vm_disk_dir }}"
+
+- name: "Check if disk image exists for {{ device.Hostname }}"
+  stat:
+    path: "{{ disk_image }}"
+  register: disk_stat
+
+- name: "Check source VS image exists"
+  stat:
+    path: "{{ vnut_sonic_vs_image }}"
+  register: src_image_stat
+  when: not disk_stat.stat.exists
+
+- name: "Fail if source VS image not found"
+  fail:
+    msg: >-
+      SONiC VS image not found at {{ vnut_sonic_vs_image }}.
+      Please download sonic-vs.img and place it there.
+  when:
+    - not disk_stat.stat.exists
+    - not (src_image_stat.stat.exists | default(false))
+
+- name: "Copy sonic-vs.img for {{ device.Hostname }}"
+  copy:
+    src: "{{ vnut_sonic_vs_image }}"
+    dest: "{{ disk_image }}"
+    remote_src: yes
+  when: not disk_stat.stat.exists
+
+- name: "Get list of defined VMs"
+  virt:
+    command: list_vms
+    uri: qemu:///system
+  register: vm_list_defined
+  become: yes
+
+- name: "Define SONiC VM {{ device.Hostname }}"
+  virt:
+    name: "{{ vm_name }}"
+    command: define
+    xml: "{{ lookup('template', 'templates/vnut-sonic.xml.j2') }}"
+    uri: qemu:///system
+  when: vm_name not in vm_list_defined.list_vms
+  become: yes
+
+- name: "Get list of running VMs"
+  virt:
+    command: list_vms
+    state: running
+    uri: qemu:///system
+  register: vm_list_running
+  become: yes
+
+- name: "Start SONiC VM {{ device.Hostname }}"
+  virt:
+    name: "{{ vm_name }}"
+    state: running
+    uri: qemu:///system
+  when: vm_name not in (vm_list_running.list_vms | default([]))
+  become: yes
+
+- name: "Debug VM info for {{ device.Hostname }}"
+  debug:
+    msg: >-
+      VM {{ vm_name }}: serial_port={{ serial_port }},
+      mgmt_ip={{ device.ManagementIp }}, disk={{ disk_image }},
+      interfaces={{ vm_interfaces | length }} front-panel ports

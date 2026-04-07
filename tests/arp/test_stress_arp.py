@@ -46,13 +46,25 @@ def ignore_errors_for_non_selected_dualtor_hosts(
         # There is a known issue which causes redundant route entry delete and reports an ERR log.
         # FYI, https://github.com/sonic-net/sonic-swss/issues/2579
         # This error can be safely ignored on standby
-        error_patterns = [
+        standby_error_patterns = [
             ".*ERR swss#orchagent: :- meta_sai_validate_route_entry: object key SAI_OBJECT_TYPE_ROUTE_ENTRY:{\"dest\":\".*\",\"switch_id\":\"oid:.*\",\"vr\":\"oid:.*\"} doesn't exist",  # noqa: E501
         ]
         for duthost in duthosts:
             if duthost.hostname != enum_rand_one_per_hwsku_frontend_hostname:
                 if loganalyzer and duthost.hostname in loganalyzer:
-                    loganalyzer[duthost.hostname].ignore_regex.extend(error_patterns)
+                    loganalyzer[duthost.hostname].ignore_regex.extend(standby_error_patterns)
+
+        # The stress ARP flood overwhelms orchagent/muxorch on dualtor testbeds, causing transient
+        # monit check failures while orchagent processes the neighbor/route churn (~18 min recovery).
+        # These are expected during stress testing and not indicative of a real problem.
+        # Tracked: ADO 37245786
+        monit_error_patterns = [
+            r".*ERR monit\[\d+\]: 'dualtorNeighborCheck' status failed.*",
+            r".*ERR monit\[\d+\]: 'routeCheck' status failed.*",
+        ]
+        for duthost in duthosts:
+            if loganalyzer and duthost.hostname in loganalyzer:
+                loganalyzer[duthost.hostname].ignore_regex.extend(monit_error_patterns)
     yield
 
 
