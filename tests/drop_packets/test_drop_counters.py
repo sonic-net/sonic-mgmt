@@ -438,7 +438,7 @@ def test_src_ip_link_local(do_test, ptfadapter, duthosts, enum_rand_one_per_hwsk
     do_test("L3", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"], tx_dut_ports)
 
 
-def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports,                 # noqa: F811
+def test_ip_pkt_with_exceeded_mtu(do_test, duthosts, ptfadapter, setup, tx_dut_ports,       # noqa: F811
                                   pkt_fields, mtu_config, ports_info):                      # noqa: F811
     """
     @summary: Verify that IP packet with exceeded MTU is dropped and L3 drop counter incremented
@@ -469,6 +469,7 @@ def test_ip_pkt_with_exceeded_mtu(do_test, ptfadapter, setup, tx_dut_ports,     
     )
     L2_COL_KEY = RX_ERR
     try:
-        do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"])
+        do_test("L2", pkt, ptfadapter, ports_info, setup["neighbor_sniff_ports"],
+                skip_counter_check=(duthosts[0].facts["asic_type"] == "vpp"))
     finally:
         L2_COL_KEY = RX_DRP
