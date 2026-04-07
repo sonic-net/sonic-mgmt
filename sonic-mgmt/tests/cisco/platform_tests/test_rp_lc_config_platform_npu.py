@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.platform_tests.cli.util import get_skip_mod_list
+from tests.cisco.common.utils import CheckEnvironment
 import logging
 import re
 import time
@@ -27,7 +28,8 @@ from tests.cisco.platform_tests.centralized_cli_test import (
     prepare_lc_command_for_admin_user,
     parse_additional_parameters,
     reformat_clicmd,
-    parse_invalid_linecard_all_option_error
+    parse_invalid_linecard_all_option_error,
+    parse_missing_n_option_error
 )
 
 # Configuration file macro
@@ -73,7 +75,7 @@ def _case_id(case):
 CASES = _load_cases()
 
 pytestmark = [
-    pytest.mark.topology('t2')
+    pytest.mark.topology('t0', 't1', 't2')
 ]
 
 @pytest.fixture(autouse=True, scope="module")
@@ -106,7 +108,7 @@ def sup_platform_npu_tests(duthosts, duthost, tc_dict, results):
 
     additional_parameters = parse_additional_parameters(tc_dict)
     requires_interface = any(p.startswith('interface_option') for p in additional_parameters)
-    requires_active_asic = 'active_asic' in additional_parameters
+    requires_active_asic = 'rp_active_asic' in additional_parameters
 
     # RUN1: SUP local command
     # Reformat command for RP local runs (RUN1) for requires_interface testcases
@@ -118,7 +120,7 @@ def sup_platform_npu_tests(duthosts, duthost, tc_dict, results):
     if requires_active_asic:
         sup_asic_id_list = duthost.get_asic_namespace_list()
         if not sup_asic_id_list:
-            skip_msg = "SKIPPED - No active ASIC found for RUN1 active_asic requirement"
+            skip_msg = "SKIPPED - No active ASIC found for RUN1 rp_active_asic requirement"
             update_results(results, tc_dict["tcname"], "PASSED", skip_msg)
             return
         active_asic = random.choice(sup_asic_id_list)
@@ -215,7 +217,7 @@ def sup_platform_npu_tests(duthosts, duthost, tc_dict, results):
     lc_namespace_list = lc_dut.get_asic_namespace_list()
     if requires_active_asic:
         if not lc_namespace_list:
-            skip_msg = f"SKIPPED - No active ASIC found on {lc} for RUN2 active_asic requirement"
+            skip_msg = f"SKIPPED - No active ASIC found on {lc} for RUN2 rp_active_asic requirement"
             update_results(results, tc_dict["tcname"], "PASSED", skip_msg)
             return
         active_asic = random.choice(lc_namespace_list)
@@ -246,7 +248,7 @@ def sup_platform_npu_tests(duthosts, duthost, tc_dict, results):
         return
 
 
-    # RUN 3: RP to all LCs with all active ASICs (currently commented out)
+    # RUN3: RP to all LCs with all active ASICs (currently commented out)
     command_str = f"{lc_command_for_remote} -o -l all"
     exec_command_str = prepare_lc_command_for_admin_user(duthost, command_str)
     logging.info(f"[RP-config-cli: {command_str}] - RUN 3: RP to all LCs with all active ASICs")
@@ -279,9 +281,10 @@ def lc_platform_npu_tests(duthosts, duthost, tc_dict, results):
     Run Platform NPU config tests from Line Card (LC)
     
     Test execution flow:
-    RUN 1: LC local command with specific ASIC targeting
+    RUN 1: LC/T0/T1 local command with specific ASIC targeting
         Example: config platform cisco bfd counter enable -n asic0 -d 1 -o
-    RUN 2: LC local command on all ASICs (no ASIC targeting)
+    RUN 2: LC        local command on all ASICs (negative test)
+    RUN 2: T0/T1     local command on all ASICs (skip)
         Example: config platform cisco histogram tc -o
     
     All commands executed locally on LC (no -l flag)
@@ -289,41 +292,29 @@ def lc_platform_npu_tests(duthosts, duthost, tc_dict, results):
     """
     additional_parameters = parse_additional_parameters(tc_dict)
     requires_interface = any(p.startswith('interface_option') for p in additional_parameters)
+    requires_skip_generic_cli = 'skip_generic_cli' in additional_parameters
+
     if requires_interface:
         if not reformat_clicmd(duthost, tc_dict, results, cli_case="LC"):
             return
 
-    #LC local commands
+    # RUN1: LC local commands
     saved_ctxt_thread_count = []
     current_thread_count = []
     active_lc_list = []
     lc_asic_id_list = duthost.get_asic_namespace_list()
-    # Use random ASIC selection for LC local commands
-    if lc_asic_id_list:
-        asic_id = random.choice(lc_asic_id_list)
-        command_str = f"{tc_dict['command']} -o -n {asic_id}"
-        logging.info(f"[LC-config-cli: {command_str}] - RUN 1: LC local command on one active ASIC")
-        saved_ctxt_thread_count = save_thread_context(duthosts)
-        result = duthost.command(command_str, module_ignore_errors=True)
-        logging.info(result)    
-        error_msg = check_output_for_errors(result)
-        if error_msg:
-            update_results(results, tc_dict["tcname"], "FAILED", error_msg)
+    if duthost.facts.get('modular_chassis', False):
+        if lc_asic_id_list:
+            asic_id = random.choice(lc_asic_id_list)
+        else:
+            skip_msg = "SKIPPED - No active ASIC found in lc_asic_id_list for RUN1 on modular chassis"
+            update_results(results, tc_dict["tcname"], "PASSED", skip_msg)
             return
-        if tc_dict['output_match_str'] != 'NO_PATTERN':
-            ret = does_result_contain(result, tc_dict['output_match_str'])
-            if ret == False:
-                error_msg = f"Command output does not contain expected pattern: {tc_dict['output_match_str']}"
-                update_results(results, tc_dict["tcname"], "FAILED", error_msg)
-                return
-        current_thread_count = save_thread_context(duthosts)
-        logging.info(f"saved_ctxt_thread_count {saved_ctxt_thread_count} current_thread_count {current_thread_count}")
-        ret = compare_thread_contexts(duthosts, saved_ctxt_thread_count, current_thread_count, tc_dict, results)
-        if ret == False:
-            return
-    
-    command_str = f"{tc_dict['command']} -o"
-    logging.info(f"[LC-config-cli: {command_str}] - RUN 2: LC local command on all active ASICs")
+    else:
+        asic_id = "asic0"
+
+    command_str = f"{tc_dict['command']} -o -n {asic_id}"
+    logging.info(f"[LC-config-cli: {command_str}] - RUN 1: LC local command on one active ASIC")
     saved_ctxt_thread_count = save_thread_context(duthosts)
     result = duthost.command(command_str, module_ignore_errors=True)
     logging.info(result)
@@ -342,6 +333,33 @@ def lc_platform_npu_tests(duthosts, duthost, tc_dict, results):
     ret = compare_thread_contexts(duthosts, saved_ctxt_thread_count, current_thread_count, tc_dict, results)
     if ret == False:
         return
+    
+    # RUN2: LC local negative test on modular chassis (expect reject without -n)
+    # On non-modular T0/T1, skip RUN2 because there is no LC centralized-CLI negative behavior.
+    if duthost.facts.get('modular_chassis', False):
+        if requires_skip_generic_cli:
+            logging.info("RUN 2 skipped by testcase additional_parameters: requires_skip_generic_cli")
+        else:
+            command_str = f"{tc_dict['command']} -o"
+            logging.info(f"[LC-config-cli: {command_str}] - RUN 2: LC local negative test on modular chassis (expect reject without -n)")
+            saved_ctxt_thread_count = save_thread_context(duthosts)
+            result = duthost.command(command_str, module_ignore_errors=True)
+            logging.info(result)
+
+            # Expected negative format for RUN 2:
+            # Error: Missing option '-n'.
+            if not parse_missing_n_option_error(result):
+                error_msg = "RUN 2 expected rejection with 'Missing option -n' on modular chassis LC"
+                update_results(results, tc_dict["tcname"], "FAILED", error_msg)
+                return
+
+            current_thread_count = save_thread_context(duthosts)
+            logging.info(f"saved_ctxt_thread_count {saved_ctxt_thread_count} current_thread_count {current_thread_count}")
+            ret = compare_thread_contexts(duthosts, saved_ctxt_thread_count, current_thread_count, tc_dict, results)
+            if ret == False:
+                return
+    else:
+        logging.info("RUN 2 skipped: non-modular topology (T0/T1)")
 
     tcname = tc_dict["tcname"]
     update_results(results, tc_dict["tcname"], "PASSED", "PASSED")
@@ -354,14 +372,21 @@ def rp_lc_config_platform_npu_testcase(duthosts, enum_rand_one_per_hwsku_hostnam
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    additional_parameters = parse_additional_parameters(tc_dict)
+    if 'skip_vxr_not_support' in additional_parameters and CheckEnvironment.is_sim(duthost):
+        update_results(results, tc_dict["tcname"], "PASSED", "vxr SIM environment does not support this testcase")
+        return
     
     # Enhanced logging to identify device type and execution context
     device_hostname = duthost.hostname
-    device_type = "SUPERVISOR" if duthost.is_supervisor_node() else "LINE-CARD"
+    if duthost.is_supervisor_node():
+        device_type = "SUPERVISOR"
+    elif duthost.facts.get('modular_chassis', False):
+        device_type = "LINE-CARD"
+    else:
+        device_type = "NON-CHASSIS"
     logging.info(f"Running PLATFORM NPU Config Test Case: {tc_dict['tcname']} on {device_type} device: {device_hostname}")
-
-    if not duthost.facts['modular_chassis']:
-        pytest.skip("Test skipped applicable to modular chassis only")
     
     # Save initial memory and CPU context before running tests
     logging.info("=== Saving initial memory and CPU contexts ===")
@@ -373,7 +398,7 @@ def rp_lc_config_platform_npu_testcase(duthosts, enum_rand_one_per_hwsku_hostnam
             logging.info(f"Executing SUP tests from Supervisor device: {device_hostname}")
             sup_platform_npu_tests(duthosts, duthost, tc_dict, results)
         else:
-            logging.info(f"Executing LC tests from Line Card device: {device_hostname}")
+            logging.info(f"Executing LC and DUT tests from non-supervisor device: {device_hostname}")
             lc_platform_npu_tests(duthosts, duthost, tc_dict, results)
     
     finally:
@@ -404,7 +429,9 @@ def test_rp_lc_config_platform_npu(duthosts, enum_rand_one_per_hwsku_hostname, t
     results = []
 
     pytest_assert(len(CASES) != 0, f"Testcase choices input file {RP_LC_TESTCASE_CONFIG_FILE} is empty or not found!!!")
-
+ 
+    tc_dict = dict(tc_dict)
+ 
     tc_name = tc_dict.get('tcname')
     if platform_npu_tc_name != "all" and tc_name != platform_npu_tc_name:
         pytest.skip(f"Skipped by --platform_npu_tc_name filter: {platform_npu_tc_name}")

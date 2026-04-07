@@ -190,15 +190,22 @@ def save_cpu_utilization_context(duthosts):
     index = 0
     for duthost in duthosts:
         if duthost.is_supervisor_node() == False:
+            # Non-modular nodes (T0/T1) do not run lc_rp_cmd_client.py.
+            # Treat CPU usage context as 0 to avoid false failures.
+            if not duthost.facts.get('modular_chassis', False):
+                used_cpu_pc[index] = 0
+                index += 1
+                continue
+
             temp_usage_percent = 0
             # Take the average of 5 attempts for more stable readings
             for i in range(5):
                 cmd = f"ps -eo %cpu=,cmd= | grep lc_rp_cmd_client.py | grep -v grep"
                 output = duthost.shell(cmd, module_ignore_errors=True)
-                match = re.search(r'(\d+\.\d+)', duthost.shell(cmd)["stdout"])
+                match = re.search(r'(\d+\.\d+)', output.get("stdout", ""))
                 if not match:
                     # If pattern doesn't match, log warning and use 0
-                    logging.warning(f"Unable to parse CPU usage from: {output['stdout']}")
+                    logging.warning(f"Unable to parse CPU usage from: {output.get('stdout', '')}")
                     usage_percent = 0
                 else:
                     usage_percent = float(match.group(1))
@@ -218,6 +225,8 @@ def compare_cpu_usage_contexts(duthosts, saved_ctxt_cpu_pc, current_cpu_pc, tc_d
         if duthost.is_supervisor_node():
             # Skip CPU usage checks for Supervisor/RP due to high CPU usage variations
             logging.info(f"Skipping CPU usage check for Supervisor: saved={saved_ctxt_cpu_pc[index]}%, current={current_cpu_pc[index]}%")
+        elif not duthost.facts.get('modular_chassis', False):
+            logging.info(f"Skipping CPU usage check for NON-CHASSIS: saved={saved_ctxt_cpu_pc[index]}%, current={current_cpu_pc[index]}%")
         else:
             # Only check CPU usage for Line Cards
             node_name = find_node_name_from_duthost(duthost)
@@ -472,7 +481,13 @@ def parse_additional_parameters(tc_dict):
         )
         return params
 
-    allowed_parameters = {"interface_option1", "interface_option2", "active_asic"}
+    allowed_parameters = {
+        "interface_option1",
+        "interface_option2",
+        "rp_active_asic",
+        "skip_generic_cli",
+        "skip_vxr_not_support",
+    }
 
     for raw_value in value:
         normalized = str(raw_value).strip().lower()
@@ -593,6 +608,30 @@ def parse_invalid_linecard_all_option_error(result):
     return bool(has_linecard_hint)
 
 
+
+def parse_missing_n_option_error(result):
+    """
+    Parse command output and detect the expected CLI validation error
+    when a command that requires ASIC selection is called without '-n'.
+    """
+    stdout = result.get('stdout', '') or ''
+    stderr = result.get('stderr', '') or ''
+    stdout_lines = result.get('stdout_lines', []) or []
+    stderr_lines = result.get('stderr_lines', []) or []
+
+    stdout_text = "\n".join(stdout_lines) if stdout_lines else stdout
+    stderr_text = "\n".join(stderr_lines) if stderr_lines else stderr
+    combined_output = f"{stdout_text}\n{stderr_text}".strip()
+
+    has_missing_n = re.search(
+        r"Missing\s+option\s+['\"]-n['\"]",
+        combined_output,
+        re.IGNORECASE
+    )
+
+    return bool(has_missing_n)
+
+
 RP_LC_SHOW_TESTCASE_CHOICES_FILENAME = "test_rp_lc_testcase_choices.json"
 
 
@@ -645,3 +684,4 @@ def rp_lc_testcase_choices_case_id(case):
 
 
 RP_LC_TESTCASE_CHOICES_CASES = load_rp_lc_testcase_choices()
+

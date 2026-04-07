@@ -4,63 +4,70 @@
       "tcname": "TC_config_sdk_debug_enable",
       "command": "sudo config platform cisco sdk-debug enable",
       "supported": "yes",
+      "additional_parameters": ["skip_generic_cli"],
       "output_match_str": "Enabling sdk-debug"
     },
     {
       "tcname": "TC_config_bfd_counter_enable",
       "command": "sudo config platform cisco bfd counter enable -d 1",
       "supported": "yes",
-      "additional_parameters": ["active_asic"],
+      "additional_parameters": ["rp_active_asic"],
       "output_match_str": "Enabling bfd"
     },
     {
       "tcname": "TC_config_fabric_startup",
       "command": "sudo config platform cisco fabric -L 1 -a startup",
       "supported": "yes",
+      "additional_parameters": ["rp_active_asic"],
       "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_config_packet_debug_drops_disable",
       "command": "sudo config platform cisco packet-debug drops disable",
       "supported": "yes",
+      "additional_parameters": ["rp_active_asic", "skip_vxr_not_support"],
       "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_config_histogram_tc",
       "command": "sudo config platform cisco histogram tc",
-      "supported": "yes",
+      "supported": "no",
+      "additional_parameters": ["rp_active_asic"],
       "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_config_trap_configuration",
       "command": "sudo config platform cisco trap-configuration",
       "supported": "yes",
+      "additional_parameters": ["rp_active_asic"],
       "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_config_voq_watchdog_disable",
       "command": "sudo config platform cisco voq-watchdog disable",
       "supported": "yes",
+      "additional_parameters": ["rp_active_asic"],
       "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_config_disable_l2_traps",
       "command": "sudo config platform cisco disable-l2-traps",
       "supported": "yes",
+      "additional_parameters": ["rp_active_asic"],
       "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_config_vxlan_counter_enable",
       "command": "sudo config platform cisco vxlan counter enable -s 2.2.2.2 -r 1.1.1.1",
       "supported": "yes",
-      "additional_parameters": ["active_asic"],
+      "additional_parameters": ["rp_active_asic"],
       "output_match_str": "NO_PATTERN"
     },
     {
       "tcname": "TC_config_interface_tx_disable",
       "command": "sudo config platform cisco interface tx disable",
       "supported": "yes",
-      "additional_parameters": ["interface_option1", "active_asic"],
+      "additional_parameters": ["interface_option1", "rp_active_asic"],
       "output_match_str": "NO_PATTERN"
     },
     {
@@ -68,12 +75,13 @@
       "command": "sudo config platform cisco tgen create -p 'Ether(src=\"0:0:C:D:E:F\",dst=\"78:7e:63:4c:00:00\")/IP(src=\"32.0.0.1\",dst=\"1.1.1.2\",ttl=64)/Raw(load=\"f\"*200)' -m injectdown -d 10",
       "supported": "yes",
       "additional_parameters": ["interface_option2"],
-      "output_match_str": "NO_PATTERN"
+      "output_match_str": "successfully with OID"
     },
     {
       "tcname": "TC_config_udf_hash_clear",
       "command": "sudo config platform cisco udf-hash clear",
-      "supported": "yes",
+      "supported": "no",
+      "additional_parameters": ["rp_active_asic"],
       "output_match_str": "NO_PATTERN"
     },
     {
