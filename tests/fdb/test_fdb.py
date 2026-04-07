@@ -36,7 +36,7 @@ pytestmark = [
 ]
 
 DEFAULT_FDB_ETHERNET_TYPE = 0x1234
-DUMMY_MAC_PREFIX = "02:11:22:33"
+DUMMY_MAC_PREFIX = "02:11:22"
 DUMMY_MAC_COUNT = 10
 DUMMY_MAC_COUNT_SLIM = 2
 FDB_POPULATE_SLEEP_TIMEOUT = 2
@@ -259,7 +259,8 @@ def setup_fdb(ptfadapter, vlan_table, router_mac, pkt_type, dummy_mac_count):
 
                 # Send packets to switch to populate the layer 2 table with dummy MACs for each port
                 # Totally 10 dummy MACs for each port, send 1 packet for each dummy MAC
-                dummy_macs = ['{}:{:02x}:{:02x}'.format(DUMMY_MAC_PREFIX, port_index, i)
+                dummy_macs = ['{}:{:02x}:{:02x}:{:02x}'.format(
+                                  DUMMY_MAC_PREFIX, (port_index >> 8) & 0xFF, port_index & 0xFF, i)
                               for i in range(dummy_mac_count)]
 
                 for dummy_mac in dummy_macs:
@@ -422,7 +423,7 @@ def test_fdb(ansible_adhoc, ptfadapter, duthosts, rand_one_dut_hostname, ptfhost
             assert v['type'] in ['Dynamic', 'Static'], (
                 "FDB entry type '{}' is invalid. Expected one of ['Dynamic', 'Static']. "
             ).format(v['type'])
-            if DUMMY_MAC_PREFIX in k.lower():
+            if k.lower().startswith(DUMMY_MAC_PREFIX):
                 dummy_mac_count += 1
             if "dynamic" in v['type'].lower():
                 total_mac_count += 1
