@@ -23,6 +23,10 @@ parameters:
     type: boolean
     default: false
     displayName: "Use PRBinarySearchFailureInfoAgency as Kusto failure info source"
+  - name: ENABLE_CI_PRESCREENING
+    type: boolean
+    default: false
+    displayName: "Use existing CI build images to narrow buildimage commit range"
 
 stages:
   - stage: PRBinarySearch
@@ -44,3 +48,4 @@ stages:
               MAX_PARALLEL: ${{ parameters.MAX_PARALLEL }}
               UPLOAD_KUSTO: ${{ parameters.UPLOAD_KUSTO }}
               USE_AGENCY_FAILURE_INFO: ${{ parameters.USE_AGENCY_FAILURE_INFO }}
+              ENABLE_CI_PRESCREENING: ${{ parameters.ENABLE_CI_PRESCREENING }}
