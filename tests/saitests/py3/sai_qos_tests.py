@@ -2681,7 +2681,8 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
                     diff = counter_details_after[i][0][cntr] - counter_details_before[i][0][cntr]
                     if 'cisco-8000' in asic_type:
                         # For cisco-8000, adding margin to avoid test failure caused by small amount of RX drops
-                        assert diff <= COUNTER_MARGIN, "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
+                        assert diff <= COUNTER_MARGIN, \
+                            "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
                     else:
                         assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
 
@@ -2719,7 +2720,8 @@ class LosslessVoq(sai_base_test.ThriftInterfaceDataPlane):
                     diff = counter_details_3[i][0][cntr] - counter_details_before[i][0][cntr]
                     if 'cisco-8000' in asic_type:
                         # For cisco-8000, adding margin to avoid test failure caused by small amount of RX drops
-                        assert diff <= COUNTER_MARGIN, "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
+                        assert diff <= COUNTER_MARGIN, \
+                            "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
                     else:
                         assert diff == 0, "Unexpected ingress drop {} on port {}".format(diff, src_details[i])
 
