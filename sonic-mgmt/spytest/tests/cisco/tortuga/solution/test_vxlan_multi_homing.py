@@ -19,7 +19,6 @@ import apis.system.basic as basic
 from spytest.utils import poll_wait
 from copy import deepcopy
 import json
-
 from utilities.utils import get_intf_short_name
 
 
@@ -6268,6 +6267,173 @@ class TestRemoveAddCfgTriggers():
             vxlan_obj.report_result(True, tc_id)
         else:
             vxlan_obj.report_result(False, tc_id, result_str)
+
+
+    def test_pc_unconfig(self, pc_unconfig_context, pause_run):
+        """
+        Testcase: Verify that PC is unconfigured in vtysh and sonic shell
+
+        Description: 
+        Test case to verify Customer Found Bug: MIGSOFTWAR-34033 - config portchannel del <name> does not remove FRR entries.
+        The bug found is that when a portchannel is deleted, the FRR entries are not removed from vtysh. 
+        This test case is to verify that the FRR entries are removed from vtysh when a portchannel is deleted.
+        These customer found bugs can be found in the sheet: https://cisco.sharepoint.com/:x:/r/sites/SONIC_on_SF/_layouts/15/doc2.aspx?sourcedoc=%7B5A9F315A-602A-4DA6-991B-A2A98539F269%7D&file=Controller%20Found%20Issues%20-%20Dec18.xlsx&action=default&mobileredirect=true
+
+        Steps: 
+            1. Verify PortChannel is active in sonic shell
+            2. Delete PortChannel interface in sonic shell
+            3. Verify that PC is unconfigured in sonic shell
+            4. Verify that PC is unconfigured in vtysh
+            5. Calls fixture pc_unconfig_context to bring PortChannel interface back in sonic shell
+            6. Verify that PC is configured in sonic shell
+            7. Verify that PC is configured in vtysh
+        """
+
+        tc_id = "test_pc_unconfig"
+        test_cfg['tc_id'] = tc_id
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
+        tc_cfg['vlan_members'] = {}
+        tc_cfg['eth_members'] = {}
+        tc_cfg['pc_ids'] = {}
+        tc_cfg['deleted'] = False
+        summ = ''
+
+        result = True
+
+        st.banner('Customer Found Bug: MIGSOFTWAR-34033 - Verify PortChannel is down in sonic shell and vtysh ({})'.format(tc_id))
+
+        for dut in ['leaf0', 'leaf2']: 
+            pc_id = "PortChannel"+str(test_cfg[dut]['port_channels'][0]['port_channel_num'])
+            tc_cfg['pc_ids'][dut] = pc_id # Save pc_id to context BEFORE deletion
+
+            st.log(f'Verify {pc_id} is up in sonic shell and vtysh on {dut}')
+
+            result = pc_obj.verify_portchannel(dut, pc_id)
+            if not result:
+                summ += f'{pc_id} has not been properly configured to test this case, is down in sonic shell on {dut}. '
+                st.error(summ)
+                vxlan_obj.report_result(result, tc_id, summ)
+            else:
+                st.log(f'{pc_id} is properly configured in sonic shell to test this case on {dut}.')
+
+            output = st.vtysh_show(dut, 'show running', skip_tmpl=True) # checks vtysh config for the portchannel
+            if 'interface ' + pc_id not in output:
+                summ += f'{pc_id} has not been properly configured in vtysh to test this case on {dut}. '
+                st.error(summ)
+                vxlan_obj.report_result(False, tc_id, summ)
+            else:
+                st.log(f'{pc_id} is properly configured in vtysh to test this case on {dut}. ')
+                
+            vlan_ids = []
+            for row in test_cfg[dut]['l2vni']:
+                if pc_id in row['members']:
+                    vlan_ids.append(row['vlan_id'])
+
+            st.log(f'Delete vlan members from {pc_id} on {dut}')
+            cmd = ''
+            for vlan_id in vlan_ids: 
+                cmd += 'config vlan member del ' + str(vlan_id) + ' ' + str(pc_id) + '\n'
+
+            st.config(dut, cmd, skip_tmpl=True)
+            tc_cfg['vlan_members'][dut] = vlan_ids # Save deleted vlan ids to context AFTER deletion
+
+            tc_cfg['deleted'] = True # Save deleted flag to context AFTER deletion
+
+            # Removing members/interfaces from portchannel
+            members = pc_obj.get_portchannel_members(dut, pc_id)
+
+            result = pc_obj.delete_portchannel_member(dut, pc_id, members)
+            if not result:
+                summ += f'Failed to remove members/interfaces from {pc_id} on {dut}. '
+                st.error(summ)
+                vxlan_obj.report_result(result, tc_id, summ)
+            else:
+                tc_cfg['eth_members'][dut] = members # Save members to context AFTER deletion
+
+            # Deleting portchannel
+            result = pc_obj.delete_portchannel(dut, pc_id)
+            if not result:
+                summ += f'{pc_id} was not properly deleted in sonic shell on {dut}. '
+                st.error(summ)
+                vxlan_obj.report_result(result, tc_id, summ)
+            else:
+                st.log(f'{pc_id} was properly deleted in sonic shell on {dut}')
+                tc_cfg['pc_ids'][dut] = pc_id # Save pc_id to context AFTER deletion
+
+            st.log(f'Verifying if {pc_id} is deleted in vtysh on {dut}')
+            output = st.vtysh_show(dut, 'show running', skip_tmpl=True) # checks vtysh config for the portchannel
+            if 'interface ' + pc_id not in output:
+                st.log(f'{pc_id} was properly deleted in vtysh on {dut}') 
+            else:
+                st.error(f'{pc_id} has not been properly deleted in vtysh on {dut}.') # change to error for failed conditions!
+                vxlan_obj.report_result(False, tc_id, summ)
+
+        vxlan_obj.report_result(True, tc_id, summ)
+
+
+    @pytest.fixture
+    def pc_unconfig_context(self):
+        """
+        Portchannel clean up for testcase 'test_pc_unconfig'
+        """
+        yield 
+
+        tc_id = "test_pc_unconfig"
+        tc_cfg = vxlan_obj.get_tc_params(tc_id)
+
+
+        if tc_cfg['deleted']:
+            for dut in ['leaf0', 'leaf2']: 
+                if dut in tc_cfg['pc_ids']: # check if dut has a portchannel to restore
+                    pc_id = tc_cfg['pc_ids'][dut]
+                    st.log(f'Restore {pc_id} on {dut}.')
+
+                    result = pc_obj.create_portchannel(dut, pc_id)
+                    if not result:
+                        st.error(f'Failed to restore {pc_id} on {dut}.')
+                    else:
+                        st.log(f'Successfully restored {pc_id} on {dut}.')
+                else:
+                    st.log(f'No portchannel to restore on {dut}.')
+
+                # Add back members to portchannel
+                if dut in tc_cfg['eth_members']:
+                    members = tc_cfg['eth_members'][dut]
+                    pc_id = tc_cfg['pc_ids'][dut]
+                    result = pc_obj.add_portchannel_member(dut, pc_id, members)
+                    if not result:
+                        st.error(f'Failed to add back members/interfaces to {pc_id} on {dut}. ')
+                    else:
+                        st.log(f'Successfully added back members/interfaces to {pc_id} on {dut}. ')
+
+                # Add back vlan members to portchannel
+                if dut in tc_cfg['vlan_members']:
+                    vlan_ids = tc_cfg['vlan_members'][dut]
+                    pc_id = tc_cfg['pc_ids'][dut]
+                    cmd = ''
+                    for vlan_id in vlan_ids:
+                        cmd += 'config vlan member add ' + str(vlan_id) + ' ' + str(pc_id) + '\n'
+                    st.config(dut, cmd, skip_tmpl=True) # Save vlan ids to context AFTER addition
+
+                if dut in tc_cfg['pc_ids']: 
+                    pc_id = tc_cfg['pc_ids'][dut]
+                    result = pc_obj.verify_portchannel(dut, pc_id)
+                    if not result:
+                        st.error(f'Failed to verify {pc_id} on {dut}.')
+                    else:
+                        st.log(f'Successfully verified {pc_id} on {dut}.')
+
+                    # Verify that the portchannel is restored in vtysh
+                    output = st.vtysh_show(dut, 'show running', skip_tmpl=True) 
+                    if 'interface ' + pc_id in output:
+                        st.log(f'{pc_id} was properly restored in vtysh on {dut}')
+                    else:
+                        st.error(f'{pc_id} has not been properly restored in vtysh on {dut}.')
+                else:
+                    st.log(f'No portchannel is restored on {dut}.')
+        else:
+            st.log(f'No portchannel was deleted.')
+
 
     def test_remove_add_ethernet_segment(self):
         """
