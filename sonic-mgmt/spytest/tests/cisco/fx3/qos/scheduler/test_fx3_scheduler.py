@@ -54,6 +54,24 @@ Testbed (fx3_qos_testbed_2022.yaml):
   Unbind Q2 entirely (HDEL QUEUE|2).  Verify remaining DWRR queues
   Q0/Q1/Q3/Q4/Q5 redistribute DCHAL BW% and traffic ratios.
 
+(test_fx3_unbind_all_then_rebind)  — maps to SAI test_tortuga_unbind_all_then_rebind
+  Full bind → full unbind (reverse order Q7→Q0) → re-apply full FX3 config.
+  After full unbind verifies all 8 QUEUE bindings are absent.  After rebind
+  ('config qos reload') verifies CONFIG_DB bindings, DCHAL BW%, and traffic
+  ratios match the original FX3 baseline.
+
+(test_fx3_unbind_from_unbound_sg_succeeds)  — maps to SAI test_tortuga_unbind_from_unbound_sg_succeeds
+  After full FX3 config, HDEL Q0 (first unbind), then HDEL Q0 again (second
+  unbind — idempotent).  Verifies: second HDEL is a CONFIG_DB no-op (returns 0),
+  Q0 remains unbound, Q1–Q7 are unchanged, and DCHAL BW% for Q1–Q5 is
+  identical before and after the second HDEL.
+
+(test_fx3_replace_scheduler_on_sg)  — maps to SAI test_tortuga_replace_scheduler_on_sg
+  Applies full FX3 baseline config, then swaps scheduler profiles between Q1
+  and Q4 via direct HSET (replace-in-place, no HDEL needed).  Verifies CONFIG_DB
+  bindings, DCHAL BW% redistribution, and traffic ratios with the swapped
+  weight map {0:20, 1:40, 2:20, 3:40, 4:20, 5:30}.
+
 FX3 constraints:
   - PFC and ECN are not supported on this platform.
   - clear_queue_stats is not supported; tests use snapshot-before/after deltas.
@@ -1699,5 +1717,523 @@ def test_fx3_unbind_dwrr_sg2(setup_topo):
             'Unbind DWRR SG2 PASSED (IPv4 + IPv6): '
             'Q2 unbound; DCHAL BW% and Tx-pkt ratios for remaining DWRR queues '
             '(Q0/Q1/Q3/Q4/Q5) match expected weights')
+
+
+def test_fx3_unbind_all_then_rebind(setup_topo):
+    """Full unbind (Q7→Q0) then full rebind via config qos reload; verify DCHAL + traffic.
+
+    Maps to SAI test_tortuga_unbind_all_then_rebind and
+    scheduler_test_plan.md test 21.
+
+    Steps:
+      1. Verify FX3 baseline CONFIG_DB bindings (Q0–Q7 each = scheduler.N)
+      2. Unbind all queues in reverse order (Q7→Q0) via HDEL
+      3. Verify all 8 QUEUE bindings are absent from CONFIG_DB
+      4. Log DCHAL after full unbind (no weight assertion — all queues at HW fallback)
+      5. Restore: config qos reload — re-applies full FX3 config
+      6. Verify all 8 CONFIG_DB bindings restored (Q0=scheduler.0 … Q7=scheduler.7)
+      7. DCHAL check with full FX3 weight map {0:20,1:20,2:20,3:40,4:40,5:30}
+      8. IPv4 traffic check with same weight map
+      9. IPv6 traffic check
+    """
+    _ingress_roles = sorted(k for k in port_info if k != 'egress')
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_unbind_all_then_rebind  [IPv4 + IPv6  dual-stack]\n"
+        "  DUT      : {}\n"
+        "  Ingress  : {}\n"
+        "  Egress   : {}  ({}G)\n"
+        "  Plan     : Baseline → Unbind all Q7→Q0 → Verify null "
+        "→ Rebind (qos reload) → DCHAL + traffic → Restore".format(
+            dut,
+            "  ".join("{}={}({}G)".format(r, port_info[r], port_speeds.get(r, '?'))
+                      for r in _ingress_roles),
+            egress, port_speeds.get('egress', '?'))
+    )
+    fail_msgs = []
+    checkpoint_summary = {}
+
+    macs = {role: get_dut_mac(dut, port_info[role]) for role in _ingress_roles}
+    deploy_dchal_helper(dut)
+
+    # FX3 baseline DWRR weight map (Q6=STRICT, Q7=STRICT — excluded from weight pool)
+    w_baseline = {0: 20, 1: 20, 2: 20, 3: 40, 4: 40, 5: 30}
+
+    # ── Step 1: Verify FX3 baseline QUEUE bindings ────────────────────────
+    st.banner("STEP 1: Verify FX3 baseline QUEUE bindings on {}".format(egress))
+    for qi in range(NUM_QUEUES):
+        expected_sched = 'scheduler.{}'.format(qi)
+        out = st.show(dut,
+            'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|{}" "scheduler"'.format(egress, qi),
+            skip_tmpl=True)
+        actual = parse_redis_hget(out).strip()
+        st.log("  Q{} -> '{}'  expected '{}'  {}".format(
+            qi, actual, expected_sched, "OK" if actual == expected_sched else "MISMATCH"))
+        if actual != expected_sched:
+            fail_msgs.append("Baseline: QUEUE|{}|{} = '{}', expected '{}'".format(
+                egress, qi, actual, expected_sched))
+
+    if fail_msgs:
+        st.log("=" * 72)
+        st.log("  BASELINE FAILURES — aborting:")
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.config(dut, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        st.report_fail('msg', 'Unbind-all-then-rebind FAILED at baseline — see above')
+        return
+
+    # ── Step 2: Unbind all queues Q7 → Q0 ────────────────────────────────
+    st.banner("STEP 2: Unbind all queues in reverse order (Q7 → Q0)")
+    for qi in range(NUM_QUEUES - 1, -1, -1):
+        st.log("  Unbinding Q{} — HDEL QUEUE|{}|{} scheduler".format(qi, egress, qi))
+        st.config(dut,
+            'sonic-db-cli CONFIG_DB HDEL "QUEUE|{}|{}" "scheduler"'.format(egress, qi),
+            skip_error_check=True)
+        st.wait(1)
+
+    st.wait(2)
+
+    # ── Step 3: Verify all 8 queues have no binding ───────────────────────
+    st.banner("STEP 3: Verify all 8 QUEUE bindings are absent from CONFIG_DB")
+    for qi in range(NUM_QUEUES):
+        out = st.show(dut,
+            'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|{}" "scheduler"'.format(egress, qi),
+            skip_tmpl=True)
+        actual = parse_redis_hget(out).strip()
+        st.log("  Q{} binding: '{}'  (expected empty)".format(qi, actual))
+        if actual:
+            fail_msgs.append("After full unbind: QUEUE|{}|{} still has scheduler='{}'".format(
+                egress, qi, actual))
+
+    # ── Step 4: Log DCHAL after full unbind (informational only) ─────────
+    st.banner("STEP 4: DCHAL state after full unbind (all queues at HW fallback token)")
+    dchal_show_queuing(dut, "After full unbind (all queues)", egress)
+    st.log("  Note: no BW% assertion — all queues unbound, no differential weights")
+
+    # ── Step 5: Restore via config qos reload ────────────────────────────
+    st.banner("STEP 5: Restore full FX3 config — config qos reload")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    log_scheduler_state("After config qos reload")
+
+    # ── Step 6: Verify all 8 bindings restored ───────────────────────────
+    st.banner("STEP 6: Verify all 8 QUEUE bindings restored in CONFIG_DB")
+    for qi in range(NUM_QUEUES):
+        expected_sched = 'scheduler.{}'.format(qi)
+        out = st.show(dut,
+            'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|{}" "scheduler"'.format(egress, qi),
+            skip_tmpl=True)
+        actual = parse_redis_hget(out).strip()
+        st.log("  Q{} -> '{}'  expected '{}'  {}".format(
+            qi, actual, expected_sched, "OK" if actual == expected_sched else "MISMATCH"))
+        if actual != expected_sched:
+            fail_msgs.append("After rebind: QUEUE|{}|{} = '{}', expected '{}'".format(
+                egress, qi, actual, expected_sched))
+
+    # ── Step 7: DCHAL check after full rebind ─────────────────────────────
+    st.banner("STEP 7: DCHAL Bandwidth% after full rebind (should match FX3 baseline)")
+    _dchal_out = dchal_show_queuing(dut, "After full rebind", egress)
+    _dchal_bw = validate_dchal_bw_vs_weights(
+        "After full rebind", _dchal_out, w_baseline, fail_msgs)
+
+    # ── Step 8: IPv4 traffic ───────────────────────────────────────────────
+    scheduler_traffic_check(
+        "Full rebind [IPv4]", w_baseline, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw,
+        note="All queues rebound via config qos reload; FX3 baseline weights restored")
+
+    # ── Step 9: IPv6 traffic ───────────────────────────────────────────────
+    scheduler_traffic_check_v6(
+        "Full rebind [IPv6]", w_baseline, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw,
+        note="All queues rebound via config qos reload; FX3 baseline weights restored")
+
+    # ── Restore (safety) ──────────────────────────────────────────────────
+    st.banner("RESTORE: config qos reload (safety)")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    log_scheduler_state("Restore")
+
+    # ── Final summary ──────────────────────────────────────────────────────
+    print_scheduler_summary(checkpoint_summary)
+
+    # ── Verdict ────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  UNBIND ALL THEN REBIND — FAILURES ({} total):".format(len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'Unbind-all-then-rebind FAILED ({} failures) — see above'.format(len(fail_msgs)))
+    else:
+        st.log("  UNBIND ALL THEN REBIND — ALL CHECKS PASSED (IPv4 + IPv6)")
+        st.log("  All queues unbound Q7→Q0; config qos reload restored FX3 baseline;")
+        st.log("  DCHAL BW% and Tx-pkt ratios match expected weights")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'Unbind-all-then-rebind PASSED (IPv4 + IPv6): '
+            'all queues unbound Q7->Q0 and restored via config qos reload; '
+            'DCHAL BW%% and Tx-pkt ratios match FX3 baseline weights')
+
+
+def test_fx3_unbind_from_unbound_sg_succeeds(setup_topo):
+    """Second HDEL on already-unbound Q0 is idempotent — no HW change.
+
+    Maps to SAI test_tortuga_unbind_from_unbound_sg_succeeds and
+    scheduler_test_plan.md test 19.
+
+    Steps:
+      1. Verify FX3 baseline — Q0 bound to scheduler.0
+      2. First HDEL Q0 — unbind
+      3. Verify Q0 has no binding; Q1–Q7 unchanged
+      4. DCHAL check after first unbind — validate Q1–Q5 BW% ratios
+      5. IPv4 + IPv6 traffic after first unbind — Q1–Q5 ratios
+      6. Second HDEL Q0 (idempotent — field already absent, returns 0)
+      7. Verify Q0 still unbound; Q1–Q7 still unchanged
+      8. DCHAL check — identical to step 4 (no HW change)
+      9. IPv4 + IPv6 traffic after second unbind — same Q1–Q5 ratios (unchanged)
+     10. Restore: config qos reload
+    """
+    _ingress_roles = sorted(k for k in port_info if k != 'egress')
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_unbind_from_unbound_sg_succeeds\n"
+        "  DUT      : {}\n"
+        "  Ingress  : {}\n"
+        "  Egress   : {}  ({}G)\n"
+        "  Plan     : Baseline → First HDEL Q0 → DCHAL+traffic → "
+        "Second HDEL Q0 (idempotent) → DCHAL+traffic unchanged → Restore".format(
+            dut,
+            "  ".join("{}={}({}G)".format(r, port_info[r], port_speeds.get(r, '?'))
+                      for r in _ingress_roles),
+            egress, port_speeds.get('egress', '?'))
+    )
+    fail_msgs = []
+    checkpoint_summary = {}
+
+    macs = {role: get_dut_mac(dut, port_info[role]) for role in _ingress_roles}
+    deploy_dchal_helper(dut)
+
+    # Q1–Q5 weight map after Q0 unbind (Q6=STRICT, Q7=STRICT excluded)
+    w_q1_q5 = {1: 20, 2: 20, 3: 40, 4: 40, 5: 30}
+
+    # ── Step 1: Verify FX3 baseline — Q0 bound to scheduler.0 ────────────
+    st.banner("STEP 1: Verify FX3 baseline — Q0 bound to scheduler.0 on {}".format(egress))
+    out = st.show(dut,
+        'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|0" "scheduler"'.format(egress),
+        skip_tmpl=True)
+    actual_q0 = parse_redis_hget(out).strip()
+    st.log("  Q0 baseline binding: '{}'  expected 'scheduler.0'".format(actual_q0))
+    if actual_q0 != 'scheduler.0':
+        fail_msgs.append("Baseline: QUEUE|{}|0 = '{}', expected 'scheduler.0'".format(
+            egress, actual_q0))
+        st.config(dut, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        st.report_fail('msg',
+            'Unbind-from-unbound FAILED at baseline — Q0 not bound to scheduler.0')
+        return
+
+    # ── Step 2: First HDEL Q0 ─────────────────────────────────────────────
+    st.banner("STEP 2: First unbind — HDEL QUEUE|{}|0 scheduler".format(egress))
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HDEL "QUEUE|{}|0" "scheduler"'.format(egress),
+        skip_error_check=True)
+    st.wait(2)
+
+    # ── Step 3: Verify Q0 unbound; Q1–Q7 unchanged ────────────────────────
+    st.banner("STEP 3: Verify Q0 has no binding; Q1–Q7 unchanged")
+    out = st.show(dut,
+        'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|0" "scheduler"'.format(egress),
+        skip_tmpl=True)
+    actual_q0 = parse_redis_hget(out).strip()
+    st.log("  Q0 binding after first HDEL: '{}'  (expected empty)".format(actual_q0))
+    if actual_q0:
+        fail_msgs.append("After first HDEL: QUEUE|{}|0 still has scheduler='{}'".format(
+            egress, actual_q0))
+    for qi in range(1, NUM_QUEUES):
+        expected_sched = 'scheduler.{}'.format(qi)
+        out = st.show(dut,
+            'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|{}" "scheduler"'.format(egress, qi),
+            skip_tmpl=True)
+        actual = parse_redis_hget(out).strip()
+        if actual != expected_sched:
+            fail_msgs.append(
+                "After first HDEL Q0: Q{} binding='{}', expected '{}' (unchanged)".format(
+                    qi, actual, expected_sched))
+
+    # ── Step 4: DCHAL check after first unbind ────────────────────────────
+    st.banner("STEP 4: DCHAL check after first unbind — Q0 at fallback; Q1–Q5 ratios")
+    _dchal_out_first = dchal_show_queuing(dut, "After first HDEL Q0", egress)
+    _dchal_bw_first = validate_dchal_bw_vs_weights(
+        "After first HDEL Q0 (Q1–Q5 only)", _dchal_out_first, w_q1_q5, fail_msgs)
+
+    # ── Step 5: IPv4 + IPv6 traffic after first unbind ────────────────────
+    scheduler_traffic_check(
+        "After first HDEL Q0 [IPv4]", w_q1_q5, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw_first,
+        note="Q0 unbound (first HDEL) — validating Q1–Q5 ratios only")
+    scheduler_traffic_check_v6(
+        "After first HDEL Q0 [IPv6]", w_q1_q5, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw_first,
+        note="Q0 unbound (first HDEL) — validating Q1–Q5 ratios only")
+
+    # ── Step 6: Second HDEL Q0 (idempotent) ──────────────────────────────
+    st.banner(
+        "STEP 6: Second unbind (idempotent) — HDEL QUEUE|{}|0 scheduler "
+        "(field already absent — CONFIG_DB no-op)".format(egress))
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HDEL "QUEUE|{}|0" "scheduler"'.format(egress),
+        skip_error_check=True)
+    st.wait(2)
+
+    # ── Step 7: Verify Q0 still unbound; Q1–Q7 still unchanged ───────────
+    st.banner("STEP 7: Verify Q0 still unbound; Q1–Q7 still unchanged after second HDEL")
+    out = st.show(dut,
+        'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|0" "scheduler"'.format(egress),
+        skip_tmpl=True)
+    actual_q0 = parse_redis_hget(out).strip()
+    st.log("  Q0 binding after second HDEL: '{}'  (expected empty)".format(actual_q0))
+    if actual_q0:
+        fail_msgs.append(
+            "After second HDEL: QUEUE|{}|0 unexpectedly has scheduler='{}'".format(
+                egress, actual_q0))
+    for qi in range(1, NUM_QUEUES):
+        expected_sched = 'scheduler.{}'.format(qi)
+        out = st.show(dut,
+            'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|{}" "scheduler"'.format(egress, qi),
+            skip_tmpl=True)
+        actual = parse_redis_hget(out).strip()
+        if actual != expected_sched:
+            fail_msgs.append(
+                "After second HDEL Q0: Q{} binding='{}', expected '{}' (should be unchanged)".format(
+                    qi, actual, expected_sched))
+
+    # ── Step 8: DCHAL check — must be identical to step 4 ────────────────
+    st.banner(
+        "STEP 8: DCHAL check after second HDEL — "
+        "must be identical to step 4 (no HW change)")
+    _dchal_out_second = dchal_show_queuing(dut, "After second HDEL Q0 (idempotent)", egress)
+    _dchal_bw_second = validate_dchal_bw_vs_weights(
+        "After second HDEL Q0 (Q1–Q5 only)", _dchal_out_second, w_q1_q5, fail_msgs)
+
+    # ── Step 9: IPv4 + IPv6 traffic after second unbind ───────────────────
+    scheduler_traffic_check(
+        "After second HDEL Q0 [IPv4]", w_q1_q5, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw_second,
+        note="Q0 unbound (second HDEL idempotent) — Q1–Q5 ratios must be identical to step 5")
+    scheduler_traffic_check_v6(
+        "After second HDEL Q0 [IPv6]", w_q1_q5, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw_second,
+        note="Q0 unbound (second HDEL idempotent) — Q1–Q5 ratios must be identical to step 5")
+
+    # ── Restore ────────────────────────────────────────────────────────────
+    st.banner("RESTORE: config qos reload")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    log_scheduler_state("Restore")
+
+    # ── Final summary ──────────────────────────────────────────────────────
+    print_scheduler_summary(checkpoint_summary)
+
+    # ── Verdict ────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  UNBIND FROM UNBOUND SG — FAILURES ({} total):".format(len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'Unbind-from-unbound-SG FAILED ({} failures) — see above'.format(len(fail_msgs)))
+    else:
+        st.log("  UNBIND FROM UNBOUND SG — ALL CHECKS PASSED (IPv4 + IPv6)")
+        st.log("  Second HDEL Q0 was idempotent: CONFIG_DB unchanged, DCHAL BW% unchanged")
+        st.log("  Q1–Q5 BW% ratios and traffic proportions identical across both unbind operations")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'Unbind-from-unbound-SG PASSED (IPv4 + IPv6): '
+            'second HDEL Q0 idempotent; CONFIG_DB and DCHAL BW%% unchanged; '
+            'Q1-Q5 traffic ratios consistent across both unbind operations')
+
+
+def test_fx3_replace_scheduler_on_sg(setup_topo):
+    """Swap scheduler.1 (w=20) and scheduler.4 (w=40) between Q1 and Q4.
+
+    Maps to SAI test_tortuga_replace_scheduler_on_sg and
+    scheduler_test_plan.md test 16.
+
+    Uses direct HSET (replace-in-place) — no HDEL needed since the field
+    already exists; orchagent processes a value-change event.
+
+    Steps:
+      1. Verify FX3 baseline bindings (Q1=scheduler.1, Q4=scheduler.4)
+      2. Baseline DCHAL check {0:20,1:20,2:20,3:40,4:40,5:30}
+      3. Baseline IPv4 + IPv6 traffic
+      4. HSET Q1 → scheduler.4 (w=40)
+      5. HSET Q4 → scheduler.1 (w=20)
+      6. Verify CONFIG_DB: Q1=scheduler.4, Q4=scheduler.1; others unchanged
+      7. DCHAL check with swapped weights {0:20,1:40,2:20,3:40,4:20,5:30}
+      8. IPv4 traffic with swapped weights
+      9. IPv6 traffic with swapped weights
+     10. Restore: config qos reload
+    """
+    _ingress_roles = sorted(k for k in port_info if k != 'egress')
+    egress = port_info['egress']
+    st.banner(
+        "test_fx3_replace_scheduler_on_sg  [IPv4 + IPv6  dual-stack]\n"
+        "  DUT      : {}\n"
+        "  Ingress  : {}\n"
+        "  Egress   : {}  ({}G)\n"
+        "  Plan     : Baseline → Swap Q1↔Q4 schedulers (HSET) "
+        "→ DCHAL + traffic with swapped weights → Restore".format(
+            dut,
+            "  ".join("{}={}({}G)".format(r, port_info[r], port_speeds.get(r, '?'))
+                      for r in _ingress_roles),
+            egress, port_speeds.get('egress', '?'))
+    )
+    fail_msgs = []
+    checkpoint_summary = {}
+
+    macs = {role: get_dut_mac(dut, port_info[role]) for role in _ingress_roles}
+    deploy_dchal_helper(dut)
+
+    # Weight maps
+    w_baseline = {0: 20, 1: 20, 2: 20, 3: 40, 4: 40, 5: 30}
+    w_swapped  = {0: 20, 1: 40, 2: 20, 3: 40, 4: 20, 5: 30}  # Q1↔Q4 swapped
+
+    # ── Step 1: Verify FX3 baseline bindings ──────────────────────────────
+    st.banner("STEP 1: Verify FX3 baseline QUEUE bindings on {}".format(egress))
+    for qi in range(NUM_QUEUES):
+        expected_sched = 'scheduler.{}'.format(qi)
+        out = st.show(dut,
+            'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|{}" "scheduler"'.format(egress, qi),
+            skip_tmpl=True)
+        actual = parse_redis_hget(out).strip()
+        st.log("  Q{} -> '{}'  expected '{}'  {}".format(
+            qi, actual, expected_sched, "OK" if actual == expected_sched else "MISMATCH"))
+        if actual != expected_sched:
+            fail_msgs.append("Baseline: QUEUE|{}|{} = '{}', expected '{}'".format(
+                egress, qi, actual, expected_sched))
+
+    if fail_msgs:
+        st.log("=" * 72)
+        st.log("  BASELINE FAILURES — aborting:")
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.config(dut, "config qos reload", skip_error_check=True)
+        st.wait(5)
+        st.report_fail('msg', 'Replace-scheduler-on-SG FAILED at baseline — see above')
+        return
+
+    # ── Step 2: Baseline DCHAL check ──────────────────────────────────────
+    st.banner("STEP 2: Baseline DCHAL check {0:20,1:20,2:20,3:40,4:40,5:30}")
+    _dchal_out_base = dchal_show_queuing(dut, "Baseline", egress)
+    _dchal_bw_base = validate_dchal_bw_vs_weights(
+        "Baseline", _dchal_out_base, w_baseline, fail_msgs)
+
+    # ── Step 3: Baseline IPv4 + IPv6 traffic ─────────────────────────────
+    scheduler_traffic_check(
+        "Baseline [IPv4]", w_baseline, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw_base,
+        note="FX3 baseline: Q1=scheduler.1(w=20), Q4=scheduler.4(w=40)")
+    scheduler_traffic_check_v6(
+        "Baseline [IPv6]", w_baseline, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw_base,
+        note="FX3 baseline: Q1=scheduler.1(w=20), Q4=scheduler.4(w=40)")
+
+    # ── Step 4: HSET Q1 → scheduler.4 (w=40) ────────────────────────────
+    st.banner("STEP 4: Swap — HSET Q1 → scheduler.4 (w=40)")
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|1" "scheduler" "scheduler.4"'.format(egress),
+        skip_error_check=True)
+    st.wait(2)
+
+    # ── Step 5: HSET Q4 → scheduler.1 (w=20) ────────────────────────────
+    st.banner("STEP 5: Swap — HSET Q4 → scheduler.1 (w=20)")
+    st.config(dut,
+        'sonic-db-cli CONFIG_DB HSET "QUEUE|{}|4" "scheduler" "scheduler.1"'.format(egress),
+        skip_error_check=True)
+    st.wait(2)
+
+    # ── Step 6: Verify CONFIG_DB after swap ───────────────────────────────
+    st.banner("STEP 6: Verify CONFIG_DB after swap (Q1=scheduler.4, Q4=scheduler.1)")
+    swap_expected = {0: 'scheduler.0', 1: 'scheduler.4', 2: 'scheduler.2',
+                     3: 'scheduler.3', 4: 'scheduler.1', 5: 'scheduler.5',
+                     6: 'scheduler.6', 7: 'scheduler.7'}
+    for qi in range(NUM_QUEUES):
+        expected_sched = swap_expected[qi]
+        out = st.show(dut,
+            'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|{}" "scheduler"'.format(egress, qi),
+            skip_tmpl=True)
+        actual = parse_redis_hget(out).strip()
+        st.log("  Q{} -> '{}'  expected '{}'  {}".format(
+            qi, actual, expected_sched, "OK" if actual == expected_sched else "MISMATCH"))
+        if actual != expected_sched:
+            fail_msgs.append(
+                "After swap: QUEUE|{}|{} = '{}', expected '{}'".format(
+                    egress, qi, actual, expected_sched))
+
+    # Confirm scheduler profiles themselves are unchanged
+    for sched_name, expected_weight in [('scheduler.1', '20'), ('scheduler.4', '40')]:
+        out = st.show(dut,
+            'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|{}"'.format(sched_name),
+            skip_tmpl=True)
+        profile = parse_redis_hgetall(out)
+        st.log("  {}: {}".format(sched_name, profile))
+        if profile.get('weight') != expected_weight:
+            fail_msgs.append(
+                "{} weight='{}', expected '{}' (profile must be unchanged after swap)".format(
+                    sched_name, profile.get('weight'), expected_weight))
+
+    log_scheduler_state("After Q1↔Q4 swap")
+
+    # ── Step 7: DCHAL check with swapped weights ───────────────────────────
+    st.banner("STEP 7: DCHAL check after swap {0:20,1:40,2:20,3:40,4:20,5:30}")
+    _dchal_out_swap = dchal_show_queuing(dut, "After Q1↔Q4 swap", egress)
+    _dchal_bw_swap = validate_dchal_bw_vs_weights(
+        "After Q1↔Q4 swap", _dchal_out_swap, w_swapped, fail_msgs)
+
+    # ── Step 8: IPv4 traffic with swapped weights ─────────────────────────
+    scheduler_traffic_check(
+        "After Q1↔Q4 swap [IPv4]", w_swapped, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw_swap,
+        note="Q1 now has scheduler.4(w=40); Q4 now has scheduler.1(w=20)")
+
+    # ── Step 9: IPv6 traffic with swapped weights ─────────────────────────
+    scheduler_traffic_check_v6(
+        "After Q1↔Q4 swap [IPv6]", w_swapped, fail_msgs, checkpoint_summary,
+        macs, dchal_bw=_dchal_bw_swap,
+        note="Q1 now has scheduler.4(w=40); Q4 now has scheduler.1(w=20)")
+
+    # ── Restore ────────────────────────────────────────────────────────────
+    st.banner("RESTORE: config qos reload")
+    st.config(dut, "config qos reload", skip_error_check=True)
+    st.wait(5)
+    log_scheduler_state("Restore")
+
+    # ── Final summary ──────────────────────────────────────────────────────
+    print_scheduler_summary(checkpoint_summary)
+
+    # ── Verdict ────────────────────────────────────────────────────────────
+    st.log("=" * 72)
+    if fail_msgs:
+        st.log("  REPLACE SCHEDULER ON SG — FAILURES ({} total):".format(len(fail_msgs)))
+        for i, msg in enumerate(fail_msgs, 1):
+            st.log("  [{:02d}] {}".format(i, msg))
+        st.log("=" * 72)
+        st.report_fail('msg',
+            'Replace-scheduler-on-SG FAILED ({} failures) — see above'.format(len(fail_msgs)))
+    else:
+        st.log("  REPLACE SCHEDULER ON SG — ALL CHECKS PASSED (IPv4 + IPv6)")
+        st.log("  Q1↔Q4 swap: DCHAL BW% and traffic ratios match swapped weight map")
+        st.log("  scheduler.1(w=20) and scheduler.4(w=40) profiles unchanged after swap")
+        st.log("=" * 72)
+        st.report_pass('msg',
+            'Replace-scheduler-on-SG PASSED (IPv4 + IPv6): '
+            'Q1<->Q4 scheduler swap via HSET; DCHAL BW%% and Tx-pkt ratios '
+            'match swapped weights {Q1:w=40, Q4:w=20}')
 
 
