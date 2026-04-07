@@ -17,7 +17,8 @@ from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     parse_dpu_memory_usage, parse_system_health_summary,\
     pre_test_check, post_test_dpus_check,\
     dpus_shutdown_and_check, dpus_startup_and_check,\
-    check_dpu_health_status, check_midplane_status, num_dpu_modules, dpu_setup  # noqa: F401
+    check_dpu_health_status, check_midplane_status, num_dpu_modules, dpu_setup,\
+    get_dpuhost_for_dpu  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 
 pytestmark = [
@@ -275,8 +276,13 @@ def test_npu_dpu_date(duthosts, dpuhosts,
         if rc:
             continue
 
+        dpuhost = get_dpuhost_for_dpu(dpuhosts, index)
+        if dpuhost is None:
+            logging.warning("DPU%d not in dpuhosts (len=%d); skipping date sync check", index, len(dpuhosts))
+            continue
+
         logging.info("Checking date and time on {}".format(dpu_name))
-        dpu_date = dpuhosts[index].command(date_cmd)['stdout'].strip()
+        dpu_date = dpuhost.command(date_cmd)['stdout'].strip()
 
         logging.info("Checking date and time on switch")
         switch_date = duthost.command(date_cmd)['stdout'].strip()
@@ -309,9 +315,14 @@ def test_dpu_memory(duthosts, dpuhosts,
         if rc:
             continue
 
+        dpuhost = get_dpuhost_for_dpu(dpuhosts, index)
+        if dpuhost is None:
+            logging.warning("DPU%d not in dpuhosts (len=%d); skipping memory check", index, len(dpuhosts))
+            continue
+
         logging.info("Checking show system-memory on {}"
                      .format(dpu_name))
-        dpu_memory = dpuhosts[index].command(
+        dpu_memory = dpuhost.command(
                              "sudo show system-memory")['stdout']
 
         dpu_memory_usage = parse_dpu_memory_usage(dpu_memory)
@@ -352,11 +363,16 @@ def test_system_health_summary(duthosts, dpuhosts,
     pytest_assert(result, "Switch health status is not ok")
 
     for index in range(len(dpu_on_list)):
-        dpu_name = module.get_name(platform_api_conn, index)
+        dpu_name = dpu_on_list[index]
+        dpu_id = int(re.search(r'\d+', dpu_name).group())
+        dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
+        if dpuhost is None:
+            logging.warning("DPU%d not in dpuhosts (len=%d); skipping health summary check", dpu_id, len(dpuhosts))
+            continue
 
         logging.info("Checking show system-health summary on {}"
                      .format(dpu_name))
-        output_health_summary = dpuhosts[index].command(
+        output_health_summary = dpuhost.command(
                                 "sudo show system-health summary")['stdout']
 
         result = parse_system_health_summary(output_health_summary)
@@ -419,11 +435,16 @@ def test_watchdog_status_check(duthosts, dpuhosts,
                   "Switch watchdog status is armed")
 
     for index in range(len(dpu_on_list)):
-        dpu_name = module.get_name(platform_api_conn, index)
+        dpu_name = dpu_on_list[index]
+        dpu_id = int(re.search(r'\d+', dpu_name).group())
+        dpuhost = get_dpuhost_for_dpu(dpuhosts, dpu_id)
+        if dpuhost is None:
+            logging.warning("DPU%d not in dpuhosts (len=%d); skipping watchdog check", dpu_id, len(dpuhosts))
+            continue
 
         logging.info("Checking watchdog status on {}"
                      .format(dpu_name))
-        dpu_watchdog_status = dpuhosts[index].shell(watchdog_status_cmd)
+        dpu_watchdog_status = dpuhost.shell(watchdog_status_cmd)
 
         logging.info("Checking watchdog status on DPU")
         pytest_assert("armed" in dpu_watchdog_status['stdout'].lower(),
