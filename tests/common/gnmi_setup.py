@@ -39,8 +39,8 @@ IP      = %s
 
 
 def add_gnmi_client_common_name(duthost, cname, role="readwrite"):
-    duthost.shell('sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role" "{}"'.format(cname, role),
-                  module_ignore_errors=True)
+    command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role@" "{}"'.format(cname, role)
+    duthost.shell(command, module_ignore_errors=True)
 
 
 def del_gnmi_client_common_name(duthost, cname):
@@ -139,8 +139,9 @@ def apply_cert_config(duthost):
     duthost.shell(dut_command)
 
     # Setup gnmi client cert common name
-    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
-    add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
+    role = "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnmi_dpu_appl_db_readwrite,gnoi_readwrite"
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
+    add_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic", role)
 
     is_time_synced = False
     for i in range(3):

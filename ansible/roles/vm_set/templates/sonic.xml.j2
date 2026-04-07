@@ -85,6 +85,8 @@
         <target dev='{{ dut_name }}-0' />
     {% if asic_type == 'vpp' %}
         <model type='virtio-net-pci' />
+    {% elif port_alias|length > 128 %}
+        <model type='virtio' />
     {% else %}
         <model type='e1000' />
     {% endif %}
@@ -94,6 +96,8 @@
         <target dev='{{ dut_name }}-{{ i + 1 }}' />
     {% if asic_type == 'vpp' %}
         <model type='virtio-net-pci' />
+    {% elif port_alias|length > 128 %}
+        <model type='virtio' />
     {% else %}
         <model type='e1000' />
     {% endif %}
