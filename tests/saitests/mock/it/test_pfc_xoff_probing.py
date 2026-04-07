@@ -1098,6 +1098,38 @@ class TestPfcXoffProbing:
             f"Phase 3 took {len(phase3_lines)} iterations — precision check broken"
         print(f"[PASS] Small threshold precision: {len(phase3_lines)} Phase 3 iterations")
 
+    def test_pfc_xoff_lower_bound_returns_value_not_none(self):
+        """
+        G4: Lower bound should return 1 (not None) when threshold triggered at minimum.
+
+        StormLiangMS review: When threshold is always triggered (even at current=1),
+        lower_bound_probing_algorithm returns None instead of 1. This causes the
+        entire probing to fail unnecessarily.
+
+        With threshold=1, lower bound search reaches current=1, detects=True,
+        breaks, and should return (1, phase_time) not (None, phase_time).
+        """
+        actual_threshold = 1
+
+        probe = create_pfc_xoff_probe_instance(
+            actual_threshold=actual_threshold,
+            scenario=None,
+            enable_precise_detection=False,
+            precision_target_ratio=0.05
+        )
+
+        probe.runTest()
+        result = probe.probe_result
+
+        assert result is not None, "Probe should return a result"
+        # After fix: lower bound returns 1 instead of None, so probing should succeed
+        # BUG: currently returns None → probe fails
+        assert result.success, \
+            "Probe should succeed when threshold=1 (lower bound=1), but got failure"
+        assert result.lower_bound <= actual_threshold, \
+            f"Lower bound {result.lower_bound} should be <= threshold {actual_threshold}"
+        print(f"[PASS] Lower bound at threshold=1: result=[{result.lower_bound}, {result.upper_bound}]")
+
 
 def main():
     """Run complete PFC XOFF probing test suite."""
