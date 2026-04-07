@@ -47,6 +47,9 @@ r, ".* ERR swss#orchagent: :- querySwitchEcmpHashAlgorithmEnumCapabilities: Fail
 r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Failed to get attribute.*"
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
 
+# Errors for config reload on broadcom platform on 202511
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed - port: \d+, rc: -16.*"
+
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec\d*#wpa_supplicant.*l2_packet_send.*Network is down.*"
 r, ".* ERR macsec\d*#wpa_supplicant.*could not process SIGINT or SIGTERM in two seconds.*"
@@ -452,6 +455,9 @@ r, ".*ERR systemd\[1\]: Failed to listen on systemd-networkd.socket - Network Se
 
 # Ignore syncd error when switching global packet trimming mode
 r, ".*ERR .* SAI_API_SWITCH:brcm_sai_switch_pkt_trim_qos_tc_egr_entries_create:.* Egress qos map with idx .* entries are already present.*"
+
+# Ignore SPC6 Egress mirroring not supported failures on SPC6 mellanox platform
+r, ".*ERR syncd#SDK: \[SAI_PORT.ERR\] .*mlnx_sai_port.c\[.*\]- mlnx_port_samplepacket_session_get: Egress mirroring is not supported on SPC6.*"
 
 # Ignore the error when the sysfs was accessed too soon, before sys creation has been completed.
 r, ".*ERR sfputil: Failed to read from file /sys/module/sx_core/asic\d+/module\d+/present - FileNotFoundError.*"
