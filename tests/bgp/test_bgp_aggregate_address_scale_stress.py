@@ -10,12 +10,16 @@ Test cases:
   7.3  Rapid add/remove cycling
 """
 
+import ipaddress
 import logging
 import random
 import time
 
 import pytest
 
+import ptf.testutils as testutils
+import ptf.packet as scapy
+from ptf.mask import Mask
 from natsort import natsorted
 
 from bgp_aggregate_helpers import (
@@ -36,6 +40,7 @@ from bgp_aggregate_helpers import (
     verify_route_on_m2,
     withdraw_contributing_routes,
 )
+from tests.bgp.bgp_helpers import get_upstream_ptf_intfs
 
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
@@ -62,6 +67,10 @@ SCALE_SAMPLE_SIZE = 50
 RAPID_CYCLE_ITERATIONS = 50
 SCALE_CONVERGENCE_WAIT = 120  # seconds to wait after bulk scale operations
 SCALE_PASS_RATIO = 0.9  # at least 90% of sampled aggregates must be present to pass
+DATAPLANE_SAMPLE_SIZE = 20  # number of aggregate prefixes to probe with PTF traffic
+DATAPLANE_PKT_COUNT = 10  # packets to send per destination
+DATAPLANE_SRC_IP = "192.168.100.1"  # arbitrary source IP for PTF packets
+TRAFFIC_WAIT_TIME = 5  # seconds to wait for packet verification
 
 GCU_BATCH_SIZE = 50  # max aggregates per GCU patch call
 
@@ -86,9 +95,13 @@ def _generate_scale_aggregates(count):
     Produces a mix of IPv4 (/24) and IPv6 (/48) aggregates: 75% IPv4, 25% IPv6.
     Uses /24 for IPv4 so each prefix is a unique CIDR network (varying the
     third octet is significant for /24 but not for /16).
+
+    Max supported count: 65536 IPv4 (256*256) + unlimited IPv6.
     """
     v4_count = int(count * 0.75)
     v6_count = count - v4_count
+    if v4_count > 256 * 256:
+        raise ValueError(f"IPv4 aggregate count {v4_count} exceeds max 65536 unique /24 prefixes")
     cfgs = []
 
     for i in range(1, v4_count + 1):
@@ -192,13 +205,13 @@ class TestGroup7CapacityStress:
 
     def _check_dut_health(self, duthost):
         """Verify no container crashes and CPU/memory within limits."""
-        # Check for critical container crashes (avoid Go template {{}} which conflicts with Ansible/Jinja2)
+        # Check for unexpectedly exited containers — log names for diagnostics
         crashed = duthost.shell(
-            "docker ps -a --filter 'status=exited' -q",
+            "docker ps -a --filter 'status=exited' --format 'table {{.Names}}\t{{.Status}}'",
             module_ignore_errors=True,
         )["stdout"].strip()
         if crashed:
-            logger.warning(f"Exited containers found (IDs): {crashed}")
+            logger.warning(f"Exited containers found:\n{crashed}")
 
         # Check CPU usage (should be below 95%)
         cpu_out = duthost.shell(
@@ -264,8 +277,7 @@ class TestGroup7CapacityStress:
     def _verify_contributing_on_dut(self, duthost, cfgs, sample_size=10):
         """Spot-check that contributing routes arrived in the DUT BGP table.
 
-        Re-announces any missing contributing routes and returns the list of
-        prefixes confirmed present.
+        Returns (missing_count, checked_count) for the sampled subset.
         """
         sample = random.sample(cfgs, min(sample_size, len(cfgs)))
         missing = []
@@ -307,6 +319,9 @@ class TestGroup7CapacityStress:
         setup = m1_topo_setup
         upstream = setup['upstream_neighbors']
         neighbor = upstream[0]
+
+        # Seed RNG for reproducible sampling on failure
+        random.seed(42)
 
         all_cfgs = _generate_scale_aggregates(SCALE_COUNT)
 
@@ -355,9 +370,6 @@ class TestGroup7CapacityStress:
             all_prefixes = [cfg.prefix for cfg in all_cfgs]
             gcu_remove_aggregates_batch(duthost, all_prefixes)
 
-            # Wait for withdrawal convergence
-            time.sleep(SCALE_CONVERGENCE_WAIT)
-
             # Verify sampled routes withdrawn (only check the ones that were present)
             verified_cfgs = [c for c in sample_cfgs if c.prefix not in failed_prefixes]
             for cfg in verified_cfgs:
@@ -366,16 +378,22 @@ class TestGroup7CapacityStress:
                 pytest_assert(gone, f"Sampled aggregate {cfg.prefix} still present on M2 after removal")
 
         finally:
+            # Best-effort cleanup of aggregates in case test failed mid-way
+            all_prefixes = [cfg.prefix for cfg in all_cfgs]
+            try:
+                gcu_remove_aggregates_batch(duthost, all_prefixes)
+            except Exception:
+                logger.warning("Best-effort aggregate cleanup failed (may already be removed)")
             self._withdraw_contributing_for_aggregates(setup, all_cfgs)
             time.sleep(BGP_SETTLE_WAIT)
 
     def test_7_2_data_plane_under_scale(
-        self, duthosts, rand_one_dut_hostname, nbrhosts, ptfhost, m1_topo_setup
+        self, duthosts, rand_one_dut_hostname, nbrhosts, ptfadapter, tbinfo, m1_topo_setup
     ):
         """Test Case 7.2: Data-plane under scale.
 
         Steps:
-        1. Deploy aggregates with contributing routes
+        1. Deploy 1000 aggregates with contributing routes
         2. Send traffic from PTF toward destinations in various aggregate ranges
         3. Verify no packet drops, traffic forwarded correctly
         """
@@ -383,6 +401,24 @@ class TestGroup7CapacityStress:
         setup = m1_topo_setup
         upstream = setup['upstream_neighbors']
         neighbor = upstream[0]
+
+        # Seed RNG for reproducible sampling on failure
+        random.seed(43)
+
+        # Get PTF port mappings and router MAC for packet construction
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        router_mac = duthost.facts["router_mac"]
+        upstream_ptf_ports = get_upstream_ptf_intfs(mg_facts, tbinfo)
+        pytest_assert(upstream_ptf_ports, "No upstream PTF ports found for data-plane testing")
+
+        # Pick a downstream PTF port as the traffic source (toward DUT)
+        downstream_type = DOWNSTREAM_NEIGHBOR_MAP[tbinfo["topo"]["type"]].upper()
+        downstream_ethernets = [
+            k for k, v in mg_facts["minigraph_neighbors"].items()
+            if v['name'].endswith(downstream_type)
+        ]
+        pytest_assert(downstream_ethernets, "No downstream interfaces found for PTF traffic injection")
+        tx_port = mg_facts['minigraph_ptf_indices'][downstream_ethernets[0]]
 
         all_cfgs = _generate_scale_aggregates(SCALE_COUNT)
 
@@ -400,8 +436,8 @@ class TestGroup7CapacityStress:
             time.sleep(SCALE_CONVERGENCE_WAIT)
 
             # Verify a sample of aggregates are present on M2 (control-plane confirmation)
-            # Use tolerant sampling — some contributing routes may not have arrived
-            sample_cfgs = random.sample(all_cfgs, min(SCALE_SAMPLE_SIZE, len(all_cfgs)))
+            v4_cfgs = [c for c in all_cfgs if ":" not in c.prefix]
+            sample_cfgs = random.sample(v4_cfgs, min(SCALE_SAMPLE_SIZE, len(v4_cfgs)))
             present_count = 0
             failed_prefixes = []
             for cfg in sample_cfgs:
@@ -423,17 +459,52 @@ class TestGroup7CapacityStress:
                 f"for data-plane test; required {SCALE_PASS_RATIO:.0%}. Missing: {failed_prefixes}"
             )
 
-            # Verify DUT forwarding table is populated — check FIB for confirmed-present aggregates
-            confirmed_v4 = [c for c in sample_cfgs if ":" not in c.prefix and c.prefix not in failed_prefixes][:5]
-            for cfg in confirmed_v4:
-                fib_check = duthost.shell(
-                    f"show ip route {cfg.prefix}",
-                    module_ignore_errors=True,
-                )["stdout"]
-                pytest_assert(
-                    cfg.prefix.split("/")[0] in fib_check,
-                    f"Aggregate {cfg.prefix} not found in DUT routing table"
+            # --- Data-plane verification: send traffic toward confirmed aggregate destinations ---
+            confirmed_cfgs = [c for c in sample_cfgs if c.prefix not in failed_prefixes]
+            dp_sample = random.sample(confirmed_cfgs, min(DATAPLANE_SAMPLE_SIZE, len(confirmed_cfgs)))
+            dp_failures = []
+
+            ptfadapter.dataplane.flush()
+
+            for cfg in dp_sample:
+                # Generate a destination IP within the aggregate range
+                net = ipaddress.ip_network(cfg.prefix, strict=False)
+                # Use .network_address + 1 as a routable host within the aggregate
+                dst_ip = str(net.network_address + 1)
+
+                pkt = testutils.simple_ip_packet(
+                    eth_dst=router_mac,
+                    ip_src=DATAPLANE_SRC_IP,
+                    ip_dst=dst_ip,
                 )
+
+                exp_pkt = Mask(pkt)
+                exp_pkt.set_do_not_care_packet(scapy.Ether, "dst")
+                exp_pkt.set_do_not_care_packet(scapy.Ether, "src")
+                exp_pkt.set_do_not_care_packet(scapy.IP, "ttl")
+                exp_pkt.set_do_not_care_packet(scapy.IP, "chksum")
+
+                try:
+                    testutils.send(ptfadapter, pkt=pkt, port_id=tx_port, count=DATAPLANE_PKT_COUNT)
+                    testutils.verify_packet_any_port(
+                        ptfadapter, pkt=exp_pkt, ports=upstream_ptf_ports, timeout=TRAFFIC_WAIT_TIME
+                    )
+                    logger.info(f"Data-plane OK: traffic to {dst_ip} (aggregate {cfg.prefix}) forwarded")
+                except AssertionError:
+                    dp_failures.append(cfg.prefix)
+                    logger.warning(f"Data-plane FAIL: traffic to {dst_ip} (aggregate {cfg.prefix}) not forwarded")
+
+            dp_pass_ratio = (len(dp_sample) - len(dp_failures)) / len(dp_sample) if dp_sample else 1.0
+            logger.info(f"Data-plane results: {len(dp_sample) - len(dp_failures)}/{len(dp_sample)} passed "
+                        f"({dp_pass_ratio:.0%})")
+            if dp_failures:
+                logger.warning(f"Data-plane failures for aggregates: {dp_failures}")
+            pytest_assert(
+                dp_pass_ratio >= SCALE_PASS_RATIO,
+                f"Data-plane forwarding failed for {len(dp_failures)}/{len(dp_sample)} sampled aggregates "
+                f"({dp_pass_ratio:.0%} pass rate, required {SCALE_PASS_RATIO:.0%}). "
+                f"Failed aggregates: {dp_failures}"
+            )
 
             # Verify DUT stability
             self._check_dut_health(duthost)
@@ -441,9 +512,36 @@ class TestGroup7CapacityStress:
             # Remove all aggregates
             all_prefixes = [cfg.prefix for cfg in all_cfgs]
             gcu_remove_aggregates_batch(duthost, all_prefixes)
-            time.sleep(SCALE_CONVERGENCE_WAIT)
+
+            # Verify traffic is no longer forwarded for a sample of removed aggregates
+            time.sleep(BGP_SETTLE_WAIT)
+            ptfadapter.dataplane.flush()
+            for cfg in dp_sample[:5]:
+                net = ipaddress.ip_network(cfg.prefix, strict=False)
+                dst_ip = str(net.network_address + 1)
+                pkt = testutils.simple_ip_packet(
+                    eth_dst=router_mac,
+                    ip_src=DATAPLANE_SRC_IP,
+                    ip_dst=dst_ip,
+                )
+                exp_pkt = Mask(pkt)
+                exp_pkt.set_do_not_care_packet(scapy.Ether, "dst")
+                exp_pkt.set_do_not_care_packet(scapy.Ether, "src")
+                exp_pkt.set_do_not_care_packet(scapy.IP, "ttl")
+                exp_pkt.set_do_not_care_packet(scapy.IP, "chksum")
+
+                testutils.send(ptfadapter, pkt=pkt, port_id=tx_port, count=DATAPLANE_PKT_COUNT)
+                testutils.verify_no_packet_any(
+                    ptfadapter, pkt=exp_pkt, ports=upstream_ptf_ports, timeout=TRAFFIC_WAIT_TIME
+                )
 
         finally:
+            # Best-effort cleanup of aggregates in case test failed mid-way
+            all_prefixes = [cfg.prefix for cfg in all_cfgs]
+            try:
+                gcu_remove_aggregates_batch(duthost, all_prefixes)
+            except Exception:
+                logger.warning("Best-effort aggregate cleanup failed (may already be removed)")
             self._withdraw_contributing_for_aggregates(setup, all_cfgs)
             time.sleep(BGP_SETTLE_WAIT)
 
