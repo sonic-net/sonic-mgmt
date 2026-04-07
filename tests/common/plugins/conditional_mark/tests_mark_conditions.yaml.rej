@@ -1,0 +1,17 @@
+diff a/tests/common/plugins/conditional_mark/tests_mark_conditions.yaml b/tests/common/plugins/conditional_mark/tests_mark_conditions.yaml	(rejected hunks)
+@@ -636,11 +636,11 @@ copp/test_copp.py:
+       - "(topo_name not in ['dualtor-aa', 'dualtor-aa-64-breakout', 'ptf32', 'ptf64', 't0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't1', 't1-lag', 't1-28-lag', 't1-48-lag', 't1-64-lag', 't1-56-lag', 't1-backend', 'm0', 'm0-2vlan', 'mx', 'm1-48', 'm1-44', 'm1-108', 'm1-128', 't0-isolated-d16u16s1', 't1-isolated-d28u1', 't0-isolated-d32u32s2', 't1-isolated-d56u2', 't0-isolated-d256u256s2', 't1-isolated-d448u15-lag', 't0-isolated-v6-d32u32s2', 't1-isolated-v6-d56u1-lag'] and 't2' not in topo_type)"
+ 
+   xfail:
+-    reason: "Can't install trap on broadcom 7050CX3 SKUs successfully"
++    reason: "Can't install trap on broadcom 7050CX3 SKUs successfully, or IPv6-only topology"
++    conditions_logical_operator: or
+     conditions:
+-      - "hwsku in ['Arista-7050CX3-32C-C32', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8']"
+-      - "release in ['202405', '202411']"
+-      - https://github.com/sonic-net/sonic-buildimage/issues/20081
++      - "hwsku in ['Arista-7050CX3-32C-C32', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8'] and release in ['202405', '202411'] and https://github.com/sonic-net/sonic-buildimage/issues/20081"
++      - "'-v6-' in topo_name"
+ 
+ copp/test_copp.py::TestCOPP::test_add_new_trap:
+   skip:
