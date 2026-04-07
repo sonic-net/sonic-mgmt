@@ -18,7 +18,6 @@ CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 'any'),
-    pytest.mark.disable_loganalyzer,
 ]
 
 LOSSY_HWSKU = mellanox_data.LOSSY_ONLY_HWSKUS + broadcom_data.LOSSY_ONLY_HWSKUS
@@ -172,10 +171,17 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
 
 
 def test_load_minigraph_with_golden_config(duthosts, setup_env,
-                                           enum_rand_one_per_hwsku_frontend_hostname):
+                                           enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """Test Golden Config override during load minigraph
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    # Set loganalyzer to collect-only mode (no error matching, just log collection)
+    if loganalyzer:
+        loganalyzer[duthost.hostname].match_regex = []
+        loganalyzer[duthost.hostname].expect_regex = []
+        loganalyzer[duthost.hostname].ignore_regex = []
+
     load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
     full_config = setup_env
