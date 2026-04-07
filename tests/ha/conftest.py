@@ -32,11 +32,54 @@ import configs.privatelink_config as pl
 from tests.common.helpers.assertions import pytest_require as pt_require
 from tests.ha.ha_utils import (
     wait_for_pending_operation_id,
-    verify_ha_state
+    verify_ha_state,
+    set_dead_dash_ha_scope
 )
 
 ENABLE_GNMI_API = True
 logger = logging.getLogger(__name__)
+
+ha_scope_per_dut = [
+    (
+        "vdpu0_0:haset0_0",
+        {
+            "version": "1",
+            "disabled": True,
+            "desired_ha_state": "active",
+            "owner": "dpu",
+        },
+    ),
+    (
+        "vdpu1_0:haset0_0",
+        {
+            "version": "1",
+            "disabled": True,
+            "desired_ha_state": "unspecified",
+            "owner": "dpu",
+        },
+    ),
+]
+
+activate_scope_per_dut = [
+    (
+        "vdpu0_0:haset0_0",
+        {
+            "version": "1",
+            "disabled": False,
+            "desired_ha_state": "active",
+            "owner": "dpu",
+        },
+    ),
+    (
+        "vdpu1_0:haset0_0",
+        {
+            "version": "1",
+            "disabled": False,
+            "desired_ha_state": "unspecified",
+            "owner": "dpu",
+        },
+    ),
+]
 
 
 @pytest.fixture(scope="module")
@@ -672,10 +715,25 @@ def setup_ha_config(duthosts, tbinfo):
 
 
 @pytest.fixture(scope="module")
-def setup_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server):
+def ha_owner(dpuhosts):
+    """
+    Fixture to parametrize HA owner type (dpu or npu) for the test.
+    """
+    if 'pensando' in dpuhosts[0].facts['asic_type']:
+        owner = "dpu"
+    else:
+        owner = "npu"
+    yield owner
+
+
+def setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
     current_dir = os.path.dirname(os.path.abspath(__file__))
     base_dir = os.path.join(current_dir, "..", "common", "ha")
     ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+
+    for index, (name, data) in enumerate(ha_scope_per_dut):
+        # Update the 'owner' key in the dictionary
+        ha_scope_per_dut[index][1]['owner'] = ha_owner
 
     logger.info("HA: setup from json for Primary and Standby")
 
@@ -706,26 +764,6 @@ def setup_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server):
     # -------------------------------------------------
     # Step 2: Initial HA SCOPE per DUT
     # -------------------------------------------------
-    ha_scope_per_dut = [
-        (
-            "vdpu0_0:haset0_0",
-            {
-                "version": "1",
-                "disabled": True,
-                "desired_ha_state": "active",
-                "owner": "dpu",
-            },
-        ),
-        (
-            "vdpu1_0:haset0_0",
-            {
-                "version": "1",
-                "disabled": True,
-                "desired_ha_state": "unspecified",
-                "owner": "dpu",
-            },
-        ),
-    ]
 
     for duthost, (key, fields) in zip(duthosts, ha_scope_per_dut):
         vdpu_id, ha_set_id = key.split(":", 1)
@@ -740,34 +778,72 @@ def setup_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server):
             ptfhost=ptfhost,
             messages=ha_scope_messages,
         )
+
+
+def remove_setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
+    current_dir = os.path.dirname(os.path.abspath(__file__))
+    base_dir = os.path.join(current_dir, "..", "common", "ha")
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+
+    for index, (name, data) in enumerate(ha_scope_per_dut):
+        # Update the 'owner' key in the dictionary
+        ha_scope_per_dut[index][1]['owner'] = ha_owner
+
+    logger.info("HA: remove SCOPE from json for Primary and Standby")
+    for duthost, (key, fields) in zip(duthosts, ha_scope_per_dut):
+        vdpu_id, ha_set_id = key.split(":", 1)
+        ha_scope_messages = ha_scope_config(
+            vdpu_id=vdpu_id,
+            ha_set_id=ha_set_id,
+            **fields,
+        )
+        apply_ha_messages(
+            localhost=localhost,
+            duthost=duthost,
+            ptfhost=ptfhost,
+            messages=ha_scope_messages,
+            set_db=False
+        )
+
+    logger.info("HA: remove SET from json for Primary and Standby")
+    with open(ha_set_file) as f:
+        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+
+    for duthost in duthosts:
+        for key, fields in ha_set_data.items():
+            ha_set_messages = ha_set_config(ha_set_id=key, **fields)
+            apply_ha_messages(
+                localhost=localhost,
+                duthost=duthost,
+                ptfhost=ptfhost,
+                messages=ha_set_messages,
+                set_db=False
+            )
+
+
+@pytest.fixture(scope="module")
+def setup_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
+    setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
     yield
+    remove_setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
 
 
 @pytest.fixture(scope="function")
-def activate_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server):
+def setup_dash_ha_from_json_func_scope(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
+    setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+    yield
+    remove_setup_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
+
+
+def activate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
+
+    for index, (name, data) in enumerate(activate_scope_per_dut):
+        # Update the 'owner' key in the dictionary
+        activate_scope_per_dut[index][1]['owner'] = ha_owner
+
     # -------------------------------------------------
     # Step 4: Activate Role (using pending_operation_ids)
     # -------------------------------------------------
-    activate_scope_per_dut = [
-        (
-            "vdpu0_0:haset0_0",
-            {
-                "version": "1",
-                "disabled": False,
-                "desired_ha_state": "active",
-                "owner": "dpu",
-            },
-        ),
-        (
-            "vdpu1_0:haset0_0",
-            {
-                "version": "1",
-                "disabled": False,
-                "desired_ha_state": "unspecified",
-                "owner": "dpu",
-            },
-        ),
-    ]
     logger.info("HA: activate Primary and Standby")
     for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
         is_active = verify_ha_state(duthost, scope_key=key, expected_state="active", timeout=10, interval=5)
@@ -828,4 +904,37 @@ def activate_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server):
             ), f"HA did not reach expected state {expected_state} for {key} on {duthost.hostname}"
             logger.info(f"Activate completed for {duthost.hostname}")
         logger.info("HA: activate completed for Primary and Standby")
+
+
+def deactivate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
+
+    for index, (name, data) in enumerate(activate_scope_per_dut):
+        # Update the 'owner' key in the dictionary
+        activate_scope_per_dut[index][1]['owner'] = ha_owner
+
+    logger.info("HA: de-activate Primary and Standby")
+    # First set Primary and Standby to dead
+    for index, duthost in enumerate(duthosts):
+        set_dead_dash_ha_scope(localhost, duthost, ptfhost, f"vdpu{index}_0:haset0_0")
+
+    for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
+        vdpu_id, ha_set_id = key.split(":", 1)
+        ha_scope_messages = ha_scope_config(
+            vdpu_id=vdpu_id,
+            ha_set_id=ha_set_id,
+            **fields,
+        )
+        apply_ha_messages(
+            localhost=localhost,
+            duthost=duthost,
+            ptfhost=ptfhost,
+            messages=ha_scope_messages,
+            set_db=False
+        )
+
+
+@pytest.fixture(scope="function")
+def activate_dash_ha_from_json(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner):
+    activate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
     yield
+    deactivate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_server, ha_owner)
