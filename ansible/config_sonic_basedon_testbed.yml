@@ -829,11 +829,44 @@
         shell: config load_minigraph -y
         when: "'lt2' in topo or 'ft2' in topo"
 
+      - name: Extract port speeds and hwsku from lab CSV files for PORT override
+        delegate_to: localhost
+        shell: |
+          python3 -c "
+          import csv, json
+          lab = '{{ lab_name }}'
+          hostname = '{{ inventory_hostname }}'
+          links_csv = '{{ links_csv | default('') }}' or 'files/sonic_' + lab + '_links.csv'
+          devices_csv = '{{ devices_csv | default('') }}' or 'files/sonic_' + lab + '_devices.csv'
+          port_speeds = {}
+          with open(links_csv) as f:
+              reader = csv.DictReader(f)
+              for row in reader:
+                  if row.get('StartDevice') == hostname:
+                      port_speeds[row['StartPort']] = row['BandWidth']
+                  elif row.get('EndDevice') == hostname:
+                      port_speeds[row['EndPort']] = row['BandWidth']
+          hwsku = ''
+          try:
+              with open(devices_csv) as f:
+                  reader = csv.DictReader(f)
+                  for row in reader:
+                      if row.get('Hostname') == hostname:
+                          hwsku = row.get('HwSku', '')
+                          break
+          except FileNotFoundError:
+              pass
+          print(json.dumps({'port_speeds': port_speeds, 'hwsku': hwsku}))
+          "
+        register: lab_csv_result
+        when: port_override_from_links | default(false) | bool
+
       - name: Generate golden_config_db.json
         generate_golden_config_db:
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
-          hwsku: "{{ hwsku }}"
+          port_speeds: "{{ (lab_csv_result.stdout | from_json).port_speeds if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 else omit }}"
+          hwsku: "{{ (lab_csv_result.stdout | from_json).hwsku if (port_override_from_links | default(false) | bool) and lab_csv_result is defined and lab_csv_result.rc == 0 and (lab_csv_result.stdout | from_json).hwsku else hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
           npu_index: "{{ dut_index | default(0) | int }}"

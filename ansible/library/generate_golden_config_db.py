@@ -175,6 +175,7 @@ class GenerateGoldenConfigDBModule(object):
     def __init__(self):
         self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str'),
                                     port_index_map=dict(required=False, type='dict', default=None),
+                                    port_speeds=dict(required=False, type='dict', default=None),
                                     macsec_profile=dict(required=False, type='str', default=None),
                                     num_asics=dict(required=False, type='int', default=1),
                                     hwsku=dict(required=False, type='str', default=None),
@@ -184,10 +185,14 @@ class GenerateGoldenConfigDBModule(object):
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
+        self.port_speeds = self.module.params['port_speeds']
         self.macsec_profile = self.module.params['macsec_profile']
         self.num_asics = self.module.params['num_asics']
         self.hwsku = self.module.params['hwsku']
-        self.platform, _ = device_info.get_platform_and_hwsku()
+        self.platform, dut_hwsku = device_info.get_platform_and_hwsku()
+        # Use DUT's own hwsku as fallback when playbook doesn't provide one
+        if not self.hwsku and dut_hwsku:
+            self.hwsku = dut_hwsku
 
         self.vm_configuration = self.module.params['vm_configuration']
         self.is_lit_mode = self.module.params['is_lit_mode']
@@ -791,10 +796,16 @@ class GenerateGoldenConfigDBModule(object):
         ori_config = json.loads(self.get_config_from_minigraph())
         minigraph_ports = ori_config.get("PORT", {})
 
-        # Try to rebuild PORT from platform.json for correct lanes/aliases
+        # Try to rebuild PORT from platform.json for correct lanes/aliases.
+        # Prefer links.csv port speeds (self.port_speeds) over minigraph ports,
+        # because links.csv reflects the desired breakout layout after an HWSKU
+        # change, while minigraph may still have the old port count/speeds.
         platform_json_path = os.path.join(
             '/usr/share/sonic/device', self.platform, 'platform.json')
-        port_speeds = {name: cfg.get("speed", "0") for name, cfg in minigraph_ports.items()}
+        if self.port_speeds:
+            port_speeds = {name: str(speed) for name, speed in self.port_speeds.items()}
+        else:
+            port_speeds = {name: cfg.get("speed", "0") for name, cfg in minigraph_ports.items()}
 
         port_table = generate_port_table_from_platform(port_speeds, platform_json_path)
         if port_table:
@@ -887,6 +898,27 @@ class GenerateGoldenConfigDBModule(object):
                     "has_per_asic_scope": "True",
                 }
             })
+
+        # Ensure DEVICE_METADATA always includes hwsku — config override-config-table
+        # replaces the entire table, so missing fields (like hwsku) get wiped on the DUT
+        config_dict = json.loads(config)
+        if "DEVICE_METADATA" not in config_dict:
+            config_dict["DEVICE_METADATA"] = {}
+        if "localhost" not in config_dict["DEVICE_METADATA"]:
+            config_dict["DEVICE_METADATA"]["localhost"] = {}
+        dm = config_dict["DEVICE_METADATA"]["localhost"]
+        if not dm.get("hwsku"):
+            hwsku = self.hwsku
+            if not hwsku:
+                rc, out, _ = self.module.run_command(
+                    "sonic-cfggen -d -v 'DEVICE_METADATA[\"localhost\"][\"hwsku\"]'")
+                if rc == 0 and out.strip():
+                    hwsku = out.strip()
+            if hwsku:
+                dm["hwsku"] = hwsku
+        if not dm.get("platform") and self.platform:
+            dm["platform"] = self.platform
+        config = json.dumps(config_dict, indent=4)
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
