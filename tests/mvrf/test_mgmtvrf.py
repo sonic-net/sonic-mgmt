@@ -10,6 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.ntp_helper import NtpDaemon, ntp_daemon_in_use, setup_ntp_context   # noqa: F401
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common.devices.ptf import PTFHost
+from tests.common.fixtures.duthost_utils import duthosts_ipv4_mgmt_only    # noqa: F401
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -47,19 +48,31 @@ def check_ntp_sync(duthosts, rand_one_dut_hostname):
     return ntp_stat
 
 
+@pytest.fixture(scope="module")
+def backup_config_db(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Backup the original config_db without mgmt vrf config
+    duthost.command("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
+
+
 @pytest.fixture(scope="module", autouse=True)
-def setup_mvrf(duthosts, rand_one_dut_hostname, localhost, check_ntp_sync):
+def setup_mvrf(duthosts, rand_one_dut_hostname, localhost, check_ntp_sync,
+               backup_config_db, duthosts_ipv4_mgmt_only):  # noqa F811
     """
     Setup Management vrf configs before the start of testsuite
     """
     duthost = duthosts[rand_one_dut_hostname]
-    # Backup the original config_db without mgmt vrf config
-    duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
     try:
         logger.info("Configure mgmt vrf")
         duthost.command("sudo config vrf add mgmt", module_async=True)
         time.sleep(5)
+        logger.info("Configure snmpagentaddress with mgmt-vrf")
+        duthost.command("sudo config snmpagentaddress del %s -p 161" % duthost.mgmt_ip, module_async=True)
+        time.sleep(15)
+        duthost.command("sudo config snmpagentaddress add %s -p 161 -v mgmt" % duthost.mgmt_ip, module_async=True)
+        time.sleep(15)
         verify_show_command(duthost, mvrf=True)
     except Exception as e:
         logger.error("Exception raised in setup, exception: {}".format(repr(e)))
@@ -73,6 +86,11 @@ def setup_mvrf(duthosts, rand_one_dut_hostname, localhost, check_ntp_sync):
         logger.info("Unconfigure  mgmt vrf")
         duthost.shell("sudo config vrf del mgmt", module_async=True)
         time.sleep(5)
+        logger.info("Configure snmpagentaddress without mgmt-vrf")
+        duthost.command("sudo config snmpagentaddress del %s -p 161 -v mgmt" % duthost.mgmt_ip, module_async=True)
+        time.sleep(15)
+        duthost.command("sudo config snmpagentaddress add %s -p 161" % duthost.mgmt_ip, module_async=True)
+        time.sleep(15)
 
         localhost.wait_for(host=duthost.mgmt_ip,
                            port=SONIC_SSH_PORT,

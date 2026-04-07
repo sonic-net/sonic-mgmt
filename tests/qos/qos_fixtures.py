@@ -75,7 +75,8 @@ def lossless_prio_list(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum
         Lossless priorities (list)
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=enum_rand_one_frontend_asic_index,
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=asichost.asic_index,
                                         source="running")['ansible_facts']
 
     if "PORT_QOS_MAP" not in list(config_facts.keys()):

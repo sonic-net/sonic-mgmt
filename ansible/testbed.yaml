@@ -267,3 +267,19 @@
   inv_name: lab
   auto_recover: 'True'
   comment: Multi servers testbed demo
+
+- conf-name: bmc-dual-mgmt-01
+  group-name: bmc-dual-mgmt
+  topo: bmc-dual-mgmt
+  ptf_image_name: docker-ptf
+  ptf: ptf_bmc01
+  ptf_ip: 10.255.0.200/24
+  ptf_ipv6: 2001:db8:1::10/64
+  server: server_1
+  vm_base:
+  dut:
+    - switch01-bmc
+  bmc_host: switch01
+  inv_name: lab
+  auto_recover: 'False'
+  comment: BMC dual-mgmt testbed

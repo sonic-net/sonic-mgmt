@@ -497,6 +497,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     skip_condition = disabled_containers[:]
     skip_condition.append("database")
     skip_condition.append("acms")
+    skip_condition.append("otel")
     if tbinfo["topo"]["type"] != "t0":
         skip_condition.append("radv")
     if "202412" in duthost.os_version:

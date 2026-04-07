@@ -38,6 +38,10 @@
   debug:
     var: device_l1_existing_cross_connects
 
+- name: set default for reset_previous_connection
+  set_fact:
+    _reset_previous_connection: "{{ reset_previous_connection | default(true) | bool }}"
+
 - name: generate config patch for L1 switches on local machine
   when: "device_from_l1_links[inventory_hostname] is defined and device_from_l1_links[inventory_hostname] | length > 0"
   template:
@@ -49,4 +53,4 @@
     l1_links: "{{ device_from_l1_links[inventory_hostname] }}"
     l1_cross_connects: "{{ device_l1_cross_connects[inventory_hostname] }}"
     l1_existing_cross_connects: "{{ device_l1_existing_cross_connects }}"
-    reset_previous_connection: "{{ reset_previous_connection | default(true) | bool }}"
+    reset_previous_connection: "{{ _reset_previous_connection | default(true) | bool }}"
