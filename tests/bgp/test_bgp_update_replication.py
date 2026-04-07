@@ -227,13 +227,13 @@ def setup_bgp_peers(
 '''
 
 
-def _check_rib_stable(duthost, is_ipv6, prev_rib):
-    """Return True when RIB entry count matches the previous poll value."""
+def _check_rib_stable(duthost, is_ipv6, prev_rib, target):
+    """Return True when RIB count stabilises or reaches the target."""
     stats = measure_stats(duthost, is_ipv6)
     curr = int(stats["num_rib"])
-    result = curr == prev_rib[0]
+    stable = curr == prev_rib[0]
     prev_rib[0] = curr
-    return result
+    return stable or curr == target
 
 
 '''
@@ -288,7 +288,7 @@ def test_bgp_update_replication(
             )
             prev_rib = [0]
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_rib_stable, duthost, is_ipv6, prev_rib)
+                       _check_rib_stable, duthost, is_ipv6, prev_rib, max_expected_rib)
 
             # Measure after injection
             results.append(measure_stats(duthost, is_ipv6))
@@ -313,7 +313,7 @@ def test_bgp_update_replication(
             )
             prev_rib = [0]
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_rib_stable, duthost, is_ipv6, prev_rib)
+                        _check_rib_stable, duthost, is_ipv6, prev_rib, base_rib)
 
             # Measure after removal
             results.append(measure_stats(duthost, is_ipv6))
