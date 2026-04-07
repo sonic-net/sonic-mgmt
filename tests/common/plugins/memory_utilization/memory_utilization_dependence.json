@@ -6,7 +6,8 @@
     "Mellanox-SN5640": ["Mellanox-SN5640-C448O16", "Mellanox-SN5640-C512S2"],
     "Arista-7060CX": ["Arista-7060CX-32S-C32", "Arista-7060CX-32S-D48C8"],
     "Arista-7260CX3": ["Arista-7260CX3-C64", "Arista-7260CX3-D108C8", "Arista-7260CX3-D108C10"],
-    "Nokia-IXR7220": ["Nokia-IXR7220-H6-O256"]
+    "Nokia-IXR7220": ["Nokia-IXR7220-H6-O256"],
+    "Cisco-C8220TG": ["Cisco-C8220TG-48A-O"]
   },
   "COMMON": [
     {
@@ -378,6 +379,25 @@
         }
       },
       "memory_check": "parse_frr_memory_output"
+    }
+  ],
+  "Cisco-C8220TG": [
+    {
+      "name": "monit",
+      "cmd": "sudo monit validate",
+      "memory_params": {
+        "memory_usage": {
+          "memory_increase_threshold": {
+            "type": "percentage_points",
+            "value": 10
+          },
+          "memory_high_threshold": {
+            "type": "percentage_points",
+            "value": 75
+          }
+        }
+      },
+      "memory_check": "parse_monit_validate_output"
     }
   ]
 }
