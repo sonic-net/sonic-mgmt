@@ -53,14 +53,14 @@ class QosBase:
         "t0-isolated-d96u32s2",  "t0-isolated-d32u32s2",
         "t0-88-o8c80", "t0-f2-d40u8"
     ]
-    SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
+    SUPPORTED_T1_TOPOS = ["t1", "t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
                           "t1-f2-d10u8",
                           "t1-isolated-d28u1", "t1-isolated-v6-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d56u2",
                           "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag", "t1-isolated-d128", "t1-isolated-d32",
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
-                           "td3", "th3", "j2c+", "jr2", "th5", "q3d"]
+                           "td3", "th3", "j2c+", "jr2", "th5", "tl7", "tl10"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
     LOW_SPEED_PORT_SKUS = ['Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32C-C28S4']
@@ -1744,6 +1744,7 @@ class QosSaiBase(QosBase):
             Prepares DUT host QoS configuration
 
             Args:
+                request (Fixture): pytest request object
                 duthost (AnsibleHost): Device Under Test (DUT)
                 ingressLosslessProfile (Fxiture): ingressLosslessProfile fixture is required to run prior to collecting
                     QoS configuration
@@ -1879,6 +1880,27 @@ class QosSaiBase(QosBase):
                       portSpeedCableLength)
 
             qosParams = qpm.run()
+
+        elif is_marvell_teralynx_device(duthost):
+            #dut_topo = dutTopo if dutTopo in qosConfigs['qos_params'][dutAsic] else "topo-any"
+            #qosParams = qosConfigs['qos_params'][dutAsic][dut_topo]
+
+            current_file_dir = os.path.dirname(os.path.realpath(__file__))
+            sub_folder_dir = os.path.join(current_file_dir, "files/innovium/")
+            if sub_folder_dir not in sys.path:
+                sys.path.append(sub_folder_dir)
+            import qos_param_generator
+            qpm = qos_param_generator.QosParamInnovium(dutConfig,duthost, dut_asic,
+                                                       request,
+                                                       portSpeedCableLength,
+                                                       ingressLosslessProfile,
+                                                       ingressLossyProfile,
+                                                       egressLosslessProfile,
+                                                       egressLossyProfile,
+                                                       get_src_dst_asic_and_duts['src_dut_index'],
+                                                       get_src_dst_asic_and_duts['src_asic_index'])
+            qosParams = qpm.run()
+
         elif dutAsic == 'vs':
             with open(r"qos/files/vs/dutQosConfig.json") as file:
                 dutQosConfig = json.load(file)

@@ -200,7 +200,23 @@ class TestQosSai(QosSaiBase):
         'Arista-7050CX3-32S-C32',
         'Arista-7050CX3-32S-C28S4',
         'Arista-7050CX3-32S-D48C8',
-        'dbmvtx9180_64osfp_128x400G_lab'
+        'dbmvtx9180_64osfp_128x400G',
+        'dbmvtx9180_64osfp_128x50G',
+        'dbmvtx9180_64osfp_256x200G',
+        'dbmvtx9180_64osfp_512x100G',
+        'dbmvtx9180_64osfp_512x50G',
+        'dbmvtx9180_64osfp_64x800G',
+        'dbmvtx9180_64osfp_ns_128x100G',
+        'dbmvtx9180_64osfp_ns_128x400G',
+        'dbmvtx9180_64osfp_ns_128x50G',
+        'dbmvtx9180_64osfp_ns_256x200G',
+        'dbmvtx9180_64osfp_ns_512x100G',
+        'dbmvtx9180_64osfp_ns_512x50G',
+        'dbmvtx9180_64osfp_ns_64x800G',
+        'dbmvtx9180_64x100G',
+        'dbmvtx9180_64x400G',
+        'dbmvtx9180_64x800G',
+        'dbmvtx9180_64osfp_128x400G_lab',
     ]
 
     @pytest.fixture(scope="class", autouse=True)
@@ -771,6 +787,7 @@ class TestQosSai(QosSaiBase):
             "pkts_num_dismiss_pfc": qosConfig[xonProfile]["pkts_num_dismiss_pfc"],
             "pkts_num_leak_out": dutQosConfig["param"][portSpeedCableLength]["pkts_num_leak_out"],
             "hwsku": dutTestParams['hwsku'],
+            "topo" : dutTestParams['topo'],
             "pkts_num_egr_mem": qosConfig[xonProfile].get('pkts_num_egr_mem', None),
             "src_dst_asic_diff": (dutConfig['dutAsic'] != dutConfig['dstDutAsic']),
             "dut_asic": dutConfig["dutAsic"]
