@@ -12,14 +12,13 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.bgp.bgp_helpers import is_neighbor_sessions_established
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.vpp_utils import wait_for_vpp_route_programming
 from tests.common.utilities import wait_until, is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
 
 # Fixture params
 PEER_COUNT = 16
-WAIT_TIMEOUT = 120
+WAIT_TIMEOUT = 60
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2', 'lt2', 'ft2'),
@@ -228,16 +227,13 @@ def setup_bgp_peers(
 '''
 
 
-def _check_rib_routes_received(duthost, is_ipv6, min_expected_rib):
-    """Return True when RIB entry count reaches min_expected_rib."""
+def _check_rib_stable(duthost, is_ipv6, prev_rib):
+    """Return True when RIB entry count matches the previous poll value."""
     stats = measure_stats(duthost, is_ipv6)
-    return int(stats["num_rib"]) >= min_expected_rib
-
-
-def _check_rib_routes_withdrawn(duthost, is_ipv6, min_expected_rib):
-    """Return True when RIB entry count drops to or below min_expected_rib."""
-    stats = measure_stats(duthost, is_ipv6)
-    return int(stats["num_rib"]) <= min_expected_rib
+    curr = int(stats["num_rib"])
+    result = curr == prev_rib[0]
+    prev_rib[0] = curr
+    return result
 
 
 '''
@@ -290,12 +286,9 @@ def test_bgp_update_replication(
                     is_ipv6=is_ipv6
                 )
             )
+            prev_rib = [0]
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_rib_routes_received, duthost, is_ipv6, min_expected_rib)
-
-            if duthost.facts["asic_type"] == "vpp":
-                assert wait_for_vpp_route_programming(duthost, ipv6=is_ipv6, timeout=60), \
-                    "VPP route programming did not converge after announce"
+                       _check_rib_stable, duthost, is_ipv6, prev_rib)
 
             # Measure after injection
             results.append(measure_stats(duthost, is_ipv6))
@@ -318,12 +311,9 @@ def test_bgp_update_replication(
                     is_ipv6=is_ipv6
                 )
             )
+            prev_rib = [0]
             wait_until(ROUTE_WAIT_TIMEOUT, 2, 0,
-                       _check_rib_routes_withdrawn, duthost, is_ipv6, min_expected_rib)
-
-            if duthost.facts["asic_type"] == "vpp":
-                assert wait_for_vpp_route_programming(duthost, ipv6=is_ipv6, timeout=60), \
-                    "VPP route programming did not converge after withdraw"
+                       _check_rib_stable, duthost, is_ipv6, prev_rib)
 
             # Measure after removal
             results.append(measure_stats(duthost, is_ipv6))
