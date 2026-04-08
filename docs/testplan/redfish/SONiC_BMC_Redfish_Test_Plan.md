@@ -6,7 +6,6 @@
 | Rev | Date            | Author      | Change Description                                 |
 | ----- | ----------------- | ------------- | ---------------------------------------------------- |
 | 1   | 26th March 2026 | Chinmoy Dey | Initial Version of SONiC BMC Redfish API test plan |
-| 2   | 2nd April 2026  | Shreyansh Jain | Add certificate-based authentication test cases    |
 
 # Related documents
 
