@@ -118,7 +118,8 @@ def common_setup_teardown(
     # apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
 
 
-def test_fnic(ptfadapter, dash_pl_config, single_endpoint):
+@pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
+def test_fnic(ptfadapter, dash_pl_config, single_endpoint, encap_proto):
     pkt_sets = list()
 
     if single_endpoint:
@@ -129,7 +130,7 @@ def test_fnic(ptfadapter, dash_pl_config, single_endpoint):
 
     for _ in range(num_packets):
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt = rand_udp_port_packets(
-            dash_pl_config, floating_nic=True, outbound_vni=pl.ENI_TRUSTED_VNI
+            dash_pl_config, floating_nic=True, outbound_vni=pl.ENI_TRUSTED_VNI, outbound_encap=encap_proto
         )
         exp_dpu_to_vm_pkt.set_do_not_care_packet(scapy.IP, "dst")
         # Usually `testutils.send` automatically updates the packet payload to include the test name
