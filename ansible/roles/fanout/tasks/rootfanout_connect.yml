@@ -7,6 +7,9 @@
 - set_fact: dut="{{ leaf_name }}"
   when: deploy_leaf
 
+- set_fact:
+    clean_before_add: "{{ clean_before_add | default('y') }}"
+
 - debug: msg="Configuring fanout switch for {{ dut }}"
 
 - name: Gathering connection facts about the DUTs or leaffanout device
@@ -30,11 +33,12 @@
 - name: Collect DUTs vlans
   set_fact:
     dev_vlans: "{{ dev_vlans|default([]) + item.value }}"
-  loop: "{{ devinfo['ansible_facts']['device_vlan_range'] | dict2items }}"
+  loop: "{{ devinfo['ansible_facts']['device_vlan_range'] | default ({}) | dict2items }}"
 
 - name: Find the root fanout switch
   set_fact:
     ansible_host: "{{ item.value['mgmtip'] }}"
+    ansible_connection: switch
     root_dev: "{{ item.key }}"
     root_hwsku: "{{ item.value['HwSku'] }}"
   with_dict: "{{ lab_devices }}"

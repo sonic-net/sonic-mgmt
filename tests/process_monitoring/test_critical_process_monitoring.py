@@ -10,32 +10,36 @@ import pytest
 
 from pkg_resources import parse_version
 from tests.common import config_reload
+from tests.common.constants import KVM_PLATFORM
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.reboot import wait_for_startup
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
+from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.disable_loganalyzer
 ]
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 POST_CHECK_INTERVAL_SECS = 1
-POST_CHECK_THRESHOLD_SECS = 360
+POST_CHECK_THRESHOLD_SECS = 600
 
 
 @pytest.fixture(autouse=True, scope='module')
 def config_reload_after_tests(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     yield
-    config_reload(duthost)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -53,7 +57,7 @@ def disable_and_enable_autorestart(duthosts, rand_one_dut_hostname):
     containers_autorestart_states = duthost.get_container_autorestart_states()
     disabled_autorestart_containers = []
 
-    for container_name, state in containers_autorestart_states.items():
+    for container_name, state in list(containers_autorestart_states.items()):
         if "enabled" in state:
             logger.info("Disabling the autorestart of container '{}'.".format(container_name))
             command_disable_autorestart = "sudo config feature autorestart {} disabled".format(container_name)
@@ -84,7 +88,8 @@ def check_image_version(duthosts, rand_one_dut_hostname):
         None.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    pytest_require(("20191130" in duthost.os_version and parse_version(duthost.os_version) > parse_version("20191130.72"))
+    pytest_require(("20191130" in duthost.os_version and
+                    parse_version(duthost.os_version) > parse_version("20191130.72"))
                    or parse_version(duthost.kernel_version) > parse_version("4.9.0"),
                    "Test is not supported for 20191130.72 and older image versions!")
 
@@ -102,7 +107,7 @@ def modify_monit_config_and_restart(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Back up Monit configuration file ...")
-    duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
+    duthost.shell("sudo cp -f /etc/monit/monitrc /home/admin/monitrc.backup")
 
     logger.info("Modifying Monit config to eliminate start delay and decrease interval ...")
     duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
@@ -114,7 +119,7 @@ def modify_monit_config_and_restart(duthosts, rand_one_dut_hostname):
     yield
 
     logger.info("Restore original Monit configuration ...")
-    duthost.shell("sudo mv -f /tmp/monitrc /etc/monit/")
+    duthost.shell("sudo mv -f /home/admin/monitrc.backup /etc/monit/monitrc")
 
     logger.info("Restart Monit service ...")
     duthost.shell("sudo systemctl restart monit")
@@ -131,7 +136,7 @@ def check_all_critical_processes_running(duthost):
         Otherwise return False.
     """
     processes_status = duthost.all_critical_process_status()
-    for container_name, processes in processes_status.items():
+    for container_name, processes in list(processes_status.items()):
         if processes["status"] is False or len(processes["exited_critical_process"]) > 0:
             logger.info("The status of checking process in container '{}' is: {}"
                         .format(container_name, processes["status"]))
@@ -154,7 +159,8 @@ def post_test_check(duthost, up_bgp_neighbors):
         This function will return True if all critical processes are running and
         all BGP sessions are established. Otherwise it will return False.
     """
-    return check_all_critical_processes_running(duthost) and duthost.check_bgp_session_state_all_asics(up_bgp_neighbors, "established")
+    return check_all_critical_processes_running(duthost) and \
+        duthost.check_bgp_session_state_all_asics(up_bgp_neighbors, "established")
 
 
 def postcheck_critical_processes_status(duthost, up_bgp_neighbors):
@@ -185,8 +191,8 @@ def get_critical_process_from_monit(duthost, container_name):
         container_name: Name of container.
 
     Returns:
-        A list contains command lines of critical processes. Bool varaible indicates
-        whether the operation in this funciton was done successfully or not.
+        A list contains command lines of critical processes. Bool variable indicates
+        whether the operation in this function was done successfully or not.
     """
     critical_process_list = []
     succeeded = True
@@ -221,7 +227,7 @@ def get_expected_alerting_messages_monit(duthost, containers_in_namespaces):
     expected_alerting_messages = []
 
     logger.info("Generating the regex of expected alerting messages ...")
-    for container_name in containers_in_namespaces.keys():
+    for container_name in list(containers_in_namespaces.keys()):
         namespace_ids = containers_in_namespaces[container_name]
 
         critical_process_list, succeeded = get_critical_process_from_monit(duthost, container_name)
@@ -267,7 +273,8 @@ def get_expected_alerting_messages_monit(duthost, containers_in_namespaces):
                     expected_alerting_messages.append(".*'{}' is not running.*in namespace.*{}"
                                                       .format(critical_process, namespace_name))
                 else:
-                    expected_alerting_messages.append(".*'{}' is not running.*in {}".format(critical_process, namespace_name))
+                    expected_alerting_messages.append(".*'{}' is not running.*in {}"
+                                                      .format(critical_process, namespace_name))
 
             logger.info("Generating the regex of expected alerting messages for container '{}' was done!"
                         .format(container_name_in_namespace))
@@ -290,7 +297,7 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
     expected_alerting_messages = []
 
     logger.info("Generating the regex of expected alerting messages ...")
-    for container_name in containers_in_namespaces.keys():
+    for container_name in list(containers_in_namespaces.keys()):
         namespace_ids = containers_in_namespaces[container_name]
         container_name_in_namespace = container_name
         # If a container is only running on host, then namespace_ids is [None]
@@ -299,7 +306,8 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
         if len(namespace_ids) > 2:
             container_name_in_namespace += namespace_ids[1]
 
-        critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
+        critical_group_list, critical_process_list, succeeded = \
+            duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'"
                       .format(container_name_in_namespace))
 
@@ -316,6 +324,9 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
                 # Skip 'dsserve' process since it was not managed by supervisord
                 # TODO: Should remove the following two lines once the issue was solved in the image.
                 if "syncd" in container_name_in_namespace and critical_process == "dsserve":
+                    continue
+                # Skip 'otel' process since it would autorestart
+                if "otel" in container_name_in_namespace and critical_process == "otel":
                     continue
                 logger.info("Generating the regex of expected alerting message for process '{}' in container '{}'"
                             .format(critical_process, container_name_in_namespace))
@@ -354,7 +365,7 @@ def get_containers_namespace_ids(duthost, skip_containers):
     containers_states, succeeded = duthost.get_feature_status()
     pytest_assert(succeeded, "Failed to get feature status of containers!")
 
-    for container_name, state in containers_states.items():
+    for container_name, state in list(containers_states.items()):
         if container_name not in skip_containers and state not in ["disabled", "always_disabled"]:
             namespace_ids, succeeded = duthost.get_namespace_ids(container_name)
             pytest_assert(succeeded, "Failed to get namespace ids of container '{}'".format(container_name))
@@ -363,34 +374,6 @@ def get_containers_namespace_ids(duthost, skip_containers):
     logger.info("Getting the namespace ids for each container was done!")
 
     return containers_in_namespaces
-
-
-def kill_process_by_pid(duthost, container_name, program_name, program_pid):
-    """Kills a process in the specified container by its pid.
-
-    Args:
-        duthost: Hostname of DUT.
-        container_name: A string shows container name.
-        program_name: A string shows process name.
-        program_pid: An integer represents the PID of a process.
-
-    Returns:
-        None.
-    """
-    if "20191130" in duthost.os_version:
-        kill_cmd_result = duthost.shell("docker exec {} supervisorctl stop {}".format(container_name, program_name))
-    else:
-        # If we used the command `supervisorctl stop <proc_name>' to stop process,
-        # Supervisord will treat the exit code of process as expected and it will not generate
-        # alerting message.
-        kill_cmd_result = duthost.shell("docker exec {} kill -SIGKILL {}".format(container_name, program_pid))
-
-    # Get the exit code of 'kill' or 'supervisorctl stop' command
-    exit_code = kill_cmd_result["rc"]
-    pytest_assert(exit_code == 0, "Failed to stop program '{}' before test".format(program_name))
-
-    logger.info("Program '{}' in container '{}' was stopped successfully"
-                .format(program_name, container_name))
 
 
 def check_and_kill_process(duthost, container_name, program_name, program_status, program_pid):
@@ -427,7 +410,7 @@ def stop_critical_processes(duthost, containers_in_namespaces):
     Returns:
         None.
     """
-    for container_name in containers_in_namespaces.keys():
+    for container_name in list(containers_in_namespaces.keys()):
         namespace_ids = containers_in_namespaces[container_name]
         container_name_in_namespace = container_name
         # If a container is only running on host, then namespace_ids is [None]
@@ -436,7 +419,8 @@ def stop_critical_processes(duthost, containers_in_namespaces):
         if len(namespace_ids) >= 2:
             container_name_in_namespace += namespace_ids[1]
 
-        critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
+        critical_group_list, critical_process_list, succeeded = \
+            duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'"
                       .format(container_name_in_namespace))
 
@@ -444,7 +428,12 @@ def stop_critical_processes(duthost, containers_in_namespaces):
             container_name_in_namespace = container_name
             if namespace_id != DEFAULT_ASIC_ID:
                 container_name_in_namespace += namespace_id
-
+            if 'lldp' in container_name:
+                # Killing lldpd may impact lldp-syncd process, the next around check for lldp-syncd will probably fail
+                # move lldpd to the end of the list to avoid this issue
+                critical_process_list.append(critical_process_list.pop(critical_process_list.index('lldpd')))
+                logger.info("Critical process list for {} after moving lldpd to the end: {}".format(
+                    container_name_in_namespace, critical_process_list))
             for critical_process in critical_process_list:
                 # Skip 'dsserve' process since it was not managed by supervisord
                 # TODO: Should remove the following two lines once the issue was solved in the image.
@@ -452,7 +441,8 @@ def stop_critical_processes(duthost, containers_in_namespaces):
                     continue
 
                 program_status, program_pid = get_program_info(duthost, container_name_in_namespace, critical_process)
-                check_and_kill_process(duthost, container_name_in_namespace, critical_process, program_status, program_pid)
+                check_and_kill_process(duthost, container_name_in_namespace,
+                                       critical_process, program_status, program_pid)
 
             for critical_group in critical_group_list:
                 group_program_info = get_group_program_info(duthost, container_name_in_namespace, critical_group)
@@ -473,13 +463,20 @@ def ensure_process_is_running(duthost, container_name, critical_process):
     Returns:
         None.
     """
-    logger.info("Checking whether process '{}' in container '{}' is running...".format(critical_process, container_name))
+    if critical_process in ["dhcp6relay", "dhcprelayd"]:
+        # For dhcp-relay container, the process name in supervisord started 'dhcp-relay: + the process name'
+        critical_process = "dhcp-relay" + ":" + critical_process
+
+    logger.info("Checking whether process '{}' in container '{}' is running..."
+                .format(critical_process, container_name))
     program_status, program_pid = get_program_info(duthost, container_name, critical_process)
     if program_status == "RUNNING":
         logger.info("Process '{}' in container '{} is running.".format(critical_process, container_name))
     else:
-        logger.info("Process '{}' in container '{}' is not running and start it...".format(critical_process, container_name))
-        command_output = duthost.shell("docker exec {} supervisorctl start {}".format(container_name, critical_process))
+        logger.info("Process '{}' in container '{}' is not running and start it..."
+                    .format(critical_process, container_name))
+        command_output = duthost.shell("docker exec {} supervisorctl start {}"
+                                       .format(container_name, critical_process))
         if command_output["rc"] == 0:
             logger.info("Process '{}' in container '{}' is started.".format(critical_process, container_name))
         else:
@@ -497,7 +494,7 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
     Returns:
         None.
     """
-    for container_name in containers_in_namespaces.keys():
+    for container_name in list(containers_in_namespaces.keys()):
         namespace_ids = containers_in_namespaces[container_name]
         container_name_in_namespace = container_name
         # If a container is only running on host, then namespace_ids is [None]
@@ -506,7 +503,8 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
         if len(namespace_ids) >= 2:
             container_name_in_namespace += namespace_ids[1]
 
-        critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name_in_namespace)
+        critical_group_list, critical_process_list, succeeded = \
+            duthost.get_critical_group_and_process_lists(container_name_in_namespace)
         pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'"
                       .format(container_name_in_namespace))
 
@@ -529,7 +527,128 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
                     ensure_process_is_running(duthost, container_name_in_namespace, program_name)
 
 
-def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
+    skip_containers = []
+    # Skip database container for generate redis crash alerting messages.
+    skip_containers.append("gbsyncd")
+    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
+    # which will not trigger alarm message.
+    skip_containers.append("restapi")
+    # Skip 'radv' container on devices whose role is not T0.
+    if tbinfo["topo"]["type"] != "t0":
+        skip_containers.append("radv")
+    if "202412" in duthost.os_version:
+        skip_containers.append("gnmi")
+    skip_containers = skip_containers + skip_vendor_specific_container
+    return skip_containers
+
+
+@pytest.fixture(scope='function')
+def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container,
+                               get_pdu_controller, localhost):
+    duthost = duthosts[rand_one_dut_hostname]
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
+    skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
+    containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
+
+    # Check if database container is being tested
+    is_testing_database = "database" not in skip_containers
+
+    # add log to indicate start of yield
+    logger.info("Starting test to monitor critical processes...")
+    yield
+
+    # add log to indicate end of yield
+    logger.info("Test to monitor critical processes is done, starting recovery...")
+
+    # Special handling for database container - use power cycle
+    if is_testing_database:
+        logger.info("Database container was tested - performing power cycle...")
+
+        # Check if this is a KVM testbed (no PDU available)
+        is_kvm = duthost.facts.get('platform') == KVM_PLATFORM
+
+        if is_kvm:
+            # For KVM testbed, use kernel-level reboot since config DB is corrupted
+            # and normal reboot commands won't work
+            logger.info("KVM testbed detected - using kernel SysRq trigger for immediate reboot...")
+            try:
+                # Use kernel's SysRq trigger to force immediate reboot
+                # This bypasses all userspace processes and goes directly to kernel
+                # 'b' = immediately reboot the system without syncing or unmounting
+                duthost.shell(
+                    'nohup bash -c "sleep 2 && echo 1 > /proc/sys/kernel/sysrq && echo b > /proc/sysrq-trigger" '
+                    '> /dev/null 2>&1 &',
+                    module_ignore_errors=True)
+                logger.info("Kernel reboot trigger command issued successfully")
+            except Exception as e:
+                logger.info("Reboot trigger command execution (expected to disconnect): {}".format(str(e)))
+        else:
+            # For physical testbed, use PDU reboot
+            logger.info("Physical testbed - performing power cycle via PDU...")
+            try:
+                pdu_ctrl = get_pdu_controller(duthost)
+                logger.info("PDU controller obtained: {}".format(pdu_ctrl))
+
+                if pdu_ctrl is None:
+                    logger.error("No PDU controller available for {}, cannot recover from database container test"
+                                 .format(duthost.hostname))
+                    pytest.fail("No PDU controller available for {}, cannot recover from database container test"
+                                .format(duthost.hostname))
+
+                # Perform PDU reboot (power cycle)
+                logger.info("Starting PDU reboot...")
+                if not pdu_reboot(pdu_ctrl):
+                    logger.error("PDU reboot failed for {}".format(duthost.hostname))
+                    pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
+
+                logger.info("PDU reboot completed, waiting for DUT to boot up...")
+            except Exception as e:
+                logger.error("Exception during PDU reboot: {}".format(str(e)))
+                raise
+
+        logger.info("Waiting for DUT to boot up after power cycle...")
+        # Wait for DUT to come back up after PDU power cycle
+        # Get timeout values based on chassis type
+        timeout = 300
+        wait_time = 120
+        if duthost.get_facts().get("modular_chassis"):
+            wait_time = max(wait_time, 600)
+            timeout = max(timeout, 420)
+
+        # Wait for SSH to come back up
+        wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
+        logger.info("SSH is up, waiting for critical processes...")
+
+        # Wait for all critical processes to be healthy
+        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+        logger.info("All critical processes are running")
+
+        # Wait for interfaces to come up
+        logger.info("Checking interface status...")
+        check_interface_status_of_up_ports(duthost)
+        logger.info("All interfaces are up")
+
+        logger.info("DUT recovered successfully after power cycle!")
+    else:
+        # Normal recovery for other containers
+        logger.info("Executing the config reload...")
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        logger.info("Executing the config reload was done!")
+
+        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+
+    if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
+        pytest.fail("Post-check failed after testing the process monitoring!")
+    logger.info("Post-checking status of critical processes and BGP sessions was done!")
+
+
+def test_monitoring_critical_processes(
+                                   duthosts,
+                                   rand_one_dut_hostname,
+                                   tbinfo,
+                                   skip_vendor_specific_container,
+                                   recover_critical_processes):
     """Tests the feature of monitoring critical processes by Monit and Supervisord.
 
     This function will check whether names of critical processes will appear
@@ -548,20 +667,8 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     loganalyzer.expect_regex = []
-    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
-    skip_containers = []
-    skip_containers.append("database")
-    skip_containers.append("gbsyncd")
-    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited, which will not trigger alarm message.
-    skip_containers.append("restapi")
-    # Skip 'acms' container since 'acms' process is not running on lab devices and
-    # another process `cert_converter.py' is set to auto-restart if exited.
-    skip_containers.append("acms")
-    # Skip 'radv' container on devices whose role is not T0.
-    if tbinfo["topo"]["type"] != "t0":
-        skip_containers.append("radv")
-    skip_containers = skip_containers + skip_vendor_specific_container
+    skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
@@ -575,20 +682,66 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
 
     stop_critical_processes(duthost, containers_in_namespaces)
 
-    # Wait for 70 seconds such that Supervisord/Monit has a chance to write alerting message into syslog.
-    logger.info("Sleep 70 seconds to wait for the alerting messages in syslog...")
-    time.sleep(70)
+    wait_time = 70
+    # For KVM DUT, there's a delay(~25s) that syncd process raises SIGKILL signal after been killed
+    if duthost.facts['platform'] == KVM_PLATFORM:
+        wait_time = 90
+
+    # Wait for sometime such that Supervisord/Monit has a chance to write alerting message into syslog.
+    logger.info("Sleep {} seconds to wait for the alerting messages in syslog...".format(wait_time))
+    time.sleep(wait_time)
 
     logger.info("Checking the alerting messages from syslog...")
     loganalyzer.analyze(marker)
     logger.info("Found all the expected alerting messages from syslog!")
 
+
+def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+    """Tests orchagent heartbeat after warm-restart
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # t1 lag does not have swss container
+    swss_running = is_container_running(duthost, 'swss')
+    if not swss_running:
+        logger.info("swss container not running.")
+        return
+
+    # initialize LogAnalyzer for check stuck warning message
+    marker_prefix = "test_orchagent_heartbeat_checker"
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix=marker_prefix)
+    loganalyzer.expect_regex = ["Process \'orchagent\' is stuck in namespace"]
+    marker = loganalyzer.init()
+
+    # Retry up to 150 sec to accommodate for flex counter processing delay
+    max_retries = 30
+    retry_delay = 5
+    for retry_count in range(max_retries):
+        command_output = duthost.shell("docker exec -i swss orchagent_restart_check -n", module_ignore_errors=True)
+        exit_code = command_output["rc"]
+        logger.warning("command_output: {}".format(command_output))
+        if exit_code == 0:
+            break
+        else:
+            logger.warning(f"Attempt {retry_count+1}/{max_retries} failed, retrying in {retry_delay} seconds...")
+            time.sleep(retry_delay)
+
+    command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
+    logger.warning("command_output: {}".format(command_output))
+    exit_code = command_output["rc"]
+    pytest_assert(exit_code == 0,
+                  "Failed to freeze orchagent for warm reboot after {} seconds".format(retry_delay * max_retries))
+
+    # stuck alert will be trigger after 60s, wait 120s to make sure no any alert send
+    time.sleep(120)
+
+    analysis = loganalyzer.analyze(marker, fail=False)
+    logger.warning("latest_stuck: {}".format(analysis['total']['expected_match']))
+
+    # restart orchagent by reload config
     logger.info("Executing the config reload...")
     config_reload(duthost)
     logger.info("Executing the config reload was done!")
 
-    ensure_all_critical_processes_running(duthost, containers_in_namespaces)
-
-    if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
-        pytest.fail("Post-check failed after testing the process monitoring!")
-    logger.info("Post-checking status of critical processes and BGP sessions was done!")
+    # assert after config reload, make sure orchagent recovered after test
+    pytest_assert(not analysis['total']['expected_match'], "Orchagent not stuck after frozen for warm-reboot.")

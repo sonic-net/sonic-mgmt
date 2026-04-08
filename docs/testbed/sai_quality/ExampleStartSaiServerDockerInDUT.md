@@ -1,7 +1,7 @@
 In this article, you will get know how to start a saiserver docker in a dut(Device under test).
 1. pull or upload the saiserver docker in your dut.
 ```
-#if your docker registry have the saisever docker, you can pull it 
+#if your docker registry have the saisever docker, you can pull it
 docker push <docker-registry-address>/docker-saiserver-<SHORTEN_ASIC>:<TAG_WITH_OS_VERSION>
 #like
 docker pull soniccr1.azurecr.io/docker-saiserver-brcm:20201231.29
@@ -30,5 +30,3 @@ docker create --privileged --net=host \
 docker start $DOCKERNAME
 
 ```
-
-

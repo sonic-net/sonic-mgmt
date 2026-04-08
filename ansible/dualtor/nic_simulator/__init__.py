@@ -1,3 +1,9 @@
+import sys
+
+if sys.version_info.major > 2:
+    from pathlib import Path
+    sys.path.insert(0, str(Path(__file__).parent))
+
 from nic_simulator_grpc_service_pb2 import AdminReply
 from nic_simulator_grpc_service_pb2 import AdminRequest
 from nic_simulator_grpc_service_pb2 import OperationRequest

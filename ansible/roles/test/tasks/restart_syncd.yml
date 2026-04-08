@@ -22,7 +22,7 @@
 - debug: msg="{{ syncd_out.stdout_lines }}"
 
 - fail: msg="Syncd is still running?"
-  when: 
+  when:
     - ({{ syncd_out.stdout_lines | length }} > 0)
 
 - name: look for core files under /var/core
@@ -35,7 +35,7 @@
 - debug: msg="{{ core_files_after.matched }} - {{ core_files_after.files }}"
 
 - fail: msg="Found new core(s) under /var/core/"
-  when: 
+  when:
     - ({{ core_files_after.files|length > core_files_before.files|length }})
 
 - name: Restart swss service

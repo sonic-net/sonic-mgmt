@@ -1,31 +1,38 @@
 from netaddr import IPAddress
 import pytest
 
+from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.processes_utils import check_pmon_uptime_minutes
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
+
 
 def test_interfaces(duthosts, enum_frontend_dut_hostname, tbinfo, enum_asic_index):
     """compare the interfaces between observed states and target state"""
 
     duthost = duthosts[enum_frontend_dut_hostname]
+
+    pytest_assert(wait_until(360, 10, 0, check_pmon_uptime_minutes, duthost),
+                  "Pmon docker is not ready for test")
+
     asic_host = duthost.asic_instance(enum_asic_index)
     host_facts = asic_host.interface_facts()['ansible_facts']['ansible_interface_facts']
     mg_facts = asic_host.get_extended_minigraph_facts(tbinfo)
-    verify_port(host_facts, mg_facts['minigraph_portchannels'].keys())
-    for k, v in mg_facts['minigraph_portchannels'].items():
+    verify_port(host_facts, list(mg_facts['minigraph_portchannels'].keys()))
+    for k, v in list(mg_facts['minigraph_portchannels'].items()):
         verify_port(host_facts, v['members'])
         # verify no ipv4 address for each port channel member
         for member in v['members']:
             pytest_assert("ipv4" not in host_facts[member],
                           "LAG member {} has IP address {}".format(member, host_facts[member]))
 
-    verify_port(host_facts, mg_facts['minigraph_vlans'].keys())
+    verify_port(host_facts, list(mg_facts['minigraph_vlans'].keys()))
 
-    for k, v in mg_facts['minigraph_vlans'].items():
+    for k, v in list(mg_facts['minigraph_vlans'].items()):
         verify_port(host_facts, v['members'])
         # verify no ipv4 address for each vlan member
         for member in v['members']:
@@ -44,9 +51,11 @@ def test_interfaces(duthosts, enum_frontend_dut_hostname, tbinfo, enum_asic_inde
         verify_mac_address(host_facts, mg_facts['minigraph_vlan_interfaces'], router_mac)
     verify_mac_address(host_facts, mg_facts['minigraph_interfaces'], router_mac)
 
+
 def verify_port(host_facts, ports):
     for port in ports:
         pytest_assert(host_facts[port]['active'], "interface {} is not active".format(port))
+
 
 def verify_mac_address(host_facts, intfs, router_mac):
     for intf in intfs:
@@ -55,12 +64,14 @@ def verify_mac_address(host_facts, intfs, router_mac):
         else:
             ifname = intf['name']
 
-        pytest_assert(host_facts[ifname]['macaddress'].lower() == router_mac.lower(), \
-                "interface {} mac address {} does not match router mac {}".format(ifname, host_facts[ifname]['macaddress'], router_mac))
+        pytest_assert(host_facts[ifname]['macaddress'].lower() == router_mac.lower(),
+                      "interface {} mac address {} does not match router mac {}"
+                      .format(ifname, host_facts[ifname]['macaddress'], router_mac))
+
 
 def verify_ip_address(host_facts, intfs):
     for intf in intfs:
-        if intf.has_key('attachto'):
+        if 'attachto' in intf:
             ifname = intf['attachto']
         else:
             ifname = intf['name']
@@ -68,8 +79,12 @@ def verify_ip_address(host_facts, intfs):
         ip = IPAddress(intf['addr'])
         if ip.version == 4:
             addrs = []
-            addrs.append(host_facts[ifname]['ipv4'])
-            if host_facts[ifname].has_key('ipv4_secondaries'):
+            if isinstance(host_facts[ifname]['ipv4'], list):
+                for addr in host_facts[ifname]['ipv4']:
+                    addrs.append(addr)
+            else:
+                addrs.append(host_facts[ifname]['ipv4'])
+            if 'ipv4_secondaries' in host_facts[ifname]:
                 for addr in host_facts[ifname]['ipv4_secondaries']:
                     addrs.append(addr)
         else:
@@ -79,7 +94,7 @@ def verify_ip_address(host_facts, intfs):
         ips_found = []
         for addr in addrs:
             ips_found.append(addr['address'])
-            print addr
+            print((str(addr)))
             if IPAddress(addr['address']) == ip:
                 found = True
                 break

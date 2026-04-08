@@ -30,6 +30,11 @@
     sonic_asic_type: marvell
   when: sonic_hwsku in marvell_hwskus
 
+- name: Set sonic_asic_type fact
+  set_fact:
+    sonic_asic_type: nokia-vs
+  when: sonic_hwsku in nokia_hwskus
+
 ###########################################################################
 ##### run test using ansible tag when no testbedname specified       ######
 ###########################################################################
@@ -52,7 +57,7 @@
 
 - name: set default testbed file
   set_fact:
-    testbed_file: testbed.csv
+    testbed_file: testbed.yaml
   when: testbed_file is not defined
 
 ###############################################

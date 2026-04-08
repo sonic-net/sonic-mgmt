@@ -1,0 +1,37 @@
+diff --git a/proto/gnmi/BUILD.bazel b/proto/gnmi/BUILD.bazel
+index f471488..14a242b 100755
+--- a/proto/gnmi/BUILD.bazel
++++ b/proto/gnmi/BUILD.bazel
+@@ -22,6 +22,17 @@ package(
+     licenses = ["notice"],
+ )
+ 
++proto_library(
++    name = "gnmi_internal_proto",
++    srcs = ["gnmi.proto"],
++    deps = [
++        "//proto/gnmi_ext:gnmi_ext_proto",
++        "@com_google_protobuf//:any_proto",
++        "@com_google_protobuf//:descriptor_proto",
++    ],
++    visibility = ["//visibility:private"],
++)
++
+ proto_library(
+     name = "gnmi_proto",
+     srcs = ["gnmi.proto"],
+@@ -35,12 +46,12 @@ proto_library(
+ 
+ cc_proto_library(
+     name = "gnmi_cc_proto",
+-    deps = [":gnmi_proto"],
++    deps = [":gnmi_internal_proto"],
+ )
+ 
+ cc_grpc_library(
+     name = "gnmi_cc_grpc_proto",
+-    srcs = [":gnmi_proto"],
++    srcs = [":gnmi_internal_proto"],
+     generate_mocks = True,
+     grpc_only = True,
+     deps = [":gnmi_cc_proto"],

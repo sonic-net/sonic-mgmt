@@ -1,4 +1,7 @@
+from collections import defaultdict
+from dataclasses import dataclass
 import logging
+from typing import Optional
 
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.onyx import OnyxHost
@@ -9,6 +12,14 @@ from tests.common.devices.aos import AosHost
 logger = logging.getLogger(__name__)
 
 
+@dataclass
+class SerialPortMapping():
+    dut_name: str
+    dut_port: int
+    baud_rate: int
+    flow_control: bool
+
+
 class FanoutHost(object):
     """
     @summary: Class for Fanout switch
@@ -16,16 +27,20 @@ class FanoutHost(object):
     For running ansible module on the Fanout switch
     """
 
-    def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd, shell_user=None, shell_passwd=None):
+    def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd,
+                 eos_shell_user=None, eos_shell_passwd=None):
         self.hostname = hostname
         self.type = device_type
         self.host_to_fanout_port_map = {}
         self.fanout_to_host_port_map = {}
+        self.serial_port_map: defaultdict[int, Optional[SerialPortMapping]] = defaultdict(lambda: None)
+
         if os == 'sonic':
             self.os = os
+            self.fanout_port_alias_to_name = {}
             self.host = SonicHost(ansible_adhoc, hostname,
-                                  shell_user=shell_user,
-                                  shell_passwd=shell_passwd)
+                                  ssh_user=user,
+                                  ssh_passwd=passwd)
         elif os == 'onyx':
             self.os = os
             self.host = OnyxHost(ansible_adhoc, hostname, user, passwd)
@@ -39,7 +54,10 @@ class FanoutHost(object):
         else:
             # Use eos host if the os type is unknown
             self.os = 'eos'
-            self.host = EosHost(ansible_adhoc, hostname, user, passwd, shell_user=shell_user, shell_passwd=shell_passwd)
+            self.host = EosHost(ansible_adhoc, hostname, user, passwd,
+                                shell_user=eos_shell_user, shell_passwd=eos_shell_passwd)
+            # Check eos fanout reachability by running show command
+            self.host.get_version()
 
     def __getattr__(self, module_name):
         return getattr(self.host, module_name)
@@ -66,6 +84,9 @@ class FanoutHost(object):
                 raise AttributeError("Host of type {} does not contain a"
                                      "'shutdown_multiple' method"
                                      .format(type(self.host)))
+        if self.os == 'sonic':
+            if interface_name in list(self.fanout_port_alias_to_name.keys()):
+                return self.host.shutdown(self.fanout_port_alias_to_name[interface_name])
 
         return self.host.shutdown(interface_name)
 
@@ -86,7 +107,14 @@ class FanoutHost(object):
                                      "'no_shutdown_multiple' method"
                                      .format(type(self.host)))
 
+        if self.os == 'sonic':
+            if interface_name in list(self.fanout_port_alias_to_name.keys()):
+                return self.host.no_shutdown(self.fanout_port_alias_to_name[interface_name])
+
         return self.host.no_shutdown(interface_name)
+
+    def check_intf_link_state(self, interface_name):
+        return self.host.check_intf_link_state(interface_name)
 
     def __str__(self):
         return "{ os: '%s', hostname: '%s', device_type: '%s' }" % (self.os, self.hostname, self.type)
@@ -105,8 +133,21 @@ class FanoutHost(object):
             host_port is a encoded string of <host name>|<port name>,
             e.g. sample_host|Ethernet0.
         """
-        self.host_to_fanout_port_map[host_port]   = fanout_port
+        self.host_to_fanout_port_map[host_port] = fanout_port
         self.fanout_to_host_port_map[fanout_port] = host_port
+
+    def add_serial_port_map(self, host_name: str, host_port: int, fanout_port: int, baud_rate: int, flow_control: bool):
+        """
+            Record serial port mapping information for a given fanout port.
+            Mapping information can be access via self.serial_port_map[fanout_port]
+        """
+
+        self.serial_port_map[fanout_port] = SerialPortMapping(
+            dut_name=host_name,
+            dut_port=host_port,
+            baud_rate=baud_rate,
+            flow_control=flow_control
+        )
 
     def exec_template(self, ansible_root, ansible_playbook, inventory, **kwargs):
         return self.host.exec_template(ansible_root, ansible_playbook, inventory, **kwargs)
@@ -172,3 +213,34 @@ class FanoutHost(object):
             str: SONiC style interface speed value. E.g, 1G=1000, 10G=10000, 100G=100000.
         """
         return self.host.get_speed(interface_name)
+
+    def links_status_down(self, ports):
+        """Get interface status
+        Args:
+            ports (set): Interfaces on one fanout
+        Returns:
+            True: if all interfaces are down
+            False: if any interface is up
+        """
+        return self.host.links_status_down(ports)
+
+    def links_status_up(self, ports):
+        """Get interface status
+        Args:
+            ports (set): Interfaces on one fanout
+        Returns:
+            True: if all interfaces are up
+            False: if any interface is down
+        """
+        return self.host.links_status_up(ports)
+
+    def set_port_fec(self, interface_name, mode):
+        self.host.set_port_fec(interface_name, mode)
+
+    def is_lldp_disabled(self):
+        """Check global LLDP status on the device
+        Returns:
+            True: if LLDP is disabled
+            False: if LLDP is enabled
+        """
+        return self.host.is_lldp_disabled()

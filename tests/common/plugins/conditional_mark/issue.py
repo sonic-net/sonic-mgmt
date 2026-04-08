@@ -4,21 +4,18 @@ import logging
 import multiprocessing
 import os
 import re
-import yaml
+from abc import ABCMeta, abstractmethod
+from urllib.parse import urlencode
 
 import requests
-
-from abc import ABCMeta, abstractmethod
+import six
 
 logger = logging.getLogger(__name__)
 
-CREDENTIALS_FILE = 'credentials.yaml'
 
-
-class IssueCheckerBase(object):
+class IssueCheckerBase(six.with_metaclass(ABCMeta, object)):
     """Base class for issue checker
     """
-    __metaclass__ = ABCMeta
 
     def __init__(self, url):
         self.url = url
@@ -37,58 +34,68 @@ class GitHubIssueChecker(IssueCheckerBase):
 
     NAME = 'GitHub'
 
-    def __init__(self, url):
+    def __init__(self, url, proxies):
         super(GitHubIssueChecker, self).__init__(url)
-        self.user = ''
-        self.api_token = ''
         self.api_url = url.replace('github.com', 'api.github.com/repos')
-        self.get_cred()
-
-    def get_cred(self):
-        """Get GitHub API credentials
-        """
-        creds_folder_path = os.path.dirname(__file__)
-        creds_file_path = os.path.join(creds_folder_path, CREDENTIALS_FILE)
-        try:
-            with open(creds_file_path) as creds_file:
-                creds = yaml.safe_load(creds_file)
-                if creds is not None:
-                    github_creds = creds.get(self.NAME, {})
-                    self.user = github_creds.get('user', '')
-                    self.api_token = github_creds.get('api_token', '')
-                else:
-                    self.user = os.environ.get("GIT_USER_NAME")
-                    self.api_token = os.environ.get("GIT_API_TOKEN")
-        except Exception as e:
-            logger.error('Load credentials from {} failed with error: {}'.format(creds_file_path, repr(e)))
+        self.proxies = proxies
 
     def is_active(self):
-        """Check if the issue is still active.
+        """Check if the GitHub issue is still active.
 
-        If unable to get issue state, always consider it as active.
+        Attempt to fetch issue details via proxy if configured. If proxy fails, retry with direct GitHub API URL.
+        If unable to retrieve issue state, assume the issue is active (safe default).
 
         Returns:
             bool: False if the issue is closed else True.
         """
-        try:
-            response = requests.get(self.api_url, auth=(self.user, self.api_token))
-            response.raise_for_status()
-            issue_data = response.json()
-            if issue_data.get('state', '') == 'closed':
-                logger.debug('Issue {} is closed'.format(self.url))
-                labels = issue_data.get('labels', [])
-                if any(['name' in label and 'duplicate' in label['name'].lower() for label in labels]):
-                    logger.warning('GitHub issue: {} looks like duplicate and was closed. Please re-check and ignore'
-                        'the test on the parent issue'.format(self.url))
-                return False
-        except Exception as e:
-            logger.error('Get details for {} failed with: {}'.format(self.url, repr(e)))
 
-        logger.debug('Issue {} is active. Or getting issue state failed, consider it as active anyway'.format(self.url))
+        def fetch_issue(url):
+            response = requests.get(url, proxies=self.proxies, timeout=10)
+            response.raise_for_status()
+            return response.json()
+
+        direct_url = self.api_url
+        proxy_url = os.getenv("SONIC_AUTOMATION_PROXY_GITHUB_ISSUES_URL")
+
+        issue_data = None
+
+        # Attempt to access via proxy first (if configured)
+        # The proxy is used to work around GitHub's unauthenticated rate limit (60 requests/hour per IP).
+        # For details, refer to GitHub API rate limits documentation:
+        # https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api?apiVersion=2022-11-28#primary-rate-limit-for-unauthenticated-users
+        if proxy_url:
+            try:
+                proxy_endpoint = f"{proxy_url.rstrip('/')}/?{urlencode({'github_issue_url': direct_url})}"
+                logger.info("Attempting to access GitHub API via proxy.")
+                issue_data = fetch_issue(proxy_endpoint)
+            except Exception as proxy_err:
+                logger.warning(f"Proxy access failed: {proxy_err}. Falling back to direct API.")
+
+        # Fallback to direct URL if proxy is not set or fails
+        if issue_data is None:
+            try:
+                logger.info(f"Accessing GitHub API directly: {direct_url}")
+                issue_data = fetch_issue(direct_url)
+            except Exception as direct_err:
+                logger.error(f"Access GitHub API directly failed for {direct_url}: {direct_err}")
+                logger.debug(f"Issue {direct_url} is considered active due to API access failure.")
+                return True
+
+        # Check issue state
+        if issue_data.get('state') == 'closed':
+            logger.debug(f"Issue {direct_url} is closed.")
+            labels = issue_data.get('labels', [])
+            if any('name' in label and 'duplicate' in label['name'].lower() for label in labels):
+                logger.warning(
+                    f"GitHub issue {direct_url} appears to be a duplicate and was closed. "
+                    f"Consider ignoring related test failures.")
+            return False
+
+        logger.debug(f"Issue {direct_url} is active.")
         return True
 
 
-def issue_checker_factory(url):
+def issue_checker_factory(url, proxies):
     """Factory function for creating issue checker object based on the domain name in the issue URL.
 
     Args:
@@ -101,14 +108,14 @@ def issue_checker_factory(url):
     if m and len(m.groups()) > 0:
         domain_name = m.groups()[0].lower()
         if 'github' in domain_name:
-            return GitHubIssueChecker(url)
+            return GitHubIssueChecker(url, proxies)
         else:
             logger.error('Unknown issue website: {}'.format(domain_name))
     logger.error('Creating issue checker failed. Bad issue url {}'.format(url))
     return None
 
 
-def check_issues(issues):
+def check_issues(issues, proxies=None):
     """Check state of the specified issues.
 
     Because issue state checking may involve sending HTTP request. This function uses parallel run to speed up
@@ -120,7 +127,7 @@ def check_issues(issues):
     Returns:
         dict: Issue state check result. Key is issue URL, value is either True or False based on issue state.
     """
-    checkers = [c for c in [issue_checker_factory(issue) for issue in issues] if c is not None]
+    checkers = [c for c in [issue_checker_factory(issue, proxies) for issue in issues] if c is not None]
     if not checkers:
         logger.error('No checker created for issues: {}'.format(issues))
         return {}
@@ -139,4 +146,4 @@ def check_issues(issues):
     for proc in check_procs:
         proc.join(timeout=60)
 
-    return check_results
+    return dict(check_results)

@@ -9,7 +9,7 @@ from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
 from tests.common.ixia.port import select_ports, select_tx_port
 
 from abstract_open_traffic_generator.flow import TxRx, Flow, Header, Size,\
-    Rate,Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
+    Rate, Duration, FixedSeconds, FixedPackets, PortTxRx, PfcPause
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
@@ -23,6 +23,7 @@ DATA_FLOW_PREFIX = "Data Flow"
 BURST_EVENTS = 15
 DATA_PKT_SIZE = 1024
 IXIA_POLL_DELAY_SEC = 2
+
 
 def run_pfcwd_burst_storm_test(api,
                                testbed_config,
@@ -78,7 +79,7 @@ def run_pfcwd_burst_storm_test(api,
                           port_id=port_id,
                           pause_flow_prefix=PAUSE_FLOW_PREFIX,
                           pause_flow_dur_sec=pause_flow_dur_sec,
-                          pause_flow_count = BURST_EVENTS,
+                          pause_flow_count=BURST_EVENTS,
                           pause_flow_gap_sec=pause_flow_gap_sec,
                           data_flow_prefix=DATA_FLOW_PREFIX,
                           data_flow_dur_sec=data_flow_dur_sec,
@@ -102,7 +103,11 @@ def run_pfcwd_burst_storm_test(api,
                      data_flow_prefix=DATA_FLOW_PREFIX,
                      pause_flow_prefix=PAUSE_FLOW_PREFIX)
 
-sec_to_nanosec = lambda x : x * 1e9
+
+def sec_to_nanosec(secs):
+    """ Convert seconds to nanoseconds """
+    return secs * 1e9
+
 
 def __gen_traffic(testbed_config,
                   port_config_list,
@@ -235,6 +240,7 @@ def __gen_traffic(testbed_config,
 
     return result
 
+
 def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     """
     Run traffic and dump per-flow statistics
@@ -275,6 +281,7 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     api.set_state(State(FlowTransmitState(state='stop')))
 
     return rows
+
 
 def __verify_results(rows, data_flow_prefix, pause_flow_prefix):
     """

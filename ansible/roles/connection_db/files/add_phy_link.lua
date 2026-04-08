@@ -14,7 +14,7 @@ local start_port = ARGV[2]
 local end_device = ARGV[3]
 local end_port = ARGV[4]
 local bandwidth = ARGV[5]
-local vlan_mode = ARGV[6] 
+local vlan_mode = ARGV[6]
 local endport0 = start_device .. ':' .. start_port
 local endport1 = end_device .. ':' .. end_port
 

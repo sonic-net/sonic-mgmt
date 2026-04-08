@@ -1,0 +1,13 @@
+[Unit]
+Description=Test Watchdog Timeout
+
+[Service]
+Type=simple
+# This service will sleep for 2 minutes therefore not sending the signal to watchdog within the specified 1 min requirement
+# Since SIGABRT will be sent after watchdog times out due to no signal, it will crash the bash process and dump core
+# Added logic to trap the SIGABRT so that no core dump is dropped.
+ExecStart=/bin/bash -c 'trap "" SIGABRT; sleep 120'
+WatchdogSec=60s
+
+[Install]
+WantedBy=multi-user.target

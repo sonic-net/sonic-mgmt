@@ -1,17 +1,17 @@
+import math
 import time
 
+from tests.common.cisco_data import is_cisco_device
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts
-from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector,\
-    get_egress_lossless_buffer_size, stop_pfcwd, disable_packet_aging
+    get_egress_lossless_buffer_size, get_ingress_lossless_buffer_size, \
+    config_ingress_lossless_buffer_alpha, \
+    find_buffer_profile, get_buffer_alpha, config_buffer_alpha, stop_pfcwd, disable_packet_aging
 from tests.common.ixia.port import select_ports, select_tx_port
 
 from abstract_open_traffic_generator.flow import TxRx, Flow, Header,\
-    Size, Rate,Duration, FixedSeconds, PortTxRx, PfcPause, EthernetPause, Continuous
+    Size, Rate, Duration, FixedSeconds, PortTxRx, PfcPause, EthernetPause, Continuous
 from abstract_open_traffic_generator.flow_ipv4 import Priority, Dscp
 from abstract_open_traffic_generator.flow import Pattern as FieldPattern
 from abstract_open_traffic_generator.flow import Ipv4 as Ipv4Header
@@ -25,10 +25,14 @@ TEST_FLOW_AGGR_RATE_PERCENT = 45
 BG_FLOW_NAME = 'Background Flow'
 BG_FLOW_AGGR_RATE_PERCENT = 45
 DATA_PKT_SIZE = 1024
+CISCO_8000_DATA_PKT_SIZE = 1200
+CISCO_8000_CELL_SIZE = 384
+CISCO_8000_OQ_BUFFS = 110
 DATA_FLOW_DURATION_SEC = 2
 DATA_FLOW_DELAY_SEC = 1
 IXIA_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
+
 
 def run_pfc_test(api,
                  testbed_config,
@@ -42,7 +46,9 @@ def run_pfc_test(api,
                  test_prio_list,
                  bg_prio_list,
                  prio_dscp_map,
-                 test_traffic_pause):
+                 test_traffic_pause,
+                 dynamic_th=None,
+                 on_exit=None):
     """
     Run a PFC test
 
@@ -70,6 +76,17 @@ def run_pfc_test(api,
     stop_pfcwd(duthost)
     disable_packet_aging(duthost)
 
+    lossless_profile = find_buffer_profile(duthost, "pg_lossless")
+    orig_dynamic_th = get_buffer_alpha(duthost, lossless_profile)
+    if dynamic_th is None:
+        dynamic_th = orig_dynamic_th
+    else:
+        """ Register to restore original dynamic threshold """
+        on_exit.register(lambda: config_buffer_alpha(duthost, lossless_profile, orig_dynamic_th))
+        """ Configure PFC threshold to 2 ^ dynamic_th """
+        config_result = config_ingress_lossless_buffer_alpha(host_ans=duthost, alpha_log2=dynamic_th)
+        pytest_assert(config_result is True, 'Failed to configure PFC dynamic threshold to {}'.format(dynamic_th))
+
     """ Get the ID of the port to test """
     port_id = get_dut_port_id(dut_hostname=duthost.hostname,
                               dut_port=dut_port,
@@ -79,10 +96,11 @@ def run_pfc_test(api,
     pytest_assert(port_id is not None,
                   'Fail to get ID for port {}'.format(dut_port))
 
-
     """ Rate percent must be an integer """
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT / len(test_prio_list))
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT / len(bg_prio_list))
+
+    pkt_size = CISCO_8000_DATA_PKT_SIZE if is_cisco_device(duthost) else DATA_PKT_SIZE
 
     """ Generate traffic config """
     flows = __gen_traffic(testbed_config=testbed_config,
@@ -99,7 +117,7 @@ def run_pfc_test(api,
                           bg_flow_rate_percent=bg_flow_rate_percent,
                           data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                           data_flow_delay_sec=DATA_FLOW_DELAY_SEC,
-                          data_pkt_size=DATA_PKT_SIZE,
+                          data_pkt_size=pkt_size,
                           prio_dscp_map=prio_dscp_map)
 
     """ Tgen config = testbed config + flow config """
@@ -134,12 +152,16 @@ def run_pfc_test(api,
                      data_flow_dur_sec=DATA_FLOW_DURATION_SEC,
                      test_flow_rate_percent=test_flow_rate_percent,
                      bg_flow_rate_percent=bg_flow_rate_percent,
-                     data_pkt_size=DATA_PKT_SIZE,
+                     data_pkt_size=pkt_size,
                      speed_gbps=speed_gbps,
                      test_flow_pause=test_traffic_pause,
-                     tolerance=TOLERANCE_THRESHOLD)
+                     tolerance=TOLERANCE_THRESHOLD,
+                     dynamic_th=dynamic_th)
 
-sec_to_nanosec = lambda x : x * 1e9
+
+def sec_to_nanosec(sec):
+    return sec * 1e9
+
 
 def __gen_traffic(testbed_config,
                   port_config_list,
@@ -298,7 +320,7 @@ def __gen_traffic(testbed_config,
 
     """ Pause frames are sent from the RX port """
     pause_endpoint = PortTxRx(tx_port_name=testbed_config.ports[rx_port_id].name,
-                               rx_port_name=testbed_config.ports[tx_port_id].name)
+                              rx_port_name=testbed_config.ports[tx_port_id].name)
 
     speed_str = testbed_config.layer1[0].speed
     speed_gbps = int(speed_str.split('_')[1])
@@ -316,6 +338,7 @@ def __gen_traffic(testbed_config,
 
     result.append(pause_flow)
     return result
+
 
 def __run_traffic(api,
                   config,
@@ -365,6 +388,7 @@ def __run_traffic(api,
 
     return rows
 
+
 def __verify_results(rows,
                      duthost,
                      pause_flow_name,
@@ -376,7 +400,8 @@ def __verify_results(rows,
                      data_pkt_size,
                      speed_gbps,
                      test_flow_pause,
-                     tolerance):
+                     tolerance,
+                     dynamic_th):
     """
     Verify if we get expected experiment results
 
@@ -392,6 +417,7 @@ def __verify_results(rows,
         speed_gbps (int): link speed in Gbps
         test_flow_pause (bool): if test flows are expected to be paused
         tolerance (float): maximum allowable deviation
+        dynamic_th (int): Dynamic threshold for ingress lossless profile
 
     Returns:
         N/A
@@ -415,11 +441,11 @@ def __verify_results(rows,
         pytest_assert(tx_frames == rx_frames,
                       '{} should not have any dropped packet'.format(row['name']))
 
-        exp_bg_flow_rx_pkts =  bg_flow_rate_percent / 100.0 * speed_gbps \
+        exp_bg_flow_rx_pkts = bg_flow_rate_percent / 100.0 * speed_gbps \
             * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
         deviation = (rx_frames - exp_bg_flow_rx_pkts) / float(exp_bg_flow_rx_pkts)
         pytest_assert(abs(deviation) < tolerance,
-                      '{} should receive {} packets (actual {})'.\
+                      '{} should receive {} packets (actual {})'.
                       format(row['name'], exp_bg_flow_rx_pkts, rx_frames))
 
     """ Check test flows """
@@ -441,15 +467,37 @@ def __verify_results(rows,
                 * 1e9 * data_flow_dur_sec / 8.0 / data_pkt_size
             deviation = (rx_frames - exp_test_flow_rx_pkts) / float(exp_test_flow_rx_pkts)
             pytest_assert(abs(deviation) < tolerance,
-                          '{} should receive {} packets (actual {})'.\
+                          '{} should receive {} packets (actual {})'.
                           format(test_flow_name, exp_test_flow_rx_pkts, rx_frames))
 
     if test_flow_pause:
         """ In-flight TX bytes of test flows should be held by switch buffer """
         tx_frames_total = sum(row['frames_tx'] for row in rows if test_flow_name in row['name'])
         tx_bytes_total = tx_frames_total * data_pkt_size
-        dut_buffer_size = get_egress_lossless_buffer_size(host_ans=duthost)
+        if is_cisco_device(duthost):
+            dut_buffer_size = get_ingress_lossless_buffer_size(host_ans=duthost)
+        else:
+            dut_buffer_size = get_egress_lossless_buffer_size(host_ans=duthost)
 
         pytest_assert(tx_bytes_total < dut_buffer_size,
-                      'Total TX bytes {} should be smaller than DUT buffer size {}'.\
+                      'Total TX bytes {} should be smaller than DUT buffer size {}'.
                       format(tx_bytes_total, dut_buffer_size))
+
+        if is_cisco_device(duthost):
+            """ Verify pause threshold is correct for each paused flow with respect to the configured alpha """
+            for row in rows:
+                if test_flow_name in row['name']:
+                    tx_frames_total = row['frames_tx']
+                    cell_buffs = math.ceil(data_pkt_size / float(CISCO_8000_CELL_SIZE))
+                    data_pkt_cell_bytes = cell_buffs * CISCO_8000_CELL_SIZE
+                    tx_frames_minus_oq = tx_frames_total - (CISCO_8000_OQ_BUFFS / cell_buffs)
+                    tx_bytes_total = tx_frames_minus_oq * data_pkt_cell_bytes
+                    max_pause_th_bytes = 5 * (2 ** 20)
+                    pause_th_bytes = min(dut_buffer_size * (2 ** dynamic_th), max_pause_th_bytes)
+                    deviation = abs(tx_bytes_total - pause_th_bytes) / float(pause_th_bytes)
+                    pytest_assert(deviation < tolerance,
+                                  ('For flow name "{}", estimated queue occupancy {} bytes should be within {} ' +
+                                   'of the pause threshold {}, but deviation was {}, total frames tx was {}, ' +
+                                   'and ingress pool size was {}').
+                                  format(row['name'], tx_bytes_total, tolerance, pause_th_bytes,
+                                         deviation, tx_frames_total, dut_buffer_size))

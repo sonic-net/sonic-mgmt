@@ -9,6 +9,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 BASE_PORT_COUNT = 28.0  # default t0 topology has 28 ports to toggle
+WAIT_TIME_AFTER_INTF_SHUTDOWN = 5  # in seconds
 
 
 def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_ports_up=60, watch=False):
@@ -25,8 +26,8 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
     def __get_down_ports(expect_up=True):
         """Check interface status and return the down ports in a set."""
         ports_down = duthost.interface_facts(up_ports=ports)["ansible_facts"]["ansible_interface_link_down_ports"]
-        db_ports_down = duthost.show_interface(command="status", up_ports=ports)["ansible_facts"]\
-            ["ansible_interface_link_down_ports"]
+        db_ports_down = duthost.show_interface(command="status", up_ports=ports)[
+            "ansible_facts"]["ansible_interface_link_down_ports"]
         if expect_up:
             return set(ports_down) | set(db_ports_down)
         else:
@@ -35,7 +36,7 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if not ports:
         logger.info("No ports specified, toggling all minigraph neighbors ports")
-        ports = mg_facts["minigraph_neighbors"].keys()
+        ports = list(mg_facts["minigraph_neighbors"].keys())
 
     if not wait_time_getter:
         wait_time_getter = default_port_toggle_wait_time
@@ -46,7 +47,8 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
     cmds_down = []
     cmds_up = []
     for port in ports:
-        namespace = '-n {}'.format(mg_facts["minigraph_neighbors"][port]['namespace']) if mg_facts["minigraph_neighbors"][port]['namespace'] else ''
+        namespace = '-n {}'.format(mg_facts["minigraph_neighbors"][port]['namespace']) \
+            if mg_facts["minigraph_neighbors"][port]['namespace'] else ''
         cmds_down.append("config interface {} shutdown {}".format(namespace, port))
         cmds_up.append("config interface {} startup {}".format(namespace, port))
 
@@ -60,7 +62,8 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
             log_system_resources(duthost, logger)
 
         logger.info("Wait for ports to go down")
-        shutdown_ok = wait_until(port_down_wait_time, 5, 0, lambda: len(__get_down_ports(expect_up=False)) == len(ports))
+        shutdown_ok = wait_until(port_down_wait_time, 5, 0,
+                                 lambda: len(__get_down_ports(expect_up=False)) == len(ports))
 
         if not shutdown_ok:
             up_ports = __get_down_ports(expect_up=True)
@@ -78,7 +81,7 @@ def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_p
 
         if not startup_ok:
             down_ports = __get_down_ports()
-            startup_err_msg = "Some ports did not come up as expected: {}".format(str(down_ports))
+            startup_err_msg = "{}: Some ports did not come up as expected: {}".format(duthost.hostname, str(down_ports))
     except Exception as e:
         startup_err_msg = "Startup ports failed with exception: {}".format(repr(e))
 
@@ -119,12 +122,17 @@ def default_port_toggle_wait_time(duthost, port_count):
     port_down_wait_time, port_up_wait_time = 120, 180
     asic_type = duthost.facts["asic_type"]
 
-    if asic_type == "mellanox":
+    is_modular_chassis = duthost.get_facts().get("modular_chassis")
+
+    if (asic_type == "mellanox") or (asic_type == "broadcom" and not is_modular_chassis):
         if port_count <= BASE_PORT_COUNT:
             port_count = BASE_PORT_COUNT
 
         port_count_factor = port_count / BASE_PORT_COUNT
         port_down_wait_time = int(port_down_wait_time * port_count_factor)
         port_up_wait_time = int(port_up_wait_time * port_count_factor)
+    elif is_modular_chassis:
+        port_down_wait_time = 300
+        port_up_wait_time = 300
 
     return port_down_wait_time, port_up_wait_time

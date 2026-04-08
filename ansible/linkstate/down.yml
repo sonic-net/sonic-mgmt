@@ -75,5 +75,4 @@
       register: iptables_out
     - name: Deinstall iptable rule
       shell: ip netns exec ns-MGMT iptables -D INPUT 1
-      when: '"tcp dpt:9876" in iptables_out.stdout'      
-
+      when: '"tcp dpt:9876" in iptables_out.stdout'

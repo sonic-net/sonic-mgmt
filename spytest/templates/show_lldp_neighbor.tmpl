@@ -10,7 +10,27 @@ Value Chassis_Capability_Bridge (\S+)
 Value Chassis_Capability_Router (\S+)
 Value PortID_type (\S+)
 Value PortID_value (.*)
-Value PortDescr (\S+)
+Value PortVlanID_value (\d+)
+Value PortDescr ([\S+\s*]+)
+Value Lldpmed_devtype ([\S+\s*]+)
+Value Lldpmed_capability ([\S+\s*]+)
+Value Lldpmed_capability_ext (\S+)
+Value Lldpmed_capability_inv ([\S+\s*]+)
+Value Lldpmed_capability_np ([\S+\s*]+)
+Value Lldpmed_lldpmed_vlan (\S+)
+Value Lldpmed_lldpmed_priority (\d+)
+Value Lldpmed_lldpmed_dscp (\d+)
+Value Lldpmed_ext_pt ([\S+\s*]+)
+Value Lldpmed_ext_src ([\S+\s*]+)
+Value Lldpmed_ext_prt ([\S+\s*]+)
+Value Lldpmed_ext_value ([\S+\s*]+)
+Value Lldpmed_int_hr ([\S+\s*]+)
+Value Lldpmed_int_sr ([\S+\s*]+)
+Value Lldpmed_int_fr ([\S+\s*]+)
+Value Lldpmed_int_sn ([\S+\s*]+)
+Value Lldpmed_int_manufact ([\S+\s*]+)
+Value Lldpmed_int_model ([\S+\s*]+)
+
 
 Start
   ^(-+\s*)*$$
@@ -31,5 +51,32 @@ LLDP_details
   ^\s*Port:\s*$$
   ^\s*PortID:\s*${PortID_value}\s*$$
   ^\s*PortDescr:\s*${PortDescr}\s*$$
-  ^(-+\s*)*$$
-  ^$$
+  ^\s*PortVlanID:\s*${PortVlanID_value}\s*$$
+  ^\s*LLDP-MED -> LLDP_MED_details
+
+LLDP_MED_details
+  ^\s*Device Type:\s*${Lldpmed_devtype}\s*$$
+  ^\s*Capability:\s*Capabilities,\s*${Lldpmed_capability}\s*$$
+  ^\s*Capability:\s*Ext_mdi_power_pd,\s*${Lldpmed_capability_ext}\s*$$
+  ^\s*Capability:\s*Inventory,\s*${Lldpmed_capability_inv}\s*$$
+  ^\s*Capability:\s*${Lldpmed_capability_np}\s*$$
+  ^\s*LLDP-MED Network Policy for: Voice\s*$$
+  ^\s*VLAN:\s*${Lldpmed_lldpmed_vlan}\s*$$
+  ^\s*Priority:\s*${Lldpmed_lldpmed_priority}\s*$$
+  ^\s*DSCP:\s*${Lldpmed_lldpmed_dscp}\s*$$
+  ^\s*LLDP-MED Network Policy for: voice_signaling\s*$$
+  ^\s*VLAN:\s*${Lldpmed_lldpmed_vlan}\s*$$
+  ^\s*Priority:\s*${Lldpmed_lldpmed_priority}\s*$$
+  ^\s*DSCP:\s*${Lldpmed_lldpmed_dscp}\s*$$
+  ^\s*Extended Power-over-Ethernet\s*$$
+  ^\s*Power Type:\s*${Lldpmed_ext_pt}\s*$$
+  ^\s*Source:\s*${Lldpmed_ext_src}\s*$$
+  ^\s*Priority:\s*${Lldpmed_ext_prt}\s*$$
+  ^\s*Value:\s*${Lldpmed_ext_value}\s*$$
+  ^\s*Inventory\s*$$
+  ^\s*Hardware Rev:\s*${Lldpmed_int_hr}\s*$$
+  ^\s*Software Rev:\s*${Lldpmed_int_sr}\s*$$
+  ^\s*Firmware Rev:\s*${Lldpmed_int_fr}\s*$$
+  ^\s*Serial Number:\s*${Lldpmed_int_sn}\s*$$
+  ^\s*Manufacturer:\s*${Lldpmed_int_manufact}\s*$$
+  ^\s*Model:\s*${Lldpmed_int_model}\s*$$ -> LLDP_details

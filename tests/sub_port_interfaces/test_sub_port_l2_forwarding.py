@@ -5,8 +5,10 @@ import contextlib
 import time
 import tempfile
 
+from scapy.layers.l2 import Dot1Q
+from scapy.all import Ether
 from ptf import testutils
-from scapy.all import *
+from scapy.all import sniff
 from tests.common import constants
 from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
@@ -30,7 +32,7 @@ def testbed_params(define_sub_ports_configuration, duthosts, rand_one_dut_hostna
     testbed_params = define_sub_ports_configuration["sub_ports"].copy()
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    for sub_port, config in testbed_params.items():
+    for sub_port, config in list(testbed_params.items()):
         port, vlanid = sub_port.split(constants.VLAN_SUB_INTERFACE_SEPARATOR)
         config["port"] = port
         config["vlanid"] = vlanid
@@ -41,7 +43,7 @@ def testbed_params(define_sub_ports_configuration, duthosts, rand_one_dut_hostna
 @pytest.fixture
 def test_sub_port(testbed_params):
     """Select a test sub port."""
-    test_sub_port = random.choice(testbed_params.keys())
+    test_sub_port = random.choice(list(testbed_params.keys()))
     logging.info("Select test sub port %s", test_sub_port)
     return test_sub_port
 
@@ -50,10 +52,10 @@ def test_sub_port(testbed_params):
 def generate_eth_packets(test_sub_port, testbed_params, ptfadapter):
     """Generate Ethernet packets that will be sent to test sub port to verify L2 forwarding."""
 
-    def _simple_tagged_eth_packet(eth_dst, eth_src, vlanid): 
+    def _simple_tagged_eth_packet(eth_dst, eth_src, vlanid):
         pkt = Ether(src=eth_src, dst=eth_dst)
         pkt /= Dot1Q(vlan=vlanid)
-        pkt /= ("0" * (60 -  len(pkt)) + PACKET_PAYLOAD_FINGERPRINT)
+        pkt /= ("0" * (60 - len(pkt)) + PACKET_PAYLOAD_FINGERPRINT)
         return pkt
 
     # first packet has a dummy MAC dst MAC, second packet has a broadcast dst MAC
@@ -77,9 +79,8 @@ def generate_eth_packets(test_sub_port, testbed_params, ptfadapter):
     return packets
 
 
-# limit the port_type to port
-@pytest.mark.parametrize("port_type", ["port"])
-def test_sub_port_l2_forwarding(apply_config_on_the_dut, duthosts, rand_one_dut_hostname, test_sub_port, generate_eth_packets, testbed_params, ptfadapter):
+def test_sub_port_l2_forwarding(apply_config_on_the_dut, duthosts, rand_one_dut_hostname, test_sub_port,
+                                generate_eth_packets, testbed_params, ptfadapter):
     """Verify sub port doesn't have L2 forwarding capability."""
 
     @contextlib.contextmanager
@@ -109,13 +110,14 @@ def test_sub_port_l2_forwarding(apply_config_on_the_dut, duthosts, rand_one_dut_
     def verify_no_packet_received(ptfadapter, ports, packet_fingerprint):
         for port in ports:
             for packet, _ in ptfadapter.dataplane.packet_queues[(0, port)]:
-                if packet_fingerprint in packet:
-                    logging.error("Received packet with fingerprint '%s' on port %s: %s\n", port, packet_fingerprint, packet)
+                if packet_fingerprint in str(packet):
+                    logging.error("Received packet with fingerprint '%s' on port %s: %s\n", port, packet_fingerprint,
+                                  str(packet))
                     pytest.fail("Received packet on port %s" % port)
 
     duthost = duthosts[rand_one_dut_hostname]
     packets = generate_eth_packets
-    ptf_ports_to_check = list(set(_["neighbor_ptf_index"] for _ in testbed_params.values()))
+    ptf_ports_to_check = list(set(_["neighbor_ptf_index"] for _ in list(testbed_params.values())))
     ptfadapter.dataplane.flush()
     for packet in packets:
         with check_no_cpu_packets(duthost, test_sub_port, PACKET_PAYLOAD_FINGERPRINT):

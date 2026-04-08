@@ -1,4 +1,5 @@
 Value Required NEIGHBORIP ([\:\d\w\.]+)
+Value NEIGHBORINTF (\S+)
 Value REMOTEASN (\d+)
 Value LOCALASN (\d+)
 Value BGPVERSION (\d+)
@@ -29,6 +30,7 @@ Value PEERGROUP (\S+)
 Value ASBYTE (\S+)
 Value IPV4UCASTNCAP ([\S\s]+)
 Value L2VPNEVPNNCAP ([\S\s]+)
+Value FAB_EXT (Fabric-external)
 Value ENDOFRIBSEND ([\S\s]+)
 Value ENDOFRIBRCV ([\S\s]+)
 Value GRCAPABILITY ([\S\s]+)
@@ -40,6 +42,7 @@ Value BFDRXINTR (\S+)
 Value BFDTXINTR (\S+)
 Value BFDSTATUS (\S+)
 Value BFDLASTUPDATE (\S+)
+Value PREFIX_RCVD (\S+)
 Value List UPDTGRP (\d+)
 Value List SUBGRP (\d+)
 Value List PKTQL (\d+)
@@ -47,9 +50,10 @@ Value List ACCEPTPREFIX (\d+)
 
 
 Start
-  ^\s*BGP\s*neighbor\s*is\s*(.*) -> Continue.Record
+  ^\s*BGP\s*neighbor\s*(is|on)\s*(.*) -> Continue.Record
   ^\s*BGP\s*neighbor\s*is\s*${NEIGHBORIP},\s*remote\s*AS\s*${REMOTEASN},\s*local\s*AS\s*${LOCALASN},\s*external\s*link
   ^\s*BGP\s*neighbor\s*is\s*${NEIGHBORIP},\s*remote\s*AS\s*${REMOTEASN},\s*local\s*AS\s*${LOCALASN},\s*internal\s*link
+  ^\s*BGP\s*neighbor\s*on\s*${NEIGHBORINTF}\s*${NEIGHBORIP},\s*remote\s*AS\s*${REMOTEASN},\s*local\s*AS\s*${LOCALASN},\s*(external|internal)\s*link
   ^\s*Member of peer-group ${PEERGROUP} for session parameters\s*$$
   ^\s*BGP\s+version\s+${BGPVERSION},\s+remote\s+router\s+ID\s+${REMROUTERID}\s?,\s+local\s+router\s+ID\s+${LOCALROUTERID}\s*$$
   ^\s*BGP\s+state\s+=\s+${STATE},\s*up\s*for\s*.*
@@ -61,6 +65,7 @@ Start
   ^\s*${ASBYTE} Byte AS: advertised
   ^\s*Address Family IPv4 Unicast: ${IPV4UCASTNCAP}
   ^\s*Address Family L2VPN EVPN: ${L2VPNEVPNNCAP}
+  ^\s*${FAB_EXT}\s*$$
   ^\s*Graceful restart information:
   ^\s*End-of-RIB send: ${ENDOFRIBSEND}
   ^\s*End-of-RIB received: ${ENDOFRIBRCV}
@@ -88,7 +93,4 @@ Start
   ^\s*Update group ${UPDTGRP}, subgroup ${SUBGRP}
   ^\s*Packet Queue length ${PKTQL}
   ^\s*${ACCEPTPREFIX} accepted prefixes$$
-
-
-
-
+  ^\s*Prefixes received ${PREFIX_RCVD}$$

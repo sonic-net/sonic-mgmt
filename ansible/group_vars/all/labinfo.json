@@ -9,13 +9,14 @@
         "Arista-7170-64C": "Arista",
         "Arista-VM": "Arista",
         "Nexus-3064-NX": "Nexus",
+        "cisco-8101-p4-32x100-vs" : "Cisco",
         "Force10-S6100": "Force10",
         "Force10-S6000": "Force10"
     },
     "switch_login": {
-        "Nexus": { 
+        "Nexus": {
             "user": "admin",
-            "passwd": ["password"], 
+            "passwd": ["password"],
             "enable": null
         },
         "Arista": {
@@ -23,10 +24,15 @@
             "passwd": ["password", "123456"],
             "enable": ["", null]
         },
+        "Cisco": {
+            "user": "admin",
+            "passwd": ["admin"],
+            "enable": ["admin"]
+        },
         "Force10": {
             "user": "admin",
             "passwd": ["password"],
-            "enable": ["password"] 
+            "enable": ["password"]
         }
     }
 }

@@ -11,8 +11,8 @@
 #                                           When internval count is n, n+1 packets will be
 #                                           received to get n internvals, the test will
 #                                           then check the median internval.
-# 
-# Originally in lagall.yml, and lag_2.yml should cover it 
+#
+# Originally in lagall.yml, and lag_2.yml should cover it
 #--------------------------------------------------------
 
 - set_fact:

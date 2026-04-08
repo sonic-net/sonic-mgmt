@@ -8,14 +8,12 @@ log syslog informational
 log facility local4
 !
 router bgp {{ host['bgp']['asn'] }}
- no bgp ebgp-requires-policy
  bgp router-id {{ host['interfaces']['Loopback0']['ipv4'] | ipaddr('address') }}
  !
 {% for asn, remote_ips in host['bgp']['peers'].items() %}
 {% for remote_ip in remote_ips %}
  neighbor {{ remote_ip }} remote-as {{ asn }}
  neighbor {{ remote_ip }} description {{ asn }}
- neighbor {{ remote_ip }} timers 3 10
 {% if remote_ip | ipv6 %}
  address-family ipv6 unicast
   neighbor {{ remote_ip }} activate

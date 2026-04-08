@@ -1,0 +1,39 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+load("//tests:ondatra_test.bzl", "ondatra_test", "ondatra_test_suite")
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
+
+
+#To run all the testcase
+filegroup(
+    name = "all_tests",
+    srcs = [
+        "//tests:ethcounter_sw_dual_switch_test",
+        "//tests:gnmi_long_stress_test",
+        "//tests:gnoi_file_test",
+        "//tests:lacp_timeout_test",
+        "//tests:link_event_damping_test",
+        "//tests:port_debug_data_test",
+        "//tests:platforms_hardware_component_test",
+        "//tests:module_reset_test",
+        "//tests:installation_test",
+        "//tests:inband_sw_interface_dual_switch_test",
+        "//tests:gnmi_get_modes_test",
+        "//tests:transceiver_test",
+        "//tests:inband_sw_interface_test",
+        "//tests:platforms_software_component_test",
+        "//tests:gnoi_reboot_test",
+        "//tests:cpu_sw_single_switch_test",
+        "//tests:ethcounter_sw_single_switch_test",
+        "//tests:gnmi_set_get_test",
+	"//tests:lacp_test",
+        "//tests:z_gnmi_stress_test",
+        "//tests:system_paths_test",
+        "//tests:gnmi_wildcard_subscription_test",
+    ],
+    testonly = 1,
+    visibility = ["//visibility:public"],
+)

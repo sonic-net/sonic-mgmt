@@ -22,4 +22,3 @@ example:
     post-user-module: []
     post-user-func: []
     post-reboot: [info, rebooted]
-

@@ -7,10 +7,12 @@ parser.add_argument("--include-description", help="include command description",
 parser.add_argument("--include-param-name", help="include exact parameter name", default=1, type=int, choices=[0, 1])
 c_args = parser.parse_args()
 
+
 class ListCommands:
     sources = [config, show]
     config_commands = {}
     show_commands = {}
+
     def __init__(self):
         pass
 
@@ -28,7 +30,7 @@ class ListCommands:
         suffix = ' >'
         argName = 'argName: '
         for index, param in enumerate(params, start=1):
-            paramName=param.name
+            paramName = param.name
             if param.__class__.__name__ == "Option":
                 prefix = '[ '
                 suffix = ' ]'
@@ -76,5 +78,3 @@ if __name__ == '__main__':
             print(command["cmd"])
             if c_args.include_description:
                 print("\tDescription: " + command["help"])
-
-

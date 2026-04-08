@@ -12,7 +12,7 @@
 
 - name: do basic sanity check before each test
   include_tasks: base_sanity.yml
-  vars: 
+  vars:
      recover: "{{ allow_recover }}"
 
 - name: validate all interfaces are up
@@ -37,7 +37,7 @@
 
 - set_fact:
     skip_test: true
-  when: 
+  when:
     - hostvars[ansible_hostname]['type'] is defined
     - testcases[testcase_name]['vtestbed_compatible'] is defined
     - hostvars[ansible_hostname]['type'] == 'kvm' or hostvars[ansible_hostname]['type'] == 'simx'
@@ -46,7 +46,7 @@
 - block:
     - name: run test case {{ testcases[testcase_name]['filename'] }} file
       include_tasks: "{{ testcases[testcase_name]['filename'] }}"
-  
+
     - name: do basic sanity check after each test
       include_tasks: base_sanity.yml
 

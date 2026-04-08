@@ -50,7 +50,7 @@ import json
 import sys
 
 
-def generate_limited_pps_config(pps_limit, input_config_file, output_config_file, config_format="app_db"):
+def generate_limited_pps_config(pps_limit, input_config_file, output_config_file, config_format="app_db", asic_type=""):
     """Modifies a COPP config to use the specified rate limit.
 
     Notes:
@@ -64,30 +64,45 @@ def generate_limited_pps_config(pps_limit, input_config_file, output_config_file
         config_format (str): The format of the input COPP config file
 
     """
+
     with open(input_config_file) as input_stream:
         copp_config = json.load(input_stream)
 
     if config_format == "app_db":
         trap_groups = copp_config
     elif config_format == "config_db":
-        trap_groups = [{x: y} for x, y in copp_config["COPP_GROUP"].items()]
+        trap_groups = [{x: y} for x, y in list(copp_config["COPP_GROUP"].items())]
     else:
         raise ValueError("Invalid config format specified")
 
     for trap_group in trap_groups:
-        for _, group_config in trap_group.items():
+        for tg, group_config in list(trap_group.items()):
             # Notes:
             # CIR (committed information rate) - bandwidth limit set by the policer
             # CBS (committed burst size) - largest burst of packets allowed by the policer
             #
             # Setting these two values to pps_limit restricts the policer to allowing exactly
             # that number of packets per second, which is what we want for our tests.
-
-            if "cir" in group_config:
-                group_config["cir"] = pps_limit
-
-            if "cbs" in group_config:
-                group_config["cbs"] = pps_limit
+            # For queue4_group3, use the default value in copp
+            # configuration as this is lower than 600 PPS
+            if tg == "queue4_group3":
+                if asic_type == "cisco-8000":
+                    group_config["cir"] = "400"
+                    group_config["cbs"] = "400"
+                else:
+                    continue
+            else:
+                # queue1_group3 is used by neighbor_miss trap.
+                # test_copp.py tests the neighbor_miss trap with default CBS/CIR
+                # values on platforms that support it.
+                # The default value is 200 PPS for queue1_group3
+                if tg == "queue1_group3":
+                    if neighbor_miss_trap_supported:
+                        continue
+                if "cir" in group_config:
+                    group_config["cir"] = pps_limit
+                if "cbs" in group_config:
+                    group_config["cbs"] = pps_limit
 
     with open(output_config_file, "w+") as output_stream:
         json.dump(copp_config, output_stream)
@@ -100,5 +115,13 @@ if __name__ == "__main__":
         config_format = "app_db"
     else:
         config_format = ARGS[3]
+    if len(ARGS) < 5:
+        asic_type = ""
+    else:
+        asic_type = ARGS[4]
+    if len(ARGS) < 6:
+        neighbor_miss_trap_supported = False
+    else:
+        neighbor_miss_trap_supported = ARGS[5].lower() == "true"
 
-    generate_limited_pps_config(ARGS[0], ARGS[1], ARGS[2], config_format)
+    generate_limited_pps_config(ARGS[0], ARGS[1], ARGS[2], config_format, asic_type)

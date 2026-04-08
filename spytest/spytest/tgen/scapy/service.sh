@@ -1,6 +1,8 @@
 #!/bin/bash
 
-ROOT=/tmp/scapy-tgen
+PYTHON=${PYTHON:=python}
+ROOT=${ROOT:=/tmp/scapy-tgen}
+
 mkdir -p $ROOT
 
 set -x
@@ -37,5 +39,5 @@ cleanup()
 }
 trap cleanup SIGINT SIGTERM EXIT
 
-python pyro-service.py 2>&1 | tee $HOME/service.log
-
+#$PYTHON rpyc-service.py 2>&1 | tee $HOME/service.log
+$PYTHON pyro-service.py 2>&1 | tee $HOME/service.log

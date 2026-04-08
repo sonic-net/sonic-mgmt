@@ -1,8 +1,11 @@
 import json
 import logging
 import socket
+import re
 
+from tests.common.cache import cached
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.cache_utils import sonic_asic_zone_getter
 from tests.common.helpers.constants import DEFAULT_NAMESPACE, NAMESPACE_PREFIX
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.platform.ssh_utils import ssh_authorize_local_user
@@ -11,13 +14,15 @@ logger = logging.getLogger(__name__)
 
 
 class SonicAsic(object):
-    """ This class represents an ASIC on a SONiC host. This class implements wrapper methods for ASIC/namespace related operations.
+    """ This class represents an ASIC on a SONiC host.
+    This class implements wrapper methods for ASIC/namespace related operations.
     The purpose is to hide the complexity of handling ASIC/namespace specific details.
     For example, passing asic_id, namespace, instance_id etc. to ansible module to deal with namespaces.
     """
 
     _MULTI_ASIC_SERVICE_NAME = "{}@{}"   # service name, asic_id
     _MULTI_ASIC_DOCKER_NAME = "{}{}"     # docker name,  asic_id
+    _RPC_PORT_FOR_SSH_TUNNEL = 9092
 
     def __init__(self, sonichost, asic_index):
         """ Initializing a ASIC on a SONiC host.
@@ -27,6 +32,7 @@ class SonicAsic(object):
             asic_index: ASIC / namespace id for this asic.
         """
         self.sonichost = sonichost
+        self.hostname = self.sonichost.hostname
         self.asic_index = asic_index
         self.ns_arg = ""
         if self.sonichost.is_multi_asic:
@@ -64,18 +70,20 @@ class SonicAsic(object):
                 service, self.asic_index if self.sonichost.is_multi_asic else ""))
         return a_service
 
+    @cached(name='is_frontend_asic', zone_getter=sonic_asic_zone_getter)
     def is_it_frontend(self):
         if self.sonichost.is_multi_asic:
             sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
-            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0]
             if sub_role is not None and sub_role.lower() == 'frontend':
                 return True
         return False
 
+    @cached(name='is_backend_asic', zone_getter=sonic_asic_zone_getter)
     def is_it_backend(self):
         if self.sonichost.is_multi_asic:
             sub_role_cmd = 'sudo sonic-cfggen -d  -v DEVICE_METADATA.localhost.sub_role -n {}'.format(self.namespace)
-            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0].decode("utf-8")
+            sub_role = self.sonichost.shell(sub_role_cmd)["stdout_lines"][0]
             if sub_role is not None and sub_role.lower() == 'backend':
                 return True
         return False
@@ -99,7 +107,8 @@ class SonicAsic(object):
             complex_args: other ansible keyword args
 
         Returns:
-            if SonicHost has only 1 asic, then return the bgp_facts for the global namespace, else bgp_facts for the bgp instance for my asic_index.
+            if SonicHost has only 1 asic, then return the bgp_facts for the global namespace,
+            else bgp_facts for the bgp instance for my asic_index.
         """
         if self.sonichost.facts['num_asic'] != 1:
             complex_args['instance_id'] = self.asic_index
@@ -115,7 +124,8 @@ class SonicAsic(object):
             complex_args: other ansible keyword args
 
         Returns:
-            if SonicHost has only 1 asic, then return the config_facts for the global namespace, else config_facts for namespace for my asic_index.
+            if SonicHost has only 1 asic, then return the config_facts for the global namespace,
+            else config_facts for namespace for my asic_index.
         """
         if 'host' not in complex_args:
             complex_args['host'] = self.sonichost.hostname
@@ -149,6 +159,19 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.show_ip_interface(*module_args, **complex_args)
 
+    def show_ipv6_interface(self, *module_args, **complex_args):
+        """Wrapper for the ansible module 'show_ipv6_interface'
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            [dict]: [the output of show ipv6 interfaces command]
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.show_ipv6_interface(*module_args, **complex_args)
+
     def run_sonic_db_cli_cmd(self, sonic_db_cmd):
         cmd = "{} {}".format(self.sonic_db_cli, sonic_db_cmd)
         return self.sonichost.command(cmd, verbose=False)
@@ -156,7 +179,7 @@ class SonicAsic(object):
     def run_redis_cli_cmd(self, redis_cmd):
         if self.namespace != DEFAULT_NAMESPACE:
             redis_cli = "/usr/bin/redis-cli"
-            cmd = "sudo ip netns exec {} {} {}".format(self.namespace, redis_cli,redis_cmd)
+            cmd = "sudo ip netns exec {} {} {}".format(self.namespace, redis_cli, redis_cmd)
             return self.sonichost.command(cmd, verbose=False)
         # for single asic platforms there are not Namespaces, so the redis-cli command is same the DUT host
         return self.sonichost.run_redis_cli_cmd(redis_cmd)
@@ -180,7 +203,8 @@ class SonicAsic(object):
             complex_args: other ansible keyword args
 
         Returns:
-            For a single ASIC platform, the namespace = DEFAULT_NAMESPACE, will retrieve interface facts for the global namespace
+            For a single ASIC platform, the namespace = DEFAULT_NAMESPACE,
+            will retrieve interface facts for the global namespace
             In case of multi-asic, if namespace = <ns>, will retrieve interface facts for that namespace.
         """
         complex_args['namespace'] = self.namespace
@@ -188,16 +212,14 @@ class SonicAsic(object):
 
     def get_service_name(self, service):
         if (not self.sonichost.is_multi_asic or
-            service not in self.sonichost.DEFAULT_ASIC_SERVICES
-        ):
+                service not in self.sonichost.DEFAULT_ASIC_SERVICES + ['bmp']):
             return service
 
         return self._MULTI_ASIC_SERVICE_NAME.format(service, self.asic_index)
 
     def get_docker_name(self, service):
         if (not self.sonichost.is_multi_asic or
-            service not in self.sonichost.DEFAULT_ASIC_SERVICES
-        ):
+                service not in self.sonichost.DEFAULT_ASIC_SERVICES + ['bmp']):
             return service
 
         return self._MULTI_ASIC_DOCKER_NAME.format(service, self.asic_index)
@@ -258,17 +280,37 @@ class SonicAsic(object):
             raise Exception("Invalid IPv4 address {}".format(ipv4))
 
         try:
-            self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
+            rc = self.sonichost.shell("{}ping -q -c{} {} > /dev/null".format(
                 self.ns_arg, count, ipv4
             ))
         except RunAnsibleModuleFail:
             return False
-        return True
+        return not rc['failed']
+
+    def ping_v6(self, ipv6, count=1):
+        """
+        Returns 'True' if ping to IP address works, else 'False'
+        Args:
+            IPv6 address
+
+        Returns:
+            True or False
+        """
+        try:
+            socket.inet_pton(socket.AF_INET6, ipv6)
+        except socket.error:
+            raise Exception("Invalid IPv6 address {}".format(ipv6))
+
+        try:
+            rc = self.sonichost.shell("{}ping -6 -q -c{} {} > /dev/null".format(
+                self.ns_arg, count, ipv6
+            ))
+        except RunAnsibleModuleFail:
+            return False
+        return not rc['failed']
 
     def is_backend_portchannel(self, port_channel):
-        mg_facts = self.sonichost.minigraph_facts(
-            host = self.sonichost.hostname
-        )['ansible_facts']
+        mg_facts = self.sonichost.minigraph_facts(host=self.sonichost.hostname)['ansible_facts']
         if port_channel in mg_facts["minigraph_portchannels"]:
             port_name = next(
                 iter(
@@ -279,7 +321,7 @@ class SonicAsic(object):
                 return False
         return True
 
-    def get_active_ip_interfaces(self, tbinfo):
+    def get_active_ip_interfaces(self, tbinfo, intf_num="all", ip_type="ipv4"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -287,9 +329,15 @@ class SonicAsic(object):
         Returns:
             Dict of Interfaces and their IPv4 address
         """
-        ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
+        if ip_type == "ipv4":
+            ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
+        elif ip_type == "ipv6":
+            ip_ifs = self.show_ipv6_interface()["ansible_facts"]["ipv6_interfaces"]
+        else:
+            raise ValueError("Invalid IP type: {}".format(ip_type))
+
         return self.sonichost.active_ip_interfaces(
-            ip_ifs, tbinfo, self.namespace
+            ip_ifs, tbinfo, self.namespace, intf_num=intf_num, ip_type=ip_type
         )
 
     def bgp_drop_rule(self, ip_version, state="present"):
@@ -319,11 +367,14 @@ class SonicAsic(object):
             self.sonichost.command(check_cmd)
             if state == "absent":
                 output = self.sonichost.command(run_cmd)
-        except RunAnsibleModuleFail as e:
+        except RunAnsibleModuleFail:
             if state == "present":
                 output = self.sonichost.command(run_cmd)
 
         logger.debug(output)
+
+    def get_rpc_port_ssh_tunnel(self):
+        return self._RPC_PORT_FOR_SSH_TUNNEL + self.asic_index
 
     def remove_ssh_tunnel_sai_rpc(self):
         """
@@ -334,7 +385,16 @@ class SonicAsic(object):
         """
         if not self.sonichost.is_multi_asic:
             return
-        return self.sonichost.remove_ssh_tunnel_sai_rpc()
+
+        try:
+            pid_list = self.sonichost.shell(
+                r'pgrep -f "ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=60 -fN -L \*:{}"'.format(
+                    self.get_rpc_port_ssh_tunnel())
+            )["stdout_lines"]
+        except RunAnsibleModuleFail:
+            return
+        for pid in pid_list:
+            self.shell("kill {}".format(pid), module_ignore_errors=True)
 
     def create_ssh_tunnel_sai_rpc(self):
         """
@@ -362,14 +422,15 @@ class SonicAsic(object):
             raise Exception("Invalid V4 address {}".format(ns_docker_if_ipv4))
 
         self.sonichost.shell(
-            ("ssh -o StrictHostKeyChecking=no -fN"
-             " -L *:9092:{}:9092 localhost"
-            ).format(ns_docker_if_ipv4)
-        )
+            ("ssh -o StrictHostKeyChecking=no -fN -o ServerAliveInterval=60"
+             " -L *:{}:{}:{} localhost").format(self.get_rpc_port_ssh_tunnel(), ns_docker_if_ipv4,
+                                                self._RPC_PORT_FOR_SSH_TUNNEL))
 
-    def command(self, cmdstr):
+    def command(self, cmdstr, new_format=False):
         """
             Prepend 'ip netns' option for commands meant for this ASIC
+
+            If new format is provided (new_format=True) we use the syntax "{cmd} -n asic{index}" instead.
 
             Args:
                 cmdstr
@@ -379,7 +440,10 @@ class SonicAsic(object):
         if not self.sonichost.is_multi_asic or self.namespace == DEFAULT_NAMESPACE:
             return self.sonichost.command(cmdstr)
 
-        cmdstr = "sudo ip netns exec {} {}".format(self.namespace, cmdstr)
+        if new_format:
+            cmdstr = "sudo {} {}".format(cmdstr, self.cli_ns_option)
+        else:
+            cmdstr = "sudo ip netns exec {} {}".format(self.namespace, cmdstr)
 
         return self.sonichost.command(cmdstr)
 
@@ -436,7 +500,6 @@ class SonicAsic(object):
 
         cmdstr = "sudo ip -n asic{} neigh {}".format(self.asic_index, cmdstr)
         return self.sonichost.command(cmdstr)
-    
 
     def port_exists(self, port):
         """
@@ -476,7 +539,7 @@ class SonicAsic(object):
         queue_oid = next(iter(self.run_redis_cmd(redis_cmd)), None)
 
         pytest_assert(
-            queue_oid != None,
+            queue_oid is not None,
             "Queue OID not found for port {}, queue {}".format(
                 port, queue_num
             )
@@ -499,23 +562,34 @@ class SonicAsic(object):
 
     def config_ip_intf(self, interface_name, ip_address, op):
         return self.sonichost.shell("sudo config interface {ns} ip {op} {intf} {ip}"
-                          .format(ns=self.cli_ns_option,
-                                  op=op,
-                                  intf=interface_name,
-                                  ip=ip_address))
+                                    .format(ns=self.cli_ns_option,
+                                            op=op,
+                                            intf=interface_name,
+                                            ip=ip_address))
 
     def config_portchannel(self, pc_name, op):
         return self.sonichost.shell("sudo config portchannel {ns} {op} {pc}"
-                          .format(ns=self.cli_ns_option,
-                                  op=op,
-                                  pc=pc_name))
+                                    .format(ns=self.cli_ns_option,
+                                            op=op,
+                                            pc=pc_name))
 
     def config_portchannel_member(self, pc_name, interface_name, op):
         return self.sonichost.shell("sudo config portchannel {ns} member {op} {pc} {intf}"
-                          .format(ns=self.cli_ns_option,
-                                  op=op,
-                                  pc=pc_name,
-                                  intf=interface_name))
+                                    .format(ns=self.cli_ns_option,
+                                            op=op,
+                                            pc=pc_name,
+                                            intf=interface_name))
+
+    def get_portchannel_members(self, pc_name):
+        """
+        Get the running PortChannel members of the given PortChannel
+        """
+        cmd = "show interfaces portchannel"
+        ret = self.sonichost.show_and_parse(cmd)
+        for pc in ret:
+            if pc["team dev"] == pc_name:
+                return pc["ports"].split()
+        return []
 
     def switch_arptable(self, *module_args, **complex_args):
         complex_args['namespace'] = self.namespace
@@ -526,48 +600,73 @@ class SonicAsic(object):
 
     def port_on_asic(self, portname):
         cmd = 'sudo sonic-cfggen {} -v "PORT.keys()" -d'.format(self.cli_ns_option)
-        ports = self.shell(cmd)["stdout_lines"][0].decode("utf-8")
-        if ports is not None and portname in ports:
+        ports = self.shell(cmd)["stdout_lines"][0]
+        # The variable 'ports' is a string in format below
+        # u"dict_keys(['Ethernet144', 'Ethernet152', 'Ethernet160', 'Ethernet280'])"
+        # doing a regex match for '<interface_name>'' to get the **exact** port.
+        # Without which a check like --> ('Ethernet16' in ports) returns true, because
+        # Ethernet16 matches as a substring to Ethernet160 which is present in 'ports'
+        if ports is not None and re.search(r"'{}'".format(portname), ports):
             return True
         return False
 
     def portchannel_on_asic(self, portchannel):
-        cmd = 'sudo sonic-cfggen -n {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
-        pcs =  self.shell(cmd)["stdout_lines"][0].decode("utf-8")
-        if pcs is not None and portchannel in pcs:
-            return True
+        cmd = 'sudo sonic-cfggen {} -v "PORTCHANNEL.keys()" -d'.format(self.cli_ns_option)
+        # Need to compare every portchannel in pcs split by single quote, with the target portchannel
+        # And cannot do 'if portchannel in pcs', reason is that string/unicode comparison could be misleading
+        # e.g. 'Portchanne101 in ['portchannel1011']' -> returns True
+        # By split() function we are converting 'pcs' to list, and can do one by one comparison
+        # sonic-cfggen returns "'PORTCHANNEL' is undefined" error if no portchannels are defined in config
+        # Wrapping shell cmd in try block to account for that case
+        pcs = None
+        try:
+            pcs = self.shell(cmd)["stdout_lines"][0]
+        except RunAnsibleModuleFail as e:
+            if "stderr_lines" in e.results and "\'PORTCHANNEL\' is undefined" in e.results["stderr_lines"][-1]:
+                return False
+            else:
+                raise
+        if pcs is not None:
+            pcs_list = pcs.split("'")
+            for pc in pcs_list:
+                if portchannel == pc:
+                    return True
         return False
 
-    def get_portchannel_and_members_in_ns(self, tbinfo):
+    def write_to_config_db(self, dst_path):
+        cmd = 'sonic-cfggen {} -j {} --write-to-db'.format(self.cli_ns_option, dst_path)
+        return self.shell(cmd)
+
+    def get_portchannels_and_members_in_ns(self, tbinfo):
+
         """
-        Get a portchannel and it's members in this namespace.
+        Get a portchannels and their members in this namespace.
 
         Args: tbinfo - testbed info
 
-        Returns: a tuple with (portchannel_name, port_channel_members)
+        Returns: a dict portchannels_data with (portchannel_name as key and port_channel_members as value)
 
         """
-        pc = None
-        pc_members = None
-
+        port_channels_data = {}
         mg_facts = self.sonichost.minigraph_facts(
-            host = self.sonichost.hostname
+            host=self.sonichost.hostname
         )['ansible_facts']
 
-        if len(mg_facts['minigraph_portchannels'].keys()) == 0:
-            return None, None
+        if len(list(mg_facts['minigraph_portchannels'].keys())) == 0:
+            return port_channels_data
 
         if self.namespace is DEFAULT_NAMESPACE:
-            pc = mg_facts['minigraph_portchannels'].keys()[0]
-            pc_members = mg_facts['minigraph_portchannels'][pc]['members']
+            for pc in list(mg_facts['minigraph_portchannels'].keys()):
+                pc_members = mg_facts['minigraph_portchannels'][pc]['members']
+                port_channels_data[pc] = pc_members
         else:
-            for k, v in mg_facts['minigraph_portchannels'].iteritems():
-                if v.has_key('namespace') and self.namespace == v['namespace']:
+            for k, v in list(mg_facts['minigraph_portchannels'].items()):
+                if 'namespace' in v and self.namespace == v['namespace']:
                     pc = k
                     pc_members = mg_facts['minigraph_portchannels'][pc]['members']
-                    break
+                    port_channels_data[pc] = pc_members
 
-        return pc, pc_members
+        return port_channels_data
 
     def get_bgp_statistic(self, stat):
         """
@@ -587,10 +686,11 @@ class SonicAsic(object):
     def check_bgp_statistic(self, stat, value):
         val = self.get_bgp_statistic(stat)
         return val == value
-    
+
     def get_router_mac(self):
-        return (self.sonichost.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac' {}".format(self.cli_ns_option))["stdout_lines"][0].encode()
-               .decode("utf-8").lower())
+        return (self.sonichost.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac' {}"
+                                       .format(self.cli_ns_option))["stdout_lines"][0]
+                    .encode().decode("utf-8").lower())
 
     def get_default_route_from_app_db(self, af='ipv4'):
         def_rt_json = None
@@ -612,7 +712,7 @@ class SonicAsic(object):
             def_rt_json = self.get_default_route_from_app_db(af)
             if def_rt_json:
                 # For multi-asic duts, when bgps are down, docker bridge will come up, which we should ignore here
-                if self.sonichost.is_multi_asic and def_rt_json.values()[0]['value']['ifname'] == 'eth0':
+                if self.sonichost.is_multi_asic and list(def_rt_json.values())[0]['value']['ifname'] == 'eth0':
                     continue
                 return False
         return True
@@ -626,17 +726,19 @@ class SonicAsic(object):
         """
         bgp_facts = self.bgp_facts()['ansible_facts']
         neigh_ok = []
-        for k, v in bgp_facts['bgp_neighbors'].items():
+        for k, v in list(bgp_facts['bgp_neighbors'].items()):
             if v['state'] == state:
                 if k.lower() in neigh_ips:
                     neigh_ok.append(k)
         logging.info("bgp neighbors that match the state: {} on namespace {}".format(neigh_ok, self.namespace))
+        logging.info("bgp neighbors to be checked on the state: {} on namespace {}".format(
+            [ip for ip in neigh_ips if ip not in neigh_ok], self.namespace))
 
         if len(neigh_ips) == len(neigh_ok):
             return True
 
         return False
-                     
+
     def count_crm_resources(self, resource_type, route_tag, count_type):
         mapping = self.sonichost.get_crm_resources(self.namespace)
         return mapping.get(resource_type).get(route_tag, {}).get(count_type)
@@ -644,14 +746,25 @@ class SonicAsic(object):
     def count_routes(self, ROUTE_TABLE_NAME):
         ns_prefix = ""
         if self.sonichost.is_multi_asic:
-            ns_prefix = '-n' + str(self.namespace)
+            ns_prefix = '-n ' + str(self.namespace)
         return int(self.shell(
-            'sonic-db-cli {} ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
+            'sonic-db-cli {} ASIC_DB eval "return #redis.call(\'keys\', \'{}*\')" 0'
+            .format(ns_prefix, ROUTE_TABLE_NAME),
             module_ignore_errors=True, verbose=True)['stdout'])
 
     def get_route_key(self, ROUTE_TABLE_NAME):
         ns_prefix = ""
         if self.sonichost.is_multi_asic:
-            ns_prefix = '-n' + str(self.namespace)
-        return self.shell('sonic-db-cli {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'.format(ns_prefix, ROUTE_TABLE_NAME),
-            verbose=False)['stdout_lines']
+            ns_prefix = '-n ' + str(self.namespace)
+        return self.shell('sonic-db-cli {} ASIC_DB eval "return redis.call(\'keys\', \'{}*\')" 0'
+                          .format(ns_prefix, ROUTE_TABLE_NAME), verbose=False)['stdout_lines']
+
+    def show_and_parse(self, show_cmd, **kwargs):
+        return self.sonichost.show_and_parse("{}{}".format(self.ns_arg, show_cmd), **kwargs)
+
+    def get_vtysh_cmd_for_namespace(self, cmd):
+        if not self.sonichost.is_multi_asic:
+            return cmd
+
+        ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(self.asic_index))
+        return ns_cmd

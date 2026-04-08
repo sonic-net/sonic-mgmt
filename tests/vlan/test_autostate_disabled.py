@@ -2,12 +2,31 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, delete_running_config
 
 
 pytestmark = [
-    pytest.mark.topology("t0")
+    pytest.mark.topology("t0", "m0", "mx")
 ]
+
+
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    """
+       Ignore expected errors in logs during test execution
+
+       Args:
+           loganalyzer: Loganalyzer utility fixture
+           duthost: DUT host object
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer and duthost.facts["platform"] == "x86_64-cel_e1031-r0":
+        loganalyzer_ignore_regex = [
+            ".*ERR swss#orchagent:.*:- doPortTask: .*: autoneg is not supported.*",
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(loganalyzer_ignore_regex)
+
+    yield
 
 
 class TestAutostateDisabled:
@@ -18,8 +37,8 @@ class TestAutostateDisabled:
     up/up status when at least one Layer 2 port becomes active in that VLAN.
 
     In SONiC, all vlans are bound to a single bridge interface, so the vlan interface will go down only if the bridge
-    is down. Since bridge goes down when all the associated interfaces are down, if all the vlan members across all
-    the vlans go down, the bridge will go down and the vlan interface will go down.
+    is down. If all the vlan members across all the vlans go down, the bridge should still remain up so as to prevent
+    the vlan interface from going down.
 
     For more information about autostate, see:
       * https://www.cisco.com/c/en/us/support/docs/switches/catalyst-6500-series-switches/41141-188.html
@@ -56,7 +75,7 @@ class TestAutostateDisabled:
 
         # Pick a vlan for test
         vlan = vlan_available[0]
-        vlan_members = vlan_members_facts[vlan].keys()
+        vlan_members = list(vlan_members_facts[vlan].keys())
 
         try:
             # Shutdown all the members in vlan.
@@ -64,16 +83,10 @@ class TestAutostateDisabled:
 
             # Check whether the oper_state of vlan interface is changed as expected.
             ip_ifs = duthost.show_ip_interface()['ansible_facts']['ip_interfaces']
-            if len(vlan_available) > 1:
-                # If more than one vlan comply with the above test requirements, then there are members in other vlans
-                # that are still up. Therefore, the bridge is still up, and vlan interface should be up.
-                pytest_assert(ip_ifs.get(vlan, {}).get('oper_state') == "up",
-                              'vlan interface of {vlan} is not up as expected'.format(vlan=vlan))
-            else:
-                # If only one vlan comply with the above test requirements, then all the vlan members across all the
-                # vlans are down. Therefore, the bridge is down, and vlan interface should be down.
-                pytest_assert(ip_ifs.get(vlan, {}).get('oper_state') == "down",
-                              'vlan interface of {vlan} is not down as expected'.format(vlan=vlan))
+            # Even if all member ports of all vlans are down, the dummy interface is still expected to be
+            # up. Therefore, the bridge should still be up, which means that vlan interfaces should be up.
+            pytest_assert(ip_ifs.get(vlan, {}).get('oper_state') == "up",
+                          'vlan interface of {vlan} is not up as expected'.format(vlan=vlan))
         finally:
             # Restore all interfaces to their original admin_state.
             self.restore_interface_admin_state(duthost, ifs_status)
@@ -111,6 +124,17 @@ class TestAutostateDisabled:
         logging.info('waiting for "{interfaces}" shutdown'.format(interfaces=interfaces))
         if not wait_until(60, 5, 0, self.check_interface_oper_state, duthost, interfaces, "down"):
             err_handler('shutdown "{interfaces}" failed'.format(interfaces=interfaces))
+
+        config_entry = []
+        config = {}
+        config["PORT"] = {}
+
+        for interface in interfaces:
+            config["PORT"].update({interface: {"admin_status": "down"}})
+
+        config_entry.append(config)
+
+        delete_running_config(config_entry, duthost)
 
     def startup_multiple_with_confirm(self, duthost, interfaces, err_handler=logging.error):
         """

@@ -1,0 +1,12 @@
+{"CABLE_LENGTH": {
+        "AZURE": {
+            {% for port, cable_len in ports_cable_info.items() %}
+                 {% if loop.index == ports_cable_info_len %}
+                   "{{port}}":"{{cable_len}}"
+                 {% else %}
+                    "{{port}}":"{{cable_len}}",
+                 {% endif %}
+            {% endfor %}
+            }
+        }
+}

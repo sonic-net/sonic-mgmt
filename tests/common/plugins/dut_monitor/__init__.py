@@ -1,5 +1,4 @@
 import os
-import pytest
 
 from .pytest_dut_monitor import DUTMonitorPlugin
 

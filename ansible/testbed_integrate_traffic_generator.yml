@@ -1,0 +1,83 @@
+
+- name: Start Trex traffic generator container
+  block:
+  - name: Pull trex image
+    command: docker pull trexcisco/trex
+    become: yes
+
+  - name: Stop existence trex container
+    command: "{{ item }}"
+    with_items:
+      - docker stop trex
+      - docker rm trex
+    become: yes
+    ignore_errors: true
+
+  - name: Start trex traffic generator container
+    command: docker run --name trex -it -d --privileged --cap-add=ALL trexcisco/trex
+    become: yes
+
+  - name: Untar trex client
+    command: docker exec trex bash -c "cd /var/trex/v2.41/ ; tar zxf trex_client_v2.41.tar.gz"
+    become: yes
+
+  - name: Prepare trex runtime files
+    command: "{{ item }}"
+    with_items:
+      - docker exec trex bash -c "cd /var/trex/v2.41/ ; tar zxf trex_client_v2.41.tar.gz"
+      - docker cp {{inventory_dir}}/../tests/wan/trex/imix.py trex:/var/trex/v2.41/trex_client/stl/profiles/
+      - docker cp {{inventory_dir}}/../tests/wan/trex/trex_cfg.yaml trex:/etc/
+      - docker cp {{inventory_dir}}/../tests/wan/trex/stl_path.py trex:/var/trex/v2.41/trex_client/stl/examples
+      - docker cp {{inventory_dir}}/../tests/wan/trex/stl_imix.py trex:/var/trex/v2.41/trex_client/stl/examples
+    delegate_to: localhost
+    become: yes
+
+  - name: Remove VM interface from ovs bridge
+    command: "{{ item }}"
+    with_items:
+      - ovs-vsctl del-port br-VM0100-3 VM0100-t3
+      - ovs-vsctl del-port br-VM0101-3 VM0101-t3
+    ignore_errors: yes
+    become: yes
+
+  - name: Remove trex bridge
+    command: "{{ item }}"
+    with_items:
+      - ifconfig trex-in down
+      - ifconfig trex-out down
+      - brctl delbr trex-in
+      - brctl delbr trex-out
+    ignore_errors: yes
+    become: yes
+
+  - name: Create trex network
+    command: "{{ item }}"
+    with_items:
+      - brctl addbr trex-in
+      - ifconfig trex-in up
+      - brctl addbr trex-out
+      - ifconfig trex-out up
+      - ip link add trex-intf-1 type veth peer trex-intf-br-1
+      - ip link add trex-intf-2 type veth peer trex-intf-br-2
+      - ifconfig trex-intf-br-1 up
+      - ifconfig trex-intf-br-2 up
+      - brctl addif trex-in trex-intf-br-1
+      - brctl addif trex-in VM0100-t3
+      - brctl addif trex-out trex-intf-br-2
+      - brctl addif trex-out VM0101-t3
+    ignore_errors: yes
+    become: yes
+
+  - name: Add interface to Trex container
+    shell: |
+       docker inspect trex|grep -w "Pid"| awk '{print $2}'|rev|cut -c2-|rev|xargs ip link set trex-intf-1 netns
+       docker inspect trex|grep -w "Pid"| awk '{print $2}'|rev|cut -c2-|rev|xargs ip link set trex-intf-2 netns
+       docker exec trex bash -c "ifconfig trex-intf-1 202.1.1.2/24 up"
+       docker exec trex bash -c "ifconfig trex-intf-2 202.2.1.2/24 up"
+    ignore_errors: yes
+    become: yes
+
+
+  - name: Start Trex traffic generator server
+    command: docker exec trex bash -c "cd /var/trex/v2.41/ ; ./t-rex-64 -i >/dev/null &"
+    become: yes

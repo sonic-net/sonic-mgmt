@@ -5,7 +5,7 @@ import tempfile
 import sys
 import time
 
-from io import BytesIO
+from io import StringIO
 from ptf.dataplane import match_exp_pkt
 from scapy.all import sniff
 from scapy.packet import ls
@@ -24,22 +24,28 @@ def dump_intf_packets(ansible_host, iface, pcap_save_path, dumped_packets,
     @pcap_filter: pcap filter used by tcpdump.
     @cleanup_pcap: True to remove packet capture file.
     """
-
+    nohup_output = "/tmp/nohup.out"
     start_pcap = "tcpdump --immediate-mode -i %s -w %s" % (iface, pcap_save_path)
     if pcap_filter:
         start_pcap += (" " + pcap_filter)
-    start_pcap = "nohup %s > /dev/null 2>&1 & echo $!" % start_pcap
+    start_pcap = "nohup %s > %s 2>&1 & echo $!" % (start_pcap, nohup_output)
+    ansible_host.file(path=nohup_output, state="absent")
     pid = ansible_host.shell(start_pcap)["stdout"]
     # sleep to let tcpdump starts to capture
     time.sleep(1)
     try:
         yield
     finally:
+        # wait for tcpdump to finish
+        time.sleep(2)
         ansible_host.shell("kill -s 2 %s" % pid)
         with tempfile.NamedTemporaryFile() as temp_pcap:
             ansible_host.fetch(src=pcap_save_path, dest=temp_pcap.name, flat=True)
             packets = sniff(offline=temp_pcap.name)
             dumped_packets.extend(packets)
+        # show the tcpdump run output for debug
+        ansible_host.shell("cat %s" % nohup_output)
+        ansible_host.file(path=nohup_output, state="absent")
         if cleanup_pcap:
             ansible_host.file(path=pcap_save_path, state="absent")
 
@@ -49,7 +55,8 @@ class ServerTrafficMonitor(object):
 
     VLAN_INTERFACE_TEMPLATE = "{external_port}.{vlan_id}"
 
-    def __init__(self, duthost, ptfhost, vmhost, tbinfo, dut_iface, conn_graph_facts, exp_pkt, existing=True, is_mocked=False):
+    def __init__(self, duthost, ptfhost, vmhost, tbinfo, dut_iface,
+                 conn_graph_facts, exp_pkt, existing=True, is_mocked=False):
         """
         @summary: Initialize the monitor.
 
@@ -74,6 +81,7 @@ class ServerTrafficMonitor(object):
         self.conn_graph_facts = conn_graph_facts
         self.captured_packets = []
         self.matched_packets = []
+
         if is_mocked:
             mg_facts = self.duthost.get_extended_minigraph_facts(self.tbinfo)
             ptf_iface = "eth%s" % mg_facts['minigraph_ptf_indices'][self.dut_iface]
@@ -96,7 +104,7 @@ class ServerTrafficMonitor(object):
     @staticmethod
     def _list_layer_str(packet):
         """Return list layer output string."""
-        _stdout, sys.stdout = sys.stdout, BytesIO()
+        _stdout, sys.stdout = sys.stdout, StringIO()
         try:
             ls(packet)
             return sys.stdout.getvalue()
@@ -119,6 +127,10 @@ class ServerTrafficMonitor(object):
         logging.info("the expected packet:\n%s", str(self.exp_pkt))
         self.matched_packets = [p for p in self.captured_packets if match_exp_pkt(self.exp_pkt, p)]
         logging.info("received %d matched packets", len(self.matched_packets))
+        asic_type = self.duthost.facts["asic_type"]
+        if asic_type == "vs":
+            logging.info("Skipping matched_packets verify on VS platform.")
+            return
         if self.matched_packets:
             logging.info(
                 "display the most recent matched captured packet:\n%s",

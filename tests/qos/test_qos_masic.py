@@ -1,12 +1,13 @@
+from tests.common.helpers.assertions import pytest_assert
 import json
 import logging
 import pytest
+import time
 
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
-from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('t1')
@@ -14,7 +15,6 @@ pytestmark = [
 
 
 class QosSaiBaseMasic:
-
 
     def runPtfTest(self, ptfhost, testCase='', testParams={}):
         """
@@ -32,17 +32,18 @@ class QosSaiBaseMasic:
                 RunAnsibleModuleFail if ptf test fails
         """
         pytest_assert(ptfhost.shell(
-                      argv = [
-                          "ptf",
+                      argv=[
+                          "/root/env-python3/bin/ptf",
                           "--test-dir",
-                          "saitests",
+                          "saitests/py3",
                           testCase,
                           "--platform-dir",
                           "ptftests",
                           "--platform",
                           "remote",
                           "-t",
-                          ";".join(["{}={}".format(k, repr(v)) for k, v in testParams.items()]),
+                          ";".join(["{}={}".format(k, repr(v))
+                                   for k, v in list(testParams.items())]),
                           "--disable-ipv6",
                           "--disable-vxlan",
                           "--disable-geneve",
@@ -54,7 +55,7 @@ class QosSaiBaseMasic:
                           "--test-case-timeout",
                           "600"
                       ],
-                      chdir = "/root",
+                      chdir="/root",
                       )["rc"] == 0, "Failed when running test '{0}'".format(testCase))
 
     def build_port_ips(self, asic_index, ifaces, mg_facts):
@@ -64,7 +65,7 @@ class QosSaiBaseMasic:
 
         dut_port_ips = dict()
 
-        for iface, addr in ifaces.items():
+        for iface, addr in list(ifaces.items()):
             if iface.startswith("Ethernet"):
                 portIndex = mg_facts["minigraph_ptf_indices"][iface]
             elif iface.startswith("PortChannel"):
@@ -95,7 +96,7 @@ class QosSaiBaseMasic:
         ).show_ip_interface()["ansible_facts"]["ip_interfaces"]
 
         # Find backend interface names
-        return {intf: ip["bgp_neighbor"].lower() for intf, ip in ip_ifs.items()
+        return {intf: ip["bgp_neighbor"].lower() for intf, ip in list(ip_ifs.items())
                 if ip["bgp_neighbor"].lower().startswith("asic")}
 
     def check_v4route_backend_nhop(self, duthost, frontend_asic, route):
@@ -112,7 +113,7 @@ class QosSaiBaseMasic:
         result = duthost.command(cmd)
         pytest_assert(result["rc"] == 0, cmd)
         route_info = json.loads(result["stdout"])
-        nhop = route_info[route_info.keys().pop()][0]
+        nhop = route_info[list(route_info.keys()).pop()][0]
 
         nhop_ifs = {x.get("interfaceName") for x in nhop["nexthops"]}
         backend_ifs = set(self.get_backend_ip_ifs(
@@ -141,12 +142,14 @@ class QosSaiBaseMasic:
         oper_state = "up" if admin_state == "startup" else "down"
         ip_ifs = self.get_backend_ip_ifs(duthost, frontend_asic)
 
-        for intf, asic in ip_ifs.items():
-            if  asic != "asic{}".format(test_asic):
+        for intf, asic in list(ip_ifs.items()):
+            if asic != "asic{}".format(test_asic):
                 if admin_state == "startup":
-                    duthost.asic_instance(frontend_asic).startup_interface(intf)
+                    duthost.asic_instance(
+                        frontend_asic).startup_interface(intf)
                 else:
-                    duthost.asic_instance(frontend_asic).shutdown_interface(intf)
+                    duthost.asic_instance(
+                        frontend_asic).shutdown_interface(intf)
 
                 # wait for port status to change
                 pytest_assert(
@@ -158,7 +161,6 @@ class QosSaiBaseMasic:
                         intf, admin_state
                     )
                 )
-
 
     def find_asic_traffic_ports(self, duthost, ptfhost, test_params):
         """
@@ -179,7 +181,7 @@ class QosSaiBaseMasic:
             a1 = c1[asic_id]["ansible_facts"]["int_counter"]
             a2 = c2[asic_id]["ansible_facts"]["int_counter"]
 
-            for port in a2.keys():
+            for port in list(a2.keys()):
                 rx_diff = int(a2[port]["RX_OK"]) - int(a1[port]["RX_OK"])
 
                 if rx_diff >= diff:
@@ -230,14 +232,14 @@ class QosSaiBaseMasic:
                     rx_port is None and tx_port is None,
                     "Multiple backend ASICs with rx/tx ports"
                 )
-                rx_port, tx_port, asic_idx  = rx, tx, asic
+                rx_port, tx_port, asic_idx = rx, tx, asic
 
         pytest_assert(asic_idx is not None, "ASIC, rx and tx ports not found")
         return ({
             "test_src_port_name": rx_port,
             "test_dst_port_name": tx_port,
             "asic_under_test": asic_idx,
-            }
+        }
         )
 
     def build_ip_interface(self, duthost, tbinfo):
@@ -258,7 +260,7 @@ class QosSaiBaseMasic:
            .
            .
         }
-        """ 
+        """
 
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
         ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index="all")
@@ -282,7 +284,7 @@ class QosSaiBaseMasic:
         # find asics with T0 neighbors
         ip_interface = self.build_ip_interface(duthost, tbinfo)
         ports = dict()
-        for k, v in ip_interface.items():
+        for k, v in list(ip_interface.items()):
             try:
                 port_index = next(iter(v))
                 port_info = v[port_index]
@@ -296,7 +298,7 @@ class QosSaiBaseMasic:
         )
 
         test_ports = dict()
-        keys = ports.keys()
+        keys = list(ports.keys())
         src_asic = keys.pop(0)
         test_ports.update({"src": {src_asic: ports[src_asic]}})
         test_ports.update({"dst": dict()})
@@ -316,14 +318,14 @@ class QosSaiBaseMasic:
         test_ports = self.build_test_ports(duthost, tbinfo)
 
         # source port
-        src_asic = test_ports["src"].keys().pop(0)
-        src_port_ids = test_ports["src"][src_asic].keys()
+        src_asic = list(test_ports["src"].keys()).pop(0)
+        src_port_ids = list(test_ports["src"][src_asic].keys())
         src_port_id = src_port_ids.pop(0)
         src_port_ip = test_ports["src"][src_asic][src_port_id]["ipv4"]
 
         # destination port
-        dst_asic = test_ports["dst"].keys().pop(0)
-        dst_port_ids = test_ports["dst"][dst_asic].keys()
+        dst_asic = list(test_ports["dst"].keys()).pop(0)
+        dst_port_ids = list(test_ports["dst"][dst_asic].keys())
         dst_port_id = dst_port_ids.pop(0)
         dst_port_ip = test_ports["dst"][dst_asic][dst_port_id]["ipv4"]
 
@@ -340,10 +342,10 @@ class QosSaiBaseMasic:
 class TestQosSaiMasic(QosSaiBaseMasic):
 
     def test_qos_masic_dscp_queue_mapping(
-        self, duthosts, rand_one_dut_hostname, enum_backend_asic_index,
+        self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_backend_asic_index,
         ptfhost, dut_test_params, swapSyncd, tbinfo
     ):
-        duthost = duthosts[rand_one_dut_hostname]
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         # Verify all external and internal BGP sessions are up
         config_facts = duthost.config_facts(
@@ -353,7 +355,8 @@ class TestQosSaiMasic(QosSaiBaseMasic):
         bgp_neighbors.update(duthost.get_internal_bgp_peers())
 
         if not wait_until(
-            300, 10, 0, duthost.check_bgp_session_state, bgp_neighbors.keys()
+            300, 10, 0, duthost.check_bgp_session_state, list(
+                bgp_neighbors.keys())
         ):
             pytest.fail("Not all bgp sessions are Up. BGP Sessions: {}".format(
                 duthost.get_bgp_neighbors()

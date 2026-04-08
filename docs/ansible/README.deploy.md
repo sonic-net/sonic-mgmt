@@ -6,7 +6,7 @@ and public [sonicdev Docker registry](https://sonicdev-microsoft.azurecr.io/).
 
 ## Requirements
 
-- Prepare a switch with the SONiC base image. See [this link](https://github.com/Azure/SONiC/blob/gh-pages/quickstart.md)
+- Prepare a switch with the SONiC base image. See [this link](https://github.com/sonic-net/SONiC/blob/gh-pages/quickstart.md)
 - If you are using your own APT repo or docker registry, packages and docker images must be uploaded to the repositories before running following steps.
 
 ## Deploy SONiC
@@ -20,6 +20,9 @@ and public [sonicdev Docker registry](https://sonicdev-microsoft.azurecr.io/).
   - Update `[ntp,syslog,dns]_servers` with a list of your server IPs for these services.
   - Update APT repository if you are using private repo.
   - Update Docker [registry](/ansible/vars/docker_registry.yml/) if you are using private registry.
+  
+  **NOTE:** for more information about credentials variables, see: [credentials management configuration](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#credentials-management).
+
 - Update management IP of switch1
   - Find the ManagementIPInterfaces xml block in [minigraph/switch1.xml](/ansible/minigraph/switch1.xml/) and change both IP addresses.
 

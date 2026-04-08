@@ -46,4 +46,3 @@ def test_fun(localhost):
 - `device_console_link` - The console server port connected to the device
 - `device_pdu_info` - The device's pdu server type, mgmtip, hwsku and protocol
 - `device_pdu_links` - The pdu server ports connected to the device
-

@@ -52,4 +52,3 @@
     - name: Remove route {{session_prefix_1}}
       shell: vtysh -e "conf t" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_1['addr'] }}" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_2['addr'] }}" -e "no ip route {{ session_prefix_1 }} {{ neighbor_info_3['addr'] }}"
       ignore_errors: yes
-  become: yes

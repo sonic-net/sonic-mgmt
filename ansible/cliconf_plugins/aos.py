@@ -21,7 +21,8 @@ class Cliconf(CliconfBase):
     def get_config(self, source='running', format='text', flags=None):
         options_values = self.get_option_values()
         if format not in options_values['format']:
-            raise ValueError("'format' value %s is invalid. Valid values are %s" % (format, ','.join(options_values['format'])))
+            raise ValueError("'format' value %s is invalid. Valid values are %s" %
+                             (format, ','.join(options_values['format'])))
 
         lookup = {'running': 'running-config', 'startup': 'startup-config'}
         if source not in lookup:
@@ -33,7 +34,7 @@ class Cliconf(CliconfBase):
 
         cmd += ' '.join(to_list(flags))
         cmd = cmd.strip()
-        
+
         return self.run_commands(cmd)[0]
 
     @enable_mode
@@ -46,7 +47,7 @@ class Cliconf(CliconfBase):
             raise ValueError('check mode is not supported without configuration session')
 
         resp = {}
-        
+
         self.send_command('configure')
 
         results = []
@@ -105,7 +106,7 @@ class Cliconf(CliconfBase):
                     raise
                 out = getattr(e, 'err', e)
             out = to_text(out, errors='surrogate_or_strict')
-            
+
             if out is not None:
                 try:
                     out = json.loads(out)
@@ -118,7 +119,8 @@ class Cliconf(CliconfBase):
                 responses.append(out)
         return responses
 
-    def get_diff(self, candidate=None, running=None, diff_match='line', diff_ignore_lines=None, path=None, diff_replace='line'):
+    def get_diff(self, candidate=None, running=None, diff_match='line',
+                 diff_ignore_lines=None, path=None, diff_replace='line'):
         diff = {}
         device_operations = self.get_device_operations()
         option_values = self.get_option_values()
@@ -127,10 +129,12 @@ class Cliconf(CliconfBase):
             raise ValueError("candidate configuration is required to generate diff")
 
         if diff_match not in option_values['diff_match']:
-            raise ValueError("'match' value %s in invalid, valid values are %s" % (diff_match, ', '.join(option_values['diff_match'])))
+            raise ValueError("'match' value %s in invalid, valid values are %s" %
+                             (diff_match, ', '.join(option_values['diff_match'])))
 
         if diff_replace not in option_values['diff_replace']:
-            raise ValueError("'replace' value %s in invalid, valid values are %s" % (diff_replace, ', '.join(option_values['diff_replace'])))
+            raise ValueError("'replace' value %s in invalid, valid values are %s" %
+                             (diff_replace, ', '.join(option_values['diff_replace'])))
 
         # prepare candidate configuration
         candidate_obj = NetworkConfig(indent=1)
@@ -151,10 +155,11 @@ class Cliconf(CliconfBase):
 
     def get_device_info(self):
         reply = self.get('show version')
+
         def extract_val(prop_name):
             import re
             return re.search(r'{}\s+:\s+(.+)'.format(prop_name), reply).group(1)
-        
+
         device_info = {}
         device_info['network_os'] = 'aos'
         device_info['network_os_version'] = extract_val('Operation Code Version')
@@ -195,6 +200,7 @@ class Cliconf(CliconfBase):
     def _get_command_with_output(self, command, output):
         options_values = self.get_option_values()
         if output not in options_values['output']:
-            raise ValueError("'output' value %s is invalid. Valid values are %s" % (output, ','.join(options_values['output'])))
+            raise ValueError("'output' value %s is invalid. Valid values are %s" %
+                             (output, ','.join(options_values['output'])))
 
         return command

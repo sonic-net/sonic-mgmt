@@ -27,7 +27,7 @@ def test_fun(duthosts, rand_one_dut_hostname):
     - Required: `True` if `cmd` or free-form argument is not provided, `False` otherwise.
     - Type: `List`
         - Element-Type: `String`
-- `chdir` - change into specified directory before running 
+- `chdir` - change into specified directory before running
     - Required: `False`
     - Type: `String`
 - `cmd` - The command to be run as a string with space dilineated options.

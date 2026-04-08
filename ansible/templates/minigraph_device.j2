@@ -1,21 +1,28 @@
   <DeviceInfos>
     <DeviceInfo>
-      <AutoNegotiation>true</AutoNegotiation>
       <EthernetInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
 {% if switch_type is not defined or switch_type != 'fabric' %}
+{% if port_alias is defined and port_alias | length > 0 %}
 {% set num_of_intf = port_alias | length %}
 {% for index in range(num_of_intf) %}
         <a:EthernetInterface>
           <ElementType>DeviceInterface</ElementType>
           <AlternateSpeeds i:nil="true"/>
-          <EnableAutoNegotiation>true</EnableAutoNegotiation>
           <EnableFlowControl>true</EnableFlowControl>
           <Index>1</Index>
+          {% if num_asics > 1 %}
           <InterfaceName>{{ port_alias[index] }}</InterfaceName>
+          {% else %}
+          <InterfaceName>{{ port_alias_map[port_alias[index]] }}</InterfaceName>
+          {% endif %}
           <InterfaceType i:nil="true"/>
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
           <Priority>0</Priority>
+{% set intf = port_name[index] %}
+{% if subtype is defined and subtype == 'SmartSwitch' and intf[8:]|int >= 224 %}
+          <role>Dpc</role>
+{% endif %}
 {% if port_speed[port_alias[index]] is defined %}
           <Speed>{{ port_speed[port_alias[index]] }}</Speed>
 {% elif (breakout_speed is defined) and (hwsku in breakout_speed) and (port_alias[index] in breakout_speed[hwsku].keys()) %}
@@ -27,6 +34,7 @@
 {% endif %}
         </a:EthernetInterface>
 {% endfor %}
+{% endif %}
 {% endif %}
       </EthernetInterfaces>
 {% if switch_type is defined and switch_type == 'voq' %}
@@ -53,4 +61,3 @@
       <ManagementInterfaces/>
     </DeviceInfo>
   </DeviceInfos>
-

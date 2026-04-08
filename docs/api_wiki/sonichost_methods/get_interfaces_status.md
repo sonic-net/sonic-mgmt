@@ -20,7 +20,7 @@ def test_fun(duthosts, rand_one_dut_hostname):
 This function takes no arguments.
 
 ## Expected Output
-Returns dicitonary with the DUT interfaces status. 
+Returns dicitonary with the DUT interfaces status.
 
 Example output:
 

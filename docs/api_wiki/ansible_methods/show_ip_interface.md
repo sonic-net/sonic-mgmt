@@ -31,5 +31,5 @@ Provides a dictionary with information on the interfaces. The dictionary hierarc
             - `ipv4` - interface configured ipv4 address
             - `peer_ipv4` - BGP neighbor ipv4 address
             - `admin` - admin state
-            - `oper_state` - operator state 
+            - `oper_state` - operator state
             - `prefix_len` - interface prefix length

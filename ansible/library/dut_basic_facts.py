@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # This ansible module is for gathering basic facts from DUT of specified testbed.
 #
 # Example output:
@@ -10,8 +10,10 @@ except ImportError:
     sys.path.append('..')
     from module_utils.parse_utils import parse_tabular_output
 
-from ansible.module_utils.basic import *
+import os
 
+from ansible.module_utils.basic import AnsibleModule
+from sonic_py_common import device_info, multi_asic
 
 DOCUMENTATION = '''
 ---
@@ -30,8 +32,6 @@ EXAMPLES = '''
   dut_basic_facts:
 '''
 
-from sonic_py_common import device_info
-
 
 def main():
 
@@ -49,6 +49,32 @@ def main():
         if hasattr(device_info, 'is_supervisor'):
             results['is_supervisor'] = device_info.is_supervisor()
 
+        results['is_chassis'] = False
+        if hasattr(device_info, 'is_chassis'):
+            results['is_chassis'] = device_info.is_chassis()
+
+        results['is_chassis_config_absent'] = False
+        if hasattr(device_info, 'is_chassis_config_absent'):
+            results['is_chassis_config_absent'] = device_info.is_chassis_config_absent()
+
+        if results['is_multi_asic']:
+            results['asic_index_list'] = []
+            if results['is_chassis']:
+                results['asic_index_list'] = multi_asic.get_asic_presence_list()
+            else:
+                results['asic_index_list'] = [ns.replace('asic', '') for ns in multi_asic.get_namespace_list()]
+
+        results['is_smartswitch'] = False
+        if hasattr(device_info, 'is_smartswitch'):
+            results['is_smartswitch'] = device_info.is_smartswitch()
+        results['is_dpu'] = False
+        if hasattr(device_info, 'is_dpu'):
+            results['is_dpu'] = device_info.is_dpu()
+
+        results['eth_mgmt_ctrl_available'] = False
+        if os.path.exists('/usr/bin/eth_mgmt_ctrl'):
+            results['eth_mgmt_ctrl_available'] = True
+
         # In case a image does not have /etc/sonic/sonic_release, guess release from 'build_version'
         if 'release' not in results or not results['release'] or results['release'] == 'none':
             if 'build_version' in results:
@@ -65,7 +91,8 @@ def main():
         command_list = ['show feature status', 'show features']
         try:
             for cmd in command_list:
-                rc, out, err = module.run_command(cmd, executable='/bin/bash', use_unsafe_shell=True)
+                rc, out, err = module.run_command(
+                    cmd, executable='/bin/bash', use_unsafe_shell=True)
                 if rc == 0:
                     break
         except Exception as e:
@@ -78,9 +105,20 @@ def main():
         for state in result:
             results["feature_status"][state["feature"]] = state["state"]
 
+        # Get management IP
+        is_mgmt_ipv6_only = False
+        rc, out, _ = module.run_command("ip -4 addr show eth0")
+        if rc == 0 and not out.strip():
+            rc, out, _ = module.run_command("ip -6 addr show eth0")
+            if rc == 0 and out.strip():
+                is_mgmt_ipv6_only = True
+        results["is_mgmt_ipv6_only"] = is_mgmt_ipv6_only
+
         module.exit_json(ansible_facts={'dut_basic_facts': results})
     except Exception as e:
-        module.fail_json(msg='Gather DUT facts failed, exception: {}'.format(repr(e)))
+        module.fail_json(
+            msg='Gather DUT facts failed, exception: {}'.format(repr(e)))
+
 
 if __name__ == '__main__':
     main()

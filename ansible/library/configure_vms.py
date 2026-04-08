@@ -1,5 +1,8 @@
 #!/usr/bin/python
 
+import time
+import paramiko
+from ansible.module_utils.basic import AnsibleModule
 DOCUMENTATION = '''
 module:         configure_vms
 version_added:  "1.0"
@@ -17,12 +20,9 @@ EXAMPLES = '''
   configure_vms: ip={{ item }}
 '''
 
-from ansible.module_utils.basic import *
-import paramiko
-import json
-import time
 
 class ConfigureVMs(object):
+    # nosemgrep: hardcoded-password-default-argument
     def __init__(self, ip, cmds, module, login='admin', password='123456'):
         self.ip = ip
         self.cmds = cmds
@@ -71,11 +71,12 @@ class ConfigureVMs(object):
             self.do_cmd(cmd)
             time.sleep(5)
 
-        self.module.exit_json(ansible_facts={'conf_vm':self.facts})
+        self.module.exit_json(ansible_facts={'conf_vm': self.facts})
 
         self.disconnect()
 
         return
+
 
 def main():
     module = AnsibleModule(
@@ -90,13 +91,12 @@ def main():
     m_args = module.params
     ip = m_args['ip']
     cmds = m_args['cmds']
-    login = m_args['login']
-    password = m_args['password']
 
     conf = ConfigureVMs(ip, cmds, module)
     conf.run()
 
     return
+
 
 if __name__ == "__main__":
     main()

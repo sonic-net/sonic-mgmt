@@ -1,6 +1,6 @@
 <!--
 Please make sure you've read and understood our contributing guidelines;
-https://github.com/Azure/SONiC/blob/gh-pages/CONTRIBUTING.md
+https://github.com/sonic-net/SONiC/blob/gh-pages/CONTRIBUTING.md
 
 Please provide following information to help code review process a bit easier:
 -->
@@ -24,12 +24,19 @@ Fixes # (issue)
 
 - [ ] Bug fix
 - [ ] Testbed and Framework(new/improvement)
-- [ ] Test case(new/improvement)
+- [ ] New Test case
+    - [ ] Skipped for non-supported platforms
+- [ ] Test case improvement
 
 
 ### Back port request
-- [ ] 201911
-- [ ] 202012
+- [ ] 202205
+- [ ] 202305
+- [ ] 202311
+- [ ] 202405
+- [ ] 202411
+- [ ] 202505
+- [ ] 202511
 
 ### Approach
 #### What is the motivation for this PR?

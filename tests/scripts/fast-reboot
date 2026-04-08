@@ -268,7 +268,7 @@ function reboot_pre_check()
         debug "Next image ${NEXT_SONIC_IMAGE} doesn't exist ..."
         exit ${EXIT_NEXT_IMAGE_NOT_EXISTS}
     fi
-    
+
     # Make sure ASIC configuration has not changed between images
     ASIC_CONFIG_CHECK_SCRIPT="/usr/local/bin/asic_config_check"
 

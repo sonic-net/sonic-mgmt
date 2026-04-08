@@ -1,0 +1,10 @@
+[program:bfd_responder]
+command=/usr/bin/python /opt/bfd_responder.py {{ bfd_responder_args }}
+process_name=bfd_responder
+stdout_logfile=/tmp/bfd_responder.out.log
+stderr_logfile=/tmp/bfd_responder.err.log
+redirect_stderr=false
+autostart=false
+autorestart=true
+startsecs=1
+numprocs=1

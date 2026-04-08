@@ -13,7 +13,8 @@ def fan_drawer_api(conn, index, name, args=None):
     conn.request('POST', '/platform/chassis/fan_drawer/{}/{}'.format(index, name), json.dumps({'args': args}))
     resp = conn.getresponse()
     res = json.loads(resp.read())['res']
-    logger.info('Executing fan_drawer API: "{}", index: {}, arguments: "{}", result: "{}"'.format(name, index, args, res))
+    logger.info('Executing fan_drawer API: "{}", index: {}, arguments: "{}", result: "{}"'
+                .format(name, index, args, res))
     return res
 
 #

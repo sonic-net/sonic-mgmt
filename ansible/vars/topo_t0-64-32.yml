@@ -56,13 +56,13 @@ topology:
           prefix_v6: fc02:1000::1/64
           tag: 1000
       two_vlan_a:
-        Vlan100: 
+        Vlan100:
           id: 100
           intfs: [2, 3, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
           prefix: 192.168.0.1/22
           prefix_v6: fc02:100::1/64
           tag: 100
-        Vlan200: 
+        Vlan200:
           id: 200
           intfs: [18, 19, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31]
           prefix: 192.168.4.1/22

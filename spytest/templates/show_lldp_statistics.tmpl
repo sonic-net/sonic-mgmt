@@ -1,0 +1,19 @@
+Value interface (\S+)
+Value transmitted (\d+)
+Value received (\d+)
+Value discarded (\d+)
+Value unrecognized (\d+)
+Value ageout (\d+)
+Value inserted (\d+)
+Value deleted (\d+)
+
+Start
+  ^\s*Interface\s*\:\s*${interface}\s*$$
+  ^\s*Transmitted\s*\:\s*${transmitted}\s*$$
+  ^\s*Received\s*\:\s*${received}\s*$$
+  ^\s*Discarded\s*\:\s*${discarded}\s*$$
+  ^\s*Unrecognized\s*\:\s*${unrecognized}\s*$$
+  ^\s*Unrecognized\s*[TLV]*\s*\:\s*${unrecognized}\s*$$
+  ^\s*Ageout\s*\:\s*${ageout}\s*$$
+  ^\s*Inserted\s*\:\s*${inserted}\s*$$
+  ^\s*Deleted\s*\:\s*${deleted}\s*$$ -> Record

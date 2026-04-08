@@ -22,9 +22,9 @@ ARP_RESPONDER_CONF = os.path.join(TESTS_ROOT, "templates/arp_responder.conf.j2")
 
 
 def get_fanout(fanout_graph_facts, setup):
-    for fanout_host_name, value in fanout_graph_facts.items():
-        for _, ports in value["device_conn"].items():
-            for attr, attr_info in ports.items():
+    for fanout_host_name, value in list(fanout_graph_facts.items()):
+        for _, ports in list(value["device_conn"].items()):
+            for attr, attr_info in list(ports.items()):
                 if attr == "peerport":
                     if attr_info == setup["ptf_test_params"]["server_ports"][0]["dut_name"]:
                         return fanout_host_name
@@ -54,7 +54,7 @@ def deploy_pfc_gen(fanouthosts, fanout_graph_facts, setup):
 
     if "arista" in fanout_graph_facts[fanout_host_name]["device_info"]["HwSku"].lower():
         arista_pfc_gen_dir = "/mnt/flash/"
-        for host_name, fanout in fanouthosts.items():
+        for host_name, fanout in list(fanouthosts.items()):
             if host_name == fanout_host_name:
                 break
 
@@ -66,8 +66,8 @@ def deploy_pfc_gen(fanouthosts, fanout_graph_facts, setup):
 @pytest.fixture(scope="function")
 def pfc_storm_template(ansible_facts, fanout_graph_facts, setup):
     """
-    Compose dictionary which items will be used to start/stop PFC generator on Fanout switch by 'pfc_storm_runner' fixture.
-    Dictionary values depends on fanout HWSKU (MLNX-OS, Arista or others)
+    Compose dictionary which items will be used to start/stop PFC generator on Fanout switch by
+    'pfc_storm_runner' fixture. Dictionary values depends on fanout HWSKU (MLNX-OS, Arista or others)
     """
     res = {
         "template": {
@@ -113,19 +113,24 @@ def pfc_storm_runner(fanouthosts, fanout_graph_facts, pfc_storm_template, setup)
             dev_conn = fanout_graph_facts[fanout_host_name]["device_conn"]
             plist = []
             if self.server_ports:
-                p = ",".join([iface for iface, value in dev_conn.items() if value["peerport"] in self.used_server_ports])
+                p = ",".join(
+                    [iface for iface, value in list(dev_conn.items()) if value["peerport"] in self.used_server_ports]
+                )
                 if p:
                     plist.append(p)
             if self.non_server_port:
-                p = ",".join([iface for iface, value in dev_conn.items() if value["peerport"] in self.used_non_server_port])
+                p = ",".join(
+                    [iface for iface, value in list(dev_conn.items()) if value["peerport"] in self.used_non_server_port]
+                )
                 if p:
                     plist.append(p)
             params["pfc_fanout_interface"] += ",".join([key for key in plist])
-            fanout_host.exec_template(ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, inventory=setup["fanout_inventory"], \
-                **params)
+            fanout_host.exec_template(
+                ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, inventory=setup["fanout_inventory"], **params
+            )
             time.sleep(5)
     fanout_host_name = get_fanout(fanout_graph_facts, setup)
-    for host_name, fanout_host in fanouthosts.items():
+    for host_name, fanout_host in list(fanouthosts.items()):
         if host_name == fanout_host_name:
             break
     params = pfc_storm_template["template_params"].copy()
@@ -134,8 +139,9 @@ def pfc_storm_runner(fanouthosts, fanout_graph_facts, pfc_storm_template, setup)
 
     yield StormRunner()
     params["template_path"] = pfc_storm_template["template"]["pfc_storm_stop"]
-    fanout_host.exec_template(ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, inventory=setup["fanout_inventory"], \
-        **params)
+    fanout_host.exec_template(
+        ansible_root=ANSIBLE_ROOT, ansible_playbook=RUN_PLAYBOOK, inventory=setup["fanout_inventory"], **params
+    )
     time.sleep(5)
 
 
@@ -145,7 +151,8 @@ def enable_pfc_asym(setup, duthosts, rand_one_dut_hostname):
     Enable/disable asymmetric PFC on all server interfaces
     """
     duthost = duthosts[rand_one_dut_hostname]
-    get_pfc_mode = "docker exec -i database redis-cli --raw -n 1 HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{} SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_MODE"
+    get_pfc_mode = "docker exec -i database redis-cli --raw -n 1 " \
+                   "HGET ASIC_STATE:SAI_OBJECT_TYPE_PORT:{} SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_MODE"
     srv_ports = " ".join([port["dut_name"] for port in setup["ptf_test_params"]["server_ports"]])
     pfc_asym_enabled = "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_SEPARATE"
     pfc_asym_restored = "SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_COMBINED"
@@ -162,8 +169,12 @@ def enable_pfc_asym(setup, duthosts, rand_one_dut_hostname):
             # Verify asymmetric PFC enabled
             assert pfc_asym_enabled == duthost.command(get_pfc_mode.format(p_oid))["stdout"]
             # Verify asymmetric PFC Rx and Tx values
-            assert setup["pfc_bitmask"]["pfc_rx_mask"] == int(duthost.command(get_asym_pfc.format(port=p_oid, sai_attr=sai_asym_pfc_rx))["stdout"])
-            assert setup["pfc_bitmask"]["pfc_tx_mask"] == int(duthost.command(get_asym_pfc.format(port=p_oid, sai_attr=sai_asym_pfc_tx))["stdout"])
+            assert setup["pfc_bitmask"]["pfc_rx_mask"] == int(
+                duthost.command(get_asym_pfc.format(port=p_oid, sai_attr=sai_asym_pfc_rx))["stdout"]
+            )
+            assert setup["pfc_bitmask"]["pfc_tx_mask"] == int(
+                duthost.command(get_asym_pfc.format(port=p_oid, sai_attr=sai_asym_pfc_tx))["stdout"]
+            )
         yield
 
     finally:
@@ -174,13 +185,18 @@ def enable_pfc_asym(setup, duthosts, rand_one_dut_hostname):
             # Verify asymmetric PFC disabled
             assert pfc_asym_restored == duthost.command(get_pfc_mode.format(p_oid))["stdout"]
             # Verify PFC value is restored to default
-            assert setup["pfc_bitmask"]["pfc_mask"] == int(duthost.command(get_asym_pfc.format(port=p_oid, sai_attr=sai_default_asym_pfc))["stdout"])
+            assert setup["pfc_bitmask"]["pfc_mask"] == int(
+                duthost.command(get_asym_pfc.format(port=p_oid, sai_attr=sai_default_asym_pfc))["stdout"]
+            )
+
 
 @pytest.fixture(scope="module")
 def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ansible_facts, minigraph_facts, request):
     """
     Fixture performs initial steps which is required for test case execution.
-    Also it compose data which is used as input parameters for PTF test cases, and PFC - RX and TX masks which is used in test case logic.
+    Also it compose data which is used as input parameters for PTF test cases, and PFC - RX and TX masks which is
+    used in test case logic.
+
     Collected data is returned as dictionary object and is available to use in pytest test cases.
 
     Setup steps:
@@ -231,7 +247,8 @@ def setup(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, ansible_facts, minig
             "router_mac": None,
             "pfc_to_dscp": None,
             "lossless_priorities": None,
-            "lossy_priorities": None
+            "lossy_priorities": None,
+            "sonic_asic_type": duthost.facts['asic_type']
             },
         "server_ports_oids": [],
         "fanout_inventory": request.config.getoption("--fanout_inventory")
@@ -257,10 +274,14 @@ class Setup(object):
         self.mg_facts = minigraph_facts
         self.ansible_facts = ansible_facts
         self.vars = setup_params
-        if not 0 <= use_port_num <= len(self.mg_facts["minigraph_vlans"][self.mg_facts["minigraph_vlan_interfaces"][0]["attachto"]]["members"]):
+        if not 0 <= use_port_num <= len(
+            self.mg_facts["minigraph_vlans"][self.mg_facts["minigraph_vlan_interfaces"][0]["attachto"]]["members"]
+        ):
             raise Exception("Incorrect number specificed for used server ports: {}".format(use_port_num))
-        self.vlan_members = self.mg_facts["minigraph_vlans"][self.mg_facts["minigraph_vlan_interfaces"][0]["attachto"]]["members"][0:use_port_num]
-        self.portchannel_member = self.mg_facts["minigraph_portchannels"][self.mg_facts["minigraph_portchannel_interfaces"][0]["attachto"]]["members"][0]
+        self.vlan_members = self.mg_facts["minigraph_vlans"][
+            self.mg_facts["minigraph_vlan_interfaces"][0]["attachto"]]["members"][0:use_port_num]
+        self.portchannel_member = self.mg_facts["minigraph_portchannels"][
+            self.mg_facts["minigraph_portchannel_interfaces"][0]["attachto"]]["members"][0]
 
     def generate_setup(self):
         """
@@ -277,23 +298,34 @@ class Setup(object):
 
     def generate_server_ports(self):
         """ Generate list of port parameters which are connected to servers """
-        generated_ips = generate_ips(len(self.vlan_members), "{}/{}".format(self.mg_facts['minigraph_vlan_interfaces'][0]['addr'],
-                                            self.mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']),
-                                            [IPAddress(self.mg_facts['minigraph_vlan_interfaces'][0]['addr'])])
+        generated_ips = generate_ips(
+            len(self.vlan_members),
+            "{}/{}".format(
+                self.mg_facts['minigraph_vlan_interfaces'][0]['addr'],
+                self.mg_facts['minigraph_vlan_interfaces'][0]['prefixlen']
+            ),
+            [IPAddress(self.mg_facts['minigraph_vlan_interfaces'][0]['addr'])]
+        )
 
         self.vars["ptf_test_params"]["server_ports"] = []
         for index, item in enumerate(self.vlan_members):
-            port_info = {"dut_name": item,
-                            "ptf_name": "eth{}".format(self.mg_facts["minigraph_ptf_indices"][item]),
-                            "index": self.mg_facts["minigraph_ptf_indices"][item],
-                            "ptf_ip": generated_ips[index],
-                            "oid": None}
+            port_info = {
+                "dut_name": item,
+                "ptf_name": "eth{}".format(self.mg_facts["minigraph_ptf_indices"][item]),
+                "index": self.mg_facts["minigraph_ptf_indices"][item],
+                "ptf_ip": generated_ips[index],
+                "oid": None
+            }
 
             redis_oid = self.duthost.command("docker exec -i database redis-cli --raw -n 2 HMGET \
                         COUNTERS_PORT_NAME_MAP {}".format(item))["stdout"]
             self.vars["server_ports_oids"].append(redis_oid)
 
-            sai_redis_oid = int(self.duthost.command("docker exec -i database redis-cli -n 1 hget VIDTORID {}".format(redis_oid))["stdout"].replace("oid:", ""), 16)
+            sai_redis_oid = int(
+                self.duthost.command(
+                    "docker exec -i database redis-cli -n 1 hget VIDTORID {}".format(redis_oid)
+                )["stdout"].replace("oid:", ""), 16
+            )
             port_info["oid"] = sai_redis_oid
             self.vars["ptf_test_params"]["server_ports"].append(port_info)
 
@@ -303,23 +335,29 @@ class Setup(object):
         """ Generate list of port parameters which are connected to VMs """
         redis_oid = self.duthost.command("docker exec -i database redis-cli --raw -n 2 HMGET \
                                             COUNTERS_PORT_NAME_MAP {}".format(self.portchannel_member))["stdout"]
-        sai_redis_oid = int(self.duthost.command("docker exec -i database redis-cli -n 1 hget VIDTORID {}".format(redis_oid))["stdout"].replace("oid:", ""), 16)
-        self.vars["ptf_test_params"]["non_server_port"] = {"ptf_name": "eth{}".format(self.mg_facts["minigraph_ptf_indices"][self.portchannel_member]),
-                                                    "index": self.mg_facts["minigraph_ptf_indices"][self.portchannel_member],
-                                                    "ip": self.mg_facts["minigraph_portchannel_interfaces"][0]["peer_addr"],
-                                                    "dut_name": self.portchannel_member,
-                                                    "oid": sai_redis_oid}
+        sai_redis_oid = int(
+            self.duthost.command(
+                "docker exec -i database redis-cli -n 1 hget VIDTORID {}".format(redis_oid)
+            )["stdout"].replace("oid:", ""), 16
+        )
+        self.vars["ptf_test_params"]["non_server_port"] = \
+            {
+                "ptf_name": "eth{}".format(self.mg_facts["minigraph_ptf_indices"][self.portchannel_member]),
+                "index": self.mg_facts["minigraph_ptf_indices"][self.portchannel_member],
+                "ip": self.mg_facts["minigraph_portchannel_interfaces"][0]["peer_addr"],
+                "dut_name": self.portchannel_member,
+                "oid": sai_redis_oid
+            }
 
     def generate_router_mac(self):
         """ Get DUT MAC address which will be used by PTF as Ethernet destination MAC address during sending traffic """
         self.vars["ptf_test_params"]["router_mac"] = self.duthost.facts["router_mac"]
 
-
     def prepare_arp_responder(self):
         """ Copy ARP responder to the PTF host """
         self.ptfhost.script("./scripts/change_mac.sh")
         self.ptfhost.copy(src=ARP_RESPONDER, dest="/opt")
-        extra_vars = {"arp_responder_args" : "-c /tmp/arp_responder_pfc_asym.json"}
+        extra_vars = {"arp_responder_args": "-c /tmp/arp_responder_pfc_asym.json"}
         self.ptfhost.host.options["variable_manager"].extra_vars.update(extra_vars)
         self.ptfhost.template(src=ARP_RESPONDER_CONF, dest="/etc/supervisor/conf.d/arp_responder.conf", force=True)
         self.ptfhost.command('supervisorctl reread')
@@ -335,17 +373,22 @@ class Setup(object):
                 self.vars["ptf_test_params"]["port_map_file"] = os.path.basename(ptf_portmap)
                 break
         else:
-            pytest.fail("Unable to find 'ptf_portmap' variable in inventory file for {} DUT".format(self.duthost.hostname))
+            pytest.fail(
+                "Unable to find 'ptf_portmap' variable in inventory file for {} DUT".format(self.duthost.hostname)
+            )
 
     def generate_priority(self):
         """ Get configuration of lossless and lossy priorities """
         lossless = []
         lossy = []
-        buf_pg_keys = self.duthost.command("docker exec -i database redis-cli --raw -n 4 KEYS *BUFFER_PG*")["stdout"].split()
+        buf_pg_keys = self.duthost.command(
+            "docker exec -i database redis-cli --raw -n 4 KEYS *BUFFER_PG*"
+        )["stdout"].split()
 
-        get_priority_cli = "for item in {}; do docker exec -i database redis-cli -n 4 HGET $item \"profile\"; done".format(
-            " ".join(["\"{}\"".format(item) for item in buf_pg_keys])
-            )
+        get_priority_cli = "for item in {}; do docker exec -i database redis-cli -n 4 " \
+                           "HGET $item \"profile\"; done".format(
+                                " ".join(["\"{}\"".format(item) for item in buf_pg_keys])
+                            )
         out = self.duthost.command(get_priority_cli, _uses_shell=True)["stdout"].split()
         for index, pg_key in enumerate(buf_pg_keys):
             value = pg_key.split("|")[-1].split("-")
@@ -354,28 +397,33 @@ class Setup(object):
             elif "lossy" in out[index]:
                 lossy.extend(value)
             else:
-                pytest.fail("Unable to read lossless and lossy priorities. Buffer PG profile value - {}".format(var))
+                pytest.fail("Unable to read lossless and lossy priorities.")
 
         self.vars["ptf_test_params"]["lossless_priorities"] = list(set(lossless))
         self.vars["ptf_test_params"]["lossy_priorities"] = list(set(lossy))
 
     def generate_pfc_to_dscp_map(self):
         """ Get PFC to DSCP fields mapping """
-        dscp_to_tc_key = self.duthost.command("docker exec -i database redis-cli --raw -n 4 KEYS *DSCP_TO_TC_MAP*")["stdout"]
-        dscp_to_tc_keys = self.duthost.command("docker exec -i database redis-cli --raw -n 4 HKEYS {}".format(dscp_to_tc_key))["stdout"].split()
+        dscp_to_tc_key = self.duthost.command(
+            "docker exec -i database redis-cli --raw -n 4 KEYS *DSCP_TO_TC_MAP*"
+        )["stdout"]
+        dscp_to_tc_keys = self.duthost.command(
+            "docker exec -i database redis-cli --raw -n 4 HKEYS {}".format(dscp_to_tc_key)
+        )["stdout"].split()
 
         get_dscp_to_tc = "for item in {}; do docker exec -i database redis-cli -n 4 HGET \"{}\" $item; done".format(
                             " ".join(dscp_to_tc_keys), dscp_to_tc_key
                             )
         dscp_to_tc = self.duthost.command(get_dscp_to_tc, _uses_shell=True)["stdout"]
-        self.vars["ptf_test_params"]["pfc_to_dscp"] = dict(zip(map(int, dscp_to_tc.split()),
-                                                            map(int, dscp_to_tc_keys)))
+        self.vars["ptf_test_params"]["pfc_to_dscp"] = dict(
+            list(zip(list(map(int, dscp_to_tc.split())), list(map(int, dscp_to_tc_keys))))
+        )
 
     def generate_pfc_bitmask(self):
         """ Compose PFC bitmask for Rx and Tx values """
         pfc_mask = 0
         pfc_rx_mask = 0
-        all_priorities = [0, 1, 2, 3, 4, 5, 6, 7] # Asymmetric PFC sets Rx bitmask for all priorities
+        all_priorities = [0, 1, 2, 3, 4, 5, 6, 7]       # Asymmetric PFC sets Rx bitmask for all priorities
         for item in self.vars["ptf_test_params"]["lossless_priorities"]:
             pfc_mask = pfc_mask | (1 << int(item))
         for item in all_priorities:

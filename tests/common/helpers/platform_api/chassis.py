@@ -9,6 +9,7 @@ logger = logging.getLogger(__name__)
 
 INBAND_PORT_REGEX = (r"(Ethernet-IB)(\d+)$")
 
+
 def chassis_api(conn, name, args=None):
     if args is None:
         args = []

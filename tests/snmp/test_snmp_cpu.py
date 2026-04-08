@@ -11,6 +11,7 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
+
 @pytest.mark.bsl
 def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
     """
@@ -25,9 +26,10 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    hostip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+    hostip = duthost.host.options['inventory_manager'].get_host(
+        duthost.hostname).vars['ansible_host']
     host_facts = duthost.setup()['ansible_facts']
-    if host_facts.has_key("ansible_processor_vcpus"):
+    if "ansible_processor_vcpus" in host_facts:
         host_vcpus = int(host_facts['ansible_processor_vcpus'])
     else:
         res = duthost.shell("nproc")
@@ -36,36 +38,57 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
     logger.info("found {} cpu on the dut".format(host_vcpus))
 
     # Gather facts with SNMP version 2
-    snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
+    snmp_facts = get_snmp_facts(
+        duthost, localhost, host=hostip, version="v2c",
+        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
 
     assert int(snmp_facts['ansible_ChStackUnitCpuUtil5sec'])
 
+    watchdog_pid = None
     try:
+        # Start a watchdog that guarantees cleanup even if the test times out or aborts.
+        # Without this, 'yes' processes can leak on weak-per-core platforms (e.g. armhf)
+        # where the test may be killed before reaching the finally block.
+        # See: https://github.com/sonic-net/sonic-mgmt/issues/21517
+        watchdog_timeout = 300  # 5 minutes — well beyond the test's expected duration
+        watchdog_cmd = "nohup sh -c 'sleep {}; pkill -x -9 yes' >/dev/null 2>&1 & echo $!".format(
+            watchdog_timeout)
+        watchdog_pid = duthost.shell(watchdog_cmd)['stdout'].strip()
+
         for i in range(host_vcpus):
             duthost.shell("nohup yes > /dev/null 2>&1 & sleep 1")
 
         # Wait for load to reflect in SNMP
-        time.sleep(20)
+        time.sleep(40)
 
         # Gather facts with SNMP version 2
-        snmp_facts = get_snmp_facts(localhost, host=hostip, version="v2c", community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
+        snmp_facts = get_snmp_facts(
+            duthost, localhost, host=hostip, version="v2c",
+            community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
 
         # Pull CPU utilization via shell
         # Explanation: Run top command with 2 iterations, 5sec delay.
         # Discard the first iteration, then grap the CPU line from the second,
         # subtract 100% - idle, and round down to integer.
 
-        output = duthost.shell("top -bn2 -d5 | awk '/^top -/ { p=!p } { if (!p) print }' | awk '/Cpu/ { cpu = 100 - $8 };END   { print cpu }' | awk '{printf \"%.0f\",$1}'")
+        output = duthost.shell(
+            "top -bn2 -d5 | awk '/^top -/ { p=!p } { if (!p) print }' | awk '/Cpu/ { cpu = 100 - $8 };"
+            "END   { print cpu }' | awk '{printf \"%.0f\",$1}'")
 
         logger.info(str(snmp_facts['ansible_ChStackUnitCpuUtil5sec']))
         logger.info(str(output['stdout']))
 
-        cpu_diff = abs(int(snmp_facts['ansible_ChStackUnitCpuUtil5sec']) - int(output['stdout']))
+        cpu_diff = abs(
+            int(snmp_facts['ansible_ChStackUnitCpuUtil5sec']) - int(output['stdout']))
 
         if cpu_diff > 5:
-            pytest.fail("cpu diff large than 5%%, %d, %d" % (int(snmp_facts['ansible_ChStackUnitCpuUtil5sec']), int(output['stdout'])))
+            pytest.fail("cpu diff large than 5%%, %d, %d" % (
+                int(snmp_facts['ansible_ChStackUnitCpuUtil5sec']), int(output['stdout'])))
 
-        duthost.shell("killall yes")
-    except:
-        duthost.shell("killall yes")
+    except Exception:
         raise
+    finally:
+        duthost.shell("killall yes")
+        # Cancel the watchdog so it doesn't fire during later tests
+        if watchdog_pid:
+            duthost.shell("kill {} 2>/dev/null || true".format(watchdog_pid), module_ignore_errors=True)

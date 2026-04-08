@@ -14,7 +14,7 @@ def rest_get_all_portchannel_info(dut):
     rest_urls = st.get_datastore(dut, 'rest_urls')
     ret_val = []
     try:
-        data = get_rest(dut, rest_url = rest_urls['pc_interfaces_config'])
+        data = get_rest(dut, rest_url=rest_urls['pc_interfaces_config'])
         portchannel_info = data["output"]["openconfig-lacp:interfaces"]["interface"]
         for entry in portchannel_info:
             temp = {}
@@ -31,7 +31,7 @@ def rest_get_all_portchannel_info(dut):
                 for member_info in members_info:
                     members = {}
                     members['port'] = member_info['interface']
-                    members['port_state'] = 'U' if member_info['state']['openconfig-interfaces-ext:selected'] else 'D'
+                    members['port_state'] = 'U' if member_info['state']['selected'] else 'D'
                     temp['members'].append(members)
             ret_val.append(temp)
         st.debug(ret_val)
@@ -54,13 +54,13 @@ def rest_get_per_portchannel_info(dut, portchannel):
     """
     rest_urls = st.get_datastore(dut, 'rest_urls')
     url = rest_urls['get_pc_type'].format(portchannel)
-    data = get_rest(dut, rest_url = url)
+    data = get_rest(dut, rest_url=url)
     if 'output' in data and "openconfig-if-aggregate:lag-type" in data['output'] and data['output']['openconfig-if-aggregate:lag-type'] == 'STATIC':
         return get_static_portchannel(dut, portchannel)
     url = rest_urls['pc_interface_config'].format(portchannel)
     ret_val = []
     try:
-        data = get_rest(dut, rest_url = url)
+        data = get_rest(dut, rest_url=url)
         portchannel_info = data["output"]['openconfig-lacp:interface'][0]
         temp = {}
         temp['name'] = portchannel_info['name']
@@ -73,7 +73,7 @@ def rest_get_per_portchannel_info(dut, portchannel):
             for member_info in members_info:
                 members = {}
                 members['port'] = member_info['interface']
-                members['port_state'] = 'U' if member_info['state']['openconfig-interfaces-ext:selected'] else 'D'
+                members['port_state'] = 'U' if member_info['state']['selected'] else 'D'
                 temp['members'].append(members)
         ret_val.append(temp)
         st.debug(ret_val)
@@ -97,8 +97,8 @@ def get_oper_status(dut, interface):
     rest_urls = st.get_datastore(dut, 'rest_urls')
     url = rest_urls['config_interface_oper_state'].format(interface)
     try:
-        get_info = get_rest(dut, rest_url = url)
-        oper_status = 'U' if get_info["output"]["openconfig-interfaces:oper-status"].upper()=='UP' else 'D'
+        get_info = get_rest(dut, rest_url=url)
+        oper_status = 'U' if get_info["output"]["openconfig-interfaces:oper-status"].upper() == 'UP' else 'D'
         return oper_status
     except Exception as e:
         st.log("{} exception occurred".format(e))
@@ -120,7 +120,7 @@ def get_static_portchannel(dut, portchannel):
     ret_val = []
     try:
         lag_info = {}
-        get_info = get_rest(dut, rest_url = url)
+        get_info = get_rest(dut, rest_url=url)
         get_info = get_info["output"]["openconfig-if-aggregate:state"]
         lag_info['name'] = portchannel
         lag_info['protocol'] = get_info['lag-type'].capitalize()
@@ -138,6 +138,7 @@ def get_static_portchannel(dut, portchannel):
     except Exception as e:
         st.log("{} exception occurred".format(e))
         return ret_val
+
 
 def rest_get_fallback_status(dut, portchannel):
     """

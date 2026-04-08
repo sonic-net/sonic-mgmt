@@ -4,24 +4,26 @@ import re
 import ipaddress
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.generic_config_updater.gu_utils import apply_patch, expect_op_success
-from tests.generic_config_updater.gu_utils import generate_tmpfile, delete_tmpfile
-from tests.generic_config_updater.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import apply_patch, expect_op_success
+from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
+from tests.common.gu_utils import format_json_patch_for_multiasic
+from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.gu_utils import get_bgp_speaker_runningconfig
 
 pytestmark = [
-    pytest.mark.topology('t0'), # BGP Speaker is limited to t0 only
+    pytest.mark.topology('t0'),     # BGP Speaker is limited to t0 only
 ]
 
 logger = logging.getLogger(__name__)
 
-BGPSPEAKER_V4          = "BGPSLBPassive"
-BGPSPEAKER_V6          = "BGPSLBPassiveV6"
+BGPSPEAKER_V4 = "BGPSLBPassive"
+BGPSPEAKER_V6 = "BGPSLBPassiveV6"
 BGPSPEAKER_SRC_ADDR_RE = "neighbor {} update-source {}"
 BGPSPEAKER_IP_RANGE_RE = "bgp listen range {} peer-group {}"
-DUMMY_IP_RANGE_V4      = "10.255.0.0/25"
-DUMMY_IP_RANGE_V6      = "cc98:2008:2012:2022::/64"
-DUMMY_SRC_ADDRESS_V4   = "10.1.0.33"
-DUMMY_SRC_ADDRESS_V6   = "fc00:1::33"
+DUMMY_IP_RANGE_V4 = "10.255.0.0/25"
+DUMMY_IP_RANGE_V6 = "cc98:2008:2012:2022::/64"
+DUMMY_SRC_ADDRESS_V4 = "10.1.0.33"
+DUMMY_SRC_ADDRESS_V6 = "fc00:1::33"
 
 
 @pytest.fixture(scope="module")
@@ -56,29 +58,6 @@ def lo_intf_ips(rand_selected_dut, tbinfo):
     pytest_assert(True, "Required ipv4 and ipv6 to start the test")
 
 
-def get_bgp_speaker_runningconfig(duthost):
-    """ Get bgp speaker config that contains src_address and ip_range
-
-    Sample output in t0:
-    ['\n neighbor BGPSLBPassive update-source 10.1.0.32',
-     '\n neighbor BGPVac update-source 10.1.0.32',
-     '\n bgp listen range 10.255.0.0/25 peer-group BGPSLBPassive',
-     '\n bgp listen range 192.168.0.0/21 peer-group BGPVac']
-    """
-    cmds = "show runningconfiguration bgp"
-    output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "'{}' failed with rc={}".format(cmds, output['rc'])
-    )
-
-    # Sample:
-    # neighbor BGPSLBPassive update-source 10.1.0.32
-    # bgp listen range 192.168.0.0/21 peer-group BGPVac
-    bgp_speaker_pattern = r"\s+neighbor.*update-source.*|\s+bgp listen range.*"
-    bgp_speaker_config = re.findall(bgp_speaker_pattern, output['stdout'])
-    return bgp_speaker_config
-
-
 @pytest.fixture(autouse=True)
 def setup_env(duthosts, rand_one_dut_hostname):
     """
@@ -111,9 +90,7 @@ def bgp_speaker_config_cleanup(duthost):
     """
     cmds = 'sonic-db-cli CONFIG_DB keys "BGP_PEER_RANGE|*" | xargs -r sonic-db-cli CONFIG_DB del'
     output = duthost.shell(cmds)
-    pytest_assert(not output['rc'],
-        "bgp speaker config cleanup failed."
-    )
+    pytest_assert(not output['rc'], "bgp speaker config cleanup failed.")
 
 
 def show_bgp_running_config(duthost):
@@ -148,6 +125,7 @@ def bgp_speaker_tc1_add_config(duthost, lo_intf_ips, vlan_intf_ip_ranges):
             }
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -187,6 +165,7 @@ def bgp_speaker_tc1_add_dummy_ip_range(duthost):
             "value": "{}".format(DUMMY_IP_RANGE_V6)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -219,6 +198,7 @@ def bgp_speaker_tc1_rm_dummy_ip_range(duthost):
             "path": "/BGP_PEER_RANGE/{}/ip_range/1".format(BGPSPEAKER_V6)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -253,6 +233,7 @@ def bgp_speaker_tc1_replace_src_address(duthost):
             "value": "{}".format(DUMMY_SRC_ADDRESS_V6)
         }
     ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -280,3 +261,4 @@ def test_bgp_speaker_tc1_test_config(rand_selected_dut, lo_intf_ips, vlan_intf_i
     bgp_speaker_tc1_add_dummy_ip_range(rand_selected_dut)
     bgp_speaker_tc1_rm_dummy_ip_range(rand_selected_dut)
     bgp_speaker_tc1_replace_src_address(rand_selected_dut)
+    bgp_speaker_config_cleanup(rand_selected_dut)

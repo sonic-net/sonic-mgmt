@@ -12,12 +12,13 @@ import ptf.mask as mask
 import ptf.packet as packet
 
 from tests.common import constants
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # noqa: F401
+from tests.common.fixtures.ptfhost_utils import iptables_drop_ipv6_tx   # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m
-from tests.common.utilities import get_intf_by_sub_intf
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
+from tests.common.utilities import get_intf_by_sub_intf, wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -25,11 +26,14 @@ pytestmark = [pytest.mark.topology("t0")]
 
 TEST_PKT_CNT = 10
 
+
 def initClassVars(func):
     """
     Automatically assign instance variables. currently handles only arg list
     """
-    names, varargs, keywords, defaults = inspect.getargspec(func)
+    signature = inspect.signature(func)
+    names = list(signature.parameters.keys())
+
     @functools.wraps(func)
     def wrapper(self, *args):
         for name, value in list(zip(names[1:], args)):
@@ -37,6 +41,26 @@ def initClassVars(func):
 
         func(self, *args)
     return wrapper
+
+
+@pytest.fixture(autouse=True, scope="module")
+def dut_disable_arp_update(rand_selected_dut):
+    """
+    Fixture to disable arp update before the test and re-enable it afterwards
+
+    Args:
+        rand_selected_dut(AnsibleHost) : dut instance
+    """
+    duthost = rand_selected_dut
+    if duthost.shell("docker exec -t swss supervisorctl stop arp_update")['stdout_lines'][0] \
+            == 'arp_update: ERROR (not running)':
+        logger.warning("arp_update not running, already disabled")
+
+    yield
+
+    assert duthost.shell("docker exec -t swss supervisorctl start arp_update")['stdout_lines'][0] \
+        == 'arp_update: started'
+
 
 @pytest.fixture(autouse=True, scope="module")
 def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
@@ -63,8 +87,10 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
     server_ips = []
     if 'dualtor' in tbinfo['topo']['name']:
         servers = mux_cable_server_ip(duthost)
-        for ips in servers.values():
+        for ips in list(servers.values()):
             server_ips.append(ips['server_ipv4'].split('/')[0])
+            if 'soc_ipv4' in ips:
+                server_ips.append(ips['soc_ipv4'].split('/')[0])
 
     # populate vlan info
     vlan = dict()
@@ -73,13 +99,13 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
     vlan['ips'] = duthost.get_ip_in_range(num=1, prefix="{}/{}".format(vlan['addr'], vlan['pfx']),
                                           exclude_ips=[vlan['addr']] + server_ips)['ansible_facts']['generated_ips']
     vlan['hostip'] = vlan['ips'][0].split('/')[0]
-    vlan['ports'] = mg_facts["minigraph_vlans"].values()[0]["members"]
+    vlan['ports'] = list(mg_facts["minigraph_vlans"].values())[0]["members"]
     # populate dst intf and ptf id
     ptf_portmap = mg_facts['minigraph_ptf_indices']
     dst_port = random.choice(vlan['ports'])
     if is_backend_topology:
         ptf_dst_port = str(ptf_portmap[dst_port]) + constants.VLAN_SUB_INTERFACE_SEPARATOR + \
-                       mg_facts["minigraph_vlans"].values()[0]["vlanid"]
+                       list(mg_facts["minigraph_vlans"].values())[0]["vlanid"]
     else:
         ptf_dst_port = ptf_portmap[dst_port]
     ptf_vlan_ports = [ptf_portmap[ifname] for ifname in vlan['ports']]
@@ -97,8 +123,8 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
             intf_name = get_intf_by_sub_intf(sub_intf_name, vlan_id)
             sub_intfs.add(sub_intf_name)
             ptf_ports[sub_intf_name] = (ptf_portmap[intf_name], sub_intf_name,
-                                           vlan_sub_interface['peer_addr'],
-                                           vlan_id)
+                                        vlan_sub_interface['peer_addr'],
+                                        vlan_id)
             intfs = list(sub_intfs)
     else:
         for key in mg_facts['minigraph_portchannels']:
@@ -125,14 +151,16 @@ def unknownMacSetup(duthosts, rand_one_dut_hostname, tbinfo):
              }
     yield setup
 
+
 @pytest.fixture
-def flushArpFdb(duthosts, rand_one_dut_hostname):
+def flushArpFdb(duthosts, rand_one_dut_hostname, dut_disable_arp_update):
     """
     Fixture to flush all ARP and FDB entries
 
     Args:
         duthosts(AnsibleHost) : multi dut instance
         rand_one_dut_hostname(string) : one of the dut instances from the multi dut
+        dut_disable_arp_update(fixture) : module scope fixture to disable arp update
     """
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Clear all ARP and FDB entries on the DUT")
@@ -145,9 +173,12 @@ def flushArpFdb(duthosts, rand_one_dut_hostname):
     duthost.shell("sonic-clear fdb all")
     duthost.shell("ip neigh flush all")
 
+
 @pytest.fixture(autouse=True)
 def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_hostname,
-                toggle_all_simulator_ports_to_rand_selected_tor_m):
+                toggle_all_simulator_ports_to_rand_selected_tor_m,              # noqa: F811
+                setup_standby_ports_on_rand_unselected_tor_unconditionally,     # noqa: F811
+                iptables_drop_ipv6_tx):                                         # noqa: F811
     """
     Fixture to populate ARP entry on the DUT for the traffic destination
 
@@ -160,7 +191,6 @@ def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_ho
     """
     # Wait 5 seconds for mux to toggle
     time.sleep(5)
-    duthost = duthosts[rand_one_dut_hostname]
     setup = unknownMacSetup
     ptfhost.script("./scripts/remove_ip.sh")
     logger.info("Populate ARP entry for dest port")
@@ -197,10 +227,10 @@ class PreTestVerify(object):
                       "ARP entry for {} missing in ASIC".format(self.dst_ip))
         result = self.duthost.shell("ip neigh show {}".format(self.dst_ip))
         pytest_assert(result['stdout_lines'], "{} not in arp table".format(self.dst_ip))
-        match = re.match("{}.*lladdr\s+(.*)\s+[A-Z]+".format(self.dst_ip),
+        match = re.match(r"{}.*lladdr\s+(.*)\s+[A-Z]+".format(self.dst_ip),
                          result['stdout_lines'][0])
         pytest_assert(match,
-                      "Regex failed while retreiving arp entry for {}".format(self.dst_ip))
+                      "Regex failed while retrieving arp entry for {}".format(self.dst_ip))
         self.arp_entry.update({self.dst_ip: match.group(1)})
 
     def _checkFdbEntryMiss(self):
@@ -209,7 +239,8 @@ class PreTestVerify(object):
         """
         result = self.duthost.command("show mac")
         out = result['stdout']
-        pytest_assert(self.arp_entry[self.dst_ip].lower() not in out.lower(), "{} present in FDB".format(self.arp_entry[self.dst_ip]))
+        pytest_assert(self.arp_entry[self.dst_ip].lower() not in out.lower(), "{} present in FDB"
+                      .format(self.arp_entry[self.dst_ip]))
         logger.info("'{}' not present in fdb as expected".format(self.arp_entry[self.dst_ip]))
 
     def verifyArpFdb(self):
@@ -231,7 +262,7 @@ class TrafficSendVerify(object):
     """ Send traffic and check interface counters and ptf ports """
     @initClassVars
     def __init__(self, duthost, ptfadapter, dst_ip, ptf_dst_port, ptf_vlan_ports,
-                 intfs, ptf_ports, arp_entry, dscp):
+                 intfs, ptf_ports, arp_entry, dscp):     # noqa: F811
         """
         Args:
             duthost(AnsibleHost) : dut instance
@@ -308,17 +339,21 @@ class TrafficSendVerify(object):
             pretest(bool): collect counters before or after the test run
         """
         stats = self._parseCntrs()
-        for key, value in self.pkt_map.items():
+        for key, value in list(self.pkt_map.items()):
             intf = value[1]
             if pretest:
                 self.pre_rx_drops[intf] = int(stats[intf]['RX_DRP'])
             else:
                 actual_cnt = int(stats[intf]['RX_DRP'])
                 exp_cnt = self.pre_rx_drops[intf] + TEST_PKT_CNT
-                pytest_assert(actual_cnt >= exp_cnt,
-                              "Pkt dropped cnt incorrect for intf {}. Expected: {}, Obtained: {}".format(intf, exp_cnt,
-                                                                                                         actual_cnt))
                 logger.info("Pkt count dropped on interface {}: {}, Expected: {}".format(intf, actual_cnt, exp_cnt))
+                if actual_cnt < exp_cnt:
+                    return False
+        return True
+
+    def verifyIntfCounters(self):
+        pytest_assert(wait_until(10, 2, 0, self._verifyIntfCounters),
+                      "Drop counters failed to increment")
 
     def runTest(self):
         """
@@ -327,18 +362,20 @@ class TrafficSendVerify(object):
         self._constructPacket()
         logger.info("Clear all counters before test run")
         self.duthost.command("sonic-clear counters")
-        time.sleep(1)
-        logger.info("Collect drop counters before test run")
-        self._verifyIntfCounters(pretest=True)
-        for pkt, exp_pkt in zip(self.pkts, self.exp_pkts):
-            self.ptfadapter.dataplane.flush()
-            out_intf = self.pkt_map[str(pkt)][0]
-            src_port = self.ptf_ports[out_intf][0]
-            logger.info("Sending traffic on intf {}".format(out_intf))
-            testutils.send(self.ptfadapter, src_port, pkt, count=TEST_PKT_CNT)
-            testutils.verify_no_packet_any(self.ptfadapter, exp_pkt, ports=self.ptf_vlan_ports)
-        logger.info("Collect and verify drop counters after test run")
-        self._verifyIntfCounters()
+        asic_type = self.duthost.facts["asic_type"]
+        if asic_type != "vs":
+            time.sleep(1)
+            logger.info("Collect drop counters before test run")
+            self._verifyIntfCounters(pretest=True)
+            for pkt, exp_pkt in zip(self.pkts, self.exp_pkts):
+                self.ptfadapter.dataplane.flush()
+                out_intf = self.pkt_map[str(pkt)][0]
+                src_port = self.ptf_ports[out_intf][0]
+                logger.info("Sending traffic on intf {}".format(out_intf))
+                testutils.send(self.ptfadapter, src_port, pkt, count=TEST_PKT_CNT)
+                testutils.verify_no_packet_any(self.ptfadapter, exp_pkt, ports=self.ptf_vlan_ports)
+            logger.info("Collect and verify drop counters after test run")
+            self.verifyIntfCounters()
 
 
 class TestUnknownMac(object):

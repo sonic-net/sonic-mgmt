@@ -1,7 +1,7 @@
 #!/usr/bin/python
 import re
 import subprocess
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 
 DOCUMENTATION = '''
 ---
@@ -38,6 +38,7 @@ temp2:
   temp2_input: 26.800
   temp2_crit: 118.000
 '''
+
 
 class SensorsModule(object):
     def __init__(self):
@@ -104,7 +105,8 @@ class SensorsModule(object):
             Collect sensors by reading output of 'sensors' utility
         '''
         try:
-            process = subprocess.Popen(['sensors', '-A', '-u'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            process = subprocess.Popen(
+                ['sensors', '-A', '-u'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             self.stdout, stderr = process.communicate()
             self.stdout = self.stdout.decode('utf-8')
             stderr = stderr.decode('utf-8')
@@ -123,19 +125,21 @@ class SensorsModule(object):
         '''
 
         # Return true if the row is an empty line
-        is_empty = lambda row: row == ''
+        def is_empty(row): return row == ''
 
         # Return true if the row is a row which represent device
         # ('acpitz-virtual-0' in the example above)
-        is_device = lambda row: row[0] != ' ' and row[-1] != ':' and ':' not in row
+        def is_device(
+            row): return row[0] != ' ' and row[-1] != ':' and ':' not in row
 
         # Return true if the row is a row which represent a subsystem of the device
         # ('temp1:' in the example above)
-        is_subsystem = lambda row: row[0] != ' ' and row[-1] == ':'
+        def is_subsystem(row): return row[0] != ' ' and row[-1] == ':'
 
         # Return true if the row is a row which represent a sensor value
         # ('temp1_input: 26.800' in the example above)
-        is_sensor = lambda row: row[0] == ' ' and row[-1] != ':' and ':' in row
+        def is_sensor(
+            row): return row[0] == ' ' and row[-1] != ':' and ':' in row
 
         device = None
         subsystem = None
@@ -166,7 +170,8 @@ class SensorsModule(object):
                 for idev in attrs['skip_list']:
                     self.skip_devices.add(idev)
                 self.facts['warning'] = True
-                self.warnings.append("PSU #%s [%s] is absent" % (attrs['number'], attrs['side']))
+                self.warnings.append("PSU #%s [%s] is absent" % (
+                    attrs['number'], attrs['side']))
 
         return
 
@@ -181,7 +186,8 @@ class SensorsModule(object):
             if version == self.os_version:
                 for attr in attrs['skip_list']:
                     self.skip_sensors_attr.add(attr)
-                    self.warnings.append("sensor attributes [%s] is absent in version %s" % (attr, self.os_version))
+                    self.warnings.append(
+                        "sensor attributes [%s] is absent in version %s" % (attr, self.os_version))
                 self.facts['warning'] = True
 
         return
@@ -233,7 +239,7 @@ class SensorsModule(object):
                 if self.skip_the_value(path):
                     continue
                 value = self.get_raw_value(path)
-                if value is None:
+                if value in (None, {}):
                     self.alarms[hw_part] = True
                     self.facts['alarm'] = True
                     self.alarms[reasons].append('Path %s is not exist' % path)
@@ -250,18 +256,29 @@ class SensorsModule(object):
                     continue
                 value_input = self.get_raw_value(path_input)
                 value_max = self.get_raw_value(path_max)
-                if value_input is None:
+                if value_input in (None, {}):
                     self.alarms[hw_part] = True
                     self.facts['alarm'] = True
-                    self.alarms[reasons].append('Path %s is not exist' % path_input)
-                elif value_max is None:
+                    self.alarms[reasons].append(
+                        'Path %s is not exist' % path_input)
+                elif value_max in (None, {}):
                     self.alarms[hw_part] = True
                     self.facts['alarm'] = True
-                    self.alarms[reasons].append('Path %s is not exist' % path_max)
-                elif float(value_input) >= float(value_max) :
-                    self.alarms[hw_part] = True
-                    self.facts['alarm'] = True
-                    self.alarms[reasons].append('Alarm on %s' % path_input)
+                    self.alarms[reasons].append(
+                        'Path %s is not exist' % path_max)
+                else:
+                    try:
+                        if float(value_input) >= float(value_max):
+                            self.alarms[hw_part] = True
+                            self.facts['alarm'] = True
+                            self.alarms[reasons].append('Alarm on %s' % path_input)
+                    except (ValueError, TypeError):
+                        self.alarms[hw_part] = True
+                        self.facts['alarm'] = True
+                        self.alarms[reasons].append(
+                            f'Invalid value on {path_input}. Value is expected to be a string or int. '
+                            f'Got value_input={value_input}|{type(value_input)}, '
+                            f'value_max={value_max}|{type(value_max)}')
 
         # check not zero lists
         for hw_part, not_zero_list in self.checks['non_zero'].items():
@@ -270,7 +287,7 @@ class SensorsModule(object):
                 if self.skip_the_value(path):
                     continue
                 value = self.get_raw_value(path)
-                if value is None:
+                if value in (None, {}):
                     self.alarms[hw_part] = True
                     self.facts['alarm'] = True
                     self.alarms[reasons].append('Path %s is not exist' % path)
@@ -281,11 +298,13 @@ class SensorsModule(object):
 
         return
 
+
 def main():
     sensors = SensorsModule()
     sensors.run()
 
     return
+
 
 if __name__ == '__main__':
     main()

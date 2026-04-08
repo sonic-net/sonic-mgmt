@@ -1,15 +1,21 @@
 """Test cases to support the Everflow IPv6 Mirroring feature in SONiC."""
+import threading
+import time
 import pytest
 import ptf.testutils as testutils
-
-import everflow_test_utilities as everflow_utils
-from everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM
-
+from ptf import packet
+from ptf.mask import Mask
+import ptf.packet as scapy
+from . import everflow_test_utilities as everflow_utils
+from .everflow_test_utilities import BaseEverflowTest, DOWN_STREAM, UP_STREAM, erspan_ip_ver              # noqa: F401
+import random
 # Module-level fixtures
-from everflow_test_utilities import setup_info  # noqa: F401, E501 lgtm[py/unused-import] pylint: disable=import-error
+from .everflow_test_utilities import setup_info, skip_ipv6_everflow_tests                                 # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor    # noqa: F401
+from tests.common.macsec.macsec_helper import MACSEC_INFO
 
 pytestmark = [
-    pytest.mark.topology("t0","t1")
+    pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2", "m0", "m1")
 ]
 
 EVERFLOW_V6_RULES = "ipv6_test_rules.yaml"
@@ -28,39 +34,227 @@ class EverflowIPv6Tests(BaseEverflowTest):
 
     DEFAULT_SRC_IP = "2002:0225:7c6b:a982:d48b:230e:f271:0000"
     DEFAULT_DST_IP = "2002:0225:7c6b:a982:d48b:230e:f271:0001"
+    RULE_DST_IP = "2002:0225:7c6b::"
+    rx_port_ptf_id = None
     tx_port_ids = []
 
+    @pytest.fixture(scope='class')
+    def dest_port_type(self, setup_info):     # noqa F811
+        if setup_info['topo'] in ['t0', 'm0_vlan']:
+            return UP_STREAM
+        return DOWN_STREAM
+
     @pytest.fixture(scope='class',  autouse=True)
-    def setup_mirror_session_dest_ip_route(self, duthosts, rand_one_dut_hostname, tbinfo, setup_info, setup_mirror_session):
+    def setup_mirror_session_dest_ip_route(self, tbinfo, setup_info, setup_mirror_session, erspan_ip_ver, dest_port_type):     # noqa F811
         """
         Setup the route for mirror session destination ip and update monitor port list.
         Remove the route as part of cleanup.
         """
-        duthost = duthosts[rand_one_dut_hostname]
-        if setup_info['topo'] == 't0':
-            # On T0 testbed, the collector IP is routed to T1
-            namespace = setup_info[UP_STREAM]['namespace']
-            tx_port = setup_info[UP_STREAM]["dest_port"][0]
-            dest_port_ptf_id_list = [setup_info[UP_STREAM]["dest_port_ptf_id"][0]]
-        else:
-            namespace = setup_info[DOWN_STREAM]['namespace']
-            tx_port = setup_info[DOWN_STREAM]["dest_port"][0]
-            dest_port_ptf_id_list = [setup_info[DOWN_STREAM]["dest_port_ptf_id"][0]]
-        duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"redistribute static\"", namespace))
-        peer_ip = everflow_utils.get_neighbor_info(duthost, tx_port, tbinfo)
-        everflow_utils.add_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip, namespace)
-        EverflowIPv6Tests.tx_port_ids = self._get_tx_port_id_list(dest_port_ptf_id_list)
+        ip = "ipv4" if erspan_ip_ver == 4 else "ipv6"
+        # On T0 testbed, the collector IP is routed to T1
+        namespace = setup_info[dest_port_type]['remote_namespace']
+        tx_port = setup_info[dest_port_type]["dest_port"][0]
+        dest_port_ptf_id_list = [setup_info[dest_port_type]["dest_port_ptf_id"][0]]
+        remote_dut = setup_info[dest_port_type]['remote_dut']
+        rx_port_id = setup_info[dest_port_type]["src_port_ptf_id"]
+        remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
+            f"vtysh -c \"config\" -c \"router bgp\" -c \"address-family {ip}\" -c \"redistribute static\"", namespace))
+        peer_ip = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, ip_version=erspan_ip_ver)
+        session_prefixes = setup_mirror_session["session_prefixes"] if erspan_ip_ver == 4 \
+            else setup_mirror_session["session_prefixes_ipv6"]
+        everflow_utils.add_route(remote_dut, session_prefixes[0], peer_ip, namespace)
+        EverflowIPv6Tests.tx_port_ids = BaseEverflowTest._get_tx_port_id_list(dest_port_ptf_id_list)
+        EverflowIPv6Tests.rx_port_ptf_id = rx_port_id
         time.sleep(5)
 
         yield
 
-        everflow_utils.remove_route(duthost, setup_mirror_session["session_prefixes"][0], peer_ip, namespace)
-        duthost.shell(duthost.get_vtysh_cmd_for_namespace("vtysh -c \"config\" -c \"router bgp\" -c \"address-family ipv4\" -c \"no redistribute static\"", namespace))
+        everflow_utils.remove_route(remote_dut, session_prefixes[0], peer_ip, namespace)
+        remote_dut.shell(remote_dut.get_vtysh_cmd_for_namespace(
+            f"vtysh -c \"config\" -c \"router bgp\" -c \"address-family {ip}\" -c \"no redistribute static\"",
+            namespace))
 
-    def test_src_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    @pytest.fixture(scope='class', autouse=True)
+    def add_dest_routes(self, setup_info, tbinfo, dest_port_type):      # noqa F811
+        if self.acl_stage() != 'egress':
+            yield
+            return
+
+        default_traffic_port_type = DOWN_STREAM if dest_port_type == UP_STREAM else UP_STREAM
+
+        duthost = setup_info[default_traffic_port_type]['remote_dut']
+        rx_port = setup_info[default_traffic_port_type]["dest_port"][0]
+        nexthop_ip = everflow_utils.get_neighbor_info(duthost, rx_port, tbinfo, ip_version=6)
+
+        ns = setup_info[default_traffic_port_type]["remote_namespace"]
+        networks_to_add = [f"{self.DEFAULT_DST_IP}/128", f"{self.RULE_DST_IP}/48"]
+
+        for network in networks_to_add:
+            everflow_utils.add_route(duthost, network, nexthop_ip, ns)
+
+        yield
+
+        for network in networks_to_add:
+            everflow_utils.remove_route(duthost, network, nexthop_ip, ns)
+
+    @pytest.fixture(scope='class')
+    def everflow_dut(self, setup_info):             # noqa F811
+        if setup_info['topo'] in ['t0', 'm0_vlan']:
+            dut = setup_info[UP_STREAM]['everflow_dut']
+        else:
+            dut = setup_info[DOWN_STREAM]['everflow_dut']
+
+        yield dut
+
+    @pytest.fixture(scope='class')
+    def everflow_direction(self, setup_info):       # noqa F811
+        if setup_info['topo'] in ['t0', 'm0_vlan']:
+            direction = UP_STREAM
+        else:
+            direction = DOWN_STREAM
+
+        yield direction
+
+    @pytest.fixture(scope='function', autouse=True)
+    def background_traffic(self, ptfadapter, everflow_direction, setup_info, everflow_dut,  # noqa F811
+                           setup_standby_ports_on_rand_unselected_tor_unconditionally,      # noqa F811
+                           toggle_all_simulator_ports_to_rand_selected_tor):                # noqa F811
+        stop_thread = threading.Event()
+        src_port = EverflowIPv6Tests.rx_port_ptf_id
+
+        cmd = 'show ipv6 bgp summary'
+        parse_result = everflow_dut.show_and_parse(cmd)
+        neigh_ipv6 = {entry['neighborname']: entry['neighbhor'].lower() for entry in parse_result}
+
+        if len(neigh_ipv6) > 1:
+            def background_traffic(run_count=None):
+                selected_addrs1 = random.sample(list(neigh_ipv6.values()), 2)
+                selected_addrs2 = random.sample(list(neigh_ipv6.values()), 2)
+                selected_addrs3 = random.sample(list(neigh_ipv6.values()), 2)
+
+                inner_pkt2 = self._base_tcpv6_packet(
+                    everflow_direction,
+                    ptfadapter,
+                    setup_info,
+                    src_ip=selected_addrs1[1],
+                    dst_ip=selected_addrs1[0]
+                ).getlayer(scapy.IPv6)
+
+                packets = [
+                    testutils.simple_ipv6ip_packet(ipv6_src=selected_addrs2[0],
+                                                   eth_src=ptfadapter.dataplane.get_mac(
+                                                       *list(ptfadapter.dataplane.ports.keys())[0]
+                                                    ),
+                                                   eth_dst=setup_info[everflow_direction]["ingress_router_mac"],
+                                                   ipv6_dst=selected_addrs2[1],
+                                                   inner_frame=inner_pkt2),
+                    self._base_tcpv6_packet(
+                        everflow_direction,
+                        ptfadapter,
+                        setup_info,
+                        src_ip=selected_addrs3[0],
+                        dst_ip=selected_addrs3[1]
+                    )
+                ]
+
+                count = 0
+                while (run_count is None and not stop_thread.is_set()) or (run_count is not None and count < run_count):
+                    time.sleep(.1)
+                    for bkg_trf in packets:
+                        testutils.send(ptfadapter, src_port, bkg_trf)
+                        # Verify packet if run_count is specified
+                        if run_count is not None:
+                            exp_pkt = bkg_trf
+                            exp_pkt = Mask(exp_pkt)
+                            exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
+                            exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
+                            exp_pkt.set_do_not_care_packet(scapy.IPv6, "hlim")
+                            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptfadapter.ptf_port_set,
+                                                             timeout=5)
+                    count += 1
+
+            background_traffic(run_count=1)
+            background_thread = threading.Thread(target=background_traffic)
+            background_thread.daemon = True
+            background_thread.start()
+
+            yield
+            stop_thread.set()
+            # Wait for the background thread to finish
+            background_thread.join()
+            background_traffic(run_count=1)
+
+    @pytest.fixture(scope='class',  autouse=True)
+    def setup_acl_table(self, setup_info, setup_mirror_session, config_method, setup_mirror_session_dest_ip_route):         # noqa F811
+
+        # Capability check; skips when unsupported
+        if not setup_info[self.acl_stage()][self.mirror_type()]:
+            pytest.skip("{} ACL w/ {} Mirroring not supported, skipping"
+                        .format(self.acl_stage(), self.mirror_type()))
+        if MACSEC_INFO and self.mirror_type() == "egress":
+            pytest.skip("With MACSEC {} ACL w/ {} Mirroring not supported, skipping"
+                        .format(self.acl_stage(), self.mirror_type()))
+
+        if setup_info['topo'] in ['t0', 'm0_vlan']:
+            everflow_dut = setup_info[UP_STREAM]['everflow_dut']
+            remote_dut = setup_info[UP_STREAM]['remote_dut']
+        else:
+            everflow_dut = setup_info[DOWN_STREAM]['everflow_dut']
+            remote_dut = setup_info[DOWN_STREAM]['remote_dut']
+
+        table_name = self._get_table_name(everflow_dut, self.acl_stage())
+        temporary_table = False
+
+        duthost_set = set()
+        duthost_set.add(everflow_dut)
+        duthost_set.add(remote_dut)
+
+        if not table_name:
+            table_name = "EVERFLOWV6" if self.acl_stage() == "ingress" else "EVERFLOW_EGRESSV6"
+            temporary_table = True
+
+        for duthost in duthost_set:
+            if temporary_table:
+                inst_list = duthost.get_sonic_host_and_frontend_asic_instance()
+                for inst in inst_list:
+                    self.apply_acl_table_config(duthost, table_name, "MIRRORV6", config_method,
+                                                bind_namespace=getattr(inst, 'namespace', None))
+
+            self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"],
+                                       config_method, rules=EVERFLOW_V6_RULES)
+            self.apply_ip_type_rule(duthost, 6)
+
+        yield
+
+        for duthost in duthost_set:
+            self.remove_acl_rule_config(duthost, table_name, config_method)
+
+            if temporary_table:
+                self.remove_acl_table_config(duthost, table_name, config_method)
+
+    # TODO: This can probably be refactored into a common utility method later.
+    def _get_table_name(self, duthost, acl_stage="ingress"):
+        show_output = duthost.command("show acl table")
+
+        table_name = None
+        for line in show_output["stdout_lines"]:
+            if "MIRRORV6" in line:
+                if acl_stage in line:
+                    # NOTE: Once we branch out the sonic-mgmt repo we can skip the version check.
+                    if "201811" in duthost.os_version or self.acl_stage() in line:
+                        table_name = line.split()[0]
+                        break
+
+        return table_name
+
+    def acl_ip_version(self):
+        return 6
+
+    def test_src_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
+                                everflow_direction, erspan_ip_ver):                                     # noqa F811
         """Verify that we can match on Source IPv6 addresses."""
-        duthost = duthosts[rand_one_dut_hostname]
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:0002"
@@ -69,14 +263,16 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_dst_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_dst_ipv6_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
+                                everflow_direction, erspan_ip_ver):                                     # noqa F811
         """Verify that we can match on Destination IPv6 addresses."""
-        duthost = duthosts[rand_one_dut_hostname]
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             dst_ip="2002:0225:7c6b:a982:d48b:230e:f271:0003"
@@ -85,98 +281,109 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_next_header_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_next_header_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
+                                   everflow_direction, erspan_ip_ver):                                      # noqa F811
         """Verify that we can match on the Next Header field."""
-        duthost = duthosts[rand_one_dut_hostname]
-        test_packet = self._base_tcpv6_packet(ptfadapter, setup_info, next_header=0x7E)
+        test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, next_header=0x7E)
 
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_l4_src_port_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_l4_src_port_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
+                                   everflow_direction, erspan_ip_ver):                                      # noqa F811
         """Verify that we can match on the L4 Source Port."""
-        duthost = duthosts[rand_one_dut_hostname]
-        test_packet = self._base_tcpv6_packet(ptfadapter, setup_info, sport=9000)
+        test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, sport=9000)
 
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_l4_dst_port_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_l4_dst_port_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
+                                   everflow_direction, erspan_ip_ver):                                      # noqa F811
         """Verify that we can match on the L4 Destination Port."""
-        duthost = duthosts[rand_one_dut_hostname]
-        test_packet = self._base_tcpv6_packet(ptfadapter, setup_info, dport=9001)
+        test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, dport=9001)
 
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_l4_src_port_range_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_l4_src_port_range_mirroring(self, setup_info, setup_mirror_session,                      # noqa F811
+                                         ptfadapter, everflow_dut, everflow_direction,
+                                         erspan_ip_ver):                                              # noqa F811
         """Verify that we can match on a range of L4 Source Ports."""
-        duthost = duthosts[rand_one_dut_hostname]
-        test_packet = self._base_tcpv6_packet(ptfadapter, setup_info, sport=10200)
+        test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, sport=10200)
 
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_l4_dst_port_range_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_l4_dst_port_range_mirroring(self, setup_info, setup_mirror_session,                      # noqa F811
+                                         ptfadapter, everflow_dut, everflow_direction,
+                                         erspan_ip_ver):                                              # noqa F811
         """Verify that we can match on a range of L4 Destination Ports."""
-        duthost = duthosts[rand_one_dut_hostname]
-        test_packet = self._base_tcpv6_packet(ptfadapter, setup_info, dport=10700)
+        test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, dport=10700)
 
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_tcp_flags_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_tcp_flags_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,          # noqa F811
+                                 everflow_direction, erspan_ip_ver):                                        # noqa F811
         """Verify that we can match on TCP Flags."""
-        duthost = duthosts[rand_one_dut_hostname]
-        test_packet = self._base_tcpv6_packet(ptfadapter, setup_info, flags=0x1B)
+        test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, flags=0x1B)
 
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_dscp_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_dscp_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,               # noqa F811
+                            everflow_direction, erspan_ip_ver):                                             # noqa F811
         """Verify that we can match on DSCP."""
-        duthost = duthosts[rand_one_dut_hostname]
-        test_packet = self._base_tcpv6_packet(ptfadapter, setup_info, dscp=37)
+        test_packet = self._base_tcpv6_packet(everflow_direction, ptfadapter, setup_info, dscp=37)
 
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_l4_range_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_l4_range_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,           # noqa F811
+                                everflow_direction, erspan_ip_ver):                                         # noqa F811
         """Verify that we can match from a source port to a range of destination ports and vice-versa."""
-        duthost = duthosts[rand_one_dut_hostname]
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:0004",
@@ -188,11 +395,13 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:0005",
@@ -204,14 +413,16 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_tcp_response_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_tcp_response_mirroring(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
+                                    everflow_direction, erspan_ip_ver):                                     # noqa F811
         """Verify that we can match a SYN -> SYN-ACK pattern."""
-        duthost = duthosts[rand_one_dut_hostname]
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:0006",
@@ -222,11 +433,13 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:0007",
@@ -237,14 +450,17 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_tcp_application_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_tcp_application_mirroring(self, setup_info, setup_mirror_session,                      # noqa F811
+                                       ptfadapter, everflow_dut, everflow_direction,
+                                       erspan_ip_ver):                                              # noqa F811
         """Verify that we can match a TCP handshake between a client and server."""
-        duthost = duthosts[rand_one_dut_hostname]
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:0008",
@@ -257,11 +473,13 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:0009",
@@ -274,14 +492,17 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_udp_application_mirroring(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_udp_application_mirroring(self, setup_info, setup_mirror_session,                      # noqa F811
+                                       ptfadapter, everflow_dut, everflow_direction,
+                                       erspan_ip_ver):                                              # noqa F811
         """Verify that we can match UDP traffic between a client and server application."""
-        duthost = duthosts[rand_one_dut_hostname]
         test_packet = self._base_udpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:000a",
@@ -294,10 +515,12 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
         test_packet = self._base_udpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:000b",
@@ -310,14 +533,16 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_any_protocol(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_any_protocol(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,         # noqa F811
+                          everflow_direction, erspan_ip_ver):                                       # noqa F811
         """Verify that the protocol number is ignored if it is not specified in the ACL rule."""
-        duthost = duthosts[rand_one_dut_hostname]
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:000c",
@@ -327,11 +552,13 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
         test_packet = self._base_udpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:000c",
@@ -341,11 +568,13 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
         test_packet = self._base_udpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:000c",
@@ -356,14 +585,17 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_any_transport_protocol(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_any_transport_protocol(self, setup_info, setup_mirror_session,                      # noqa F811
+                                    ptfadapter, everflow_dut, everflow_direction,
+                                    erspan_ip_ver):                                              # noqa F811
         """Verify that src port and dst port rules match regardless of whether TCP or UDP traffic is sent."""
-        duthost = duthosts[rand_one_dut_hostname]
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:001c",
@@ -375,11 +607,13 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
         test_packet = self._base_udpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:001c",
@@ -391,11 +625,13 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_invalid_tcp_rule(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_invalid_tcp_rule(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,         # noqa F811
+                              everflow_direction):
         """Verify that the ASIC does not reject rules with TCP flags if the protocol is not TCP."""
         pass
 
@@ -404,10 +640,11 @@ class EverflowIPv6Tests(BaseEverflowTest):
         # will not crash if such a rule is installed. If this does happen, we expect the whole test
         # suite + loganaylzer + the sanity check to fail.
 
-    def test_source_subnet(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_source_subnet(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,            # noqa F811
+                           everflow_direction, erspan_ip_ver):                                          # noqa F811
         """Verify that we can match packets with a Source IPv6 Subnet."""
-        duthost = duthosts[rand_one_dut_hostname]
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:b000:0000:0000:0000:0010",
@@ -419,14 +656,16 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_dest_subnet(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_dest_subnet(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,          # noqa F811
+                         everflow_direction, erspan_ip_ver):                                        # noqa F811
         """Verify that we can match packets with a Destination IPv6 Subnet."""
-        duthost = duthosts[rand_one_dut_hostname]
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:a982:d48b:230e:f271:0010",
@@ -438,14 +677,16 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_both_subnets(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_both_subnets(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,         # noqa F811
+                          everflow_direction, erspan_ip_ver):                                       # noqa F811
         """Verify that we can match packets with both source and destination subnets."""
-        duthost = duthosts[rand_one_dut_hostname]
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:c000:0000:0000:0000:0010",
@@ -457,14 +698,16 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
 
-    def test_fuzzy_subnets(self, setup_info, setup_mirror_session, ptfadapter, duthosts, rand_one_dut_hostname):
+    def test_fuzzy_subnets(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
+                           everflow_direction, erspan_ip_ver):                                      # noqa F811
         """Verify that we can match packets with non-standard subnet sizes."""
-        duthost = duthosts[rand_one_dut_hostname]
         test_packet = self._base_tcpv6_packet(
+            everflow_direction,
             ptfadapter,
             setup_info,
             src_ip="2002:0225:7c6b:e000:0000:0000:0000:0010",
@@ -476,11 +719,127 @@ class EverflowIPv6Tests(BaseEverflowTest):
         self.send_and_check_mirror_packets(setup_info,
                                            setup_mirror_session,
                                            ptfadapter,
-                                           duthost,
-                                           test_packet,
-                                           dest_ports=EverflowIPv6Tests.tx_port_ids)
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
+
+    def test_icmpv6_type(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
+                         everflow_direction, erspan_ip_ver):                                      # noqa F811
+        """Verify that we can match packets with icmp type field"""
+        test_packet = self._base_icmpv6_packet(
+            everflow_direction,
+            ptfadapter,
+            setup_info,
+            icmp_type=2
+        )
+
+        self.send_and_check_mirror_packets(setup_info,
+                                           setup_mirror_session,
+                                           ptfadapter,
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
+
+    def test_icmpv6_code(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
+                         everflow_direction, erspan_ip_ver):                                     # noqa F811
+        """Verify that we can match packets with icmp code field"""
+        test_packet = self._base_icmpv6_packet(
+            everflow_direction,
+            ptfadapter,
+            setup_info,
+            icmp_type=3,
+            icmp_code=1
+        )
+
+        self.send_and_check_mirror_packets(setup_info,
+                                           setup_mirror_session,
+                                           ptfadapter,
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
+
+    def test_ip_type_any(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,       # noqa F811
+                         everflow_direction, erspan_ip_ver):                                     # noqa F811
+        test_packet = self._base_tcpv6_packet(
+            everflow_direction,
+            ptfadapter,
+            setup_info,
+            dst_ip="2002:0225:7c6b:a982:d48b:230e:f271:0011"
+        )
+
+        self.send_and_check_mirror_packets(setup_info,
+                                           setup_mirror_session,
+                                           ptfadapter,
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
+
+    def test_ip_type_ip(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
+                        everflow_direction, erspan_ip_ver):                                      # noqa F811
+        test_packet = self._base_tcpv6_packet(
+            everflow_direction,
+            ptfadapter,
+            setup_info,
+            dst_ip="2002:0225:7c6b:a982:d48b:230e:f271:0012"
+        )
+
+        self.send_and_check_mirror_packets(setup_info,
+                                           setup_mirror_session,
+                                           ptfadapter,
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
+
+    def test_ip_type_ipv6any(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
+                             everflow_direction, erspan_ip_ver):                                      # noqa F811
+        test_packet = self._base_tcpv6_packet(
+            everflow_direction,
+            ptfadapter,
+            setup_info,
+            dst_ip="2002:0225:7c6b:a982:d48b:230e:f271:0013"
+        )
+
+        self.send_and_check_mirror_packets(setup_info,
+                                           setup_mirror_session,
+                                           ptfadapter,
+                                           everflow_dut,
+                                           test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
+                                           dest_ports=EverflowIPv6Tests.tx_port_ids,
+                                           erspan_ip_ver=erspan_ip_ver)
+
+    def _base_icmpv6_packet(self,
+                            direction,
+                            ptfadapter,
+                            setup,
+                            src_ip=DEFAULT_SRC_IP,
+                            dst_ip=DEFAULT_DST_IP,
+                            next_header=None,
+                            dscp=None,
+                            icmp_type=8,
+                            icmp_code=0):
+        pkt = testutils.simple_icmpv6_packet(
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
+            eth_dst=setup[direction]["ingress_router_mac"],
+            ipv6_src=src_ip,
+            ipv6_dst=dst_ip,
+            ipv6_dscp=dscp,
+            ipv6_hlim=64,
+            icmp_type=icmp_type,
+            icmp_code=icmp_code
+        )
+
+        if next_header:
+            pkt["IPv6"].nh = next_header
+
+        return pkt
 
     def _base_tcpv6_packet(self,
+                           direction,
                            ptfadapter,
                            setup,
                            src_ip=DEFAULT_SRC_IP,
@@ -491,8 +850,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
                            dport=8080,
                            flags=0x10):
         pkt = testutils.simple_tcpv6_packet(
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
-            eth_dst=setup["router_mac"],
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
+            eth_dst=setup[direction]["ingress_router_mac"],
             ipv6_src=src_ip,
             ipv6_dst=dst_ip,
             ipv6_dscp=dscp,
@@ -508,6 +867,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
         return pkt
 
     def _base_udpv6_packet(self,
+                           direction,
                            ptfadapter,
                            setup,
                            src_ip=DEFAULT_SRC_IP,
@@ -517,8 +877,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
                            sport=2020,
                            dport=8080):
         pkt = testutils.simple_udpv6_packet(
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
-            eth_dst=setup["router_mac"],
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
+            eth_dst=setup[direction]["ingress_router_mac"],
             ipv6_src=src_ip,
             ipv6_dst=dst_ip,
             ipv6_dscp=dscp,
@@ -541,36 +901,11 @@ class TestIngressEverflowIPv6(EverflowIPv6Tests):
     def mirror_type(self):
         return "ingress"
 
-    @pytest.fixture(scope='class',  autouse=True)
-    def setup_acl_table(self, duthosts, rand_one_dut_hostname, setup_info, setup_mirror_session, config_method):
-        duthost = duthosts[rand_one_dut_hostname]
-        table_name = self._get_table_name(duthost)
-        temporary_table = False
 
-        if not table_name:
-            table_name = "EVERFLOWV6"
-            temporary_table = True
-            self.apply_acl_table_config(duthost, table_name, "MIRRORV6", config_method)
+class TestEgressEverflowIPv6(EverflowIPv6Tests):
+    """Parameters for Egress Everflow IPv6 testing. (Egress ACLs/Egress Mirror)"""
+    def acl_stage(self):
+        return "egress"
 
-        self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"], config_method, rules=EVERFLOW_V6_RULES)
-
-        yield
-
-        self.remove_acl_rule_config(duthost, table_name, config_method)
-
-        if temporary_table:
-            self.remove_acl_table_config(duthost, table_name, config_method)
-
-    # TODO: This can probably be refactored into a common utility method later.
-    def _get_table_name(self, duthost):
-        show_output = duthost.command("show acl table")
-
-        table_name = None
-        for line in show_output["stdout_lines"]:
-            if "MIRRORV6" in line:
-                # NOTE: Once we branch out the sonic-mgmt repo we can skip the version check.
-                if "201811" in duthost.os_version or "ingress" in line:
-                    table_name = line.split()[0]
-                    break
-
-        return table_name
+    def mirror_type(self):
+        return "egress"

@@ -16,7 +16,7 @@
       vm_name: "{{ item.value.name }}"
       vm_intf: "{{ item.key }}"
   with_dict: "{{ minigraph_neighbors }}"
-  when: "testbed_type in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet'] and 'T0' in item.value.name and not vm_name"
+  when: "testbed_type in ['t1', 't1-lag', 't1-64-lag', 't1-64-lag-clet', 't1-56-lag'] and 'T0' in item.value.name and not vm_name"
 
 - name: Get neighbor IPv4 address.
   set_fact:

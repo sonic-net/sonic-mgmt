@@ -2,7 +2,7 @@
 
 ### Scope
 
-The scope of this test plan is to verify correct tunnel, ecmp, acl behavior. This is a continuation to dual_tor_test_hld.md and please refer this document for more details on topology etc. 
+The scope of this test plan is to verify correct tunnel, ecmp, acl behavior. This is a continuation to dual_tor_test_hld.md and please refer this document for more details on topology etc.
 
 Standby ToR refers to a ToR scenario in which the packet is destined to/from server where the Mux is in Standby Mode.
 Active ToR refers to a ToR scenario in which the packet is destined to/from server where the Mux is in Active Mode.
@@ -15,7 +15,7 @@ The test can be executed on a single Tor testbed with proposed configurations th
 
 Example mux cable config in Config DB
 ```
-{       
+{
     "MUX_CABLE":{
         "Ethernet4":{
             "server_ipv4":"192.168.0.100/32",
@@ -27,14 +27,14 @@ Example mux cable config in Config DB
 The following command can be used to set a mux port to standby/active via swssconfig
 
 ```
-muxstandby.json 
+muxstandby.json
 [
     {
         "MUX_CABLE_TABLE:Ethernet4" : {
             "state":"standby"
         },
         "OP": "SET"
-    } 
+    }
 ]
 
 docker exec swss sh -c \"swssconfig /muxstandby.json\"
@@ -62,8 +62,8 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
 
 1. T1 -> Standby ToR
 
-    Send traffic of varying tuple destined to server under standby mux. The following are the various steps and those which have to be executed in a sequence is grouped together. 
-    
+    Send traffic of varying tuple destined to server under standby mux. The following are the various steps and those which have to be executed in a sequence is grouped together.
+
     | Step | Goal | Expected results |
     |-|-|-|
     | All ports to T1s are up; Loopback route configured | ECMP hashing | Verify tunnel traffic to Active ToR is distributed equally across nexthops; Verify no traffic is forwarded to downlink in case of standby mux |
@@ -86,17 +86,17 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
 2. Server -> Standby ToR
 
     For the CRM tests, it is expected to read the values before and after test and compare the resource count for usage/leaks.
-    
+
     | Step | Goal | Expected results |
     |-|-|-|
     | Mux state in Standby | ACL | Verify traffic is dropped by ACL rule and drop counters incremented |
     | Simulate Mux state change to active | ACL/CRM | Verify traffic is not dropped by ACL and fwd-ed to uplinks; Verify CRM show and no nexthop objects are stale |
     | Simulate Mux state change to standby | ACL/CRM | Verify traffic is dropped by ACL; Verify CRM show and no nexthop objects are stale |
-    
+
 3. T1 -> Active ToR
 
     Send traffic to server under active mux.
-    
+
     | Step | Goal | Expected results |
     |-|-|-|
     | Neighbor learnt | Forwarding | Verify no tunnel traffic for Active mux. All traffic to server should be directly forwarded; Verify CRM for neighbor |
@@ -108,11 +108,11 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     | Simulate FDB ageout/flush on this mac | Standby Forwarding | Verify that tunnel traffic is not impacted by fdb del event |
     | Simulate MAC move by sending same ARP req/reply from another port which is active | Active Forwarding | Verify that traffic to this neighbor is now forwarded directly and no tunnel traffic |
     | Simulate FDB ageout/flush on this mac | Active Dropping | Verify that traffic to this neighbor is now dropped |
-    
+
 4. T1 -> Tor (IPinIP packet)
 
     Send IPinIP encapsulated packet. Configure some ports in Active, some ports in Standby mode
-    
+
     | Step | Goal | Expected results |
     |-|-|-|
     | Outer srcIP as peer IP, dstIP as loopback0, Inner Dst IP as Active Server IP; Ensure ARP/MAC is learnt for this Server IP | Decap | Verify traffic is decapsulated and fwded to Server port |
@@ -122,7 +122,7 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
 5. Stress test
 
     Continous mux state change based on configurable parameter 'N'
-    
+
     | Step | Goal | Expected results |
     |-|-|-|
     | Change mux state from Active->Standby->Active 'N' times | CRM  | Verify CRM values for routes/nexthop and check for leaks |
@@ -175,3 +175,18 @@ ip route add 1.1.1.1 nexthop via 10.0.0.57 nexthop via 10.0.0.59 nexthop via 10.
     | Repeat PTF tests as above | SLB  | Verify packet forwarding based on mux state|
     ||||
     | Verify teardown by shutting peering session one by one | SLB  | After one session is down, verify other peering session is active and routes present|
+
+1. Standalone tunnel route
+
+    This test is to verify standalone tunnel route is added properly when there is a `FAILED` or `INCOMPLETE` neighbor entry.
+    * Active-Standby DualToR
+
+    | Step | Goal | Expected results |
+    |-|-|-|
+    | Send traffic to some IP in the VLAN subnet but not configured as soc or server address | Forwarding through tunnel | Verify tunnel traffic on standby ToR |
+
+    * Active-Active DualToR
+
+    | Step | Goal | Expected results |
+    |-|-|-|
+    | Send traffic to some IP in the VLAN subnet but not configured as soc or server address | Forwarding through tunnel | Verify tunnel-route on this ToR |

@@ -1,5 +1,5 @@
 Value Filldown INTERFACE (\S+)
-Value Filldown IPADDR ([\d\.\/]+|[\:\w\/\%]+)
+Value Filldown IPADDR ([\d\.\/]+|[\:\w\.\/\%]+)
 Value VRF (\S+)
 Value Filldown STATUS (\S+)
 Value Filldown Neighbor (\S+)
@@ -11,7 +11,7 @@ Start
   ^\s*Interface\s+IPv(4|6) address/mask\s+Master\s+Admin/Oper\s*$$ -> NOBGPINFO
   ^\s*Interface\s+IP\s*address/mask\s+Master\s+Admin/Oper\s+Flags\s*$$ -> NOBGPINFO
   ^\s*Interface\s+IP\s*address/mask\s+VRF\s+Admin/Oper\s+Flags\s*$$ -> NOBGPINFO
-  ^\s*Interface\s+IPv(4|6)\s+address/mask\s+Master\s+Admin/Oper\s+BGP\s+Neighbor\s+Neighbor\s+IP\s+Flags\s*$$ -> BGPINFO
+  ^\s*Interface\s+IPv(4|6)\s+address/mask\s+Master\s+Admin/Oper\s+BGP\s+Neighbor\s+Neighbor\s+IP(\s+Flags)*\s*$$ -> BGPINFO
   ^\s*Interface\s+IPv(4|6)\s+address/mask\s+Master\s+Admin/Oper\s+BGP\s+Neighbor\s+Neighbor\s+IP\s*$$ -> BGPINFO
   ^\s*Interface\s+Master\s+IPv(4|6)\s+address/mask\s+Admin/Oper\s+BGP\s+Neighbor\s+Neighbor\s+IP\s*$$ -> BGPINFO
   ^(-+\s*)*$$
@@ -26,13 +26,13 @@ NOBGPINFO
   ^$$
 
 BGPINFO
-  ^\s*${INTERFACE}\s+${VRF}\s+${IPADDR}\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s*$$ -> Record
   ^\s*${INTERFACE}\s+${IPADDR}\s+${VRF}\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s+${Flags}\s*$$ -> Record
   ^\s*${INTERFACE}\s+${IPADDR}\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s*$$ -> Record
   ^\s*${INTERFACE}\s+${IPADDR}\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s+${Flags}\s*$$ -> Record
   ^\s*${INTERFACE}\s+${IPADDR}\s+${VRF}\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s*$$ -> Record
   ^\s*${INTERFACE}\s+${IPADDR}\s+\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s*$$ -> Record
-  ^\s*${IPADDR}\s*$$ -> Record
+  ^\s*${INTERFACE}\s+${VRF}\s+${IPADDR}\s+${STATUS}\s+${Neighbor}\s+${NeighborIP}\s*$$ -> Record
+  ^\s*${IPADDR}(\s+${Neighbor}\s+${NeighborIP})*\s*$$ -> Record
   ^$$
 
 EOF

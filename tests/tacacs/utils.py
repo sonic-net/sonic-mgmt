@@ -1,170 +1,163 @@
-import crypt
+import binascii
 import logging
-import re
-
+import pytest
+import paramiko
+import time
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.utilities import wait_until, check_skip_release
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.errors import RunAnsibleModuleFail
+from tests.common.helpers.tacacs.tacacs_helper import start_tacacs_server
+from tests.common.utilities import wait_until, paramiko_ssh
+from ansible.errors import AnsibleConnectionFailure
 
 logger = logging.getLogger(__name__)
 
-# per-command authorization and accounting feature not avaliable in following versions
-per_command_check_skip_versions = ["201811", "201911", "202012", "202106"]
+TIMEOUT_LIMIT = 120
 
-def check_output(output, exp_val1, exp_val2):
-    pytest_assert(not output['failed'], output['stderr'])
-    for l in output['stdout_lines']:
-        fds = l.split(':')
-        if fds[0] == exp_val1:
-            pytest_assert(fds[4] == exp_val2)
+DEVICE_UNREACHABLE_MAX_RETRIES = 3
 
-def check_all_services_status(ptfhost):
-    res = ptfhost.command("service --status-all")
+
+@pytest.fixture
+def ensure_tacacs_server_running_after_ut(duthosts, enum_rand_one_per_hwsku_hostname):
+    """make sure tacacs server running after UT finish"""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    yield
+
+    start_tacacs_server(duthost)
+
+
+def check_server_received(ptfhost, data, timeout=30):
+    """
+        Check if tacacs server received the data.
+    """
+    hex = binascii.hexlify(data.encode('ascii'))
+    hex_string = hex.decode()
+
+    """
+      Extract received data from tac_plus.log, then use grep to check if the received data contains hex_string:
+            1. tac_plus server start with '-d 2058' parameter to log received data in following format in tac_plus.log:
+                    Thu Mar  9 06:26:16 2023 [75483]: data[140] = 0xf8, xor'ed with hash[12] = 0xab -> 0x53
+                    Thu Mar  9 06:26:16 2023 [75483]: data[141] = 0x8d, xor'ed with hash[13] = 0xc2 -> 0x4f
+                In above log, the 'data[140] = 0xf8' is received data.
+
+            2. Following sed command will extract the received data from tac_plus.log:
+                    sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log     # noqa: W605
+
+            3. Following set command will join all received data to hex string:
+                    sed ':a; N; $!ba; s/\\n//g'
+
+            4. Then the grep command will check if the received hex data containes expected hex string.
+                    grep '{0}'".format(hex_string)
+
+      Also suppress following Flake8 error/warning:
+            W605 : Invalid escape sequence. Flake8 can't handle sed command escape sequence, so will report false alert.
+            E501 : Line too long. Following sed command difficult to split to multiple line.
+    """
+    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)   # noqa: W605 E501
+
+    # After tacplus service receive data, it need take some time to update to log file.
+    def log_exist(ptfhost, sed_command):
+        res = ptfhost.shell(sed_command)
+        logger.info(sed_command)
+        logger.info(res["stdout_lines"])
+        return len(res["stdout_lines"]) > 0
+
+    exist = wait_until(timeout, 1, 0, log_exist, ptfhost, sed_command)
+    pytest_assert(exist, "Not found data: {} in tacplus server log".format(data))
+
+
+def get_auditd_config_reload_timestamp(duthost):
+    res = duthost.shell("sudo journalctl -u auditd --boot --no-pager | grep 'audisp-tacplus re-initializing configuration'", module_ignore_errors=True)  # noqa: E501
+    logger.info("aaa config file timestamp {}".format(res))
+
+    if len(res["stdout_lines"]) == 0:
+        return ""
+
+    return res["stdout_lines"][-1]
+
+
+def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, timeout=10):
+    if not last_timestamp:
+        last_timestamp = get_auditd_config_reload_timestamp(duthost)
+
+    duthost.shell(command)
+
+    # After AAA config update, hostcfgd will modify config file and notify auditd reload config
+    # Wait auditd reload config finish
+    def log_exist(duthost):
+        latest_timestamp = get_auditd_config_reload_timestamp(duthost)
+        reload = latest_timestamp != last_timestamp
+        if not reload:
+            # Send the HUP signal to auditd-tacplus to trigger a config reload
+            duthost.shell("sudo kill -1 $(pidof audisp-tacplus)")
+        return reload
+
+    exist = wait_until(timeout, 1, 0, log_exist, duthost)
+    pytest_assert(exist, "Not found aaa config update log: {}".format(command))
+
+
+def ssh_run_command(ssh_client, command, expect_exit_code=0, verify=False):
+    stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
+    exit_code = stdout.channel.recv_exit_status()
+    if verify is True:
+        if exit_code != expect_exit_code:
+            # This if-block is here so that stdout.readlines() and
+            # stderr.readlines() get evaluated if and only if the exit code
+            # doesn't match the expected exit code. If they do match, and they
+            # do get evaluated, then the state of the object will be different,
+            # which will cause issues for other functions that use those
+            # objects.
+            pytest.fail(
+                f"Command: '{command}' failed with exit code: {exit_code}, "
+                f"stdout: {stdout.readlines()}, stderr: {stderr.readlines()}")
+    return exit_code, stdout, stderr
+
+
+def ssh_connect_remote_retry(remote_ip, remote_username, remote_password, duthost):
+    retry_count = 3
+    while retry_count > 0:
+        try:
+            return paramiko_ssh(remote_ip, remote_username, remote_password)
+        except paramiko.ssh_exception.AuthenticationException as e:
+            logger.info("Paramiko SSH connect failed with authentication: " + repr(e))
+
+            # get syslog for debug
+            recent_syslog = duthost.shell('sudo tail -100 /var/log/syslog')['stdout']
+            logger.debug("Target device syslog: {}".format(recent_syslog))
+
+        time.sleep(1)
+        retry_count -= 1
+
+
+def duthost_shell_with_unreachable_retry(duthost, command):
+    retries = 0
+    while True:
+        try:
+            return duthost.shell(command)
+        except AnsibleConnectionFailure as e:
+            retries += 1
+            logger.warning("retry_when_dut_unreachable exception: {}, retry {}/{}"
+                           .format(e, retries, DEVICE_UNREACHABLE_MAX_RETRIES))
+            if retries > DEVICE_UNREACHABLE_MAX_RETRIES:
+                raise e
+
+
+def cleanup_tacacs_log(ptfhost, rw_user_client):
+    try:
+        ptfhost.command('rm /var/log/tac_plus.acct')
+    except RunAnsibleModuleFail:
+        logger.info("/var/log/tac_plus.acct does not exist.")
+
+    res = ptfhost.command('touch /var/log/tac_plus.acct')
     logger.info(res["stdout_lines"])
 
-
-def start_tacacs_server(ptfhost):
-    ptfhost.command("service tacacs_plus restart", module_ignore_errors=True)
-    return "tacacs+ running" in ptfhost.command("service tacacs_plus status", module_ignore_errors=True)["stdout_lines"]
-
-def stop_tacacs_server(ptfhost):
-    ptfhost.service(name="tacacs_plus", state="stopped")
-    check_all_services_status(ptfhost)
-
-def setup_local_user(duthost, tacacs_creds):
-    try:
-        duthost.shell("sudo deluser {}".format(tacacs_creds['local_user']))
-    except RunAnsibleModuleFail:
-        logger.info("local user not exist")
-
-    duthost.shell("sudo useradd {}".format(tacacs_creds['local_user']))
-    duthost.shell('sudo echo "{}:{}" | chpasswd'.format(tacacs_creds['local_user'],tacacs_creds['local_user_passwd']))
-
-def setup_tacacs_client(duthost, tacacs_creds, tacacs_server_ip):
-    """setup tacacs client"""
-
-    # configure tacacs client
-    default_tacacs_servers = []
-    duthost.shell("sudo config tacacs passkey %s" % tacacs_creds[duthost.hostname]['tacacs_passkey'])
-
-    # get default tacacs servers
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    for tacacs_server in config_facts.get('TACPLUS_SERVER', {}):
-        duthost.shell("sudo config tacacs delete %s" % tacacs_server)
-        default_tacacs_servers.append(tacacs_server)
-    duthost.shell("sudo config tacacs add %s" % tacacs_server_ip)
-    duthost.shell("sudo config tacacs authtype login")
-
-    # enable tacacs+
-    duthost.shell("sudo config aaa authentication login tacacs+")
-
-    (skip, _) = check_skip_release(duthost, per_command_check_skip_versions)
-    if not skip:
-        duthost.shell("sudo config aaa authorization local")
-        duthost.shell("sudo config aaa accounting disable")
-
-    # setup local user
-    setup_local_user(duthost, tacacs_creds)
-    return default_tacacs_servers
-
-def restore_tacacs_servers(duthost, default_tacacs_servers, tacacs_server_ip):
-    duthost.shell("sudo config tacacs delete %s" % tacacs_server_ip)
-    for tacacs_server in default_tacacs_servers:
-        duthost.shell("sudo config tacacs add %s" % tacacs_server)
-
-def fix_symbolic_link_in_config(duthost, ptfhost, symbolic_link_path, path_to_be_fix = None):
-    """
-        Fix symbolic link in tacacs config
-        Because tac_plus server not support regex in command name, and SONiC will send full path to tacacs server side for authorization, so the 'python' and 'ld' path in tac_plus config file need fix.
-    """
-    read_link_command = "readlink -f {0}".format(symbolic_link_path)
-    target_path = duthost.shell(read_link_command)['stdout']
-    # Escape path string, will use it as regex in sed command.
-    
-    link_path_regex = re.escape(symbolic_link_path)
-    if path_to_be_fix != None:
-        link_path_regex = re.escape(path_to_be_fix)
-
-    target_path_regex = re.escape(target_path)
-    ptfhost.shell("sed -i 's/{0}/{1}/g' /etc/tacacs+/tac_plus.conf".format(link_path_regex, target_path_regex))
-
-def get_ld_path(duthost):
-    """
-        Fix symbolic link in tacacs config
-        Because tac_plus server not support regex in command name, and SONiC will send full path to tacacs server side for authorization, so the 'python' and 'ld' path in tac_plus config file need fix.
-    """
-    find_ld_command = "find /lib/ -type f,l -regex '\/lib\/.*-linux-.*/ld-linux-.*\.so\.[0-9]*'"
-    return duthost.shell(find_ld_command)['stdout']
-
-def fix_ld_path_in_config(duthost, ptfhost):
-    """
-        Fix ld path in tacacs config
-    """
-    ld_symbolic_link_path = get_ld_path(duthost)
-    if not ld_symbolic_link_path:
-        fix_symbolic_link_in_config(duthost, ptfhost, ld_symbolic_link_path, "/lib/arch-linux-abi/ld-linux-arch.so")
-
-def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
-    """setup tacacs server"""
-
-    # configure tacacs server
-    extra_vars = {'tacacs_passkey': tacacs_creds[duthost.hostname]['tacacs_passkey'],
-                  'tacacs_rw_user': tacacs_creds['tacacs_rw_user'],
-                  'tacacs_rw_user_passwd': crypt.crypt(tacacs_creds['tacacs_rw_user_passwd'], 'abc'),
-                  'tacacs_ro_user': tacacs_creds['tacacs_ro_user'],
-                  'tacacs_ro_user_passwd': crypt.crypt(tacacs_creds['tacacs_ro_user_passwd'], 'abc'),
-                  'tacacs_authorization_user': tacacs_creds['tacacs_authorization_user'],
-                  'tacacs_authorization_user_passwd': crypt.crypt(tacacs_creds['tacacs_authorization_user_passwd'], 'abc'),
-                  'tacacs_jit_user': tacacs_creds['tacacs_jit_user'],
-                  'tacacs_jit_user_passwd': crypt.crypt(tacacs_creds['tacacs_jit_user_passwd'], 'abc'),
-                  'tacacs_jit_user_membership': tacacs_creds['tacacs_jit_user_membership']}
-
-    ptfhost.host.options['variable_manager'].extra_vars.update(extra_vars)
-    ptfhost.template(src="tacacs/tac_plus.conf.j2", dest="/etc/tacacs+/tac_plus.conf")
-
-    # Find 'python' command symbolic link target, and fix the tac_plus config file
-    fix_symbolic_link_in_config(duthost, ptfhost, "/usr/bin/python")
-
-    # Find ld lib symbolic link target, and fix the tac_plus config file
-    fix_ld_path_in_config(duthost, ptfhost)
-
-    ptfhost.lineinfile(path="/etc/default/tacacs+", line="DAEMON_OPTS=\"-d 10 -l /var/log/tac_plus.log -C /etc/tacacs+/tac_plus.conf\"", regexp='^DAEMON_OPTS=.*')
-    check_all_services_status(ptfhost)
-
-    # FIXME: This is a short term mitigation, we need to figure out why \nthe tacacs+ server does not start
-    # reliably all of a sudden.
-    wait_until(5, 1, 0, start_tacacs_server, ptfhost)
-    check_all_services_status(ptfhost)
+    ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
+    ptfhost.command('truncate -s 0 /var/log/tac_plus.log')
 
 
-def cleanup_tacacs(ptfhost, tacacs_creds, duthost):
-    # stop tacacs server
-    stop_tacacs_server(ptfhost)
-
-    # reset tacacs client configuration
-    remove_all_tacacs_server(duthost)
-    duthost.shell("sudo config tacacs default passkey")
-    duthost.shell("sudo config aaa authentication login default")
-    duthost.shell("sudo config aaa authentication failthrough default")
-
-    (skip, _) = check_skip_release(duthost, per_command_check_skip_versions)
-    if not skip:
-        duthost.shell("sudo config aaa authorization local")
-        duthost.shell("sudo config aaa accounting disable")
-
-    duthost.user(name=tacacs_creds['tacacs_ro_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
-    duthost.user(name=tacacs_creds['tacacs_rw_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
-    duthost.user(name=tacacs_creds['tacacs_jit_user'], state='absent', remove='yes', force='yes', module_ignore_errors=True)
-
-    duthost.copy(src="./tacacs/templates/del_tacacs_keys.json", dest='/tmp/del_tacacs_keys.json')
-    duthost.shell("configlet -d -j {}".format("/tmp/del_tacacs_keys.json"))
-
-def remove_all_tacacs_server(duthost):
-    # use grep command to extract tacacs server address from tacacs config
-    find_server_command = 'show tacacs | grep -Po "TACPLUS_SERVER address \K.*"'
-    server_list = duthost.shell(find_server_command)['stdout']
-    for tacacs_server in server_list:
-        tacacs_server = tacacs_server.rstrip()
-        if tacacs_server:
-            duthost.shell("sudo config tacacs delete %s" % tacacs_server)
+def count_authorization_request(ptfhost):
+    hex_string = binascii.hexlify("cmd=/".encode('ascii')).decode()
+    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g'"  # noqa: W605 E501
+    res = ptfhost.shell(sed_command)["stdout"]
+    logger.warning("TACACS authorization request hex: {}".format(res))
+    return res.count(hex_string)

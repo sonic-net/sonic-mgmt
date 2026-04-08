@@ -1,20 +1,29 @@
 import logging
 import re
-
 import pytest
-import yaml
 
 from natsort import natsorted
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import chassis, module
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
 from tests.common.utilities import get_inventory_files
 from tests.common.utilities import get_host_visible_vars
 from tests.common.utilities import skip_release
 from tests.common.platform.interface_utils import get_physical_port_indices
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
+from tests.platform_tests.cli.util import get_skip_mod_list
+from .platform_api_test_base import PlatformApiTestBase
 
-from platform_api_test_base import PlatformApiTestBase
+###################################################
+# TODO: Remove this after we transition to Python 3
+import sys
+if sys.version_info.major >= 3:
+    STRING_TYPE = str
+else:
+    STRING_TYPE = basestring    # noqa: F821
+# END Remove this after we transition to Python 3
+###################################################
 
 logger = logging.getLogger(__name__)
 
@@ -22,17 +31,6 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
     pytest.mark.topology('any')
 ]
-
-###################################################
-# TODO: Remove this after we transition to Python 3
-import sys
-if sys.version_info.major == 3:
-    STRING_TYPE = str
-else:
-    STRING_TYPE = basestring
-# END Remove this after we transition to Python 3
-###################################################
-
 
 REGEX_MAC_ADDRESS = r'^([0-9A-Fa-f]{2}:){5}([0-9A-Fa-f]{2})$'
 REGEX_SERIAL_NUMBER = r'^[A-Za-z0-9\-]+$'
@@ -57,25 +55,28 @@ ONIE_TLVINFO_TYPE_CODE_SERVICE_TAG = '0x2F'     # Service Tag
 ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT = '0xFD'      # Vendor Extension
 ONIE_TLVINFO_TYPE_CODE_CRC32 = '0xFE'           # CRC-32
 
+
 # get_physical_port_indices() is wrapped around pytest fixture with module
 # scope because this function can be quite time consuming based upon the
 # number of ports on the DUT
 @pytest.fixture(scope="module")
-def physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname):
+def physical_port_indices(duthosts, enum_rand_one_per_hwsku_hostname, dpu_npu_port_list):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     port_map = get_physical_port_indices(duthost)
     result = []
     visited_intfs = set()
-    for intf in natsorted(port_map.keys()):
-        if intf in visited_intfs:
+    for intf in natsorted(list(port_map.keys())):
+        if intf in visited_intfs or intf in dpu_npu_port_list[duthost.hostname]:
             continue
         visited_intfs.add(intf)
         result.append(port_map[intf])
     return result
 
+
 @pytest.fixture(scope="class")
 def gather_facts(request, duthosts):
     request.cls.inv_files = get_inventory_files(request)
+
 
 @pytest.mark.usefixtures("gather_facts", "physical_port_indices")
 class TestChassisApi(PlatformApiTestBase):
@@ -94,7 +95,7 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(expected_value is not None,
                       "Unable to get expected value for '{}' from platform.json file".format(key))
 
-        pytest_assert(value == expected_value,
+        pytest_assert(re.match(expected_value, value),
                       "'{}' value is incorrect. Got '{}', expected '{}'".format(key, value, expected_value))
 
     def compare_value_with_device_facts(self, duthost, key, value, case_sensitive=True):
@@ -120,53 +121,53 @@ class TestChassisApi(PlatformApiTestBase):
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):     # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         name = chassis.get_name(platform_api_conn)
         pytest_assert(name is not None, "Unable to retrieve chassis name")
         pytest_assert(isinstance(name, STRING_TYPE), "Chassis name appears incorrect")
         self.compare_value_with_platform_facts(duthost, 'name', name)
 
-    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         presence = chassis.get_presence(platform_api_conn)
         pytest_assert(presence is not None, "Unable to retrieve chassis presence")
         pytest_assert(isinstance(presence, bool), "Chassis presence appears incorrect")
         # Chassis should always be present
         pytest_assert(presence is True, "Chassis is not present")
 
-    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         model = chassis.get_model(platform_api_conn)
         pytest_assert(model is not None, "Unable to retrieve chassis model")
         pytest_assert(isinstance(model, STRING_TYPE), "Chassis model appears incorrect")
         self.compare_value_with_device_facts(duthost, 'model', model)
 
-    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         serial = chassis.get_serial(platform_api_conn)
         pytest_assert(serial is not None, "Unable to retrieve chassis serial number")
         pytest_assert(isinstance(serial, STRING_TYPE), "Chassis serial number appears incorrect")
         self.compare_value_with_device_facts(duthost, 'serial', serial)
 
-    def test_get_revision(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_revision(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release(duthost, ["201811", "201911", "202012"])
         revision = chassis.get_revision(platform_api_conn)
         pytest_assert(revision is not None, "Unable to retrieve chassis revision")
         pytest_assert(isinstance(revision, STRING_TYPE), "Revision appears incorrect")
 
-    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         status = chassis.get_status(platform_api_conn)
         pytest_assert(status is not None, "Unable to retrieve chassis status")
         pytest_assert(isinstance(status, bool), "Chassis status appears incorrect")
 
-    def test_get_position_in_parent(self, platform_api_conn):
+    def test_get_position_in_parent(self, platform_api_conn):   # noqa: F811
         position = chassis.get_position_in_parent(platform_api_conn)
         if self.expect(position is not None, "Failed to perform get_position_in_parent"):
             self.expect(isinstance(position, int), "Position value must be an integer value")
         self.assert_expectations()
 
-    def test_is_replaceable(self, platform_api_conn):
+    def test_is_replaceable(self, platform_api_conn):     # noqa: F811
         replaceable = chassis.is_replaceable(platform_api_conn)
         if self.expect(replaceable is not None, "Failed to perform is_replaceable"):
             self.expect(isinstance(replaceable, bool), "Replaceable value must be a bool value")
@@ -176,7 +177,7 @@ class TestChassisApi(PlatformApiTestBase):
     # Functions to test methods defined in ChassisBase class
     #
 
-    def test_get_base_mac(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_base_mac(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         # Ensure the base MAC address is sane
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         base_mac = chassis.get_base_mac(platform_api_conn)
@@ -184,10 +185,12 @@ class TestChassisApi(PlatformApiTestBase):
         pytest_assert(re.match(REGEX_MAC_ADDRESS, base_mac), "Base MAC address appears to be incorrect")
         self.compare_value_with_device_facts(duthost, 'base_mac', base_mac, False)
 
-    def test_get_system_eeprom_info(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_system_eeprom_info(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                                    platform_api_conn):  # noqa: F811
         ''' Test that we can retrieve sane system EEPROM info from the DUT via the platform API
         '''
-        # OCP ONIE TlvInfo EEPROM type codes defined here: https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
+        # OCP ONIE TlvInfo EEPROM type codes defined here:
+        # https://opencomputeproject.github.io/onie/design-spec/hw_requirements.html
         VALID_ONIE_TLVINFO_TYPE_CODES_LIST = [
             ONIE_TLVINFO_TYPE_CODE_PRODUCT_NAME,
             ONIE_TLVINFO_TYPE_CODE_PART_NUMBER,
@@ -217,20 +220,22 @@ class TestChassisApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         syseeprom_info_dict = chassis.get_system_eeprom_info(platform_api_conn)
         # Convert all keys of syseeprom_info_dict into lower case
-        syseeprom_info_dict = {k.lower() : v for k, v in syseeprom_info_dict.items()}
+        syseeprom_info_dict = {k.lower(): v for k, v in list(syseeprom_info_dict.items())}
         pytest_assert(syseeprom_info_dict is not None, "Failed to retrieve system EEPROM data")
         pytest_assert(isinstance(syseeprom_info_dict, dict), "System EEPROM data is not in the expected format")
-        
+
         # case sensitive,so make all characters lowercase
-        syseeprom_type_codes_list = [key.lower() for key in syseeprom_info_dict.keys()]
+        syseeprom_type_codes_list = [key.lower() for key in list(syseeprom_info_dict.keys())]
         VALID_ONIE_TLVINFO_TYPE_CODES_LIST = [key.lower() for key in VALID_ONIE_TLVINFO_TYPE_CODES_LIST]
         MINIMUM_REQUIRED_TYPE_CODES_LIST = [key.lower() for key in MINIMUM_REQUIRED_TYPE_CODES_LIST]
-        
+
         # Ensure that all keys in the resulting dictionary are valid ONIE TlvInfo type codes
-        pytest_assert(set(syseeprom_type_codes_list) <= set(VALID_ONIE_TLVINFO_TYPE_CODES_LIST), "Invalid TlvInfo type code found")
+        pytest_assert(set(syseeprom_type_codes_list) <= set(VALID_ONIE_TLVINFO_TYPE_CODES_LIST),
+                      "Invalid TlvInfo type code found")
 
         # Ensure that we were able to obtain the minimum required type codes
-        pytest_assert(set(MINIMUM_REQUIRED_TYPE_CODES_LIST) <= set(syseeprom_type_codes_list), "Minimum required TlvInfo type codes not provided")
+        pytest_assert(set(MINIMUM_REQUIRED_TYPE_CODES_LIST) <= set(syseeprom_type_codes_list),
+                      "Minimum required TlvInfo type codes not provided")
 
         # Ensure the base MAC address is sane
         base_mac = syseeprom_info_dict[ONIE_TLVINFO_TYPE_CODE_BASE_MAC_ADDR]
@@ -244,30 +249,50 @@ class TestChassisApi(PlatformApiTestBase):
         host_vars = get_host_visible_vars(self.inv_files, duthost.hostname)
         expected_syseeprom_info_dict = host_vars.get('syseeprom_info')
         # Ignore case of keys in syseeprom_info
-        expected_syseeprom_info_dict = {k.lower(): v for k, v in expected_syseeprom_info_dict.items()}
+        expected_syseeprom_info_dict = {k.lower(): v for k, v in list(expected_syseeprom_info_dict.items())}
 
         for field in expected_syseeprom_info_dict:
-            pytest_assert(field in syseeprom_info_dict, "Expected field '{}' not present in syseeprom on '{}'".format(field, duthost.hostname))
-            pytest_assert(syseeprom_info_dict[field] == expected_syseeprom_info_dict[field],
-                          "System EEPROM info is incorrect - for '{}', rcvd '{}', expected '{}' on '{}'".
-                          format(field, syseeprom_info_dict[field], expected_syseeprom_info_dict[field], duthost.hostname))
+            pytest_assert(field in syseeprom_info_dict, "Expected field '{}' not present in syseeprom on '{}'"
+                          .format(field, duthost.hostname))
 
+            # Special handling for vendor extension field (0xFD) which can be a list or single value.
+            # Some platforms have multiple vendor extensions.
+            if field == ONIE_TLVINFO_TYPE_CODE_VENDOR_EXT.lower():
+                actual_value = syseeprom_info_dict[field]
+                expected_value = expected_syseeprom_info_dict[field]
 
-    def test_get_reboot_cause(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+                # Normalize both to lists for comparison
+                actual_list = actual_value if isinstance(actual_value, list) else [actual_value]
+                expected_list = expected_value if isinstance(expected_value, list) else [expected_value]
+
+                for expected_item in expected_list:
+                    pytest_assert(expected_item in actual_list,
+                                  "System EEPROM vendor extension is incorrect - "
+                                  "expected '{}' not found in '{}' on '{}'".
+                                  format(expected_item, actual_list, duthost.hostname))
+            else:
+                pytest_assert(syseeprom_info_dict[field] == expected_syseeprom_info_dict[field],
+                              "System EEPROM info is incorrect - for '{}', rcvd '{}', expected '{}' on '{}'".
+                              format(field, syseeprom_info_dict[field],
+                                     expected_syseeprom_info_dict[field], duthost.hostname))
+
+    def test_get_reboot_cause(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                              platform_api_conn):    # noqa: F811
         # TODO: Compare return values to potential combinations
         reboot_cause = chassis.get_reboot_cause(platform_api_conn)
 
         # Actual return value is a tuple, but since we're using the HTTP server
         # to make the call and it uses JSON, the tuple is changed to a list
         pytest_assert(reboot_cause is not None, "Failed to retrieve reboot cause")
-        pytest_assert(isinstance(reboot_cause, list) and len(reboot_cause) == 2, "Reboot cause appears to be incorrect")
+        pytest_assert(isinstance(reboot_cause, list) and len(reboot_cause) == 2,
+                      "Reboot cause appears to be incorrect")
 
-    def test_components(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_components(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
         try:
             num_components = int(chassis.get_num_components(platform_api_conn))
-        except:
+        except Exception:
             pytest.fail("num_components is not an integer")
         else:
             if num_components == 0:
@@ -282,17 +307,19 @@ class TestChassisApi(PlatformApiTestBase):
 
         component_list = chassis.get_all_components(platform_api_conn)
         pytest_assert(component_list is not None, "Failed to retrieve components")
-        pytest_assert(isinstance(component_list, list) and len(component_list) == num_components, "Components appear to be incorrect")
+        pytest_assert(isinstance(component_list, list) and len(component_list) == num_components,
+                      "Components appear to be incorrect")
 
         for i in range(num_components):
             component = chassis.get_component(platform_api_conn, i)
-            self.expect(component and component == component_list[i], "Component {} is incorrect".format(i))
+            self.expect(component and component == component_list[i],
+                        "Component {} is incorrect".format(i))
         self.assert_expectations()
 
-    def test_modules(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_modules(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):     # noqa: F811
         try:
             num_modules = int(chassis.get_num_modules(platform_api_conn))
-        except:
+        except Exception:
             pytest.fail("num_modules is not an integer")
         else:
             if num_modules == 0:
@@ -300,7 +327,8 @@ class TestChassisApi(PlatformApiTestBase):
 
         module_list = chassis.get_all_modules(platform_api_conn)
         pytest_assert(module_list is not None, "Failed to retrieve modules")
-        pytest_assert(isinstance(module_list, list) and len(module_list) == num_modules, "Modules appear to be incorrect")
+        pytest_assert(isinstance(module_list, list) and len(module_list) == num_modules,
+                      "Modules appear to be incorrect")
 
         for i in range(num_modules):
             module_idx = chassis.get_module(platform_api_conn, i)
@@ -310,11 +338,11 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(module_index == i, "Module index {} is not correct".format(module_index))
         self.assert_expectations()
 
-    def test_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         try:
             num_fans = int(chassis.get_num_fans(platform_api_conn))
-        except:
+        except Exception:
             pytest.fail("num_fans is not an integer")
         else:
             if num_fans == 0:
@@ -335,11 +363,11 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(fan and fan == fan_list[i], "Fan {} is incorrect".format(i))
         self.assert_expectations()
 
-    def test_fan_drawers(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_fan_drawers(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         try:
             num_fan_drawers = int(chassis.get_num_fan_drawers(platform_api_conn))
-        except:
+        except Exception:
             pytest.fail("num_fan_drawers is not an integer")
         else:
             if num_fan_drawers == 0:
@@ -353,18 +381,20 @@ class TestChassisApi(PlatformApiTestBase):
 
         fan_drawer_list = chassis.get_all_fan_drawers(platform_api_conn)
         pytest_assert(fan_drawer_list is not None, "Failed to retrieve fan drawers")
-        pytest_assert(isinstance(fan_drawer_list, list) and len(fan_drawer_list) == num_fan_drawers, "Fan drawerss appear to be incorrect")
+        pytest_assert(isinstance(fan_drawer_list, list) and len(fan_drawer_list) == num_fan_drawers,
+                      "Fan drawerss appear to be incorrect")
 
         for i in range(num_fan_drawers):
             fan_drawer = chassis.get_fan_drawer(platform_api_conn, i)
-            self.expect(fan_drawer and fan_drawer == fan_drawer_list[i], "Fan drawer {} is incorrect".format(i))
+            self.expect(fan_drawer and fan_drawer == fan_drawer_list[i],
+                        "Fan drawer {} is incorrect".format(i))
         self.assert_expectations()
 
-    def test_psus(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_psus(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         try:
             num_psus = int(chassis.get_num_psus(platform_api_conn))
-        except:
+        except Exception:
             pytest.fail("num_psus is not an integer")
         else:
             if num_psus == 0:
@@ -385,38 +415,41 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(psu and psu == psu_list[i], "PSU {} is incorrect".format(i))
         self.assert_expectations()
 
-    def test_thermals(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_thermals(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         try:
             num_thermals = int(chassis.get_num_thermals(platform_api_conn))
-        except:
+        except Exception:
             pytest.fail("num_thermals is not an integer")
         else:
             if num_thermals == 0:
                 pytest.skip("No thermals found on device")
 
         if duthost.facts.get("chassis"):
-            expected_num_thermals = len(duthost.facts.get("chassis").get('thermals'))
+            thermal_skip_list = get_skip_mod_list(duthost, ['thermals'])
+            expected_num_thermals = len(duthost.facts.get("chassis").get('thermals')) - len(thermal_skip_list)
             pytest_assert(num_thermals == expected_num_thermals,
                           "Number of thermals ({}) does not match expected number ({})"
                           .format(num_thermals, expected_num_thermals))
 
         thermal_list = chassis.get_all_thermals(platform_api_conn)
         pytest_assert(thermal_list is not None, "Failed to retrieve thermals")
-        pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals, "Thermals appear to be incorrect")
+        pytest_assert(isinstance(thermal_list, list) and len(thermal_list) == num_thermals,
+                      "Thermals appear to be incorrect")
 
         for i in range(num_thermals):
             thermal = chassis.get_thermal(platform_api_conn, i)
             self.expect(thermal and thermal == thermal_list[i], "Thermal {} is incorrect".format(i))
         self.assert_expectations()
 
-    def test_sfps(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn, physical_port_indices):
+    def test_sfps(self, duthosts, enum_rand_one_per_hwsku_hostname,
+                  localhost, platform_api_conn, physical_port_indices):    # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if duthost.is_supervisor_node():
             pytest.skip("skipping for supervisor node")
         try:
             num_sfps = int(chassis.get_num_sfps(platform_api_conn))
-        except:
+        except Exception:
             pytest.fail("num_sfps is not an integer")
         else:
             if num_sfps == 0:
@@ -428,10 +461,13 @@ class TestChassisApi(PlatformApiTestBase):
 
         if duthost.facts.get("chassis"):
             expected_num_sfps = len(duthost.facts.get("chassis").get('sfps'))
+            interface_facts = duthost.show_interface(command='status')['ansible_facts']['int_status']
             if duthost.facts.get("platform") == 'x86_64-nvidia_sn2201-r0':
                 # On SN2201, there are 48 RJ45 ports which are also counted in SFP object lists
                 # So we need to adjust test case accordingly
-                expected_num_sfps += 48
+                for port, data in list(interface_facts.items()):
+                    if data['type'] == 'RJ45':
+                        expected_num_sfps += 1
             pytest_assert(num_sfps == expected_num_sfps,
                           "Number of sfps ({}) does not match expected number ({})"
                           .format(num_sfps, expected_num_sfps))
@@ -446,7 +482,7 @@ class TestChassisApi(PlatformApiTestBase):
             self.expect(sfp and sfp in sfp_list, "SFP object for PORT{} NOT found".format(index))
         self.assert_expectations()
 
-    def test_status_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_status_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         # TODO: Get a platform-specific list of available colors for the status LED
 
@@ -477,7 +513,7 @@ class TestChassisApi(PlatformApiTestBase):
             2: "off"
         }
 
-        led_controllable = True
+        led_controllable = False
         led_supported_colors = []
         if duthost.facts.get("chassis"):
             status_led = duthost.facts.get("chassis").get("status_led")
@@ -491,7 +527,8 @@ class TestChassisApi(PlatformApiTestBase):
                 if led_supported_colors:
                     led_type = set(led_type) & set(led_supported_colors)
                     if not led_type:
-                        logger.warning("test_status_led: Skipping set status_led to {} (No supported colors)".format(LED_COLOR_TYPES_DICT[index]))
+                        logger.warning("test_status_led: Skipping set status_led to {} (No supported colors)"
+                                       .format(LED_COLOR_TYPES_DICT[index]))
                         led_type_skipped += 1
                         continue
 
@@ -505,8 +542,11 @@ class TestChassisApi(PlatformApiTestBase):
                     color_actual = chassis.get_status_led(platform_api_conn)
                     if self.expect(color_actual is not None, "Failed to retrieve status_led"):
                         if self.expect(isinstance(color_actual, STRING_TYPE), "Status LED color appears incorrect"):
-                            self.expect(color == color_actual, "Status LED color incorrect (expected: {}, actual: {})".format(color, color_actual))
-                self.expect(led_type_result is True, "Failed to set status_led to {}".format(LED_COLOR_TYPES_DICT[index]))
+                            self.expect(color == color_actual,
+                                        "Status LED color incorrect (expected: {}, actual: {})"
+                                        .format(color, color_actual))
+                self.expect(led_type_result is True,
+                            "Failed to set status_led to {}".format(LED_COLOR_TYPES_DICT[index]))
 
             if led_type_skipped == len(LED_COLOR_TYPES):
                 pytest.skip("skipped as no supported colors for all types")
@@ -516,28 +556,31 @@ class TestChassisApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_thermal_manager(self, localhost, platform_api_conn, thermal_manager_enabled):
+    def test_get_thermal_manager(self, localhost, platform_api_conn, thermal_manager_enabled):    # noqa: F811
         thermal_mgr = chassis.get_thermal_manager(platform_api_conn)
         pytest_assert(thermal_mgr is not None, "Failed to retrieve thermal manager")
 
-    def test_get_watchdog(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_watchdog(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         watchdog = chassis.get_watchdog(platform_api_conn)
         pytest_assert(watchdog is not None, "Failed to retrieve watchdog")
 
-    def test_get_eeprom(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_eeprom(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         eeprom = chassis.get_eeprom(platform_api_conn)
         pytest_assert(eeprom is not None, "Failed to retrieve system EEPROM")
 
-    def test_get_supervisor_slot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_supervisor_slot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
+                                 platform_api_conn):  # noqa: F811
         if chassis.is_modular_chassis(platform_api_conn):
             sup_slot = chassis.get_supervisor_slot(platform_api_conn)
-            pytest_assert(isinstance(sup_slot, int) or isinstance(sup_slot, STRING_TYPE), "supervisor slot is not type integer")
+            pytest_assert(isinstance(sup_slot, int) or isinstance(sup_slot, STRING_TYPE),
+                          "supervisor slot is not type integer")
         else:
             pytest.skip("skipped as this test is applicable to modular chassis only")
 
-    def test_get_my_slot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):
+    def test_get_my_slot(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa: F811
         if chassis.is_modular_chassis(platform_api_conn):
             my_slot = chassis.get_my_slot(platform_api_conn)
-            pytest_assert(isinstance(my_slot, int) or isinstance(my_slot, STRING_TYPE), "supervisor slot is not type integer")
+            pytest_assert(isinstance(my_slot, int) or isinstance(my_slot, STRING_TYPE),
+                          "supervisor slot is not type integer")
         else:
             pytest.skip("skipped as this test is applicable to modular chassis only")

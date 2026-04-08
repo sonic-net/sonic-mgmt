@@ -26,7 +26,7 @@ Supported topologies: t0, t0-52
 ## Setup configuration
 
     1. Configure DHCP server option in config_db. DHCP Relay will be disabled if DHCP server is enabled.
-	2. Start dnsmasq using dnsmasq -p 0 --conf-dir=/etc/dnsmasq.d/ -z. 
+	2. Start dnsmasq using dnsmasq -p 0 --conf-dir=/etc/dnsmasq.d/ -z.
 	3. Update desired subnet ip in updateHostAddresses.py. Start the python script using updateHostAddresses.py.
 
 ## Test cases

@@ -1,0 +1,4 @@
+{ "op": "add", "path": "/VLAN", "value": {} },
+{% for vlan in vlans %}
+{ "op": "add", "path": "/VLAN/Vlan{{ vlan }}", "value": { "vlanid": "{{ vlan }}" } },
+{% endfor %}

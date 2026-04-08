@@ -3,7 +3,7 @@
 - [Test Procedure](#test-procedure)
 
 ## Overview
-This test aims to ensure that a configured Control Plane Access List (CACL) is able to DROP incoming packets from specified incoming IP addresses using a variety of protocols such as SSH, SNMP, and NTP.   
+This test aims to ensure that a configured Control Plane Access List (CACL) is able to DROP incoming packets from specified incoming IP addresses using a variety of protocols such as SSH, SNMP, and NTP.
 
 ## Test Procedure
 

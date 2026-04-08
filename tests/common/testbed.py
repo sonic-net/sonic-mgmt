@@ -1,7 +1,7 @@
 """
 Testbed file related utilities.
 """
-from __future__ import print_function
+
 import argparse
 import csv
 import ipaddr as ipaddress
@@ -23,8 +23,10 @@ class TestbedInfo(object):
     TESTBED_FIELDS_DEPRECATED = ('conf-name', 'group-name', 'topo', 'ptf_image_name',
                                  'ptf', 'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'comment')
     TESTBED_FIELDS_RECOMMENDED = ('conf-name', 'group-name', 'topo', 'ptf_image_name', 'ptf',
-                                  'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut', 'inv_name', 'auto_recover', 'comment')
+                                  'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut',
+                                  'inv_name', 'auto_recover', 'is_smartswitch', 'comment')
     TOPOLOGY_FILEPATH = "../../ansible/vars/"
+    NUT_TOPOLOGY_FILEPATH = "../../ansible/vars/nut_topos"
 
     def __init__(self, testbed_file):
         if testbed_file.endswith(".csv"):
@@ -59,6 +61,7 @@ class TestbedInfo(object):
             # create yaml testbed file
             self.dump_testbeds_to_yaml()
         self.parse_topo()
+        self._normalize_topo_names()
 
     def _cidr_to_ip_mask(self, network):
         addr = ipaddress.IPNetwork(network)
@@ -95,7 +98,7 @@ class TestbedInfo(object):
                 if line['ptf_ipv6']:
                     line['ptf_ipv6'], line['ptf_netmask_v6'] = \
                         self._cidr_to_ip_mask(line['ptf_ipv6'])
-                line['duts'] = re.sub('\[|\]| ', '', line['dut']).split(';')
+                line['duts'] = re.sub(r'\[|\]| ', '', line['dut']).split(';')
                 line['duts_map'] = {dut: line['duts'].index(dut) for dut in line['duts']}
                 del line['dut']
 
@@ -105,17 +108,33 @@ class TestbedInfo(object):
         """Read yaml testbed info file."""
         with open(self.testbed_filename) as f:
             tb_info = yaml.safe_load(f)
-            for tb in tb_info:
-                if tb["ptf_ip"]:
-                    tb["ptf_ip"], tb["ptf_netmask"] = \
-                        self._cidr_to_ip_mask(tb["ptf_ip"])
-                if tb["ptf_ipv6"]:
-                    tb["ptf_ipv6"], tb["ptf_netmask_v6"] = \
-                        self._cidr_to_ip_mask(tb["ptf_ipv6"])
-                tb["duts"] = tb.pop("dut")
-                tb["duts_map"] = {dut: i for i, dut in enumerate(tb["duts"])}
-                self.testbed_topo[tb["conf-name"]] = tb
 
+            if tb_info is None or len(tb_info) == 0:
+                raise ValueError("Testbed file {} is empty".format(self.testbed_filename))
+
+            tb_type = "regular" if "conf-name" in tb_info[0] else "nut"
+            if tb_type == "nut":
+                self._read_nut_testbed_topo_from_yaml(tb_info)
+            else:
+                self._read_regular_testbed_topo_from_yaml(tb_info)
+
+    def _read_regular_testbed_topo_from_yaml(self, tb_info):
+        for tb in tb_info:
+            if "ptf_ip" in tb and tb["ptf_ip"]:
+                tb["ptf_ip"], tb["ptf_netmask"] = \
+                    self._cidr_to_ip_mask(tb["ptf_ip"])
+            if "ptf_ipv6" in tb and tb["ptf_ipv6"]:
+                tb["ptf_ipv6"], tb["ptf_netmask_v6"] = \
+                    self._cidr_to_ip_mask(tb["ptf_ipv6"])
+            tb["duts"] = tb.pop("dut")
+            tb["duts_map"] = {dut: i for i, dut in enumerate(tb["duts"])}
+            self.testbed_topo[tb["conf-name"]] = tb
+
+    def _read_nut_testbed_topo_from_yaml(self, tb_info):
+        for tb in tb_info:
+            tb["conf-name"] = tb["name"]
+            tb["ptf_ip"] = tb["tg_api_server"].split(':')[0]
+            self.testbed_topo[tb["conf-name"]] = tb
 
     def dump_testbeds_to_yaml(self, args=""):
 
@@ -125,7 +144,7 @@ class TestbedInfo(object):
         def ordereddict_representer(dumper, data):
             value = []
             node = yaml.MappingNode("tag:yaml.org,2002:map", value)
-            for item_key, item_value in data.items():
+            for item_key, item_value in list(data.items()):
                 node_key = dumper.represent_data(item_key)
                 node_value = dumper.represent_data(item_value)
                 value.append((node_key, node_value))
@@ -154,20 +173,20 @@ class TestbedInfo(object):
 
         testbed_data = []
         if args and len(args.sai) > 0:
-            #Generate the specific testbed info for SAI test bed set up
+            # Generate the specific testbed info for SAI test bed set up
             sai_ptf_image = args.sai_test_ptf
 
             tb_dict = self.testbed_topo[args.sai_testbed_name]
             tb_dict_fields = self._generate_sai_testbed(tb_dict, args.sai_testbed_name, sai_ptf_image)
-            testbed_mapping = zip(self.testbed_fields, tb_dict_fields)
+            testbed_mapping = list(zip(self.testbed_fields, tb_dict_fields))
             testbed = OrderedDict(testbed_mapping)
             testbed_data.append(testbed)
             print("Finished SAI testbed info generating.")
         else:
-            #Generate all test bed infos
-            for tb_name, tb_dict in self.testbed_topo.items():
-                tb_dict_fields = self._generate_testbed_fields(tb_dict, tb_name)                
-                testbed_mapping = zip(self.testbed_fields, tb_dict_fields)
+            # Generate all test bed infos
+            for tb_name, tb_dict in list(self.testbed_topo.items()):
+                tb_dict_fields = self._generate_testbed_fields(tb_dict, tb_name)
+                testbed_mapping = list(zip(self.testbed_fields, tb_dict_fields))
                 testbed = OrderedDict(testbed_mapping)
                 testbed_data.append(testbed)
             print("Finished testbed info generating.")
@@ -187,21 +206,19 @@ class TestbedInfo(object):
             yaml.dump(testbed_data, yamlfile,
                       explicit_start=True, Dumper=IncIndentDumper)
 
-
     def _generate_testbed_fields(self, tb_dict, tb_name):
         tb_topo = tb_dict["topo"]
         tb_ptf_image_name = tb_dict["ptf_image_name"]
         return self._generate_testbed_fields_from_info(tb_dict, tb_name, tb_topo, tb_ptf_image_name)
 
-
     def _generate_testbed_fields_from_info(self, tb_dict, tb_name, tb_topo, tb_ptf_image_name):
         ptf_ip, ptf_ipv6 = None, None
         if tb_dict["ptf_ip"]:
             ptf_ip = self._ip_mask_to_cidr(tb_dict["ptf_ip"],
-                                            tb_dict["ptf_netmask"])
+                                           tb_dict["ptf_netmask"])
         if tb_dict["ptf_ipv6"]:
             ptf_ipv6 = self._ip_mask_to_cidr(tb_dict["ptf_ipv6"],
-                                                tb_dict["ptf_netmask_v6"])
+                                             tb_dict["ptf_netmask_v6"])
 
         if len(self.testbed_fields) == len(self.TESTBED_FIELDS_DEPRECATED):
             tb_dict_fields = [
@@ -232,21 +249,19 @@ class TestbedInfo(object):
                 tb_dict["inv_name"],
                 tb_dict["auto_recover"],
                 tb_dict["comment"]
-            ] 
+            ]
         return tb_dict_fields
 
-
     def _generate_sai_testbed(self, tb_dict, tb_name, sai_ptf_image):
-        #Compatiable with generating from yaml, self.testbed_fields only set in csv
-        #Set self.testbed_fields
+        # Compatiable with generating from yaml, self.testbed_fields only set in csv
+        # Set self.testbed_fields
         if not hasattr(self, 'testbed_fields'):
             self.testbed_fields = self.TESTBED_FIELDS_RECOMMENDED
 
         sai_topo = self._generate_sai_ptf_topo(tb_dict)
-        tb_dict_fields = self._generate_testbed_fields_from_info(tb_dict, tb_name, sai_topo, sai_ptf_image)        
+        tb_dict_fields = self._generate_testbed_fields_from_info(tb_dict, tb_name, sai_topo, sai_ptf_image)
 
         return tb_dict_fields
-  
 
     def _generate_sai_ptf_topo(self, tb_dict):
         ports_count = len(tb_dict["topo"]["ptf_dut_intf_map"])
@@ -255,20 +270,24 @@ class TestbedInfo(object):
             sai_topo = "ptf32"
         else:
             sai_topo = "ptf64"
-        
+
         return sai_topo
 
-
     def get_testbed_type(self, topo_name):
-        pattern = re.compile(r'^(wan|t0|t1|ptf|fullmesh|dualtor|t2|tgen|mgmttor|m0)')
+        pattern = re.compile(
+            r'^(wan|t0|t1|ptf|fullmesh|dualtor|ciscovs|t2|lt2|ft2|tgen|'
+            r'mgmttor|m0|mc0|mx|m1|c0|dpu|ptp|smartswitch|nut|bmc)'
+        )
         match = pattern.match(topo_name)
-        if match == None:
+        if match is None:
             logger.warning("Unsupported testbed type - {}".format(topo_name))
             return "unsupported"
         tb_type = match.group()
-        if tb_type in ['mgmttor', 'dualtor']:
+        if tb_type in ['mgmttor', 'dualtor', 'ciscovs-7nodes', 'ciscovs-5nodes']:
             # certain testbed types are in 't0' category with different names.
             tb_type = 't0'
+        if tb_type in ['mc0']:
+            tb_type = 'm0'
         return tb_type
 
     def _parse_dut_port_index(self, port):
@@ -278,7 +297,7 @@ class TestbedInfo(object):
         port format : dut_index.port_index@ptf_index
 
         """
-        m = re.match("(\d+)(?:\.(\d+))?(?:@(\d+))?", str(port).strip())
+        m = re.match(r"(\d+)(?:\.(\d+))?(?:@(\d+))?", str(port).strip())
         m1, m2, m3 = m.groups()
         if m3:
             # Format: <dut_index>.<port_index>@<ptf_index>
@@ -326,7 +345,7 @@ class TestbedInfo(object):
                     map[dut_index][dut_port_index] = int(ptf_port_index)
 
         if 'VMs' in topology:
-            for vm in topology['VMs'].values():
+            for vm in list(topology['VMs'].values()):
                 if 'vlans' in vm:
                     for port in vm['vlans']:
                         # Example: '0.31@34'
@@ -353,24 +372,38 @@ class TestbedInfo(object):
 
     def calculate_ptf_dut_intf_map(self, tb):
         map = defaultdict(dict)
-        for dut_index, dut_ptf_map in tb['topo']['ptf_map'].items():
-            for dut_port_index, ptf_port_index in dut_ptf_map.items():
+        for dut_index, dut_ptf_map in list(tb['topo']['ptf_map'].items()):
+            for dut_port_index, ptf_port_index in list(dut_ptf_map.items()):
                 map[str(ptf_port_index)][dut_index] = int(dut_port_index)
         return map
 
     def parse_topo(self):
-        for tb_name, tb in self.testbed_topo.items():
+        for tb_name, tb in list(self.testbed_topo.items()):
             topo = tb.pop("topo")
             tb["topo"] = defaultdict()
             tb["topo"]["name"] = topo
             tb["topo"]["type"] = self.get_testbed_type(topo)
-            topo_dir = os.path.join(os.path.dirname(__file__), self.TOPOLOGY_FILEPATH)
-            topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
-            with open(topo_file, 'r') as fh:
-                tb['topo']['properties'] = yaml.safe_load(fh)
-            tb['topo']['ptf_map'] = self.calculate_ptf_index_map(tb)
-            tb['topo']['ptf_map_disabled'] = self.calculate_ptf_index_map_disabled(tb)
-            tb['topo']['ptf_dut_intf_map'] = self.calculate_ptf_dut_intf_map(tb)
+
+            if topo.startswith("nut-"):
+                topo_dir = os.path.join(os.path.dirname(__file__), self.NUT_TOPOLOGY_FILEPATH)
+                topo_file = os.path.join(topo_dir, "{}.yml".format(topo))
+                with open(topo_file, 'r') as fh:
+                    tb['topo']['properties'] = yaml.safe_load(fh)
+            else:
+                topo_dir = os.path.join(os.path.dirname(__file__), self.TOPOLOGY_FILEPATH)
+                topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
+                with open(topo_file, 'r') as fh:
+                    tb['topo']['properties'] = yaml.safe_load(fh)
+                tb['topo']['ptf_map'] = self.calculate_ptf_index_map(tb)
+                tb['topo']['ptf_map_disabled'] = self.calculate_ptf_index_map_disabled(tb)
+                tb['topo']['ptf_dut_intf_map'] = self.calculate_ptf_dut_intf_map(tb)
+
+    def _normalize_topo_names(self):
+        """Normalize topology names by removing the '-vpp' suffix if present."""
+        for tb_name, tb in list(self.testbed_topo.items()):
+            topo_name = tb["topo"]["name"]
+            if topo_name.endswith("-vpp"):
+                tb["topo"]["name"] = topo_name[:-4]  # Remove the last 4 characters ("-vpp")
 
 
 if __name__ == "__main__":
@@ -388,7 +421,7 @@ if __name__ == "__main__":
 
     parser.add_argument("--print-data", help="print testbed", action="store_true")
 
-    #SAI testbed param
+    # SAI testbed param
     parser.add_argument("-n", "--testbed", dest="sai_testbed_name", help="sai testbed name")
     parser.add_argument("-s", "--sai", dest="sai", help="generate sai testbed file", default="")
     parser.add_argument("-p", "--ptf", dest="sai_test_ptf", help="SAI test ptf image", default="docker-ptf")
@@ -398,7 +431,7 @@ if __name__ == "__main__":
     tbinfo = TestbedInfo(testbedfile)
 
     if args.print_data:
-        print(json.dumps(tbinfo.testbed_topo, indent=4))
+        print((json.dumps(tbinfo.testbed_topo, indent=4)))
 
     if len(args.sai) > 0:
         tbinfo.dump_testbeds_to_yaml(args)

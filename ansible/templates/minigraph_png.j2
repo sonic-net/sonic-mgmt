@@ -10,7 +10,11 @@
         <EndDevice>{{ vms[index] }}</EndDevice>
         <EndPort>{{ vm_intfs[if_index] }}</EndPort>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
+        {% if num_asics > 1 %}
         <StartPort>{{ port_alias[dut_intfs[if_index]] }}</StartPort>
+        {% else %}
+        <StartPort>{{ port_alias_map[port_alias[dut_intfs[if_index]]] }}</StartPort>
+        {% endif %}
 {% if device_conn[inventory_hostname][port_alias_map[port_alias[dut_intfs[if_index]]]] is defined %}
         <Bandwidth>{{ device_conn[inventory_hostname][port_alias_map[port_alias[dut_intfs[if_index]]]]['speed'] }}</Bandwidth>
 {% endif %}
@@ -36,13 +40,26 @@
 {% endif %}
 {% endif %}
 {% if vm_topo_config['host_interfaces_by_dut'][dut_index|int] | length > 0 %}
+{% if 'ptp' in topo and (vlan_intfs is not defined or vlan_intfs | length == 0) %}
+{% set vlan_intfs = vm_topo_config['host_interfaces_by_dut'][dut_index|int] | map('extract', port_alias) | list %}
+{% endif %}
 {% for host_index in range(vlan_intfs | length) %}
       <DeviceLinkBase>
         <ElementType>DeviceInterfaceLink</ElementType>
         <EndDevice>{{ inventory_hostname }}</EndDevice>
         <EndPort>{{ vlan_intfs[host_index] }}</EndPort>
+{% if 'ptp' in topo %}
+{% if device_conn[inventory_hostname][port_alias_map[vlan_intfs[host_index]]] is defined %}
+        <StartDevice>{{ device_conn[inventory_hostname][port_alias_map[vlan_intfs[host_index]]]['peerdevice'] }}</StartDevice>
+        <StartPort>{{ device_conn[inventory_hostname][port_alias_map[vlan_intfs[host_index]]]['peerport'] }}</StartPort>
+{% else %}
+        <StartDevice>Unknown Device</StartDevice>
+        <StartPort>Unknown Port</StartPort>
+{% endif %}
+{% else %}
         <StartDevice>Servers{{ host_index }}</StartDevice>
         <StartPort>eth0</StartPort>
+{% endif %}
       </DeviceLinkBase>
 {% endfor %}
 {% if 'dualtor' in topo %}
@@ -83,7 +100,8 @@
 {% endfor %}
 {% endfor %}
 {% endif %}
-{% for asic_intf in front_panel_asic_ifnames %}
+{% if front_panel_asic_ifnames is defined and front_panel_asic_ifnames | length > 0 %}
+{% for if_index in range(front_panel_asic_ifnames | length) %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
 {% if port_alias[loop.index - 1] in port_speed %}
@@ -92,18 +110,33 @@
         <Bandwidth>40000</Bandwidth>
 {% endif %}
         <ChassisInternal>true</ChassisInternal>
-        <EndDevice>{{ asic_intf.split('-')[1] }}</EndDevice>
-        <EndPort>{{ asic_intf }}</EndPort>
+        <EndDevice>{{ front_panel_asic_ifs_asic_id[if_index] }}</EndDevice>
+        <EndPort>{{ front_panel_asic_ifnames[if_index] }}</EndPort>
         <FlowControl>true</FlowControl>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
+        {% if num_asics > 1 %}
         <StartPort>{{ port_alias[loop.index - 1] }}</StartPort>
+        {% else %}
+        <StartPort>{{ port_alias_map[port_alias[loop.index - 1]] }}</StartPort>
+        {% endif %}
         <Validate>true</Validate>
       </DeviceLinkBase>
 {% endfor %}
 {% endif %}
+{% endif %}
     </DeviceInterfaceLinks>
     <Devices>
+{% if enable_compute_ai_deployment|default('false')|bool %}
+    {% if vm_topo_config['dut_type'] | lower == 'torrouter' %}
+      <Device i:type="BackEndToRRouter">
+    {% elif vm_topo_config['dut_type'] | lower == 'leafrouter' %}
+      <Device i:type="BackEndLeafRouter">
+    {% else %}
       <Device i:type="{{ vm_topo_config['dut_type'] }}">
+    {% endif %}
+{% else %}
+      <Device i:type="{{ vm_topo_config['dut_type'] }}">
+{% endif %}
         <Hostname>{{ inventory_hostname }}</Hostname>
         <HwSku>{{ hwsku }}</HwSku>
 {% if 'loopback' in dual_tor_facts %}
@@ -179,18 +212,38 @@
 {% if vm_topo_config['vm'][dev]['intfs'][dut_index|int]|length %}
 {% if 'properties' in vm_topo_config['vm'][dev] and 'device_type' in vm_topo_config['vm'][dev]['properties'] %}
 {% set dev_type = vm_topo_config['vm'][dev]['properties']['device_type'] %}
+{% elif ('T1' in dev) and (enable_compute_ai_deployment|default('false')|bool) %}
+{% set dev_type = 'BackEndLeafRouter' %}
 {% elif 'T1' in dev %}
 {% set dev_type = 'LeafRouter' %}
+{% elif 'LT2' in dev %}
+{% set dev_type = 'LowerSpineRouter' %}
+{% elif 'FT2' in dev %}
+{% set dev_type = 'FabricSpineRouter' %}
+{% elif 'UT2' in dev %}
+{% set dev_type = 'UpperSpineRouter' %}
 {% elif 'T2' in dev %}
 {% set dev_type = 'SpineRouter' %}
+{% elif 'Snappi_T3' in dev %}
+{% set dev_type = 'RegionalHub' if loop.index <= 2 else 'AZNGHub' %}
 {% elif 'T3' in dev %}
-{% set dev_type = 'CoreRouter' %}
+{% set dev_type = 'RegionalHub' if loop.index is odd else 'AZNGHub' %}
+{% elif 'PT0' in dev %}
+{% set dev_type = 'ToRRouter' %}
+{% elif ('T0' in dev) and (enable_compute_ai_deployment|default('false')|bool) %}
+{% set dev_type = 'BackEndToRRouter' %}
 {% elif 'T0' in dev %}
 {% set dev_type = 'ToRRouter' %}
+{% elif 'MA' in dev %}
+{% set dev_type = 'MgmtSpineRouter'%}
+{% elif 'MB' in dev %}
+{% set dev_type = 'CoreTs' %}
 {% elif 'M1' in dev %}
 {% set dev_type = 'MgmtLeafRouter' %}
 {% elif 'MX' in dev %}
 {% set dev_type = 'BmcMgmtToRRouter' %}
+{% elif 'M0' in dev %}
+{% set dev_type = 'MgmtToRRouter' %}
 {% else %}
 {% set dev_type = 'Unknown' %}
 {% endif %}
@@ -241,4 +294,3 @@
 {% endfor %}
     </Devices>
   </PngDec>
-

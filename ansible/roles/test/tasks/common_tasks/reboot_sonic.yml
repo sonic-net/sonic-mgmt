@@ -9,7 +9,7 @@
 
 - name: set default value for sonic ready timeout
   set_fact:
-    ready_timeout: 180
+    ready_timeout: 540
   when: ready_timeout is not defined
 
 - fail:

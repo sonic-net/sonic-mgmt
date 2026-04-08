@@ -1,52 +1,14 @@
 """
 Test utils used by the link flap tests.
 """
-import time
 import logging
+import random
+import time
 
-from tests.common.platform.device_utils import fanout_switch_port_lookup
-from tests.common.utilities import wait_until
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.device_utils import fanout_switch_port_lookup, __get_dut_if_status
+from tests.common.utilities import get_day_of_week_distributed_ports_from_buckets
 
 logger = logging.getLogger(__name__)
-
-def __get_dut_if_status(dut, ifname=None):
-    """
-    Get interface status on the DUT.
-
-    Args:
-        dut: DUT host object
-        ifname: Interface of DUT
-        exp_state: State of DUT's port ('up' or 'down')
-        verbose: Logging port state.
-
-    Returns:
-        Interface state
-    """
-    if not ifname:
-        status = dut.show_interface(command='status')['ansible_facts']['int_status']
-    else:
-        status = dut.show_interface(command='status', interfaces=[ifname])['ansible_facts']['int_status']
-    return status
-
-
-def __check_if_status(dut, dut_port, exp_state, verbose=False):
-    """
-    Check interface status on the DUT.
-
-    Args:
-        dut: DUT host object
-        dut_port: Port of DUT
-        exp_state: State of DUT's port ('up' or 'down')
-        verbose: Logging port state.
-
-    Returns:
-        Bool value which confirm port state
-    """
-    status = __get_dut_if_status(dut, dut_port)[dut_port]
-    if verbose:
-        logger.debug("Interface status : %s", status)
-    return status['oper_state'] == exp_state
 
 
 def __build_candidate_list(candidates, fanout, fanout_port, dut_port, status):
@@ -93,7 +55,7 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
     """
     candidates = []
 
-    if port not in [ 'unknown', 'all_ports' ]:
+    if port not in ['unknown', 'all_ports']:
         status = __get_dut_if_status(dut, port)
         fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut.hostname, port)
         __build_candidate_list(candidates, fanout, fanout_port, port, status)
@@ -103,12 +65,14 @@ def build_test_candidates(dut, fanouthosts, port, completeness_level=None):
             logger.warning("Failed to get ports enumerated as parameter. Fall back to test all ports")
         status = __get_dut_if_status(dut)
 
-        for dut_port in status.keys():
+        for dut_port in list(status.keys()):
             fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, dut.hostname, dut_port)
             __build_candidate_list(candidates, fanout, fanout_port, dut_port, status)
 
         if completeness_level == 'debug':
             candidates = random.sample(candidates, 1)
+        elif completeness_level == 'confident':
+            candidates = get_day_of_week_distributed_ports_from_buckets(candidates, 32)
 
     return candidates
 
@@ -132,65 +96,6 @@ def check_portchannel_status(dut, dut_port_channel, exp_state, verbose=False):
     return status['oper_state'] == exp_state
 
 
-def toggle_one_link(dut, dut_port, fanout, fanout_port, watch=False, check_status=True):
-    """
-    Toggle one link on the fanout.
-
-    Args:
-        dut: DUT host object
-        dut_port: Port of DUT
-        fanout: Fanout host object
-        fanout_port: Port of fanout
-        watch: Logging system state
-    """
-    logger.info("Testing link flap on %s", dut_port)
-    if check_status:
-        pytest_assert(__check_if_status(dut, dut_port, 'up', verbose=True), "Fail: dut port {}: link operational down".format(dut_port))
-
-    logger.info("Shutting down fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
-
-    need_recovery = True
-    try:
-        fanout.shutdown(fanout_port)
-        if check_status:
-            pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'down', True), "dut port {} didn't go down as expected".format(dut_port))
-
-        if watch:
-            time.sleep(1)
-            watch_system_status(dut)
-
-        logger.info("Bring up fanout switch %s port %s connecting to %s", fanout.hostname, fanout_port, dut_port)
-        fanout.no_shutdown(fanout_port)
-        need_recovery = False
-        if check_status:
-            pytest_assert(wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'up', True), "dut port {} didn't go up as expected".format(dut_port))
-    finally:
-        if need_recovery:
-            fanout.no_shutdown(fanout_port)
-            if check_status:
-                wait_until(30, 1, 0, __check_if_status, dut, dut_port, 'up', True)
-
-
-def watch_system_status(dut):
-    """
-    Watch DUT's system status
-
-    Args:
-        dut: DUT host object
-    """
-    # Watch memory status
-    memory_output = dut.shell("show system-memory")["stdout"]
-    logger.info("Memory Status: %s", memory_output)
-
-    # Watch orchagent CPU utilization
-    orch_cpu = dut.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"]
-    logger.info("Orchagent CPU Util: %s", orch_cpu)
-
-    # Watch Redis Memory
-    redis_memory = dut.shell("redis-cli info memory | grep used_memory_human")["stdout"]
-    logger.info("Redis Memory: %s", redis_memory)
-
-
 def check_orch_cpu_utilization(dut, orch_cpu_threshold):
     """
     Compare orchagent CPU utilization
@@ -202,9 +107,8 @@ def check_orch_cpu_utilization(dut, orch_cpu_threshold):
     orch_cpu = dut.shell("COLUMNS=512 show processes cpu | grep orchagent | awk '{print $9}'")["stdout_lines"]
     for line in orch_cpu:
         if int(float(line)) > orch_cpu_threshold:
-           return False
+            return False
     return True
-
 
 
 def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_counts):
@@ -218,7 +122,7 @@ def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_co
     """
     MAX_DIFF = 5
 
-    sumv4, sumv6 = dut.get_ip_route_summary()
+    sumv4, sumv6 = dut.get_ip_route_summary(skip_kernel_tunnel=True, skip_kernel_linkdown=True)
     totalsv4 = sumv4.get('Totals', {})
     totalsv6 = sumv6.get('Totals', {})
     routesv4 = totalsv4.get('routes', 0)
@@ -229,3 +133,40 @@ def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_co
     incr_ipv4_route_counts = abs(int(float(start_time_ipv4_route_counts)) - int(float(routesv4)))
     incr_ipv6_route_counts = abs(int(float(start_time_ipv6_route_counts)) - int(float(routesv6)))
     return incr_ipv4_route_counts < MAX_DIFF and incr_ipv6_route_counts < MAX_DIFF
+
+
+def get_avg_redis_mem_usage(duthost, interval, num_times):
+    """
+        Redis memory usage is not a stable value. It's fluctuating even when the device is stable stage.
+        202205 has larger redis memory usage (~ 5.5M) so the fluctuation of 0.2M is not an issue.
+        With 202405 redis memory usage is optimized (~ 2.5M) and 0.2M usage could make the test fail
+        if memory threshold is 5%.
+
+        This API returns the average radis memory usage during a period.
+        Args:
+            duthost: DUT host object
+            interval: time interval to wait for next query
+            num_times: number of times to query
+        """
+    logger.info("Checking average redis memory usage")
+    cmd = r"redis-cli info memory | grep used_memory_human | sed -e 's/.*:\(.*\)M/\1/'"
+    redis_memory = 0.0
+    for i in range(num_times):
+        redis_memory += float(duthost.shell(cmd)["stdout"])
+        time.sleep(interval)
+    return float(redis_memory/num_times)
+
+
+def validate_redis_memory_increase(tbinfo, start_mem, end_mem):
+    # Calculate diff in Redis memory
+    incr_redis_memory = end_mem - start_mem
+    logging.info("Redis memory usage difference: %f", incr_redis_memory)
+
+    # Check redis memory only if it is increased else default to pass
+    if incr_redis_memory > 0.0:
+        percent_incr_redis_memory = (incr_redis_memory / start_mem) * 100
+        logging.info("Redis Memory percentage Increase: %d", percent_incr_redis_memory)
+        incr_redis_memory_threshold = 20 if tbinfo["topo"]["type"] in ["m0", "mx"] else 15
+        if percent_incr_redis_memory >= incr_redis_memory_threshold:
+            return False
+    return True

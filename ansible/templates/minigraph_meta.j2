@@ -6,7 +6,7 @@
 {% set snmp_servers_str = ';'.join(snmp_servers) %}
 {% set tacacs_servers_str = ';'.join(tacacs_servers) %}
 {% set radius_servers_str = ';'.join(radius_servers) %}
-{% set erspan_dest_str = ';'.join(erspan_dest) %}
+{% set erspan_dest_str = ';'.join(erspan_dest | default([])) %}
     <Devices xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution">
       <a:DeviceMetadata>
         <a:Name>{{ inventory_hostname }}</a:Name>
@@ -17,10 +17,37 @@
             <a:Value>1</a:Value>
           </a:DeviceProperty>
           <a:DeviceProperty>
+            <a:Name>CloudType</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>Public</a:Value>
+          </a:DeviceProperty>
+{% if not (is_bmc_topo | bool) %}
+          <a:DeviceProperty>
             <a:Name>QosProfile</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>Profile0</a:Value>
           </a:DeviceProperty>
+{% endif %}
+{% if sonic_qos_profile is defined and sonic_qos_profile != "DEFAULT" %}
+          <a:DeviceProperty>
+            <a:Name>SonicQosProfile</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ sonic_qos_profile }}</a:Value>
+          </a:DeviceProperty>
+{% endif %}
+{% if 't2' in topo %}
+{% if card_type is not defined or card_type != 'supervisor' %}
+          <a:DeviceProperty>
+            <a:Name>MacSecEnabled</a:Name>
+            <a:Reference i:nil="true"/>
+{% if dut_index|int == 0 and 'lt2' not in topo %}
+            <a:Value>True</a:Value>
+{% else %}
+           <a:Value>False</a:Value>
+{% endif %}
+        </a:DeviceProperty>
+{% endif %}
+{% endif %}
 {% if 'dualtor' in topo %}
           <a:DeviceProperty>
             <a:Name>GeminiEnabled</a:Name>
@@ -28,7 +55,13 @@
             <a:Value>True</a:Value>
           </a:DeviceProperty>
 {% endif %}
-{% if 'dualtor-mixed' in topo %}
+{% if 'dualtor-aa' in topo %}
+          <a:DeviceProperty>
+            <a:Name>RedundancyType</a:Name>
+            <a:Reference i:nil="true" />
+            <a:Value>Libra</a:Value>
+          </a:DeviceProperty>
+{% elif 'dualtor-mixed' in topo %}
           <a:DeviceProperty>
             <a:Name>RedundancyType</a:Name>
             <a:Reference i:nil="true" />
@@ -41,7 +74,21 @@
             <a:Value>Gemini</a:Value>
           </a:DeviceProperty>
 {% endif %}
-{% if dhcp_servers %}
+{% if ('t1' in topo) and (enable_tunnel_qos_remap|default('false')|bool) %}
+          <a:DeviceProperty>
+            <a:Name>DownstreamRedundancyTypes</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>Gemini</a:Value>
+          </a:DeviceProperty>
+{% endif %}
+{% if enable_compute_ai_deployment|default('false')|bool %}
+          <a:DeviceProperty>
+            <a:Name>ResourceType</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>ComputeAI</a:Value>
+          </a:DeviceProperty>
+{% endif %}
+{% if dhcp_servers and not (is_bmc_topo | bool) %}
           <a:DeviceProperty>
             <a:Name>DhcpResources</a:Name>
             <a:Reference i:nil="true"/>
@@ -76,7 +123,7 @@
             <a:Value>{{ syslog_servers_str }}</a:Value>
           </a:DeviceProperty>
 {% endif %}
-{% if tacacs_group %}
+{% if tacacs_group is defined and tacacs_group %}
           <a:DeviceProperty>
             <a:Name>TacacsGroup</a:Name>
             <a:Reference i:nil="true"/>
@@ -97,7 +144,7 @@
             <a:Value>{{ forced_mgmt_routes_str }}</a:Value>
           </a:DeviceProperty>
 {% endif %}
-{% if erspan_dest %}
+{% if erspan_dest is defined and erspan_dest %}
           <a:DeviceProperty>
             <a:Name>ErspanDestinationIpv4</a:Name>
             <a:Reference i:nil="true"/>
@@ -109,6 +156,13 @@
             <a:Name>SwitchType</a:Name>
             <a:Reference i:nil="true"/>
             <a:Value>{{ switch_type }}</a:Value>
+          </a:DeviceProperty>
+{% endif %}
+{% if msft_an_enabled is defined %}
+          <a:DeviceProperty>
+            <a:Name>AutoNegotiation</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ msft_an_enabled }}</a:Value>
           </a:DeviceProperty>
 {% endif %}
 {% if num_asics == 1 and switch_type is defined and switch_type == 'voq' %}
@@ -125,6 +179,24 @@
             <a:Value>{{ max_cores }}</a:Value>
           </a:DeviceProperty>
 {% endif %}
+{# ZebraNexthop: disabled for T0 (ToR) and T1 (Leaf) topologies, enabled for all others. #}
+{# Exception lists allow per-hwsku overrides if specific platforms need different behavior. #}
+{% set t0_exception_hwskus = [
+] %}
+{% set t1_exception_hwskus = [
+] %}
+{# Default to enabled -- applies to topologies not matched below. #}
+{% set zebra_nexthop_value = 'enabled' %}
+{% if 'ToRRouter' in vm_topo_config['dut_type'] and hwsku not in t0_exception_hwskus %}
+{% set zebra_nexthop_value = 'disabled' %}
+{% elif 'LeafRouter' in vm_topo_config['dut_type'] and hwsku not in t1_exception_hwskus %}
+{% set zebra_nexthop_value = 'disabled' %}
+{% endif %}
+          <a:DeviceProperty>
+            <a:Name>ZebraNexthop</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ zebra_nexthop_value }}</a:Value>
+          </a:DeviceProperty>
         </a:Properties>
       </a:DeviceMetadata>
 {% if num_asics > 1 and switch_type is defined and switch_type == 'voq' %}
@@ -181,6 +253,12 @@
             <a:Value>{{ switch_type }}</a:Value>
          </a:DeviceProperty>
 {% endif %}
+{% if macsec_card is defined and enable_macsec is defined and macsec_card == True and 't2' in topo %}
+    <a:DeviceProperty>
+      <a:Name>MacSecProfile</a:Name>
+      <a:Value>PrimaryKey="MACSEC_PROFILE" FallbackKey="macsec-profile2" MacsecPolicy=""</a:Value>
+    </a:DeviceProperty>
+{% endif %}
         </a:Properties>
       </a:DeviceMetadata>
 {% endfor %}
@@ -210,4 +288,3 @@
     </Devices>
     <Properties xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
   </MetadataDeclaration>
-

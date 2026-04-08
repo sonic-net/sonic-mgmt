@@ -33,6 +33,7 @@
     - [Config reload done on DUT with macsec configuration](#config-reload-done-on-dut-with-macsec-configuration)
     - [Everflow, port mirroring on macsec enabled interfaces](#everflow-port-mirroring-on-macsec-enabled-interfaces)
   - [Testcase : Macsec scenario's for multi-asic, multi-dut](#testcase--macsec-scenarios-for-multi-asic-multi-dut)
+  - [Testcase : Macsec docker restart](#testcase--macsec-docker-restart)
   - [Testcase : Scale tests](#testcase--scale-tests)
     - [Large number of interfaces having macsec enabled on the DUT/linecard](#large-number-of-interfaces-having-macsec-enabled-on-the-dutlinecard)
     - [Simultaneous rekeying in all macsec sessions](#simultaneous-rekeying-in-all-macsec-sessions)
@@ -103,7 +104,7 @@ In this topology, We pick two VMs (MACsec support) that act as the MACsec partic
 
 ### Setup MACsec testbed
 
-About the detail to set the testbed, please refer the doc: https://github.com/Azure/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md firstly.
+About the detail to set the testbed, please refer the doc: https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.VsSetup.md firstly.
 
 ``` bash
 ./testbed-cli.sh -m veos_vtb -n 4 -k vsonic start-vms server_1 password.txt
@@ -377,7 +378,7 @@ MACsec counter helps the monitoring of MACsec frame TX/RX on protected (macsec-e
     - Expect the portchannel to remain oper UP if the mka session establishment happens within 3*30sec, assuming LACP is in slow mode.
     - Expect the portchannel to go down if time taken for mka session establishment is > 3*30sec.
         - Portchannel interface goes oper UP after the MKA session is established
- 
+
 #### Verify LLDP neighbors are created with macsec configuration
 
 - Configure the macsec profile on interface where LLDP neighborship was already present
@@ -388,13 +389,13 @@ MACsec counter helps the monitoring of MACsec frame TX/RX on protected (macsec-e
 #### Verify the BGP neighbourship is created with macsec configuration
 
 - Check the behaviour when macsec is enabled on an interface where BGP session was already established with peer.
-    - Expect to see BGP neighbors remain established state as long as mka session establishment happens within the BGP hold time interval 
+    - Expect to see BGP neighbors remain established state as long as mka session establishment happens within the BGP hold time interval
 - Remove the macsec profile from the interface
     - Check the BGP sessions are established again after removal of macsec config.
 
 #### Verify PFC in MACsec
 
-![MACsec_PFC_test](images/MACsec_PFC_test.png)  
+![MACsec_PFC_test](images/MACsec_PFC_test.png)
 
 Use PTF to generate and capture PFC packets and set the same mode between DUT and Neighbor device.
 
@@ -487,6 +488,11 @@ The switch should only react encrypted PFC frames, send encrypted PFC frames.
 - Verify that macsec dockers are coming up in different namespaces.
 - Verify macsec packet flow where the Ingress and Egress ports are on different Linecards.
    - TODO add expected behavior
+
+### Testcase : Macsec docker restart
+
+- Verify that macsec sessions are restored when macsec docker containers are restarted
+
 
 ### Testcase : Scale tests
 

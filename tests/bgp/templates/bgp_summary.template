@@ -1,0 +1,8 @@
+Value rib_mem (\d+)
+Value peer_mem (\d+)
+Value group_mem (\d+)
+
+Start
+ ^RIB.*using\s+${rib_mem}
+ ^Peers.*using\s+${peer_mem}
+ ^Peer\s+groups.*using\s+${group_mem}

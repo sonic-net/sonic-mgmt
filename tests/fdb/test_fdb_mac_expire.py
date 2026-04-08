@@ -3,16 +3,19 @@ import pytest
 import time
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # lgtm [py/unused-import]
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401  # lgtm [py/unused-import]
+from tests.ptf_runner import ptf_runner
 
 pytestmark = [
-    pytest.mark.topology('t0', 't0-56-po2vlan')
+    pytest.mark.topology('t0', 'm0', 'mx')
 ]
 
 logger = logging.getLogger(__name__)
 
 DISABLE_REFRESH = "disable_refresh"
 REFRESH_DEST_MAC = "refresh_with_dest_mac"
+
+
 class TestFdbMacExpire:
     """
         TestFdbMacExpire Verifies FDb aging timer is respected
@@ -90,24 +93,14 @@ class TestFdbMacExpire:
                 RunAnsibleModuleFail if ptf test fails
         """
         logger.info("Running PTF test case '{0}' on '{1}'".format(testCase, ptfhost.hostname))
-        ptfhost.shell(argv=[
-            "/root/env-python3/bin/ptf",
-            "--test-dir",
-            "ptftests/py3",
-            testCase,
-            "--platform-dir",
+        ptf_runner(
+            ptfhost,
             "ptftests",
-            "--platform",
-            "remote",
-            "-t",
-            ";".join(["{0}={1}".format(k, repr(v)) for k, v in testParams.items()]),
-            "--relax",
-            "--debug",
-            "info",
-            "--log-file",
-            "/tmp/{0}".format(testCase)
-            ],
-            chdir = "/root",
+            testCase,
+            platform_dir="ptftests",
+            params=testParams,
+            log_file="/tmp/{0}".format(testCase),
+            is_python3=True
         )
 
     @pytest.fixture(scope="class", autouse=True)
@@ -229,7 +222,8 @@ class TestFdbMacExpire:
             "fdb_info": self.FDB_INFO_FILE,
             "dummy_mac_prefix": self.DUMMY_MAC_PREFIX,
             "refresh_type":  refresh_type,
-            "aging_time": fdbAgingTime
+            "aging_time": fdbAgingTime,
+            "kvm_support": True
         }
         self.__runPtfTest(ptfhost, "fdb_mac_expire_test.FdbMacExpireTest", testParams)
 
