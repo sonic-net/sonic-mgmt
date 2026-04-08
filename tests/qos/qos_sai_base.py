@@ -480,6 +480,8 @@ class QosSaiBase(QosBase):
             if dut_asic.sonichost.is_multi_asic:
                 port = "{}|{}|{}".format(
                     dut_asic.sonichost.hostname, dut_asic.namespace, port)
+            else:
+                port = "{}|Asic0|{}".format(dut_asic.sonichost.hostname, port)
         if check_qos_db_fv_reference_with_table(dut_asic):
             out = dut_asic.run_redis_cmd(
                 argv=[
