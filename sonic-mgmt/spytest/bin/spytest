@@ -13,6 +13,7 @@ tests = os.path.join(root, "tests")
 sys.path.append(os.path.join(root))
 sys.path.append(os.path.join(root, "apis"))
 sys.path.append(os.path.join(root, "tests/cisco/tortuga/common"))
+sys.path.append(os.path.join(root, "tests/cisco/tortuga/l2_switching"))
 os.environ["SPYTEST_USER_ROOT"] = os.path.abspath(".")
 os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
 

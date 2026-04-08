@@ -9,6 +9,14 @@ import apis.switching.vlan as vlan_obj
 import apis.switching.portchannel as portchannel_obj
 import apis.switching.mac as mac_obj
 import tortuga_common_utils as common_obj
+from fabric_l2_debug import (
+    fabric_l2_debug_enabled,
+    fabric_snapshot_duts,
+    fabric_snapshot_pre_traffic_state,
+    fabric_snapshot_post_traffic_npu,
+    fabric_wait_counterpoll_interface_refresh,
+    fabric_snapshot_post_traffic_counters,
+)
 
 data_glob = SpyTestDict()
 data_glob.portchannel_name = "PortChannel01"
@@ -233,7 +241,7 @@ def setup_teardown_bvi_bd(setup_teardown_basic):
                 common_obj.config_static(node, 'bgp', True, updated_path)
 
         data_glob.pre_config = True
-    
+
     yield 'setup_teardown_bvi_bd'
     
     if data_glob.function_unconfig:
@@ -437,12 +445,28 @@ def test_bvi_v6_intra_vlan_and_l2_l3(setup_teardown_bvi_bd):
 # Verify v4 intra vlan multicast traffic
 # Tgen Stream : 100.0.1.1 (T1D3P1) <---(multicast)---> 100.0.1.2 (T1D4P1)
 def test_bvi_multicast(setup_teardown_bvi_bd):
-    
+
     #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
-    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'multicast',True, verify_ping=False, is_l2=True)
+    handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'multicast', True, verify_ping=False, is_l2=True)
+
+    # Pre/post traffic: VLAN, MAC, NPU and hop-by-hop interface counters (helpers above).
+    vars = st.get_testbed_vars()
+    fabric_dbg = fabric_l2_debug_enabled(vars=vars)
+    all_duts = fabric_snapshot_duts(vars) if fabric_dbg else []
+    if fabric_dbg:
+        fabric_snapshot_pre_traffic_state(all_duts)
+
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles, mode="burst")
+
+    if fabric_dbg:
+        fabric_snapshot_post_traffic_npu(all_duts)
+        # After traffic_start's sonic-clear, wait for counterpoll so show interfaces counters
+        # reflects this run (TGen pass/fail is unchanged).
+        fabric_wait_counterpoll_interface_refresh(10)
+        fabric_snapshot_post_traffic_counters(vars)
+
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
         st.log("Traffic verification for L2 traffic with multicast mac Passed")
     else:
