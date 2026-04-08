@@ -860,9 +860,9 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     """
     logger.info("Fixture nbrhosts started")
     devices = {}
-    if ('vm_base' in tbinfo and not tbinfo['vm_base'] and 'tgen' in tbinfo['topo']['name']) or \
-        'ptf' in tbinfo['topo']['name'] or \
-            'ixia' in tbinfo['topo']['name']:
+    topo_name = tbinfo['topo']['name']
+    if ('vm_base' in tbinfo and not tbinfo['vm_base'] and 'tgen' in topo_name) or \
+            'ptf' in topo_name or 'ixia' in topo_name:
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['name']))
         return devices
 
