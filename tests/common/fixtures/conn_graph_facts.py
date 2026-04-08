@@ -25,8 +25,7 @@ def fanout_graph_facts(localhost, duthosts, rand_one_tgen_dut_hostname, conn_gra
         if fanout not in facts:
             # Query graph using selected DUT + fanout so linked ports are scoped to selected DUTs.
             scoped_graph_facts = get_graph_facts(duthost, localhost, selected_dut_hostnames + [fanout])
-            fanout_data = {k: v[fanout] for k, v in list(scoped_graph_facts.items()) if fanout in v}
-            facts[fanout] = fanout_data
+            facts[fanout] = {k: v[fanout] for k, v in list(scoped_graph_facts.items()) if fanout in v}
     return facts
 
 
