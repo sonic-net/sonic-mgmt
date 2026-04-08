@@ -1,8 +1,8 @@
 import logging
 import pytest
-import time
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -11,9 +11,26 @@ pytestmark = [
 ]
 
 
+@pytest.fixture
+def shutdown_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """Fixture to shutdown an interface and guarantee it is brought back up on cleanup."""
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    intf_to_restore = None
+
+    def do_shutdown(intf):
+        nonlocal intf_to_restore
+        intf_to_restore = intf
+        duthost.shutdown_interface(intf)
+
+    yield do_shutdown
+
+    if intf_to_restore is not None:
+        duthost.no_shutdown_interface(intf_to_restore)
+
+
 class TestNeighborMacAging:
     def testNeighborMacAgingAfterIntfDown(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                          enum_rand_one_frontend_asic_index):
+                                          enum_rand_one_frontend_asic_index, shutdown_interface):
         """
             Test whether neighbor MAC is aged out after interface down
         """
@@ -40,15 +57,15 @@ class TestNeighborMacAging:
         pytest_assert(redis_entry, "Redis entry not found")
 
         # Shutdown the interface on DUT
-        duthost.shutdown_interface(dut_intf)
-        time.sleep(30)
+        shutdown_interface(dut_intf)
+
+        def check_neighbor_aged_out():
+            arp_lines = duthost.command("{} neigh show {}".format(
+                asichost.ip_cmd, neighbor_ip))['stdout_lines']
+            redis_lines = duthost.command("{} ASIC_DB KEYS \"ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*{}*\"".format(
+                asichost.sonic_db_cli, neighbor_ip))['stdout_lines']
+            return len(arp_lines) == 0 and len(redis_lines) == 0
 
         # Verify that the MAC address is aged out from the ARP table and ASIC_DB
-        assert not len(duthost.command("{} neigh show {}".format(asichost.ip_cmd, neighbor_ip))['stdout_lines']), \
-            "ARP entry not aged out"
-        assert not len(duthost.command("{} ASIC_DB KEYS \"ASIC_STATE:SAI_OBJECT_TYPE_NEIGHBOR_ENTRY*{}*\""
-                       .format(asichost.sonic_db_cli, neighbor_ip))['stdout_lines']), \
-            "Redis entry not aged out"
-
-        # Bring the interface up on DUT
-        duthost.no_shutdown_interface(dut_intf)
+        pytest_assert(wait_until(120, 10, 0, check_neighbor_aged_out),
+                      "ARP/Redis entry not aged out after interface down")
