@@ -352,17 +352,36 @@ def test_bgp_update_timer_single_route(
         for i, route in enumerate(constants.routes):
             bgp_pcap = BGP_LOG_TMPL % i
             with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
-                n0.announce_route(route)
-                time.sleep(constants.sleep_interval)
+                # Wait until the DUT has advertised the route to n1 before
+                # withdrawing.  This replaces the fixed sleep and prevents the
+                # MRAI-suppression race where the withdrawal arrives before FRR
+                # ever sends the announcement to n1.
+                bgp_cmd = "bgp ipv6" if is_v6_topo else "ip bgp"
+                if not wait_until(
+                    WAIT_TIMEOUT,
+                    1,
+                    0,
+                    lambda: duthost.shell(
+                        "vtysh -c 'show {} neighbors {} advertised-routes' | grep '{}'".format(
+                            bgp_cmd, n1.ip, route["prefix"]
+                        ),
+                        module_ignore_errors=True,
+                    )["rc"] == 0,
+                ):
+                    pytest.fail(
+                        "Route {} was never advertised from DUT to n1 ({})".format(
+                            route["prefix"], n1.ip
+                        )
+                    )
                 duthost.shell(
-                    "vtysh -c 'show {} neighbors {} received-routes' | grep '{}'".format(
-                        "bgp ipv6" if is_v6_topo else "ip bgp", n0.ip, route["prefix"]
+                    "vtysh -c 'show {} neighbors {} advertised-routes' | grep '{}'".format(
+                        "bgp ipv6" if is_v6_topo else "ip bgp", n1.ip, route["prefix"]
                     ),
                     module_ignore_errors=True,
                 )
                 duthost.shell(
-                    "vtysh -c 'show {} neighbors {} advertised-routes' | grep '{}'".format(
-                        "bgp ipv6" if is_v6_topo else "ip bgp", n1.ip, route["prefix"]
+                    "vtysh -c 'show {} neighbors {} received-routes' | grep '{}'".format(
+                        "bgp ipv6" if is_v6_topo else "ip bgp", n0.ip, route["prefix"]
                     ),
                     module_ignore_errors=True,
                 )
