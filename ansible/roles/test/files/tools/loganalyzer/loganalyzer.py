@@ -188,12 +188,26 @@ class AnsibleLogAnalyzer:
         '''
         @summary: Place marker into '/dev/log'.
         @param marker: Marker to be placed into syslog.
+
+        Flush rsyslog's internal queues *before* writing the marker so that
+        the reload (which briefly closes and reopens log files) does not race
+        with the marker message sitting in rsyslog's buffer.  After the marker
+        is sent we only need a short sleep for rsyslog to write it out under
+        normal (non-reload) conditions.
         '''
+
+        # Flush any previously buffered messages first, so the reload
+        # does not interfere with the marker we are about to write.
+        self.flush_rsyslogd()
 
         syslogger = self.init_sys_logger()
         syslogger.info(marker)
         syslogger.info('\n')
-        self.flush_rsyslogd()
+
+        # Give rsyslog time to write the marker to disk.
+        # Do NOT call flush_rsyslogd() here — a reload right after writing
+        # can cause the marker message to be dropped (see #23562).
+        time.sleep(2)
 
     def wait_for_marker(self, marker, timeout=120, polling_interval=10):
         '''
