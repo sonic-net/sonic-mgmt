@@ -2627,6 +2627,14 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "release in ['202211']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/22295 and platform in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0']"
 
+generic_config_updater/test_eth_interface.py::test_port_speed_change_oper_status:
+  skip:
+    reason: 'Skip this test due to misleading StateDB output for valid speed, same known issue as test_update_speed'
+    conditions_logical_operator: "OR"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8143
+      - https://github.com/sonic-net/sonic-buildimage/issues/13267
+
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
     reason: 'Skip test_replace_fec on unsupported hwsku/topo due to issues'
