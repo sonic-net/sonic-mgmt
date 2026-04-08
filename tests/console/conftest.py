@@ -93,7 +93,7 @@ def prepare_hosts(setup_c0, localhost):
     required_hosts = set([duthost, console_fanout])
     for host in required_hosts:
         host.copy(src="./console/socat", dest="/usr/local/bin/socat", mode=755)
-        assert duthost.shell("socat -V", module_ignore_errors=True)["rc"] == 0, \
+        assert host.shell("socat -V", module_ignore_errors=True)["rc"] == 0, \
             f"socat installation failed on DUT host:{host}"
 
     yield
