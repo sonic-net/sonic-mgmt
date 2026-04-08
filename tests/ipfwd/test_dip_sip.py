@@ -4,6 +4,7 @@ import logging
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa: F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa: F401
+from tests.common.utilities import is_ipv6_only_topology
 
 DEFAULT_HLIM_TTL = 64
 WAIT_EXPECTED_PACKET_TIMEOUT = 5
@@ -26,7 +27,7 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
 
 
 @pytest.fixture(scope="function", autouse=True)
-def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts, request):
+def setup_static_route(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname, gather_facts, request):
     """
     Fixture to set up and tear down static routes for IPv4 and IPv6.
 
@@ -49,15 +50,26 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
         None
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
 
-    # Configure IPv4 static route
-    try:
-        result = duthost.command("ip route add {} via {}".format(STATIC_ROUTE, gather_facts['dst_host_ipv4']))
-        if result['rc'] != 0:
-            raise Exception("Failed to add IPv4 static route: {}".format(result['stderr']))
-    except Exception as e:
-        logger.error("Error occurred while adding IPv4 static route: %s", str(e))
-        pytest.fail("IPv4 static route addition failed")
+    if not is_v6_topo:
+        # Configure IPv4 static route
+        try:
+            result = duthost.command("ip route add {} via {}".format(STATIC_ROUTE, gather_facts['dst_host_ipv4']))
+            if result['rc'] != 0:
+                raise Exception("Failed to add IPv4 static route: {}".format(result['stderr']))
+        except Exception as e:
+            logger.error("Error occurred while adding IPv4 static route: %s", str(e))
+            pytest.fail("IPv4 static route addition failed")
+
+        # Verify IPv4 route is in the routing table
+        try:
+            result = duthost.command("ip route show {}".format(STATIC_ROUTE))
+            assert result['rc'] == 0, "Failed to show IPv4 static route: {}".format(result['stderr'])
+            assert "via " + gather_facts['dst_host_ipv4'] in result["stdout"], "IPv4 static route verification failed"
+        except Exception as e:
+            logger.error("Error occurred while verifying IPv4 static route: %s", str(e))
+            pytest.fail("IPv4 static route verification failed")
 
     # Configure IPv6 static route
     try:
@@ -67,16 +79,6 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
     except Exception as e:
         logger.error("Error occurred while adding IPv6 static route: %s", str(e))
         pytest.fail("IPv6 static route addition failed")
-
-    # Verify IPv4 route is in the routing table
-
-    try:
-        result = duthost.command("ip route show {}".format(STATIC_ROUTE))
-        assert result['rc'] == 0, "Failed to show IPv4 static route: {}".format(result['stderr'])
-        assert "via " + gather_facts['dst_host_ipv4'] in result["stdout"], "IPv4 static route verification failed"
-    except Exception as e:
-        logger.error("Error occurred while verifying IPv4 static route: %s", str(e))
-        pytest.fail("IPv4 static route verification failed")
 
     # # Verify IPv6 route is in the routing table
     try:
@@ -91,7 +93,8 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
     yield
 
     # Use either individual functions
-    delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
+    if not is_v6_topo:
+        delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
     delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
 
     # Or use the combined function
@@ -99,10 +102,11 @@ def setup_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gath
 
 
 @pytest.fixture(autouse=True)
-def setup_teardown(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts):
+def setup_teardown(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname, gather_facts):
     yield
     # Teardown - delete the static routes
-    delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
+    if not is_ipv6_only_topology(tbinfo):
+        delete_ipv4_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
     delete_ipv6_static_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, gather_facts)
 
 
