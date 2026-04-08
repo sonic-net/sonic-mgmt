@@ -639,7 +639,9 @@ bgp/test_bgpmon.py::test_bgpmon:
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:
-    reason: "Not applicable for passive bgpmon_v6"
+    reason: "Not applicable for passive bgpmon_v6 and UT2 does not use bgpmon_v6"
+    conditions:
+      - "platform in ['x86_64-arista_7280dr3am_36']"
 
 bgp/test_startup_tsa_tsb_service.py::test_tsa_tsb_service_with_supervisor_abnormal_reboot:
   skip:
