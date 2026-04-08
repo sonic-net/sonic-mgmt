@@ -267,18 +267,18 @@ bfd:
 
 bfd/test_bfd.py:
   skip:
-    reason: "Test not supported for platforms other than Nvidia 4280/4600c/4700/5600 and cisco-8102. Skipping the test / KVM do not support bfd test"
+    reason: "Test not supported for platforms other than Nvidia 4280/4600c/4700/5600 and cisco-8102. Skipping the test / VS do not support bfd test"
     conditions_logical_operator: or
     conditions:
-      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      -  "(release in ['201811', '201911']) or (platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0', 'x86_64-kvm_x86_64-r0'])"
       - "asic_type in ['vs']"
 
 bfd/test_bfd.py::test_bfd_basic:
   skip:
-    reason: "Test not supported on platforms other than Cisco 8101/8102, Nvidia 4280/4600c/4700/5600. KVM platforms do not support bfd test"
+    reason: "Test not supported on platforms other than Cisco 8101/8102, Nvidia 4280/4600c/4700/5600. VS platforms do not support bfd test"
     conditions_logical_operator: or
     conditions:
-      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']"
+      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0', 'x86_64-kvm_x86_64-r0']"
       - "release in ['201811', '201911']"
       - "asic_type in ['vs']"
   xfail:
@@ -296,10 +296,10 @@ bfd/test_bfd.py::test_bfd_echo_mode:
 
 bfd/test_bfd.py::test_bfd_scale:
   skip:
-    reason: "Test is not supported for platforms other than Cisco 8102/8101, Nvidia 4280/4600c/4700/5600. KVM platforms do not support bfd test"
+    reason: "Test is not supported for platforms other than Cisco 8102/8101, Nvidia 4280/4600c/4700/5600. VS platforms do not support bfd test"
     conditions_logical_operator: or
     conditions:
-      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']"
+      - "platform not in ['x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn5600-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0', 'x86_64-kvm_x86_64-r0']"
       - "release in ['201811', '201911']"
       - "asic_type in ['vs']"
 
@@ -2631,6 +2631,14 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "release in ['202211']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/22295 and platform in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0']"
 
+generic_config_updater/test_eth_interface.py::test_port_speed_change_oper_status:
+  skip:
+    reason: 'Skip this test due to misleading StateDB output for valid speed, same known issue as test_update_speed'
+    conditions_logical_operator: "OR"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/8143
+      - https://github.com/sonic-net/sonic-buildimage/issues/13267
+
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
     reason: 'Skip test_replace_fec on unsupported hwsku/topo due to issues'
@@ -4758,22 +4766,18 @@ sflow/:
 
 sflow/test_sflow.py::TestReboot::testFastreboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot"
+    reason: "Dualtor topology doesn't support advanced-reboot or Fastreboot is not supported on sn5640 SP5 platform."
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
-  xfail:
-    reason: "Test case has issue on sn5640 SP5 platform."
-    conditions:
       - "platform in ['x86_64-nvidia_sn5640-r0']"
 
 sflow/test_sflow.py::TestReboot::testWarmreboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot"
+    reason: "Dualtor topology doesn't support advanced-reboot or Warmreboot is not supported on sn5640 SP5 platform."
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
-  xfail:
-    reason: "Test case has issue on sn5640 SP5 platform."
-    conditions:
       - "platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
