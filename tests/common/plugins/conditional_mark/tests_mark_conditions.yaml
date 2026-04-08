@@ -4762,22 +4762,18 @@ sflow/:
 
 sflow/test_sflow.py::TestReboot::testFastreboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot"
+    reason: "Dualtor topology doesn't support advanced-reboot or Fastreboot is not supported on sn5640 SP5 platform."
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
-  xfail:
-    reason: "Test case has issue on sn5640 SP5 platform."
-    conditions:
       - "platform in ['x86_64-nvidia_sn5640-r0']"
 
 sflow/test_sflow.py::TestReboot::testWarmreboot:
   skip:
-    reason: "Dualtor topology doesn't support advanced-reboot"
+    reason: "Dualtor topology doesn't support advanced-reboot or Warmreboot is not supported on sn5640 SP5 platform."
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
-  xfail:
-    reason: "Test case has issue on sn5640 SP5 platform."
-    conditions:
       - "platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
