@@ -152,6 +152,14 @@
         "tag": "Yes"
     },
     {
+        "hwsku": "Arista-7260CX3-C64",
+        "topo": "tgen",
+        "owner": "Shawn Dashuai Zhang",
+        "email": "dashuaizhang@microsoft.com",
+        "new_platform": "No",
+        "tag": "No"
+    },
+    {
         "hwsku": "Arista-7260CX3-D108C8",
         "topo": "t0",
         "owner": "Zhaohui Sun",
