@@ -5415,6 +5415,15 @@ upgrade_path/test_upgrade_path.py::test_upgrade_path_t2_delayed:
       - "'t2' not in topo_type"
 
 #######################################
+#####        upgrade_path         #####
+#######################################
+upgrade_path/test_upgrade_path.py::test_warm_upgrade_sad_path:
+  xfail:
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/13627
+      - "neighbor_type!='eos'"
+
+#######################################
 #####            vlan             #####
 #######################################
 
