@@ -10,6 +10,8 @@ from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
 from azure.kusto.data.exceptions import KustoServiceError
 from config import (
     ALLOWED_BRANCHES,
+    CHECKER_TO_INCLUDE_JOBS,
+    CHECKER_TO_PIPELINE_CHECKER,
     DEFAULT_FAILURE_INFO_FILE,
     get_failure_info_table,
     KUSTO_DATABASE,
@@ -20,6 +22,7 @@ from config import (
     KUSTO_RESULT_TABLE,
     KUSTO_TESTPLAN_MAP_MAPPING,
     KUSTO_TESTPLAN_MAP_TABLE,
+    MASTER_CI_PIPELINE_DEFINITION_ID,
     MGMT_REPO,
 )
 from schemas import TestPipelineParameters, BuildPipelineParameters
@@ -61,6 +64,44 @@ def isoformat_utc(dtobj):
     return dtobj.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def derive_include_jobs(test_scripts):
+    """Derive INCLUDE_JOBS from test_scripts checker keys.
+
+    Returns a comma-separated string of job names, or None if no mapping found
+    (which lets the pipeline default take effect).
+    """
+    if not test_scripts:
+        return None
+    jobs = set()
+    for checker in test_scripts:
+        job = CHECKER_TO_INCLUDE_JOBS.get(checker)
+        if job:
+            jobs.update(job.split(","))
+    return ",".join(sorted(jobs)) if jobs else None
+
+
+def remap_test_scripts_for_pipeline(test_scripts):
+    """Remap checker keys in test_scripts to pipeline-compatible names.
+
+    Some Kusto checker types (e.g. ``t1-multi-asic_checker``) don't match the
+    checker names used in pipeline job conditions (e.g. ``t1_checker``).  This
+    function remaps the keys so ``IMPACT_AREA_INFO`` is understood by the
+    ``get-impacted-area`` step.
+    """
+    if not test_scripts:
+        return test_scripts
+    remapped = {}
+    for checker, scripts in test_scripts.items():
+        pipeline_checker = CHECKER_TO_PIPELINE_CHECKER.get(checker, checker)
+        if pipeline_checker in remapped:
+            remapped[pipeline_checker] = list(
+                dict.fromkeys(remapped[pipeline_checker] + scripts)
+            )
+        else:
+            remapped[pipeline_checker] = scripts
+    return remapped
+
+
 def build_failure_join_key(metadata):
     return "|".join([
         metadata.get("repo", ""),
@@ -81,6 +122,9 @@ def execute_binary_search(client: AzureDevOpsClient, result_json: dict, max_para
     test_scripts = result_json['test_scripts']
     commits = result_json['commits']
     commit_ids = [commit['sha'] for commit in commits]
+
+    pipeline_test_scripts = remap_test_scripts_for_pipeline(test_scripts)
+    include_jobs = derive_include_jobs(test_scripts)
 
     logger.info(f"Starting binary search for {repo} with {len(commit_ids)} commits")
     searcher = DynamicParallelBisect(commit_ids, max_parallel=max_parallel)
@@ -220,8 +264,9 @@ def execute_binary_search(client: AzureDevOpsClient, result_json: dict, max_para
                     TEST_PLAN_NUM=DEFAULT_PARALLEL_TESTS,
                     TEST_PLAN_STOP_ON_FAILURE="True",
                     RETRY_TIMES=DEFAULT_RETRY_TIMES,
-                    IMPACT_AREA_INFO=test_scripts,
+                    IMPACT_AREA_INFO=pipeline_test_scripts,
                     KVM_BUILD_ID=str(commit_build["run_id"]),
+                    INCLUDE_JOBS=include_jobs,
                 )
             else:
                 # sonic-mgmt binary search: pin the mgmt commit being tested.
@@ -232,7 +277,8 @@ def execute_binary_search(client: AzureDevOpsClient, result_json: dict, max_para
                     TEST_PLAN_STOP_ON_FAILURE="True",
                     RETRY_TIMES=DEFAULT_RETRY_TIMES,
                     MGMT_COMMIT_HASH=commit,
-                    IMPACT_AREA_INFO=test_scripts,
+                    IMPACT_AREA_INFO=pipeline_test_scripts,
+                    INCLUDE_JOBS=include_jobs,
                 )
             try:
                 run = trigger_pipeline(client, branch, commit, "test", test_pipeline_id, params)
@@ -541,6 +587,338 @@ def write_build_map(build_cache, output_file):
     logger.info(f"Build commit mapping written to {output_file}")
 
 
+# ---------------------------------------------------------------------------
+# CI Pre-screening: use existing batched CI build images to narrow the commit
+# range before building individual VS images.
+# ---------------------------------------------------------------------------
+
+MIN_CI_BUILDS_FOR_PRESCREENING = 2
+
+
+def map_ci_builds_to_commits(ci_builds, commits):
+    """Map CI builds to positions in the commit list by matching sourceVersion.
+
+    Args:
+        ci_builds: List of Azure DevOps build dicts (must have ``sourceVersion``).
+        commits: List of commit dicts with ``sha``, ordered oldest-first.
+
+    Returns:
+        List of ``(commit_index, commit_sha, ci_build)`` tuples sorted by index.
+    """
+    sha_to_index = {c["sha"]: i for i, c in enumerate(commits) if "sha" in c}
+    mapped = []
+    seen_indices = set()
+    for build in ci_builds:
+        source_sha = build.get("sourceVersion", "")
+        idx = sha_to_index.get(source_sha)
+        if idx is not None and idx not in seen_indices:
+            seen_indices.add(idx)
+            mapped.append((idx, source_sha, build))
+    mapped.sort(key=lambda x: x[0])
+    return mapped
+
+
+def _build_ci_build_cache_entry(ci_build):
+    """Convert an Azure DevOps CI build dict into a build_cache entry."""
+    web_url = ci_build.get("_links", {}).get("web", {}).get("href")
+    return {
+        "is_bad": False,  # will be determined by testing
+        "run_id": ci_build["id"],
+        "run_url": web_url,
+        "status": "completed",
+        "result": ci_build.get("result", "succeeded"),
+        "ci_prescreening": True,
+        "pipeline_definition_id": ci_build.get("definition", {}).get("id"),
+    }
+
+
+def narrow_with_ci_prescreening(
+    client,
+    result_json,
+    max_parallel,
+    test_pipeline_id,
+    search_run_id,
+    ci_pipeline_definition_id,
+):
+    """Use existing CI builds to narrow the buildimage commit range.
+
+    Fetches successful CI builds that fall within the failure window, runs a
+    preliminary binary search using those pre-built images, and returns a
+    narrowed commit list together with a partial build cache.
+
+    Args:
+        client: ``AzureDevOpsClient`` instance.
+        result_json: Parsed failure entry dict (must contain ``commits``, ``repo``, etc.).
+        max_parallel: Max concurrent test pipelines.
+        test_pipeline_id: Pipeline definition ID for test runs.
+        search_run_id: Unique search run identifier.
+        ci_pipeline_definition_id: ADO definition ID for master CI builds.
+
+    Returns:
+        Tuple ``(narrowed_commits, ci_build_cache, execution_records, test_plan_records)``.
+
+        * *narrowed_commits* – list of commit dicts for the narrowed range
+          (falls back to the full list when prescreening is not applicable).
+        * *ci_build_cache* – dict mapping commit SHA → build-cache entry for
+          any CI build images that were tested.
+        * *execution_records* / *test_plan_records* – audit trail lists.
+    """
+    commits = result_json["commits"]
+    repo = result_json["repo"]
+    branch = result_json["branch"]
+    test_scripts = result_json.get("test_scripts")
+
+    metadata_base = {
+        "analyzer_run_id": result_json.get("analyzer_run_id"),
+        "repo": repo,
+        "branch": branch,
+        "trigger_type": result_json.get("trigger_type"),
+        "checker": result_json.get("checker"),
+        "file_path": result_json.get("file_path"),
+        "module_path": result_json.get("module_path"),
+        "testcase": result_json.get("testcase"),
+    }
+    failure_join_key = build_failure_join_key(metadata_base)
+
+    execution_records = []
+    test_plan_records = []
+
+    # Determine time window from commit dates.
+    commit_dates = [c.get("date", "") for c in commits if c.get("date")]
+    if not commit_dates:
+        logger.warning("CI prescreening: no commit dates available, skipping")
+        return commits, {}, execution_records, test_plan_records
+    min_time = min(commit_dates)
+    max_time = max(commit_dates)
+
+    # Fetch CI builds in the time window.
+    ci_builds = client.fetch_completed_ci_builds(
+        definition_id=ci_pipeline_definition_id,
+        branch=branch,
+        min_time=min_time,
+        max_time=max_time,
+    )
+    if not ci_builds:
+        logger.info("CI prescreening: no CI builds found in time window, skipping")
+        return commits, {}, execution_records, test_plan_records
+
+    mapped = map_ci_builds_to_commits(ci_builds, commits)
+    logger.info(
+        f"CI prescreening: {len(ci_builds)} CI builds fetched, "
+        f"{len(mapped)} mapped to commits in range"
+    )
+    if len(mapped) < MIN_CI_BUILDS_FOR_PRESCREENING:
+        logger.info("CI prescreening: not enough mapped CI builds, skipping")
+        return commits, {}, execution_records, test_plan_records
+
+    # Build the sub-list of commits that have CI builds.
+    ci_commit_shas = [sha for _, sha, _ in mapped]
+    ci_build_lookup = {sha: build for _, sha, build in mapped}
+    ci_index_lookup = {sha: idx for idx, sha, _ in mapped}
+
+    # Run binary search on CI commits only.
+    searcher = DynamicParallelBisect(ci_commit_shas, max_parallel=max_parallel)
+    ci_round = 0
+
+    while True:
+        ci_round += 1
+        plan = searcher.get_next_test_commits()
+        if plan is None:
+            break
+
+        test_commits = plan["tests"]
+        logger.info(f"CI prescreening round {ci_round}: testing {len(test_commits)} CI commits")
+
+        test_runs = []
+        round_results = {}
+        pipeline_test_scripts = remap_test_scripts_for_pipeline(test_scripts)
+        include_jobs = derive_include_jobs(test_scripts)
+        for commit in test_commits:
+            ci_build = ci_build_lookup[commit]
+            params = TestPipelineParameters(
+                BUILD_REASON=BUILD_REASON,
+                BUILD_BRANCH=branch,
+                TEST_PLAN_NUM=DEFAULT_PARALLEL_TESTS,
+                TEST_PLAN_STOP_ON_FAILURE="True",
+                RETRY_TIMES=DEFAULT_RETRY_TIMES,
+                IMPACT_AREA_INFO=pipeline_test_scripts,
+                KVM_BUILD_ID=str(ci_build["id"]),
+                INCLUDE_JOBS=include_jobs,
+            )
+            try:
+                run = trigger_pipeline(client, branch, commit, "test", test_pipeline_id, params)
+                test_runs.append(run)
+                execution_records.append({
+                    "SearchRunId": search_run_id,
+                    "AnalyzerRunId": result_json.get("analyzer_run_id"),
+                    "FailureJoinKey": failure_join_key,
+                    "TriggerType": result_json.get("trigger_type"),
+                    "SourceRepo": repo,
+                    "Branch": branch,
+                    "CheckerType": result_json.get("checker"),
+                    "FilePath": result_json.get("file_path"),
+                    "ModulePath": result_json.get("module_path"),
+                    "TestCase": result_json.get("testcase"),
+                    "RoundNumber": ci_round,
+                    "CommitSha": commit,
+                    "Stage": "ci_prescreening",
+                    "Verdict": "queued",
+                    "IsBad": None,
+                    "PipelineDefinitionId": test_pipeline_id,
+                    "PipelineRunId": str(run.run_id),
+                    "PipelineUrl": run.run_url,
+                    "Status": "queued",
+                    "Result": None,
+                    "BuildReason": BUILD_REASON,
+                    "ImpactAreaInfo": test_scripts,
+                    "RawRecord": {
+                        "ci_build_id": ci_build["id"],
+                        "ci_source_version": ci_build.get("sourceVersion"),
+                        "payload": params.to_payload(),
+                    },
+                    "UploadTime": isoformat_utc(datetime.now(tz=timezone.utc)),
+                })
+            except Exception as err:
+                logger.error(f"CI prescreening: failed to trigger test for {commit}: {err}")
+                round_results[commit] = None
+                execution_records.append({
+                    "SearchRunId": search_run_id,
+                    "AnalyzerRunId": result_json.get("analyzer_run_id"),
+                    "FailureJoinKey": failure_join_key,
+                    "TriggerType": result_json.get("trigger_type"),
+                    "SourceRepo": repo,
+                    "Branch": branch,
+                    "CheckerType": result_json.get("checker"),
+                    "FilePath": result_json.get("file_path"),
+                    "ModulePath": result_json.get("module_path"),
+                    "TestCase": result_json.get("testcase"),
+                    "RoundNumber": ci_round,
+                    "CommitSha": commit,
+                    "Stage": "ci_prescreening",
+                    "Verdict": "trigger_error",
+                    "IsBad": None,
+                    "PipelineDefinitionId": test_pipeline_id,
+                    "PipelineRunId": None,
+                    "PipelineUrl": None,
+                    "Status": "trigger_error",
+                    "Result": str(err),
+                    "BuildReason": BUILD_REASON,
+                    "ImpactAreaInfo": test_scripts,
+                    "RawRecord": {"error": str(err), "payload": params.to_payload()},
+                    "UploadTime": isoformat_utc(datetime.now(tz=timezone.utc)),
+                })
+
+        # Poll test results.
+        test_details = client.poll_pipeline_details(test_runs)
+        for run in test_runs:
+            detail = test_details.get(run.commit)
+            if detail and detail.get("run_id"):
+                for tp_id in client.extract_test_plan_ids(detail["run_id"]):
+                    test_plan_records.append({
+                        "SearchRunId": search_run_id,
+                        "FailureJoinKey": failure_join_key,
+                        "PipelineRunId": str(detail["run_id"]),
+                        "RoundNumber": ci_round,
+                        "CommitSha": run.commit,
+                        "TestPlanId": tp_id,
+                        "UploadTime": isoformat_utc(datetime.now(tz=timezone.utc)),
+                    })
+
+        for commit_sha, detail in test_details.items():
+            is_bad = detail.get("is_bad")
+            if commit_sha not in round_results or round_results[commit_sha] is None:
+                round_results[commit_sha] = is_bad
+            execution_records.append({
+                "SearchRunId": search_run_id,
+                "AnalyzerRunId": result_json.get("analyzer_run_id"),
+                "FailureJoinKey": failure_join_key,
+                "TriggerType": result_json.get("trigger_type"),
+                "SourceRepo": repo,
+                "Branch": branch,
+                "CheckerType": result_json.get("checker"),
+                "FilePath": result_json.get("file_path"),
+                "ModulePath": result_json.get("module_path"),
+                "TestCase": result_json.get("testcase"),
+                "RoundNumber": ci_round,
+                "CommitSha": commit_sha,
+                "Stage": "ci_prescreening",
+                "Verdict": "completed",
+                "IsBad": is_bad,
+                "PipelineDefinitionId": test_pipeline_id,
+                "PipelineRunId": str(detail.get("run_id")) if detail.get("run_id") else None,
+                "PipelineUrl": detail.get("run_url"),
+                "Status": detail.get("status"),
+                "Result": detail.get("result"),
+                "BuildReason": BUILD_REASON,
+                "ImpactAreaInfo": test_scripts,
+                "RawRecord": detail,
+                "UploadTime": isoformat_utc(datetime.now(tz=timezone.utc)),
+            })
+
+        valid_results = {k: v for k, v in round_results.items() if v is not None}
+        if not valid_results:
+            logger.error(f"CI prescreening round {ci_round}: no valid results, aborting prescreening")
+            return commits, {}, execution_records, test_plan_records
+
+        status = searcher.submit_test_results(valid_results)
+        logger.info(
+            f"CI prescreening round {ci_round}: eliminated {len(status['eliminated_commits'])} CI commits"
+        )
+        if status["finished"]:
+            break
+
+    # Determine the narrowed range in the full commit list.
+    ci_result, (ci_left, ci_right) = searcher.get_result()
+
+    if ci_left > ci_right:
+        logger.info("CI prescreening: no bad CI commit found, using full range")
+        return commits, {}, execution_records, test_plan_records
+
+    # When the binary search converges to a single commit that was never
+    # actually tested as bad (e.g. all tested CI commits were good and the
+    # algorithm assumed the untested boundary is bad), fall back to the full
+    # range rather than narrowing based on a false positive.
+    if ci_result and ci_left == ci_right:
+        all_tested_results = {}
+        for rec in execution_records:
+            if rec.get("Stage") == "ci_prescreening" and rec.get("Verdict") == "completed":
+                sha = rec.get("CommitSha")
+                is_bad = rec.get("IsBad")
+                if sha and is_bad is not None:
+                    all_tested_results[sha] = is_bad
+        if not any(all_tested_results.values()):
+            logger.info("CI prescreening: all tested CI commits were good, using full range")
+            return commits, {}, execution_records, test_plan_records
+
+    # Map CI-level indices back to full-commit-list indices.
+    right_sha = ci_commit_shas[ci_right]
+    full_right = ci_index_lookup[right_sha]
+
+    # Extend left boundary to include the commit after the last known good CI commit.
+    # If ci_left > 0, the commit at ci_left-1 was good, so we start from (that full index + 1).
+    if ci_left > 0:
+        prev_good_sha = ci_commit_shas[ci_left - 1]
+        narrowed_start = ci_index_lookup[prev_good_sha] + 1
+    else:
+        narrowed_start = 0
+
+    narrowed_end = full_right  # inclusive
+
+    narrowed_commits = commits[narrowed_start: narrowed_end + 1]
+    logger.info(
+        f"CI prescreening: narrowed {len(commits)} commits -> {len(narrowed_commits)} "
+        f"(indices {narrowed_start}..{narrowed_end})"
+    )
+
+    # Build a partial cache: any CI builds in the narrowed range can be reused.
+    ci_build_cache = {}
+    for idx, sha, build in mapped:
+        if narrowed_start <= idx <= narrowed_end:
+            ci_build_cache[sha] = _build_ci_build_cache_entry(build)
+
+    return narrowed_commits, ci_build_cache, execution_records, test_plan_records
+
+
 def build_summary_records(results, search_run_id):
     upload_time = isoformat_utc(datetime.now(tz=timezone.utc))
     records = []
@@ -625,21 +1003,63 @@ def process_failure_entry(
     build_pipeline_id: int,
     build_queue_parallel: int,
     search_run_id: str,
+    enable_ci_prescreening: bool = False,
+    ci_pipeline_definition_id: int = None,
 ):
     repo = result_json.get("repo")
     branch = result_json.get("branch")
     build_map = None
+    ci_execution_records = []
+    ci_test_plan_records = []
 
     if repo != MGMT_REPO:
-        commit_ids = [commit.get("sha") for commit in result_json.get("commits", []) if commit.get("sha")]
-        build_map = prebuild_commits_for_repo(
-            client=client,
-            repo=repo,
-            branch=branch,
-            commit_ids=commit_ids,
-            build_pipeline_id=build_pipeline_id,
-            build_queue_parallel=build_queue_parallel,
-        )
+        commits_to_build = result_json.get("commits", [])
+        ci_build_cache = {}
+
+        # Phase 1 (optional): CI pre-screening to narrow the commit range.
+        if enable_ci_prescreening and ci_pipeline_definition_id:
+            try:
+                narrowed_commits, ci_build_cache, ci_execution_records, ci_test_plan_records = (
+                    narrow_with_ci_prescreening(
+                        client=client,
+                        result_json=result_json,
+                        max_parallel=max_parallel,
+                        test_pipeline_id=test_pipeline_id,
+                        search_run_id=search_run_id,
+                        ci_pipeline_definition_id=ci_pipeline_definition_id,
+                    )
+                )
+                if len(narrowed_commits) < len(commits_to_build):
+                    logger.info(
+                        f"CI prescreening narrowed {len(commits_to_build)} -> "
+                        f"{len(narrowed_commits)} commits for {repo}@{branch}"
+                    )
+                    commits_to_build = narrowed_commits
+                    # Update result_json so execute_binary_search uses the narrowed range.
+                    result_json = dict(result_json, commits=commits_to_build)
+            except Exception as ci_err:
+                logger.error(f"CI prescreening failed for {repo}@{branch}, falling back to full build: {ci_err}")
+
+        # Phase 2: Build individual VS images for commits not covered by CI builds.
+        commit_ids = [c.get("sha") for c in commits_to_build if c.get("sha")]
+        commits_needing_build = [sha for sha in commit_ids if sha not in ci_build_cache]
+        if commits_needing_build:
+            build_map = prebuild_commits_for_repo(
+                client=client,
+                repo=repo,
+                branch=branch,
+                commit_ids=commits_needing_build,
+                build_pipeline_id=build_pipeline_id,
+                build_queue_parallel=build_queue_parallel,
+            )
+        else:
+            build_map = {}
+
+        # Merge CI build cache entries into the build map so execute_binary_search
+        # can look up any commit (CI-built or individually-built) uniformly.
+        for sha, entry in ci_build_cache.items():
+            if sha not in build_map:
+                build_map[sha] = entry
 
     execution_records = []
     if build_map is not None:
@@ -668,7 +1088,7 @@ def process_failure_entry(
                 "Stage": "build",
                 "Verdict": verdict,
                 "IsBad": detail.get("is_bad"),
-                "PipelineDefinitionId": build_pipeline_id,
+                "PipelineDefinitionId": detail.get("pipeline_definition_id", build_pipeline_id),
                 "PipelineRunId": str(run_id) if run_id is not None else None,
                 "PipelineUrl": detail.get("run_url"),
                 "Status": status,
@@ -704,7 +1124,8 @@ def process_failure_entry(
             "execution_records": [],
             "test_plan_records": [],
         }
-    result['execution_records'] = execution_records + result.get('execution_records', [])
+    result['execution_records'] = ci_execution_records + execution_records + result.get('execution_records', [])
+    result['test_plan_records'] = ci_test_plan_records + result.get('test_plan_records', [])
     return entry_key, result, build_map
 
 
@@ -721,6 +1142,13 @@ def main():
                         help="Lookback window (hours) when fetching failure info from Kusto")
     parser.add_argument("--USE_AGENCY_FAILURE_INFO", type=parse_bool_arg, default=False,
                         help="Use PRBinarySearchFailureInfoAgency instead of PRBinarySearchFailureInfo")
+    parser.add_argument("--enable_ci_prescreening", type=parse_bool_arg, default=False,
+                        help="Use existing CI build images to narrow the buildimage commit range "
+                             "before building individual VS images")
+    parser.add_argument("--ci_pipeline_definition_id", type=int,
+                        default=MASTER_CI_PIPELINE_DEFINITION_ID,
+                        help="Azure DevOps pipeline definition ID for master CI builds "
+                             "(default: %(default)s)")
     args = parser.parse_args()
     search_run_id = str(uuid.uuid4())
 
@@ -773,6 +1201,8 @@ def main():
                 BUILD_VS_IMAGE_PIPELINE_ID,
                 args.build_queue_parallel,
                 search_run_id,
+                enable_ci_prescreening=args.enable_ci_prescreening,
+                ci_pipeline_definition_id=args.ci_pipeline_definition_id,
             )
             future_to_repo[future] = entry_key
 

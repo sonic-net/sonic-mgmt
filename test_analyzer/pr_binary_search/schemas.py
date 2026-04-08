@@ -30,6 +30,10 @@ class TestPipelineParameters:
     # templateParameter (type: object).  Use it to pass extra elastictest arguments such
     # as KVM_IMAGE_BUILD_PIPELINE_ID without modifying the test-pipeline YAML.
     OVERRIDE_PARAMS: Optional[dict] = None
+    # INCLUDE_JOBS limits which topology jobs run in pr_test_template.yml.
+    # Comma-separated job names, e.g. "t1_job" or "t1_multi_asic_job".
+    # Default "all" runs every job.  Derive from CHECKER_TO_INCLUDE_JOBS.
+    INCLUDE_JOBS: str = None
 
     def to_payload(self) -> dict:
         payload = {}
@@ -46,6 +50,8 @@ class TestPipelineParameters:
             payload["OVERRIDE_PARAMS"] = json.dumps(self.OVERRIDE_PARAMS)
         if self.KVM_BUILD_ID:
             payload["KVM_BUILD_ID"] = self.KVM_BUILD_ID
+        if self.INCLUDE_JOBS:
+            payload["INCLUDE_JOBS"] = self.INCLUDE_JOBS
         return payload
 
 

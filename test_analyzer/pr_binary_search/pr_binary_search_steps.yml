@@ -17,6 +17,10 @@ parameters:
     type: boolean
     default: false
     displayName: "Use PRBinarySearchFailureInfoAgency as Kusto failure info source"
+  - name: ENABLE_CI_PRESCREENING
+    type: boolean
+    default: false
+    displayName: "Use existing CI build images to narrow buildimage commit range before building individual VS images"
 
 steps:
   - template: ../../.azure-pipelines/templates/install-azure-cli.yml
@@ -40,7 +44,8 @@ steps:
           --kusto_lookback_hours ${{ parameters.KUSTO_LOOKBACK_HOURS }} \
           --max_parallel ${{ parameters.MAX_PARALLEL }} \
           --upload_kusto ${{ parameters.UPLOAD_KUSTO }} \
-          --USE_AGENCY_FAILURE_INFO ${{ parameters.USE_AGENCY_FAILURE_INFO }}
+          --USE_AGENCY_FAILURE_INFO ${{ parameters.USE_AGENCY_FAILURE_INFO }} \
+          --enable_ci_prescreening ${{ parameters.ENABLE_CI_PRESCREENING }}
     env:
       KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
       MSSONIC_TOKEN: $(MSSONIC-TOKEN)

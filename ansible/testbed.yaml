@@ -4041,7 +4041,7 @@
   inv_name: str5
   comment: wendachu
 
-- conf-name: vms75-t1-7060x6-7
+- conf-name: vms75-t1-7060x6-512-7
   group-name: vms75-5
   topo: t1-isolated-v6-d56u1-lag
   ptf_image_name: docker-ptf

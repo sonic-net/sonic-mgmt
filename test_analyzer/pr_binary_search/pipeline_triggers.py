@@ -284,6 +284,77 @@ def build_queue_payload(branch: str, commit: str, stage: str, parameters) -> dic
     else:
         raise ValueError(f"Unknown stage: {stage}")
 
+    def fetch_completed_ci_builds(
+        self,
+        definition_id: int,
+        branch: str,
+        min_time: str,
+        max_time: str,
+        result_filter: str = "succeeded",
+    ) -> list:
+        """Fetch completed CI builds from Azure DevOps within a time range.
+
+        Args:
+            definition_id: Pipeline definition ID (e.g. 1 for master CI).
+            branch: Branch name (e.g. "master").
+            min_time: ISO-8601 start time.
+            max_time: ISO-8601 end time.
+            result_filter: Comma-separated build results to include (default: "succeeded").
+
+        Returns:
+            List of build dicts sorted by finishTime ascending.  Each dict has at
+            minimum: id, sourceVersion, result, finishTime, _links.
+        """
+        branch_ref = f"refs/heads/{branch}" if not branch.startswith("refs/") else branch
+        url = (
+            f"{self.url_prefix}/build/builds"
+            f"?definitions={definition_id}"
+            f"&branchName={branch_ref}"
+            f"&statusFilter=completed"
+            f"&resultFilter={result_filter}"
+            f"&minTime={min_time}"
+            f"&maxTime={max_time}"
+            f"&api-version=7.1"
+        )
+        all_builds = []
+        while url:
+            try:
+                resp = requests.get(
+                    url,
+                    headers={"Content-Type": "application/json"},
+                    auth=HTTPBasicAuth("", self.token),
+                    timeout=60,
+                )
+            except requests.exceptions.RequestException as e:
+                logger.error(
+                    f"Network error fetching CI builds (definition {definition_id}): {e}"
+                )
+                return all_builds
+            if resp.status_code != 200:
+                logger.error(
+                    f"Failed to fetch CI builds (definition {definition_id}): "
+                    f"{resp.status_code}, {resp.text}"
+                )
+                return all_builds
+            data = resp.json()
+            all_builds.extend(data.get("value", []))
+            # Azure DevOps paginates via a continuation token header.
+            continuation = resp.headers.get("x-ms-continuationtoken")
+            if continuation:
+                separator = "&" if "?" in url.split("&continuationToken=")[0] else "?"
+                base_url = url.split("&continuationToken=")[0]
+                url = f"{base_url}{separator}continuationToken={continuation}"
+            else:
+                url = None
+
+        # Sort by finishTime ascending so earlier builds come first.
+        all_builds.sort(key=lambda b: b.get("finishTime", ""))
+        logger.info(
+            f"Fetched {len(all_builds)} CI builds from definition {definition_id} "
+            f"on {branch} between {min_time} and {max_time}"
+        )
+        return all_builds
+
 
 def trigger_pipeline(
     client: AzureDevOpsClient,

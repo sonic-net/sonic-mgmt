@@ -104,13 +104,21 @@ class DynamicParallelBisect:
             # Set right to the bad commit's position
             self.right = bad_idx
 
-        # Check if finished
+        # Check if finished.
+        # When left > right the whole range is exhausted with no bad commit.
+        # When left == right we only mark finished if the sole remaining commit
+        # was confirmed BAD in this very round; otherwise it still needs testing
+        # (e.g. the range was just narrowed down to it by eliminating good commits).
         if self.left > self.right:
             self.finished = True
             self.result = None  # No bad commit found
         elif self.left == self.right:
-            self.finished = True
-            self.result = self.commits[self.left]
+            cid = self.commits[self.left]
+            if cid in results and results.get(cid) is True:
+                # The single remaining commit was tested this round and is bad.
+                self.finished = True
+                self.result = cid
+            # else: leave finished=False so next_plan() schedules it for testing.
 
     def next_plan(self) -> Optional[Dict]:
         """Return the next round plan"""
@@ -119,10 +127,10 @@ class DynamicParallelBisect:
 
         self.round_no += 1
 
-        # Check if already converged to a single commit
+        # Check if already converged to a single commit â€” return it for testing but
+        # do NOT pre-declare finished/result here; let update() decide based on the
+        # actual test outcome (so an all-good range correctly yields result=None).
         if self.left == self.right:
-            self.finished = True
-            self.result = self.commits[self.left]
             return {"round": self.round_no,
                     "tests": [self.commits[self.left]],
                     "indices": [self.left],
