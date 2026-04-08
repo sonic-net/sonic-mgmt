@@ -184,11 +184,69 @@ class AnsibleLogAnalyzer:
             file.write('\n')
             file.flush()
 
+    def wait_for_rsyslog_ready(self, timeout=120):
+        '''
+        @summary: Wait until rsyslog is accepting and flushing messages.
+
+        Writes a probe message via /dev/log and polls /var/log/syslog until the
+        probe appears, confirming that rsyslogd is running and able to flush to
+        disk.  This prevents marker loss when rsyslog was recently restarted
+        (e.g. after config_reload).
+
+        @param timeout: Maximum seconds to wait for rsyslog readiness.
+        @return: True if rsyslog confirmed ready, False on timeout.
+        '''
+        probe = 'rsyslog-ready-probe-{}'.format(time.time())
+        syslog_file = '/var/log/syslog'
+        prev_syslog_file = '/var/log/syslog.1'
+        end_time = time.time() + timeout
+
+        while time.time() < end_time:
+            # Check /dev/log socket exists before attempting to write
+            if not os.path.exists('/dev/log'):
+                time.sleep(2)
+                continue
+
+            try:
+                logger = self.init_sys_logger()
+                logger.info(probe)
+                logger.info('\n')
+                self.flush_rsyslogd()
+            except Exception:
+                time.sleep(2)
+                continue
+
+            # Poll for the probe in syslog (may have been rotated)
+            poll_end = time.time() + 10
+            while time.time() < poll_end:
+                for path in (syslog_file, prev_syslog_file):
+                    if os.path.exists(path):
+                        try:
+                            with open(path, 'r') as fp:
+                                for line in fp:
+                                    if probe in line:
+                                        return True
+                        except Exception:
+                            pass
+                time.sleep(1)
+
+            # Probe not found yet — retry with a new probe
+            probe = 'rsyslog-ready-probe-{}'.format(time.time())
+
+        return False
+
     def place_marker_to_syslog(self, marker):
         '''
         @summary: Place marker into '/dev/log'.
         @param marker: Marker to be placed into syslog.
+
+        Before writing the marker, ensures rsyslog is ready to accept and
+        persist messages.  This avoids silent marker loss during periods
+        when rsyslog is restarting (e.g. after config_reload).
         '''
+        if not self.wait_for_rsyslog_ready():
+            print('WARNING: rsyslog did not become ready within timeout; '
+                  'marker {} may be lost'.format(marker))
 
         syslogger = self.init_sys_logger()
         syslogger.info(marker)
