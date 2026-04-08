@@ -13,42 +13,57 @@ import logging
 import pytest
 from natsort import natsorted
 
-from bgp_aggregate_helpers import (  # noqa: F401
+from bgp_aggregate_helpers import (
+    BGP_AGGREGATE_ADDRESS,
     AggregateCfg,
+    dump_db,
     gcu_add_aggregate,
+    gcu_add_placeholder_aggregate,
     gcu_remove_aggregate,
     gcu_add_multiple_aggregates,
     gcu_remove_multiple_aggregates,
     gcu_update_aggregate_field,
     safe_remove_aggregate,
-    setup_teardown,
 )
+from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.bgp_routing import inject_routes, verify_route_on_neighbors
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology("m1"), pytest.mark.device_type("vs"), pytest.mark.disable_loganalyzer]
+pytestmark = [
+    pytest.mark.topology("m1"),
+]
 
-EXABGP_BASE_PORT = 5000
-EXABGP_BASE_PORT_V6 = 6000
-
-# --- Test data ---
+# ---- Test data ----
 AGGR_V4 = "10.100.0.0/16"
 AGGR_V6 = "2001:db8:100::/48"
 CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
 CONTRIBUTING_V6 = ["2001:db8:100:1::/64", "2001:db8:100:2::/64", "2001:db8:100:3::/64"]
-
-# Additional aggregates for multi-aggregate / overlapping tests
 EXTRA_AGGR_V4_1 = "10.200.0.0/16"
 EXTRA_AGGR_V4_2 = "10.150.0.0/16"
 EXTRA_AGGR_V6_1 = "2001:db8:200::/48"
-EXTRA_AGGR_V6_2 = "2001:db8:150::/48"
 CONTRIBUTING_EXTRA_V4_1 = ["10.200.1.0/24"]
 CONTRIBUTING_EXTRA_V4_2 = ["10.150.1.0/24"]
 CONTRIBUTING_EXTRA_V6_1 = ["2001:db8:200:1::/64"]
-CONTRIBUTING_EXTRA_V6_2 = ["2001:db8:150:1::/64"]
+PLACEHOLDER_PREFIX = "192.0.2.0/32"
+EXABGP_BASE_PORT = 5000
+EXABGP_BASE_PORT_V6 = 6000
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_teardown(duthost):
+    """Create checkpoint before tests, rollback after."""
+    create_checkpoint(duthost)
+    default_aggregates = dump_db(duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS)
+    if not default_aggregates:
+        gcu_add_placeholder_aggregate(duthost, PLACEHOLDER_PREFIX)
+    yield
+    try:
+        rollback_or_reload(duthost, fail_on_rollback_error=False)
+    finally:
+        delete_checkpoint(duthost)
 
 
 @pytest.fixture(scope="module")
