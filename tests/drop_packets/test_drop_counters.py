@@ -360,7 +360,7 @@ def test_reserved_dmac_drop(do_test, ptfadapter, duthosts, enum_rand_one_per_hws
         pytest.skip("Test case requires explicit fanout support")
 
     # Marvell ASIC specific ACL rule injection
-    if fanouthost.facts["asic_type"] == "marvell-teralynx":
+    if hasattr(fanouthost, "facts") and fanouthost.facts.get("asic_type") == "marvell-teralynx":
         drop_counter_config(fanouthost)
 
     reserved_mac_addr = ["01:80:C2:00:00:05", "01:80:C2:00:00:08"]
