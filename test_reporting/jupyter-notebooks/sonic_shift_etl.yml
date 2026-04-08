@@ -1,0 +1,52 @@
+# SONiC Shift ETL Pipeline - Proof of Connection
+# Runs FUSE Kusto queries to validate auth and connectivity for ToR Piloting Exit Analysis
+
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+stages:
+  - stage: SonicShiftETL
+    displayName: 'SONiC Shift ETL - Proof of Connection'
+    jobs:
+      - job: KustoETL
+        displayName: 'Kusto ETL'
+        timeoutInMinutes: 60
+        variables:
+          - group: KUSTO_SECRETS
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+          - task: AzureCLI@2
+            retryCountOnTaskFailure: 3
+            displayName: 'Run SONiC Shift ETL Pipeline'
+            inputs:
+              azureSubscription: 'sonic-shift-kusto-app'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                set -euo pipefail
+
+                echo "=========================================="
+                echo "SONiC Shift ETL Pipeline - Starting"
+                echo "=========================================="
+
+                # Get access token for Kusto
+                echo "Getting access token for Kusto..."
+                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                export ACCESS_TOKEN=$accessToken
+                echo "Access token retrieved successfully"
+
+                # Navigate to jupyter-notebooks directory
+                cd test_reporting/jupyter-notebooks
+                pwd
+
+                # Run the ETL pipeline script
+                echo "Running SONiC Shift ETL pipeline script..."
+                python3 sonic_shift_etl_pipeline.py
+
+                echo "=========================================="
+                echo "SONiC Shift ETL Pipeline - Completed"
+                echo "=========================================="
