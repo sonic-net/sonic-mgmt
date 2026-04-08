@@ -5185,6 +5185,7 @@ class Net(object):
 
         for _ in range(0, 3):
             delay_factor = 3  # so that --faster-cli is not used
+            # [SuppressMessage("Microsoft.Security", "CS002:SecretInNextLine", Justification="Not a password, regex pattern matching password prompt")]
             prompt_terminator = r"Enter new UNIX password:\s*$|New password:\s*$|{}\s*$".format(cli_prompt)
             output = self._send_command(access, "sudo passwd {}".format(username), prompt_terminator,
                                         delay_factor=delay_factor, use_cache=False)
