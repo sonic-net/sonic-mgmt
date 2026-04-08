@@ -110,12 +110,16 @@ def _bmc_ssh(bmc_ip, bmc_pass, cmd, bmc_user="admin"):
     Returns (stdout, stderr, returncode).
     """
     ssh_cmd = (
-        "sshpass -p {pass_} ssh -o StrictHostKeyChecking=no {user}@{ip} {cmd}".format(
+        "sshpass -p {pass_} ssh -o StrictHostKeyChecking=no -T {user}@{ip} {cmd}".format(
             pass_=bmc_pass, user=bmc_user, ip=bmc_ip, cmd=cmd)
     )
     result = subprocess.run(ssh_cmd, shell=True, check=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    return result.stdout.decode().strip(), result.stderr.decode().strip(), result.returncode
+    # The BMC prints a login banner (/etc/issue) before command output.
+    # Strip the banner line to get clean output.
+    raw_stdout = result.stdout.decode()
+    stdout = raw_stdout.replace("Debian GNU/Linux 13 \\n \\l", "").strip()
+    return stdout, result.stderr.decode().strip(), result.returncode
 
 
 def _bmc_scp(bmc_ip, bmc_pass, local_path, remote_path, bmc_user="admin"):

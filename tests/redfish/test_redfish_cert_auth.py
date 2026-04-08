@@ -17,13 +17,11 @@ import logging
 import ssl
 import pytest
 import requests
-import urllib3
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.redfish.redfish_utils import assert_status_ok
 
 logger = logging.getLogger(__name__)
-
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -82,11 +80,7 @@ class TestRedfishCertAuth:
             timeout=30,
         )
         logger.info("GET /redfish/v1 (with cert) -> {}".format(response.status_code))
-
-        pytest_assert(
-            response.status_code == 200,
-            "Expected HTTP 200 with valid client cert, got: {}".format(response.status_code)
-        )
+        assert_status_ok(response, "/redfish/v1")
 
     def test_cert_auth_on_authenticated_endpoint(self, bmc_ip, bmc_tls_certs):
         """
@@ -104,16 +98,10 @@ class TestRedfishCertAuth:
         logger.info("GET /redfish/v1/Chassis/chassis (with cert) -> {}".format(
             response.status_code))
 
+        assert_status_ok(response, "/redfish/v1/Chassis/chassis")
         pytest_assert(
-            response.status_code == 200,
-            "Expected HTTP 200 with valid client cert on authenticated endpoint, got: {}".format(
-                response.status_code)
-        )
-
-        body = response.json()
-        pytest_assert(
-            "@odata.id" in body,
-            "Response missing @odata.id: {}".format(body)
+            "@odata.id" in response.json(),
+            "Response missing @odata.id"
         )
 
     def test_no_cert_rejected(self, bmc_ip, bmc_tls_certs):
