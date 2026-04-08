@@ -3,10 +3,10 @@
 # Test Plan Revision History
 
 
-| Rev | Date            | Author      | Change Description                                 |
-| ----- | ----------------- | ------------- | ---------------------------------------------------- |
-| 1   | 26th March 2026 | Chinmoy Dey | Initial Version of SONiC BMC Redfish API test plan |
-| 2   | 2nd April 2026  | Shreyansh Jain | Add certificate-based authentication test cases    |
+| Rev | Date            | Author         | Change Description                                          |
+| ----- | ----------------- | ---------------- | ------------------------------------------------------------ |
+| 1   | 26th March 2026 | Chinmoy Dey    | Initial Version of SONiC BMC Redfish API test plan         |
+| 2   | 2nd April 2026  | Shreyansh Jain | Add certificate-based authentication test cases            |
 
 # Related documents
 
@@ -33,7 +33,7 @@
 
 # Overview
 
-The sonic-redfish project provides Redfish API support for SONiC BMC platforms. It consists of two components packaged in a single Docker container (`docker-redfish`):
+The sonic-redfish project provides Redfish API support for SONiC BMC platforms. It consists of two components packaged in a single Docker container named `redfish` (built from `docker-redfish`):
 
 1. **bmcweb** — The upstream OpenBMC Redfish HTTP server, running unmodified.
 2. **sonic-dbus-bridge** — A purpose-built systemd daemon that reads SONiC data sources (Redis CONFIG\_DB/STATE\_DB, FRU EEPROMs, platform.json), normalizes them into an `InventoryModel`, and exposes OpenBMC-compatible D-Bus objects (`xyz.openbmc_project.*`) so that bmcweb can discover and serve Redfish endpoints.
@@ -63,7 +63,7 @@ This test plan covers:
 - Computer system reset actions (`/redfish/v1/Systems/system/Actions/ComputerSystem.Reset`)
 - Rack Manager alert (`/redfish/v1/Managers/Bmc/Oem/SONiC/RackManagerInterface/Actions/SONiC.SubmitAlert`)
 - Rack Manager telemetry (`/redfish/v1/Managers/Bmc/Oem/SONiC/RackManagerInterface/Actions/SONiC.SubmitTelemetry`)
-- Rack Manager Event subscription (`redfish/v1/EventService/Subscriptions`)
+- Rack Manager Event subscription (`/redfish/v1/EventService/Subscriptions`)
 - D-Bus infrastructure health and D-Bus Objects (sonic-dbus-bridge, ObjectMapper)
 - Graceful degradation behavior when data sources are unavailable
 
@@ -81,7 +81,7 @@ No scale and performance testing is involved in this test plan. Each Redfish end
 | :--------------- | :--------------------------------------------------------------------------- |
 | DUT            | SONiC BMC platform (Aspeed AST2720/AST2700) running sonic-aspeed-arm64.bin |
 | Network        | Management network connectivity between test server and BMC                |
-| Docker         | `docker-redfish` container running on BMC with bmcweb \+ sonic-dbus-bridge |
+| Docker         | `redfish` container running on BMC with bmcweb \+ sonic-dbus-bridge        |
 | Authentication | Admin user credentials or certificates configured on BMC                   |
 
 ## Rack Manager Simulator
@@ -112,13 +112,15 @@ sonic-mgmt/tests/redfish/
 ├── test_redfish_rack_manager.py         # Rack Manager alert/telemetry tests
 ├── test_redfish_event_subscription.py   # EventService subscription tests
 ├── test_redfish_dbus_health.py          # D-Bus infrastructure tests
-└── test_redfish_graceful_degradation.py # Degradation behavior tests
+├── test_redfish_graceful_degradation.py # Degradation behavior tests
 └── test_redfish_cert_auth.py            # Certificate-based authentication tests
 ```
 
 # Supported Topology
 
 The test will be supported on `any` topology with a physical BMC device (`device_type: physical`, `asic_type: aspeed`).
+
+Each test module carries its own in-file `pytest.mark.topology("any")` marker (the offline test-info pipeline greps for it statically, so it is kept in the test file rather than in `conftest.py`). In addition, every test applies a platform skip so that it runs only on physical Aspeed BMC DUTs and is skipped on non-aspeed / non-physical DUTs.
 
 # Redfish Endpoints Under Test
 
@@ -151,7 +153,7 @@ The test will be supported on `any` topology with a physical BMC device (`device
 ## Pre-Test Preparation
 
 - Verify the DUT is a SONiC BMC platform (`show platform summary` returns aspeed platform)
-- Verify `docker-redfish` container is running (`docker ps | grep redfish`)
+- Verify the `redfish` container is running (`docker ps | grep redfish`)
 - Verify `sonic-dbus-bridge` systemd service is active (`systemctl is-active sonic-dbus-bridge`)
 - Record the BMC management IP address
 - Verify HTTPS connectivity to the BMC on port 443
