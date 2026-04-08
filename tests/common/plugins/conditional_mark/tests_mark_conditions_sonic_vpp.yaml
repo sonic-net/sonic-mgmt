@@ -234,17 +234,6 @@ copp:
       - "asic_type in ['vpp']"
 
 #######################################
-#####           CRM               #####
-#######################################
-crm/test_crm.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-#######################################
 #####           Decap             #####
 #######################################
 decap/test_decap.py:
