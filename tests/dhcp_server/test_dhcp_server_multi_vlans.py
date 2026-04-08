@@ -6,11 +6,10 @@ from tests.common.helpers.assertions import pytest_assert
 from dhcp_server_test_common import create_common_config_patch, append_common_config_patch, \
     verify_discover_and_request_then_release, apply_dhcp_server_config_gcu, empty_config_patch, \
     vlan_n2i
-from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent    # noqa: F401
+
 
 pytestmark = [
     pytest.mark.topology('mx'),
-    pytest.mark.parametrize("relay_agent", ["isc-relay-agent", "sonic-relay-agent"]),
 ]
 
 
@@ -189,9 +188,7 @@ def test_single_ip_assignment(
     duthost,
     ptfhost,
     ptfadapter,
-    setup_multiple_vlans_and_teardown,
-    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
-    relay_agent
+    setup_multiple_vlans_and_teardown
 ):
     """
         Verify configured interface can successfully get IP
@@ -246,9 +243,7 @@ def test_range_ip_assignment(
     duthost,
     ptfhost,
     ptfadapter,
-    setup_multiple_vlans_and_teardown,
-    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
-    relay_agent
+    setup_multiple_vlans_and_teardown
 ):
     """
         Verify configured interface can successfully get IP from an IP range
