@@ -1,5 +1,4 @@
 StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,AutoNeg,LinkTraining
-str4-7060x6-pe64-root,Ethernet1/1,str4-sn5600-fan-1,Ethernet496,800000,"100-347,356",Trunk,on
 str4-7060x6-pe64-root,Ethernet21/1,str4-sn5640-fan-2,Ethernet496,100000,"3660-3721,3723-3725",Trunk,on
 str4-7060x6-pe64-root,Ethernet22/1,str4-sn5640-fan-3,Ethernet496,100000,"3730-3799,3801",Trunk,on
 str4-7060x6-pe64-root,Ethernet27/5,str4-sn5640-fan-7,Ethernet496,100000,"4007-4068,4070-4072",Trunk,on
