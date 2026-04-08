@@ -683,6 +683,8 @@ t1-lag-vpp:
   - bgp/test_bgp_vnet.py
   - bgp/test_bgpmon_v6.py
   - bgp/test_traffic_shift_sup.py
+  - crm/test_crm.py
+  - crm/test_crm_available.py
   - fib/test_fib.py
   - test_interfaces.py
   - http/test_http_copy.py
