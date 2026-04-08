@@ -20,7 +20,23 @@ def lossless_prio_dscp_map(duthosts, rand_one_dut_hostname):
         host=duthost.hostname, source="persistent")['ansible_facts']
 
     if "PORT_QOS_MAP" not in config_facts:
-        return None
+        # On multi-ASIC platforms, PORT_QOS_MAP is per-ASIC and may not appear
+        # in the global config_facts.  Search each ASIC namespace.
+        if duthost.is_multi_asic:
+            for asic_index in range(duthost.num_asics()):
+                try:
+                    asic_cfg = duthost.config_facts(
+                        host=duthost.hostname, source="persistent",
+                        asic_index=asic_index)['ansible_facts']
+                    if "PORT_QOS_MAP" in asic_cfg:
+                        logger.info("Found PORT_QOS_MAP on asic%d", asic_index)
+                        config_facts = asic_cfg
+                        break
+                except Exception:
+                    # Some ASICs may not have config; skip
+                    continue
+        if "PORT_QOS_MAP" not in config_facts:
+            return None
 
     port_qos_map = config_facts["PORT_QOS_MAP"]
 

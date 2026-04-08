@@ -22,6 +22,7 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa: F401
 from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode                   # noqa: F401
+from tests.common.fixtures.ptfhost_utils import ptf_test_port_map as _ptf_test_port_map     # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
 
@@ -54,8 +55,6 @@ def ensure_ptf_test_port_map(
     for non-T0 PFC pause tests has a deterministic port map JSON available.
     """
 
-    from tests.common.fixtures.ptfhost_utils import ptf_test_port_map as _ptf_test_port_map
-
     _ptf_test_port_map(
         ptfhost,
         tbinfo,
@@ -86,6 +85,7 @@ def _is_t0(duthost, tbinfo):
         mg = duthost.get_extended_minigraph_facts(tbinfo)
         return bool(mg.get("minigraph_vlans"))
     except Exception:
+        # get_extended_minigraph_facts may fail on some platforms; treat as non-T0
         return False
 
 
@@ -99,6 +99,7 @@ def _get_port_namespace(duthost, ifname):
     try:
         return duthost.get_port_asic_instance(ifname).namespace if duthost.is_multi_asic else ""
     except Exception:
+        # Port may not be mapped to any ASIC; fall back to default namespace
         return ""
 
 
@@ -121,7 +122,8 @@ def _kernel_out_intf_for_ip(duthost, ip_dst, dut_intf_src):
             try:
                 out_intf = toks[toks.index('dev') + 1]
                 break
-            except Exception:
+            except IndexError:
+                # 'dev' is the last token on the line; skip and try next line
                 pass
     return out_intf
 
@@ -163,21 +165,39 @@ def _run_ptf_routed(ptfhost, tbinfo, ip_src, ip_dst, port_src, port_dst, dscp, d
                 parts = line.split()
                 passes = int(parts[1])
                 total = int(parts[3])
-            except Exception:
+            except (IndexError, ValueError):
+                # Malformed "Passes: a / b" line; try next line
                 continue
     pytest_assert(passes is not None and total is not None, f"Bad PTF output: {res}")
     return float(passes) / float(total)
 
 
-def _prepare_ptf_routed(ptfhost, duthost, ip_src, ip_dst, port_src, port_dst):
+def _swss_container_for_port(duthost, ifname):
+    """Return the correct swss container name for the given DUT interface.
+
+    On multi-ASIC platforms the container is swss0, swss1, etc.
+    """
+    if not duthost.is_multi_asic:
+        return "swss"
+    try:
+        asic = duthost.get_port_asic_instance(ifname)
+        return f"swss{asic.asic_index}"
+    except Exception:
+        # Interface not mapped to an ASIC; fall back to default
+        return "swss"
+
+
+def _prepare_ptf_routed(ptfhost, duthost, ip_src, ip_dst, port_src, port_dst, dut_intf_src=None):
     ptfhost.shell(f"ip -4 addr flush dev eth{port_src} || true")
     ptfhost.shell(f"ip -4 addr flush dev eth{port_dst} || true")
     ptfhost.shell(f"ip -4 addr add {ip_src}/32 dev eth{port_src} || true")
     ptfhost.shell(f"ip -4 addr add {ip_dst}/32 dev eth{port_dst} || true")
+    swss = _swss_container_for_port(duthost, dut_intf_src) if dut_intf_src else "swss"
     try:
-        duthost.shell(f"docker exec -i swss arping {ip_src} -c 3")
-        duthost.shell(f"docker exec -i swss arping {ip_dst} -c 3")
+        duthost.shell(f"docker exec -i {swss} arping {ip_src} -c 3")
+        duthost.shell(f"docker exec -i {swss} arping {ip_dst} -c 3")
     except Exception:
+        # arping may fail if ARP is already resolved or container not ready; best-effort
         pass
 
 
@@ -204,6 +224,7 @@ def _pin_neighbors_routed(duthost, ptfhost, ip_src, ip_dst, ptf_port_src, ptf_po
             )
             duthost.shell(f"sudo {cmd_dst}")
     except Exception:
+        # Best-effort neighbor pinning; proceed even if it fails
         pass
 
 
@@ -219,6 +240,7 @@ def _unpin_neighbors_routed(duthost, ip_src, ip_dst, dut_intf_src, dut_intf_dst)
         )
         duthost.shell(f"sudo {cmd_src}", module_ignore_errors=True)
     except Exception:
+        # Best-effort cleanup; ignore if entry was never pinned
         pass
     try:
         cmd_dst = (
@@ -229,6 +251,7 @@ def _unpin_neighbors_routed(duthost, ip_src, ip_dst, dut_intf_src, dut_intf_dst)
         )
         duthost.shell(f"sudo {cmd_dst}", module_ignore_errors=True)
     except Exception:
+        # Best-effort cleanup; ignore if entry was never pinned
         pass
 
 
@@ -271,6 +294,7 @@ def _pick_best_routed_candidate(duthost, tbinfo, test_ports, candidates):
         mg = duthost.get_extended_minigraph_facts(tbinfo)
         pc_info = mg.get("minigraph_portchannels", {}) or {}
     except Exception:
+        # Minigraph may not be available; proceed without port-channel awareness
         pc_info = {}
     port_to_pc = {}
     for pc_name, meta in pc_info.items():
@@ -572,7 +596,10 @@ def run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts,   
 def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
                             conn_graph_facts, fanout_graph_facts,               # noqa: F811
                             lossless_prio_dscp_map, setup_pfc_test, tbinfo, enum_fanout_graph_facts):  # noqa: F811
-    """Unified pause-only test: L2/VLAN on T0; routed/L3 on non-T0."""
+    """Unified pause-only test: L2/VLAN on T0; routed/L3 on non-T0.
+
+    Iterates over all lossless priorities configured on the DUT.
+    """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if _is_t0(duthost, tbinfo):
         # Original T0 path (unchanged semantics)
@@ -584,47 +611,46 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthosts, enum_rand_one
         setup = pfc_test_setup
         lossless_prios = sorted(lossless_prio_dscp_map.keys())
         pytest_assert(lossless_prios, 'No lossless priorities available')
-        prio = lossless_prios[0]
-        dscp = lossless_prio_dscp_map[prio]
-        other_lossless_prio = 4 if prio == 3 else 3
-        other_lossless_dscps = lossless_prio_dscp_map[other_lossless_prio]
-        max_priority = get_max_priority(setup[0]['testbed_type'])
-        lossy_dscps = list(set(range(max_priority)) - set(other_lossless_dscps) - set(dscp))
-        other_dscps = other_lossless_dscps + lossy_dscps[0:2]
-        for dscp_bg in other_dscps:
-            logger.info("Testing dscp: %s and background dscp: %s", dscp, dscp_bg)
-            traffic_params = {'dscp': dscp[0], 'dscp_bg': dscp_bg}
-            results = run_test(
-                pfc_test_setup,
-                fanouthosts,
-                duthost,
-                ptfhost,
-                conn_graph_facts,
-                fanout_graph_facts,
-                traffic_params,
-                queue_paused=True,
-                send_pause=True,
-                pfc_pause=True,
-                pause_prio=prio,
-                max_test_intfs_count=MAX_TEST_INTFS_COUNT,
-            )
-            if results is None:
-                test_errors += f"Dscp: {dscp}, Background Dscp: {dscp_bg}, Result is empty\n"
-            errors = {}
-            for intf, pair in (results or {}).items():
-                if len(pair) != 2:
-                    continue
-                pass_count, total_count = pair
-                if total_count == 0:
-                    continue
-                # For pause test, success means suppressed traffic (low pass ratio).
-                # Flag error only if suppression failed (ratio >= threshold).
-                if pass_count >= total_count * PTF_PASS_RATIO_THRESH:
-                    errors[intf] = pair
-            if errors:
-                test_errors += "Dscp: {}, Background Dscp: {}, errors occurred: {}\n".format(
-                    dscp, dscp_bg, " ".join([f"{k}:{v}" for k, v in errors.items()])
+        for prio in lossless_prios:
+            dscp = lossless_prio_dscp_map[prio]
+            other_lossless_dscps = [d for p, ds in lossless_prio_dscp_map.items() if p != prio for d in ds]
+            max_priority = get_max_priority(setup[0]['testbed_type'])
+            lossy_dscps = list(set(range(max_priority)) - set(other_lossless_dscps) - set(dscp))
+            other_dscps = other_lossless_dscps + lossy_dscps[0:2]
+            for dscp_bg in other_dscps:
+                logger.info("Testing prio: %s dscp: %s background dscp: %s", prio, dscp, dscp_bg)
+                traffic_params = {'dscp': dscp[0], 'dscp_bg': dscp_bg}
+                results = run_test(
+                    pfc_test_setup,
+                    fanouthosts,
+                    duthost,
+                    ptfhost,
+                    conn_graph_facts,
+                    fanout_graph_facts,
+                    traffic_params,
+                    queue_paused=True,
+                    send_pause=True,
+                    pfc_pause=True,
+                    pause_prio=prio,
+                    max_test_intfs_count=MAX_TEST_INTFS_COUNT,
                 )
+                if results is None:
+                    test_errors += f"Prio: {prio} Dscp: {dscp}, Background Dscp: {dscp_bg}, Result is empty\n"
+                errors = {}
+                for intf, pair in (results or {}).items():
+                    if len(pair) != 2:
+                        continue
+                    pass_count, total_count = pair
+                    if total_count == 0:
+                        continue
+                    # For pause test, success means suppressed traffic (low pass ratio).
+                    # Flag error only if suppression failed (ratio >= threshold).
+                    if pass_count >= total_count * PTF_PASS_RATIO_THRESH:
+                        errors[intf] = pair
+                if errors:
+                    test_errors += "Prio: {}, Dscp: {}, Background Dscp: {}, errors occurred: {}\n".format(
+                        prio, dscp, dscp_bg, " ".join([f"{k}:{v}" for k, v in errors.items()])
+                    )
         pytest_assert(len(test_errors) == 0, test_errors)
     else:
         # Non-T0 routed/L3 path (IPv4-only)
@@ -634,17 +660,11 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthosts, enum_rand_one
         test_ports = setup_info['test_ports']
         selected_ports = setup_info['selected_test_ports']
         neighbors = setup_info['neighbors']
+        if not neighbors:
+            pytest.skip('No neighbor/fanout info available; routed PFC test requires conn_graph_facts')
         pytest_assert(test_ports and selected_ports, 'setup_pfc_test returned no test ports')
         pytest_assert(lossless_prio_dscp_map, 'lossless_prio_dscp_map is empty')
         lossless_prios = sorted(lossless_prio_dscp_map.keys())
-        pause_prio = lossless_prios[0]
-        dscps = lossless_prio_dscp_map[pause_prio]
-        pytest_assert(dscps, f'No DSCPs for prio {pause_prio}')
-        dscp = dscps[0]
-        other_dscps = [d for p, ds in lossless_prio_dscp_map.items() if p != pause_prio for d in ds]
-        if not other_dscps:
-            other_dscps.append(dscps[1] if len(dscps) > 1 else dscp)
-        dscp_bg = other_dscps[0]
         sel = _select_routed_path(duthost, ptfhost, tbinfo, test_ports, selected_ports)
         if not sel:
             pytest.skip('No deterministic routed path (PTF-captureable) found')
@@ -674,50 +694,18 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthosts, enum_rand_one
         peer = neighbors.get(dut_intf_src)
         pytest_assert(peer, f'No neighbor info for {dut_intf_src}')
         peer_info = {'peerdevice': peer['peerdevice'], 'pfc_fanout_interface': peer['peerport']}
-        # Baseline
-        _prepare_ptf_routed(ptfhost, duthost, ip_src, ip_dst, ptf_port_src, ptf_port_dst)
-        baseline_ratio = _run_ptf_routed(
-            ptfhost,
-            tbinfo,
-            ip_src,
-            ip_dst,
-            ptf_port_src,
-            ptf_port_dst,
-            dscp,
-            dscp_bg,
-            router_mac,
-            queue_paused=False,
-        )
-        logger.info('Baseline pass ratio (no PFC): %s', baseline_ratio)
-        pytest_assert(
-            baseline_ratio >= PTF_PASS_RATIO_THRESH,
-            f'Baseline below threshold: {baseline_ratio} < {PTF_PASS_RATIO_THRESH}',
-        )
-        # Pause phase
-        storm = PFCStorm(
-            duthost,
-            enum_fanout_graph_facts,
-            fanouthosts,
-            pfc_queue_index=pause_prio,
-            pfc_frames_number=1000000,
-            send_pfc_frame_interval=0,
-            peer_info=peer_info,
-        )
-        storm.deploy_pfc_gen()
-        try:
-            _pin_neighbors_routed(
-                duthost,
-                ptfhost,
-                ip_src,
-                ip_dst,
-                ptf_port_src,
-                ptf_port_dst,
-                dut_intf_src,
-                dut_intf_dst,
-            )
-            storm.start_storm()
-            time.sleep(1)
-            pfc_ratio = _run_ptf_routed(
+        _prepare_ptf_routed(ptfhost, duthost, ip_src, ip_dst, ptf_port_src, ptf_port_dst, dut_intf_src)
+        for pause_prio in lossless_prios:
+            dscps = lossless_prio_dscp_map[pause_prio]
+            pytest_assert(dscps, f'No DSCPs for prio {pause_prio}')
+            dscp = dscps[0]
+            other_dscps = [d for p, ds in lossless_prio_dscp_map.items() if p != pause_prio for d in ds]
+            if not other_dscps:
+                other_dscps.append(dscps[1] if len(dscps) > 1 else dscp)
+            dscp_bg = other_dscps[0]
+            logger.info("Testing prio: %s dscp: %s dscp_bg: %s", pause_prio, dscp, dscp_bg)
+            # Baseline
+            baseline_ratio = _run_ptf_routed(
                 ptfhost,
                 tbinfo,
                 ip_src,
@@ -727,16 +715,57 @@ def test_pfc_pause_lossless(pfc_test_setup, fanouthosts, duthosts, enum_rand_one
                 dscp,
                 dscp_bg,
                 router_mac,
-                queue_paused=True,
+                queue_paused=False,
             )
-        finally:
-            storm.stop_storm()
-            _unpin_neighbors_routed(duthost, ip_src, ip_dst, dut_intf_src, dut_intf_dst)
-        logger.info('PFC pause phase pass ratio: %s', pfc_ratio)
-        pytest_assert(
-            pfc_ratio < PTF_PASS_RATIO_THRESH,
-            f'PFC pause did not suppress: {pfc_ratio} >= {PTF_PASS_RATIO_THRESH}',
-        )
+            logger.info('Prio %s baseline pass ratio (no PFC): %s', pause_prio, baseline_ratio)
+            pytest_assert(
+                baseline_ratio >= PTF_PASS_RATIO_THRESH,
+                f'Prio {pause_prio} baseline below threshold: {baseline_ratio} < {PTF_PASS_RATIO_THRESH}',
+            )
+            # Pause phase
+            storm = PFCStorm(
+                duthost,
+                enum_fanout_graph_facts,
+                fanouthosts,
+                pfc_queue_index=pause_prio,
+                pfc_frames_number=1000000,
+                send_pfc_frame_interval=0,
+                peer_info=peer_info,
+            )
+            storm.deploy_pfc_gen()
+            try:
+                _pin_neighbors_routed(
+                    duthost,
+                    ptfhost,
+                    ip_src,
+                    ip_dst,
+                    ptf_port_src,
+                    ptf_port_dst,
+                    dut_intf_src,
+                    dut_intf_dst,
+                )
+                storm.start_storm()
+                time.sleep(1)
+                pfc_ratio = _run_ptf_routed(
+                    ptfhost,
+                    tbinfo,
+                    ip_src,
+                    ip_dst,
+                    ptf_port_src,
+                    ptf_port_dst,
+                    dscp,
+                    dscp_bg,
+                    router_mac,
+                    queue_paused=True,
+                )
+            finally:
+                storm.stop_storm()
+                _unpin_neighbors_routed(duthost, ip_src, ip_dst, dut_intf_src, dut_intf_dst)
+            logger.info('Prio %s PFC pause phase pass ratio: %s', pause_prio, pfc_ratio)
+            pytest_assert(
+                pfc_ratio < PTF_PASS_RATIO_THRESH,
+                f'Prio {pause_prio} PFC pause did not suppress: {pfc_ratio} >= {PTF_PASS_RATIO_THRESH}',
+            )
 
 
 def test_no_pfc(
@@ -751,7 +780,10 @@ def test_no_pfc(
     setup_pfc_test,  # noqa: F811
     tbinfo,
 ):
-    """Unified baseline-only test: L2/VLAN on T0; routed/L3 on non-T0."""
+    """Unified baseline-only test: L2/VLAN on T0; routed/L3 on non-T0.
+
+    Iterates over all lossless priorities configured on the DUT.
+    """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if _is_t0(duthost, tbinfo):
         # Original T0 path (no pause)
@@ -759,47 +791,47 @@ def test_no_pfc(
         setup = pfc_test_setup
         lossless_prios = sorted(lossless_prio_dscp_map.keys())
         pytest_assert(lossless_prios, 'No lossless priorities available')
-        prio = lossless_prios[0]
-        if prio not in lossless_prio_dscp_map or len(lossless_prio_dscp_map[prio]) == 0:
-            pytest.skip(f"lossless prio {prio} not enabled on testing port")
-        dscp = lossless_prio_dscp_map[prio]
-        other_lossless_prio = 4 if prio == 3 else 3
-        other_lossless_dscps = lossless_prio_dscp_map[other_lossless_prio]
-        max_priority = get_max_priority(setup[0]['testbed_type'])
-        lossy_dscps = list(set(range(max_priority)) - set(other_lossless_dscps) - set(dscp))
-        other_dscps = other_lossless_dscps + lossy_dscps[0:2]
-        for dscp_bg in other_dscps:
-            logger.info("Testing dscp: %s and background dscp: %s", dscp, dscp_bg)
-            traffic_params = {'dscp': dscp[0], 'dscp_bg': dscp_bg}
-            results = run_test(
-                pfc_test_setup,
-                fanouthosts,
-                duthost,
-                ptfhost,
-                conn_graph_facts,
-                fanout_graph_facts,
-                traffic_params,
-                queue_paused=False,
-                send_pause=False,
-                pfc_pause=None,
-                pause_prio=None,
-                max_test_intfs_count=MAX_TEST_INTFS_COUNT,
-            )
-            if results is None:
-                test_errors += f"Dscp: {dscp}, Background Dscp: {dscp_bg}, Result is empty\n"
-            errors = {}
-            for intf, pair in (results or {}).items():
-                if len(pair) != 2:
-                    continue
-                pass_count, total_count = pair
-                if total_count == 0:
-                    continue
-                if pass_count < total_count * PTF_PASS_RATIO_THRESH:
-                    errors[intf] = pair
-            if errors:
-                test_errors += "Dscp: {}, Background Dscp: {}, errors occurred: {}\n".format(
-                    dscp, dscp_bg, " ".join([f"{k}:{v}" for k, v in errors.items()])
+        for prio in lossless_prios:
+            if prio not in lossless_prio_dscp_map or len(lossless_prio_dscp_map[prio]) == 0:
+                logger.info("Skipping lossless prio %s: not enabled on testing port", prio)
+                continue
+            dscp = lossless_prio_dscp_map[prio]
+            other_lossless_dscps = [d for p, ds in lossless_prio_dscp_map.items() if p != prio for d in ds]
+            max_priority = get_max_priority(setup[0]['testbed_type'])
+            lossy_dscps = list(set(range(max_priority)) - set(other_lossless_dscps) - set(dscp))
+            other_dscps = other_lossless_dscps + lossy_dscps[0:2]
+            for dscp_bg in other_dscps:
+                logger.info("Testing dscp: %s and background dscp: %s", dscp, dscp_bg)
+                traffic_params = {'dscp': dscp[0], 'dscp_bg': dscp_bg}
+                results = run_test(
+                    pfc_test_setup,
+                    fanouthosts,
+                    duthost,
+                    ptfhost,
+                    conn_graph_facts,
+                    fanout_graph_facts,
+                    traffic_params,
+                    queue_paused=False,
+                    send_pause=False,
+                    pfc_pause=None,
+                    pause_prio=None,
+                    max_test_intfs_count=MAX_TEST_INTFS_COUNT,
                 )
+                if results is None:
+                    test_errors += f"Dscp: {dscp}, Background Dscp: {dscp_bg}, Result is empty\n"
+                errors = {}
+                for intf, pair in (results or {}).items():
+                    if len(pair) != 2:
+                        continue
+                    pass_count, total_count = pair
+                    if total_count == 0:
+                        continue
+                    if pass_count < total_count * PTF_PASS_RATIO_THRESH:
+                        errors[intf] = pair
+                if errors:
+                    test_errors += "Dscp: {}, Background Dscp: {}, errors occurred: {}\n".format(
+                        dscp, dscp_bg, " ".join([f"{k}:{v}" for k, v in errors.items()])
+                    )
         pytest_assert(len(test_errors) == 0, test_errors)
     else:
         # Non-T0 routed/L3 baseline-only path (IPv4-only)
@@ -811,12 +843,6 @@ def test_no_pfc(
         pytest_assert(test_ports and selected_ports, 'setup_pfc_test returned no test ports')
         pytest_assert(lossless_prio_dscp_map, 'lossless_prio_dscp_map is empty')
         lossless_prios = sorted(lossless_prio_dscp_map.keys())
-        pause_prio = lossless_prios[0]
-        dscp_list = lossless_prio_dscp_map[pause_prio]
-        pytest_assert(dscp_list, f'No DSCPs for prio {pause_prio}')
-        dscp = dscp_list[0]
-        other_dscps = [d for p, ds in lossless_prio_dscp_map.items() if p != pause_prio for d in ds]
-        dscp_bg = other_dscps[0] if other_dscps else dscp
         sel = _select_routed_path(duthost, ptfhost, tbinfo, test_ports, selected_ports)
         if not sel:
             pytest.skip('No suitable routed path found for baseline test')
@@ -829,24 +855,31 @@ def test_no_pfc(
         _out_intf = _kernel_out_intf_for_ip(duthost, ip_dst, dut_intf_src)
         logger.info("Kernel out_intf for %s: %s", ip_dst, _out_intf or 'unknown')
 
-        _prepare_ptf_routed(ptfhost, duthost, ip_src, ip_dst, ptf_port_src, ptf_port_dst)
-        baseline_ratio = _run_ptf_routed(
-            ptfhost,
-            tbinfo,
-            ip_src,
-            ip_dst,
-            ptf_port_src,
-            ptf_port_dst,
-            dscp,
-            dscp_bg,
-            router_mac,
-            queue_paused=False,
-        )
-        logger.info('Baseline pass ratio (no PFC): %s', baseline_ratio)
-        pytest_assert(
-            baseline_ratio >= PTF_PASS_RATIO_THRESH,
-            f'Baseline below threshold: {baseline_ratio} < {PTF_PASS_RATIO_THRESH}',
-        )
+        _prepare_ptf_routed(ptfhost, duthost, ip_src, ip_dst, ptf_port_src, ptf_port_dst, dut_intf_src)
+        for pause_prio in lossless_prios:
+            dscp_list = lossless_prio_dscp_map[pause_prio]
+            pytest_assert(dscp_list, f'No DSCPs for prio {pause_prio}')
+            dscp = dscp_list[0]
+            other_dscps = [d for p, ds in lossless_prio_dscp_map.items() if p != pause_prio for d in ds]
+            dscp_bg = other_dscps[0] if other_dscps else dscp
+            logger.info("Testing prio: %s dscp: %s dscp_bg: %s", pause_prio, dscp, dscp_bg)
+            baseline_ratio = _run_ptf_routed(
+                ptfhost,
+                tbinfo,
+                ip_src,
+                ip_dst,
+                ptf_port_src,
+                ptf_port_dst,
+                dscp,
+                dscp_bg,
+                router_mac,
+                queue_paused=False,
+            )
+            logger.info('Prio %s baseline pass ratio (no PFC): %s', pause_prio, baseline_ratio)
+            pytest_assert(
+                baseline_ratio >= PTF_PASS_RATIO_THRESH,
+                f'Prio {pause_prio} baseline below threshold: {baseline_ratio} < {PTF_PASS_RATIO_THRESH}',
+            )
 
 
 def test_pfc_pause(pfc_test_setup, fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost,
@@ -855,54 +888,56 @@ def test_pfc_pause(pfc_test_setup, fanouthosts, duthosts, enum_rand_one_per_hwsk
     """Combined baseline + pause test in one:
     - On T0: uses VLAN/L2 path (original PTF semantics)
     - On non-T0: uses routed/L3 path (neighbor pinning + router DMAC)
+
+    Iterates over all lossless priorities configured on the DUT.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     if _is_t0(duthost, tbinfo):
-        # Choose a single DSCP pair and validate both phases
+        # Check if fanout connection information is available
+        if not conn_graph_facts.get('device_conn', {}).get(duthost.hostname):
+            pytest.skip("Fanout needs to send PFC frames fast enough to completely pause the queue")
         setup = pfc_test_setup
         lossless_prios = sorted(lossless_prio_dscp_map.keys())
         pytest_assert(lossless_prios, 'No lossless priorities available')
-        prio = lossless_prios[0]
-        if prio not in lossless_prio_dscp_map or len(lossless_prio_dscp_map[prio]) == 0:
-            pytest.skip(f"lossless prio {prio} not enabled on testing port")
-        dscp_list = lossless_prio_dscp_map[prio]
-        other_prio = 4 if prio == 3 else 3
-        other_list = lossless_prio_dscp_map[other_prio]
-        max_priority = get_max_priority(setup[0]['testbed_type'])
-        lossy_dscps = list(set(range(max_priority)) - set(other_list) - set(dscp_list))
-        dscp = dscp_list[0]
-        dscp_bg = (other_list + lossy_dscps[0:1])[0]
-        traffic = {'dscp': dscp, 'dscp_bg': dscp_bg}
-        # Baseline
-        base = run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts, fanout_graph_facts,
-                        traffic, queue_paused=False, send_pause=False, pfc_pause=None, pause_prio=None,
-                        max_test_intfs_count=MAX_TEST_INTFS_COUNT)
-        # Pause - check if fanout connection information is available
-        if not conn_graph_facts.get('device_conn', {}).get(duthost.hostname):
-            pytest.skip("Fanout needs to send PFC frames fast enough to completely pause the queue")
+        for prio in lossless_prios:
+            if prio not in lossless_prio_dscp_map or len(lossless_prio_dscp_map[prio]) == 0:
+                logger.info("Skipping lossless prio %s: not enabled on testing port", prio)
+                continue
+            dscp_list = lossless_prio_dscp_map[prio]
+            other_lossless_dscps = [d for p, ds in lossless_prio_dscp_map.items() if p != prio for d in ds]
+            max_priority = get_max_priority(setup[0]['testbed_type'])
+            lossy_dscps = list(set(range(max_priority)) - set(other_lossless_dscps) - set(dscp_list))
+            dscp = dscp_list[0]
+            dscp_bg = (other_lossless_dscps + lossy_dscps[0:1])[0]
+            traffic = {'dscp': dscp, 'dscp_bg': dscp_bg}
+            logger.info("Testing prio: %s dscp: %s dscp_bg: %s", prio, dscp, dscp_bg)
+            # Baseline
+            base = run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts, fanout_graph_facts,
+                            traffic, queue_paused=False, send_pause=False, pfc_pause=None, pause_prio=None,
+                            max_test_intfs_count=MAX_TEST_INTFS_COUNT)
 
-        pfc = run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts, fanout_graph_facts,
-                       traffic, queue_paused=True, send_pause=True, pfc_pause=True, pause_prio=prio,
-                       max_test_intfs_count=MAX_TEST_INTFS_COUNT)
-        # Evaluate ratios conservatively across tested interfaces
+            pfc = run_test(pfc_test_setup, fanouthosts, duthost, ptfhost, conn_graph_facts, fanout_graph_facts,
+                           traffic, queue_paused=True, send_pause=True, pfc_pause=True, pause_prio=prio,
+                           max_test_intfs_count=MAX_TEST_INTFS_COUNT)
+            # Evaluate ratios conservatively across tested interfaces
 
-        def _best_ratio(res):
-            ratios = []
-            for v in (res or {}).values():
-                if isinstance(v, list) and len(v) == 2 and v[1]:
-                    ratios.append(float(v[0]) / float(v[1]))
-            return min(ratios) if ratios else 0.0
-        base_ratio = _best_ratio(base)
-        pfc_ratio = _best_ratio(pfc)
-        logger.info("T0 combined: baseline=%s, pfc=%s", base_ratio, pfc_ratio)
-        pytest_assert(
-            base_ratio >= PTF_PASS_RATIO_THRESH,
-            f"Baseline below threshold: {base_ratio} < {PTF_PASS_RATIO_THRESH}",
-        )
-        pytest_assert(
-            pfc_ratio < PTF_PASS_RATIO_THRESH,
-            f"PFC pause did not suppress: {pfc_ratio} >= {PTF_PASS_RATIO_THRESH}",
-        )
+            def _best_ratio(res):
+                ratios = []
+                for v in (res or {}).values():
+                    if isinstance(v, list) and len(v) == 2 and v[1]:
+                        ratios.append(float(v[0]) / float(v[1]))
+                return min(ratios) if ratios else 0.0
+            base_ratio = _best_ratio(base)
+            pfc_ratio = _best_ratio(pfc)
+            logger.info("T0 prio %s: baseline=%s, pfc=%s", prio, base_ratio, pfc_ratio)
+            pytest_assert(
+                base_ratio >= PTF_PASS_RATIO_THRESH,
+                f"Prio {prio} baseline below threshold: {base_ratio} < {PTF_PASS_RATIO_THRESH}",
+            )
+            pytest_assert(
+                pfc_ratio < PTF_PASS_RATIO_THRESH,
+                f"Prio {prio} PFC pause did not suppress: {pfc_ratio} >= {PTF_PASS_RATIO_THRESH}",
+            )
     else:
         # Routed/L3 combined
         setup_info = setup_pfc_test
@@ -911,18 +946,11 @@ def test_pfc_pause(pfc_test_setup, fanouthosts, duthosts, enum_rand_one_per_hwsk
         test_ports = setup_info['test_ports']
         selected_ports = setup_info['selected_test_ports']
         neighbors = setup_info['neighbors']
+        if not neighbors:
+            pytest.skip('No neighbor/fanout info available; routed PFC test requires conn_graph_facts')
         pytest_assert(test_ports and selected_ports, 'setup_pfc_test returned no test ports')
-        # Pick DSCP pair
         pytest_assert(lossless_prio_dscp_map, 'lossless_prio_dscp_map is empty')
         lossless_prios = sorted(lossless_prio_dscp_map.keys())
-        pause_prio = lossless_prios[0]
-        dscps = lossless_prio_dscp_map[pause_prio]
-        pytest_assert(dscps, f'No DSCPs for {pause_prio}')
-        dscp = dscps[0]
-        other_dscps = [d for p, ds in lossless_prio_dscp_map.items() if p != pause_prio for d in ds]
-        if not other_dscps:
-            other_dscps.append(dscps[1] if len(dscps) > 1 else dscp)
-        dscp_bg = other_dscps[0]
         sel = _select_routed_path(duthost, ptfhost, tbinfo, test_ports, selected_ports)
         if not sel:
             pytest.skip('No deterministic routed path (PTF-captureable) found')
@@ -951,50 +979,18 @@ def test_pfc_pause(pfc_test_setup, fanouthosts, duthosts, enum_rand_one_per_hwsk
         peer = neighbors.get(dut_intf_src)
         pytest_assert(peer, f'No neighbor info for {dut_intf_src}')
         peer_info = {'peerdevice': peer['peerdevice'], 'pfc_fanout_interface': peer['peerport']}
-        # Baseline
-        _prepare_ptf_routed(ptfhost, duthost, ip_src, ip_dst, ptf_port_src, ptf_port_dst)
-        base_ratio = _run_ptf_routed(
-            ptfhost,
-            tbinfo,
-            ip_src,
-            ip_dst,
-            ptf_port_src,
-            ptf_port_dst,
-            dscp,
-            dscp_bg,
-            router_mac,
-            queue_paused=False,
-        )
-        logger.info('Baseline pass ratio (no PFC): %s', base_ratio)
-        pytest_assert(
-            base_ratio >= PTF_PASS_RATIO_THRESH,
-            f'Baseline below threshold: {base_ratio} < {PTF_PASS_RATIO_THRESH}',
-        )
-        # Pause phase
-        storm = PFCStorm(
-            duthost,
-            enum_fanout_graph_facts,
-            fanouthosts,
-            pfc_queue_index=pause_prio,
-            pfc_frames_number=1000000,
-            send_pfc_frame_interval=0,
-            peer_info=peer_info,
-        )
-        storm.deploy_pfc_gen()
-        try:
-            _pin_neighbors_routed(
-                duthost,
-                ptfhost,
-                ip_src,
-                ip_dst,
-                ptf_port_src,
-                ptf_port_dst,
-                dut_intf_src,
-                dut_intf_dst,
-            )
-            storm.start_storm()
-            time.sleep(1)
-            pfc_ratio = _run_ptf_routed(
+        _prepare_ptf_routed(ptfhost, duthost, ip_src, ip_dst, ptf_port_src, ptf_port_dst, dut_intf_src)
+        for pause_prio in lossless_prios:
+            dscps = lossless_prio_dscp_map[pause_prio]
+            pytest_assert(dscps, f'No DSCPs for {pause_prio}')
+            dscp = dscps[0]
+            other_dscps = [d for p, ds in lossless_prio_dscp_map.items() if p != pause_prio for d in ds]
+            if not other_dscps:
+                other_dscps.append(dscps[1] if len(dscps) > 1 else dscp)
+            dscp_bg = other_dscps[0]
+            logger.info("Testing prio: %s dscp: %s dscp_bg: %s", pause_prio, dscp, dscp_bg)
+            # Baseline
+            base_ratio = _run_ptf_routed(
                 ptfhost,
                 tbinfo,
                 ip_src,
@@ -1004,13 +1000,54 @@ def test_pfc_pause(pfc_test_setup, fanouthosts, duthosts, enum_rand_one_per_hwsk
                 dscp,
                 dscp_bg,
                 router_mac,
-                queue_paused=True,
+                queue_paused=False,
             )
-        finally:
-            storm.stop_storm()
-            _unpin_neighbors_routed(duthost, ip_src, ip_dst, dut_intf_src, dut_intf_dst)
-        logger.info('PFC pause phase pass ratio: %s', pfc_ratio)
-        pytest_assert(
-            pfc_ratio < PTF_PASS_RATIO_THRESH,
-            f'PFC pause did not suppress: {pfc_ratio} >= {PTF_PASS_RATIO_THRESH}',
-        )
+            logger.info('Prio %s baseline pass ratio (no PFC): %s', pause_prio, base_ratio)
+            pytest_assert(
+                base_ratio >= PTF_PASS_RATIO_THRESH,
+                f'Prio {pause_prio} baseline below threshold: {base_ratio} < {PTF_PASS_RATIO_THRESH}',
+            )
+            # Pause phase
+            storm = PFCStorm(
+                duthost,
+                enum_fanout_graph_facts,
+                fanouthosts,
+                pfc_queue_index=pause_prio,
+                pfc_frames_number=1000000,
+                send_pfc_frame_interval=0,
+                peer_info=peer_info,
+            )
+            storm.deploy_pfc_gen()
+            try:
+                _pin_neighbors_routed(
+                    duthost,
+                    ptfhost,
+                    ip_src,
+                    ip_dst,
+                    ptf_port_src,
+                    ptf_port_dst,
+                    dut_intf_src,
+                    dut_intf_dst,
+                )
+                storm.start_storm()
+                time.sleep(1)
+                pfc_ratio = _run_ptf_routed(
+                    ptfhost,
+                    tbinfo,
+                    ip_src,
+                    ip_dst,
+                    ptf_port_src,
+                    ptf_port_dst,
+                    dscp,
+                    dscp_bg,
+                    router_mac,
+                    queue_paused=True,
+                )
+            finally:
+                storm.stop_storm()
+                _unpin_neighbors_routed(duthost, ip_src, ip_dst, dut_intf_src, dut_intf_dst)
+            logger.info('Prio %s PFC pause phase pass ratio: %s', pause_prio, pfc_ratio)
+            pytest_assert(
+                pfc_ratio < PTF_PASS_RATIO_THRESH,
+                f'Prio {pause_prio} PFC pause did not suppress: {pfc_ratio} >= {PTF_PASS_RATIO_THRESH}',
+            )
