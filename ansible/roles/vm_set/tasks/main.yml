@@ -361,6 +361,11 @@
     vm_type: "ceos"
   when: vm_type is not defined
 
+- name: Set default value for topo_is_multi_vrf
+  set_fact:
+    topo_is_multi_vrf: False
+  when: topo_is_multi_vrf is not defined
+
 - name: Check VM type
   fail:
     msg: "Cannot support this VM type {{ vm_type }}"
@@ -428,6 +433,11 @@
       when: action == 'renumber_topo'
 
   when: vm_required is defined and vm_required == True
+
+- name: Set fallback default value for VM_targets
+  set_fact:
+    VM_targets: []
+  when: VM_targets is not defined
 
 - name: Generate DPU list of target DPUs
   set_fact: dpu_targets={{ VM_hosts | filter_vm_targets(topology['DPUs'], VM_base) | sort }}

@@ -13,7 +13,7 @@ from .helpers.parallel_utils import synchronized_reboot
 from .platform.interface_utils import check_interface_status_of_up_ports
 from .platform.processes_utils import wait_critical_processes
 from .plugins.loganalyzer.utils import support_ignore_loganalyzer
-from .utilities import wait_until, get_plt_reboot_ctrl
+from .utilities import wait_until, get_plt_reboot_ctrl, is_ipv6_address
 from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs, create_duthost_console, creds_on_dut
 from tests.common.fixtures.conn_graph_facts import get_graph_facts
 
@@ -133,7 +133,15 @@ reboot_ctrl_dict = {
         # We are searching two types of reboot cause.
         # This change relates to changes of PR #6130 in sonic-buildimage repository
         "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
-        "test_reboot_cause_only": False
+        "test_reboot_cause_only": False,
+        "gnoi_api": {
+            "service": "gnoi.system.System",
+            "method": "Reboot",
+            "params": {
+                "method": 1,  # COLD reboot
+                "message": "gNOI reboot test"
+            }
+        }
     },
     REBOOT_TYPE_POWEROFF: {
         "timeout": 300,
@@ -222,9 +230,33 @@ def wait_for_startup(duthost, localhost, delay, timeout, port=SONIC_SSH_PORT):
     logger.info('ssh has started up on {}'.format(hostname))
 
 
-def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwargs=None, reboot_type='cold'):
+def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwargs=None, reboot_type='cold',
+                   invocation_type="cli_based", localhost=None, ptf_gnoi=None):
     # pool for executing tasks asynchronously
+
+    logger.info('perform_reboot called with invocation_type: {}'.format(invocation_type))
     hostname = duthost.hostname
+
+    def execute_gnoi_reboot_command():
+        """Execute gNOI-based reboot using PtfGnoi.system_reboot."""
+        if ptf_gnoi is None:
+            raise ValueError('ptf_gnoi is required when invocation_type is gnoi_based')
+        reboot_ctrl = reboot_ctrl_dict[reboot_type]
+        if 'gnoi_api' not in reboot_ctrl:
+            raise ValueError(f'gNOI reboot is not supported for reboot type: {reboot_type}')
+
+        params = reboot_ctrl['gnoi_api']['params']
+        method = params.get('method')
+        if method is None:
+            raise ValueError('gNOI reboot params must include "method"')
+
+        logger.info('Rebooting %s via gNOI System.Reboot', hostname)
+        ptf_gnoi.system_reboot(
+            method=method,
+            message=params.get('message'),
+            delay=params.get('delay'),
+            force=params.get('force', False),
+        )
 
     def execute_reboot_command():
         logger.info('rebooting {} with command "{}"'.format(hostname, reboot_command))
@@ -241,7 +273,10 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
     ignore_t2_syslog_msgs(duthost)
 
     if reboot_type != REBOOT_TYPE_POWEROFF:
-        reboot_res = pool.apply_async(execute_reboot_command)
+        if invocation_type == "cli_based":
+            reboot_res = pool.apply_async(execute_reboot_command)
+        elif invocation_type == "gnoi_based":
+            reboot_res = pool.apply_async(execute_gnoi_reboot_command)
     else:
         assert reboot_helper is not None, "A reboot function must be provided for power off/on reboot"
         reboot_res = pool.apply_async(execute_reboot_helper)
@@ -292,7 +327,8 @@ def check_dshell_ready(duthost):
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
            reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
-           safe_reboot=False, check_intf_up_ports=False, wait_for_bgp=False,  wait_for_ibgp=True):
+           safe_reboot=False, check_intf_up_ports=False, wait_for_bgp=False,  wait_for_ibgp=True,
+           invocation_type="cli_based", ptf_gnoi=None):
     """
     reboots DUT
     :param duthost: DUT host object
@@ -358,7 +394,8 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         reboot_res, dut_datetime = reboot_smartswitch(duthost, pool, reboot_type)
     else:
         reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
-                                                  reboot_kwargs, reboot_type)
+                                                  reboot_kwargs, reboot_type, invocation_type, localhost,
+                                                  ptf_gnoi=ptf_gnoi)
 
     wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res)
 
@@ -385,6 +422,13 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
         logger.error('collecting console log thread result: {} on {}'.format(console_thread_res.get(), hostname))
         pool.terminate()
         raise Exception(f"dut not start: {err}")
+
+    # NOTE: That once our device is back up it may be running a different version of SONiC/Debian
+    # than before which may include a different version of python. Therefore, to prevent python
+    # interpreter not found issues in subsequent Ansible modules as a result of using the
+    # pre-reboot cached interpreter value, we need to clear the cached facts so that they are
+    # re-gathered on next use.
+    duthost.meta("clear_facts")
 
     if return_after_reconnect:
         return
@@ -736,7 +780,8 @@ def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
         'search_regex': SONIC_SSH_REGEX
     }
     short_timeout = 40
-    params_to_update_list = [{}, {'search_regex': None, 'timeout': short_timeout}]
+    short_delay = 10
+    params_to_update_list = [{}, {'search_regex': None, 'timeout': short_timeout, 'delay': short_delay}]
     for num_try, params_to_update in enumerate(params_to_update_list):
         iter_connection_params = default_connection_params.copy()
         iter_connection_params.update(params_to_update)
@@ -761,7 +806,9 @@ def ssh_connection_with_retry(localhost, host_ip, port, delay, timeout):
 
 def collect_mgmt_config_by_console(duthost, localhost):
     logger.info("check if dut is pingable")
-    localhost.shell(f"ping -c 5 {duthost.mgmt_ip}", module_ignore_errors=True)
+    # Use ping -6 for IPv6 so the check works on newer distros where ping6 may not exist.
+    ping_cmd = "ping -6" if is_ipv6_address(str(duthost.mgmt_ip)) else "ping"
+    localhost.shell(f"{ping_cmd} -c 5 {duthost.mgmt_ip}", module_ignore_errors=True)
 
     logger.info("Start: collect mgmt config by console")
     creds = creds_on_dut(duthost)

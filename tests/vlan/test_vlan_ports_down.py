@@ -46,55 +46,73 @@ def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrh
         1. The VLAN interface's oper status remains Up.
         2. The VLAN's subnet IP is advertised to the T1 neighbors.
         3. The IP decapsulation feature works for packets that are sent to the VLAN interfaces's IP address.
+
+    Supports dual-stack, IPv4-only, and IPv6-only topologies.
     """
     duthost = duthosts[rand_one_dut_hostname]
     vlan_name = vlan_ports_setup
+
+    # Gather IPv4 and IPv6 interface info; either may be absent depending on topology
     ip_interfaces = duthost.show_ip_interface()["ansible_facts"]["ip_interfaces"]
-    vlan_info = ip_interfaces[vlan_name]
-    logger.info(f"Checking if {vlan_name} is oper UP...")
-    # check if the VLAN interface is operationally Up (IPv4)
-    pytest_assert(vlan_info["oper_state"] == "up", f"{vlan_name} is operationally down.")
+    vlan_has_ipv4 = vlan_name in ip_interfaces
+    vlan_info = ip_interfaces.get(vlan_name)
 
     ipv6_interfaces = duthost.show_ipv6_interfaces()
-    vlan_info_ipv6 = ipv6_interfaces[vlan_name]
-    # check if the VLAN interface is operationally Up (IPv6)
-    pytest_assert(vlan_info_ipv6["oper"] == "up", f"{vlan_name} is operationally down.")
+    vlan_has_ipv6 = vlan_name in ipv6_interfaces
+    vlan_info_ipv6 = ipv6_interfaces.get(vlan_name)
 
+    if not vlan_has_ipv4 and not vlan_has_ipv6:
+        pytest.fail(f"{vlan_name} has neither IPv4 nor IPv6 address configured.")
+
+    # 1. Check VLAN oper status
+    logger.info(f"Checking if {vlan_name} is oper UP...")
+    if vlan_has_ipv4:
+        pytest_assert(vlan_info["oper_state"] == "up", f"{vlan_name} is operationally down (IPv4).")
+    if vlan_has_ipv6:
+        pytest_assert(vlan_info_ipv6["oper"] == "up", f"{vlan_name} is operationally down (IPv6).")
+
+    # 2. Check BGP route advertisement on T1 neighbors
     logger.info("Checking BGP routes on T1 neighbors...")
-    vlan_subnet = str(IPNetwork(f"{vlan_info['ipv4']}/{vlan_info['prefix_len']}", flags=NOHOST))
-    vlan_subnet_ipv6 = str(IPNetwork(vlan_info_ipv6["ipv6 address/mask"], flags=NOHOST))
+    vlan_subnet = None
+    vlan_subnet_ipv6 = None
+    if vlan_has_ipv4:
+        vlan_subnet = str(IPNetwork(f"{vlan_info['ipv4']}/{vlan_info['prefix_len']}", flags=NOHOST))
+    if vlan_has_ipv6:
+        vlan_subnet_ipv6 = str(IPNetwork(vlan_info_ipv6["ipv6 address/mask"], flags=NOHOST))
+
     nbrcount = 0
     for nbrname, nbrhost in nbrhosts.items():
         if 'PT0' in nbrname:
             # Skip PT0 neighbors as only specific routes are being advertised to them.
             continue
         nbrhost = nbrhost["host"]
-        # check IPv4 routes on nbrhost
-        logger.info(f"Checking IPv4 routes on {nbrname}...")
         try:
-            vlan_route = nbrhost.get_route(vlan_subnet)["vrfs"]["default"]
+            if vlan_subnet:
+                logger.info(f"Checking IPv4 routes on {nbrname}...")
+                vlan_route = nbrhost.get_route(vlan_subnet)["vrfs"]["default"]
+                pytest_assert(vlan_route["bgpRouteEntries"],
+                              f"{vlan_name}'s IPv4 subnet is not advertised to the T1 neighbor {nbrname}.")
+            if vlan_subnet_ipv6:
+                logger.info(f"Checking IPv6 routes on {nbrname}...")
+                vlan_route_ipv6 = nbrhost.get_route(vlan_subnet_ipv6)["vrfs"]["default"]
+                pytest_assert(vlan_route_ipv6["bgpRouteEntries"],
+                              f"{vlan_name}'s IPv6 subnet is not advertised to the T1 neighbor {nbrname}.")
         except Exception:
             # nbrhost might be unreachable. Skip it.
             logger.info(f"{nbrname} might be unreachable.")
             continue
-        pytest_assert(vlan_route["bgpRouteEntries"],
-                      f"{vlan_name}'s IPv4 subnet is not advertised to the T1 neighbor {nbrname}.")
-        # check IPv6 routes on nbrhost
-        logger.info(f"Checking IPv6 routes on {nbrname}...")
-        try:
-            vlan_route_ipv6 = nbrhost.get_route(vlan_subnet_ipv6)["vrfs"]["default"]
-        except Exception:
-            # nbrhost might be unreachable. Skip it.
-            logger.info(f"{nbrname} might be unreachable.")
-            continue
-        pytest_assert(vlan_route_ipv6["bgpRouteEntries"],
-                      f"{vlan_name}'s IPv6 subnet is not advertised to the T1 neighbor {nbrname}.")
         nbrcount += 1
     if nbrcount == 0:
         pytest.skip("Could not get routing info from any T1 neighbors.")
+
+    # 3. IP-in-IP decapsulation test (IPv4 only; requires VLAN IPv4 address)
     if duthost.facts["asic_type"].lower() == "vs":
         logger.info("Skipping IP-in-IP decapsulation test for the 'vs' ASIC type.")
         return
+    if not vlan_has_ipv4:
+        logger.info("Skipping IP-in-IP decapsulation test: VLAN has no IPv4 address (IPv6-only topology).")
+        return
+
     logger.info("Starting the IP-in-IP decapsulation test...")
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     if mg_facts["minigraph_portchannels"]:

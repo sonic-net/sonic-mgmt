@@ -5,12 +5,22 @@
     dest: /tmp/config_patch.json
     remote_src: false
 
-- name: preserve key configurations from existing config_db.json using jq
-  shell: "jq '{ {{ tables_to_keep | join(',') }} }' /etc/sonic/config_db.json | sed 's/\\bnull\\b/{}/' > /tmp/config_db_keep.json"
+- name: backup config_db.json to /tmp before rebuilding it
+  copy:
+    src: /etc/sonic/config_db.json
+    dest: /tmp/config_db_old.json
+    remote_src: true
+
+- name: preserve key configurations from backed up config_db.json using jq
+  shell: |
+    set -o pipefail
+    jq '{ {{ tables_to_keep | join(',') }} }' /tmp/config_db_old.json \
+      | sed 's/\\bnull\\b/{}/' > /tmp/config_db_keep.json
+  args:
+    executable: /bin/bash
   vars:
     tables_to_keep:
       - DEVICE_METADATA
-      - MGMT_INTERFACE
       - BANNER_MESSAGE
       - FEATURE
       - FLEX_COUNTER_TABLE
@@ -25,16 +35,14 @@
   shell: "sonic-cfggen -H -k {{ device_info[inventory_hostname].HwSku }} --json /tmp/config_db_keep.json --print-data > /tmp/config_db_clean.json"
 
 - name: patch all current configurations into the new config_db.json
-  shell: "jsonpatch /tmp/config_db_clean.json /tmp/config_patch.json | jq . > /tmp/config_db_new.json"
+  shell: |
+    set -o pipefail
+    jsonpatch /tmp/config_db_clean.json /tmp/config_patch.json | jq . > /tmp/config_db_new.json
+  args:
+    executable: /bin/bash
 
 - name: copy new config_db.json to local machine
   fetch:
     src: /tmp/config_db_new.json
     dest: "{{ playbook_dir }}/../tests/metadata/config_db.{{ inventory_hostname }}.json"
     flat: true
-
-- name: backup config_db.json to /tmp
-  copy:
-    src: /etc/sonic/config_db.json
-    dest: /tmp/config_db_old.json
-    remote_src: true

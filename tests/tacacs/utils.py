@@ -93,6 +93,10 @@ def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, tim
         return reload
 
     exist = wait_until(timeout, 1, 0, log_exist, duthost)
+    if exist:
+        # audisp-tacplus logs "re-initializing configuration" when re-init STARTS, not FINISHES.
+        # Wait for it to complete reconnection to auditd before proceeding.
+        time.sleep(3)
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
 
 
@@ -100,9 +104,16 @@ def ssh_run_command(ssh_client, command, expect_exit_code=0, verify=False):
     stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
     exit_code = stdout.channel.recv_exit_status()
     if verify is True:
-        pytest_assert(
-            exit_code == expect_exit_code,
-            f"Command: '{command}' failed with exit code: {exit_code}, stdout: {stdout}, stderr: {stderr}")
+        if exit_code != expect_exit_code:
+            # This if-block is here so that stdout.readlines() and
+            # stderr.readlines() get evaluated if and only if the exit code
+            # doesn't match the expected exit code. If they do match, and they
+            # do get evaluated, then the state of the object will be different,
+            # which will cause issues for other functions that use those
+            # objects.
+            pytest.fail(
+                f"Command: '{command}' failed with exit code: {exit_code}, "
+                f"stdout: {stdout.readlines()}, stderr: {stderr.readlines()}")
     return exit_code, stdout, stderr
 
 

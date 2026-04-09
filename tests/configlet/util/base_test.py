@@ -11,7 +11,7 @@ from tests.common.configlet.helpers import set_log_prefix_msg, get_prefix_lvl, s
 from tests.common.configlet.utils import base_dir, data_dir, orig_db_dir, no_t0_db_dir, clet_db_dir, managed_files,\
                    patch_add_t0_dir, patch_rm_t0_dir, files_dir, tor_data, init_data, \
                    RELOAD_WAIT_TIME, PAUSE_INTF_DOWN, PAUSE_INTF_UP, PAUSE_CLET_APPLY, DB_COMP_WAIT_TIME,\
-                   do_pause, db_comp, chk_bgp_session, chk_for_pfc_wd, report_error, take_DB_dumps, init_global_data
+                   do_pause, db_comp, chk_any_bgp_session, chk_for_pfc_wd, report_error, take_DB_dumps, init_global_data
 
 
 if os.path.exists("/etc/sonic/sonic-environment"):
@@ -147,7 +147,7 @@ def prepare_for_test(duthost):
     mini_wo_to = managed_files["minigraph_wo_to"]
     if not mini_wo_to:
         report_error("Failed to get files wo_to={} clet={}".format(
-            mini_wo_to, clet_file))     # noqa F821
+            mini_wo_to, clet_file))     # noqa: F821
 
     if not os.path.exists(mini_wo_to):
         report_error("minigraph {} file absent".format(mini_wo_to))
@@ -176,7 +176,7 @@ def apply_clet(duthost, skip_test=False):
 
     if not clet_file:
         report_error("Failed to get files wo_to={} clet={}".format(
-            mini_wo_to, clet_file))     # noqa F821
+            mini_wo_to, clet_file))     # noqa: F821
 
     if not os.path.exists(clet_file):
         report_error("configlet {} file absent".format(clet_file))
@@ -188,15 +188,18 @@ def apply_clet(duthost, skip_test=False):
     # Apply delete
     duthost.shell("configlet -d -j {}".format(del_sonic_clet_file))
 
-    tor_ifname = tor_data["links"][0]["local"]["sonic_name"]
-    duthost.shell("config interface shutdown {}".format(tor_ifname))
-    do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown".format(tor_ifname))
+    for link in tor_data["links"]:
+        tor_ifname = link["local"]["sonic_name"]
+        duthost.shell("config interface shutdown {}".format(tor_ifname))
+        do_pause(PAUSE_INTF_DOWN, "pause upon i/f {} shutdown".format(tor_ifname))
 
     duthost.shell("configlet -u -j {}".format(sonic_clet_file))
     do_pause(PAUSE_CLET_APPLY, "Pause after applying configlet")
 
-    duthost.shell("config interface startup {}".format(tor_ifname))
-    do_pause(PAUSE_INTF_UP, "pause upon i/f {} startup".format(tor_ifname))
+    for link in tor_data["links"]:
+        tor_ifname = link["local"]["sonic_name"]
+        duthost.shell("config interface startup {}".format(tor_ifname))
+        do_pause(PAUSE_INTF_UP, "pause upon i/f {} startup".format(tor_ifname))
 
     append_log_prefix_msg("checking_dump", pfx_lvl)
     assert wait_until(DB_COMP_WAIT_TIME, 20, 0, db_comp, duthost, clet_db_dir,
@@ -204,8 +207,7 @@ def apply_clet(duthost, skip_test=False):
         "DB compare failed after apply-clet"
 
     # Ensure BGP session is up
-    chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-clet test")
-    chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "post-clet test")
+    chk_any_bgp_session(duthost, "post-clet test")
 
     log_info("AddRack by template succeeded")
 
@@ -265,8 +267,7 @@ def do_test_add_rack(duthost, is_storage_backend=False, skip_load=False,
                      is_storage_backend=is_storage_backend)
 
         # Ensure BGP session is up before we apply stripped minigraph
-        chk_bgp_session(duthost, tor_data["ip"]["remote"], "pre-clet test")
-        chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "pre-clet test")
+        chk_any_bgp_session(duthost, "pre-clet test")
 
         set_log_prefix_msg("test prepare")
         prepare_for_test(duthost)

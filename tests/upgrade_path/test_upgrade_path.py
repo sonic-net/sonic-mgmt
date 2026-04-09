@@ -1,4 +1,5 @@
 import pytest
+import random
 import logging
 from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper
 from tests.common.helpers.upgrade_helpers import restore_image            # noqa: F401
@@ -145,6 +146,69 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
                             postboot_setup=lambda dut=dut: upgrade_path_postboot_setup(dut),
                             consistency_checker_provider=None,  # Not needed as only cold reboot supported to T2
                             enable_cpa=False)
+
+
+@pytest.mark.device_type('t2')
+def test_upgrade_path_t2_delayed(localhost, duthosts, ptfhost, upgrade_path_lists,
+                                 tbinfo, request, verify_testbed_health):                     # noqa: F811
+    """
+    This test is similar to test_upgrade_path_t2 but delays relegates one linecard to be upgraded late,
+    after all other devices have been upgraded.
+    """
+
+    if len(duthosts.frontend_nodes) < 2:
+        pytest.skip("This test requires at least 2 frontend nodes")
+
+    _, from_image, to_image, _, _ = upgrade_path_lists
+    upgrade_type = REBOOT_TYPE_COLD
+    logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
+
+    for duthost in duthosts:
+        cleanup_prev_images(duthost)
+    boot_into_base_image_t2(duthosts, localhost, from_image, tbinfo)
+
+    def upgrade_path_preboot_setup(dut):
+        setup_upgrade_test(dut, localhost, from_image, to_image, tbinfo, upgrade_type)
+
+    def upgrade_path_postboot_setup(dut):
+        dut.shell("config bgp startup all")
+
+    duthosts_frontend_nodes = list(duthosts.frontend_nodes)
+    delayed_dut = random.choice(duthosts_frontend_nodes)
+    duthosts_frontend_nodes.remove(delayed_dut)
+    logger.info("Delaying upgrade for {}".format(delayed_dut.hostname))
+
+    # get_advanced_reboot=None and advanceboot_loganalyzer=None as only cold reboot needed for T2
+    suphost = duthosts.supervisor_nodes[0]
+    upgrade_test_helper(suphost, localhost, ptfhost, from_image,
+                        to_image, tbinfo, upgrade_type,
+                        get_advanced_reboot=None,               # Not needed as only cold reboot supported to T2
+                        advanceboot_loganalyzer=None,           # Not needed as only cold reboot supported to T2
+                        preboot_setup=lambda: upgrade_path_preboot_setup(suphost),
+                        postboot_setup=lambda: upgrade_path_postboot_setup(suphost),
+                        consistency_checker_provider=None,      # Not needed as only cold reboot supported to T2
+                        enable_cpa=False)
+
+    # Upgrade all frontend nodes but delayed_dut in parallel
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for dut in duthosts_frontend_nodes:
+            executor.submit(upgrade_test_helper, dut, localhost, ptfhost, from_image,
+                            to_image, tbinfo, upgrade_type,
+                            get_advanced_reboot=None,           # Not needed as only cold reboot supported to T2
+                            advanceboot_loganalyzer=None,       # Not needed as only cold reboot supported to T2
+                            preboot_setup=lambda dut=dut: upgrade_path_preboot_setup(dut),
+                            postboot_setup=lambda dut=dut: upgrade_path_postboot_setup(dut),
+                            consistency_checker_provider=None,  # Not needed as only cold reboot supported to T2
+                            enable_cpa=False)
+
+    upgrade_test_helper(delayed_dut, localhost, ptfhost, from_image,
+                        to_image, tbinfo, upgrade_type,
+                        get_advanced_reboot=None,               # Not needed as only cold reboot supported to T2
+                        advanceboot_loganalyzer=None,           # Not needed as only cold reboot supported to T2
+                        preboot_setup=lambda: upgrade_path_preboot_setup(delayed_dut),
+                        postboot_setup=lambda: upgrade_path_postboot_setup(delayed_dut),
+                        consistency_checker_provider=None,      # Not needed as only cold reboot supported to T2
+                        enable_cpa=False)
 
 
 @pytest.mark.device_type('vs')

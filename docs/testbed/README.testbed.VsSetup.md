@@ -21,8 +21,6 @@ First, we need to prepare the host where we will be configuring the virtual test
    2. Option : If your host is **Ubuntu 18.04**
         ```
         sudo apt install python python-pip openssh-server
-        # v0.3.10 Jinja2 is required, lower version may cause uncompatible issue
-        sudo pip install j2cli==0.3.10
         ```
 
 3. Run the host setup script to install required packages and initialize the management bridge network
@@ -74,11 +72,11 @@ mkdir -p ~/veos-vm/images
    #### Option 2.1: Manually download cEOS image
 
    1. Obtain the cEOS image from [Arista's software download page](https://www.arista.com/en/support/software-download). You can choose later cEOS versions, they do not guarantee to work (the latest 4.35.0F do not).
-      
+
       **Note:** You may need to register an Arista guest account to access the download resources.
 
       Ensure that the cEOS version you download matches the version specified in `ansible/group_vars/vm_host/ceos.yml`. For example, the following steps use `cEOS64-lab-4.29.3M` as a reference.
- 
+
    2. Unxz it with `unxz cEOS64-lab-4.29.3M.tar.xz`.
    3. Place the image file in the `images` subfolder located within the directory specified by the `root_path` variable in the `ansible/group_vars/vm_host/main.yml` file.
 
@@ -139,20 +137,22 @@ wget "https://sonic-build.azurewebsites.net/api/sonic/artifacts?branchName=maste
 
 Follow the instructions from [sonic-platform-vpp](https://github.com/sonic-net/sonic-platform-vpp?tab=readme-ov-file#building-a-kvm-vm-image) and build a **kvm** vm image.
 
-__Note: make sure you rename the vpp image to `sonic-vs.img`.__
-
-```
-mv sonic-vpp.img.gz sonic-vs.img.gz
-```
-
 ### 2. Unzip the image and copy it into `~/sonic-vm/images/` and also `~/veos-vm/images`
-
+* vs image
 ```
 gzip -d sonic-vs.img.gz
 mkdir -p ~/sonic-vm/images
 cp sonic-vs.img ~/sonic-vm/images
 mkdir -p ~/veos-vm/images
 mv sonic-vs.img ~/veos-vm/images
+```
+* vpp image
+```
+gzip -d sonic-vpp.img.gz
+mkdir -p ~/sonic-vm/images
+cp sonic-vpp.img ~/sonic-vm/images
+mkdir -p ~/veos-vm/images
+mv sonic-vpp.img ~/veos-vm/images
 ```
 
 ## Setup sonic-mgmt docker
@@ -184,7 +184,7 @@ cd sonic-mgmt
 You can enter your sonic-mgmt container with the following command:
 
 ```
-docker exec -it <container name> bash
+docker exec --user $USER -it <container name> bash
 ```
 
 You will find your sonic-mgmt directory mounted at `/data/sonic-mgmt`:
@@ -287,7 +287,7 @@ foo ALL=(ALL) NOPASSWD:ALL
    ```
    sudo chmod 755 /home/<username>
    ```
-   Also verify that images files and the folder containing them also have the correct permissions. 
+   Also verify that images files and the folder containing them also have the correct permissions.
 
 ## Setup VMs on the server
 **(Skip this step if you are using cEOS - the containers will be automatically setup in a later step.)**
@@ -405,6 +405,37 @@ Once the topology has been created, we need to give the DUT an initial configura
 ```
 ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb deploy-mg vms-kvm-t0 veos_vtb password.txt
 ```
+
+### IPv6-Only Management Network (Optional)
+
+If you want to configure the DUT with IPv6-only management (no IPv4 on the management interface), use the `--ipv6-only-mgmt` flag:
+
+1. **Set up the local NTP server** (required for IPv6-only management):
+   ```
+   ./setup-ntp-server.sh start
+   ```
+   This deploys a Chrony NTP server container on the management network that DUTs can reach via IPv6.
+
+2. **Generate minigraph with IPv6-only management**:
+   ```
+   ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb gen-mg vms-kvm-t0 veos_vtb password.txt --ipv6-only-mgmt
+   ```
+
+3. **Deploy minigraph with IPv6-only management**:
+   ```
+   ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb deploy-mg vms-kvm-t0 veos_vtb password.txt --ipv6-only-mgmt
+   ```
+
+4. **Access the DUT via IPv6**:
+   ```
+   ssh admin@fec0::ffff:afa:1
+   ```
+   The IPv6 address is defined as `ansible_hostv6` in the inventory file (e.g., `veos_vtb`).
+
+For detailed information about IPv6-only management setup, including configuration options, NTP server setup, and troubleshooting, see [IPv6 Management Setup Guide](../ipv6-management-setup.md).
+
+---
+
 Verify the DUT is created successfully
 In your host run
 ```
@@ -518,6 +549,27 @@ If neighbor devices are SONiC
 ```
 
 You should see three sets of tests run and pass. You're now set up and ready to use the KVM testbed!
+
+### Running Tests with IPv6-Only Management
+
+If you deployed the DUT with `--ipv6-only-mgmt` (see [IPv6-Only Management Network](#ipv6-only-management-network-optional)), you must run tests with the `-6` flag:
+
+```
+./run_tests.sh -6 -n vms-kvm-t0 -d vlab-01 -c bgp/test_bgp_fact.py -f vtestbed.yaml -i ../ansible/veos_vtb
+```
+
+The `-6` flag tells the test framework to:
+- Use the IPv6 address (`ansible_hostv6`) as the DUT management IP
+- Skip IPv4 management connectivity checks
+- Use `ping6` for reachability tests
+
+Alternatively, you can use pytest directly with the `--ipv6_only_mgmt` option:
+
+```
+pytest --ipv6_only_mgmt --testbed vms-kvm-t0 --testbed_file vtestbed.yaml --inventory ../ansible/veos_vtb --host-pattern vlab-01 bgp/test_bgp_fact.py
+```
+
+For more details, see [IPv6 Management Setup Guide](../ipv6-management-setup.md#running-tests-in-ipv6-only-management-mode).
 
 ## Restore/Remove the testing environment
 If you want to clear your testing environment, you can log into your mgmt docker that you created at step three in section [README.testbed.VsSetup.md#prepare-testbed-host](README.testbed.VsSetup.md#prepare-testbed-host).

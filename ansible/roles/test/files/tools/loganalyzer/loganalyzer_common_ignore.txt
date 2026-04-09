@@ -31,10 +31,11 @@ r, ".* skipping since it causes crash: SAI_STP_ATTR_BRIDGE_ID.*"
 r, ".* ERR monit.*Expected containers not running: telemetry.*"
 r, ".* sonic systemd.* kdump-tools.service - Kernel crash dump capture service.*"
 r, ".* ERR swss#orchagent: :- getPort: Failed to get cached bridge port ID.*"
-r, ".* ERR syncd#syncd: .* SAI_API_PORT:brcm_sai_get_port_attribute:\d+ Error -2 processing  port attribute ID: 17.*"
+r, ".* ERR syncd#syncd: .* SAI_API_PORT:brcm_sai_get_port_attribute(_cmn)?:\d+ Error -2 processing  port attribute ID: 17.*"
 r, ".* ERR mux#linkmgrd: MuxManager\.cpp:.*Unsupported link failure detection type for : software.*"
 r, ".* ERR syncd#syncd: \[none\] SAI_API_SWITCH:sai_query_attribute_capability:\d* Acl (entry|table) attribute capabilities failed with error -2."
 r, ".* ERR syncd#syncd: \[none\] SAI_API_SWITCH:sai_query_attribute_enum_values_capability:\d* Error in enum \d* capability query for obj type .* rv=-8"
+r, ".* ERR syncd#syncd: \[none\] SAI_API_SWITCH:sai_query_stats_st_capability:\d+ Get TAM ST Stats capabilities failed with error -2.*"
 
 # Errors for config reload on broadcom platform on 202405
 r, ".* ERR syncd\d*#syncd.*_attribute_enum_values_capability.*count.*greater than capability-count 0.*"
@@ -45,6 +46,9 @@ r, ".* ERR swss#orchagent: :- queryHashNativeHashFieldListAttrCapabilities: Fail
 r, ".* ERR swss#orchagent: :- querySwitchEcmpHashAlgorithmEnumCapabilities: Failed to get attribute.*"
 r, ".* ERR swss#orchagent: :- querySwitchLagHashAlgorithmEnumCapabilities: Failed to get attribute.*"
 r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed with error Feature unavailable.*"
+
+# Errors for config reload on broadcom platform on 202511
+r, ".* ERR syncd\d*#syncd.*SAI_API_PORT:_brcm_sai_read_fec_stat_err_counters.* failed - port: \d+, rc: -16.*"
 
 # White list below messages found on KVM for now. Need to address them later.
 r, ".* ERR macsec\d*#wpa_supplicant.*l2_packet_send.*Network is down.*"
@@ -229,12 +233,12 @@ r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] mlnx_sai_utils.c\[\d+\]- sai_get_attribu
 r, ".* ERR syncd#SDK: \[SAI_BRIDGE.ERR\].*mlnx_sai_bridge.c\[\d+\]- mlnx_bridge_port_isolation_group_get: Isolation group is only supported for bridge port type port"
 r, ".* ERR syncd#SDK: \[SAI_BRIDGE.ERR\].*mlnx_sai_bridge.c\[\d+\]- mlnx_bridge_1d_oid_to_data: Unexpected bridge type 0 is not 1D"
 r, ".* ERR syncd#SDK: \[SAI_BRIDGE.ERR\].*mlnx_sai_bridge.c\[\d+\]- mlnx_bridge_port_lag_or_port_get: Invalid port type - 2"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- sai_get_attributes: Failed to get attribute*."
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, PORT_ID, key:BRIDGE_PORT \[OID:.*\] \[bridge_ports_db.*"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, ISOLATION_GROUP, key:BRIDGE_PORT \[OID:.*\] \[bridge_ports_db.*"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_UNICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*\] \[Type:.* sx_bridge_id.*"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_MULTICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
-r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\] .\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- sai_get_attributes: Failed to get attribute*."
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, PORT_ID, key:BRIDGE_PORT \[OID:.*\] \[bridge_ports_db.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, ISOLATION_GROUP, key:BRIDGE_PORT \[OID:.*\] \[bridge_ports_db.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_UNICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*\] \[Type:.* sx_bridge_id.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, UNKNOWN_MULTICAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
+r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*.\/src\/mlnx_sai_utils.c.*- get_dispatch_attribs_handler: Failed Get #\d+, BROADCAST_FLOOD_GROUP, key:BRIDGE \[OID:.*Type:.*sx_bridge_id.*"
 r, ".* ERR syncd#SDK: \[SAI_UTILS.ERR\].*get_dispatch_attribs_handler:.*(INGRESS_SAMPLE_MIRROR_SESSION|EGRESS_SAMPLE_MIRROR_SESSION).*"
 
 # https://github.com/sonic-net/sonic-mgmt/issues/10384
@@ -285,6 +289,8 @@ r, ".* ERR syncd\d*#syncd:.*SAI_API_PORT: Invalid port counter .*index.*"
 r, ".* ERR syncd\d*#syncd:.*SAI_API_SWITCH: genl_ctrl_resolve failed family=lb_genl_family0.*"
 r, ".* ERR syncd\d*#syncd:.*la_vrf_port_common_base::get_acl_group egress acl group not found.*"
 r, ".* ERR syncd\d*#syncd:.*la_vrf_port_common_base::get_acl_group ingress acl group not found.*"
+r, ".* ERR syncd\d*#syncd:.*la_pie_port_base.cpp.*read_rx_cgm_tc_drop_counter API returned: status = Leaba_Err: API is not implemented.*"
+r, ".* ERR swss\d*#orchagent.*setPortPfcAsym: Failed to set PFC mode 0.*"
 r, ".* ERR systemd-udevd\[\d*\]:.* leaba* Failed to get link config: No such device.*"
 r, ".* INFO .*Failed to instantiate thermal sensor SSD_Temp: xr_sysctl_get.*status -116.*"
 r, ".* INFO .*[duty_cycle_map]: illegal pwm value .*"
@@ -297,6 +303,7 @@ r, ".* WARNING kernel:.*pcieport.*device.*error.*status/mask=.*"
 r, ".* ERR syncd\d*#syncd:.* -E-HLD-0- Trap.* is not supported.*"
 r, ".* ERR pmon#xcvrd:.*CMIS:.*no suitable app for the port appl.*"
 r, ".* ERR kernel:.*ltc2497.*i2c transfer failed: -EFAULT"
+r, ".* ERR syncd\d*#syncd:.*get_sq_size_watermark_in_bytes API returned: status = Leaba_Err: Invalid parameter.*"
 
 # Ignore ACL EGRESS feature unavailable error on fabric cards
 r, ".* ERR syncd\d*#syncd:.* SAI_API_SWITCH:brcm_sai_get_switch_attribute.* Get switch attrib 37 failed with error Feature unavailable.*"
@@ -318,7 +325,7 @@ r, ".* NOTICE kernel:.*Kernel command line:.*Aboot=.*"
 r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
 
 # ignore TACACS login failure, which will happen when other user trying login device when running test
-r, ".* ERR sshd\[\d*\]: auth fail.*"
+r, ".* ERR sshd(-session)?\[\d*\]: auth fail.*"
 
 # ignore NTP nss_tacplus error, which will happen when reload config, because ntpd and chrony will invoke getpwnap API but nss_tacplus will re-render during reload config
 r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
@@ -377,6 +384,10 @@ r, ".* ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent s
 # https://github.com/sonic-net/sonic-mgmt/issues/19790
 r, ".* ERR syncd#syncd: .* SAI_API_SWITCH:sai_query_stats_capability:\d+ stats capablity not supported for object.*"
 
+# https://github.com/sonic-net/sonic-mgmt/issues/21329
+r, ".* ERR syncd\d*#syncd: :- guard: RedisReply catches system_error:.*ERR Lua redis lib command arguments must be strings or integers.*"
+r, ".* ERR syncd\d*#syncd: :- runRedisScript: Caught exception while running Redis lua script:.*ERR Lua redis lib command arguments must be strings or integers.*"
+
 # Ignore all audisp-tacplus Accounting logs
 r, ".* INFO audisp-tacplus: Audisp-tacplus: Accounting: user: .*, tty: .*, host: .*, command: .*, type: \d+, task ID: \d+"
 
@@ -419,9 +430,22 @@ r, ".*ERR pmon.*Failed to freeze VDM stats in contextmanager for port.*"
 r, ".*ERR pmon.*Failed to freeze VDM stats for port.*"
 r, ".*ERR pmon.*Failed to confirm VDM unfreeze status for port.*"
 r, ".*ERR pmon.*Failed to unfreeze VDM stats in contextmanager for port.*"
+# https://github.com/aristanetworks/sonic-qual.msft/issues/1156
+r, ".*ERR pmon#DomInfoUpdateTask.*Failed to get VDM basic real values for port.*"
+
+# Ignore PIE port error log on set pfc mode
+r, ".* ERR syncd#syncd: :- sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode: SAI_STATUS_NOT_SUPPORTED.*"
+r, ".* ERR syncd#syncd: :- processQuadEvent: VID: oid:0x.*"
+r, ".* ERR syncd#syncd: :- processQuadEvent: attr: SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_MODE: SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_COMBINED.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/21186
 r, ".*ERR bgp\#bgpmon:\s+\*ERROR\*\s+Failed\s+with\s+rc:\d+\s+when\s+execute:\s+.*vtysh.*-c.*show\s+bgp\s+summary\s+json.*"
+
+# https://github.com/sonic-net/sonic-buildimage/issues/24966
+r, ".* ERR bgp#mgmtd.*mgmt_ds_lock: ERROR: lock already taken on DS:running by session-id.*"
+
+# https://github.com/sonic-net/sonic-mgmt/issues/16794
+r, ".* ERR bgp\d*#mgmtd.*mgmt_txn_cfg_commit_timedout.*"
 
 # This is an info log which matches the regex "kernel:.*\serr", not an err
 r, ".*ACPI.*System may be unstable or behave erratically.*"
@@ -431,3 +455,31 @@ r, ".*ERR systemd\[1\]: Failed to listen on systemd-networkd.socket - Network Se
 
 # Ignore syncd error when switching global packet trimming mode
 r, ".*ERR .* SAI_API_SWITCH:brcm_sai_switch_pkt_trim_qos_tc_egr_entries_create:.* Egress qos map with idx .* entries are already present.*"
+
+# Ignore SPC6 Egress mirroring not supported failures on SPC6 mellanox platform
+r, ".*ERR syncd#SDK: \[SAI_PORT.ERR\] .*mlnx_sai_port.c\[.*\]- mlnx_port_samplepacket_session_get: Egress mirroring is not supported on SPC6.*"
+
+# Ignore the error when the sysfs was accessed too soon, before sys creation has been completed.
+r, ".*ERR sfputil: Failed to read from file /sys/module/sx_core/asic\d+/module\d+/present - FileNotFoundError.*"
+
+# This is a deprecation warning not a functional error, which matches the regex "kernel:.*allocation", not an err.
+r, ".*kernel.*gpio.*Static allocation of GPIO base is deprecated.*"
+
+# Ignore SCD kernel warning about I2C communication ack errors on Arista platforms
+r, ".*WARNING kernel:.*scd.*rsp.*ack_error=1.*"
+
+# CHASSIS_STATE_DB only exists on chassis platforms; gnmi processes log an ERR on non-chassis systems at startup
+r, ".*ERR gnmi#.*getDbInfo: Failed to find CHASSIS_STATE_DB.*"
+r, ".*ERR telemetry#.*getDbInfo: Failed to find CHASSIS_STATE_DB.*"
+
+# Ignore SAI_STATUS_INVALID_PARAMETER error for SAI_API_QUEUE get stats until it's resolved
+r, ".*ERR swss#orchagent:.*SAI_API_QUEUE, status: SAI_STATUS_INVALID_PARAMETER.*"
+
+# Ignore link-training failure status query errors during port state transitions
+# SAI cannot read LT registers while the port serdes is mid-transition
+r, ".* ERR swss\d*#orchagent:.*getPortLinkTrainingFailure: Failed to get LT failure status for .*"
+
+# https://github.com/sonic-net/sonic-mgmt/issues/19347
+r, ".* ERR auditd.*: queue to plugins is full - dropping event"
+r, ".* ERR auditd.*: message repeated .*: \[ queue to plugins is full - dropping event\]"
+r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped event notifications"

@@ -86,6 +86,15 @@ def dscp_config(dscp_mode, duthost, loganalyzer):
         request: pytest request
         duthost (AnsibleHost): The DUT host
     """
+    asic_type = duthost.facts['asic_type']
+
+    # global DSCP_TO_TC_MAP update is not supported on Broadcom platforms
+    if asic_type == 'broadcom':
+        apply_dscp_cfg_setup(duthost, dscp_mode, loganalyzer)
+        yield
+        apply_dscp_cfg_teardown(duthost, loganalyzer)
+        return
+
     is_global_map_key_exist = duthost.shell('redis-cli -n 4 -c KEYS "PORT_QOS_MAP|global"')["stdout"]
     if is_global_map_key_exist:
         origin_dscp_to_tc_map = duthost.shell('redis-cli -n 4 -c HGET "PORT_QOS_MAP|global" "dscp_to_tc_map"')["stdout"]
@@ -487,7 +496,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
     def test_dscp_to_queue_mapping(self, ptfadapter, rand_selected_dut, localhost, dscp_config, dscp_mode,
                                    toggle_all_simulator_ports_to_rand_selected_tor, completeness_level,  # noqa F811
                                    setup_standby_ports_on_rand_unselected_tor, route_config,
-                                   tbinfo, downstream_links, upstream_links, dut_qos_maps_module, loganalyzer):  # noqa F811
+                                   tbinfo, downstream_links, upstream_links, dut_qos_maps_module, loganalyzer, rotate_syslog):  # noqa F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets in DSCP "uniform" and "pipe" mode
         """
@@ -495,13 +504,19 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         inner_dst_ip_list = route_config
 
         with allure.step("Prepare test parameter"):
-            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links, loganalyzer)
+            test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links)
 
         with allure.step("Run test"):
             self._run_test(ptfadapter, duthost, tbinfo, test_params, inner_dst_ip_list, dut_qos_maps_module, dscp_mode)
 
-        if completeness_level != "basic" and \
-                not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+        is_smartswitch = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch", False)
+        topo_name = tbinfo["topo"]["name"]
+        if (
+            completeness_level != "basic"
+            and not is_smartswitch
+            and "dualtor" not in topo_name
+            and "t1" not in topo_name
+        ):
             with allure.step("Do warm-reboot"):
                 reboot(duthost, localhost, reboot_type="warm", safe_reboot=True, check_intf_up_ports=True,
                        wait_warmboot_finalizer=True)

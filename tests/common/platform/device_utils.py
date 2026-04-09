@@ -20,7 +20,7 @@ from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHE
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
 from tests.common.devices.duthosts import DutHosts
 from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa: F401
-from tests.common.fixtures.duthost_utils import duthost_mgmt_ip  # noqa: F401
+from tests.common.platform.controlplane_gating import controlplane_gating
 
 """
 Helper script for fanout switch operations
@@ -128,6 +128,41 @@ def list_dut_fanout_connections(dut, fanouthosts):
             candidates.append((dut_port, fanout, fanout_port))
 
     return candidates
+
+
+def eos_to_linux_intf(eos_intf_name, hwsku=None):
+    """
+    @Summary: Map EOS's interface name to Linux's interface name
+    @param eos_intf_name: Interface name in EOS
+    @return: Return the interface name in Linux
+    """
+    if hwsku == "MLNX-OS":
+        linux_intf_name = eos_intf_name.replace(
+            "ernet 1/", "sl1p").replace("/", "sp")
+    elif hwsku and "Nokia" in hwsku:
+        linux_intf_name = eos_intf_name
+    else:
+        linux_intf_name = eos_intf_name.replace(
+            'Ethernet', 'et').replace('/', '_')
+    return linux_intf_name
+
+
+def nxos_to_linux_intf(nxos_intf_name):
+    """
+        @Summary: Map NxOS's interface name to Linux's interface name
+        @param nxos_intf_name: Interface name in NXOS
+        @return: Return the interface name in Linux
+    """
+    return nxos_intf_name.replace('Ethernet', 'Eth').replace('/', '-')
+
+
+def sonic_to_linux_intf(sonic_intf_name):
+    """
+    @Summary: Map SONiC's interface name to Linux's interface name
+    @param sonic_intf_name: Interface name in SONiC
+    @return: Return the interface name in Linux
+    """
+    return sonic_intf_name
 
 
 def watch_system_status(dut):
@@ -989,6 +1024,17 @@ def advanceboot_loganalyzer_factory(duthost, request, marker_postfix=None):
             report_file_name = request.node.name + "_report.json"
             summary_file_name = request.node.name + "_summary.json"
 
+        # Prepare minimal dict for control plane gating logic
+        gating_input = {
+            "lacp_session_max_wait": result_summary.get("controlplane", {}).get("lacp_session_max_wait"),
+            "bgp": result_summary.get("time_span", {}).get("bgp"),
+            "HwSku": result_summary.get("hwsku"),
+            "BaseImage": result_summary.get("base_ver"),
+            "TargetImage": result_summary.get("target_ver")
+        }
+        # Run control plane gating
+        gating_failures = controlplane_gating(gating_input)
+
         report_file_dir = os.path.realpath((os.path.join(os.path.dirname(__file__),
                                            "../../logs/platform_tests/")))
         report_file_path = report_file_dir + "/" + report_file_name
@@ -1002,6 +1048,9 @@ def advanceboot_loganalyzer_factory(duthost, request, marker_postfix=None):
 
         # After generating timing data report, do some checks on the timing data
         verification_errors = list()
+        # Append the gating failures
+        if gating_failures:
+            verification_errors.extend(gating_failures)
         verify_mac_jumping(test_name, analyze_result, verification_errors)
         if duthost.facts['platform'] != 'x86_64-kvm_x86_64-r0':
             # TBD: expand this verification to KVM - extra port events in KVM which need to be filtered
@@ -1081,10 +1130,12 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
 
 
 @pytest.fixture(scope='function')
-def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, duthost_mgmt_ip,  # noqa: F811
+def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname,
                                localhost, request):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dut_ip = duthost_mgmt_ip['mgmt_ip']
+    duthost_mgmt_info = duthost.get_mgmt_ip()
+    dut_ip = duthost_mgmt_info['mgmt_ip']
+    dut_mgmt_ver = duthost_mgmt_info['version']
 
     res = localhost.wait_for(host=dut_ip,
                              port=SERVER_PORT,
@@ -1102,7 +1153,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, dutho
             'command=/usr/bin/python{} /opt/platform_api_server.py --port {} {}'.format(
                 '3' if py3_platform_api_available else '2',
                 SERVER_PORT,
-                '--ipv6' if duthost_mgmt_ip['version'] == 'v6' else ''),
+                '--ipv6' if dut_mgmt_ver == 'v6' else ''),
             'autostart=True',
             'autorestart=True',
             'stdout_logfile=syslog',
@@ -1121,7 +1172,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, dutho
         duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
 
         # Prepend an iptables rule to allow incoming traffic to the HTTP server
-        if duthost_mgmt_ip['version'] == 'v6':
+        if dut_mgmt_ver == 'v6':
             duthost.command(IP6TABLES_PREPEND_RULE_CMD)
         else:
             duthost.command(IPTABLES_PREPEND_RULE_CMD)
@@ -1135,8 +1186,9 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, dutho
 
 
 @pytest.fixture(scope='function')
-def platform_api_conn(duthost_mgmt_ip, start_platform_api_service):  # noqa: F811
-    dut_ip = duthost_mgmt_ip['mgmt_ip']
+def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    dut_ip = duthost.get_mgmt_ip()["mgmt_ip"]
 
     conn = http.client.HTTPConnection(dut_ip, 8000)
     try:
@@ -1265,6 +1317,32 @@ def get_dpu_port(duthost, dpu_index):
         logger.error("gnmi_port not found in config_facts for dpu_index {}".format(dpu_index))
         return None
     return port
+
+
+def get_configured_dpu_names(duthost):
+    """
+    Return DPU names configured in the DUT running config (e.g. ["dpu0","dpu1"]).
+
+    This is used by tests to avoid targeting chassis modules that are present in
+    platform API but are not configured for DPU management (and thus have no
+    gNMI/gNOI settings in config DB).
+    """
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if not config_facts:
+        logger.error("Failed to retrieve config_facts from DUT")
+        return []
+
+    dpu_section = config_facts.get('DPU', {})
+    if not dpu_section:
+        return []
+
+    # Keep deterministic ordering (dpu0, dpu1, ...)
+    def _dpu_sort_key(name):
+        m = re.search(r'(\d+)$', str(name))
+        return int(m.group(1)) if m else 10**9
+
+    names = [str(k) for k in dpu_section.keys()]
+    return sorted(names, key=_dpu_sort_key)
 
 
 def check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
