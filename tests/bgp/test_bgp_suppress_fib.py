@@ -330,7 +330,7 @@ def is_orchagent_stopped(duthost):
     Compatible for multi-asic
     """
     out_list = []
-    pids = duthost.shell("pidof orchagent")['stdout'].split()
+    pids = duthost.shell("pgrep -x orchagent")['stdout'].split()
     for pid in pids:
         cmd = 'cat /proc/{}/status | grep State'.format(pid)
         out = duthost.shell(cmd)['stdout']
