@@ -39,7 +39,7 @@ class Common_vars:
     # 8x100G ports per per group. 
     # 1=(Mainly for a quick test) testing just one port in the port-group as rx-port 
     # 8=testing all 8 ports in the port-group as rx-port
-    total_rx_port_rotation = 1
+    total_rx_port_rotation = 8
         
     # --- DON'T TOUCH BELOW VALUES ---
     
