@@ -7899,7 +7899,8 @@ class VoqCreditWDCounterTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         asic_type = self.test_params['sonic_asic_type']
-        pkts_num = int(self.test_params.get('pkts_num', 100))
+        # Use a large burst to compensate leakout before the credit watchdog fires.
+        pkts_num = int(self.test_params.get('pkts_num', 100000))
         packet_length = int(self.test_params.get('packet_size', 1350))
         dutInterfaces = self.test_params['dutInterfaces']
         testPorts = self.test_params['testPorts']

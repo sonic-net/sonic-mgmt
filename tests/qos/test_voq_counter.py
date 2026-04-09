@@ -34,7 +34,10 @@ pytestmark = [
     pytest.mark.topology('t2')
 ]
 
-PKTS_NUM = 100
+# Use a larger burst to overcome leakout before credit watchdog kicks in.
+# On some platforms tens of thousands of packets can egress after TX disable
+# due to headroom/credits; 100k provides headroom across SKUs.
+PKTS_NUM = 100000
 
 
 class TestVoqCreditWDCounter(QosSaiBase):
