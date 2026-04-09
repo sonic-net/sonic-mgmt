@@ -905,10 +905,10 @@ def operate_orchagent(duthost, action=ACTION_STOP):
     """
     if action == ACTION_STOP:
         logging.info('Suspend orchagent process to simulate a delay')
-        cmd = 'sudo kill -SIGSTOP $(pidof orchagent)'
+        cmd = 'sudo kill -SIGSTOP $(pgrep -x orchagent)'
     else:
         logging.info('Recover orchagent process')
-        cmd = 'sudo kill -SIGCONT $(pidof orchagent)'
+        cmd = 'sudo kill -SIGCONT $(pgrep -x orchagent)'
     duthost.shell(cmd)
 
 
