@@ -1,7 +1,7 @@
 steps:
 - script: |
     # set -x
-    sudo pip install --proxy='http://10.201.148.40:8080' coverage
+    sudo pip install --proxy='http://10.1.3.5:8080' coverage
     cd sonic-metadata
     cd scripts/tests
     python -m coverage run -m unittest -v  test_bgp_neighbor
