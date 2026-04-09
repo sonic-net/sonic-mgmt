@@ -673,7 +673,8 @@ def test_dhcp_server_config_vlan_member_change(
     """
         Test if config change on dhcp interface status can take effect
     """
-    loganalyzer[duthost.hostname].ignore_regex.append(".*Failed to get port by bridge port.*")
+    if loganalyzer and loganalyzer[duthost.hostname]:
+        loganalyzer[duthost.hostname].ignore_regex.append(".*Failed to get port by bridge port.*")
     test_xid = 11
     vlan_name, gateway, net_mask, vlan_hosts, vlan_members_with_ptf_idx = parse_vlan_setting_from_running_config
     expected_assigned_ip = random.choice(vlan_hosts)
@@ -807,10 +808,46 @@ def test_dhcp_server_config_vlan_intf_change(
     )
     apply_dhcp_server_config_gcu(duthost, config_to_apply)
 
-    # When the subnet not match to VLAN, client won't get IP
-    duthost.add_ip_addr_to_vlan(vlan_name_1, vlan_ipv4_2)
-    duthost.remove_ip_addr_from_vlan(vlan_name_1, vlan_ipv4_1)
+    # When the VLAN has multiple IPv4 addresses, extra IPs on different subnets
+    # can interfere with the DHCP server's subnet matching after IP swap/restore.
+    # Temporarily remove them so the test operates with a single unambiguous subnet.
+    vlan_brief = duthost.get_vlan_brief()
+    all_vlan_ipv4_prefixes = vlan_brief[vlan_name_1].get('interface_ipv4', [])
+    extra_ipv4_prefixes = [prefix for prefix in all_vlan_ipv4_prefixes if prefix != vlan_ipv4_1]
+    if extra_ipv4_prefixes:
+        logging.info("Temporarily removing extra IPv4 prefixes from %s: %s" %
+                     (vlan_name_1, extra_ipv4_prefixes))
+        for extra_ip in extra_ipv4_prefixes:
+            duthost.remove_ip_addr_from_vlan(vlan_name_1, extra_ip)
+
     try:
+        # When the subnet not match to VLAN, client won't get IP
+        duthost.add_ip_addr_to_vlan(vlan_name_1, vlan_ipv4_2)
+        duthost.remove_ip_addr_from_vlan(vlan_name_1, vlan_ipv4_1)
+        try:
+            verify_discover_and_request_then_release(
+                duthost=duthost,
+                ptfhost=ptfhost,
+                ptfadapter=ptfadapter,
+                dut_port_to_capture_pkt=dut_port_1,
+                ptf_port_index=ptf_port_index_1,
+                ptf_mac_port_index=ptf_port_index_1,
+                test_xid=test_xid_1,
+                dhcp_interface=None,
+                expected_assigned_ip=None,
+                exp_gateway=None,
+                server_id=None,
+                net_mask=None
+            )
+        except Exception as e:
+            duthost.add_ip_addr_to_vlan(vlan_name_1, vlan_ipv4_1)
+            duthost.remove_ip_addr_from_vlan(vlan_name_1, vlan_ipv4_2)
+            raise e
+
+        # When the subnet is changed to match VLAN, client can get IP
+        duthost.add_ip_addr_to_vlan(vlan_name_1, vlan_ipv4_1)
+        duthost.remove_ip_addr_from_vlan(vlan_name_1, vlan_ipv4_2)
+        time.sleep(5)
         verify_discover_and_request_then_release(
             duthost=duthost,
             ptfhost=ptfhost,
@@ -819,31 +856,12 @@ def test_dhcp_server_config_vlan_intf_change(
             ptf_port_index=ptf_port_index_1,
             ptf_mac_port_index=ptf_port_index_1,
             test_xid=test_xid_1,
-            dhcp_interface=None,
-            expected_assigned_ip=None,
-            exp_gateway=None,
-            server_id=None,
-            net_mask=None
+            dhcp_interface=vlan_name_1,
+            expected_assigned_ip=expected_assigned_ip_1,
+            exp_gateway=gateway_1,
+            server_id=gateway_1,
+            net_mask=net_mask_1
         )
-    except Exception as e:
-        duthost.add_ip_addr_to_vlan(vlan_name_1, vlan_ipv4_1)
-        duthost.remove_ip_addr_from_vlan(vlan_name_1, vlan_ipv4_2)
-        raise e
-
-    # When the subnet is changed to match VLAN, client can get IP
-    duthost.add_ip_addr_to_vlan(vlan_name_1, vlan_ipv4_1)
-    duthost.remove_ip_addr_from_vlan(vlan_name_1, vlan_ipv4_2)
-    verify_discover_and_request_then_release(
-        duthost=duthost,
-        ptfhost=ptfhost,
-        ptfadapter=ptfadapter,
-        dut_port_to_capture_pkt=dut_port_1,
-        ptf_port_index=ptf_port_index_1,
-        ptf_mac_port_index=ptf_port_index_1,
-        test_xid=test_xid_1,
-        dhcp_interface=vlan_name_1,
-        expected_assigned_ip=expected_assigned_ip_1,
-        exp_gateway=gateway_1,
-        server_id=gateway_1,
-        net_mask=net_mask_1
-    )
+    finally:
+        for extra_ip in extra_ipv4_prefixes:
+            duthost.add_ip_addr_to_vlan(vlan_name_1, extra_ip)
