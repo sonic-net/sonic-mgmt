@@ -142,6 +142,7 @@
     - name: Set default dut index
       set_fact:
         dut_index: "{{ testbed_facts['duts_map'][inventory_hostname]|int }}"
+      tags: always
 
     - name: set testbed_type
       set_fact:
@@ -444,6 +445,16 @@
               dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
     delegate_to: localhost
     when: local_minigraph is defined and local_minigraph|bool == true
+
+  - name: Deep clean DUT filesystem (logs, cores, dumps)
+    shell: |
+      find /var/log/ -name '*.gz' | xargs rm -f
+      rm -f /var/core/*
+      rm -rf /var/dump/*
+      find /var/log/ -mtime +1 | xargs rm -f
+    become: true
+    ignore_errors: true
+    when: deep_clean is defined and deep_clean|bool == true
 
   - block:
     - name: Init telemetry keys
@@ -837,6 +848,7 @@
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
           npu_index: "{{ dut_index | default(0) | int }}"
+          console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
         become: true
 
       - name: Copy macsec profile json to dut
