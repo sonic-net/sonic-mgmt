@@ -646,6 +646,7 @@ t1-lag-vpp:
   - arp/test_wr_arp.py
   - arp/test_arp_dualtor.py
   - arp/test_stress_arp.py
+  - bfd/test_bfd.py
   - bgp/test_bgp_speaker.py
   - bgp/test_bgp_stress_link_flap.py
   - bgp/test_bgp_sentinel.py
