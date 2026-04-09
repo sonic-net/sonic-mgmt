@@ -162,7 +162,7 @@ class TestIPPacket(object):
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
-        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices), timeout=2)
+        match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=list(out_ptf_indices))
         if asic_type == "vpp" and match_cnt < self.PKT_NUM:
             logger.info("VPP errors: %s", duthost.shell("docker exec syncd vppctl show errors")["stdout"])
 
