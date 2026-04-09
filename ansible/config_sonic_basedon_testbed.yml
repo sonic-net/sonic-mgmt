@@ -142,6 +142,7 @@
     - name: Set default dut index
       set_fact:
         dut_index: "{{ testbed_facts['duts_map'][inventory_hostname]|int }}"
+      tags: always
 
     - name: set testbed_type
       set_fact:
