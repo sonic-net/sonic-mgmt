@@ -2,6 +2,7 @@ import time
 import logging
 import pytest
 import allure
+import re
 
 from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronContext
 from tests.common import config_reload
@@ -123,19 +124,33 @@ def get_oldest_syslog_files(duthost, num):
     return files
 
 
+def extract_timestamps(lines):
+    """
+    the output of syslog file with full-length timestamp like following
+    -rw-r----- 1 root adm    456629 2026-03-31 10:31:40.823978020 +0000 /var/log/syslog.245.gz
+    -rw-r----- 1 root adm     19788 2026-03-31 09:17:40.083889562 +0000 /var/log/syslog.246.gz
+    pickup "2026-03-31 10:31:40.823978020" and "2026-03-31 09:17:40.083889562" for above two files
+    """
+    pattern = r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+"
+    results = []
+    for line in lines:
+        match = re.search(pattern, line)
+        if match:
+            results.append(match.group())
+
+    return results
+
+
 def files_time_shifted(before, after):
     '''
     get syslog files timestamp, when the file number limit is reached.
     after log rotation, the total log file number does not change, but
     timestamp of those files should be shifted one position.
-    -rw-r----- 1 root adm    456629 2026-03-31 10:31:40.823978020 +0000 /var/log/syslog.245.gz
-    -rw-r----- 1 root adm     19788 2026-03-31 09:17:40.083889562 +0000 /var/log/syslog.246.gz
-    pickup "10:31:40.823978020" and "09:17:40.083889562" for above two files
     no two syslog files can have the same timestamp
     '''
-    time_fl1 = [item.split()[6] for item in before]
-    time_fl2 = [item.split()[6] for item in after]
-    logger.debug("=========== Syslog file imestamps before rotate =======")
+    time_fl1 = extract_timestamps(before)
+    time_fl2 = extract_timestamps(after)
+    logger.debug("=========== Syslog file timestamps before rotate =======")
     logger.debug(time_fl1)
     logger.debug("=========== Syslog file timestamps after rotate =======")
     logger.debug(time_fl2)
@@ -173,8 +188,7 @@ def multiply_with_unit(logrotate_threshold, num):
     :param num: the number need to multiply with
     :return: value with unit, such as '512K'
     """
-    return str(int(logrotate_threshold[:-1]) * num) + logrotate_threshold[-1]
-
+    return str(int(int(logrotate_threshold[:-1]) * num)) + logrotate_threshold[-1]
 
 def validate_logrotate_function(duthost, logrotate_threshold, small_size, num_of_file=10):
     """
@@ -220,7 +234,6 @@ def validate_logrotate_function(duthost, logrotate_threshold, small_size, num_of
         # case 2: syslog number exactly increase 1
         # Otherwise, we assume the syslog rotate does not happen
         if syslog_number_origin == syslog_number_with_rotate:
-            syslog_files_after_rotate = get_oldest_syslog_files(duthost, num_of_file)
             assert files_time_shifted(syslog_files_before_rotate, syslog_files_after_rotate) == 1, \
                 'No logrotate happens, both syslog file number and timestamp are the same'
         else:
