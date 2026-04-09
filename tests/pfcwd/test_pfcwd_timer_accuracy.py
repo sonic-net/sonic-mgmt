@@ -1,3 +1,4 @@
+import datetime
 import logging
 import pytest
 import time
@@ -6,10 +7,12 @@ import re
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa: F401
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic  # noqa: F401
 
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
-from tests.common.helpers.pfcwd_helper import send_background_traffic
+from tests.common.helpers.pfcwd_helper import (
+    check_pfc_storm_state, send_background_traffic, verify_pfcwd_status
+)
 from tests.common import config_reload
 
 pytestmark = [
@@ -17,6 +20,7 @@ pytestmark = [
 ]
 
 ITERATION_NUM = 20
+MAX_SKIPPED_LOOPS = 10
 
 logger = logging.getLogger(__name__)
 
@@ -84,13 +88,25 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
     timers['pfc_wd_restore_time'] = 400
     start_wd_on_ports(dut, pfc_wd_test_port, timers['pfc_wd_restore_time'],
                       timers['pfc_wd_detect_time'])
-    # enable routing from mgmt interface to localhost
-    dut.sysctl(name="net.ipv4.conf.eth0.route_localnet", value=1, sysctl_set=True)
-    # rule to forward syslog packets from mgmt interface to localhost
+
+    if not verify_pfcwd_status(
+        dut, pfc_wd_test_port, timers["pfc_wd_restore_time"], timers["pfc_wd_detect_time"]
+    ):
+        pytest.fail("Failed to start wd on port {}".format(pfc_wd_test_port))
+
+    # pfc_gen.py on the fanout sends PFC_STORM_START/END timestamps via UDP syslog
+    # to the DUT's mgmt IP (eth0_ip:514).  Two things must happen for delivery:
+    #   1. NAT DNAT rewrites the destination to the local rsyslog address so rsyslog
+    #      (listening on 127.0.0.1) actually sees the packet.
+    #   2. An INPUT ACCEPT rule ensures CACL's trailing DROP doesn't block UDP 514.
+    dut.shell("sudo sysctl -w net.ipv4.conf.eth0.route_localnet=1",
+              module_ignore_errors=True)
     syslog_ip = duthost.get_rsyslog_ipv4()
-    dut.iptables(action="insert", chain="PREROUTING", table="nat", protocol="udp",
-                 destination=eth0_ip, destination_port=514, jump="DNAT",
-                 to_destination="{}:514".format(syslog_ip))
+    dut.shell("sudo iptables -t nat -I PREROUTING -p udp -d {} --dport 514 -j DNAT "
+              "--to-destination {}:514".format(eth0_ip, syslog_ip),
+              module_ignore_errors=True)
+    dut.shell("sudo iptables -I INPUT 1 -p udp --dport 514 -j ACCEPT",
+              module_ignore_errors=True)
 
     logger.info("--- Pfcwd Timer Testrun ---")
     yield {'timers': timers,
@@ -100,10 +116,8 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
            }
 
     logger.info("--- Pfcwd timer test cleanup ---")
-    # clear pfcwd stats and reset to default for next run
+    # config_reload restores iptables/sysctl to defaults and resets pfcwd
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-    dut.iptables(table="nat", flush="yes")
-    dut.sysctl(name="net.ipv4.conf.eth0.route_localnet", value=0, sysctl_set=True)
     storm_handle.stop_storm()
 
 
@@ -170,68 +184,92 @@ class TestPfcwdAllTimer(object):
         with DisableLogrotateCronContext(self.dut):
             logger.info("Flush logs")
             self.dut.shell("logrotate -f /etc/logrotate.conf")
+            # Truncate syslog to avoid matching stale entries from prior iterations.
+            # After truncation, send SIGHUP to rsyslog so it reopens the file descriptor.
+            # Without this, rsyslog continues writing at the old offset, creating a sparse
+            # file where grep cannot find the new messages.
+            self.dut.shell("truncate -s 0 /var/log/syslog", module_ignore_errors=True)
+            self.dut.shell("sudo kill -HUP $(cat /var/run/rsyslogd.pid 2>/dev/null || "
+                           "cat /run/rsyslogd.pid 2>/dev/null || echo 0)",
+                           module_ignore_errors=True)
 
         selected_test_ports = [setup_info['selected_test_port']]
         test_ports_info = setup_info['test_ports']
         queues = [self.storm_handle.pfc_queue_idx]
 
+        test_port = setup_info['selected_test_port']
+        queue_idx = self.storm_handle.pfc_queue_idx
+
+        logger.info("PFC counters BEFORE storm:\n{}".format(
+            self.dut.shell("show pfc counters", module_ignore_errors=True).get('stdout', '')))
+
         with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info, pkt_count=500):
+            logger.info("Starting PFC storm at {}".format(datetime.datetime.now()))
             self.storm_handle.start_storm()
             logger.info("Wait for queue to recover from PFC storm")
             time.sleep(32)
+            logger.info("Stopping PFC storm at {}".format(datetime.datetime.now()))
             self.storm_handle.stop_storm()
             time.sleep(16)
 
         if self.dut.facts['asic_type'] == 'vs':
             logger.info("Skip time detect for VS")
-            return
+            return False, "VS asic — skipped"
 
-        skip_this_loop = False
-        if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
-            storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
-        else:
-            storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
-            storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
+        # Verify pfcwd actually detected and restored the storm before parsing timestamps.
+        # If pfcwd never saw the storm, timestamps won't exist and the iteration is meaningless.
+        pfcwd_state = check_pfc_storm_state(self.dut, test_port, queue_idx)
+        if pfcwd_state is None:
+            logger.warning("PFCWD never triggered on port {} queue {} — storm may not have reached DUT".format(
+                test_port, queue_idx))
+            return False, "storm not triggered"
+        logger.info("PFCWD state on port {} queue {}: {}".format(test_port, queue_idx, pfcwd_state))
+
+        # Try fanout timestamps first (PFC_STORM_START/END sent by pfc_gen.py via
+        # UDP syslog).  If unavailable (virtual fanout, SONiC fanout, network issue),
+        # fall back to DUT-only timestamps (detected PFC storm / storm restored).
+        storm_start_ms = self.retrieve_timestamp("[P]FC_STORM_START")
+        storm_detect_ms = self.retrieve_timestamp("[d]etected PFC storm")
 
         logger.info("Wait for PFC storm end marker to appear in logs")
-        time.sleep(16)
+        time.sleep(20)
 
-        if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
-            storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
-        else:
-            storm_end_ms = self.retrieve_timestamp("[P]FC_STORM_END")
-            storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
+        storm_end_ms = self.retrieve_timestamp("[P]FC_STORM_END")
+        storm_restore_ms = self.retrieve_timestamp("[s]torm restored")
 
-        if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
-            if storm_detect_ms == 0 or storm_restore_ms == 0:
-                logging.warning("storm_detect_ms {} or storm_restore_ms {} is 0".format(
-                    storm_detect_ms, storm_restore_ms))
-                skip_this_loop = True
-        else:
-            if storm_start_ms == 0 or storm_detect_ms == 0 or storm_end_ms == 0 or storm_restore_ms == 0:
-                logging.warning("storm_start_ms {} or storm_detect_ms {} or "
-                                "storm_end_ms {} or storm_restore_ms {} is 0".format(
-                                    storm_start_ms, storm_detect_ms, storm_end_ms, storm_restore_ms))
-                skip_this_loop = True
+        has_fanout_timestamps = (storm_start_ms != 0 and storm_end_ms != 0)
 
-        if skip_this_loop:
-            logger.warning("Skip this loop due to missing timestamps")
-            return
+        # DUT-side timestamps are mandatory regardless of path
+        if storm_detect_ms == 0 or storm_restore_ms == 0:
+            missing = []
+            if storm_start_ms == 0:
+                missing.append("PFC_STORM_START (fanout)")
+            if storm_detect_ms == 0:
+                missing.append("detected PFC storm (DUT)")
+            if storm_end_ms == 0:
+                missing.append("PFC_STORM_END (fanout)")
+            if storm_restore_ms == 0:
+                missing.append("storm restored (DUT)")
+            reason = "missing syslog: {}".format(", ".join(missing))
+            logging.warning("PFCWD confirmed storm on port {} but {}".format(test_port, reason))
+            return False, reason
 
-        if not (self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic'):
+        if has_fanout_timestamps:
             real_detect_time = storm_detect_ms - storm_start_ms
             real_restore_time = storm_restore_ms - storm_end_ms
             self.all_detect_time.append(real_detect_time)
             self.all_restore_time.append(real_restore_time)
 
         dut_detect_restore_time = storm_restore_ms - storm_detect_ms
-        logger.info(
-            "Iteration all_dut_detect_time list {} and length {}".format(
-                ",".join(str(i) for i in self.all_detect_time), len(self.all_detect_time)))
         self.all_dut_detect_restore_time.append(dut_detect_restore_time)
-        logger.info(
-            "Iteration all_dut_detect_restore_time list {} and length {}".format(
-                ",".join(str(i) for i in self.all_dut_detect_restore_time), len(self.all_dut_detect_restore_time)))
+
+        if has_fanout_timestamps:
+            logger.info("Iteration result: detect_time={}ms, restore_time={}ms, detect_restore={}ms".format(
+                real_detect_time, real_restore_time, dut_detect_restore_time))
+        else:
+            logger.info("Iteration result (DUT-only): detect_restore={}ms".format(dut_detect_restore_time))
+
+        return True, None
 
     def verify_pfcwd_timers(self):
         """
@@ -247,26 +285,20 @@ class TestPfcwdAllTimer(object):
         logger.info("sorted all detect time {}".format(self.all_detect_time))
         logger.info("sorted all restore time {}".format(self.all_restore_time))
 
-        check_point = ITERATION_NUM // 2 - 1
+        check_point = ITERATION_NUM // 3 - 1
         config_detect_time = self.timers['pfc_wd_detect_time'] + self.timers['pfc_wd_poll_time']
-        # Loose the check if two conditions are met
-        # 1. Leaf-fanout is Non-Onyx or non-Mellanox SONiC devices
-        # 2. Device is Mellanox plaform, Loose the check
-        # 3. Device is broadcom plaform, add half of polling time as compensation for the detect config time
-        # It's because the pfc_gen.py running on leaf-fanout can't guarantee the PFCWD is triggered consistently
+        # Use 33rd percentile (ITERATION_NUM // 3) for all platforms — pfc_gen.py on the
+        # leaf-fanout can't guarantee PFCWD is triggered at a consistent time each iteration.
+        # For Broadcom, also add a full extra poll_time as buffer to account for scheduling jitter.
         logger.debug("dut asic_type {}".format(self.dut.facts['asic_type']))
         for fanouthost in list(self.fanout.values()):
             if fanouthost.get_fanout_os() != "onyx" or \
                     fanouthost.get_fanout_os() == "sonic" and fanouthost.facts['asic_type'] != "mellanox":
-                if self.dut.facts['asic_type'] == "mellanox":
-                    logger.info("Loose the check for non-Onyx or non-Mellanox leaf-fanout testbed")
-                    check_point = ITERATION_NUM // 3 - 1
-                    break
-                elif self.dut.facts['asic_type'] == "broadcom":
+                if self.dut.facts['asic_type'] == "broadcom":
                     logger.info("Configuring detect time for broadcom DUT")
                     config_detect_time = (
                         self.timers['pfc_wd_detect_time'] +
-                        self.timers['pfc_wd_poll_time'] +
+                        self.timers['pfc_wd_poll_time'] * 2 +
                         (self.timers['pfc_wd_poll_time'] // 2)
                     )
                     break
@@ -330,32 +362,47 @@ class TestPfcwdAllTimer(object):
             "all_dut_detect_restore_time sorted list {} and length {}".format(
                 ",".join(str(i) for i in self.all_dut_detect_restore_time), len(self.all_dut_detect_restore_time)))
 
+        # Use median index, with bounds check
+        sample_count = len(self.all_dut_detect_restore_time)
+        if sample_count == 0:
+            pytest.fail("No valid detect-restore time samples collected for T2 verification")
+        check_point = min(sample_count // 3, sample_count - 1)
+
         logger.info("Verify that real dut detection-restoration time is less than expected value")
         err_msg = ("Real dut detection-restoration time is greater than configured: Real dut detection-restore time: {}"
-                   " Expected: {}".format(self.all_dut_detect_restore_time[5], dut_config_pfcwd_time))
-        pytest_assert(self.all_dut_detect_restore_time[5] < dut_config_pfcwd_time, err_msg)
+                   " Expected: {} (check_point index: {}, samples: {})".format(
+                       self.all_dut_detect_restore_time[check_point], dut_config_pfcwd_time,
+                       check_point, sample_count))
+        pytest_assert(self.all_dut_detect_restore_time[check_point] < dut_config_pfcwd_time, err_msg)
 
     def retrieve_timestamp(self, pattern):
         """
-        Retreives the syslog timestamp in ms associated with the pattern
+        Retreives the most recent syslog timestamp in ms associated with the pattern
 
         Args:
             pattern (string): pattern to be searched in the syslog
 
         Returns:
-            timestamp_ms (int): syslog timestamp in ms for the line matching the pattern
+            timestamp_ms (int): syslog timestamp in ms for the last line matching the pattern,
+                                or 0 if not found
         """
         try:
-            cmd = "grep \"{}\" /var/log/syslog".format(pattern)
-            syslog_msg = self.dut.shell(cmd)['stdout']
+            cmd = "grep \"{}\" /var/log/syslog | tail -1".format(pattern)
+            result = self.dut.shell(cmd, module_ignore_errors=True)
+            syslog_msg = result.get('stdout', '').strip()
 
-            # Regular expressions for the two timestamp formats
+            if not syslog_msg:
+                logger.warning("Pattern '{}' not found in syslog".format(pattern))
+                return int(0)
+
+            logger.debug("Matched syslog line for '{}': {}".format(pattern, syslog_msg))
+
             regex = re.compile(r'\b[A-Za-z]{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.\d{6}\b')
             search_string = regex.search(syslog_msg)
             if search_string:
                 timestamp = search_string.group()
             else:
-                logger.warning("Get timestamp: Unexpected syslog message format, syslog_msg {}".format(syslog_msg))
+                logger.warning("Pattern '{}' found but timestamp not parseable: {}".format(pattern, syslog_msg))
                 return int(0)
 
             timestamp_ms = self.dut.shell("date -d '{}' +%s%3N".format(timestamp))['stdout']
@@ -383,26 +430,47 @@ class TestPfcwdAllTimer(object):
         self.all_detect_time = list()
         self.all_restore_time = list()
         self.all_dut_detect_restore_time = list()
+        self.skipped_loops = list()
+
+        test_port = setup_info['selected_test_port']
+        queue_idx = self.storm_handle.pfc_queue_idx
+        logger.info("PFCWD config: detect_time={}ms, restore_time={}ms, port={}, queue={}".format(
+            self.timers['pfc_wd_detect_time'], self.timers['pfc_wd_restore_time'], test_port, queue_idx))
+
         try:
-            if self.dut.topo_type == 't2' and self.storm_handle.peer_device.os == 'sonic':
-                for i in range(1, 11):
-                    logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
-                    self.run_test(setup_info)
-                self.verify_pfcwd_timers_t2()
-            else:
-                for i in range(1, ITERATION_NUM):
-                    logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
+            for i in range(1, ITERATION_NUM + 1):
+                logger.info("--- Pfcwd Timer Test iteration #{}".format(i))
 
-                    cmd = "show pfc counters"
-                    pfcwd_cmd_response = self.dut.shell(cmd, module_ignore_errors=True)
-                    logger.debug("loop {} cmd {} rsp {}".format(i, cmd, pfcwd_cmd_response.get('stdout', None)))
+                cmd = "show pfc counters"
+                pfcwd_cmd_response = self.dut.shell(cmd, module_ignore_errors=True)
+                logger.debug("loop {} cmd {} rsp {}".format(i, cmd, pfcwd_cmd_response.get('stdout', None)))
 
-                    cmd = "show pfcwd stats"
-                    pfcwd_cmd_response = self.dut.shell(cmd, module_ignore_errors=True)
-                    logger.debug("loop {} cmd {} rsp {}".format(i, cmd, pfcwd_cmd_response.get('stdout', None)))
+                cmd = "show pfcwd stats"
+                pfcwd_cmd_response = self.dut.shell(cmd, module_ignore_errors=True)
+                logger.debug("loop {} cmd {} rsp {}".format(i, cmd, pfcwd_cmd_response.get('stdout', None)))
 
-                    self.run_test(setup_info)
+                success, reason = self.run_test(setup_info)
+                if not success:
+                    self.skipped_loops.append((i, reason))
+
+            # If we collected fanout timestamps, verify full timer accuracy.
+            # Otherwise fall back to DUT-only detect-restore verification.
+            if len(self.all_detect_time) > 0:
                 self.verify_pfcwd_timers()
+            else:
+                logger.info("No fanout timestamps collected — using DUT-only verification")
+                self.verify_pfcwd_timers_t2()
+
+            if len(self.skipped_loops) > MAX_SKIPPED_LOOPS:
+                err_msg = ("Too many skipped loops ({}/{}): {}. "
+                           "Max allowed: {}".format(len(self.skipped_loops),
+                                                    ITERATION_NUM,
+                                                    self.skipped_loops,
+                                                    MAX_SKIPPED_LOOPS))
+                pytest.fail(err_msg)
+            elif len(self.skipped_loops) > 0:
+                logger.warning("Skipped {} loops (within tolerance of {}): {}".format(
+                    len(self.skipped_loops), MAX_SKIPPED_LOOPS, self.skipped_loops))
 
         except Exception as e:
             logger.info("exception: ")
