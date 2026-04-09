@@ -445,6 +445,16 @@
     delegate_to: localhost
     when: local_minigraph is defined and local_minigraph|bool == true
 
+  - name: Deep clean DUT filesystem (logs, cores, dumps)
+    shell: |
+      find /var/log/ -name '*.gz' | xargs rm -f
+      rm -f /var/core/*
+      rm -rf /var/dump/*
+      find /var/log/ -mtime +1 | xargs rm -f
+    become: true
+    ignore_errors: true
+    when: deep_clean is defined and deep_clean|bool == true
+
   - block:
     - name: Init telemetry keys
       set_fact:
