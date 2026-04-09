@@ -1,8 +1,13 @@
 parameters:
-- name: AGENT_POOL
+- name: RUN_TEST_AGENT_POOL
   type: object
   default:
     name: sonic-ubuntu-1c-2
+
+- name: PRE_TEST_AGENT_POOL
+  type: object
+  default:
+    name: sonic-ubuntu-1c
 
 - name: BUILD_REASON
   type: string
@@ -71,7 +76,7 @@ jobs:
     displayName: "Get impacted area"
     timeoutInMinutes: 20
     continueOnError: false
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: ${{ parameters.PRE_TEST_AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -85,7 +90,7 @@ jobs:
   - job: cancel_previous_test_plan_for_same_pr
     displayName: "Cancel previous test plans for same PR"
     continueOnError: true
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: ${{ parameters.PRE_TEST_AGENT_POOL }}
     timeoutInMinutes: 10
     steps:
       - template: cancel-previous-elastictest-testplan.yml
@@ -103,7 +108,7 @@ jobs:
     condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -146,7 +151,7 @@ jobs:
     condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-2vlans_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -190,7 +195,7 @@ jobs:
     condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -233,7 +238,7 @@ jobs:
     condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dualtor_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -276,7 +281,7 @@ jobs:
     condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-sonic_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -324,7 +329,7 @@ jobs:
     condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dpu_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -371,7 +376,7 @@ jobs:
     condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -415,7 +420,7 @@ jobs:
     condition: and(not(canceled()), succeeded(), contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't2_checker'), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -456,7 +461,7 @@ jobs:
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: true
     condition: not(canceled())
-    pool: ${{ parameters.AGENT_POOL }}
+    pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
     steps:
       - template: run-test-elastictest-template.yml
         parameters:
