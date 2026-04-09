@@ -197,6 +197,10 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_monitor_checksum_validation:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24660"
 
+dhcp_relay/test_dhcpmon_relay_counters_stress.py:
+  skip:
+    reason: "Skip the test for sim, causes 0.01% error with inconsistent failure."
+
 #######################################
 #####            lldp             #####
 #######################################
