@@ -36,7 +36,8 @@ pytestmark = [
 
 # Use a larger burst to overcome leakout before credit watchdog kicks in.
 # On some platforms tens of thousands of packets can egress after TX disable
-# due to headroom/credits; 100k provides headroom across SKUs.
+# due to headroom/credits; 100k is a conservative ceiling to ensure VOQ
+# backup across SKUs while keeping runtime reasonable.
 PKTS_NUM = 100000
 
 
