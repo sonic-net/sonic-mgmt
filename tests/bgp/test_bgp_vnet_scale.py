@@ -51,8 +51,6 @@ def get_wl_and_one_t1_port_info(config_facts, tbinfo, dut_index, required_wl_cou
     port_index_map = config_facts["port_index_map"]
     ptf_map = tbinfo["topo"]["ptf_map"][str(dut_index)]
     portchannel_members = config_facts.get("PORTCHANNEL_MEMBER", {})
-    portchannel_interfaces = config_facts.get("PORTCHANNEL_INTERFACE", {})
-    bgp_neighbors = config_facts.get("BGP_NEIGHBOR", {})
 
     dut_to_ptf = {}
     for dut_port, idx in port_index_map.items():
@@ -93,55 +91,21 @@ def get_wl_and_one_t1_port_info(config_facts, tbinfo, dut_index, required_wl_cou
         "Need {} usable WL DUT/PTF ports, found {}".format(required_wl_count, len(wl_bindings)),
     )
 
-    dut_port_to_pc = {}
-    for pc_name, members in portchannel_members.items():
+    t1_port_ptf_index = None
+    for members in portchannel_members.values():
         for dut_port in members.keys():
-            dut_port_to_pc[dut_port] = pc_name
-
-    pc_to_local_ip = {}
-    for intf_name, prefixes in portchannel_interfaces.items():
-        for prefix in prefixes.keys():
-            if "/" not in prefix:
+            if dut_port not in dut_to_ptf:
                 continue
-            ip = prefix.split("/")[0]
-            if "." in ip:
-                pc_to_local_ip[intf_name] = ip
-                break
+            if config_facts["PORT"].get(dut_port, {}).get("admin_status", "").lower() != "up":
+                continue
 
-    local_ip_to_neighbor_ip = {}
-    for neighbor_ip, attrs in bgp_neighbors.items():
-        local_addr = attrs.get("local_addr")
-        if local_addr:
-            local_ip_to_neighbor_ip[local_addr] = neighbor_ip
+            t1_port_ptf_index = dut_to_ptf[dut_port]["ptf_index"]
+            break
+        if t1_port_ptf_index is not None:
+            break
 
-    t1_binding = None
-    for dut_port, pc_name in dut_port_to_pc.items():
-        if dut_port in wl_dut_ports:
-            continue
-        if dut_port not in dut_to_ptf:
-            continue
-
-        local_ip = pc_to_local_ip.get(pc_name)
-        pytest_assert(local_ip is not None, "No local IP found for {}".format(pc_name))
-
-        neighbor_ip = local_ip_to_neighbor_ip.get(local_ip)
-        pytest_assert(
-            neighbor_ip is not None,
-            "No BGP_NEIGHBOR entry found with local_addr {} for {}".format(local_ip, pc_name),
-        )
-
-        t1_binding = {
-            "dut_port": dut_port,
-            "ptf_name": dut_to_ptf[dut_port]["ptf_name"],
-            "ptf_index": dut_to_ptf[dut_port]["ptf_index"],
-            "portchannel": pc_name,
-            "local_ip": local_ip,
-            "neighbor_ip": neighbor_ip,
-        }
-        break
-
-    pytest_assert(t1_binding is not None, "Could not find one T1-facing PTF port")
-    return wl_bindings, t1_binding
+    pytest_assert(t1_port_ptf_index is not None, "Could not find one T1-facing portchannel member PTF port")
+    return wl_bindings, t1_port_ptf_index
 
 
 def apply_config_to_dut(duthost, config, cfg_type):
@@ -460,6 +424,10 @@ def apply_single_exabgp(ptfhost, vnet_count, subifs_per_vnet, dut_asn, ptf_asn):
 @pytest.fixture(scope="module", autouse=True)
 def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count, subif_per_vnet):
     ptf_ports = []
+    dut_vtep = None
+    wl_ptf_port_indices = []
+    t1_ptf_port_index = None
+
     duthost = None
 
     try:
@@ -471,7 +439,7 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
         cfg_facts = get_cfg_facts(duthost)
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
 
-        wl_bindings, t1_binding = get_wl_and_one_t1_port_info(
+        wl_bindings, t1_ptf_port_index = get_wl_and_one_t1_port_info(
             config_facts,
             tbinfo,
             dut_index,
@@ -480,8 +448,6 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
 
         ptf_ports = [entry["ptf_name"] for entry in wl_bindings]
         wl_ptf_port_indices = [entry["ptf_index"] for entry in wl_bindings]
-        t1_ptf_port_index = t1_binding["ptf_index"]
-        t1_vtep_src_ip = t1_binding["neighbor_ip"]
 
         duthost.remove_acl_table("EVERFLOW")
         duthost.remove_acl_table("EVERFLOWV6")
@@ -528,7 +494,6 @@ def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count,
         "wait_time": wait_time,
         "wl_ptf_port_indices": wl_ptf_port_indices,
         "t1_ptf_port_index": t1_ptf_port_index,
-        "t1_vtep_src_ip": t1_vtep_src_ip,
         "dut_vtep": dut_vtep,
     }
 
@@ -585,7 +550,6 @@ def test_vnet_bgp_scale_dataplane(vnet_bgp_setup, ptfhost):
         "base_vlan_id": BASE_VLAN_ID,
         "wl_ptf_port_indices": ",".join(str(index) for index in setup["wl_ptf_port_indices"]),
         "t1_ptf_port_index": str(setup["t1_ptf_port_index"]),
-        "t1_vtep_src_ip": setup["t1_vtep_src_ip"],
         "router_mac": duthost.facts["router_mac"],
         "dut_vtep": setup["dut_vtep"],
         "vxlan_port": VXLAN_PORT,

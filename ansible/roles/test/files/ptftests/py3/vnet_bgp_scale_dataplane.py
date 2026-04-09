@@ -25,7 +25,6 @@ class VnetBgpScaleDataplane(BaseTest):
         self.vnet_count = int(params["vnet_count"])
         self.subifs_per_vnet = int(params["subif_per_vnet"])
         self.base_vlan_id = int(params["base_vlan_id"])
-        self.t1_vtep_src_ip = params["t1_vtep_src_ip"]
 
         self.wl_ptf_port_indices = [
             int(port_index)
@@ -33,7 +32,6 @@ class VnetBgpScaleDataplane(BaseTest):
             if str(port_index).strip()
         ]
         self.t1_ptf_port_index = int(params["t1_ptf_port_index"])
-        self.t1_vtep_src_ip = params["t1_vtep_src_ip"]
 
         self.dut_mac = params["router_mac"]
         self.dut_vtep = params["dut_vtep"]
@@ -103,7 +101,7 @@ class VnetBgpScaleDataplane(BaseTest):
         return simple_vxlan_packet(
             eth_src=ingress_mac,
             eth_dst=self.dut_mac,
-            ip_src=self.t1_vtep_src_ip,
+            ip_src="8.8.8.8",
             ip_dst=self.dut_vtep,
             udp_sport=1234,
             udp_dport=self.vxlan_port,
@@ -113,7 +111,7 @@ class VnetBgpScaleDataplane(BaseTest):
         )
 
     def runTest(self):
-        flow_count = self.subifs_per_vnet * 4
+        flow_count = self.subifs_per_vnet * 10
         all_failures = []
         per_vnet_distribution = {}
 
