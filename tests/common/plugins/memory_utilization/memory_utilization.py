@@ -93,7 +93,12 @@ class MemoryMonitor:
                 logger.info("Calculated increase threshold for {}:{}: {}".format(name, mem_item, increase_threshold))
 
                 increase = current_value - previous_value
+
                 if increase > increase_threshold:
+                    # If threshold type is percentage,
+                    # Express increase value in percentage instead of MB
+                    if increase_threshold_raw['type'] == 'percentage':
+                        increase = (increase * 100)/current_value
                     self._handle_memory_threshold_exceeded(
                         name, mem_item, increase, increase_threshold_raw,
                         previous_values, current_values, is_increase=True
