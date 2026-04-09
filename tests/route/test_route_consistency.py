@@ -3,8 +3,8 @@ import logging
 import threading
 import queue
 import re
-import time
 import math
+import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.config_reload import config_reload
@@ -128,6 +128,22 @@ class TestRouteConsistency():
                 return False
         return True
 
+    def routes_have_changed(self, duthosts, previous_route_snapshot):
+        """Check that the route table has changed from a previous snapshot on ANY DUT.
+
+        Returns True when at least one DUT's route table differs from the previous snapshot,
+        indicating that convergence has started. On non-VOQ single-asic topologies the snapshot
+        is empty (get_route_prefix_snapshot_from_asicdb only collects VOQ/chassis data), so
+        return True immediately to avoid blocking on an always-empty comparison.
+        """
+        if not previous_route_snapshot:
+            return True
+        new_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
+        for dut_instance_name in previous_route_snapshot.keys():
+            if previous_route_snapshot[dut_instance_name] != new_route_snapshot[dut_instance_name]:
+                return True
+        return False
+
     def test_route_withdraw_advertise(self, duthosts, tbinfo, localhost):
 
         # withdraw the routes
@@ -137,7 +153,9 @@ class TestRouteConsistency():
         try:
             logger.info("withdraw ipv4 and ipv6 routes for {}".format(topo_name))
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="withdraw", path="../ansible/")
-            time.sleep(self.sleep_interval)
+            pytest_assert(wait_until(self.sleep_interval, 10, 15, self.routes_have_changed,
+                                     duthosts, self.pre_test_route_snapshot),
+                          "Routes were not withdrawn within {} seconds".format(self.sleep_interval))
 
             """ compare the number of routes withdrawn from all the DUTs. In working condition, the number of routes
                 withdrawn should be same across all the DUTs.
@@ -157,23 +175,49 @@ class TestRouteConsistency():
                                                            post_withdraw_route_snapshot[dut_instance_name])
                 else:
                     if dut_instance_name.endswith("UpstreamLc"):
-                        assert num_routes_withdrawn_upstream_lc == len(self.pre_test_route_snapshot[dut_instance_name] -
-                                                                       post_withdraw_route_snapshot[dut_instance_name])
+                        assert num_routes_withdrawn_upstream_lc == (
+                            len(self.pre_test_route_snapshot[dut_instance_name])
+                            - len(post_withdraw_route_snapshot[dut_instance_name])
+                        ), (
+                            "The number of routes withdrawn upstream does not match the expected value "
+                            "for DUT instance '{}'. "
+                            "Pre-test snapshot length: {}, Post-withdraw snapshot length: {}."
+                            .format(
+                                dut_instance_name,
+                                len(self.pre_test_route_snapshot[dut_instance_name]),
+                                len(post_withdraw_route_snapshot[dut_instance_name])
+                            )
+                        )
                     else:
-                        assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
-                                                           post_withdraw_route_snapshot[dut_instance_name])
+                        assert num_routes_withdrawn == (
+                            len(self.pre_test_route_snapshot[dut_instance_name])
+                            - len(post_withdraw_route_snapshot[dut_instance_name])
+                        ), (
+                            "The number of routes withdrawn does not match the expected value for DUT instance '{}'. "
+                            "Pre-test snapshot length: {}, Post-withdraw snapshot length: {}.".format(
+                                dut_instance_name,
+                                len(self.pre_test_route_snapshot[dut_instance_name]),
+                                len(post_withdraw_route_snapshot[dut_instance_name])
+                            )
+                        )
 
             logger.info("advertise ipv4 and ipv6 routes for {}".format(topo_name))
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
-            time.sleep(self.sleep_interval)
 
-            assert wait_until(300, 10, 0, self.route_snapshots_match, duthosts, self.pre_test_route_snapshot)
+            assert wait_until(self.sleep_interval + 300, 10, 0, self.route_snapshots_match,
+                              duthosts, self.pre_test_route_snapshot), (
+                "Route snapshots did not match within the specified timeout for DUT hosts: '{}'.".format(
+                    duthosts
+                )
+            )
+
             logger.info("Route table is consistent across all the DUTs")
         except Exception as e:
             logger.error("Exception occurred: {}".format(e))
             # announce the routes back in case of any exception
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
-            time.sleep(self.sleep_interval)
+            wait_until(self.sleep_interval, 10, 0, self.route_snapshots_match,
+                       duthosts, self.pre_test_route_snapshot)
             raise e
 
     def test_bgp_shut_noshut(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, localhost):
@@ -183,7 +227,9 @@ class TestRouteConsistency():
         try:
             logger.info("shutdown bgp sessions for {}".format(duthost.hostname))
             duthost.shell("sudo config bgp shutdown all")
-            time.sleep(self.sleep_interval)
+            pytest_assert(wait_until(self.sleep_interval, 10, 15, self.routes_have_changed,
+                                     duthosts, self.pre_test_route_snapshot),
+                          "Routes did not change after BGP shutdown within {} seconds".format(self.sleep_interval))
 
             post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
             num_routes_withdrawn = 0
@@ -193,22 +239,38 @@ class TestRouteConsistency():
                                                post_withdraw_route_snapshot[dut_instance_name])
                     logger.debug("num_routes_withdrawn: {}".format(num_routes_withdrawn))
                 else:
-                    assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
-                                                       post_withdraw_route_snapshot[dut_instance_name])
+                    assert num_routes_withdrawn == (
+                        len(self.pre_test_route_snapshot[dut_instance_name])
+                        - len(post_withdraw_route_snapshot[dut_instance_name])
+                    ), (
+                        "Routes withdrawn mismatch for DUT instance '{}'. "
+                        "Pre-test count: {}, Post-withdraw count: {}."
+                        .format(
+                            dut_instance_name,
+                            len(self.pre_test_route_snapshot[dut_instance_name]),
+                            len(post_withdraw_route_snapshot[dut_instance_name])
+                        )
+                    )
 
             logger.info("startup bgp sessions for {}".format(duthost.hostname))
             duthost.shell("sudo config bgp startup all")
-            time.sleep(self.sleep_interval)
+            pytest_assert(wait_until(self.sleep_interval, 10, 0, self.route_snapshots_match,
+                                     duthosts, self.pre_test_route_snapshot),
+                          "Routes did not recover after BGP startup within {} seconds".format(self.sleep_interval))
 
             # take the snapshot of route table from all the DUTs
             post_test_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
             for dut_instance_name in self.pre_test_route_snapshot.keys():
-                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
+                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name], (
+                    "The pre-test route snapshot does not match the post-test route snapshot for DUT "
+                    "instance '{}'.".format(dut_instance_name)
+                )
+
             logger.info("Route table is consistent across all the DUTs")
         except Exception:
             # startup bgp back in case of any exception
             duthost.shell("sudo config bgp startup all")
-            time.sleep(self.sleep_interval)
+            wait_until(self.sleep_interval, 10, 0, is_all_neighbor_session_established, duthost)
 
     @pytest.mark.disable_loganalyzer
     @pytest.mark.parametrize("container_name, program_name", [
@@ -236,7 +298,8 @@ class TestRouteConsistency():
                 if id is None:
                     id = ""
                 check_and_kill_process(duthost, container_name + str(id), program_name)
-            time.sleep(30)
+            wait_until(60, 5, 15, self.routes_have_changed,
+                       duthosts, self.pre_test_route_snapshot)
 
             post_withdraw_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
             num_routes_withdrawn = 0
@@ -246,21 +309,35 @@ class TestRouteConsistency():
                                                post_withdraw_route_snapshot[dut_instance_name])
                     logger.info("num_routes_withdrawn: {}".format(num_routes_withdrawn))
                 else:
-                    assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
-                                                       post_withdraw_route_snapshot[dut_instance_name])
+                    assert num_routes_withdrawn == (
+                        len(self.pre_test_route_snapshot[dut_instance_name])
+                        - len(post_withdraw_route_snapshot[dut_instance_name])
+                    ), (
+                        "Routes withdrawn mismatch for DUT instance '{}'. "
+                        "Pre-test count: {}, Post-withdraw count: {}.".format(
+                            dut_instance_name,
+                            len(self.pre_test_route_snapshot[dut_instance_name]),
+                            len(post_withdraw_route_snapshot[dut_instance_name])
+                        )
+                    )
 
             logger.info("Recover containers on {}".format(duthost.hostname))
             config_reload(duthost)
             wait_until(300, 10, 0, is_all_neighbor_session_established, duthost)
-            time.sleep(self.sleep_interval)
+            wait_until(self.sleep_interval, 10, 0, self.route_snapshots_match,
+                       duthosts, self.pre_test_route_snapshot)
 
             # take the snapshot of route table from all the DUTs
             post_test_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
             for dut_instance_name in self.pre_test_route_snapshot.keys():
-                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
+                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name], (
+                    "The pre-test route snapshot does not match the post-test route snapshot for DUT "
+                    "instance '{}'.".format(dut_instance_name)
+                )
+
             logger.info("Route table is consistent across all the DUTs")
         except Exception:
             # startup bgpd back in case of any exception
             logger.info("Encountered error. Perform a config reload to recover!")
             config_reload(duthost)
-            time.sleep(self.sleep_interval)
+            wait_until(self.sleep_interval, 10, 0, is_all_neighbor_session_established, duthost)

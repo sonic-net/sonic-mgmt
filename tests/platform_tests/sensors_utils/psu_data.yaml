@@ -210,13 +210,13 @@ sensors_checks:
           - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_max_alarm
           - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_lcrit_alarm
           - dps460-i2c-*-*/PSU-* 220V Rail (in)/in1_crit_alarm
-          - dps460-i2c-*-*/PSU-* 12V Rail (out)/in3_alarm
+          - dps460-i2c-*-*/PSU-* 54V Rail (out)/in3_alarm
           - dps460-i2c-*-*/PSU-* 220V Rail Pwr (in)/power1_alarm
-          - dps460-i2c-*-*/PSU-* 12V Rail Pwr (out)/power2_max_alarm
-          - dps460-i2c-*-*/PSU-* 12V Rail Pwr (out)/power2_crit_alarm
+          - dps460-i2c-*-*/PSU-* 54V Rail Pwr (out)/power2_max_alarm
+          - dps460-i2c-*-*/PSU-* 54V Rail Pwr (out)/power2_crit_alarm
           - dps460-i2c-*-*/PSU-* 220V Rail Curr (in)/curr1_max_alarm
-          - dps460-i2c-*-*/PSU-* 12V Rail Curr (out)/curr2_max_alarm
-          - dps460-i2c-*-*/PSU-* 12V Rail Curr (out)/curr2_crit_alarm
+          - dps460-i2c-*-*/PSU-* 54V Rail Curr (out)/curr2_max_alarm
+          - dps460-i2c-*-*/PSU-* 54V Rail Curr (out)/curr2_crit_alarm
         temp:
           - dps460-i2c-*-*/PSU-* Temp 1/temp1_max_alarm
           - dps460-i2c-*-*/PSU-* Temp 1/temp1_crit_alarm

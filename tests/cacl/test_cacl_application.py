@@ -151,7 +151,7 @@ def clean_scale_rules(duthosts, enum_rand_one_per_hwsku_hostname, collect_ignore
     # delete the tmp file
     duthost.file(path=SCALE_ACL_FILE, state='absent')
     logger.info("Reload config to recover configuration.")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
 
 @pytest.fixture(scope="function")
@@ -510,6 +510,10 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
     # Allow localhost
     iptables_rules.append("-A INPUT -s 127.0.0.1/32 -i lo -j ACCEPT")
     ip6tables_rules.append("-A INPUT -s ::1/128 -i lo -j ACCEPT")
+
+    # Allow smart switch chassis midplane IP (from https://github.com/sonic-net/sonic-host-services/pull/301)
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+        iptables_rules.append("-A INPUT -d 169.254.200.254/32 -j ACCEPT")
 
     if asic_index is None:
         # Allow Communication among docker containers

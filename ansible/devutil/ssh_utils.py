@@ -1,5 +1,8 @@
 import paramiko
-from paramiko.py3compat import u
+try:
+    from paramiko.util import u
+except ImportError:
+    from paramiko.py3compat import u
 import termios
 import tty
 import select

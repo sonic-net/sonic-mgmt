@@ -71,7 +71,7 @@ def get_device_capabilities(dut):
     for line in output:
         if not line:
             continue
-        elif line in SUPPORTED_COUNTER_TYPES:
+        elif line in counters:
             curr_type = reasons[line]
         else:
             curr_type.append(line.strip())

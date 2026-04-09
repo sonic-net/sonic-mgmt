@@ -10,10 +10,12 @@ SPC3_HWSKUS = ["ACS-MSN4700", "Mellanox-SN4700-O28", "ACS-MSN4600C", "ACS-MSN441
 SPC4_HWSKUS = ["ACS-SN5600", "Mellanox-SN5600-V256", "Mellanox-SN5600-C256S1", "Mellanox-SN5600-C224O8",
                'Mellanox-SN5610N-C256S2', 'Mellanox-SN5610N-C224O8']
 SPC5_HWSKUS = ["Mellanox-SN5640-C512S2", "Mellanox-SN5640-C448O16"]
-SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS + SPC4_HWSKUS + SPC5_HWSKUS
+SPC6_HWSKUS = ["ACS-SN6600", "ACS-SN6600_LD"]
+SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS + SPC4_HWSKUS + SPC5_HWSKUS + SPC6_HWSKUS
 
 LOSSY_ONLY_HWSKUS = ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2',
                      'Mellanox-SN5640-C448O16']
+NO_QOS_HWSKUS = []
 
 PSU_CAPABILITIES = [
     ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_in', 'psu{}_volt_out'],
@@ -87,6 +89,9 @@ SWITCH_MODELS = {
             }
         }
     },
+    "x86_64-nvidia_sn5600_simx-r0": {
+        "chip_type": "spectrum4"
+    },
     "x86_64-nvidia_sn5640-r0": {
         "chip_type": "spectrum5",
         "reboot": {
@@ -139,6 +144,126 @@ SWITCH_MODELS = {
             },
             "fan_ambient": {
                 "number": 1
+            },
+            "pch": {
+                "number": 1
+            },
+            "sodimm": {
+                "start": 1,
+                "number": 2
+            }
+        }
+    },
+    "x86_64-nvidia_sn6600_ld-r0": {
+        "chip_type": "spectrum6",
+        "reboot": {
+            "cold_reboot": True,
+            "fast_reboot": True,
+            "warm_reboot": True
+        },
+        "fans": {
+            "number": 0,
+            "hot_swappable": True
+        },
+        "psus": {
+            "number": 0,
+            "hot_swappable": True,
+            "capabilities": PSU_CAPABILITIES[1]
+        },
+        "cpu_pack": {
+            "number": 0
+        },
+        "cpu_cores": {
+            "number": 0
+        },
+        "leak_sensors": {
+            "number": 2
+        },
+        "ports": {
+            "number": 512
+        },
+        "thermals": {
+            "cpu_core": {
+                "start": 0,
+                "number": 1
+            },
+            "module": {
+                "start": 1,
+                "number": 65
+            },
+            "cpu_pack": {
+                "number": 1
+            },
+            "cpu_ambient": {
+                "number": 0
+            },
+            "asic_ambient": {
+                "number": 1
+            },
+            "port_ambient": {
+                "number": 0
+            },
+            "fan_ambient": {
+                "number": 0
+            },
+            "pch": {
+                "number": 0
+            },
+            "sodimm": {
+                "start": 1,
+                "number": 2
+            },
+            "pmic": {
+                "start": 1,
+                "number": 22
+            }
+        }
+    },
+    "x86_64-nvidia_sn6600_simx-r0": {
+        "chip_type": "spectrum6",
+        "reboot": {
+            "cold_reboot": True,
+            "fast_reboot": True,
+            "warm_reboot": True
+        },
+        "fans": {
+            "number": 0
+        },
+        "psus": {
+            "number": 0
+        },
+        "cpu_pack": {
+            "number": 0
+        },
+        "cpu_cores": {
+            "number": 0
+        },
+        "ports": {
+            "number": 512
+        },
+        "thermals": {
+            "cpu_core": {
+                "start": 0,
+                "number": 6
+            },
+            "module": {
+                "start": 1,
+                "number": 512
+            },
+            "cpu_pack": {
+                "number": 1
+            },
+            "cpu_ambient": {
+                "number": 0
+            },
+            "asic_ambient": {
+                "number": 1
+            },
+            "port_ambient": {
+                "number": 0
+            },
+            "fan_ambient": {
+                "number": 0
             },
             "pch": {
                 "number": 1
@@ -263,6 +388,9 @@ SWITCH_MODELS = {
                 "number": 1
             }
         }
+    },
+    "x86_64-mlnx_msn2700_simx-r0": {
+        "chip_type": "spectrum1"
     },
     "x86_64-mlnx_msn2700a1-r0": {
         "chip_type": "spectrum1",

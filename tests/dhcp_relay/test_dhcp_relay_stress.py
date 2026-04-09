@@ -4,7 +4,8 @@ import ptf.packet as scapy
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.dhcp_relay.dhcp_relay_utils import restart_dhcp_service, check_dhcp_stress_status
+from tests.common.dhcp_relay_utils import check_dhcp_stress_status
+from tests.common.dhcp_relay_utils import restart_dhcp_service
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
 from tests.ptf_runner import ptf_runner
@@ -140,7 +141,7 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
             "testing_mode": testing_mode,
             "kvm_support": True
         }
-        count_file = '/tmp/dhcp_stress_test_{}.json'.format(dhcp_type)
+        count_file = '/tmp/dhcp_stress_test_{}'.format(dhcp_type)
 
         def _check_count_file_exists():
             command = 'ls {} > /dev/null 2>&1 && echo exists || echo missing'.format(count_file)
@@ -148,14 +149,17 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
             return not output['rc'] and output['stdout'].strip() == "exists"
 
         def _verify_server_packets(pkts):
-            actual_count = len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == 0]) * num_dhcp_servers
+            actual_count = len([pkt for pkt in pkts
+                               if pkt[scapy.BOOTP].xid <= packets_send_duration * client_packets_per_sec]
+                               ) * num_dhcp_servers
             lower_bound = int(exp_count * 0.9)
             upper_bound = int(exp_count * 1.1)
             pytest_assert(lower_bound <= actual_count <= upper_bound,
                           "Mismatch: DUT count = {}, PTF count = {}.".format(actual_count, exp_count))
 
         def _verify_client_packets(pkts):
-            actual_count = len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == 0])
+            actual_count = len([pkt for pkt in pkts
+                                if pkt[scapy.BOOTP].xid <= packets_send_duration * client_packets_per_sec])
             lower_bound = int(exp_count * 0.9)
             upper_bound = int(exp_count * 1.1)
             pytest_assert(lower_bound <= actual_count <= upper_bound,

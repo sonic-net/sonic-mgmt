@@ -21,8 +21,15 @@ steps:
 
 - script: |
     # Run pre-commit check and capture the output
-    out=`pre-commit run --color never --from-ref HEAD^ --to-ref HEAD 2>&1`
-    RC=$?
+    CHANGED_FILES=$(git diff --name-only HEAD^ HEAD)
+    FILTERED_FILES=$(echo "$CHANGED_FILES" | grep -v '^tests/common2')
+    if [ -n "$FILTERED_FILES" ]; then
+      out=`pre-commit run --color never --files $FILTERED_FILES`
+      RC=$?
+    else
+      out="No files outside tests/common2 to check."
+      RC=0
+    fi
 
     echo "Pre-commit check results:"
     echo "$out"

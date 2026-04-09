@@ -14,6 +14,11 @@ def get_dpu_dataplane_port(duthost, dpu_index):
         if_dpu_index = 224 + dpu_index*8
         interface = f"Ethernet{if_dpu_index}"
 
+    for vlan_interface, vlan_info in duthost.get_vlan_brief().items():
+        if interface in vlan_info.get("members", []):
+            logger.info(f"DPU dataplane interface {interface} is VLAN member, use VLAN interface: {vlan_interface}")
+            return vlan_interface
+
     logger.info(f"DPU dataplane interface: {interface}")
     return interface
 
@@ -45,9 +50,16 @@ def correlate_dpu_info_with_dpuhost(dpuhosts, duthost):
         dpuhost.dpu_data_port_ip = dpu_ip_intf_facts[data_port_on_dpu]['ipv4'] if \
             data_port_on_dpu in dpu_ip_intf_facts else ''
 
-        dpuhost.data_port_on_npu = data_port_on_npu
+        dpuhost.npu_dataplane_port = data_port_on_npu
+        dpuhost.dpu_dataplane_port = data_port_on_dpu
+        dpuhost.npu_dataplane_mac = duthost.get_dut_iface_mac(data_port_on_npu)
+        dpuhost.dpu_dataplane_mac = dpuhost.get_dut_iface_mac(data_port_on_dpu)
+
         dpuhost.dataplane_mask_length = 31
         dpuhost.name = f"dpu{dpuhost.dpu_index}"
-        logger.info(f"dpuhost.data_port_on_npu: {dpuhost.data_port_on_npu}, "
-                    f"dpuhost.npu_data_port_ip:{dpuhost.npu_data_port_ip}, "
-                    f"dpuhost.dpu_data_port_ip:{dpuhost.dpu_data_port_ip}, ")
+        logger.info(f"dpuhost.data_port_on_npu: {dpuhost.npu_dataplane_port}, "
+                    f"dpuhost.npu_data_port_ip: {dpuhost.npu_data_port_ip}, "
+                    f"dpuhost.npu_dataplane_mac: {dpuhost.npu_dataplane_mac}, "
+                    f"dpuhost.data_port_on_dpu: {dpuhost.dpu_dataplane_port}, "
+                    f"dpuhost.dpu_data_port_ip: {dpuhost.dpu_data_port_ip}, "
+                    f"dpuhost.dpu_dataplane_mac: {dpuhost.dpu_dataplane_mac}")

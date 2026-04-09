@@ -15,7 +15,7 @@ from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_al
 from tests.common.fixtures.duthost_utils import dut_qos_maps_module                                 # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module                             # noqa: F401
 from tests.common.utilities import get_iface_ip
-from .qos_helpers import dutBufferConfig
+from .qos_helpers import dutBufferConfig, disable_voq_watchdog
 from .files.cisco.qos_param_generator import QosParamCisco
 
 logger = logging.getLogger(__name__)
@@ -441,7 +441,7 @@ def _update_counterpoll_state(duthost, counter_name, state):
 
 
 @pytest.fixture(scope='module')
-def setup_module(rand_selected_dut, rand_unselected_dut, update_docker_services):
+def setup_module(rand_selected_dut, rand_unselected_dut, update_docker_services, swap_syncd):
     '''
     Module level setup/teardown
     '''
@@ -530,9 +530,7 @@ def run_ptf_test(ptfhost, test_case='', test_params={}):
     A helper function to run test script on ptf host
     """
     logger.info("Start running {} on ptf host".format(test_case))
-    pytest_assert(ptfhost.shell(
-        argv=[
-            "/root/env-python3/bin/ptf",
+    argv = ["/root/env-python3/bin/ptf",
             "--test-dir",
             "saitests/py3",
             test_case,
@@ -552,7 +550,22 @@ def run_ptf_test(ptfhost, test_case='', test_params={}):
             "--log-file",
             "/tmp/{0}.log".format(test_case),
             "--test-case-timeout",
-            "1200"
-        ],
-        chdir="/root",
-    )["rc"] == 0, "Failed when running test '{0}'".format(test_case))
+            "1200"]
+    result = ptfhost.shell(argv=argv, chdir="/root")
+    pytest_assert(result["rc"] == 0, "Failed when running test '{0}'".format(test_case))
+
+
+@pytest.fixture(scope='module', autouse=True)
+def disable_voq_watchdog_dualtor(duthosts, rand_selected_dut, swap_syncd):
+    """
+    Disable VOQ watchdog for dualtor tests.
+
+    Note: This fixture depends on swap_syncd to ensure VOQ watchdog is disabled
+    AFTER the config reload that happens during syncd swap.
+    """
+    get_src_dst_asic_and_duts = {}
+    get_src_dst_asic_and_duts["single_asic_test"] = True
+    get_src_dst_asic_and_duts["dst_dut"] = rand_selected_dut
+    get_src_dst_asic_and_duts["dst_asic"] = rand_selected_dut.asics[0]
+    with disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts) as result:
+        yield result

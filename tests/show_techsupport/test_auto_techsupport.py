@@ -440,40 +440,53 @@ class TestAutoTechSupport:
             for stub_file in range(num_of_dummy_files):
                 dummy_files_list.append(dummy_file_generator(self.duthost, size_in_mb=expected_file_size_in_mb))
 
-        with allure.step('Validate: {} limit(disabled): {}'.format(test_mode, max_limit)):
+        try:
+            # Test techsupport command with --since option to limit the dump size
+            if test_mode == 'techsupport':
+                self.duthost.shell("config auto-techsupport global since \"1h\"")
 
-            with allure.step('Create .core file in test docker and check techsupport generated'):
-                available_tech_support_files = get_available_tech_support_files(self.duthost)
-                expected_core_file = trigger_auto_techsupport(self.duthost, self.test_docker)
-                validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
-                                                expected_core_file=expected_core_file,
-                                                available_tech_support_files=available_tech_support_files)
+            with allure.step('Validate: {} limit(disabled): {}'.format(test_mode, max_limit)):
 
-            with allure.step('Check that all stub files exist'):
-                validate_expected_stub_files(self.duthost, validation_folder, dummy_files_list,
-                                             expected_number_of_additional_files=1)
+                with allure.step('Create .core file in test docker and check techsupport generated'):
+                    available_tech_support_files = get_available_tech_support_files(self.duthost)
+                    expected_core_file = trigger_auto_techsupport(self.duthost, self.test_docker)
+                    validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
+                                                    expected_core_file=expected_core_file,
+                                                    available_tech_support_files=available_tech_support_files)
 
-        max_limit = 3 if one_percent_in_mb > 300 and test_mode == 'core' else 14
+                with allure.step('Check that all stub files exist'):
+                    validate_expected_stub_files(self.duthost, validation_folder, dummy_files_list,
+                                                 expected_number_of_additional_files=1)
 
-        with allure.step('Validate: {} limit: {}'.format(test_mode, max_limit)):
-            with allure.step('Set {} limit to: {}'.format(test_mode, max_limit)):
-                set_limit(self.duthost, test_mode, max_limit, cleanup_list=None)
+            max_limit = 3 if one_percent_in_mb > 300 and test_mode == 'core' else 14
 
-            with allure.step('Create .core file in test docker and check techsupport generated'):
-                available_tech_support_files = get_available_tech_support_files(self.duthost)
-                expected_core_file = trigger_auto_techsupport(self.duthost, self.test_docker)
-                validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
-                                                expected_core_file=expected_core_file,
-                                                available_tech_support_files=available_tech_support_files)
+            with allure.step('Validate: {} limit: {}'.format(test_mode, max_limit)):
+                with allure.step('Set {} limit to: {}'.format(test_mode, max_limit)):
+                    set_limit(self.duthost, test_mode, max_limit, cleanup_list=None)
 
-            with allure.step('Check that all expected stub files exist and unexpected does not exist'):
-                expected_max_usage = one_percent_in_mb * max_limit
-                expected_stub_files = dummy_files_list[2:]
-                not_expected_stub_files = dummy_files_list[:2]
-                validate_expected_stub_files(self.duthost, validation_folder, expected_stub_files,
-                                             expected_number_of_additional_files=2,
-                                             not_expected_stub_files_list=not_expected_stub_files,
-                                             expected_max_folder_size=expected_max_usage)
+                with allure.step('Create .core file in test docker and check techsupport generated'):
+                    available_tech_support_files = get_available_tech_support_files(self.duthost)
+                    expected_core_file = trigger_auto_techsupport(self.duthost, self.test_docker)
+                    validate_techsupport_generation(self.duthost, self.dut_cli, is_techsupport_expected=True,
+                                                    expected_core_file=expected_core_file,
+                                                    available_tech_support_files=available_tech_support_files)
+
+                with allure.step('Check that all expected stub files exist and unexpected does not exist'):
+                    expected_max_usage = one_percent_in_mb * max_limit
+                    expected_stub_files = dummy_files_list[2:]
+                    not_expected_stub_files = dummy_files_list[:2]
+                    validate_expected_stub_files(self.duthost, validation_folder, expected_stub_files,
+                                                 expected_number_of_additional_files=2,
+                                                 not_expected_stub_files_list=not_expected_stub_files,
+                                                 expected_max_folder_size=expected_max_usage)
+        except Exception as e:
+            self.duthost.shell("show auto-techsupport global")
+            logger.warning('Error occurred during test execution: {}'.format(str(e)))
+            raise
+        finally:
+            # Always restore default "since" value at the end
+            if test_mode == 'techsupport':
+                self.duthost.shell("config auto-techsupport global since \"2 days ago\"")
 
     @pytest.mark.disable_loganalyzer
     def test_sai_sdk_dump(self, tbinfo, global_rate_limit_zero, cleanup_list):
@@ -704,8 +717,16 @@ def validate_saidump_file_inside_techsupport(duthost, techsupport_folder):
     """
     with allure.step('Validate SAI dump file is included in the tech-support dump'):
         saidump_files_inside_techsupport = \
-            duthost.shell('ls {}/sai_failure_dump'.format(techsupport_folder))['stdout_lines']
+            duthost.shell(f'ls {techsupport_folder}/sai_failure_dump')['stdout_lines']
         assert saidump_files_inside_techsupport, 'Expected SAI dump file(folder) not available in techsupport dump'
+        # Check sai_sdk_dump only for mellanox platform, and not for DPU
+        if duthost.facts['asic_type'] in ["mellanox"] and "dpu" not in duthost.hostname:
+            # sai XML dump is only support on the switch
+            sai_sdk_dump = duthost.command(f"ls {techsupport_folder}/sai_sdk_dump/")["stdout_lines"]
+            assert len(sai_sdk_dump), "Folder 'sai_sdk_dump' in dump archive is empty. Expected not empty folder"
+            sai_xml_regex = re.compile(r'sai_[\w-]+\.xml(?:\.gz)?')
+            assert any(sai_xml_regex.fullmatch(file_name) for file_name in sai_sdk_dump), \
+                   "No SAI XML file found in sai_sdk_dump folder"
 
 
 def validate_techsupport_since(duthost, techsupport_folder, expected_oldest_log_line_timestamps_list):
