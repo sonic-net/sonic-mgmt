@@ -3746,3 +3746,253 @@ def build_wred_ctx(dut, tg, tg_ph, port_info,
         },
     }
 
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Redis Direct Query Functions (CONFIG_DB)
+# ═══════════════════════════════════════════════════════════════════════════
+
+def get_queue_binding(dut, egress_intf, qi):
+    """Return CONFIG_DB QUEUE|<intf>|N scheduler field value (stripped).
+
+    Used for spot-checking a single queue binding without fetching all 8.
+    """
+    out = st.show(
+        dut,
+        'sonic-db-cli CONFIG_DB HGET "QUEUE|{}|{}" "scheduler"'.format(
+            egress_intf, qi),
+        skip_tmpl=True)
+    return parse_redis_hget(out).strip()
+
+
+def log_queue_bindings_table(dut, egress_intf, label, expected_bindings=None):
+    """Fetch and log all 8 QUEUE|<intf>|N scheduler bindings as a table.
+
+    If *expected_bindings* ({qi: 'scheduler.N'}) is provided, an Expected
+    and Status column are added — mismatches are flagged with '** FAIL'.
+    Returns {qi: actual_binding} dict (does NOT append to fail_msgs;
+    caller decides whether the bindings are informational or a hard check).
+    """
+    actual = {}
+    for qi in range(8):
+        actual[qi] = get_queue_binding(dut, egress_intf, qi)
+
+    print_section("Queue Bindings — {} [{}]".format(egress_intf, label),
+                  art_key='queue')
+    if expected_bindings:
+        st.log("  {:<6} {:>16} {:>16} {:>8}".format(
+            'Queue', 'Expected', 'Actual', 'Status'))
+        st.log("  " + "-" * 52)
+        for qi in range(8):
+            exp = expected_bindings.get(qi, '?')
+            act = actual[qi]
+            tag = 'OK' if act == exp else '** FAIL'
+            st.log("  Q{:<4} {:>16} {:>16} {:>8}".format(qi, exp, act, tag))
+    else:
+        st.log("  {:<6} {:>16}".format('Queue', 'Binding'))
+        st.log("  " + "-" * 26)
+        for qi in range(8):
+            st.log("  Q{:<4} {:>16}".format(qi, actual[qi]))
+    return actual
+
+
+def log_scheduler_state_table(dut, label):
+    """Fetch and log all 8 SCHEDULER profiles as a formatted table.
+
+    Compares each profile against EXPECTED_SCHEDULERS and marks
+    mismatches.  Returns {name: {field: value}} dict.
+    """
+    profiles = {}
+    for i in range(8):
+        name = "scheduler.{}".format(i)
+        out = st.show(
+            dut,
+            'sonic-db-cli CONFIG_DB HGETALL "SCHEDULER|{}"'.format(name),
+            skip_tmpl=True)
+        profiles[name] = parse_redis_hgetall(out)
+
+    print_section("Scheduler Profiles [{}]".format(label), art_key='scheduler')
+    st.log("  {:<16} {:>8} {:>8} {:>8}".format(
+        'Profile', 'Type', 'Weight', 'Status'))
+    st.log("  " + "-" * 46)
+    for i in range(8):
+        name = "scheduler.{}".format(i)
+        info = profiles[name]
+        stype = info.get('type', '(nil)')
+        weight = info.get('weight', '-')
+        exp = EXPECTED_SCHEDULERS.get(name, {})
+        ok = all(info.get(k, '') == v for k, v in exp.items())
+        st.log("  {:<16} {:>8} {:>8} {:>8}".format(
+            name, stype, weight, 'OK' if ok else '** FAIL'))
+    return profiles
+
+
+def log_dchal_egress_table(dchal_output, label):
+    """Print just the Egress Queuing config table from DCHAL output.
+
+    Emits lines from 'Egress Queuing for ...' through the
+    'Raw HW tokens' line, then stops — skipping the per-queue
+    counter boxes which are noisy when comparing BEFORE/AFTER state.
+    """
+    st.log("=== DCHAL Egress Config Table [{}] ===".format(label))
+    in_table = False
+    for line in dchal_output.splitlines():
+        stripped = line.strip()
+        if 'Egress Queuing for' in stripped:
+            in_table = True
+        if not in_table:
+            continue
+        st.log(line)
+        # Stop after the Raw HW tokens line.  If no tokens line exists
+        # (e.g. all-SP queues, or DCHAL_SKIP), stop at first counter box.
+        if stripped.startswith('Raw HW tokens'):
+            break
+        if stripped.startswith('+---') and in_table and 'Egress' not in line:
+            break
+
+
+def verify_queue_strict(label, dchal_output, fail_msgs, queue=7):
+    """Assert the given queue has PrioLevel (STRICT) and no BW% in DCHAL output.
+
+    Logs a check table showing PrioLevel and BW% for the queue.
+    Returns the full parse_dchal_egress_bw() dict.
+    """
+    bw_data = parse_dchal_egress_bw(dchal_output)
+    qdata = bw_data.get(queue, {})
+    q_prio = qdata.get('prio')
+    q_bw = qdata.get('bw_pct')
+
+    sep = "=" * 60
+    st.log(sep)
+    st.log("  Q{} STRICT CHECK  --  {}".format(queue, label))
+    st.log(sep)
+    st.log("  {:<14} {:>14} {:>10}".format('Property', 'Value', 'Status'))
+    st.log("  " + "-" * 42)
+
+    prio_ok = q_prio is not None
+    bw_ok = q_bw is None
+    st.log("  {:<14} {:>14} {:>10}".format(
+        'PrioLevel',
+        str(q_prio) if q_prio is not None else '(missing)',
+        'OK' if prio_ok else '** FAIL'))
+    st.log("  {:<14} {:>14} {:>10}".format(
+        'BW%',
+        str(q_bw) if q_bw is not None else '(none)',
+        'OK' if bw_ok else '** FAIL'))
+    st.log(sep)
+
+    if not prio_ok:
+        fail_msgs.append(
+            "{}: DCHAL Q{} missing PrioLevel -- SG{} was NOT kept STRICT "
+            "(rebind to DWRR succeeded when it should have failed)".format(
+                label, queue, queue))
+    if not bw_ok:
+        fail_msgs.append(
+            "{}: DCHAL Q{} BW%={} -- Q{} must be STRICT with no BW%".format(
+                label, queue, q_bw, queue))
+    return bw_data
+
+
+def verify_queue_dwrr(label, dchal_output, fail_msgs, queue, expected_bw_pct=None):
+    """Assert the given queue has BW% (DWRR mode) and no PrioLevel in DCHAL output.
+
+    Symmetric twin to verify_queue_strict.  Logs a check table showing
+    BW% and PrioLevel for the queue.
+
+    Args:
+        label:            Checkpoint label for log output.
+        dchal_output:     Raw string from dchal_show_queuing().
+        fail_msgs:        List to append failure strings to.
+        queue:            Queue index to check (0-7).
+        expected_bw_pct:  If given, also verifies abs(actual - expected) <= 2
+                          (integer percentage tolerance matching HW rounding).
+
+    Returns the full parse_dchal_egress_bw() dict.
+    """
+    bw_data = parse_dchal_egress_bw(dchal_output)
+    qdata = bw_data.get(queue, {})
+    q_prio = qdata.get('prio')
+    q_bw = qdata.get('bw_pct')
+
+    sep = "=" * 60
+    st.log(sep)
+    st.log("  Q{} DWRR CHECK  --  {}".format(queue, label))
+    st.log(sep)
+    st.log("  {:<18} {:>14} {:>10}".format('Property', 'Value', 'Status'))
+    st.log("  " + "-" * 46)
+
+    bw_ok = q_bw is not None
+    prio_ok = q_prio is None    # DWRR queues must NOT have a PrioLevel
+
+    bw_status = 'OK' if bw_ok else '** FAIL'
+    if bw_ok and expected_bw_pct is not None:
+        bw_status = 'OK' if abs(q_bw - expected_bw_pct) <= 2 else '** FAIL'
+
+    st.log("  {:<18} {:>14} {:>10}".format(
+        'BW%',
+        str(q_bw) if q_bw is not None else '(missing)',
+        bw_status))
+    if expected_bw_pct is not None:
+        st.log("  {:<18} {:>14}".format('  expected BW%', str(expected_bw_pct)))
+    st.log("  {:<18} {:>14} {:>10}".format(
+        'PrioLevel',
+        str(q_prio) if q_prio is not None else '(none)',
+        'OK' if prio_ok else '** FAIL'))
+    st.log(sep)
+
+    if not bw_ok:
+        fail_msgs.append(
+            "{}: DCHAL Q{} missing BW% -- Q{} is not in DWRR mode".format(
+                label, queue, queue))
+    elif expected_bw_pct is not None and abs(q_bw - expected_bw_pct) > 2:
+        fail_msgs.append(
+            "{}: DCHAL Q{} BW%={}, expected ~{}% (tolerance ±2)".format(
+                label, queue, q_bw, expected_bw_pct))
+    if not prio_ok:
+        fail_msgs.append(
+            "{}: DCHAL Q{} has PrioLevel={} -- Q{} must be DWRR with no PrioLevel".format(
+                label, queue, q_prio, queue))
+    return bw_data
+
+
+def get_port_oid(dut_h, interface):
+    """Return the ASIC_DB OID (e.g. 'oid:0x1000...') for a DUT interface name."""
+    out = st.show(dut_h,
+        'sonic-db-cli COUNTERS_DB HGET "COUNTERS_PORT_NAME_MAP" "{}"'.format(interface),
+        skip_tmpl=True)
+    lines = [l.strip() for l in out.splitlines() if l.strip() and l.strip().startswith('oid:')]
+    if lines:
+        return lines[0]
+    # fallback: last non-empty token
+    tokens = out.split()
+    for tok in reversed(tokens):
+        if tok.startswith('oid:'):
+            return tok
+    return None
+
+
+def get_queue_oids_for_port(dut_h, interface):
+    """Return {queue_index_int: queue_oid_str} for queues 0-7 on interface.
+
+    Uses individual HGET calls against COUNTERS_QUEUE_NAME_MAP for
+    'Ethernet1_N:0' .. 'Ethernet1_N:7' to avoid dumping the full map.
+    """
+    result = {}
+    for qi in range(8):
+        out = st.show(dut_h,
+            'sonic-db-cli COUNTERS_DB HGET "COUNTERS_QUEUE_NAME_MAP" "{}:{}"'.format(
+                interface, qi),
+            skip_tmpl=True)
+        oid = parse_redis_hget(out).strip()
+        if oid.startswith('oid:'):
+            result[qi] = oid
+    return result
+
+
+def get_scheduler_groups_for_port(dut_h, interface):
+    """Return queue OID dict {index: oid} for interface (FX3 1:1 queue:SG mapping).
+
+    On this platform SAI_SCHEDULER_GROUP_ATTR_PORT_ID is not stored in ASIC_DB,
+    so scheduler groups are identified via COUNTERS_QUEUE_NAME_MAP.
+    """
+    return get_queue_oids_for_port(dut_h, interface)
