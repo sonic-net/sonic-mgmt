@@ -14,6 +14,7 @@ from ptf.testutils import (
 )
 
 logger = logging.getLogger(__name__)
+VNI_BASE = 10000
 
 
 class VnetBgpScaleDataplane(BaseTest):
@@ -74,7 +75,9 @@ class VnetBgpScaleDataplane(BaseTest):
             ip_dst=inner_dst_ip,
             tcp_sport=12345,
             tcp_dport=5000,
+            pktlen=104,
         )
+
         masked = Mask(pkt)
         masked.set_ignore_extra_bytes()
         masked.set_do_not_care_packet(scapy.Ether, "dst")
@@ -105,7 +108,7 @@ class VnetBgpScaleDataplane(BaseTest):
             udp_sport=1234,
             udp_dport=self.vxlan_port,
             with_udp_chksum=False,
-            vxlan_vni=vnet_id,
+            vxlan_vni=VNI_BASE + vnet_id,
             inner_frame=inner_pkt,
         )
 
@@ -131,7 +134,7 @@ class VnetBgpScaleDataplane(BaseTest):
                 vnet_id,
                 shared_dst_ip,
                 self._vlan_for_vnet(vnet_id),
-                vnet_id,
+                VNI_BASE + vnet_id,
             )
 
             for flow_id in range(flow_count):
@@ -152,21 +155,24 @@ class VnetBgpScaleDataplane(BaseTest):
 
                 try:
                     send_packet(self, self.ingress_port, tx_pkt)
-                    matched_index = verify_packet_any_port(
+
+                    match_index, rcv_pkt = verify_packet_any_port(
                         self,
                         exp_pkt,
                         ports=self.wl_ptf_port_indices,
                         timeout=2,
                     )
-                    matched_port = self.wl_ptf_port_indices[matched_index]
+
+                    matched_port = self.wl_ptf_port_indices[match_index]
                     distribution[matched_port] += 1
 
                     logger.info(
-                        "VNET %d flow %d PASSED: src=%s dst=%s matched egress port=%s",
+                        "VNET %d flow %d PASSED: src=%s dst=%s matched index=%s egress port=%s",
                         vnet_id,
                         flow_id,
                         inner_src_ip,
                         shared_dst_ip,
+                        match_index,
                         matched_port,
                     )
 

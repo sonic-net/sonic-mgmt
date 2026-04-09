@@ -21,6 +21,7 @@ VXLAN_TUNNEL_NAME = "vtep_v4"
 PORTCHANNEL_NAME_FMT = "PortChannel{}"
 PORTCHANNEL_SHORT_NAME_FMT = "Po{}"
 VXLAN_PORT = 4789
+VNI_BASE = 10000
 
 pytestmark = [
     pytest.mark.topology("t0"),
@@ -309,7 +310,7 @@ def generate_dut_config_ptf(vnet_count, subifs_per_vnet, peer_asn, port_bindings
         vlan_id = BASE_VLAN_ID + (vnet_id - 1)
 
         config_db["VNET"][vnet_name] = {
-            "vni": str(vnet_id),
+            "vni": str(VNI_BASE + vnet_id),
             "vxlan_tunnel": VXLAN_TUNNEL_NAME,
         }
 
