@@ -258,7 +258,8 @@ class TestFdbMacLearning:
             target_ports_to_ptf_mapping[2][0],
             target_ports_to_ptf_mapping[3][0]
         ]
-        duthost.shell("sudo config interface startup {}-{}".format(target_ports[0], target_ports[2][8:]))
+        duthost.shell("sudo config interface startup "
+                      f"{target_ports[0]},{target_ports[1]},{target_ports[2]}")
         self.wait_for_interfaces_ready(duthost, tbinfo, target_ports)
         self.dynamic_fdb_oper(duthost, tbinfo, ptfhost, target_ports_to_ptf_mapping[1:])
         for i in range(1, len(target_ports_to_ptf_mapping)):
