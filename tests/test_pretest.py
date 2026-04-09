@@ -64,35 +64,6 @@ def test_cleanup_cache():
         os.system('rm -rf {}'.format(folder))
 
 
-def test_cleanup_testbed(duthosts, request, ptfhost):
-    deep_clean = request.config.getoption("--deep_clean")
-    if deep_clean:
-
-        def deep_clean_dut(dut):
-            logger.info("Deep cleaning DUT {}".format(dut.hostname))
-            # Remove old log files.
-            dut.shell("sudo find /var/log/ -name '*.gz' | sudo xargs rm -f", executable="/bin/bash")
-            # Remove old core files.
-            dut.shell("sudo rm -f /var/core/*", executable="/bin/bash")
-            # Remove old dump files.
-            dut.shell("sudo rm -rf /var/dump/*", executable="/bin/bash")
-
-            # delete other log files that are more than a day old,
-            # this step is needed to remove some backup files or the debug files added by users
-            # which can create issue for log-analyzer
-            dut.shell("sudo find /var/log/ -mtime +1 | sudo xargs rm -f",
-                      module_ignore_errors=True, executable="/bin/bash")
-
-        with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
-            for duthost in duthosts:
-                executor.submit(deep_clean_dut, duthost)
-
-    # Cleanup rsyslog configuration file that might have damaged by test_syslog.py
-    if ptfhost:
-        ptfhost.shell("if [[ -f /etc/rsyslog.conf ]]; then mv /etc/rsyslog.conf /etc/rsyslog.conf.orig; "
-                      "uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
-
-
 def test_disable_container_autorestart(duthosts, disable_container_autorestart):
     with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
         for duthost in duthosts:
