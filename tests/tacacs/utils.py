@@ -93,6 +93,10 @@ def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, tim
         return reload
 
     exist = wait_until(timeout, 1, 0, log_exist, duthost)
+    if exist:
+        # audisp-tacplus logs "re-initializing configuration" when re-init STARTS, not FINISHES.
+        # Wait for it to complete reconnection to auditd before proceeding.
+        time.sleep(3)
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
 
 
