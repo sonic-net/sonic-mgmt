@@ -62,7 +62,6 @@ def xcvr_skip_list(duthosts, dpu_npu_port_list, tbinfo):
             intf_skip_list[dut.hostname].extend(sfp_list)
 
         # For Mx topo, skip the SFP interfaces because they are admin down
-        
         if tbinfo['topo']['name'] == "mx" and hwsku in MGFX_HWSKU:
             logging.debug('Skipping sfp interfaces: {}'.format(MGFX_XCVR_INTF))
             intf_skip_list[dut.hostname].extend(MGFX_XCVR_INTF)
