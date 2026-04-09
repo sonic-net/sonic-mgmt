@@ -462,7 +462,10 @@ def assert_no_tx_queue_drops_on_mirror_port(duthost, mirror_port):
         if "Ethernet" not in line or "cached" in line:
             continue
         queue = line.split()[1]
-        drop = int(line.split()[4].replace(',', ''))
+        drop_str = line.split()[4].replace(',', '')
+        if drop_str == 'N/A':
+            continue
+        drop = int(drop_str)
         if drop > 30:
             queues_with_drops.append((queue, drop))
     msg = f"Expected no tx drops on mirror port {mirror_port}, found drops on queues: {queues_with_drops}"
