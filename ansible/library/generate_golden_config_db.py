@@ -626,11 +626,11 @@ class GenerateGoldenConfigDBModule(object):
         '''
         for idx in range(dpu_count):
             vdpu_table["vdpu0_{}".format(idx)] = {
-                "main_dpu_ids": ["{}-dpu-{}".format(hostname_0, idx)]
+                "main_dpu_ids": "{}-dpu-{}".format(hostname_0, idx)
             }
         for idx in range(dpu_count):
             vdpu_table["vdpu1_{}".format(idx)] = {
-                "main_dpu_ids": ["{}-dpu-{}".format(hostname_1, idx)]
+                "main_dpu_ids": "{}-dpu-{}".format(hostname_1, idx)
             }
 
         ha_config = {
@@ -647,6 +647,8 @@ class GenerateGoldenConfigDBModule(object):
                     "dp_channel_src_port_max": "7010",
                     "dp_channel_probe_interval_ms": "500",
                     "vnet_name": "Vnet_55",
+                    "dpu_vnet": "Vnet_55",
+                    "dpu_vlan": "Vlan55",
                     "dp_channel_probe_fail_threshold": "5"
                 }
             },
