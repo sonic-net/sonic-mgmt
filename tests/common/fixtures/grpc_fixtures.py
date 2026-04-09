@@ -26,6 +26,7 @@ from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.helpers.gnmi_utils import GNMIEnvironment
 from tests.common.ptf_grpc import PtfGrpc
 from tests.common.ptf_gnoi import PtfGnoi
+from tests.common.ptf_gnmic import PtfGnmic
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +48,7 @@ class GnmiFixture:
     cert_paths: Optional[CertPaths]
     grpc: PtfGrpc       # correctly configured client
     gnoi: PtfGnoi       # convenience wrapper
+    gnmic: PtfGnmic     # gnmic CLI wrapper
 
 
 @pytest.fixture(scope="module")
@@ -112,6 +114,13 @@ def gnmi_tls(duthost, ptfhost):
         )
         gnoi_client = PtfGnoi(client)
 
+        gnmic_client = PtfGnmic(ptfhost, target, plaintext=False)
+        gnmic_client.configure_tls_certificates(
+            ca_cert=cert_paths.ca_cert,
+            client_cert=cert_paths.client_cert,
+            client_key=cert_paths.client_key,
+        )
+
         fixture = GnmiFixture(
             host=host,
             port=port,
@@ -119,8 +128,10 @@ def gnmi_tls(duthost, ptfhost):
             cert_paths=cert_paths,
             grpc=client,
             gnoi=gnoi_client,
+            gnmic=gnmic_client,
         )
 
+        logger.info("Constructed PtfGnmic client: %s", gnmic_client)
         logger.info("gNOI TLS server setup completed successfully")
         yield fixture
 
@@ -159,6 +170,7 @@ def gnmi_plaintext(duthost, ptfhost):
 
     client = PtfGrpc(ptfhost, target, plaintext=True)
     gnoi_client = PtfGnoi(client)
+    gnmic_client = PtfGnmic(ptfhost, target, plaintext=True)
 
     fixture = GnmiFixture(
         host=host,
@@ -167,6 +179,7 @@ def gnmi_plaintext(duthost, ptfhost):
         cert_paths=None,
         grpc=client,
         gnoi=gnoi_client,
+        gnmic=gnmic_client,
     )
 
     logger.info(f"Created plaintext GnmiFixture: {target}")
