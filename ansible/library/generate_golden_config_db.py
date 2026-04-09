@@ -63,7 +63,8 @@ class GenerateGoldenConfigDBModule(object):
                                     is_lit_mode=dict(required=False, type='bool', default=True),
                                     npu_index=dict(required=False, type='int', default=0),
                                     duts_list=dict(required=False, type='list', default=[]),
-                                    dut_loopbacks=dict(required=False, type='dict', default={})),
+                                    dut_loopbacks=dict(required=False, type='dict', default={}),
+                                    console_ports=dict(required=False, type='dict', default=None)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -77,6 +78,7 @@ class GenerateGoldenConfigDBModule(object):
         self.npu_index = self.module.params['npu_index']
         self.duts_list = self.module.params['duts_list']
         self.dut_loopbacks = self.module.params['dut_loopbacks']
+        self.console_ports = self.module.params['console_ports']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -839,6 +841,39 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps({'PORT': golden_config['PORT']}, indent=4)
 
+    def generate_c0_golden_config_db(self):
+        """
+        Generate golden_config_db for C0 topology.
+        Add CONSOLE_PORT and CONSOLE_SWITCH config based on serial_links data
+        passed via the console_ports parameter from device_serial_link fact.
+        """
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+        ori_config_db = json.loads(out)
+
+        golden_config_db = {}
+        if "DEVICE_METADATA" in ori_config_db:
+            golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+
+        if self.console_ports:
+            console_port_config = {}
+            for port, link_info in self.console_ports.items():
+                console_port_config[str(port)] = {
+                    "baud_rate": str(link_info.get("baud_rate", "9600")),
+                    "flow_control": str(link_info.get("flow_control", "0")),
+                    "remote_device": link_info.get("peerdevice", "")
+                }
+            golden_config_db["CONSOLE_PORT"] = console_port_config
+            golden_config_db["CONSOLE_SWITCH"] = {
+                "console_mgmt": {
+                    "enabled": "yes"
+                }
+            }
+
+        return json.dumps(golden_config_db, indent=4)
+
     def generate(self):
         module_msg = "Success to generate golden_config_db.json"
         # topo check
@@ -866,6 +901,9 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_full_lossy_golden_config_db()
         elif self.topo_name in ["t1-filterleaf-lag"]:
             config = self.generate_filterleaf_golden_config_db()
+        elif "c0" in self.topo_name:
+            config = self.generate_c0_golden_config_db()
+            module_msg = module_msg + " for c0"
         else:
             config = self.generate_default_init_config_db()
 

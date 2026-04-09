@@ -15,7 +15,8 @@
       {%- for link in vnut_links -%}
         {%- if link.StartDevice == device.Hostname -%}
           {%- set ns.items = ns.items + [{"name": link.StartPort, "bridge": "vbr_" ~ testbed_name[:8] ~ "_" ~ loop.index0}] -%}
-        {%- elif link.EndDevice == device.Hostname -%}
+        {%- endif -%}
+        {%- if link.EndDevice == device.Hostname -%}
           {%- set ns.items = ns.items + [{"name": link.EndPort, "bridge": "vbr_" ~ testbed_name[:8] ~ "_" ~ loop.index0}] -%}
         {%- endif -%}
       {%- endfor -%}
