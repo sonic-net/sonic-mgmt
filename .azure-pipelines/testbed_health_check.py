@@ -100,7 +100,7 @@ class TestbedHealthChecker:
         self.testbed_file = testbed_file
         self.log_verbosity = log_verbosity
         self.output_file = output_file
-        self.is_snappi_testbed = False
+        self.is_snappi_testbed = 'rdma' in testbed_name or 'ixia' in testbed_name
 
         # DPU-related state
         self.dpu_hosts = []
@@ -211,9 +211,6 @@ class TestbedHealthChecker:
         if not self.sonichosts:
             raise HostInitFailed("sonichosts is None. Please check testbed name/file/inventory.")
 
-        if 'rdma' in self.testbed_name or 'ixia' in self.testbed_name:
-            self.is_snappi_testbed = True
-
         logger.info("======================= init_hosts ends =======================")
 
     def enable_nat_for_dpuhosts(self, dpu_hostnames=None):
@@ -251,9 +248,11 @@ class TestbedHealthChecker:
 
         logger.info("======================= pre_check starts =======================")
 
+        group = os.path.basename(self.inventory[0]) if self.inventory else None
         # Retrieve the connection graph facts of localhost
         conn_graph_facts = self.localhost.conn_graph_facts(hosts=self.sonichosts.hostnames,
-                                                           filepath=os.path.join(ansible_path, "files"))
+                                                           filepath=os.path.join(ansible_path, "files"),
+                                                           group=group)
 
         # Check hosts reachability
         hosts_reachable = True
