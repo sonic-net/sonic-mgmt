@@ -161,7 +161,7 @@ def pytest_addoption(parser):
 
     # neighbor device type
     parser.addoption("--neighbor_type", action="store", default="eos", type=str,
-                     choices=["eos", "sonic", "cisco", "csonic"],
+                     choices=["eos", "sonic", "cisco", "csonic", "vsonic", "ceos"],
                      help="Neighbor devices type")
 
     # ceos neighbor lacp multiplier
@@ -239,8 +239,6 @@ def pytest_addoption(parser):
     ########################
     #   pre-test options   #
     ########################
-    parser.addoption("--deep_clean", action="store_true", default=False,
-                     help="Deep clean DUT before tests (remove old logs, cores, dumps)")
     parser.addoption("--py_saithrift_url", action="store", default=None, type=str,
                      help="Specify the url of the saithrift package to be installed on the ptf "
                           "(should be http://<serverip>/path/python-saithrift_0.9.4_amd64.deb")
@@ -968,7 +966,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     'multi_vrf_data': multi_vrf_data if multi_vrf_peer else None,
                 }
             )
-        elif neighbor_type == "sonic":
+        elif "sonic" in neighbor_type:
             device = NeighborDevice(
                 {
                     'host': SonicHost(

@@ -127,7 +127,7 @@ def setup_arp_responder(rand_selected_dut, ptfhost, prepare_negative_ip_port_map
 
 
 def build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_version, stage):
-    eth_dst = rand_selected_dut.facts["router_mac"]
+    eth_dst = rand_selected_dut.asic_instance().get_router_mac()
     eth_src = ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0])
     logger.info("eth_src: {}, eth_dst: {}".format(eth_src, eth_dst))
 
@@ -265,7 +265,7 @@ def setup_IPv4_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
     # Assign peer addr to an interface on ptf
     logger.info("Generated peer address {}".format(peer_addr))
     peer_port = random.choice(downstream_port_ids)
-    router_mac = duthost._get_router_mac()
+    router_mac = duthost.asic_instance().get_router_mac()
     ptf_interface = "eth" + str(peer_port)
     logger.info("Configured route to from PTF to DUT on PTF interface {}".format(ptf_interface))
     ptfhost.shell("ip addr add {}/{} dev {}".format(peer_addr, vlan_ip_subnet.prefixlen, ptf_interface))
@@ -352,7 +352,7 @@ def setup_IPv6_SLB_connection(rand_selected_dut, ptfhost, prepare_vlan_subnet_te
     logger.info("Generated peer address {}".format(peer_addr))
     random.seed(time.time())
     peer_port = random.choice(downstream_port_ids)
-    router_mac = duthost._get_router_mac()
+    router_mac = duthost.asic_instance().get_router_mac()
     ptf_interface = "eth" + str(peer_port)
     logger.info("Configured route to from PTF to DUT on PTF interface {}".format(ptf_interface))
     ptfhost.shell("ip -6 addr add {}/{} dev {}".format(peer_addr, str(vlan_ipv6_subnet.prefixlen), ptf_interface))
@@ -466,13 +466,13 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
     # construct encapsulated packet and expected packet
     if ip_version == "IPv4":
         inner_packet = testutils.simple_ip_packet(
-            eth_src=duthost._get_router_mac(),
+            eth_src=duthost.asic_instance().get_router_mac(),
             eth_dst=duthost.command("ip neigh show {}".format(neighbor_ip))['stdout'].split()[4],
             ip_src="1.1.1.1",
             ip_dst="2.2.2.2"
         )
         encapsulated_packet = testutils.simple_ipv4ip_packet(
-            eth_dst=duthost._get_router_mac(),
+            eth_dst=duthost.asic_instance().get_router_mac(),
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
             ip_src="20.20.20.10",
             ip_dst="192.168.1.1",
@@ -487,12 +487,12 @@ def test_vip_packet_decap(rand_selected_dut, ptfhost, ptfadapter, ip_version,
         exp_pkt.set_do_not_care_packet(packet.IP, "chksum")
     else:
         inner_packet = packet.Ether(dst=duthost.command("ip neigh show {}".format(neighbor_ip))['stdout'].split()[4],
-                                    src=duthost._get_router_mac()) / packet.IPv6(
+                                    src=duthost.asic_instance().get_router_mac()) / packet.IPv6(
             src="1::1",
             dst="2::2",
         )
         encapsulated_packet = testutils.simple_ipv6ip_packet(
-            eth_dst=duthost._get_router_mac(),
+            eth_dst=duthost.asic_instance().get_router_mac(),
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
             ipv6_src="fc01::10",
             ipv6_dst="fc02:2000::1",
