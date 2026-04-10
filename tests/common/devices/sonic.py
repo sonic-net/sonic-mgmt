@@ -2100,7 +2100,7 @@ Totals               6450                 6449
             return True
         # Retry until crm resources are ready
         timeout = crm_facts['polling_interval'] + 10
-        wait_until(timeout, 10, 0, lambda: _show_and_parse_crm_resources(), (
+        assert wait_until(timeout, 10, 0, lambda: _show_and_parse_crm_resources()), (
             "Timeout expired while waiting for CRM counters to become ready. "
             "CRM resource data was not available within the allotted time. "
             "- Timeout value: {}\n"
@@ -2108,7 +2108,7 @@ Totals               6450                 6449
         ).format(
             timeout,
             crm_facts.get('polling_interval', 'N/A')
-        ))
+        )
         return crm_facts
 
     def start_service(self, service_name, docker_name):
