@@ -518,7 +518,7 @@ def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
     if not any(disk_type in ssdhealth_output_lines[0] for disk_type in supported_disks):
         pytest.skip("Disk Type {} is not supported".format(disk))
     if disk in ["EMMC", "MMC"] and platform != AMD_ELBA_PLATFORM:
-        pytest.skip("{} disk health is only supported on platform {}".format(disk, AMD_ELBA_PLATFORM))
+        pytest.skip("'{}' disk health check is not supported on platform {}".format(disk, platform))
 
     ssdhealth_dict = util.parse_colon_speparated_lines(ssdhealth_output_lines)
     expected_fields = {"Disk Type", "Device Model", "Health", "Temperature"}
