@@ -608,7 +608,8 @@ def generate_ha_config_for_dut(switch_id: int, duthost, peer_duthost, tbinfo):
                 "dp_channel_src_port_min": "7001",
                 "dp_channel_src_port_max": "7010",
                 "dp_channel_probe_interval_ms": "500",
-                "vnet_name": "Vnet_55",
+                "dpu_vnet": "Vnet_55",
+                "dpu_vlan": "Vlan55",
                 "dp_channel_probe_fail_threshold": "5"
             }
         },
