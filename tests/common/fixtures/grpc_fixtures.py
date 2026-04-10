@@ -324,30 +324,80 @@ def _verify_gnoi_tls_connectivity(duthost, ptfhost):
     """Verify TLS connectivity to gNOI server."""
     logger.info("Verifying gNOI TLS connectivity")
 
-    # Test basic gRPC service listing with TLS
+    def _run_and_capture(label, cmd):
+        logger.info("Running %s: %s", label, cmd)
+        result = ptfhost.shell(cmd, module_ignore_errors=True)
+        logger.info(
+            "%s rc=%s stdout=%s stderr=%s",
+            label,
+            result.get('rc'),
+            result.get('stdout', '').strip(),
+            result.get('stderr', '').strip(),
+        )
+        return result
+
+    def _format_result(label, result):
+        return (
+            f"{label} failed\n"
+            f"  rc: {result.get('rc')}\n"
+            f"  stdout: {result.get('stdout', '').strip()}\n"
+            f"  stderr: {result.get('stderr', '').strip()}\n"
+            f"  msg: {result.get('msg', '').strip()}"
+        )
+
     cacert_arg, cert_arg, key_arg = grpc_config.get_grpcurl_cert_args()
-    test_cmd = f"""grpcurl {cacert_arg} {cert_arg} {key_arg} \
-                         {duthost.mgmt_ip}:{grpc_config.DEFAULT_TLS_PORT} list"""
+    target = f"{duthost.mgmt_ip}:{grpc_config.DEFAULT_TLS_PORT}"
 
-    result = ptfhost.shell(test_cmd, module_ignore_errors=True)
+    # Step 1: Basic TLS connectivity — list all services
+    list_result = _run_and_capture(
+        "grpcurl list",
+        f"grpcurl {cacert_arg} {cert_arg} {key_arg} {target} list",
+    )
+    if list_result['rc'] != 0:
+        raise Exception(_format_result("TLS connectivity test (grpcurl list)", list_result))
 
-    if result['rc'] != 0:
-        raise Exception(f"TLS connectivity test failed: {result['stderr']}")
+    if "gnoi.system.System" not in list_result.get('stdout', ''):
+        raise Exception(
+            "gNOI services not found in response\n"
+            f"  target: {target}\n"
+            f"  stdout: {list_result.get('stdout', '').strip()}\n"
+            f"  stderr: {list_result.get('stderr', '').strip()}"
+        )
 
-    if "gnoi.system.System" not in result['stdout']:
-        raise Exception(f"gNOI services not found in response: {result['stdout']}")
+    # Step 2: Service reflection — list methods of gnoi.system.System
+    svc_result = _run_and_capture(
+        "grpcurl list gnoi.system.System",
+        f"grpcurl {cacert_arg} {cert_arg} {key_arg} {target} list gnoi.system.System",
+    )
+    if svc_result['rc'] != 0:
+        raise Exception(_format_result("service reflection (grpcurl list gnoi.system.System)", svc_result))
 
-    # Test basic gNOI call
-    time_cmd = f"""grpcurl {cacert_arg} {cert_arg} {key_arg} \
-                         {duthost.mgmt_ip}:{grpc_config.DEFAULT_TLS_PORT} gnoi.system.System.Time"""
+    # Step 3: Method descriptor — describe gnoi.system.System.Time
+    desc_result = _run_and_capture(
+        "grpcurl describe gnoi.system.System.Time",
+        f"grpcurl {cacert_arg} {cert_arg} {key_arg} {target} describe gnoi.system.System.Time",
+    )
+    if desc_result['rc'] != 0:
+        raise Exception(
+            _format_result("method descriptor (grpcurl describe gnoi.system.System.Time)", desc_result)
+        )
 
-    result = ptfhost.shell(time_cmd, module_ignore_errors=True)
+    # Step 4: Actual RPC call with explicit empty request body and verbose output
+    time_result = _run_and_capture(
+        "grpcurl gnoi.system.System.Time",
+        f"grpcurl -v {cacert_arg} {cert_arg} {key_arg} -d '{{}}' {target} gnoi.system.System.Time",
+    )
 
-    if result['rc'] != 0:
-        raise Exception(f"gNOI System.Time test failed: {result['stderr']}")
+    if time_result['rc'] != 0:
+        raise Exception(_format_result("System.Time RPC (grpcurl gnoi.system.System.Time)", time_result))
 
-    if "time" not in result['stdout']:
-        raise Exception(f"Invalid System.Time response: {result['stdout']}")
+    if "time" not in time_result.get('stdout', ''):
+        raise Exception(
+            "Invalid System.Time response\n"
+            f"  target: {target}\n"
+            f"  stdout: {time_result.get('stdout', '').strip()}\n"
+            f"  stderr: {time_result.get('stderr', '').strip()}"
+        )
 
     logger.info("TLS connectivity verification completed successfully")
 
