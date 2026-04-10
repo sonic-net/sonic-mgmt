@@ -15,15 +15,14 @@ import logging
 import pytest
 from collections import defaultdict
 
-from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts, get_graph_facts    # noqa: F401
-from tests.common.fixtures.duthost_utils import dut_qos_maps, \
-    separated_dscp_to_tc_map_on_uplink, load_dscp_to_pg_map                                 # noqa: F401
+from tests.common.fixtures.conn_graph_facts import fanout_graph_facts, conn_graph_facts    # noqa: F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps                             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
 from tests.common.fixtures.ptfhost_utils import iptables_drop_ipv6_tx                       # noqa: F401
-from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa: F401
+from tests.common.dualtor.dual_tor_utils import dualtor_ports                             # noqa: F401
 from .qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
@@ -324,6 +323,8 @@ class TestQosProbe(QosSaiBase):
         dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
         src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+
+        src_port_vlans = []
 
         if ('platform_asic' in dutTestParams["basicParams"] and
                 dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
