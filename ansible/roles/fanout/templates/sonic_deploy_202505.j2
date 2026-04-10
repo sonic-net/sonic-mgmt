@@ -49,6 +49,9 @@
             "tpid": "0x9100",
         {% endif %}
     {% endif %}
+    {% if 'subport' in fanout_port_config[port_name] %}
+            "subport": "{{ fanout_port_config[port_name]['subport'] }}",
+    {% endif %}
     {% if 'peerdevice' in fanout_port_config[port_name] %}
             "admin_status": "up"
     {% else %}

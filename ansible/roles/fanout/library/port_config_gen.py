@@ -279,6 +279,36 @@ class PortConfigGenerator(object):
             if port_name not in self.fanout_port_config:
                 self.fanout_port_config[port_name] = port_config
 
+        self._derive_subports()
+
+    def _derive_subports(self):
+        """Derive subport attribute for ports sharing the same physical index.
+
+        For OSFP modules split into subports (e.g., etp1a/etp1b), the subport
+        attribute tells the ASIC which subport of the physical module each
+        logical port maps to. The alias suffix (a=1, b=2, c=3, d=4) determines
+        the subport number.
+        """
+        # Group ports by index to detect multi-subport configurations
+        index_groups = {}
+        for port_name, port_config in self.fanout_port_config.items():
+            idx = port_config.get('index', '')
+            if idx not in index_groups:
+                index_groups[idx] = []
+            index_groups[idx].append(port_name)
+
+        for idx, port_names in index_groups.items():
+            if len(port_names) <= 1:
+                continue
+            # Multiple ports share the same index — these are subports
+            for port_name in port_names:
+                port_config = self.fanout_port_config[port_name]
+                if 'subport' in port_config:
+                    continue
+                alias = port_config.get('alias', '')
+                if alias and alias[-1].isalpha():
+                    port_config['subport'] = str(ord(alias[-1]) - ord('a') + 1)
+
 
 def main():
     module = AnsibleModule(
