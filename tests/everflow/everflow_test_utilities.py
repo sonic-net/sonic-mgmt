@@ -27,7 +27,7 @@ from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEI
 from tests.common.macsec.macsec_helper import MACSEC_INFO
 from tests.common.dualtor.dual_tor_common import mux_config              # noqa: F401
 from tests.common.helpers.sonic_db import AsicDbCli
-from tests.common.fixtures.duthost_utils import shutdown_ebgp          # noqa: F401
+from tests.common.fixtures.duthost_utils import duthost_shutdown_ebgp, duthost_startup_ebgp
 import json
 
 logger = logging.getLogger(__name__)
@@ -473,8 +473,7 @@ def assert_no_tx_queue_drops_on_mirror_port(duthost, mirror_port):
 
 
 @pytest.fixture(scope="module")
-def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario,
-               shutdown_ebgp):  # noqa: F811
+def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     """
     Gather all required test information.
 
@@ -499,20 +498,30 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario,
 
     setup_information = gen_setup_information(duthost, downstream_duthost, upstream_duthost, tbinfo, topo_scenario)
 
+    # Disable BGP so that we don't keep on bouncing back mirror packets
+    # If we send TTL=1 packet we don't need this but in multi-asic TTL > 1
+
+    ebgp_shutdown_duthosts = []
     if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
         for dut_host in duthosts.frontend_nodes:
+            ebgp_shutdown_duthosts.append(dut_host)
             dut_host.command("mkdir -p {}".format(DUT_RUN_DIR))
     else:
+        ebgp_shutdown_duthosts.append(duthost)
         duthost.command("mkdir -p {}".format(DUT_RUN_DIR))
+
+    v4ebgps = {}
+    v6ebgps = {}
+    for dut_host in ebgp_shutdown_duthosts:
+        v4_routes_count, v6_routes_count = duthost_shutdown_ebgp(duthost)
+        v4ebgps[duthost.hostname] = v4_routes_count
+        v6ebgps[duthost.hostname] = v6_routes_count
 
     yield setup_information
 
-    if 't2' in topo and 'lt2' not in topo and 'ft2' not in topo:
-        for dut_host in duthosts.frontend_nodes:
-            dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
-    else:
-        duthost.command("rm -rf {}".format(DUT_RUN_DIR))
-
+    for dut_host in ebgp_shutdown_duthosts:
+        duthost_startup_ebgp(dut_host, v4ebgps[dut_host.hostname], v6ebgps[dut_host.hostname])
+        dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
 
 @pytest.fixture(scope="module", autouse=True)
 def skip_ipv6_everflow_tests(setup_info, erspan_ip_ver):
