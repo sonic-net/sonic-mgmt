@@ -513,9 +513,9 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
     v4ebgps = {}
     v6ebgps = {}
     for dut_host in ebgp_shutdown_duthosts:
-        v4_routes_count, v6_routes_count = duthost_shutdown_ebgp(duthost)
-        v4ebgps[duthost.hostname] = v4_routes_count
-        v6ebgps[duthost.hostname] = v6_routes_count
+        v4_routes_count, v6_routes_count = duthost_shutdown_ebgp(dut_host)
+        v4ebgps[dut_host.hostname] = v4_routes_count
+        v6ebgps[dut_host.hostname] = v6_routes_count
 
     yield setup_information
 
