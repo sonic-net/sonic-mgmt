@@ -561,7 +561,9 @@ def _run_stress_link_flap_test(duthost, setup, nbrhosts, fanouthosts, test_type,
 
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
     asic_type = duthost.facts['asic_type']
-    if (asic_type == "vs" or asic_type == "vpp") and (test_type == "fanout" or test_type == "all"):
+    platform = duthost.facts['platform']
+    if (asic_type == "vs" or asic_type == "vpp") and (platform == "x86_64-kvm_x86_64-r0") \
+            and (test_type == "fanout" or test_type == "all"):
         pytest.skip("Stress link flap test is not supported on Virtual Switch")
 
     if asic_type != "vs" and asic_type != "vpp":
