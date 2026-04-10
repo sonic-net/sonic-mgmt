@@ -2982,10 +2982,27 @@ def set_port_cir(interface, rate):
     sch.set_credit_cir(rate)
     sch.set_credit_eir_or_pir(rate, False)
 
+def get_sysport_macport(interface):
+  sai_lane = port_to_sai_lane_map[interface]
+  slice_id, ifg_id, serdes_id = sai_lane_to_slice_ifg_serdes(sai_lane)
+  mac_port = d0.get_mac_port(slice_id, ifg_id, serdes_id)
+  sys_port = find_system_port(slice_id, ifg_id, serdes_id)
+  return sys_port, mac_port
+
+
+def set_shaper_rate(interface, pir=5_000_000_000, ifpir=5_000_000_000):
+    sp, mp = get_sysport_macport(interface)
+    spsch = sp.get_scheduler()
+    sch = mp.get_scheduler()
+    for oq in range(8):
+        spsch.set_credit_pir(oq, pir)
+    sch.set_credit_cir(ifpir)
+    sch.set_credit_eir_or_pir(ifpir, False)
+
 '''
 
         for intf in ports:
-            dshell_script += f'\nset_port_cir("{intf}", {speed})'
+            dshell_script += f'\nset_shaper_rate("{intf}", {speed}, {speed})'
 
         copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_scheduler.py")
 
