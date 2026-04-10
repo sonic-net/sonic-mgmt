@@ -7,7 +7,6 @@ import pytest
 
 from collections import defaultdict
 
-from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus
 from tests.common.plugins.sanity_check import constants
 from tests.common.plugins.sanity_check import checks
@@ -110,9 +109,8 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False, check_ptf_mgmt=True
             outputs.append(res)
         logger.info("dut={}, cmd_outputs={}".format(dut.hostname, json.dumps(outputs, indent=4)))
 
-    with SafeThreadPoolExecutor(max_workers=8) as executor:
-        for duthost in duthosts:
-            executor.submit(print_cmds_output_from_duthost, duthost, print_dual_tor_logs, ptfhost)
+    for duthost in duthosts:
+        print_cmds_output_from_duthost(duthost, print_dual_tor_logs, ptfhost)
 
 
 def filter_check_items(tbinfo, duthosts, check_items):
