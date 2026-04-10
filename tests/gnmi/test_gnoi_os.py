@@ -10,17 +10,16 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 
-pytest_plugins = ["tests.common.fixtures.grpc_fixtures"]  # noqa: F401
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("any"),
-    pytest.mark.usefixtures("setup_gnoi_tls_server")
 ]
 
 
-def test_gnoi_os_verify(duthosts, rand_one_dut_hostname, gnmi_tls):
+def test_gnoi_os_verify(duthosts, rand_one_dut_hostname, gnmi_tls):  # noqa: F811
     """
     Verify the gNOI OS Verify API returns the current OS version.
 
@@ -46,7 +45,7 @@ def test_gnoi_os_verify(duthosts, rand_one_dut_hostname, gnmi_tls):
 
 
 @pytest.mark.disable_loganalyzer
-def test_gnoi_os_activate_invalid_image(gnmi_tls):
+def test_gnoi_os_activate_invalid_image(gnmi_tls):  # noqa: F811
     """
     Verify the gNOI OS Activate API rejects an invalid OS version.
 
@@ -70,7 +69,7 @@ def test_gnoi_os_activate_invalid_image(gnmi_tls):
 
 
 @pytest.mark.disable_loganalyzer
-def test_gnoi_os_activate_valid_image(duthosts, rand_one_dut_hostname, gnmi_tls):
+def test_gnoi_os_activate_valid_image(duthosts, rand_one_dut_hostname, gnmi_tls):  # noqa: F811
     """
     Verify the gNOI OS Activate API responds correctly for a valid image.
 
