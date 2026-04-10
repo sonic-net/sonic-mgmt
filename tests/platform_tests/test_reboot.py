@@ -11,7 +11,6 @@ import logging
 import pytest
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
-from tests.common.fixtures.grpc_fixtures import setup_gnoi_tls_server, ptf_gnoi, ptf_grpc  # noqa: F401
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 from tests.common.reboot import sync_reboot_history_queue_with_dut, reboot, check_reboot_cause,\
     check_reboot_cause_history, check_determine_reboot_cause_service, reboot_ctrl_dict,\
@@ -31,11 +30,6 @@ pytestmark = [
 
 MAX_WAIT_TIME_FOR_INTERFACES = 300
 MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
-
-
-@pytest.fixture(params=["gnoi_based", "cli_based"])
-def invocation_type(request):
-    return request.param
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -72,7 +66,7 @@ def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname,
 
 def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
                      reboot_type=REBOOT_TYPE_COLD, reboot_helper=None,
-                     reboot_kwargs=None, duthosts=None, invocation_type="cli_based", ptf_gnoi=None):  # noqa: F811
+                     reboot_kwargs=None, duthosts=None):
     """
     Perform the specified type of reboot and check platform status.
     @param localhost: The Localhost object.
@@ -90,8 +84,7 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
 
     logging.info("Run %s reboot on DUT" % reboot_type)
     reboot(dut, localhost, reboot_type=reboot_type,
-           reboot_helper=reboot_helper, reboot_kwargs=reboot_kwargs, invocation_type=invocation_type,
-           ptf_gnoi=ptf_gnoi)
+           reboot_helper=reboot_helper, reboot_kwargs=reboot_kwargs)
 
     # Append the last reboot type to the queue
     logging.info("Append the latest reboot type to the queue")
@@ -186,16 +179,14 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
             return
 
 
-@pytest.mark.usefixtures("setup_gnoi_tls_server")
 def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list, invocation_type, ptf_gnoi):      # noqa: F811
+                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
-                     xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthosts=duthosts, invocation_type=invocation_type,
-                     ptf_gnoi=ptf_gnoi)
+                     xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthosts=duthosts)
 
 
 def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
