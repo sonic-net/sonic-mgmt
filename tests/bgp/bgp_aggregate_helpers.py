@@ -37,6 +37,9 @@ PLACEHOLDER_PREFIX = "192.0.2.0/32"
 ROUTE_PROPAGATION_WAIT = 10
 BGP_SETTLE_WAIT = 5
 
+# GCU batch size — max operations per patch to avoid recursion depth / OOM kills
+GCU_BATCH_SIZE = 100
+
 # ---- AggregateCfg ----
 AggregateCfg = namedtuple("AggregateCfg", ["prefix", "bbr_required", "summary_only", "as_set"])
 
@@ -125,32 +128,40 @@ def safe_remove_aggregate(duthost, prefix):
 
 
 def gcu_add_multiple_aggregates(duthost, cfgs):
-    """Add several aggregate entries in a single GCU patch."""
-    patch = [
-        {
-            "op": "add",
-            "path": f"/BGP_AGGREGATE_ADDRESS/{c.prefix.replace('/', '~1')}",
-            "value": {
-                "bbr-required": "true" if c.bbr_required else "false",
-                "summary-only": "true" if c.summary_only else "false",
-                "as-set": "true" if c.as_set else "false",
-            },
-        }
-        for c in cfgs
-    ]
-    apply_gcu_patch(duthost, patch)
+    """Add aggregate entries via GCU, batched to avoid recursion/OOM limits."""
+    for i in range(0, len(cfgs), GCU_BATCH_SIZE):
+        batch = cfgs[i:i + GCU_BATCH_SIZE]
+        patch = [
+            {
+                "op": "add",
+                "path": f"/BGP_AGGREGATE_ADDRESS/{c.prefix.replace('/', '~1')}",
+                "value": {
+                    "bbr-required": "true" if c.bbr_required else "false",
+                    "summary-only": "true" if c.summary_only else "false",
+                    "as-set": "true" if c.as_set else "false",
+                },
+            }
+            for c in batch
+        ]
+        logger.info("Adding aggregates batch %d-%d of %d",
+                    i + 1, i + len(batch), len(cfgs))
+        apply_gcu_patch(duthost, patch)
 
 
 def gcu_remove_multiple_aggregates(duthost, prefixes):
-    """Remove several aggregate entries in a single GCU patch."""
-    patch = [
-        {
-            "op": "remove",
-            "path": f"/BGP_AGGREGATE_ADDRESS/{p.replace('/', '~1')}",
-        }
-        for p in prefixes
-    ]
-    apply_gcu_patch(duthost, patch)
+    """Remove aggregate entries via GCU, batched to avoid recursion/OOM limits."""
+    for i in range(0, len(prefixes), GCU_BATCH_SIZE):
+        batch = prefixes[i:i + GCU_BATCH_SIZE]
+        patch = [
+            {
+                "op": "remove",
+                "path": f"/BGP_AGGREGATE_ADDRESS/{p.replace('/', '~1')}",
+            }
+            for p in batch
+        ]
+        logger.info("Removing aggregates batch %d-%d of %d",
+                    i + 1, i + len(batch), len(prefixes))
+        apply_gcu_patch(duthost, patch)
 
 
 def gcu_update_aggregate_field(duthost, prefix, field, value):

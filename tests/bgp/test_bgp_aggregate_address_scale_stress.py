@@ -16,6 +16,7 @@ import random
 import time
 
 import pytest
+import requests
 
 import ptf.testutils as testutils
 import ptf.packet as scapy
@@ -26,11 +27,7 @@ from bgp_aggregate_helpers import (
     BGP_AGGREGATE_ADDRESS,
     BGP_SETTLE_WAIT,
     AggregateCfg,
-    _check_route_on_neighbor,
     announce_contributing_routes,
-    dump_db,
-    exabgp_announce_route,
-    exabgp_withdraw_route,
     gcu_add_aggregate,
     gcu_add_multiple_aggregates,
     gcu_add_placeholder_aggregate,
@@ -41,6 +38,7 @@ from bgp_aggregate_helpers import (
     withdraw_contributing_routes,
 )
 from tests.bgp.bgp_helpers import get_upstream_ptf_intfs
+from tests.common.devices.eos import EosHost
 
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
@@ -59,6 +57,7 @@ CONTRIBUTING_V4 = ["10.100.1.0/24", "10.100.2.0/24", "10.100.3.0/24"]
 PLACEHOLDER_PREFIX = "192.0.2.0/32"
 EXABGP_BASE_PORT = 5000
 EXABGP_BASE_PORT_V6 = 6000
+EXABGP_BATCH_SIZE = 50    # routes per ExaBGP HTTP request
 EXABGP_BATCH_DELAY = 0.1  # seconds between ExaBGP batches
 
 # ---- Scale test constants ----
@@ -71,6 +70,62 @@ DATAPLANE_SAMPLE_SIZE = 20  # number of aggregate prefixes to probe with PTF tra
 DATAPLANE_PKT_COUNT = 10  # packets to send per destination
 DATAPLANE_SRC_IP = "192.168.100.1"  # arbitrary source IP for PTF packets
 TRAFFIC_WAIT_TIME = 5  # seconds to wait for packet verification
+
+
+# ---- ExaBGP route helpers ----
+
+def _exabgp_post(ptfip, port, commands_str):
+    """Send one or more commands to ExaBGP in a single HTTP POST."""
+    url = 'http://{}:{}'.format(ptfip, port)
+    r = requests.post(url, data={'commands': commands_str},
+                      proxies={"http": None, "https": None})
+    assert r.status_code == 200
+
+
+def exabgp_announce_route(ptfip, port, prefix, nexthop):
+    """Announce a single route via ExaBGP HTTP API."""
+    _exabgp_post(ptfip, port,
+                 'announce route {} next-hop {}'.format(prefix, nexthop))
+
+
+def exabgp_withdraw_route(ptfip, port, prefix, nexthop):
+    """Withdraw a single route via ExaBGP HTTP API."""
+    _exabgp_post(ptfip, port,
+                 'withdraw route {} next-hop {}'.format(prefix, nexthop))
+
+
+def _exabgp_batch_commands(ptfip, port, commands):
+    """Send a list of commands in batches of EXABGP_BATCH_SIZE per HTTP POST.
+
+    Multiple commands are joined with ``\n`` so ExaBGP processes them in a
+    single request, reducing HTTP round-trips from N to N/EXABGP_BATCH_SIZE.
+    """
+    for i in range(0, len(commands), EXABGP_BATCH_SIZE):
+        batch = commands[i:i + EXABGP_BATCH_SIZE]
+        _exabgp_post(ptfip, port, '\n'.join(batch))
+        if EXABGP_BATCH_DELAY:
+            time.sleep(EXABGP_BATCH_DELAY)
+
+
+# ---- M2 neighbor route check ----
+
+def _check_route_on_neighbor(nbrhosts, neighbor, prefix):
+    """Check whether *prefix* is active in the BGP table of a neighbor VM.
+
+    Returns True if the route is present with at least one BGP path.
+    On EOS, a withdrawn route may briefly remain with empty bgpRoutePaths;
+    checking for non-empty paths avoids false positives.
+    """
+    host = nbrhosts[neighbor]['host']
+    route_info = host.get_route(prefix)
+    if isinstance(host, EosHost):
+        entries = route_info.get('vrfs', {}).get('default', {}).get('bgpRouteEntries', {})
+        if prefix not in entries:
+            return False
+        paths = entries[prefix].get('bgpRoutePaths', [])
+        return len(paths) > 0
+    else:
+        return bool(route_info) and 'paths' in route_info
 
 
 # ---- Aggregate generation helpers ----
@@ -124,8 +179,11 @@ def setup_teardown(duthost):
     create_checkpoint(duthost)
 
     # Ensure the BGP_AGGREGATE_ADDRESS table exists so GCU "add" ops work.
-    default_aggregates = dump_db(duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS)
-    if not default_aggregates:
+    keys_out = duthost.shell(
+        f"sonic-db-cli CONFIG_DB keys '{BGP_AGGREGATE_ADDRESS}|*'",
+        module_ignore_errors=True,
+    )["stdout"].strip()
+    if not keys_out:
         gcu_add_placeholder_aggregate(duthost, PLACEHOLDER_PREFIX)
 
     yield
@@ -227,38 +285,56 @@ class TestGroup7CapacityStress:
                 logger.warning("Could not parse memory usage: %s", mem_out)
 
     def _announce_contributing_for_aggregates(self, setup, cfgs):
-        """Announce one contributing route per aggregate from M0 via ExaBGP."""
-        ptfip = setup["ptfip"]
-        port_v4 = setup["downstream_exabgp_port"]
-        port_v6 = setup["downstream_exabgp_port_v6"]
-        nhipv4 = setup["nhipv4"]
-        nhipv6 = setup["nhipv6"]
+        """Announce one contributing route per aggregate from M0 via ExaBGP.
 
-        for i, cfg in enumerate(cfgs):
-            contributing = _generate_contributing_route(cfg.prefix)
-            if ":" in cfg.prefix:
-                exabgp_announce_route(ptfip, port_v6, contributing, nhipv6)
-            else:
-                exabgp_announce_route(ptfip, port_v4, contributing, nhipv4)
-            if EXABGP_BATCH_DELAY and i % 10 == 9:
-                time.sleep(EXABGP_BATCH_DELAY)
+        Routes are batched into groups of EXABGP_BATCH_SIZE per HTTP request
+        to avoid 1-request-per-route overhead at scale.
+        """
+        self._bulk_exabgp_operation(setup, cfgs, "announce")
 
     def _withdraw_contributing_for_aggregates(self, setup, cfgs):
         """Withdraw one contributing route per aggregate from M0 via ExaBGP."""
+        self._bulk_exabgp_operation(setup, cfgs, "withdraw")
+
+    def _bulk_exabgp_operation(self, setup, cfgs, action):
+        """Announce or withdraw contributing routes in batched HTTP requests.
+
+        Args:
+            setup: topology setup dict with ExaBGP ports and next-hop IPs.
+            cfgs: list of AggregateCfg entries.
+            action: 'announce' or 'withdraw'.
+        """
         ptfip = setup["ptfip"]
         port_v4 = setup["downstream_exabgp_port"]
         port_v6 = setup["downstream_exabgp_port_v6"]
         nhipv4 = setup["nhipv4"]
         nhipv6 = setup["nhipv6"]
 
-        for i, cfg in enumerate(cfgs):
+        v4_cmds = []
+        v6_cmds = []
+        for cfg in cfgs:
             contributing = _generate_contributing_route(cfg.prefix)
             if ":" in cfg.prefix:
-                exabgp_withdraw_route(ptfip, port_v6, contributing, nhipv6)
+                v6_cmds.append('{} route {} next-hop {}'.format(
+                    action, contributing, nhipv6))
             else:
-                exabgp_withdraw_route(ptfip, port_v4, contributing, nhipv4)
-            if EXABGP_BATCH_DELAY and i % 10 == 9:
-                time.sleep(EXABGP_BATCH_DELAY)
+                v4_cmds.append('{} route {} next-hop {}'.format(
+                    action, contributing, nhipv4))
+
+        start = time.time()
+        if v4_cmds:
+            _exabgp_batch_commands(ptfip, port_v4, v4_cmds)
+        if v6_cmds:
+            _exabgp_batch_commands(ptfip, port_v6, v6_cmds)
+        elapsed = time.time() - start
+
+        logger.info(
+            "ExaBGP %s complete: %d routes (%d v4 + %d v6) in %.1fs "
+            "(%d HTTP requests)",
+            action, len(cfgs), len(v4_cmds), len(v6_cmds), elapsed,
+            (len(v4_cmds) + EXABGP_BATCH_SIZE - 1) // EXABGP_BATCH_SIZE
+            + (len(v6_cmds) + EXABGP_BATCH_SIZE - 1) // EXABGP_BATCH_SIZE,
+        )
 
     def _verify_contributing_on_dut(self, duthost, cfgs, sample_size=10):
         """Spot-check that contributing routes arrived in the DUT BGP table.
