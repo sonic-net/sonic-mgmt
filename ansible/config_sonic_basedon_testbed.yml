@@ -142,10 +142,16 @@
     - name: Set default dut index
       set_fact:
         dut_index: "{{ testbed_facts['duts_map'][inventory_hostname]|int }}"
+      tags: always
 
     - name: set testbed_type
       set_fact:
         topo: "{{ testbed_facts['topo'] }}"
+      tags: always
+
+    - name: set BMC mode flag
+      set_fact:
+        is_bmc_topo: "{{ 'bmc' in topo }}"
       tags: always
 
     - name: set lit mode
@@ -234,7 +240,7 @@
       switchids: "{{ switchids | default([]) }}"
       num_asic: "{{ num_asics }}"
       sort_by_index: "{{ sort_by_index | default(true) }}"
-    when: deploy is defined and deploy|bool == true
+    when: deploy is defined and deploy|bool == true and not (is_bmc_topo | bool)
 
   - name: find interface name mapping and individual interface speed if defined with local data
     port_alias:
@@ -246,7 +252,7 @@
       slotid: "{{ slot_num | default(None) }}"
       sort_by_index: "{{ sort_by_index | default(true) }}"
     delegate_to: localhost
-    when: deploy is not defined or deploy|bool == false
+    when: (deploy is not defined or deploy|bool == false) and not (is_bmc_topo | bool)
 
   - name: find and generate fabric ASIC information
     fabric_info:
@@ -388,13 +394,13 @@
     set_fact:
       interface_to_vms: "{{ interface_to_vms|default([]) + [ {'name': item.key, 'ports': item.value['interface_indexes'][dut_index|int] }] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
-    when: "'cable' not in topo"
+    when: "'cable' not in topo and not (is_bmc_topo | bool)"
 
   - name: find all interface indexes connecting to VM
     set_fact:
       ifindex_to_vms: "{{ ifindex_to_vms|default([]) + item.value['interface_indexes'][dut_index|int] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
-    when: "'cable' not in topo"
+    when: "'cable' not in topo and not (is_bmc_topo | bool)"
 
   - name: find all interface names
     set_fact:
@@ -402,7 +408,7 @@
     with_subelements:
       - "{{ interface_to_vms | default([]) }}"
       - "ports"
-    when: "'cable' not in topo"
+    when: "'cable' not in topo and not (is_bmc_topo | bool)"
 
   # create map of VM to asic interface names
   - name: find all interface asic names
@@ -439,6 +445,16 @@
               dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
     delegate_to: localhost
     when: local_minigraph is defined and local_minigraph|bool == true
+
+  - name: Deep clean DUT filesystem (logs, cores, dumps)
+    shell: |
+      find /var/log/ -name '*.gz' | xargs rm -f
+      rm -f /var/core/*
+      rm -rf /var/dump/*
+      find /var/log/ -mtime +1 | xargs rm -f
+    become: true
+    ignore_errors: true
+    when: deep_clean is defined and deep_clean|bool == true
 
   - block:
     - name: Init telemetry keys
@@ -832,6 +848,7 @@
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
           npu_index: "{{ dut_index | default(0) | int }}"
+          console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
         become: true
 
       - name: Copy macsec profile json to dut
