@@ -8,6 +8,7 @@ import tempfile
 from tests.common.mellanox_data import is_mellanox_device
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
+from tests.common.platform.device_utils import MGFX_HWSKU, MGFX_XCVR_INTF
 from tests.common.platform.transceiver_utils import get_ports_with_flat_memory, \
     get_passive_cable_port_list, get_cmis_cable_ports_and_ver
 from tests.common.helpers.firmware_helper import PLATFORM_COMP_PATH_TEMPLATE
@@ -61,10 +62,9 @@ def xcvr_skip_list(duthosts, dpu_npu_port_list, tbinfo):
             intf_skip_list[dut.hostname].extend(sfp_list)
 
         # For Mx topo, skip the SFP interfaces because they are admin down
-        if tbinfo['topo']['name'] == "mx" and hwsku in ["Arista-720DT-G48S4", "Nokia-7215"]:
-            sfp_list = ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
-            logging.debug('Skipping sfp interfaces: {}'.format(sfp_list))
-            intf_skip_list[dut.hostname].extend(sfp_list)
+        if tbinfo['topo']['name'] == "mx" and hwsku in MGFX_HWSKU:
+            logging.debug('Skipping sfp interfaces: {}'.format(MGFX_XCVR_INTF))
+            intf_skip_list[dut.hostname].extend(MGFX_XCVR_INTF)
         # For lt2-p32o64 topo, skip the admin down interfaces as transceiver may not be present
         elif tbinfo['topo']['name'] == "lt2-p32o64":
             intf_skip_list[dut.hostname].extend([
