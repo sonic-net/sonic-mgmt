@@ -523,6 +523,7 @@ def setup_info(duthosts, rand_one_dut_hostname, tbinfo, request, topo_scenario):
         duthost_startup_ebgp(dut_host, v4ebgps[dut_host.hostname], v6ebgps[dut_host.hostname])
         dut_host.command("rm -rf {}".format(DUT_RUN_DIR))
 
+
 @pytest.fixture(scope="module", autouse=True)
 def skip_ipv6_everflow_tests(setup_info, erspan_ip_ver):
     """
