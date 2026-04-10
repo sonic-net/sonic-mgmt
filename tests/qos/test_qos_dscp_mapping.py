@@ -493,6 +493,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
         pytest_assert(not failed_once, "FAIL: Test failed. Please check table for details.")
 
+    @pytest.mark.disable_loganalyzer
     def test_dscp_to_queue_mapping(self, ptfadapter, rand_selected_dut, localhost, dscp_config, dscp_mode,
                                    toggle_all_simulator_ports_to_rand_selected_tor, completeness_level,  # noqa F811
                                    setup_standby_ports_on_rand_unselected_tor, route_config,
