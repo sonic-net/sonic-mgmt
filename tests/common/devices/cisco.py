@@ -4,7 +4,7 @@ import sys
 import logging
 import functools
 import time
-from paramiko import SSHClient, AutoAddPolicy
+from paramiko import SSHClient, WarningPolicy
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.helpers.interactive_ssh import exec_interactive_ssh
 from ansible.utils.unsafe_proxy import AnsibleUnsafeText
@@ -133,8 +133,6 @@ class CiscoHost(AnsibleHostBase):
             return super(CiscoHost, self).__getattr__(module_name)
         else:
             raise Exception("Does not have module: {}".format(module_name))
-        self.host.options['variable_manager'].extra_vars.update(evars)
-        return super(CiscoHost, self).__getattr__(module_name)
 
     def __str__(self):
         return '<CiscoHost {}>'.format(self.hostname)
@@ -1443,7 +1441,8 @@ class CiscoHost(AnsibleHostBase):
         try:
             # Use Paramiko SFTP to transfer the file
             ssh_client = SSHClient()
-            ssh_client.set_missing_host_key_policy(AutoAddPolicy())
+            # WarningPolicy logs unknown host keys instead of silently accepting (test-only infrastructure)
+            ssh_client.set_missing_host_key_policy(WarningPolicy())
             ssh_client.connect(
                 self.mgmt_ip,
                 username=self.ansible_user,
@@ -1479,7 +1478,7 @@ class CiscoHost(AnsibleHostBase):
                 'stderr': error_msg
             }
         finally:
-            # Close SSH connection
+            # Close SSH connection — ignore errors during cleanup to avoid masking the original exception
             if ssh_client:
                 try:
                     ssh_client.close()

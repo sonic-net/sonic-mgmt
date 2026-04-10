@@ -348,12 +348,12 @@ def proxy_env():
         if proxy_env:
             logger.info("Using proxy configuration from environment variables")
     
-    # Layer 3: Use Microsoft corporate proxy as final fallback
+    # Layer 3: Fall back to a default no_proxy configuration (no proxy server configured)
     if not proxy_env:
         proxy_env = {
             'no_proxy': 'localhost,127.0.0.1'
         }
-        logger.info("Using Microsoft corporate proxy as fallback")
+        logger.info("No proxy configured; using default no_proxy for localhost only")
     
     logger.info(f"Proxy configuration: {list(proxy_env.keys())}")
     return proxy_env

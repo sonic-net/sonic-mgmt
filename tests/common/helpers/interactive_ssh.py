@@ -3,7 +3,7 @@ import re
 import socket
 import time
 
-from paramiko import SSHClient, AutoAddPolicy
+from paramiko import SSHClient, WarningPolicy
 
 
 def exec_interactive_ssh(ssh_host, username, password, command, expect_pattern=None, response="",
@@ -17,7 +17,8 @@ def exec_interactive_ssh(ssh_host, username, password, command, expect_pattern=N
 
     try:
         ssh_client = SSHClient()
-        ssh_client.set_missing_host_key_policy(AutoAddPolicy())
+        # WarningPolicy logs unknown host keys instead of silently accepting (test-only infrastructure)
+        ssh_client.set_missing_host_key_policy(WarningPolicy())
         ssh_client.connect(
             ssh_host,
             username=username,
@@ -123,7 +124,7 @@ def exec_interactive_ssh(ssh_host, username, password, command, expect_pattern=N
                         if debug:
                             log.debug(f"Final read: received {len(chunk)} bytes")
                 except (socket.timeout, Exception):
-                    pass
+                    pass  # Best-effort final drain; errors are non-critical
 
         shell.close()
 
