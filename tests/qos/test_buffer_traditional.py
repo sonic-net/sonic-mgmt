@@ -221,6 +221,13 @@ def test_buffer_pg(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         default_lossless_pgs = ['3', '4']
 
         if expected_profile:
+            if not profile_in_pg:
+                if not _check_condition(False,
+                                        "No BUFFER_PG|{}|3-4 profile configured, expected {}".format(
+                                            port, expected_profile),
+                                        use_assert):
+                    return None, False
+
             expected_profile_name = extract_profile_name(expected_profile)
             if not _check_condition(profile_in_pg[0] == expected_profile_name,
                                     "Buffer profile of lossless PG of port {} isn't the expected ({})"
