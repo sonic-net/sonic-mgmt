@@ -18,8 +18,7 @@ from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,
     get_dpuhost_for_dpu  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.smartswitch.common.reboot import perform_reboot
-from tests.common.fixtures.grpc_fixtures import ptf_grpc  # noqa: F401
-# ptf_gnoi comes from tests.smartswitch.conftest (SmartSwitch dsmsroot certs)
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 pytestmark = [
@@ -326,7 +325,7 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
 @pytest.mark.disable_loganalyzer
 def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                           platform_api_conn, num_dpu_modules,  # noqa: F811
-                          invocation_type, ptf_gnoi):  # noqa: F811, E501
+                          invocation_type, gnmi_tls):  # noqa: F811, E501
     """
     Test to cold reboot all DPUs in the DUT.
     Steps:
@@ -350,7 +349,7 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
         logging.info("Rebooting all DPUs in parallel")
         for dpu_name in dpu_on_list:
             executor.submit(perform_reboot, duthost, REBOOT_TYPE_COLD, dpu_name, invocation_type,
-                            ptf_gnoi=ptf_gnoi)
+                            ptf_gnoi=gnmi_tls.gnoi)
 
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts,
