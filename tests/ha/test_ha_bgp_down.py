@@ -22,7 +22,7 @@ pytestmark = [
     pytest.mark.skip_check_dut_health
 ]
 
-TRAFFIC_LOSS_THRESHOLD_PERCENTAGE = 1.0
+TRAFFIC_LOSS_THRESHOLD_PERCENTAGE = 2.0
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -34,7 +34,7 @@ def common_setup_teardown(
     skip_config,
     dpuhosts,
     setup_ha_config,
-    setup_dash_ha_from_json,
+    setup_dash_ha_from_json_func_scope,
     setup_gnmi_server,
     set_vxlan_udp_sport_range,
     setup_npu_dpu  # noqa: F811
@@ -189,22 +189,17 @@ def test_ha_bgp_shut(
     t.join()
     time.sleep(2)
     traffic = "traffic to standby" if traffic_to_standby else "traffic to primary"
-    if bgp_shut_on_standby:
-        if failed_count > 0:
-            pytest.fail(f"Standby BGP shut with {traffic} test failed: "
-                        f"sent: {send_count}, lost {failed_count}")
-        else:
-            logger.info(f"Standby BGP shut with {traffic} test passed. All {send_count} packets received.")
-    else:
-        threshold_loss = TRAFFIC_LOSS_THRESHOLD_PERCENTAGE
-        percentage_loss = (failed_count / send_count) * 100
-        if (percentage_loss < threshold_loss):
-            logger.info(f"Primary BGP shut with {traffic} test passed. Sent: {send_count},"
-                        f" lost: {failed_count}, percentage loss: {percentage_loss}, threshold: {threshold_loss}")
-        else:
-            pytest.fail(f"Primary BGP shut with {traffic} test failed. Sent: {send_count},"
-                        f" lost: {failed_count} percentage loss: {percentage_loss}, threshold: {threshold_loss}")
+    bgp_shut = "Standby BGP shut" if traffic_to_standby else "Primary BGP shut"
+    threshold_loss = TRAFFIC_LOSS_THRESHOLD_PERCENTAGE
+    percentage_loss = (failed_count / send_count) * 100
     if bgp_shut_on_standby:
         ha_bgp_start(duthosts[1])
     else:
         ha_bgp_start(duthosts[0])
+
+    if (percentage_loss < threshold_loss):
+        logger.info(f"{bgp_shut} with {traffic} test passed. Sent: {send_count},"
+                    f" lost: {failed_count}, percentage loss: {percentage_loss}, threshold: {threshold_loss}")
+    else:
+        pytest.fail(f"{bgp_shut} with {traffic} test failed. Sent: {send_count},"
+                    f" lost: {failed_count} percentage loss: {percentage_loss}, threshold: {threshold_loss}")

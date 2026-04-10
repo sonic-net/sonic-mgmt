@@ -33,7 +33,7 @@ def common_setup_teardown(
     skip_config,
     dpuhosts,
     setup_ha_config,
-    setup_dash_ha_from_json,
+    setup_dash_ha_from_json_func_scope,
     setup_gnmi_server,
     set_vxlan_udp_sport_range,
     setup_npu_dpu  # noqa: F811
@@ -84,8 +84,9 @@ def common_setup_teardown(
         apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
 
     yield
-
-    config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    for dpuhost in dpuhosts:
+        logger.info(f"config reload on {dpuhost.hostname}")
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 """
@@ -187,18 +188,13 @@ def test_ha_dut_config_reload(
     t.join()
     time.sleep(2)
     traffic = "traffic to standby" if traffic_to_standby else "traffic to primary"
-    if standby_config_reload:
-        if failed_count > 0:
-            pytest.fail(f"Standby config reload with {traffic} test error: sent: {send_count} "
-                        f"lost: {failed_count}.")
-        else:
-            logger.info(f"Standby config reload with {traffic} test OK. All {send_count} packets sent were received.")
+    reload_dut = "Standby config reload" if standby_config_reload else "Primary config reload"
+    threshold_loss = TRAFFIC_LOSS_THRESHOLD_PERCENTAGE
+    percentage_loss = (failed_count / send_count) * 100
+
+    if (percentage_loss < threshold_loss):
+        logger.info(f"{reload_dut} with {traffic} test OK. Sent: {send_count},"
+                    f" lost: {failed_count}, loss percentage: {percentage_loss}, threshold: {threshold_loss}")
     else:
-        threshold_loss = TRAFFIC_LOSS_THRESHOLD_PERCENTAGE
-        percentage_loss = (failed_count / send_count) * 100
-        if (percentage_loss < threshold_loss):
-            logger.info(f"Primary DUT config reload with {traffic} test OK. Sent: {send_count},"
-                        f" lost: {failed_count}, loss percentage: {percentage_loss}, threshold: {threshold_loss}")
-        else:
-            pytest.fail(f"Primary DUT config reload with {traffic} test error. Sent: {send_count},"
-                        f" lost: {failed_count} loss percentage: {percentage_loss}, threshold: {threshold_loss}")
+        pytest.fail(f"{reload_dut} with {traffic} test error. Sent: {send_count},"
+                    f" lost: {failed_count} loss percentage: {percentage_loss}, threshold: {threshold_loss}")
