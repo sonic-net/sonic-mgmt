@@ -7,7 +7,7 @@
     "Arista-7060CX": ["Arista-7060CX-32S-C32", "Arista-7060CX-32S-D48C8"],
     "Arista-7260CX3": ["Arista-7260CX3-C64", "Arista-7260CX3-D108C8", "Arista-7260CX3-D108C10"],
     "Nokia-IXR7220": ["Nokia-IXR7220-H6-O256"],
-    "Cisco-C8220TG": ["Cisco-C8220TG-48A-O"]
+    "Cisco-C8220TG": ["Cisco-C8220TG-48A-O", "Cisco-C8220TG-G1S2"]
   },
   "COMMON": [
     {
