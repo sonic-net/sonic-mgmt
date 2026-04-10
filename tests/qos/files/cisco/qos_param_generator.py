@@ -682,7 +682,7 @@ class QosParamCisco(object):
                       "dscp_list": self.dscp_list,
                       "q_list": self.q_list,
                       "q_pkt_cnt": q_pkt_cnt,
-                      "limit": 80}
+                      "limit": 160}    # new higher limit from 202511 onwards, due to changes in image.
             self.write_params("wrr", params)
 
     def __define_wrr_chg(self):
@@ -705,7 +705,7 @@ class QosParamCisco(object):
                       "dscp_list": self.dscp_list,
                       "q_list": self.q_list,
                       "q_pkt_cnt": q_pkt_cnt,
-                      "limit": 80,
+                      "limit": 160,    # new higher limit from 202511 onwards, due to changes in image.
                       "lossy_weight": 8,
                       "lossless_weight": 30}
             self.write_params("wrr_chg", params)
