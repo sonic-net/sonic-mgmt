@@ -10,7 +10,6 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from tests.common.helpers.dut_utils import is_mellanox_fanout
-from tests.common.config_reload import config_reload
 from tests.common.utilities import parse_rif_counters, wait_until
 from tests.ip.ip_util import parse_interfaces, sum_ifaces_counts, random_mac
 
@@ -30,6 +29,9 @@ class TestIPPacket(object):
     # a number <= PKT_NUM * 0.1 can be considered as 0
     PKT_NUM_ZERO = PKT_NUM * 0.1
 
+    SEND_CHUNK_SIZE = 100
+    SEND_CHUNK_INTERVAL = 0.02
+
     @staticmethod
     def check_rx_ok(duthost, ingress_iface, pkt_num_min):
         """Check if the ingress port has received enough packets."""
@@ -37,23 +39,23 @@ class TestIPPacket(object):
         rx_ok = int(portstat_out[ingress_iface]["rx_ok"].replace(",", ""))
         return rx_ok >= pkt_num_min
 
+    def send_packets(self, duthost, ptfadapter, port_idx, pkt, count):
+        """Send packets, chunked with delay for VPP on KVM to avoid tx buffer overrun."""
+        if (duthost.facts["asic_type"] == "vpp"
+                and duthost.facts["platform"] == "x86_64-kvm_x86_64-r0"):
+            sent = 0
+            while sent < count:
+                chunk = min(self.SEND_CHUNK_SIZE, count - sent)
+                testutils.send(ptfadapter, port_idx, pkt, chunk)
+                sent += chunk
+                if sent < count:
+                    time.sleep(self.SEND_CHUNK_INTERVAL)
+        else:
+            testutils.send(ptfadapter, port_idx, pkt, count)
+
     @pytest.fixture(scope="class")
     def common_param(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
-        if duthost.facts["asic_type"] == "vpp":
-            duthost.shell(
-                "docker exec syncd sed -i "
-                "'/upd_startup \"dpdk {\"/a upd_startup \"\"\"\\n"
-                "\\tdev default {\\n"
-                "\\t    num-tx-desc 4096\\n"
-                "\\t}\\n"
-                "\\t\"\"\"' /usr/local/bin/vpp_init.sh"
-            )
-            config_reload(duthost, config_source='config_db', safe_reload=True, check_intf_up_ports=True)
-            result = duthost.shell("docker exec syncd vppctl show hardware-interfaces bobm26 | grep desc")
-            logger.info("VPP hardware-interfaces bobm26 desc: %s", result["stdout"])
-
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
         # generate peer_ip and port channel pair, be like:[("10.0.0.57", "PortChannel0001")]
@@ -173,7 +175,7 @@ class TestIPPacket(object):
             duthost.shell("docker exec syncd vppctl clear errors")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
@@ -252,7 +254,7 @@ class TestIPPacket(object):
             duthost.shell("docker exec syncd vppctl clear errors")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
@@ -333,7 +335,7 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Drop test: on some platforms packets are dropped at L2 so rx_ok never reaches PKT_NUM_MIN.
         # Use a short fixed sleep instead of wait_until to avoid a 30s timeout regression.
         time.sleep(5)
@@ -419,7 +421,7 @@ class TestIPPacket(object):
             duthost.shell("docker exec syncd vppctl clear errors")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
@@ -497,7 +499,7 @@ class TestIPPacket(object):
             duthost.shell("docker exec syncd vppctl clear errors")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
@@ -568,7 +570,7 @@ class TestIPPacket(object):
             duthost.shell("docker exec syncd vppctl clear errors")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
@@ -630,7 +632,7 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
@@ -691,7 +693,7 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Drop test: on some platforms packets are dropped at L2 so rx_ok never reaches PKT_NUM_MIN.
         # Use a short fixed sleep instead of wait_until to avoid a 30s timeout regression.
         time.sleep(5)
