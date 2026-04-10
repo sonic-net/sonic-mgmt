@@ -14,7 +14,7 @@ from .iface_loopback_action_helper import verify_interface_loopback_action
 from .iface_loopback_action_helper import verify_rif_tx_err_count, is_rif_counters_ready, check_ip_interface_up
 from .iface_loopback_action_helper import shutdown_rif_interfaces, startup_rif_interfaces
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from tests.common.mellanox_data import is_mellanox_device, get_reload_type_list
+from tests.common.helpers.dut_utils import get_random_reload_type
 
 
 pytestmark = [
@@ -108,9 +108,7 @@ def test_loopback_action_reload(request, duthost, localhost, ptfadapter, ports_c
 
         reboot_type = request.config.getoption("--rif_loopback_reboot_type")
         if reboot_type == "random":
-            reload_types = get_reload_type_list(duthost) if is_mellanox_device(duthost) \
-                else ["reload", "cold", "fast", "warm"]
-            reboot_type = random.choice(reload_types)
+            reboot_type = get_random_reload_type(duthost)
         if reboot_type == "reload":
             config_reload(duthost, safe_reload=True)
         else:

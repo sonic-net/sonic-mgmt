@@ -20,6 +20,8 @@ from tests.common.connections.base_console_conn import (
     CONSOLE_SSH_SONIC_CONFIG
 )
 import time
+from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled
+import random
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
@@ -877,6 +879,21 @@ def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request):
     ]
     duthost.shell_cmds(cmds=enable_nat_cmds)
     check_nat_is_enabled_and_set_cache(duthost, request)
+
+
+def get_random_reload_type(duthost):
+    """
+    Get a random reload type from the list of reload types
+    :param duthost: duthost object
+    :return: a random reload type
+    """
+    reload_types = ["reload", "cold", "fast", "warm"]
+    if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
+        logger.info("ISSU is not enabled on the Mellanox device, remove warm reboot from the list")
+        reload_types.remove("warm")
+    reboot_type = random.choice(reload_types)
+    logger.info(f"Selected reload type: {reboot_type}")
+    return reboot_type
 
 
 def migrate_container_systemd(duthost, service, parameters):

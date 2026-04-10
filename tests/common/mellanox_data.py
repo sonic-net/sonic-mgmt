@@ -1399,12 +1399,3 @@ def is_issu_enabled(duthost):
     logger.info(f"ISSU is enabled: {output == '1'}")
 
     return True if output == "1" else False
-
-
-def get_reload_type_list(duthost):
-    reload_types = ["reload", "cold", "fast", "warm"]
-    if not is_issu_enabled(duthost):
-        logger.info("ISSU is not enabled on the Mellanox device, remove warm reboot from the list")
-        reload_types.remove("warm")
-    logger.info(f"Reload types: {reload_types}")
-    return reload_types
