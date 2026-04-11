@@ -2,15 +2,44 @@
     "DEVICE_METADATA": {
         "localhost": {
             "bgp_asn": "65100",
+            "hostname": "dpu",
             "subtype": "SmartSwitch",
             "switch_type": "dpu",
             "type": "SmartSwitchDPU"
+        }
+    },
+    "FEATURE": {
+        "lldp": {
+            "state": "disabled"
+        },
+        "restapi": {
+            "state": "disabled"
+        },
+        "snmp": {
+            "state": "disabled"
+        }
+    },
+    "PORT": {
+        "Ethernet0": {
+            "admin_status": "up",
+            "alias": "etp1",
+            "autoneg": "off",
+            "dhcp_rate_limit": "300",
+            "fec": "rs",
+            "lanes": "0,1,2,3",
+            "mtu": "9100",
+            "speed": "200000"
         }
     },
     "GNMI": {
         "gnmi": {
             "log_level": "2",
             "port": "50052"
+        }
+    },
+    "SYSTEM_DEFAULTS": {
+        "software_bfd": {
+            "status": "enabled"
         }
     }
 }

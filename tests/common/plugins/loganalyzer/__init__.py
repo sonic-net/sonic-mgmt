@@ -134,3 +134,23 @@ def ignore_pkt_trim_errors(duthosts, loganalyzer):
                          r"[\d]+ packet trim Enum Capability values get for [\d]+ failed with error -2.*")
                     ]
                 )
+
+
+@pytest.fixture(autouse=True)
+def ignore_port_phy_attr_errors_on_vs(duthosts, loganalyzer):
+    """Ignore PORT_PHY_ATTR ERR on VS/KVM platforms.
+
+    VS SAI does not implement PHY attributes (RX_SIGNAL_DETECT,
+    FEC_ALIGNMENT_LOCK, RX_SNR), so orchagent logs ERR for every port.
+    Long-term fix tracked in sonic-net/sonic-swss#4242.
+    https://github.com/sonic-net/sonic-mgmt/issues/22510
+    """
+    if loganalyzer:
+        for duthost in duthosts:
+            if duthost.facts.get("asic_type") == "vs":
+                loganalyzer[duthost.hostname].ignore_regex.extend(
+                    [
+                        r".*ERR swss#orchagent.*verifyPortSupportsAllPhyAttr.*PORT_PHY_ATTR.*"
+                        r"does not support.*attribute.*"
+                    ]
+                )

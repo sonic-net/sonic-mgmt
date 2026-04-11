@@ -6,7 +6,7 @@
 #include "absl/flags/flag.h"
 #include "gtest/gtest.h"
 #include "absl/strings/string_view.h"
-#include "gutil/testing.h"
+#include "gutil/gutil/testing.h"
 #include "infrastructure/thinkit/ondatra_params.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "thinkit/mirror_testbed_fixture.h"

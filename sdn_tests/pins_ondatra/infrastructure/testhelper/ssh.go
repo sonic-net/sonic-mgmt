@@ -2,13 +2,11 @@ package testhelper
 
 import (
 	"fmt"
-	"time"
 	"net"
-
-	"os"
-
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
+	"os"
+	"time"
 )
 
 const (

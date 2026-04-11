@@ -11,6 +11,7 @@ The idea is
 import re
 import sys
 import time
+import socket
 from python_sdk_api.sx_api import *  # noqa: F401 F403
 import argparse
 import logging
@@ -250,8 +251,11 @@ def main():
 
     logger = logging.getLogger('MyLogger')
     logger.setLevel(logging.DEBUG)
-    # Configure logging
+    # Configure logging with hostname
     handler = logging.handlers.SysLogHandler(address=(args.rsyslog_server, 514))
+    handler.ident = 'pfc_gen: '
+    formatter = logging.Formatter('{} %(message)s'.format(socket.gethostname()))
+    handler.setFormatter(formatter)
     logger.addHandler(handler)
 
     if args.disable:

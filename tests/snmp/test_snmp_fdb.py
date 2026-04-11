@@ -21,7 +21,7 @@ from tests.common.helpers.assertions import pytest_assert
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', 'm1')
+    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 'c0')
 ]
 
 # Use original ports intead of sub interfaces for ptfadapter if it's t0-backend
@@ -176,5 +176,5 @@ def test_snmp_fdb_send_tagged(ptfadapter, duthosts, rand_one_dut_hostname,      
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
 
-    assert wait_until(60, 5, 0, check_snmp_facts, duthost, localhost, hostip, creds_all_duts,
+    assert wait_until(90, 5, 0, check_snmp_facts, duthost, localhost, hostip, creds_all_duts,
                       config_portchannels, send_cnt, send_portchannels_cnt), "SNMP facts validation failure"

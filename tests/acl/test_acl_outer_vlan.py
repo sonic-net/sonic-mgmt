@@ -296,12 +296,20 @@ def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_
     Returns:
         Acl counter value for packets
     """
-    # Wait for orchagent to update the ACL counters
-    time.sleep(timeout)
-    result = duthost.show_and_parse('aclshow -a')
+    def _check_acl_counter():
+        result = duthost.show_and_parse('aclshow -a')
+        if len(result) == 0:
+            return False
+        for rule in result:
+            if table_name == rule['table name'] and rule_name == rule['rule name']:
+                return True
+        return False
 
-    if len(result) == 0:
+    # Wait for orchagent to update the ACL counters
+    if not wait_until(timeout, 2, 0, _check_acl_counter):
         pytest.fail("Failed to retrieve acl counter for {}|{}".format(table_name, rule_name))
+
+    result = duthost.show_and_parse('aclshow -a')
     for rule in result:
         if table_name == rule['table name'] and rule_name == rule['rule name']:
             return int(rule['packets count'])
@@ -666,8 +674,11 @@ def skip_sonic_leaf_fanout(fanouthosts):
                 pytest.skip("OS Version of fanout is older than 202205, unsupported")
             asic_type = fanouthost.facts['asic_type']
             platform = fanouthost.facts["platform"]
-            if not (asic_type in ["broadcom", "mellanox", "cisco-8000"] or platform in ["armhf-nokia_ixs7215_52x-r0"]):
-                pytest.skip("Not supporteds on SONiC leaf-fanout platform")
+            if not (
+                asic_type in ["broadcom", "mellanox", "cisco-8000", "marvell", "marvell-teralynx"]
+                or platform in ["armhf-nokia_ixs7215_52x-r0"]
+            ):
+                pytest.skip("Not supported on SONiC leaf-fanout platform")
 
 
 class TestAclVlanOuter_Ingress(AclVlanOuterTest_Base):

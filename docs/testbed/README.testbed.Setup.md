@@ -248,7 +248,7 @@ Once you are in the docker container, you need to modify the testbed configurati
 
 You need to specify all physical connections that exist in the lab before deploying the fanout and running the tests.
 
-Please follow the "Testbed Physical Topology" section of the [Configuration Guide](README.testbed.Config.md) to prepare your lab connection graph file.
+Please follow the "Testbed Physical Topology" section of the [Configuration Guide](README.new.testbed.Configuration.md) to prepare your lab connection graph file.
 
 We are using Arista switches as the fanout switches in our lab. So, the playbook under `roles/fanout` is for deploying fanout (leaf) switch Vlan configurations on Arista devices only. If you are using other types of fanout switches, you can manually configure the Vlan configurations on the switch, or you can deploy a regular Layer-2 switch configuration.
 

@@ -14,6 +14,12 @@
   l47_version: 11.00.0.292
   chassis_ip: 10.1.1.4
   uhd_ip: 10.1.1.5
+  dpu_active_ip: 172.35.1.1
+  dpu_standby_ip: 172.35.1.2
+  dpu_active_mac: b0:8d:57:cd:36:ef
+  dpu_standby_mac: ec:19:2e:f1:ca:af
+  dpu_active_if: Ethernet224
+  dpu_standby_if: Ethernet240
   num_cps_cards: 8
   num_tcpbg_cards: 4
   num_udpbg_cards: 1
@@ -43,6 +49,7 @@
   vm_base:
   dut:
     - str3-8102-07
+    - str3-8102-08
   inv_name: snappi_sonic
   auto_recover: True
   is_smartswitch: True

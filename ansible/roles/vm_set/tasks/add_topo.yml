@@ -226,6 +226,9 @@
   - include_tasks: add_ceos_list.yml
     when: vm_type is defined and vm_type == "ceos"
 
+  - include_tasks: add_csonic_list.yml
+    when: vm_type is defined and (vm_type == "csonic")
+
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
     vm_topology:
       cmd: "bind"
@@ -252,6 +255,9 @@
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
+      multi_vrf: "{{ topo_is_multi_vrf }}"
+      multi_vrf_data: "{{ convergence_data|default({}) }}"
+      topo_config: "{{ configuration }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
     when: not enable_async
@@ -286,6 +292,9 @@
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
+      multi_vrf: "{{ topo_is_multi_vrf }}"
+      multi_vrf_data: "{{ convergence_data|default({}) }}"
+      topo_config: "{{ configuration }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
     async: 3600

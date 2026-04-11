@@ -47,6 +47,7 @@ class SnappiTestParams():
                                It can be "warm", "cold", "fast", or None. If set to None, then
                                no reboot is performed. (default: None)
             localhost (pytest fixture): localhost handle
+            flow_name_prio_map (dict): A mapping of flow names to their corresponding Priority values.
             num_tx_links (Optional[int]): number of transmission links from Ixia chassis. If provided, this will
                 be used to configure the testbed for the specified number of links.
             num_rx_links (Optional[int]): number of reception links from Ixia chassis. If provided, this will
@@ -73,6 +74,7 @@ class SnappiTestParams():
         self.traffic_flow_config: TrafficFlowConfig = TrafficFlowConfig()
         self.reboot_type = None
         self.localhost = None
+        self.flow_name_prio_map = {}
         self.num_tx_links: Optional[int] = 1
         self.num_rx_links: Optional[int] = 1
         self.tx_dscp_values: Optional[list[int]] = []

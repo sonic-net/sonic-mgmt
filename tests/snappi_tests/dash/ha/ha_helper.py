@@ -13,14 +13,21 @@ from collections import defaultdict
 
 import multiprocessing  # noqa: F401
 import threading
+import requests
 import re
 import time
+import json
 import logging
 
 logger = logging.getLogger(__name__)
 
 
-def run_ha_test(duthost, localhost, tbinfo, ha_test_case, passing_dpus, config_snappi_l47):
+def run_ha_test(duthosts, localhost, tbinfo, ha_test_case, config_npu_dpu, config_snappi_l47):
+
+    passing_dpus = config_npu_dpu[0]
+    # static_ipmacs_dict = config_npu_dpu[1]
+    # duthost1 = duthosts[0]
+    # duthost2 = duthosts[1]
 
     if config_snappi_l47['config_build']:
         api = config_snappi_l47['api']
@@ -34,41 +41,216 @@ def run_ha_test(duthost, localhost, tbinfo, ha_test_case, passing_dpus, config_s
         if ha_test_case == 'cps':
             api = run_cps_search(api, file_name, initial_cps_value, passing_dpus)
             logger.info("Test Ending")
+        elif ha_test_case == 'planned_switchover':
+            api = run_planned_switchover(duthosts, tbinfo, file_name, api, initial_cps_value)
+        elif ha_test_case == 'dpuloss':
+            api = run_dpuloss(duthosts, tbinfo, file_name, api, initial_cps_value)
     else:
         logger.info("Skipping running an HA test")
 
     return
 
 
-def ha_switchTraffic(duthost, ha_test_case):
+def is_smartswitch(duthost):
 
-    # Moves traffic to DPU2
-    ha_switch_config = (
-        "vtysh "
-        "-c 'configure' "
-        "-c 'ip route 221.0.0.1/32 18.0.202.1 10' "
-        "-c 'ip route 221.0.0.1/32 18.2.202.1 1' "
-        "-c 'exit' "
-    )
+    pattern = r'"subtype"\s*:\s*"SmartSwitch"'
+    result = duthost.shell('sonic-cfggen -d --var-json DEVICE_METADATA')
+    match = re.search(pattern, result['stdout'])
 
-    logger.info("HA switch shell 1")
-    duthost.shell(ha_switch_config)
+    logger.info(f"Checking if SONiC device {duthost.hostname} is a SmartSwitch")
+    if match:
+        # Found subtype is a SmartSwitch
+        logger.info(f"SONiC device {duthost.hostname} is a SmartSwitch")
+        return True
+    else:
+        logger.info(f"SONiC device {duthost.hostname} is not a SmartSwitch")
+        return False
 
-    # Sets traffic back to DPU0
-    ha_switch_config = (
-        "vtysh "
-        "-c 'configure' "
-        "-c 'no ip route 221.0.0.1/32 18.2.202.1 1' "
-        "-c 'ip route 221.0.0.1/32 18.0.202.1 1' "
-        "-c 'exit' "
-    )
-    logger.info("HA switch shell 4")
-    duthost.shell(ha_switch_config)
+
+def duthost_ha_config(duthost, tbinfo, static_ipmacs_dict, ha_test_case):
+
+    static_ips = static_ipmacs_dict['static_ips']
+
+    dpu_if_ips = {
+        'dpu1': {'loopback_ip': '',
+                 'if_ip': ''},
+        'dpu2': {'loopback_ip': '',
+                 'if_ip': ''}
+    }
+
+    if_ips_keys = [k for k in static_ips if k.startswith("221.1")]
+    if_ips_keys = sorted(if_ips_keys, key=lambda ip: int(ip.split('.')[-1]))
+    lb_ips = [k for k in static_ips if k.startswith("221.0.")]
+
+    dpu_if_ips['dpu1']['loopback_ip'] = lb_ips[0]
+    dpu_if_ips['dpu1']['if_ip'] = static_ips[if_ips_keys[0]]
+    dpu_if_ips['dpu2']['loopback_ip'] = lb_ips[2]
+    dpu_if_ips['dpu2']['if_ip'] = static_ips[if_ips_keys[2]]
+
+    if ha_test_case != 'cps':
+        dpu_active_ip = tbinfo['dpu_active_ip']
+        dpu_active_mac = tbinfo['dpu_active_mac']
+        dpu_active_if = tbinfo['dpu_active_if']
+        dpu_standby_ip = tbinfo['dpu_standby_ip']
+        dpu_standby_mac = tbinfo['dpu_standby_mac']
+        dpu_standby_if = tbinfo['dpu_standby_if']
+
+        logger.info('Configuring static routes for DPU1 and DPU2')
+        try:
+            duthost.shell('sudo ip route add {}/32 dev {}'.format(dpu_active_ip, dpu_active_if))
+            duthost.shell('sudo ip route add {}/32 dev {}'.format(dpu_standby_ip, dpu_standby_if))
+        except Exception as e:  # noqa: F841
+            pass
+
+        logger.info('Configuring static arps for DPU1 and DPU2')
+        duthost.shell('sudo arp -s {} {}'.format(dpu_active_ip, dpu_active_mac))
+        duthost.shell('sudo arp -s {} {}'.format(dpu_standby_ip, dpu_standby_mac))
+
+    return dpu_if_ips
+
+
+def ha_switchTraffic(tbinfo, switchover=True):
+
+    # The JSON payload equivalent to the config file
+    switchover_enable_config = {
+        "enable": True
+    }
+
+    switchover_disable_config = {
+        "enable": False
+    }
+
+    if switchover is True:
+        switchover_config = switchover_enable_config
+    else:
+        switchover_config = switchover_disable_config
+
+    api_path = "/connect/api/v1/control/operations/switchover"
+
+    headers = {
+        "Content-Type": "application/json"
+    }
+
+    try:
+        target_ip = tbinfo['uhd_ip']
+
+        # Construct the full URL
+        url = f"https://{target_ip}{api_path}"  # noqa: E231
+
+        logger.info("Executing switchover")
+        logger.info(f"Payload: {json.dumps(switchover_config, indent=2)}")
+
+        # Execute POST request (verify=False is equivalent to curl's -k flag)
+        response = requests.post(
+            url,
+            json=switchover_config,
+            headers=headers,
+            verify=False,
+            timeout=30
+        )
+
+        # Check response
+        logger.info(f"Switchover response status: {response.status_code}")
+        logger.info(f"Switchover response body: {response.text}")
+
+        if response.status_code in [200, 201, 202]:
+            logger.info("Switchover to successful")
+            return True
+        else:
+            logger.error(f"Switchover failed with status code: {response.status_code}")
+            return False
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Request error during switchover: {e}")
+        return False
+    except Exception as e:
+        logger.error(f"Error during switchover: {e}")
+        return False
+
+
+def power_off_dpu(duthost, dpu_id):
+
+    # For taking down links
+    # sudo config interface shutdown Ethernet-BP0
+    # sudo config interface startup Ethernet-BP0
+
+    # For powering down DPU
+    # sudo config chassis module shutdown <DPU id>
+    # sudo config chassis module startup <DPU id>
+    try:
+        # duthost.shell(f"sudo config interface shutdown {dpu_id}")
+        logger.info(f"Powering off DPU{dpu_id}")
+        duthost.shell(f"sudo config chassis module shutdown DPU{dpu_id}")
+    except Exception as e:
+        logger.error(f"Error powering off dpu{dpu_id}: {e}")
 
     return
 
 
-class TestPhase(Enum):
+def power_on_dpu(duthost, dpu_id):
+
+    # For taking down links
+    # sudo config interface shutdown Ethernet-BP0
+    # sudo config interface startup Ethernet-BP0
+
+    # For powering down DPU
+    # sudo config chassis module shutdown <DPU id>
+    # sudo config chassis module startup <DPU id>
+
+    try:
+        # duthost.shell(f"sudo config interface shutdown {dpu_id}")
+        logger.info(f"Powering on DPU{dpu_id}")
+        duthost.shell(f"sudo config chassis module startup DPU{dpu_id}")
+    except Exception as e:
+        logger.error(f"Error powering on dpu{dpu_id}: {e}")
+
+    return
+
+
+''''
+def ha_switchTraffic(duthost, dut_if_ips, traffic_direction='dpu2'):
+
+    ha_switch_config = ()
+    new_active = traffic_direction
+    new_standby = 'dpu1' if traffic_direction == 'dpu2' else 'dpu2'
+
+    dpu1_lb_ip = dut_if_ips['dpu1']['loopback_ip']
+    dpu1_if_ip = dut_if_ips['dpu1']['if_ip']
+    dpu2_lb_ip = dut_if_ips['dpu2']['loopback_ip']
+    dpu2_if_ip = dut_if_ips['dpu2']['if_ip']
+
+    import pdb; pdb.set_trace()
+
+    if traffic_direction == 'dpu2':
+        # Moves traffic to DPU2
+
+        ha_switch_config = (
+            "vtysh "
+            "-c 'configure terminal' "
+            f"-c 'ip route {dpu1_lb_ip}/32 {dpu1_if_ip} 10' "
+            f"-c 'ip route {dpu2_lb_ip}/32 {dpu2_if_ip} 1' "
+            "-c 'exit' "
+        )
+    else:
+        # Sets traffic back to DPU0
+        ha_switch_config = (
+            "vtysh "
+            "-c 'configure terminal' "
+            f"-c 'no ip route {dpu2_lb_ip}/32 {dpu2_if_ip} 1' "
+            f"-c 'ip route {dpu1_lb_ip}/32 {dpu1_if_ip} 1' "
+            "-c 'exit' "
+        )
+
+    logger.info(f"HA traffic moved from {new_standby} to {new_active}")
+
+    import pdb; pdb.set_trace()
+    duthost.shell(ha_switch_config)
+
+    return
+'''
+
+
+class HATestPhase(Enum):
     BEFORE_SWITCH = "before_switch"
     DURING_FIRST_SWITCH = "during_first_switch"
     AFTER_FIRST_SWITCH = "after_first_switch"
@@ -79,7 +261,7 @@ class TestPhase(Enum):
 class ContinuousMetricsCollector:
     def __init__(self, collection_interval=1):
         self.running = False
-        self.current_phase = TestPhase.BEFORE_SWITCH
+        self.current_phase = HATestPhase.BEFORE_SWITCH
         self.collection_interval = collection_interval
         self.metrics = defaultdict(list)
         self.thread = None
@@ -120,7 +302,7 @@ class ContinuousMetricsCollector:
         self.thread = threading.Thread(target=collect_metrics)
         self.thread.start()
 
-    def set_phase(self, phase: TestPhase):
+    def set_phase(self, phase: HATestPhase):
         with self._lock:
             self.current_phase = phase
 
@@ -129,7 +311,7 @@ class ContinuousMetricsCollector:
         if self.thread:
             self.thread.join()
 
-    def get_metrics(self) -> Dict[TestPhase, List]:
+    def get_metrics(self) -> Dict[HATestPhase, List]:
         with self._lock:
             return dict(self.metrics)
 
@@ -374,7 +556,7 @@ def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
         collector.start_collection(api, clientStat_req, serverStat_req)
         time.sleep(150)
 
-        collector.set_phase(TestPhase.AFTER_SECOND_SWITCH)
+        collector.set_phase(HATestPhase.AFTER_SECOND_SWITCH)
         time.sleep(60)
         collector.stop_collection()
 
@@ -383,9 +565,9 @@ def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
 
         pattern = r"- name:\s*([^\n]*)\n(.*?)(?=- name|\Z)"
 
-        stats_client_tmp = re.findall(pattern, str(all_metrics[TestPhase.AFTER_SECOND_SWITCH][0]['client_metrics']),
+        stats_client_tmp = re.findall(pattern, str(all_metrics[HATestPhase.AFTER_SECOND_SWITCH][0]['client_metrics']),
                                       re.DOTALL)
-        stats_server_tmp = re.findall(pattern, str(all_metrics[TestPhase.AFTER_SECOND_SWITCH][0]['server_metrics']),
+        stats_server_tmp = re.findall(pattern, str(all_metrics[HATestPhase.AFTER_SECOND_SWITCH][0]['server_metrics']),
                                       re.DOTALL)
 
         stats_client_result = {}
@@ -427,12 +609,6 @@ def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
         err_maxname, err_maxvalue = max(ret_rst_pairs, key=lambda p: p[1])
         error_percent = err_maxvalue/cps_objective_value  # noqa: F841
 
-        """
-        if (err_maxvalue < cps_max) and (error_percent <= error_threshold):
-            test = True
-        else:
-            test = False
-        """
         if cps_max < test_value:
             test = False
         else:
@@ -478,3 +654,278 @@ def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
         api.set_control_state(cs)
 
     return api
+
+
+def run_planned_switchover(duthosts, tbinfo, file_name, api, initial_cps_value):
+
+    # Setup metric collection
+    collector = ContinuousMetricsCollector(collection_interval=1)
+    clientStat_req = api.metrics_request()
+    serverStat_req = api.metrics_request()
+
+    activityList_url = "ixload/test/activeTest/communityList/0"
+    constraint_url = "ixload/test/activeTest/communityList/0/activityList/0"
+
+    try:
+        # Configure and start traffic
+        logger.info("Configuring traffic parameters...")
+        activityList_json = {  # noqa: F841
+            'totalUserObjectiveValue': initial_cps_value,
+            'userObjectiveType': 'connectionRate',
+        }
+
+        constriant_json = {  # noqa: F841
+            'enableConstraint': False
+        }
+
+        '''
+        activityList_json = {
+            'constraintType': 'ConnectionRateConstraint',
+            'constraintValue': initial_cps_value,
+            'enableConstraint': True,
+            'userObjectiveType': 'simulatedUsers',
+            'userObjectiveValue': 64500
+        }
+        '''
+        api.ixload_configure("patch", activityList_url, activityList_json)
+        api.ixload_configure("patch", constraint_url, constriant_json)
+        saveAs(api, file_name)
+
+        # Start traffic
+        logger.info("Starting traffic...")
+        cs = api.control_state()
+        cs.app.state = 'start'
+        api.set_control_state(cs)
+
+        # Give traffic time to start
+        logger.info("Waiting for traffic to initialize...")
+        time.sleep(10)
+
+        # Start metrics collection
+        logger.info("Starting metrics collection...")
+        collector.start_collection(api, clientStat_req, serverStat_req)
+
+        # Initial collection period
+        logger.info("Collecting initial metrics...")
+        time.sleep(30)
+
+        # First switchover
+        logger.info("Executing first switchover...")
+        collector.set_phase(HATestPhase.DURING_FIRST_SWITCH)
+        ha_switchTraffic(tbinfo, True)
+        # ha_switchTraffic(duthost, dpu_if_ips, 'dpu2')
+        collector.set_phase(HATestPhase.AFTER_FIRST_SWITCH)
+
+        # Stabilization period
+        logger.info("Waiting for stabilization...")
+        time.sleep(60)
+
+        # Second switchover
+        logger.info("Executing second switchover...")
+        collector.set_phase(HATestPhase.DURING_SECOND_SWITCH)
+        ha_switchTraffic(tbinfo, False)
+        # ha_switchTraffic(duthost, dpu_if_ips, 'dpu1')
+        collector.set_phase(HATestPhase.AFTER_SECOND_SWITCH)
+
+        # Final collection period
+        logger.info("Collecting final metrics...")
+        time.sleep(30)
+
+    finally:
+        # Stop collection and cleanup
+        logger.info("Stopping metrics collection...")
+        collector.stop_collection()
+
+        logger.info("Stopping traffic...")
+        cs.app.state = 'stop'
+        api.set_control_state(cs)
+
+    # Get and process metrics
+    all_metrics = collector.get_metrics()
+    logger.info(f"Collected metrics for {len(all_metrics)} phases")
+
+    pattern = r"- name:\s*([^\n]*)\n(.*?)(?=- name|\Z)"
+    stats_client_tmp = re.findall(pattern, str(all_metrics[HATestPhase.AFTER_SECOND_SWITCH][0]['client_metrics']),
+                                  re.DOTALL)
+    stats_server_tmp = re.findall(pattern, str(all_metrics[HATestPhase.AFTER_SECOND_SWITCH][0]['server_metrics']),
+                                  re.DOTALL)
+
+    stats_client_result = {}
+    for match in stats_client_tmp:
+        name = match[0].strip()
+        timestamp_id = re.findall(r"- timestamp_id:\s*'([^']*)'", match[1])
+        values = re.findall(r"value:\s*'([^']*)'", match[1])
+
+        if name not in stats_client_result:
+            stats_client_result[name] = {}
+
+        stats_client_result[name]['timestamp_ids'] = timestamp_id
+        stats_client_result[name]['values'] = values
+
+    stats_server_result = {}
+    for match in stats_server_tmp:
+        name = match[0].strip()
+        timestamp_id = re.findall(r"- timestamp_id:\s*'([^']*)'", match[1])
+        values = re.findall(r"value:\s*'([^']*)'", match[1])
+
+        if name not in stats_server_result:
+            stats_server_result[name] = {}
+
+        stats_server_result[name]['timestamp_ids'] = timestamp_id
+        stats_server_result[name]['values'] = values
+
+    cps_results = analyze_cps_performance(stats_client_result['Connection Rate']['timestamp_ids'],
+                                          stats_client_result['Connection Rate']['values'])
+
+    logger.info("\nPerformance Analysis:")
+    peak_performance = (f"{cps_results['peak_performance']['cps']} CPS @ "
+                        f"{cps_results['peak_performance']['time_ms']}ms").ljust(30)
+
+    # stable_performance = f"Stable Performance: {cps_results['stable_performance']['avg_cps']} CPS"
+    stable_performance = f"{cps_results['stable_performance']['avg_cps']} CPS".ljust(30)
+
+    if cps_results['failure_phase']['detected']:
+        failure_detected = (
+            f"{cps_results['failure_phase']['cps_at_failure']} CPS @ "
+            f"{cps_results['failure_phase']['time_ms']}ms").ljust(30)
+
+    else:
+        failure_detected = "No mid-test failure detected"
+
+    columns = ['Peak Performance', 'Stable Performance', 'Failure Detected']
+    testRun = [[peak_performance, stable_performance, failure_detected]]
+    table = tabulate(testRun, headers=columns, tablefmt='grid')
+    logger.info(table)
+
+    return
+
+
+def run_dpuloss(duthosts, tbinfo, file_name, api, initial_cps_value):
+
+    # DPU IDs, active is 0, standby is 1
+    dpu_active_id = 0
+    # dpu_standby_id = 1
+
+    duthost0 = duthosts[0]
+    # duthost1 = duthosts[1]
+
+    collector = ContinuousMetricsCollector(collection_interval=1)
+    clientStat_req = api.metrics_request()
+    serverStat_req = api.metrics_request()
+
+    try:
+        # Configure and start traffic
+        logger.info("Configuring traffic parameters...")
+        activityList_json = {
+            'constraintType': 'ConnectionRateConstraint',
+            'constraintValue': initial_cps_value,
+            'enableConstraint': False,
+        }
+        api.ixload_configure("patch", "ixload/test/activeTest/communityList/0/activityList/0", activityList_json)
+        saveAs(api, file_name)
+
+        # Start traffic
+        logger.info("Starting traffic...")
+        cs = api.control_state()
+        cs.app.state = 'start'
+        api.set_control_state(cs)
+
+        # Give traffic time to start
+        logger.info("Waiting for traffic to initialize...")
+        time.sleep(10)
+
+        # Start metrics collection
+        logger.info("Starting metrics collection...")
+        collector.start_collection(api, clientStat_req, serverStat_req)
+
+        # Initial collection period
+        logger.info("Collecting initial metrics...")
+        time.sleep(30)
+
+        # First switchover
+        logger.info("Executing first switchover...")
+        collector.set_phase(HATestPhase.DURING_FIRST_SWITCH)
+        power_off_dpu(duthost0, dpu_active_id)
+        time.sleep(1)
+        # ha_switchTraffic(duthost, dpu_if_ips, 'dpu2')
+        ha_switchTraffic(tbinfo, True)
+        collector.set_phase(HATestPhase.AFTER_FIRST_SWITCH)
+
+        # Stabilization period
+        logger.info("Waiting for stabilization...")
+        time.sleep(60)
+
+        # Final collection period
+        logger.info("Collecting final metrics...")
+        time.sleep(30)
+
+    finally:
+        # Stop collection and cleanup
+        logger.info("Stopping metrics collection...")
+        collector.stop_collection()
+
+        # ha_switchTraffic(duthost, dpu_if_ips, 'dpu1')
+        ha_switchTraffic(tbinfo, False)
+        power_on_dpu(duthost0, dpu_active_id)
+        logger.info("Stopping traffic...")
+        cs.app.state = 'stop'
+        api.set_control_state(cs)
+
+    # Get and process metrics
+    all_metrics = collector.get_metrics()
+    logger.info(f"Collected metrics for {len(all_metrics)} phases")
+
+    pattern = r"- name:\s*([^\n]*)\n(.*?)(?=- name|\Z)"
+    stats_client_tmp = re.findall(pattern, str(all_metrics[HATestPhase.AFTER_FIRST_SWITCH][0]['client_metrics']),
+                                  re.DOTALL)
+    stats_server_tmp = re.findall(pattern, str(all_metrics[HATestPhase.AFTER_FIRST_SWITCH][0]['server_metrics']),
+                                  re.DOTALL)
+
+    stats_client_result = {}
+    for match in stats_client_tmp:
+        name = match[0].strip()
+        timestamp_id = re.findall(r"- timestamp_id:\s*'([^']*)'", match[1])
+        values = re.findall(r"value:\s*'([^']*)'", match[1])
+
+        if name not in stats_client_result:
+            stats_client_result[name] = {}
+
+        stats_client_result[name]['timestamp_ids'] = timestamp_id
+        stats_client_result[name]['values'] = values
+
+    stats_server_result = {}
+    for match in stats_server_tmp:
+        name = match[0].strip()
+        timestamp_id = re.findall(r"- timestamp_id:\s*'([^']*)'", match[1])
+        values = re.findall(r"value:\s*'([^']*)'", match[1])
+
+        if name not in stats_server_result:
+            stats_server_result[name] = {}
+
+        stats_server_result[name]['timestamp_ids'] = timestamp_id
+        stats_server_result[name]['values'] = values
+
+    cps_results = analyze_cps_performance(stats_client_result['Connection Rate']['timestamp_ids'],
+                                          stats_client_result['Connection Rate']['values'])
+
+    logger.info("\nPerformance Analysis:")
+    peak_performance = (f"{cps_results['peak_performance']['cps']} CPS @ "
+                        f"{cps_results['peak_performance']['time_ms']}ms").ljust(30)
+
+    # stable_performance = f"Stable Performance: {cps_results['stable_performance']['avg_cps']} CPS"
+    stable_performance = f"{cps_results['stable_performance']['avg_cps']} CPS".ljust(30)
+
+    if cps_results['failure_phase']['detected']:
+        failure_detected = (
+            f"{cps_results['failure_phase']['cps_at_failure']} CPS @ "
+            f"{cps_results['failure_phase']['time_ms']}ms").ljust(30)
+
+    else:
+        failure_detected = "No mid-test failure detected"
+
+    columns = ['Peak Performance', 'Stable Performance', 'Failure Detected']
+    testRun = [[peak_performance, stable_performance, failure_detected]]
+    table = tabulate(testRun, headers=columns, tablefmt='grid')
+    logger.info(table)
+
+    return

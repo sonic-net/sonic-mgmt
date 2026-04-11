@@ -10,6 +10,7 @@ from ptf import mask, packet
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import paramiko_ssh
+from tests.common.utilities import is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
 
@@ -61,11 +62,16 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
     """
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     is_backend_topo = 'backend' in tbinfo['topo']['name']
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
+
+    def is_matching_ip_version(ip_addr):
+        return ((is_v6_topo and ipaddress.ip_address(ip_addr).version == 6) or
+                (not is_v6_topo and ipaddress.ip_address(ip_addr).version == 4))
 
     # generate peer_ip and port channel pair, be like:[("10.0.0.57", "PortChannel0001")]
     peer_ip_pc_pair = [(pc["peer_addr"], pc["attachto"]) for pc in mg_facts["minigraph_portchannel_interfaces"]
                        if
-                       ipaddress.ip_address(pc['peer_addr']).version == 4]
+                       is_matching_ip_version(pc['peer_addr'])]
 
     pc_ports_map = {pair[1]: mg_facts["minigraph_portchannels"][pair[1]]["members"] for pair in
                     peer_ip_pc_pair}
@@ -74,14 +80,14 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
         # generate peer_ip and subinterfaces pair ex. [("10.0.0.57", ["Ethernet48.10"])]
         peer_ip_ifaces_pair = [(subintf_info["peer_addr"], [subintf_info["attachto"]]) for subintf_info in
                                mg_facts["minigraph_vlan_sub_interfaces"]
-                               if ipaddress.ip_address(subintf_info['peer_addr']).version == 4]
+                               if is_matching_ip_version(subintf_info['peer_addr'])]
 
     elif len(mg_facts["minigraph_interfaces"]) >= 2:
         # generate peer_ip and interfaces pair,
         # be like:[("10.0.0.57", ["Ethernet48"])]
         peer_ip_ifaces_pair = [(intf["peer_addr"], [intf["attachto"]]) for intf in mg_facts["minigraph_interfaces"]
                                if
-                               ipaddress.ip_address(intf['peer_addr']).version == 4]
+                               is_matching_ip_version(intf['peer_addr'])]
 
     else:
         # generate peer_ip and interfaces(port channel members) pair,
@@ -110,21 +116,32 @@ def construct_packet_and_get_params(duthost, ptfadapter, tbinfo):
         logger.info("Show rif counters failed with exception: {}".format(repr(e)))
         rif_support = False
 
-    pkt = testutils.simple_ip_packet(
-        eth_dst=router_mac,
-        eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
-        ip_src=peer_ip_ifaces_pair[0][0],
-        ip_dst=peer_ip_ifaces_pair[1][0])
+    if is_v6_topo:
+        pkt = testutils.simple_ipv6ip_packet(
+            eth_dst=router_mac,
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
+            ipv6_src=peer_ip_ifaces_pair[0][0],
+            ipv6_dst=peer_ip_ifaces_pair[1][0])
+    else:
+        pkt = testutils.simple_ip_packet(
+            eth_dst=router_mac,
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
+            ip_src=peer_ip_ifaces_pair[0][0],
+            ip_dst=peer_ip_ifaces_pair[1][0])
 
     exp_pkt = pkt.copy()
-    exp_pkt.payload.ttl = pkt.payload.ttl - 1
+    if is_v6_topo:
+        exp_pkt.payload.hlim = pkt.payload.hlim - 1
+    else:
+        exp_pkt.payload.ttl = pkt.payload.ttl - 1
     exp_pkt = mask.Mask(exp_pkt)
 
     exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
     exp_pkt.set_do_not_care_scapy(packet.Ether, 'src')
 
     out_rif_ifaces, out_ifaces = parse_interfaces(
-        duthost.command("show ip route %s" % peer_ip_ifaces_pair[1][0])["stdout_lines"],
+        duthost.command("show %s route %s" % ("ipv6" if is_v6_topo else "ip",
+                                              peer_ip_ifaces_pair[1][0]))["stdout_lines"],
         pc_ports_map)
 
     # map() in Python2 returns list object but in Python3 returns map object,
