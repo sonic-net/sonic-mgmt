@@ -639,7 +639,17 @@ class GenerateGoldenConfigDBModule(object):
 
         sonic_cfggen does not parse ZebraNexthop from minigraph, so we read
         the XML directly and set it via the golden_config_db override mechanism.
+
+        Only injects the value if the installed YANG model supports zebra_nexthop
+        (older KVM images may not have this leaf, causing YANG validation failures).
         """
+        # Check if the installed YANG schema supports zebra_nexthop before injecting.
+        # Older images may lack this leaf, causing load_minigraph --override_config to
+        # fail YANG validation. This mirrors the pattern used in update_zmq_config().
+        rc, yang_content, _ = self.module.run_command(
+            "sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
+        if rc != 0 or "zebra_nexthop" not in yang_content:
+            return config
         zebra_nexthop = self._parse_zebra_nexthop_from_minigraph()
         if zebra_nexthop is None:
             return config
