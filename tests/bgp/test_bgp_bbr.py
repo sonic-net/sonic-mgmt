@@ -9,7 +9,6 @@ from collections import namedtuple
 
 import pytest
 import requests
-import yaml
 import ipaddr as ipaddress
 
 from jinja2 import Template
@@ -25,6 +24,8 @@ from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.eos import EosHost
+
+from bgp_bbr_helpers import get_bbr_default_state, config_bbr_by_gcu
 
 
 pytestmark = [
@@ -78,30 +79,7 @@ def add_bbr_config_to_running_config(duthost, status):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
-
-    tmpfile = generate_tmpfile(duthost)
-    logger.info("tmpfile {}".format(tmpfile))
-
-    try:
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
-
-    time.sleep(3)
-
-
-def config_bbr_by_gcu(duthost, status):
-    logger.info('Config BGP_BBR by GCU cmd')
-    json_patch = [
-        {
-            "op": "replace",
-            "path": "/BGP_BBR/all/status",
-            "value": "{}".format(status)
-        }
-    ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -159,30 +137,6 @@ def config_bbr_enabled(duthosts, setup, rand_one_dut_hostname, restore_bbr_defau
     enable_bbr(duthost, setup['tor1_namespace'])
 
 
-def get_bbr_default_state(duthost):
-    bbr_supported = False
-    bbr_default_state = 'disabled'
-
-    # Check BBR configuration from config_db first
-    bbr_config_db_exist = int(duthost.shell('redis-cli -n 4 HEXISTS "BGP_BBR|all" "status"')["stdout"])
-    if bbr_config_db_exist:
-        # key exist, BBR is supported
-        bbr_supported = True
-        bbr_default_state = duthost.shell('redis-cli -n 4 HGET "BGP_BBR|all" "status"')["stdout"]
-    else:
-        # Check BBR configuration from constants.yml
-        constants = yaml.safe_load(duthost.shell('cat {}'.format(CONSTANTS_FILE))['stdout'])
-        try:
-            bbr_supported = constants['constants']['bgp']['bbr']['enabled']
-            if not bbr_supported:
-                return bbr_supported, bbr_default_state
-            bbr_default_state = constants['constants']['bgp']['bbr']['default_state']
-        except KeyError:
-            return bbr_supported, bbr_default_state
-
-    return bbr_supported, bbr_default_state
-
-
 @pytest.fixture(scope='module')
 def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     duthost = duthosts[rand_one_dut_hostname]
@@ -197,6 +151,8 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
+    nhipv4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
+    nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
     tor_neighbors = natsorted([neighbor for neighbor in list(nbrhosts.keys()) if neighbor.endswith('T0')])
     tor1 = tor_neighbors[0]
 
@@ -234,12 +190,18 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     aspath_dual_dut_asn = '{} {} {} {}'.format(dut_asn, DUMMY_ASN1, dut_asn, DUMMY_ASN2)
 
     Route = namedtuple('Route', ['prefix', 'nexthop', 'aspath'])
+    '''
+    tor1's peer_addr is nothing but DUT's interface IP. Sending with DUT's IP as nexthop
+    will be treated as martian route and it will be dropped.  Even if we use
+    allow-martian-nexthop feature, it will be received by DUT, but it will  not
+    be installed in FIB and advertised to other neighbors.  This will lead both DUT check
+    and other_vms check to fail. Hence, exabgp ip is used as nexthop.
+    '''
+    bbr_route = Route(BBR_PREFIX, nhipv4, aspath)
+    bbr_route_v6 = Route(BBR_PREFIX_V6, nhipv6, aspath)
 
-    bbr_route = Route(BBR_PREFIX, neigh_peer_map[tor1]['peer_addr'], aspath)
-    bbr_route_v6 = Route(BBR_PREFIX_V6, neigh_peer_map[tor1]['peer_addr_v6'], aspath)
-
-    bbr_route_dual_dut_asn = Route(BBR_PREFIX, neigh_peer_map[tor1]['peer_addr'], aspath_dual_dut_asn)
-    bbr_route_v6_dual_dut_asn = Route(BBR_PREFIX_V6, neigh_peer_map[tor1]['peer_addr_v6'], aspath_dual_dut_asn)
+    bbr_route_dual_dut_asn = Route(BBR_PREFIX, nhipv4, aspath_dual_dut_asn)
+    bbr_route_v6_dual_dut_asn = Route(BBR_PREFIX_V6, nhipv6, aspath_dual_dut_asn)
 
     setup_info = {
         'bbr_default_state': bbr_default_state,
@@ -314,16 +276,28 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
         # Check route on tor1
         logger.info('Check route for prefix {} on {}'.format(route.prefix, tor1))
         tor1_route = nbrhosts[tor1]['host'].get_route(route.prefix)
-        if route.prefix not in list(tor1_route['vrfs']['default']['bgpRouteEntries'].keys()):
-            logging.warning('No route for {} found on {}'.format(route.prefix, tor1))
-            return False
-        tor1_route_aspath = tor1_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
-            ['asPathEntry']['asPath']   # noqa E211
-        if not tor1_route_aspath == route.aspath:
-            logging.warning(
-                'On {} expected aspath: {}, actual aspath: {}'.format(tor1, route.aspath, tor1_route_aspath)
-            )
 
+        if isinstance(nbrhosts[tor1]['host'], EosHost):
+            if route.prefix not in list(tor1_route['vrfs']['default']['bgpRouteEntries'].keys()):
+                logging.warning('No route for {} found on {}'.format(route.prefix, tor1))
+                return False
+            tor1_route_aspath = tor1_route['vrfs']['default']['bgpRouteEntries'][route.prefix]['bgpRoutePaths'][0]\
+                ['asPathEntry']['asPath']   # noqa E211
+            if not tor1_route_aspath == route.aspath:
+                logging.warning('On {} expected aspath: {}, actual aspath: {}'.format(
+                    tor1, route.aspath, tor1_route_aspath))
+                return False
+        elif isinstance(nbrhosts[tor1]['host'], SonicHost):
+            if not tor1_route:
+                logging.warning('No route for {} found on {}'.format(route.prefix, tor1))
+                return False
+            tor1_route_aspath = tor1_route['paths'][0]['aspath']['string']
+            if not tor1_route_aspath == route.aspath:
+                logging.warning('On {} expected aspath: {}, actual aspath: {}'.format(
+                    tor1, route.aspath, tor1_route_aspath))
+                return False
+        else:
+            logging.error('Unknown host type {} for {}'.format(type(nbrhosts[tor1]['host']), tor1))
             return False
         return True
 
@@ -362,7 +336,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
                     logging.warning("DUT didn't advertise route to neighbor %s" % vm)
                     return False
         else:
-            if dut_route:
+            if dut_route and 'paths' in dut_route:
                 logging.warning('Prefix {} should not be accepted by DUT'.format(route.prefix))
         return True
 
@@ -501,9 +475,10 @@ def test_bbr_status_consistent_after_reload(duthosts, rand_one_dut_hostname, set
     pytest_assert(bbr_status_after_reload == bbr_status, "BGP BBR status is not consistent after config reload")
 
     # Check if BBR is enabled or disabled using the running configuration
-    bbr_status_running_config = duthost.shell("show runningconfiguration bgp | grep allowas", module_ignore_errors=True)\
-        ['stdout'] # noqa E211
+    bbr_status_running_config = duthost.shell(
+        "show runningconfiguration bgp | grep allowas", module_ignore_errors=True)['stdout']    # noqa:E211
     if bbr_status == 'enabled':
         pytest_assert('allowas-in' in bbr_status_running_config, "BGP BBR is not enabled in running configuration")
     else:
-        pytest_assert('allowas-in' not in bbr_status_running_config, "BGP BBR is not disabled in running configuration")
+        pytest_assert('allowas-in' not in bbr_status_running_config,
+                      "BGP BBR is not disabled in running configuration")
