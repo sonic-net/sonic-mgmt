@@ -37,6 +37,7 @@ from switch import (switch_init,          # noqa F401
                     sai_thrift_read_pg_counters,
                     sai_thrift_read_pg_drop_counters,
                     sai_thrift_read_pg_shared_watermark,
+                    sai_thrift_clear_buffer_pool_watermark,
                     sai_thrift_read_buffer_pool_watermark,
                     sai_thrift_read_headroom_pool_watermark,
                     sai_thrift_read_queue_occupancy,
@@ -6450,6 +6451,7 @@ class BufferPoolWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # Some small amount of memory is always occupied
             # We use dst client for cisco 8000.
             client_to_use = self.dst_client
+            sai_thrift_clear_buffer_pool_watermark(client_to_use, buf_pool_roid)
             buffer_pool_wm_base = sai_thrift_read_buffer_pool_watermark(
                 client_to_use, buf_pool_roid)
         else:
