@@ -14,6 +14,39 @@ from spytest import st
 
 import tortuga_common_utils as common_obj
 
+# Inbound route-map changes are asynchronous (FRR route-map delay + route refresh;
+# paths may be stale until peer UPDATEs are reprocessed).
+BGP_RMAP_COMMUNITY_POLL_TIMEOUT_SEC = 30
+BGP_RMAP_COMMUNITY_POLL_INTERVAL_SEC = 1.0
+
+# FRR neighbor detail includes Message stats (Updates, Route refresh sent/rcvd, etc.)
+# leaf0 -> spine at 10.1.3.1; spine0 -> leaf at 10.1.3.3 (see bgp_cfg.yaml)
+BGP_RMAP_DIAG_NEIGHBOR_LEAF_TO_SPINE = (
+    "vtysh -c 'show bgp ipv4 unicast neighbors 10.1.3.1'"
+)
+BGP_RMAP_DIAG_NEIGHBOR_SPINE_TO_LEAF = (
+    "vtysh -c 'show bgp ipv4 unicast neighbors 10.1.3.3'"
+)
+
+
+def _log_bgp_vtysh_diag(dut, title, vtysh_cmd):
+    body = st.show(dut, vtysh_cmd, skip_tmpl=True, skip_error_check=True)
+    st.log("BGP diagnostics [{}]: {}".format(title, body or "(no output)"))
+
+
+def _log_bgp_ft_rmap_peer_stats(nodes, title):
+    """Both eBGP directions for test_ft_bgp_rmap (leaf<->spine)."""
+    _log_bgp_vtysh_diag(
+        nodes["leaf0"],
+        "{} [leaf0 neighbor 10.1.3.1]".format(title),
+        BGP_RMAP_DIAG_NEIGHBOR_LEAF_TO_SPINE,
+    )
+    _log_bgp_vtysh_diag(
+        nodes["spine0"],
+        "{} [spine0 neighbor 10.1.3.3]".format(title),
+        BGP_RMAP_DIAG_NEIGHBOR_SPINE_TO_LEAF,
+    )
+
 pytest.fixture(scope='module', autouse=True)
 def box_service_module_hooks(request):
     global vars
@@ -93,6 +126,11 @@ def test_ft_bgp_rmap(setup_teardown_bgp):
         parsed_output = st.vtysh_show(nodes['leaf0'], cmd)
 
         if not parsed_output:
+            _log_bgp_vtysh_diag(
+                nodes["leaf0"],
+                "test_ft_bgp_rmap: vtysh_show returned no data",
+                BGP_RMAP_DIAG_NEIGHBOR_LEAF_TO_SPINE,
+            )
             st.report_fail("test_case_failed", nodes['leaf0'])
 
         if parsed_output[0]['state'] != 'Established':
@@ -102,6 +140,11 @@ def test_ft_bgp_rmap(setup_teardown_bgp):
             break
 
     if parsed_output[0]['state'] != 'Established':
+        _log_bgp_vtysh_diag(
+            nodes["leaf0"],
+            "test_ft_bgp_rmap: peer not Established after retries",
+            BGP_RMAP_DIAG_NEIGHBOR_LEAF_TO_SPINE,
+        )
         st.report_fail("test_case_failed", nodes['leaf0'])
 
     cmds = ['router bgp 3003',
@@ -116,6 +159,9 @@ def test_ft_bgp_rmap(setup_teardown_bgp):
         if path['ip_address'] == "134.5.6.0/24":
             break
     else:
+        _log_bgp_ft_rmap_peer_stats(
+            nodes, "test_ft_bgp_rmap: 134.5.6.0/24 missing on spine after network"
+        )
         st.report_fail("test_case_failed", nodes['spine0'])
 
     cmds = ['access-list test-access-list1 seq 5 deny 134.5.6.0/24',
@@ -132,6 +178,10 @@ def test_ft_bgp_rmap(setup_teardown_bgp):
     parsed_output = st.parse_show(nodes['spine0'], cmd, cmd_output, 'show_ip_route.tmpl')
     for path in parsed_output:
         if path['ip_address'] == "134.5.6.0/24":
+            _log_bgp_ft_rmap_peer_stats(
+                nodes,
+                "test_ft_bgp_rmap: 134.5.6.0/24 still on spine after deny route-map",
+            )
             st.report_fail("test_case_failed", nodes['spine0'])
 
     cmds = ['no route-map test-rmap deny 10',
@@ -145,6 +195,9 @@ def test_ft_bgp_rmap(setup_teardown_bgp):
 def test_bgp_route_map_with_community(setup_teardown_bgp):
     """
     Verify functioning of route-map to filter incoming IPv4 prefix(s)
+
+    Community is visible only after inbound policy is reapplied on refreshed
+    routes; poll until present (see module constants).
     """
     vars = st.get_testbed_vars()
     nodes = {}
@@ -165,11 +218,22 @@ def test_bgp_route_map_with_community(setup_teardown_bgp):
     common_obj.config_frr(nodes['leaf0'], cmds)
 
     cmd = "vtysh -c 'show bgp ipv4 40.1.1.1/32'"
-    cmd_output = st.config(nodes['leaf0'], cmd)
-    parsed_output = st.parse_show(nodes['leaf0'], cmd, cmd_output, 'show_bgp_ipv4_prefix.tmpl')
-    for path in parsed_output:
-        if path['community'] != '100:100':
-            st.report_fail("test_case_failed", nodes['spine0'])
+    deadline = time.time() + BGP_RMAP_COMMUNITY_POLL_TIMEOUT_SEC
+    community_ok = False
+    while time.time() < deadline:
+        cmd_output = st.config(nodes['leaf0'], cmd)
+        parsed_output = st.parse_show(
+            nodes['leaf0'], cmd, cmd_output, 'show_bgp_ipv4_prefix.tmpl'
+        )
+        for path in parsed_output:
+            if path.get('community') == '100:100':
+                community_ok = True
+                break
+        if community_ok:
+            break
+        time.sleep(BGP_RMAP_COMMUNITY_POLL_INTERVAL_SEC)
+    if not community_ok:
+        st.report_fail("test_case_failed", nodes['spine0'])
 
     cmd = 'no route-map rmap1 permit 10'
     common_obj.config_frr(nodes['leaf0'], cmd)

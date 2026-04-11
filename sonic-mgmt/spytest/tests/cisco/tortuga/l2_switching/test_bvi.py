@@ -10,12 +10,15 @@ import apis.switching.portchannel as portchannel_obj
 import apis.switching.mac as mac_obj
 import tortuga_common_utils as common_obj
 from fabric_l2_debug import (
+    fabric_bvi_log_pre_second_l2_l3_burst,
+    fabric_failure_bvi_svi_with_counters,
     fabric_l2_debug_enabled,
+    fabric_log_bounded_traffic_snapshot,
     fabric_snapshot_duts,
-    fabric_snapshot_pre_traffic_state,
-    fabric_snapshot_post_traffic_npu,
-    fabric_wait_counterpoll_interface_refresh,
     fabric_snapshot_post_traffic_counters,
+    fabric_snapshot_post_traffic_npu,
+    fabric_snapshot_pre_traffic_state,
+    fabric_wait_counterpoll_interface_refresh,
 )
 
 data_glob = SpyTestDict()
@@ -27,6 +30,7 @@ data_glob.vlan_ipv6 = ['100:0:1::10/64', '100:0:2::20/64']
 data_glob.mac_aging_time_orig = 600
 data_glob.mac_aging_time_new = 120
 data_glob.pre_config = False   #This var allows yaml pre configs
+
 
 @pytest.fixture(scope='function', autouse=True)
 def bvi_func_hooks(request):
@@ -127,6 +131,7 @@ data_vid_20.tgen_rate_pps = '1000'
 data_vid_20.tgen_l3_len = '500'
 data_vid_20.traffic_run_time = 5
 ##L2 stream config
+
 
 ####################
 #                  #
@@ -266,7 +271,7 @@ def test_v4_intra_vlan_with_config_unconfig_and_new_mac_advertisement(setup_tear
     dut_list = [data_glob.spine0, data_glob.leaf0, data_glob.leaf1]
     for dut in dut_list:
         common_obj.update_mac_aging(dut, data_glob.mac_aging_time_new, verify=True)
-    
+
     #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'unicast',True, is_l2=True)
@@ -288,7 +293,7 @@ def test_v4_intra_vlan_with_config_unconfig_and_new_mac_advertisement(setup_tear
         st.report_fail('config_cmd_error', "{} ipv4 address delete".format(data_glob.vlan_intf[0])) 
     if not ip_obj.config_unconfig_interface_ip_addresses(data_glob.leaf0, [if_data] , config='add'):
         st.report_fail('config_cmd_error', "{} ipv4 address add".format(data_glob.vlan_intf[0])) 
-        
+
     #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
@@ -358,15 +363,39 @@ def test_v4_intra_vlan_with_config_unconfig_and_new_mac_advertisement(setup_tear
 # Unconfig/Config the Vlan interface and verify L2<--->L3 traffic again
 # Tgen Stream : 100.0.1.1 (T1D3P1) <------> 11.1.1.2 (T1D4P2)
 def test_bvi_v4_l2_l3_with_config_unconfig(setup_teardown_bvi_bd):
-    
+    vars = st.get_testbed_vars()
+    fabric_dbg = fabric_l2_debug_enabled(vars=vars)
+    all_duts = fabric_snapshot_duts(vars) if fabric_dbg else []
+
     #leaf0 (100.0.1.1) -----> leaf1(11.1.1.2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_l3, "T1D3P1", "T1D4P2", 'unicast',True)
+    if fabric_dbg:
+        fabric_snapshot_pre_traffic_state(
+            all_duts,
+            log_tag="BVI L2/L3 v4: pre 1st traffic",
+        )
     common_obj.traffic_start(handles, data_vid_10, data_l3)
     common_obj.traffic_stop(handles, mode="burst")
+    if fabric_dbg:
+        fabric_snapshot_post_traffic_npu(
+            all_duts,
+            log_tag="BVI L2/L3 v4: post 1st traffic NPU",
+        )
+        fabric_wait_counterpoll_interface_refresh(10)
+        fabric_snapshot_post_traffic_counters(vars)
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_l3):
         st.log("Traffic verification for L2 <-> L3 Passed")
     else:
+        if fabric_dbg:
+            fabric_failure_bvi_svi_with_counters(
+                vars,
+                "BVI L2/L3 v4: FAILED 1st traffic_test_check",
+                data_glob,
+                data_vid_10,
+                include_l3_arp=True,
+                data_l3=data_l3,
+            )
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "for L2 <-> L3")
 
@@ -376,6 +405,15 @@ def test_bvi_v4_l2_l3_with_config_unconfig(setup_teardown_bvi_bd):
     if common_obj.check_rif_counters(data_glob.leaf0, data_glob.vlan_intf[0], rx_ok=rx_count, tx_ok=tx_count):
         st.log("RIF counters verified successfully for Vlan10 intf")
     else:
+        if fabric_dbg:
+            fabric_failure_bvi_svi_with_counters(
+                vars,
+                "BVI L2/L3 v4: RIF counter verify failed",
+                data_glob,
+                data_vid_10,
+                include_l3_arp=True,
+                data_l3=data_l3,
+            )
         st.report_fail('msg', "RIF counters verification failed for Vlan10 intf")
 
     #remove and add back vlan interface 
@@ -385,17 +423,86 @@ def test_bvi_v4_l2_l3_with_config_unconfig(setup_teardown_bvi_bd):
                  'family': "ipv4"
               }
     if not ip_obj.config_unconfig_interface_ip_addresses(data_glob.leaf0, [if_data] , config='remove'):
+        if fabric_dbg:
+            fabric_failure_bvi_svi_with_counters(
+                vars,
+                "BVI L2/L3 v4: SVI ipv4 remove failed",
+                data_glob,
+                data_vid_10,
+                include_l3_arp=True,
+                data_l3=data_l3,
+            )
         st.report_fail('config_cmd_error', "{} ipv4 address delete".format(data_glob.vlan_intf[0])) 
     if not ip_obj.config_unconfig_interface_ip_addresses(data_glob.leaf0, [if_data] , config='add'):
+        if fabric_dbg:
+            fabric_failure_bvi_svi_with_counters(
+                vars,
+                "BVI L2/L3 v4: SVI ipv4 re-add failed",
+                data_glob,
+                data_vid_10,
+                include_l3_arp=True,
+                data_l3=data_l3,
+            )
         st.report_fail('config_cmd_error', "{} ipv4 address add".format(data_glob.vlan_intf[0]))
-        
+
+    # c-master only: SVI/ARP + vlan/mac/NPU snapshot before 2nd burst
+    if fabric_dbg:
+        fabric_bvi_log_pre_second_l2_l3_burst(
+            data_glob,
+            data_vid_10,
+            data_l3,
+            log_tag="BVI L2/L3 v4: after SVI re-add, BEFORE 2nd traffic_start",
+        )
+        fabric_snapshot_pre_traffic_state(
+            all_duts,
+            log_tag="BVI L2/L3 v4: after SVI re-add, pre 2nd traffic",
+        )
+
     #leaf0 (100.0.1.1) -----> leaf1(11.1.1.2)
     #traffic check
+    st.log("BVI L2/L3 v4: starting 2nd traffic burst (post-SVI flap)")
     common_obj.traffic_start(handles, data_vid_10, data_l3)
     common_obj.traffic_stop(handles, mode="burst")
+    # c-master only: NPU + RIF/interface counters + bounded TGEN snapshot before check
+    if fabric_dbg:
+        fabric_snapshot_post_traffic_npu(
+            all_duts,
+            log_tag="BVI L2/L3 v4: post 2nd traffic NPU",
+        )
+        fabric_wait_counterpoll_interface_refresh(10)
+        fabric_snapshot_post_traffic_counters(vars)
+        fabric_log_bounded_traffic_snapshot(
+            handles,
+            "T1D3P1",
+            "T1D4P2",
+            data_vid_10,
+            data_l3,
+            log_tag="BVI L2/L3 v4: after 2nd burst, BEFORE traffic_test_check",
+        )
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P2', data_vid_10, data_l3):
         st.log("Traffic verification for L2 <-> L3 after removing/adding vlan interface Passed")
     else:
+        st.banner(
+            "BVI L2/L3 v4: traffic_test_check FAILED (L2<->L3 after SVI remove/add)"
+        )
+        # c-master: TGEN snapshot + full BVI/SVI/neighbor dump on failure (fabric_failure ends with NPU+counters)
+        if fabric_dbg:
+            fabric_log_bounded_traffic_snapshot(
+                handles,
+                "T1D3P1",
+                "T1D4P2",
+                data_vid_10,
+                data_l3,
+                log_tag="BVI L2/L3 v4: FAILURE at 2nd traffic_test_check (TGEN snapshot)",
+            )
+            fabric_failure_bvi_svi_with_counters(
+                vars,
+                "BVI L2/L3 v4: FAILED 2nd traffic after SVI flap",
+                data_glob,
+                data_vid_10,
+                include_l3_arp=True,
+                data_l3=data_l3,
+            )
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "for L2 <-> L3 after removing/adding vlan interface") 
     
@@ -445,31 +552,40 @@ def test_bvi_v6_intra_vlan_and_l2_l3(setup_teardown_bvi_bd):
 # Verify v4 intra vlan multicast traffic
 # Tgen Stream : 100.0.1.1 (T1D3P1) <---(multicast)---> 100.0.1.2 (T1D4P1)
 def test_bvi_multicast(setup_teardown_bvi_bd):
+    vars = st.get_testbed_vars()
+    fabric_dbg = fabric_l2_debug_enabled(vars=vars)
+    all_duts = fabric_snapshot_duts(vars) if fabric_dbg else []
 
     #leaf0 (100.0.1.1) -----> leaf1(100.0.1.2)
     #traffic check
     handles = common_obj.traffic_test_config(data_vid_10, data_vid_10, "T1D3P1", "T1D4P1", 'multicast', True, verify_ping=False, is_l2=True)
 
-    # Pre/post traffic: VLAN, MAC, NPU and hop-by-hop interface counters (helpers above).
-    vars = st.get_testbed_vars()
-    fabric_dbg = fabric_l2_debug_enabled(vars=vars)
-    all_duts = fabric_snapshot_duts(vars) if fabric_dbg else []
     if fabric_dbg:
-        fabric_snapshot_pre_traffic_state(all_duts)
-
+        fabric_snapshot_pre_traffic_state(
+            all_duts,
+            log_tag="BVI multicast: pre-traffic",
+        )
     common_obj.traffic_start(handles, data_vid_10, data_vid_10)
     common_obj.traffic_stop(handles, mode="burst")
-
     if fabric_dbg:
-        fabric_snapshot_post_traffic_npu(all_duts)
-        # After traffic_start's sonic-clear, wait for counterpoll so show interfaces counters
-        # reflects this run (TGen pass/fail is unchanged).
+        fabric_snapshot_post_traffic_npu(
+            all_duts,
+            log_tag="BVI multicast: post-traffic NPU",
+        )
         fabric_wait_counterpoll_interface_refresh(10)
         fabric_snapshot_post_traffic_counters(vars)
 
     if common_obj.traffic_test_check(handles, 'T1D3P1', 'T1D4P1', data_vid_10, data_vid_10):
         st.log("Traffic verification for L2 traffic with multicast mac Passed")
     else:
+        if fabric_dbg:
+            fabric_failure_bvi_svi_with_counters(
+                vars,
+                "BVI multicast: FAILED traffic_test_check",
+                data_glob,
+                data_vid_10,
+                include_l3_arp=False,
+            )
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "for L2 traffic with multicast mac")
         

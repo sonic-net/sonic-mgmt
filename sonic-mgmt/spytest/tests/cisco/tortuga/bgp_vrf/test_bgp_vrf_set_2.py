@@ -33,6 +33,30 @@ def config_frr(dut, commands):
     st.config(dut, "docker cp /tmp/spytest_frr.conf bgp:/")
     st.config(dut, "docker exec bgp bash -c 'vtysh -f /spytest_frr.conf'")
 
+
+# FRR defers BGP route-map processing by ~bgp route-map delay-timer (default 5s),
+# then may use route refresh; with enhanced RR paths can be marked stale until
+# refresh UPDATEs arrive. A fixed sleep races that pipeline.
+BGP_VRF_RMAP_POLL_TIMEOUT_SEC = 30
+BGP_VRF_RMAP_POLL_INTERVAL_SEC = 1.0
+
+def _wait_bgp_vrf_neighbor_routes_contains(dut, show_cmd, needle, diag_title=None):
+    """Poll neighbor routes output until needle appears or timeout."""
+    vty = "vtysh -c '{}'".format(show_cmd)
+    deadline = time.time() + BGP_VRF_RMAP_POLL_TIMEOUT_SEC
+    while time.time() < deadline:
+        out = st.show(dut, vty, skip_tmpl=True, skip_error_check=True)
+        if needle in str(out or ""):
+            return True
+        time.sleep(BGP_VRF_RMAP_POLL_INTERVAL_SEC)
+    st.log(
+        "BGP VRF neighbor routes poll timeout: {} (cmd={})".format(
+            diag_title or "no detail", show_cmd
+        )
+    )
+    return False
+
+
 ######################################################################
 #          eBGP             eBGP           iBGP                      #
 #  spine0 ---default--- leaf0 ---Vrf01--- spine1 ---Vrf02--- leaf1             #
@@ -202,6 +226,9 @@ def test_bgp_vrf_verify_route_map_change_in_vrf():
     """
     Verify that Changing route-map configurations(match/set clauses) on
     the fly it takes immediate effect.
+
+    Inbound policy is applied asynchronously (FRR route-map delay + route
+    refresh and peer UPDATEs); checks poll until the expected AS path appears.
     """
     vars = st.get_testbed_vars()
 
@@ -222,12 +249,13 @@ def test_bgp_vrf_verify_route_map_change_in_vrf():
 
     config_frr(nodes['leaf0'], cmds)
 
-    time.sleep(5)
-
-    #validate incoming route is prepend with 9009 as value
     cmd = 'show bgp vrf Vrf01 ipv4 unicast neighbors 20.1.1.2 routes'
-    cmd_output = st.show(nodes['leaf0'], "vtysh -c '{}'".format(cmd))
-    if "9009 1003" not in str(cmd_output):
+    if not _wait_bgp_vrf_neighbor_routes_contains(
+        nodes['leaf0'],
+        cmd,
+        "9009 1003",
+        diag_title="prepend 9009 not seen after poll",
+    ):
         st.report_fail("test_case_failed", nodes['leaf0'])
 
     # configure to prepend AS value to 8008
@@ -236,12 +264,12 @@ def test_bgp_vrf_verify_route_map_change_in_vrf():
 
     config_frr(nodes['leaf0'], cmds)
 
-    time.sleep(5)
-
-    #validate incoming route is prepend with 8008 as value
-    cmd = 'show bgp vrf Vrf01 ipv4 unicast neighbors 20.1.1.2 routes'
-    cmd_output = st.show(nodes['leaf0'], "vtysh -c '{}'".format(cmd))
-    if "8008 1003" not in str(cmd_output):
+    if not _wait_bgp_vrf_neighbor_routes_contains(
+        nodes['leaf0'],
+        cmd,
+        "8008 1003",
+        diag_title="prepend 8008 not seen after poll",
+    ):
         st.report_fail("test_case_failed", nodes['leaf0'])
 
     st.report_pass('test_case_passed', nodes['spine0'])
