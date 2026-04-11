@@ -9,6 +9,10 @@ from multihome.dut import wait
 from multihome import const, dut, host, vtysh
 import json
 
+# After a BUM burst, RIF/port counters in COUNTERS_DB may lag hardware; allow sync
+# before show interface counters (slightly above typical 10s counterpoll default).
+_INTERFACE_COUNTER_SETTLE_SEC = 12
+
 
 def test_evpn_mh_basic_config(setup):
     """
@@ -406,19 +410,26 @@ def test_portchannel_shutdown_on_mh_peer(setup):
     )
     vxlan_utils.send_raw_traffic_stream(lag_handle["T1D4P1"], stream_id, reset=True)
 
+    dut.wait(_INTERFACE_COUNTER_SETTLE_SEC)
+
     # Verify traffic went through DF and was dropped at NDF
+    pkts = int(const.spytest_data.pkts_per_burst)
     df_downlink_initial = vxlan_utils.get_counters(
         node=df_node, cmd=cmd_intf, target_iface=df_downlink, r_t_key="tx_ok"
     )
     ndf_downlink_initial = vxlan_utils.get_counters(
         node=ndf_node, cmd=cmd_intf, target_iface=ndf_downlink, r_t_key="tx_ok"
     )
-    log("Initial traffic - DF downlink: {}, NDF downlink: {}".format(df_downlink_initial, ndf_downlink_initial))
+    log(
+        "Initial traffic - DF downlink {}: {}, NDF downlink {}: {}".format(
+            df_downlink, df_downlink_initial, ndf_downlink, ndf_downlink_initial
+        )
+    )
 
     if not (
-        df_downlink_initial >= 0.98 * int(const.spytest_data.pkts_per_burst)
-        and df_downlink_initial <= 1.1 * int(const.spytest_data.pkts_per_burst)
-        and ndf_downlink_initial <= 0.1 * int(const.spytest_data.pkts_per_burst)
+        df_downlink_initial >= 0.98 * pkts
+        and df_downlink_initial <= 1.1 * pkts
+        and ndf_downlink_initial <= 0.1 * pkts
     ):
         report_fail(df_node, "Initial BUM traffic verification failed - DF/NDF filtering not working")
 
@@ -479,15 +490,17 @@ def test_portchannel_shutdown_on_mh_peer(setup):
     )
     vxlan_utils.send_raw_traffic_stream(lag_handle["T1D4P1"], stream_id, reset=True)
 
-    # After shutdown, traffic should only go through leaf1's downlink (D3T1P1)
+    dut.wait(_INTERFACE_COUNTER_SETTLE_SEC)
+
     leaf1_downlink_after_shutdown = vxlan_utils.get_counters(
         node=nodes["leaf1"], cmd=cmd_intf, target_iface=setup["D3T1P1"], r_t_key="tx_ok"
     )
     log("Traffic after shutdown - leaf1 downlink: {}".format(leaf1_downlink_after_shutdown))
 
+    pkts = int(const.spytest_data.pkts_per_burst)
     if not (
-        leaf1_downlink_after_shutdown >= 0.98 * int(const.spytest_data.pkts_per_burst)
-        and leaf1_downlink_after_shutdown <= 1.1 * int(const.spytest_data.pkts_per_burst)
+        leaf1_downlink_after_shutdown >= 0.98 * pkts
+        and leaf1_downlink_after_shutdown <= 1.1 * pkts
     ):
         report_fail(nodes["leaf1"], "Traffic verification failed after PortChannel shutdown - traffic should go via leaf1")
 
@@ -572,18 +585,25 @@ def test_portchannel_shutdown_on_mh_peer(setup):
     )
     vxlan_utils.send_raw_traffic_stream(lag_handle["T1D4P1"], stream_id, reset=True)
 
+    dut.wait(_INTERFACE_COUNTER_SETTLE_SEC)
+
+    pkts = int(const.spytest_data.pkts_per_burst)
     df_downlink_restored = vxlan_utils.get_counters(
         node=restored_df_node, cmd=cmd_intf, target_iface=restored_df_downlink, r_t_key="tx_ok"
     )
     ndf_downlink_restored = vxlan_utils.get_counters(
         node=restored_ndf_node, cmd=cmd_intf, target_iface=restored_ndf_downlink, r_t_key="tx_ok"
     )
-    log("Traffic after restore - DF downlink: {}, NDF downlink: {}".format(df_downlink_restored, ndf_downlink_restored))
+    log(
+        "Traffic after restore - DF downlink {}: {}, NDF downlink {}: {}".format(
+            restored_df_downlink, df_downlink_restored, restored_ndf_downlink, ndf_downlink_restored
+        )
+    )
 
     if not (
-        df_downlink_restored >= 0.98 * int(const.spytest_data.pkts_per_burst)
-        and df_downlink_restored <= 1.1 * int(const.spytest_data.pkts_per_burst)
-        and ndf_downlink_restored <= 0.1 * int(const.spytest_data.pkts_per_burst)
+        df_downlink_restored >= 0.98 * pkts
+        and df_downlink_restored <= 1.1 * pkts
+        and ndf_downlink_restored <= 0.1 * pkts
     ):
         report_fail(restored_df_node, "Traffic verification failed after restore - DF/NDF filtering not working")
 
