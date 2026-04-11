@@ -265,16 +265,20 @@ def activate_dash_ha(localhost, duthost, ptfhost, scope_key, fields, expected_op
         return False
 
 
-def set_dead_dash_ha_scope(localhost, duthost, ptfhost, scope_key):
+def set_dash_ha_scope(localhost, duthost, ptfhost, scope_key, desired_ha_state, owner):
     """
-    Set DASH_HA_SCOPE_CONFIG_TABLE entry to "dead" state
-    scope_key example: vdpu0_0:haset0_0
+    Set DASH_HA_SCOPE_CONFIG_TABLE entry to the specified state.
+
+    Args:
+        scope_key: e.g. "vdpu0_0:haset0_0"
+        desired_ha_state: target state, e.g. "dead", "standby", "active"
     """
+    disabled = desired_ha_state == "dead"
     fields = {
                 "version": "1",
-                "disabled": True,
-                "desired_ha_state": "dead",
-                "owner": "dpu",
+                "disabled": disabled,
+                "desired_ha_state": desired_ha_state,
+                "owner": owner,
             }
     _apply_ha_scope_gnmi(localhost, duthost, ptfhost, scope_key, fields)
 

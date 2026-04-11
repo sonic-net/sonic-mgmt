@@ -33,7 +33,7 @@ from tests.common.helpers.assertions import pytest_require as pt_require
 from tests.ha.ha_utils import (
     wait_for_pending_operation_id,
     verify_ha_state,
-    set_dead_dash_ha_scope
+    set_dash_ha_scope
 )
 
 ENABLE_GNMI_API = True
@@ -718,12 +718,12 @@ def setup_ha_config(duthosts, tbinfo):
 @pytest.fixture(scope="module")
 def ha_owner(dpuhosts):
     """
-    Fixture to parametrize HA owner type (dpu or npu) for the test.
+    Fixture to parametrize HA owner type (dpu or switch) for the test.
     """
     if 'pensando' in dpuhosts[0].facts['asic_type']:
         owner = "dpu"
     else:
-        owner = "npu"
+        owner = "switch"
     yield owner
 
 
@@ -916,7 +916,7 @@ def deactivate_dash_ha_from_json_util(duthosts, localhost, ptfhost, setup_gnmi_s
     logger.info("HA: de-activate Primary and Standby")
     # First set Primary and Standby to dead
     for index, duthost in enumerate(duthosts):
-        set_dead_dash_ha_scope(localhost, duthost, ptfhost, f"vdpu{index}_0:haset0_0")
+        set_dash_ha_scope(localhost, duthost, ptfhost, f"vdpu{index}_0:haset0_0", "dead", ha_owner)
 
     for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
         vdpu_id, ha_set_id = key.split(":", 1)
