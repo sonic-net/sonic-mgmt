@@ -2,7 +2,6 @@ import time
 import logging
 import pytest
 import allure
-import re
 
 from tests.common.plugins.loganalyzer.loganalyzer import DisableLogrotateCronContext
 from tests.common import config_reload
@@ -20,7 +19,6 @@ LOG_FOLDER = '/var/log'
 SMALL_VAR_LOG_PARTITION_SIZE = '300M'
 FAKE_IP = '10.20.30.40'
 FAKE_MAC = 'aa:bb:cc:dd:11:22'
-FILE_NUM_FOR_VALIDATE = 10
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -116,53 +114,26 @@ def create_temp_syslog_file(duthost, size):
     duthost.shell('sudo fallocate -l {} /var/log/syslog'.format(size))
 
 
-def get_oldest_syslog_files(duthost, num):
-    files = duthost.shell(
-        'sudo ls -lt --full-time /var/log/syslog.* | tail -n {} '.format(num),
-        module_ignore_errors=True)['stdout_lines']
-    logger.debug(files)
-    return files
+def get_oldest_syslog_checksum(duthost):
+    checksum = "0"
 
+    # 1. Get the oldest file
+    res = duthost.shell('sudo ls -lrt /var/log/syslog.*', module_ignore_errors=True)
+    if not res['stdout_lines']:
+        return checksum      # Return "0" if no syslog files found
 
-def extract_timestamps(lines):
-    """
-    the output of syslog file with full-length timestamp like following
-    -rw-r----- 1 root adm    456629 2026-03-31 10:31:40.823978020 +0000 /var/log/syslog.245.gz
-    -rw-r----- 1 root adm     19788 2026-03-31 09:17:40.083889562 +0000 /var/log/syslog.246.gz
-    pickup "2026-03-31 10:31:40.823978020" and "2026-03-31 09:17:40.083889562" for above two files
-    """
-    pattern = r"\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d+"
-    results = []
-    for line in lines:
-        match = re.search(pattern, line)
-        if match:
-            results.append(match.group())
+    line = res['stdout_lines'][0]
+    filename = line.split()[-1]
 
-    return results
+    # 2. Get the checksum with error handling
+    md5_res = duthost.shell('sudo md5sum {}'.format(filename), module_ignore_errors=True)
 
+    # Check if the output is valid before splitting
+    if md5_res['rc'] == 0 and md5_res['stdout_lines']:
+        checksum = md5_res['stdout_lines'][0].split()[0]
 
-def files_time_shifted(before, after):
-    '''
-    get syslog files timestamp, when the file number limit is reached.
-    after log rotation, the total log file number does not change, but
-    timestamp of those files should be shifted one position.
-    no two syslog files can have the same timestamp
-    '''
-    time_fl1 = extract_timestamps(before)
-    time_fl2 = extract_timestamps(after)
-    logger.debug("=========== Syslog file timestamps before rotate =======")
-    logger.debug(time_fl1)
-    logger.debug("=========== Syslog file timestamps after rotate =======")
-    logger.debug(time_fl2)
-    # Return 0 means all files are the same, no log rotate happened
-    # Return 1 means files timestamp shifted one position, log rotation happened
-    # Return -1 if no any of above two happened.
-    if time_fl1 == time_fl2:
-        return 0
-    elif time_fl1[:-1] == time_fl2[1:]:
-        return 1
-    else:
-        return -1
+    logger.debug('=== {}: md5sum: {} === '.format(filename, checksum))
+    return checksum
 
 
 def run_logrotate(duthost, force=False):
@@ -190,7 +161,8 @@ def multiply_with_unit(logrotate_threshold, num):
     """
     return str(int(int(logrotate_threshold[:-1]) * num)) + logrotate_threshold[-1]
 
-def validate_logrotate_function(duthost, logrotate_threshold, small_size, num_of_file=10):
+
+def validate_logrotate_function(duthost, logrotate_threshold, small_size):
     """
     Validate logrotate function
     :param duthost: DUT host object
@@ -207,34 +179,34 @@ def validate_logrotate_function(duthost, logrotate_threshold, small_size, num_of
             create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 0.5))
         else:
             create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 0.9))
-        # When the total number of syslog file smaller than num_of_file to list, set to smaller value
-        if syslog_number_origin < num_of_file:
-            num_of_file = syslog_number_origin
-        syslog_files_before_rotate = get_oldest_syslog_files(duthost, num_of_file)
+
+        oldest_checksum_before_rotate = get_oldest_syslog_checksum(duthost)
         run_logrotate(duthost)
         syslog_number_no_rotate = get_syslog_file_count(duthost)
-        syslog_files_after_rotate = get_oldest_syslog_files(duthost, num_of_file)
         logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_no_rotate))
-        # No syslog rotation has to satisfy following two conditions at the same time
+        # For no rotation happen, both two conditions has to be satisfied
+        # 1. the number of syslog files keep the same
+        # 2. the oldest log file's checksum keep the same
         assert syslog_number_origin == syslog_number_no_rotate, \
-            'Unexpected logrotate happens, the syslog file number changed'
-        assert files_time_shifted(syslog_files_before_rotate, syslog_files_after_rotate) == 0, \
-            'Unexpected logrotate happens, the syslog files timestamp shifted'
+            'Unexpected logrotate happens, there should be no logrotate executed'
+        oldest_checksum_after_rotate = get_oldest_syslog_checksum(duthost)
+        assert oldest_checksum_before_rotate == oldest_checksum_after_rotate, \
+            'Unexpected logrotate happens, there should be no logrotate executed'
 
     with allure.step('There will be logrotate process when rsyslog size is larger than threshold {}'.format(
             logrotate_threshold)):
         create_temp_syslog_file(duthost, multiply_with_unit(logrotate_threshold, 1.1))
-        syslog_files_before_rotate = get_oldest_syslog_files(duthost, num_of_file)
+        oldest_checksum_before_rotate = get_oldest_syslog_checksum(duthost)
         run_logrotate(duthost)
         syslog_number_with_rotate = get_syslog_file_count(duthost)
         logger.info('There are {} syslog gz files after running logrotate'.format(syslog_number_with_rotate))
-        syslog_files_after_rotate = get_oldest_syslog_files(duthost, num_of_file)
-        # We know syslog rotate should happen if either of two following conditions satisfied
-        # case 1: if syslog number not changed, but the log files timestamp shifted one position
-        # case 2: syslog number exactly increase 1
-        # Otherwise, we assume the syslog rotate does not happen
+        oldest_checksum_after_rotate = get_oldest_syslog_checksum(duthost)
+        # For rotation happen,
+        # 1. If the number of syslog file the same, the oldest log file checksum has to be different
+        #    This is the corner case that number of syslog files reach the rotate limit.
+        # 2. Otherwise, number of log file has to increase by 1
         if syslog_number_origin == syslog_number_with_rotate:
-            assert files_time_shifted(syslog_files_before_rotate, syslog_files_after_rotate) == 1, \
+            assert oldest_checksum_before_rotate != oldest_checksum_after_rotate, \
                 'No logrotate happens, both syslog file number and timestamp are the same'
         else:
             assert syslog_number_origin + 1 == syslog_number_with_rotate, \
@@ -278,7 +250,7 @@ def test_logrotate_normal_size(rand_selected_dut):
         if get_var_log_size(duthost) < 200 * 1024:
             pytest.skip('{} size is lower than 200MB, skip this test'.format(LOG_FOLDER))
     rotate_large_threshold = get_threshold_based_on_memory(duthost)
-    validate_logrotate_function(duthost, rotate_large_threshold, False, FILE_NUM_FOR_VALIDATE)
+    validate_logrotate_function(duthost, rotate_large_threshold, False)
 
 
 @pytest.mark.disable_loganalyzer
@@ -301,7 +273,7 @@ def test_logrotate_small_size(rand_selected_dut, simulate_small_var_log_partitio
     """
     duthost = rand_selected_dut
     rotate_small_threshold = get_threshold_based_on_memory(duthost)
-    validate_logrotate_function(duthost, rotate_small_threshold, True, FILE_NUM_FOR_VALIDATE)
+    validate_logrotate_function(duthost, rotate_small_threshold, True)
 
 
 def get_pending_entries(duthost, ignore_list=None):
