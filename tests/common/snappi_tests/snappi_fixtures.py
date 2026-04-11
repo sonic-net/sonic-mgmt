@@ -619,6 +619,31 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
     return config, port_config_list
 
 
+def _normalize_sonic_config_asn(asn_field):
+    if asn_field is None:
+        return None
+    if isinstance(asn_field, bytes):
+        return int(asn_field.decode('utf-8'))
+    return int(asn_field)
+
+
+def _merged_bgp_neighbor_table(config_facts):
+    nbrs = {}
+    nbrs.update(config_facts.get('BGP_NEIGHBOR') or {})
+    nbrs.update(config_facts.get('BGP_INTERNAL_NEIGHBOR') or {})
+    nbrs.update(config_facts.get('BGP_VOQ_CHASSIS_NEIGHBOR') or {})
+    return nbrs
+
+
+def _peer_asn_from_bgp_neighbor_table(bgp_table, neighbor_ip):
+    if not neighbor_ip:
+        return None
+    ent = bgp_table.get(str(neighbor_ip))
+    if not ent:
+        return None
+    return _normalize_sonic_config_asn(ent.get('asn'))
+
+
 def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, config_facts):       # noqa: F811
     """
     Build tgen_ports list from config_db PORTCHANNEL and PORTCHANNEL_INTERFACE.
@@ -682,6 +707,12 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
         # Changing IP addresses esp IPv6 to lower case.
         if local_addr:
             local_to_neighbor[local_addr.lower()] = neighbor_ip.lower()
+    bgp_merged = _merged_bgp_neighbor_table(config_facts)
+    dm_local = (config_facts.get('DEVICE_METADATA') or {}).get('localhost') or {}
+    dut_asn_global = _normalize_sonic_config_asn(dm_local.get('bgp_asn'))
+    pytest_assert(
+        dut_asn_global is not None,
+        'DEVICE_METADATA localhost bgp_asn missing; cannot attach ASN fields to tgen_ports')
     result = []
     for port_id, pc_name in enumerate(pc_names):
         members = pc_member.get(pc_name)
@@ -732,6 +763,20 @@ def _tgen_ports_from_portchannel(duthost, conn_graph_facts, fanout_graph_facts, 
             entry['peer_ipv6'] = ''
             entry['ipv6_prefix'] = '64'
             entry['ipv6'] = ''
+        asn4 = _peer_asn_from_bgp_neighbor_table(bgp_merged, entry.get('ip') or '')
+        asn6 = _peer_asn_from_bgp_neighbor_table(bgp_merged, entry.get('ipv6') or '')
+        if asn4 is not None and asn6 is not None:
+            pytest_assert(
+                asn4 == asn6,
+                'BGP neighbor ASN mismatch for {}: IPv4 TGEN {} asn {} vs IPv6 TGEN {} asn {}'.format(
+                    pc_name, entry.get('ip'), asn4, entry.get('ipv6'), asn6))
+        peer_asn = asn4 if asn4 is not None else asn6
+        pytest_assert(
+            peer_asn is not None,
+            'No BGP neighbor asn for {} (TGEN ip={}, ipv6={})'.format(
+                pc_name, entry.get('ip'), entry.get('ipv6')))
+        entry['dut_asn'] = dut_asn_global
+        entry['peer_asn'] = peer_asn
         result.append(entry)
     return result if result else None
 

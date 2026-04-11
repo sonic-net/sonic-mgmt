@@ -8,7 +8,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 
 ### 1.2 Goals
 
-- **Parameterized coverage**: Run RIB convergence (250K routes) for each combination of:
+- **Parameterized coverage**: Run RIB convergence (300K routes) for each combination of:
   - **Fine-tuning profile** (DEVICE_METADATA from `fine-tunings.yml`)
   - **Orchagent bulk/batch pair** (e.g. `-b` / `-k` from `bk_values.json`)
   - **Route type** (IPv4, IPv6, IPv4v6)
@@ -53,7 +53,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 ¦      Cold reboot DUT and wait for critical services                         ¦
 ¦                                                                             ¦
 ¦  2. RUN RIB-IN CONVERGENCE                                                  ¦
-¦      Build BGP/traffic config (IPv4 / IPv6 / IPv4v6, 250K routes)           ¦
+¦      Build BGP/traffic config (IPv4 / IPv6 / IPv4v6, 300K routes)           ¦
 ¦      Withdraw all routes, start protocols and start traffic                 ¦
 ¦      Advertise all routes and measure control-planedata-plane convergence   ¦
 ¦      Log/convergence time (ms)                                              ¦
@@ -82,7 +82,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 ### 4.1 Topology
 
 - **Mark**: `pytest.mark.topology('tgen')` and `pytest.mark.disable_memory_utilization`.
-- **Logical**: TGEN1  DUT  TGEN(2..N); multipath = 1; number_of_routes = 250,000.
+- **Logical**: TGEN1  DUT  TGEN(2..N); multipath = 1; number_of_routes = 300,000.
 - **Route types**: IPv4, IPv6, or IPv4v6 (e.g. 125K v4 + 125K v6 for IPv4v6).
 - **pytest-skip**: skip for single DUT multi-asic setup.
 
@@ -92,7 +92,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 |-----------|--------|---------|
 | MULTIPATH | 1 | ECMP / multipath for BGP/traffic |
 | CONVERGENCE_TEST_ITERATIONS | 1 | Iterations per RIB-IN convergence run |
-| NUMBER_OF_ROUTES | 250000 | Total BGP routes (v4, v6, or split) |
+| NUMBER_OF_ROUTES | 300000 | Total BGP routes (v4, v6, or split) |
 | RIB_TIMEOUT | 60 | Timeout (seconds) for protocol/traffic steps |
 | CONTAINER | swss | Container where orchagent.sh is modified |
 | ORCHAGENT_PATH | /usr/bin/orchagent.sh | Script patched for -b / -k |
@@ -102,7 +102,7 @@ This document describes the high-level design of the **RIB end-to-end optimizati
 - **profile_name**: From `fine-tunings.yml` (each key with a DEVICE_METADATA section).
 - **bulk_value, batch_value**: One pair per test from `bk_values.json` | `pairs` (e.g. `["default","default"]`, `[5000,5200]`, `[10000,10500]`, ).
 - **route_type**: `IPv4` | `IPv6` | `IPv4v6`.
-- **NUMBER_OF_ROUTES**: `250000`.
+- **NUMBER_OF_ROUTES**: `300000`.
 - **MULTIPATH**: `1`
 
 Total cases = |profiles| × |pairs| × 3 (route types) x |NUMBER_OF_ROUTES| x |MULTIPATH|
@@ -168,6 +168,8 @@ When `--bgp_pc_config` is set, the fixture uses an internal helper **`_tgen_port
 - Reads **PORTCHANNEL_INTERFACE** and **PORTCHANNEL_MEMBER** from config_db (supports key formats such as `PortChannel1` or `PortChannel1|ip/prefix` and member keys such as `PortChannel1|Ethernet0` or nested dict).
 - Builds one tgen_ports entry per PortChannel: `peer_port` = PortChannel name (e.g. `PortChannel1`); IPs from PORTCHANNEL_INTERFACE; location/speed from the first members Snappi port.
 - **TGEN (neighbor) IP** for each PortChannel: preferred source is **config_db `BGP_NEIGHBOR`**: for each neighbor, key = neighbor (TGEN) IP, value has `local_addr` = DUT IP; the fixture maps `local_addr` to neighbor IP and uses it for `entry['ip']` and `entry['ipv6']`. If no matching BGP neighbor exists, it falls back to deriving an IP in the same subnet (e.g. via `get_addrs_in_subnet`).
+- **TGEN AS_NUM** for each PortChannel: Uses **config_db `BGP_NEIGHBOR`**: for each neighbor. It looks for both asnv4 and asnv6 for each IPv4 and IPv6 neighbor. For each IPv4 neighbor ASN, it will asserts if does not match for ASN configured for IPv6 address on same interface.
+- **DUT_AS_NUM** for the DUT: Returns DUT ASN configured in **config_db `METADATA`**.
 
 The **tgen_ports output format is unchanged** in both code paths so downstream code (e.g. `__tgen_bgp_config`) does not need to branch.
 
@@ -180,7 +182,7 @@ The **tgen_ports output format is unchanged** in both code paths so downstream c
 
 - The DUT requires at least 2 portchannels with IPv4/IPv6 address set in **`PORTCHANNEL_INTERFACE`**.
 - Each portchannel requires at least one member connected to IXIA and present in *links.csv file.
-- BGP ASN config on DUT needs to be compatible with DUT_AS_NUM = 65100 and TGEN_AS_NUM = 65200.
+- BGP ASN config (DUT and peer) is read dynamically from config_facts on the DUT.
 
 ---
 
@@ -232,8 +234,8 @@ The **tgen_ports output format is unchanged** in both code paths so downstream c
 - DUT has writable config_db and swss container with orchagent.sh; default orchagent args contain the expected pattern (e.g. `-b 1024`) so sed replacement is correct.
 - Reboot and service wait timeouts are sufficient for the platform.
 - fine-tunings.yml and bk_values.json are present and well-formed; fallbacks exist in code if load fails (e.g. default profile list, default pairs).
-- If DUT portchannel and BGP configuration is used, DUT_ASN=65100 and peer_ASNs=65200 are pre-configured.
-
+- IPv4 network group used for the test is 200.1.0.1/32 and IPv6 network is 3000::1/64.
+- Outstanding sonic-mgmt issue 23744 needs setting of BGP segment as 'AS-SEQ' via restPy in file/bgp_convergence_helper.py. This will be removed on resolution of the issue.
 ---
 
 ## 10. Possible enhancements
@@ -241,20 +243,19 @@ The **tgen_ports output format is unchanged** in both code paths so downstream c
 Following possible enhancements can be added:
   - Support for extended BGP messages with MTU of 9100 bytes via Snappi.
   - Measure route-capacity for routes with optimization parameters.
-  - Parameterize the max-routes (e.g. - 250k, 500k and so on), and MULTIPATH variable.
+  - Parameterize the max-routes (e.g. - 300k, 500k and so on), and MULTIPATH variable.
   - Remove reboot after configuration change to config_reload to save time.
-  - When --bgp_pc_config is set, check for the local and peer ASNs configured on DUT and use them for TGEN configuration. If flag is not set, use DUT_AS_NUM and TGEN_AS_NUM present in the helper file.
   - Make the test available for single-dut multi-asic and multi-DUT topologies.
 
 
 ## 11. Summary
 
-The RIB-IN optimization and performance tests provide a parameterized framework to measure RIB-IN convergence time (250K routes) across:
+The RIB-IN optimization and performance tests provide a parameterized framework to measure RIB-IN convergence time (300K routes) across:
 
 - **Profiles** (DEVICE_METADATA from fine-tunings.yml),
 - **Orchagent tuning** (bulk/batch pairs from bk_values.json),
 - **Route type** (IPv4, IPv6, IPv4v6),
 - **MULTIPATH** (1),
-- **NUMBER_OF_ROUTES** (250000).
+- **NUMBER_OF_ROUTES** (300000).
 
-Each test applies a single (profile, bulk, batch, route_type), reboots the DUT, runs the convergence scenario once, then reverts config and orchagent. There is fixture-based setup/revert to include memory delta analysis on the same boot. The **`--bgp_pc_config`** option (Section 6) allows using preconfigured port-channels and BGP on the testbed via port data from config_db and skipping DUT BGP configuration in the helper.
+Each test applies a single (profile, bulk, batch, route_type), reboots the DUT, runs the convergence scenario once, then reverts config and orchagent. The **`--bgp_pc_config`** option (Section 6) allows using preconfigured port-channels and BGP on the testbed via port data from config_db and skipping DUT BGP configuration in the helper.

@@ -7,12 +7,26 @@ logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
 DUT_AS_NUM = 65100
-TIMEOUT = 30
+TIMEOUT = 90
 WAIT_INTERVAL = 30
 BGP_TYPE = 'ebgp'
 temp_tg_port = dict()
 NG_LIST = []
 aspaths = [65002, 65003]
+
+
+def _asn_from_port_entry(port_entry, skip_duthost_bgp_config, fixture_keys, default):
+    """
+    When skip_duthost_bgp_config is True, prefer ASN from tgen_ports (dut_asn / peer_asn
+    from config_facts, or optional DUT_AS_NUM / TGEN_AS_NUM keys); else use module default.
+    """
+    if not skip_duthost_bgp_config:
+        return int(default)
+    for key in fixture_keys:
+        val = port_entry.get(key)
+        if val is not None:
+            return int(val)
+    return int(default)
 
 
 def run_bgp_local_link_failover_test(snappi_api,
@@ -154,7 +168,8 @@ def run_rib_in_convergence_test(snappi_api,
     tgen_bgp_config = __tgen_bgp_config(snappi_api,
                                         port_count,
                                         number_of_routes,
-                                        route_type,)
+                                        route_type,
+                                        skip_duthost_bgp_config=skip_duthost_bgp_config,)
 
     """
         Run the convergence test by withdrawing all routes at once and
@@ -299,7 +314,8 @@ def duthost_bgp_config(duthost,
 def __tgen_bgp_config(snappi_api,
                       port_count,
                       number_of_routes,
-                      route_type,):
+                      route_type,
+                      skip_duthost_bgp_config=False,):
     """
     Creating  BGP config on TGEN
 
@@ -308,9 +324,26 @@ def __tgen_bgp_config(snappi_api,
         port_count: multipath + 1
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
+        skip_duthost_bgp_config: boolean (true) if DUT is preconfigured
     """
     global NG_LIST
     config = snappi_api.config()
+
+    if skip_duthost_bgp_config and port_count > 0:
+        ref_dut_as = _asn_from_port_entry(
+            temp_tg_port[0], True, ('dut_asn', 'DUT_AS_NUM'), DUT_AS_NUM)
+        for idx in range(1, port_count):
+            other = _asn_from_port_entry(
+                temp_tg_port[idx], True, ('dut_asn', 'DUT_AS_NUM'), DUT_AS_NUM)
+            pytest_assert(
+                other == ref_dut_as,
+                'tgen_ports dut_asn mismatch: index 0 has {}, index {} has {}'.format(
+                    ref_dut_as, idx, other))
+        logger.info(
+            'TGEN BGP: DUT AS %s from tgen_ports (dut_asn / default); '
+            'emulated BGP as_number per peer from peer_asn / TGEN_AS_NUM',
+            ref_dut_as)
+
     for i in range(1, port_count+1):
         config.ports.port(name='Test_Port_%d' %
                           i, location=temp_tg_port[i-1]['location'])
@@ -372,7 +405,9 @@ def __tgen_bgp_config(snappi_api,
             bgpv4_peer.name = 'BGP %d' % i
             bgpv4_peer.as_type = BGP_TYPE
             bgpv4_peer.peer_address = temp_tg_port[i-1]['peer_ip']
-            bgpv4_peer.as_number = int(TGEN_AS_NUM)
+            bgpv4_peer.as_number = _asn_from_port_entry(
+                temp_tg_port[i-1], skip_duthost_bgp_config,
+                ('peer_asn', 'TGEN_AS_NUM'), TGEN_AS_NUM)
             route_range = bgpv4_peer.v4_routes.add(name=NG_LIST[-1])
             route_range.addresses.add(
                 address='200.1.0.1', prefix=32, count=number_of_routes)
@@ -419,7 +454,9 @@ def __tgen_bgp_config(snappi_api,
             bgpv6_peer.name = 'BGP+_%d' % i
             bgpv6_peer.as_type = BGP_TYPE
             bgpv6_peer.peer_address = temp_tg_port[i-1]['peer_ipv6']
-            bgpv6_peer.as_number = int(TGEN_AS_NUM)
+            bgpv6_peer.as_number = _asn_from_port_entry(
+                temp_tg_port[i-1], skip_duthost_bgp_config,
+                ('peer_asn', 'TGEN_AS_NUM'), TGEN_AS_NUM)
             route_range = bgpv6_peer.v6_routes.add(name=NG_LIST[-1])
             route_range.addresses.add(
                 address='3000::1', prefix=64, count=number_of_routes)
@@ -480,7 +517,9 @@ def __tgen_bgp_config(snappi_api,
             bgpv4_peer.name = 'BGP %d' % i
             bgpv4_peer.as_type = BGP_TYPE
             bgpv4_peer.peer_address = temp_tg_port[i-1]['peer_ip']
-            bgpv4_peer.as_number = int(TGEN_AS_NUM)
+            bgpv4_peer.as_number = _asn_from_port_entry(
+                temp_tg_port[i-1], skip_duthost_bgp_config,
+                ('peer_asn', 'TGEN_AS_NUM'), TGEN_AS_NUM)
             route_range_v4 = bgpv4_peer.v4_routes.add(name=NG_LIST[-1])
             route_range_v4.addresses.add(
                 address='200.1.0.1', prefix=32, count=num_v4)
@@ -498,7 +537,9 @@ def __tgen_bgp_config(snappi_api,
             bgpv6_peer.name = 'BGP+_%d' % i
             bgpv6_peer.as_type = BGP_TYPE
             bgpv6_peer.peer_address = temp_tg_port[i-1]['peer_ipv6']
-            bgpv6_peer.as_number = int(TGEN_AS_NUM)
+            bgpv6_peer.as_number = _asn_from_port_entry(
+                temp_tg_port[i-1], skip_duthost_bgp_config,
+                ('peer_asn', 'TGEN_AS_NUM'), TGEN_AS_NUM)
             route_range_v6 = bgpv6_peer.v6_routes.add(name=NG_LIST[-1])
             route_range_v6.addresses.add(
                 address='3000::1', prefix=64, count=num_v6)
@@ -777,6 +818,22 @@ def get_rib_in_convergence(snappi_api,
     bgp_config.events.dp_events.enable = True
     bgp_config.events.dp_events.rx_rate_threshold = 90/multipath
     snappi_api.set_config(bgp_config)
+    # Outstanding sonic-mgmt issue 23744.
+    logger.info('Setting AS-SEQ manually via restPy')
+    ix = snappi_api._ixnetwork
+
+    for topo in ix.Topology.find():
+        for dg in topo.DeviceGroup.find():
+            for ng in dg.NetworkGroup.find():
+                for ipp in ng.Ipv4PrefixPools.find():
+                    for bgp_prop in ipp.BgpIPRouteProperty.find():
+                        for seg in bgp_prop.BgpAsPathSegmentList.find():
+                            seg.SegmentType.Single('asseq')
+                for ipp in ng.Ipv6PrefixPools.find():
+                    for bgp_prop in ipp.BgpV6IPRouteProperty.find():
+                        for seg in bgp_prop.BgpAsPathSegmentList.find():
+                            seg.SegmentType.Single('asseq')
+
     table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
     for i in range(0, iteration):
         logger.info(
