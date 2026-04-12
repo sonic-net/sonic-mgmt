@@ -37,9 +37,6 @@ PLACEHOLDER_PREFIX = "192.0.2.0/32"
 ROUTE_PROPAGATION_WAIT = 10
 BGP_SETTLE_WAIT = 5
 
-# GCU batch size — max operations per patch to avoid recursion depth / OOM kills
-GCU_BATCH_SIZE = 100
-
 # ---- AggregateCfg ----
 AggregateCfg = namedtuple("AggregateCfg", ["prefix", "bbr_required", "summary_only", "as_set"])
 
@@ -128,40 +125,60 @@ def safe_remove_aggregate(duthost, prefix):
 
 
 def gcu_add_multiple_aggregates(duthost, cfgs):
-    """Add aggregate entries via GCU, batched to avoid recursion/OOM limits."""
-    for i in range(0, len(cfgs), GCU_BATCH_SIZE):
-        batch = cfgs[i:i + GCU_BATCH_SIZE]
-        patch = [
-            {
-                "op": "add",
-                "path": f"/BGP_AGGREGATE_ADDRESS/{c.prefix.replace('/', '~1')}",
-                "value": {
-                    "bbr-required": "true" if c.bbr_required else "false",
-                    "summary-only": "true" if c.summary_only else "false",
-                    "as-set": "true" if c.as_set else "false",
-                },
-            }
-            for c in batch
-        ]
-        logger.info("Adding aggregates batch %d-%d of %d",
-                    i + 1, i + len(batch), len(cfgs))
-        apply_gcu_patch(duthost, patch)
+    """Add several aggregate entries in a single GCU patch."""
+    patch = [
+        {
+            "op": "add",
+            "path": f"/BGP_AGGREGATE_ADDRESS/{c.prefix.replace('/', '~1')}",
+            "value": {
+                "bbr-required": "true" if c.bbr_required else "false",
+                "summary-only": "true" if c.summary_only else "false",
+                "as-set": "true" if c.as_set else "false",
+            },
+        }
+        for c in cfgs
+    ]
+    apply_gcu_patch(duthost, patch)
+
+
+def db_add_multiple_aggregates(duthost, cfgs):
+    """Add aggregate entries directly to CONFIG_DB, bypassing GCU.
+
+    Much faster than GCU for bulk operations (~5s vs ~20min for 1000 entries).
+    Writes directly to Redis via sonic-db-cli; bgpcfgd picks up changes
+    via CONFIG_DB subscription.  Suitable for scale/stress tests where
+    GCU validation overhead is not the test objective.
+    """
+    cmds = []
+    for cfg in cfgs:
+        key = f"{BGP_AGGREGATE_ADDRESS}|{cfg.prefix}"
+        bbr = "true" if cfg.bbr_required else "false"
+        so = "true" if cfg.summary_only else "false"
+        as_set = "true" if cfg.as_set else "false"
+        cmds.append(
+            f"sonic-db-cli CONFIG_DB HSET '{key}' "
+            f"'bbr-required' '{bbr}' 'summary-only' '{so}' 'as-set' '{as_set}'"
+        )
+    # Execute in batches via a single SSH call per batch to minimize round-trips
+    batch_size = 200  # safe for shell command length
+    start = time.time()
+    for i in range(0, len(cmds), batch_size):
+        batch = cmds[i:i + batch_size]
+        duthost.shell(" && ".join(batch), module_ignore_errors=True)
+    elapsed = time.time() - start
+    logger.info("Direct DB add complete: %d aggregates in %.1fs", len(cfgs), elapsed)
 
 
 def gcu_remove_multiple_aggregates(duthost, prefixes):
-    """Remove aggregate entries via GCU, batched to avoid recursion/OOM limits."""
-    for i in range(0, len(prefixes), GCU_BATCH_SIZE):
-        batch = prefixes[i:i + GCU_BATCH_SIZE]
-        patch = [
-            {
-                "op": "remove",
-                "path": f"/BGP_AGGREGATE_ADDRESS/{p.replace('/', '~1')}",
-            }
-            for p in batch
-        ]
-        logger.info("Removing aggregates batch %d-%d of %d",
-                    i + 1, i + len(batch), len(prefixes))
-        apply_gcu_patch(duthost, patch)
+    """Remove several aggregate entries in a single GCU patch."""
+    patch = [
+        {
+            "op": "remove",
+            "path": f"/BGP_AGGREGATE_ADDRESS/{p.replace('/', '~1')}",
+        }
+        for p in prefixes
+    ]
+    apply_gcu_patch(duthost, patch)
 
 
 def gcu_update_aggregate_field(duthost, prefix, field, value):
@@ -224,7 +241,7 @@ def withdraw_contributing_routes(setup, prefixes, ip_version="ipv4"):
 
 
 # ---- M2 (upstream) route verification helpers ----
-def _check_route_on_neighbor(nbrhosts, neighbor, prefix):
+def check_route_on_neighbor(nbrhosts, neighbor, prefix):
     """Check whether a prefix exists and is active in the BGP table of a neighbor VM.
 
     Returns True if the route is present with at least one BGP path, False otherwise.
@@ -254,7 +271,7 @@ def verify_route_on_m2(nbrhosts, upstream_neighbors, prefix, expected_present=Tr
     neighbor = upstream_neighbors[0]
 
     def _check():
-        return _check_route_on_neighbor(nbrhosts, neighbor, prefix) == expected_present
+        return check_route_on_neighbor(nbrhosts, neighbor, prefix) == expected_present
 
     action = "present" if expected_present else "absent"
     pytest_assert(
@@ -268,7 +285,7 @@ def verify_contributing_routes_on_m2(nbrhosts, upstream_neighbors, prefixes, exp
     neighbor = upstream_neighbors[0]
     for prefix in prefixes:
         def _check(p=prefix):
-            return _check_route_on_neighbor(nbrhosts, neighbor, p) == expected_present
+            return check_route_on_neighbor(nbrhosts, neighbor, p) == expected_present
         action = "present" if expected_present else "absent"
         pytest_assert(
             wait_until(120, 5, 0, _check),
