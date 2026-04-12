@@ -818,6 +818,37 @@ L2:
         - pc/test_po_cleanup.py
         - pc/test_po_update.py
         - vlan/test_host_vlan.py
+        - fdb/test_fdb.py
+        - pc/test_lag_member.py
+        - snmp/test_snmp_fdb.py
+        - vlan/test_autostate_disabled.py
+        - vlan/test_vlan.py
+    superbolt:
+      hw:
+        - arp/test_arp_extended.py
+        - arp/test_neighbor_mac_noptf.py
+        - arp/test_stress_arp.py
+        - dhcp_relay/test_dhcp_pkt_recv.py
+        - dhcp_relay/test_dhcp_relay.py
+        - dhcp_relay/test_dhcp_relay_stress.py
+        - dhcp_relay/test_dhcpv6_relay.py
+        - fdb/test_fdb_flush.py
+        - fdb/test_fdb_mac_expire.py
+        - fdb/test_fdb_mac_learning.py
+        - fdb/test_fdb_mac_move.py
+        - generic_config_updater/test_dhcp_relay.py
+        - generic_config_updater/test_portchannel_interface.py
+        - generic_config_updater/test_vlan_interface.py
+        - generic_config_updater/test_dhcp_relay.py
+        - pc/test_lag_2.py
+        - pc/test_po_cleanup.py
+        - pc/test_po_update.py
+        - vlan/test_host_vlan.py
+        - fdb/test_fdb.py
+        - pc/test_lag_member.py
+        - snmp/test_snmp_fdb.py
+        - vlan/test_autostate_disabled.py
+        - vlan/test_vlan.py
   t2:
     sfd:
       hw:
