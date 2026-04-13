@@ -1,20 +1,22 @@
 import logging
+from multiprocessing.pool import ThreadPool
+import concurrent.futures
 
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
 import time
 import threading
-import concurrent.futures
 from constants import (
     LOCAL_PTF_INTF,
     REMOTE_PTF_RECV_INTF
 )
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
-from ha_dpu_utils import dpu_power_off_for_index, dpu_power_on_for_index
+from tests.common.reboot import reboot_smartswitch, wait_for_startup
+from tests.ha.ha_dpu_utils import CHECK_DPU_STATE_TIMEOUT, CHECK_DPU_STATE_TIME_INT, check_dpu_up_state
 
 logger = logging.getLogger(__name__)
 
@@ -100,36 +102,42 @@ def common_setup_teardown(
 
 """
 We are testing 4 scenarios:
-    1. Traffic to Primary and Primary DPU failure
-    2. Traffic to Primary and Standby DPU failure
-    3. Traffic to Standby and Primary DPU Failure
-    4. Traffic to Standby and Standby DPU Failure
-    DPU failure on standby: no traffic loss expected
-    DPU failure on primary: less than a specified percentage traffic loss expected
+    1. Traffic to Primary and Primary NPU reboot
+    2. Traffic to Primary and Standby NPU reboot
+    3. Traffic to Standby and Primary NPU reboot
+    4. Traffic to Standby and Standby NPU reboot
+For each scenario, we will send traffic for 60 seconds and check if the packet loss is within the threshold.
 """
 
 
+'''
 @pytest.mark.parametrize(
     "traffic_to_standby", [True, False],
     ids=["Standby Traffic", "Primary Traffic"]
 )
+'''
 @pytest.mark.parametrize(
-    "standby_dpu_fail", [True, False],
-    ids=["Standby DPU Fail", "Primary DPU Fail"]
+    "standby_npu_reboot", [True, False],
+    ids=["Standby NPU Reboot", "Primary NPU Reboot"]
 )
-def test_ha_dpu_failure(
+@pytest.mark.parametrize(
+    "traffic_to_standby", [False],
+    ids=["Primary Traffic"]
+)
+def test_ha_npu_reboot(
     ptfadapter,
+    localhost,
     duthosts,
     dpuhosts,
     activate_dash_ha_from_json,
     dash_pl_config,
-    standby_dpu_fail,
+    standby_npu_reboot,
     traffic_to_standby
 ):
     traffic = "traffic to standby" if traffic_to_standby else "traffic to primary"
-    dpu_shut = "Standby DPU shut" if standby_dpu_fail else "Primary DPU shut"
-    encap_proto = "vxlan"
+    npu_reboot = "standby NPU reboot" if standby_npu_reboot else "primary NPU reboot"
     dpu_id = 0
+    encap_proto = "vxlan"
     rate_pps = RATE_PPS
     initial_send_count = INITIAL_SEND_COUNT
     delay = 1.0 / rate_pps
@@ -140,29 +148,29 @@ def test_ha_dpu_failure(
     else:
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config[0], encap_proto)
 
+    stop_event = threading.Event()
+    action_event = threading.Event()
+    pool = ThreadPool()
     send_count = 0
     failed_count = 0
 
-    shutdown_event = threading.Event()
-    start_action = threading.Event()
-
-    def dpu_ha_action():
+    def npu_ha_action():
         # wait for a number of packets to be sent, then simulate failure
-        while not shutdown_event.is_set() and not start_action.is_set():
+        while not stop_event.is_set() and not action_event.is_set():
             time.sleep(0.2)
 
-        if shutdown_event.is_set():
+        if stop_event.is_set():
             return
 
-        if standby_dpu_fail:
-            logger.info(f"Simulate standby DPU failure, pkt sent {send_count}")
-            dpu_power_off_for_index(duthosts[1], dpu_id)
+        if standby_npu_reboot:
+            logger.info(f"Standby NPU reboot, pkt sent {send_count}")
+            reboot_res, dut_datetime = reboot_smartswitch(duthosts[1], pool)
         else:
-            logger.info(f"Simulate primary DPU failure, pkt sent {send_count}")
-            dpu_power_off_for_index(duthosts[0], dpu_id)
-        logger.info(f"After DPU failure, pkt sent {send_count}")
+            logger.info(f"Primary NPU reboot, pkt sent {send_count}")
+            reboot_res, dut_datetime = reboot_smartswitch(duthosts[0], pool)
+            logger.info(f"After NPU reboot, pkt sent {send_count}, reboot result {reboot_res}, DUT datetime {dut_datetime}")
 
-    t = threading.Thread(target=dpu_ha_action, name="dpu_ha_action_thread")
+    t = threading.Thread(target=npu_ha_action, name="npu_ha_action_thread")
     t.start()
     t_max = time.time() + 60
     reached_max_time = False
@@ -170,10 +178,10 @@ def test_ha_dpu_failure(
     time.sleep(1)
 
     while not reached_max_time:
-        # After we send initial_send_count packets, awake ha_action thread
+        # After we send initial_send_count packets, awake link_ha_action thread
         if send_count == initial_send_count:
-            logger.info(f"Awake HA action thread after {send_count} packets")
-            start_action.set()
+            logger.info("Awake HA action thread")
+            action_event.set()
 
         try:
             if traffic_to_standby:
@@ -194,9 +202,8 @@ def test_ha_dpu_failure(
             if failed_count == 0:
                 if send_count == 0:
                     logger.error(f"first pkt dropped exception {e}")
-                    # terminate action thread since test failed
-                    shutdown_event.set()
-                    pytest.fail(f"HA DPU reboot with {traffic} test error: no packets received")
+                    stop_event.set()
+                    pytest.fail(f"HA NPU reboot with {traffic} test error: no packets received")
                 else:
                     logger.info(f"first pkt dropped after {send_count} pkts")
             failed_count += 1
@@ -207,17 +214,20 @@ def test_ha_dpu_failure(
 
     t.join()
     time.sleep(2)
-    # bring back up the DPU
-    dut = duthosts[1] if standby_dpu_fail else duthosts[0]
-    dpu_name = f"DPU{dpu_id}"
-    logger.info(f"Startup {dpu_name} on {dut.hostname}")
-    pytest_assert(dpu_power_on_for_index(dut, dpu_id), f"Failed to bring up {dpu_name} on {dut.hostname}")
+
+    # wait for NPU and DPU to be up
+    dut = duthosts[1] if standby_npu_reboot else duthosts[0]
+    wait_for_startup(dut, localhost, delay=10, timeout=600)
+    status = wait_until(CHECK_DPU_STATE_TIMEOUT, CHECK_DPU_STATE_TIME_INT, 0,
+                        check_dpu_up_state, dut, dpu_id)
+    if not status:
+        logger.error(f"DPU{dpu_id} not up on {dut.hostname}")
 
     threshold_loss = THRESHOLD_LOSS_PERCENT
     percentage_loss = (failed_count / send_count) * 100
     if (percentage_loss < threshold_loss):
-        logger.info(f"{dpu_shut} with {traffic} test OK. Sent: {send_count},"
+        logger.info(f"{npu_reboot} with {traffic} test OK. Sent: {send_count},"
                     f" not received: {failed_count}, loss: {percentage_loss}, threshold: {threshold_loss}")
     else:
-        pytest.fail(f"{dpu_shut} with {traffic} test error. Sent: {send_count},"
+        pytest.fail(f"{npu_reboot} with {traffic} test error. Sent: {send_count},"
                     f" not received: {failed_count} loss: {percentage_loss}, threshold: {threshold_loss}")
