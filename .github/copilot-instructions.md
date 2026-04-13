@@ -67,36 +67,147 @@ sonic-mgmt/
 - **Docstrings**: Required for test functions — describe what is being tested
 - **Ansible**: YAML files with 2-space indentation
 
-## Build Instructions
+## Setup
+
+### Clone the Repository
 
 ```bash
-# No build needed — this is a test/automation repo
-# Clone the repo
 git clone https://github.com/sonic-net/sonic-mgmt.git
 cd sonic-mgmt
-
-# Set up Python virtual environment
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-
-# For VS testing, use the sonic-mgmt Docker container
-# See docs/README.md for testbed setup instructions
+# Checkout the target branch, e.g. master
+git checkout master
 ```
+
+No build step is needed — this is a test/automation repo. Tests run inside a sonic-mgmt Docker container.
+
+### VS (Virtual Switch) Testbed Setup
+
+The VS testbed allows running tests locally against a virtual SONiC switch. All steps below assume:
+- A Linux VM (Ubuntu 22.04 recommended) with Docker installed
+- The sonic-mgmt repo cloned (e.g., to `/data/code/sonic-mgmt`)
+
+#### 1. Create the sonic-mgmt Container
+
+```bash
+cd /data/code/sonic-mgmt
+./setup-container.sh -n <container-name> -d /data/code -v
+```
+
+Replace `<container-name>` with a name for your container (e.g., `sonic-mgmt-<your-username>`).
+This creates a Docker container with the sonic-mgmt environment and configures SSH key-based access to the host VM.
+
+#### 2. Set Up the Management Network
+
+```bash
+cd /data/code/sonic-mgmt/ansible
+sudo ./setup-management-network.sh
+```
+
+This creates the `br1` bridge used for management connectivity.
+
+#### 3. Update Ansible Inventory
+
+Edit `ansible/veos_vtb` and update `ansible_user` and `vm_host_user` to match your Linux VM username:
+
+```yaml
+vm_host_1:
+  hosts:
+    STR-ACS-VSERV-01:
+      ansible_host: 172.17.0.1
+      ansible_user: <your-username>
+      vm_host_user: <your-username>
+```
+
+#### 4. Prepare Images
+
+**cEOS Image (for neighbor VMs):**
+
+Download the cEOS lab image from the [Arista software download page](https://www.arista.com/en/support/software-download) (requires an Arista account). The image file is named like `cEOS64-lab-4.32.5M.tar`. Place it under `~/veos-vm/images/`. The testbed automation will load it automatically.
+
+**SONiC VS Image:**
+
+Download the sonic-vs image from the [SONiC build pipeline artifacts](https://dev.azure.com/mssonic/build/_build?definitionId=142). Place it at `~/sonic-vm/images/sonic-vs.img`.
+
+#### 5. Enter the Container
+
+```bash
+docker exec -it --user $USER <container-name> /bin/bash
+```
+
+All subsequent steps are executed **inside the sonic-mgmt container**.
+
+#### 6. Export Environment Variables
+
+```bash
+BASE_PATH="/data/code/sonic-mgmt"
+export ANSIBLE_CONFIG=${BASE_PATH}/ansible
+export ANSIBLE_HOME=${BASE_PATH}/ansible
+export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
+export ANSIBLE_MODULE_UTILS=${BASE_PATH}/ansible/module_utils
+export ANSIBLE_ACTION_PLUGINS=${BASE_PATH}/ansible/plugins/action
+export ANSIBLE_CONNECTION_PLUGINS=${BASE_PATH}/ansible/plugins/connection
+export ANSIBLE_CLICONF_PLUGINS=${BASE_PATH}/ansible/cliconf_plugins
+export ANSIBLE_TERMINAL_PLUGINS=${BASE_PATH}/ansible/terminal_plugins
+```
+
+#### 7. Deploy the Testbed Topology
+
+```bash
+cd /data/code/sonic-mgmt/ansible
+echo "abc" > password.txt   # Ansible needs a non-empty password file
+./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k ceos add-topo vms-kvm-t0 password.txt -vv
+```
+
+#### 8. Deploy Minigraph (Push Configuration to DUT)
+
+```bash
+./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k ceos deploy-mg vms-kvm-t0 veos_vtb password.txt -vv
+```
+
+#### 9. Teardown (Optional)
+
+To remove the testbed topology when no longer needed:
+
+```bash
+./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k ceos remove-topo vms-kvm-t0 password.txt -vv
+```
+
+The testbed can be kept running for iterative test development and debugging.
 
 ## Testing
 
 ### Running Tests
+
+Tests are run from the `tests/` directory **inside the sonic-mgmt container**.
+
 ```bash
-# Run a specific test against a testbed
-cd tests
-pytest test_feature.py -v --testbed=vms-kvm-t0 --inventory=../ansible/veos_vtb
+cd /data/code/sonic-mgmt/tests
 
-# Run with markers
-pytest -m "topology_t0" test_bgp.py
+# Run a specific test against the VS testbed
+pytest bgp/test_bgp_fact.py \
+    --inventory ../ansible/veos_vtb \
+    --host-pattern all \
+    --testbed_file vtestbed.yaml \
+    --testbed vms-kvm-t0 \
+    --log-cli-level debug \
+    --showlocals \
+    --assert plain \
+    --show-capture no \
+    -rav
 
-# Run VS (virtual switch) tests
-pytest --testbed_type=vs test_feature.py
+# Speed up testing by skipping sanity checks and disabling the log analyzer
+pytest bgp/test_bgp_fact.py \
+    --inventory ../ansible/veos_vtb \
+    --host-pattern all \
+    --testbed_file vtestbed.yaml \
+    --testbed vms-kvm-t0 \
+    --log-cli-level debug \
+    --showlocals \
+    --assert plain \
+    --show-capture no \
+    -rav \
+    --skip_sanity \
+    --disable_loganalyzer
 ```
 
 ### Test Structure
