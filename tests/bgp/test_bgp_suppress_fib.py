@@ -330,7 +330,7 @@ def is_orchagent_stopped(duthost):
     Compatible for multi-asic
     """
     out_list = []
-    pids = duthost.shell("pidof orchagent")['stdout'].split()
+    pids = duthost.shell("pgrep -x orchagent")['stdout'].split()
     for pid in pids:
         cmd = 'cat /proc/{}/status | grep State'.format(pid)
         out = duthost.shell(cmd)['stdout']
@@ -637,8 +637,17 @@ def parse_time_stamp(bgp_packets, ipv4_route_list, ipv6_route_list):
 
 def compute_middle_average_time(time_stamp_dict):
     time_delta_list = []
-    for _, timestamp_list in time_stamp_dict.items():
+    for prefix, timestamp_list in time_stamp_dict.items():
+        if len(timestamp_list) < 2:
+            logger.warning("Prefix {} has only {} timestamp(s) in PCAP, skipping.".format(
+                prefix, len(timestamp_list)))
+            continue
         time_delta_list.append(abs(timestamp_list[1] - timestamp_list[0]))
+    if not time_delta_list:
+        logger.warning("No valid timestamp pairs found in PCAP after all retry attempts; "
+                       "cannot compute BGP route process performance.")
+        pytest.fail("No valid timestamp pairs found in PCAP after all retry attempts; "
+                    "cannot compute BGP route process performance.")
     time_delta_list.sort()
 
     mid_delta_time = time_delta_list[(len(time_delta_list) - 1) // 2]
@@ -1545,38 +1554,44 @@ def test_suppress_fib_performance(duthosts, enum_downstream_dut_hostname, enum_u
             with allure.step("Config bgp suppress-fib-pending function"):
                 config_bgp_suppress_fib(duthost_down)
 
-            with allure.step("Start sniffer"):
-                perf_sniffer_prepare(tcpdump_sniffer_downstream, tcpdump_sniffer_upstream,
-                                     duthost_up, nbrhosts, mg_facts, recv_port, tbinfo)
-                tcpdump_sniffer_downstream.start_sniffer(host='dut')
-                tcpdump_sniffer_upstream.start_sniffer(host='dut')
+            MAX_CAPTURE_ATTEMPTS = 3
+            pcap_file = None
+            for attempt in range(1, MAX_CAPTURE_ATTEMPTS + 1):
+                if attempt > 1:
+                    logger.warning(
+                        "Attempt {}/{}: PCAP had no valid timestamp pairs, retrying capture...".format(
+                            attempt, MAX_CAPTURE_ATTEMPTS))
 
-            with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from Downstream VM by ExaBGP - "
-                             f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6)
+                with allure.step("Start sniffer (attempt {}/{})".format(attempt, MAX_CAPTURE_ATTEMPTS)):
+                    perf_sniffer_prepare(tcpdump_sniffer_downstream, tcpdump_sniffer_upstream,
+                                         duthost_up, nbrhosts, mg_facts, recv_port, tbinfo)
+                    tcpdump_sniffer_downstream.start_sniffer(host='dut')
+                    tcpdump_sniffer_upstream.start_sniffer(host='dut')
 
-            with allure.step("Validate the BGP routes are propagated to Upstream VM"):
-                validate_route_propagate(duthost_up, nbrhosts, tbinfo, ipv4_route_list,
-                                         ipv6_route_list)
+                with allure.step(f"Announce BGP ipv4 and ipv6 routes to DUT from Downstream VM by ExaBGP - "
+                                 f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
+                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6)
 
-            with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from Downstream VM by ExaBGP - "
-                             f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
-                announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
-                                          action=WITHDRAW)
-            with allure.step("Validate the BGP routes are withdrawn from Upstream VM"):
-                validate_route_propagate(duthost_up, nbrhosts, tbinfo, ipv4_route_list,
-                                         ipv6_route_list, exist=False)
+                with allure.step("Validate the BGP routes are propagated to Upstream VM"):
+                    validate_route_propagate(duthost_up, nbrhosts, tbinfo, ipv4_route_list,
+                                             ipv6_route_list)
 
-            with allure.step("Stop sniffer"):
-                tcpdump_sniffer_downstream.stop_sniffer(host='dut')
-                if enum_downstream_dut_hostname == enum_upstream_dut_hostname:
-                    tcpdump_sniffer_upstream.stop_sniffer(host='dut', kill=False)
-                else:
-                    tcpdump_sniffer_upstream.stop_sniffer(host='dut')
+                with allure.step(f"Withdraw BGP ipv4 and ipv6 routes from Downstream VM by ExaBGP - "
+                                 f"v4: {exabgp_port} v6: {exabgp_port_v6}"):
+                    announce_ipv4_ipv6_routes(ptf_ip, ipv4_route_list, exabgp_port, ipv6_route_list, exabgp_port_v6,
+                                              action=WITHDRAW)
+                with allure.step("Validate the BGP routes are withdrawn from Upstream VM"):
+                    validate_route_propagate(duthost_up, nbrhosts, tbinfo, ipv4_route_list,
+                                             ipv6_route_list, exist=False)
 
-            with allure.step("Validate BGP route process performance"):
-                """For MultiDut Upstream and Downstream the generated Pcap needs to be merged"""
+                with allure.step("Stop sniffer"):
+                    tcpdump_sniffer_downstream.stop_sniffer(host='dut')
+                    if enum_downstream_dut_hostname == enum_upstream_dut_hostname:
+                        tcpdump_sniffer_upstream.stop_sniffer(host='dut', kill=False)
+                    else:
+                        tcpdump_sniffer_upstream.stop_sniffer(host='dut')
 
+                # For MultiDut Upstream and Downstream the generated Pcap needs to be merged
                 tcpdump_sniffer = tcpdump_helper(ptfadapter, duthost_up, ptfhost,
                                                  pcap_path="/tmp/capture.pcap")
                 tcpdump_sniffer.out_direct_ifaces = ["up"]
@@ -1587,7 +1602,24 @@ def test_suppress_fib_performance(duthosts, enum_downstream_dut_hostname, enum_u
                 tcpdump_sniffer.ptfhost.shell("chmod 777 {}".format(tcpdump_sniffer.pcap_path))
                 logging.info("Copy file {} from ptf docker to ngts docker".format(tcpdump_sniffer.pcap_path))
                 tcpdump_sniffer.ptfhost.fetch(src=tcpdump_sniffer.pcap_path, dest=tcpdump_sniffer.pcap_path, flat=True)
-                validate_route_process_perf(tcpdump_sniffer.pcap_path, ipv4_route_list, ipv6_route_list)
+
+                bgp_packets_check = sniff(
+                    offline=tcpdump_sniffer.pcap_path,
+                    lfilter=lambda p: (IP or IPv6 in p) and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 2)
+                announce_ts, _ = parse_time_stamp(bgp_packets_check, ipv4_route_list, ipv6_route_list)
+                valid_pairs = sum(1 for v in announce_ts.values() if len(v) >= 2)
+                if valid_pairs > 0:
+                    pcap_file = tcpdump_sniffer.pcap_path
+                    break
+                logger.warning("Attempt {}/{}: PCAP captured no valid prefix timestamp pairs.".format(
+                    attempt, MAX_CAPTURE_ATTEMPTS))
+            else:
+                pytest.fail(
+                    "PCAP capture yielded no valid prefix timestamp pairs after {} attempts.".format(
+                        MAX_CAPTURE_ATTEMPTS))
+
+            with allure.step("Validate BGP route process performance"):
+                validate_route_process_perf(pcap_file, ipv4_route_list, ipv6_route_list)
         finally:
             with allure.step("Disable bgp suppress-fib-pending function"):
                 config_bgp_suppress_fib(duthost_down, False, validate_result=True)
