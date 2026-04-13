@@ -451,7 +451,7 @@ def converge_topo_if_needed(config):
         spec.loader.exec_module(ceos_module)
 
         ceos_module.converge_testbed(backup_file, topo_file)
-        logger.info(f"✓ Topology '{topo_name}' converged successfully")
+        logger.info(f"Topology '{topo_name}' converged successfully")
 
         os.chmod(topo_file, original_mode)
         os.chown(topo_file, original_uid, original_gid)
