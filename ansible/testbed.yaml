@@ -2065,7 +2065,7 @@
   auto_recover: 'True'
   comment: dashuaizhang
 
-- conf-name: vms77-t1-7060x6-11
+- conf-name: vms77-t1-7060x6-512-11
   group-name: vms77-1
   topo: t1-isolated-d448u15-lag # 463VM
   ptf_image_name: docker-ptf
