@@ -848,6 +848,8 @@
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
           is_lit_mode: "{{ is_lit_mode | default(true) }}"
           npu_index: "{{ dut_index | default(0) | int }}"
+          duts_list: "{{ testbed_facts['duts'] | default([]) }}"
+          dut_loopbacks: "{{ topology.DUT.loopback | default({}) }}"
           console_ports: "{{ device_serial_link[inventory_hostname] | default(omit) if 'c0' in topo else omit }}"
         become: true
 
