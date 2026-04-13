@@ -141,6 +141,34 @@ def gcu_add_multiple_aggregates(duthost, cfgs):
     apply_gcu_patch(duthost, patch)
 
 
+def db_add_multiple_aggregates(duthost, cfgs):
+    """Add aggregate entries directly to CONFIG_DB, bypassing GCU.
+
+    Much faster than GCU for bulk operations (~5s vs ~20min for 1000 entries).
+    Writes directly to Redis via sonic-db-cli; bgpcfgd picks up changes
+    via CONFIG_DB subscription.  Suitable for scale/stress tests where
+    GCU validation overhead is not the test objective.
+    """
+    cmds = []
+    for cfg in cfgs:
+        key = f"{BGP_AGGREGATE_ADDRESS}|{cfg.prefix}"
+        bbr = "true" if cfg.bbr_required else "false"
+        so = "true" if cfg.summary_only else "false"
+        as_set = "true" if cfg.as_set else "false"
+        cmds.append(
+            f"sonic-db-cli CONFIG_DB HSET '{key}' "
+            f"'bbr-required' '{bbr}' 'summary-only' '{so}' 'as-set' '{as_set}'"
+        )
+    # Execute in batches via a single SSH call per batch to minimize round-trips
+    batch_size = 200  # safe for shell command length
+    start = time.time()
+    for i in range(0, len(cmds), batch_size):
+        batch = cmds[i:i + batch_size]
+        duthost.shell(" && ".join(batch), module_ignore_errors=True)
+    elapsed = time.time() - start
+    logger.info("Direct DB add complete: %d aggregates in %.1fs", len(cfgs), elapsed)
+
+
 def gcu_remove_multiple_aggregates(duthost, prefixes):
     """Remove several aggregate entries in a single GCU patch."""
     patch = [
@@ -213,7 +241,7 @@ def withdraw_contributing_routes(setup, prefixes, ip_version="ipv4"):
 
 
 # ---- M2 (upstream) route verification helpers ----
-def _check_route_on_neighbor(nbrhosts, neighbor, prefix):
+def check_route_on_neighbor(nbrhosts, neighbor, prefix):
     """Check whether a prefix exists and is active in the BGP table of a neighbor VM.
 
     Returns True if the route is present with at least one BGP path, False otherwise.
@@ -243,7 +271,7 @@ def verify_route_on_m2(nbrhosts, upstream_neighbors, prefix, expected_present=Tr
     neighbor = upstream_neighbors[0]
 
     def _check():
-        return _check_route_on_neighbor(nbrhosts, neighbor, prefix) == expected_present
+        return check_route_on_neighbor(nbrhosts, neighbor, prefix) == expected_present
 
     action = "present" if expected_present else "absent"
     pytest_assert(
@@ -257,7 +285,7 @@ def verify_contributing_routes_on_m2(nbrhosts, upstream_neighbors, prefixes, exp
     neighbor = upstream_neighbors[0]
     for prefix in prefixes:
         def _check(p=prefix):
-            return _check_route_on_neighbor(nbrhosts, neighbor, p) == expected_present
+            return check_route_on_neighbor(nbrhosts, neighbor, p) == expected_present
         action = "present" if expected_present else "absent"
         pytest_assert(
             wait_until(120, 5, 0, _check),
