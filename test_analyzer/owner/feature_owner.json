@@ -1233,8 +1233,8 @@
                         "cases": [
                             "test_warm_reboot"
                         ],
-                        "owner": "Vaibhav Hemant Dixit",
-                        "email": "vadixit@microsoft.com"
+                        "owner": "Ryan Garthwaite",
+                        "email": "rgarthwaite@microsoft.com"
                     }
                 ]
             },
@@ -1273,8 +1273,8 @@
                     "platform_tests.test_cont_warm_reboot",
                     "platform_tests.test_service_warm_restart"
                 ],
-                "owner": "Vaibhav Hemant Dixit",
-                "email": "vadixit@microsoft.com"
+                "owner": "Ryan Garthwaite",
+                "email": "rgarthwaite@microsoft.com"
             },
             {
                 "scripts": [
