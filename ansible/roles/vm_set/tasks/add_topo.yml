@@ -111,7 +111,7 @@
         state: started
         restart: no
         detach: True
-        network_mode: none
+        network_mode: "{{ mgmt_bridge if ptf_use_docker_network | default(false) else 'none' }}"
         capabilities:
           - net_admin
         privileged: yes
@@ -127,7 +127,7 @@
 
     - name: Create vlan ports for dut
       include_tasks: create_dut_port.yml
-      when: external_port is defined
+      when: "external_port is defined and 'bmc' not in topo"
       loop: "{{ duts_name.split(',') }}"
       loop_control:
         loop_var: dut_name
@@ -169,7 +169,8 @@
       pull: "{{ 'missing' if (ptf_modified | default(false) | bool) else 'always' }}"
       state: started
       restart: no
-      network_mode: none
+      network_mode: "{{ mgmt_bridge if ptf_use_docker_network | default(false) else 'none' }}"
+      networks: "{{ [{'name': mgmt_bridge, 'ipv4_address': ptf_ip | regex_replace('/.*', '')}] if ptf_use_docker_network | default(false) else omit }}"
       detach: True
       capabilities:
         - net_admin
@@ -209,16 +210,25 @@
 
   - name: Get dut ports
     include_tasks: get_dut_port.yml
+    when: "'bmc' not in topo"
     loop: "{{ duts_name.split(',') }}"
     loop_control:
       loop_var: dut_name
 
   - name: Create vlan ports for dut
     include_tasks: create_dut_port.yml
-    when: external_port is defined
+    when: "external_port is defined and 'bmc' not in topo"
     loop: "{{ duts_name.split(',') }}"
     loop_control:
       loop_var: dut_name
+
+  - name: Set default empty port lists for portless topo
+    set_fact:
+      duts_fp_ports: {}
+      duts_mgmt_port: []
+      duts_midplane_ports: {}
+      duts_inband_ports: {}
+    when: "'bmc' in topo"
 
   - debug: msg="{{ duts_fp_ports }}"
   - debug: msg="{{ duts_mgmt_port }}"
@@ -257,10 +267,10 @@
       dut_interfaces: "{{ dut_interfaces | default('') }}"
       multi_vrf: "{{ topo_is_multi_vrf }}"
       multi_vrf_data: "{{ convergence_data|default({}) }}"
-      topo_config: "{{ configuration }}"
+      topo_config: "{{ configuration | default({}) }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
-    when: not enable_async
+    when: not enable_async and "bmc" not in topo
 
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }} (async mode)
     loop: "{{ VM_targets|flatten(levels=1) }}"
@@ -294,14 +304,14 @@
       dut_interfaces: "{{ dut_interfaces | default('') }}"
       multi_vrf: "{{ topo_is_multi_vrf }}"
       multi_vrf_data: "{{ convergence_data|default({}) }}"
-      topo_config: "{{ configuration }}"
+      topo_config: "{{ configuration | default({}) }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
     async: 3600
     poll: 0
     throttle: 50
     register: async_bind_vm
-    when: enable_async
+    when: enable_async and "bmc" not in topo
 
   - name: Wait for bind tasks to complete
     become: yes
@@ -345,7 +355,7 @@
 
   - name: Change MAC address for PTF interfaces
     include_tasks: ptf_change_mac.yml
-    when: topo != 'fullmesh'
+    when: topo != 'fullmesh' and not (ptf_use_docker_network | default(false))
 
   # ptf container may reuse the same ip address with a new random mac address
   # for ptf container's mgmt network interface, so we need to send gratuitous
@@ -394,6 +404,7 @@
     include_tasks: ptf_portchannel.yml
     vars:
       ptf_portchannel_action: start
+    when: "'bmc' not in topo"
 
   - name: Announce routes
     include_tasks: announce_routes.yml
@@ -401,6 +412,7 @@
       - topo != 'fullmesh'
       - not 'ptf' in topo
       - not 'cable' in topo
+      - not 'bmc' in topo
 
   - name: Start mux simulator
     include_tasks: control_mux_simulator.yml
@@ -416,6 +428,7 @@
 
   - name: Start tacacs+ daily daemon
     include_tasks: start_tacacs_daily_daemon.yml
+    when: not (ptf_use_docker_network | default(false))
 
   when: container_type == "PTF"
 
