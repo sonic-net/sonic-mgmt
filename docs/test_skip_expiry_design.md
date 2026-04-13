@@ -253,7 +253,7 @@ A scheduled workflow that runs periodically (e.g., daily) to:
 - Apply expiry logic based on chosen strategy (time-based or priority escalation)
 - Take action on expired issues:
   - Close the issue (causing the skip to no longer apply)
-  - Add expiry-related labels (e.g., `skip-expired`)
+  - Add expiry-related labels (e.g., `sonic-wf-priority-3`, `sonic-wf-priority-2` etc.)
   - Bump priority labels if using escalation strategy
   - Optionally notify issue assignees
 
@@ -261,7 +261,7 @@ A scheduled workflow that runs periodically (e.g., daily) to:
 
 A separate tool that generates periodic reports and dashboards:
 - List all active temporary skips with their associated issues
-- Show issues approaching expiry (e.g., within 30/14/7 days)
+- Show issues approaching expiry (e.g., within 30/14/7 days) based on Priority label periods
 - Track skip health metrics across the repository
 - Provide visibility into permanent vs temporary skip distribution
 
@@ -282,7 +282,7 @@ To provide early warning, tests associated with soon-to-expire skips can be run 
 **Implementation via Pipelines:**
 
 This feature will be implemented as a scheduled Azure Pipeline that:
-1. Queries for issues expiring within the next 14-30 days
+1. Queries for issues in the conditional mark file
 2. Identifies the test cases associated with those issues from the conditional mark YAML
 3. Runs those specific tests with the `--ignore-skip-for-issues` flag (bypassing the skip)
 4. Collects test results and posts a summary comment on each relevant GitHub issue
@@ -322,7 +322,7 @@ Different release branches may have different skip requirements for the same tes
 - **Option A: Branch-Specific Issues and Conditional Mark Files**
 
   Each release branch maintains its own conditional mark YAML file with branch-specific GitHub issues. When a new release branch is created:
-  1. Clone/copy relevant skip issues for the new branch (e.g., create `issue-202405` from `issue-main`)
+  1. Create new issues for the new branch based on the original issue.
   2. The conditional mark file in that branch references the cloned issues
   3. Each branch manages its skip lifecycle independently
 
@@ -390,13 +390,9 @@ This decision was made after team discussions weighing the trade-offs between si
 ### Rationale for Selection
 
 1. **Alignment with existing workflows**: The team already uses GitHub issues to track bugs and feature work. Linking skips to issues creates a natural connection between test status and development progress.
-
 2. **Rich context and discussion**: GitHub issues provide a centralized place for discussing why a test is skipped, tracking progress toward a fix, and linking related PRs and commits.
-
 3. **Built-in notification system**: GitHub's notifications, assignees, and watchers provide visibility without building custom alerting infrastructure.
-
 4. **Dynamic expiry management**: Expiry policies can be adjusted centrally in the automation workflow without modifying individual YAML entries.
-
 5. **Priority escalation**: The ability to automatically escalate issue priority provides graduated urgency and gives developers multiple opportunities to address issues before expiry.
 
 ### Trade-offs Accepted
@@ -480,6 +476,8 @@ This decision was made after team discussions weighing the trade-offs between si
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
+**NOTE** There are no changes to the conditional mark plugin with this approach.
+
 ### 1. YAML Structure Definition
 
 There are no structural changes to the conditional mark YAML file.
@@ -512,119 +510,8 @@ expiry_config:
   warning_days: [30, 14, 7]  # Days before expiry to send warnings
 ```
 
-Highlevel structure of the workflow.
-
-```yaml
-# .github/workflows/skip-expiry-check.yml
-name: Skip Expiry Check
-
-on:
-  schedule:
-    - cron: '0 8 * * *'  # Daily at 8 AM UTC
-  workflow_dispatch:  # Allow manual trigger
-
-jobs:
-  check-expiry:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Parse conditional mark files
-        run: |
-          python scripts/parse_skip_issues.py \
-            --config tests/common/plugins/conditional_mark/tests_mark_conditions.yaml \
-            --output issues.yaml
-
-      - name: Check issue expiry
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          python scripts/check_issue_expiry.py \
-            --issues issues.yaml \
-            --expiry_config tests/common/plugins/conditional_mark/expiry_config.yaml \
-
-      - name: Generate report
-        run: |
-          python scripts/generate_skip_report.py \
-            --issues issues.yaml \
-
-      - name: Post report to issue
-        if: github.event_name == 'schedule'
-        uses: peter-evans/create-or-update-comment@v4
-        with:
-          issue-number: 99999  # Tracking issue for skip reports
-          body-path: report.md
-```
-
-### 3. Pre-Expiry Test Execution
-
-To provide early warning before skips expire, implement a pre-expiry test mode:
-
-```yaml
-# .github/workflows/pre-expiry-tests.yml
-name: Pre-Expiry Test Validation
-
-on:
-  schedule:
-    - cron: '0 2 * * 0'  # Weekly on Sunday at 2 AM UTC
-
-jobs:
-  validate-expiring-skips:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Find expiring issues (within 30 days)
-        run: |
-          python scripts/find_expiring_issues.py \
-            --within-days 30 \
-            --output expiring_tests.txt
-
-      - name: Run expiring tests (non-blocking)
-        continue-on-error: true
-        run: |
-          pytest $(cat expiring_tests.txt) \
-            --ignore-skip-for-issues \
-            --tb=short \
-            | tee test_results.txt
-
-      - name: Report results to issues
-        run: |
-          python scripts/report_test_results.py \
-            --results test_results.txt \
-            --comment-on-issues
-```
-
-### 4. Release Branch Management
+### 3. Release Branch Management
 
 To handle skips across multiple release branches:
 
 **Recommended Approach: Option A: Branch-Specific Issues and Conditional Mark Files**
-
-### 5. Error Messages
-
-#### Issue Not Found
-```
-ERROR: GitHub issue not found for test 'bgp/test_bgp_session.py'.
-Issue URL: https://github.com/sonic-net/sonic-mgmt/issues/12345
-Please verify the issue URL is correct and accessible.
-```
-
-#### Issue Closed (Test Will Run)
-```
-INFO: Skip no longer active for test 'bgp/test_bgp_session.py'.
-GitHub issue #12345 is closed. Test will run normally.
-If the underlying issue is not fixed, reopen the issue or create a new one.
-```
-
-#### Issue Expiring Soon (Warning)
-```
-WARNING: Skip expiring soon for test 'bgp/test_bgp_session.py'.
-GitHub issue #12345 will expire in 14 days (created: 2025-08-01).
-Please fix the underlying issue or document why more time is needed.
-```
-
-#### API Unavailable
-```
-WARNING: Cannot reach GitHub API to check issue state.
-Fallback behavior: Applying skip for test 'bgp/test_bgp_session.py'.
-Cached state from 2 hours ago: issue #12345 was open.
-```
