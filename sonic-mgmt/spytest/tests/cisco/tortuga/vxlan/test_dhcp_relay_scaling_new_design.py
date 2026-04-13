@@ -3,7 +3,6 @@ import yaml
 import pytest
 from spytest import st, tgapi, SpyTestDict
 from dhcpv4_relay_utils import check_dhcp4relay_support
-import apis.system.basic as basic_obj
 import apis.routing.ip as ip_obj
 import apis.switching.vlan as vlan_obj
 import vxlan_utils as vxlan_obj
@@ -20,13 +19,29 @@ DHCP_SCALE_FILE_PATH = os.path.dirname(os.path.realpath(__file__)) +  '/' + DHCP
 SPYTEST_HELPER_FILE = "spytest-helper.py"
 SPYTEST_HELPER_FILE_PATH = os.path.dirname(os.path.realpath(__file__)) + '/../../../../spytest/remote/' + SPYTEST_HELPER_FILE
 
-DHCP_RELAY_SCALE = 800
+# Hardware: full relay VLAN count. SIM (VXR): reduced count (per-VLAN DHCP monitors).
+DHCP_RELAY_SCALE_FULL = 800
+DHCP_RELAY_SCALE_REDUCED_SIM = 100
 
 dhcprelay_startvlan = 21
-dhcprelay_endvlan = dhcprelay_startvlan + DHCP_RELAY_SCALE
 dhcpserver_vlan = 20
-
 dhcpserver_ipv4 = "192.160.20.100"
+
+def get_dhcp_relay_scale(dut):
+    """
+    SIM (VXR): DHCP_RELAY_SCALE_REDUCED_SIM VLANs (per-VLAN relay monitor load).
+    Hardware: DHCP_RELAY_SCALE_FULL VLANs.
+
+    The same value is used for Kea prep, relay_config_generation.py
+    --dhcp-relay-scale, and client verification.
+    """
+    if vxlan_obj.check_hw_or_sim(dut) == "sim":
+        st.log(
+            "SIM: DHCP relay scale {} VLANs".format(DHCP_RELAY_SCALE_REDUCED_SIM)
+        )
+        return DHCP_RELAY_SCALE_REDUCED_SIM
+    st.log("HW: DHCP relay scale {} VLANs".format(DHCP_RELAY_SCALE_FULL))
+    return DHCP_RELAY_SCALE_FULL
 
 
 def download_image(dut, url, filename):
@@ -42,10 +57,20 @@ def download_image(dut, url, filename):
 
     return ls_out  # return raw output to caller
 
-def prepare_server_config(node, file_path, dest_file_path=None):
+def prepare_server_config(
+    node, file_path, dest_file_path=None, relay_start_vlan=None, relay_end_exclusive=None
+):
+    if relay_start_vlan is None:
+        relay_start_vlan = dhcprelay_startvlan
+    if relay_end_exclusive is None:
+        relay_end_exclusive = relay_start_vlan + DHCP_RELAY_SCALE_FULL
     utils_obj.copy_files_to_dut(node, [file_path], dest_file_path)
-    st.config(node, "python3 dhcp_conf_gen.py --iface Vlan{} --start {} --end {} --outfile {}"
-            .format(dhcpserver_vlan, dhcprelay_startvlan, dhcprelay_endvlan-1, DHCP_SERVER_FILE))
+    st.config(
+        node,
+        "python3 dhcp_conf_gen.py --iface Vlan{} --start {} --end {} --outfile {}".format(
+            dhcpserver_vlan, relay_start_vlan, relay_end_exclusive - 1, DHCP_SERVER_FILE
+        ),
+    )
 
 def configure_dhcp_server(dut, vlan_id, server_ip, conf_file="kea-dhcp4.conf"):
     """
@@ -171,7 +196,8 @@ def run_dhclient_and_verify(node, start_vlan, end_vlan):
 ######################################################################
 ##
 ##  HOST0/dhcp_client ------- SD3/Leaf0 ------- HOST1/dhcp_server
-##                    VLAN(21-820)      VLAN20         192.160.20.100
+##                    VLAN(21..20+N)    VLAN20         192.160.20.100
+##                    N=DHCP_RELAY_SCALE_FULL on HW; N=DHCP_RELAY_SCALE_REDUCED_SIM on SIM
 ##                                    192.160.20.1/24
 ##                           RELAY_AGENT
 ##
@@ -189,6 +215,9 @@ def test_dhcp_relay_ipv4_scaling():
     if not check_dhcp4relay_support(vars.D3):
         st.log("Skipping: dhcp4relay new design not supported - gracefully passing.")
         return st.report_pass("test_case_passed", "dhcp4relay new design is not there. so gracefully passing")
+
+    dhcp_relay_scale = get_dhcp_relay_scale(nodes["leaf0"])
+    dhcprelay_endvlan = dhcprelay_startvlan + dhcp_relay_scale
 
     for dut in st.get_dut_names():
         output = st.config(dut, "show vlan brief")
@@ -227,7 +256,13 @@ def test_dhcp_relay_ipv4_scaling():
 
         # Configuring server node
         st.banner("Config dhcp server node")
-        prepare_server_config(nodes['spine0'], DHCP_SERVER_GEN_FILE_PATH, dest_file_path)
+        prepare_server_config(
+            nodes["spine0"],
+            DHCP_SERVER_GEN_FILE_PATH,
+            dest_file_path,
+            relay_start_vlan=dhcprelay_startvlan,
+            relay_end_exclusive=dhcprelay_endvlan,
+        )
     
         configure_dhcp_server(nodes['spine0'], dhcpserver_vlan, dhcpserver_ipv4, DHCP_SERVER_FILE)
         st.wait(5)
@@ -241,7 +276,9 @@ def test_dhcp_relay_ipv4_scaling():
         st.banner("Config DHCP Scale Config")
 
         # Configuring relay node
-        apply_json_config(nodes['leaf0'], DHCP_SCALE_FILE_PATH, DHCP_RELAY_SCALE, vars.D3D2P1, dest_file_path, "relay")
+        apply_json_config(
+            nodes["leaf0"], DHCP_SCALE_FILE_PATH, dhcp_relay_scale, vars.D3D2P1, dest_file_path, "relay"
+        )
         reboot_obj.config_save(nodes['leaf0'])
         status = reboot_obj.config_reload(nodes['leaf0'])
         if status:
@@ -251,7 +288,7 @@ def test_dhcp_relay_ipv4_scaling():
             return st.report_fail("test_case_failed", "config reload failed")
 
         # Configuring client node
-        apply_json_config(nodes['spine1'], DHCP_SCALE_FILE_PATH, DHCP_RELAY_SCALE, vars.D2D3P1, dest_file_path)
+        apply_json_config(nodes["spine1"], DHCP_SCALE_FILE_PATH, dhcp_relay_scale, vars.D2D3P1, dest_file_path)
         reboot_obj.config_save(nodes['spine1'])
         status = reboot_obj.config_reload(nodes['spine1'])
         if status:
