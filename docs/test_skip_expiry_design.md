@@ -196,47 +196,14 @@ Leverage GitHub issues as the source of truth for temporary skip expiry, with au
 
 This approach separates concerns between the conditional mark YAML file and GitHub issue tracking:
 
-1. **Permanent skips**: Continue to use category tags in the YAML file (e.g., `ASIC_NOT_SUPPORTED`, `TOPO_NOT_SUPPORTED`)
-2. **Temporary skips**: Reference GitHub issues instead of hard-coded expiry dates. The issue's lifecycle (open/closed state, creation date, labels) determines skip behavior.
+1. **Permanent skips**: Are skips without a GitHub issue specified in the condition.
+2. **Temporary skips**: Are skips that reference GitHub issue in the skip clause. The issue's lifecycle (open/closed state, creation date, labels) determines skip behavior.
 3. **Conditional mark plugin**: Only checks if the referenced GitHub issue is open or closed to determine skip status
 4. **External automation**: A separate GitHub Actions workflow or pipeline periodically monitors issues and manages expiry
 
-#### Structure Example
+#### YAML Structure
 
-```yaml
-# Define skip categories at the top of the file
-skip_categories:
-  permanent:
-    description: "Skips are indefinite and do not require expiry dates"
-    requires_expiry_date: false
-    allowed_reasons:
-      - "ASIC_NOT_SUPPORTED"
-      - "TOPO_NOT_SUPPORTED"
-      - "FEATURE_NOT_APPLICABLE"
-  temporary:
-    description: "Skips are tracked via GitHub issues"
-    requires_github_issue: true
-    allowed_reasons:
-      - "BUG_FIX_IN_PROGRESS"
-      - "NEW_FEATURE_UNDER_DEVELOPMENT"
-      - "INFRASTRUCTURE_ISSUE"
-
-# Test skip definitions
-acl/test_acl.py:
-  skip:
-    reason: "Skip acl for isolated-v6 topology"
-    category: "TOPO_NOT_SUPPORTED"  # Permanent - no issue needed
-    conditions:
-      - "'isolated-v6' in topo_name"
-
-bgp/test_bgp_session.py:
-  skip:
-    reason: "BGP session flap during testbed maintenance"
-    category: "INFRASTRUCTURE_ISSUE"  # Temporary - requires issue
-    conditions:
-      - "testbed in ['testbed-01']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/12345"
-```
+There is no structural change with this design or approach.
 
 #### Expiry Detection Strategies
 
@@ -327,11 +294,11 @@ The pipeline runs weekly (or on-demand) and operates in non-blocking mode - test
 
 The plugin's responsibility is simplified:
 
-1. **For permanent skips**: Apply skip if category matches a permanent reason
-2. **For temporary skips**: Query GitHub API to check issue state
+1. **For permanent skips**: ie. skips without an associated issue the skip is applied as it is done in the current implementation.
+2. **For temporary skips**: ie. skips have an associated GitHub issue the plugin behavior remains unchanged. It queries GitHub API to check issue state
    - If issue is **open**: Condition is evaluated to True;
    - If issue is **closed**: Condition is evaluated to False; Test skip depends on other conditions.
-3. **Caching**: Cache issue state to avoid excessive API calls during test runs
+3. **Caching**: Cache issue state to avoid excessive API calls during test runs (already available in current implementation of the conditional mark plugin)
 4. **Fallback**: If GitHub API is unavailable, use cached state or apply skip conservatively
 
 #### Open Issues and Considerations
@@ -346,7 +313,7 @@ When the automation closes an expired issue, tests that were previously skipped 
 
 **2. Nightly Test Management**
 
-Not applicable to the public GitHub sonic-mgmt repository.
+Not applicable. This applies to public GitHub sonic-mgmt repository issues only.
 
 **3. Release Branch Management**
 
@@ -369,6 +336,8 @@ Different release branches may have different skip requirements for the same tes
   - Closing an issue removes it from all branches; removing a branch label removes it from that branch only
 
   This approach reduces issue duplication but adds complexity in label management.
+
+**Chosen Approach** - Option A - where new issues are created for each release branch and tracked separately. Automation will be required to initially create new issues for all branches.
 
 #### Advantages
 
@@ -513,36 +482,19 @@ This decision was made after team discussions weighing the trade-offs between si
 
 ### 1. YAML Structure Definition
 
-```yaml
-# Top-level category definitions
-skip_categories:
-  permanent:
-    description: "Skips are indefinite and do not require GitHub issues"
-    requires_github_issue: false
-    allowed_reasons:
-      - "ASIC_NOT_SUPPORTED"
-      - "TOPO_NOT_SUPPORTED"
-      - "FEATURE_NOT_APPLICABLE"
-  temporary:
-    description: "Skips require a GitHub issue for tracking and expiry"
-    requires_github_issue: true
-    allowed_reasons:
-      - "BUG_FIX_IN_PROGRESS"
-      - "NEW_FEATURE_UNDER_DEVELOPMENT"
-      - "INFRASTRUCTURE_ISSUE"
+There are no structural changes to the conditional mark YAML file.
 
+```yaml
 # Individual test skip definitions
 <test_path>:
   skip:
     reason: "<human-readable skip reason>"
-    category: "<CATEGORY_NAME>"  # Must match allowed_reasons
-    issue: "<GitHub issue URL>"  # Required for temporary category
+    issue: "<GitHub issue URL>"  # Marks skip as temporary; not having an issue implicitly assumes skip is permanent.
     conditions: [...]
     conditions_logical_operator: "and"  # or "or"
   xfail:
     reason: "<human-readable xfail reason>"
-    category: "<CATEGORY_NAME>"
-    issue: "<GitHub issue URL>"  # Required for temporary category
+    issue: "<GitHub issue URL>"  # Marks skip as temporary; not having an issue implicitly assumes skip is permanent.
     conditions: [...]
 ```
 
