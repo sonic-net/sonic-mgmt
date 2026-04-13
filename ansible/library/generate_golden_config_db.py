@@ -62,6 +62,8 @@ class GenerateGoldenConfigDBModule(object):
                                     vm_configuration=dict(required=False, type='dict', default={}),
                                     is_lit_mode=dict(required=False, type='bool', default=True),
                                     npu_index=dict(required=False, type='int', default=0),
+                                    duts_list=dict(required=False, type='list', default=[]),
+                                    dut_loopbacks=dict(required=False, type='dict', default={}),
                                     console_ports=dict(required=False, type='dict', default=None)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
@@ -74,6 +76,8 @@ class GenerateGoldenConfigDBModule(object):
         self.vm_configuration = self.module.params['vm_configuration']
         self.is_lit_mode = self.module.params['is_lit_mode']
         self.npu_index = self.module.params['npu_index']
+        self.duts_list = self.module.params['duts_list']
+        self.dut_loopbacks = self.module.params['dut_loopbacks']
         self.console_ports = self.module.params['console_ports']
 
     def generate_mgfx_golden_config_db(self):
@@ -527,6 +531,11 @@ class GenerateGoldenConfigDBModule(object):
         if self.topo_name == "t1-smartswitch-ha":
             gold_config_db["DEVICE_METADATA"]["localhost"]["cluster"] = "cluster1"
             gold_config_db["DEVICE_METADATA"]["localhost"]["region"] = "west"
+            ha_config = self._generate_ha_config(dpu_num)
+            # Merge FEATURE dict so we don't overwrite existing features
+            if "FEATURE" in ha_config and "FEATURE" in gold_config_db:
+                gold_config_db["FEATURE"].update(ha_config.pop("FEATURE"))
+            gold_config_db.update(ha_config)
 
         rc, out, err = self.module.run_command("cat {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         if rc != 0:
@@ -534,6 +543,146 @@ class GenerateGoldenConfigDBModule(object):
         smartswitch_config_obj = json.loads(out)
         gold_config_db.update(smartswitch_config_obj)
         return json.dumps(gold_config_db, indent=4)
+
+    def _generate_ha_config(self, dpu_count):
+        """
+        Generate DASH-HA configuration tables (DPU, REMOTE_DPU, VDPU,
+        DASH_HA_GLOBAL_CONFIG, FEATURE, VNET, VXLAN_TUNNEL) for the
+        t1-smartswitch-ha topology.
+
+        Requires self.duts_list (ordered list of DUT hostnames) and
+        self.dut_loopbacks (dict with 'ipv4' and 'ipv6' lists from topology).
+        """
+        switch_id = self.npu_index
+        if not self.duts_list or len(self.duts_list) != 2:
+            logger.warning(
+                "HA config generation skipped: duts_list must have "
+                "exactly 2 entries, got %d",
+                len(self.duts_list) if self.duts_list else 0)
+            return {}
+
+        if switch_id not in (0, 1):
+            logger.warning(
+                "HA config generation skipped: npu_index (switch_id) "
+                "must be 0 or 1, got %d", switch_id)
+            return {}
+
+        hostname = self.duts_list[switch_id]
+        peer_switch_id = 1 - switch_id
+        peer_hostname = self.duts_list[peer_switch_id]
+
+        loopback_ip = self.dut_loopbacks['ipv4'][switch_id]
+        loopback_v6 = (self.dut_loopbacks['ipv6'][switch_id]
+                       if 'ipv6' in self.dut_loopbacks else None)
+        peer_loopback_ip = self.dut_loopbacks['ipv4'][peer_switch_id]
+
+        vxlan_src_ip = loopback_ip.split("/")[0]
+        peer_npu_ip = peer_loopback_ip.split("/")[0]
+
+        # --- Local DPU table ---
+        pa_prefix = "20.0.20{}.".format(switch_id)
+        vip_prefix = "3.2.1."
+        midplane_prefix = "169.254.200."
+        swbus_start = 23606
+
+        dpu_table = {}
+        for idx in range(dpu_count):
+            dpu_key = "{}-dpu-{}".format(hostname, idx)
+            dpu_table[dpu_key] = {
+                "dpu_id": str(idx),
+                "gnmi_port": "50052",
+                "local_port": "8080",
+                "orchagent_zmq_port": "8100",
+                "pa_ipv4": "{}{}".format(pa_prefix, idx + 1),
+                "state": "up",
+                "swbus_port": str(swbus_start + idx),
+                "vdpu_id": "vdpu{}_{}".format(switch_id, idx),
+                "vip_ipv4": "{}{}".format(vip_prefix, idx),
+                "midplane_ipv4": "{}{}".format(midplane_prefix, idx + 1),
+            }
+
+        # --- Remote DPU table ---
+        remote_pa_prefix = "20.0.20{}.".format(peer_switch_id)
+        remote_dpu_table = {}
+        for idx in range(dpu_count):
+            dpu_key = "{}-dpu-{}".format(peer_hostname, idx)
+            remote_dpu_table[dpu_key] = {
+                "dpu_id": str(idx),
+                "npu_ipv4": peer_npu_ip,
+                "pa_ipv4": "{}{}".format(remote_pa_prefix, idx + 1),
+                "swbus_port": str(swbus_start + idx),
+                "type": "cluster"
+            }
+
+        # --- VDPU table ---
+        hostname_0 = hostname if switch_id == 0 else peer_hostname
+        hostname_1 = peer_hostname if switch_id == 0 else hostname
+
+        vdpu_table = {}
+        '''
+        TODO:
+        main_dpu_ids is taken as comma separated string in hamgrd code, but defined as list in YANG.
+        Need to close on that.
+        '''
+        for idx in range(dpu_count):
+            vdpu_table["vdpu0_{}".format(idx)] = {
+                "main_dpu_ids": "{}-dpu-{}".format(hostname_0, idx)
+            }
+        for idx in range(dpu_count):
+            vdpu_table["vdpu1_{}".format(idx)] = {
+                "main_dpu_ids": "{}-dpu-{}".format(hostname_1, idx)
+            }
+
+        ha_config = {
+            "DPU": dpu_table,
+            "REMOTE_DPU": remote_dpu_table,
+            "VDPU": vdpu_table,
+            "DASH_HA_GLOBAL_CONFIG": {
+                "global": {
+                    "dpu_bfd_probe_interval_in_ms": "1000",
+                    "dpu_bfd_probe_multiplier": "3",
+                    "cp_data_channel_port": "11362",
+                    "dp_channel_dst_port": "11368",
+                    "dp_channel_src_port_min": "7001",
+                    "dp_channel_src_port_max": "7010",
+                    "dp_channel_probe_interval_ms": "500",
+                    "vnet_name": "Vnet_55",
+                    "dpu_vnet": "Vnet_55",
+                    "dpu_vlan": "Vlan55",
+                    "dp_channel_probe_fail_threshold": "5"
+                }
+            },
+            "LOOPBACK_INTERFACE": dict(
+                [("Loopback0", {}),
+                 ("Loopback0|{}".format(loopback_ip), {})]
+                + ([("Loopback0|{}".format(loopback_v6), {})]
+                   if loopback_v6 else [])
+            ),
+            "FEATURE": {
+                "dash-ha": {
+                    "auto_restart": "disabled",
+                    "delayed": "False",
+                    "has_global_scope": "False",
+                    "has_per_asic_scope": "False",
+                    "has_per_dpu_scope": "True",
+                    "high_mem_alert": "disabled",
+                    "state": "enabled",
+                    "support_syslog_rate_limit": "true"
+                }
+            },
+            "VNET": {
+                "Vnet_55": {
+                    "scope": "default",
+                    "vni": "10000",
+                    "vxlan_tunnel": "t4"
+                }
+            },
+            "VXLAN_TUNNEL": {
+                "t4": {"src_ip": vxlan_src_ip}
+            }
+        }
+
+        return ha_config
 
     def generate_t2_golden_config_db(self):
         with open(MACSEC_PROFILE_PATH) as f:
