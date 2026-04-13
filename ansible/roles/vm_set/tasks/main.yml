@@ -282,7 +282,7 @@
 
 - name: Setup external front port
   include_tasks: external_port.yml
-  when: external_port is defined
+  when: external_port is defined and "bmc" not in topo
 
 - name: Setup internal management network
   include_tasks: internal_mgmt_network.yml
