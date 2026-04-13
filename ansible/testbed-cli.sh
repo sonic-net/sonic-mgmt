@@ -196,19 +196,14 @@ function converge_topo_if_needed
 
         if [[ -f "$backup_file" ]];then
             echo "Backup file exists, recover..."
-            sudo cp "$backup_file" "$topo_file"
+            cp "$backup_file" "$topo_file"
         elif [[ -f "$topo_file" ]]; then
             echo "Back up topo file"
-            sudo cp "$topo_file" "$backup_file"
+            cp "$topo_file" "$backup_file"
         fi
 
-        original_owner=$(stat -c '%u:%g' "$topo_file")
-        original_mode=$(stat -c '%a' "$topo_file")
+        python -m ceos_topo_converger "$backup_file" "$topo_file"
 
-        sudo python -m ceos_topo_converger "$backup_file" "$topo_file"
-
-        chown "$original_owner" "$topo_file"
-        chmod "$original_mode" "$topo_file"
     fi
 }
 
@@ -1320,6 +1315,6 @@ esac
 
 if [[ -f "$backup_file" ]];then
     echo "Backup exists, restore backup file"
-    sudo rm -f "$topo_file"
-    sudo mv "$backup_file" "$topo_file"
+    rm -f "$topo_file"
+    mv "$backup_file" "$topo_file"
 fi
