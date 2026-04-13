@@ -412,6 +412,8 @@ def converge_topo_if_needed(config):
         return
     try:
         tb_config = _load_testbed_config(tbfile, tbname)
+        if not tb_config:
+            return
         use_converged_peers = tb_config.get('use_converged_peers', False)
         if not use_converged_peers:
             logger.info(f"use_converged_peers=False for testbed '{tbname}', skipping converge")
