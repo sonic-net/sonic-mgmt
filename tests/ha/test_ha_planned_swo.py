@@ -158,7 +158,8 @@ def _planned_swo_phase(
 
     logging.info("%s planned switchover complete, all %d packets received", label, send_count)
 
-    pytest_assert(activate_fn(localhost, swo_duthost, ptfhost, swo_scope_key, "activate_role"),
+    pytest_assert(activate_fn(localhost, swo_duthost, ptfhost, swo_scope_key, "activate_role",
+                              owner=ha_owner),
                   f"Failed to re-activate HA on {label}")
 
 
