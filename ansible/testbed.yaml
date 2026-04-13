@@ -2142,9 +2142,9 @@
   auto_recover: 'False'
   comment: dashuaizhang
 
-- conf-name: vms93-t0-sn5640-1
+- conf-name: vms93-t1-sn5640-1
   group-name: vms93-2
-  topo: t0-isolated-d32u32s2
+  topo: t1-isolated-d508u1s2
   ptf_image_name: docker-ptf
   ptf: vms93-2
   ptf_ip: 10.64.247.190/25
@@ -2155,7 +2155,7 @@
   - str5-sn5640-2
   inv_name: str5
   auto_recover: 'True'
-  comment: janetcui
+  comment: kumarsourabh
 
 - conf-name: vms70-t2-sn5640-2
   group-name: vms70-6
