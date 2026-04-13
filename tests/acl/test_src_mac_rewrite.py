@@ -378,20 +378,9 @@ def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
             }
         }
     }
-    # Convert to JSON string
-    acl_rule_json = json.dumps(acl_rule, indent=4)
-    dest_path = os.path.join(TMP_DIR, ACL_RULES_FILE)
 
-    logger.info("Writing ACL rule to %s:\n%s", dest_path, acl_rule_json)
-    duthost.copy(content=acl_rule_json, dest=dest_path)
-
-    logger.info("Loading ACL rule from %s", dest_path)
-    load_result = duthost.shell(f"config load -y {dest_path}", module_ignore_errors=True)
-    logger.info("Config load result: rc=%s, stdout=%s", load_result.get("rc", "unknown"), load_result.get("stdout", ""))
-
-    if load_result.get("rc", 0) != 0:
-        logger.error("Config load failed: %s", load_result.get("stderr", ""))
-        pytest.fail("Failed to load ACL rule configuration")
+    logger.info("Loading ACL rule config:\n%s", json.dumps(acl_rule, indent=4))
+    apply_config_chunk(duthost, acl_rule, "acl_rule_setup")
 
     def _check_acl_rule_active(duthost, table_name, rule_name):
         result = duthost.shell(
@@ -408,6 +397,7 @@ def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
     rule_config_cmd = f'redis-cli -n 4 HGETALL "ACL_RULE|{ACL_TABLE_NAME}|rule_1"'
     rule_config_result = duthost.shell(rule_config_cmd)["stdout"]
     logger.info("ACL rule in CONFIG_DB:\n%s", rule_config_result)
+    pytest_assert(rule_config_result.strip(), "ACL rule rule_1 not found in CONFIG_DB")
 
     # === Show ACL Rule Verification ===
     logger.info("Verifying ACL rule state using 'show acl rule'")
@@ -593,13 +583,12 @@ def apply_config_chunk(duthost, payload, config_name):
 
 
 def create_additional_vnets(duthost, tunnel_name):
-    """Create additional VNETs for multi-VNI testing using direct CONFIG_DB approach like PR #21220"""
+    """Create additional VNETs for multi-VNI testing"""
     ptf_vtep = PTF_VTEP_IP
 
-    logger.info("Creating additional VNETs using direct CONFIG_DB approach")
+    logger.info("Creating additional VNETs and routes")
 
-    # Create both VNETs together
-    vnets_config = {
+    combined_config = {
         "VNET": {
             "Vnet2-0": {
                 "vni": str(VXLAN_VNI_2),
@@ -609,15 +598,7 @@ def create_additional_vnets(duthost, tunnel_name):
                 "vni": str(VXLAN_VNI_3),
                 "vxlan_tunnel": tunnel_name
             }
-        }
-    }
-
-    logger.info(f"Creating Vnet2 (VNI {VXLAN_VNI_2}) and Vnet3 (VNI {VXLAN_VNI_3})")
-    apply_config_chunk(duthost, vnets_config, "additional_vnets")
-    time.sleep(5)
-
-    # Create both VNET routes together
-    routes_config = {
+        },
         "VNET_ROUTE_TUNNEL": {
             "Vnet2-0|151.0.3.1/32": {
                 "endpoint": ptf_vtep,
@@ -630,10 +611,8 @@ def create_additional_vnets(duthost, tunnel_name):
         }
     }
 
-    logger.info("Creating routes for 151.0.3.1/32 (Vnet2) and 152.0.3.1/32 (Vnet3)")
-    apply_config_chunk(duthost, routes_config, "additional_vnet_routes")
+    apply_config_chunk(duthost, combined_config, "additional_vnets")
 
-    # Final wait for all VNET configurations to be applied
     logger.info("Waiting for additional VNET configurations to be fully applied...")
     time.sleep(10)
 
