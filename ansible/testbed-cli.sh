@@ -202,7 +202,13 @@ function converge_topo_if_needed
             sudo cp "$topo_file" "$backup_file"
         fi
 
+        original_owner=$(stat -c '%u:%g' "$topo_file")
+        original_mode=$(stat -c '%a' "$topo_file")
+
         sudo python -m ceos_topo_converger "$backup_file" "$topo_file"
+
+        chown "$original_owner" "$topo_file"
+        chmod "$original_mode" "$topo_file"
     fi
 }
 
