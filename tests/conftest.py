@@ -1234,11 +1234,13 @@ def vmhosts(enhance_inventory, ansible_adhoc, request, tbinfo):
     elif "servers" in tbinfo:
         for server in tbinfo["servers"].keys():
             vmhost = get_test_server_host(inv_files, server)
-            hosts.append(VMHost(ansible_adhoc, vmhost.name))
+            if vmhost:
+                hosts.append(VMHost(ansible_adhoc, vmhost.name))
     elif "server" in tbinfo:
         server = tbinfo["server"]
         vmhost = get_test_server_host(inv_files, server)
-        hosts.append(VMHost(ansible_adhoc, vmhost.name))
+        if vmhost:
+            hosts.append(VMHost(ansible_adhoc, vmhost.name))
     else:
         logger.info("No VM host exist for this topology: {}".format(tbinfo['topo']['name']))
     return hosts
