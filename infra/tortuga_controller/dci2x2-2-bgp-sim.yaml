@@ -124,8 +124,6 @@ devices:
     vxr_sim_config:
       shelf:
         ConfigCardPidOverride: HF6100-32D
-        ConfigS1NplPath: /auto/vxr1/sonic-images/yucgu/202405/npl
-        ConfigS1NpsuiteVer: 1.184.1
     linux_password: cisco123
     linux_username: cisco
     onie-install: /nobackup/images/sonic-cisco-8000.bin
@@ -160,7 +158,7 @@ devices:
     pre_cli: |
       sleep 60
       curl --retry 10 --retry-delay 10 --retry-all-errors -O http://ttg-fs1.cisco.com/ttg-images/misc/pyvxr_gen_sw_sudi_cert.tar.gz
-      curl -O http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb
+      curl -O http://ttg-fs1.cisco.com/ttg-images/tortuga-agents_0.1-1_amd64.deb
       tar -xzf pyvxr_gen_sw_sudi_cert.tar.gz
       sudo ./pyvxr_gen_sw_sudi_cert.sh
     cli_commands: |
@@ -168,7 +166,7 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -188,7 +186,7 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -208,7 +206,7 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -221,7 +219,7 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -234,7 +232,7 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -247,7 +245,7 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira

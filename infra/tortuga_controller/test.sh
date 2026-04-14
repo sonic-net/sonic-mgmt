@@ -32,7 +32,7 @@ CONFIG_GEN="${BIN_DIR}/config-gen"
 if [[ -f ./sandbox/gobin/config-gen ]]; then
   CONFIG_GEN=./sandbox/gobin/config-gen
 elif [[ -d "${BIN_DIR}" ]]; then
-  curl http://ramius-fs1.cisco.com/cdi-images/config-gen --output "${CONFIG_GEN}"
+  curl http://ttg-fs1.cisco.com/ttg-images/config-gen --output "${CONFIG_GEN}"
   chmod +x "${CONFIG_GEN}"
 fi
 
@@ -51,9 +51,11 @@ ORG_NAME="Test"
 HOST_USER="vxr"
 STP=true
 DHCP=vlan
-LAG=true
+EVPN_MH=MH
+STP_SVI="true"
 BREAKOUT="breakout"
 LOADTEST="*"
+BOOTUP="*"
 TIMEOUT="15m"
 BULK_PATCH=false # Enable bulk config patch.
 LLDP_CHECK=true  # Check and assert for LLDP system description.
@@ -102,6 +104,9 @@ do
   -s|-spines|--spines)
     SPINE_PORTS="${2}"
     shift; shift;;
+  -b|--bootup)
+    BOOTUP="${2}"
+    shift; shift;;
   -u|-url)
     CLOUD_URL="${2}"
     shift; shift;;
@@ -126,8 +131,20 @@ do
   -no-stp)
     STP=false
     shift;;
-  -no-lag)
-    LAG=false
+  -no-stp-svi)
+    STP_SVI="false"
+    shift;;
+  -no-mh)
+    EVPN_MH=NONE
+    TEST_TAGS="${TEST_TAGS},no-mh"
+    shift;;
+  -no-mh1)
+    EVPN_MH=ONE
+    TEST_TAGS="${TEST_TAGS},no-mh"
+    shift;;
+  -no-mh2)
+    EVPN_MH=TWO
+    TEST_TAGS="${TEST_TAGS},no-mh"
     shift;;
   -vrfs)
     PYVXR_VRFS="${2}"
@@ -175,7 +192,7 @@ done
 
 # Get URL from config file.
 if [[ -z "${CLOUD_URL}" ]]; then
-  YAML=$(curl --retry 5 -s http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml 2>&1)
+  YAML=$(curl --retry 5 -s http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml 2>&1)
   CLOUD_URL=$(echo ${YAML} | grep -Eo 'https://tortuga-k8s-a.cisco.com:[0-9]+')
 fi
 echo "Cloud URL = ${CLOUD_URL}"
@@ -269,20 +286,22 @@ PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000|8.8.8.2/32#41.216.0.3#RED|8.8.8.3/32#41.2
 PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
 
 # Add PortChannels for two leaves fabric.
-if [[ ${LENGTH} -eq 2 ]]; then
-  PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf1:${LAG_PORT2}|10|false|eth1#eth2"
-  PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
+if [[ ${LENGTH} -ge 2 ]]; then
+  if [[ ${EVPN_MH} == "TWO" ]]; then
+    PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf1:${LAG_PORT2}|10|false|eth1#eth2"
+  elif [[ ${EVPN_MH} == "MH" ]]; then
+    PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf1:${LAG_PORT2}|10|false|eth1#eth2"
+    PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
+  fi
   PYVXR_IPS="${PYVXR_IPS}#7.7.7.2"
   PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.2/32#41.216.0.3#BLUE"
 fi
 
 # Add PortChannels for three leaf fabric: MLAG on first and second leaves, and LAG on third leaf.
 if [[ ${LENGTH} -gt 2 ]]; then
-  PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf1:${LAG_PORT2}|10|false|eth1#eth2"
-  PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel20|leaf2:${LAG_PORT1}#leaf2:${LAG_PORT2}|10|false|eth1#eth2"
-  PYVXR_IPS="${PYVXR_IPS}#7.7.7.2#7.7.7.3"
-  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.2/32#41.216.0.3#BLUE|7.7.7.3/32#41.216.0.4#BLUE"
+  PYVXR_IPS="${PYVXR_IPS}#7.7.7.3"
+  PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.3/32#41.216.0.4#BLUE"
 fi
 
 # Add PortChannels for six leaf fabric: MLAG on fourth and fifth leaves, and LAG on sixth leaf.
@@ -305,8 +324,8 @@ fi
 
 # Enable STP for PyVxr. STP is always on leaf0.
 if [[ "${STP}" == true ]]; then
-  HOST_SPECS="${HOST_PORTS},dummy/eth1|leaf0|${STP_PORT1}|80|true"
-  HOST_SPECS="${HOST_SPECS},dummy/eth2|leaf0|${STP_PORT2}|80|true"
+  HOST_SPECS="${HOST_PORTS},dummy/eth1|leaf0|${STP_PORT1}|80#true#${STP_SVI}"
+  HOST_SPECS="${HOST_SPECS},dummy/eth2|leaf0|${STP_PORT2}|80#true#${STP_SVI}"
   PYVXR_STPS="true#00-00-00-00-00-01,leaf0|${STP_PORT1}#true##ROOT_GUARD|${STP_PORT2}#true#ROOT_GUARD"
   PYVXR_VRFS="${PYVXR_VRFS},Vrf40001|80"
   TEST_TAGS="${TEST_TAGS},stp"
@@ -324,10 +343,10 @@ if [[ "${DHCP}" == "vlan" ]]; then
 
   # Extend Vlan of DHCP relay to all leaves.
   if [[ ${LENGTH} -gt 1 ]]; then
-    HOST_SPECS="${HOST_SPECS},dummy/eth1|leaf1|none|40|false"
+    HOST_SPECS="${HOST_SPECS},dummy/eth1|leaf1|none|40#false"
   fi
   if [[ ${LENGTH} -gt 2 ]]; then
-    HOST_SPECS="${HOST_SPECS},dummy/eth1|leaf2|none|40|false"
+    HOST_SPECS="${HOST_SPECS},dummy/eth1|leaf2|none|40#false"
   fi
 elif [[ "${DHCP}" == "port" ]]; then
   PYVXR_VRFS="${PYVXR_VRFS},Vrf40000|10#20|41.217.217.0/24#7000::2:0/112"
@@ -335,13 +354,11 @@ elif [[ "${DHCP}" == "port" ]]; then
   PYVXR_PORTS="${PYVXR_PORTS},leaf0|${DHCP_PORT}#41.216.3.1/24#fc00:dead:face::3:1/112#Vrf40000"
 fi
 
+if [[ ${EVPN_MH} == "NONE" ]]; then
+    PYVXR_CHANNELS="*"
+fi
 if [[ -z "${PYVXR_VRFS}" ]]; then
   PYVXR_VRFS="*"
-fi
-
-# Disable PortChannels.
-if [[ "${LAG}" == false ]]; then
-  PYVXR_CHANNELS="*"
 fi
 
 # Add a routed port on leaf1 and add host IP to host6 (last host on leaf1).
@@ -376,7 +393,7 @@ function run_pyvxr() {
   "${CONFIG_GEN}" \
     --lldp \
     --auto \
-    --prefix \
+    --bootup "${BOOTUP}" \
     --orgName "${ORG_NAME}" \
     --hostUser "${HOST_USER}" \
     --test "${CGEN_TEST}" \

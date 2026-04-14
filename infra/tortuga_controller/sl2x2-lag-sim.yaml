@@ -38,12 +38,6 @@ devices:
     <<: *host
   trex7:
     <<: *host
-  trex8:
-    <<: *host
-  trex9:
-    <<: *host
-  trex10:
-    <<: *host
 
   L0: &switch
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
@@ -55,7 +49,6 @@ devices:
     vxr_sim_config:
       shelf:
         ConfigCardPidOverride: HF6100-32D
-        ConfigEnableNgdp: 'true'
     linux_password: cisco123
     linux_username: cisco
     onie-install: /nobackup/images/sonic-cisco-8000.bin
@@ -94,7 +87,7 @@ devices:
       tar -xzf pyvxr_gen_sw_sudi_cert.tar.gz
       sudo ./pyvxr_gen_sw_sudi_cert.sh
     cli_commands: |
-      sudo config hostname tortuga-1x3-leaf0
+      sudo config hostname tortuga-2x2-leaf0
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
@@ -106,21 +99,21 @@ devices:
   L1:
     <<: *switch
     cli_commands: |
-      sudo config hostname tortuga-1x3-leaf1
-      sudo config save -y
-      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
-
-  L2:
-    <<: *switch
-    cli_commands: |
-      sudo config hostname tortuga-1x3-leaf2
+      sudo config hostname tortuga-2x2-leaf1
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
 
   S0:
     <<: *switch
     cli_commands: |
-      sudo config hostname tortuga-1x3-spine0
+      sudo config hostname tortuga-2x2-spine0
+      sudo config save -y
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+  S1:
+    <<: *switch
+    cli_commands: |
+      sudo config hostname tortuga-2x2-spine1
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
 
@@ -129,9 +122,9 @@ connections:
     L0_trex1_1:
       - L0.Ethernet1_9
       - trex1.eth1
-    L0_trex5_2:
+    L0_trex1_2:
       - L0.Ethernet1_13
-      - trex5.eth2
+      - trex1.eth2
     L0_trex2_1:
       - L0.Ethernet1_10
       - trex2.eth1
@@ -153,9 +146,9 @@ connections:
     L1_trex5_1:
       - L1.Ethernet1_9
       - trex5.eth1
-    L1_trex1_2:
+    L1_trex5_2:
       - L1.Ethernet1_13
-      - trex1.eth2
+      - trex5.eth2
     L1_trex6_1:
       - L1.Ethernet1_10
       - trex6.eth1
@@ -168,39 +161,15 @@ connections:
     L1_trex7_2:
       - L1.Ethernet1_14
       - trex7.eth2
-    L2_trex8_1:
-      - L2.Ethernet1_9
-      - trex8.eth1
-    L2_trex8_2:
-      - L2.Ethernet1_13
-      - trex8.eth2
-    L2_trex9_1:
-      - L2.Ethernet1_10
-      - trex9.eth1
-    L2_trex9_2:
-      - L2.Ethernet1_15
-      - trex9.eth2
-    L2_trex10_1:
-      - L2.Ethernet1_11
-      - trex10.eth1
-    L2_trex10_2:
-      - L2.Ethernet1_14
-      - trex10.eth2
     S0_L0_conn1:
       - S0.Ethernet1_1
       - L0.Ethernet1_1
-    S0_L0_conn2:
-      - S0.Ethernet1_2
-      - L0.Ethernet1_2
     S0_L1_conn1:
-      - S0.Ethernet1_3
+      - S0.Ethernet1_2
       - L1.Ethernet1_1
-    S0_L1_conn2:
-      - S0.Ethernet1_4
+    S1_L0_conn1:
+      - S1.Ethernet1_1
+      - L0.Ethernet1_2
+    S1_L1_conn1:
+      - S1.Ethernet1_2
       - L1.Ethernet1_2
-    S0_L2_conn1:
-      - S0.Ethernet1_5
-      - L2.Ethernet1_1
-    S0_L2_conn2:
-      - S0.Ethernet1_6
-      - L2.Ethernet1_2

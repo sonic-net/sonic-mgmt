@@ -70,30 +70,53 @@ devices:
   trex21:
     <<: *host
 
-  cat9k:
-    platform: cat9kv
-    image: /auto/vxr1/sonic-images/yadeng/cat9kv-universalk9.17.15.01prd9.qcow2
+  nexus1:
+    platform: nxos
+    image: /auto/vxr/images/nxos/nxos64-cs.10.4.4.qcow2
     xr_hostname: IPN
     xr_username: cisco
     xr_password: cisco123
     xr_port_redir:
       - 22
     xr_config: |
-      username cisco privilege 15 password cisco123
-      ip domain-name cisco.com
-      crypto key generate rsa modulus 1024
-      ip ssh version 2
-      line vty 0 4
-       login local
-       transport input ssh
-      interface range GigabitEthernet1/0/1 - 4
-       switchport
-       switchport mode trunk
-       switchport trunk allowed vlan all
-       switchport trunk native vlan 1
-       spanning-tree portfast trunk
+      interface Ethernet1/1
+       no switchport
+       ip address 43.216.11.11 255.255.255.0
        no shutdown
-      lldp run
+      interface Ethernet1/2
+       no switchport
+       ip address 43.216.12.11 255.255.255.0
+       no shutdown
+      interface Ethernet2/3
+       no switchport
+       ip address 43.216.21.11 255.255.255.0
+       no shutdown
+      interface Ethernet1/4
+       no switchport
+       ip address 43.216.22.11 255.255.255.0
+       no shutdown
+      interface Ethernet1/5
+       no switchport
+       ip address 43.216.31.11 255.255.255.0
+       no shutdown
+      interface Ethernet1/6
+       no switchport
+       ip address 43.216.32.11 255.255.255.0
+       no shutdown
+      feature bgp
+      router bgp 7000
+       neighbor 43.216.11.10 remote-as 6001
+       address-family ipv4 unicast
+       neighbor 43.216.12.10 remote-as 6001
+       address-family ipv4 unicast
+       neighbor 43.216.21.10 remote-as 6002
+       address-family ipv4 unicast
+       neighbor 43.216.22.10 remote-as 6002
+       address-family ipv4 unicast
+       neighbor 43.216.31.10 remote-as 6003
+       address-family ipv4 unicast
+       neighbor 43.216.32.10 remote-as 6003
+       address-family ipv4 unicast
 
   L0: &switch
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
@@ -139,7 +162,7 @@ devices:
     pre_cli: |
       sleep 60
       curl --retry 10 --retry-delay 10 --retry-all-errors -O http://ttg-fs1.cisco.com/ttg-images/misc/pyvxr_gen_sw_sudi_cert.tar.gz
-      curl -O http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb
+      curl -O http://ttg-fs1.cisco.com/ttg-images/tortuga-agents_0.1-1_amd64.deb
       tar -xzf pyvxr_gen_sw_sudi_cert.tar.gz
       sudo ./pyvxr_gen_sw_sudi_cert.sh
     cli_commands: |
@@ -147,7 +170,7 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -167,7 +190,7 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -187,7 +210,7 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -207,7 +230,7 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -220,7 +243,7 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -233,7 +256,7 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -327,7 +350,7 @@ connections:
       - trex13.eth1
     L3_trex13_2:
       - L3.Ethernet1_15
-      - trex13.eth12
+      - trex13.eth2
     L3_trex14_1:
       - L3.Ethernet1_11
       - trex14.eth1
@@ -392,21 +415,21 @@ connections:
       - L5.Ethernet1_1
 
     # DCI connections.
-    S0_cat9k_conn1:
+    S0_nexus1_conn1:
       - S0.Ethernet1_9
-      - cat9k.GigabitEthernet0/1
-    S0_cat9k_conn2:
+      - nexus1.Ethernet1/1
+    S0_nexus1_conn2:
       - S0.Ethernet1_10
-      - cat9k.GigabitEthernet0/2
-    S1_cat9k_conn1:
+      - nexus1.Ethernet1/2
+    S1_nexus1_conn1:
       - S1.Ethernet1_9
-      - cat9k.GigabitEthernet0/3
-    S1_cat9k_conn2:
+      - nexus1.Ethernet1/3
+    S1_nexus1_conn2:
       - S1.Ethernet1_10
-      - cat9k.GigabitEthernet0/4
-    S2_cat9k_conn1:
+      - nexus1.Ethernet1/4
+    S2_nexus1_conn1:
       - S2.Ethernet1_9
-      - cat9k.GigabitEthernet0/5
-    S2_cat9k_conn2:
+      - nexus1.Ethernet1/5
+    S2_nexus1_conn2:
       - S2.Ethernet1_10
-      - cat9k.GigabitEthernet0/6
+      - nexus1.Ethernet1/6

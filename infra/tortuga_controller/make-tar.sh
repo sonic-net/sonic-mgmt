@@ -20,10 +20,10 @@ pushd "${WS_ROOT}/cloud/tools/config-gen" || exit
 env GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "${DIR}/config-gen"
 popd || exit
 
-# Copy binary to ramius-fs1 in non-jenkins mode.
+# Copy binary to ttg-fs1 in non-jenkins mode.
 os=$(uname)
 if [[ "${os}" == "Darwin" ]]; then
-  curl -i -X PUT -T "${DIR}/config-gen" http://ramius-fs1.cisco.com/cdi-images/config-gen
+  curl -i -X PUT -T "${DIR}/config-gen" http://ttg-fs1.cisco.com/ttg-images/config-gen
   rm "${DIR}/config-gen"
 fi
 
@@ -34,6 +34,7 @@ cp "${WS_ROOT}/cloud/tests/pyvxr/sl1x3-ref-sim.yaml" "${DIR}/sonic-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/mesh3-ref-sim.yaml" "${DIR}/mesh3-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/sl1x3-ref-sim.yaml" "${DIR}/sl1x3-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/sl2x2-ref-sim.yaml" "${DIR}/sl2x2-ref-sim.yaml"
+cp "${WS_ROOT}/cloud/tests/pyvxr/sl2x2-lag-sim.yaml" "${DIR}/sl2x2-lag-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/sl2x3-ref-sim.yaml" "${DIR}/sl2x3-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/sl2x9-ref-sim.yaml" "${DIR}/sl2x9-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/g200-1x3-ref-sim.yaml" "${DIR}/g200-1x3-ref-sim.yaml"

@@ -2,12 +2,9 @@ simulation:
   no_image_copy: true
   pyvxr_flags:
     port_file_timeout: 1200
+  sim_dir: /nobackup/sim
+  sim_host: localhost
   skip_auto_bringup: false
-  slurm_flags:
-    pending_timeout: 60
-    hours: 24
-    partition: regression
-    cluster: rch-slurm-m1
 
 devices:
   trex1: &host
@@ -21,7 +18,7 @@ devices:
     linux_prompt: vxr@ubuntu22:~\$
     disks:
       - hda_ref:
-          file: /auto/vxr1/sonic-images/yadeng/ubuntu22.qcow2
+          file: /nobackup/images/ubuntu22.qcow2
           type: reference
     memory: 3GB
     platform: linux
@@ -55,6 +52,20 @@ devices:
     <<: *host
   trex14:
     <<: *host
+  trex15:
+    <<: *host
+  trex16:
+    <<: *host
+  trex17:
+    <<: *host
+  trex18:
+    <<: *host
+  trex19:
+    <<: *host
+  trex20:
+    <<: *host
+  trex21:
+    <<: *host
 
   nexus1:
     platform: nxos
@@ -75,27 +86,19 @@ devices:
        no shutdown
       interface Ethernet1/3
        no switchport
-       ip address 43.216.13.11 255.255.255.0
+       ip address 43.216.21.11 255.255.255.0
        no shutdown
       interface Ethernet1/4
        no switchport
-       ip address 43.216.14.11 255.255.255.0
+       ip address 43.216.22.11 255.255.255.0
        no shutdown
       interface Ethernet1/5
        no switchport
-       ip address 43.216.21.11 255.255.255.0
+       ip address 43.216.31.11 255.255.255.0
        no shutdown
       interface Ethernet1/6
        no switchport
-       ip address 43.216.22.11 255.255.255.0
-       no shutdown
-      interface Ethernet1/7
-       no switchport
-       ip address 43.216.23.11 255.255.255.0
-       no shutdown
-      interface Ethernet1/8
-       no switchport
-       ip address 43.216.24.11 255.255.255.0
+       ip address 43.216.32.11 255.255.255.0
        no shutdown
       feature bgp
       router bgp 7000
@@ -103,19 +106,14 @@ devices:
        address-family ipv4 unicast
        neighbor 43.216.12.10 remote-as 6001
        address-family ipv4 unicast
-       neighbor 43.216.13.10 remote-as 6001
-       address-family ipv4 unicast
-       neighbor 43.216.14.10 remote-as 6001
-       address-family ipv4 unicast
        neighbor 43.216.21.10 remote-as 6002
        address-family ipv4 unicast
        neighbor 43.216.22.10 remote-as 6002
        address-family ipv4 unicast
-       neighbor 43.216.23.10 remote-as 6002
+       neighbor 43.216.31.10 remote-as 6003
        address-family ipv4 unicast
-       neighbor 43.216.24.10 remote-as 6002
+       neighbor 43.216.32.10 remote-as 6003
        address-family ipv4 unicast
-
 
   L0: &switch
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
@@ -202,6 +200,26 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
 
+  L4:
+    <<: *switch
+    cli_commands: |
+      sudo config hostname tortuga-dc3-leaf0
+      sudo config save -y
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo systemctl stop drake
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo systemctl daemon-reload
+      sudo systemctl restart drake
+      sudo systemctl restart lira
+      sudo systemctl restart azimuth
+
+  L5:
+    <<: *switch
+    cli_commands: |
+      sudo config hostname tortuga-dc3-leaf1
+      sudo config save -y
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
   S0:
     <<: *switch
     cli_commands: |
@@ -209,7 +227,7 @@ devices:
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -218,11 +236,11 @@ devices:
   S1:
     <<: *switch
     cli_commands: |
-      sudo config hostname tortuga-dc1-spine1
+      sudo config hostname tortuga-dc2-spine0
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -231,24 +249,11 @@ devices:
   S2:
     <<: *switch
     cli_commands: |
-      sudo config hostname tortuga-dc2-spine0
+      sudo config hostname tortuga-dc3-spine0
       sudo config save -y
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
       sudo systemctl stop drake
-      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
-      sudo systemctl daemon-reload
-      sudo systemctl restart drake
-      sudo systemctl restart lira
-      sudo systemctl restart azimuth
-
-  S3:
-    <<: *switch
-    cli_commands: |
-      sudo config hostname tortuga-dc2-spine1
-      sudo config save -y
-      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      sudo systemctl stop drake
-      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep3.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -256,7 +261,7 @@ devices:
 
 connections:
   hubs:
-    # Fabric: DCI1
+    # Fabric: DC1
     L0_trex1_1:
       - L0.Ethernet1_9
       - trex1.eth1
@@ -305,14 +310,8 @@ connections:
     S0_L1_conn1:
       - S0.Ethernet1_2
       - L1.Ethernet1_1
-    S1_L0_conn2:
-      - S1.Ethernet1_1
-      - L0.Ethernet1_2
-    S1_L1_conn2:
-      - S1.Ethernet1_2
-      - L1.Ethernet1_2
 
-    # Fabric: DCI2
+    # Fabric: DC2
     L2_trex8_1:
       - L2.Ethernet1_9
       - trex8.eth1
@@ -355,18 +354,62 @@ connections:
     L3_trex14_2:
       - L3.Ethernet1_14
       - trex14.eth2
-    S2_L2_conn1:
-      - S2.Ethernet1_1
+    S1_L2_conn1:
+      - S1.Ethernet1_1
       - L2.Ethernet1_1
-    S2_L3_conn1:
-      - S2.Ethernet1_2
+    S1_L3_conn1:
+      - S1.Ethernet1_2
       - L3.Ethernet1_1
-    S3_L2_conn2:
-      - S3.Ethernet1_1
-      - L2.Ethernet1_2
-    S3_L3_conn2:
-      - S3.Ethernet1_2
-      - L3.Ethernet1_2
+
+    # Fabric: DC3
+    L4_trex15_1:
+      - L4.Ethernet1_9
+      - trex15.eth1
+    L4_trex19_2:
+      - L4.Ethernet1_13
+      - trex19.eth2
+    L4_trex16_1:
+      - L4.Ethernet1_10
+      - trex16.eth1
+    L4_trex16_2:
+      - L4.Ethernet1_15
+      - trex16.eth2
+    L4_trex17_1:
+      - L4.Ethernet1_11
+      - trex17.eth1
+    L4_trex18_1:
+      - L4.Ethernet1_12
+      - trex18.eth1
+    L4_trex18_2:
+      - L4.Ethernet1_14
+      - trex18.eth2
+    L4_LOOP:
+      - L4.Ethernet1_16
+      - L4.Ethernet1_17
+    L5_trex19_1:
+      - L5.Ethernet1_9
+      - trex19.eth1
+    L5_trex15_2:
+      - L5.Ethernet1_13
+      - trex15.eth2
+    L5_trex20_1:
+      - L5.Ethernet1_10
+      - trex20.eth1
+    L5_trex20_2:
+      - L5.Ethernet1_15
+      - trex20.eth2
+    L5_trex21_1:
+      - L5.Ethernet1_11
+      - trex21.eth1
+    L5_trex21_2:
+      - L5.Ethernet1_14
+      - trex21.eth2
+    S2_L4_conn1:
+      - S2.Ethernet1_1
+      - L4.Ethernet1_1
+    S2_L5_conn1:
+      - S2.Ethernet1_2
+      - L5.Ethernet1_1
 
     # DCI connections.
     S0_nexus1_conn1:
@@ -387,9 +430,3 @@ connections:
     S2_nexus1_conn2:
       - S2.Ethernet1_10
       - nexus1.Ethernet1/6
-    S3_nexus1_conn1:
-      - S3.Ethernet1_9
-      - nexus1.Ethernet1/7
-    S3_nexus1_conn2:
-      - S3.Ethernet1_10
-      - nexus1.Ethernet1/8

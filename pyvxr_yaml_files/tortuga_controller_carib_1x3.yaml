@@ -93,9 +93,9 @@ devices:
       sleep 60
       sudo config hostname tortuga-1x3-leaf0
       sudo config save -y
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      curl -O http://ttg-fs1.cisco.com/ttg-images/tortuga-agents_0.1-1_amd64.deb
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
-      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo systemctl daemon-reload
       sudo systemctl restart drake
       sudo systemctl restart lira
@@ -107,7 +107,7 @@ devices:
       sleep 60
       sudo config hostname tortuga-1x3-leaf1
       sudo config save -y
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
 
   L2:
@@ -116,7 +116,7 @@ devices:
       sleep 60
       sudo config hostname tortuga-1x3-leaf2
       sudo config save -y
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
 
   S0:
@@ -125,7 +125,7 @@ devices:
       sleep 60
       sudo config hostname tortuga-1x3-spine0
       sudo config save -y
-      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ttg-fs1.cisco.com/ttg-images/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
       sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
 
 connections:
