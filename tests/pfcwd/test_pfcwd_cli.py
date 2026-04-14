@@ -369,19 +369,6 @@ def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinf
 
 class TestPfcwdFunc(SetupPfcwdFunc):
     """ Test PFC function and supporting methods """
-<<<<<<< HEAD
-    def __shutdown_lag_members(self, duthost, selected_port, tbinfo, nbrhosts):
-        return _shutdown_lag_members(
-            duthost, selected_port, tbinfo, nbrhosts,
-            self.ports[selected_port]['test_port_type'])
-
-    def __restore_original_config(self, duthost, selected_port, vm_host, neigh_port_channel, min_links):
-        _restore_original_config(
-            duthost, selected_port, vm_host, neigh_port_channel, min_links,
-            self.ports[selected_port]['test_port_type'])
-
-=======
->>>>>>> 30c56d139 (NOS-6276: Add a test to verify pfcwd action when storm happens during running traffic (#1408))
     def storm_detect_path(self, dut, port, action):
         """
         Storm detection action and associated verifications
@@ -462,16 +449,13 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             )
 
         # send traffic to egress port
-<<<<<<< HEAD
-        self.traffic_inst.send_tx_egress(self.tx_action, False)
-        time.sleep(10)  # wait for the traffic to be processed
-        pfcwd_stat_after_tx = parser_show_pfcwd_stat(dut, port, self.pfc_wd['queue_index'])
-        logger.debug("pfcwd_stat_after_tx {}".format(pfcwd_stat_after_tx))
-=======
         send_tx_egress(self.traffic_inst, self.tx_action, False,
                        pkt_count=int(self.traffic_inst.pfc_wd_test_pkt_count *
                                      self.traffic_inst.get_lag_pkt_scale_factor()))
->>>>>>> 30c56d139 (NOS-6276: Add a test to verify pfcwd action when storm happens during running traffic (#1408))
+        time.sleep(10)  # wait for the traffic to be processed
+        pfcwd_stat_after_tx = parser_show_pfcwd_stat(dut, port, self.pfc_wd['queue_index'])
+        logger.debug("pfcwd_stat_after_tx {}".format(pfcwd_stat_after_tx))
+
         if asic_type != 'vs':
             # check count, drop: tx_drop_count; forward: tx_ok_count
             if self.tx_action == "drop":
@@ -575,11 +559,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         # for idx, port in enumerate(self.ports):
         port = list(self.ports.keys())[0]
 
-<<<<<<< HEAD
-=======
-        vm_host, neigh_port_channel, min_links = shutdown_lag_members(duthost, port, tbinfo, nbrhosts, self.ports)
-
->>>>>>> 30c56d139 (NOS-6276: Add a test to verify pfcwd action when storm happens during running traffic (#1408))
         logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
         self.setup_test_params(port, setup_info['vlan'], init=True, ip_version=ip_version)
         self.traffic_inst = SendVerifyTraffic(
@@ -605,30 +584,9 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                             format(action, port, self.tx_action, self.rx_action))
                 self.run_test(self.dut, port, action)
 
-<<<<<<< HEAD
             finally:
                 if self.storm_hndle:
                     logger.info("--- Stop pfc storm on port {}".format(port))
                     self.storm_hndle.stop_storm()
                 logger.info("--- Stop PFC WD ---")
                 self.dut.command("pfcwd stop")
-=======
-        try:
-            for action in actions:
-                logger.info("--- Pfcwd port {} set action {} ---".format(port, action))
-                try:
-                    self.set_traffic_action(duthost, action)
-                    logger.info("Pfcwd action {} on port {}: Tx traffic action {}, Rx traffic action {} ".
-                                format(action, port, self.tx_action, self.rx_action))
-                    self.run_test(self.dut, port, action)
-
-                finally:
-                    if self.storm_hndle:
-                        logger.info("--- Stop pfc storm on port {}".format(port))
-                        self.storm_hndle.stop_storm()
-                    logger.info("--- Stop PFC WD ---")
-                    self.dut.command("pfcwd stop")
-        finally:
-            logger.info("--- Restore original config ---")
-            restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, self.ports)
->>>>>>> 30c56d139 (NOS-6276: Add a test to verify pfcwd action when storm happens during running traffic (#1408))
