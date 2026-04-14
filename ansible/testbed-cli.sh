@@ -2,6 +2,18 @@
 
 set -e
 
+function restore_topo_if_needed
+ {
+     if [[ -n "$backup_file" && -f "$backup_file" ]]; then
+         echo "Backup exists, restore backup file"
+         cp "$backup_file" "$topo_file"
+         rm -f "$backup_file"
+         echo "Original topo file restored"
+     fi
+ }
+
+ trap restore_topo_if_needed EXIT
+
 function usage
 {
   echo "testbed-cli. Interface to testbeds"
@@ -1312,9 +1324,3 @@ case "${subcmd}" in
   *)           usage
                ;;
 esac
-
-if [[ -f "$backup_file" ]];then
-    echo "Backup exists, restore backup file"
-    rm -f "$topo_file"
-    mv "$backup_file" "$topo_file"
-fi
