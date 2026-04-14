@@ -41,7 +41,13 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost.shell("sonic-clear queuecounters")
 
     asic_name = get_asic_name(duthost).lower()
-    is_q3d_single_asic = ("q3d" in asic_name) and (not duthost.is_multi_asic)
+    is_single_asic = not duthost.is_multi_asic
+    is_q3d_single_asic = ("q3d" in asic_name) and is_single_asic
+
+    # Non-Q3D single-ASIC broadcom-dnx platforms are covered by the SAI thrift
+    # path in tests/qos/test_voq_counter.py; skip here to avoid double coverage.
+    if is_single_asic and not is_q3d_single_asic:
+        pytest.skip("Non-Q3D single-ASIC broadcom-dnx covered by tests/qos/test_voq_counter.py")
 
     if is_q3d_single_asic:
         cmd_bcmcmd = "setreg SCH_SCHEDULER_CONFIGURATION_REGISTER DISABLE_FABRIC_MSGS"
