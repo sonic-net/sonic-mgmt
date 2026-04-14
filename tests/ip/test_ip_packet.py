@@ -121,6 +121,9 @@ class TestIPPacket(object):
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
         # WHEN send the packet to DUT
         # THEN DUT should forward it as normal ip packet
+        # NOTE: ip_src and ip_ttl are chosen so that the input checksum is 0x0000 and the
+        #   output checksum (after TTL decrement) is 0x0100.  TTL=2 ensures the peer drops
+        #   the forwarded packet (TTL=1) instead of routing it back, preventing a loop.
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         asic_type = duthost.facts["asic_type"]
@@ -130,17 +133,17 @@ class TestIPPacket(object):
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
-            ip_src="10.250.136.195",
+            ip_src="10.250.255.195",
             ip_dst="10.156.94.34",
             ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
-            ip_ttl=121,
+            ip_ttl=2,
         )
         pkt.payload.flags = 2
         exp_pkt = pkt.copy()
-        exp_pkt.payload.ttl = 120
+        exp_pkt.payload.ttl = 1
         exp_pkt.payload.chksum = 0x0100
         exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
@@ -196,6 +199,7 @@ class TestIPPacket(object):
         # GIVEN a ip packet with checksum 0x0000(compute from scratch)
         # WHEN manually set checksum as 0xffff and send the packet to DUT
         # THEN DUT should tolerant packet with 0xffff, forward it as normal packet
+        # NOTE: TTL=2 prevents routing loop (peer receives TTL=1 and drops).
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         asic_type = duthost.facts["asic_type"]
@@ -205,18 +209,18 @@ class TestIPPacket(object):
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
-            ip_src="10.250.136.195",
+            ip_src="10.250.255.195",
             ip_dst="10.156.94.34",
             ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
-            ip_ttl=121,
+            ip_ttl=2,
         )
         pkt.payload.flags = 2
         pkt.payload.chksum = 0xffff
         exp_pkt = pkt.copy()
-        exp_pkt.payload.ttl = 120
+        exp_pkt.payload.ttl = 1
         exp_pkt.payload.chksum = 0x0100
         exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
@@ -284,18 +288,18 @@ class TestIPPacket(object):
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
-            ip_src="10.250.136.195",
+            ip_src="10.250.255.195",
             ip_dst="10.156.94.34",
             ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
-            ip_ttl=121,
+            ip_ttl=2,
         )
         pkt.payload.flags = 2
         pkt.payload.chksum = 0xffff
         exp_pkt = pkt.copy()
-        exp_pkt.payload.ttl = 120
+        exp_pkt.payload.ttl = 1
         exp_pkt.payload.chksum = 0x0100
         exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
@@ -357,7 +361,9 @@ class TestIPPacket(object):
         # GIVEN a ip packet, after forwarded(ttl-1) by DUT,
         #   it's checksum will be 0xffff after wrongly incrementally recomputed
         #   ref to https://datatracker.ietf.org/doc/html/rfc1624
-        #   HC' = HC(0xff00) + m(0x7a2f) + ~m'(~0x792f)= 0xffff
+        #   HC' = HC(0xff00) + m(0x022f) + ~m'(~0x012f)
+        #   ip_src and ip_ttl chosen so that HC=0xFF00, output checksum=0x0001.
+        #   TTL=2 prevents routing loop (peer receives TTL=1 and drops).
         # WHEN send the packet to DUT
         # THEN DUT recompute new checksum correctly and forward packet as expected.
 
@@ -369,17 +375,17 @@ class TestIPPacket(object):
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
-            ip_src="10.250.40.40",
+            ip_src="10.250.160.40",
             ip_dst="10.156.190.188",
             ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
-            ip_ttl=122,
+            ip_ttl=2,
         )
         pkt.payload.flags = 2
         exp_pkt = pkt.copy()
-        exp_pkt.payload.ttl = 121
+        exp_pkt.payload.ttl = 1
         exp_pkt.payload.chksum = 0x0001
         exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
@@ -434,6 +440,8 @@ class TestIPPacket(object):
         # GIVEN a ip packet, after forwarded(ttl-1) by DUT, it's checksum will be 0x0000 after recompute from scratch
         # WHEN send the packet to DUT
         # THEN DUT recompute new checksum as 0x0000 and forward packet as expected.
+        # NOTE: ip_src and ip_ttl chosen so output checksum=0x0000.
+        #   TTL=2 prevents routing loop (peer receives TTL=1 and drops).
 
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         asic_type = duthost.facts["asic_type"]
@@ -443,17 +451,17 @@ class TestIPPacket(object):
             eth_dst=ingress_router_mac,
             eth_src=ptfadapter.dataplane.get_mac(0, ptf_port_idx),
             pktlen=1246,
-            ip_src="10.250.136.195",
+            ip_src="130.250.136.195",
             ip_dst="10.156.94.34",
             ip_proto=47,
             ip_tos=0x84,
             ip_id=0,
             ip_ihl=5,
-            ip_ttl=122,
+            ip_ttl=2,
         )
         pkt.payload.flags = 2
         exp_pkt = pkt.copy()
-        exp_pkt.payload.ttl = 121
+        exp_pkt.payload.ttl = 1
         exp_pkt.payload.chksum = 0x0000
         exp_pkt = mask.Mask(exp_pkt)
         exp_pkt.set_do_not_care_scapy(packet.Ether, 'dst')
