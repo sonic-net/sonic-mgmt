@@ -475,7 +475,8 @@ class TestAutoTechSupport:
                     expected_max_usage = one_percent_in_mb * max_limit
 
                     # Query all files that exist after cleanup has run & identify remaining files
-                    files_after_cleanup = get_files_info(self.duthost, validation_folder)
+                    file_pattern = 'sonic_dump_*.tar.gz' if test_mode == 'techsupport' else '*.core.gz'
+                    files_after_cleanup = get_files_info(self.duthost, validation_folder, file_pattern)
                     remaining_file_names = [f['name'] for f in files_after_cleanup]
                     remaining_dummy_files = [f for f in remaining_file_names if f in dummy_files_list]
 
@@ -1425,30 +1426,30 @@ def add_po_member(duthost, po_name, test_port, minigraph_facts):
 
 
 def get_files_info(duthost, validation_folder, file_pattern='sonic_dump_*.tar.gz'):
-      """
-      Get size and modification time for all files matching pattern in folder.
-      This is used to query the actual state of files after cleanup has run.
+    """
+    Get size and modification time for all files matching pattern in folder.
+    This is used to query the actual state of files after cleanup has run.
 
-      :param duthost: duthost object
-      :param validation_folder: directory to search (e.g., '/var/dump/' or '/var/core/')
-      :param file_pattern: glob pattern for files to find (default: 'sonic_dump_*.tar.gz')
-      :return: list of dicts with 'name', 'size' (bytes), 'mtime' (timestamp as float)
-      """
-      # Use find command to get file size (%s), modification time (%T@), and filename (%f)
-      # printf format: "size timestamp filename\n"
-      cmd = f"find {validation_folder} -name '{file_pattern}' -type f -printf '%s %T@ %f\\n' 2>/dev/null"
-      result = duthost.shell(cmd)['stdout'].strip()
+    :param duthost: duthost object
+    :param validation_folder: directory to search (e.g., '/var/dump/' or '/var/core/')
+    :param file_pattern: glob pattern for files to find (default: 'sonic_dump_*.tar.gz')
+    :return: list of dicts with 'name', 'size' (bytes), 'mtime' (timestamp as float)
+    """
+    # Use find command to get file size (%s), modification time (%T@), and filename (%f)
+    # printf format: "size timestamp filename\n"
+    cmd = f"find {validation_folder} -name '{file_pattern}' -type f -printf '%s %T@ %f\\n' 2>/dev/null"
+    result = duthost.shell(cmd)['stdout'].strip()
 
-      files_info = []
-      if result:
-          # Parse each line of output
-          for line in result.split('\n'):
-              parts = line.split()
-              if len(parts) >= 3:
-                  files_info.append({
-                      'name': parts[2],
-                      'size': int(parts[0]),
-                      'mtime': float(parts[1])
-                  })
+    files_info = []
+    if result:
+        # Parse each line of output
+        for line in result.split('\n'):
+            parts = line.split()
+            if len(parts) >= 3:
+                files_info.append({
+                    'name': parts[2],
+                    'size': int(parts[0]),
+                    'mtime': float(parts[1])
+                })
 
-      return files_info
+    return files_info
