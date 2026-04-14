@@ -872,7 +872,7 @@ class VxlanHashTest(HashTest):
                             sport,
                             dport,
                             src_port))
-        logs.append(vxlan_pkt.show())
+        logs.append(vxlan_pkt.show(dump=True))
         return logs
 
     def set_packet_parameter(self, pkt, exp_pkt, hash_key, ip_proto, version='IP'):
