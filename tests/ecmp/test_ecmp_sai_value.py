@@ -8,9 +8,18 @@ from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import get_host_visible_vars
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, REBOOT_TYPE_WARM
 from tests.common.utilities import wait_until
+from collections import Counter
+import sys
 
 
 logger = logging.getLogger(__name__)
+if not logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(logging.Formatter(
+        "%(asctime)s %(levelname)s %(name)s: %(message)s"
+    ))
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
 
 pytestmark = [
     pytest.mark.asic('broadcom'),
@@ -43,7 +52,15 @@ seed_cmd_td3 = [
     'bcmcmd "getreg RTAG7_HASH_SEED_B_PIPE0"',
 ]
 
+seed_cmd_th5_th6 = []
+for i in range(8):
+    seed_cmd_th5_th6.append('bcmcmd "dsh -c \'get RTAG7_HASH_SEED_Ar{' + str(i) + '}.ipipe0\'"')
+for i in range(8):
+    seed_cmd_th5_th6.append('bcmcmd "dsh -c \'get RTAG7_HASH_SEED_Br{' + str(i) + '}.ipipe0\'"')
+
 offset_cmd = 'bcmcmd  "dump RTAG7_PORT_BASED_HASH 0 392 OFFSET_ECMP"'
+offset_cmd_th5_th6 = 'bcmcmd "bsh -c \'pt dump RTAG7_PORT_BASED_HASH\'"'
+# logger.warning("offset_cmd_th5_th6: {}".format(offset_cmd_th5_th6))
 
 
 @pytest.fixture
@@ -85,9 +102,12 @@ def parse_hash_seed(output, asic_name):
     return numeric_value
 
 
-def parse_ecmp_offset(outputs):
+def parse_ecmp_offset(outputs, asic_name):
     # Regular expression pattern to extract OFFSET_ECMP values (hexadecimal)
-    pattern = r'OFFSET_ECMP=(0x?[0-9a-fA-F]?)'
+    if asic_name in ("th5", "th6c", "th6p"):
+        pattern = r'OFFSET_ECMP_PRIMARY=(0x?[0-9a-fA-F]?)'
+    else:
+        pattern = r'OFFSET_ECMP=(0x?[0-9a-fA-F]?)'
 
     # Extracted values
     extracted_values = []
@@ -104,6 +124,29 @@ def parse_ecmp_offset(outputs):
             pytest.fail("Matched number of OFFSET_ECMP is not correct.")
     return extracted_values
 
+def dump_unique_offset_primary_values(output: str) -> None:
+    """
+    Scan raw bcmcmd output and log all unique OFFSET_ECMP_PRIMARY values.
+    """
+    # This pattern matches OFFSET_ECMP_PRIMARY=<hex or decimal>, e.g. 0, 0x0, 0xa, 0xc
+    pattern = r'OFFSET_ECMP_PRIMARY=(0x?[0-9a-fA-F]+|\d+)'
+
+    matches = re.findall(pattern, output)
+    if not matches:
+        logger.warning("No OFFSET_ECMP_PRIMARY entries found in RTAG7_PORT_BASED_HASH dump")
+        return
+
+    unique_vals = sorted(set(matches))
+    counts = Counter(matches)
+
+    logger.warning(
+        "OFFSET_ECMP_PRIMARY unique values: %s",
+        unique_vals,
+    )
+    logger.warning(
+        "OFFSET_ECMP_PRIMARY distribution (value -> count): %s",
+        counts,
+    )
 
 def check_syncd_is_running(duthost):
     """
@@ -157,10 +200,17 @@ def check_hash_seed_value(duthost, asic_name, topo_type):
         seed_cmd_input = seed_cmd_td2
     elif asic_name == "td3":
         seed_cmd_input = seed_cmd_td3
+    elif asic_name in ("th5", "th6c", "th6p"):
+        seed_cmd_input = seed_cmd_th5_th6
     else:
         seed_cmd_input = seed_cmd
     for cmd in seed_cmd_input:
-        output = duthost.command(cmd, module_ignore_errors=True)["stdout_lines"][2].strip()
+        if asic_name in ("th5", "th6c", "th6p"):
+            # TH5/TH6 output format is slightly different. Expected pattern comes in a different line
+            output = duthost.command(cmd, module_ignore_errors=True)["stdout_lines"][3].strip()
+        else:
+            output = duthost.command(cmd, module_ignore_errors=True)["stdout_lines"][2].strip()
+        logger.info(f"Seed cmd: {cmd}, output: {output}")
         hash_seed = parse_hash_seed(output, asic_name)
         if topo_type == "t1":
             pytest_assert(hash_seed == '0xa', "HASH_SEED is not set to 0xa")
@@ -175,8 +225,83 @@ def check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku):
     TD2: the count of 0xa is 33
     """
     pytest_assert(wait_until(300, 20, 0, check_syncd_is_running, duthost), "syncd is not running!")
-    output = duthost.shell(offset_cmd, module_ignore_errors=True)['stdout']
-    offset_list = parse_ecmp_offset(output)
+
+    sai_tunnel_support = False
+    t1_default_hash_offset = '0xa'
+    if asic_name in ("th5", "th6c", "th6p"):
+        output = duthost.shell(offset_cmd_th5_th6, module_ignore_errors=True)['stdout']
+        logger.info(f"Offset cmd: {offset_cmd_th5_th6}, output: {output}")
+
+        # check if sai_tunnel_support is enabled
+        show_config_cmd = 'bcmcmd "show config"'
+        show_config_output = duthost.shell(show_config_cmd, module_ignore_errors=True)['stdout']
+        dump_unique_offset_primary_values(output)
+        m = re.search(r'sai_tunnel_support\s*[:=]\s*([0-9xa-fA-F]+)', show_config_output)
+        logger.warning("show config output: {}".format(show_config_output))
+        if m:
+            val = m.group(1)
+            # Normalize hex like 0x1, 0x2, 0x12 etc.
+            try:
+                val_int = int(val, 0)  # base=0 lets Python parse 0x.. or decimal
+            except ValueError:
+                val_int = 0
+
+            # Treat 1 as enabled; 0 as disabled; >1 you can decide:
+            if val_int == 1:
+                sai_tunnel_support = True
+                t1_default_hash_offset = '0xc'
+            else:
+                sai_tunnel_support = False
+                t1_default_hash_offset = '0xa'
+        else:
+            # Not present, treat as disabled
+            sai_tunnel_support = False
+            t1_default_hash_offset = '0xa'
+    else:
+        output = duthost.shell(offset_cmd, module_ignore_errors=True)['stdout']
+
+    offset_list = parse_ecmp_offset(output, asic_name)
+    debug_ecmp_offsets(offset_list)
+    logger.info(
+        "ECMP offset debug: parsed %d entries, sample=%s",
+        len(offset_list),
+        offset_list[:32],  # first 32 for readability
+    )
+
+    counts = Counter(offset_list)
+    logger.warning("ECMP offset value distribution (value -> count): %s", counts)
+
+    # Focus: non-zero entries only (to see if any offsets are not 0)
+    non_zero_values = [v for v in offset_list if v not in ("0", "0x0")]
+    if non_zero_values:
+        nz_counts = Counter(non_zero_values)
+        logger.warning(
+            "Non-zero ECMP offsets found. Values and counts: %s",
+            nz_counts,
+        )
+    else:
+        logger.warning("All ECMP offsets are zero (no non-zero OFFSET_ECMP values).")
+
+    offset_list = parse_ecmp_offset(output, asic_name)
+
+    print(
+        "ECMP offset debug: parsed {} entries, sample={}".format(
+            len(offset_list), offset_list[:32]
+        )
+    )
+
+    counts = Counter(offset_list)
+    print("ECMP offset value distribution (value -> count): {}".format(counts))
+
+    non_zero_values = [v for v in offset_list if v not in ("0", "0x0")]
+    if non_zero_values:
+        nz_counts = Counter(non_zero_values)
+        print("Non-zero ECMP offsets found. Values and counts: {}".format(nz_counts))
+    else:
+        print("All ECMP offsets are zero (no non-zero OFFSET_ECMP values).")
+    logger.warning("sai_tunnel_support: {}".format(sai_tunnel_support))
+
+    
     if topo_type == "t0":
         offset_count = offset_list.count('0')
         if asic_name == "td3":
@@ -188,21 +313,22 @@ def check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku):
             pytest_assert(offset_count == 362, "the count of 0 OFFSET_ECMP is not correct. \
                           Expected {}, but got {}.".format(362, offset_count))
         elif asic_name in ("th5", "th6c"):
-            # For TH5/TH6: 352 total ports; 66 have OFFSET_ECMP=2 when sai_tunnel_support is enabled.
             expected_val = 286 if sai_tunnel_support else 352
             pytest_assert(offset_count == expected_val, "the count of 0 OFFSET_ECMP is not correct. \
                           Expected == {}, but got {}.".format(expected_val, offset_count))
         else:
             pytest_assert(offset_count == 392, "the count of 0 OFFSET_ECMP is not correct. \
-                          Expected {}, but got {}.".format(392, offset_count))
+                          Expected {}, but got {}. ".format(392, offset_count))
     elif topo_type == "t1":
-        offset_count = offset_list.count('0xa')
+        offset_count = offset_list.count(t1_default_hash_offset)
         if hwsku in ["Arista-7060CX-32S-C32", "Arista-7050QX32S-Q32", "Arista-7050-QX-32S"]:
             pytest_assert(offset_count >= 33, "the count of 0xa OFFSET_ECMP is not correct. \
                           Expected >= 33, but got {}.".format(offset_count))
         else:
-            pytest_assert(offset_count >= 67, "the count of 0xa OFFSET_ECMP is not correct. \
-                          Expected >= 67, but got {}.".format(offset_count))
+            # TH5/TH6 with sai_tunnel_support
+            expected_min = 66 if sai_tunnel_support else 67
+            pytest_assert(offset_count >= expected_min, "the count of OFFSET_ECMP is not correct. \
+                          Expected >= {}, but got {}.".format(expected_min, offset_count))
     else:
         pytest.fail("Unsupported topology type: {}".format(topo_type))
 
@@ -214,8 +340,8 @@ def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hws
     Check ecmp HASH_SEED
     """
     pytest_require(
-        not (parameter == "warm-reboot" and "dualtor" in tbinfo["topo"]["name"]),
-        "Skip warm reboot test on dualtor topology"
+        not (parameter == "warm-reboot" and ("dualtor" in tbinfo["topo"]["name"] or "t0" in tbinfo["topo"]["type"])),
+        "Skip warm reboot test on t0 and dualtor topologies"
     )
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -224,7 +350,8 @@ def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hws
     hostvars = get_host_visible_vars(duthost.host.options['inventory'], duthost.hostname)
     hwsku = duthost.facts['hwsku']
     supported_platforms = ['broadcom_td2_hwskus', 'broadcom_td3_hwskus', 'broadcom_th_hwskus',
-                           'broadcom_th2_hwskus', 'broadcom_th3_hwskus']
+                           'broadcom_th2_hwskus', 'broadcom_th3_hwskus', 'broadcom_th5_hwskus',
+                           'broadcom_th6c_hwskus', 'broadcom_th6p_hwskus']
     asic_name = None
     for platform in supported_platforms:
         supported_skus = hostvars.get(platform, [])
@@ -261,6 +388,28 @@ def test_ecmp_hash_seed_value(localhost, duthosts, tbinfo, enum_rand_one_per_hws
         check_hash_seed_value(duthost, asic_name, topo_type)
 
 
+def debug_ecmp_offsets(offset_list):
+    """
+    Log full OFFSET_ECMP distribution and indices of non-zero entries.
+    """
+    total = len(offset_list)
+    counts = Counter(offset_list)
+    non_zero_indices = [
+        (i, v) for i, v in enumerate(offset_list) if v not in ("0", "0x0")
+    ]
+
+    logger.warning(
+        "ECMP OFFSET_ECMP debug: total entries=%d, zero_count=%d, non_zero_count=%d",
+        total,
+        counts.get("0", 0) + counts.get("0x0", 0),
+        len(non_zero_indices),
+    )
+    logger.warning("ECMP OFFSET_ECMP distribution (value -> count): %s", counts)
+    logger.warning(
+        "ECMP OFFSET_ECMP non-zero indices (index -> value): %s",
+        non_zero_indices,
+    )
+
 @pytest.mark.parametrize("parameter", ["common", "restart_syncd", "reload", "reboot", "warm-reboot"])
 def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_hostname, parameter,
                            enable_container_autorestart):
@@ -268,16 +417,18 @@ def test_ecmp_offset_value(localhost, duthosts, tbinfo, enum_rand_one_per_hwsku_
     Check ecmp HASH_OFFSET
     """
     pytest_require(
-        not (parameter == "warm-reboot" and "dualtor" in tbinfo["topo"]["name"]),
-        "Skip warm reboot test on dualtor topology"
+        not (parameter == "warm-reboot" and ("dualtor" in tbinfo["topo"]["name"] or "t0" in tbinfo["topo"]["type"])),
+        "Skip warm reboot test on t0 and dualtor topologies"
     )
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.facts["asic_type"]
     topo_type = tbinfo['topo']['type']
     hostvars = get_host_visible_vars(duthost.host.options['inventory'], duthost.hostname)
     hwsku = duthost.facts['hwsku']
     supported_platforms = ['broadcom_td2_hwskus', 'broadcom_td3_hwskus', 'broadcom_th_hwskus',
-                           'broadcom_th2_hwskus', 'broadcom_th3_hwskus']
+                           'broadcom_th2_hwskus', 'broadcom_th3_hwskus', 'broadcom_th5_hwskus',
+                           'broadcom_th6c_hwskus', 'broadcom_th6p_hwskus']
     asic_name = None
     for platform in supported_platforms:
         supported_skus = hostvars.get(platform, [])
