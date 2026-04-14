@@ -1261,8 +1261,7 @@ dhcp_relay/test_dhcpv6_relay.py::test_interface_binding:
       - "release in ['201911', '202106']"
 
 #######################################
-
-#####         dhcp_server        #####
+#####          dhcp_server        #####
 #######################################
 dhcp_server:
   skip:
@@ -1270,6 +1269,7 @@ dhcp_server:
     conditions:
       - "release in ['202412']"
 
+#######################################
 #####             disk            #####
 #######################################
 disk/test_disk_exhaustion.py:
@@ -1277,6 +1277,15 @@ disk/test_disk_exhaustion.py:
     reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20759"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20759 and '-v6-' in topo_name"
+
+#######################################
+#####             dns             #####
+#######################################
+dns/static_dns/test_static_dns.py::test_static_dns_basic:
+  skip:
+    reason: "Found regression issue on multi-asic platform, need to skip for multi-asic platform until the issue is fixed."
+    conditions:
+      - "(is_multi_asic==True) and (asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/23880"
 
 #######################################
 #####         drop_packets        #####
@@ -3876,12 +3885,13 @@ pc/test_lag_member.py:
 
 pc/test_lag_member_forwarding.py:
   xfail:
-    reason: "Not supported on BRCM before SDK 13.x"
+    reason: "Not supported on BRCM before SDK 13.x, found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed"
     conditions_logical_operator: or
     conditions:
         - "asic_type in ['broadcom'] and https://github.com/sonic-net/sonic-buildimage/issues/21938"
         - "asic_type in ['mellanox', 'nvidia'] and https://github.com/sonic-net/sonic-mgmt/issues/17095"
         - "asic_gen in ['q3d'] and https://github.com/sonic-net/sonic-mgmt/issues/22942"
+        - "(is_multi_asic==True) and (asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/26741"
 
 pc/test_po_cleanup.py:
   skip:
@@ -3914,11 +3924,11 @@ pc/test_po_voq.py:
     conditions:
       - "'t2' not in topo_name or num_asic == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0 or asic_type in ['cisco-8000']"
 
-pc/test_retry_count.py::test_retry_count:
-  xfail:
-    reason: "Test set up is failing. Need owner to fix it."
+pc/test_retry_count.py:
+  skip:
+    reason: "Found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed."
     conditions:
-        - "https://github.com/sonic-net/sonic-mgmt/issues/19400"
+        - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-buildimage/issues/26742"
 
 #######################################
 #####           pfc               #####
@@ -4075,6 +4085,12 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     reason: "Testcase ignored on nvidia sn4700 and sn4280 due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23426"
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
+
+platform_tests/test_reboot.py:
+  skip:
+    reason: "Found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed."
+    conditions:
+      - "(is_multi_asic==True) and (asic_type in ['vs']) and https://github.com/sonic-net/sonic-buildimage/issues/26743"
 
 platform_tests/test_reload_config.py::test_reload_configuration:
   xfail:
@@ -4564,6 +4580,15 @@ read_mac/test_read_mac_metadata.py:
     reason: "Read_mac test needs specific variables and image urls, currently do not support on KVM and regular nightly test."
     conditions:
       - "asic_type in ['vs']"
+
+#######################################
+#####           reboot            #####
+#######################################
+reboot/test_reboot_blocking_mode.py:
+  skip:
+    reason: "Found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed."
+    conditions:
+      - "(is_multi_asic==True) and (asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/23879"
 
 #######################################
 #####      reset_factory          #####
