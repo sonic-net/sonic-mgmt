@@ -33,6 +33,8 @@ def test_console_loopback_echo(setup_c0, creds, target_line, baud_rate, cleanup_
         console_fanout.command("config console flow_control disable {}".format(target_line))
         console_fanout.set_loopback(target_line, baud_rate, False)
         delay_factor = 3.2
+    if duthost.facts['platform'] in ['arm64-c8220tg_48a_o-r0']:
+        delay_factor *= 25.0
 
     dutip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
     dutuser = creds['sonicadmin_user']
