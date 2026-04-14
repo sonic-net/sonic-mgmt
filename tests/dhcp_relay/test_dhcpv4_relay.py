@@ -18,6 +18,54 @@ from tests.common.dhcp_relay_utils import (
         sonic_dhcp_relay_unconfig
 )
 from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
+import json
+
+
+def _save_interface_ip_entries(duthost, table, interface):
+    """Save all CONFIG_DB entries for an interface, including the base entry.
+
+    Uses redis-cli to capture exact key-value pairs so they can be
+    restored after VRF operations strip them.
+    """
+    # Save the base entry (e.g. VLAN_INTERFACE|Vlan1000) and all IP entries
+    # Use two queries: one for the base entry, one for IP sub-entries
+    base_raw = duthost.shell(
+        'redis-cli -n 4 --json HGETALL "{}|{}"'.format(table, interface),
+        verbose=False)['stdout'].strip()
+    base_fields = json.loads(base_raw) if base_raw else {}
+
+    ip_keys_raw = duthost.shell(
+        'redis-cli -n 4 --json keys "{}|{}|*"'.format(table, interface),
+        verbose=False)['stdout'].strip()
+    ip_keys = json.loads(ip_keys_raw) if ip_keys_raw else []
+
+    saved = {}
+    # Always save the base entry
+    saved["{}|{}".format(table, interface)] = base_fields
+    for key in ip_keys:
+        raw = duthost.shell(
+            'redis-cli -n 4 --json HGETALL "{}"'.format(key),
+            verbose=False)['stdout'].strip()
+        fields = json.loads(raw) if raw else {}
+        saved[key] = fields
+    return saved
+
+
+def _restore_interface_ip_entries(duthost, saved_entries):
+    """Restore CONFIG_DB IP entries using sonic-db-cli.
+
+    Writes back the exact field-value pairs that were saved, preserving
+    attributes like the secondary flag. SONiC's intfmgrd automatically
+    applies CONFIG_DB changes to the kernel.
+    """
+    for key, fields in saved_entries.items():
+        if not fields or fields == {"NULL": "NULL"}:
+            duthost.shell('sonic-db-cli CONFIG_DB HSET "{}" "NULL" "NULL"'.format(key))
+        else:
+            for field, value in fields.items():
+                duthost.shell(
+                    'sonic-db-cli CONFIG_DB HSET "{}" "{}" "{}"'.format(key, field, value))
+
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -344,6 +392,12 @@ def test_dhcp_relay_with_non_default_vrf(
         portchannels = dhcp_relay['portchannels_with_ips']
         vlan_ip = "{}/{}".format(dhcp_relay['downlink_vlan_iface']['addr'], dhcp_relay['downlink_vlan_iface']['mask'])
 
+    # Save all interface IP entries before VRF operations strip them
+    saved_vlan_ips = _save_interface_ip_entries(duthost, "VLAN_INTERFACE", vlan_iface)
+    saved_pc_ips = {}
+    for pc in portchannels:
+        saved_pc_ips.update(_save_interface_ip_entries(duthost, "PORTCHANNEL_INTERFACE", pc))
+
     # Step 1: Remove IPs from interfaces
     for pc, params in portchannels.items():
         duthost.shell(f"sudo config interface ip remove {pc} {params['ip']}")
@@ -433,10 +487,17 @@ def test_dhcp_relay_with_non_default_vrf(
         duthost.shell(f"sudo config route del prefix vrf {CLIENT_VRF_NAME} 0.0.0.0/0 nexthop"
                       f" vrf {CLIENT_VRF_NAME} {first_params['nexthop']}")
         duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}")
-        for pc, params in portchannels.items():
-            duthost.shell(f"sudo config interface ip add {pc} {params['ip']}")
 
-        duthost.shell(f"sudo config interface ip add {vlan_iface} {vlan_ip}")
+        # Restore all interface CONFIG_DB entries (base entry, IPs, and attributes).
+        # "config interface vrf bind" strips ALL IPs (secondary IPv4, IPv6, etc.),
+        # not just the primary. A simple "config interface ip add" only restores
+        # the primary IPv4, permanently losing secondary IPs and IPv6 addresses.
+        # Instead, we save and restore the exact CONFIG_DB entries via redis-cli,
+        # preserving all attributes (e.g. the secondary flag). intfmgrd then
+        # automatically applies the restored entries to the kernel.
+        _restore_interface_ip_entries(duthost, saved_vlan_ips)
+        _restore_interface_ip_entries(duthost, saved_pc_ips)
+        duthost.shell("sudo config save -y")
 
 
 def test_dhcp_relay_with_different_non_default_vrf(
@@ -481,6 +542,12 @@ def test_dhcp_relay_with_different_non_default_vrf(
         vlan_iface = str(dhcp_relay['downlink_vlan_iface']['name'])
         portchannels = dhcp_relay['portchannels_with_ips']
         vlan_ip = "{}/{}".format(dhcp_relay['downlink_vlan_iface']['addr'], dhcp_relay['downlink_vlan_iface']['mask'])
+
+    # Save all interface IP entries before VRF operations strip them
+    saved_vlan_ips = _save_interface_ip_entries(duthost, "VLAN_INTERFACE", vlan_iface)
+    saved_pc_ips = {}
+    for pc in portchannels:
+        saved_pc_ips.update(_save_interface_ip_entries(duthost, "PORTCHANNEL_INTERFACE", pc))
 
     # Step 1: Remove IPs from interfaces
     for pc, params in portchannels.items():
@@ -559,10 +626,17 @@ def test_dhcp_relay_with_different_non_default_vrf(
 
         duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}")
         duthost.shell(f"sudo config vrf del {SERVER_VRF_NAME}")
-        for pc, params in portchannels.items():
-            duthost.shell(f"sudo config interface ip add {pc} {params['ip']}")
 
-        duthost.shell(f"sudo config interface ip add {vlan_iface} {vlan_ip}")
+        # Restore all interface CONFIG_DB entries (base entry, IPs, and attributes).
+        # "config interface vrf bind" strips ALL IPs (secondary IPv4, IPv6, etc.),
+        # not just the primary. A simple "config interface ip add" only restores
+        # the primary IPv4, permanently losing secondary IPs and IPv6 addresses.
+        # Instead, we save and restore the exact CONFIG_DB entries via redis-cli,
+        # preserving all attributes (e.g. the secondary flag). intfmgrd then
+        # automatically applies the restored entries to the kernel.
+        _restore_interface_ip_entries(duthost, saved_vlan_ips)
+        _restore_interface_ip_entries(duthost, saved_pc_ips)
+        duthost.shell("sudo config save -y")
 
 
 @pytest.mark.parametrize("max_hop_count", [CONFIG_HOP_COUNT, MAX_HOP_COUNT])
