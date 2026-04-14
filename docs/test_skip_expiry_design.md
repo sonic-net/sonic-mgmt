@@ -510,6 +510,8 @@ expiry_config:
   warning_days: [30, 14, 7]  # Days before expiry to send warnings
 ```
 
+**NOTE** An un-reviewed issue marked with P0 tag and then closed by the workflow will be skipped as usual. There is no enforcement that or check required for a user to re-open the issue and allow PR checkers to skip the test again. To handle this scenario the reporting tool would always keep the test and related issue in the report until it has been addressed or fixed.
+
 ### 3. Release Branch Management
 
 To handle skips across multiple release branches:
