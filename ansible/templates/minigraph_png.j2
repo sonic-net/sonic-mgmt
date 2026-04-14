@@ -241,6 +241,8 @@
 {% set dev_type = 'BmcMgmtToRRouter' %}
 {% elif 'M0' in dev %}
 {% set dev_type = 'MgmtToRRouter' %}
+{% elif 'C0' in dev %}
+{% set dev_type = 'MiniTs' %}
 {% else %}
 {% set dev_type = 'Unknown' %}
 {% endif %}
