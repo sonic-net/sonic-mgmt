@@ -511,7 +511,15 @@
         "new_platform": "Yes",
         "tag": "Yes"
     },
-    {
+        {
+        "hwsku": "NH-5010-F-O64",
+        "topo": "t2",
+        "owner": "Arvindsrinivasan Lakshmi Narasimhan",
+        "email": "arlakshm@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+{
         "hwsku": "Nexus-3164",
         "topo": "t1",
         "owner": "Rita Hui",

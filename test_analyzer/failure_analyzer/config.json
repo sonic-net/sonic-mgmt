@@ -194,7 +194,7 @@
                 {
                     "id": "t2",
                     "name": "T2",
-                    "testbed_topology": ["t2_2lc_min_ports-masic", "t2", "t2_5lc-mixed-96"],
+                    "testbed_topology": ["t2_2lc_min_ports-masic", "t2", "t2_5lc-mixed-96", "t2_single_node_min_nexthop_ut2"],
                     "threshold": 51,
                     "included": true
                 },
