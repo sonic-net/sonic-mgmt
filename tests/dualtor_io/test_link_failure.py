@@ -420,7 +420,7 @@ def test_active_link_admin_down_config_reload_downstream(
             config_interface_admin_status(upper_tor_host, active_active_ports, "down")
 
             upper_tor_host.shell("config save -y")
-            config_reload(upper_tor_host, wait=60)
+            config_reload(upper_tor_host, safe_reload=True, wait_for_bgp=True)
 
             verify_tor_states(
                 expected_active_host=lower_tor_host,
@@ -432,7 +432,7 @@ def test_active_link_admin_down_config_reload_downstream(
 
             send_t1_to_server_with_action(
                 upper_tor_host, verify=True,
-                stop_after=180,
+                stop_after=60,
                 allowed_disruption=0,
                 allow_disruption_before_traffic=True
             )
@@ -466,7 +466,7 @@ def test_active_link_admin_down_config_reload_link_up_upstream(
             )
 
             upper_tor_host.shell("config save -y")
-            config_reload(upper_tor_host, wait=60)
+            config_reload(upper_tor_host, safe_reload=True, wait_for_bgp=True)
 
             verify_tor_states(
                 expected_active_host=lower_tor_host,
@@ -520,7 +520,7 @@ def test_active_link_admin_down_config_reload_link_up_downstream_standby(
             )
 
             upper_tor_host.shell("config save -y")
-            config_reload(upper_tor_host, wait=60)
+            config_reload(upper_tor_host, safe_reload=True, wait_for_bgp=True)
 
             verify_tor_states(
                 expected_active_host=lower_tor_host,
