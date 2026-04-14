@@ -22,6 +22,8 @@ Parameters:
 import logging
 import pytest
 
+from tests.common.gu_utils import get_asic_name
+
 from tests.common.fixtures.duthost_utils import dut_qos_maps                               # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa: F401
@@ -53,6 +55,11 @@ class TestVoqCreditWDCounter(QosSaiBase):
         src_dut = get_src_dst_asic_and_duts['src_dut']
         if src_dut.facts.get('platform_asic') != 'broadcom-dnx':
             pytest.skip("VOQ Credit-WD-Del counter test is only supported on broadcom-dnx ASIC")
+        asic_name = get_asic_name(src_dut).lower()
+        if src_dut.is_multi_asic:
+            pytest.skip("Multi-ASIC VOQ coverage is exercised in tests/voq/test_voq_counter.py")
+        if "q3d" in asic_name:
+            pytest.skip("Q3D single-ASIC VOQ coverage is exercised in tests/voq/test_voq_counter.py")
 
     def testVoqCreditWDCounter(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
