@@ -769,12 +769,10 @@ class TestShowQueue():
                         hostname = fields[1]
                         if hostname != duthost.hostname:
                             continue
+
                     # The interface name is always the last but one field in the BUFFER_QUEUE entry key
-                    # Note that on multi-asic T2, filter interfaces by asic namespace since
-                    # queue counters are queried per-asic. On single-asic T2 or
-                    # non-T2 topologies, include all local interfaces.
-                    if (duthost.is_multi_asic and tbinfo['topo']['type'] == 't2' and
-                            fields[-3] != asic.namespace):
+                    # Skip interfaces that don't belong to this ASIC namespace on multi-ASIC devices
+                    if duthost.is_multi_asic and fields[-3] != asic.namespace:
                         continue
                     interfaces.add(fields[-2])
                 except IndexError:
