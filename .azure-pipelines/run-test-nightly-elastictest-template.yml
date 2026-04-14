@@ -26,7 +26,7 @@ parameters:
 
   - name: DEPLOY_MG_EXTRA_PARAMS
     type: string
-    default: ""
+    default: "-e deep_clean=true"
     displayName: "Deploy minigraph parameter"
 
   - name: SKIP_RESTART_PTF
@@ -152,7 +152,7 @@ steps:
       FEATURES: ${{ parameters.FEATURES }}
       SCRIPTS_EXCLUDE: "${{ parameters.SCRIPTS_EXCLUDE }}, vrf/test_vrf.py, vrf/test_vrf_attr.py, mvrf/test_mgmtvrf.py, platform_tests/test_auto_negotiation.py, sflow/test_sflow.py, nat/test_dynamic_nat.py, nat/test_static_nat.py"
       FEATURES_EXCLUDE: "${{ parameters.FEATURES_EXCLUDE }}, ptftests, acstests, saitests, scripts, k8s, sai_qualify"
-      COMMON_EXTRA_PARAMS: "${{ parameters.COMMON_EXTRA_PARAMS }} --deep_clean --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
+      COMMON_EXTRA_PARAMS: "${{ parameters.COMMON_EXTRA_PARAMS }} --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
       MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
       PTF_IMAGE_TAG: $(resolvedPTFImageTag)
       RETRY_TIMES: ${{ parameters.RETRY_TIMES }}

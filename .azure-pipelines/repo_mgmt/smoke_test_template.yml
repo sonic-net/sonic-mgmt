@@ -328,7 +328,7 @@ stages:
                 cd ansible
 
                 http_proxy='' https_proxy='' ./testbed-cli.sh restart-ptf ${{ parameters.TESTBED_NAME }} password.txt -e ptf_imagetag=internal
-                http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt $CONFIG_PARAMS
+                http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt -e deep_clean=true $CONFIG_PARAMS
                 sleep 180
             env:
               INVENTORY_NAME: $(INVENTORY_NAME)
@@ -341,7 +341,7 @@ stages:
                 set -x
 
                 BASE_PATH=`pwd`
-                PARAMS="--allow_recover --showlocals --assert plain -rav --collect_techsupport=False --deep_clean"
+                PARAMS="--allow_recover --showlocals --assert plain -rav --collect_techsupport=False"
 
                 if [[ -n $PY_SAITHRIFT_URL ]]; then
                     PARAMS="$PARAMS --py_saithrift_url=$PY_SAITHRIFT_URL"

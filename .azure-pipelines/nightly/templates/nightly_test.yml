@@ -417,7 +417,7 @@ stages:
                 if [[ "${EXTRA_PARAMS}" =~ "macsec" ]] ;then
                     CONFIG_PARAMS="$CONFIG_PARAMS $EXTRA_PARAMS"
                 fi
-                http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt $CONFIG_PARAMS || exit 1
+                http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt -e deep_clean=true $CONFIG_PARAMS || exit 1
                 sleep 180
 
           - task: Bash@3
@@ -429,7 +429,7 @@ stages:
                 set -x
 
                 BASE_PATH=`pwd`
-                PARAMS="--allow_recover --showlocals --assert plain -rav --collect_techsupport=False --deep_clean --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
+                PARAMS="--allow_recover --showlocals --assert plain -rav --collect_techsupport=False --sad_case_list=sad_bgp,sad_lag_member,sad_lag,sad_vlan_port,sad_inboot"
 
                 if [[ -n $PY_SAITHRIFT_URL ]]; then
                     PARAMS="$PARAMS --py_saithrift_url=$PY_SAITHRIFT_URL"
@@ -553,7 +553,7 @@ stages:
                 echo "=== Restore DUT from l2 switch mode ==="
 
                 cd ansible
-                ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt
+                ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $(INVENTORY_NAME) password.txt -e deep_clean=true
               displayName: Restore from l2 mode
               timeoutInMinutes: 30
               condition: always()

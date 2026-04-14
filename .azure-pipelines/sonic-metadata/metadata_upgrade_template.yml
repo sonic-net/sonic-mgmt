@@ -298,7 +298,7 @@ stages:
           fi
 
           cd ansible
-          http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt $CONFIG_PARAMS
+          http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt -e deep_clean=true $CONFIG_PARAMS
           sleep 60
         workingDirectory: $(Build.SourcesDirectory)
       env:
