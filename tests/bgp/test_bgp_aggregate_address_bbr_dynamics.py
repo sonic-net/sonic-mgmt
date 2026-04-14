@@ -12,8 +12,10 @@ Test cases:
   2.3  BBR toggle does NOT affect non-BBR-required aggregate
   2.4  Mixed BBR-required and non-BBR-required aggregates
   2.5  Rapid BBR state toggling
+  2.6  BBR disable with summary-only — contributing routes un-suppressed
 """
 
+import logging
 import time
 
 import pytest
@@ -32,12 +34,15 @@ from bgp_aggregate_helpers import (
     gcu_remove_aggregate,
     verify_bgp_aggregate_cleanup,
     verify_bgp_aggregate_consistence,
+    verify_contributing_routes_on_m2,
     verify_route_on_m2,
     withdraw_contributing_routes,
 )
 from natsort import natsorted
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+
+logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("m1"),
@@ -334,3 +339,61 @@ class TestGroup2BBRStateInteraction:
             verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
         finally:
             withdraw_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
+
+    def test_2_6_bbr_disable_summary_only_unsuppresses_contributing(
+        self, duthosts, rand_one_dut_hostname, nbrhosts, m1_topo_setup
+    ):
+        """Test Case 2.6: BBR disable with summary-only — contributing routes un-suppressed.
+
+        Steps:
+        1. Enable BBR, add aggregate with bbr-required=true, summary-only=true
+        2. On M2: verify only aggregate received, contributing suppressed
+        3. Disable BBR
+        4. On M2: verify aggregate withdrawn AND contributing routes become visible (no longer suppressed)
+        """
+        duthost = duthosts[rand_one_dut_hostname]
+        self._skip_if_no_bbr(duthost)
+        setup = m1_topo_setup
+        upstream = setup['upstream_neighbors']
+        cfg = AggregateCfg(prefix=AGGR_V4_1, bbr_required=True, summary_only=True, as_set=False)
+
+        config_bbr_by_gcu(duthost, "enabled")
+        announce_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
+        try:
+            gcu_add_aggregate(duthost, cfg)
+
+            # BBR enabled + summary-only: aggregate received, contributing suppressed
+            verify_bgp_aggregate_consistence(duthost, True, cfg)
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_1, expected_present=True)
+            verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V4, expected_present=False)
+
+            # Disable BBR
+            config_bbr_by_gcu(duthost, "disabled")
+            time.sleep(ROUTE_PROPAGATION_WAIT)
+
+            # BBR disabled: aggregate withdrawn, contributing routes un-suppressed
+            verify_bgp_aggregate_consistence(duthost, False, cfg)
+            logger.info("DUT state consistency verified: aggregate %s is inactive", AGGR_V4_1)
+
+            # Dump DUT BGP RIB for diagnostics
+            dut_bgp_rib = duthost.shell(
+                "vtysh -c 'show bgp ipv4 unicast {}'".format(AGGR_V4_1),
+                module_ignore_errors=True
+            )["stdout"]
+            logger.info("DUT BGP RIB for %s after BBR disable:\n%s", AGGR_V4_1, dut_bgp_rib)
+
+            dut_bgp_rib_longer = duthost.shell(
+                "vtysh -c 'show bgp ipv4 unicast {} longer-prefixes'".format(AGGR_V4_1),
+                module_ignore_errors=True
+            )["stdout"]
+            logger.info("DUT BGP RIB for %s after BBR disable (longer prefixes):\n%s", AGGR_V4_1, dut_bgp_rib_longer)
+
+            verify_route_on_m2(nbrhosts, upstream, AGGR_V4_1, expected_present=False)
+
+            verify_contributing_routes_on_m2(nbrhosts, upstream, CONTRIBUTING_V4, expected_present=True)
+
+            gcu_remove_aggregate(duthost, cfg.prefix)
+            verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
+        finally:
+            withdraw_contributing_routes(setup, CONTRIBUTING_V4, "ipv4")
+            config_bbr_by_gcu(duthost, "enabled")
