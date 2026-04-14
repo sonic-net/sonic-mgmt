@@ -29,12 +29,35 @@ class TestIPPacket(object):
     # a number <= PKT_NUM * 0.1 can be considered as 0
     PKT_NUM_ZERO = PKT_NUM * 0.1
 
+    # Chunk size for VPP on KVM: virtio without indirect descriptors uses
+    # 2 vring descriptors per packet; with tx_queue_size=1024 the effective
+    # capacity is ~512 packets.  Sending in 200-packet chunks with a short
+    # inter-chunk delay keeps the vring from overflowing.
+    VPP_KVM_CHUNK_SIZE = 200
+    VPP_KVM_CHUNK_DELAY = 0.02   # seconds between chunks
+
     @staticmethod
     def check_rx_ok(duthost, ingress_iface, pkt_num_min):
         """Check if the ingress port has received enough packets."""
         portstat_out = parse_portstat(duthost.command("portstat")["stdout_lines"])
         rx_ok = int(portstat_out[ingress_iface]["rx_ok"].replace(",", ""))
         return rx_ok >= pkt_num_min
+
+    @staticmethod
+    def send_packets(duthost, ptfadapter, ptf_port_idx, pkt, count):
+        """Send packets, using chunked sends on VPP/KVM to avoid virtio TX ring overflow."""
+        platform = duthost.facts.get("platform", "")
+        asic_type = duthost.facts.get("asic_type", "")
+        if asic_type == "vpp" and "kvm" in platform:
+            sent = 0
+            while sent < count:
+                chunk = min(TestIPPacket.VPP_KVM_CHUNK_SIZE, count - sent)
+                testutils.send(ptfadapter, ptf_port_idx, pkt, chunk)
+                sent += chunk
+                if sent < count:
+                    time.sleep(TestIPPacket.VPP_KVM_CHUNK_DELAY)
+        else:
+            testutils.send(ptfadapter, ptf_port_idx, pkt, count)
 
     @pytest.fixture(scope="class")
     def common_param(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
@@ -159,7 +182,7 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
@@ -235,7 +258,7 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
@@ -314,7 +337,7 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Drop test: on some platforms packets are dropped at L2 so rx_ok never reaches PKT_NUM_MIN.
         # Use a short fixed sleep instead of wait_until to avoid a 30s timeout regression.
         time.sleep(5)
@@ -400,7 +423,7 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
@@ -476,7 +499,7 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
@@ -543,7 +566,7 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
@@ -603,7 +626,7 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Wait for port counters to update (non-asserting, real checks follow below)
         if not wait_until(30, 1, 0, self.check_rx_ok, duthost, peer_ip_ifaces_pair[0][1][0], self.PKT_NUM_MIN):
             logger.warning("Port counter polling timed out for %s", peer_ip_ifaces_pair[0][1][0])
@@ -664,7 +687,7 @@ class TestIPPacket(object):
             duthost.command("sonic-clear rifcounters")
         ptfadapter.dataplane.flush()
 
-        testutils.send(ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
+        self.send_packets(duthost, ptfadapter, ptf_port_idx, pkt, self.PKT_NUM)
         # Drop test: on some platforms packets are dropped at L2 so rx_ok never reaches PKT_NUM_MIN.
         # Use a short fixed sleep instead of wait_until to avoid a 30s timeout regression.
         time.sleep(5)
