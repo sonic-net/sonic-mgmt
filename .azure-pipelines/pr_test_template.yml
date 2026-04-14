@@ -69,7 +69,7 @@ parameters:
 
 - name: INCLUDE_JOBS
   type: string
-  default: "t0_job,t1_job,t2_job"
+  default: "t0_job,t1_job,t2_job,t0_2vlans_job,t0_sonic_job,dpu_job,t1_multi_asic_job,t1_lag_vpp_job"
 
 jobs:
   - job: get_impacted_area
@@ -458,9 +458,11 @@ jobs:
     dependsOn:
     - get_impacted_area
     - cancel_previous_test_plan_for_same_pr
+    variables:
+      RUN_BY_INCLUDE_JOBS: ${{ or(eq(parameters.INCLUDE_JOBS, 'all'), contains(parameters.INCLUDE_JOBS, 't1_lag_vpp_job')) }}
+    condition: and(not(canceled()), eq(variables['RUN_BY_INCLUDE_JOBS'], 'True'))
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: true
-    condition: not(canceled())
     pool: ${{ parameters.RUN_TEST_AGENT_POOL }}
     steps:
       - template: run-test-elastictest-template.yml
