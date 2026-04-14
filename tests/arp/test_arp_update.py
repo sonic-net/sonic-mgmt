@@ -21,7 +21,7 @@ pytestmark = [
 
 
 @pytest.fixture
-def setup(rand_selected_dut):
+def pause_arp_update(rand_selected_dut):
     cmds = [
         "docker exec swss supervisorctl stop arp_update",
         "ip neigh flush all"
@@ -122,7 +122,7 @@ def ip_version_string(version):
 
 @pytest.mark.parametrize("ip_version", [4, 6], ids=ip_version_string)
 def test_kernel_asic_mac_mismatch(
-    setup,
+    pause_arp_update,
     setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,
     toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
     rand_selected_dut, ip_version, setup_vlan_arp_responder,  # noqa: F811
