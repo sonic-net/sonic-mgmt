@@ -9,7 +9,9 @@ import logging
 
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
+from tests.common import config_reload
 from tests.common.cisco_data import is_cisco_device
+from tests.common.devices.eos import EosHost
 from tests.common.mellanox_data import is_mellanox_device
 
 # If the version of the Python interpreter is greater or equal to 3, set the unicode variable to the str class.
@@ -815,3 +817,95 @@ def pfcwd_show_status(duthost, output_string):
     logger.debug("execute cmd {} response: \n{}".format(cmd, cmd_response.get('stdout', None)))
 
     return
+
+
+def send_tx_egress(traffic_inst, action, verify, async_mode=False, pkt_count=None):
+    """Send traffic from the Rx port toward the Tx (egress) port and optionally verify
+    that the expected PFC watchdog action (forward/drop) is observed on egress."""
+    logger.info("Check for egress {} on Tx port {} (verify={})".format(action, traffic_inst.pfc_wd_test_port, verify))
+    dst_port = "[" + str(traffic_inst.pfc_wd_test_port_id) + "]"
+    if action == "forward" and type(traffic_inst.pfc_wd_test_port_ids) == list:
+        dst_port = "".join(str(traffic_inst.pfc_wd_test_port_ids)).replace(',', '')
+    ptf_params = {'router_mac': traffic_inst.router_mac,
+                  'vlan_mac': traffic_inst.vlan_mac,
+                  'queue_index': traffic_inst.pfc_queue_index,
+                  'pkt_count': pkt_count or traffic_inst.pfc_wd_test_pkt_count,
+                  'port_src': traffic_inst.pfc_wd_rx_port_id[0],
+                  'port_dst': dst_port,
+                  'ip_dst': traffic_inst.pfc_wd_test_neighbor_addr,
+                  'port_type': traffic_inst.port_id_to_type_map[traffic_inst.pfc_wd_rx_port_id[0]],
+                  'wd_action': action if verify else "dontcare",
+                  'ip_version': traffic_inst.ip_version}
+    if traffic_inst.pfc_wd_rx_port_vlan_id is not None:
+        ptf_params['port_src_vlan_id'] = traffic_inst.pfc_wd_rx_port_vlan_id
+    if traffic_inst.pfc_wd_test_port_vlan_id is not None:
+        ptf_params['port_dst_vlan_id'] = traffic_inst.pfc_wd_test_port_vlan_id
+    log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
+    log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
+    ptf_runner(traffic_inst.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
+               log_file=log_file, is_python3=True, async_mode=async_mode)
+
+
+def shutdown_lag_members(duthost, selected_port, tbinfo, nbrhosts, ports):
+    """Shut down all LAG members except the selected port so that PFC watchdog
+    testing runs over a single link while keeping the port-channel up (min-links=1)."""
+    if ports[selected_port]['test_port_type'] != 'portchannel':
+        return None, None, None
+
+    config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
+    portChannels = config_facts['PORTCHANNEL_MEMBER']
+    portChannel = None
+    portChannelMembers = None
+    for intf in portChannels:
+        if selected_port in portChannels[intf]:
+            portChannel = intf
+            portChannelMembers = portChannels[intf]
+            break
+
+    dst_mgfacts = duthost.get_extended_minigraph_facts(tbinfo)
+    vm_neighbors = dst_mgfacts['minigraph_neighbors']
+    peer_device = vm_neighbors[list(portChannelMembers.keys())[0]]['name']
+    peer_port = vm_neighbors[list(portChannelMembers.keys())[0]]['port']
+    vm_host = nbrhosts[peer_device]['host']
+    neigh_port_channel = None
+    min_links = None
+    if isinstance(vm_host, EosHost):
+        neigh_port_channels = vm_host.eos_command(
+            commands=['show port-channel | json'])['stdout'][0]["portChannels"]
+        for po_name, po_config in neigh_port_channels.items():
+            for member in po_config['activePorts']:
+                if member == peer_port:
+                    neigh_port_channel = po_name
+                    min_links = len(po_config['activePorts'])
+                    break
+
+        vm_host.eos_config(lines=['port-channel min-links 1'], parents=[f'int {neigh_port_channel}'])
+
+    cmd_data = f'.PORTCHANNEL.{portChannel}.min_links = "1"'
+
+    for port in portChannelMembers:
+        if port == selected_port:
+            continue
+        cmd_data += f' | .PORT.{port}.admin_status="down"'
+
+    cmd = f"""jq '{cmd_data}' /etc/sonic/config_db.json > /tmp/config_db.json"""
+
+    duthost.command("cp /etc/sonic/config_db.json /tmp/config_db_backup.json", _uses_shell=True)
+    duthost.command(cmd, _uses_shell=True)
+    duthost.command("sudo cp /tmp/config_db.json /etc/sonic/config_db.json", _uses_shell=True)
+    config_reload(duthost, config_source='config_db', safe_reload=True,
+                  check_intf_up_ports=True, wait_for_bgp=True)
+    return vm_host, neigh_port_channel, min_links
+
+
+def restore_original_config(duthost, selected_port, vm_host, neigh_port_channel, min_links, ports):
+    if ports[selected_port]['test_port_type'] != 'portchannel':
+        return
+
+    if isinstance(vm_host, EosHost):
+        vm_host.eos_config(lines=[f'port-channel min-links {min_links}'],
+                           parents=[f'int {neigh_port_channel}'])
+
+    duthost.command("sudo mv /tmp/config_db_backup.json /etc/sonic/config_db.json", _uses_shell=True)
+    config_reload(duthost, config_source='config_db', safe_reload=True,
+                  check_intf_up_ports=True, wait_for_bgp=True)

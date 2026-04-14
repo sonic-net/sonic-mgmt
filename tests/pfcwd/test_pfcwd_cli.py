@@ -6,7 +6,7 @@ import time
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress, shutdown_lag_members, restore_original_config
 from tests.common.helpers.pfcwd_helper import has_neighbor_device
 from tests.ptf_runner import ptf_runner
 from tests.common import constants
@@ -15,8 +15,6 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.helpers.pfcwd_helper import send_background_traffic, verify_pfc_storm_in_expected_state, parser_show_pfcwd_stat  # noqa: E501
 from tests.common.utilities import wait_until
 from tests.common.cisco_data import is_cisco_device
-from tests.common import config_reload
-from tests.common.devices.eos import EosHost
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "lt2", "ft2")
@@ -205,6 +203,7 @@ class SetupPfcwdFunc(object):
             self.storm_hndle.update_peer_info(peer_info)
 
 
+
 class SendVerifyTraffic():
     """ PTF test """
     def __init__(self, ptf, router_mac, tx_mac, pfc_params, is_dualtor, ip_version='IPv4'):
@@ -246,37 +245,6 @@ class SendVerifyTraffic():
         if num_dst_ports > 1:
             factor = 1.25 * num_dst_ports
         return factor
-
-    def send_tx_egress(self, action, verify):
-        """
-        Send traffic with test port as the egress and verify if the packets get forwarded
-        or dropped based on the action
-
-        Args:
-            action(string) : PTF test action
-        """
-        logger.info("Check for egress {} on Tx port {}".format(action, self.pfc_wd_test_port))
-        dst_port = "[" + str(self.pfc_wd_test_port_id) + "]"
-        if action == "forward" and type(self.pfc_wd_test_port_ids) == list:
-            dst_port = "".join(str(self.pfc_wd_test_port_ids)).replace(',', '')
-        ptf_params = {'router_mac': self.router_mac,
-                      'vlan_mac': self.vlan_mac,
-                      'queue_index': self.pfc_queue_index,
-                      'pkt_count': int(self.pfc_wd_test_pkt_count * self.get_lag_pkt_scale_factor()),
-                      'port_src': self.pfc_wd_rx_port_id[0],
-                      'port_dst': dst_port,
-                      'ip_dst': self.pfc_wd_test_neighbor_addr,
-                      'port_type': self.port_id_to_type_map[self.pfc_wd_rx_port_id[0]],
-                      'wd_action': action if verify else "dontcare",
-                      'ip_version': self.ip_version}
-        if self.pfc_wd_rx_port_vlan_id is not None:
-            ptf_params['port_src_vlan_id'] = self.pfc_wd_rx_port_vlan_id
-        if self.pfc_wd_test_port_vlan_id is not None:
-            ptf_params['port_dst_vlan_id'] = self.pfc_wd_test_port_vlan_id
-        log_format = datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S")
-        log_file = "/tmp/pfc_wd.PfcWdTest.{}.log".format(log_format)
-        ptf_runner(self.ptf, "ptftests", "pfc_wd.PfcWdTest", "ptftests", params=ptf_params,
-                   log_file=log_file, is_python3=True)
 
     def send_rx_ingress(self, action, verify):
         """
@@ -401,6 +369,7 @@ def manage_lag_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinf
 
 class TestPfcwdFunc(SetupPfcwdFunc):
     """ Test PFC function and supporting methods """
+<<<<<<< HEAD
     def __shutdown_lag_members(self, duthost, selected_port, tbinfo, nbrhosts):
         return _shutdown_lag_members(
             duthost, selected_port, tbinfo, nbrhosts,
@@ -411,6 +380,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             duthost, selected_port, vm_host, neigh_port_channel, min_links,
             self.ports[selected_port]['test_port_type'])
 
+=======
+>>>>>>> 30c56d139 (NOS-6276: Add a test to verify pfcwd action when storm happens during running traffic (#1408))
     def storm_detect_path(self, dut, port, action):
         """
         Storm detection action and associated verifications
@@ -491,10 +462,16 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             )
 
         # send traffic to egress port
+<<<<<<< HEAD
         self.traffic_inst.send_tx_egress(self.tx_action, False)
         time.sleep(10)  # wait for the traffic to be processed
         pfcwd_stat_after_tx = parser_show_pfcwd_stat(dut, port, self.pfc_wd['queue_index'])
         logger.debug("pfcwd_stat_after_tx {}".format(pfcwd_stat_after_tx))
+=======
+        send_tx_egress(self.traffic_inst, self.tx_action, False,
+                       pkt_count=int(self.traffic_inst.pfc_wd_test_pkt_count *
+                                     self.traffic_inst.get_lag_pkt_scale_factor()))
+>>>>>>> 30c56d139 (NOS-6276: Add a test to verify pfcwd action when storm happens during running traffic (#1408))
         if asic_type != 'vs':
             # check count, drop: tx_drop_count; forward: tx_ok_count
             if self.tx_action == "drop":
@@ -598,6 +575,11 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         # for idx, port in enumerate(self.ports):
         port = list(self.ports.keys())[0]
 
+<<<<<<< HEAD
+=======
+        vm_host, neigh_port_channel, min_links = shutdown_lag_members(duthost, port, tbinfo, nbrhosts, self.ports)
+
+>>>>>>> 30c56d139 (NOS-6276: Add a test to verify pfcwd action when storm happens during running traffic (#1408))
         logger.info("--- Testing various Pfcwd actions on {} ---".format(port))
         self.setup_test_params(port, setup_info['vlan'], init=True, ip_version=ip_version)
         self.traffic_inst = SendVerifyTraffic(
@@ -623,9 +605,30 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                             format(action, port, self.tx_action, self.rx_action))
                 self.run_test(self.dut, port, action)
 
+<<<<<<< HEAD
             finally:
                 if self.storm_hndle:
                     logger.info("--- Stop pfc storm on port {}".format(port))
                     self.storm_hndle.stop_storm()
                 logger.info("--- Stop PFC WD ---")
                 self.dut.command("pfcwd stop")
+=======
+        try:
+            for action in actions:
+                logger.info("--- Pfcwd port {} set action {} ---".format(port, action))
+                try:
+                    self.set_traffic_action(duthost, action)
+                    logger.info("Pfcwd action {} on port {}: Tx traffic action {}, Rx traffic action {} ".
+                                format(action, port, self.tx_action, self.rx_action))
+                    self.run_test(self.dut, port, action)
+
+                finally:
+                    if self.storm_hndle:
+                        logger.info("--- Stop pfc storm on port {}".format(port))
+                        self.storm_hndle.stop_storm()
+                    logger.info("--- Stop PFC WD ---")
+                    self.dut.command("pfcwd stop")
+        finally:
+            logger.info("--- Restore original config ---")
+            restore_original_config(duthost, port, vm_host, neigh_port_channel, min_links, self.ports)
+>>>>>>> 30c56d139 (NOS-6276: Add a test to verify pfcwd action when storm happens during running traffic (#1408))
