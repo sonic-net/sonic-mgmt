@@ -80,7 +80,7 @@ def server_exist_in_conf(duthost, server_pattern):
     """
     content = duthost.command("cat {}".format(NTP_CONF))
     for line in content['stdout_lines']:
-        if re.search(server_pattern, line):
+        if re.search(server_pattern, line, re.MULTILINE):
             return True
     return False
 
@@ -332,7 +332,8 @@ def ntp_server_set_intf(duthost, ntp_service, src_intf):
 
         if ntp_daemon == NtpDaemon.CHRONY:
             pytest_assert(
-                server_exist_in_conf(duthost, f"bindacqdevice {src_intf}"),
+                server_exist_in_conf(duthost, f"^bindacqdevice {src_intf}")
+                or server_exist_in_conf(duthost, "^bindacqaddress "),
                 f"Failed to set source interface to {src_intf}"
             )
 
