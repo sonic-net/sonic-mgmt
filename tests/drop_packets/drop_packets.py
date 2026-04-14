@@ -271,7 +271,7 @@ EOF
     config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
     if duthost.facts["asic_type"] == "vpp":
         # VPP memory usage needs extra time to stabilize after config reload
-        time.sleep(300)
+        time.sleep(120)
 
 
 def get_fanout_obj(conn_graph_facts, duthost, fanouthosts):
