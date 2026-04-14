@@ -7,6 +7,7 @@ import logging
 import random
 import re
 import sys
+import shutil
 
 import pytest
 import yaml
@@ -388,6 +389,81 @@ def pytest_configure(config):
             config.pluginmanager.register(MacsecPluginT2())
         else:
             config.pluginmanager.register(MacsecPluginT0())
+    converge_topo_if_needed(config)
+
+
+def _load_testbed_config(tbfile, tbname):
+    """Load testbed configuration from file"""
+    with open(tbfile, 'r') as f:
+        testbed_data = yaml.safe_load(f)
+
+    for tb in testbed_data:
+        if tb.get('conf-name') == tbname:
+            return tb
+
+    logger.warning(f"Testbed '{tbname}' not found in '{tbfile}'")
+    return
+
+
+def converge_topo_if_needed(config):
+    tbname = config.getoption("testbed")
+    tbfile = config.getoption("testbed_file")
+    if tbname is None or tbfile is None:
+        return
+    try:
+        tb_config = _load_testbed_config(tbfile, tbname)
+        if not tb_config:
+            return
+        use_converged_peers = tb_config.get('use_converged_peers', False)
+        if not use_converged_peers:
+            logger.info(f"use_converged_peers=False for testbed '{tbname}', skipping converge")
+            return
+        logger.info(f"use_converged_peers=True for testbed '{tbname}', starting converge...")
+
+        topo_name = tb_config.get('topo', '').strip()
+        if not topo_name:
+            logger.warning(f"No valid topo name found in testbed '{tbname}', skipping converge")
+            return
+
+        tests_dir = os.path.dirname(os.path.abspath(__file__))
+        ansible_dir = os.path.join(os.path.dirname(tests_dir), "ansible")
+        vars_dir = os.path.join(ansible_dir, "vars")
+        topo_file = os.path.join(vars_dir, f"topo_{topo_name}.yml")
+        backup_file = f"{topo_file}.bak"
+
+        if not os.path.exists(topo_file):
+            logger.warning(f"Topo file not found: {topo_file}")
+            return
+
+        original_stat = os.stat(topo_file)
+        original_mode = original_stat.st_mode
+        original_uid = original_stat.st_uid
+        original_gid = original_stat.st_gid
+
+        if os.path.exists(backup_file):
+            logger.info("Backup file exists, recovering original topo file")
+            shutil.copy(backup_file, topo_file)
+        else:
+            logger.info(f"Creating backup: {backup_file}")
+            shutil.copy(topo_file, backup_file)
+
+        converger_path = os.path.join(ansible_dir, "ceos_topo_converger.py")
+        spec = importlib.util.spec_from_file_location("ceos_topo_converger", converger_path)
+        ceos_module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(ceos_module)
+
+        ceos_module.converge_testbed(backup_file, topo_file)
+        logger.info(f"Topology '{topo_name}' converged successfully")
+
+        os.chmod(topo_file, original_mode)
+        os.chown(topo_file, original_uid, original_gid)
+        logger.info(f"File permissions restored to {original_uid}:{original_gid}")
+
+        config.cache.set("converged_topo_file", topo_file)
+        config.cache.set("converged_topo_backup", backup_file)
+    except Exception as e:
+        logger.error(f"Error during topo converge: {e}")
+        raise
 
 
 @pytest.fixture(scope="session")
@@ -587,6 +663,18 @@ def pytest_sessionfinish(session, exitstatus):
         session.config.cache.set("duthosts_fixture_failed", None)
         session.config.cache.set("ptfhost_exception", None)
         session.exitstatus = HOST_FIXTURE_FAILED_RC
+
+    topo_file = session.config.cache.get("converged_topo_file", None)
+    backup_file = session.config.cache.get("converged_topo_backup", None)
+    if topo_file and backup_file and os.path.exists(backup_file):
+        logger.info(f"Restoring original topo file from backup: {backup_file} -> {topo_file}")
+        try:
+            shutil.copy(backup_file, topo_file)
+            logger.info("Original topo file restored successfully")
+            session.config.cache.set("converged_topo_file", None)
+            session.config.cache.set("converged_topo_backup", None)
+        except Exception as e:
+            logger.error(f"Failed to restore topo file: {e}")
 
 
 @pytest.fixture(name="duthosts", scope="session")
