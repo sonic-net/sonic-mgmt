@@ -28,6 +28,8 @@ def test_voq_queue_counter(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     This test implicitly verifies that queue counters --voq (i.e. Credit-WD-Del/pkts)
     are working as expected by disabling the fabric ports
     For Q3D (single-ASIC), instead disable fabric messages via register setting.
+    For non-Q3D single-ASIC broadcom-dnx VOQ devices, see tests/qos/test_voq_counter.py
+    which uses sai_thrift_port_tx_disable via PTF infrastructure.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bcm_changes = False
