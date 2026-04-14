@@ -6,8 +6,8 @@ function restore_topo_if_needed
  {
      if [[ -n "$backup_file" && -f "$backup_file" ]]; then
          echo "Backup exists, restore backup file"
-         cp "$backup_file" "$topo_file"
-         rm -f "$backup_file"
+         rm -f "$topo_file"
+         mv "$backup_file" "$topo_file"
          echo "Original topo file restored"
      fi
  }
