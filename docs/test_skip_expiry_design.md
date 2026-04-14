@@ -250,7 +250,7 @@ Priority Tag Timeline:
 A scheduled workflow that runs periodically (e.g., daily) to:
 - Parse all conditional mark YAML files to extract referenced GitHub issues
 - Query GitHub API for each issue's metadata (creation date, labels, state)
-- Apply expiry logic based on chosen strategy (time-based or priority escalation)
+- Apply Priority tag based escalation logic
 - Take action on expired issues:
   - Close the issue (causing the skip to no longer apply)
   - Add expiry-related labels (e.g., `sonic-wf-priority-3`, `sonic-wf-priority-2` etc.)
