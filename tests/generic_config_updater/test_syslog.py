@@ -1,5 +1,6 @@
 import logging
 import pytest
+import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.gu_utils import apply_patch, expect_res_success, expect_op_failure, expect_op_success
@@ -126,7 +127,7 @@ def syslog_server_tc1_add_init(duthost):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -164,7 +165,7 @@ def syslog_server_tc1_add_duplicate(duthost):
             "value": {}
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -208,7 +209,7 @@ def syslog_server_tc1_xfail(duthost):
                 "value": {}
             }
         ]
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
 
@@ -249,7 +250,7 @@ def syslog_server_tc1_replace(duthost):
             "value": {}
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -281,7 +282,7 @@ def syslog_server_tc1_remove(duthost):
             "path": "/SYSLOG_SERVER"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -305,4 +306,9 @@ def test_syslog_server_tc1_suite(rand_selected_dut, cfg_facts):
     syslog_server_tc1_add_duplicate(rand_selected_dut)
     syslog_server_tc1_xfail(rand_selected_dut)
     syslog_server_tc1_replace(rand_selected_dut)
+
+    # Adding a sleep of 5 seconds to avoid syslog_server_tc1_replace & syslog_server_tc1_remove triggering too close
+    # This would avoid systemd kill core_uploader.service since it was restarted more than 5 times within 10 second time
+    # window
+    time.sleep(5)
     syslog_server_tc1_remove(rand_selected_dut)

@@ -25,7 +25,6 @@ import time
 import json
 import itertools
 import fib
-import macsec
 
 import ptf
 import ptf.packet as scapy
@@ -39,7 +38,8 @@ from ptf.testutils import send_packet
 from ptf.testutils import verify_packet_any_port
 from ptf.testutils import verify_no_packet_any
 
-from collections import Iterable, defaultdict
+from collections.abc import Iterable
+from collections import defaultdict
 
 
 class FibTest(BaseTest):
@@ -79,6 +79,7 @@ class FibTest(BaseTest):
     ACTION_FWD = 'fwd'
     ACTION_DROP = 'drop'
     DEFAULT_SWITCH_TYPE = 'voq'
+    PTF_TIMEOUT = 30
 
     _required_params = [
         'fib_info_files',
@@ -121,7 +122,7 @@ class FibTest(BaseTest):
         # if test_params has skip_src_ports then set it otherwise empty
         self.skip_src_ports = self.test_params.get('skip_src_ports', [])
 
-        if self.asic_type == "marvell":
+        if self.asic_type in ["marvell-prestera", "marvell", "vpp"]:
             fib.EXCLUDE_IPV4_PREFIXES.append("240.0.0.0/4")
 
         self.fibs = []
@@ -177,6 +178,7 @@ class FibTest(BaseTest):
         self.ignore_ttl = self.test_params.get('ignore_ttl', False)
         self.single_fib = self.test_params.get(
             'single_fib_for_duts', "multiple-fib")
+        self.topo_type = self.test_params.get('topo_type', None)
 
     def check_ip_ranges(self, ipv4=True):
         for dut_index, dut_fib in enumerate(self.fibs):
@@ -211,15 +213,16 @@ class FibTest(BaseTest):
                          for active_dut_index in active_dut_indexes]
             exp_port_lists = [next_hop.get_next_hop_list()
                               for next_hop in next_hops]
+            # On FT2 topo, since all the ports are in the next hop list of default route,
+            # we need to skip check if the src_port is in exp_port_list. Otherwise, it will
+            # cause the function to stuck in infinite loop.
+            lt2_default_route = False
+            if self.topo_type == 'ft2' and len(exp_port_lists) == 1 and len(self.src_ports) == len(exp_port_lists[0]):
+                lt2_default_route = True
             for exp_port_list in exp_port_lists:
-                if src_port in exp_port_list:
+                if src_port in exp_port_list and not lt2_default_route:
                     break
             else:
-                # MACsec link only receive encrypted packets
-                # It's hard to simulate encrypted packets on the injected port
-                # Because the MACsec is session based channel but the injected ports are stateless ports
-                if src_port in macsec.MACSEC_INFOS.keys():
-                    continue
                 if self.switch_type == "chassis-packet":
                     exp_port_lists = self.check_same_asic(src_port, exp_port_lists)
                 elif self.single_fib == "single-fib-single-hop" and exp_port_lists[0]:
@@ -391,8 +394,20 @@ class FibTest(BaseTest):
 
         dst_ports = list(itertools.chain(*dst_port_lists))
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                self, masked_exp_pkt, dst_ports, timeout=1)
+            try:
+                rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+                    self, masked_exp_pkt, dst_ports, timeout=self.PTF_TIMEOUT)
+            except AssertionError:
+                logging.warning("Traffic wasn't sent successfully, trying again")
+                send_packet(self, src_port, pkt, count=5)
+
+                logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={}) on port {}'
+                             .format(pkt.src, pkt.dst, pkt['IP'].src, pkt['IP'].dst, sport, dport, src_port))
+                logging.info('Expect Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={})'
+                             .format('any', 'any', ip_src, ip_dst, sport, dport))
+
+                rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+                    self, masked_exp_pkt, dst_ports, timeout=self.PTF_TIMEOUT)
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(
@@ -486,8 +501,21 @@ class FibTest(BaseTest):
 
         dst_ports = list(itertools.chain(*dst_port_lists))
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                self, masked_exp_pkt, dst_ports, timeout=1)
+            try:
+                rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+                    self, masked_exp_pkt, dst_ports, timeout=self.PTF_TIMEOUT)
+            except AssertionError:
+                logging.warning("Traffic wasn't sent successfully, trying again")
+                send_packet(self, src_port, pkt, count=5)
+
+                logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={}) on port {}'
+                             .format(pkt.src, pkt.dst, pkt['IPv6'].src, pkt['IPv6'].dst, sport, dport, src_port))
+                logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'
+                             .format('any', 'any', ip_src, ip_dst, sport, dport))
+
+                rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+                    self, masked_exp_pkt, dst_ports, timeout=self.PTF_TIMEOUT)
+
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(

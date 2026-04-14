@@ -1,13 +1,16 @@
 import pytest
 import ipaddress
 import logging
-
+import psutil
+import threading
+import time
 
 from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until
 from tests.common.utilities import find_duthost_on_role
-from tests.common.utilities import get_upstream_neigh_type
+from tests.common.utilities import get_upstream_neigh_type, get_all_upstream_neigh_type
+from tests.common.utilities import is_ipv6_only_topology
 from tests.common.helpers.syslog_helpers import is_mgmt_vrf_enabled
 
 
@@ -36,6 +39,28 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
     return None
 
 
+def is_in_neighbor(neigh_types, neigh_name):
+    """
+    Check if the neighbor name is in the list of neighbor types
+    """
+    for neigh_type in neigh_types:
+        if neigh_type in neigh_name:
+            return True
+    return False
+
+
+def get_default_route_upstream_neigh_type(tb):
+    if tb["topo"]["name"] in ["t1-isolated-d128", "t1-isolated-d32"]:
+        return "T0"
+    return get_upstream_neigh_type(tb)
+
+
+def get_default_route_all_upstream_neigh_type(tb):
+    if tb["topo"]["name"] in ["t1-isolated-d128", "t1-isolated-d32"]:
+        return "T0"
+    return get_all_upstream_neigh_type(tb["topo"]["type"])
+
+
 def get_upstream_neigh(tb, device_neigh_metadata, af, nexthops):
     """
     Get the information for upstream neighbors present in the testbed
@@ -43,16 +68,20 @@ def get_upstream_neigh(tb, device_neigh_metadata, af, nexthops):
     returns dict: {"upstream_neigh_name" : (ipv4_intf_ip, ipv6_intf_ip)}
     """
     upstream_neighbors = {}
-    neigh_type = get_upstream_neigh_type(tb['topo']['type'])
-    logging.info("testbed topo {} upstream neigh type {}".format(
-        tb['topo']['name'], neigh_type))
+    neigh_types = get_default_route_all_upstream_neigh_type(tb)
+    logging.info("testbed topo {} upstream neigh types {}".format(
+        tb['topo']['name'], neigh_types))
 
     topo_cfg_facts = tb['topo']['properties'].get('configuration', None)
     if topo_cfg_facts is None:
         return upstream_neighbors
 
     for neigh_name, neigh_cfg in list(topo_cfg_facts.items()):
-        if neigh_type not in neigh_name:
+        if not is_in_neighbor(neigh_types, neigh_name):
+            continue
+        if 't0-isolated' in tb['topo']['name'] and "PT" not in neigh_name:
+            # For t0-isolated topology, PT0 default routes will be preferred over T1 neighbors,
+            # so only consider PT neighbors for default route verification
             continue
         interfaces = neigh_cfg.get('interfaces', {})
         ipv4_addr = None
@@ -76,12 +105,12 @@ def get_upstream_neigh(tb, device_neigh_metadata, af, nexthops):
 
 
 def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping, device_neigh_metadata):
-    neigh_type = get_upstream_neigh_type(tbinfo['topo']['type'])
+    neigh_types = get_default_route_all_upstream_neigh_type(tbinfo)
     asics = set()
     for name, asic in list(bgp_name_to_ns_mapping.items()):
-        if neigh_type not in name:
+        if not is_in_neighbor(neigh_types, name):
             continue
-        if neigh_type == 'T3' and device_neigh_metadata[name]['type'] == 'AZNGHub':
+        if 'T3' in neigh_types and device_neigh_metadata[name]['type'] == 'AZNGHub':
             continue
         asics.add(asic)
     return asics
@@ -114,6 +143,7 @@ def verify_default_route_in_app_db(duthost, tbinfo, af, uplink_ns, device_neigh_
     upstream_neigh = get_upstream_neigh(tbinfo, device_neigh_metadata, af, nexthops)
     pytest_assert(upstream_neigh is not None,
                   "No upstream neighbors in the testbed")
+    upstream_neigh = {k: v for k, v in upstream_neigh.items() if any(upstream_neigh.get(k))}
 
     if af == 'ipv4':
         upstream_neigh_ip = set([upstream_neigh[neigh][0]
@@ -133,11 +163,14 @@ def test_default_route_set_src(duthosts, tbinfo):
 
     """
     duthost = find_duthost_on_role(
-        duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+        duthosts, get_default_route_upstream_neigh_type(tbinfo), tbinfo)
     asichost = duthost.asic_instance(0 if duthost.is_multi_asic else None)
 
     config_facts = asichost.config_facts(
         host=duthost.hostname, source="running")['ansible_facts']
+
+    ipv6_only = is_ipv6_only_topology(tbinfo)
+    logger.info("IPv6-only topology: {}".format(ipv6_only))
 
     lo_ipv4 = None
     lo_ipv6 = None
@@ -152,14 +185,16 @@ def test_default_route_set_src(duthosts, tbinfo):
                 elif ip.version == 6:
                     lo_ipv6 = ip
 
-    pytest_assert(lo_ipv4, "cannot find ipv4 Loopback0 address")
+    if not ipv6_only:
+        pytest_assert(lo_ipv4, "cannot find ipv4 Loopback0 address")
     pytest_assert(lo_ipv6, "cannot find ipv6 Loopback0 address")
 
-    rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
-    pytest_assert(rtinfo['set_src'],
-                  "default route do not have set src. {}".format(rtinfo))
-    pytest_assert(rtinfo['set_src'] == lo_ipv4.ip,
-                  "default route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv4.ip))
+    if not ipv6_only:
+        rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("0.0.0.0/0"))
+        pytest_assert(rtinfo['set_src'],
+                      "default route do not have set src. {}".format(rtinfo))
+        pytest_assert(rtinfo['set_src'] == lo_ipv4.ip,
+                      "default route set src to wrong IP {} != {}".format(rtinfo['set_src'], lo_ipv4.ip))
 
     rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("::/0"))
     pytest_assert(
@@ -174,7 +209,7 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, tbinfo):
 
     """
     duthost = find_duthost_on_role(
-        duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+        duthosts, get_default_route_upstream_neigh_type(tbinfo), tbinfo)
     asichost = duthost.asic_instance(0 if duthost.is_multi_asic else None)
 
     rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("::/0"))
@@ -185,7 +220,52 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, tbinfo):
                       "use link local address {} for nexthop".format(nh[0]))
 
 
+def get_memory_usage(process_name):
+    total_memory_usage = 0
+    for proc in psutil.process_iter():
+        try:
+            if proc.name().lower() == process_name.lower():
+                mem_info = proc.memory_info()
+                total_memory_usage += mem_info.rss
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+            pass
+
+    logging.debug(f"get_memory_usage for process {process_name} returns {total_memory_usage} bytes")
+    return total_memory_usage
+
+
+def monitor_memory(process_name, initial_memory, interval, stop_event):
+    while not stop_event.is_set():
+        memory_usage = get_memory_usage(process_name)
+        logging.info("Monitor Memory usage for {}: {} bytes".format(process_name, memory_usage))
+        if memory_usage >= 2 * initial_memory:
+            pytest_assert(False,
+                          "{} exceeded double the initial memory usage: {} bytes".format(process_name, initial_memory))
+        time.sleep(interval)
+
+
 def test_default_route_with_bgp_flap(duthosts, tbinfo):
+    # Define bmp related processes
+    bmp_processes = ['openbmpd', 'bgpd']
+
+    # Get the initial memory usage of the bmp_processes
+    initial_memory = {}
+    for process_name in bmp_processes:
+        initial_memory[process_name] = get_memory_usage(process_name)
+
+    # Create stop event for graceful thread termination
+    stop_event = threading.Event()
+
+    # Create and start the memory monitoring threads
+    bmp_monitor_threads = []
+    for process_name in bmp_processes:
+        bmp_thread = threading.Thread(
+            target=monitor_memory,
+            args=(process_name, initial_memory[process_name], 30, stop_event)
+        )
+        bmp_thread.start()
+        bmp_monitor_threads.append(bmp_thread)
+
     """
     Check the default route present in app_db has the correct nexthops ip
     Check the default route is removed when the bgp sessions are shutdown
@@ -197,7 +277,7 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
                    .format(tbinfo['topo']['name']))
 
     duthost = find_duthost_on_role(
-        duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+        duthosts, get_default_route_upstream_neigh_type(tbinfo), tbinfo)
 
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="running")['ansible_facts']
@@ -210,7 +290,9 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
         uplink_ns = get_uplink_ns(
             tbinfo, bgp_name_to_ns_mapping, config_facts['DEVICE_NEIGHBOR_METADATA'])
 
-    af_list = ['ipv4', 'ipv6']
+    ipv6_only = is_ipv6_only_topology(tbinfo)
+    af_list = ['ipv6'] if ipv6_only else ['ipv4', 'ipv6']
+    logger.info("IPv6-only topology: {}, testing address families: {}".format(ipv6_only, af_list))
 
     try:
         # verify the default route is correct in the app db
@@ -232,6 +314,11 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
         if not wait_until(300, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())):
             pytest.fail("not all bgp sessions are up after config reload")
 
+        # Signal threads to stop and wait for them to finish
+        stop_event.set()
+        for bmp_thread in bmp_monitor_threads:
+            bmp_thread.join()
+
 
 def test_ipv6_default_route_table_enabled_for_mgmt_interface(duthosts, tbinfo):
     """
@@ -239,7 +326,7 @@ def test_ipv6_default_route_table_enabled_for_mgmt_interface(duthosts, tbinfo):
 
     """
     duthost = find_duthost_on_role(
-        duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+        duthosts, get_default_route_upstream_neigh_type(tbinfo), tbinfo)
 
     # When management-vrf enabled, IPV6 route of management interface will not add to 'default' route table
     if is_mgmt_vrf_enabled(duthost):

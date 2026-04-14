@@ -10,6 +10,7 @@ function usage
   echo "    $0 [options] (start-topo-vms | stop-topo-vms) <testbed-name> <vault-password-file>"
   echo "    $0 [options] (deploy-topo-with-cache) <testbed-name> <inventory> <vault-password-file>"
   echo "    $0 [options] (add-topo | remove-topo | redeploy-topo | renumber-topo | connect-topo) <testbed-name> <vault-password-file>"
+  echo "    $0 [options] (add-vnut-topo | remove-vnut-topo) <testbed-name> <vault-password-file>"
   echo "    $0 [options] refresh-dut <testbed-name> <vault-password-file>"
   echo "    $0 [options] (connect-vms | disconnect-vms) <testbed-name> <vault-password-file>"
   echo "    $0 [options] config-vm <testbed-name> <vm-name> <vault-password-file>"
@@ -25,7 +26,7 @@ function usage
   echo "Options:"
   echo "    -t <tbfile>     : testbed CSV file name (default: 'testbed.yaml')"
   echo "    -m <vmfile>     : virtual machine file name (default: 'veos')"
-  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic|vcisco) (default: 'ceos')"
+  echo "    -k <vmtype>     : vm type (veos|ceos|vsonic|vcisco|csonic) (default: 'ceos')"
   echo "    -n <vm_num>     : vm num (default: 0)"
   echo "    -s <msetnumber> : master set identifier on specified <k8s-server-name> (default: 1)"
   echo "    -d <dir>        : sonic vm directory (default: $HOME/sonic-vm)"
@@ -54,9 +55,12 @@ function usage
   echo "To deploy topology for specified testbed on a server: $0 add-topo 'testbed-name' ~/.password"
   echo "    Optional argument for add-topo:"
   echo "        -e ptf_imagetag=<tag>    # Use PTF image with specified tag for creating PTF container"
+  echo "        --parallel               # Deploy topology on multiple servers in parallel"
   echo "To deploy topology with the help of the last cached deployed topology for the specified testbed on a server:"
   echo "        $0 deploy-topo-with-cache 'testbed-name' 'inventory' ~/.password"
   echo "To remove topology for specified testbed on a server: $0 remove-topo 'testbed-name' ~/.password"
+  echo "    Optional arguments for remove-topo:"
+  echo "        --parallel                    # Remove topology on multiple servers in parallel"
   echo "To remove topology and keysight-api-server container for specified testbedon a server:"
   echo "        $0 remove-topo 'testbed-name' ~/.password remove_keysight_api_server"
   echo "To renumber topology for specified testbed on a server: $0 renumber-topo 'testbed-name' ~/.password"
@@ -70,6 +74,8 @@ function usage
   echo "        -e enable_data_plane_acl=true"
   echo "        -e enable_data_plane_acl=false"
   echo "        by default, data acl is enabled"
+  echo "    deploy-mg also supports IPv6-only management network configuration:"
+  echo "        --ipv6-only-mgmt      Use IPv6-only management configuration (NTP, DNS, TACACS, etc.)"
   echo "To config simulated y-cable driver for DUT in specified testbed: $0 config-y-cable 'testbed-name' 'inventory' ~/.password"
   echo "To create Kubernetes master on a server: $0 -m k8s_ubuntu create-master 'k8s-server-name'  ~/.password"
   echo "To destroy Kubernetes master on a server: $0 -m k8s_ubuntu destroy-master 'k8s-server-name' ~/.password"
@@ -80,7 +86,7 @@ function usage
   echo "    collect-show-tech supports specify output path for dumped files"
   echo "        -e output_path=<user-specified-path>"
   echo
-  echo "You should define your testbed in testbed CSV file"
+  echo "You should define your topology in testbed YAML file"
   echo
   exit
 }
@@ -142,7 +148,7 @@ function read_yaml
 
   tb_line=${tb_lines[0]}
   line_arr=($1)
-  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment;
+  for attr in group-name topo ptf_image_name ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip server vm_base dut inv_name auto_recover comment servers upstream_neighbor_groups downstream_neighbor_groups use_converged_peers;
   do
     value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
     [ "$value" == "None" ] && value=
@@ -165,8 +171,39 @@ function read_yaml
   dut=${line_arr[11]}
   duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"$dut\")))")
   inv_name=${line_arr[12]}
+  servers=${line_arr[15]}
+  upstream_neighbor_groups=${line_arr[16]}
+  downstream_neighbor_groups=${line_arr[17]}
+  use_converged_peers=${line_arr[18]}
   # Remove the dpu duts by the keyword 'dpu' in the dut name
   duts=$(echo $duts | sed "s/,[^,]*dpu[^,]*//g")
+
+  converge_topo_if_needed "$topo" "$use_converged_peers"
+}
+
+function converge_topo_if_needed
+{
+    topo="$1"
+    use_converged_peers="$2"
+
+    ANSIBLE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    VARS_DIR="$ANSIBLE_DIR/vars"
+    topo_file="$VARS_DIR/topo_${topo}.yml"
+    backup_file="${topo_file}".bak
+
+    if [[ "$use_converged_peers" == "True" ]]; then
+        echo "use_converged_peers is true, converging topo..."
+
+        if [[ -f "$backup_file" ]];then
+            echo "Backup file exists, recover..."
+            sudo cp "$backup_file" "$topo_file"
+        elif [[ -f "$topo_file" ]]; then
+            echo "Back up topo file"
+            sudo cp "$topo_file" "$backup_file"
+        fi
+
+        sudo python -m ceos_topo_converger "$backup_file" "$topo_file"
+    fi
 }
 
 function read_file
@@ -180,6 +217,68 @@ function read_file
   then
     read_yaml ${testbed_name}
   fi
+}
+
+function read_nut_file
+{
+  echo "Reading NUT testbed file '$tbfile' for testbed '$1'"
+  keyName="conf-name"
+
+  if [[ $tbfile == *nut.yaml ]]; then
+    keyName="name"
+  fi
+
+  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['$keyName']))")
+  echo ""
+
+  IFS=$'+' read -r -a tb_lines <<< "$content"
+  linecount=${#tb_lines[@]}
+
+  if [ $linecount == 0 ]
+  then
+    echo "Couldn't find testbed name '$1'"
+    exit
+  elif [ $linecount -gt 1 ]
+  then
+    echo "Find more than one testbed name in $tbfile"
+    exit
+  else
+    echo "Testbed found: $1"
+  fi
+
+  tb_line=${tb_lines[0]}
+  line_arr=($1)
+
+  attributes="inv_name test_tags dut l1s";
+
+  if [[ $tbfile == *nut.yaml ]]
+  then
+    attributes="inv_name test_tags duts l1s"
+  fi
+
+  for attr in $attributes
+  do
+    value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
+    [ "$value" == "None" ] && value=
+    line_arr=("${line_arr[@]}" "$value")
+  done
+
+  inv_name=${line_arr[1]}
+  echo "- Inventory: $inv_name"
+
+  test_tags=$(python -c "from __future__ import print_function; print(','.join(eval(\"${line_arr[2]}\")))")
+  echo "- Test Tags: $test_tags"
+
+  duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"${line_arr[3]}\")))")
+  echo "- DUTs: $duts"
+
+  l1s=${line_arr[4]}
+  if [ ! -z "$l1s" ]; then
+    l1s=$(python -c "from __future__ import print_function; print(','.join(eval(\"${line_arr[4]}\")))")
+  fi
+  echo "- L1s: $l1s"
+
+  echo ""
 }
 
 function start_vms
@@ -249,6 +348,90 @@ function stop_topo_vms
 	  -e VM_base="$vm_base" -e vm_type="$vm_type" -e topo="$topo" $@
 }
 
+function parse_servers
+{
+  index=$1
+  servers=$2
+
+  echo "Parsing parameters for server $index"
+
+  _line_arr=()
+  for attr in ptf ptf_ip ptf_ipv6 ptf_extra_mgmt_ip netns_mgmt_ip vm_base dut_interfaces;
+  do
+    value=$(python -c "from __future__ import print_function; tb=eval(\"list($servers.values())[$index]\"); print(tb.get('$attr', None))")
+    [ "$value" == "None" ] && value=
+    _line_arr=("${_line_arr[@]}" "$value")
+  done
+
+  ptf=${_line_arr[0]}
+  ptf_ip=${_line_arr[1]}
+  ptf_ipv6=${_line_arr[2]}
+  ptf_extra_mgmt_ip=${_line_arr[3]}
+  if [ ! -z "$ptf_extra_mgmt_ip" ]; then
+    ptf_extra_mgmt_ip=$(python -c "from __future__ import print_function; print(','.join(eval(\"$ptf_extra_mgmt_ip\")))")
+  fi
+  netns_mgmt_ip=${_line_arr[4]}
+  server=$(python -c "from __future__ import print_function; tb=eval(\"list($servers.keys())[$index]\"); print(tb)")
+  vm_base=${_line_arr[5]}
+  dut_interfaces=${_line_arr[6]}
+  if [[ $dut_interfaces == *" "* ]]; then
+    echo "please delete spaces in the dut_interfaces"
+    exit -1
+  fi
+}
+
+# Parse parallel execution arguments
+function parse_parallel_args() {
+  # Check for parallel execution flag
+  parallel_execution=false
+  for arg in "$@"; do
+    if [[ "$arg" == "--parallel" ]]; then
+      parallel_execution=true
+      break
+    fi
+  done
+
+  # Remove --parallel from arguments if present
+  args=()
+  for arg in "$@"; do
+    if [[ "$arg" != "--parallel" ]]; then
+      args+=("$arg")
+    fi
+  done
+}
+
+# Wait for all parallel processes to complete and output logs
+function wait_parallel_processes() {
+  local operation_type=$1
+  local -n pids_ref=$2
+  local server_count=$3
+
+  # Wait for all parallel processes to complete
+  if [[ "$parallel_execution" == "true" ]]; then
+    for i in $(seq 0 $(($server_count-1))); do
+      if [[ -n "${pids_ref[$i]}" ]]; then
+        wait ${pids_ref[$i]}
+      fi
+    done
+
+    # Output logs from parallel execution
+    for i in $(seq 0 $(($server_count-1)))
+    do
+      if [ -n "$servers" ]; then
+        parse_servers "$i" "$servers"
+        echo "${operation_type}_topo output for server $server:"
+      else
+        echo "${operation_type}_topo output for server $i:"
+      fi
+      if [ -f "/tmp/${operation_type}_topo_$i.log" ]; then
+        cat "/tmp/${operation_type}_topo_$i.log"
+      else
+        echo "Warning: Log file /tmp/${operation_type}_topo_$i.log not found"
+      fi
+    done
+  fi
+}
+
 function add_topo
 {
   testbed_name=$1
@@ -256,6 +439,9 @@ function add_topo
   shift
   shift
   echo "Deploying topology for testbed '${testbed_name}'"
+
+  # Parse parallel execution arguments
+  parse_parallel_args "$@"
 
   read_file ${testbed_name}
 
@@ -269,19 +455,68 @@ function add_topo
       ansible_options+=" -e eos_batch_size=1"
   fi
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -i ${inv_name} testbed_add_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
-        -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
-        -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
-        -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
-        -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" \
-        $ansible_options $@
-
-  if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
-    ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
+  server_count=1
+  if [ -n "$servers" ]; then
+    server_count=$(python -c "from __future__ import print_function; print(len(eval(\"$servers\")))")
   fi
 
-  # Delete the obsoleted arp entry for the PTF IP
-  ip neighbor flush $ptf_ip || true
+  # Array to store process IDs for parallel execution
+  declare -a pids
+
+  for i in $(seq 0 $(($server_count-1)))
+  do
+    if [ -n "$servers" ]; then
+      parse_servers "$i" "$servers"
+      ansible_options+=" -e dut_interfaces=$dut_interfaces"
+    fi
+
+    # Build the ansible-playbook command
+    ansible_cmd="ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -i ${inv_name} testbed_add_vm_topology.yml --vault-password-file=\"${passwd}\" -l \"$server\" \
+          -e testbed_name=\"$testbed_name\" -e duts_name=\"$duts\" -e VM_base=\"$vm_base\" \
+          -e ptf_ip=\"$ptf_ip\" -e topo=\"$topo\" -e vm_set_name=\"$vm_set_name\" \
+          -e ptf_imagename=\"$ptf_imagename\" -e vm_type=\"$vm_type\" -e ptf_ipv6=\"$ptf_ipv6\" \
+          -e ptf_extra_mgmt_ip=\"$ptf_extra_mgmt_ip\" -e netns_mgmt_ip=\"$netns_mgmt_ip\" \
+          -e upstream_neighbor_groups=\"$upstream_neighbor_groups\" -e downstream_neighbor_groups=\"$downstream_neighbor_groups\" \
+	  -e use_converged_peers=\"$use_converged_peers\" \
+          $ansible_options ${args[*]}"
+
+    if [[ "$parallel_execution" == "true" ]]; then
+      # Parallel execution: run in background and capture PID
+      eval "$ansible_cmd" > "/tmp/add_topo_$i.log" 2>&1 &
+      pids[$i]=$!
+    else
+      # Serial execution: run synchronously
+      eval "$ansible_cmd"
+    fi
+  done
+
+  # Wait for all parallel processes to complete
+  wait_parallel_processes "add" pids "$server_count"
+
+  # Execute fanout connection and cleanup steps
+  for i in $(seq 0 $(($server_count-1)))
+  do
+    if [ -n "$servers" ]; then
+      parse_servers "$i" "$servers"
+    fi
+
+    if [ $i -eq 0 ]; then
+      fanout_options+=" -e clean_before_add=y"
+    else
+      fanout_options+=" -e clean_before_add=n"
+    fi
+
+    if [[ "$ptf_imagename" != "docker-keysight-api-server" ]]; then
+      ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $fanout_options $@
+    fi
+
+    if [[ $topo == *"t2"* ]]; then
+      ansible-playbook -i ${inv_name} testbed_config_vchassis.yml -l "$duts" -e topo="$topo"
+    fi
+
+    # Delete the obsoleted arp entry for the PTF IP
+    ip neighbor flush $ptf_ip || true
+  done
 
   cache_files_path_value=$(is_cache_exist)
   if [[ -n $cache_files_path_value ]]; then
@@ -310,17 +545,49 @@ function remove_topo
     fi
   done
 
+  # Parse parallel execution arguments
+  parse_parallel_args "$@"
+
   if [ -n "$sonic_vm_dir" ]; then
       ansible_options="-e sonic_vm_storage_location=$sonic_vm_dir"
   fi
 
-  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -i ${inv_name} testbed_remove_vm_topology.yml --vault-password-file="${passwd}" -l "$server" \
-      -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" \
-      -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
-      -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
-      -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e netns_mgmt_ip="$netns_mgmt_ip" \
-      -e remove_keysight_api_server="$remove_keysight_api_server" \
-      $ansible_options $@
+  server_count=1
+  if [ -n "$servers" ]; then
+    server_count=$(python -c "from __future__ import print_function; print(len(eval(\"$servers\")))")
+  fi
+
+  # Array to store process IDs for parallel execution
+  declare -a pids
+
+  for i in $(seq 0 $(($server_count-1)))
+  do
+    if [ -n "$servers" ]; then
+      parse_servers "$i" "$servers"
+      ansible_options+=" -e dut_interfaces=$dut_interfaces"
+    fi
+
+    # Build the ansible-playbook command
+    ansible_cmd="ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile -i ${inv_name} testbed_remove_vm_topology.yml --vault-password-file=\"${passwd}\" -l \"$server\" \
+          -e testbed_name=\"$testbed_name\" -e duts_name=\"$duts\" -e VM_base=\"$vm_base\" \
+          -e ptf_ip=\"$ptf_ip\" -e topo=\"$topo\" -e vm_set_name=\"$vm_set_name\" \
+          -e ptf_imagename=\"$ptf_imagename\" -e vm_type=\"$vm_type\" -e ptf_ipv6=\"$ptf_ipv6\" \
+          -e ptf_extra_mgmt_ip=\"$ptf_extra_mgmt_ip\" -e netns_mgmt_ip=\"$netns_mgmt_ip\" \
+          -e remove_keysight_api_server=\"$remove_keysight_api_server\" \
+          $ansible_options ${args[*]}"
+
+    if [[ "$parallel_execution" == "true" ]]; then
+      # Parallel execution: run in background and capture PID
+      eval "$ansible_cmd" > "/tmp/remove_topo_$i.log" 2>&1 &
+      pids[$i]=$!
+    else
+      # Serial execution: run synchronously
+      eval "$ansible_cmd"
+    fi
+  done
+
+  # Wait for all parallel processes to complete
+  wait_parallel_processes "remove" pids "$server_count"
 
   echo Done
 }
@@ -370,6 +637,7 @@ function renumber_topo
   ANSIBLE_SCP_IF_SSH=y ansible-playbook -i $vmfile testbed_renumber_vm_topology.yml --vault-password-file="${passwd}" \
       -l "$server" -e testbed_name="$testbed_name" -e duts_name="$duts" -e VM_base="$vm_base" -e ptf_ip="$ptf_ip" \
       -e topo="$topo" -e vm_set_name="$vm_set_name" -e ptf_imagename="$ptf_imagename" -e ptf_ipv6="$ptf_ipv6" \
+      -e upstream_neighbor_groups="$upstream_neighbor_groups" -e downstream_neighbor_groups="$downstream_neighbor_groups" \
       -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" $@
 
   ansible-playbook fanout_connect.yml -i $vmfile --limit "$server" --vault-password-file="${passwd}" -e "dut=$duts" $@
@@ -419,6 +687,7 @@ function refresh_dut
         -e ptf_ip="$ptf_ip" -e topo="$topo" -e vm_set_name="$vm_set_name" \
         -e ptf_imagename="$ptf_imagename" -e vm_type="$vm_type" -e ptf_ipv6="$ptf_ipv6" \
         -e ptf_extra_mgmt_ip="$ptf_extra_mgmt_ip" -e force_stop_sonic_vm="yes" \
+        -e upstream_neighbor_groups="$upstream_neighbor_groups" -e downstream_neighbor_groups="$downstream_neighbor_groups" \
         $ansible_options $@
 
   echo Done
@@ -476,7 +745,24 @@ function generate_minigraph
 
   read_file $testbed_name
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $@
+  # Parse --ipv6-only-mgmt flag
+  ipv6_mgmt_flag=""
+  for arg in "$@"; do
+    if [[ "$arg" == "--ipv6-only-mgmt" ]]; then
+      ipv6_mgmt_flag="-e use_ipv6_mgmt=true -e use_ptf_tacacs_server=true"
+      break
+    fi
+  done
+
+  # Remove --ipv6-only-mgmt from args if present
+  filtered_args=()
+  for arg in "$@"; do
+    if [[ "$arg" != "--ipv6-only-mgmt" ]]; then
+      filtered_args+=("$arg")
+    fi
+  done
+
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $ipv6_mgmt_flag "${filtered_args[@]}"
 
   echo Done
 }
@@ -494,7 +780,24 @@ function deploy_minigraph
 
   read_file $testbed_name
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $@
+  # Parse --ipv6-only-mgmt flag
+  ipv6_mgmt_flag=""
+  for arg in "$@"; do
+    if [[ "$arg" == "--ipv6-only-mgmt" ]]; then
+      ipv6_mgmt_flag="-e use_ipv6_mgmt=true -e use_ptf_tacacs_server=true"
+      break
+    fi
+  done
+
+  # Remove --ipv6-only-mgmt from args if present
+  filtered_args=()
+  for arg in "$@"; do
+    if [[ "$arg" != "--ipv6-only-mgmt" ]]; then
+      filtered_args+=("$arg")
+    fi
+  done
+
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $ipv6_mgmt_flag "${filtered_args[@]}"
 
   echo Done
 }
@@ -512,7 +815,100 @@ function test_minigraph
 
   read_file $testbed_name
 
-  ansible-playbook -i "$inventory" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $@
+  # Parse --ipv6-only-mgmt flag
+  ipv6_mgmt_flag=""
+  for arg in "$@"; do
+    if [[ "$arg" == "--ipv6-only-mgmt" ]]; then
+      ipv6_mgmt_flag="-e use_ipv6_mgmt=true -e use_ptf_tacacs_server=true"
+      break
+    fi
+  done
+
+  # Remove --ipv6-only-mgmt from args if present
+  filtered_args=()
+  for arg in "$@"; do
+    if [[ "$arg" != "--ipv6-only-mgmt" ]]; then
+      filtered_args+=("$arg")
+    fi
+  done
+
+  ansible-playbook -i "$inventory" --diff --connection=local --check config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e local_minigraph=true $ipv6_mgmt_flag "${filtered_args[@]}"
+
+  echo Done
+}
+
+function deploy_config
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Deploying config to testbed '$testbed_name'"
+
+  read_nut_file "$testbed_name"
+
+  devices=$duts
+  if [ ! -z "$l1s" ]; then
+    devices="$devices,$l1s"
+  fi
+  echo "Devices to generate config for: $devices"
+  echo ""
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true $@
+
+  echo Done
+}
+
+
+function deploy_l1
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Deploying L1 config to testbed '$testbed_name'"
+
+  read_nut_file "$testbed_name"
+
+  devices=$duts
+  if [ ! -z "$l1s" ]; then
+    devices="$devices,$l1s"
+  fi
+  echo "Devices to generate config for: $devices"
+  echo ""
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true -e config_duts=false -e reset_previous_connection=false$@
+
+  echo Done
+}
+
+function generate_config
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Generate config for testbed '$testbed_name' for testing"
+
+  read_nut_file "$testbed_name"
+
+  devices=$duts
+  if [ ! -z "$l1s" ]; then
+    devices="$devices,$l1s"
+  fi
+  echo "Devices to generate config for: $devices"
+  echo ""
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile $@
 
   echo Done
 }
@@ -557,10 +953,11 @@ function set_l2_mode
 function config_vm
 {
   echo "Configure VM $2"
+  testbed_name=$1
 
-  read_file $1
+  read_file ${testned_name}
 
-  ansible-playbook -i $vmfile eos.yml --vault-password-file="$3" -l "$2" -e topo="$topo" -e VM_base="$vm_base"
+  ansible-playbook -i $vmfile eos.yml --vault-password-file="$3" -l "$2" -e vm_type="$vm_type" -e vm_set_name="$vm_set_name" -e topo="$topo" -e VM_base="$vm_base"
 
   echo Done
 }
@@ -744,6 +1141,24 @@ function deploy_topo_with_cache
   echo "Done!"
 }
 
+function config_vs_chassis
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Configuring testbed '$testbed_name' as a virtual chassis"
+
+  read_file $testbed_name
+
+  ansible-playbook -i "$inventory" testbed_config_vchassis.yml --vault-password-file="$passfile" -l "$duts" -e topo="$topo"
+
+  echo Done
+}
+
 vmfile=veos
 tbfile=testbed.yaml
 vm_type=ceos
@@ -782,6 +1197,48 @@ if [ $# -lt 3 ]
 then
   usage
 fi
+
+function add_vnut_topo
+{
+  testbed_name="$1"
+  inventory="$2"
+  passwd="$3"
+  shift; shift; shift
+  echo "Deploying virtual NUT topology for testbed '${testbed_name}'"
+
+  read_nut_file "${testbed_name}"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "${inventory}" \
+      testbed_add_nut_topo.yml \
+      --vault-password-file="${passwd}" \
+      -e testbed_name="${testbed_name}" \
+      -e testbed_file="${tbfile}" \
+      -e duts_name="${duts}" \
+      "$@"
+
+  echo Done
+}
+
+function remove_vnut_topo
+{
+  testbed_name="$1"
+  inventory="$2"
+  passwd="$3"
+  shift; shift; shift
+  echo "Removing virtual NUT topology for testbed '${testbed_name}'"
+
+  read_nut_file "${testbed_name}"
+
+  ANSIBLE_SCP_IF_SSH=y ansible-playbook -i "${inventory}" \
+      testbed_remove_nut_topo.yml \
+      --vault-password-file="${passwd}" \
+      -e testbed_name="${testbed_name}" \
+      -e testbed_file="${tbfile}" \
+      -e duts_name="${duts}" \
+      "$@"
+
+  echo Done
+}
 
 subcmd=$1
 shift
@@ -822,6 +1279,12 @@ case "${subcmd}" in
                ;;
   test-mg)     test_minigraph $@
                ;;
+  deploy-cfg)  deploy_config $@
+               ;;
+  deploy-l1)   deploy_l1 $@
+               ;;
+  gen-cfg)     generate_config $@
+               ;;
   config-y-cable) config_y_cable $@
                ;;
   set-l2) set_l2_mode $@
@@ -839,6 +1302,18 @@ case "${subcmd}" in
                ;;
   collect-show-tech) collect_show_tech $@
                ;;
+  config-vs-chassis) config_vs_chassis $@
+               ;;
+  add-vnut-topo)    add_vnut_topo "$@"
+               ;;
+  remove-vnut-topo) remove_vnut_topo "$@"
+               ;;
   *)           usage
                ;;
 esac
+
+if [[ -f "$backup_file" ]];then
+    echo "Backup exists, restore backup file"
+    sudo rm -f "$topo_file"
+    sudo mv "$backup_file" "$topo_file"
+fi

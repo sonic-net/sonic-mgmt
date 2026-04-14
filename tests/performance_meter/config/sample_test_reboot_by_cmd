@@ -1,0 +1,10 @@
+run_when: tbinfo["topo"]["type"] in []
+
+performance_meter:
+  reboot_by_cmd_to_bgp_up:
+    run: 10
+    op: reboot_by_cmd
+    success_criteria: bgp_up
+    timeout: 1200
+    delay: 60
+    interval: 10

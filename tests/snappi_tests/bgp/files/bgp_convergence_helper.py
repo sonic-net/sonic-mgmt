@@ -14,26 +14,24 @@ NG_LIST = []
 aspaths = [65002, 65003]
 
 
-def run_bgp_local_link_failover_test(cvg_api,
+def run_bgp_local_link_failover_test(snappi_api,
                                      duthost,
                                      tgen_ports,
                                      iteration,
                                      multipath,
                                      number_of_routes,
-                                     route_type,
-                                     port_speed,):
+                                     route_type,):
     """
     Run Local link failover test
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         iteration: number of iterations for running convergence test on a port
         multipath: ecmp value for BGP config
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used for test
     """
     port_count = multipath+1
 
@@ -44,17 +42,16 @@ def run_bgp_local_link_failover_test(cvg_api,
                        route_type,)
 
     """ Create bgp config on TGEN """
-    tgen_bgp_config = __tgen_bgp_config(cvg_api,
+    tgen_bgp_config = __tgen_bgp_config(snappi_api,
                                         port_count,
                                         number_of_routes,
-                                        route_type,
-                                        port_speed,)
+                                        route_type,)
 
     """
         Run the convergence test by flapping all the rx
         links one by one and calculate the convergence values
     """
-    get_convergence_for_local_link_failover(cvg_api,
+    get_convergence_for_local_link_failover(snappi_api,
                                             tgen_bgp_config,
                                             iteration,
                                             multipath,
@@ -65,25 +62,23 @@ def run_bgp_local_link_failover_test(cvg_api,
     cleanup_config(duthost)
 
 
-def run_bgp_remote_link_failover_test(cvg_api,
+def run_bgp_remote_link_failover_test(snappi_api,
                                       duthost,
                                       tgen_ports,
                                       iteration,
                                       multipath,
                                       number_of_routes,
-                                      route_type,
-                                      port_speed,):
+                                      route_type,):
     """
     Run Remote link failover test
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         iteration: number of iterations for running convergence test on a port
         multipath: ecmp value for BGP config
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used for test
     """
     port_count = multipath+1
     """ Create bgp config on dut """
@@ -93,17 +88,16 @@ def run_bgp_remote_link_failover_test(cvg_api,
                        route_type,)
 
     """ Create bgp config on TGEN """
-    tgen_bgp_config = __tgen_bgp_config(cvg_api,
+    tgen_bgp_config = __tgen_bgp_config(snappi_api,
                                         port_count,
                                         number_of_routes,
-                                        route_type,
-                                        port_speed,)
+                                        route_type,)
 
     """
         Run the convergence test by withdrawing all the route ranges
         one by one and calculate the convergence values
     """
-    get_convergence_for_remote_link_failover(cvg_api,
+    get_convergence_for_remote_link_failover(snappi_api,
                                              tgen_bgp_config,
                                              iteration,
                                              multipath,
@@ -114,26 +108,24 @@ def run_bgp_remote_link_failover_test(cvg_api,
     cleanup_config(duthost)
 
 
-def run_rib_in_convergence_test(cvg_api,
+def run_rib_in_convergence_test(snappi_api,
                                 duthost,
                                 tgen_ports,
                                 iteration,
                                 multipath,
                                 number_of_routes,
-                                route_type,
-                                port_speed,):
+                                route_type,):
     """
     Run RIB-IN Convergence test
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         iteration: number of iterations for running convergence test on a port
         multipath: ecmp value for BGP config
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used for test
     """
     port_count = multipath+1
 
@@ -144,17 +136,16 @@ def run_rib_in_convergence_test(cvg_api,
                        route_type,)
 
     """  Create bgp config on TGEN """
-    tgen_bgp_config = __tgen_bgp_config(cvg_api,
+    tgen_bgp_config = __tgen_bgp_config(snappi_api,
                                         port_count,
                                         number_of_routes,
-                                        route_type,
-                                        port_speed,)
+                                        route_type,)
 
     """
         Run the convergence test by withdrawing all routes at once and
         calculate the convergence values
     """
-    get_rib_in_convergence(cvg_api,
+    get_rib_in_convergence(snappi_api,
                            tgen_bgp_config,
                            iteration,
                            multipath,
@@ -165,26 +156,24 @@ def run_rib_in_convergence_test(cvg_api,
     cleanup_config(duthost)
 
 
-def run_RIB_IN_capacity_test(cvg_api,
+def run_RIB_IN_capacity_test(snappi_api,
                              duthost,
                              tgen_ports,
                              multipath,
                              start_value,
                              step_value,
-                             route_type,
-                             port_speed,):
+                             route_type,):
     """
     Run RIB-IN Capacity test
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         multipath: ecmp value for BGP config
         start_value: start value of number of routes
         step_value: step value of routes to be incremented at every iteration
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used for test
     """
     port_count = multipath+1
     """ Create bgp config on dut """
@@ -194,12 +183,11 @@ def run_RIB_IN_capacity_test(cvg_api,
                        route_type,)
 
     """ Run the RIB-IN capacity test by increasig the route count step by step """
-    get_RIB_IN_capacity(cvg_api,
+    get_RIB_IN_capacity(snappi_api,
                         multipath,
                         start_value,
                         step_value,
-                        route_type,
-                        port_speed,)
+                        route_type,)
 
     """ Cleanup the dut configs after getting the convergence numbers """
     cleanup_config(duthost)
@@ -291,24 +279,21 @@ def duthost_bgp_config(duthost,
             duthost.shell(bgp_config_neighbor)
 
 
-def __tgen_bgp_config(cvg_api,
+def __tgen_bgp_config(snappi_api,
                       port_count,
                       number_of_routes,
-                      route_type,
-                      port_speed,):
+                      route_type,):
     """
     Creating  BGP config on TGEN
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         port_count: multipath + 1
         number_of_routes:  Number of IPv4/IPv6 Routes
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used for test
     """
     global NG_LIST
-    conv_config = cvg_api.convergence_config()
-    config = conv_config.config
+    config = snappi_api.config()
     for i in range(1, port_count+1):
         config.ports.port(name='Test_Port_%d' %
                           i, location=temp_tg_port[i-1]['location'])
@@ -329,14 +314,14 @@ def __tgen_bgp_config(cvg_api,
     layer1.name = 'port settings'
     layer1.port_names = [port.name for port in config.ports]
     layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = True
+    layer1.auto_negotiation.rs_fec = False
     layer1.auto_negotiation.link_training = False
-    layer1.speed = port_speed
+    layer1.speed = temp_tg_port[0]['speed']
     layer1.auto_negotiate = False
 
     def create_v4_topo():
         eth = config.devices[0].ethernets.add()
-        eth.port_name = config.lags[0].name
+        eth.connection.port_name = config.lags[0].name
         eth.name = 'Ethernet 1'
         eth.mac = "00:00:00:00:00:01"
         ipv4 = eth.ipv4_addresses.add()
@@ -353,7 +338,7 @@ def __tgen_bgp_config(cvg_api,
                 m = hex(i).split('0x')[1]
 
             ethernet_stack = config.devices[i-1].ethernets.add()
-            ethernet_stack.port_name = config.lags[i-1].name
+            ethernet_stack.connection.port_name = config.lags[i-1].name
             ethernet_stack.name = 'Ethernet %d' % i
             ethernet_stack.mac = "00:00:00:00:00:%s" % m
             ipv4_stack = ethernet_stack.ipv4_addresses.add()
@@ -382,7 +367,7 @@ def __tgen_bgp_config(cvg_api,
 
     def create_v6_topo():
         eth = config.devices[0].ethernets.add()
-        eth.port_name = config.lags[0].name
+        eth.connection.port_name = config.lags[0].name
         eth.name = 'Ethernet 1'
         eth.mac = "00:00:00:00:00:01"
         ipv6 = eth.ipv6_addresses.add()
@@ -398,7 +383,7 @@ def __tgen_bgp_config(cvg_api,
             else:
                 m = hex(i).split('0x')[1]
             ethernet_stack = config.devices[i-1].ethernets.add()
-            ethernet_stack.port_name = config.lags[i-1].name
+            ethernet_stack.connection.port_name = config.lags[i-1].name
             ethernet_stack.name = 'Ethernet %d' % i
             ethernet_stack.mac = "00:00:00:00:00:%s" % m
             ipv6_stack = ethernet_stack.ipv6_addresses.add()
@@ -439,20 +424,20 @@ def __tgen_bgp_config(cvg_api,
     flow.size.fixed = 1024
     flow.rate.percentage = 100
     flow.metrics.enable = True
-    return conv_config
+    return config
 
 
-def get_flow_stats(cvg_api):
+def get_flow_stats(snappi_api):
     """
     Args:
-        cvg_api (pytest fixture): Snappi API
+        snappi_api (pytest fixture): Snappi API
     """
-    request = cvg_api.convergence_request()
-    request.metrics.flow_names = []
-    return cvg_api.get_results(request).flow_metric
+    req = snappi_api.metrics_request()
+    req.flow.flow_names = []
+    return snappi_api.get_metrics(req).flow_metrics
 
 
-def get_convergence_for_local_link_failover(cvg_api,
+def get_convergence_for_local_link_failover(snappi_api,
                                             bgp_config,
                                             iteration,
                                             multipath,
@@ -460,7 +445,7 @@ def get_convergence_for_local_link_failover(cvg_api,
                                             route_type,):
     """
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         bgp_config: __tgen_bgp_config
         config: TGEN config
         iteration: number of iterations for running convergence test on a port
@@ -468,19 +453,21 @@ def get_convergence_for_local_link_failover(cvg_api,
         route_type: IPv4 or IPv6 routes
     """
     rx_port_names = []
-    for i in range(1, len(bgp_config.config.ports)):
-        rx_port_names.append(bgp_config.config.ports[i].name)
-    bgp_config.rx_rate_threshold = 90/(multipath-1)
-    cvg_api.set_config(bgp_config)
-
+    for i in range(1, len(bgp_config.ports)):
+        rx_port_names.append(bgp_config.ports[i].name)
+    bgp_config.events.cp_events.enable = True
+    bgp_config.events.dp_events.enable = True
+    bgp_config.events.dp_events.rx_rate_threshold = 90/(multipath-1)
+    snappi_api.set_config(bgp_config)
     """ Starting Protocols """
     logger.info("Starting all protocols ...")
-    cs = cvg_api.convergence_state()
-    cs.protocol.state = cs.protocol.START
-    cvg_api.set_state(cs)
+    cs = snappi_api.control_state()
+    cs.protocol.all.state = cs.protocol.all.START
+    snappi_api.set_control_state(cs)
     wait(TIMEOUT, "For Protocols To start")
 
     def get_avg_dpdp_convergence_time(port_name):
+
         """
         Args:
             port_name: Name of the port
@@ -493,21 +480,22 @@ def get_convergence_for_local_link_failover(cvg_api,
 
             """ Starting Traffic """
             logger.info('Starting Traffic')
-            cs = cvg_api.convergence_state()
-            cs.transmit.state = cs.transmit.START
-            cvg_api.set_state(cs)
+            cs = snappi_api.control_state()
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+            snappi_api.set_control_state(cs)
             wait(TIMEOUT, "For Traffic To start")
-            flow_stats = get_flow_stats(cvg_api)
+            flow_stats = get_flow_stats(snappi_api)
             tx_frame_rate = flow_stats[0].frames_tx_rate
             assert tx_frame_rate != 0, "Traffic has not started"
             """ Flapping Link """
             logger.info('Simulating Link Failure on {} link'.format(port_name))
-            cs = cvg_api.convergence_state()
-            cs.link.port_names = [port_name]
-            cs.link.state = cs.link.DOWN
-            cvg_api.set_state(cs)
+            cs.choice = cs.PORT
+            cs.port.choice = cs.port.LINK
+            cs.port.link.port_names = [port_name]
+            cs.port.link.state = cs.port.link.DOWN
+            snappi_api.set_control_state(cs)
             wait(TIMEOUT, "For Link to go down")
-            flows = get_flow_stats(cvg_api)
+            flows = get_flow_stats(snappi_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
@@ -516,9 +504,9 @@ def get_convergence_for_local_link_failover(cvg_api,
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap")
             """ Get control plane to data plane convergence value """
-            request = cvg_api.convergence_request()
+            request = snappi_api.metrics_request()
             request.convergence.flow_names = []
-            convergence_metrics = cvg_api.get_results(request).flow_convergence
+            convergence_metrics = snappi_api.get_metrics(request).convergence_metrics
             for metrics in convergence_metrics:
                 logger.info('CP/DP Convergence Time (ms): {}'.format(
                     metrics.control_plane_data_plane_convergence_us/1000))
@@ -528,13 +516,15 @@ def get_convergence_for_local_link_failover(cvg_api,
             """ Performing link up at the end of iteration """
             logger.info(
                 'Simulating Link Up on {} at the end of iteration {}'.format(port_name, i+1))
-            cs = cvg_api.convergence_state()
-            cs.link.port_names = [port_name]
-            cs.link.state = cs.link.UP
-            cvg_api.set_state(cs)
-            cs = cvg_api.convergence_state()
-            cs.transmit.state = cs.transmit.STOP
-            cvg_api.set_state(cs)
+            cs.choice = cs.PORT
+            cs.port.choice = cs.port.LINK
+            cs.port.link.port_names = [port_name]
+            cs.port.link.state = cs.port.link.UP
+            snappi_api.set_control_state(cs)
+            logger.info('Stopping Traffic')
+            cs = snappi_api.control_state()
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+            snappi_api.set_control_state(cs)
             wait(TIMEOUT-10, "For Traffic To Stop")
         table.append('%s Link Failure' % port_name)
         table.append(route_type)
@@ -552,7 +542,7 @@ def get_convergence_for_local_link_failover(cvg_api,
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
 
 
-def get_convergence_for_remote_link_failover(cvg_api,
+def get_convergence_for_remote_link_failover(snappi_api,
                                              bgp_config,
                                              iteration,
                                              multipath,
@@ -560,7 +550,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
                                              route_type,):
     """
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         bgp_config: __tgen_bgp_config
         config: TGEN config
         iteration: number of iterations for running convergence test on a port
@@ -568,8 +558,10 @@ def get_convergence_for_remote_link_failover(cvg_api,
         route_type: IPv4 or IPv6 routes
     """
     route_names = NG_LIST
-    bgp_config.rx_rate_threshold = 90/(multipath-1)
-    cvg_api.set_config(bgp_config)
+    bgp_config.events.cp_events.enable = True
+    bgp_config.events.dp_events.enable = True
+    bgp_config.events.dp_events.rx_rate_threshold = 90/(multipath-1)
+    snappi_api.set_config(bgp_config)
 
     def get_avg_cpdp_convergence_time(route_name):
         """
@@ -580,43 +572,43 @@ def get_convergence_for_remote_link_failover(cvg_api,
         table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
         """ Starting Protocols """
         logger.info("Starting all protocols ...")
-        cs = cvg_api.convergence_state()
-        cs.protocol.state = cs.protocol.START
-        cvg_api.set_state(cs)
+        cs = snappi_api.control_state()
+        cs.protocol.all.state = cs.protocol.all.START
+        snappi_api.set_control_state(cs)
         wait(TIMEOUT, "For Protocols To start")
         for i in range(0, iteration):
             logger.info(
                 '|---- {} Route Withdraw Iteration : {} ----|'.format(route_name, i+1))
             """ Starting Traffic """
             logger.info('Starting Traffic')
-            cs = cvg_api.convergence_state()
-            cs.transmit.state = cs.transmit.START
-            cvg_api.set_state(cs)
+            cs = snappi_api.control_state()
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+            snappi_api.set_control_state(cs)
             wait(TIMEOUT, "For Traffic To start")
-            flow_stats = get_flow_stats(cvg_api)
+            flow_stats = get_flow_stats(snappi_api)
             tx_frame_rate = flow_stats[0].frames_tx_rate
             assert tx_frame_rate != 0, "Traffic has not started"
 
             """ Withdrawing routes from a BGP peer """
             logger.info('Withdrawing Routes from {}'.format(route_name))
-            cs = cvg_api.convergence_state()
-            cs.route.names = [route_name]
-            cs.route.state = cs.route.WITHDRAW
-            cvg_api.set_state(cs)
+            cs = snappi_api.control_state()
+            cs.protocol.route.state = cs.protocol.route.WITHDRAW
+            cs.protocol.route.names = [route_name]
+            snappi_api.set_control_state(cs)
             wait(TIMEOUT, "For routes to be withdrawn")
-            flows = get_flow_stats(cvg_api)
+            flows = get_flow_stats(snappi_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
             assert abs(sum(tx_frate) - sum(rx_frate)) < 500, \
-                "Traffic has not converged after lroute withdraw TxFrameRate:{},RxFrameRate:{}"\
+                "Traffic has not converged after route withdraw TxFrameRate:{},RxFrameRate:{}"\
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after route withdraw")
 
             """ Get control plane to data plane convergence value """
-            request = cvg_api.convergence_request()
+            request = snappi_api.metrics_request()
             request.convergence.flow_names = []
-            convergence_metrics = cvg_api.get_results(request).flow_convergence
+            convergence_metrics = snappi_api.get_metrics(request).convergence_metrics
             for metrics in convergence_metrics:
                 logger.info('CP/DP Convergence Time (ms): {}'.format(
                     metrics.control_plane_data_plane_convergence_us/1000))
@@ -624,15 +616,16 @@ def get_convergence_for_remote_link_failover(cvg_api,
                 int(metrics.control_plane_data_plane_convergence_us/1000))
             avg_delta.append(int(flows[0].frames_tx)-int(flows[0].frames_rx))
             """ Advertise the routes back at the end of iteration """
-            cs = cvg_api.convergence_state()
-            cs.route.names = [route_name]
-            cs.route.state = cs.route.ADVERTISE
-            cvg_api.set_state(cs)
+            cs = snappi_api.control_state()
+            cs.protocol.route.state = cs.protocol.route.ADVERTISE
+            cs.protocol.route.names = [route_name]
+            snappi_api.set_control_state(cs)
             logger.info('Readvertise {} routes back at the end of iteration {}'.format(
                 route_name, i+1))
-            cs = cvg_api.convergence_state()
-            cs.transmit.state = cs.transmit.STOP
-            cvg_api.set_state(cs)
+            logger.info('Stopping Traffic')
+            cs = snappi_api.control_state()
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+            snappi_api.set_control_state(cs)
             wait(TIMEOUT, "For Traffic To Stop")
         table.append('%s route withdraw' % route_name)
         table.append(route_type)
@@ -651,7 +644,7 @@ def get_convergence_for_remote_link_failover(cvg_api,
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
 
 
-def get_rib_in_convergence(cvg_api,
+def get_rib_in_convergence(snappi_api,
                            bgp_config,
                            iteration,
                            multipath,
@@ -659,7 +652,7 @@ def get_rib_in_convergence(cvg_api,
                            route_type,):
     """
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         bgp_config: __tgen_bgp_config
         config: TGEN config
         iteration: number of iterations for running convergence test on a port
@@ -667,32 +660,34 @@ def get_rib_in_convergence(cvg_api,
         route_type: IPv4 or IPv6 routes
     """
     route_names = NG_LIST
-    bgp_config.rx_rate_threshold = 90/(multipath)
-    cvg_api.set_config(bgp_config)
+    bgp_config.events.cp_events.enable = True
+    bgp_config.events.dp_events.enable = True
+    bgp_config.events.dp_events.rx_rate_threshold = 90/multipath
+    snappi_api.set_config(bgp_config)
     table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
     for i in range(0, iteration):
         logger.info(
             '|---- RIB-IN Convergence test, Iteration : {} ----|'.format(i+1))
         """ withdraw all routes before starting traffic """
         logger.info('Withdraw All Routes before starting traffic')
-        cs = cvg_api.convergence_state()
-        cs.route.names = route_names
-        cs.route.state = cs.route.WITHDRAW
-        cvg_api.set_state(cs)
-        wait(TIMEOUT-25, "For Routes to be withdrawn")
+        cs = snappi_api.control_state()
+        cs.protocol.route.names = route_names
+        cs.protocol.route.state = cs.protocol.route.WITHDRAW
+        snappi_api.set_control_state(cs)
+        wait(TIMEOUT, "For Routes to be withdrawn")
         """ Starting Protocols """
         logger.info("Starting all protocols ...")
-        cs = cvg_api.convergence_state()
-        cs.protocol.state = cs.protocol.START
-        cvg_api.set_state(cs)
+        cs = snappi_api.control_state()
+        cs.protocol.all.state = cs.protocol.all.START
+        snappi_api.set_control_state(cs)
         wait(TIMEOUT, "For Protocols To start")
         """ Start Traffic """
         logger.info('Starting Traffic')
-        cs = cvg_api.convergence_state()
-        cs.transmit.state = cs.transmit.START
-        cvg_api.set_state(cs)
+        cs = snappi_api.control_state()
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+        snappi_api.set_control_state(cs)
         wait(TIMEOUT, "For Traffic To start")
-        flow_stats = get_flow_stats(cvg_api)
+        flow_stats = get_flow_stats(snappi_api)
         tx_frame_rate = flow_stats[0].frames_tx_rate
         rx_frame_rate = flow_stats[0].frames_rx_rate
         assert tx_frame_rate != 0, "Traffic has not started"
@@ -700,12 +695,12 @@ def get_rib_in_convergence(cvg_api,
 
         """ Advertise All Routes """
         logger.info('Advertising all Routes from {}'.format(route_names))
-        cs = cvg_api.convergence_state()
-        cs.route.names = route_names
-        cs.route.state = cs.route.ADVERTISE
-        cvg_api.set_state(cs)
-        wait(TIMEOUT-25, "For all routes to be ADVERTISED")
-        flows = get_flow_stats(cvg_api)
+        cs = snappi_api.control_state()
+        cs.protocol.route.names = route_names
+        cs.protocol.route.state = cs.protocol.route.ADVERTISE
+        snappi_api.set_control_state(cs)
+        wait(TIMEOUT, "For all routes to be ADVERTISED")
+        flows = get_flow_stats(snappi_api)
         for flow in flows:
             tx_frate.append(flow.frames_tx_rate)
             rx_frate.append(flow.frames_rx_rate)
@@ -715,9 +710,9 @@ def get_rib_in_convergence(cvg_api,
         logger.info("Traffic has converged after route advertisement")
 
         """ Get RIB-IN convergence """
-        request = cvg_api.convergence_request()
+        request = snappi_api.metrics_request()
         request.convergence.flow_names = []
-        convergence_metrics = cvg_api.get_results(request).flow_convergence
+        convergence_metrics = snappi_api.get_metrics(request).convergence_metrics
         for metrics in convergence_metrics:
             logger.info('RIB-IN Convergence time (ms): {}'.format(
                 metrics.control_plane_data_plane_convergence_us/1000))
@@ -725,15 +720,15 @@ def get_rib_in_convergence(cvg_api,
         avg_delta.append(int(flows[0].frames_tx)-int(flows[0].frames_rx))
         """ Stop traffic at the end of iteration """
         logger.info('Stopping Traffic at the end of iteration{}'.format(i+1))
-        cs = cvg_api.convergence_state()
-        cs.transmit.state = cs.transmit.STOP
-        cvg_api.set_state(cs)
+        cs = snappi_api.control_state()
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+        snappi_api.set_control_state(cs)
         wait(TIMEOUT-20, "For Traffic To stop")
         """ Stopping Protocols """
         logger.info("Stopping all protocols ...")
-        cs = cvg_api.convergence_state()
-        cs.protocol.state = cs.protocol.STOP
-        cvg_api.set_state(cs)
+        cs = snappi_api.control_state()
+        cs.protocol.all.state = cs.protocol.all.STOP
+        snappi_api.set_control_state(cs)
         wait(TIMEOUT-20, "For Protocols To STOP")
     table.append('Advertise All BGP Routes')
     table.append(route_type)
@@ -746,25 +741,25 @@ def get_rib_in_convergence(cvg_api,
     logger.info("\n%s" % tabulate([table], headers=columns, tablefmt="psql"))
 
 
-def get_RIB_IN_capacity(cvg_api,
+def get_RIB_IN_capacity(snappi_api,
                         multipath,
                         start_value,
                         step_value,
-                        route_type,
-                        port_speed,):
+                        route_type,):
     """
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         temp_tg_port (pytest fixture): Ports mapping info of T0 testbed
         multipath: ecmp value for BGP config
         start_value:  Start value of the number of BGP routes
         step_value: Step value of the number of BGP routes to be incremented
         route_type: IPv4 or IPv6 routes
-        port_speed: speed of the port used in test
     """
     def tgen_capacity(routes):
-        conv_config = cvg_api.convergence_config()
-        config = conv_config.config
+        config = snappi_api.config()
+        config.events.cp_events.enable = True
+        config.events.dp_events.enable = True
+        config.events.dp_events.rx_rate_threshold = 90/(multipath-1)
         for i in range(1, 3):
             config.ports.port(name='Test_Port_%d' %
                               i, location=temp_tg_port[i-1]['location'])
@@ -785,14 +780,14 @@ def get_RIB_IN_capacity(cvg_api,
         layer1.name = 'port settings'
         layer1.port_names = [port.name for port in config.ports]
         layer1.ieee_media_defaults = False
-        layer1.auto_negotiation.rs_fec = True
+        layer1.auto_negotiation.rs_fec = False
         layer1.auto_negotiation.link_training = False
-        layer1.speed = port_speed
+        layer1.speed = temp_tg_port[0]['speed']
         layer1.auto_negotiate = False
 
         def create_v4_topo():
             eth = config.devices[0].ethernets.add()
-            eth.port_name = config.lags[0].name
+            eth.connection.port_name = config.lags[0].name
             eth.name = 'Ethernet 1'
             eth.mac = "00:00:00:00:00:01"
             ipv4 = eth.ipv4_addresses.add()
@@ -807,7 +802,7 @@ def get_RIB_IN_capacity(cvg_api,
                 else:
                     m = hex(i).split('0x')[1]
                 ethernet_stack = config.devices[i-1].ethernets.add()
-                ethernet_stack.port_name = config.lags[i-1].name
+                ethernet_stack.connection.port_name = config.lags[i-1].name
                 ethernet_stack.name = 'Ethernet %d' % i
                 ethernet_stack.mac = "00:00:00:00:00:%s" % m
                 ipv4_stack = ethernet_stack.ipv4_addresses.add()
@@ -837,7 +832,7 @@ def get_RIB_IN_capacity(cvg_api,
 
         def create_v6_topo():
             eth = config.devices[0].ethernets.add()
-            eth.port_name = config.lags[0].name
+            eth.connection.port_name = config.lags[0].name
             eth.name = 'Ethernet 1'
             eth.mac = "00:00:00:00:00:01"
             ipv6 = eth.ipv6_addresses.add()
@@ -852,7 +847,7 @@ def get_RIB_IN_capacity(cvg_api,
                 else:
                     m = hex(i).split('0x')[1]
                 ethernet_stack = config.devices[i-1].ethernets.add()
-                ethernet_stack.port_name = config.lags[i-1].name
+                ethernet_stack.connection.port_name = config.lags[i-1].name
                 ethernet_stack.name = 'Ethernet %d' % i
                 ethernet_stack.mac = "00:00:00:00:00:%s" % m
                 ipv6_stack = ethernet_stack.ipv6_addresses.add()
@@ -880,7 +875,6 @@ def get_RIB_IN_capacity(cvg_api,
                 as_path_segment.as_numbers = aspaths
                 rx_flow_name.append(route_range.name)
             return rx_flow_name
-        conv_config.rx_rate_threshold = 90/(multipath)
         if route_type == 'IPv4':
             rx_flows = create_v4_topo()
             flow = config.flows.flow(name='IPv4_Traffic_%d' % routes)[-1]
@@ -895,24 +889,24 @@ def get_RIB_IN_capacity(cvg_api,
         flow.rate.percentage = 100
         flow.metrics.enable = True
         flow.metrics.loss = True
-        return conv_config
+        return config
 
     def run_traffic(routes):
         logger.info(
             '|-------------------- RIB-IN Capacity test, No.of Routes : {} ----|'.format(routes))
         conv_config = tgen_capacity(routes)
-        cvg_api.set_config(conv_config)
+        snappi_api.set_config(conv_config)
         """ Starting Protocols """
         logger.info("Starting all protocols ...")
-        cs = cvg_api.convergence_state()
-        cs.protocol.state = cs.protocol.START
-        cvg_api.set_state(cs)
+        cs = snappi_api.control_state()
+        cs.protocol.all.state = cs.protocol.all.START
+        snappi_api.set_control_state(cs)
         wait(TIMEOUT, "For Protocols To start")
         """ Starting Traffic """
         logger.info('Starting Traffic')
-        cs = cvg_api.convergence_state()
-        cs.transmit.state = cs.transmit.START
-        cvg_api.set_state(cs)
+        cs = snappi_api.control_state()
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+        snappi_api.set_control_state(cs)
         wait(TIMEOUT, "For Traffic To start")
 
     try:
@@ -920,7 +914,7 @@ def get_RIB_IN_capacity(cvg_api,
             max_routes = start_value
             tx_frate, rx_frate = [], []
             run_traffic(j)
-            flow_stats = get_flow_stats(cvg_api)
+            flow_stats = get_flow_stats(snappi_api)
             logger.info('\n')
             logger.info('Loss% : {}'.format(flow_stats[0].loss))
             for flow in flow_stats:
@@ -937,15 +931,15 @@ def get_RIB_IN_capacity(cvg_api,
                 logger.info('Reducing the routes and running test')
                 b = j-step_value
                 logger.info('Stopping Traffic')
-                cs = cvg_api.convergence_state()
-                cs.transmit.state = cs.transmit.STOP
-                cvg_api.set_state(cs)
+                cs = snappi_api.control_state()
+                cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+                snappi_api.set_control_state(cs)
                 wait(TIMEOUT-20, "For Traffic To stop")
                 break
             logger.info('Stopping Traffic')
-            cs = cvg_api.convergence_state()
-            cs.transmit.state = cs.transmit.STOP
-            cvg_api.set_state(cs)
+            cs = snappi_api.control_state()
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+            snappi_api.set_control_state(cs)
             wait(TIMEOUT-20, "For Traffic To stop")
         routes = []
         routes.append(b+int(step_value/8))
@@ -955,7 +949,7 @@ def get_RIB_IN_capacity(cvg_api,
         routes.append(b+step_value-int(step_value/8))
         for i in range(0, len(routes)):
             run_traffic(routes[i])
-            flow_stats = get_flow_stats(cvg_api)
+            flow_stats = get_flow_stats(snappi_api)
             logger.info('Loss% : {}'.format(flow_stats[0].loss))
             if float(flow_stats[0].loss) <= 0.001:
                 max_routes = start_value
@@ -964,15 +958,15 @@ def get_RIB_IN_capacity(cvg_api,
                 max_routes = routes[i]-int(step_value/8)
                 break
             logger.info('Stopping Traffic')
-            cs = cvg_api.convergence_state()
-            cs.transmit.state = cs.transmit.STOP
-            cvg_api.set_state(cs)
+            cs = snappi_api.control_state()
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+            snappi_api.set_control_state(cs)
             wait(TIMEOUT-20, "For Traffic To stop")
             """ Stopping Protocols """
             logger.info("Stopping all protocols ...")
-            cs = cvg_api.convergence_state()
-            cs.protocol.state = cs.protocol.STOP
-            cvg_api.set_state(cs)
+            cs = snappi_api.control_state()
+            cs.protocol.all.state = cs.protocol.all.START
+            snappi_api.set_control_state(cs)
             wait(TIMEOUT-20, "For Protocols To STOP")
     except Exception as e:
         logger.info(e)

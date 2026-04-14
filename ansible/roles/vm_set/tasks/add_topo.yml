@@ -79,6 +79,9 @@
             memory_swap: 8G
           become: yes
 
+        - name: Update ptf password
+          include_tasks: update_ptf_password.yml
+
         - name: Bind ptf_ip to keysight_api_server
           vm_topology:
             cmd: "bind_keysight_api_server_ip"
@@ -108,7 +111,7 @@
         state: started
         restart: no
         detach: True
-        network_mode: none
+        network_mode: "{{ mgmt_bridge if ptf_use_docker_network | default(false) else 'none' }}"
         capabilities:
           - net_admin
         privileged: yes
@@ -124,7 +127,7 @@
 
     - name: Create vlan ports for dut
       include_tasks: create_dut_port.yml
-      when: external_port is defined
+      when: "external_port is defined and 'bmc' not in topo"
       loop: "{{ duts_name.split(',') }}"
       loop_control:
         loop_var: dut_name
@@ -158,17 +161,26 @@
     docker_container:
       name: ptf_{{ vm_set_name }}
       image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
-      pull: yes
+      # Set pull to 'missing' when ptf_modified is True (PR test with preloaded image)
+      # to avoid pulling and overwriting the local image. For nightly tests where
+      # ptf_modified is False/undefined, use 'always' to always pull the latest image.
+      # The ptf_modified flag is passed from Azure Pipelines through Elastictest's
+      # add_topo_params as "-e ptf_modified=True" when testing PR built docker-ptf images.
+      pull: "{{ 'missing' if (ptf_modified | default(false) | bool) else 'always' }}"
       state: started
       restart: no
-      network_mode: none
+      network_mode: "{{ mgmt_bridge if ptf_use_docker_network | default(false) else 'none' }}"
+      networks: "{{ [{'name': mgmt_bridge, 'ipv4_address': ptf_ip | regex_replace('/.*', '')}] if ptf_use_docker_network | default(false) else omit }}"
       detach: True
       capabilities:
         - net_admin
       privileged: yes
-      memory: 16G
-      memory_swap: 32G
+      memory: 32G
+      memory_swap: 64G
     become: yes
+
+  - name: Update ptf password
+    include_tasks: update_ptf_password.yml
 
   - name: Enable ipv6 for docker container ptf_{{ vm_set_name }}
     command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.all.disable_ipv6=0
@@ -178,6 +190,10 @@
     command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.route.max_size=168000
     become: yes
 
+  - name: Don't accept ipv6 router advertisements for docker container ptf_{{ vm_set_name }}
+    command: docker exec -i ptf_{{ vm_set_name }} sysctl -w net.ipv6.conf.default.accept_ra=0
+    become: yes
+
   - name: Create file to store dut type in PTF
     command: docker exec -i ptf_{{ vm_set_name }} sh -c 'echo {{ hostvars[duts_name.split(',')[0]]['type'] }} > /sonic/dut_type.txt'
     when:
@@ -185,24 +201,43 @@
       - hostvars[duts_name.split(',')[0]].type is defined
     become: yes
 
+  - name: Create file to store asic type in PTF
+    command: docker exec -i ptf_{{ vm_set_name }} sh -c 'echo {{ hostvars[duts_name.split(',')[0]]['asic_type'] }} > /sonic/asic_type.txt'
+    when:
+      - hostvars[duts_name.split(',')[0]] is defined
+      - hostvars[duts_name.split(',')[0]].asic_type is defined
+    become: yes
+
   - name: Get dut ports
     include_tasks: get_dut_port.yml
+    when: "'bmc' not in topo"
     loop: "{{ duts_name.split(',') }}"
     loop_control:
       loop_var: dut_name
 
   - name: Create vlan ports for dut
     include_tasks: create_dut_port.yml
-    when: external_port is defined
+    when: "external_port is defined and 'bmc' not in topo"
     loop: "{{ duts_name.split(',') }}"
     loop_control:
       loop_var: dut_name
+
+  - name: Set default empty port lists for portless topo
+    set_fact:
+      duts_fp_ports: {}
+      duts_mgmt_port: []
+      duts_midplane_ports: {}
+      duts_inband_ports: {}
+    when: "'bmc' in topo"
 
   - debug: msg="{{ duts_fp_ports }}"
   - debug: msg="{{ duts_mgmt_port }}"
 
   - include_tasks: add_ceos_list.yml
     when: vm_type is defined and vm_type == "ceos"
+
+  - include_tasks: add_csonic_list.yml
+    when: vm_type is defined and (vm_type == "csonic")
 
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}
     vm_topology:
@@ -222,12 +257,74 @@
       ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
       mgmt_bridge: "{{ mgmt_bridge }}"
       duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_midplane_ports: "{{ duts_midplane_ports }}"
+      duts_inband_ports: "{{ duts_inband_ports }}"
       duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
+      dut_interfaces: "{{ dut_interfaces | default('') }}"
+      multi_vrf: "{{ topo_is_multi_vrf }}"
+      multi_vrf_data: "{{ convergence_data|default({}) }}"
+      topo_config: "{{ configuration | default({}) }}"
+      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
+    when: not enable_async and "bmc" not in topo
+
+  - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }} (async mode)
+    loop: "{{ VM_targets|flatten(levels=1) }}"
+    loop_control:
+      loop_var: current_vm_name
+    vm_topology:
+      cmd: "bind"
+      vm_set_name: "{{ vm_set_name }}"
+      topo: "{{ topology }}"
+      vm_names: "{{ VM_targets }}"
+      current_vm_name: "{{ current_vm_name }}"
+      vm_base: "{{ VM_base }}"
+      vm_type: "{{ vm_type }}"
+      vm_properties: "{{ vm_properties if vm_properties is defined else omit }}"
+      ptf_mgmt_ip_addr: "{{ ptf_ip }}"
+      ptf_mgmt_ipv6_addr: "{{ ptf_ipv6 }}"
+      ptf_mgmt_ip_gw: "{{ mgmt_gw }}"
+      ptf_mgmt_ipv6_gw: "{{ mgmt_gw_v6 | default(None) }}"
+      ptf_extra_mgmt_ip_addr: "{{ ptf_extra_mgmt_ip.split(',') | default([]) }}"
+      ptf_bp_ip_addr: "{{ ptf_bp_ip }}"
+      ptf_bp_ipv6_addr: "{{ ptf_bp_ipv6 }}"
+      mgmt_bridge: "{{ mgmt_bridge }}"
+      duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_midplane_ports: "{{ duts_midplane_ports }}"
+      duts_inband_ports: "{{ duts_inband_ports }}"
+      duts_mgmt_port: "{{ duts_mgmt_port }}"
+      duts_name: "{{ duts_name.split(',') }}"
+      fp_mtu: "{{ fp_mtu_size }}"
+      max_fp_num: "{{ max_fp_num }}"
+      netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
+      dut_interfaces: "{{ dut_interfaces | default('') }}"
+      multi_vrf: "{{ topo_is_multi_vrf }}"
+      multi_vrf_data: "{{ convergence_data|default({}) }}"
+      topo_config: "{{ configuration | default({}) }}"
+      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
+    become: yes
+    async: 3600
+    poll: 0
+    throttle: 50
+    register: async_bind_vm
+    when: enable_async and "bmc" not in topo
+
+  - name: Wait for bind tasks to complete
+    become: yes
+    async_status:
+      jid: "{{ async_bind_vm_item.ansible_job_id }}"
+    loop: "{{ async_bind_vm.results }}"
+    loop_control:
+      loop_var: async_bind_vm_item
+    register: async_bind_topology_poll_results
+    until: async_bind_topology_poll_results.finished
+    retries: 30
+    delay: 60
+    when: enable_async
 
   - name: Bind topology {{ topo }} to DPUs.
     vm_topology:
@@ -258,11 +355,46 @@
 
   - name: Change MAC address for PTF interfaces
     include_tasks: ptf_change_mac.yml
-    when: topo != 'fullmesh'
+    when: topo != 'fullmesh' and not (ptf_use_docker_network | default(false))
 
-  - name: Send arp ping packet to gw for flushing the ARP table
-    command: docker exec -i ptf_{{ vm_set_name }} python -c "from scapy.all import *; arping('{{ mgmt_gw }}')"
+  # ptf container may reuse the same ip address with a new random mac address
+  # for ptf container's mgmt network interface, so we need to send gratuitous
+  # ARP to announce PTF container MAC to network
+  - name: Send gratuitous ARP to announce PTF container MAC to network
+    shell: |
+      docker exec -i ptf_{{ vm_set_name }} python3 << 'GARP_EOF'
+      from scapy.all import *
+      my_ip = "{{ ptf_ip.split('/')[0] }}"
+      gw_ip = "{{ mgmt_gw }}"
+      my_mac = get_if_hwaddr("mgmt")
+      # Send broadcast ARP reply (gratuitous ARP) to announce IP->MAC mapping
+      pkt = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(op=2, psrc=my_ip, hwsrc=my_mac, pdst=gw_ip, hwdst="ff:ff:ff:ff:ff:ff")
+      sendp(pkt, iface="mgmt", count=10, verbose=0)
+      print("Gratuitous ARP sent successfully")
+      GARP_EOF
     become: yes
+    failed_when: false
+
+  - name: Wait for PTF container network to become fully operational
+    shell: |
+      echo "Waiting for PTF network to stabilize..."
+      for attempt in $(seq 1 30); do
+        if docker exec ptf_{{ vm_set_name }} ping -c 1 -W 2 {{ mgmt_gw }} | grep -q "1 received"; then
+          echo "Network ready after $attempt attempts"
+          exit 0
+        fi
+        echo "Attempt $attempt/30: Network not ready, waiting 2 seconds..."
+        sleep 2
+      done
+      echo "Warning: Network not ready after 60 seconds, continuing anyway..."
+      exit 1
+    become: yes
+    register: network_ready
+    failed_when: false
+
+  - name: Display PTF network readiness status
+    debug:
+      msg: "stdout: {{ network_ready.stdout_lines }} stderr: {{ network_ready.stderr_lines }}"
 
   - name: Start ptf_tgen service
     include_tasks: start_ptf_tgen.yml
@@ -272,6 +404,7 @@
     include_tasks: ptf_portchannel.yml
     vars:
       ptf_portchannel_action: start
+    when: "'bmc' not in topo"
 
   - name: Announce routes
     include_tasks: announce_routes.yml
@@ -279,6 +412,7 @@
       - topo != 'fullmesh'
       - not 'ptf' in topo
       - not 'cable' in topo
+      - not 'bmc' in topo
 
   - name: Start mux simulator
     include_tasks: control_mux_simulator.yml
@@ -294,6 +428,7 @@
 
   - name: Start tacacs+ daily daemon
     include_tasks: start_tacacs_daily_daemon.yml
+    when: not (ptf_use_docker_network | default(false))
 
   when: container_type == "PTF"
 

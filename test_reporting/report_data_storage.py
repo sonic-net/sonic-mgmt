@@ -19,6 +19,12 @@ try:
 except ImportError:
     from azure.kusto.data.data_format import DataFormat
 
+# Import DefaultAzureCredential for token-based authentication
+try:
+    from azure.identity import DefaultAzureCredential
+except ImportError:
+    DefaultAzureCredential = None
+
 from utilities import validate_json_file
 from datetime import datetime
 from typing import Dict, List
@@ -140,27 +146,22 @@ class KustoConnector(ReportDBConnector):
         SAI_HEADER_INVOC_TABLE: "SAIHeaderDefinitionMapping",
     }
 
-    def __init__(self, db_name: str):
+    def __init__(self, db_name: str, auth_method: str = "appKey"):
         """Initialize a Kusto report DB connector.
 
         Args:
             db_name: The Kusto database to connect to.
+            auth_method: Authentication method for Kusto connection.
+                Supported methods: appKey, managedId, interactive, azureCli,
+                deviceCode, userToken, appToken, defaultCredential
         """
         self.db_name = db_name
+        self.auth_method = auth_method
 
         ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER")
-        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID")
-        service_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID")
-        service_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY")
 
-        if not ingest_cluster or not tenant_id or not service_id or not service_key:
-            raise RuntimeError(
-                "Could not load Kusto Credentials from environment")
-
-        kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(ingest_cluster,
-                                                                                    service_id,
-                                                                                    service_key,
-                                                                                    tenant_id)
+        # Create connection string builder based on auth method
+        kcsb = self._create_connection_string_builder(ingest_cluster, auth_method)
         self._ingestion_client = KustoIngestClient(kcsb)
 
         """
@@ -168,20 +169,100 @@ class KustoConnector(ReportDBConnector):
             to improve the high availability of test result data service
             by hosting a backup cluster, which is optional.
         """
-        ingest_cluster = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
-        tenant_id = os.getenv("TEST_REPORT_AAD_TENANT_ID_BACKUP")
-        service_id = os.getenv("TEST_REPORT_AAD_CLIENT_ID_BACKUP")
-        service_key = os.getenv("TEST_REPORT_AAD_CLIENT_KEY_BACKUP")
+        ingest_cluster_backup = os.getenv("TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP")
 
-        if not ingest_cluster or not tenant_id or not service_id or not service_key:
-            print("Could not load backup Kusto Credentials from environment")
+        if not ingest_cluster_backup:
+            print("Could not load backup Kusto Cluster from environment")
             self._ingestion_client_backup = None
         else:
-            kcsb = KustoConnectionStringBuilder.with_aad_application_key_authentication(ingest_cluster,
-                                                                                        service_id,
-                                                                                        service_key,
-                                                                                        tenant_id)
-            self._ingestion_client_backup = KustoIngestClient(kcsb)
+            try:
+                kcsb_backup = self._create_connection_string_builder(ingest_cluster_backup, auth_method, backup=True)
+                self._ingestion_client_backup = KustoIngestClient(kcsb_backup)
+            except Exception as e:
+                print(f"Could not create backup Kusto connection: {e}")
+                self._ingestion_client_backup = None
+
+    def _create_connection_string_builder(self, cluster: str, auth_method: str, backup: bool = False):
+        """Create KustoConnectionStringBuilder based on authentication method.
+
+        Args:
+            cluster: Kusto cluster URL
+            auth_method: Authentication method to use
+            backup: Whether this is for backup cluster (uses different env vars)
+
+        Returns:
+            KustoConnectionStringBuilder instance
+        """
+        if not cluster:
+            raise RuntimeError("Kusto cluster URL is required")
+
+        env_suffix = "_BACKUP" if backup else ""
+
+        if auth_method == "appKey":
+            tenant_id = os.getenv(f"TEST_REPORT_AAD_TENANT_ID{env_suffix}")
+            service_id = os.getenv(f"TEST_REPORT_AAD_CLIENT_ID{env_suffix}")
+            service_key = os.getenv(f"TEST_REPORT_AAD_CLIENT_KEY{env_suffix}")
+
+            if not tenant_id or not service_id or not service_key:
+                raise RuntimeError(
+                    f"Could not load Kusto AppKey credentials from environment{' (backup)' if backup else ''}"
+                )
+
+            return KustoConnectionStringBuilder.with_aad_application_key_authentication(
+                cluster, service_id, service_key, tenant_id)
+
+        elif auth_method == "managedId":
+            ManagedIdentityClientId = os.getenv(f"TEST_REPORT_AAD_MANAGED_IDENTITY_CLIENT_ID{env_suffix}", None)
+            if ManagedIdentityClientId:
+                print(f"Using user-assigned managed identity: {ManagedIdentityClientId}")
+            else:
+                print("Using system-assigned managed identity")
+            return KustoConnectionStringBuilder.with_aad_managed_service_identity_authentication(
+                cluster,
+                client_id=ManagedIdentityClientId
+            )
+
+        elif auth_method == "interactive":
+            return KustoConnectionStringBuilder.with_interactive_login(cluster)
+
+        elif auth_method == "azureCli":
+            return KustoConnectionStringBuilder.with_az_cli_authentication(cluster)
+
+        elif auth_method == "deviceCode":
+            return KustoConnectionStringBuilder.with_aad_device_authentication(cluster)
+
+        elif auth_method == "userToken":
+            user_token = os.getenv(f"TEST_REPORT_AAD_USER_TOKEN{env_suffix}")
+            if not user_token:
+                raise RuntimeError(f"Could not load AAD User Token from environment{' (backup)' if backup else ''}")
+            return KustoConnectionStringBuilder.with_aad_user_token_authentication(cluster, user_token)
+
+        elif auth_method == "appToken":
+            app_token = os.getenv(f"TEST_REPORT_AAD_APP_TOKEN{env_suffix}")
+            if not app_token:
+                raise RuntimeError(f"Could not load AAD App Token from environment{' (backup)' if backup else ''}")
+            return KustoConnectionStringBuilder.with_aad_application_token_authentication(cluster, app_token)
+
+        elif auth_method == "defaultCred":
+            if DefaultAzureCredential is None:
+                raise RuntimeError(
+                    "azure-identity package is required for defaultCredential authentication method. "
+                    "Install it with: pip install azure-identity"
+                )
+            try:
+                credential = DefaultAzureCredential()
+                # Try the correct method name - it might be with_aad_token_credential_authentication
+                try:
+                    return KustoConnectionStringBuilder.with_aad_token_credential_authentication(cluster, credential)
+                except AttributeError:
+                    # Fallback to other possible method names
+                    return KustoConnectionStringBuilder.with_azure_token_credential(cluster, credential)
+            except Exception as e:
+                print(f"Failed to create DefaultAzureCredential: {e}")
+                raise
+
+        else:
+            raise ValueError(f"Unsupported authentication method: {auth_method}")
 
     def upload_report(self, report_json: Dict,
                       external_tracking_id: str = "",
@@ -353,20 +434,34 @@ class KustoConnector(ReportDBConnector):
             ingestion_mapping_reference=self.TABLE_MAPPING_LOOKUP[table]
         )
 
-        with tempfile.NamedTemporaryFile(mode="w+") as temp:
-            if isinstance(data, list):
-                temp.writelines(
-                    '\n'.join([json.dumps(entry) for entry in data]))
-            else:
-                temp.write(json.dumps(data))
-            temp.seek(0)
+        # Create temporary file with delete=False to avoid Windows permission issues
+        temp_fd, temp_path = tempfile.mkstemp(suffix='.json', text=True)
+        try:
+            with os.fdopen(temp_fd, 'w') as temp_file:
+                if isinstance(data, list):
+                    temp_file.write('\n'.join([json.dumps(entry) for entry in data]))
+                else:
+                    temp_file.write(json.dumps(data))
+
             print("Ingest to primary cluster...")
             self._ingestion_client.ingest_from_file(
-                temp.name, ingestion_properties=props)
+                temp_path, ingestion_properties=props)
+
             if self._ingestion_client_backup:
                 print("Ingest to backup cluster...")
                 self._ingestion_client_backup.ingest_from_file(
-                    temp.name, ingestion_properties=props)
+                    temp_path, ingestion_properties=props)
+
+        except Exception as e:
+            print(f"Ingestion failed with error: {e}")
+            raise
+        finally:
+            # Clean up the temporary file
+            try:
+                if os.path.exists(temp_path):
+                    os.unlink(temp_path)
+            except Exception as cleanup_e:
+                print(f"Warning - failed to clean up temp file {temp_path}: {cleanup_e}")
 
     def _ingest_data_file(self, table, data_file):
         props = IngestionProperties(

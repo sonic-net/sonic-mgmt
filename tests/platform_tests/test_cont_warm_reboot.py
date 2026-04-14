@@ -11,8 +11,8 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import get_reboot_cause
 from tests.common.fixtures.advanced_reboot import AdvancedReboot
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa: F401
 
 from tests.common.platform.device_utils import RebootHealthError,\
     check_services, check_interfaces_and_transceivers, check_neighbors,\
@@ -136,12 +136,12 @@ class ContinuousReboot:
                         continue
                     reboot_type = str(install_info.get('REBOOT_TYPE')).lower()
                     if reboot_type != 'warm' and reboot_type != 'fast':
-                        logging.warn(
+                        logging.warning(
                             "Unsupported reboot type - {}. Proceeding with {}.".format(reboot_type, self.reboot_type))
                     else:
                         self.reboot_type = reboot_type
                 except ValueError:
-                    logging.warn(
+                    logging.warning(
                         "Invalid json file, continuing the reboot test with old list of images")
                 break
         logging.info("Copy latest PTF test files to PTF host '{0}'".format(
@@ -166,10 +166,10 @@ class ContinuousReboot:
                 if file_exists != '200':
                     logging.info("Remote image file {} does not exist. Curl returned: {}".format(
                         image_path, file_exists))
-                    logging.warn("Continuing the test with current image")
+                    logging.warning("Continuing the test with current image")
                     self.new_image = "current"
             except ValueError:
-                logging.warn(
+                logging.warning(
                     "Invalid json file, continuing the reboot test with old list of images")
 
         if self.new_image == "current":
@@ -293,7 +293,7 @@ class ContinuousReboot:
         pytest_assert(self.test_failures == 0, "Continuous reboot test failed {}/{} times".
                       format(self.test_failures, self.reboot_count))
 
-    def start_continuous_reboot(self, request, duthosts, duthost, ptfhost, localhost, tbinfo, creds):
+    def start_continuous_reboot(self, request, duthosts, duthost, ptfhost, localhost, vmhost, tbinfo, creds):
         self.test_set_up()
         # Start continuous warm/fast reboot on the DUT
         for count in range(self.continuous_reboot_count):
@@ -306,8 +306,8 @@ class ContinuousReboot:
                 .format(self.reboot_count, self.continuous_reboot_count, self.reboot_type))
             reboot_type = self.reboot_type + "-reboot"
             try:
-                self.advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds,
-                                                     rebootType=reboot_type, moduleIgnoreErrors=True)
+                self.advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, vmhost, tbinfo,
+                                                     creds, rebootType=reboot_type, moduleIgnoreErrors=True)
             except Exception:
                 self.sub_test_result = False
                 self.test_failures = self.test_failures + 1
@@ -355,7 +355,7 @@ class ContinuousReboot:
 
 @pytest.mark.device_type('vs')
 def test_continuous_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                           ptfhost, localhost, conn_graph_facts, tbinfo, creds):
+                           ptfhost, localhost, vmhost, conn_graph_facts, tbinfo, creds):
     """
     @summary: This test performs continuous reboot cycles on images that are provided as an input.
     Supported parameters for this test can be modified at runtime:
@@ -380,5 +380,5 @@ def test_continuous_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_h
     continuous_reboot = ContinuousReboot(
         request, duthost, ptfhost, localhost, conn_graph_facts)
     continuous_reboot.start_continuous_reboot(
-        request, duthosts, duthost, ptfhost, localhost, tbinfo, creds)
+        request, duthosts, duthost, ptfhost, localhost, vmhost, tbinfo, creds)
     continuous_reboot.test_teardown()

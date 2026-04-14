@@ -6,21 +6,22 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
-	"os"
-	"strconv"
-	"testing"
-	"time"
-
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	log "github.com/golang/glog"
-
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi"
+	"github.com/openconfig/ygnmi/ygnmi"
+	p4infopb "github.com/p4lang/p4runtime/go/p4/config/v1"
+	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/encoding/prototext"
-
-	p4infopb "github.com/p4lang/p4runtime/go/p4/config/v1"
-	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
+	"os"
+	"path"
+	"strconv"
+	"sync"
+	"testing"
+	"time"
 )
 
 var (
@@ -35,15 +36,33 @@ var (
 		return 0, errors.Errorf("failed to get port ID for port %v from switch", port)
 	}
 	testhelperDeviceIDGet = func(t *testing.T, d *ondatra.DUTDevice) (uint64, error) {
-		deviceInfo, present := gnmi.Lookup(t, d, gnmi.OC().Component(icName).IntegratedCircuit().State()).Val()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		yc, err := ygnmiClient(ctx, d)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create ygnmi client, err: %v", err)
+		}
+		v, err := ygnmi.Lookup(ctx, yc, gnmi.OC().Component(icName).IntegratedCircuit().State())
+		if err != nil {
+			return 0, fmt.Errorf("failed to lookup device ID, err: %v", err)
+		}
+		deviceInfo, present := v.Val()
 		if present && deviceInfo.NodeId != nil {
 			return *deviceInfo.NodeId, nil
 		}
 		// Configure default device ID on the switch.
-		gnmi.Replace(t, d, gnmi.OC().Component(icName).IntegratedCircuit().NodeId().Config(), defaultDeviceID)
+		_, err = ygnmi.Replace(ctx, yc, gnmi.OC().Component(icName).IntegratedCircuit().NodeId().Config(), defaultDeviceID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to configure default device ID, err: %v", err)
+		}
 		// Verify that default device ID has been configured and return that.
-		if got, want := gnmi.Get(t, d, gnmi.OC().Component(icName).IntegratedCircuit().NodeId().State()), defaultDeviceID; got != want {
-			return 0, errors.Errorf("failed to configure default device ID")
+		devID, err := ygnmi.Await(ctx, yc, gnmi.OC().Component(icName).IntegratedCircuit().NodeId().State(), defaultDeviceID, nil)
+		if err != nil {
+                    have := "<unknown>"
+                    if devID != nil {
+                        have = devID.String()
+                    }
+		    return 0, fmt.Errorf("waiting for device ID to be %v failed, have %v, err: %v", defaultDeviceID, have, err)
 		}
 		return defaultDeviceID, nil
 	}
@@ -77,7 +96,7 @@ type P4RTClient struct {
 
 // P4RTClientOptions contains the fields for creation of P4RTClient.
 type P4RTClientOptions struct {
-	p4info *p4infopb.P4Info
+	P4Info *p4infopb.P4Info
 }
 
 func generateElectionID() *p4pb.Uint128 {
@@ -140,11 +159,15 @@ func (p *P4RTClient) P4Info() (*p4infopb.P4Info, error) {
 	err := fmt.Errorf("P4Info is not implemented")
 
 	// Read P4Info from file.
-	p4Info = &p4infopb.P4Info{}
-	data, err := os.ReadFile("ondatra/data/p4rtconfig.prototext")
+	file, err := bazel.Runfile("ondatra/data/p4rtconfig.prototext")
 	if err != nil {
 		return nil, err
 	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+        p4Info = &p4infopb.P4Info{}
 	err = prototext.Unmarshal(data, p4Info)
 
 	return p4Info, err
@@ -179,6 +202,20 @@ func (p *P4RTClient) PushP4Info() error {
 	config := &p4pb.ForwardingPipelineConfig{
 		P4Info: p.p4Info,
 	}
+	// Save the config to artifacts.
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		dn := testhelperDUTNameGet(p.dut)
+		artifactName := fmt.Sprintf("p4_push_%v.txt", time.Now().UnixNano())
+		fp := path.Join(dn, artifactName)
+		log.Infof("Saving P4Info to artifacts at path: %v", fp)
+		if err := SaveToArtifact(prototext.Format(p.p4Info), fp); err != nil {
+			log.Warningf("Failed to save P4Info for dut: %v to artifacts, err: %v", dn, err)
+		}
+	}()
+	defer wg.Wait()
 	req := &p4pb.SetForwardingPipelineConfigRequest{
 		DeviceId:   p.deviceID,
 		ElectionId: p.electionID,
@@ -195,16 +232,13 @@ func (p *P4RTClient) PushP4Info() error {
 	return nil
 }
 
-// FetchP4RTClient method fetches P4RTClient associated with a device. If the
-// client does not exist, then it creates one and caches it for future use.
-// During client creation, it performs master arbitration and P4Info push.
-func FetchP4RTClient(t *testing.T, d *ondatra.DUTDevice, p p4pb.P4RuntimeClient, options *P4RTClientOptions) (*P4RTClient, error) {
+func createP4RTClient(t *testing.T, d *ondatra.DUTDevice, p p4pb.P4RuntimeClient, options *P4RTClientOptions) (*P4RTClient, error) {
 	p4Client := &P4RTClient{
 		client: p,
 		dut:    d,
 	}
 	if options != nil {
-		p4Client.p4Info = options.p4info
+		p4Client.p4Info = options.P4Info
 	}
 	var err error
 	p4Client.deviceID, err = testhelperDeviceIDGet(t, d)
@@ -217,22 +251,37 @@ func FetchP4RTClient(t *testing.T, d *ondatra.DUTDevice, p p4pb.P4RuntimeClient,
 	if streamErr != nil {
 		return nil, errors.Wrap(streamErr, "failed to create stream for master arbitration")
 	}
-
+        return p4Client, nil
+}
+func setMastershipAndPushP4Info(t *testing.T, p4Client *P4RTClient) error {
 	// Configure P4RT client as master.
 	p4Client.electionID = generateElectionID()
 	if err := p4Client.SetMastership(); err != nil {
-		return nil, errors.Wrap(err, "failed to configure P4RT client as master")
+		return errors.Wrap(err, "failed to configure P4RT client as master")
 	}
 
 	// Push P4Info only if it isn't present in the switch.
 	p4Info, err := p4Client.FetchP4Info()
 	if err != nil {
-		return nil, errors.Wrap(err, "FetchP4Info() failed")
+		return errors.Wrap(err, "FetchP4Info() failed")
 	}
 	if p4Info == nil {
 		if err := p4Client.PushP4Info(); err != nil {
-			return nil, errors.Wrap(err, "P4Info push failed")
+			return errors.Wrap(err, "P4Info push failed")
 		}
+	}
+        return nil
+}
+// FetchP4RTClient method fetches P4RTClient associated with a device. If the
+// client does not exist, then it creates one and caches it for future use.
+// During client creation, it performs master arbitration and P4Info push.
+func FetchP4RTClient(t *testing.T, d *ondatra.DUTDevice, p p4pb.P4RuntimeClient, options *P4RTClientOptions) (*P4RTClient, error) {
+	p4Client, err := createP4RTClient(t, d, p, options)
+	if err != nil {
+		return nil, err
+	}
+	if err = setMastershipAndPushP4Info(t, p4Client); err != nil {
+		return nil, err
 	}
 
 	return p4Client, nil
@@ -302,4 +351,15 @@ func (p *P4RTClient) SendPacketOut(t *testing.T, packetOut *PacketOut) error {
 
 	log.Infof("Packet-out operation completed")
 	return nil
+}
+
+// P4RTAble checks if the P4RT server is up and running.
+func P4RTAble(t *testing.T, d *ondatra.DUTDevice) error {
+	p4rtClient, err := createP4RTClient(t, d, d.RawAPIs().P4RT(t), nil)
+	if err != nil {
+		return err
+	}
+	var req p4pb.WriteRequest
+	_, err = p4rtClient.client.Write(context.Background(), &req)
+	return err
 }

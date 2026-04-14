@@ -17,7 +17,7 @@ file currently holds the following fixture(s):
 
 
 @pytest.fixture(scope="module")
-def prio_dscp_map(duthosts, rand_one_dut_hostname):
+def prio_dscp_map(duthosts, rand_one_dut_front_end_hostname):
     """
     This fixture reads the QOS parameters from SONiC DUT, and creates
     priority Vs. DSCP priority port map
@@ -30,7 +30,7 @@ def prio_dscp_map(duthosts, rand_one_dut_hostname):
         Priority vs. DSCP map (dictionary, key = priority).
         Example: {0: [0], 1: [1], 2: [2], 3: [3], 4: [4] ....}
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
 
@@ -67,7 +67,7 @@ def all_prio_list(prio_dscp_map):
 
 
 @pytest.fixture(scope="module")
-def lossless_prio_list(duthosts, rand_one_dut_hostname):
+def lossless_prio_list(duthosts, rand_one_dut_front_end_hostname):
     """
     This fixture returns the list of lossless priorities
 
@@ -78,7 +78,7 @@ def lossless_prio_list(duthosts, rand_one_dut_hostname):
     Returns:
         Lossless priorities (list)
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[rand_one_dut_front_end_hostname]
     config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
                                         source="running")['ansible_facts']
 
@@ -119,9 +119,8 @@ def lossy_prio_list(all_prio_list, lossless_prio_list):
 # is enabled by default. Since we need a definite way to start pfcwd,
 # the following functions are introduced.
 def get_pfcwd_config(duthost):
-    config = get_running_config(duthost)
-    if "PFC_WD" in config.keys():
-        return config['PFC_WD']
+    if not duthost.is_multi_asic:
+        return (get_running_config(duthost, filter=".PFC_WD"))
     else:
         all_configs = []
         output = duthost.shell("ip netns | awk '{print $1}'")['stdout']
@@ -129,9 +128,9 @@ def get_pfcwd_config(duthost):
         all_asic_list = natsorted(all_asic_list)
         all_asic_list.insert(0, None)
         for space in all_asic_list:
-            config = get_running_config(duthost, space)
-            if "PFC_WD" in config.keys():
-                all_configs.append(config['PFC_WD'])
+            config = get_running_config(duthost, space, filter=".PFC_WD")
+            if config:
+                all_configs.append(config)
             else:
                 all_configs.append({})
         return all_configs
@@ -143,6 +142,7 @@ def reapply_pfcwd(duthost, pfcwd_config):
     if type(pfcwd_config) is dict:
         duthost.copy(content=json.dumps({"PFC_WD": pfcwd_config}, indent=4), dest=file_prefix)
         duthost.shell(f"config load {file_prefix} -y")
+        duthost.shell(f"rm {file_prefix} -f")
     elif type(pfcwd_config) is list:
         output = duthost.shell("ip netns | awk '{print $1}'")['stdout']
         all_asic_list = output.split("\n")
@@ -155,6 +155,7 @@ def reapply_pfcwd(duthost, pfcwd_config):
             duthost.copy(content=json.dumps({"PFC_WD": config}, indent=4), dest=filename)
             all_files.append(filename)
         duthost.shell("config load {} -y".format(",".join(all_files)))
+        duthost.shell("rm -r {}".format(" ".join(all_files)))
     else:
         raise RuntimeError(f"Script problem: Got an unsupported type of pfcwd_config:{pfcwd_config}")
 

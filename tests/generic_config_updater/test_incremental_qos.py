@@ -1,4 +1,3 @@
-
 import logging
 import json
 import pytest
@@ -7,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, \
-    expect_op_failure         # noqa F401
+    expect_op_failure         # noqa:F401
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
@@ -16,7 +15,7 @@ from tests.common.mellanox_data import is_mellanox_device
 
 pytestmark = [
     pytest.mark.topology('t0'),
-    pytest.mark.asic('mellanox', 'barefoot')
+    pytest.mark.asic('mellanox', 'barefoot', 'marvell-teralynx')
 ]
 
 logger = logging.getLogger(__name__)
@@ -129,6 +128,9 @@ def get_neighbor_type_to_pg_headroom_map(duthost):
 
         cable_length = duthost.shell('sonic-db-cli CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'
                                      .format(interface))['stdout']
+        if cable_length == "0m":
+            pytest.skip("skip the test due to no buffer lossless pg")
+
         port_speed = duthost.shell('sonic-db-cli CONFIG_DB hget "PORT|{}" speed'
                                    .format(interface))['stdout']
 
@@ -237,7 +239,7 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
             "path": "/BUFFER_POOL/{}".format(configdb_field),
             "value": "{}".format(value)
         }]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -255,4 +257,76 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
             else:
                 expect_op_failure(output)
     finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def test_buffer_profile_create_remove_rollback(duthost, ensure_dut_readiness, cli_namespace_prefix):
+    """
+    Test creating and removing a buffer profile via jsonpatch and rollback to checkpoint.
+    Steps:
+    1. Take checkpoint
+    2. Create new profile using jsonpatch, check operation success
+    3. Remove new profile using jsonpatch, check operation success
+    4. Rollback checkpoint
+    """
+    os_version = duthost.os_version
+    if "master" not in os_version and "internal" not in os_version:
+        is_chassis = duthost.get_facts().get("modular_chassis")
+        min_version = "202405" if is_chassis else "202605"
+        if os_version.split('.')[0][:6] < min_version:
+            pytest.skip("Test requires SONiC version >= {} (chassis: {}), current version: {}"
+                        .format(min_version, bool(is_chassis), os_version))
+
+    tmpfile = generate_tmpfile(duthost)
+    profile_name = "pg_lossless_99999_99m_profile"
+    profile_data = {
+        "dynamic_th": "-2",
+        "pool": "ingress_lossless_pool",
+        "size": "0",
+        "xoff": "1020672",
+        "xon": "0"
+    }
+    # Step 1: Take checkpoint done by ensure_dut_readiness fixture, verify checkpoint creation
+    try:
+        # Step 2: Create new profile
+        logger.info("Step 2: Creating new buffer profile {}".format(profile_name))
+        json_patch = [{
+            "op": "add",
+            "path": "/BUFFER_PROFILE/{}".format(profile_name),
+            "value": profile_data
+        }]
+        json_patch = format_json_patch_for_multiasic(
+            duthost=duthost, json_data=json_patch, is_asic_specific=True)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        # Verify profile exists in CONFIG_DB
+        result = duthost.shell(
+            'sonic-db-cli {} CONFIG_DB hget "BUFFER_PROFILE|{}" xon'.format(
+                cli_namespace_prefix, profile_name),
+            module_ignore_errors=True)
+        pytest_assert(result["stdout"] == profile_data["xon"], "Profile creation failed in CONFIG_DB")
+
+        # Step 3: Remove new profile
+        logger.info("Step 3: Removing buffer profile {}".format(profile_name))
+        json_patch = [{
+            "op": "remove",
+            "path": "/BUFFER_PROFILE/{}".format(profile_name)
+        }]
+        json_patch = format_json_patch_for_multiasic(
+            duthost=duthost, json_data=json_patch, is_asic_specific=True)
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        # Verify profile no longer exists in CONFIG_DB
+        result = duthost.shell(
+            'sonic-db-cli {} CONFIG_DB exists "BUFFER_PROFILE|{}"'.format(
+                cli_namespace_prefix, profile_name),
+            module_ignore_errors=True)
+        pytest_assert(result["stdout"] == "0", "Profile removal failed in CONFIG_DB")
+
+        # Step 4: Rollback checkpoint done by ensure_dut_readiness fixture, verify rollback
+
+    finally:
+        # cleanup tmpfile
         delete_tmpfile(duthost, tmpfile)

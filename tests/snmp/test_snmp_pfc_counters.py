@@ -17,12 +17,23 @@ def test_snmp_pfc_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
         duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
 
+    # Get the hardware SKU of the DUT
+    hwsku = duthost.facts.get('hwsku', '')
+
     # Check PFC counters
     # Ignore management ports, assuming the names starting with 'eth', eg. eth0
-    for k, v in list(snmp_facts['snmp_interfaces'].items()):
-        if "Ethernet" in v['description']:
-            if 'cpfcIfRequests' not in v or \
-               'cpfcIfIndications' not in v or \
-               'requestsPerPriority' not in v or \
-               'indicationsPerPriority' not in v:
-                pytest.fail("port %s does not have pfc counters" % v['name'])
+    for _, v in list(snmp_facts['snmp_interfaces'].items()):
+        desc = v.get('description', '')
+        name = v.get('name', '')
+
+        if 'Ethernet' not in desc:
+            continue
+
+        # Skip management ports for Arista 7060x6 platforms
+        if 'Arista-7060X6' in hwsku and 'PT0' in desc:
+            continue
+
+        # Check for required PFC counters
+        required_keys = ['cpfcIfRequests', 'cpfcIfIndications', 'requestsPerPriority', 'indicationsPerPriority']
+        if not all(key in v for key in required_keys):
+            pytest.fail(f"Port {name} (desc: '{desc}') missing PFC counters: {required_keys}")

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 # This ansible module is for gathering lldp facts from SONiC device.
 # It takes two argument
 # asic_instance_id :- Used to specify LLDP Instance in Multi-asic platforms

@@ -1,5 +1,5 @@
-import ptf.packet as scapy  # noqa F401
-import ptf.dataplane as dataplane   # noqa F401
+import ptf.packet as scapy  # noqa: F401
+import ptf.dataplane as dataplane   # noqa: F401
 import acs_base_test
 from ptf.base_tests import BaseTest
 import scapy.all as scapy2
@@ -12,7 +12,7 @@ class FailingTest(BaseTest):
         Test designed to fail
     '''
     def runTest(self):
-        a = 5 / 0   # noqa F841
+        a = 5 / 0   # noqa: F841
         pass
 
 

@@ -10,7 +10,11 @@
         <EndDevice>{{ vms[index] }}</EndDevice>
         <EndPort>{{ vm_intfs[if_index] }}</EndPort>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
+        {% if num_asics > 1 %}
         <StartPort>{{ port_alias[dut_intfs[if_index]] }}</StartPort>
+        {% else %}
+        <StartPort>{{ port_alias_map[port_alias[dut_intfs[if_index]]] }}</StartPort>
+        {% endif %}
 {% if device_conn[inventory_hostname][port_alias_map[port_alias[dut_intfs[if_index]]]] is defined %}
         <Bandwidth>{{ device_conn[inventory_hostname][port_alias_map[port_alias[dut_intfs[if_index]]]]['speed'] }}</Bandwidth>
 {% endif %}
@@ -93,6 +97,7 @@
 {% endfor %}
 {% endfor %}
 {% endif %}
+{% if front_panel_asic_ifnames is defined and front_panel_asic_ifnames | length > 0 %}
 {% for if_index in range(front_panel_asic_ifnames | length) %}
       <DeviceLinkBase i:type="DeviceInterfaceLink">
         <ElementType>DeviceInterfaceLink</ElementType>
@@ -106,10 +111,15 @@
         <EndPort>{{ front_panel_asic_ifnames[if_index] }}</EndPort>
         <FlowControl>true</FlowControl>
         <StartDevice>{{ inventory_hostname }}</StartDevice>
+        {% if num_asics > 1 %}
         <StartPort>{{ port_alias[loop.index - 1] }}</StartPort>
+        {% else %}
+        <StartPort>{{ port_alias_map[port_alias[loop.index - 1]] }}</StartPort>
+        {% endif %}
         <Validate>true</Validate>
       </DeviceLinkBase>
 {% endfor %}
+{% endif %}
 {% endif %}
     </DeviceInterfaceLinks>
     <Devices>
@@ -203,18 +213,28 @@
 {% set dev_type = 'BackEndLeafRouter' %}
 {% elif 'T1' in dev %}
 {% set dev_type = 'LeafRouter' %}
+{% elif 'LT2' in dev %}
+{% set dev_type = 'LowerSpineRouter' %}
+{% elif 'FT2' in dev %}
+{% set dev_type = 'FabricSpineRouter' %}
+{% elif 'UT2' in dev %}
+{% set dev_type = 'UpperSpineRouter' %}
 {% elif 'T2' in dev %}
 {% set dev_type = 'SpineRouter' %}
+{% elif 'Snappi_T3' in dev %}
+{% set dev_type = 'RegionalHub' if loop.index <= 2 else 'AZNGHub' %}
 {% elif 'T3' in dev %}
-{% if loop.index|int % 2 %}
-{% set dev_type = 'RegionalHub' %}
-{% else %}
-{% set dev_type = 'AZNGHub' %}
-{% endif %}
+{% set dev_type = 'RegionalHub' if loop.index is odd else 'AZNGHub' %}
+{% elif 'PT0' in dev %}
+{% set dev_type = 'ToRRouter' %}
 {% elif ('T0' in dev) and (enable_compute_ai_deployment|default('false')|bool) %}
 {% set dev_type = 'BackEndToRRouter' %}
 {% elif 'T0' in dev %}
 {% set dev_type = 'ToRRouter' %}
+{% elif 'MA' in dev %}
+{% set dev_type = 'MgmtSpineRouter'%}
+{% elif 'MB' in dev %}
+{% set dev_type = 'CoreTs' %}
 {% elif 'M1' in dev %}
 {% set dev_type = 'MgmtLeafRouter' %}
 {% elif 'MX' in dev %}

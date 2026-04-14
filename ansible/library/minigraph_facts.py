@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 from __future__ import print_function
 from ansible.module_utils.basic import AnsibleModule
 import calendar
@@ -370,15 +370,35 @@ def parse_dpg(dpg, hname):
             intfname = mgmtintf.find(str(QName(ns, "AttachTo"))).text
             ipprefix = mgmtintf.find(str(QName(ns1, "PrefixStr"))).text
             mgmtipn = ipaddress.IPNetwork(ipprefix)
-            # Ignore IPv6 management address
-            if mgmtipn.version == 6:
-                continue
-            ipaddr = mgmtipn.ip
-            prefix_len = str(mgmtipn.prefixlen)
-            ipmask = mgmtipn.netmask
             gwaddr = ipaddress.IPAddress(int(mgmtipn.network) + 1)
-            mgmt_intf = {'addr': ipaddr, 'alias': intfname,
-                         'prefixlen': prefix_len, 'mask': ipmask, 'gwaddr': gwaddr}
+            # Prefer IPv4 if present; otherwise fall back to IPv6 so that
+            # consumers (e.g., tests needing the alias) still have data.
+            if isinstance(mgmtipn, ipaddress.IPv4Network):
+                ipaddr = mgmtipn.ip
+                prefix_len = str(mgmtipn.prefixlen)
+                ipmask = mgmtipn.netmask
+                mgmt_intf = {
+                    'addr': ipaddr,
+                    'alias': intfname,
+                    'prefixlen': prefix_len,
+                    'mask': ipmask,
+                    'gwaddr': gwaddr
+                }
+                # Since IPv4 is preferred, we can break once found.
+                break
+            else:
+                # IPv6 management ip
+                if mgmt_intf is None:
+                    ipaddr = mgmtipn.ip
+                    prefix_len = str(mgmtipn.prefixlen)
+                    ipmask = str(mgmtipn.prefixlen)
+                    mgmt_intf = {
+                        'addr': ipaddr,
+                        'alias': intfname,
+                        'prefixlen': prefix_len,
+                        'mask': ipmask,
+                        'gwaddr': gwaddr
+                    }
 
         pcintfs = child.find(str(QName(ns, "PortChannelInterfaces")))
         pcs = {}
@@ -522,6 +542,7 @@ def parse_meta(meta, hname):
     mgmt_routes = []
     deployment_id = None
     resource_type = None
+    zebra_nexthop = None
     device_metas = meta.find(str(QName(ns, "Devices")))
     for device in device_metas.findall(str(QName(ns1, "DeviceMetadata"))):
         if device.find(str(QName(ns1, "Name"))).text == hname:
@@ -540,7 +561,9 @@ def parse_meta(meta, hname):
                     deployment_id = value
                 elif name == "ResourceType":
                     resource_type = value
-    return syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type
+                elif name == "ZebraNexthop":
+                    zebra_nexthop = value
+    return syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type, zebra_nexthop
 
 
 def get_console_info(devices, dev, port):
@@ -631,21 +654,27 @@ def parse_linkmeta(meta, hname):
     macsec_neighbors = []
     macsec_enabled_ports = []
     for linkmeta in link.findall(str(QName(ns1, "LinkMetadata"))):
-        local_port = None
-        # Sample: ARISTA05T1:Ethernet1/33;switch-t0:fortyGigE0/4
-        key = linkmeta.find(str(QName(ns1, "Key"))).text
-        endpoints = key.split(';')
-        local_endpoint = endpoints[1]
-        remote_endpoint = endpoints[0]
-        t = local_endpoint.split(':')
-        if len(t) == 2 and t[0].lower() == hname.lower():
-            local_port = t[1]
-            macsec_enabled_ports.append(local_port)
-            neighbor_host = remote_endpoint.split(':')[0]
-            macsec_neighbors.append(neighbor_host)
-        else:
-            # Cannot find a matching hname, something went wrong
-            continue
+        linkprop = linkmeta.find(str(QName(ns1, "Properties")))
+        linkdevprop = linkprop.find(str(QName(ns1, "DeviceProperty")))
+        macsec_en_name = linkdevprop.find(str(QName(ns1, "Name"))).text
+        if macsec_en_name == "MacSecEnabled":
+            macsec_en_lnk = linkdevprop.find(str(QName(ns1, "Value"))).text
+            if macsec_en_lnk:
+                local_port = None
+                # Sample: ARISTA05T1:Ethernet1/33;switch-t0:fortyGigE0/4
+                key = linkmeta.find(str(QName(ns1, "Key"))).text
+                endpoints = key.split(';')
+                local_endpoint = endpoints[1]
+                remote_endpoint = endpoints[0]
+                t = local_endpoint.split(':')
+                if len(t) == 2 and t[0].lower() == hname.lower():
+                    local_port = t[1]
+                    macsec_enabled_ports.append(local_port)
+                    neighbor_host = remote_endpoint.split(':')[0]
+                    macsec_neighbors.append(neighbor_host)
+                else:
+                    # Cannot find a matching hname, something went wrong
+                    continue
     return macsec_enabled_ports, macsec_neighbors
 
 
@@ -676,6 +705,7 @@ def parse_xml(filename, hostname, asic_name=None):
     mgmt_routes = []
     bgp_peers_with_range = []
     deployment_id = None
+    zebra_nexthop = None
     is_storage_device = None
     macsec_enabled_ports = []
     macsec_neighbors = []
@@ -724,7 +754,8 @@ def parse_xml(filename, hostname, asic_name=None):
             elif child.tag == str(QName(ns, "UngDec")):
                 (u_neighbors, u_devices, _, _, _, _) = parse_png(child, hostname)
             elif child.tag == str(QName(ns, "MetadataDeclaration")):
-                (syslog_servers, ntp_servers, mgmt_routes, deployment_id, resource_type) = parse_meta(child, hostname)
+                (syslog_servers, ntp_servers, mgmt_routes, deployment_id,
+                 resource_type, zebra_nexthop) = parse_meta(child, hostname)
             elif child.tag == str(QName(ns, "LinkMetadataDeclaration")):
                 macsec_enabled_ports, macsec_neighbors = parse_linkmeta(child, hostname)
         else:
@@ -807,6 +838,8 @@ def parse_xml(filename, hostname, asic_name=None):
     }
     if resource_type is not None:
         results['minigraph_device_metadata']['resource_type'] = resource_type
+    if zebra_nexthop is not None:
+        results['minigraph_device_metadata']['zebra_nexthop'] = zebra_nexthop
     results['minigraph_interfaces'] = sorted(
         phyport_intfs, key=lambda x: x['attachto'])
     results['minigraph_vlan_interfaces'] = sorted(

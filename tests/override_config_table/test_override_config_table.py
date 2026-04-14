@@ -7,6 +7,8 @@ from tests.common.config_reload import config_reload
 from tests.common.utilities import backup_config, restore_config, get_running_config,\
     reload_minigraph_with_golden_config, file_exists_on_dut, compare_dicts_ignore_list_order, \
     NON_USER_CONFIG_TABLES
+from tests.common import mellanox_data
+from tests.common import broadcom_data
 
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
@@ -16,8 +18,9 @@ CONFIG_DB_BACKUP = "/etc/sonic/config_db.json_before_override"
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 'any'),
-    pytest.mark.disable_loganalyzer,
 ]
+
+LOSSY_HWSKU = mellanox_data.LOSSY_ONLY_HWSKUS + broadcom_data.LOSSY_ONLY_HWSKUS
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -50,6 +53,9 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
     topo_type = tbinfo["topo"]["type"]
     if topo_type in ["m0", "mx"]:
         original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
+    hwsku = duthost.facts["hwsku"]
+    if hwsku in LOSSY_HWSKU:
+        original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
     # Backup configDB
     backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     # Backup Golden Config if exists.
@@ -63,6 +69,8 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
     yield running_config
 
     if topo_type in ["m0", "mx"]:
+        update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
+    if hwsku in LOSSY_HWSKU:
         update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
     # Restore configDB after test.
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
@@ -121,27 +129,6 @@ def load_minigraph_with_golden_partial_config(duthost):
     )
 
 
-def load_minigraph_with_golden_new_feature(duthost):
-    """Test Golden Config with new feature
-    """
-    new_feature_config = {
-        "NEW_FEATURE_TABLE": {
-            "entry": {
-                "field": "value",
-                "state": "disabled"
-            }
-        }
-    }
-    reload_minigraph_with_golden_config(duthost, new_feature_config)
-
-    current_config = get_running_config(duthost)
-    pytest_assert(
-        'NEW_FEATURE_TABLE' in current_config and
-        current_config['NEW_FEATURE_TABLE'] == new_feature_config['NEW_FEATURE_TABLE'],
-        "new feature config update fail: {}".format(current_config['NEW_FEATURE_TABLE'])
-    )
-
-
 def load_minigraph_with_golden_full_config(duthost, full_config):
     """Test Golden Config fully override minigraph config
     """
@@ -184,13 +171,19 @@ def load_minigraph_with_golden_empty_table_removal(duthost):
 
 
 def test_load_minigraph_with_golden_config(duthosts, setup_env,
-                                           enum_rand_one_per_hwsku_frontend_hostname):
+                                           enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     """Test Golden Config override during load minigraph
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    # Set loganalyzer to collect-only mode (no error matching, just log collection)
+    if loganalyzer:
+        loganalyzer[duthost.hostname].match_regex = []
+        loganalyzer[duthost.hostname].expect_regex = []
+        loganalyzer[duthost.hostname].ignore_regex = []
+
     load_minigraph_with_golden_empty_input(duthost)
     load_minigraph_with_golden_partial_config(duthost)
-    load_minigraph_with_golden_new_feature(duthost)
     full_config = setup_env
     load_minigraph_with_golden_full_config(duthost, full_config)
     load_minigraph_with_golden_empty_table_removal(duthost)

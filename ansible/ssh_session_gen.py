@@ -16,6 +16,7 @@ from devutil.ssh_session_repo import (
     SecureCRTSshSessionRepoGenerator,
     SshConfigSshSessionRepoGenerator,
     SshConfigTmuxinatorSessionRepoGenerator,
+    ZellijLayoutRepoGenerator,
     SshSessionRepoGenerator,
 )
 
@@ -201,8 +202,9 @@ class TestBedSshSessionRepoGenerator(DeviceSshSessionRepoGenerator):
         """
         devices = itertools.chain(
             testbed.dut_nodes.values(),
-            [testbed.ptf_node],
+            [testbed.ptf_node] if testbed.ptf_node else [],
             testbed.fanout_nodes.values(),
+            testbed.ocs_nodes.values(),
             testbed.root_fanout_nodes.values(),
             testbed.console_nodes.values(),
             testbed.server_nodes.values()
@@ -302,6 +304,13 @@ def main(args):
         # SSH config doesn't support hierarchical structure well, so we only generate the flattened SSH config for now.
         create_testbed_repo = True
         create_device_repo = False
+    elif args.format == "zellij":
+        repo_generator = ZellijLayoutRepoGenerator(
+            args.target, args.ssh_config_params, args.console_ssh_config_params
+        )
+        # SSH config doesn't support hierarchical structure well, so we only generate the flattened SSH config for now.
+        create_testbed_repo = True
+        create_device_repo = False
     else:
         print("Unsupported output format: {}".format(args.format))
         return
@@ -330,10 +339,13 @@ def main(args):
 
     if create_testbed_repo:
         print(
-            f"\nLoading testbeds: TestBedFile = {args.testbed_file_path}, Pattern = {args.testbed_pattern}"
+            "\nLoading testbeds:\n"
+            f"  TestBedFile = {args.testbed_file_path}\n"
+            f"  NUTTestBedFile = {args.testbed_nut_file_path}\n"
+            f"  Pattern = {args.testbed_pattern}"
         )
         testbeds = TestBed.from_file(
-            device_inventories, args.testbed_file_path, args.testbed_pattern
+            device_inventories, args.testbed_file_path, args.testbed_nut_file_path, args.testbed_pattern
         )
         print(f"{len(testbeds)} testbeds are loaded.")
 
@@ -413,6 +425,14 @@ the `secrets.json` file and use the alternative credentials.
     )
 
     parser.add_argument(
+        "--testbed-nut",
+        type=str,
+        dest="testbed_nut_file_path",
+        default="testbed.nut.yaml",
+        help="NUT Testbed file path.",
+    )
+
+    parser.add_argument(
         "-n",
         "--testbed-name",
         type=str,
@@ -442,7 +462,7 @@ the `secrets.json` file and use the alternative credentials.
         "--format",
         type=str,
         dest="format",
-        choices=["securecrt", "ssh", "tmuxinator"],
+        choices=["securecrt", "ssh", "tmuxinator", "zellij"],
         default="securecrt",
         help="Output target format, currently supports securecrt or ssh.",
     )

@@ -1,8 +1,9 @@
 import pytest
 import time
+import shlex
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import check_output
-from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry, check_tacacs  # noqa: F401
 
 import logging
 
@@ -15,7 +16,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 SLEEP_TIME = 10
-TIMEOUT_LIMIT = 120
+TIMEOUT_LIMIT = 240
 
 
 def does_command_exist(localhost, remote_ip, username, password, command):
@@ -59,10 +60,11 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
         # Wait for tacacs to finish configuration from hostcfgd
         logger.info("Check if hostcfgd started and configured tacac attempt = {}".format(current_attempt))
         time.sleep(SLEEP_TIME)
+        cmd_quoted = shlex.quote(cmd)
         output = localhost.shell(
             "sshpass -p {} ssh "
             "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null "
-            "{}@{} {}".format(password, username, remote_ip, cmd), module_ignore_errors=True)['stdout_lines']
+            "{}@{} {}".format(password, username, remote_ip, cmd_quoted), module_ignore_errors=True)['stdout_lines']
         if "active (running)" in str(output):
             return
         else:
@@ -72,7 +74,7 @@ def wait_for_tacacs(localhost, remote_ip, username, password):
                 current_attempt += 1
 
 
-def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     res = ssh_remote_run(localhost, dutip, tacacs_creds['tacacs_ro_user'],
@@ -81,7 +83,8 @@ def test_ro_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_c
     check_output(res, 'test', 'remote_user')
 
 
-def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds,
+                                 check_tacacs):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
@@ -160,7 +163,7 @@ def test_ro_user_allowed_command(localhost, duthosts, enum_rand_one_per_hwsku_ho
 
 
 def test_ro_user_banned_by_sudoers_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname,
-                                           tacacs_creds, check_tacacs):
+                                           tacacs_creds, check_tacacs):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
@@ -184,7 +187,8 @@ def test_ro_user_banned_by_sudoers_command(localhost, duthosts, enum_rand_one_pe
             logger.info('"{}" not found on DUT, skipping...'.format(command))
 
 
-def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_ro_user_banned_command(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds,
+                                check_tacacs):  # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 

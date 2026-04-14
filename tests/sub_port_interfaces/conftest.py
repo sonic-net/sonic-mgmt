@@ -504,7 +504,7 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
     dut_ports = define_sub_ports_configuration['dut_ports']
     ptf_ports = define_sub_ports_configuration['ptf_ports']
 
-    ptf_agent_updater = PtfAgentUpdater(ptfhost=ptfhost,
+    ptf_agent_updater = PtfAgentUpdater(ptfhosts=[ptfhost],
                                         ptfadapter=ptfadapter,
                                         ptf_nn_agent_template=os.path.join(TEMPLATE_DIR, PTF_NN_AGENT_TEMPLATE))
 
@@ -523,7 +523,15 @@ def apply_balancing_config(duthost, ptfhost, ptfadapter, define_sub_ports_config
         all_up_ports = set()
         for port in list(mg_facts['minigraph_ports'].keys()):
             all_up_ports.add("eth" + str(mg_facts['minigraph_ptf_indices'][port]))
-        src_ports = tuple(all_up_ports.difference(ptf_ports))
+
+        # Handle both list and dict ptf_ports
+        ports_to_exclude = set()
+        if isinstance(ptf_ports, dict):
+            ports_to_exclude = set(ptf_ports.values())
+        else:
+            ports_to_exclude = set(ptf_ports)
+
+        src_ports = tuple(all_up_ports.difference(ports_to_exclude))
 
     network = '1.1.1.0/24'
     network = ipaddress.ip_network(network)

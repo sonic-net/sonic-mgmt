@@ -3,7 +3,8 @@ import logging
 import os
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.plugins.loganalyzer.utils import ignore_loganalyzer
+from tests.common.helpers.parallel_utils import synchronized_config_reload
+from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.common.configlet.utils import chk_for_pfc_wd
@@ -13,6 +14,11 @@ from tests.common.helpers.dut_utils import ignore_t2_syslog_msgs
 logger = logging.getLogger(__name__)
 
 config_sources = ['config_db', 'minigraph', 'running_golden_config']
+
+
+# Timeouts for smartswitch DPU state transitions (in seconds)
+DPU_STATE_TIMEOUT = 360
+DPU_STATE_INTERVAL = 30
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 TEMPLATE_DIR = os.path.join(BASE_DIR, 'templates')
@@ -67,6 +73,78 @@ def config_force_option_supported(duthost):
     return False
 
 
+def _check_all_dpu_module_states(sonic_host, dpu_expected_states):
+    """
+    Check if all DPU modules have reached their expected states.
+    Args:
+        sonic_host: SONiC host object
+        dpu_expected_states: dict mapping dpu_name to expected status ("on" or "off")
+    Returns:
+        True if all DPUs are in their expected states, False otherwise
+    """
+    for dpu_name, expected_status in dpu_expected_states.items():
+        output = sonic_host.shell(
+            'show chassis module status | grep %s' % dpu_name,
+            module_ignore_errors=True
+        )
+        if output['rc'] != 0:
+            return False
+
+        is_offline = "offline" in output["stdout"].lower()
+        if expected_status == "off" and not is_offline:
+            return False
+        if expected_status != "off" and is_offline:
+            return False
+    return True
+
+
+def _wait_for_smartswitch_dpu_states(sonic_host):
+    """
+    After config reload on a smartswitch, wait for all DPUs to reach their
+    expected state based on the CHASSIS_MODULE admin_status in config_db.
+
+    In lit mode, DPUs have admin_status "up" and should come online.
+    In dark mode, DPUs have admin_status "down" and should go offline.
+    If CHASSIS_MODULE has no entries or admin_status is absent, DPUs are
+    expected to be online (default behavior).
+    """
+    # Get all CHASSIS_MODULE keys from config_db
+    output = sonic_host.shell(
+        'redis-cli -n 4 keys "CHASSIS_MODULE|*"',
+        module_ignore_errors=True
+    )
+    if output['rc'] != 0 or not output['stdout'].strip():
+        logger.info("No CHASSIS_MODULE entries found in config_db, skipping DPU state wait")
+        return
+
+    dpu_entries = [line.strip() for line in output['stdout'].strip().split('\n') if line.strip()]
+    if not dpu_entries:
+        logger.info("No CHASSIS_MODULE entries found in config_db, skipping DPU state wait")
+        return
+
+    dpu_expected_states = {}
+    for entry in dpu_entries:
+        # entry is like "CHASSIS_MODULE|DPU0"
+        dpu_name = entry.split('|', 1)[1] if '|' in entry else entry
+        admin_output = sonic_host.shell(
+            'redis-cli -n 4 hget "%s" "admin_status"' % entry,
+            module_ignore_errors=True
+        )
+        admin_status = admin_output['stdout'].strip() if admin_output['rc'] == 0 else ''
+        # If admin_status is "down", DPU should be offline; otherwise expect online
+        expected = "off" if admin_status == "down" else "on"
+        dpu_expected_states[dpu_name] = expected
+
+    logger.info("Waiting for smartswitch DPU states: %s", dpu_expected_states)
+
+    if not wait_until(DPU_STATE_TIMEOUT, DPU_STATE_INTERVAL, 0,
+                      _check_all_dpu_module_states, sonic_host,
+                      dpu_expected_states):
+        pytest_assert(False, "Not all DPUs reached expected states %s within timeout" % dpu_expected_states)
+
+    logger.info("Smartswitch DPU state wait completed")
+
+
 def config_reload_minigraph_with_rendered_golden_config_override(
         sonic_host, wait=120, start_bgp=True, start_dynamic_buffer=True,
         safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False,
@@ -112,17 +190,21 @@ def pfcwd_feature_enabled(duthost):
     return pfc_status == 'enable' and switch_role not in ['MgmtToRRouter', 'BmcMgmtToRRouter']
 
 
-@ignore_loganalyzer
+@support_ignore_loganalyzer
+@synchronized_config_reload
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
-                  safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False,
+                  safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False, wait_for_ibgp=True,
                   check_intf_up_ports=False, traffic_shift_away=False, override_config=False,
-                  golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True):
+                  golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True, exec_tsb=False,
+                  yang_validate=True):
     """
     reload SONiC configuration
     :param sonic_host: SONiC host object
     :param config_source: configuration source is 'config_db', 'minigraph' or 'running_golden_config'
     :param wait: wait timeout for sonic_host to initialize after configuration reload
     :param wait_for_bgp: True to wait for all BGP connections to come up after configuration reload
+    :param wait_for_ibgp: True to wait for all iBGP connections to come up after configuration reload. This
+                          parameter is only used when `wait_for_bgp` is True.
     :param override_config: override current config with '/etc/sonic/golden_config_db.json'
     :param is_dut: True if the host is DUT, False if the host may be neighbor device.
                     To the non-DUT host, it may lack of some runtime variables like `topo_type`
@@ -148,6 +230,12 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(sonic_host)
 
+    # Retrieve the enable_macsec passed by user for this test run
+    # If macsec is enabled, use the override option to get macsec profile from golden config
+    request = sonic_host.duthosts.request
+    if request:
+        macsec_en = request.config.getoption("--enable_macsec", default=False)
+
     if config_source == 'minigraph':
         if start_dynamic_buffer and sonic_host.facts['asic_type'] == 'mellanox':
             output = sonic_host.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model',
@@ -155,14 +243,23 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             is_buffer_model_dynamic = (output and output.get('stdout') == 'dynamic')
         else:
             is_buffer_model_dynamic = False
-        cmd = 'config load_minigraph -y &>/dev/null'
+        cmd = 'config load_minigraph -y'
         if traffic_shift_away:
             cmd += ' -t'
-        if override_config:
+        if override_config or macsec_en:
             cmd += ' -o'
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)
         sonic_host.shell(cmd, executable="/bin/bash")
+        # Restore zebra_nexthop using minigraph_facts (parsed on controller) instead of
+        # copying a DUT-side script, eliminating duplicated XML parsing.
+        mg_facts = sonic_host.minigraph_facts(host=sonic_host.hostname)['ansible_facts']
+        zebra_nexthop = mg_facts.get('minigraph_device_metadata', {}).get('zebra_nexthop')
+        if zebra_nexthop:
+            logger.info("Setting zebra_nexthop='{}' in CONFIG_DB DEVICE_METADATA".format(zebra_nexthop))
+            sonic_host.shell(
+                'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" zebra_nexthop {}'.format(zebra_nexthop)
+            )
         time.sleep(60)
         if start_bgp:
             sonic_host.shell('config bgp startup all')
@@ -171,12 +268,12 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         sonic_host.shell('config save -y')
 
     elif config_source == 'config_db':
-        cmd = 'config reload -y &>/dev/null'
+        cmd = 'config reload -y'
         reloading = False
         if config_force_option_supported(sonic_host):
             if wait_before_force_reload:
                 reloading = wait_until(wait_before_force_reload, 10, 0, _config_reload_cmd_wrapper, cmd, "/bin/bash")
-            cmd = 'config reload -y -f &>/dev/null'
+            cmd = 'config reload -y -f'
         if not reloading:
             time.sleep(30)
             sonic_host.shell(cmd, executable="/bin/bash")
@@ -186,19 +283,29 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         if sonic_host.is_multi_asic:
             for asic in range(sonic_host.num_asics()):
                 golden_path = f'{golden_path},/etc/sonic/running_golden_config{asic}.json'  # noqa: E231
-        cmd = f'config reload -y -l {golden_path} &>/dev/null'
+        cmd = f'config reload -y -l {golden_path}'
         if config_force_option_supported(sonic_host):
-            cmd = f'config reload -y -f -l {golden_path} &>/dev/null'
+            cmd = f'config reload -y -f -l {golden_path}'
         sonic_host.shell(cmd, executable="/bin/bash")
 
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
-    wait = max(wait, 900) if modular_chassis else wait
+    wait = max(wait, 600) if modular_chassis else wait
+
+    # On smartswitch, wait for DPUs to reach expected state after config reload.
+    # This prevents consecutive config reloads from triggering DPU admin state
+    # changes before the previous transitions have completed.
+    if is_dut and sonic_host.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+        _wait_for_smartswitch_dpu_states(sonic_host)
 
     if safe_reload:
         # The wait time passed in might not be guaranteed to cover the actual
         # time it takes for containers to come back up. Therefore, add 5
         # minutes to the maximum wait time. If it's ready sooner, then the
         # function will return sooner.
+        # Update critical service list after rebooting in case critical services changed after rebooting
+        pytest_assert(wait_until(200, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"),
+                      "Database not start.")
+        sonic_host.critical_services_tracking_list()
         pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
                       "All critical services should be fully started!")
         wait_critical_processes(sonic_host)
@@ -216,7 +323,30 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
     if wait_for_bgp:
         bgp_neighbors = sonic_host.get_bgp_neighbors_per_asic(state="all")
+        if not wait_for_ibgp:
+            # Filter out iBGP neighbors
+            filtered_bgp_neighbors = {}
+            for asic, interfaces in bgp_neighbors.items():
+                filtered_interfaces = {
+                    ip: details for ip, details in interfaces.items()
+                    if details["local AS"] != details["remote AS"]
+                }
+
+                if filtered_interfaces:
+                    filtered_bgp_neighbors[asic] = filtered_interfaces
+
+            bgp_neighbors = filtered_bgp_neighbors
+
         pytest_assert(
             wait_until(wait + 120, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors),
             "Not all bgp sessions are established after config reload",
+        )
+
+    if exec_tsb:
+        sonic_host.shell("TSB")
+
+    if yang_validate:
+        pytest_assert(
+            wait_until(120, 30, 0, sonic_host.yang_validate),
+            "Yang validation failed after config_reload"
         )

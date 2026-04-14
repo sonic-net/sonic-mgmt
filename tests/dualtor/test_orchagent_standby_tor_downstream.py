@@ -6,7 +6,7 @@ import ipaddress
 import contextlib
 
 from ptf import testutils
-from tests.common.dualtor.dual_tor_mock import *        # noqa F403
+from tests.common.dualtor.dual_tor_mock import *        # noqa: F403, F401
 from tests.common.dualtor.dual_tor_mock import set_mux_state, is_t0_mocked_dualtor, is_mocked_dualtor
 from tests.common.dualtor.dual_tor_utils import dualtor_info
 from tests.common.dualtor.dual_tor_utils import check_tunnel_balance
@@ -15,16 +15,16 @@ from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
 from tests.common.dualtor.dual_tor_utils import crm_neighbor_checker
 from tests.common.dualtor.dual_tor_utils import add_nexthop_routes, remove_static_routes
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory             # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses                # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_garp_service                    # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder                  # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses                # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service                    # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder                  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert as pt_assert
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor        # noqa F401
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor        # noqa: F401
 from tests.common.dualtor.server_traffic_utils import ServerTrafficMonitor
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa F401
-from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions            # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa: F401
+from tests.common.dualtor.tor_failure_utils import shutdown_bgp_sessions            # noqa: F401
 from tests.common.utilities import wait_until
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory             # noqa: F401
 
 
 pytestmark = [
@@ -61,7 +61,7 @@ def get_function_completeness_level(pytestconfig):
 
 @pytest.fixture
 def get_testbed_params(ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo,
-                       ip_version, setup_testbed_ipv6, get_function_completeness_level): # noqa F811
+                       ip_version, setup_testbed_ipv6, get_function_completeness_level):  # noqa: F811
     """Return a function to get testbed params."""
     def _get_testbed_params():
         params = dualtor_info(ptfhost, rand_selected_dut, rand_unselected_dut,
@@ -206,7 +206,7 @@ def route_matches_expected_state(duthost, route_ip, expect_route):
 
 @pytest.fixture
 def remove_peer_loopback_route(rand_selected_dut, rand_unselected_dut,
-                               shutdown_bgp_sessions, get_testbed_params):      # noqa F811
+                               shutdown_bgp_sessions, get_testbed_params):      # noqa: F811
     """
     Remove routes to peer ToR loopback IP by shutting down BGP sessions on the peer
     """

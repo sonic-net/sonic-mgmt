@@ -1,15 +1,17 @@
 import time
 from math import ceil
 import logging
-
+import random
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
-    get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time,\
-    enable_packet_aging, start_pfcwd, sec_to_nanosec
-from tests.common.snappi_tests.port import select_ports, select_tx_port
+from tests.common.snappi_tests.snappi_helpers import get_dut_port_id              # noqa: F401
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
+    get_pfcwd_poll_interval, get_pfcwd_detect_time, get_pfcwd_restore_time, \
+    enable_packet_aging, start_pfcwd, sec_to_nanosec                             # noqa: F401
+from tests.common.snappi_tests.port import select_ports, select_tx_port           # noqa: F401
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 logger = logging.getLogger(__name__)
 
@@ -27,10 +29,10 @@ def run_pfcwd_burst_storm_test(api,
                                port_config_list,
                                conn_data,
                                fanout_data,
-                               duthost,
                                dut_port,
                                prio_list,
-                               prio_dscp_map):
+                               prio_dscp_map,
+                               snappi_extra_params=None):
     """
     Test PFC watchdog under bursty PFC storms
 
@@ -44,31 +46,35 @@ def run_pfcwd_burst_storm_test(api,
         dut_port (str): DUT port to test
         prio_list (list): priorities to generate PFC storms and data traffic
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
 
     Returns:
         N/A
     """
-    pytest_assert(testbed_config is not None,
-                  'Fail to get L2/3 testbed config')
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()
 
-    start_pfcwd(duthost)
-    enable_packet_aging(duthost)
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
 
-    """ Get the ID of the port to test """
-    port_id = get_dut_port_id(dut_hostname=duthost.hostname,
-                              dut_port=dut_port,
-                              conn_data=conn_data,
-                              fanout_data=fanout_data)
+    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
+    rx_port_id = rx_port["port_id"]
+    egress_duthost = rx_port['duthost']
 
-    pytest_assert(port_id is not None,
-                  'Fail to get ID for port {}'.format(dut_port))
+    tx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
+    tx_port_id = tx_port["port_id"]
+    ingress_duthost = tx_port['duthost']
 
-    poll_interval_sec = get_pfcwd_poll_interval(duthost) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(
-        host_ans=duthost, intf=dut_port) / 1000.0
-    restore_time_sec = get_pfcwd_restore_time(
-        host_ans=duthost, intf=dut_port) / 1000.0
+    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
+    start_pfcwd(egress_duthost, rx_port['asic_value'])
+    enable_packet_aging(egress_duthost)
+    start_pfcwd(ingress_duthost, tx_port['asic_value'])
+    enable_packet_aging(ingress_duthost)
+
+    poll_interval_sec = get_pfcwd_poll_interval(egress_duthost, rx_port['asic_value']) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(host_ans=egress_duthost, intf=rx_port['peer_port'], asic_value=rx_port['asic_value']) / 1000.0        # noqa: E501
+    restore_time_sec = get_pfcwd_restore_time(host_ans=egress_duthost, intf=rx_port['peer_port'], asic_value=rx_port['asic_value']) / 1000.0      # noqa: E501
     burst_cycle_sec = poll_interval_sec + detect_time_sec + restore_time_sec + 0.1
     data_flow_dur_sec = ceil(burst_cycle_sec * BURST_EVENTS)
     pause_flow_dur_sec = poll_interval_sec * 0.5
@@ -81,7 +87,8 @@ def run_pfcwd_burst_storm_test(api,
 
     __gen_traffic(testbed_config=testbed_config,
                   port_config_list=port_config_list,
-                  port_id=port_id,
+                  tx_port_id=tx_port_id,
+                  rx_port_id=rx_port_id,
                   pause_flow_prefix=PAUSE_FLOW_PREFIX,
                   pause_flow_dur_sec=pause_flow_dur_sec,
                   pause_flow_count=BURST_EVENTS,
@@ -108,12 +115,14 @@ def run_pfcwd_burst_storm_test(api,
 
     __verify_results(rows=flow_stats,
                      data_flow_prefix=DATA_FLOW_PREFIX,
-                     pause_flow_prefix=PAUSE_FLOW_PREFIX)
+                     pause_flow_prefix=PAUSE_FLOW_PREFIX,
+                     duthosts=[egress_duthost, ingress_duthost])
 
 
 def __gen_traffic(testbed_config,
                   port_config_list,
-                  port_id,
+                  tx_port_id,
+                  rx_port_id,
                   pause_flow_prefix,
                   pause_flow_count,
                   pause_flow_dur_sec,
@@ -130,7 +139,8 @@ def __gen_traffic(testbed_config,
     Args:
         testbed_config (obj): testbed L1/L2/L3 configuration
         port_config_list (list): list of port configuration
-        port_id (int): ID of DUT port to test.
+        tx_port_id: ID of tx port
+        rx_port_id: ID of rx port
         pause_flow_prefix (str): prefix of names of PFC pause storms
         pause_flow_count (int): number of PFC pause storms
         pause_flow_dur_sec (float): duration of each PFC pause storm
@@ -145,20 +155,8 @@ def __gen_traffic(testbed_config,
     Returns:
         N/A
     """
-
-    rx_port_id = port_id
-    tx_port_id_list, rx_port_id_list = select_ports(port_config_list=port_config_list,
-                                                    pattern="many to one",
-                                                    rx_port_id=rx_port_id)
-    pytest_assert(len(tx_port_id_list) > 0, "Cannot find any TX ports")
-    tx_port_id = select_tx_port(tx_port_id_list=tx_port_id_list,
-                                rx_port_id=rx_port_id)
-    pytest_assert(tx_port_id is not None, "Cannot find a suitable TX port")
-
-    tx_port_config = next(
-        (x for x in port_config_list if x.id == tx_port_id), None)
-    rx_port_config = next(
-        (x for x in port_config_list if x.id == rx_port_id), None)
+    tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
+    rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
 
     tx_mac = tx_port_config.mac
     if tx_port_config.gateway == rx_port_config.gateway and \
@@ -184,7 +182,12 @@ def __gen_traffic(testbed_config,
             data_flow.tx_rx.port.tx_name = tx_port_name
             data_flow.tx_rx.port.rx_name = rx_port_name
 
-            eth, ipv4 = data_flow.packet.ethernet().ipv4()
+            eth, ipv4, udp = data_flow.packet.ethernet().ipv4().udp()
+            src_port = random.randint(5000, 6000)
+            udp.src_port.increment.start = src_port
+            udp.src_port.increment.step = 1
+            udp.src_port.increment.count = 1
+
             eth.src.value = tx_mac
             eth.dst.value = rx_mac
             if pfcQueueGroupSize == 8:
@@ -193,7 +196,7 @@ def __gen_traffic(testbed_config,
                 eth.pfc_queue.value = pfcQueueValueDict[prio]
 
             ipv4.src.value = tx_port_config.ip
-            ipv4.dst.value = rx_port_config.ip
+            ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
             ipv4.priority.choice = ipv4.priority.DSCP
             ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
             ipv4.priority.dscp.ecn.value = (
@@ -245,8 +248,7 @@ def __gen_traffic(testbed_config,
         pause_pkt.pause_class_6.value = pause_time[6]
         pause_pkt.pause_class_7.value = pause_time[7]
 
-        pause_flow_start_time = id * \
-            (pause_flow_dur_sec + pause_flow_gap_sec) + WARM_UP_TRAFFIC_DUR
+        pause_flow_start_time = id * (pause_flow_dur_sec + pause_flow_gap_sec) + WARM_UP_TRAFFIC_DUR
 
         pause_flow.rate.pps = pause_pps
         pause_flow.size.fixed = 64
@@ -277,14 +279,14 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
     logger.info('Starting transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    api.set_control_state(cs)
 
     time.sleep(exp_dur_sec)
 
     attempts = 0
-    max_attempts = 20
+    max_attempts = 30
 
     while attempts < max_attempts:
         request = api.metrics_request()
@@ -309,14 +311,14 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     rows = api.get_metrics(request).flow_metrics
 
     logger.info('Stop transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    api.set_control_state(cs)
 
     return rows
 
 
-def __verify_results(rows, data_flow_prefix, pause_flow_prefix):
+def __verify_results(rows, data_flow_prefix, pause_flow_prefix, duthosts):
     """
     Verify if we get expected experiment results
 
@@ -324,14 +326,17 @@ def __verify_results(rows, data_flow_prefix, pause_flow_prefix):
         rows (list): per-flow statistics
         data_flow_prefix (str): prefix of names of data flows
         pause_flow_prefix (str): prefix of names of PFC pause storms
+        duthosts (list): list of duthost instances
 
     Returns:
         N/A
     """
+    logger.info([duthost.command('show pfcwd stats')['stdout_lines'] for duthost in duthosts])
     for row in rows:
         flow_name = row.name
         tx_frames = row.frames_tx
         rx_frames = row.frames_rx
+        logger.info('Flow Name : {} , Tx Frames : {}, Rx Frames : {}'.format(flow_name, tx_frames, rx_frames))
 
         if data_flow_prefix in flow_name:
             """ Data flow """

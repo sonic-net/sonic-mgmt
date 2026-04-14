@@ -61,9 +61,14 @@ def orig_ports_configuration(request, duthost, ptfhost, tbinfo):
                                         constants.PTF_PORT_MAPPING_MODE_DEFAULT)
     else:
         ptf_port_mapping_mode = 'use_orig_interface'
+
+    need_backplane = False
+    if 'ciscovs-7nodes' in tbinfo['topo']['name']:
+        need_backplane = True
+
     res = ptfhost.command('cat /proc/net/dev')
     ptf_ifaces = get_ifaces(res['stdout'])
-    ptf_ifaces_map = get_ifaces_map(ptf_ifaces, ptf_port_mapping_mode)
+    ptf_ifaces_map = get_ifaces_map(ptf_ifaces, ptf_port_mapping_mode, need_backplane)
     port_dict = get_tested_up_ports(duthost, ptf_ifaces_map, count=PORT_COUNT)
     yield port_dict
 

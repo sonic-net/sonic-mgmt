@@ -6,6 +6,7 @@ import pytest
 from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, copy_arp_responder_py         # noqa: F401
 from tests.ptf_runner import ptf_runner
 from .vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY,\
     VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY, DUT_VNET_NBR_JSON
@@ -13,7 +14,8 @@ from .vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY,\
 from .vnet_utils import generate_dut_config_files, safe_open_template, \
     apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
 
-from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported  # noqa F401
+from tests.common.flow_counter.flow_counter_utils \
+    import RouteFlowCounterTestContext, is_route_flow_counter_supported  # noqa: F401
 from tests.common.arp_utils import set_up, tear_down, testWrArp
 from tests.common.config_reload import config_reload
 
@@ -30,7 +32,7 @@ vlan_tagging_mode = ""
 @pytest.fixture(scope='module', autouse=True)
 def load_minigraph_after_test(rand_selected_dut):
     """
-    Restore config_db as vnet with wram-reboot will write testing config into
+    Restore config_db as vnet with warm-reboot will write testing config into
     config_db.json
     """
     yield
@@ -107,7 +109,9 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, minigraph_facts, vnet_config
     return minigraph_facts, vnet_json_data
 
 
-@pytest.fixture(params=["Disabled", "Enabled", "WR_ARP", "Cleanup"])
+# skip warm reboot "WR_ARP", this test case is using static tunnel, warm reboot will need no static tunnel present,
+# so it will fail at that point
+@pytest.fixture(params=["Disabled", "Enabled", "Cleanup"])
 def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
                  ptfhost, vnet_test_params, vnet_config, creds, tbinfo):
     """
@@ -128,6 +132,9 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
     global vlan_tagging_mode
 
     num_routes = request.config.option.num_routes
+    if num_routes is None:
+        num_routes = 16000
+
     vxlan_enabled = False
     if request.param == "Disabled":
         vxlan_enabled = False
@@ -188,7 +195,7 @@ def is_neigh_reachable(duthost, vnet_config):
 
 
 def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost,
-                    vnet_test_params, creds, is_route_flow_counter_supported):  # noqa F811
+                    vnet_test_params, creds, is_route_flow_counter_supported):  # noqa: F811
     """
     Test case for VNET VxLAN
 

@@ -98,7 +98,7 @@ def tag_image(duthost, tag, image_name, image_version="latest"):
         image_version (str): The version of the image to tag.
     """
     vendor_id = _get_vendor_id(duthost)
-    if vendor_id in ['invm']:
+    if vendor_id in ['mrvl-teralynx']:
         image_name = "docker-syncd-{}-rpc".format(vendor_id)
 
     duthost.command("docker tag {}:{} {}".format(image_name, image_version, tag))
@@ -126,6 +126,8 @@ def swap_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
 
     if duthost.facts.get("platform_asic") == 'broadcom-dnx':
         docker_syncd_name = docker_syncd_name + "-dnx"
+    elif duthost.facts.get("platform_asic") == "broadcom-legacy-th":
+        docker_syncd_name = docker_syncd_name + "-legacy-th"
 
     docker_rpc_image = docker_syncd_name + "-rpc"
 
@@ -191,6 +193,8 @@ def restore_default_syncd(duthost, creds, namespace=DEFAULT_NAMESPACE):
 
     if duthost.facts.get("platform_asic") == 'broadcom-dnx':
         docker_syncd_name = docker_syncd_name + "-dnx"
+    elif duthost.facts.get("platform_asic") == "broadcom-legacy-th":
+        docker_syncd_name = docker_syncd_name + "-legacy-th"
 
     for asic in asics_list:
         asic.stop_service("swss")
@@ -245,7 +249,7 @@ def _get_vendor_id(duthost):
     elif is_cisco_device(duthost):
         vendor_id = "cisco"
     elif is_marvell_teralynx_device(duthost):
-        vendor_id = "invm"
+        vendor_id = "mrvl-teralynx"
     else:
         error_message = '"{}" does not currently support swap_syncd'.format(duthost.facts["asic_type"])
         logger.error(error_message)

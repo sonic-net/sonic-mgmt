@@ -1,4 +1,6 @@
-pfcQueueGroupSize = 8  # can have values 4 or 8
+from tests.common.snappi_tests.common_helpers import get_pfcQueueGroupSize
+
+pfcQueueGroupSize = get_pfcQueueGroupSize(default=8)  # can have values 4 or 8
 pfcQueueValueDict = {0: 0,
                      1: 1,
                      2: 0,
@@ -15,3 +17,5 @@ prefix_length = 31
 dut_ipv6_start = '2000:1::1'
 snappi_ipv6_start = '2000:1::2'
 v6_prefix_length = 126
+
+dut_ip_for_non_macsec_port = '40.1.1.1'

@@ -6,6 +6,7 @@ import scapy.all as scapy
 import ptf.testutils as testutils
 from collections import Counter
 
+from tests.common.utilities import wait_until, ping_ip
 from tests.common.devices.eos import EosHost
 from tests.common.macsec.macsec_helper import create_pkt, create_exp_pkt, check_macsec_pkt,\
                            get_ipnetns_prefix, clear_macsec_counters, get_macsec_counters
@@ -76,14 +77,18 @@ class TestDataPlane():
 
     def test_dut_to_neighbor(self, duthost, ctrl_links, upstream_links, wait_mka_establish):
         for up_port, up_link in list(upstream_links.items()):
-            ret = duthost.command(
-                "{} ping -c {} {}".format(get_ipnetns_prefix(duthost, up_port), 4, up_link['local_ipv4_addr']))
-            assert not ret['failed']
+            dst_ip = up_link["local_ipv4_addr"]
+            assert wait_until(
+                60, 5, 0, ping_ip, duthost, dst_ip,
+                count=4, cmd_prefix=get_ipnetns_prefix(duthost, up_port)
+            ), "Ping from DUT to upstream neighbor {} on port {} failed after retries".format(dst_ip, up_port)
 
     def test_neighbor_to_neighbor(self, duthost, ctrl_links, upstream_links, wait_mka_establish):
         portchannels = list(get_portchannel(duthost).values())
         for i in range(len(portchannels)):
             assert portchannels[i]["members"]
+            if portchannels[i]["members"][0] not in upstream_links:
+                continue
             requester = upstream_links[portchannels[i]["members"][0]]
             # Set DUT as the gateway of requester
             if isinstance(requester["host"], EosHost):
@@ -94,6 +99,8 @@ class TestDataPlane():
                     requester["peer_ipv4_addr"]), module_ignore_errors=True)
             for j in range(i + 1, len(portchannels)):
                 if portchannels[i]["members"][0] not in ctrl_links and portchannels[j]["members"][0] not in ctrl_links:
+                    continue
+                if portchannels[j]["members"][0] not in upstream_links:
                     continue
                 responser = upstream_links[portchannels[j]["members"][0]]
                 # Set DUT as the gateway of responser

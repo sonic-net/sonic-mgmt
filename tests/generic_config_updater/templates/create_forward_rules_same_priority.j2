@@ -1,0 +1,38 @@
+[
+    {
+        "op": "add",
+        "path": "/ACL_RULE",
+        "value": {
+            "DYNAMIC_ACL_TABLE|RULE_1": {
+                "DST_IP": "{{ ipv4_subnet }}",
+                "PRIORITY": "900",
+                "PACKET_ACTION": "FORWARD"
+            },
+            "DYNAMIC_ACL_TABLE|RULE_2": {
+                "DST_IPV6": "{{ ipv6_subnet }}",
+                "PRIORITY": "900",
+                "PACKET_ACTION": "FORWARD"
+            },
+            "DYNAMIC_ACL_TABLE|RULE_4": {
+                "DST_IP": "{{ ipv4_subnet_2 }}",
+                "PRIORITY": "900",
+                "PACKET_ACTION": "FORWARD"
+            },
+            "DYNAMIC_ACL_TABLE|RULE_5": {
+                "DST_IPV6": "{{ ipv6_subnet_2 }}",
+                "PRIORITY": "900",
+                "PACKET_ACTION": "FORWARD"
+            },
+            "DYNAMIC_ACL_TABLE|RULE_6": {
+                "DST_IP": "{{ ipv4_subnet_3 }}",
+                "PRIORITY": "900",
+                "PACKET_ACTION": "FORWARD"
+            },
+            "DYNAMIC_ACL_TABLE|RULE_7": {
+                "DST_IPV6": "{{ ipv6_subnet_3 }}",
+                "PRIORITY": "900",
+                "PACKET_ACTION": "FORWARD"
+            }
+        }
+    }
+]

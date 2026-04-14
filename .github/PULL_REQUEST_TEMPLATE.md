@@ -26,17 +26,17 @@ Fixes # (issue)
 - [ ] Testbed and Framework(new/improvement)
 - [ ] New Test case
     - [ ] Skipped for non-supported platforms
-    - [ ] Add ownership [here](https://msazure.visualstudio.com/AzureWiki/_wiki/wikis/AzureWiki.wiki/744287/TSG-for-ownership-modification)(Microsft required only)
 - [ ] Test case improvement
 
 
 ### Back port request
-- [ ] 202012
 - [ ] 202205
 - [ ] 202305
 - [ ] 202311
 - [ ] 202405
 - [ ] 202411
+- [ ] 202505
+- [ ] 202511
 
 ### Approach
 #### What is the motivation for this PR?

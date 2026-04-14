@@ -78,7 +78,18 @@ def modify_templates(duthost, tacacs_creds, creds):     # noqa F811
                     additional_content, hwsku, type)
 
     # Backup and change /usr/share/sonic/templates/limits.conf.j2
-    additional_content = "{0}  hard  maxlogins  1".format(user)
+
+    # Starting with PAM 1.7.0 (present in Debian Trixie and newer), the
+    # pam_limits module is relying on systemd-logind for limiting logins.
+    # However, one of the sessions is used as a systemd manager session,
+    # so the actual count needs to be one higher. This is described a bit
+    # in the commit below:
+    #
+    # https://github.com/linux-pam/linux-pam/commit/f5db2603d2ce80a610a247e06bdd49c4eb091a7d#diff-f454153035e14468d4263c7bc9b85ec0e192be1d16080b65ae4974a74846de25R282-R288
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("sonic_os_version") >= 13:
+        additional_content = "{0}  hard  maxlogins  2".format(user)
+    else:
+        additional_content = "{0}  hard  maxlogins  1".format(user)
     modify_template(admin_session, LIMITS_CONF_TEMPLATE_PATH,
                     additional_content, hwsku, type)
 
@@ -169,7 +180,7 @@ def test_ssh_limits(duthosts, rand_one_dut_hostname, tacacs_creds, setup_limit):
 
     logging.debug("Login session 1 result:\n{0}\n".format(login_message_1))
     pytest_assert("There were too many logins for" not in login_message_1,
-                  "The first login was rejected due to too many logins")
+                  "The first login was unexpectedly rejected due to too many logins")
 
     # The second session will be disconnect by device
     ssh_session_2 = paramiko_ssh(dut_ip, local_user, local_user_password)

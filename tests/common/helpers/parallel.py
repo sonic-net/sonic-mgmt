@@ -1,20 +1,71 @@
+import ansible
 import datetime
 import logging
 import math
 import os
 import shutil
-import tempfile
 import signal
-import traceback
+import tempfile
+import threading
 import time
-
+import traceback
 from multiprocessing import Process, Manager, Pipe, TimeoutError
 from multiprocessing.pool import ThreadPool
+from ansible.executor.process.worker import WorkerProcess
+
 from psutil import wait_procs
 
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
+
+
+def patch_ansible_worker_process():
+    """Patch AnsibleWorkerProcess to avoid logging deadlock after fork."""
+
+    def start(self):
+        self._save_stdin()
+        try:
+            return super(WorkerProcess, self).start()
+        finally:
+            self._new_stdin.close()
+
+    WorkerProcess.start = start
+
+
+# NOTE: https://github.com/google/python-atfork/blob/main/atfork/stdlib_fixer.py
+# This is to avoid any deadlock issues with logging module after fork.
+_forked_handlers = set()
+_forked_handlers_lock = threading.Lock()
+os.register_at_fork(before=logging._acquireLock,
+                    after_in_parent=logging._releaseLock,
+                    after_in_child=logging._lock._at_fork_reinit)
+display = ansible.utils.display.Display()
+os.register_at_fork(before=display._lock.acquire,
+                    after_in_parent=display._lock.release,
+                    after_in_child=display._lock._at_fork_reinit)
+
+
+def fix_logging_handler_fork_lock():
+    """Prevent logging handlers from deadlocking after fork."""
+    # Collect all loggers including root
+    loggers = [logging.getLogger()] + list(logging.Logger.manager.loggerDict.values())
+    handlers = set()
+    for logger in loggers:
+        if hasattr(logger, 'handlers'):
+            handlers.update(logger.handlers)
+    for handler in handlers:
+        new_handlers = []
+        with _forked_handlers_lock:
+            if handler not in _forked_handlers and handler.lock is not None:
+                os.register_at_fork(before=handler.lock.acquire,
+                                    after_in_parent=handler.lock.release,
+                                    after_in_child=handler.lock._at_fork_reinit)
+                new_handlers.append(handler)
+                _forked_handlers.add(handler)
+
+        if new_handlers:
+            logging.debug("Add handler %s to forked handlers list", new_handlers)
 
 
 class SonicProcess(Process):
@@ -27,8 +78,9 @@ class SonicProcess(Process):
     """
     def __init__(self, *args, **kwargs):
         Process.__init__(self, *args, **kwargs)
-        self._pconn, self._cconn = Pipe()
+        self._pconn, self._cconn = Pipe(duplex=False)  # unidirectional: child_conn can send, parent_conn can recv
         self._exception = None
+        self._exception_read = False  # Flag to track read status
 
     def run(self):
         try:
@@ -38,6 +90,8 @@ class SonicProcess(Process):
             tb = traceback.format_exc()
             self._cconn.send((e, tb))
             raise e
+        finally:
+            self._cconn.close()  # Close the child-side pipe
 
     # for wait_procs
     def wait(self, timeout):
@@ -49,8 +103,16 @@ class SonicProcess(Process):
 
     @property
     def exception(self):
-        if self._pconn.poll():
-            self._exception = self._pconn.recv()
+        """Read exception data once and close parent-side pipe."""
+        if not self._exception_read:
+            try:
+                if self._pconn.poll():
+                    self._exception = self._pconn.recv()
+            except (EOFError, OSError):
+                pass
+            finally:
+                self._pconn.close()
+                self._exception_read = True
         return self._exception
 
 
@@ -83,7 +145,7 @@ def parallel_run(
     # Callback API for wait_procs
     def on_terminate(worker):
         logger.info("process {} terminated with exit code {}".format(
-            worker.name, worker.returncode)
+            worker.name, worker.exitcode)
         )
 
     def force_terminate(workers, init_result):
@@ -125,6 +187,10 @@ def parallel_run(
     ) if timeout else None
     failed_processes = {}
 
+    # Before spawning the child process, ensure current thread is
+    # holding the logging handler locks to avoid deadlock in child process.
+    fix_logging_handler_fork_lock()
+
     while tasks_done < total_tasks:
         # If execution time of processes exceeds timeout, need to force
         # terminate them all.
@@ -162,6 +228,19 @@ def parallel_run(
             len(gone), len(alive)
         ))
 
+        # Sometimes the child processes finished run but still alive, causing exception hidden.
+        # It mainly caused by child processes hang on send() if parent doesn't read from the pipe.
+        # Therefore, explicitly check the processes exception to prevent any error miss.
+        logger.info("Force read exception regardless of whether the process exited normally.")
+        for worker in gone + alive:
+            worker_exception = worker.exception  # Force-read to prevent pipe hangs
+            if worker_exception is not None:
+                logger.info(f"Process {worker.name} has exception, is_alive={worker.is_running()}, record the error.")
+                failed_processes[worker.name] = {
+                    'exit_code': worker.exitcode,
+                    'exception': worker_exception
+                }
+
         if len(gone) == 0:
             logger.debug("all processes have timedout")
             tasks_running -= len(workers)
@@ -171,13 +250,6 @@ def parallel_run(
         else:
             tasks_running -= len(gone)
             tasks_done += len(gone)
-
-        # check if we have any processes that failed - have exitcode non-zero
-        for worker in gone:
-            if worker.exitcode != 0:
-                failed_processes[worker.name] = {}
-                failed_processes[worker.name]['exit_code'] = worker.exitcode
-                failed_processes[worker.name]['exception'] = worker.exception
 
     # In case of timeout force terminate spawned processes
     for worker in workers:
@@ -211,12 +283,15 @@ def parallel_run(
                 p_exception = process['exception'][0]
                 p_traceback = process['exception'][1]
                 p_exitcode = process['exit_code']
-            pt_assert(
-                False,
-                'Processes "{}" failed with exit code "{}"\nException:\n{}\nTraceback:\n{}'.format(
-                    list(failed_processes.keys()), p_exitcode, p_exception, p_traceback
+            # For analyzed matched syslog, don't need to log the traceback
+            if "analyze_logs" in process_name and "Match Messages" in str(p_exception):
+                failure_message = 'Got matched syslog in processes "{}" exit code:"{}"\n{}'.format(
+                    process_name, p_exitcode, p_exception
                 )
-            )
+            else:
+                failure_message = 'Processes "{}" failed with exit code "{}"\nException:\n{}\nTraceback:\n{}'.format(
+                    list(failed_processes.keys()), p_exitcode, p_exception, p_traceback)
+            pt_assert(False, failure_message)
 
     logger.info(
         'Completed running processes for target "{}" in {} seconds'.format(
@@ -239,13 +314,20 @@ def reset_ansible_local_tmp(target):
         # Reset the ansible default local tmp directory for the current subprocess
         # Otherwise, multiple processes could share a same ansible default tmp directory and there could be conflicts
         from ansible import constants
+        original_default_local_tmp = constants.DEFAULT_LOCAL_TMP
         prefix = 'ansible-local-{}'.format(os.getpid())
         constants.DEFAULT_LOCAL_TMP = tempfile.mkdtemp(prefix=prefix)
+        logger.info(f"Change ansible local tmp directory from {original_default_local_tmp}"
+                    f" to {constants.DEFAULT_LOCAL_TMP}")
         try:
             target(*args, **kwargs)
         finally:
             # User of tempfile.mkdtemp need to take care of cleaning up.
             shutil.rmtree(constants.DEFAULT_LOCAL_TMP)
+            # in case the there's other ansible module calls after the reset_ansible_local_tmp
+            # in the same process, we need to restore back by default to avoid conflicts
+            constants.DEFAULT_LOCAL_TMP = original_default_local_tmp
+            logger.info(f"Restored ansible default local tmp directory to: {original_default_local_tmp}")
 
     wrapper.__name__ = target.__name__
 

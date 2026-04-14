@@ -42,7 +42,7 @@ IGNORE_REG_LIST = [
 if sys.version_info.major >= 3:
     UNICODE_TYPE = str
 else:
-    UNICODE_TYPE = unicode      # noqa F821
+    UNICODE_TYPE = unicode      # noqa:F821
 
 
 def get_vlan_info(intf):
@@ -149,7 +149,7 @@ def vlan_interface_tc1_add_duplicate(duthost, vlan_info):
             "value": {}
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     logger.info("json patch {}".format(json_patch))
 
@@ -235,7 +235,7 @@ def vlan_interface_tc1_xfail(duthost, vlan_info):
                 "value": {}
             }
         ]
-        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+        json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
         tmpfile = generate_tmpfile(duthost)
         logger.info("tmpfile {}".format(tmpfile))
@@ -307,7 +307,7 @@ def vlan_interface_tc1_add_new(duthost):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -366,7 +366,7 @@ def vlan_interface_tc1_replace(duthost, vlan_info):
             "value": {}
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -392,7 +392,7 @@ def vlan_interface_tc1_remove(duthost, vlan_info):
             "path": "/VLAN_INTERFACE"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -414,8 +414,13 @@ def vlan_interface_tc1_remove(duthost, vlan_info):
 
 
 def test_vlan_interface_tc1_suite(rand_selected_dut, vlan_info, loganalyzer, tbinfo, duthost):
-    if tbinfo["topo"]["name"] == "m0-2vlan" and loganalyzer:
-        loganalyzer[duthost.hostname].ignore_regex.extend(IGNORE_REG_LIST)
+    if loganalyzer:
+        if tbinfo["topo"]["name"] == "m0-2vlan":
+            loganalyzer[rand_selected_dut.hostname].ignore_regex.extend(IGNORE_REG_LIST)
+        loganalyzer[rand_selected_dut.hostname].ignore_regex.extend([
+            ".*ERR GenericConfigUpdater: Change Applier: service invoked: "
+            "generic_config_updater.services_validator.vlanintf_validator failed.*"
+        ])
     vlan_interface_tc1_add_duplicate(rand_selected_dut, vlan_info)
     vlan_interface_tc1_xfail(rand_selected_dut, vlan_info)
     vlan_interface_tc1_add_new(rand_selected_dut)
@@ -436,7 +441,7 @@ def test_vlan_interface_tc2_incremental_change(rand_selected_dut):
             "value": "incremental test for Vlan{}".format(EXIST_VLAN_ID)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=json_patch)
+    json_patch = format_json_patch_for_multiasic(duthost=rand_selected_dut, json_data=json_patch, is_asic_specific=True)
 
     tmpfile = generate_tmpfile(rand_selected_dut)
     logger.info("tmpfile {}".format(tmpfile))

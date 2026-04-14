@@ -3,14 +3,14 @@ import pytest
 import time
 import re
 
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa F401
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa F401
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa: F401
 
 from tests.common.plugins.loganalyzer import DisableLogrotateCronContext
 from tests.common.helpers.pfcwd_helper import send_background_traffic
-
+from tests.common import config_reload
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -26,24 +26,6 @@ def pfc_queue_idx(pfcwd_timer_setup_restore):
     # This is used by the common code, this needs to be defined
     # before using start_background_traffic() fixture.
     yield pfcwd_timer_setup_restore['storm_handle'].pfc_queue_idx
-
-
-@pytest.fixture(scope='module')
-def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname, core_dump_and_config_check):
-    """
-    Fixture that stops PFC Watchdog before each test run
-
-    Args:
-        duthost (AnsibleHost): DUT instance
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    logger.info("--- Stop Pfcwd --")
-    duthost.command("pfcwd stop")
-
-    yield
-
-    logger.info("--- Start Pfcwd --")
-    duthost.command("pfcwd start_default")
 
 
 @pytest.fixture(autouse=True)
@@ -68,8 +50,8 @@ def ignore_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_hostname, log
 
 
 @pytest.fixture(scope='module', autouse=True)
-def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,        # noqa F811
-                              enum_rand_one_per_hwsku_frontend_hostname, fanouthosts, stop_pfcwd):
+def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,        # noqa: F811
+                              enum_rand_one_per_hwsku_frontend_hostname, fanouthosts):
     """
     Fixture that inits the test vars, start PFCwd on ports and cleans up after the test run
 
@@ -118,6 +100,8 @@ def pfcwd_timer_setup_restore(setup_pfc_test, enum_fanout_graph_facts, duthosts,
            }
 
     logger.info("--- Pfcwd timer test cleanup ---")
+    # clear pfcwd stats and reset to default for next run
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
     dut.iptables(table="nat", flush="yes")
     dut.sysctl(name="net.ipv4.conf.eth0.route_localnet", value=0, sysctl_set=True)
     storm_handle.stop_storm()
@@ -191,7 +175,7 @@ class TestPfcwdAllTimer(object):
         test_ports_info = setup_info['test_ports']
         queues = [self.storm_handle.pfc_queue_idx]
 
-        with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info):
+        with send_background_traffic(self.dut, self.ptf, queues, selected_test_ports, test_ports_info, pkt_count=500):
             self.storm_handle.start_storm()
             logger.info("Wait for queue to recover from PFC storm")
             time.sleep(32)
@@ -287,6 +271,22 @@ class TestPfcwdAllTimer(object):
                     )
                     break
 
+        # Validate that we have enough samples before accessing list by index
+        # If more than half of iterations failed to collect timestamps, fail with a clear message
+        required_samples = check_point + 1
+        detect_count = len(self.all_detect_time)
+        restore_count = len(self.all_restore_time)
+        if detect_count < required_samples or restore_count < required_samples:
+            detect_failures = ITERATION_NUM - detect_count
+            restore_failures = ITERATION_NUM - restore_count
+            pytest.fail(
+                "Too many iterations failed to collect PFCWD timestamps. "
+                "Detect time samples: {}/{} (failures: {}), Restore time samples: {}/{} (failures: {}). "
+                "Required at least {} samples. This may indicate environment or timing issues.".format(
+                    detect_count, ITERATION_NUM, detect_failures,
+                    restore_count, ITERATION_NUM, restore_failures,
+                    required_samples))
+
         err_msg = ("Real detection time is greater than configured: Real detect time: {} "
                    "Expected: {} (wd_detect_time + wd_poll_time)".format(self.all_detect_time[check_point],
                                                                          config_detect_time))
@@ -350,21 +350,18 @@ class TestPfcwdAllTimer(object):
             syslog_msg = self.dut.shell(cmd)['stdout']
 
             # Regular expressions for the two timestamp formats
-            regex1 = re.compile(r'^[A-Za-z]{3} \d{2} \d{2}:\d{2}:\d{2}\.\d{6}')
-            regex2 = re.compile(r'^\d{4} [A-Za-z]{3} \d{2} \d{2}:\d{2}:\d{2}\.\d{6}')
-
-            if regex1.match(syslog_msg):
-                timestamp = syslog_msg.replace('  ', ' ').split(' ')[2]
-            elif regex2.match(syslog_msg):
-                timestamp = syslog_msg.replace('  ', ' ').split(' ')[3]
+            regex = re.compile(r'\b[A-Za-z]{3}\s{1,2}\d{1,2} \d{2}:\d{2}:\d{2}\.\d{6}\b')
+            search_string = regex.search(syslog_msg)
+            if search_string:
+                timestamp = search_string.group()
             else:
-                logger.warning("Get {} timestamp: Unexpected syslog message format".format(syslog_msg))
+                logger.warning("Get timestamp: Unexpected syslog message format, syslog_msg {}".format(syslog_msg))
                 return int(0)
 
-            timestamp_ms = self.dut.shell("date -d {} +%s%3N".format(timestamp))['stdout']
+            timestamp_ms = self.dut.shell("date -d '{}' +%s%3N".format(timestamp))['stdout']
             return int(timestamp_ms)
         except Exception as e:
-            logger.warning("Get {} timestamp: An unexpected error occurred: {}".format(pattern, str(e)))
+            logger.warning("Get timestamp: An unexpected error occurred: pattern {} err {}".format(pattern, str(e)))
             return int(0)
 
     def test_pfcwd_timer_accuracy(self, duthosts, ptfhost, enum_rand_one_per_hwsku_frontend_hostname,

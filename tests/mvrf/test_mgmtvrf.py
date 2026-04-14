@@ -7,9 +7,10 @@ from tests.common import reboot
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.ntp_helper import NtpDaemon, ntp_daemon_in_use, setup_ntp_context   # noqa: F401
 from tests.common.helpers.snmp_helpers import get_snmp_facts
-from pkg_resources import parse_version
 from tests.common.devices.ptf import PTFHost
+from tests.common.fixtures.duthost_utils import duthosts_ipv4_mgmt_only    # noqa: F401
 
 pytestmark = [
     pytest.mark.topology("any")
@@ -47,20 +48,76 @@ def check_ntp_sync(duthosts, rand_one_dut_hostname):
     return ntp_stat
 
 
+@pytest.fixture(scope="module")
+def backup_config_db(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Backup the original config_db without mgmt vrf config
+    duthost.command("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
+
+
+def configure_tacacs_for_mgmt_vrf(duthost):
+    """Re-add existing TACACS+ servers with mgmt VRF binding.
+    """
+
+    config_facts = duthost.config_facts(
+        host=duthost.hostname, source="running")['ansible_facts']
+    tacacs_servers = config_facts.get('TACPLUS_SERVER', {})
+    if not tacacs_servers:
+        logger.info("No TACACS+ servers configured, skipping mgmt VRF update")
+        return
+
+    for server_ip, server_cfg in tacacs_servers.items():
+        if server_cfg.get('vrf') == 'mgmt':
+            logger.info("TACACS+ server %s already has vrf=mgmt, skipping", server_ip)
+            continue
+
+        logger.info("Updating TACACS+ server %s to use mgmt VRF", server_ip)
+        duthost.shell("sudo config tacacs delete %s" % server_ip)
+
+        add_cmd = "sudo config tacacs add %s -m" % server_ip
+        if server_cfg.get('tcp_port'):
+            add_cmd += " --port %s" % server_cfg['tcp_port']
+        if server_cfg.get('timeout'):
+            add_cmd += " --timeout %s" % server_cfg['timeout']
+        if server_cfg.get('passkey'):
+            add_cmd += " --key %s" % server_cfg['passkey']
+        if server_cfg.get('auth_type'):
+            add_cmd += " --auth_type %s" % server_cfg['auth_type']
+        if server_cfg.get('priority'):
+            add_cmd += " --pri %s" % server_cfg['priority']
+
+        duthost.shell(add_cmd)
+
+    logger.info("TACACS+ servers updated for mgmt VRF: %s", list(tacacs_servers.keys()))
+
+
 @pytest.fixture(scope="module", autouse=True)
-def setup_mvrf(duthosts, rand_one_dut_hostname, localhost, check_ntp_sync):
+def setup_mvrf(duthosts, rand_one_dut_hostname, localhost, check_ntp_sync,
+               backup_config_db, duthosts_ipv4_mgmt_only):  # noqa F811
     """
     Setup Management vrf configs before the start of testsuite
     """
     duthost = duthosts[rand_one_dut_hostname]
-    # Backup the original config_db without mgmt vrf config
-    duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
     try:
         logger.info("Configure mgmt vrf")
         duthost.command("sudo config vrf add mgmt", module_async=True)
         time.sleep(5)
+        logger.info("Configure snmpagentaddress with mgmt-vrf")
+        duthost.command("sudo config snmpagentaddress del %s -p 161" % duthost.mgmt_ip, module_async=True)
+        time.sleep(15)
+        duthost.command("sudo config snmpagentaddress add %s -p 161 -v mgmt" % duthost.mgmt_ip, module_async=True)
+        time.sleep(15)
         verify_show_command(duthost, mvrf=True)
+
+        # After mgmt VRF is enabled, eth0 moves into the mgmt VRF.
+        # Existing TACACS+ servers in config_db were added without vrf=mgmt,
+        # so tacplus will try to reach them via the default
+        # VRF where no route exists anymore.  Re-add each server with -m so
+        # that the vrf=mgmt is added to tacplus config files and TACACS+
+        # auth works over the management VRF.
+        configure_tacacs_for_mgmt_vrf(duthost)
     except Exception as e:
         logger.error("Exception raised in setup, exception: {}".format(repr(e)))
         restore_config_db(duthost)
@@ -73,6 +130,11 @@ def setup_mvrf(duthosts, rand_one_dut_hostname, localhost, check_ntp_sync):
         logger.info("Unconfigure  mgmt vrf")
         duthost.shell("sudo config vrf del mgmt", module_async=True)
         time.sleep(5)
+        logger.info("Configure snmpagentaddress without mgmt-vrf")
+        duthost.command("sudo config snmpagentaddress del %s -p 161 -v mgmt" % duthost.mgmt_ip, module_async=True)
+        time.sleep(15)
+        duthost.command("sudo config snmpagentaddress add %s -p 161" % duthost.mgmt_ip, module_async=True)
+        time.sleep(15)
 
         localhost.wait_for(host=duthost.mgmt_ip,
                            port=SONIC_SSH_PORT,
@@ -117,8 +179,11 @@ def change_critical_services(duthosts, rand_one_dut_hostname):
     duthost.reset_critical_services_tracking_list(backup)
 
 
-def check_ntp_status(host):
-    ntpstat_cmd = 'ntpstat'
+def check_ntp_status(host, ntp_daemon_in_use):  # noqa: F811
+    if ntp_daemon_in_use == NtpDaemon.CHRONY:
+        ntpstat_cmd = "chronyc -c tracking"
+    else:
+        ntpstat_cmd = "ntpstat"
     if isinstance(host, PTFHost):
         res = host.command(ntpstat_cmd, module_ignore_errors=True)
     else:
@@ -148,27 +213,9 @@ def execute_dut_command(duthost, command, mvrf=True, ignore_errors=False):
     result = {}
     prefix = ""
     if mvrf:
-        dut_kernel = duthost.shell("cat /proc/version | awk '{ print $3 }' | cut -d '-' -f 1")["stdout"]
-        if parse_version(dut_kernel) > parse_version("4.9.0"):
-            prefix = "sudo ip vrf exec mgmt "
-        else:
-            prefix = "sudo cgexec -g l3mdev:mgmt "
+        prefix = "sudo ip vrf exec mgmt "
     result = duthost.command(prefix + command, module_ignore_errors=ignore_errors)
     return result
-
-
-def setup_ntp(ptfhost, duthost, ntp_servers):
-    """setup ntp client and server"""
-    ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
-    # restart ntp server
-    ntp_en_res = ptfhost.service(name="ntp", state="restarted")
-    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost),
-                  "NTP server was not started in PTF container {}; NTP service start result {}"
-                  .format(ptfhost.hostname, ntp_en_res))
-    # setup ntp on dut to sync with ntp server
-    for ntp_server in ntp_servers:
-        duthost.command("config ntp del %s" % ntp_server)
-    duthost.command("config ntp add %s" % ptfhost.mgmt_ip)
 
 
 class TestMvrfInbound():
@@ -223,26 +270,15 @@ class TestMvrfOutbound():
 
 class TestServices():
     @pytest.mark.usefixtures("ntp_teardown")
-    def test_ntp(self, duthosts, rand_one_dut_hostname, ptfhost, check_ntp_sync, ntp_servers):
+    def test_ntp(self, duthosts, rand_one_dut_hostname, ptfhost, check_ntp_sync,
+                 ntp_servers, ntp_daemon_in_use):  # noqa: F811
         duthost = duthosts[rand_one_dut_hostname]
         # Check if ntp was not in sync with ntp server before enabling mvrf, if yes then setup ntp server on ptf
         if check_ntp_sync:
-            setup_ntp(ptfhost, duthost, ntp_servers)
-
-        # There is no entry ntp in `/etc/passwd` on kvm testbed.
-        cmd = "getent passwd ntp"
-        ntp_uid_output = duthost.command(cmd, module_ignore_errors=True)
-        if duthost.facts["asic_type"] == "vs" and ntp_uid_output['rc'] == 2:
-            return
-        assert ntp_uid_output['rc'] == 0, "Run command '{}' failed".format(cmd)
-        ntp_uid = ":".join(ntp_uid_output['stdout'].split(':')[2:4])
-
-        force_ntp = "timeout 20 ntpd -gq -u {}".format(ntp_uid)
-        duthost.service(name="ntp", state="stopped")
-        logger.info("Ntp restart in mgmt vrf")
-        execute_dut_command(duthost, force_ntp)
-        duthost.service(name="ntp", state="restarted")
-        pytest_assert(wait_until(400, 10, 0, check_ntp_status, duthost), "Ntp not started")
+            with setup_ntp_context(ptfhost, duthost, False):
+                pytest_assert(wait_until(400, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use), "Ntp not started")
+        else:
+            pytest_assert(wait_until(400, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use), "Ntp not started")
 
     def test_service_acl(self, duthosts, rand_one_dut_hostname, localhost):
         duthost = duthosts[rand_one_dut_hostname]

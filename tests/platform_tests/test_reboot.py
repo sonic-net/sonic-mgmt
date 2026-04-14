@@ -10,9 +10,10 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 import logging
 import pytest
 
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
+from tests.common.fixtures.grpc_fixtures import gnmi_tls  # noqa: F401
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
-from tests.common.reboot import sync_reboot_history_queue_with_dut, reboot, check_reboot_cause,\
+from tests.common.reboot import check_reboot_cause,\
     check_reboot_cause_history, check_determine_reboot_cause_service, reboot_ctrl_dict,\
     wait_for_startup, REBOOT_TYPE_HISTOYR_QUEUE, REBOOT_TYPE_COLD,\
     REBOOT_TYPE_SOFT, REBOOT_TYPE_FAST, REBOOT_TYPE_WARM, REBOOT_TYPE_WATCHDOG
@@ -21,6 +22,7 @@ from tests.common.platform.interface_utils import check_all_interface_informatio
 from tests.common.platform.daemon_utils import check_pmon_daemon_status
 from tests.common.platform.processes_utils import wait_critical_processes, check_critical_processes
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.platform.reboot_utils import reboot_and_check as _reboot_and_check
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
@@ -30,6 +32,11 @@ pytestmark = [
 
 MAX_WAIT_TIME_FOR_INTERFACES = 300
 MAX_WAIT_TIME_FOR_REBOOT_CAUSE = 120
+
+
+@pytest.fixture(params=["gnoi_based", "cli_based"])
+def invocation_type(request):
+    return request.param
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -46,7 +53,7 @@ def set_max_time_for_interfaces(duthost):
 
 @pytest.fixture(scope="module", autouse=True)
 def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname,
-                    localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
+                    localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     yield
 
@@ -66,7 +73,7 @@ def teardown_module(duthosts, enum_rand_one_per_hwsku_hostname,
 
 def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
                      reboot_type=REBOOT_TYPE_COLD, reboot_helper=None,
-                     reboot_kwargs=None, duthosts=None):
+                     reboot_kwargs=None, duthosts=None, invocation_type="cli_based", ptf_gnoi=None):  # noqa: F811
     """
     Perform the specified type of reboot and check platform status.
     @param localhost: The Localhost object.
@@ -77,24 +84,13 @@ def reboot_and_check(localhost, dut, interfaces, xcvr_skip_list,
     @param reboot_helper: The helper function used only by power off reboot
     @param reboot_kwargs: The argument used by reboot_helper
     """
-
-    logging.info(
-        "Sync reboot cause history queue with DUT reboot cause history queue")
-    sync_reboot_history_queue_with_dut(dut)
-
-    logging.info("Run %s reboot on DUT" % reboot_type)
-    reboot(dut, localhost, reboot_type=reboot_type,
-           reboot_helper=reboot_helper, reboot_kwargs=reboot_kwargs)
-
-    # Append the last reboot type to the queue
-    logging.info("Append the latest reboot type to the queue")
-    REBOOT_TYPE_HISTOYR_QUEUE.append(reboot_type)
-
-    check_interfaces_and_services(dut, interfaces, xcvr_skip_list, reboot_type=reboot_type)
-    if dut.is_supervisor_node():
-        for lc in duthosts.frontend_nodes:
-            wait_for_startup(lc, localhost, delay=10, timeout=600)
-            check_interfaces_and_services(lc, interfaces, xcvr_skip_list)
+    _reboot_and_check(
+        localhost, dut, interfaces, xcvr_skip_list,
+        reboot_type=reboot_type, reboot_helper=reboot_helper,
+        reboot_kwargs=reboot_kwargs, duthosts=duthosts,
+        invocation_type=invocation_type, ptf_gnoi=ptf_gnoi,
+        interfaces_checker=check_interfaces_and_services,
+    )
 
 
 def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
@@ -180,17 +176,18 @@ def check_interfaces_and_services(dut, interfaces, xcvr_skip_list,
 
 
 def test_cold_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
+                     localhost, conn_graph_facts, xcvr_skip_list, invocation_type, gnmi_tls):      # noqa: F811
     """
     @summary: This test case is to perform cold reboot and check platform status
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     reboot_and_check(localhost, duthost, conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {}),
-                     xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthosts=duthosts)
+                     xcvr_skip_list, reboot_type=REBOOT_TYPE_COLD, duthosts=duthosts, invocation_type=invocation_type,
+                     ptf_gnoi=gnmi_tls.gnoi)
 
 
 def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
+                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
     """
     @summary: This test case is to perform soft reboot and check platform status
     """
@@ -211,7 +208,7 @@ def test_soft_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
+                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
     """
     @summary: This test case is to perform fast reboot and check platform status
     """
@@ -226,7 +223,7 @@ def test_fast_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa F811
+                     localhost, conn_graph_facts, xcvr_skip_list):      # noqa: F811
     """
     @summary: This test case is to perform warm reboot and check platform status
     """
@@ -249,7 +246,7 @@ def test_warm_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                         localhost, conn_graph_facts, xcvr_skip_list, tbinfo):      # noqa F811
+                         localhost, conn_graph_facts, xcvr_skip_list, tbinfo):      # noqa: F811
     """
     @summary: This test case is to perform reboot via watchdog and check platform status
     """
@@ -283,7 +280,7 @@ def test_watchdog_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_continuous_reboot(duthosts, enum_rand_one_per_hwsku_hostname,
-                           localhost, conn_graph_facts, xcvr_skip_list):        # noqa F811
+                           localhost, conn_graph_facts, xcvr_skip_list):        # noqa: F811
     """
     @summary: This test case is to perform 3 cold reboot in a row
     """

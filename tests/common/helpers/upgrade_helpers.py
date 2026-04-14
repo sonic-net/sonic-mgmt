@@ -1,25 +1,54 @@
 import pytest
 import logging
-import time
 import ipaddress
 import json
 import re
+from dataclasses import dataclass
 from six.moves.urllib.parse import urlparse
+import tests.common.fixtures.grpc_fixtures  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.reboot import get_reboot_cause, reboot_ctrl_dict
 from tests.common.reboot import REBOOT_TYPE_WARM, REBOOT_TYPE_COLD
+from tests.common.platform.reboot_utils import reboot_and_check
 from tests.common.utilities import wait_until, setup_ferret
 from tests.common.platform.device_utils import check_neighbors
-
+from typing import Optional, Sequence, Tuple, Union, Dict
 SYSTEM_STABILIZE_MAX_TIME = 300
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(scope="module")
+def xcvr_skip_list(duthosts):
+    """Return empty transceiver skip list per DUT. Shared across upgrade-related test suites."""
+    return {dut.hostname: [] for dut in duthosts}
+
 
 TMP_VLAN_PORTCHANNEL_FILE = '/tmp/portchannel_interfaces.json'
 TMP_VLAN_FILE = '/tmp/vlan_interfaces.json'
 TMP_PORTS_FILE = '/tmp/ports.json'
 TMP_PEER_INFO_FILE = "/tmp/peer_dev_info.json"
 TMP_PEER_PORT_INFO_FILE = "/tmp/neigh_port_info.json"
+SS_TARGET_TYPE_HDR = "x-sonic-ss-target-type"
+SS_TARGET_INDEX_HDR = "x-sonic-ss-target-index"
+
+GrpcMetadata = Union[Dict[str, str], Sequence[Tuple[str, str]]]
+
+
+@dataclass(frozen=True)
+class GnoiUpgradeConfig:
+    to_image: str
+    dut_image_path: str
+    upgrade_type: str
+    protocol: str = "HTTP"
+    allow_fail: bool = False
+    to_version: Optional[str] = None  # Optional expected version string to validate after upgrade
+    ss_target_type: Optional[str] = None   # e.g. "dpu"
+    ss_target_index: Optional[int] = None  # e.g. 3
+    metadata: Optional[GrpcMetadata] = None
+    ss_reboot_ready_timeout: int = 1200
+    ss_reboot_message: str = "Rebooting DPU for maintenance"
 
 
 def pytest_runtest_setup(item):
@@ -99,18 +128,17 @@ def install_sonic(duthost, image_url, tbinfo):
     return res['ansible_facts']['downloaded_image_version']
 
 
-def check_services(duthost):
+def check_services(duthost, tbinfo):
     """
     Perform a health check of services
     """
-    logging.info("Wait until DUT uptime reaches {}s".format(300))
-    while duthost.get_uptime().total_seconds() < 300:
-        time.sleep(1)
+    dut_min_uptime = 900 if 't2' in tbinfo['topo']['name'] else 300
     logging.info("Wait until all critical services are fully started")
-    logging.info("Check critical service status")
-    pytest_assert(duthost.critical_services_fully_started(), "dut.critical_services_fully_started is False")
+    pytest_assert(wait_until(dut_min_uptime, 30, 30, duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
 
-    for service in duthost.critical_services:
+    critical_services = [re.sub(r'(\d+)$', r'@\1', service) for service in duthost.critical_services]
+    for service in critical_services:
         status = duthost.get_service_props(service)
         pytest_assert(status["ActiveState"] == "active", "ActiveState of {} is {}, expected: active"
                       .format(service, status["ActiveState"]))
@@ -126,14 +154,21 @@ def check_reboot_cause(duthost, expected_cause):
 
 def check_copp_config(duthost):
     logging.info("Comparing CoPP configuration from copp_cfg.json to COPP_TABLE")
-    copp_tables = json.loads(duthost.shell("sonic-db-dump -n APPL_DB -k COPP_TABLE* -y")["stdout"])
-    copp_cfg = json.loads(duthost.shell("cat /etc/sonic/copp_cfg.json")["stdout"])
-    feature_status = duthost.shell("show feature status")["stdout"]
-    copp_tables_formatted = get_copp_table_formatted_dict(copp_tables)
-    copp_cfg_formatted = get_copp_cfg_formatted_dict(copp_cfg, feature_status)
-    pytest_assert(copp_tables_formatted == copp_cfg_formatted,
-                  "There is a difference between CoPP config and CoPP tables. CoPP config: {}\nCoPP tables:"
-                  " {}".format(copp_tables_formatted, copp_cfg_formatted))
+
+    if duthost.is_supervisor_node() and duthost.facts['switch_type'] == "fabric":
+        logging.info("Skipping CoPP config check for fabric (VoQ) supervisor card as it "
+                     "doesn't program CoPP tables into APPL_DB")
+        return
+
+    for asichost in duthost.asics:
+        copp_tables = json.loads(asichost.command("sonic-db-dump -n APPL_DB -k COPP_TABLE* -y")["stdout"])
+        copp_cfg = json.loads(duthost.shell("cat /etc/sonic/copp_cfg.json")["stdout"])
+        feature_status = duthost.shell("show feature status")["stdout"]
+        copp_tables_formatted = get_copp_table_formatted_dict(copp_tables)
+        copp_cfg_formatted = get_copp_cfg_formatted_dict(copp_cfg, feature_status)
+        pytest_assert(copp_tables_formatted == copp_cfg_formatted,
+                      "There is a difference between CoPP config and CoPP tables. CoPP config: {}\nCoPP tables: {}"
+                      .format(copp_tables_formatted, copp_cfg_formatted))
 
 
 def get_copp_table_formatted_dict(copp_tables):
@@ -176,7 +211,8 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
                         tbinfo, upgrade_type, get_advanced_reboot,
                         advanceboot_loganalyzer, modify_reboot_script=None, allow_fail=False,
                         sad_preboot_list=None, sad_inboot_list=None, reboot_count=1,
-                        enable_cpa=False, preboot_setup=None, postboot_setup=None):
+                        enable_cpa=False, preboot_setup=None, postboot_setup=None,
+                        consistency_checker_provider=None):
 
     reboot_type = get_reboot_command(duthost, upgrade_type)
     if enable_cpa and "warm-reboot" in reboot_type:
@@ -194,11 +230,12 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
     else:
         advancedReboot = get_advanced_reboot(rebootType=reboot_type,
                                              advanceboot_loganalyzer=advanceboot_loganalyzer,
+                                             consistency_checker_provider=consistency_checker_provider,
                                              allow_fail=allow_fail)
 
     for i in range(reboot_count):
         if upgrade_type == REBOOT_TYPE_COLD:
-            reboot(duthost, localhost)
+            reboot(duthost, localhost, safe_reboot=True)
             if postboot_setup:
                 postboot_setup()
         else:
@@ -213,7 +250,7 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
             pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
                           "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
                                                                                   upgrade_type))
-            check_services(duthost)
+            check_services(duthost, tbinfo)
             check_neighbors(duthost, tbinfo)
             check_copp_config(duthost)
 
@@ -223,8 +260,9 @@ def upgrade_test_helper(duthost, localhost, ptfhost, from_image, to_image,
 
 def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_advanced_reboot, upgrade_type,
                                        upgrade_path_urls, base_image_setup=None, pre_hop_setup=None,
-                                       post_hop_teardown=None, multihop_advanceboot_loganalyzer_factory=None,
-                                       enable_cpa=False):
+                                       post_hop_teardown=None, consistency_checker_provider=None,
+                                       multihop_advanceboot_loganalyzer_factory=None, sad_preboot_list=None,
+                                       sad_inboot_list=None, enable_cpa=False):
 
     reboot_type = get_reboot_command(duthost, upgrade_type)
     if enable_cpa and "warm-reboot" in reboot_type:
@@ -233,56 +271,231 @@ def multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost, tbinfo, get_
         ptf_ip = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
         reboot_type = reboot_type + " -c {}".format(ptf_ip)
 
-    advancedReboot = get_advanced_reboot(rebootType=reboot_type)
+    advancedReboot = get_advanced_reboot(rebootType=reboot_type,
+                                         consistency_checker_provider=consistency_checker_provider)
     advancedReboot.runMultiHopRebootTestcase(
         upgrade_path_urls, base_image_setup=base_image_setup, pre_hop_setup=pre_hop_setup,
         post_hop_teardown=post_hop_teardown,
-        multihop_advanceboot_loganalyzer_factory=multihop_advanceboot_loganalyzer_factory)
+        multihop_advanceboot_loganalyzer_factory=multihop_advanceboot_loganalyzer_factory,
+        prebootList=sad_preboot_list, inbootList=sad_inboot_list)
 
     if enable_cpa and "warm-reboot" in reboot_type:
         ptfhost.shell('supervisorctl stop ferret')
 
 
-def check_asic_and_db_consistency(pytest_config, duthost, consistency_checker_provider):
-    if not pytest_config.getoption("enable_consistency_checker"):
-        logger.info("Consistency checker is not enabled. Skipping check.")
-        return
+def _get_images_from_sonic_installer_list(duthost) -> Dict[str, Optional[str]]:
+    """
+    Run `sonic-installer list` and parse 'Current:' and 'Next:'.
 
-    os_version = duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
-    if not consistency_checker_provider.is_consistency_check_supported(duthost):
-        logger.info((f"Consistency check is not supported on this platform ({duthost.facts['platform']}) and "
-                     f"version ({os_version})"))
-        return
+    Returns:
+        {"current": <str or None>, "next": <str or None>}
+    """
+    res = duthost.shell("sonic-installer list", module_ignore_errors=True)
+    out = (res.get("stdout") or "").strip()
+    if res.get("rc", 1) != 0 or not out:
+        return {"current": None, "next": None}
 
-    consistency_checker_libsairedis_url_template = pytest_config.getoption(
-        "consistency_checker_libsairedis_url_template")
-    consistency_checker_python3_pysairedis_url_template = pytest_config.getoption(
-        "consistency_checker_python3_pysairedis_url_template")
+    current = None
+    next = None
 
-    if consistency_checker_libsairedis_url_template or consistency_checker_python3_pysairedis_url_template:
-        if "202305" in os_version:
-            sonic_version_template_param = "202305"
-        elif "202311" in os_version:
-            sonic_version_template_param = "202311"
-        else:
-            raise Exception(f"Unsupported OS version: {os_version}")
+    for line in out.splitlines():
+        line = line.strip()
+        m = re.match(r"^Current:\s*(.+?)\s*$", line)
+        if m:
+            current = m.group(1).strip()
+            continue
+        m = re.match(r"^Next:\s*(.+?)\s*$", line)
+        if m:
+            next = m.group(1).strip()
+            continue
 
-    libsairedis_download_url = consistency_checker_libsairedis_url_template\
-        .format(sonic_version=sonic_version_template_param)\
-        if consistency_checker_libsairedis_url_template else None
+    return {"current": current, "next": next}
 
-    python3_pysairedis_download_url = consistency_checker_python3_pysairedis_url_template\
-        .format(sonic_version=sonic_version_template_param)\
-        if consistency_checker_python3_pysairedis_url_template else None
 
-    with consistency_checker_provider.get_consistency_checker(duthost, libsairedis_download_url,
-                                                              python3_pysairedis_download_url) as consistency_checker:
-        keys = [
-            "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_POOL:*",
-            "ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:*",
-            "ASIC_STATE:SAI_OBJECT_TYPE_PORT:*",
-            "ASIC_STATE:SAI_OBJECT_TYPE_SWITCH:*",
-            "ASIC_STATE:SAI_OBJECT_TYPE_WRED:*",
-        ]
-        inconsistencies = consistency_checker.check_consistency(keys)
-        logger.warning(f"Found ASIC_DB and ASIC inconsistencies: {inconsistencies}")
+def perform_gnoi_upgrade(
+    ptf_gnoi,
+    duthost,
+    tbinfo,
+    cfg: GnoiUpgradeConfig,
+    cold_reboot_setup=None,
+    localhost=None,
+    conn_graph_facts=None,
+    xcvr_skip_list=None,
+    duthosts=None,
+):
+    """
+    gNOI-based upgrade helper using PtfGnoi high-level APIs (no raw call_unary in tests).
+
+    Flow:
+      1) preboot_setup (if provided)
+      2) File.TransferToRemote: download cfg.to_image -> cfg.dut_image_path on DUT
+      3) System.SetPackage: set package to cfg.dut_image_path
+      4) System.Reboot: trigger reboot (non-blocking; disconnect may occur)
+      5) Mimic upgrade_test_helper reboot verification:
+           networking_uptime -> timeout -> wait_until(check_reboot_cause)
+      6) Standard post-reboot checks:
+           check_services / check_neighbors / check_copp_config
+      7) Version validation:
+           assert expected_to_version appears in 'show version'
+    """
+    logger.info(
+        "gNOI upgrade: to_image=%s dut_image_path=%s upgrade_type=%s protocol=%s",
+        cfg.to_image, cfg.dut_image_path, cfg.upgrade_type, cfg.protocol
+    )
+
+    # ---- Input sanity ----
+    pytest_assert(ptf_gnoi is not None, "ptf_gnoi must be provided")
+    pytest_assert(duthost is not None, "duthost must be provided")
+    pytest_assert(tbinfo is not None, "tbinfo must be provided")
+    pytest_assert(cfg.to_image, "to_image must be provided")
+    pytest_assert(cfg.dut_image_path, "dut_image_path must be provided")
+    pytest_assert(cfg.upgrade_type, "upgrade_type must be provided")
+    gNOI_REBOOT_CAUSE_TIMEOUT = 5 * 60
+    # Map upgrade_type ("warm"/"cold") to gNOI enum token ("WARM"/"COLD")
+    # reboot_method = "WARM" if str(cfg.upgrade_type).lower() == "warm" else "COLD"
+    # ---- 1) pre-reboot setup ----
+    if cfg.upgrade_type == REBOOT_TYPE_COLD:
+        # advance-reboot test (on ptf) does not support cold reboot yet
+        if cold_reboot_setup:
+            cold_reboot_setup()
+    # ---- 2) TransferToRemote (via wrapper) ----
+    transfer_resp = ptf_gnoi.file_transfer_to_remote(
+        url=cfg.to_image,
+        local_path=cfg.dut_image_path,
+        protocol=cfg.protocol,
+    )
+    logger.info("TransferToRemote response: %s", transfer_resp)
+    pytest_assert(isinstance(transfer_resp, dict), "TransferToRemote did not return a JSON object")
+
+    # DUT-side validation: file exists and non-empty
+    res = duthost.shell(f"test -s {cfg.dut_image_path}", module_ignore_errors=True)
+    pytest_assert(res.get("rc", 1) == 0, f"Downloaded file not found or empty on DUT: {cfg.dut_image_path}")
+
+    # ---- 3) SetPackage (via wrapper) ----
+    setpkg_resp = ptf_gnoi.system_set_package(
+        local_path=cfg.dut_image_path,
+        version=cfg.to_version,
+        activate=True,
+    )
+    logger.info("SetPackage response: %s", setpkg_resp)
+    pytest_assert(isinstance(setpkg_resp, dict), "SetPackage did not return a JSON object")
+
+    pytest_assert(cfg.to_version, "cfg.to_version must be provided for validation")
+    # ---- 4) Reboot (via reboot_and_check) ----
+    pytest_assert(localhost is not None, "localhost must be provided for reboot_and_check")
+    pytest_assert(conn_graph_facts is not None, "conn_graph_facts must be provided for reboot_and_check")
+    pytest_assert(xcvr_skip_list is not None, "xcvr_skip_list must be provided for reboot_and_check")
+
+    interfaces = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
+    reboot_and_check(
+        localhost,
+        duthost,
+        interfaces,
+        xcvr_skip_list,
+        reboot_type=cfg.upgrade_type,
+        duthosts=duthosts,
+        invocation_type="gnoi_based",
+        ptf_gnoi=ptf_gnoi,
+    )
+
+    if cfg.allow_fail:
+        logger.warning("allow_fail=True: skipping reboot-cause/health/version validations")
+        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
+
+    # ---- 5) Reuse EXACT reboot-cause waiting pattern from upgrade_test_helper ----
+    logger.info("Check reboot cause. Expected cause %s", cfg.upgrade_type)
+
+    pytest_assert(
+        wait_until(gNOI_REBOOT_CAUSE_TIMEOUT, 10, 0, check_reboot_cause, duthost, cfg.upgrade_type),
+        "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost), cfg.upgrade_type)
+    )
+
+    # ---- 6) Standard post-reboot validations ----
+    check_services(duthost, tbinfo)
+    check_neighbors(duthost, tbinfo)
+    check_copp_config(duthost)
+
+    # ---- 7) Version validation ----
+    images = _get_images_from_sonic_installer_list(duthost)
+    logger.info("sonic-installer list parsed: %s", images)
+    pytest_assert(
+        images.get("current") == cfg.to_version,
+        f"Current image mismatch after reboot. current={images.get('current')} expected={cfg.to_version}. full={images}"
+    )
+
+    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp}
+
+
+def _wait_gnoi_time_ready(ptf_gnoi, metadata, cfg: GnoiUpgradeConfig, timeout=None, interval: int = 10) -> bool:
+    timeout = timeout or cfg.ss_reboot_ready_timeout
+    return wait_until(timeout, interval, 0, ptf_gnoi.system_time, metadata=metadata)
+
+
+def _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
+    if cfg.metadata is None:
+        raise ValueError("cfg.metadata must be provided for SmartSwitch DPU upgrade")
+
+    md = cfg.metadata
+
+    ptf_gnoi.system_time(metadata=md)
+
+    transfer_resp = ptf_gnoi.file_transfer_to_remote(
+        url=cfg.to_image,
+        local_path=cfg.dut_image_path,
+        protocol=cfg.protocol,
+        metadata=md,
+    )
+
+    setpkg_resp = ptf_gnoi.system_set_package(
+        local_path=cfg.dut_image_path,
+        version=cfg.to_version,
+        activate=True,
+        metadata=md,
+    )
+
+    method = str(cfg.upgrade_type).upper()
+    try:
+        reboot_resp = ptf_gnoi.system_reboot(
+            method=method,
+            delay=0,
+            message=cfg.ss_reboot_message,
+            metadata=md,
+        )
+    except Exception as e:
+        logger.info("Reboot raised (often expected): %s", e)
+        reboot_resp = None
+
+    if cfg.allow_fail:
+        return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
+
+    ok = _wait_gnoi_time_ready(ptf_gnoi, md, cfg)
+    pytest_assert(ok, f"gNOI Time not reachable within {cfg.ss_reboot_ready_timeout}s after reboot")
+
+    return {"transfer_resp": transfer_resp, "setpkg_resp": setpkg_resp, "reboot_resp": reboot_resp}
+
+
+def perform_gnoi_upgrade_smartswitch_dpu(duthost, tbinfo, ptf_gnoi, cfg: GnoiUpgradeConfig) -> Dict:
+    return _upgrade_one_dpu_via_gnoi(duthost, tbinfo, ptf_gnoi, cfg)
+
+
+def perform_gnoi_upgrade_smartswitch_dpus_parallel(
+    duthost, tbinfo,
+    ptf_gnoi,
+    cfgs: Sequence[GnoiUpgradeConfig],
+    max_workers: Optional[int] = None,
+) -> Dict[int, Dict]:
+    if not cfgs:
+        raise ValueError("cfgs is empty")
+
+    workers = max_workers or len(cfgs)
+    results: Dict[int, Dict] = {}
+
+    with SafeThreadPoolExecutor(max_workers=workers) as executor:
+        futs = {}
+        for i, cfg in enumerate(cfgs):
+            futs[i] = executor.submit(_upgrade_one_dpu_via_gnoi, duthost, tbinfo, ptf_gnoi, cfg)
+
+        for i, fut in futs.items():
+            results[i] = fut.get()
+
+    return results

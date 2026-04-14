@@ -3,6 +3,7 @@ import logging
 import pytest
 import paramiko
 import time
+from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.tacacs.tacacs_helper import start_tacacs_server
 from tests.common.utilities import wait_until, paramiko_ssh
@@ -40,7 +41,7 @@ def check_server_received(ptfhost, data, timeout=30):
                 In above log, the 'data[140] = 0xf8' is received data.
 
             2. Following sed command will extract the received data from tac_plus.log:
-                    sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log     # noqa W605
+                    sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log     # noqa: W605
 
             3. Following set command will join all received data to hex string:
                     sed ':a; N; $!ba; s/\\n//g'
@@ -52,7 +53,7 @@ def check_server_received(ptfhost, data, timeout=30):
             W605 : Invalid escape sequence. Flake8 can't handle sed command escape sequence, so will report false alert.
             E501 : Line too long. Following sed command difficult to split to multiple line.
     """
-    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)   # noqa W605 E501
+    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g' | grep '{0}'".format(hex_string)   # noqa: W605 E501
 
     # After tacplus service receive data, it need take some time to update to log file.
     def log_exist(ptfhost, sed_command):
@@ -66,8 +67,8 @@ def check_server_received(ptfhost, data, timeout=30):
 
 
 def get_auditd_config_reload_timestamp(duthost):
-    res = duthost.shell("sudo journalctl -u auditd --boot --no-pager | grep 'audisp-tacplus re-initializing configuration'") # noqa E501
-    logger.info("aaa config file timestamp {}".format(res["stdout_lines"]))
+    res = duthost.shell("sudo journalctl -u auditd --boot --no-pager | grep 'audisp-tacplus re-initializing configuration'", module_ignore_errors=True)  # noqa: E501
+    logger.info("aaa config file timestamp {}".format(res))
 
     if len(res["stdout_lines"]) == 0:
         return ""
@@ -85,15 +86,34 @@ def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, tim
     # Wait auditd reload config finish
     def log_exist(duthost):
         latest_timestamp = get_auditd_config_reload_timestamp(duthost)
-        return latest_timestamp != last_timestamp
+        reload = latest_timestamp != last_timestamp
+        if not reload:
+            # Send the HUP signal to auditd-tacplus to trigger a config reload
+            duthost.shell("sudo kill -1 $(pidof audisp-tacplus)")
+        return reload
 
     exist = wait_until(timeout, 1, 0, log_exist, duthost)
+    if exist:
+        # audisp-tacplus logs "re-initializing configuration" when re-init STARTS, not FINISHES.
+        # Wait for it to complete reconnection to auditd before proceeding.
+        time.sleep(3)
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))
 
 
-def ssh_run_command(ssh_client, command):
+def ssh_run_command(ssh_client, command, expect_exit_code=0, verify=False):
     stdin, stdout, stderr = ssh_client.exec_command(command, timeout=TIMEOUT_LIMIT)
     exit_code = stdout.channel.recv_exit_status()
+    if verify is True:
+        if exit_code != expect_exit_code:
+            # This if-block is here so that stdout.readlines() and
+            # stderr.readlines() get evaluated if and only if the exit code
+            # doesn't match the expected exit code. If they do match, and they
+            # do get evaluated, then the state of the object will be different,
+            # which will cause issues for other functions that use those
+            # objects.
+            pytest.fail(
+                f"Command: '{command}' failed with exit code: {exit_code}, "
+                f"stdout: {stdout.readlines()}, stderr: {stderr.readlines()}")
     return exit_code, stdout, stderr
 
 
@@ -120,7 +140,28 @@ def duthost_shell_with_unreachable_retry(duthost, command):
             return duthost.shell(command)
         except AnsibleConnectionFailure as e:
             retries += 1
-            logger.warning("retry_when_dut_unreachable exception： {}, retry {}/{}"
+            logger.warning("retry_when_dut_unreachable exception: {}, retry {}/{}"
                            .format(e, retries, DEVICE_UNREACHABLE_MAX_RETRIES))
             if retries > DEVICE_UNREACHABLE_MAX_RETRIES:
                 raise e
+
+
+def cleanup_tacacs_log(ptfhost, rw_user_client):
+    try:
+        ptfhost.command('rm /var/log/tac_plus.acct')
+    except RunAnsibleModuleFail:
+        logger.info("/var/log/tac_plus.acct does not exist.")
+
+    res = ptfhost.command('touch /var/log/tac_plus.acct')
+    logger.info(res["stdout_lines"])
+
+    ssh_run_command(rw_user_client, 'sudo truncate -s 0 /var/log/syslog')
+    ptfhost.command('truncate -s 0 /var/log/tac_plus.log')
+
+
+def count_authorization_request(ptfhost):
+    hex_string = binascii.hexlify("cmd=/".encode('ascii')).decode()
+    sed_command = "sed -n 's/.*-> 0x\(..\).*/\\1/p'  /var/log/tac_plus.log | sed ':a; N; $!ba; s/\\n//g'"  # noqa: W605 E501
+    res = ptfhost.shell(sed_command)["stdout"]
+    logger.warning("TACACS authorization request hex: {}".format(res))
+    return res.count(hex_string)

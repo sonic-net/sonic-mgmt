@@ -65,7 +65,7 @@ def check_sysfs(dut):
 
     logging.info("Check fan related sysfs")
     for fan_id, fan_info in list(sysfs_facts['fan_info'].items()):
-        if platform_data["fans"]["hot_swappable"]:
+        if platform_data["fans"].get("hot_swappable"):
             assert fan_info['status'] == '1', "Fan {} status {} is not 1".format(
                 fan_id, fan_info['status'])
 
@@ -116,7 +116,7 @@ def check_sysfs(dut):
             cpu_temp_high_counter)
 
     logging.info("Check PSU related sysfs")
-    if platform_data["psus"]["hot_swappable"]:
+    if platform_data["psus"].get("hot_swappable"):
         for psu_id, psu_info in list(sysfs_facts['psu_info'].items()):
             psu_id = int(psu_id)
             psu_status = int(psu_info["status"])
@@ -179,6 +179,10 @@ def check_sysfs(dut):
             assert sfp_temp_crit < sfp_temp_emergency, "Wrong SFP critical temp or emergency temp, " \
                                                        "critical temp: {} emergency temp: {}".format(
                                                            str(sfp_temp_crit), str(sfp_temp_emergency))
+
+    logging.info("Check liquid cooling leakage related sysfs")
+    check_liquid_cooling_leakage_sysfs(dut, sysfs_facts)
+
     logging.info("Finish checking sysfs")
 
 
@@ -195,7 +199,7 @@ def check_psu_sysfs(dut, psu_id, psu_state):
                                                    psu_exist, psu_exist_content["stdout"])
     else:
         platform_data = get_platform_data(dut)
-        hot_swappable = platform_data["psus"]["hot_swappable"]
+        hot_swappable = platform_data["psus"].get("hot_swappable")
         if hot_swappable:
             psu_exist_content = dut.command("cat {}".format(psu_exist))
             logging.info("PSU state {} file {} read {}".format(
@@ -260,9 +264,11 @@ def generate_sysfs_config(dut, platform_data):
         config.append(generate_sysfs_cpu_pack_config())
     config.append(generate_sysfs_cpu_core_config(platform_data))
     config.append(generate_sysfs_fan_config(platform_data))
-    if platform_data['psus']['hot_swappable']:
+    if platform_data['psus'].get("hot_swappable"):
         config.append(generate_sysfs_psu_config(dut, platform_data))
     config.append(generate_sysfs_sfp_config(platform_data))
+    if 'liquid_cooling_leakage' in platform_data and platform_data['leak_sensors']['number'] > 0:
+        config.append(generate_sysfs_leakage_config(platform_data))
     return config
 
 
@@ -325,7 +331,7 @@ def generate_sysfs_fan_config(platform_data):
             }
         ]
     }
-    if not platform_data['fans']['hot_swappable']:
+    if not platform_data['fans'].get("hot_swappable"):
         fan_config['properties'] = fan_config['properties'][1:]
     return fan_config
 
@@ -440,3 +446,38 @@ def generate_sysfs_sfp_config(platform_data):
             }
         ]
     }
+
+
+def generate_sysfs_leakage_config(platform_data):
+    return {
+        'name': 'leakage_info',
+        'start': 1,
+        'count': platform_data['leak_sensors']['number'],
+        'type': 'increment',
+        'properties': [
+            {
+                'name': 'status',
+                'cmd_pattern': 'cat /var/run/hw-management/system/leakage{}',
+            }
+        ]
+    }
+
+
+def check_liquid_cooling_leakage_sysfs(dut, sysfs_facts):
+    """
+    @summary: Check liquid cooling leakage related sysfs under /var/run/hw-management/system/leakage
+    """
+    leak_sensors_num = sysfs_facts['leakage_info']['count'] if 'leakage_info' in sysfs_facts else 0
+    if leak_sensors_num == 0:
+        logging.info("Skip checking leakage related sysfs because no liquid cooling leakage sensors found on device")
+        return
+    actual_leak_sensors_num = int(len(
+        dut.command("ls /var/run/hw-management/system/leakage* |wc -l")['stdout']))
+    assert leak_sensors_num <= actual_leak_sensors_num, \
+        f"liquid cooling leakage sensors number mismatch, \
+            expected: {leak_sensors_num}, actual: {actual_leak_sensors_num}"
+
+    logging.info("Check liquid cooling leakage should be ok")
+    for i in range(leak_sensors_num):
+        leak_sensor_status = sysfs_facts['leakage_info']['status'][i]
+        assert leak_sensor_status == "1", f"Leak sensor {i} is not leak. leak_sensor_status: {leak_sensor_status}"

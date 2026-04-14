@@ -9,6 +9,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 BASE_PORT_COUNT = 28.0  # default t0 topology has 28 ports to toggle
+WAIT_TIME_AFTER_INTF_SHUTDOWN = 5  # in seconds
 
 
 def port_toggle(duthost, tbinfo, ports=None, wait_time_getter=None, wait_after_ports_up=60, watch=False):

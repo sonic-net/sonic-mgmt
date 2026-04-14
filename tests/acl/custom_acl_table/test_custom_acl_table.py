@@ -11,6 +11,7 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
+from tests.common.utilities import get_all_upstream_neigh_type, get_neighbor_ptf_port_list, is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
 
@@ -185,7 +186,7 @@ def setup_acl_rules(rand_selected_dut, rand_unselected_dut, tbinfo, setup_custom
         rand_unselected_dut.shell(cmd_rm_rules)
 
 
-def build_testing_pkts(router_mac):
+def build_testing_pkts(router_mac, tbinfo):
     """
     Generate packet for IO test
     """
@@ -199,30 +200,33 @@ def build_testing_pkts(router_mac):
 
     test_packets = {}
 
-    # Verify matching destination IP and protocol
-    test_packets['RULE_2'] = testutils.simple_tcp_packet(eth_dst=router_mac,
-                                                         ip_src='192.168.0.3',
-                                                         ip_dst=DST_IP)
+    if not is_ipv6_only_topology(tbinfo):
+        # Verify matching destination IP and protocol
+        test_packets['RULE_2'] = testutils.simple_tcp_packet(eth_dst=router_mac,
+                                                             ip_src='192.168.0.3',
+                                                             ip_dst=DST_IP)
+        # Verify matching source port (IPV4)
+        test_packets['RULE_5'] = testutils.simple_tcp_packet(eth_dst=router_mac,
+                                                             ip_src='192.168.0.3',
+                                                             ip_dst='1.1.1.1',
+                                                             tcp_sport=SRC_PORT)
+        # Verify matching source port range (IPV4)
+        test_packets['RULE_7'] = testutils.simple_tcp_packet(eth_dst=router_mac,
+                                                             ip_src='192.168.0.3',
+                                                             ip_dst='1.1.1.1',
+                                                             tcp_sport=SRC_RANGE_PORT)
 
     # Verify matching IPV6 destination and next header
     test_packets['RULE_4'] = testutils.simple_tcpv6_packet(eth_dst=router_mac,
                                                            ipv6_src='fc02:1000::3',
                                                            ipv6_dst=DST_IPV6)
-    # Verify matching source port (IPV4)
-    test_packets['RULE_5'] = testutils.simple_tcp_packet(eth_dst=router_mac,
-                                                         ip_src='192.168.0.3',
-                                                         ip_dst='1.1.1.1',
-                                                         tcp_sport=SRC_PORT)
+
     # Verify matching destination port (IPV6)
     test_packets['RULE_6'] = testutils.simple_tcpv6_packet(eth_dst=router_mac,
                                                            ipv6_src='fc02:1000::3',
                                                            ipv6_dst='103:23:2:1::2',
                                                            tcp_dport=DST_PORT)
-    # Verify matching source port range (IPV4)
-    test_packets['RULE_7'] = testutils.simple_tcp_packet(eth_dst=router_mac,
-                                                         ip_src='192.168.0.3',
-                                                         ip_dst='1.1.1.1',
-                                                         tcp_sport=SRC_RANGE_PORT)
+
     # Verify matching destination port range (IPV6)
     test_packets['RULE_8'] = testutils.simple_tcpv6_packet(eth_dst=router_mac,
                                                            ipv6_src='fc02:1000::3',
@@ -249,8 +253,8 @@ def build_exp_pkt(input_pkt):
 
 
 def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
-                    setup_acl_rules, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
-                    setup_counterpoll_interval, remove_dataacl_table):   # noqa F811
+                    setup_acl_rules, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
+                    setup_counterpoll_interval, remove_dataacl_table):   # noqa: F811
     """
     The test case is to verify the functionality of custom ACL table
     Test steps
@@ -276,13 +280,19 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
     src_port_indice = mg_facts['minigraph_ptf_indices'][src_port]
     # Put all portchannel members into dst_ports
     dst_port_indices = []
-    for _, v in mg_facts['minigraph_portchannels'].items():
-        for member in v['members']:
-            dst_port_indices.append(mg_facts['minigraph_ptf_indices'][member])
-            if "dualtor-aa" in tbinfo["topo"]["name"]:
-                dst_port_indices.append(mg_facts_unselected_dut['minigraph_ptf_indices'][member])
+    if len(mg_facts['minigraph_portchannels']):
+        for _, v in mg_facts['minigraph_portchannels'].items():
+            for member in v['members']:
+                dst_port_indices.append(mg_facts['minigraph_ptf_indices'][member])
+                if "dualtor-aa" in tbinfo["topo"]["name"]:
+                    dst_port_indices.append(mg_facts_unselected_dut['minigraph_ptf_indices'][member])
+    else:
+        topo = tbinfo["topo"]["type"]
+        upstream_neigh_types = get_all_upstream_neigh_type(topo)
+        for upstream_neigh_type in upstream_neigh_types:
+            dst_port_indices.extend(get_neighbor_ptf_port_list(rand_selected_dut, upstream_neigh_type, tbinfo))
 
-    test_pkts = build_testing_pkts(router_mac)
+    test_pkts = build_testing_pkts(router_mac, tbinfo)
     for rule, pkt in list(test_pkts.items()):
         logger.info("Testing ACL rule {}".format(rule))
         exp_pkt = build_exp_pkt(pkt)

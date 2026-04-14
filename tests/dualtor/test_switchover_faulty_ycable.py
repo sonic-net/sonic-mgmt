@@ -7,8 +7,8 @@ import random
 import time
 
 from tests.common.dualtor.control_plane_utils import verify_tor_states
-from tests.common.dualtor.dual_tor_common import active_standby_ports                                       # noqa F401
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports                                       # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_unselected_tor    # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder                                          # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
@@ -22,15 +22,13 @@ pytestmark = [
 
 
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
-    # Ignore in KVM test
-    KVMIgnoreRegex = [
-        ".*Could not establish the active side for Y cable port.*",
+def ignore_expected_loganalyzer_exceptions(simulated_faulty_side, loganalyzer):
+    """Ignore the pmon error."""
+    error_str = [
+        ".*Could not establish the active side for Y cable port.*"
     ]
-    duthost = duthosts[rand_one_dut_hostname]
     if loganalyzer:  # Skip if loganalyzer is disabled
-        if duthost.facts["asic_type"] == "vs":
-            loganalyzer[duthost.hostname].ignore_regex.extend(KVMIgnoreRegex)
+        loganalyzer[simulated_faulty_side.hostname].ignore_regex.extend(error_str)
 
 
 @pytest.fixture(scope="module")
@@ -46,6 +44,7 @@ def simulated_good_side(rand_selected_dut):
 @contextlib.contextmanager
 def setup_faulted_y_cable_driver(duthost, simulate_probe_unknown=False, simulate_peer_link_down=False):
     """Setup the faulted Y cable driver on the active ToR."""
+    y_cable_simulated_path = None
     try:
         extra_vars = {
             "SIMULATE_PROBE_UNKNOWN": simulate_probe_unknown,
@@ -59,7 +58,7 @@ def setup_faulted_y_cable_driver(duthost, simulate_probe_unknown=False, simulate
             force=True
         )
         find_path_res = duthost.shell(
-            "docker exec pmon find / -name y_cable_simulated.py")["stdout"]
+            "docker exec pmon find / -name y_cable_simulated.py 2>/dev/null", module_ignore_errors=True)["stdout"]
         # Let's check the file exist before patching
         duthost.shell("docker exec pmon stat %s" % find_path_res)
         y_cable_simulated_path = os.path.dirname(find_path_res)
@@ -76,11 +75,12 @@ def setup_faulted_y_cable_driver(duthost, simulate_probe_unknown=False, simulate
         time.sleep(10)
         yield
     finally:
-        duthost.shell(
-            "docker exec pmon mv {path}/y_cable_simulated.py.orig {path}/y_cable_simulated.py".format(
-                path=y_cable_simulated_path
+        if y_cable_simulated_path:
+            duthost.shell(
+                "docker exec pmon mv {path}/y_cable_simulated.py.orig {path}/y_cable_simulated.py".format(
+                    path=y_cable_simulated_path
+                )
             )
-        )
         duthost.shell(
             "docker exec pmon supervisorctl restart ycabled")
         # Sleep 10 seconds for ycabled restart

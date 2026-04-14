@@ -1,6 +1,6 @@
 import pytest
 
-from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, ssh_remote_run_retry, check_tacacs  # noqa: F401
 from tests.common.utilities import check_output
 
 pytestmark = [
@@ -10,7 +10,7 @@ pytestmark = [
 ]
 
 
-def test_rw_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):
+def test_rw_user(localhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, check_tacacs):  # noqa: F811
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]

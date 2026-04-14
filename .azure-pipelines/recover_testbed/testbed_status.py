@@ -1,6 +1,6 @@
 import logging
 import ipaddress
-from dut_connection import duthost_console, get_alt_passwords, get_ssh_info # noqa E402
+from dut_connection import duthost_console, get_alt_passwords, get_ssh_info     # noqa: E402
 
 logger = logging.getLogger(__name__)
 

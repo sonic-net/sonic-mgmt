@@ -76,7 +76,7 @@ class DeviceLinkInfo:
 
     @staticmethod
     def from_csv_row(row: List[str]) -> "DeviceLinkInfo":
-        vlan_list = row[5] if row[5] else ""
+        vlan_list = row[5] if len(row) > 5 else ""
         vlan_ranges_str = vlan_list.split(",") if vlan_list != "" else []
         vlan_ranges = []
         for vlan_range_str in vlan_ranges_str:
@@ -95,7 +95,7 @@ class DeviceLinkInfo:
             end_port=row[3],
             bandwidth=int(row[4]),
             vlan_ranges=vlan_ranges,
-            vlan_mode=row[6],
+            vlan_mode=row[6] if len(row) > 6 else "",
             auto_neg=row[7] if len(row) > 7 else ""
         )
 

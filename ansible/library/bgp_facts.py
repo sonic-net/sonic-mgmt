@@ -132,7 +132,7 @@ class BgpModule(object):
             r'.*(Opens|Notifications|Updates|Keepalives|Route Refresh|Capability|Total):.*')
         regex_mrai = re.compile(
             r'.*Minimum time between advertisement runs is (\d{1,4})')
-        regex_accepted = re.compile(r'.*(\d+) accepted prefixes')
+        regex_accepted = re.compile(r'.*(\d+) accepted')
         regex_conn_est = re.compile(r'.*Connections established (\d+)')
         regex_conn_dropped = re.compile(
             r'.*Connections established \d+; dropped (\d+)')

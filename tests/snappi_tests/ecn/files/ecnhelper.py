@@ -3,21 +3,18 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts # noqa F401
-from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
+    fanout_graph_facts  # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
     get_pfc_frame_count, packet_capture, config_capture_pkt,\
-    traffic_flow_mode, calc_pfc_pause_flow_rate # noqa F401
-from tests.common.snappi_tests.port import select_ports, select_tx_port # noqa F401
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp # noqa F401
+    traffic_flow_mode, calc_pfc_pause_flow_rate  # noqa: F401
+from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp  # noqa: F401
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows,\
     run_traffic
-
+from tests.snappi_tests.files.helper import get_npu_voq_queue_counters
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
-import json
-
 
 logger = logging.getLogger(__name__)
 
@@ -26,17 +23,6 @@ DATA_FLOW_DURATION_SEC = 2
 DATA_FLOW_DELAY_SEC = 1
 TEST_FLOW_NAME = ['Test Flow 3', 'Test Flow 4']
 PAUSE_FLOW_NAME = 'Pause Storm'
-
-
-def get_npu_voq_queue_counters(duthost, interface, priority):
-    full_line = "".join(duthost.shell(
-        "show platform npu voq queue_counters -t {} -i {} -d".
-        format(priority, interface))['stdout_lines'])
-    dict_output = json.loads(full_line)
-    for entry, value in zip(dict_output['stats_name'], dict_output['counters']):
-        dict_output[entry] = value
-
-    return dict_output
 
 
 def verify_ecn_counters(ecn_counters, link_state_toggled=False):
@@ -82,7 +68,8 @@ def run_ecn_test_cisco8000(api,
                            dut_port,
                            test_prio_list,
                            prio_dscp_map,
-                           snappi_extra_params=None):
+                           snappi_extra_params=None,
+                           snappi_ports=None):
     """
     Run a PFC test
     Args:
@@ -114,10 +101,10 @@ def run_ecn_test_cisco8000(api,
     init_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
 
     # Get the ID of the port to test
-    port_id = get_dut_port_id(dut_hostname=duthost.hostname,
-                              dut_port=dut_port,
-                              conn_data=conn_data,
-                              fanout_data=fanout_data)
+    for i in range(len(snappi_ports)):
+        if snappi_ports[i]['peer_port'] == dut_port:
+            port_id = snappi_ports[i]['port_id']
+            break
 
     pytest_assert(port_id is not None,
                   'Fail to get ID for port {}'.format(dut_port))
@@ -210,18 +197,20 @@ def run_ecn_test_cisco8000(api,
     config = api.get_config()
     # Collect all port names
     port_names = [port.name for port in config.ports]
-    # Create a link state object for all ports
-    link_state = api.link_state()
+    # Create a control state object for all ports
+    cs = api.control_state()
+    cs.choice = cs.PORT
+    cs.port.choice = cs.port.LINK
     # Apply the state to all ports
-    link_state.port_names = port_names
+    cs.port.link.port_names = port_names
     # Set all ports down (shut)
-    link_state.state = link_state.DOWN
-    api.set_link_state(link_state)
+    cs.port.link.state = cs.port.link.DOWN
+    api.set_control_state(cs)
     logger.info("All Snappi ports are set to DOWN")
     time.sleep(0.2)
     # Unshut all ports
-    link_state.state = link_state.UP
-    api.set_link_state(link_state)
+    cs.port.link.state = cs.port.link.UP
+    api.set_control_state(cs)
     logger.info("All Snappi ports are set to UP")
 
     init_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])

@@ -17,5 +17,5 @@ class VMHost(AnsibleHostBase):
             vm = self.host.options["variable_manager"]
             im = self.host.options["inventory_manager"]
             hostvars = vm.get_vars(host=im.get_host(self.hostname), include_delegate_to=False)
-            setattr(self, "_external_port", hostvars["external_port"])
+            setattr(self, "_external_port", hostvars.get("external_port", ''))
         return getattr(self, "_external_port")

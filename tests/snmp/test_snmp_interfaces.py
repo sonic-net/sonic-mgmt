@@ -2,6 +2,9 @@ import logging
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.snmp_helpers import get_snmp_facts
+from tests.common.constants import CounterpollConstants
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
+from tests.common.utilities import parse_rif_counters, wait_until
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -9,6 +12,91 @@ pytestmark = [
 ]
 
 logger = logging.getLogger(__name__)
+
+SAI_PORT_STAT_IF_IN_ERRORS = 'SAI_PORT_STAT_IF_IN_ERRORS'
+SAI_PORT_STAT_IF_OUT_ERRORS = 'SAI_PORT_STAT_IF_OUT_ERRORS'
+SAI_PORT_STAT_IF_IN_DISCARDS = 'SAI_PORT_STAT_IF_IN_DISCARDS'
+SAI_PORT_STAT_IF_OUT_DISCARDS = 'SAI_PORT_STAT_IF_OUT_DISCARDS'
+SAI_ROUTER_INTERFACE_STAT_IN_ERROR_PACKETS = 'SAI_ROUTER_INTERFACE_STAT_IN_ERROR_PACKETS'
+SAI_ROUTER_INTERFACE_STAT_OUT_ERROR_PACKETS = 'SAI_ROUTER_INTERFACE_STAT_OUT_ERROR_PACKETS'
+
+COUNTERS_PORT_NAME_MAP = 'COUNTERS_PORT_NAME_MAP'
+COUNTERS_RIF_NAME_MAP = 'COUNTERS_RIF_NAME_MAP'
+COUNTER_VALUE = 5000
+
+
+@pytest.fixture()
+def disable_conterpoll(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    Disable conterpoll for RIF and PORT and re-enable it when TC finished
+    :param duthosts: DUT hosts object
+    :param enum_rand_one_per_hwsku_hostname: hostname of the DUT to run the test on
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    ConterpollHelper.disable_counterpoll(duthost, counter_type_list=[CounterpollConstants.PORT,
+                                                                     CounterpollConstants.RIF])
+    yield
+    ConterpollHelper.enable_counterpoll(duthost, counter_type_list=[CounterpollConstants.PORT,
+                                                                    CounterpollConstants.RIF])
+
+
+def get_interfaces(duthost, tbinfo):
+    """
+    Method to get interfaces for testing
+    :param duthost: DUT host object
+    :return: RIF interface name in case available in topo. If not - return Port Channel name and interface in Port
+     Channel
+    """
+    rif_counters = parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"])
+    for interface in rif_counters:
+        if 'Eth' in interface:
+            return [interface], interface
+        else:
+            mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+            if interface not in mg_facts["minigraph_portchannels"].keys() or \
+               not mg_facts["minigraph_portchannels"][interface]['members']:
+                continue
+            return mg_facts["minigraph_portchannels"][interface]['members'], interface
+    pytest.skip("No RIF interfaces nor PortChannels, skipping the test")
+
+
+def get_oid_for_interface(duthost, table_name, interface_name):
+    """
+    Method to get interface oid from Counters DB
+    :param duthost: DUT host object
+    :param table_name: table name
+    :param interface_name: interface name
+    :return: oid for specific interface
+    """
+    return duthost.command(f"docker exec -i database redis-cli --raw -n 2 HMGET "
+                           f"{table_name} {interface_name}")["stdout"]
+
+
+def set_counters_value(duthost, interface_oid, counter_name, counter_value):
+    """
+    Method to set interface counter value in Counters DB
+    :param duthost: DUT host object
+    :param interface_oid: oid value
+    :param counter_name: counter name
+    :param counter_value: counter value
+    """
+    duthost.command(f"sudo redis-cli -n 2 hset COUNTERS:{interface_oid} {counter_name} {counter_value}")
+
+
+def get_port_interface_counter(duthost, interface_name):
+    """
+    Method to set interface counter value in Counters DB
+    :param duthost: DUT host object
+    :param interface_name: name of interface to collect counters
+    :return : dict with counters
+    """
+    port_counters = duthost.show_and_parse("show interfaces counters")
+    for port_counter in port_counters:
+        if port_counter['iface'] == interface_name:
+            for key, value in port_counter.items():
+                if ',' in value:
+                    port_counter[key] = value.replace(',', '')
+            return port_counter
 
 
 def collect_all_facts(duthost, ports_list, namespace=None):
@@ -157,16 +245,64 @@ def verify_snmp_speed(facts, snmp_facts, results):
     return results
 
 
+def verify_snmp_counter(duthost, localhost, creds_all_duts, hostip, mg_facts, rif_interface, rif_counters,
+                        port_counters, num_port_intfs):
+    """
+    Verify correctness of SNMP counters with tolerance for live traffic.
+
+    Allows a small margin of error to account for live traffic that may cause
+    additional discards/errors between when counters are set and when SNMP is queried.
+    The margin is the lesser of 5% of the expected value or 100 packets.
+
+    Returns False if:
+    - Counter is below expected value (test counters not applied)
+    - Counter exceeds expected value + margin (excessive live traffic interference)
+    """
+    snmp_facts = get_snmp_facts(
+        duthost, localhost, host=hostip, version="v2c",
+        community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
+
+    minigraph_port_name_to_alias_map = mg_facts['minigraph_port_name_to_alias_map']
+    snmp_port_map = {snmp_facts['snmp_interfaces'][idx]['name']: idx for idx in snmp_facts['snmp_interfaces']}
+    interface = rif_interface if 'PortChannel' in rif_interface else minigraph_port_name_to_alias_map[rif_interface]
+    rif_snmp_facts = snmp_facts['snmp_interfaces'][snmp_port_map[interface]]
+
+    # Allow margin for live traffic: lesser of 5% of expected or 100 packets
+    def check_counter_with_margin(actual, expected, counter_name):
+        margin = min(int(expected * 0.05), 100)
+        if actual < expected:
+            logger.info(f"{counter_name} value is {actual} but must be at least {expected}")
+            return False
+        if actual > expected + margin:
+            logger.info(f"{counter_name} value is {actual} but must not exceed {expected + margin} "
+                        f"(expected {expected} + margin {margin})")
+            return False
+        return True
+
+    expected_in_discards = int(rif_counters[rif_interface]['rx_err']) + int(port_counters['rx_drp'])
+    if not check_counter_with_margin(int(rif_snmp_facts['ifInDiscards']), expected_in_discards, 'ifInDiscards'):
+        return False
+
+    expected_out_discards = int(rif_counters[rif_interface]['tx_err']) + int(port_counters['tx_drp'])
+    if not check_counter_with_margin(int(rif_snmp_facts['ifOutDiscards']), expected_out_discards, 'ifOutDiscards'):
+        return False
+
+    if not check_counter_with_margin(int(rif_snmp_facts['ifInErrors']), COUNTER_VALUE, 'ifInErrors'):
+        return False
+
+    if not check_counter_with_margin(int(rif_snmp_facts['ifOutErrors']), COUNTER_VALUE, 'ifOutErrors'):
+        return False
+
+    return True
+
+
 @pytest.mark.bsl
-def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname, enum_asic_index):
+def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_hwsku_hostname):
     """compare the snmp facts between observed states and target state"""
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
 
-    namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
-    config_facts = duthost.config_facts(
-        host=duthost.hostname, source="persistent", namespace=namespace)['ansible_facts']
     snmp_facts = get_snmp_facts(
         duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
@@ -175,13 +311,17 @@ def test_snmp_interfaces(localhost, creds_all_duts, duthosts, enum_rand_one_per_
                     for k, v in list(snmp_facts['snmp_interfaces'].items())]
     logger.info('snmp_ifnames: {}'.format(snmp_ifnames))
 
-    # Verify all physical ports in snmp interface list
-    for _, alias in list(config_facts['port_name_to_alias_map'].items()):
-        assert alias in snmp_ifnames, "Interface not found in SNMP facts."
+    for asic in duthost.asics:
+        config_facts = duthost.config_facts(
+            host=duthost.hostname, source="persistent", namespace=asic.namespace)['ansible_facts']
 
-    # Verify all port channels in snmp interface list
-    for po_name in config_facts.get('PORTCHANNEL', {}):
-        assert po_name in snmp_ifnames, "PortChannel not found in SNMP facts."
+        # Verify all physical ports of current ASIC are in snmp interface list
+        for _, alias in list(config_facts['port_name_to_alias_map'].items()):
+            assert alias in snmp_ifnames, "Interface not found in SNMP facts."
+
+        # Verify all port channels of current ASIC are in snmp interface list
+        for po_name in config_facts.get('PORTCHANNEL', {}):
+            assert po_name in snmp_ifnames, "PortChannel not found in SNMP facts."
 
 
 @pytest.mark.bsl
@@ -219,26 +359,106 @@ def test_snmp_mgmt_interface(localhost, creds_all_duts, duthosts, enum_rand_one_
             not result, "Unexpected comparsion of SNMP: {}".format(result))
 
 
-def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts, enum_asic_index):
+def test_snmp_interfaces_mibs(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts):
     """Verify correct behaviour of port MIBs ifIndex, ifMtu, ifSpeed,
        ifAdminStatus, ifOperStatus, ifAlias, ifHighSpeed, ifType """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    namespace = duthost.get_namespace_from_asic_id(enum_asic_index)
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     snmp_facts = get_snmp_facts(
         duthost, localhost, host=hostip, version="v2c",
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
-    config_facts = duthost.config_facts(
-        host=duthost.hostname, source="persistent", namespace=namespace)['ansible_facts']
 
-    ports_list = []
-    for i in ['port_name_to_alias_map', 'PORTCHANNEL']:
-        ports_list.extend(list(config_facts.get(i, {}).keys()))
+    for asic in duthost.asics:
+        config_facts = duthost.config_facts(
+            host=duthost.hostname, source="persistent", namespace=asic.namespace)['ansible_facts']
 
-    dut_facts = collect_all_facts(duthost, ports_list, namespace)
-    ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
-    speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
-    result = verify_port_ifindex(snmp_facts, speed_snmp)
-    pytest_assert(
-        not result, "Unexpected comparsion of SNMP: {}".format(result))
+        ports_list = []
+        for i in ['port_name_to_alias_map', 'PORTCHANNEL']:
+            ports_list.extend(list(config_facts.get(i, {}).keys()))
+
+        dut_facts = collect_all_facts(duthost, ports_list, asic.namespace)
+        ports_snmps = verify_port_snmp(dut_facts, snmp_facts)
+        speed_snmp = verify_snmp_speed(dut_facts, snmp_facts, ports_snmps)
+        result = verify_port_ifindex(snmp_facts, speed_snmp)
+        pytest_assert(
+            not result, "Unexpected comparsion of SNMP: {}".format(result))
+
+
+def test_snmp_interfaces_error_discard(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_all_duts,
+                                       enum_asic_index, disable_conterpoll, tbinfo, mg_facts):
+    """Verify correct behaviour of port MIBs ifInError, ifOutError, IfInDiscards, IfOutDiscards """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    hostip = duthost.host.options['inventory_manager'].get_host(
+        duthost.hostname).vars['ansible_host']
+    port_interfaces, rif_interface = get_interfaces(duthost, tbinfo)
+    num_port_intfs = len(port_interfaces)
+    logger.info(f'Selected interfaces: port(s) {port_interfaces}, rif {rif_interface}')
+    # Get interfaces oid
+    port_oids = []
+    for port_interface in port_interfaces:
+        port_oids.append(get_oid_for_interface(duthost, COUNTERS_PORT_NAME_MAP, port_interface))
+    rif_oid = get_oid_for_interface(duthost, COUNTERS_RIF_NAME_MAP, rif_interface)
+    # Clear the counters from the cache to make test stable
+    # if "sonic-clear counters" was done before the test, /tmp/cache/intfstat and /tmp/cache/portstat will be created.
+    # if /tmp/cache/portstat exist, show interfaces counters will calculate the counters that get from redis-db and the
+    # value saved in the cache file. then the value will not be the number that get from the redis db
+    # if /tmp/cache/intfstat exist, show interfaces counters rif will calculate the counters that get from redis-db and
+    # the value saved in the cache file. then the value will not be the number that get from the redis db
+    # Clear the cache file to make sure that the "show interfaces counters" and "show interfaces counters rif" return
+    # the number that set in the redis-db.
+    duthost.shell("rm -rf /tmp/cache/intfstat", module_ignore_errors=True)
+    duthost.shell("rm -rf /tmp/cache/portstat", module_ignore_errors=True)
+
+    logger.info('Set port and rif counters in COUNTERS DB')
+    for i, port_oid in enumerate(port_oids):
+        logger.info(f'Set port {port_interfaces[i]} {SAI_PORT_STAT_IF_IN_ERRORS} counter to {COUNTER_VALUE}')
+        set_counters_value(duthost, port_oid, SAI_PORT_STAT_IF_IN_ERRORS, COUNTER_VALUE)
+        logger.info(f'Set port {port_interfaces[i]} {SAI_PORT_STAT_IF_IN_DISCARDS} counter to {COUNTER_VALUE}')
+        set_counters_value(duthost, port_oid, SAI_PORT_STAT_IF_IN_DISCARDS, COUNTER_VALUE)
+        logger.info(f'Set port {port_interfaces[i]} {SAI_PORT_STAT_IF_OUT_DISCARDS} counter to {COUNTER_VALUE}')
+        set_counters_value(duthost, port_oid, SAI_PORT_STAT_IF_OUT_DISCARDS, COUNTER_VALUE)
+        logger.info(f'Set port {port_interfaces[i]} {SAI_PORT_STAT_IF_OUT_ERRORS} counter to {COUNTER_VALUE}')
+        set_counters_value(duthost, port_oid, SAI_PORT_STAT_IF_OUT_ERRORS, COUNTER_VALUE)
+    logger.info(f'Set port {rif_interface} {SAI_ROUTER_INTERFACE_STAT_IN_ERROR_PACKETS} counter to {COUNTER_VALUE}')
+    set_counters_value(duthost, rif_oid, SAI_ROUTER_INTERFACE_STAT_IN_ERROR_PACKETS, COUNTER_VALUE)
+    logger.info(f'Set port {rif_interface} {SAI_ROUTER_INTERFACE_STAT_OUT_ERROR_PACKETS} counter to {COUNTER_VALUE}')
+    set_counters_value(duthost, rif_oid, SAI_ROUTER_INTERFACE_STAT_OUT_ERROR_PACKETS, COUNTER_VALUE)
+
+    rif_counters = parse_rif_counters(duthost.command("show interfaces counters rif")["stdout_lines"])
+
+    port_counters = {
+        'tx_err': 0,
+        'rx_err': 0,
+        'tx_drp': 0,
+        'rx_drp': 0
+    }
+    for port_interface in port_interfaces:
+        counters = get_port_interface_counter(duthost, port_interface)
+        port_counters['tx_err'] += int(counters['tx_err'])
+        port_counters['rx_err'] += int(counters['rx_err'])
+        port_counters['tx_drp'] += int(counters['tx_drp'])
+        port_counters['rx_drp'] += int(counters['rx_drp'])
+
+    logger.info('Compare rif counters in COUNTERS DB and counters get from SONiC CLI')
+    assert int(rif_counters[rif_interface]['tx_err']) == COUNTER_VALUE, \
+        f"tx_err value is {rif_counters[rif_interface]['tx_err']} not set to {COUNTER_VALUE}"
+    assert int(rif_counters[rif_interface]['rx_err']) == COUNTER_VALUE, \
+        f"rx_err value is {rif_counters[rif_interface]['rx_err']} not set to {COUNTER_VALUE}"
+
+    logger.info('Compare port counters in COUNTERS DB and counters get from SONiC CLI')
+    assert int(port_counters['tx_err']) == COUNTER_VALUE * num_port_intfs, \
+        f"tx_err value is {port_counters['tx_err']} not set to {COUNTER_VALUE * num_port_intfs}"
+    assert int(port_counters['rx_err']) == COUNTER_VALUE * num_port_intfs, \
+        f"rx_err value is {port_counters['rx_err']} not set to {COUNTER_VALUE * num_port_intfs}"
+    assert int(port_counters['tx_drp']) == COUNTER_VALUE * num_port_intfs, \
+        f"tx_drp value is {port_counters['tx_drp']} not set to {COUNTER_VALUE * num_port_intfs}"
+    assert int(port_counters['rx_drp']) == COUNTER_VALUE * num_port_intfs, \
+        f"rx_drp value is {port_counters['rx_drp']} not set to {COUNTER_VALUE * num_port_intfs}"
+
+    pytest_assert(wait_until(60, 10, 0, verify_snmp_counter, duthost, localhost, creds_all_duts, hostip, mg_facts,
+                             rif_interface, rif_counters, port_counters, num_port_intfs),
+                  "SNMP counter validate Failure")
+    # clear all counters after the test
+    duthost.shell('sonic-clear counters')
+    duthost.shell('sonic-clear rifcounters')

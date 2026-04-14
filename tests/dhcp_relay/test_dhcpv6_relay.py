@@ -5,11 +5,10 @@ import time
 import netaddr
 import logging
 
-from tests.dhcp_relay.dhcp_relay_utils import restart_dhcp_service
+from tests.common.dhcp_relay_utils import restart_dhcp_service
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.split_vlan import setup_multiple_vlans_and_teardown  # noqa F401
-from tests.common.utilities import skip_release
 from tests.ptf_runner import ptf_runner
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -65,7 +64,7 @@ def check_dhcpv6_relay_counter(duthost, ifname, type, dir):
         counters = eval(output_new)
         assert int(counters[type]) > 0, "{}({}) missing {} count".format(ifname, dir, type)
     else:
-        # old version only support vlan couting
+        # old version only support vlan counting
         if 'Vlan' not in ifname:
             return
         output_old = duthost.shell(cmd_old_version)['stdout']
@@ -119,6 +118,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
     dhcp_relay_data_list = []
     down_interface_link_local = ""
+    down_interface_link_local_with_prefix_len = ""
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
@@ -153,7 +153,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, tbinfo):
         client_iface['alias'] = mg_facts['minigraph_port_name_to_alias_map'][client_iface['name']]
         client_iface['port_idx'] = mg_facts['minigraph_ptf_indices'][client_iface['name']]
 
-        # Obtain uplink port indicies for this DHCP relay agent
+        # Obtain uplink port indices for this DHCP relay agent
         uplink_interfaces = []
         uplink_port_indices = []
         topo_type = tbinfo['topo']['type']
@@ -182,11 +182,12 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, tbinfo):
                         uplink_interfaces.append(iface_name)
                     uplink_port_indices.append(mg_facts['minigraph_ptf_indices'][iface_name])
         if down_interface_link_local == "":
-            command = "ip addr show {} | grep inet6 | grep 'scope link' | awk '{{print $2}}' | cut -d '/' -f1"\
+            command = "ip addr show {} | grep inet6 | grep 'scope link' | awk '{{print $2}}'"\
                       .format(downlink_vlan_iface['name'])
             res = duthost.shell(command)
             if res['stdout'] != "":
-                down_interface_link_local = res['stdout']
+                down_interface_link_local_with_prefix_len = res['stdout']
+                down_interface_link_local = down_interface_link_local_with_prefix_len.split("/")[0]
 
         dhcp_relay_data = {}
         dhcp_relay_data['downlink_vlan_iface'] = downlink_vlan_iface
@@ -194,6 +195,7 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, tbinfo):
         dhcp_relay_data['uplink_interfaces'] = uplink_interfaces
         dhcp_relay_data['uplink_port_indices'] = uplink_port_indices
         dhcp_relay_data['down_interface_link_local'] = down_interface_link_local
+        dhcp_relay_data['down_interface_link_local_with_prefix_len'] = down_interface_link_local_with_prefix_len
         dhcp_relay_data['loopback_iface'] = mg_facts['minigraph_lo_interfaces']
         dhcp_relay_data['loopback_ipv6'] = mg_facts['minigraph_lo_interfaces'][1]['addr']
         if 'dualtor' in tbinfo['topo']['name']:
@@ -236,6 +238,20 @@ def restart_dhcp_relay_and_check_dhcp6relay(duthost):
                                                              "dhcp-relay:dhcp6relay | awk '{print $2}'")["stdout"]))
 
 
+def ensure_client_reachability(duthost, vlan_name):
+    """
+    Ensure the DHCP client's link-local address is reachable from the relay agent.
+    This prevents the "neighbor solicitation" issue during DHCPv6 relay.
+    """
+    logger.info(f"Ensuring client reachability on VLAN {vlan_name}")
+
+    # Send multicast ping to discover all link-local addresses on the segment
+    duthost.shell(f"ping6 -I {vlan_name} -c 3 ff02::1", module_ignore_errors=True)
+
+    # Wait a moment for ND table to be populated
+    time.sleep(2)
+
+
 @pytest.fixture(scope="function")
 def setup_and_teardown_no_servers_vlan(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
@@ -253,21 +269,64 @@ def setup_and_teardown_no_servers_vlan(duthosts, rand_one_dut_hostname):
 
 
 def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data, setup_and_teardown_no_servers_vlan):
-    # Add vlan without dhcpv6_server, which should not be binded
+    # Add vlan without dhcpv6_server, which should not be bound
     new_vlan_id = setup_and_teardown_no_servers_vlan
 
     duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["201911", "202106"])
     if not check_interface_status(duthost):
         config_reload(duthost)
         wait_critical_processes(duthost)
         pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
-    output = duthost.shell("docker exec -t dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]
-    logger.info(output)
-    for dhcp_relay in dut_dhcp_relay_data:
-        assert ("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']) or "*:*" in output,
-                "{} is not found in {}".format("*:{}".format(dhcp_relay['downlink_vlan_iface']['name']), output)) or \
-               ("*:*" in output, "dhcp6relay socket is not properly binded")
+
+    # Cmds to delete LLA for all Vlans
+    delete_cmds = ["ip -6 address del {} dev {}"
+                   .format(data["down_interface_link_local_with_prefix_len"],
+                           data["downlink_vlan_iface"]["name"]) for data in dut_dhcp_relay_data]
+
+    # Cmds to add LLA for all Vlans
+    add_cmds = ["ip -6 address add {} dev {}"
+                .format(data["down_interface_link_local_with_prefix_len"],
+                        data["downlink_vlan_iface"]["name"]) for data in dut_dhcp_relay_data]
+
+    def _check_dhcp6relay_lla_socket(expect_exist):
+        res = {}
+        output = duthost.shell("docker exec -t dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]
+        for dhcp_relay in dut_dhcp_relay_data:
+            key = dhcp_relay['downlink_vlan_iface']['name']
+            res[key] = "{}:547".format(key) in output
+
+        logger.info("_check_dhcp6relay_lla_socket res: {}".format(res))
+
+        # If expect socket exist, then sockets for all vlan should appear
+        if expect_exist:
+            return all(list(res.values()))
+        # If not expect socket exist, then sockets for all vlan shouldn't appear
+        else:
+            return not any(list(res.values()))
+
+    try:
+        duthost.shell_cmds(cmds=delete_cmds)
+        restart_dhcp_service(duthost)
+        time.sleep(10)
+
+        output = duthost.shell("docker exec -t dhcp_relay ss -nlp | grep dhcp6relay")["stdout"]
+        logger.info(output)
+
+        # Raw socket listen all port would startup
+        pytest_assert("*:*" in output, "Raw socket for dhcp6relay is not found")
+
+        # LLA is not ready, hence there should not be sockets listen on LLA
+        pytest_assert(_check_dhcp6relay_lla_socket(False), "LLA sockets are found, which is unexpected")
+
+        duthost.shell_cmds(cmds=add_cmds)
+
+        # Interval for checking lla in dhcp6relay is set as 60s, hence here we expect in worst scenario LLA sould
+        # be ready in 70s
+        # LLAs are ready, hence there should be sockets listen on LLA
+        pytest_assert(wait_until(70, 5, 0, _check_dhcp6relay_lla_socket, True), "Expected LLA sockets are not found")
+    finally:
+        for cmd in add_cmds:
+            duthost.shell(cmd, module_ignore_errors=True)
 
     pytest_assert("Vlan{}".format(new_vlan_id) not in output,
                   "dhcp6relay bind to Vlan{} without dhcpv6_servers configured, which is unexpected"
@@ -297,7 +356,6 @@ def test_dhcpv6_relay_counter(ptfhost, duthosts, rand_one_dut_hostname, dut_dhcp
                               setup_active_active_as_active_standby):            # noqa F811
     """ Test DHCPv6 Counter """
     duthost = duthosts[rand_one_dut_hostname]
-    skip_release(duthost, ["201911", "202106"])
 
     message_types = ["Unknown", "Solicit", "Advertise", "Request", "Confirm", "Renew", "Rebind", "Reply", "Release",
                      "Decline", "Reconfigure", "Information-Request", "Relay-Forward", "Relay-Reply", "Malformed"]
@@ -366,7 +424,6 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
     _, duthost = testing_config
-    skip_release(duthost, ["201811", "201911", "202106"])  # TO-DO: delete skip release on 201811 and 201911
 
     # Please note: relay interface always means vlan interface
     for dhcp_relay in dut_dhcp_relay_data:
@@ -396,10 +453,6 @@ def test_dhcp_relay_after_link_flap(ptfhost, dut_dhcp_relay_data, validate_dut_r
        then test whether the DHCP relay agent relays packets properly.
     """
     testing_mode, duthost = testing_config
-    skip_release(duthost, ["201811", "201911", "202106"])
-
-    if testing_mode == DUAL_TOR_MODE:
-        pytest.skip("skip the link flap testcase on dual tor testbeds")
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
@@ -443,10 +496,6 @@ def test_dhcp_relay_start_with_uplinks_down(ptfhost, dut_dhcp_relay_data, valida
        relays packets properly.
     """
     testing_mode, duthost = testing_config
-    skip_release(duthost, ["201811", "201911", "202106"])
-
-    if testing_mode == DUAL_TOR_MODE:
-        pytest.skip("skip the uplinks down testcase on dual tor testbeds")
 
     for dhcp_relay in dut_dhcp_relay_data:
         # Bring all uplink interfaces down
@@ -521,6 +570,7 @@ class TestDhcpv6RelayWithMultipleVlan:
             exp_link_addr = vlan_info['interface_ipv6'].split('/')[0]
             _, ptf_port_index = random.choice(vlan_info['members_with_ptf_idx'])
             logger.info("Randomly selected PTF port index: {}".format(ptf_port_index))
+            ensure_client_reachability(duthost, vlan_name)
             command = "ip addr show {} | grep inet6 | grep 'scope link' | awk '{{print $2}}' | cut -d '/' -f1" \
                 .format(vlan_name)
             down_interface_link_local = duthost.shell(command)['stdout']

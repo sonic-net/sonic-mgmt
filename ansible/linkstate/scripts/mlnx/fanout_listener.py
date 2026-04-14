@@ -14,7 +14,7 @@ from sx_api import sx_api_open, SX_STATUS_SUCCESS, new_sx_fd_t_p, sx_api_host_if
     new_sx_user_channel_t_p, SX_USER_CHANNEL_TYPE_FD, sx_api_host_ifc_trap_id_register_set, SX_TRAP_ID_PUDE,\
     SX_ACCESS_CMD_DEREGISTER, uint32_t_p_value, sx_api_host_ifc_close, sx_api_close, sx_api_port_device_get,\
     new_uint32_t_p, uint32_t_p_assign, new_uint8_t_arr, new_sx_receive_info_t_p, sx_lib_host_ifc_recv,\
-    SX_PORT_OPER_STATUS_UP, new_sx_port_attributes_t_arr, sx_port_attributes_t_arr_getitem      # noqa E402
+    SX_PORT_OPER_STATUS_UP, new_sx_port_attributes_t_arr, sx_port_attributes_t_arr_getitem      # noqa: E402
 
 g_ptf_host = None
 g_log_fp = None
@@ -40,13 +40,13 @@ class PtfHostConn(object):
 
     def read(self):
         fp = self.conn.makefile('rb', 1024)
-        data = pickle.load(fp)
+        data = pickle.load(fp)  # nosemgrep: avoid-pickle
         fp.close()
         return data
 
     def write(self, data):
         fp = self.conn.makefile('wb', 1024)
-        pickle.dump(data, fp, pickle.HIGHEST_PROTOCOL)
+        pickle.dump(data, fp, pickle.HIGHEST_PROTOCOL)  # nosemgrep: avoid-pickle
         fp.close()
 
 

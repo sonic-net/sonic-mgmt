@@ -1,0 +1,4 @@
+- include_tasks: remove_csonic.yml
+  loop: "{{ VM_targets }}"
+  loop_control:
+    loop_var: vm_item

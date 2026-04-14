@@ -1,7 +1,6 @@
 import logging
 from tabulate import tabulate
-from tests.common.utilities import (wait, wait_until)
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
@@ -12,13 +11,12 @@ temp_tg_port = dict()
 aspaths = [65002, 65003]
 
 
-def run_lacp_add_remove_link_from_dut(api,
+def run_lacp_add_remove_link_from_dut(snappi_api,
                                       duthost,
                                       tgen_ports,
                                       iteration,
                                       port_count,
-                                      number_of_routes,
-                                      port_speed,):
+                                      number_of_routes,):
     """
     Run Local link failover test
 
@@ -29,7 +27,6 @@ def run_lacp_add_remove_link_from_dut(api,
         iteration: number of iterations for running convergence test on a port
         port_count: total number of ports used in test
         number_of_routes:  Number of IPv4/IPv6 Routes
-        port_speed: speed of the port used for test
     """
 
     """ Create bgp config on dut """
@@ -38,24 +35,20 @@ def run_lacp_add_remove_link_from_dut(api,
                        port_count,)
 
     """ Create bgp config on TGEN """
-    tgen_bgp_config = __tgen_bgp_config(api,
+    tgen_bgp_config = __tgen_bgp_config(snappi_api,
                                         port_count,
-                                        number_of_routes,
-                                        port_speed,)
+                                        number_of_routes,)
 
     """
         Run the convergence test by flapping all the rx
         links one by one and calculate the convergence values
     """
-    get_lacp_add_remove_link_from_dut(api,
+    get_lacp_add_remove_link_from_dut(snappi_api,
                                       duthost,
                                       tgen_bgp_config,
                                       iteration,
                                       port_count,
                                       number_of_routes,)
-
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
 
 
 def duthost_bgp_config(duthost,
@@ -92,7 +85,8 @@ def duthost_bgp_config(duthost,
         "sudo config interface ip add PortChannel1 %s/%s\n"
     )
     tx_portchannel_config %= (tgen_ports[0]['peer_port'], tgen_ports[0]
-                              ['peer_ip'], tgen_ports[0]['prefix'], tgen_ports[0]['peer_ipv6'], 64)
+                              ['peer_ip'], tgen_ports[0]['prefix'], tgen_ports[0]['peer_ipv6'],
+                              tgen_ports[0]['ipv6_prefix'])
     logger.info('Configuring %s to PortChannel1 with IPs %s,%s' % (
         tgen_ports[0]['peer_port'], tgen_ports[0]['peer_ip'], tgen_ports[0]['peer_ipv6']))
     duthost.shell(tx_portchannel_config)
@@ -108,7 +102,7 @@ def duthost_bgp_config(duthost,
     duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n" %
                   (tgen_ports[1]['peer_ip'], tgen_ports[1]['prefix']))
     duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n" %
-                  (tgen_ports[1]['peer_ipv6'], 64))
+                  (tgen_ports[1]['peer_ipv6'], tgen_ports[1]['ipv6_prefix']))
     bgp_config = (
         "vtysh "
         "-c 'configure terminal' "
@@ -130,10 +124,9 @@ def duthost_bgp_config(duthost,
     duthost.shell(bgp_config)
 
 
-def __tgen_bgp_config(api,
+def __tgen_bgp_config(snappi_api,
                       port_count,
-                      number_of_routes,
-                      port_speed,):
+                      number_of_routes,):
     """
     Creating  BGP config on TGEN
 
@@ -141,9 +134,8 @@ def __tgen_bgp_config(api,
         api (pytest fixture): snappi API
         port_count: total number of ports used in test
         number_of_routes:  Number of IPv4/IPv6 Routes
-        port_speed: speed of the port used for test
     """
-    config = api.config()
+    config = snappi_api.config()
     for i in range(1, port_count+1):
         config.ports.port(name='Test_Port_%d' %
                           i, location=temp_tg_port[i-1]['location'])
@@ -169,15 +161,15 @@ def __tgen_bgp_config(api,
     layer1.name = 'port settings'
     layer1.port_names = [port.name for port in config.ports]
     layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = True
+    layer1.auto_negotiation.rs_fec = False
     layer1.auto_negotiation.link_training = False
-    layer1.speed = port_speed
+    layer1.speed = temp_tg_port[0]['speed']
     layer1.auto_negotiate = False
 
     # Source
     config.devices.device(name='Tx')
     eth_1 = config.devices[0].ethernets.add()
-    eth_1.port_name = lag0.name
+    eth_1.connection.port_name = lag0.name
     eth_1.name = 'Ethernet 1'
     eth_1.mac = "00:14:0a:00:00:01"
     ipv4_1 = eth_1.ipv4_addresses.add()
@@ -194,7 +186,7 @@ def __tgen_bgp_config(api,
     # Destination
     config.devices.device(name="Rx")
     eth_2 = config.devices[1].ethernets.add()
-    eth_2.port_name = lag1.name
+    eth_2.connection.port_name = lag1.name
     eth_2.name = 'Ethernet 2'
     eth_2.mac = "00:14:01:00:00:01"
     ipv4_2 = eth_2.ipv4_addresses.add()
@@ -254,31 +246,31 @@ def __tgen_bgp_config(api,
     return config
 
 
-def get_flow_stats(api):
+def get_flow_stats(snappi_api):
     """
     Args:
-        api (pytest fixture): Snappi API
+        snappi_api (pytest fixture): Snappi API
     """
-    request = api.metrics_request()
+    request = snappi_api.metrics_request()
     request.flow.flow_names = []
-    return api.get_metrics(request).flow_metrics
+    return snappi_api.get_metrics(request).flow_metrics
 
 
-def get_port_stats(api, port_name):
+def get_port_stats(snappi_api, port_name):
     """
     Args:
-        api (pytest fixture): Snappi API
+        snappi_api (pytest fixture): Snappi API
     """
-    request = api.metrics_request()
+    request = snappi_api.metrics_request()
     request.port.port_names = [port_name]
-    return api.get_metrics(request).port_metrics
+    return snappi_api.get_metrics(request).port_metrics
 
 
-def print_port_stats(api, port_names):
+def print_port_stats(snappi_api, port_names):
     table1 = []
     for i, j in enumerate(port_names):
         port_table = []
-        port_stats = get_port_stats(api, j)
+        port_stats = get_port_stats(snappi_api, j)
         port_table.append(temp_tg_port[i]['peer_port'])
         port_table.append(j)
         port_table.append(port_stats[0].frames_tx_rate)
@@ -289,7 +281,7 @@ def print_port_stats(api, port_names):
                 tabulate(table1, headers=columns, tablefmt="psql"))
 
 
-def get_lacp_add_remove_link_from_dut(api,
+def get_lacp_add_remove_link_from_dut(snappi_api,
                                       duthost,
                                       bgp_config,
                                       iteration,
@@ -310,7 +302,7 @@ def get_lacp_add_remove_link_from_dut(api,
         dut.append(temp_tg_port[i]['peer_port'])
     port_names = rx_port_names
     port_names.insert(0, 'Test_Port_1')
-    api.set_config(bgp_config)
+    snappi_api.set_config(bgp_config)
 
     def get_avg_cpdp_convergence_time(port_name, dut_port_name):
         """
@@ -319,32 +311,32 @@ def get_lacp_add_remove_link_from_dut(api,
         """
         table, tx_frate, rx_frate = [], [], []
         print("Starting all protocols ...")
-        ps = api.protocol_state()
-        ps.state = ps.START
-        api.set_protocol_state(ps)
+        cs = snappi_api.control_state()
+        cs.protocol.all.state = cs.protocol.all.START
+        snappi_api.set_control_state(cs)
         wait(TIMEOUT, "For Protocols To start")
         for i in range(0, iteration):
             logger.info(
                 '|---- {} Link Flap Iteration : {} ----|'.format(dut_port_name, i+1))
             """ Starting Traffic """
             logger.info('Starting Traffic')
-            ts = api.transmit_state()
-            ts.state = ts.START
-            api.set_transmit_state(ts)
+            cs = snappi_api.control_state()
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+            snappi_api.set_control_state(cs)
             wait(TIMEOUT, "For Traffic To start")
-            flow_stats = get_flow_stats(api)
+            flow_stats = get_flow_stats(snappi_api)
             tx_frame_rate = flow_stats[0].frames_tx_rate
             assert tx_frame_rate != 0, "Traffic has not started"
             logger.info('Traffic has started')
             logger.info('Port Stats before {} failover'.format(dut_port_name))
-            print_port_stats(api, port_names)
+            print_port_stats(snappi_api, port_names)
             """ Flapping Link """
             logger.info(
                 'Simulating Link Failure on {} from dut side '.format(port_name))
             duthost.shell(
                 "sudo config portchannel member del PortChannel2 %s\n" % (dut_port_name))
             wait(TIMEOUT-20, "For Link to go down and traffic to stabilize")
-            flows = get_flow_stats(api)
+            flows = get_flow_stats(snappi_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_tx_rate)
@@ -353,7 +345,7 @@ def get_lacp_add_remove_link_from_dut(api,
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap with no loss")
             logger.info('Port Stats after {} failover'.format(dut_port_name))
-            print_port_stats(api, port_names)
+            print_port_stats(snappi_api, port_names)
             """ Performing link up at the end of iteration """
             logger.info('Simulating Link Up on {} from dut side at the end of iteration {}'.format(
                 dut_port_name, i+1))
@@ -372,19 +364,3 @@ def get_lacp_add_remove_link_from_dut(api,
             tgen_port_name, dut_port_name))
     columns = ['Event Name', 'No. of Routes', 'Iterations', 'Loss%']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
-
-
-def cleanup_config(duthost):
-    """
-    Cleaning up dut config at the end of the test
-
-    Args:
-        duthost (pytest fixture): duthost fixture
-    """
-    logger.info('Cleaning up config')
-    duthost.command("sudo cp {} {}".format(
-        "/etc/sonic/config_db_backup.json", "/etc/sonic/config_db.json"))
-    duthost.shell("sudo config reload -y \n")
-    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
-    logger.info('Convergence Test Completed')

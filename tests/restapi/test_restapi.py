@@ -1,5 +1,5 @@
 import pytest
-import time
+from tests.common.utilities import wait_until
 import logging
 import json
 
@@ -27,7 +27,7 @@ This test checks for reset status and sets it
 '''
 
 
-def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname, localhost):
+def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname, localhost, is_support_warm_fast_reboot):
     duthost = duthosts[rand_one_dut_hostname]
     # Set reset status
     logger.info("Checking for RESTAPI reset status")
@@ -57,14 +57,18 @@ def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname, loca
     pytest_assert(response['reset_status'] == "true")
 
     # Check reset status post fast reboot
-    check_reset_status_after_reboot(
-        'fast', "false", "true", duthost, localhost, construct_url)
+    if is_support_warm_fast_reboot:
+        check_reset_status_after_reboot(
+            'fast', "false", "true", duthost, localhost, construct_url)
+
     # Check reset status post cold reboot
     check_reset_status_after_reboot(
         'cold', "false", "true", duthost, localhost, construct_url)
+
     # Check reset status post warm reboot
-    check_reset_status_after_reboot(
-        'warm', "false", "false", duthost, localhost, construct_url)
+    if is_support_warm_fast_reboot:
+        check_reset_status_after_reboot(
+            'warm', "false", "false", duthost, localhost, construct_url)
 
 
 def check_reset_status_after_reboot(reboot_type, pre_reboot_status, post_reboot_status,
@@ -86,7 +90,7 @@ def check_reset_status_after_reboot(reboot_type, pre_reboot_status, post_reboot_
     if reboot_type == 'warm':
         wait_warmboot_finalizer = True
     reboot(duthost, localhost, reboot_type,
-           wait_warmboot_finalizer=wait_warmboot_finalizer)
+           wait_warmboot_finalizer=wait_warmboot_finalizer, safe_reboot=True)
     apply_cert_config(duthost)
     r = restapi.get_reset_status(construct_url)
     pytest_assert(r.status_code == 200)
@@ -211,21 +215,23 @@ def test_data_path(construct_url, vlan_members, cleanup_after_testing):
     pytest_assert(r.status_code == 204)
 
     # Verify routes
-    # Add some delay before query
-    time.sleep(5)
-    params = '{}'
-    r = restapi.get_config_vrouter_vrf_id_routes(
-        construct_url, 'vnet-guid-2', params)
-    pytest_assert(r.status_code == 200)
-    logger.info(r.json())
-    expected = [{"nexthop": "100.3.152.52", "ip_prefix": "192.168.20.4/32", "vnid": 7036001},
-                {"nexthop": "100.3.152.52", "ip_prefix": "101.0.20.5/32",
-                    "mac_address": "1c:34:da:72:b0:8a", "vnid": 7036001},
-                {"nexthop": "100.3.152.52",
-                    "ip_prefix": "100.0.20.4/32", "vnid": 7036001},
-                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.30.0/24", "vnid": 7036001}]
-    for route in expected:
-        pytest_assert(route in r.json())
+    def _check_vnet2_routes_exist():
+        params = '{}'
+        r = restapi.get_config_vrouter_vrf_id_routes(
+            construct_url, 'vnet-guid-2', params)
+        if r.status_code != 200:
+            return False
+        routes = r.json()
+        expected = [{"nexthop": "100.3.152.52", "ip_prefix": "192.168.20.4/32", "vnid": 7036001},
+                    {"nexthop": "100.3.152.52", "ip_prefix": "101.0.20.5/32",
+                        "mac_address": "1c:34:da:72:b0:8a", "vnid": 7036001},
+                    {"nexthop": "100.3.152.52",
+                        "ip_prefix": "100.0.20.4/32", "vnid": 7036001},
+                    {"nexthop": "100.3.152.52", "ip_prefix": "100.0.30.0/24", "vnid": 7036001}]
+        return all(route in routes for route in expected)
+
+    pytest_assert(wait_until(30, 5, 0, _check_vnet2_routes_exist),
+                  "Routes with vnid 7036001 not found in VNET vnet-guid-2")
     logger.info(
         "Routes with vnid: 7036001 to VNET vnet-guid-2 have been added successfully")
 
@@ -241,17 +247,19 @@ def test_data_path(construct_url, vlan_members, cleanup_after_testing):
     pytest_assert(r.status_code == 207)
 
     # Verify routes have not been added
-    # Add some delay before query
-    time.sleep(5)
-    params = '{}'
-    r = restapi.get_config_vrouter_vrf_id_routes(
-        construct_url, 'vnet-guid-2', params)
-    pytest_assert(r.status_code == 200)
-    logger.info(r.json())
-    expected = [{"nexthop": "100.3.152.52", "ip_prefix": "100.0.50.4/24", "vnid": 7036001},
-                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.70.0/16", "vnid": 7036001}]
-    for route in expected:
-        pytest_assert(route not in r.json())
+    def _check_vnet2_bad_routes_absent():
+        params = '{}'
+        r = restapi.get_config_vrouter_vrf_id_routes(
+            construct_url, 'vnet-guid-2', params)
+        if r.status_code != 200:
+            return False
+        routes = r.json()
+        expected = [{"nexthop": "100.3.152.52", "ip_prefix": "100.0.50.4/24", "vnid": 7036001},
+                    {"nexthop": "100.3.152.52", "ip_prefix": "100.0.70.0/16", "vnid": 7036001}]
+        return all(route not in routes for route in expected)
+
+    pytest_assert(wait_until(30, 5, 0, _check_vnet2_bad_routes_absent),
+                  "Invalid CIDR routes should not be present in VNET vnet-guid-2")
     logger.info(
         "Routes with incorrect CIDR addresses with vnid: 7036001 to VNET vnet-guid-2 have not been added successfully")
 
@@ -341,19 +349,23 @@ def test_data_path(construct_url, vlan_members, cleanup_after_testing):
     pytest_assert(r.status_code == 204)
 
     # Verify routes
-    params = '{}'
-    r = restapi.get_config_vrouter_vrf_id_routes(
-        construct_url, 'vnet-guid-3', params)
-    pytest_assert(r.status_code == 200)
-    logger.info(r.json())
-    expected = [{"nexthop": "100.3.152.52", "ip_prefix": "192.168.20.4/32", "vnid": 7036002},
-                {"nexthop": "100.3.152.52", "ip_prefix": "101.0.20.5/32",
-                    "mac_address": "1c:34:da:72:b0:8a", "vnid": 7036002},
-                {"nexthop": "100.3.152.52",
-                    "ip_prefix": "100.0.20.4/32", "vnid": 7036002},
-                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.30.0/24", "vnid": 7036002}]
-    for route in expected:
-        pytest_assert(route in r.json())
+    def _check_vnet3_routes_exist():
+        params = '{}'
+        r = restapi.get_config_vrouter_vrf_id_routes(
+            construct_url, 'vnet-guid-3', params)
+        if r.status_code != 200:
+            return False
+        routes = r.json()
+        expected = [{"nexthop": "100.3.152.52", "ip_prefix": "192.168.20.4/32", "vnid": 7036002},
+                    {"nexthop": "100.3.152.52", "ip_prefix": "101.0.20.5/32",
+                        "mac_address": "1c:34:da:72:b0:8a", "vnid": 7036002},
+                    {"nexthop": "100.3.152.52",
+                        "ip_prefix": "100.0.20.4/32", "vnid": 7036002},
+                    {"nexthop": "100.3.152.52", "ip_prefix": "100.0.30.0/24", "vnid": 7036002}]
+        return all(route in routes for route in expected)
+
+    pytest_assert(wait_until(30, 5, 0, _check_vnet3_routes_exist),
+                  "Routes with vnid 7036002 not found in VNET vnet-guid-3")
     logger.info(
         "Routes with vnid: 3000 to VNET vnet-guid-3 have been added successfully")
 
@@ -369,22 +381,24 @@ def test_data_path(construct_url, vlan_members, cleanup_after_testing):
     pytest_assert(r.status_code == 207)
 
     # Verify routes have not been added
-    # Add some delay before query
-    time.sleep(5)
-    params = '{}'
-    r = restapi.get_config_vrouter_vrf_id_routes(
-        construct_url, 'vnet-guid-3', params)
-    pytest_assert(r.status_code == 200)
-    logger.info(r.json())
-    expected = [{"nexthop": "100.3.152.52", "ip_prefix": "100.0.50.4/24", "vnid": 7036002},
-                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.70.0/16", "vnid": 7036002}]
-    for route in expected:
-        pytest_assert(route not in r.json())
+    def _check_vnet3_bad_routes_absent():
+        params = '{}'
+        r = restapi.get_config_vrouter_vrf_id_routes(
+            construct_url, 'vnet-guid-3', params)
+        if r.status_code != 200:
+            return False
+        routes = r.json()
+        expected = [{"nexthop": "100.3.152.52", "ip_prefix": "100.0.50.4/24", "vnid": 7036002},
+                    {"nexthop": "100.3.152.52", "ip_prefix": "100.0.70.0/16", "vnid": 7036002}]
+        return all(route not in routes for route in expected)
+
+    pytest_assert(wait_until(30, 5, 0, _check_vnet3_bad_routes_absent),
+                  "Invalid CIDR routes should not be present in VNET vnet-guid-3")
     logger.info(
         "Routes with incorrect CIDR addresses with vnid: 7036002 to VNET vnet-guid-3 have not been added successfully")
 
 
-def test_data_path_sad(construct_url, vlan_members, cleanup_after_testing):
+def test_data_path_sad(construct_url, vlan_members, cleanup_after_testing, is_support_warm_fast_reboot):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
@@ -526,21 +540,23 @@ def test_data_path_sad(construct_url, vlan_members, cleanup_after_testing):
     pytest_assert(r.status_code == 204)
 
     # Verify routes
-    # Add some delay before query
-    time.sleep(5)
-    params = '{}'
-    r = restapi.get_config_vrouter_vrf_id_routes(
-        construct_url, 'vnet-guid-2', params)
-    pytest_assert(r.status_code == 200)
-    logger.info(r.json())
-    expected = [{"nexthop": "100.3.152.52", "ip_prefix": "192.168.20.4/32", "vnid": 7036001},
-                {"nexthop": "100.3.152.52", "ip_prefix": "101.0.20.5/32",
-                    "mac_address": "1c:34:da:72:b0:8a", "vnid": 7036001},
-                {"nexthop": "100.3.152.52",
-                    "ip_prefix": "100.0.20.4/32", "vnid": 7036001},
-                {"nexthop": "100.3.152.52", "ip_prefix": "100.0.30.0/24", "vnid": 7036001}]
-    for route in expected:
-        pytest_assert(route in r.json())
+    def _check_sad_vnet2_routes_exist():
+        params = '{}'
+        r = restapi.get_config_vrouter_vrf_id_routes(
+            construct_url, 'vnet-guid-2', params)
+        if r.status_code != 200:
+            return False
+        routes = r.json()
+        expected = [{"nexthop": "100.3.152.52", "ip_prefix": "192.168.20.4/32", "vnid": 7036001},
+                    {"nexthop": "100.3.152.52", "ip_prefix": "101.0.20.5/32",
+                        "mac_address": "1c:34:da:72:b0:8a", "vnid": 7036001},
+                    {"nexthop": "100.3.152.52",
+                        "ip_prefix": "100.0.20.4/32", "vnid": 7036001},
+                    {"nexthop": "100.3.152.52", "ip_prefix": "100.0.30.0/24", "vnid": 7036001}]
+        return all(route in routes for route in expected)
+
+    pytest_assert(wait_until(30, 5, 0, _check_sad_vnet2_routes_exist),
+                  "Routes with vnid 7036001 not found in VNET vnet-guid-2")
     logger.info(
         "Routes with vnid: 7036001 to VNET vnet-guid-2 have been added successfully")
 
@@ -605,26 +621,29 @@ def test_create_vrf(construct_url, cleanup_after_testing):
     r = restapi.patch_config_vrouter_vrf_id_routes(
         construct_url, 'vnet-guid-10', params)
     pytest_assert(r.status_code == 204)
-    # Wait 2 seconds for routes to be syncd
-    time.sleep(2)
+
     # Verify routes
-    params = '{}'
-    r = restapi.get_config_vrouter_vrf_id_routes(
-        construct_url, 'vnet-guid-10', params)
-    pytest_assert(r.status_code == 200)
-    logger.info(r.json())
-    expected = [{"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.1/32",
-                 "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"},
-                {"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.2/32",
-                 "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"},
-                {"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.3/32",
-                 "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"},
-                {"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.4/32",
-                 "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"},
-                {"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.5/32",
-                 "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}]
-    for route in expected:
-        pytest_assert(route in r.json())
+    def _check_vnet10_routes_exist():
+        params = '{}'
+        r = restapi.get_config_vrouter_vrf_id_routes(
+            construct_url, 'vnet-guid-10', params)
+        if r.status_code != 200:
+            return False
+        routes = r.json()
+        expected = [{"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.1/32",
+                     "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"},
+                    {"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.2/32",
+                     "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"},
+                    {"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.3/32",
+                     "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"},
+                    {"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.4/32",
+                     "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"},
+                    {"nexthop": "100.78.60.37", "ip_prefix": "10.1.0.5/32",
+                     "vnid": 7039114, "mac_address": "00:0d:3a:f9:1a:20"}]
+        return all(route in routes for route in expected)
+
+    pytest_assert(wait_until(30, 5, 0, _check_vnet10_routes_exist),
+                  "Routes with vnid 7039114 not found in VNET vnet-guid-10")
     logger.info(
         "Routes with vnid: 7039114 to VNET vnet-guid-10 have been added successfully")
 
@@ -643,15 +662,18 @@ def test_create_vrf(construct_url, cleanup_after_testing):
     r = restapi.patch_config_vrouter_vrf_id_routes(
         construct_url, 'vnet-guid-10', params)
     pytest_assert(r.status_code == 204)
-    # Wait 2 seconds for routes to be syncd
-    time.sleep(2)
-    # Verify routes
-    params = '{}'
-    r = restapi.get_config_vrouter_vrf_id_routes(
-        construct_url, 'vnet-guid-10', params)
-    pytest_assert(r.status_code == 200)
-    logger.info(r.json())
-    pytest_assert(len(r.json()) == 0)
+
+    # Verify routes deleted
+    def _check_vnet10_routes_deleted():
+        params = '{}'
+        r = restapi.get_config_vrouter_vrf_id_routes(
+            construct_url, 'vnet-guid-10', params)
+        if r.status_code != 200:
+            return False
+        return len(r.json()) == 0
+
+    pytest_assert(wait_until(30, 5, 0, _check_vnet10_routes_deleted),
+                  "Routes in VNET vnet-guid-10 were not deleted")
     logger.info(
         "Routes with vnid: 7039114 from VNET vnet-guid-10 have been deleted successfully")
 
@@ -661,7 +683,7 @@ This test creates a default VxLAN Tunnel and two VNETs. It adds VLAN, VLAN membe
 '''
 
 
-def test_create_interface(construct_url, vlan_members, cleanup_after_testing):
+def test_create_interface(construct_url, vlan_members, cleanup_after_testing, is_support_warm_fast_reboot):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
@@ -791,7 +813,7 @@ def test_create_interface(construct_url, vlan_members, cleanup_after_testing):
     logger.info("VNET with vnet_id: vnet-guid-4 has been successfully deleted")
 
 
-def test_create_interface_sad(construct_url, vlan_members):
+def test_create_interface_sad(construct_url, vlan_members, is_support_warm_fast_reboot):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'

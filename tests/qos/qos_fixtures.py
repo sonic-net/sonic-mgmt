@@ -1,5 +1,5 @@
 import pytest
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
 
 
 @pytest.fixture(scope="module")
@@ -43,7 +43,7 @@ def lossless_prio_dscp_map(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def leaf_fanouts(conn_graph_facts):         # noqa F811
+def leaf_fanouts(conn_graph_facts):         # noqa: F811
     """
     @summary: Fixture for getting the list of leaf fanout switches
     @param conn_graph_facts: Topology connectivity information
@@ -60,3 +60,36 @@ def leaf_fanouts(conn_graph_facts):         # noqa F811
                 leaf_fanouts.append(peer_device)
 
     return leaf_fanouts
+
+
+@pytest.fixture(scope="module")
+def lossless_prio_list(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
+    """
+    This fixture returns the list of lossless priorities
+
+    Args:
+       duthosts (pytest fixture) : list of DUTs
+       enum_rand_one_per_hwsku_frontend_hostname (pytest fixture): DUT hostname
+
+    Returns:
+        Lossless priorities (list)
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    asichost = duthost.asic_instance(enum_rand_one_frontend_asic_index)
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=asichost.asic_index,
+                                        source="running")['ansible_facts']
+
+    if "PORT_QOS_MAP" not in list(config_facts.keys()):
+        return None
+
+    port_qos_map = config_facts["PORT_QOS_MAP"]
+    if len(list(port_qos_map.keys())) == 0:
+        return None
+
+    """ Here we assume all the ports have the same lossless priorities """
+    intf = list(port_qos_map.keys())[0]
+    if 'pfc_enable' not in port_qos_map[intf]:
+        return None
+
+    result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
+    return result
