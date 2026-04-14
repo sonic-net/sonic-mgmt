@@ -1,0 +1,70 @@
+version: 2.0
+ 
+services: {default: !include sonic_services.yaml}
+ 
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+ 
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+ 
+devices:
+    leaf0:
+        device_type: DevSonic
+        platform_type: mathilda64
+        model: 8102-64H-O
+        serial: FLM26400HVY
+        base_mac: 6C:4E:F6:41:72:10
+        syseeprom_info:
+            "0x22": "477595"
+            "0x2a": "516"
+            "0x23": FLM26400HVY
+            "0x21": 8102-64H-O
+            "0x26": "49"
+            "0x24": 6C:4E:F6:41:72:10
+            "0x28": x86_64-8102_64h_o-r0
+            "0x2b": Cisco
+            "0x2d": Cisco
+            "0x2c": US
+        access: {protocol: ssh, ip: 172.23.107.20, port: 22}
+        rps: {model: Raritan, ip: 10.28.104.93, outlet: [17], username: admin, password: raritan}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    leaf1:
+        device_type: DevSonic
+        platform_type: mathilda64
+        model: 8102-64H-O
+        serial: FLM273202GE
+        base_mac: 8C:94:61:5B:B9:38
+        syseeprom_info:
+            "0x22": "476276"
+            "0x2a": "516"
+            "0x23": FLM273202GE
+            "0x21": 8102-64H-O
+            "0x26": "49"
+            "0x24": 8C:94:61:5B:B9:38
+            "0x28": x86_64-8102_64h_o-r0
+            "0x2b": Cisco
+            "0x2d": Cisco
+            "0x2c": US
+        access: {protocol: ssh, ip: 172.23.107.21, port: 22}
+        rps: {model: Raritan, ip: 10.28.104.93, outlet: [19], username: admin, password: raritan}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+topology:
+    leaf0:
+        interfaces:
+            Ethernet0: {EndDevice: leaf1, EndPort: Ethernet0, params: def_link}
+            Ethernet8: {EndDevice: leaf1, EndPort: Ethernet8, params: def_link}
+            Ethernet16: {EndDevice: leaf1, EndPort: Ethernet16, params: def_link}
+            Ethernet20: {EndDevice: leaf1, EndPort: Ethernet20, params: def_link}
+    leaf1:
+        interfaces:
+            Ethernet0: {EndDevice: leaf0, EndPort: Ethernet0, params: def_link}
+            Ethernet8: {EndDevice: leaf0, EndPort: Ethernet8, params: def_link}
+            Ethernet16: {EndDevice: leaf0, EndPort: Ethernet16, params: def_link}
+            Ethernet20: {EndDevice: leaf0, EndPort: Ethernet20, params: def_link}

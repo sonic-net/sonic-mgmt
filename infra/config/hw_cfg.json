@@ -2205,7 +2205,9 @@
                         "python3 ./do_hw_setup.py fetch-pipeline -t $TEST_BED",
                         "python3 ./do_hw_setup.py onie -i $BUILD_ID -t $TEST_BED"
                 ]
-            }
+            },
+            "spytest_container_202511": "spytest-platform-hardening-202511",
+            "spytest_file_base_202511": "202511"
         },
         "t2-m6-30-titan": {
             "ucs_host_name": "sonic-TTAN-ucs-m6-30",
@@ -2421,7 +2423,9 @@
                         "python3 ./do_hw_setup.py fetch-pipeline -t $TEST_BED",
                         "python3 ./do_hw_setup.py onie -i $BUILD_ID -t $TEST_BED"
                 ]
-            }
+            },
+            "spytest_container_202511": "spytest-platform-hardening-202511",
+            "spytest_file_base_202511": "202511"
         }
     },
     "testbed-streams" : {

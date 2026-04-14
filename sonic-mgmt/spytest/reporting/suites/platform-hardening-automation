@@ -1,6 +1,9 @@
 # Modules
 +file:cisco/test_platform.py
 +file:cisco/test_reboot_recovery.py
++file:cisco/test_platform_api.py
++file:cisco/test_fwutil.py
++file:cisco/test_sfp.py
 
 #Runtime Arguments
 +args:--skip-init-config

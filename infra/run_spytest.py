@@ -76,8 +76,9 @@ HW_CFG_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), "config",
 
 def _load_hw_cfg():
     try:
-        with open(HW_CFG_PATH) as cfg_file:
-            return yaml.safe_load(cfg_file) or {}
+        with open(HW_CFG_PATH, encoding="utf-8") as cfg_file:
+            cfg_text = cfg_file.read().strip()
+            return json.loads(cfg_text) if cfg_text else {}
     except Exception as exc:
         print("Failed to load hardware config from {}: {}".format(HW_CFG_PATH, exc))
         return {}
@@ -92,6 +93,28 @@ def _get_hw_testbed_defaults(test_bed):
         return testbed_info[test_bed]
     print("WARNING: No hardware defaults found for test_bed='{}' in {}".format(test_bed, HW_CFG_PATH))
     return {}
+
+def _get_hw_testbed_spytest_docker(test_bed):
+    """Get docker name from hw_cfg.json using SONIC_VERSION and test_bed name."""
+    testbed_info = HW_CFG.get("testbed-info", {})
+    if test_bed and test_bed in testbed_info:
+        docker_name = testbed_info[test_bed].get(f"spytest_container_{UCS_CONFIG['sonic_version']}", "")
+        if docker_name:
+            return docker_name
+    print("WARNING: No spytest docker found for test_bed='{}' in {}, using just SONIC_VERSION".format(test_bed, HW_CFG_PATH))
+    return f"spytest-platform-hardening-{UCS_CONFIG['sonic_version']}"
+
+def _get_hw_testbed_spytest_file_base(test_bed):
+    """Get base file path for ftp and results usage from hw_cfg.json using SONIC_VERSION and test_bed name."""
+    testbed_info = HW_CFG.get("testbed-info", {})
+    if test_bed and test_bed in testbed_info:
+        base_path = testbed_info[test_bed].get(f"spytest_file_base_{UCS_CONFIG['sonic_version']}", "")
+        if base_path == "":
+            pass
+        else:
+            return base_path
+    print("WARNING: No spytest file base found for test_bed='{}' in {}, using just SONIC_VERSION".format(test_bed, HW_CFG_PATH))
+    return f"{UCS_CONFIG['sonic_version']}"
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Reading ports file.')
@@ -336,7 +359,7 @@ def update_topo_file(topology, platform):
 
     return 0, ""
 
-def send_topo_file_to_execution_host(topology, platform):
+def send_topo_file_to_execution_host(topology, platform, test_bed=None):
     print("Uploading topo file to execution host")
     
     topo_file = import_topo_file(topology, platform)
@@ -344,7 +367,7 @@ def send_topo_file_to_execution_host(topology, platform):
     client = get_execution_host_ssh_client()
     ftp_client=client.open_sftp()
     if EXECUTION_MODE == 'hw':
-        ftp_client.put(topo_file, f"{UCS_CONFIG['sonic_version']}/sonic-test/sonic-mgmt/spytest/topo")
+        ftp_client.put(topo_file, f"{_get_hw_testbed_spytest_file_base(test_bed)}/sonic-test/sonic-mgmt/spytest/topo")
     else:
         ftp_client.put(topo_file,'sonic-test/sonic-mgmt/spytest/topo')
     ftp_client.close()
@@ -352,7 +375,7 @@ def send_topo_file_to_execution_host(topology, platform):
 
     return 0, ""
 
-def send_test_files_to_execution_host(script_file):
+def send_test_files_to_execution_host(script_file, test_bed=None):
     print("Sending test files to execution host")
     
     client = get_execution_host_ssh_client()
@@ -363,7 +386,7 @@ def send_test_files_to_execution_host(script_file):
         if EXECUTION_MODE == 'hw':
             ftp_client.put(
                 f"../sonic-mgmt/spytest/{script_file}",
-                f"{UCS_CONFIG['sonic_version']}/sonic-test/sonic-mgmt/spytest/{script_file}"
+                f"{_get_hw_testbed_spytest_file_base(test_bed)}/sonic-test/sonic-mgmt/spytest/{script_file}"
             )
         else:
             ftp_client.put(
@@ -554,14 +577,14 @@ def run_sanity(topology, platform, script_file, test_bed=None):
 
     if EXECUTION_MODE == 'hw':
         # Hardware mode execution
-        container_name = f"spytest-platform-hardening-{UCS_CONFIG['sonic_version']}"
+        container_name = _get_hw_testbed_spytest_docker(test_bed)
         print(f"Using spytest container: {container_name}")
 
         global HW_RUN_TIMESTAMP, RESULT_FOLDER_PATH
         if not HW_RUN_TIMESTAMP:
             HW_RUN_TIMESTAMP = datetime.datetime.utcnow().strftime("%Y%m%d-%H%M%S-%f")
 
-        base_result_dir = f"{UCS_CONFIG['sonic_version']}/sonic-test/sonic-mgmt/spytest/spytest_results"
+        base_result_dir = f"{_get_hw_testbed_spytest_file_base(test_bed)}/sonic-test/sonic-mgmt/spytest/spytest_results"
         # Use test_bed if available, otherwise fallback to platform for folder naming
         testbed_identifier = test_bed if test_bed else platform
         run_results_subdir = f"{HW_RUN_TIMESTAMP}_{testbed_identifier}_{topology}"
@@ -849,7 +872,7 @@ def main():
             'host': args['ucs_host'],
             'username': args.get('ucs_username', 'sonic'),
             'password': args['ucs_password'],
-            'sonic_version': int(args['sonic_version'])
+            'sonic_version': (args['sonic_version'])
         }
 
         print(f"UCS Host: {UCS_CONFIG['host']}")
@@ -858,12 +881,12 @@ def main():
         print("Note: Topo file is NOT dynamically modified, topo file is assumed setup correctly")
         print("="*60)
 
-        rc, msg = send_topo_file_to_execution_host(topology, platform)
+        rc, msg = send_topo_file_to_execution_host(topology, platform, test_bed)
         if rc != 0:
             print(f"error at send_topo_file_to_execution_host! msg: {msg}")
             sys.exit(rc)
 
-        rc, msg = send_test_files_to_execution_host(script_file)
+        rc, msg = send_test_files_to_execution_host(script_file, test_bed)
         if rc != 0:
             print(f"error at send_test_files_to_execution_host! msg: {msg}")
             sys.exit(rc)

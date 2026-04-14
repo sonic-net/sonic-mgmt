@@ -16,6 +16,20 @@ devices:
     leaf0:
         device_type: DevSonic
         platform_type: mt-fuji
+        model: 8102-28FH-DPU-O
+        serial: FLM281304U2
+        base_mac: 24:D5:E4:34:EA:50
+        syseeprom_info:
+            "0x22": "NO_ECI"
+            "0x2a": "528"
+            "0x23": FLM281304U2
+            "0x21": 8102-28FH-DPU-O
+            "0x26": "0"
+            "0x24": 24:D5:E4:34:EA:50
+            "0x28": x86_64-8102_28fh_dpu_o-r0
+            "0x2b": Cisco
+            "0x2d": Cisco
+            "0x2c": US
         access: {protocol: ssh, ip: 172.26.235.249, port: 22}
         rps: {model: Raritan, ip: 10.28.105.116, outlet: [18,19], username: admin, password: raritan}
         credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
@@ -23,6 +37,20 @@ devices:
     leaf1:
         device_type: DevSonic
         platform_type: churchill-mono
+        model: 8101-32FH-O
+        serial: FLM282901W4
+        base_mac: 48:74:10:99:08:00
+        syseeprom_info:
+            "0x22": "477691"
+            "0x2a": "512"
+            "0x23": FLM282901W4
+            "0x21": 8101-32FH-O
+            "0x26": "2"
+            "0x24": 48:74:10:99:08:00
+            "0x28": x86_64-8101_32fh_o-r0
+            "0x2b": Cisco
+            "0x2d": Cisco
+            "0x2c": US
         access: {protocol: ssh, ip: 172.26.235.59, port: 22}
         rps: {model: Raritan, ip: 10.28.105.117, outlet: [21,22], username: admin, password: raritan}
         credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
