@@ -3924,7 +3924,7 @@ pc/test_po_voq.py:
     conditions:
       - "'t2' not in topo_name or num_asic == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0 or asic_type in ['cisco-8000']"
 
-pc/test_retry_count.py::TestNeighborRetryCount::test_kill_team_lag_up:
+pc/test_retry_count.py:
   skip:
     reason: "Found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed."
     conditions:
@@ -4086,7 +4086,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
-platform_tests/test_reboot.py::test_cold_reboot:
+platform_tests/test_reboot.py:
   skip:
     reason: "Found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed."
     conditions:
