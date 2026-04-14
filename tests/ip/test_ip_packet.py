@@ -39,6 +39,16 @@ class TestIPPacket(object):
     @pytest.fixture(scope="class")
     def common_param(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        # VPP on KVM uses virtio without indirect descriptors — each packet
+        # takes 2 vring descriptors.  With tx_queue_size=1024 the effective
+        # capacity is ~512 packets.  Use 500 to stay within that limit.
+        if duthost.facts["asic_type"] == "vpp":
+            self.PKT_NUM = 500
+            self.PKT_NUM_MIN = self.PKT_NUM * 0.9
+            self.PKT_NUM_MAX = self.PKT_NUM * 1.5
+            self.PKT_NUM_ZERO = self.PKT_NUM * 0.1
+
         mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
         # generate peer_ip and port channel pair, be like:[("10.0.0.57", "PortChannel0001")]
