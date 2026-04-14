@@ -1,7 +1,5 @@
 import logging
 import secrets
-import random
-import string
 import time
 from passlib.hash import cisco_type7
 

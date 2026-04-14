@@ -171,8 +171,8 @@ class TestInteropProtocol():
 
         # Check the BGP sessions are present after port macsec enabled
         for ctrl_port, nbr in list(ctrl_links.items()):
-            enable_macsec_port(duthost, ctrl_port, profile_name)
-            enable_macsec_port(nbr["host"], nbr["port"], profile_name)
+            enable_macsec_port(duthost, ctrl_port, get_port_profile_name(ctrl_port))
+            enable_macsec_port(nbr["host"], nbr["port"], get_port_profile_name(ctrl_port))
             wait_until(BGP_TIMEOUT, 3, 0,
                        lambda: duthost.iface_macsec_ok(ctrl_port) and
                        nbr["host"].iface_macsec_ok(nbr["port"]))

@@ -6,7 +6,6 @@ from tests.common.macsec.macsec_helper import get_appl_db, get_ipnetns_prefix, l
 from tests.common.macsec.macsec_config_helper import (
     generate_macsec_profile,
     setup_macsec_multi_profile_configuration,
-    cleanup_macsec_multi_profile_configuration,
     disable_macsec_port,
     enable_macsec_port,
     delete_macsec_profile,
@@ -140,6 +139,7 @@ class TestPerInterfaceProfile():
             orig_port_profiles = {target_port: port_profiles[target_port]}
             setup_macsec_multi_profile_configuration(
                 duthost, {target_port: target_nbr}, orig_port_profiles, tbinfo)
+            # can use this since its just one port
             delete_macsec_profile(duthost, target_port, new_profile["name"])
 
         load_all_macsec_info(duthost, ctrl_links, tbinfo)
