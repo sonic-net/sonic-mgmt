@@ -59,7 +59,7 @@ class DHCPStressTest(DHCPTest):
             "tcpdump --buffer-size=102400 --immediate-mode -U "
             "-i any -n -q -l "
             "'inbound and udp and (port 67 or port 68) and (udp[249:2] = 0x01{})' "
-            "| grep -w -E '{}' > /tmp/dhcp_stress_test_{}.log"
+            "| grep --line-buffered -w -E '{}' > /tmp/dhcp_stress_test_{}.log"
         ).format(self.packet_type_hex, server_ports, self.packet_type)
         tcpdump_proc = subprocess.Popen(tcpdump_cmd, shell=True)
         if self.packet_type == "discover" or self.packet_type == "request":
@@ -74,11 +74,12 @@ class DHCPStressTest(DHCPTest):
             testutils.send_packet(self, self.send_port_indices[0], dhcp_packet)
             time.sleep(1/self.client_packets_per_sec)
 
-        # Wait until tcpdump stops receiving packets (all idle for 5 seconds)
+        # Wait until tcpdump stops receiving packets (idle for 5s, max 120s)
         log_file = "/tmp/dhcp_stress_test_{}.log".format(self.packet_type)
         last_size = 0
         idle_count = 0
-        while idle_count < 5:
+        deadline = time.time() + 120
+        while idle_count < 5 and time.time() < deadline:
             time.sleep(1)
             try:
                 current_size = os.path.getsize(log_file)
