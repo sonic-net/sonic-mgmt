@@ -7944,15 +7944,15 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
                 raise ValueError("Failed to apply PG1 profile: {}".format(stderr))
 
             # Step 5: Restart swss
-            cmd = 'sudo systemctl restart swss'
+            cmd = 'sudo systemctl restart swss &'
             stdout, stderr, ret = run_cmd_on_dut(self, cmd, timeout=100)
 
             if ret != 0:
                 print("Warning: Failed to restart swss: {}".format(stderr), file=sys.stderr)
-            else:
-                # Wait for orchagent to be ready after swss restart
-                if not wait_until(420, 10, 5, check_orchagent_ready, self):
-                    print("Warning: orchagent_restart_check did not succeed within timeout", file=sys.stderr)
+
+            if not wait_until(420, 10, 5, check_orchagent_ready, self):
+                print("Warning: orchagent_restart_check did not succeed within timeout", file=sys.stderr)
+                
             sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
             sai_base_test.ThriftInterfaceDataPlane.setUp(self)
             time.sleep(1)
