@@ -4607,15 +4607,6 @@ read_mac/test_read_mac_metadata.py:
       - "asic_type in ['vs']"
 
 #######################################
-#####           reboot            #####
-#######################################
-reboot/test_reboot_blocking_mode.py:
-  skip:
-    reason: "Found regression issues on multi-asic topology, temperarily skip this test case until the issues are addressed."
-    conditions:
-      - "(is_multi_asic==True) and (asic_type in ['vs']) and https://github.com/sonic-net/sonic-mgmt/issues/23879"
-
-#######################################
 #####      reset_factory          #####
 #######################################
 reset_factory/test_reset_factory.py:
