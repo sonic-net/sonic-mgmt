@@ -193,9 +193,10 @@ def calculate_counters_per_pkts(pkts, is_v6=False):
                 elif scapy.DHCP6_RelayReply in pkt:
                     message_type_int = pkt[scapy.DHCP6_RelayReply].msgtype  # Relay-Reply
             else:
-                for opt, val in pkt[scapy.DHCP].options:
-                    if opt == "message-type":
-                        message_type_int = val
+                for option in pkt[scapy.DHCP].options:
+                    if isinstance(option, tuple) and option[0] == "message-type":
+                        message_type_int = option[1]
+                        break
             message_type_str = (SUPPORTED_DHCPV6_TYPE if is_v6 else SUPPORTED_DHCPV4_TYPE)[message_type_int - 1] \
                 if message_type_int is not None and message_type_int > 0 else "Unknown"
             sport = pkt[scapy.UDP].sport if pkt.haslayer(scapy.UDP) else None
@@ -465,7 +466,14 @@ def sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, socket_check=True):
         for dhcp_relay in dut_dhcp_relay_data:
             vlan = str(dhcp_relay['downlink_vlan_iface']['name'])
             dhcp_servers = ",".join(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
-            duthost.shell(f'config dhcpv4_relay add --dhcpv4-servers {dhcp_servers} {vlan}')
+            result = duthost.shell(f'config dhcpv4_relay add --dhcpv4-servers {dhcp_servers} {vlan}',
+                                   module_ignore_errors=True)
+            if result['rc'] != 0:
+                if "already exists" in result.get('stderr', ''):
+                    logger.info("DHCPv4 relay entry for %s already exists, updating instead", vlan)
+                    duthost.shell(f'config dhcpv4_relay update --dhcpv4-servers {dhcp_servers} {vlan}')
+                else:
+                    pytest.fail(f"Failed to add DHCPv4 relay config for {vlan}: {result.get('stderr', '')}")
 
         if socket_check:
             pytest_assert(wait_until(40, 5, 0, check_dhcpv4_socket_status, duthost, dut_dhcp_relay_data,
