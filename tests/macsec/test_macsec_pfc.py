@@ -3,8 +3,8 @@ import logging
 
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts      # noqa: F401
 from tests.common.fixtures.conn_graph_facts import get_graph_facts
-from tests.qos.test_pfc_counters import run_test
-from tests.qos.qos_fixtures import leaf_fanouts      # noqa: F401
+from tests.common.helpers.pfc_counters import run_test
+from tests.common.helpers.pfc_counters import leaf_fanouts               # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ pytestmark = [
 def enum_fanout_graph_facts_macsec(localhost, macsec_duthost, conn_graph_facts):    # noqa: F811
     """Build fanout graph facts for the MACsec DUT.
 
-    Duplicates the standard ``enum_fanout_graph_facts`` but uses macsec_duthost, 
+    Duplicates the standard ``enum_fanout_graph_facts`` but uses macsec_duthost,
     so that ``run_test`` receives fanout info for the macsec DUT
     """
     facts = {}
@@ -69,4 +69,4 @@ def test_pfc_pause_on_macsec_link(macsec_duthost, fanouthosts,
     for these unencrypted PFC frames by checking Rx PFC counters.
     """
     run_test(fanouthosts, macsec_duthost, conn_graph_facts,
-             enum_fanout_graph_facts, leaf_fanouts)
+             enum_fanout_graph_facts_macsec, leaf_fanouts)
