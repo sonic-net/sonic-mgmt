@@ -34,7 +34,7 @@ from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_int
 COUNT = 10
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', 'c0'),
+    pytest.mark.topology('t0', 'm0', 'mx'),
     pytest.mark.device_type('vs')
 ]
 
