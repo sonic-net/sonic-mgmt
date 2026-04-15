@@ -119,6 +119,11 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % ((i - 1) * 8)
             port_alias_to_name_map["etp65"] = "Ethernet512"
             port_alias_to_name_map["etp66"] = "Ethernet513"
+        elif hwsku == "Juniper-QFX5241-64-OD":
+            for i in range(1, 64):
+                port_alias_to_name_map["et-0/0/%d" % i] = "Ethernet%d" % ((i-1) * 8)
+            port_alias_to_name_map["et-0/0/64"] = "Ethernet512"
+            port_alias_to_name_map["et-0/0/65"] = "Ethernet513"
         elif hwsku in ["Arista-7060X6-64DE-O128S2", "Arista-7060X6-64PE-O128S2", "Arista-7060X6-64PE-B-O128",
                        "Arista-7060X6-64PE-B-O128S2"]:
             split_alias_list = ["a", "b"]
