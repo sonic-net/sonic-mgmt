@@ -10,7 +10,8 @@ from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress, shutdown_lag_members, restore_original_config
+from tests.common.helpers.pfcwd_helper import start_wd_on_ports, send_tx_egress, \
+    shutdown_lag_members, restore_original_config
 from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, \
     fetch_vendor_specific_diagnosis_re
 from tests.common.helpers.pfcwd_helper import has_neighbor_device
@@ -507,7 +508,6 @@ class SetupPfcwdFunc(object):
 
             self.storm_hndle.update_queue_index(self.pfc_wd['queue_index'])
             self.storm_hndle.update_peer_info(peer_info)
-
 
 
 class SendVerifyTraffic():
