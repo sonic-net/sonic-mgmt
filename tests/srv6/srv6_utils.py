@@ -69,6 +69,8 @@ def validate_techsupport_generation(duthost, feature_list=[]):
     finally:
         logger.info(f'Delete {tech_support_file_path}')
         duthost.shell(f'sudo rm -rf {tech_support_file_path}')
+        logger.info('Sleeping for 5 seconds for memory usage recovery')
+        time.sleep(5)
 
 
 #
