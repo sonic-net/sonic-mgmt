@@ -3354,11 +3354,12 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
 #######################################
 high_frequency_telemetry:
   skip:
-    reason: "High frequency telemetry isn't supported in this platform"
+    reason: "High frequency telemetry isn't supported in this platform or on T2 topology"
     conditions_logical_operator: or
     conditions:
       - "platform not in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0', 'x86_64-arista_7060x6_64pe_b']"
       - "'bmc' in topo_type"
+      - "'t2' in topo_type"
 
 high_frequency_telemetry/test_high_frequency_telemetry.py::test_hft_full_counters:
   skip:
