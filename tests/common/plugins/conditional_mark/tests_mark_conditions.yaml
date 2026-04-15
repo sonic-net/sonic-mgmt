@@ -861,6 +861,12 @@ dash/test_dash_eni_counter.py:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
 
+dash/test_dash_metering.py:
+  skip:
+    reason: "Metering w/ FNIC not supported on Nvidia yet"
+    conditions:
+      - "hwsku not in ['Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
+
 dash/test_dash_privatelink.py:
   skip:
     conditions_logical_operator: or
