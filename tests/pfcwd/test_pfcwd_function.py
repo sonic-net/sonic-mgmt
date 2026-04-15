@@ -1282,8 +1282,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
                 self.dut.command("pfcwd stop")
 
     def run_pfcwd_storm_with_active_traffic(self, dut, port, action):
-        restore_time = self.timers['pfc_wd_restore_time_hw'] if self.is_hw_recovery \
-                       else self.timers['pfc_wd_restore_time_large']
+        restore_time = self.timers['pfc_wd_restore_time_large']
         detect_time = self.timers['pfc_wd_detect_time']
         queue = self.pfc_wd['queue_index']
         rx_port = self.pfc_wd['rx_port'][0]
@@ -1361,10 +1360,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         self.is_dualtor = setup_dut_info['basicParams']['is_dualtor']
         self._bg_traffic_log_file = None
 
-        self.is_hw_recovery = is_pfcwd_hw_recovery_enabled(duthost)
-        logger.info("PFC watchdog recovery mode: {}".format(
-            "Hardware-based (TX/egress only)" if self.is_hw_recovery else "Software-based (TX and RX)"))
-
         if not has_neighbor_device(setup_pfc_test):
             pytest.skip("Test skipped: No neighbors detected")
 
@@ -1383,7 +1378,6 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             duthost.get_dut_iface_mac(self.pfc_wd['test_port']),
             self.pfc_wd,
             self.is_dualtor,
-            self.is_hw_recovery,
             ip_version)
 
         pfc_wd_restore_time_large = request.config.getoption("--restore-time")
