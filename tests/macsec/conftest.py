@@ -41,32 +41,6 @@ def get_port_profile_name(macsec_profile, port_profiles):
 
 
 @pytest.fixture(scope="module")
-def port_profiles(request, ctrl_links, cipher_suite, policy, send_sci,
-                  default_priority, rekey_period):
-    """Per-port profile mapping.  Returns ``None`` in single-profile mode.
-    When ``--per_interface_macsec`` is set, generates a unique
-    ``MACSEC_PROFILE_<port>`` for every controlled port using the same
-    cipher_suite, policy, send_sci, priority, and rekey_period as the base
-    ``--macsec_profile``, but with unique CAK/CKN per port.
-    """
-    if not request.config.getoption("per_interface_macsec", default=False):
-        return None
-    if len(ctrl_links) < 2:
-        pytest.skip("Per-interface profile tests require at least 2 controlled links")
-    profiles = {}
-    for dut_port in ctrl_links:
-        profiles[dut_port] = generate_macsec_profile(
-            port_name=dut_port,
-            cipher_suite=cipher_suite,
-            priority=default_priority,
-            policy=policy,
-            send_sci=send_sci,
-            rekey_period=rekey_period,
-        )
-    return profiles
-
-
-@pytest.fixture(scope="module")
 def default_priority(macsec_profile):
     return macsec_profile['priority']
 

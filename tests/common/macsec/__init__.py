@@ -69,6 +69,32 @@ class MacsecPlugin(object):
         return NotImplementedError()
 
     @pytest.fixture(scope="module")
+    def port_profiles(request, ctrl_links, macsec_profile):
+        """Per-port profile mapping
+
+        Returns ``None`` in single-profile mode.
+        When ``--per_interface_macsec`` is set, generates a unique
+        ``MACSEC_PROFILE_<port>`` for every controlled port using the same
+        cipher_suite, policy, send_sci, priority, and rekey_period as the base
+        ``--macsec_profile``, but with unique CAK/CKN per port.
+        """
+        if not request.config.getoption("per_interface_macsec", default=False):
+            return None
+        if len(ctrl_links) < 2:
+            pytest.skip("Per-interface profile tests require at least 2 controlled links")
+        profiles = {}
+        for dut_port in ctrl_links:
+            profiles[dut_port] = generate_macsec_profile(
+                port_name=dut_port,
+                cipher_suite=macsec_profile["cipher_suite"],
+                priority=macsec_profile["default_priority"],
+                policy=macsec_profile["policy"],
+                send_sci=macsec_profile["send_sci"],
+                rekey_period=macsec_profile["rekey_period"],
+            )
+        return profiles
+
+    @pytest.fixture(scope="module")
     def start_macsec_service(self, macsec_duthost, macsec_nbrhosts):
         def __start_macsec_service():
             enable_macsec_feature(macsec_duthost, macsec_nbrhosts)
