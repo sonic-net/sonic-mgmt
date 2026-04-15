@@ -678,11 +678,11 @@ def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_sessi
     # Number of packets to send
     packet_count = {"iteration-1": 10, "iteration-2": 50, "iteration-3": 100}
     for iteration, count in list(packet_count.items()):
-        pkts_sent = 0
+        total_pkts_sent = {}
         clear_queue_counters(duthost, asic_ns)
         for i in range(1, count + 1):
             logging.info("Sending packet {} to DUT for {}".format(i, iteration))
-            pkts_sent += self.send_and_check_mirror_packets(
+            num_pkts_sent = self.send_and_check_mirror_packets(
                 setup,
                 mirror_session,
                 ptfadapter,
@@ -694,12 +694,19 @@ def verify_mirror_packets_on_recircle_port(self, ptfadapter, setup, mirror_sessi
                 expect_recv=expect_recv,
                 valid_across_namespace=valid_across_namespace,
             )
+            total_pkts_sent = {k: total_pkts_sent.get(k, 0) + num_pkts_sent.get(k, 0)
+                               for k in total_pkts_sent.keys() | num_pkts_sent.keys()}
 
+        if duthost.is_multi_asic:
+            expected_pkts = total_pkts_sent[(duthost, asic_ns)]
+        else:
+            # Handle asic as both None or '' on single-asic
+            expected_pkts = total_pkts_sent.get((duthost, None), 0) + total_pkts_sent.get((duthost, ''), 0)
         # Assert the specific asic recircle port's queue
         # Make sure mirrored packets are sent via specific queue configured
         for q in range(1, 8):
             if str(q) == queue:
-                assert wait_until(30, 1, 0, check_queue_counters, duthost, asic_ns, recircle_port, q, pkts_sent), \
+                assert wait_until(30, 1, 0, check_queue_counters, duthost, asic_ns, recircle_port, q, expected_pkts), \
                     "Recircle port {} queue{} counter value is not same as packets sent".format(recircle_port, q)
             else:
                 assert (get_queue_counters(duthost, asic_ns, recircle_port, q) == 0)
@@ -1123,17 +1130,22 @@ class BaseEverflowTest(object):
 
         if 't2' in setup['topo'] and 'lt2' not in setup['topo'] and 'ft2' not in setup['topo']:
             src_port_set.add(src_port)
-            src_port_metadata_map[src_port] = (None, 1)
+            src_port_metadata_map[src_port] = (None, 1, setup[direction]['everflow_dut'],
+                                               setup[direction]['everflow_namespace'])
             if valid_across_namespace is True:
                 # Add the dest_port to src_port_set only in non MACSEC testbed scenarios
                 if not MACSEC_INFO:
                     if duthost.facts['switch_type'] == "voq":
                         if self.mirror_type() != "egress":  # no egress route on the other node/namespace
                             src_port_set.add(dest_ports[0])
-                            src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 1)
+                            src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 1,
+                                                                    setup[direction]['remote_dut'],
+                                                                    setup[direction]['remote_namespace'])
                     else:
                         src_port_set.add(dest_ports[0])
-                        src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0)
+                        src_port_metadata_map[dest_ports[0]] = (setup[direction]["egress_router_mac"], 0,
+                                                                setup[direction]['remote_dut'],
+                                                                setup[direction]['remote_namespace'])
 
         else:
             src_port_namespace = setup[direction]["everflow_namespace"]
@@ -1141,15 +1153,15 @@ class BaseEverflowTest(object):
 
             if valid_across_namespace is True or src_port_namespace == dest_ports_namespace:
                 src_port_set.add(src_port)
-                src_port_metadata_map[src_port] = (None, 0)
+                src_port_metadata_map[src_port] = (None, 0, setup[direction]['everflow_dut'], src_port_namespace)
 
             # To verify same namespace mirroring we will add destination port also to the Source Port Set
             if src_port_namespace != dest_ports_namespace:
                 src_port_set.add(dest_ports[0])
-                src_port_metadata_map[dest_ports[0]] = (None, 2)
+                src_port_metadata_map[dest_ports[0]] = (None, 2, setup[direction]['remote_dut'], dest_ports_namespace)
 
         # Loop through Source Port Set and send traffic on each source port of the set
-        num_pkts_sent = 0
+        num_pkts_sent = {}
         for src_port in src_port_set:
             expected_mirror_packet = BaseEverflowTest.get_expected_mirror_packet(mirror_session,
                                                                                  setup,
@@ -1164,7 +1176,8 @@ class BaseEverflowTest(object):
             if src_port_metadata_map[src_port][0]:
                 mirror_packet_sent[packet.Ether].dst = src_port_metadata_map[src_port][0]
             ptfadapter.dataplane.flush()
-            num_pkts_sent += 1
+            src_port_dut_namespace = (src_port_metadata_map[src_port][2], src_port_metadata_map[src_port][3])
+            num_pkts_sent[src_port_dut_namespace] = num_pkts_sent.get(src_port_dut_namespace, 0) + 1
             testutils.send(ptfadapter, src_port, mirror_packet_sent)
 
             if expect_recv:
